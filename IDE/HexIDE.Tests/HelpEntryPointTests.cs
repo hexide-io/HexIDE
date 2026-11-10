@@ -1,5 +1,6 @@
 using System.IO;
 using System.Xml.Linq;
+using HexIDE.Menus;
 
 namespace HexIDE.Tests;
 
@@ -36,14 +37,11 @@ public class HelpEntryPointTests
     [InlineData("BrandSupport", "BrandSupportMenuHeader", "HasBrandSupport", "OpenBrandSupportCommand")]
     public void OptionalBrandLink_IsOfferedByHelp(string name, string header, string visible, string command)
     {
-        var document = XDocument.Load(Path.Combine(ViewDirectory(), "MainView.axaml"));
-        var help = document.Descendants().Single(element =>
-            (string?)element.Attribute("Header") == "{DynamicResource Str.Menu.Help}");
-        var item = help.Elements().SingleOrDefault(element =>
-            (string?)element.Attribute("Header") == "{CompiledBinding " + header + "}");
+        var help = MainMenuDeclaration.Load().Single(item => item.Id == "help");
+        var item = help.Children!.SingleOrDefault(item => item.LabelBinding == header);
         item.Should().NotBeNull(name);
-        item!.Attribute("IsVisible")!.Value.Should().Be("{CompiledBinding " + visible + "}");
-        item.Attribute("Command")!.Value.Should().Be("{CompiledBinding " + command + "}");
+        item!.VisibilityBinding.Should().Be(visible);
+        item.Command.Should().Be("shell." + command);
     }
 
     private static string ViewDirectory()

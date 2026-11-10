@@ -507,8 +507,7 @@ and `ToolbarCaptionTests.Segoe_UI_nine_point_matches_console_measurements` (Wind
   were left for later work.
   Second slice (#3510): a separate Avalonia renderer uses these declarations, host bindings, providers,
   toggles and existing live gesture handling. The embedded data now includes visibility and icon keys.
-  The IDE continues to display AXAML; switching it over, focus routing and expanded profile visibility
-  remain incomplete. Renderer/AXAML parity is exercised in English and Arabic, including populated
+  That slice left the IDE displaying AXAML. Renderer/AXAML parity was exercised in English and Arabic, including populated
   layout providers. All eight renderer cases pass on Linux without skips; all eight fail against an
   inert renderer scaffold. The metadata parity check and unknown-visibility guard also fail when the
   new data/validation are removed (ten cases with demonstrated teeth).
@@ -518,6 +517,24 @@ and `ToolbarCaptionTests.Segoe_UI_nine_point_matches_console_measurements` (Wind
   ten absent VB6 templates, one unavailable DAP schema and two uncached debug adapters. The
   integration skips require Windows font/GDI measurements. No skip is claimed as coverage.
   Desktop Debug builds with zero warnings/errors; strict spec validation and tree hygiene pass.
+  Third slice (#3510): MainView now installs the renderer and the handwritten AXAML menu is retired.
+  The declaration is the sole menu source. Declaration validation and placement-id guards remain;
+  installed-menu tests cover shipped languages, language changes, named control lookup, automation
+  paths, profile visibility bindings and shortcuts. Expanded profile visibility remains outside this slice.
+  Migration validation: all 12 renderer cases passed with the rendered menu installed while AXAML was
+  retained for comparison; the existing declaration parity also passed. After retirement, declaration
+  guards pass 29/29, renderer cases 13/13 and add-in/profile/shortcut route cases 12/12, with no skips.
+  The no-AXAML guard and installed-menu lifecycle case both fail against the pre-change source (two
+  demonstrated teeth); continuity assertions deliberately retain the existing behavior. Desktop Debug
+  builds with zero warnings/errors; strict spec validation and tree hygiene pass. No VB6 measurement,
+  localization key, MISSING_FEATURES status or MISSING_LANGUAGE count changes.
+  All six changed unit classes pass together (402 cases). Full WSL unit suite: 7,274 passed, 55 skipped,
+  zero failures or xUnit errors. Skips: 42 platform cases, ten missing VB6 templates, two uncached debug
+  adapters and one unavailable DAP schema. Full integration: 5,560 passed, two Windows font/GDI cases
+  skipped, zero xUnit errors, and one failure in the unchanged `LanguageServerLeakGuardTests` real-
+  composition case: its server exits before the guard can observe it running. That failure reproduces
+  standalone without constructing MainView or a menu; it is left for the LSP guard's owner. No skipped
+  case is claimed as coverage. The menu renderer and add-in/profile/shortcut cases pass without skips.
   MISSING_FEATURES status and MISSING_LANGUAGE counts are unchanged. Live rendering verification
   remains with the supervisor; no renderer is installed in the IDE by this slice.
 - [ ] **Data-driven toolbars — large:** publish bands/placement ids and render commands and host-owned
