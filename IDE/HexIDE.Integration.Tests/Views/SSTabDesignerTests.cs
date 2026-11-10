@@ -82,7 +82,7 @@ public class SSTabDesignerTests : WindowTestFixture
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
             Substitute.For<IComponentRegistry>(), Substitute.For<ILocalizationService>());
         return new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), null!, null!, null!,
-            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
     }
 
     [AvaloniaFact]

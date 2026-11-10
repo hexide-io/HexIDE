@@ -60,7 +60,7 @@ public class FormPreviewTests
             End Sub
             """, new Sink())!;
         var vm = new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
-            null!, windows ?? Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            null!, windows ?? Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         return (vm, form);
     }
 

@@ -582,7 +582,7 @@ public class UiAutomationDriverTests
         loc.GetString("Str.PropCategory.Appearance").Returns(header);
         var vm = new HexIDE.VisualDesigner.PropertiesToolViewModel(
             Substitute.For<HexIDE.IDE.IDocumentDockService>(), Substitute.For<HexIDE.IDE.IEventBus>(),
-            Substitute.For<HexIDE.IDE.IWindowManager>(), loc);
+            Substitute.For<HexIDE.IDE.IWindowManager>(), loc, new Vb6ProjectFileFormat());
         var category = new HexIDE.VisualDesigner.PropertyCategoryViewModel(vm, HexIDE.Runtime.Components.PropertyCategory.Appearance);
         var property = new HexIDE.VisualDesigner.PropertyViewModel(vm, HexIDE.Runtime.Components.VBProperties.BackColorProperty, null);
         vm.Properties.Add(property);
@@ -636,7 +636,7 @@ public class UiAutomationDriverTests
         loc.GetString("Str.PropCategory.Appearance").Returns("Appearance");
         var vm = new HexIDE.VisualDesigner.PropertiesToolViewModel(
             Substitute.For<HexIDE.IDE.IDocumentDockService>(), Substitute.For<HexIDE.IDE.IEventBus>(),
-            Substitute.For<HexIDE.IDE.IWindowManager>(), loc);
+            Substitute.For<HexIDE.IDE.IWindowManager>(), loc, new Vb6ProjectFileFormat());
         var category = new HexIDE.VisualDesigner.PropertyCategoryViewModel(vm, HexIDE.Runtime.Components.PropertyCategory.Appearance);
         var property = new HexIDE.VisualDesigner.PropertyViewModel(vm, HexIDE.Runtime.Components.VBProperties.BackColorProperty, null);
         vm.Properties.Add(property);

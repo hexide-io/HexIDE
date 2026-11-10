@@ -182,7 +182,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
             model.StartupProject.Returns(_ => manager.StartupProject);
             model.LoadedProjects.Returns(_ => manager.LoadedProjects);
             manager.AddProject(project);
-            var workspace = new ProjectLspWorkspace(() => model);
+            var workspace = new ProjectLspWorkspace(() => model, new Vb6ProjectFileFormat());
             var servers = new List<RootRecordingServer>();
             registry = new LspClientRegistry(
                 [new LanguageServerRegistration("s", "s", [".bas"], "vb6", () =>
@@ -220,7 +220,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
                     Substitute.For<IEventBus>(), model, Substitute.For<IRecentProjectsService>(),
                     Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
                     new FileBaselineStore(), Substitute.For<HexIDE.Localization.ILocalizationService>(),
-                    Substitute.For<IHeaderRefresher>(), lspClient: () => registry);
+                    Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), lspClient: () => registry);
                 if (move == "directory") await service.SaveProjectToDirectory(project, newDirectory);
                 else await service.SaveProject(project, move == "saveAs");
             }
@@ -257,7 +257,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
             var manager = Substitute.For<IProjectManager>();
             manager.StartupProject.Returns(project);
             manager.LoadedProjects.Returns(new[] { project });
-            var workspace = new ProjectLspWorkspace(() => manager);
+            var workspace = new ProjectLspWorkspace(() => manager, new Vb6ProjectFileFormat());
             var server = new RootRecordingServer();
             var waiting = Substitute.For<ILspClient>();
             waiting.WaitingForWorkspace.Returns(true);
@@ -277,7 +277,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
                 Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
                 Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
                 new FileBaselineStore(), Substitute.For<HexIDE.Localization.ILocalizationService>(),
-                Substitute.For<IHeaderRefresher>(), lspClient: () => registry);
+                Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), lspClient: () => registry);
             await service.SaveProject(project, false);
             File.Exists(project.AbsolutePath).Should().BeTrue();
             var uri = await server.RootUri.WaitAsync(TimeSpan.FromSeconds(5), token);

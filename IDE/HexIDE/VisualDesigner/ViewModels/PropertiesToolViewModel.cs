@@ -15,7 +15,6 @@ using HexIDE.Runtime.Components;
 using HexIDE.Utils;
 using HexIDE.VisualDesigner.Commands;
 using HexIDE.IDE;
-using HexIDE.Projects;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Runtime.ProjectElements;
@@ -106,9 +105,9 @@ public partial class PropertiesToolViewModel : Tool
         IEventBus eventBus,
         IWindowManager windowManager,
         ILocalizationService localization,
-        IProjectFileFormat? format = null)
+        IProjectFileFormat format)
     {
-        this.format = format ?? new Vb6ProjectFileFormat();
+        this.format = format;
         EventBus = eventBus;
         this.windowManager = windowManager;
         this.localization = localization;

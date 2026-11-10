@@ -19,7 +19,7 @@ public class PropertyDescriptionLayoutTests
         var localization = Substitute.For<ILocalizationService>();
         localization.GetPropertyDescription("Caption").Returns("First description line.\nSecond description line.\nThird description line.");
         var vm = new PropertiesToolViewModel(Substitute.For<IDocumentDockService>(),
-            Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), localization);
+            Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), localization, new Vb6ProjectFileFormat());
         var property = new PropertyViewModel(vm, VBProperties.CaptionProperty, null);
         vm.SelectedProperty = property;
         var view = new PropertiesToolView { DataContext = vm };

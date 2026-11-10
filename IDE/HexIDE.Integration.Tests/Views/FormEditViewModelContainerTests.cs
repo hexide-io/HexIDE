@@ -40,7 +40,7 @@ public class FormEditViewModelContainerTests
     // service ComputeTitle reads, and the settings service PasteControls takes its grid offset from.
     private static FormEditViewModel NewDesignerVm() => new(
         null!, Substitute.For<IEventBus>(), null!, null!, null!, Substitute.For<ISettingsService>(),
-        Substitute.For<ILocalizationService>());
+        Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat());
 
     private static FormEditViewModel Open(string frm) => NewDesignerVm().Initialize(Deserialize(frm));
 

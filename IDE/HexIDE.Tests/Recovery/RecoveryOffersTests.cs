@@ -67,7 +67,7 @@ public sealed class RecoveryOffersTests : IDisposable
                 () => throw new InvalidOperationException("new-project dialog must not be reached"),
                 Windows, Bus, Manager, Substitute.For<IRecentProjectsService>(),
                 Substitute.For<IReferenceLibraryService>(), sidecar, Store, Substitute.For<ILocalizationService>(),
-                Substitute.For<IHeaderRefresher>(), contributed: contributed);
+                Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), contributed: contributed);
         }
 
         public ProjectDefinition Project => Loaded.Single();

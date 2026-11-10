@@ -255,7 +255,7 @@ public class InspectItemCountTests
         project.AddForm(form);
         var vm = new HexIDE.VisualDesigner.FormEditViewModel(null!, NSubstitute.Substitute.For<HexIDE.IDE.IEventBus>(),
             NSubstitute.Substitute.For<HexIDE.Projects.IProjectService>(), null!, null!, null!,
-            NSubstitute.Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form);
+            NSubstitute.Substitute.For<HexIDE.Localization.ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         var view = new HexIDE.VisualDesigner.Views.PropertiesToolView();
         var window = new Window { Width = 400, Height = 600, Content = view };
         window.Show();
@@ -303,7 +303,7 @@ public class InspectItemCountTests
         project.AddForm(form);
         var vm = new HexIDE.VisualDesigner.FormEditViewModel(null!, NSubstitute.Substitute.For<HexIDE.IDE.IEventBus>(),
             NSubstitute.Substitute.For<HexIDE.Projects.IProjectService>(), null!, null!, null!,
-            NSubstitute.Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form);
+            NSubstitute.Substitute.For<HexIDE.Localization.ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         var view = new HexIDE.VisualDesigner.Views.PropertiesToolView();
         var window = new Window { Width = 400, Height = 600, Content = view };
         window.Show();

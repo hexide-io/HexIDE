@@ -55,7 +55,7 @@ public class DesignerContractTests
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDeserializer().Deserialize(project, source, new NullSink())!;
         project.AddForm(form);
-        return new FormEditViewModel(null!, new EventBus(), null!, null!, null!, null!, Substitute.For<ILocalizationService>())
+        return new FormEditViewModel(null!, new EventBus(), null!, null!, null!, null!, Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat())
             .Initialize(form);
     }
 

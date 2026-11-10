@@ -67,7 +67,7 @@ public sealed class FileWatcherService : IFileWatcherService
         ILocalizationService localization,
         IClock clock,
         IHeaderRefresher headerRefresher,
-        IProjectFileFormat? format = null)
+        IProjectFileFormat format)
     {
         this.projectManager = projectManager;
         this.dock = dock;

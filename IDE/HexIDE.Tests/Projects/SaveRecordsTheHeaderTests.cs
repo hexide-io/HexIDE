@@ -71,7 +71,8 @@ public class SaveRecordsTheHeaderTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            refresher ?? new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()));
+            refresher ?? new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
+            new Vb6ProjectFileFormat());
     }
 
     private sealed class NullSink : IDeserializeErrorSink

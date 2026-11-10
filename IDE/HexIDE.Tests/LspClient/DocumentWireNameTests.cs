@@ -153,7 +153,7 @@ public class DocumentWireNameTests
             Substitute.For<IWindowManager>(), Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(),
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
         var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
         try
         {

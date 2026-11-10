@@ -145,7 +145,7 @@ public class CaretPlacementTests : IDisposable
             : vm.Document.GetLineByNumber(5).Offset + 2;
         vm.CaretOffset = offset;
         using var context = new HexIDE.Desktop.Server.IdeContext(projects, dock, lsp, editors,
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
         var tools = new HexIDE.Desktop.Server.HexIdeTools(context);
 
         var reply = await tools.OpenFileAsync("Module1");

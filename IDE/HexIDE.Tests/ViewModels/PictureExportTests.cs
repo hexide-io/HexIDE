@@ -22,7 +22,7 @@ public class PictureExportTests
 
     private static PropertyViewModel Row(IWindowManager windows, PropertyClass property, object? bytes) =>
         new(new PropertiesToolViewModel(Substitute.For<IDocumentDockService>(), Substitute.For<IEventBus>(),
-            windows, Substitute.For<ILocalizationService>()), property, bytes);
+            windows, Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()), property, bytes);
 
     [Theory]
     [InlineData("Picture")]
@@ -74,7 +74,7 @@ public class PictureExportTests
         {
             File.WriteAllBytes(path, [99]);
             var parent = new PropertiesToolViewModel(Substitute.For<IDocumentDockService>(),
-                Substitute.For<IEventBus>(), windows, localization);
+                Substitute.For<IEventBus>(), windows, localization, new Vb6ProjectFileFormat());
             await parent.ExportPictureAsync(VBProperties.PictureProperty, Record([42]));
             File.ReadAllBytes(path).Should().Equal(answer == MessageBoxResult.Yes ? new byte[] { 42 } : [99]);
             await windows.Received(1).MessageBox($"{path} already exists. Do you want to replace it?",

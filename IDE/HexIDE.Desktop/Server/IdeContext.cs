@@ -61,7 +61,7 @@ internal sealed class IdeContext : IDisposable
         HexIDE.Redaction.Pseudonymiser pseudonyms,
         HexIDE.Localization.ILocalizationService localization,
         ISettingsService settings,
-        IProjectFileFormat? projectFileFormat = null)
+        IProjectFileFormat projectFileFormat)
     {
         ProjectManager = projectManager;
         DocumentDockService = documentDockService;
@@ -83,7 +83,7 @@ internal sealed class IdeContext : IDisposable
         Pseudonyms = pseudonyms;
         Localization = localization;
         Settings = settings;
-        ProjectFileFormat = projectFileFormat ?? new Vb6ProjectFileFormat();
+        ProjectFileFormat = projectFileFormat;
     }
 
     public void Dispose() => Diagnostics.Dispose();

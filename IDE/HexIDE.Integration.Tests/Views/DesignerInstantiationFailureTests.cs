@@ -102,7 +102,7 @@ public class DesignerInstantiationFailureTests
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString("Str.Designer.Unmodelled.ViewOnly").Returns("View-only in the designer");
         var vm = new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
-            Substitute.For<ISettingsService>(), localization).Initialize(form);
+            Substitute.For<ISettingsService>(), localization, new Vb6ProjectFileFormat()).Initialize(form);
         var view = new FormEditView { DataContext = vm };
         var window = new Window { Width = 800, Height = 600, Content = view };
         window.Show();
@@ -177,7 +177,7 @@ public class DesignerInstantiationFailureTests
             var broken = designer.AllComponents.Single(c => c.Name == "Broken1");
             var dock = Substitute.For<IDocumentDockService>();
             var grid = new PropertiesToolViewModel(dock, Substitute.For<IEventBus>(),
-                Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>());
+                Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat());
             dock.ActiveDocument.Returns(designer);
             dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock,
                 new PropertyChangedEventArgs(nameof(dock.ActiveDocument)));

@@ -59,7 +59,7 @@ public sealed class DocumentSessionTests : IDisposable
         Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<IRunScope>(), localization);
 
     private FormEditViewModel NewDesigner() => new(null!, bus, projects, null!, null!,
-        Substitute.For<ISettingsService>(), localization);
+        Substitute.For<ISettingsService>(), localization, new Vb6ProjectFileFormat());
 
     private ProjectDefinition Project(string name = "Test")
     {

@@ -38,10 +38,10 @@ public class RawPropertyRowsTests
         var loc = Substitute.For<ILocalizationService>();
         loc.GetString("Str.Tool.Properties.Binary").Returns("(binary)");
         using var designer = new FormEditViewModel(null!, bus, Substitute.For<IProjectService>(),
-            Substitute.For<IEditorService>(), Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(), loc)
+            Substitute.For<IEditorService>(), Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(), loc, new Vb6ProjectFileFormat())
             .Initialize(form);
         dock.ActiveDocument.Returns(designer);
-        var grid = new PropertiesToolViewModel(dock, bus, Substitute.For<IWindowManager>(), loc);
+        var grid = new PropertiesToolViewModel(dock, bus, Substitute.For<IWindowManager>(), loc, new Vb6ProjectFileFormat());
 
         var row = grid.CategorizedProperties.Should().ContainSingle(p => p.AccessibleName == "CarriedValue").Which;
         row.Should().NotBeOfType<PropertyViewModel>();

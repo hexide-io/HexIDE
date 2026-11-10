@@ -1,7 +1,6 @@
 using System;
 using System.Text;
 using HexIDE.Forms.ViewModels;
-using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.VisualDesigner;
@@ -65,9 +64,8 @@ public sealed record WatchedFileTarget(
 /// hashed against a buffer — is compared render-to-render via <see cref="IProjectService"/>.
 /// All view access happens on the UI thread (the watcher dispatches there before calling this).
 /// </summary>
-public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectService projectService, IProjectFileFormat? format = null)
+public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectService projectService, IProjectFileFormat format)
 {
-    private readonly IProjectFileFormat _format = format ?? new Vb6ProjectFileFormat();
 
     public ReloadDecision Classify(WatchedFileTarget t)
     {
@@ -112,7 +110,7 @@ public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectServ
             // Preserve the open-view verdict when no model baseline is available.
             return t.IsOpen ? ReloadDecision.CleanReload : ReloadDecision.Indeterminate;
         // Rebuild header + body as a save writes it, in the file's retained encoding (including its BOM).
-        var modelOnDisk = _format.RenderModule(module, System.IO.Path.GetFileName(t.SourcePath)).Text;
+        var modelOnDisk = format.RenderModule(module, System.IO.Path.GetFileName(t.SourcePath)).Text;
         try
         {
             return string.Equals(FileHasher.Hash(Vb6TextFile.Encode(modelOnDisk, module.TextEncoding)),

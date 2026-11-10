@@ -32,7 +32,7 @@ public class DesignerTitleBarTests
     {
         var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), Frm, new NullSink())!;
         var vm = new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<HexIDE.Projects.IProjectService>(),
-            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         var view = new FormEditView { DataContext = vm };
         var window = new Window { Width = 1000, Height = 800, Content = view };
         window.Show();

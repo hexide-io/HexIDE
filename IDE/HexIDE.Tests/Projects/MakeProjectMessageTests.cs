@@ -20,7 +20,7 @@ public class MakeProjectMessageTests
         () => throw new InvalidOperationException(), windows, events, Substitute.For<IProjectManager>(),
         Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
         Substitute.For<IUserSidecarService>(), new FileBaselineStore(), localization,
-        Substitute.For<IHeaderRefresher>());
+        Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
 
     [Fact]
     public async Task No_startup_project_uses_the_localized_message()

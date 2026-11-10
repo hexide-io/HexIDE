@@ -373,14 +373,26 @@ public class ProjectFileFormatSeamTests : IDisposable
     [Fact]
     public void Only_the_format_names_the_readers_and_writers()
     {
-        var root = RepoRoot();
         var names = new Regex(@"\b(FormSerializer|ProjectSerializer|GroupSerializer|FormDeserializer|FrxDeserializer|ProjectDeserializer|GroupDeserializer|ProjectLoader)\b"
                               + @"|\bModuleFileFormat\s*\.\s*(ToFileContent|SplitHeader)\b");
-        var comments = new Regex(@"//[^\n]*|/\*.*?\*/", RegexOptions.Singleline);
         // A contributed project's module is split by name until the add-in type reads modules itself: #3411's slice 7.
-        var allowed = new[] { "Vb6ProjectFileFormat.cs", "ContributedProjects.cs" };
+        ProductFilesNaming(names, "Vb6ProjectFileFormat.cs", "ContributedProjects.cs")
+            .Should().BeEmpty("the IDE reaches a project's file formats through IProjectFileFormat");
+    }
 
-        var offenders = new[] { "HexIDE", "HexIDE.Core", "HexIDE.Lsp", "HexIDE.Desktop", "HexIDE.Browser" }
+    [Fact]
+    public void Only_the_composition_root_chooses_the_format()
+    {
+        ProductFilesNaming(new Regex(@"\bVb6ProjectFileFormat\b"), "Vb6ProjectFileFormat.cs", "DISetup.cs")
+            .Should().BeEmpty("a class is given its format, so that one binding decides it");
+    }
+
+    private static List<string> ProductFilesNaming(Regex names, params string[] allowed)
+    {
+        var root = RepoRoot();
+        var comments = new Regex(@"//[^\n]*|/\*.*?\*/", RegexOptions.Singleline);
+
+        return new[] { "HexIDE", "HexIDE.Core", "HexIDE.Lsp", "HexIDE.Desktop", "HexIDE.Browser" }
             .SelectMany(project => Directory.EnumerateFiles(Path.Join(root, "IDE", project), "*.cs", SearchOption.AllDirectories))
             .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                            && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
@@ -388,8 +400,6 @@ public class ProjectFileFormatSeamTests : IDisposable
             .Where(file => names.IsMatch(comments.Replace(File.ReadAllText(file), "")))
             .Select(file => Path.GetRelativePath(root, file))
             .ToList();
-
-        offenders.Should().BeEmpty("the IDE reaches a project's file formats through IProjectFileFormat");
     }
 
     private static string RepoRoot()

@@ -30,9 +30,9 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
         IDocumentDockService dock,
         IBreakpointService breakpoints,
         IBookmarkService bookmarks,
-        IProjectFileFormat? format = null)
+        IProjectFileFormat format)
     {
-        this.format = format ?? new HexIDE.Projects.Vb6ProjectFileFormat();
+        this.format = format;
         this.dock = dock;
         this.breakpoints = breakpoints;
         this.bookmarks = bookmarks;
