@@ -285,3 +285,27 @@ private key material.
   and the private key must match the intermediate public record
 - **WHEN** any of these checks fails
 - **THEN** issuance fails before writing publisher files
+
+### Requirement: Package output replacement preserves user files
+
+`pack` SHALL accept new or empty output folders and unchanged signed packages matching the supplied
+key, payload hashes, trust files and exact inventory. It SHALL refuse output/internal links and
+escaping payload paths, but allow linked ancestors. Ownership/link refusals SHALL name the path,
+explain why, confirm no change, and suggest another folder or moving this one aside. Replacements
+SHALL be staged; build or installation failure SHALL preserve the earlier package.
+
+#### Scenario: Empty output or linked ancestor
+- **WHEN** the output directory is empty or an ancestor of the output is a link
+- **THEN** packing proceeds subject to the same output inventory checks
+
+#### Scenario: Unrelated or edited output
+- **WHEN** the selected output contains unrelated or modified files, an extra directory, or a link
+- **THEN** packing refuses and preserves the existing output
+
+#### Scenario: Replacing a previous signed package
+- **WHEN** the existing output is an unchanged package signed with the supplied signing key and chain
+- **THEN** packing replaces it without prompting after the complete replacement is staged
+
+#### Scenario: Failure before installation
+- **WHEN** copying or signing the staged package fails
+- **THEN** the earlier package remains in place unchanged
