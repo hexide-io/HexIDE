@@ -177,12 +177,13 @@ public sealed record LanguageConnectionAttempt(
     IReadOnlyList<LanguageConnectionStep> Steps,
     DateTimeOffset StartedAt);
 
-/// <summary>How a connection is reached. The three the configuration file accepts, and nothing else.</summary>
+/// <summary>How a connection is reached. The transports the configuration file accepts, and nothing else.</summary>
 public enum LanguageConnectionTransport
 {
     Stdio,
     Pipe,
     WebSocket,
+    Tcp,
 }
 
 /// <summary>

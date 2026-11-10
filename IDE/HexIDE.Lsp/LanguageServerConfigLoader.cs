@@ -350,7 +350,8 @@ public sealed class LanguageServerConfigLoader
         var transport = entry.Transport?.Trim();
         var launches =
             string.Equals(transport, "stdio", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(transport, "pipe", StringComparison.OrdinalIgnoreCase);
+            || string.Equals(transport, "pipe", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(transport, "tcp", StringComparison.OrdinalIgnoreCase);
 
         if (!launches) return null;
 
@@ -530,7 +531,7 @@ public sealed class LanguageServerConfigLoader
             Note("environment", entry.Environment);
         }
 
-        if (transport is "stdio" or "websocket")
+        if (transport is "stdio" or "websocket" or "tcp")
         {
             Note("pipeName", entry.PipeName);
             Note("pipeRole", entry.PipeRole);
@@ -539,8 +540,10 @@ public sealed class LanguageServerConfigLoader
         if (transport is "stdio" or "pipe")
         {
             Note("endpoint", entry.Endpoint);
-            Note("websocketRole", entry.WebSocketRole);
         }
+
+        if (transport != "websocket") Note("websocketRole", entry.WebSocketRole);
+        if (transport != "tcp") Note("tcpRole", entry.TcpRole);
 
         if (ignored.Count == 0) return;
 
@@ -664,6 +667,30 @@ public sealed class LanguageServerConfigLoader
             case "stdio":
                 if (string.IsNullOrWhiteSpace(entry.Command)) missing.Add("command");
                 break;
+            case "tcp":
+                if (string.IsNullOrWhiteSpace(entry.Endpoint)) missing.Add("endpoint");
+                else if (!TcpLspTransport.TryAddress(entry.Endpoint.Trim(), out var address)
+                    || (string.Equals(entry.TcpRole?.Trim(), "listen", StringComparison.OrdinalIgnoreCase)
+                        && !address!.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                        && !System.Net.IPAddress.TryParse(address.Host.Trim('[', ']'), out _))
+                    || (!string.Equals(entry.TcpRole?.Trim(), "listen", StringComparison.OrdinalIgnoreCase)
+                        && address!.Port == 0))
+                {
+                    problems.Add(new LanguageServerConfigProblem(entry.Id,
+                        "TCP requires tcp://host:port; listen requires localhost or an IP address, and connect requires a nonzero port.", true)
+                        .WithDetails("Tcp", "endpoint=tcp://host:port; listen=localhost/IP; connect port=1..65535"));
+                    return false;
+                }
+                if (!string.IsNullOrWhiteSpace(entry.TcpRole)
+                    && !string.Equals(entry.TcpRole.Trim(), "listen", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(entry.TcpRole.Trim(), "connect", StringComparison.OrdinalIgnoreCase))
+                {
+                    problems.Add(new LanguageServerConfigProblem(entry.Id,
+                        "tcpRole must be connect or listen. The entry has been ignored.", true)
+                        .WithDetails("Tcp", "tcpRole=connect|listen"));
+                    return false;
+                }
+                break;
             case "websocket":
                 if (string.IsNullOrWhiteSpace(entry.Endpoint)) missing.Add("endpoint");
                 break;
@@ -691,9 +718,9 @@ public sealed class LanguageServerConfigLoader
             default:
                 problems.Add(new LanguageServerConfigProblem(
                     entry.Id,
-                    $"Unknown transport '{entry.Transport}'. Expected stdio, pipe or websocket. "
+                    $"Unknown transport '{entry.Transport}'. Expected stdio, pipe, websocket or tcp. "
                   + "The entry has been ignored.",
-                    true).WithDetails("UnknownTransport", entry.Transport!, "stdio", "pipe", "websocket"));
+                    true).WithDetails("UnknownTransport", entry.Transport!, "stdio", "pipe", "websocket", "tcp"));
                 return false;
         }
 

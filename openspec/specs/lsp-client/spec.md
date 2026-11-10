@@ -2683,3 +2683,29 @@ ownership of typing from the editor's local helpers (#2672).
 
 - **WHEN** the on-type formatting request exhausts its budget
 - **THEN** the client sends `$/cancelRequest` for that request and returns no edits
+
+### Requirement: TCP language-server transport
+
+The client SHALL accept `transport: "tcp"` with a `tcp://host:port` endpoint and `tcpRole`
+`connect` (default) or `listen`, using Content-Length framed JSON-RPC in both directions.
+Listen SHALL bind IPv4 loopback for `localhost` and SHALL require an explicit IP literal for
+other bind addresses. Listener port 0 SHALL allocate an OS-selected port; connect SHALL require
+a nonzero port. Invalid endpoints and roles SHALL be rejected during configuration loading.
+The transport SHALL support the pipe launch fields and workspace placeholders, with `{host}`
+and `{port}` providing the host and actual port. A listener SHALL bind before launching its child.
+External servers SHALL remain running on disconnect; launched servers SHALL be owned, observed
+and stopped by the transport, and SHALL NOT auto-reconnect. Connection failures SHALL name
+the host and port. The transport inventory test SHALL enumerate all four supported transports.
+
+#### Scenario: Connect to a running language server
+
+- **GIVEN** a TCP server listening on a configured endpoint
+- **WHEN** the client establishes the connection
+- **THEN** initialize requests and responses cross the socket with Content-Length framing
+
+#### Scenario: Launch a server that dials the IDE
+
+- **GIVEN** a TCP listen entry at `tcp://localhost:0` with a command using `{port}`
+- **WHEN** the connection starts
+- **THEN** HexIDE binds loopback before launching and passes its allocated port to the child
+- **AND** receives the child's connection and exchanges framed language-server messages
