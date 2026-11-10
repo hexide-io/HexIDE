@@ -105,6 +105,9 @@ public sealed class DiskThemePackTests : IDisposable
     [InlineData("{broken")]
     [InlineData("null")]
     [InlineData("{\"colors\":{\"ReadOnlyText\":\"invalid\"}}")]
+    [InlineData("{\"placeholderOpacity\":-0.1}")]
+    [InlineData("{\"placeholderOpacity\":1.1}")]
+    [InlineData("{\"tabSelectionBorderThickness\":-1}")]
     public void FailedDiskPackRemovesPreviousOverride(string? invalid)
     {
         Write("Custom", """{"colors":{"ReadOnlyText":"#123456"}}""");

@@ -1,8 +1,12 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:editor="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
         xmlns:rendering="clr-namespace:AvaloniaEdit.Rendering;assembly=AvaloniaEdit">
     <!-- Follow the resource even when both packs use the dark variant (#717). -->
     <Style Selector="rendering|TextView">
         <Setter Property="LinkTextForegroundBrush" Value="{DynamicResource LinkTextBrush}" />
+    </Style>
+    <Style Selector="editor|TextEditor">
+        <Setter Property="LineNumbersForeground" Value="{DynamicResource LineNumbersForegroundBrush}" />
     </Style>
 </Styles>

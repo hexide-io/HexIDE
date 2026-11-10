@@ -141,6 +141,18 @@ public sealed class ThemeService : IThemeService
     private static ResourceDictionary BuildDictionary(ThemePackRecord pack, string? source = null, string? file = null)
     {
         var dict = new ResourceDictionary();
+        if (pack.PlaceholderOpacity is { } opacity)
+        {
+            if (!double.IsFinite(opacity) || opacity < 0 || opacity > 1)
+                throw new ArgumentException("Placeholder opacity must be between zero and one.");
+            dict["TextControlPlaceholderOpacity"] = opacity;
+        }
+        if (pack.TabSelectionBorderThickness is { } thickness)
+        {
+            if (!double.IsFinite(thickness) || thickness < 0)
+                throw new ArgumentException("Tab selection border thickness must be non-negative.");
+            dict["TabSelectionBorderThickness"] = new Thickness(thickness);
+        }
         if (pack.Colors is null) return dict;
 
         foreach (var (name, hex) in pack.Colors)

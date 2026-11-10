@@ -48,6 +48,10 @@ public class TestApp : Application
         {
             Source = new Uri("avares://HexIDE/Themes/EditorLinks.axaml"),
         });
+        Styles.Add(new StyleInclude(new Uri("avares://HexIDE/"))
+        {
+            Source = new Uri("avares://HexIDE/Themes/TabSelection.axaml"),
+        });
         // As App.axaml does: code reads left to right under a right-to-left language (#1944).
         Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
         {
