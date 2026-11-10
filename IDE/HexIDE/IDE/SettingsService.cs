@@ -24,6 +24,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private bool _hasSavedKeymap;
     internal bool HasExplicitKeymapChoice => _hasSavedKeymap || _changedProperties.Contains("activeKeymap");
     internal bool HasExplicitThemeChoice => _hasSavedTheme || _changedProperties.Contains("activeTheme");
+    internal void RecordExplicitThemeChoice() => _changedProperties.Add("activeTheme");
     private readonly ProfilePayload? _profileDefaults;
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
 

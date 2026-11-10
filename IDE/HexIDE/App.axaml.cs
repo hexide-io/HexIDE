@@ -64,6 +64,17 @@ public partial class App : Application
             _diSetup.KeymapService.Apply(_diSetup.SettingsService.ActiveKeymap);
         }
 
+        if (PlatformSettings is { } platform)
+        {
+            var themes = (HexIDE.Themes.ThemeService)_diSetup.ThemeService;
+            var settings = (SettingsService)_diSetup.SettingsService;
+            themes.FollowPlatform(platform, settings, () =>
+            {
+                if (Static.Profile is { } currentProfile) themes.Apply(currentProfile, settings);
+                else themes.Apply(settings.ActiveTheme);
+            });
+        }
+
         // Register the VB6 highlighting definition and subscribe it to theme changes before any editor
         // is built, so the first paint is already correct rather than light-until-you-switch. Must
         // follow ThemeService.Apply above, which is what sets the variant this reads.
