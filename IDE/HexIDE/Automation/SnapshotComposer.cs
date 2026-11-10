@@ -109,6 +109,12 @@ public static class SnapshotComposer
         foreach (var popup in popups)
         {
             var rect = ScreenRect(popup, popup.ClientSize, scaling);
+            if (NativeWayland.Hosts(popup))
+            {
+                // Drawn at what it does report, it landed over the window's top left corner (#3575).
+                noArea.Add(new LeftOutPopup(KindOf(popup), rect, $"which can't be placed because {NativeWayland.NoPopupPlace}", Located: false));
+                continue;
+            }
             if (rect.Width <= 0 || rect.Height <= 0)
             {
                 noArea.Add(new LeftOutPopup(KindOf(popup), rect, "which has no area to draw"));
@@ -123,9 +129,10 @@ public static class SnapshotComposer
     }
 
     /// <summary>
-    /// A popup the snapshot does not show: what it holds, where it was reported in screen pixels, and why it was left out.
+    /// A popup the snapshot does not show: what it holds, where it was reported in screen pixels, why it was left out, and
+    /// whether the platform said where it is, since a position it can't know reads as a measurement if it is quoted.
     /// </summary>
-    public sealed record LeftOutPopup(string Kind, PixelRect Rect, string Reason);
+    public sealed record LeftOutPopup(string Kind, PixelRect Rect, string Reason, bool Located = true);
 
     /// <summary>
     /// The most bytes one render target is given: 16,384 × 16,384 pixels' worth, 1 GiB. A render target's size in bytes is
@@ -246,6 +253,29 @@ public static class SnapshotComposer
     /// </remarks>
     private static async Task<Bitmap> DrawnAsync(Visual visual, PixelSize size, double scaling, List<string> fellBack)
     {
+        // The compositor draws a visual where it lies in its parent, into an image the visual's own size. A window set in
+        // from its surface by client-side decorations came out moved down by them with its last rows cut off (#3575), so
+        // the surface is drawn whole, which starts at the origin, and the window's part of it is kept.
+        if (visual is TopLevel { Bounds.Position: var inset } && inset != default && visual.GetVisualParent() is { } surface)
+        {
+            using var whole = await PieceAsync(surface, PixelSize.FromSize(surface.Bounds.Size, scaling), scaling, fellBack, visual);
+            return Cropped(whole, new PixelRect(PixelPoint.FromPoint(inset, scaling), size), scaling);
+        }
+        return await PieceAsync(visual, size, scaling, fellBack, visual);
+    }
+
+    private static Bitmap Cropped(Bitmap whole, PixelRect part, double scaling)
+    {
+        var bitmap = new RenderTargetBitmap(part.Size, new Vector(96 * scaling, 96 * scaling));
+        using (var ctx = bitmap.CreateDrawingContext(false))
+            ctx.DrawImage(whole, new Rect(part.X, part.Y, part.Width, part.Height),
+                new Rect(0, 0, part.Width / scaling, part.Height / scaling));
+        return bitmap;
+    }
+
+    // 'named' is what a reply calls the piece: for a window drawn by way of its surface, the window.
+    private static async Task<Bitmap> PieceAsync(Visual visual, PixelSize size, double scaling, List<string> fellBack, Visual named)
+    {
         var waited = Task.Delay(CompositorWait);
         while (!waited.IsCompleted)
         {
@@ -269,7 +299,7 @@ public static class SnapshotComposer
             }
             if (drawing.Exception?.GetBaseException() is { } failed)
             {
-                fellBack.Add($"{KindOf(visual)}, whose snapshot failed: {failed.Message}");
+                fellBack.Add($"{KindOf(named)}, whose snapshot failed: {failed.Message}");
                 return Rendered(visual, size, scaling);
             }
             // A late image is let go when it comes, rather than kept by nobody.
@@ -280,7 +310,7 @@ public static class SnapshotComposer
             }, TaskScheduler.Default);
             break;
         }
-        fellBack.Add(KindOf(visual));
+        fellBack.Add(KindOf(named));
         return Rendered(visual, size, scaling);
     }
 
