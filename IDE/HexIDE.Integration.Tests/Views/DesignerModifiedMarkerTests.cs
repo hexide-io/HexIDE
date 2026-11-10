@@ -46,7 +46,7 @@ public class DesignerModifiedMarkerTests
                 .SetProperty(VBProperties.WidthProperty, 100d)
                 .SetProperty(VBProperties.HeightProperty, 30d)]);
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
-            Substitute.For<IComponentRegistry>(), Substitute.For<ILocalizationService>());
+            new ComponentRegistry(), Substitute.For<ILocalizationService>());
         using var vm = new FormEditViewModel(toolbox, bus, service, null!, null!,
             Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         var view = new FormEditView { DataContext = vm };
