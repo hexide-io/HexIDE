@@ -2670,8 +2670,7 @@ The client SHALL expose a query and a request for a document URI and typed chara
 `textDocument/onTypeFormatting` only to the highest-priority running document claimant declaring that
 character in `documentOnTypeFormattingProvider.firstTriggerCharacter` or `moreTriggerCharacter`.
 The request SHALL carry the post-typing position and formatting options, return the server's text edits,
-and cancel after a 250 ms budget with no edits on timeout. This protocol seam does not yet transfer
-ownership of typing from the editor's local helpers (#2672).
+and cancel after a 250 ms budget with no edits on timeout.
 
 #### Scenario: A higher-priority server declares a different character
 
@@ -2683,3 +2682,41 @@ ownership of typing from the editor's local helpers (#2672).
 
 - **WHEN** the on-type formatting request exhausts its budget
 - **THEN** the client sends `$/cancelRequest` for that request and returns no edits
+
+### Requirement: A declared typing trigger owns the editor gesture
+
+The code editor SHALL invoke on-type formatting after typing a declared trigger and flushing didChange.
+For a declared newline, Enter SHALL immediately insert a line break with the current line's indentation
+and SHALL skip local block closing and keyword case correction. Without a newline claimant, local Enter
+behavior SHALL remain unchanged. Other claimed typing characters SHALL use the same ownership rule.
+Replies SHALL be discarded after a document version or identity change or view detachment. Accepted edits
+SHALL use the guarded formatting writer and undo together with the typed character or line break,
+without holding an undo group open across the request (#2672). For an edit reaching the caret, the caret
+SHALL stop before the replacement's (n+1)th line break, or at its end if fewer exist, where n counts line
+breaks in the old text from the edit start to the caret. Once stopped at a line break, later insertions
+at that position SHALL NOT move it. This mapping SHALL also apply to reduced replies protecting read-only
+text. Same-position insertions SHALL retain their array order for on-type and document formatting.
+
+#### Scenario: A server closes the block
+
+- **WHEN** Enter follows a block opener and the document's server declares newline
+- **THEN** the server receives the synchronized text and post-newline position
+- **AND** only the server's closer is inserted, with the caret mapped through its indentation edits
+- **AND** one undo restores the text before Enter
+
+#### Scenario: One edit inserts the body and closer at EOF
+
+- **WHEN** the opener is the last line and a reply inserts indentation and a closer at the caret
+- **THEN** the caret stops before the first inserted line break, after the body indentation
+- **AND** the same rule holds when protected edits are dropped from the reply
+
+#### Scenario: A reply outlives its typing version
+
+- **WHEN** typing or undo changes the document before the formatting reply arrives
+- **THEN** the reply changes nothing, even if the text was restored to the requested text
+
+#### Scenario: A newline formatter times out
+
+- **WHEN** the newline formatter exceeds its 250 ms budget
+- **THEN** cancellation is sent and the typed line break and indentation stay
+- **AND** no local closer or keyword correction runs as a fallback

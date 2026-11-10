@@ -57,6 +57,8 @@ public partial class CodeEditorView : UserControl
     private CancellationTokenSource? _completionCts;
     private OverloadInsightWindow? _insightWindow;
     private CancellationTokenSource? _signatureCts;
+    private int _onTypeGeneration;
+    internal Task PendingOnTypeFormatting { get; private set; } = Task.CompletedTask;
     // The last completion and parameter-info requests, as far as showing what came back.
     private Task _completionShown = Task.CompletedTask;
     private Task _signatureShown = Task.CompletedTask;
@@ -907,6 +909,7 @@ public partial class CodeEditorView : UserControl
         TextEditor.TextArea.KeyDown      -= OnEditorKeyDown;
         TextEditor.RemoveHandler(KeyDownEvent, OnEditorKeyHandled);
         _stepRightFrom = -1;
+        _onTypeGeneration++;
         _hoverCts?.Cancel();
         _hoverCts?.Dispose();
         _hoverCts = null;
@@ -2043,6 +2046,8 @@ public partial class CodeEditorView : UserControl
     private void OnTextEntered(object? sender, TextInputEventArgs e)
     {
         if (e.Text is not { Length: > 0 }) return;
+        if (DataContext is CodeEditorViewModel owner && owner.SupportsOnTypeFormatting(e.Text))
+            PendingOnTypeFormatting = FormatTypedCharacterAsync(owner, e.Text);
         var ch = e.Text[0];
         // Trigger completion on any letter (start/continuation of a word)
         if (char.IsLetter(ch))
@@ -2110,6 +2115,39 @@ public partial class CodeEditorView : UserControl
                 }
             }
         }
+        if (e.Key == Key.Return && e.KeyModifiers == KeyModifiers.None
+            && DataContext is CodeEditorViewModel owner && owner.SupportsOnTypeFormatting("\n"))
+        {
+            e.Handled = true;
+            var (offset, length) = EditedSpan() ?? (TextEditor.CaretOffset, 0);
+            if (owner.RefusesTyping(offset, length)) return;
+            var doc = TextEditor.Document;
+            var line = doc.GetLineByOffset(offset);
+            var indent = VbAutoCloseProvider.GetIndentation(doc.GetText(line.Offset, line.Length));
+            var newline = DocumentNewLines.Of(doc.Text);
+            var before = doc.Version;
+            using (doc.RunUpdate())
+            {
+                if (TextEditor.TextArea.Selection is RectangleSelection { IsEmpty: false } box)
+                {
+                    WriteOverBox(TextEditor.TextArea, box, string.Empty);
+                    TextEditor.TextArea.ClearSelection();
+                    (offset, length) = EditedSpan() ?? (TextEditor.CaretOffset, 0);
+                }
+                if (owner.InsertLineBreakPastRun(offset, length, "\n" + indent) is { } placed)
+                {
+                    TextEditor.TextArea.ClearSelection();
+                    TextEditor.CaretOffset = placed.End;
+                }
+                else
+                {
+                    TextEditor.TextArea.Selection.ReplaceSelectionWithText(newline + indent);
+                }
+            }
+            if (!ReferenceEquals(before, doc.Version))
+                PendingOnTypeFormatting = FormatTypedCharacterAsync(owner, "\n");
+            return;
+        }
         // Enter = auto-close block + auto-indent
         if (e.Key == Key.Return && e.KeyModifiers == KeyModifiers.None)
         {
@@ -2164,6 +2202,42 @@ public partial class CodeEditorView : UserControl
                     e.Handled = true;
                 }
             }
+        }
+    }
+
+    private async Task FormatTypedCharacterAsync(CodeEditorViewModel vm, string trigger)
+    {
+        var generation = ++_onTypeGeneration;
+        var doc = TextEditor.Document;
+        var version = doc.Version;
+        var uri = vm.LiveDocumentUri;
+        var location = doc.GetLocation(TextEditor.CaretOffset);
+        // TextEntered can run inside AvaloniaEdit's update. Let that typing group close before continuing it.
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
+        if (generation != _onTypeGeneration || !ReferenceEquals(version, doc.Version)) return;
+        var group = doc.UndoStack.LastGroupDescriptor;
+        try
+        {
+            var edits = await vm.RequestOnTypeFormattingAsync(new Position(location.Line - 1, location.Column - 1), trigger);
+            if (generation != _onTypeGeneration || DataContext != vm || TextEditor.Document != doc
+                || vm.LiveDocumentUri != uri || !ReferenceEquals(version, doc.Version)
+                || !doc.UndoStack.CanUndo || !ReferenceEquals(group, doc.UndoStack.LastGroupDescriptor)
+                || edits.Length == 0) return;
+
+            // No group spans an await: typing, undo and unrelated edits stay usable while the server answers.
+            doc.UndoStack.StartContinuedUndoGroup();
+            try
+            {
+                TextEditor.CaretOffset = vm.ApplyOnTypeFormatting(edits, TextEditor.CaretOffset);
+            }
+            finally
+            {
+                doc.UndoStack.EndUndoGroup();
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Debug("[onTypeFormatting] {ErrorMessage}", ex.Message);
         }
     }
 
