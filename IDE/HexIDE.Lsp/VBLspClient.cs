@@ -316,7 +316,7 @@ public sealed class VBLspClient : ILspClient
 
     private async Task<T> InvokeRequestAsync<T>(JsonRpc rpc, string method, object? parameters,
         CancellationToken cancellationToken = default, TimeSpan? timeout = null, string? supersededUri = null,
-        string? documentUri = null, Action<Task>? requestStarted = null)
+        string? documentUri = null, Action<Task>? requestStarted = null, Task? delivered = null)
     {
         if (documentUri is not null && _openDocuments.ContainsKey(documentUri)
             && ServerCapabilities.AcceptsOpenClose(_capabilities?.Value))
@@ -344,7 +344,15 @@ public sealed class VBLspClient : ILspClient
         }
         finally { RequestCancellation.Current.Value = previous; }
 
-        try { return await pending.WaitAsync(timeout ?? RequestTimeout, cancellation.Token); }
+        try
+        {
+            // The deadline is the server's, so it starts when the server can have seen the request. Sending goes
+            // through the thread pool, and on a busy one the timer could end before the request had left, which
+            // read as a server that was never reached (#3553). Bounded as well, for a server that stops reading.
+            if (delivered is not null)
+                await Task.WhenAny(pending, delivered).WaitAsync(RequestTimeout, cancellation.Token);
+            return await pending.WaitAsync(timeout ?? RequestTimeout, cancellation.Token);
+        }
         catch (Exception ex) when (ex is TimeoutException || ex is OperationCanceledException)
         {
             if (ex is TimeoutException) scope.Outcome = ConversationOutcome.TimedOut;
@@ -758,7 +766,8 @@ public sealed class VBLspClient : ILspClient
         attempt.Reached(LanguageConnectionStage.HandshakeSent);
         try
         {
-            raw = await InvokeRequestAsync<JsonElement>(_rpc, "initialize", initParams, cancellationToken, _initializeTimeout);
+            raw = await InvokeRequestAsync<JsonElement>(_rpc, "initialize", initParams, cancellationToken, _initializeTimeout,
+                delivered: (_transport as StdioProcessLspTransport)?.FirstRequestDelivered);
             _initializeAnswered = true;
             await _rpc.NotifyWithParameterObjectAsync("initialized", EmptyParams.Instance);
         }

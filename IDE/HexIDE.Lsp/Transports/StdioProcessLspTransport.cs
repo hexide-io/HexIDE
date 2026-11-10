@@ -41,6 +41,12 @@ public sealed class StdioProcessLspTransport : ILspTransport
     internal bool UnansweredInitializeReached => IsAlive
         && _input?.FirstWriteReached == true && _output?.FirstReadWaiting == true;
 
+    /// <summary>
+    /// Completes when the first request has reached the server's channel and a read is waiting for its answer, which
+    /// is when a server can first be said to have kept anyone waiting.
+    /// </summary>
+    internal Task FirstRequestDelivered => Task.WhenAll(_input!.FirstWriteFinished, _output!.FirstReadIssued);
+
     /// <param name="serverInfo">
     /// What to launch. Resolving this — and deciding what to do when it cannot be resolved — belongs to
     /// whoever built the registration, because an entry naming a server that is not there should not be
@@ -64,6 +70,9 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
     // Test seam for ordering process exit against the native job assignment (#2752).
     internal Action<ChildProcessJob, Process> AssignProcessToJob { get; set; } = (job, process) => job.Assign(process);
+
+    // Test seam for holding a request on its way to the server, as a busy thread pool does (#3553).
+    internal Func<Stream, Stream> ServerInput { get; set; } = stream => stream;
 
     // Test seam for checking exit-lock ownership and flag publication at termination (#3217).
     internal Action<Process> KillProcess { get; set; } = LaunchedServerGuard.Kill;
@@ -252,7 +261,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
         // Tapped, so the record can say when the first bytes actually reached the server and came back, not only
         // when a message was serialized (#390).
         NoteChannel($"process started with pid {_process.Id}");
-        _input = new ChannelTapStream(_process.StandardInput.BaseStream, NoteChannel);
+        _input = new ChannelTapStream(ServerInput(_process.StandardInput.BaseStream), NoteChannel);
         _output = new ChannelTapStream(_process.StandardOutput.BaseStream, NoteChannel);
         var handler = new HeaderDelimitedMessageHandler(
             _input,
