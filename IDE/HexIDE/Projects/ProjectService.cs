@@ -48,13 +48,13 @@ public partial class ProjectService : IProjectService
         IFileBaselineStore baselineStore,
         ILocalizationService localization,
         IHeaderRefresher headerRefresher,
+        IProjectFileFormat format,
         ArchiveProjectService? archives = null,
         Func<ILspClient>? lspClient = null,
-        ContributedProjects? contributed = null,
-        IProjectFileFormat? format = null)
+        ContributedProjects? contributed = null)
     {
         this.contributed = contributed;
-        this.format = format ?? new Vb6ProjectFileFormat();
+        this.format = format;
         this.newProjectVm = newProjectVm;
         this.windowManager = windowManager;
         this.eventBus = eventBus;

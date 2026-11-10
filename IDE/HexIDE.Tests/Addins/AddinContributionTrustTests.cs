@@ -283,7 +283,8 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
         return new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             Substitute.For<IEventBus>(), _projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
-            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()),
+            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
+            new Vb6ProjectFileFormat(),
             contributed: _types);
     }
 }

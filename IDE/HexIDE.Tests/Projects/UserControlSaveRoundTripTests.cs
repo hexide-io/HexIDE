@@ -60,7 +60,8 @@ public class UserControlSaveRoundTripTests : IDisposable
             sidecar,
             baselineStore,
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>());
+            Substitute.For<IHeaderRefresher>(),
+            new Vb6ProjectFileFormat());
     }
 
     /// <summary>Writes a canonical .ctl (via the serializer, so the on-disk format is real VB6) plus a .vbp.</summary>
@@ -104,7 +105,7 @@ public class UserControlSaveRoundTripTests : IDisposable
         var form = loaded().Forms.Single();
         using var designer = new HexIDE.VisualDesigner.FormEditViewModel(null!, new EventBus(), svc,
             null!, null!, Substitute.For<ISettingsService>(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form);
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
 
         designer.IsReadOnly.Should().BeTrue();
         designer.ReadOnlyReason.Should().Contain("extents");

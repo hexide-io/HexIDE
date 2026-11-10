@@ -36,11 +36,11 @@ public class ToolbarDesignerPersistenceTests
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         var designer = new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
-            null!, null!, Substitute.For<ISettingsService>(), localization).Initialize(file);
+            null!, null!, Substitute.For<ISettingsService>(), localization, new Vb6ProjectFileFormat()).Initialize(file);
         var dock = Substitute.For<IDocumentDockService>();
         dock.ActiveDocument.Returns(designer);
         var properties = new PropertiesToolViewModel(dock, Substitute.For<IEventBus>(),
-            Substitute.For<IWindowManager>(), localization);
+            Substitute.For<IWindowManager>(), localization, new Vb6ProjectFileFormat());
 
         designer.UnmodelledControls.Where(c => c.TypeName == "MSComctlLib.Toolbar").Select(c => c.Name)
             .Should().BeEquivalentTo(new[] { "Toolbar1", "Toolbar2" });

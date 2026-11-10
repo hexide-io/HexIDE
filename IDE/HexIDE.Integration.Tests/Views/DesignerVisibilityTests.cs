@@ -34,7 +34,7 @@ public class DesignerVisibilityTests
             Attribute VB_Name = "Form1"
             """, new NullSink())!;
         var vm = new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<HexIDE.Projects.IProjectService>(),
-            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         var component = vm.AllComponents.Single(c => c.Name == "Command1");
         component.Instance.SetProperty(VBProperties.VisibleProperty, initiallyVisible);
         var view = new FormEditView { DataContext = vm };
@@ -89,7 +89,7 @@ public class DesignerVisibilityTests
             Attribute VB_Name = "Form1"
             """, new NullSink())!;
         var vm = new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<HexIDE.Projects.IProjectService>(),
-            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         var frame = vm.AllComponents.Single(c => c.Name == "Frame1");
         var button = vm.AllComponents.Single(c => c.Name == "Command1");
         frame.Instance.SetProperty(VBProperties.VisibleProperty, initiallyVisible);

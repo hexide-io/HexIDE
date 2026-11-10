@@ -1,7 +1,6 @@
 using System;
 using System.Text;
 using HexIDE.Forms.ViewModels;
-using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.VisualDesigner;
@@ -65,9 +64,9 @@ public sealed record WatchedFileTarget(
 /// hashed against a buffer — is compared render-to-render via <see cref="IProjectService"/>.
 /// All view access happens on the UI thread (the watcher dispatches there before calling this).
 /// </summary>
-public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectService projectService, IProjectFileFormat? format = null)
+public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectService projectService, IProjectFileFormat format)
 {
-    private readonly IProjectFileFormat _format = format ?? new Vb6ProjectFileFormat();
+    private readonly IProjectFileFormat _format = format;
 
     public ReloadDecision Classify(WatchedFileTarget t)
     {

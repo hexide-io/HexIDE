@@ -32,7 +32,7 @@ public class SetIdeLanguageSavesTests
                 .Returns(call => call.Arg<string>() == active ? Task.FromResult(true) : Gate.Task);
             context = new IdeContext(Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(),
                 Substitute.For<ILspClient>(), null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-                LanguageSwitch, null!, null!, TestLocalization(), Settings);
+                LanguageSwitch, null!, null!, TestLocalization(), Settings, new Vb6ProjectFileFormat());
             Tools = new HexIdeTools(context);
         }
 

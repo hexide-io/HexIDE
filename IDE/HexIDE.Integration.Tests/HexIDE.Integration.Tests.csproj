@@ -28,6 +28,7 @@
         <Using Include="NSubstitute" />
         <Using Include="Xunit" />
         <Using Include="Avalonia.Headless.XUnit" />
+        <Using Include="HexIDE.Projects" />
     </ItemGroup>
 
     <ItemGroup>

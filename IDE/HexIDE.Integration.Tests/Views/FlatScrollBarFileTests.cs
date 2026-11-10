@@ -41,7 +41,7 @@ public class FlatScrollBarFileTests
         var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), Source(), new Sink())!;
         var vm = new HexIDE.VisualDesigner.FormEditViewModel(null!, Substitute.For<HexIDE.IDE.IEventBus>(),
             Substitute.For<HexIDE.Projects.IProjectService>(), null!, null!, Substitute.For<HexIDE.IDE.ISettingsService>(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form);
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         var bars = vm.AllComponents.Where(c => c.Name.StartsWith("FlatScrollBar")).ToArray();
         bars.Should().HaveCount(7);
         foreach (var bar in bars)

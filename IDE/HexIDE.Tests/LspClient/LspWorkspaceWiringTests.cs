@@ -96,7 +96,7 @@ public class LspWorkspaceWiringTests : CompositionTestBase
         var manager = Substitute.For<IProjectManager>();
         manager.LoadedProjects.Returns(projects);
         manager.StartupProject.Returns(projects.FirstOrDefault());
-        return new ProjectLspWorkspace(() => manager);
+        return new ProjectLspWorkspace(() => manager, new Vb6ProjectFileFormat());
     }
 
     [Theory]

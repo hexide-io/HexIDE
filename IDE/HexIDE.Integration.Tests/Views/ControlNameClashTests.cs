@@ -55,7 +55,7 @@ public class ControlNameClashTests
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
             Substitute.For<IComponentRegistry>(), Substitute.For<ILocalizationService>());
         var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
-            Substitute.For<ISettingsService>(), Naming()).Initialize(form);
+            Substitute.For<ISettingsService>(), Naming(), new Vb6ProjectFileFormat()).Initialize(form);
         return (vm, form);
     }
 

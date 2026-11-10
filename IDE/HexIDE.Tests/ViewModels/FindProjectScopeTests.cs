@@ -181,7 +181,7 @@ public partial class FindReplaceViewModelTests : IDisposable
         using BaseEditorWindowViewModel editor = designerActive
             ? new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
                 _findEditors, _windowManager, Substitute.For<ISettingsService>(),
-                Substitute.For<ILocalizationService>()).Initialize(form)
+                Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form)
             : CreateMockEditor("").Initialize(form);
         SetActiveEditor(editor);
         _selectedFindProject = selected;

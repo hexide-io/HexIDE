@@ -30,7 +30,7 @@ public class FileWatcherReloadTests
     // The full ctor is used (not the previewer ctor) so ComputeTitle's localization isn't null; only the
     // deps Initialize/ReloadFromModel actually touch need to be real (event bus + localization).
     private static FormEditViewModel NewDesignerVm() => new(
-        null!, Substitute.For<IEventBus>(), null!, null!, null!, null!, Substitute.For<ILocalizationService>());
+        null!, Substitute.For<IEventBus>(), null!, null!, null!, null!, Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat());
 
     private const string OneLabel = """
         VERSION 5.00

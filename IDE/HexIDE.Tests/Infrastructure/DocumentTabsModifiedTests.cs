@@ -34,7 +34,7 @@ public sealed class DocumentTabsModifiedTests : IDisposable
         var projects = Substitute.For<IProjectManager>();
         projects.LoadedProjects.Returns([project]);
         context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), null!, Substitute.For<IProjectRunnerService>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
         tools = new HexIdeTools(context);
     }
 
@@ -54,7 +54,7 @@ public sealed class DocumentTabsModifiedTests : IDisposable
     }
 
     private FormEditViewModel Designer() => Made(new FormEditViewModel(null!, bus, service, null!, null!,
-        Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(Form));
+        Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(Form));
 
     private CodeEditorViewModel Code() => Made(new CodeEditorViewModel(
         Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), service,

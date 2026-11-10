@@ -36,7 +36,7 @@ public class ProgramPrintedStartTests
             composition.LocalizationService, controller, marks, new WatchService(), new RunScope());
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
             null!, runner, null!, null!, null!, marks, controller, composition.Root, null!, null!, null!, null!,
-            composition.Capture, null!, composition.LocalizationService, null!);
+            composition.Capture, null!, composition.LocalizationService, null!, new Vb6ProjectFileFormat());
         var tools = new HexIdeTools(context);
         var app = Application.Current!;
         // Avalonia fixes ApplicationLifetime at initialization. This headless host has none; lend the tool a
@@ -106,7 +106,7 @@ public class ProgramPrintedStartTests
             composition.LocalizationService, controller, marks, new WatchService(), new RunScope());
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
             null!, runner, null!, null!, null!, marks, controller, composition.Root, null!, null!, null!, null!,
-            null!, null!, composition.LocalizationService, null!);
+            null!, null!, composition.LocalizationService, null!, new Vb6ProjectFileFormat());
         var tools = new HexIdeTools(context);
         ProgramPrinted.Shared.FollowRuns(runner);
         HexIDE.Runtime.VBDebugConsole.Written += ProgramPrinted.Shared.Append;

@@ -38,10 +38,10 @@ public class PositionRowsTests
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         var designer = new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<HexIDE.Projects.IProjectService>(),
-            null!, null!, Substitute.For<ISettingsService>(), localization).Initialize(file);
+            null!, null!, Substitute.For<ISettingsService>(), localization, new Vb6ProjectFileFormat()).Initialize(file);
         var dock = Substitute.For<IDocumentDockService>();
         dock.ActiveDocument.Returns(designer);
-        var window = new PropertiesToolViewModel(dock, Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), localization);
+        var window = new PropertiesToolViewModel(dock, Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), localization, new Vb6ProjectFileFormat());
         return (file, designer, window);
     }
 

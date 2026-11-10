@@ -14,7 +14,7 @@ public class PropertiesLocalizationTests
         var loc = Substitute.For<ILocalizationService>();
         loc.GetPropertyDescription("Caption").Returns("English description");
         var grid = new PropertiesToolViewModel(Substitute.For<IDocumentDockService>(),
-            Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), loc);
+            Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), loc, new Vb6ProjectFileFormat());
         var row = new PropertyViewModel(grid, VBProperties.CaptionProperty, "Form1");
         grid.Properties.Add(row);
         grid.CategorizedProperties.Add(row);
@@ -37,7 +37,7 @@ public class PropertiesLocalizationTests
         var loc = Substitute.For<ILocalizationService>();
         loc.GetString("Str.PropCategory.Appearance").Returns("Appearance");
         var grid = new PropertiesToolViewModel(Substitute.For<IDocumentDockService>(),
-            Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), loc);
+            Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), loc, new Vb6ProjectFileFormat());
         var category = new PropertyCategoryViewModel(grid, PropertyCategory.Appearance) { IsExpanded = false };
         grid.CategorizedProperties.Add(category);
         var changes = new List<string?>();

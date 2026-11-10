@@ -35,7 +35,7 @@ public class TimerOnTheDesignerTests
     public void A_Timer_loaded_from_a_file_is_drawn_at_its_icon_s_size()
     {
         var vm = new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
-            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(Load());
+            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(Load());
         var window = new Window { Width = 800, Height = 600, Content = new FormEditView { DataContext = vm } };
         window.Show();
         try

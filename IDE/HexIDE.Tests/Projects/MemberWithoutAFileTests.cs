@@ -73,7 +73,8 @@ public class MemberWithoutAFileTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>());
+            Substitute.For<IHeaderRefresher>(),
+            new Vb6ProjectFileFormat());
     }
 
     /// <summary>A saved project, its baselines current, so nothing about it reads as changed.</summary>

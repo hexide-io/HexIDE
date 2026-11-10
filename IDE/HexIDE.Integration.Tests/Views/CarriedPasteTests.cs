@@ -117,7 +117,7 @@ public class CarriedPasteTests
         settings.GridWidth.Returns(8);
         settings.GridHeight.Returns(8);
         var vm = new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
-            settings, Substitute.For<ILocalizationService>()).Initialize(form);
+            settings, Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         return (vm, form);
     }
 
