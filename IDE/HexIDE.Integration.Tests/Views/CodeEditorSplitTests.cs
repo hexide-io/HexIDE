@@ -180,7 +180,7 @@ public class CodeEditorSplitTests : IDisposable
                     using (var context = new HexIDE.Desktop.Server.IdeContext(composition.ProjectManager,
                         composition.DocumentDockService, _lspClient, composition.EditorService,
                         null!, null!, null!, null!, null!, null!, composition.Root, null!, null!, null!, null!,
-                        null!, null!, composition.LocalizationService, null!))
+                        null!, null!, composition.LocalizationService, null!, null!))
                     {
                         try
                         {
