@@ -112,6 +112,16 @@ public sealed class LanguageServerEditorViewTests
                 fieldScroll.ScrollToEnd();
                 window.UpdateLayout();
                 save.TranslatePoint(default, view)!.Value.Y.Should().Be(saveTop);
+                // A long command line scrolls in its own capped area rather than squeezing the fields away.
+                Set("arguments", "[" + string.Join(", ", Enumerable.Range(0, 40).Select(i => $"\"--option-{i}={{workspaceDir}}/a/long/path/segment-{i}\"")) + "]");
+                window.UpdateLayout();
+                var footer = save.GetVisualAncestors().OfType<StackPanel>().First(p => p.GetVisualParent() is Grid);
+                footer.Bounds.Height.Should().BeLessThanOrEqualTo(72 + save.Bounds.Height + 16,
+                    "the problems and preview may take no more than their capped area from the fields");
+                var summary = editor.GetVisualDescendants().OfType<ScrollViewer>().Single(s => s.Name == "Summary");
+                summary.Extent.Height.Should().BeGreaterThan(summary.Viewport.Height, "the preview scrolls in its own area");
+                Set("arguments", "\"--flag two\"");
+                window.UpdateLayout();
             }
             save.Command!.Execute(null);
             vm.Editor.Should().BeNull();
