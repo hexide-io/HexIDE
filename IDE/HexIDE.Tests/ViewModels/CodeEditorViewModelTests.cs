@@ -1097,6 +1097,27 @@ public class CodeEditorViewModelTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task AFormWhoseFileMovedIsRenamedOnTheWire()
+    {
+        var moved = new List<Action<FormMovedEvent>>();
+        _eventBus.Subscribe(Arg.Do<Action<FormMovedEvent>>(h => moved.Add(h))).Returns(Substitute.For<IDisposable>());
+        var folder = Path.Join(Path.GetTempPath(), "hexide-moved-" + Guid.NewGuid().ToString("N"));
+        var (from, to) = (Path.Join(folder, "Form1.frm"), Path.Join(folder, "src", "Form1.frm"));
+        var form = TestHelpers.CreateForm(name: "Form1");
+        form.AbsolutePath = from;
+        var vm = CreateSut().Initialize(form);
+        var before = vm.GetDocumentUriPublic();
+        _lspClient.ClearReceivedCalls();
+
+        form.AbsolutePath = to;
+        foreach (var handler in moved.ToList()) handler(new FormMovedEvent(form));
+
+        await _lspClient.Received(1).CloseDocumentForRenameAsync(before, Arg.Any<CancellationToken>());
+        await _lspClient.Received(1).OpenDocumentAsync(LspDocumentUri.ForFile(to), Arg.Any<string>(), Arg.Any<bool>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
     public async Task ASaveOfSomeOtherDocumentIsIgnored()
     {
         // Every editor hears every save. Without the match, saving one module would announce a save of

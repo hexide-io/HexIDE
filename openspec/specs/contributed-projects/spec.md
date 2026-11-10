@@ -38,7 +38,7 @@ type that reads it, then as a `.vbp`. Any other file SHALL be refused with a rea
 Opening a file of a contributed type SHALL ask its add-in to read it, only then, and SHALL load what it returns as a
 project: its standard and class modules from their files, each named by its `Attribute VB_Name`; its other files as
 related documents; its references; and the folders it lists, which the Project Explorer SHALL show even when they hold
-nothing. A file listed twice SHALL be loaded once, and a module whose name another member has SHALL be left out and
+nothing. A file listed twice SHALL be loaded once, and a member whose name another member has SHALL be left out and
 named. A host document's code module SHALL be loaded as a class module with its header kept, for reading and editing.
 A read that fails SHALL open nothing and say why, with the add-in's message. The project SHALL record the add-in's
 manifest id, and show its title.
@@ -47,8 +47,29 @@ manifest id, and show its title.
 - **WHEN** the user opens an `.rdproj` an add-in reads
 - **THEN** its modules, references and folders are in the Project Explorer, and its code opens in code windows
 
+### Requirement: An add-in's project type SHALL be able to carry forms
+A project type SHALL be able to list a member as a form and supply what reads one, from the file's text and companion. The
+IDE SHALL read the file and its companion, and SHALL ask the type's reader for the form, at open, at a reload of a changed
+file and when restoring crash-recovery data alike. A form SHALL be named by what the reader gives it. A form that a type
+with no reader lists, that its reader cannot read, or whose reader throws, SHALL be left out and named, with what the
+reader said, and the project SHALL still open. A form read with problems SHALL join the project and the problems SHALL be
+shown. Once the type has been taken out, a reload SHALL ask nothing and SHALL leave the form as it is.
+
+Until the type can render its forms, a form read by an add-in SHALL open read-only in the designer and the code window, a
+save SHALL refuse it and leave its file as it was, it SHALL NOT count as edited, and the IDE SHALL NOT render it as a `.frm`
+for any purpose.
+
+#### Scenario: A provider's form opens
+- **WHEN** a project type lists a form and supplies a reader
+- **THEN** the form is in the Project Explorer and opens in the designer, read-only
+
+#### Scenario: Saving a form an add-in read
+- **WHEN** the user saves such a form
+- **THEN** the save is refused, the user is told, and its file is unchanged
+
 ### Requirement: The IDE SHALL NOT write, make or run a contributed project
-Saving a contributed project, Save As included, SHALL write its edited modules and SHALL NOT write the project file,
+Saving a contributed project, Save As included, SHALL write its edited modules, SHALL NOT write the forms an add-in read,
+and SHALL NOT write the project file,
 ask where it goes, or add it to the recent list; the file SHALL NOT count as edited. Adding or removing its members,
 Project Properties, References and Components SHALL NOT be offered, and SHALL be refused with a reason from any other
 route, automation and crash recovery included. The IDE's Make SHALL refuse it with a reason, and the IDE's interpreter

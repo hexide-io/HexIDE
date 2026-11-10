@@ -117,7 +117,7 @@ public class ProjectFileFormatSeamTests : IDisposable
         var service = await Opened();
         var form = _loaded.Single().Forms.Single();
         File.WriteAllText(_frm, "changed elsewhere");
-        File.WriteAllBytes(Path.ChangeExtension(_frm, ".frx"), [7, 8]);
+        File.WriteAllBytes(Path.ChangeExtension(_frm, ".standin"), [7, 8]);
 
         (await service.ReloadFormFromDisk(form)).Should().BeTrue();
 
