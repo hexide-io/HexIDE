@@ -23,7 +23,7 @@ control, menu, caption, selection, information, warning, validation, read-only, 
 text/background pairs SHALL have contrast of at least 7:1. Options SHALL display localized names while
 retaining stable pack IDs as setting values.
 
-These packs are part of [#3300](https://github.com/hexide-io/HexIDE/issues/3300). 2px focus chrome remains separate work. Avalonia does not
+These packs are part of [#3300](https://github.com/hexide-io/HexIDE/issues/3300). Avalonia does not
 report the Linux portal contrast preference yet; HexIDE adds no workaround.
 
 #### Scenario: Selecting a high-contrast pack
@@ -81,6 +81,28 @@ Packs MAY override the SimpleTheme and Dock brush resources exposed by the colou
 - **THEN** line numbers, placeholders and selected tabs use the pack's high-contrast text
 - **AND** scrollbar thumbs contrast with their tracks and Dock backgrounds follow the pack
 - **AND** document and Properties tabs show selection with a contrasting heavy border
+
+### Requirement: High-contrast focus and selection borders
+HighContrastLight and HighContrastDark SHALL set `chromeBorderThickness` to 2. Focused controls and
+selected list, tree, tab and menu items, including document and tool Dock tab headers, SHALL show a
+border with at least 3:1 contrast against the adjacent chrome. The shared styles SHALL use theme
+resources rather than pack names or literal colours. Other packs SHALL retain their existing borders
+when this non-negative thickness is omitted or zero. The application SHALL load these shared styles
+only while the active pack requests a positive thickness, removing them when it no longer does.
+While active, selection border space SHALL be reserved so selection does not change layout.
+Inputs and buttons SHALL retain their unfocused outlines and show keyboard focus with a 2px
+rectangle in `ThemeForegroundBrush` outside the control, without changing its border or layout.
+The focus rectangle SHALL remain visible outside the adorned control’s clip.
+Removing the styles SHALL restore existing controls’ base geometry, border thickness and padding,
+including template parts and popup content when focus or selection is activated again.
+
+#### Scenario: Moving focus under a high-contrast pack
+- **WHEN** focus moves between buttons and inputs under either high-contrast pack
+- **THEN** the newly focused control shows a contrasting 2px border
+- **AND** selected items retain their selection border independently of focus
+- **AND** focus and selection changes leave control and content bounds unchanged
+- **AND** switching to Classic restores existing menu and tool-header geometry, including when a menu is reopened
+- **AND** repeated switches load exactly one shared border style include for a requesting pack and none for other packs
 
 ### Requirement: Editor links SHALL follow the theme
 Editors SHALL use the `LinkText` theme colour (`LinkTextBrush`) for web and mail links.

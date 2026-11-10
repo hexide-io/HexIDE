@@ -5,7 +5,11 @@ using System.Linq;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Primitives;
+using Avalonia.VisualTree;
 using Avalonia.Media;
+using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Serilog;
@@ -30,6 +34,7 @@ public sealed class ThemeService : IThemeService
             app.Resources.MergedDictionaries.Remove(_currentOverride);
         _currentOverride = dictionary;
         app.Resources.MergedDictionaries.Add(dictionary);
+        ApplyChromeBorders(pack.ChromeBorderThickness);
         ActiveTheme = pack.Name;
         app.RequestedThemeVariant = pack.ThemeVariant == "Dark" ? ThemeVariant.Dark : ThemeVariant.Light;
         ThemeChanged?.Invoke();
@@ -75,6 +80,8 @@ public sealed class ThemeService : IThemeService
     }
 
     private ResourceDictionary? _currentOverride;
+    private StyleInclude? _chromeBorders;
+    private readonly Func<IEnumerable<Visual>> _roots;
     private readonly Dictionary<string, string?> _packs = new(StringComparer.OrdinalIgnoreCase);
 
     public string ActiveTheme { get; private set; } = "Classic";
@@ -83,8 +90,9 @@ public sealed class ThemeService : IThemeService
 
     public ThemeService() : this(UserDataPath.For("themes")) { }
 
-    internal ThemeService(string packsDirectory)
+    internal ThemeService(string packsDirectory, Func<IEnumerable<Visual>>? roots = null)
     {
+        _roots = roots ?? ApplicationRoots;
         using var manifest = typeof(ThemeService).Assembly.GetManifestResourceStream("HexIDE.Themes.manifest.json")!;
         var shipped = JsonSerializer.Deserialize(manifest, ThemeJsonContext.Default.StringArray)!;
         foreach (var id in shipped)
@@ -122,6 +130,7 @@ public sealed class ThemeService : IThemeService
             _currentOverride = null;
         }
 
+        ApplyChromeBorders(null);
         ActiveTheme = themeName;
 
         if (themeName == "Classic")
@@ -148,6 +157,7 @@ public sealed class ThemeService : IThemeService
 
             _currentOverride = BuildDictionary(pack);
             app.Resources.MergedDictionaries.Add(_currentOverride);
+            ApplyChromeBorders(pack.ChromeBorderThickness);
             // Themes fully specify their own colours, so the variant is deterministic and
             // never follows the OS: dark packs use Dark, everything else uses Light.
             app.RequestedThemeVariant = pack.ThemeVariant == "Dark"
@@ -164,6 +174,50 @@ public sealed class ThemeService : IThemeService
         }
     }
 
+    private void ApplyChromeBorders(double? thickness)
+    {
+        var styles = Application.Current!.Styles;
+        if (thickness is > 0)
+        {
+            _chromeBorders ??= new StyleInclude(new Uri("avares://HexIDE/"))
+            {
+                Source = new Uri("avares://HexIDE/Themes/ChromeBorders.axaml")
+            };
+            if (!styles.Contains(_chromeBorders))
+                styles.Add(_chromeBorders);
+        }
+        else if (_chromeBorders is { } borders && styles.Remove(borders))
+        {
+            // Avalonia's global removal walks logical children, leaving styles on visual-only
+            // template parts and popup children. ClassicRoundTripRestoresExistingMenuAndToolChrome
+            // checks restored bounds, borders and padding, including reopened menus and Dock buttons.
+            var visited = new HashSet<Visual>();
+            void Detach(Visual visual)
+            {
+                if (!visited.Add(visual)) return;
+                ((IStyleHost)visual).StylesRemoved([borders]);
+                visual.ApplyStyling();
+                foreach (var child in visual.GetVisualChildren()) Detach(child);
+                if (visual is Popup { Child: { } content }) Detach(content);
+            }
+            foreach (var root in _roots())
+            {
+                // This notification invalidates styling; it does not add the include back to Styles.
+                // Without it ApplyStyling skips surviving template rules: the round-trip test leaves
+                // Dock's PART_Grid 20 DIP narrower and its close-button panel 20 DIP wider.
+                ((IStyleHost)root).StylesAdded([borders]);
+                Detach(root);
+            }
+        }
+    }
+
+    private static IEnumerable<Visual> ApplicationRoots() => Application.Current!.ApplicationLifetime switch
+    {
+        IClassicDesktopStyleApplicationLifetime desktop => desktop.Windows,
+        ISingleViewApplicationLifetime { MainView: { } view } => [view],
+        _ => []
+    };
+
     private static ResourceDictionary BuildDictionary(ThemePackRecord pack, string? source = null, string? file = null)
     {
         var dict = new ResourceDictionary();
@@ -178,6 +232,13 @@ public sealed class ThemeService : IThemeService
             if (!double.IsFinite(thickness) || thickness < 0)
                 throw new ArgumentException("Tab selection border thickness must be non-negative.");
             dict["TabSelectionBorderThickness"] = new Thickness(thickness);
+        }
+        if (pack.ChromeBorderThickness is { } chromeThickness)
+        {
+            if (!double.IsFinite(chromeThickness) || chromeThickness < 0)
+                throw new ArgumentException("Chrome border thickness must be non-negative.");
+            dict["ChromeBorderThickness"] = new Thickness(chromeThickness);
+            dict["ChromeBorderStrokeThickness"] = chromeThickness;
         }
         if (pack.Colors is null) return dict;
 

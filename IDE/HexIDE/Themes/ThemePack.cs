@@ -10,7 +10,8 @@ public record ThemePackRecord(
     string? ThemeVariant,
     Dictionary<string, string>? Colors,
     double? PlaceholderOpacity = null,
-    double? TabSelectionBorderThickness = null
+    double? TabSelectionBorderThickness = null,
+    double? ChromeBorderThickness = null
 );
 
 [JsonSerializable(typeof(ThemePackRecord))]

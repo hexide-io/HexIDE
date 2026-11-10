@@ -46,8 +46,9 @@ public sealed class HighContrastPackTests
                     .Where(t => t.Name == "PART_ContentPresenter" && t.Content is string).ToArray();
                 var active = presenters.Single(t => Equals(t.Content, "Alphabetic"));
                 var inactive = presenters.Single(t => Equals(t.Content, "Categorized"));
-                active.BorderThickness.Left.Should().BeGreaterThanOrEqualTo(3);
-                inactive.BorderThickness.Should().Be(new Thickness(0));
+                active.BorderThickness.Left.Should().BeGreaterThanOrEqualTo(2);
+                inactive.BorderThickness.Should().Be(new Thickness(2));
+                ((ISolidColorBrush)inactive.BorderBrush!).Color.A.Should().Be(0);
                 selected = ((ISolidColorBrush)active.BorderBrush!).Color;
                 unselected = Resource("ThemeBackgroundBrush");
                 foreground = ((ISolidColorBrush)active.Foreground!).Color;
@@ -56,16 +57,17 @@ public sealed class HighContrastPackTests
             }
             else
             {
-                document.BorderThickness.Left.Should().BeGreaterThanOrEqualTo(3);
+                document.BorderThickness.Left.Should().BeGreaterThanOrEqualTo(2);
                 selected = ((ISolidColorBrush)document.BorderBrush!).Color;
                 unselected = Resource("DockDocumentTabStripBackgroundBrush");
                 foreground = ((ISolidColorBrush)document.Foreground!).Color;
                 SyntaxHighlightingTheme.ContrastRatio(foreground, ((ISolidColorBrush)document.Background!).Color)
                     .Should().BeGreaterThanOrEqualTo(7);
                 document.IsActive = false;
-                document.BorderThickness.Left.Should().BeGreaterThanOrEqualTo(3);
+                document.BorderThickness.Left.Should().BeGreaterThanOrEqualTo(2);
                 document.IsSelected = false;
-                document.BorderThickness.Should().Be(new Thickness(0));
+                document.BorderThickness.Should().Be(new Thickness(2));
+                ((ISolidColorBrush)document.BorderBrush!).Color.A.Should().Be(0);
             }
             SyntaxHighlightingTheme.ContrastRatio(selected, unselected).Should().BeGreaterThanOrEqualTo(3);
         }
