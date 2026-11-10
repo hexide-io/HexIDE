@@ -165,31 +165,12 @@ public class CodeEditorSplitTests : IDisposable
 
             // Navigate inside an existing selection: moving the caret alone leaves it active.
             composition.EditorService.EditCode(module);
-            if (route != "open_file") top.TextArea.Focus().Should().BeTrue();
+            top.TextArea.Focus().Should().BeTrue();
             switch (route)
             {
                 case "open_file":
-                    var app = Application.Current!;
-                    var lifetimeField = typeof(Application).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                        .Single(field => field.FieldType == typeof(Avalonia.Controls.ApplicationLifetimes.IApplicationLifetime));
-                    var previous = lifetimeField.GetValue(app);
-                    var lifetime = Substitute.For<Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime>();
-                    lifetime.MainWindow.Returns(window);
-                    lifetime.Windows.Returns(new[] { window });
-                    lifetimeField.SetValue(app, lifetime);
-                    using (var context = new HexIDE.Desktop.Server.IdeContext(composition.ProjectManager,
-                        composition.DocumentDockService, _lspClient, composition.EditorService,
-                        null!, null!, null!, null!, null!, null!, composition.Root, null!, null!, null!, null!,
-                        null!, null!, composition.LocalizationService, null!, null!))
-                    {
-                        try
-                        {
-                            var reply = await new HexIDE.Desktop.Server.HexIdeTools(context)
-                                .OpenFileAsync(module.Name, line: line.LineNumber);
-                            reply.Success.Should().BeTrue(reply.Error);
-                        }
-                        finally { lifetimeField.SetValue(app, previous); }
-                    }
+                    var reply = await OpenFile(window, composition, module.Name, line.LineNumber);
+                    reply.Success.Should().BeTrue(reply.Error);
                     break;
                 case "definition":
                     composition.EditorService.NavigateTo(vm.GetDocumentUriPublic(), line.LineNumber, 1).Should().BeTrue();
@@ -443,6 +424,126 @@ public class CodeEditorSplitTests : IDisposable
         {
             composition.ProjectManager.UnloadAllProjects();
         }
+    }
+
+    // The issue's calls (#3618). Navigation moves the pane that last had focus, so focus has to stay with that pane, and
+    // what the reply reads back has to be that pane's caret. The lower pane moved and the top one took focus.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OpenFileLeavesFocusAndItsReplyInThePaneItMoved(bool lower)
+    {
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
+        var window = HexIDE.Integration.Tests.Automation.ToolbarAutomationNameTests.ShowMainView();
+        _windows.Add(window);
+        var main = (MainView)window.Content!;
+        main.DataTemplates.Add(new ViewLocator());
+        main.DataContext = composition.Root;
+        var module = ALongModule();
+        module.Owner.AddModule(module);
+        composition.ProjectManager.AddProject(module.Owner);
+        try
+        {
+            composition.EditorService.EditCode(module);
+            Dispatcher.UIThread.RunJobs();
+            using var vm = composition.DocumentDockService.OpenDocuments.OfType<CodeEditorViewModel>().Single();
+            var view = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(main).OfType<CodeEditorView>().Single();
+            view.ToggleSplit();
+            Dispatcher.UIThread.RunJobs();
+            var panes = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(view)
+                .OfType<HexIDE.Controls.TextEditing.TextEditor>().ToArray();
+            var (moved, other) = lower ? (panes[1], panes[0]) : (panes[0], panes[1]);
+            var start = vm.Document.GetLineByNumber(10).Offset;
+            moved.CaretOffset = start;
+            other.CaretOffset = start;
+            moved.TextArea.Focus().Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+
+            var reply = await OpenFile(window, composition, module.Name, 120, 7);
+            Dispatcher.UIThread.RunJobs();
+
+            reply.Success.Should().BeTrue(reply.Error);
+            reply.Note.Should().Contain("Keyboard focus is in it.")
+                .And.Contain("The caret is at line 120, column 7:")
+                .And.NotContain("as asked");
+            moved.TextArea.IsKeyboardFocusWithin.Should().BeTrue();
+            other.TextArea.IsKeyboardFocusWithin.Should().BeFalse();
+            moved.TextArea.Caret.Line.Should().Be(120);
+            moved.TextArea.Caret.Column.Should().Be(7);
+            other.TextArea.Caret.Line.Should().Be(10);
+            vm.CaretOffset.Should().Be(moved.CaretOffset);
+        }
+        finally { composition.ProjectManager.UnloadAllProjects(); }
+    }
+
+    // The same, reached without the automation: a click on a diagnostic, a reference or a search result takes this route,
+    // and the lower pane's user was left typing in the top pane.
+    [AvaloniaFact]
+    public async Task NavigationLeavesFocusInTheLowerPaneThatMoved()
+    {
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
+        var window =HexIDE.Integration.Tests.Automation.ToolbarAutomationNameTests.ShowMainView();
+        _windows.Add(window);
+        var main = (MainView)window.Content!;
+        main.DataTemplates.Add(new ViewLocator());
+        main.DataContext = composition.Root;
+        var module = ALongModule();
+        module.Owner.AddModule(module);
+        composition.ProjectManager.AddProject(module.Owner);
+        try
+        {
+            composition.EditorService.EditCode(module);
+            Dispatcher.UIThread.RunJobs();
+            using var vm = composition.DocumentDockService.OpenDocuments.OfType<CodeEditorViewModel>().Single();
+            var view = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(main).OfType<CodeEditorView>().Single();
+            view.ToggleSplit();
+            Dispatcher.UIThread.RunJobs();
+            var panes = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(view)
+                .OfType<HexIDE.Controls.TextEditing.TextEditor>().ToArray();
+            panes[1].TextArea.Focus().Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+
+            composition.EditorService.NavigateTo(vm.GetDocumentUriPublic(), 120, 7).Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+
+            panes[1].TextArea.IsKeyboardFocusWithin.Should().BeTrue();
+            panes[0].TextArea.IsKeyboardFocusWithin.Should().BeFalse();
+            panes[1].TextArea.Caret.Line.Should().Be(120);
+            vm.CaretOffset.Should().Be(panes[1].CaretOffset);
+        }
+        finally { composition.ProjectManager.UnloadAllProjects(); }
+    }
+
+    private async Task<HexIDE.Desktop.Server.MutateResult> OpenFile(
+        Window window, DISetup composition, string name, int line, int? column = null)
+    {
+        var app = Application.Current!;
+        var lifetimeField = typeof(Application).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            .Single(field => field.FieldType == typeof(Avalonia.Controls.ApplicationLifetimes.IApplicationLifetime));
+        var previous = lifetimeField.GetValue(app);
+        var lifetime = Substitute.For<Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime>();
+        lifetime.MainWindow.Returns(window);
+        lifetime.Windows.Returns(new[] { window });
+        lifetimeField.SetValue(app, lifetime);
+        using var context = new HexIDE.Desktop.Server.IdeContext(composition.ProjectManager,
+            composition.DocumentDockService, _lspClient, composition.EditorService,
+            null!, null!, null!, null!, null!, null!, composition.Root, null!, null!, null!, null!,
+            null!, null!, composition.LocalizationService, null!, null!);
+        try
+        {
+            return await new HexIDE.Desktop.Server.HexIdeTools(context).OpenFileAsync(name, line: line, column: column);
+        }
+        finally { lifetimeField.SetValue(app, previous); }
+    }
+
+    private static ModuleDefinition ALongModule()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+        module.UpdateCode("Sub Main()\r\n" + string.Concat(Enumerable.Repeat("    Debug.Print 1\r\n", 200)) + "End Sub\r\n");
+        return module;
     }
 
     private CodeEditorViewModel MakeViewModel()

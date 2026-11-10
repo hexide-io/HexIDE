@@ -24,13 +24,18 @@ that the developer could not see them was a limitation of its code window, and t
 ### Requirement: Split code window
 Window → Split SHALL toggle two vertically stacked, resizable editor views over the same document
 and undo stack (#70). Each pane SHALL retain its own caret, selection and scroll position. Navigation
-and editor commands SHALL use the active pane. Removing the split SHALL retain the document's edits.
+and editor commands SHALL use the active pane, and navigation or activating the window's tab SHALL give
+keyboard focus to the active pane. Removing the split SHALL retain the document's edits.
 The split and its pane sizes SHALL survive switching to the designer and back, including view recreation.
 
 #### Scenario: Navigation does not transfer selections between panes
 - **WHEN** one pane has selected text and navigation focuses the other pane
 - **THEN** a caret-only navigation clears the destination pane's selection and leaves the other pane's selection alone
 - **AND** Find selects its match only in the destination pane
+
+#### Scenario: Navigation keeps focus in the pane it moves
+- **WHEN** the lower pane last had focus and the developer goes to a line of that document from elsewhere in the IDE
+- **THEN** the lower pane moves and has keyboard focus, and the top pane keeps its caret
 
 #### Scenario: Dragging the splitter returns editor focus
 - **WHEN** the developer finishes dragging the splitter

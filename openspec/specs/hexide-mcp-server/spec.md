@@ -621,7 +621,13 @@ Given a line, and a column if wanted, `open_file` SHALL put the caret there in t
 a carried file's, numbering both from 1 as the editor does, against the text `get_file_content` returns. A place off
 the text SHALL be refused before anything opens. A fold over the caret SHALL be opened, and the note SHALL read the
 caret's line, column and offset back from the editor. Without `line`, the note SHALL still read the caret back,
-without requesting a new position, both when opening a new window and activating an existing one.
+without requesting a new position, both when opening a new window and activating an existing one. In a split code
+window the caret, keyboard focus and the note SHALL all be those of the pane that last had focus.
+
+#### Scenario: A split code window
+- **WHEN** the lower pane of a split code window last had focus and `open_file` names a line in that window
+- **THEN** the lower pane moves and has keyboard focus, the top pane keeps its caret, and the note gives the lower pane's
+  line and column with no claim that the caret went elsewhere
 
 #### Scenario: A carried file
 - **WHEN** `open_file` opens a carried file at line 3, column 5

@@ -131,6 +131,12 @@ public partial class CodeEditorView : UserControl
     private bool IsActivePane => (_splitOwner ?? this)._activePane is null ||
                                  ReferenceEquals((_splitOwner ?? this)._activePane, this);
 
+    /// <summary>
+    /// The text area navigation moves: the pane that last had focus, or the only one. Whatever gives this window keyboard
+    /// focus gives it here, or the pane that moved and the pane being typed in are different ones (#3618).
+    /// </summary>
+    internal AvaloniaEdit.Editing.TextArea ActiveTextArea => ((_splitOwner ?? this)._activePane ?? this).TextEditor.TextArea;
+
     public CodeEditorView() : this(null) { }
 
     private CodeEditorView(CodeEditorView? splitOwner)
@@ -212,14 +218,13 @@ public partial class CodeEditorView : UserControl
         AddHandler(CommandManager.CanExecuteEvent, (_, args) =>
         {
             if (!ReferenceEquals(args.Source, this) || args.Command is not Avalonia.Labs.Input.RoutedCommand command) return;
-            args.CanExecute = command.CanExecute(args.Parameter,
-                ((_splitOwner ?? this)._activePane ?? this).TextEditor.TextArea);
+            args.CanExecute = command.CanExecute(args.Parameter, ActiveTextArea);
             args.Handled = true;
         });
         AddHandler(CommandManager.ExecutedEvent, (_, args) =>
         {
             if (!ReferenceEquals(args.Source, this) || args.Command is not Avalonia.Labs.Input.RoutedCommand command) return;
-            command.Execute(args.Parameter, ((_splitOwner ?? this)._activePane ?? this).TextEditor.TextArea);
+            command.Execute(args.Parameter, ActiveTextArea);
             args.Handled = true;
         });
         TextEditor.TextArea.GotFocus += (_, _) =>

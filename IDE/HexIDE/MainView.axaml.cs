@@ -83,7 +83,8 @@ public partial class MainView : UserControl
         var children = view.GetVisualDescendants().OfType<Control>();
         Control? input = view switch
         {
-            CodeEditorView or ImmediateToolView => children.OfType<TextEditor>().FirstOrDefault()?.TextArea,
+            CodeEditorView code => code.ActiveTextArea,
+            ImmediateToolView => children.OfType<TextEditor>().FirstOrDefault()?.TextArea,
             ProjectToolView => children.OfType<TreeViewItem>().FirstOrDefault(c => c.IsSelected && c.IsEffectivelyVisible)
                 ?? children.OfType<TreeViewItem>().FirstOrDefault(c => c.IsEffectivelyVisible),
             PropertiesToolView => children.OfType<ListBoxItem>().FirstOrDefault(c => c.IsSelected && c.IsEffectivelyVisible)
