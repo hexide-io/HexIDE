@@ -100,10 +100,23 @@ public sealed class WorkspaceArtifactProjectTests
     }
 
     [Fact]
-    public void A_contributed_project_is_never_rendered_as_a_vbp_for_a_server()
+    public void A_project_whose_type_writes_its_file_is_rendered_for_a_server_whoever_opened_it()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "hexide-projection-" + Guid.NewGuid().ToString("N"), "Probe.vbp");
+        var project = new ProjectDefinition(VBProjectType.EXE, "Probe") { AbsolutePath = path, ContributedBy = "rdcore" };
+        var manager = Substitute.For<IProjectManager>();
+        manager.LoadedProjects.Returns(new[] { project });
+        var sut = new ProjectLspWorkspace(() => manager, new Vb6ProjectFileFormat());
+
+        sut.Projects[0].ProjectText.Should().NotBeNull();
+        sut.Dispose();
+    }
+
+    [Fact]
+    public void A_project_whose_type_does_not_write_its_file_is_never_rendered_for_a_server()
     {
         var path = Path.Combine(Path.GetTempPath(), "hexide-projection-" + Guid.NewGuid().ToString("N"), ".rdproj");
-        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { AbsolutePath = path, ContributedBy = "rdcore" };
+        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { AbsolutePath = path, Offers = ProjectOffers.Nothing };
         var manager = Substitute.For<IProjectManager>();
         manager.LoadedProjects.Returns(new[] { project });
         var sut = new ProjectLspWorkspace(() => manager, new Vb6ProjectFileFormat());

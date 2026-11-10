@@ -71,8 +71,8 @@ public sealed class InterpreterRunEngine : IRunEngine
     }
 
     /// <inheritdoc />
-    /// <remarks>A project an add-in read is run by the program it belongs to, never by this interpreter.</remarks>
-    public bool Runs(ProjectDefinition project) => project.ContributedBy is null;
+    /// <remarks>A project whose type doesn't offer this is run by the program it belongs to, never by this interpreter.</remarks>
+    public bool Runs(ProjectDefinition project) => project.Offers.Runs;
 
     /// <inheritdoc />
     /// <remarks>

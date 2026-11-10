@@ -1147,9 +1147,10 @@
         "provider": "closed-documents"
       },
       {
-        "kind": "Placeholder",
+        "kind": "Command",
         "id": "window.split",
-        "labelKey": "Str.Menu.Window.Split"
+        "labelKey": "Str.Menu.Window.Split",
+        "command": "application.SplitWindowCommand"
       },
       {
         "kind": "Separator",

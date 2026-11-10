@@ -58,6 +58,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public TextDocument Document => document;
 
+    // View recreation when switching tabs must retain the code window's split layout.
+    internal (Avalonia.Controls.GridLength Top, Avalonia.Controls.GridLength Bottom)? SplitRows { get; set; }
+
     // Per code window, deliberately absent from project and settings serialization (#1113).
     [Notify] private int conditionalTargetIndex;
 
@@ -273,7 +276,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                     Log.Debug("CodeEditorViewModel: Found 'Sub {SubName}' at offset {Offset}, navigating", e.Sub, sub);
                     var run = MemberRunsNow.FirstOrDefault(r => r.DescribesMember && r.DescribedStart <= sub && sub <= r.Anchor);
                     var nextNewLineIndex = Document.IndexOf("\n", sub, Document.TextLength - sub, StringComparison.OrdinalIgnoreCase);
-                    CaretOffset = run is not null ? run.Region.End : nextNewLineIndex == -1 ? sub : nextNewLineIndex + 1;
+                    this.NavigateToOffset(run is not null ? run.Region.End : nextNewLineIndex == -1 ? sub : nextNewLineIndex + 1);
                 }
                 else
                 {
@@ -1237,7 +1240,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         var position = symbol.SelectionRange.Start;
         if (position.Line < 0 || position.Line >= Document.LineCount) return;
         var line = Document.GetLineByNumber(position.Line + 1);
-        CaretOffset = Math.Clamp(line.Offset + Math.Max(0, position.Character), line.Offset, line.EndOffset);
+        this.NavigateToOffset(Math.Clamp(line.Offset + Math.Max(0, position.Character), line.Offset, line.EndOffset));
         FocusWindowRequest?.Invoke();
     }
 
@@ -2214,7 +2217,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 if (target is null || position.Line < 0 || position.Line >= target.Document.LineCount
                     || position.Character < 0 || position.Character > target.Document.GetLineByNumber(position.Line + 1).Length) return false;
                 var offset = target.Document.GetOffset(position.Line + 1, position.Character + 1);
-                target.CaretOffset = offset;
+                target.NavigateToOffset(offset);
                 if (WordAt(target.Document, offset) is not { } name) return true;
                 if (target.RenameRefusalAt(offset, name) is { } refusal) await target.ShowRefusalAsync(refusal);
                 else await target.RenameSymbolAsync(position, name);
@@ -2439,7 +2442,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (sym is null) return;
             var line = sym.SelectionRange.Start.Line + 1;
             if (line >= 1 && line <= Document.LineCount)
-                CaretOffset = Document.GetLineByNumber(line).Offset;
+                this.NavigateToOffset(Document.GetLineByNumber(line).Offset);
         }
         else
         {
@@ -2449,7 +2452,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (idx >= 0)
             {
                 var line = Document.GetLineByOffset(idx);
-                CaretOffset = line.EndOffset;
+                this.NavigateToOffset(line.EndOffset);
             }
             else
             {

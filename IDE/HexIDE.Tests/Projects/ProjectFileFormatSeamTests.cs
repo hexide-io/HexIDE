@@ -4,6 +4,7 @@ using Avalonia.Headless.XUnit;
 using HexIDE.Bookmarks;
 using HexIDE.Debugging;
 using HexIDE.Desktop.Server;
+using HexIDE.Tests.Infrastructure;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Localization;
@@ -376,39 +377,15 @@ public class ProjectFileFormatSeamTests : IDisposable
         var names = new Regex(@"\b(FormSerializer|ProjectSerializer|GroupSerializer|FormDeserializer|FrxDeserializer|ProjectDeserializer|GroupDeserializer|ProjectLoader)\b"
                               + @"|\bModuleFileFormat\s*\.\s*(ToFileContent|SplitHeader)\b");
         // A contributed project's module is split by name until the add-in type reads modules itself: #3411's slice 7.
-        ProductFilesNaming(names, "Vb6ProjectFileFormat.cs", "ContributedProjects.cs")
+        ProductSource.FilesMatching(names, "Vb6ProjectFileFormat.cs", "ContributedProjects.cs")
             .Should().BeEmpty("the IDE reaches a project's file formats through IProjectFileFormat");
     }
 
     [Fact]
     public void Only_the_composition_root_chooses_the_format()
     {
-        ProductFilesNaming(new Regex(@"\bVb6ProjectFileFormat\b"), "Vb6ProjectFileFormat.cs", "DISetup.cs")
+        ProductSource.FilesMatching(new Regex(@"\bVb6ProjectFileFormat\b"), "Vb6ProjectFileFormat.cs", "DISetup.cs")
             .Should().BeEmpty("a class is given its format, so that one binding decides it");
-    }
-
-    private static List<string> ProductFilesNaming(Regex names, params string[] allowed)
-    {
-        var root = RepoRoot();
-        var comments = new Regex(@"//[^\n]*|/\*.*?\*/", RegexOptions.Singleline);
-
-        return new[] { "HexIDE", "HexIDE.Core", "HexIDE.Lsp", "HexIDE.Desktop", "HexIDE.Browser" }
-            .SelectMany(project => Directory.EnumerateFiles(Path.Join(root, "IDE", project), "*.cs", SearchOption.AllDirectories))
-            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                           && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-            .Where(file => !allowed.Contains(Path.GetFileName(file)))
-            .Where(file => names.IsMatch(comments.Replace(File.ReadAllText(file), "")))
-            .Select(file => Path.GetRelativePath(root, file))
-            .ToList();
-    }
-
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !(Directory.Exists(Path.Combine(dir.FullName, "IDE"))
-                                && Directory.Exists(Path.Combine(dir.FullName, "LspServer"))))
-            dir = dir.Parent;
-        return dir?.FullName ?? throw new InvalidOperationException("Could not locate the repository root from the test output.");
     }
 
     private sealed class StandInFormat : IProjectFileFormat

@@ -94,6 +94,7 @@ internal static class CommandKeyMapping
             ["OpenToolBoxCommand"]                     = ApplicationCommands.OpenToolBoxCommand,
             ["OpenDataViewCommand"]                    = ApplicationCommands.OpenDataViewCommand,
             ["OpenColorPaletteCommand"]                = ApplicationCommands.OpenColorPaletteCommand,
+            ["SplitWindowCommand"]                     = ApplicationCommands.SplitWindowCommand,
             ["ResetWindowLayoutCommand"]               = ApplicationCommands.ResetWindowLayoutCommand,
             // ── Run ───────────────────────────────────────────────
             ["StartDefaultProjectCommand"]             = ApplicationCommands.StartDefaultProjectCommand,

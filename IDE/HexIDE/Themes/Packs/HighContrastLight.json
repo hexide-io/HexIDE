@@ -56,6 +56,29 @@
     "BracketDepth3": "#000000",
     "BracketUnmatched": "#000000",
     "ReadOnlyText": "#595959",
-    "InactiveCodeText": "#595959"
-  }
+    "InactiveCodeText": "#595959",
+    "ThemeBackgroundBrush": "#FFFFFF",
+    "ThemeForegroundBrush": "#000000",
+    "ThemeForegroundLowBrush": "#000000",
+    "ThemeControlMidBrush": "#FFFFFF",
+    "ThemeControlMidHighBrush": "#000000",
+    "ThemeControlHighlightMidBrush": "#FFFFFF",
+    "ThemeAccentBrush2": "#FFFFFF",
+    "ThemeAccentBrush3": "#FFFFFF",
+    "ThemeAccentBrush4": "#FFFFFF",
+    "DockThemeBackgroundBrush": "#FFFFFF",
+    "DockThemeControlBackgroundBrush": "#FFFFFF",
+    "DockDocumentTabStripBackgroundBrush": "#FFFFFF",
+    "DockSurfacePanelBrush": "#FFFFFF",
+    "DockSurfaceHeaderBrush": "#FFFFFF",
+    "DockSurfaceSidebarBrush": "#FFFFFF",
+    "DockTabBackgroundBrush": "#FFFFFF",
+    "DockTabActiveBackgroundBrush": "#FFFFFF",
+    "DockTabForegroundBrush": "#000000",
+    "DockTabSelectedForegroundBrush": "#000000",
+    "DockTabActiveForegroundBrush": "#000000",
+    "LineNumbersForeground": "#000000"
+  },
+  "placeholderOpacity": 1,
+  "tabSelectionBorderThickness": 3
 }

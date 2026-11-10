@@ -1037,22 +1037,51 @@ public class MainViewViewModelTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Membership_settings_and_builds_are_offered_only_for_a_project_HexIDE_read_itself(bool contributed)
+    public void What_a_project_is_offered_follows_its_type_whoever_opened_it(bool offersEverything)
     {
         _vb6Toolchain.IsAvailable.Returns(true);
-        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = contributed ? "RDCore projects" : null };
-        _focusedProjectUtil.FocusedOrStartupProject.Returns(project);
-
-        var commands = new[]
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(new ProjectDefinition(VBProjectType.EXE, "Ledger")
         {
-            _sut.AddFormCommand, _sut.AddModuleCommand, _sut.AddClassModuleCommand, _sut.AddUserControlCommand,
-            _sut.AddPropertyPageCommand, _sut.AddFileCommand, _sut.RunWithVb6Command, _sut.MakeWithVb6Command,
-            _sut.MakeProjectCommand, _sut.ProjectPropertiesCommand, _sut.ProjectReferencesCommand, _sut.ProjectComponentsCommand,
-        };
+            ContributedBy = offersEverything ? "RDCore projects" : null,
+            Offers = offersEverything ? ProjectOffers.Everything : ProjectOffers.Nothing,
+        });
 
-        commands.Select(command => command.CanExecute(null)).Should().AllBeEquivalentTo(!contributed,
-            "a contributed project's membership is its add-in's program's, and neither HexIDE nor VB6 builds what it did not read");
+        OfferedCommands().Select(entry => entry.Command.CanExecute(null)).Should().AllBeEquivalentTo(offersEverything);
     }
+
+    [AvaloniaTheory]
+    [InlineData(nameof(ProjectOffers.ChangesMembership))]
+    [InlineData(nameof(ProjectOffers.Makes))]
+    [InlineData(nameof(ProjectOffers.SetsProperties))]
+    [InlineData(nameof(ProjectOffers.SetsReferences))]
+    [InlineData(nameof(ProjectOffers.SetsComponents))]
+    public void A_project_short_of_one_thing_loses_only_what_needs_it(string denied)
+    {
+        _vb6Toolchain.IsAvailable.Returns(true);
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(new ProjectDefinition(VBProjectType.EXE, "Ledger")
+        {
+            Offers = HexIDE.Tests.Projects.ProjectOffersTests.Without(denied),
+        });
+
+        foreach (var (command, offer) in OfferedCommands())
+            command.CanExecute(null).Should().Be(offer != denied, $"this command needs {offer}");
+    }
+
+    private (System.Windows.Input.ICommand Command, string Offer)[] OfferedCommands() =>
+    [
+        (_sut.AddFormCommand, nameof(ProjectOffers.ChangesMembership)),
+        (_sut.AddModuleCommand, nameof(ProjectOffers.ChangesMembership)),
+        (_sut.AddClassModuleCommand, nameof(ProjectOffers.ChangesMembership)),
+        (_sut.AddUserControlCommand, nameof(ProjectOffers.ChangesMembership)),
+        (_sut.AddPropertyPageCommand, nameof(ProjectOffers.ChangesMembership)),
+        (_sut.AddFileCommand, nameof(ProjectOffers.ChangesMembership)),
+        (_sut.RunWithVb6Command, nameof(ProjectOffers.Makes)),
+        (_sut.MakeWithVb6Command, nameof(ProjectOffers.Makes)),
+        (_sut.MakeProjectCommand, nameof(ProjectOffers.Makes)),
+        (_sut.ProjectPropertiesCommand, nameof(ProjectOffers.SetsProperties)),
+        (_sut.ProjectReferencesCommand, nameof(ProjectOffers.SetsReferences)),
+        (_sut.ProjectComponentsCommand, nameof(ProjectOffers.SetsComponents)),
+    ];
 
     // --- StartDefaultProjectCommand ---
 

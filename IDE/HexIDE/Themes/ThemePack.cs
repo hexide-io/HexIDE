@@ -8,7 +8,9 @@ public record ThemePackRecord(
     string Name,
     string? Description,
     string? ThemeVariant,
-    Dictionary<string, string>? Colors
+    Dictionary<string, string>? Colors,
+    double? PlaceholderOpacity = null,
+    double? TabSelectionBorderThickness = null
 );
 
 [JsonSerializable(typeof(ThemePackRecord))]
@@ -18,7 +20,7 @@ internal partial class ThemeJsonContext : JsonSerializerContext { }
 
 /// <summary>
 /// Maps JSON colour names from a theme pack to Avalonia resource keys.
-/// Keys must exactly match what Classic.axaml declares so DynamicResource bindings update live.
+/// Keys match Classic.axaml or the base themes so DynamicResource bindings update live.
 /// </summary>
 internal static class ColorKeyMapping
 {
@@ -82,6 +84,28 @@ internal static class ColorKeyMapping
             ["BracketDepth2"] = ("BracketDepth2Brush", true),
             ["BracketDepth3"] = ("BracketDepth3Brush", true),
             ["BracketUnmatched"] = ("BracketUnmatchedBrush", true),
+            // Base-theme and Dock resources used by chrome outside the Classic palette.
+            ["ThemeBackgroundBrush"] = ("ThemeBackgroundBrush", true),
+            ["ThemeForegroundBrush"] = ("ThemeForegroundBrush", true),
+            ["ThemeForegroundLowBrush"] = ("ThemeForegroundLowBrush", true),
+            ["ThemeControlMidBrush"] = ("ThemeControlMidBrush", true),
+            ["ThemeControlMidHighBrush"] = ("ThemeControlMidHighBrush", true),
+            ["ThemeControlHighlightMidBrush"] = ("ThemeControlHighlightMidBrush", true),
+            ["ThemeAccentBrush2"] = ("ThemeAccentBrush2", true),
+            ["ThemeAccentBrush3"] = ("ThemeAccentBrush3", true),
+            ["ThemeAccentBrush4"] = ("ThemeAccentBrush4", true),
+            ["DockThemeBackgroundBrush"] = ("DockThemeBackgroundBrush", true),
+            ["DockThemeControlBackgroundBrush"] = ("DockThemeControlBackgroundBrush", true),
+            ["DockDocumentTabStripBackgroundBrush"] = ("DockDocumentTabStripBackgroundBrush", true),
+            ["DockSurfacePanelBrush"] = ("DockSurfacePanelBrush", true),
+            ["DockSurfaceHeaderBrush"] = ("DockSurfaceHeaderBrush", true),
+            ["DockSurfaceSidebarBrush"] = ("DockSurfaceSidebarBrush", true),
+            ["DockTabBackgroundBrush"] = ("DockTabBackgroundBrush", true),
+            ["DockTabActiveBackgroundBrush"] = ("DockTabActiveBackgroundBrush", true),
+            ["DockTabForegroundBrush"] = ("DockTabForegroundBrush", true),
+            ["DockTabSelectedForegroundBrush"] = ("DockTabSelectedForegroundBrush", true),
+            ["DockTabActiveForegroundBrush"] = ("DockTabActiveForegroundBrush", true),
+            ["LineNumbersForeground"] = ("LineNumbersForegroundBrush", true),
             // Accent colors stored as Color (not SolidColorBrush), matching Classic.axaml
             ["SystemAccentColor"]       = ("SystemAccentColor",                          false),
             ["SystemAccentColorLight1"] = ("SystemAccentColorLight1",                    false),

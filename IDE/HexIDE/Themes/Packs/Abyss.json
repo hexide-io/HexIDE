@@ -3,6 +3,7 @@
   "description": "VS Code Abyss theme — deep navy-black base with blue-tinted chrome and mid-blue accent",
   "themeVariant": "Dark",
   "colors": {
+    "LineNumbersForeground": "#808080",
     "IndentGuide": "#404048",
     "ActiveIndentGuide": "#909098",
     "BracketDepth1": "#D3B07C",
