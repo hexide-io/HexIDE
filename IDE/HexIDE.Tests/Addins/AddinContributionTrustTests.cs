@@ -46,6 +46,8 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
     private readonly IWindowManager _windows = Substitute.For<IWindowManager>();
     private readonly List<string> _failures = [];
     private readonly List<string> _interpreterStarts = [];
+    // F5 that falls back to the run engine reaches this stand-in, which fails its start and says so.
+    private readonly StandInRunEngine _engine = new() { StartFailure = new RunFailure("No startup form", null) };
     private int _configurations;
     private int _opens;
 
@@ -80,8 +82,8 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
         _debugger.Failed += _failures.Add;
         _launches = new DebugLaunchService(_debugger);
         _projects.StartupProject.Returns(_project);
-        _runner = TestRunners.WithInterpreter(Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), _projects, localization,
-            Substitute.For<IDebugGate>(), Substitute.For<IBreakpointService>(), new WatchService(), new RunScope(), _debugger,
+        _runner = TestRunners.WithEngine(_engine, Substitute.For<IEventBus>(), _projects, localization,
+            Substitute.For<IDebugController>(), Substitute.For<IBreakpointService>(), new WatchService(), new RunScope(), _debugger,
             debugLaunches: _launches, runChoices: _choices, statusBar: Substitute.For<IStatusBarService>());
         // The test project has no startup form, so F5 that goes to the interpreter fails at once and says so.
         _runner.StartFailed += _interpreterStarts.Add;

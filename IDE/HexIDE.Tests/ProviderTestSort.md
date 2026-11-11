@@ -14,7 +14,6 @@ A test that reaches the provider only at run time, through the application's com
 
 | File | Label |
 |---|---|
-| `Addins/AddinContributionTrustTests.cs` | split |
 | `Addins/AddinEditorGuardTests.cs` | split |
 | `Addins/AddinInitializationTests.cs` | split |
 | `Addins/AddinWholeFileTests.cs` | split |
@@ -32,7 +31,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Corpus/ProjectSmokeService.cs` | split |
 | `Corpus/ProjectSmokeServiceTests.cs` | split |
 | `DebugAdapter/DebuggerCompositionTests.cs` | split |
-| `DebugAdapter/ExternalDebugServiceTests.cs` | split |
 | `DebugAdapter/RunEngineSeamTests.cs` | split |
 | `DebugAdapter/RunWithTests.cs` | split |
 | `Debugging/BreakpointServiceTests.cs` | split |
