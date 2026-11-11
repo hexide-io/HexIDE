@@ -13,6 +13,41 @@ public class ProjectPropertiesViewModelTests
     /// </summary>
     private static string? NoNameObjection(string _) => null;
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Apply_NoStartupObject_PreservesStartup(bool editDescription)
+    {
+        // #3730: accepting unrelated properties must not choose Sub Main on the user's behalf.
+        var project = TestHelpers.CreateProject("Proj");
+        project.StartupFormName = "(None)";
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
+        if (editDescription)
+            vm.ProjectDescription = "Tide tables";
+
+        vm.Apply(project);
+
+        project.StartsAtSubMain.Should().BeFalse();
+        project.StartupForm.Should().BeNull();
+        project.StartupFormName.Should().Be("(None)");
+        vm.SelectedStartupObject.Should().BeNull();
+        project.Description.Should().Be(editDescription ? "Tide tables" : "");
+    }
+
+    [Fact]
+    public void Apply_NoSelectedRow_PreservesExistingStartup()
+    {
+        var project = TestHelpers.CreateProjectWithForm("Proj", "MainForm");
+        var startup = project.StartupForm;
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
+        vm.SelectedStartupObject = null;
+
+        vm.Apply(project);
+
+        project.StartupForm.Should().BeSameAs(startup);
+        project.StartsAtSubMain.Should().BeFalse();
+    }
+
     [Fact]
     public void Apply_GeneralPropertiesOnly_PreservesProjectTypeAndStartupObject()
     {
