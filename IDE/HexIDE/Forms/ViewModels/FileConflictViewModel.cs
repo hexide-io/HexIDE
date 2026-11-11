@@ -41,7 +41,12 @@ public class FileConflictViewModel : ObservableObject, IDialog
         CloseRequested?.Invoke(true);
     }
 
-    public void Cancel() => CloseRequested?.Invoke(false);
+    // Esc reaches it as well, so where the dialog offers no Cancel it does nothing, as Esc did before there was one.
+    public void Cancel()
+    {
+        if (CanCancel)
+            CloseRequested?.Invoke(false);
+    }
 }
 
 public class ConflictedFileViewModel(string name) : ObservableObject

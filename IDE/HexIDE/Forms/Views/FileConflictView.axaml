@@ -41,6 +41,7 @@
                     Content="{DynamicResource Str.Dialog.FileConflict.Button.KeepAll}" />
             <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                     IsVisible="{CompiledBinding CanCancel}"
+                    IsCancel="True"
                     Command="{CompiledBinding Cancel}"
                     Content="{DynamicResource Str.Dialog.FileConflict.Button.Cancel}" />
         </StackPanel>
