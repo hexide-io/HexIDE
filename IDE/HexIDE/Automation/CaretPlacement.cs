@@ -75,15 +75,7 @@ public static class CaretPlacement
         var caret = code.CaretOffset;
         if (!code.IsReadOnlyRegion(caret, 0))
             return null;
-        var what = "the file's header";
-        foreach (var held in code.ReadOnlyRegionsNow)
-        {
-            if (!held.Changes(caret, 0))
-                continue;
-            if (code.MemberNamedBy(held) is { } member)
-                what = "the Attribute lines describing " + member;
-            break;
-        }
+        var what = code.DescribeRegions(code.ReadOnlyRegionsNow.Where(r => r.Changes(caret, 0)).ToList());
         var past = code.PastReadOnlyRegion(caret);
         var to = code.Document.GetLocation(past);
         return $"That is in {what}, which only the IDE changes, so type_text there would be refused. The nearest place "

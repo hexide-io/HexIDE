@@ -10,6 +10,9 @@ public sealed class Vb6ReadOnlyRegionWriter : IReadOnlyRegionWriter
     public IReadOnlyList<TextChange> SaveRewrites(string text, int prefixLength) =>
         MemberAttributeQualifiers.Rewrites(text, prefixLength);
 
+    public string? DescribeSaveRewrite(string text, TextChange change) =>
+        $"The save wrote {change.Text}'s Attribute lines with its name (they said {text.Substring(change.Offset, change.Length)}), as VB6's own Save does.";
+
     public TextChange? NameRewrite(string text, int prefixLength, string name)
     {
         var code = text[prefixLength..];

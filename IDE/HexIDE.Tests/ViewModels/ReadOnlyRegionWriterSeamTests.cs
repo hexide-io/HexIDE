@@ -64,6 +64,8 @@ public class ReadOnlyRegionWriterSeamTests : IDisposable
 
     private sealed class NoteWriter : IReadOnlyRegionWriter
     {
+        public string? DescribeSaveRewrite(string text, TextChange change) =>
+            "The save refreshed the tucked note.";
         public bool RewriteOnSave { get; set; } = true;
         public List<(string Text, int Prefix)> Saves { get; } = [];
 
@@ -145,7 +147,33 @@ public class ReadOnlyRegionWriterSeamTests : IDisposable
         form.Code.Should().Be(Saved);
         File.ReadAllText(form.AbsolutePath!).Should().Be(Saved);
         writer.Saves.Should().ContainSingle().Which.Should().Be(("a header\r\n" + Notes, "a header\r\n".Length));
-        report.Note.Should().Be(" The save wrote current's Attribute lines with its name (they said stale), as VB6's own Save does.");
+        report.Note.Should().Be(" The save refreshed the tucked note.");
+    }
+
+    private sealed class SilentWriter : IReadOnlyRegionWriter
+    {
+        public IReadOnlyList<TextChange> SaveRewrites(string text, int prefixLength) =>
+            [new TextChange(text.IndexOf("stale", StringComparison.Ordinal), 5, "current")];
+    }
+
+    [Fact]
+    public void AWriterWithoutWordsSavesWithoutAddingANote()
+    {
+        var form = Form(Project());
+        var report = new SaveRewriteReport();
+        Service(new SilentWriter()).SerializeFormToFile(form, form.AbsolutePath!, rewrites: report).Should().BeTrue();
+        form.Code.Should().Be(Saved);
+        report.Note.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void RewriteNotesKeepTheirSpacingAndAreNotRepeated()
+    {
+        var report = new SaveRewriteReport();
+        TextChange[] changes = [new(0, 5, "current"), new(6, 5, "current")];
+        report.Record("stale stale", changes, writer);
+        report.Record("stale stale", changes, writer);
+        report.Note.Should().Be(" The save refreshed the tucked note.");
     }
 
     [Fact]

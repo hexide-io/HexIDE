@@ -2523,7 +2523,7 @@ public partial class ProjectService : IProjectService
             _ => throw new ArgumentException($"HexIDE does not rewrite a {document.GetType().Name}.", nameof(document)),
         };
         if (written)
-            rewrites?.Record(whole, changes);
+            rewrites?.Record(whole, changes, regionWriter);
         return written ? TextChanges.Apply(whole, changes)[prefix.Length..] : null;
     }
 
