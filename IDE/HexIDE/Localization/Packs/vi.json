@@ -1179,11 +1179,11 @@
     "Str.Project.AlreadyOpen": "Dự án {0} đã được mở.",
     "Str.Options.Addins.Overview": "Phần bổ trợ mở rộng HexIDE với các công cụ và thiết lập. Để cài đặt, giải nén gói phần bổ trợ đã ký vào thư mục riêng trong thư mục bên dưới, rồi khởi động lại HexIDE. Chọn phần bổ trợ trong cây để quản lý.",
     "Str.Tool.LanguageServers.Editor.Customise": "Tùy chỉnh",
-    "Str.Tool.LanguageServers.Editor.Help": "Giá trị trống sẽ xóa trường. Trường JSON nhận giá trị JSON. Lưu sẽ ghi nhớ lệnh bên dưới; khởi động lại để áp dụng.",
+    "Str.Tool.LanguageServers.Editor.Help": "Khi tùy chỉnh, các trường không thay đổi kế thừa giá trị mặc định. Xóa trắng trường đã có giá trị sẽ ghi null. Trường JSON nhận giá trị JSON. Lưu sẽ ghi nhớ lệnh bên dưới; khởi động lại để áp dụng.",
     "Str.Tool.LanguageServers.Editor.Command": "Lệnh đã phân giải (gồm đối số)",
     "Str.Tool.LanguageServers.Editor.Save": "Lưu",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "ID này đã tồn tại. Hãy sửa hoặc tùy chỉnh.",
-    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON không hợp lệ: {0}",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: JSON không hợp lệ: {1}",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Chỗ giữ chỗ của không gian làm việc chờ chọn thư mục dự án.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Tệp đã thay đổi. Mở lại biểu mẫu trước khi lưu."
   }

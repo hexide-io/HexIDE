@@ -1179,11 +1179,11 @@
     "Str.Project.AlreadyOpen": "Das Projekt {0} ist bereits geöffnet.",
     "Str.Options.Addins.Overview": "Add-Ins erweitern HexIDE um Werkzeuge und Einstellungen. Zum Installieren entpacken Sie ein signiertes Add-In-Paket in einen eigenen Ordner im unten angegebenen Verzeichnis und starten HexIDE neu. Wählen Sie ein Add-In im Baum aus, um es zu verwalten.",
     "Str.Tool.LanguageServers.Editor.Customise": "Anpassen",
-    "Str.Tool.LanguageServers.Editor.Help": "Ein leerer Wert löscht das Feld. JSON-Felder erwarten JSON-Werte. Speichern merkt sich den folgenden Befehl; zum Anwenden neu starten.",
+    "Str.Tool.LanguageServers.Editor.Help": "Beim Anpassen erben unveränderte Felder die Standardwerte. Das Leeren eines ausgefüllten Feldes schreibt null. JSON-Felder erwarten JSON-Werte. Speichern merkt sich den folgenden Befehl; zum Anwenden neu starten.",
     "Str.Tool.LanguageServers.Editor.Command": "Aufgelöster Befehl (mit Argumenten)",
     "Str.Tool.LanguageServers.Editor.Save": "Speichern",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Diese ID existiert bereits. Bearbeiten oder passen Sie den Eintrag an.",
-    "Str.Tool.LanguageServers.Editor.InvalidJson": "Ungültiges JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Ungültiges JSON: {1}",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Arbeitsbereichsplatzhalter bleiben bis zur Auswahl eines Projektordners unaufgelöst.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Die Datei wurde geändert. Öffnen Sie das Formular vor dem Speichern erneut."
   }

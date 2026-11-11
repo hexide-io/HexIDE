@@ -72,8 +72,8 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
         using var document = LanguageServerEditorStore.Parse(source);
         foreach (var name in new[]
         {
-            "id", "displayName", "extensions", "languageId", "transport", "command", "arguments", "environment",
-            "workingDirectory", "pipeName", "pipeRole", "endpoint", "websocketRole", "initializationOptions", "trace",
+            "id", "extensions", "languageId", "transport", "command", "arguments", "environment",
+            "workingDirectory", "pipeName", "pipeRole", "endpoint", "tcpRole", "websocketRole", "displayName", "initializationOptions", "trace",
             "priority", "enabled", "capture.envelopeEntries", "capture.prologueEntries", "capture.payloadBytesPerConnection",
             "capture.frameBytes", "workspaceArtifact.path", "workspaceArtifact.provider", "workspaceArtifact.settings",
             "workspaceArtifact.restartOnChange", "projectImport.command", "projectImport.arguments",
@@ -107,8 +107,17 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
             {
                 if (field.Text == field.Original) continue;
                 var literal = string.IsNullOrWhiteSpace(field.Text) ? "null"
-                    : field.IsJson ? field.Text : JsonSerializer.Serialize(field.Text);
-                using var parsed = LanguageServerEditorStore.Parse(literal);
+                    : field.IsJson ? field.Text : JsonSerializer.Serialize(field.Text, LanguageServerEditorStore.AsTyped);
+                try
+                {
+                    using var parsed = LanguageServerEditorStore.Parse(literal);
+                }
+                catch (JsonException ex)
+                {
+                    Problems = OriginalFileProblem() ?? string.Format(
+                        _localization.GetString("Str.Tool.LanguageServers.Editor.InvalidJson"), field.Name, ex.Message);
+                    return;
+                }
                 changes[field.Name] = literal;
             }
             var id = Fields.Single(f => f.Name == "id").Text;
@@ -117,7 +126,7 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
                 Problems = _localization.GetString("Str.Tool.LanguageServers.Editor.DuplicateId");
                 return;
             }
-            if (_customise) changes["id"] = JsonSerializer.Serialize(_id);
+            if (_customise) changes["id"] = JsonSerializer.Serialize(_id, LanguageServerEditorStore.AsTyped);
             _updated = _store.Change(_original, _customise ? null : _id, changes);
             var result = _store.Preview(_updated);
             Problems = FormatProblems(result.Problems.Where(p => p.EntryId is null || p.EntryId == id));
@@ -128,7 +137,7 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
         }
         catch (JsonException ex)
         {
-            Problems = OriginalFileProblem() ?? string.Format(_localization.GetString("Str.Tool.LanguageServers.Editor.InvalidJson"), ex.Message);
+            Problems = OriginalFileProblem() ?? ex.Message;
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {

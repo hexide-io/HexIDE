@@ -1179,11 +1179,11 @@
     "Str.Project.AlreadyOpen": "Проектът {0} вече е отворен.",
     "Str.Options.Addins.Overview": "Добавките разширяват HexIDE с инструменти и настройки. За инсталиране разархивирайте подписан пакет в отделна папка в директорията по-долу и рестартирайте HexIDE. Изберете добавка в дървото, за да я управлявате.",
     "Str.Tool.LanguageServers.Editor.Customise": "Персонализиране",
-    "Str.Tool.LanguageServers.Editor.Help": "Празна стойност изчиства полето. JSON полетата приемат JSON стойности. Записването запомня командата отдолу; рестартирайте за прилагане.",
+    "Str.Tool.LanguageServers.Editor.Help": "При персонализиране непроменените полета наследяват стойностите по подразбиране. Изчистването на попълнено поле записва null. JSON полетата приемат JSON стойности. Записването запомня командата отдолу; рестартирайте за прилагане.",
     "Str.Tool.LanguageServers.Editor.Command": "Разрешена команда (с аргументи)",
     "Str.Tool.LanguageServers.Editor.Save": "Запис",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Този идентификатор вече съществува. Редактирайте или персонализирайте го.",
-    "Str.Tool.LanguageServers.Editor.InvalidJson": "Невалиден JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Невалиден JSON: {1}",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Заместителите на работната област чакат избор на папка на проект.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Файлът е променен. Отворете отново формуляра преди записване."
   }

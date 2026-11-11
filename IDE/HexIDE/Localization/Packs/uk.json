@@ -1179,11 +1179,11 @@
     "Str.Project.AlreadyOpen": "Проєкт {0} уже відкрито.",
     "Str.Options.Addins.Overview": "Надбудови додають до HexIDE інструменти та налаштування. Для встановлення розпакуйте підписаний пакет в окрему папку в зазначеному нижче каталозі та перезапустіть HexIDE. Виберіть надбудову в дереві для керування нею.",
     "Str.Tool.LanguageServers.Editor.Customise": "Налаштувати",
-    "Str.Tool.LanguageServers.Editor.Help": "Порожнє значення очищає поле. Поля JSON приймають значення JSON. Збереження запам’ятовує команду нижче; для застосування перезапустіть програму.",
+    "Str.Tool.LanguageServers.Editor.Help": "Під час налаштування незмінені поля успадковують типові значення. Очищення заповненого поля записує null. Поля JSON приймають значення JSON. Збереження запам’ятовує команду нижче; для застосування перезапустіть програму.",
     "Str.Tool.LanguageServers.Editor.Command": "Підсумкова команда (з аргументами)",
     "Str.Tool.LanguageServers.Editor.Save": "Зберегти",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Цей ідентифікатор уже існує. Змініть або налаштуйте його.",
-    "Str.Tool.LanguageServers.Editor.InvalidJson": "Неприпустимий JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Неприпустимий JSON: {1}",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Підстановки робочої області очікують вибору папки проєкту.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Файл змінено. Перед збереженням відкрийте форму знову."
   }

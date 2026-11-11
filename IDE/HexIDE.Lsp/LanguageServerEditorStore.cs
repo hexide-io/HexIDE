@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using HexIDE.IDE;
 using Microsoft.Extensions.Logging;
@@ -56,9 +57,10 @@ public sealed class LanguageServerEditorStore(
         if (entry is null)
         {
             var added = "{}";
-            foreach (var (path, value) in changes) added = Set(added, path.Split('.'), value);
-            var separator = servers.Items.Count > 0 ? "," : "";
-            return text.Insert(servers.Start + 1, added + separator);
+            // Set inserts at the front. Reverse the form's documented order, keeping id first.
+            foreach (var (path, value) in changes.OrderBy(p => p.Key == "id" ? 0 : 1).Reverse())
+                added = Set(added, path.Split('.'), value);
+            return AddEntry(text, servers, added);
         }
         foreach (var (path, value) in changes)
         {
@@ -70,6 +72,49 @@ public sealed class LanguageServerEditorStore(
             text = text[..entry.Start] + replacement + text[entry.End..];
         }
         return text;
+    }
+
+    /// <summary>
+    /// Writes text as it was typed. The file is the user's to read, not a web page, so only what JSON itself requires is
+    /// escaped: the default encoder would write "café" as "café" and "C++" as "C++".
+    /// </summary>
+    public static readonly JsonSerializerOptions AsTyped = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+    private static string AddEntry(string text, Node servers, string added)
+    {
+        static string IndentAt(string source, int position)
+        {
+            var start = source.LastIndexOf('\n', Math.Max(0, position - 1)) + 1;
+            var end = start;
+            while (end < position && source[end] is ' ' or '\t') end++;
+            return source[start..end];
+        }
+
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var arrayIndent = IndentAt(text, servers.Start);
+        var entryIndent = servers.Items.Count > 0 ? IndentAt(text, servers.Items[0].Start) : "";
+        var unit = entryIndent.StartsWith(arrayIndent, StringComparison.Ordinal)
+            ? entryIndent[arrayIndent.Length..] : "";
+        if (unit.Length == 0) unit = arrayIndent.Length > 0 ? arrayIndent : "  ";
+        if (entryIndent.Length <= arrayIndent.Length) entryIndent = arrayIndent + unit;
+        using var document = Parse(added);
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions
+        {
+            Indented = true, IndentCharacter = unit[0], IndentSize = unit.Length, NewLine = newline,
+            Encoder = AsTyped.Encoder,
+        }))
+            document.RootElement.WriteTo(writer);
+        var formatted = Encoding.UTF8.GetString(stream.ToArray()).Replace(newline, newline + entryIndent, StringComparison.Ordinal);
+        if (servers.Items.Count > 0)
+        {
+            var position = servers.Items[0].Start;
+            var lineStart = text.LastIndexOf('\n', Math.Max(0, position - 1)) + 1;
+            var prefix = string.IsNullOrWhiteSpace(text[lineStart..position]) ? "" : newline + entryIndent;
+            return text.Insert(position, prefix + formatted + "," + newline + entryIndent);
+        }
+        var suffix = text[(servers.Start + 1)..(servers.End - 1)].Contains('\n') ? "" : newline + arrayIndent;
+        return text.Insert(servers.Start + 1, newline + entryIndent + formatted + suffix);
     }
 
     public bool Save(string expected, string updated, LanguageServerEntry entry)
@@ -105,7 +150,7 @@ public sealed class LanguageServerEditorStore(
     }
 
     private static string Insert(string text, Node root, string name, string value) =>
-        text.Insert(root.Start + 1, JsonSerializer.Serialize(name) + ":" + value + (root.Properties.Count > 0 ? "," : ""));
+        text.Insert(root.Start + 1, JsonSerializer.Serialize(name, AsTyped) + ":" + value + (root.Properties.Count > 0 ? "," : ""));
 
     private sealed class Node
     {

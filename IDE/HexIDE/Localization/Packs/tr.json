@@ -1179,11 +1179,11 @@
     "Str.Project.AlreadyOpen": "{0} projesi zaten açık.",
     "Str.Options.Addins.Overview": "Eklentiler HexIDE'ye araçlar ve ayarlar ekler. Yüklemek için imzalı bir eklenti paketini aşağıdaki dizinde kendine ait bir klasöre çıkarın ve HexIDE'yi yeniden başlatın. Yönetmek için ağaçtan bir eklenti seçin.",
     "Str.Tool.LanguageServers.Editor.Customise": "Özelleştir",
-    "Str.Tool.LanguageServers.Editor.Help": "Boş değer alanı temizler. JSON alanları JSON değerleri alır. Kaydetme aşağıdaki komutu hatırlar; uygulamak için yeniden başlatın.",
+    "Str.Tool.LanguageServers.Editor.Help": "Özelleştirme sırasında değiştirilmeyen alanlar varsayılanları devralır. Dolu bir alanı temizlemek null yazar. JSON alanları JSON değerleri alır. Kaydetme aşağıdaki komutu hatırlar; uygulamak için yeniden başlatın.",
     "Str.Tool.LanguageServers.Editor.Command": "Çözümlenmiş komut (bağımsız değişkenlerle)",
     "Str.Tool.LanguageServers.Editor.Save": "Kaydet",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Bu kimlik zaten var. Düzenleyin veya özelleştirin.",
-    "Str.Tool.LanguageServers.Editor.InvalidJson": "Geçersiz JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Geçersiz JSON: {1}",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Çalışma alanı yer tutucuları proje klasörü seçilene kadar çözümlenmez.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Dosya değişti. Kaydetmeden önce formu yeniden açın."
   }
