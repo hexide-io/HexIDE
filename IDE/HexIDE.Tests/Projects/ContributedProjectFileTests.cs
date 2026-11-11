@@ -346,11 +346,15 @@ public sealed class ContributedProjectFileTests : IDisposable
     {
         var type = Contribute();
         var project = await Opened();
+        // Edited and captured, so every route after this has something it would render if it could.
+        await _service.RemoveDocument(DocumentIdentity.For(project.Modules.Single()));
+        _service.CaptureUnsavedWork();
         type.Dispose();
         var renders = _writer.Renders;
 
         _service.CaptureUnsavedWork();
         await _service.SaveProject(project, saveAs: false);
+        await _service.ConfirmAddinWithdrawal("provider");
 
         _writer.Renders.Should().Be(renders);
         project.Offers.WritesProjectFile.Should().BeFalse();

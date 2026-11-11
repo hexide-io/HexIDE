@@ -106,18 +106,41 @@ a format like any other here, so a type MAY supply it.
 - **THEN** its format isn't asked again, the form is read-only, crash recovery keeps the copy it last took, and the user is
   told that later changes weren't kept
 
-### Requirement: The IDE SHALL NOT write, make or run a contributed project
-Saving a contributed project, Save As included, SHALL write its edited modules, SHALL write its edited forms only through
-its type's format, and SHALL NOT write the project file,
-ask where it goes, or add it to the recent list; the file SHALL NOT count as edited. Adding or removing its members,
-Project Properties, References and Components SHALL NOT be offered, and SHALL be refused with a reason from any other
-route, automation and crash recovery included. The IDE's Make SHALL refuse it with a reason, and the IDE's interpreter
-SHALL NOT start it: its program builds and runs it, through its add-in. The IDE SHALL NOT render it as a `.vbp`, for a
-language server's project import or otherwise.
+### Requirement: The IDE SHALL write a contributed project's file only through its type's writer, and SHALL NOT make or run it
+Saving a contributed project, Save As included, SHALL write its edited modules, and SHALL write its edited forms only
+through its type's format. Where the type has no project-file writer, the save SHALL NOT write the project file, ask where
+it goes, or add it to the recent list, and the file SHALL NOT count as edited. Where it has one, the IDE SHALL render the
+project file through that writer and nothing else, and SHALL write it, in the encoding the writer names, only at the path
+the project was opened from, Save Project As included. No member SHALL be written at that path, whichever route names it.
+
+Adding and removing members SHALL be offered only where the type's writer carries members. Project Properties, References
+and Components SHALL NOT be offered. Whatever isn't offered SHALL be refused with a reason from any other route, automation
+and crash recovery included.
+
+A writer that throws SHALL end a save before any file is written, and the user SHALL be told which project and which
+add-in, with what the add-in said. Elsewhere the IDE SHALL keep the last answer and the last crash-recovery copy the writer
+gave. A save that finds the project file changed outside the IDE since the IDE last read or wrote it SHALL leave it as it
+is where the IDE has no change of its own to write there, and otherwise SHALL ask whether to reload it, overwrite it or
+cancel, writing nothing until the user chooses. The writer SHALL NOT be called once its type is withdrawn, and turning
+its add-in off SHALL ask first about an unsaved project file, as it asks about forms.
+
+The IDE's Make SHALL refuse a contributed project with a reason, and the IDE's interpreter SHALL NOT start it: its program
+builds and runs it, through its add-in. The IDE SHALL NOT render it as a `.vbp`, for a language server's project import
+or otherwise.
 
 #### Scenario: Saving
-- **WHEN** the user edits a module of a contributed project and saves
+- **WHEN** the user edits a module of a contributed project whose type writes no project file, and saves
 - **THEN** the module's file is written and the project file is left as it was
+
+#### Scenario: A member added through the type's writer
+- **WHEN** a type's writer carries members, and the user adds a module and saves
+- **THEN** the module's file is written, and then the project file as the writer renders it, at the path the project was
+  opened from
+
+#### Scenario: The project file changed outside the IDE
+- **WHEN** the add-in's own program changed the project file since the IDE opened it, and the user saves changes of the
+  IDE's own to it
+- **THEN** the IDE asks whether to reload it, overwrite it or cancel, and writes nothing until the user chooses
 
 #### Scenario: Make
 - **WHEN** Make reaches a contributed project
