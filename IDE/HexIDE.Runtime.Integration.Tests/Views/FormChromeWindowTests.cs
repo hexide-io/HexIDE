@@ -6,7 +6,7 @@ using HexIDE.Runtime;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A running form's window is the one its BorderStyle, ControlBox, Caption, MinButton and MaxButton describe (#1575). It

@@ -16,7 +16,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A control's and a form's FontSize, FontBold, FontItalic, FontUnderline and FontStrikethru at run time (#1343), and a

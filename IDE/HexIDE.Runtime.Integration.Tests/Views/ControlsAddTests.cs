@@ -13,7 +13,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// <c>Controls.Add</c> and <c>Controls.Remove</c> (#1556), and a control held in a <c>WithEvents</c> variable. Every

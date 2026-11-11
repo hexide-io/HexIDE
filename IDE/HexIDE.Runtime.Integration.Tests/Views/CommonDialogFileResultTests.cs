@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // VB6 SP6 native and p-code: oracle "In-box controls: the CommonDialog", dialog results (#1084).
 // These run on the headless session, like every test that builds a control. Built on one of xunit's own threads,
