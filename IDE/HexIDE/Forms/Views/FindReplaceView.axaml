@@ -57,7 +57,7 @@
             </Grid>
 
             <!-- Options -->
-            <StackPanel Spacing="2" Margin="0,2,0,0">
+            <StackPanel Spacing="4" Margin="0,4,0,0">
 
                 <CheckBox Content="{DynamicResource Str.Dialog.FindReplace.Option.MatchCase}" IsChecked="{CompiledBinding MatchCase}" />
                 <CheckBox Content="{DynamicResource Str.Dialog.FindReplace.Option.WholeWordOnly}" IsChecked="{CompiledBinding WholeWordOnly}" />

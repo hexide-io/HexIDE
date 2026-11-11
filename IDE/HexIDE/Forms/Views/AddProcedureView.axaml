@@ -14,12 +14,12 @@
             <StackPanel Spacing="7">
 
                 <DockPanel>
-                    <TextBlock VerticalAlignment="Center" Text="{DynamicResource Str.Dialog.AddProcedure.NameLabel}" />
+                    <TextBlock VerticalAlignment="Center" Margin="0,0,4,0" Text="{DynamicResource Str.Dialog.AddProcedure.NameLabel}" />
                     <TextBox Text="{CompiledBinding Name}" Name="NameBox" />
                 </DockPanel>
 
                 <HeaderedContentControl Header="{DynamicResource Str.Dialog.AddProcedure.Type.Header}">
-                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,7,Auto" Margin="0,8,0,5">
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="4" RowDefinitions="Auto,7,Auto" Margin="0,8,0,5">
                         <RadioButton Grid.Row="0" Grid.Column="0" IsChecked="{CompiledBinding IsSub} " GroupName="Type" Content="{DynamicResource Str.Dialog.AddProcedure.Type.Sub}" />
                         <RadioButton Grid.Row="0" Grid.Column="1" IsChecked="{CompiledBinding IsProperty} " GroupName="Type" Content="{DynamicResource Str.Dialog.AddProcedure.Type.Property}" />
                         <RadioButton Grid.Row="2" Grid.Column="0" IsChecked="{CompiledBinding IsFunction} " GroupName="Type" Content="{DynamicResource Str.Dialog.AddProcedure.Type.Function}" />
@@ -28,7 +28,7 @@
                 </HeaderedContentControl>
 
                 <HeaderedContentControl Header="{DynamicResource Str.Dialog.AddProcedure.Scope.Header}">
-                    <Grid ColumnDefinitions="*,*" Margin="0,8,0,3" IsEnabled="{CompiledBinding !IsEvent}">
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="4" Margin="0,8,0,3" IsEnabled="{CompiledBinding !IsEvent}">
                         <RadioButton Grid.Row="0" Grid.Column="0" IsChecked="{CompiledBinding IsPublic}" GroupName="Scope" Content="{DynamicResource Str.Dialog.AddProcedure.Scope.Public}" />
                         <RadioButton Grid.Row="0" Grid.Column="1" IsChecked="{CompiledBinding IsPrivate}" GroupName="Scope" Content="{DynamicResource Str.Dialog.AddProcedure.Scope.Private}" />
                     </Grid>

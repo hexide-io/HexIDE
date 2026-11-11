@@ -125,7 +125,7 @@
             <RowDefinition Height="2" />
             <RowDefinition Height="80" />
         </Grid.RowDefinitions>
-        <ComboBox x:Name="ObjectSelector"
+        <ComboBox x:Name="ObjectSelector" Margin="4"
                   SelectedItem="{CompiledBinding SelectedComponentProxy}"
                   ItemsSource="{CompiledBinding ComponentsProxy}">
             <ComboBox.ItemTemplate>
