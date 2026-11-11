@@ -69,7 +69,7 @@ public class OnTypeFormattingTests
         await using var f = await Fixture.Open();
         f.Enter();
         await f.Request();
-        await f.Server.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        await f.Server.Cancelled.Task.WaitAsync(Fixture.HangTimeout, TestContext.Current.CancellationToken);
         f.Vm.Document.Text.Should().Be(f.Before.Insert(f.Start, "\n    "));
         f.Answer(f.Server.Request.Task.Result);
         await f.Settled();
@@ -291,6 +291,8 @@ public class OnTypeFormattingTests
 
     private sealed class Fixture : IAsyncDisposable
     {
+        // Long, because each wait is for something that has to happen anyway: a loaded runner then costs time, not a failure (#3661).
+        public static readonly TimeSpan HangTimeout = TimeSpan.FromSeconds(30);
         public required Server Server;
         public required VBLspClient Client;
         public required JsonRpc Rpc;
@@ -349,7 +351,7 @@ public class OnTypeFormattingTests
             Window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
             Window.KeyReleaseQwerty(PhysicalKey.Enter, RawInputModifiers.None);
         }
-        public Task<JsonElement> Request() => Server.Request.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        public Task<JsonElement> Request() => Server.Request.Task.WaitAsync(HangTimeout, TestContext.Current.CancellationToken);
         public void Answer(JsonElement request)
         {
             var line = request.GetProperty("position").GetProperty("line").GetInt32();
@@ -364,7 +366,7 @@ public class OnTypeFormattingTests
             // Reflection keeps this regression runnable against main, before the editor seam exists.
             if (typeof(CodeEditorView).GetProperty("PendingOnTypeFormatting", System.Reflection.BindingFlags.Instance
                 | System.Reflection.BindingFlags.NonPublic)?.GetValue(View) is Task pending)
-                await pending.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+                await pending.WaitAsync(HangTimeout, TestContext.Current.CancellationToken);
         }
         public async Task Formatted()
         {
@@ -373,7 +375,8 @@ public class OnTypeFormattingTests
         }
         public async Task WaitUntil(Func<bool> predicate)
         {
-            for (var i = 0; i < 150 && !predicate(); i++)
+            var deadline = System.Diagnostics.Stopwatch.StartNew();
+            while (deadline.Elapsed < HangTimeout && !predicate())
                 await Task.Delay(10, TestContext.Current.CancellationToken);
             predicate().Should().BeTrue();
         }
