@@ -187,7 +187,7 @@ public class DesignerCommitTests
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(), Substitute.For<IDebugController>(),
-            Substitute.For<IRunScope>(), Substitute.For<ILocalizationService>());
+            Substitute.For<IRunScope>(), Substitute.For<ILocalizationService>(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
     }
 
     [AvaloniaFact]
@@ -203,7 +203,7 @@ public class DesignerCommitTests
         var open = new List<BaseEditorWindowViewModel>();
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(_ => open);
-        using var refresher = new HeaderRefresher(bus, dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
+        using var refresher = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), bus, dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
 
         // Settled on a render before the window opens, so what changes below is the move and nothing else.
         refresher.LayoutChanged(form);

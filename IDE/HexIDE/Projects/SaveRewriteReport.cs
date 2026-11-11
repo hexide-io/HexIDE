@@ -1,4 +1,4 @@
-using HexIDE.Runtime.Serialization;
+using HexIDE.Language;
 
 namespace HexIDE.Projects;
 
@@ -9,10 +9,9 @@ public sealed class SaveRewriteReport
 
     public string Note => string.Concat(notes);
 
-    internal void Record(string prefix, string code)
+    internal void Record(string whole, IReadOnlyList<TextChange> changes)
     {
-        var whole = prefix + code;
-        foreach (var change in MemberAttributeQualifiers.Rewrites(whole, prefix.Length))
+        foreach (var change in changes)
         {
             var oldName = whole.Substring(change.Offset, change.Length);
             var note = $" The save wrote {change.Text}'s Attribute lines with its name (they said {oldName}), as VB6's own Save does.";

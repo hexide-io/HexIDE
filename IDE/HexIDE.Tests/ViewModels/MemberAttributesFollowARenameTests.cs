@@ -55,7 +55,7 @@ public sealed class MemberAttributesFollowARenameTests : IDisposable
     {
         Directory.CreateDirectory(dir);
         dock.OpenDocuments.Returns(_ => open.Cast<BaseEditorWindowViewModel>().ToList());
-        refresher = new HeaderRefresher(bus, dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
+        refresher = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), bus, dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
     }
 
     public void Dispose()
@@ -78,7 +78,7 @@ public sealed class MemberAttributesFollowARenameTests : IDisposable
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
 
-        return new ProjectService(
+        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
             () => throw new InvalidOperationException("new-project dialog must not be reached"),
             windows,
             bus,
@@ -103,7 +103,7 @@ public sealed class MemberAttributesFollowARenameTests : IDisposable
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), Substitute.For<ILocalizationService>());
+            Substitute.For<IRunScope>(), Substitute.For<ILocalizationService>(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
         made.Add(vm);
         open.Add(vm);
         return document.Module is { } module ? vm.Initialize(module) : vm.Initialize(document.Form!);

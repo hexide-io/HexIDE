@@ -95,9 +95,10 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Language.IBracketReader>(out var brackets);
                 ctx.Inject<HexIDE.Language.IReadOnlyRegionReader>(out var regionReader);
                 ctx.Inject<HexIDE.Language.IReadOnlyRegionRules>(out var regionRules);
+                ctx.Inject<HexIDE.Language.IReadOnlyRegionWriter>(out var regionWriter);
                 return new CodeEditorViewModel(windows, editors, projects, events, lsp, settings, status,
                     bookmarks, breakpoints, debugger, run, localization, external, stack, recentEdits, conditionalCode, brackets,
-                    regionReader, regionRules);
+                    regionReader, regionRules, regionWriter);
             })
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
@@ -115,6 +116,7 @@ public partial class DISetup
             .Bind<IProjectFileFormat>().As(Singleton).To<HexIDE.Projects.Vb6ProjectFileFormat>()
             .Bind<HexIDE.Language.IBracketReader>().As(Singleton).To<HexIDE.Runtime.Interpreter.InterpreterBrackets>()
             .Bind<HexIDE.Language.IReadOnlyRegionReader>().As(Singleton).To<HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader>()
+            .Bind<HexIDE.Language.IReadOnlyRegionWriter>().As(Singleton).To<HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter>()
             .Bind<HexIDE.Language.IReadOnlyRegionRules>().As(Singleton).To<HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
             .Bind().As(Singleton).To<MainViewViewModel.DockFactory>()
@@ -154,7 +156,8 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Projects.ContributedProjects>(out var contributed);
                 ctx.Inject<IProjectFileFormat>(out var format);
                 ctx.Inject<IComponentRegistry>(out var componentRegistry);
-                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, format, componentRegistry, archives, lspClient,
+                ctx.Inject<HexIDE.Language.IReadOnlyRegionWriter>(out var regionWriter);
+                return new ProjectService(regionWriter, newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, format, componentRegistry, archives, lspClient,
                     contributed);
             })
             .Bind().As(Singleton).To<ArchiveProjectService>()

@@ -220,6 +220,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <summary>Says where this window's read-only regions are. With none, nothing here is read-only.</summary>
     private readonly IReadOnlyRegionReader? regionReader;
     private readonly IReadOnlyRegionRules? regionRules;
+    private readonly IReadOnlyRegionWriter? regionWriter;
 
     public CodeEditorViewModel(IWindowManager windowManager,
         IEditorService editorService,
@@ -239,12 +240,14 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Language.IConditionalCodeReader? conditionalCode = null,
         HexIDE.Language.IBracketReader? brackets = null,
         IReadOnlyRegionReader? regionReader = null,
-        IReadOnlyRegionRules? regionRules = null)
+        IReadOnlyRegionRules? regionRules = null,
+        IReadOnlyRegionWriter? regionWriter = null)
     {
         ConditionalCode = conditionalCode;
         Brackets = brackets;
         this.regionReader = regionReader;
         this.regionRules = regionRules;
+        this.regionWriter = regionWriter;
         this.recentEditHistory = recentEditHistory;
         CanFloat = false;
         this.windowManager = windowManager;
@@ -560,10 +563,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal void AdoptRewrittenQualifiers(string written)
     {
         var text = Document.Text;
-        var rewrites = MemberAttributeQualifiers.Rewrites(text, bufferPrefix.Length);
+        var rewrites = regionWriter?.SaveRewrites(text, bufferPrefix.Length) ?? [];
         if (rewrites.Count == 0)
             return;
-        if (!string.Equals(FormCodeText.BodyOf(MemberAttributeQualifiers.Apply(text, rewrites), bufferPrefix), written,
+        if (!string.Equals(FormCodeText.BodyOf(TextChanges.Apply(text, rewrites), bufferPrefix), written,
                 StringComparison.Ordinal))
         {
             Log.Debug("{Document}: the save did not rewrite the attribute qualifiers this window holds, so they stand",
@@ -856,15 +859,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     internal void RetargetVbName(string name)
     {
-        var body = BufferBody;
-        if (FormCodeText.VbNameLine(body) is not var (start, length))
+        if (regionWriter?.NameRewrite(Document.Text, bufferPrefix.Length, name) is not { } change)
             return;
-        var retargeted = FormCodeText.RetargetVbName(body, name);
-        if (ReferenceEquals(retargeted, body))
-            return;
-
-        var line = FormCodeText.VbNameAttribute(name);
-        var offset = bufferPrefix.Length + start;
+        var (offset, length, line) = change;
         var caret = CaretOffset;
 
         Document.UndoStack.StartUndoGroup();
@@ -902,7 +899,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         RefreshPrefix(ModelHeader);
         if (identity is { Name: { Length: > 0 } name })
             RetargetVbName(name);
-        if (qualifiers && MemberAttributeQualifiers.Rewrites(Document.Text, bufferPrefix.Length) is { Count: > 0 } rewrites)
+        if (qualifiers && regionWriter?.SaveRewrites(Document.Text, bufferPrefix.Length) is { Count: > 0 } rewrites)
             WriteQualifiers(rewrites);
     }
 

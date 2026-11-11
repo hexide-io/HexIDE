@@ -6,6 +6,7 @@ using HexIDE.Bookmarks;
 using HexIDE.Debugging;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Language;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using Serilog;
@@ -24,14 +25,17 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     private readonly IProjectFileFormat format;
     private readonly IDisposable subscription;
     private readonly IDisposable nameSubscription;
+    private readonly IReadOnlyRegionWriter regionWriter;
 
     public HeaderRefresher(
+        IReadOnlyRegionWriter regionWriter,
         IEventBus eventBus,
         IDocumentDockService dock,
         IBreakpointService breakpoints,
         IBookmarkService bookmarks,
         IProjectFileFormat format)
     {
+        this.regionWriter = regionWriter;
         this.format = format;
         this.dock = dock;
         this.breakpoints = breakpoints;
@@ -238,11 +242,10 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
         }
     }
 
-    private static void RetargetCode(string code, string name, Action<string> update)
+    private void RetargetCode(string code, string name, Action<string> update)
     {
-        var retargeted = FormCodeText.RetargetVbName(code, name);
-        if (!ReferenceEquals(retargeted, code))
-            update(retargeted);
+        if (regionWriter.NameRewrite(code, 0, name) is { } change)
+            update(TextChanges.Apply(code, [change]));
     }
 
     /// <summary>

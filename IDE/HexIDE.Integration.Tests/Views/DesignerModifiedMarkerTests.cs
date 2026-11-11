@@ -32,7 +32,7 @@ public class DesignerModifiedMarkerTests
         var dir = Path.Join(Path.GetTempPath(), "hexide-marker-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         var bus = new EventBus();
-        var service = new ProjectService(null!, Substitute.For<IWindowManager>(), bus,
+        var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), null!, Substitute.For<IWindowManager>(), bus,
             Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
             new FileBaselineStore(), Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
