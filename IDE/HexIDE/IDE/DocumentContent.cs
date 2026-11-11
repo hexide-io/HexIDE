@@ -1,4 +1,5 @@
 using HexIDE.Forms.ViewModels;
+using HexIDE.Language;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Utils;
 
@@ -14,7 +15,7 @@ namespace HexIDE.IDE;
 /// buffer, or, with no window open, the model's composition of the same file, so line 1 is the file's first
 /// line whether or not the document happens to be open, exactly as the mark tools count it. The write accepts
 /// what the read returns, the whole file with its header unchanged, or the code alone with the header kept,
-/// through <see cref="GuardedContent"/>, which is the one place that decides what a replacement may touch.
+/// through <see cref="IReadOnlyRegionRules"/>, which decides what a replacement may touch.
 /// </para>
 /// <para>
 /// The automation tools are compiled into an executable nothing else references, so the rule lives here,
@@ -56,7 +57,7 @@ public static class DocumentContent
 
     /// <summary>
     /// Replaces the document's content with <paramref name="incoming"/>, keeping its header, or refuses when
-    /// the content would change the header or a member's attribute lines (<see cref="GuardedContent"/>). Nothing
+    /// the format's rules refuse it (<see cref="IReadOnlyRegionRules"/>). Nothing
     /// changes when it is refused.
     /// </summary>
     /// <remarks>
@@ -64,7 +65,7 @@ public static class DocumentContent
     /// given anything typed. With none, the model's code takes it directly: the rule is the same, applied to
     /// the model's composition of the file, and the body is what is written back to it.
     /// </remarks>
-    public static ContentReplacement Write(DocumentIdentity document, CodeEditorViewModel? editor, string incoming)
+    public static ContentReplacement Write(DocumentIdentity document, CodeEditorViewModel? editor, string incoming, IReadOnlyRegionRules? rules)
     {
         if (editor is not null)
             return editor.ReplaceContent(incoming);
@@ -72,9 +73,10 @@ public static class DocumentContent
         var (whole, prefix, update) = document.Module is { } module
             ? (FormCodeText.WholeFile(module), FormCodeText.Prefix(module), (Action<string>)module.UpdateCode)
             : (FormCodeText.WholeFile(document.Form!), FormCodeText.Prefix(document.Form!), document.Form!.UpdateCode);
-        var result = GuardedContent.Replace(whole, prefix.Length, DocumentNewLines.Normalize(incoming, whole));
+        var result = rules?.Replace(whole, prefix.Length, DocumentNewLines.Normalize(incoming, whole))
+            ?? new ContentReplacement(DocumentNewLines.Normalize(incoming, whole), null, false);
         if (result.NewText is { } text)
-            update(text[prefix.Length..]);
+            update(text.StartsWith(prefix, StringComparison.Ordinal) ? text[prefix.Length..] : text);
         return result;
     }
 

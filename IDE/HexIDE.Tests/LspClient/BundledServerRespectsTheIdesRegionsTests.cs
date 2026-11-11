@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using HexIDE.Forms.ViewModels;
+using HexIDE.Language;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.Serialization;
@@ -214,8 +214,12 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
                     var length = lineStarts[edit.Range.End.Line] + edit.Range.End.Character - offset;
                     return new TextChange(offset, length, edit.NewText);
                 }).ToList();
-                if (CodeEditorViewModel.RefusedRenameEdit(text, 0, answer) is { } refused)
-                    failures.Add($"{name}: renaming {word} edits read-only line {LineOf(lineStarts, refused.Offset)}");
+                foreach (var edit in answer)
+                {
+                    if (ReadOnlyRegions.Changes(regions, edit.Offset, edit.Length)
+                        && !new Vb6ReadOnlyRegionRules().RenameMayWrite(text, 0, answer, edit))
+                        failures.Add($"{name}: renaming {word} edits read-only line {LineOf(lineStarts, edit.Offset)}");
+                }
                 ownQualifiers += answer.Count(c => ReadOnlyRegions.Touches(regions, c.Offset, c.Length));
 
                 var highlight = await client.RequestDocumentHighlightAsync(uri, at, TestContext.Current.CancellationToken);

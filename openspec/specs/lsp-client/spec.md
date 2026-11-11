@@ -812,6 +812,17 @@ still goes away.
 - **AND** a kill after a successful shutdown answer and sent exit is recorded as a stop without a fault
 - **AND** otherwise the observed exit code is recorded before transport disposal finishes
 
+### Requirement: Named-pipe process notices survive startup races
+
+A launched named-pipe transport SHALL attach its exit handler before enabling process exit events.
+It SHALL replay the current connect attempt's notices and unexpected-close event to late subscribers.
+
+#### Scenario: A pipe server exits before observation continues
+
+- **WHEN** the launched child exits immediately, before startup observation continues
+- **THEN** the transport reports its exit code before unexpected closure
+- **AND** subscribers attached after the failed connect receive the recorded notices and closure
+
 ### Requirement: Message types SHALL be registered for ahead-of-time serialization
 Every message type crossing the boundary SHALL be registered with the serializer's generated context, and
 call sites SHALL NOT pass anonymously-typed payloads.

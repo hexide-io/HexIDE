@@ -219,6 +219,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     /// <summary>Says where this window's read-only regions are. With none, nothing here is read-only.</summary>
     private readonly IReadOnlyRegionReader? regionReader;
+    private readonly IReadOnlyRegionRules? regionRules;
 
     public CodeEditorViewModel(IWindowManager windowManager,
         IEditorService editorService,
@@ -237,11 +238,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Tools.RecentEditHistory? recentEditHistory = null,
         HexIDE.Language.IConditionalCodeReader? conditionalCode = null,
         HexIDE.Language.IBracketReader? brackets = null,
-        IReadOnlyRegionReader? regionReader = null)
+        IReadOnlyRegionReader? regionReader = null,
+        IReadOnlyRegionRules? regionRules = null)
     {
         ConditionalCode = conditionalCode;
         Brackets = brackets;
         this.regionReader = regionReader;
+        this.regionRules = regionRules;
         this.recentEditHistory = recentEditHistory;
         CanFloat = false;
         this.windowManager = windowManager;
@@ -1837,8 +1840,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             var resolved = Resolve(document, target.Edits);
             for (var j = 1; j < resolved.Count; j++)
                 if (resolved[j].Offset + resolved[j].Length > resolved[j - 1].Offset) return Refuse(target.Uri);
-            if (codeAction ? resolved.Any(c => ReadOnlyRegions.Changes(RegionsOf(document.Text, prefix.Length), c.Offset, c.Length))
-                : RefusedRenameEdit(document.Text, prefix.Length, resolved) is not null)
+            if (resolved.Any(c => ReadOnlyRegions.Changes(RegionsOf(document.Text, prefix.Length), c.Offset, c.Length)
+                && (codeAction || regionRules?.RenameMayWrite(document.Text, prefix.Length, resolved, c) != true)))
                 return Refuse(target.Uri);
             prepared.Add((target.Uri, identity, resolved));
         }
@@ -1888,7 +1891,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </para>
     /// <para>
     /// <b>The one write into a region it allows</b> is a member's qualifier in its own attribute lines, when the
-    /// same answer renames that member (<see cref="RefusedRenameEdit"/>): <c>Attribute Total.VB_Description</c>
+    /// same answer renames that member (<see cref="IReadOnlyRegionRules.RenameMayWrite"/>): <c>Attribute Total.VB_Description</c>
     /// follows <c>Total</c> becoming <c>GrandTotal</c>. Nothing depends on a server sending it, since the next
     /// save of the document rewrites those qualifiers anyway (#273 task 4.4), but a server that does is right to.
     /// </para>
@@ -1897,8 +1900,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         var changes = Resolve(edits);
 
-        if (RefusedRenameEdit(Document.Text, bufferPrefix.Length, changes) is { } refused)
+        foreach (var refused in changes)
         {
+            if (!ReadOnlyRegions.Changes(RegionsOf(Document.Text, bufferPrefix.Length), refused.Offset, refused.Length)
+                || regionRules?.RenameMayWrite(Document.Text, bufferPrefix.Length, changes, refused) == true)
+                continue;
             Log.Information("Refused a rename of {Name} in {Document}: an edit at offset {Offset} is in a read-only region",
                 oldName, identity?.Display, refused.Offset);
             return localization.GetString("Str.CodeEditor.Msg.RenameTouchesReadOnly");
@@ -1906,99 +1912,6 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
         ApplyAsOneStep(changes);
         return null;
-    }
-
-    /// <summary>
-    /// The first of <paramref name="changes"/>, a rename's edits to <paramref name="text"/>, that would change a
-    /// read-only region other than by a qualifier the rename may write; null when the rename may make them all.
-    /// </summary>
-    /// <param name="text">The whole buffer.</param>
-    /// <param name="prefixLength">The length of the header it was composed with; see <see cref="ReadOnlyRegions.Of"/>.</param>
-    /// <param name="changes">Every edit of the answer to this document.</param>
-    /// <remarks>
-    /// <para>
-    /// <b>A qualifier edit is let through when it replaces exactly one attribute line's qualifier, in a run that
-    /// describes a member, and the same answer renames that member</b>: it replaces the name on the declaration
-    /// above the run with the same new text. For a procedure's run the member is the procedure, whatever the
-    /// qualifier said, because VB6 gives the run to the procedure by position (design.md, "Renames (4.4)"). For a
-    /// variable run it is the declarator the line's qualifier names, since VB6 binds that line by name; and for a
-    /// run a rename by retyping left, it is the one name its line declares.
-    /// </para>
-    /// <para>
-    /// <b>Variables are let through too, which the design paragraph does not say.</b> It names a run describing a
-    /// procedure, and "every other edit to a run" refused. Read that way, renaming a described variable from the
-    /// bundled server, which sends <c>Attribute Count.VB_VarDescription</c>'s qualifier edit with the
-    /// declaration's, would be refused as a whole where it was applied before, though the run still names a name
-    /// its line declares afterwards and so still describes it.
-    /// </para>
-    /// <para>
-    /// <b>"Renames the member" is read off the answer, not off a name.</b> The rule this replaced let a qualifier
-    /// through whenever it spelled the old name, so renaming <c>Total</c> also rewrote a stale
-    /// <c>Attribute Total.</c> line under <c>Halt</c>, a run that is <c>Halt</c>'s. That edit is now refused, and
-    /// with it the rename, which is the policy for every edit to a run that the rename does not own. The bundled
-    /// server no longer sends it.
-    /// </para>
-    /// <para>
-    /// Internal and static so that <c>BundledServerRespectsTheIdesRegionsTests</c> judges the bundled server's
-    /// answers by this rule rather than by a copy of it.
-    /// </para>
-    /// </remarks>
-    internal static TextChange? RefusedRenameEdit(string text, int prefixLength, IReadOnlyList<TextChange> changes)
-    {
-        var regions = ReadOnlyRegions.Of(text, prefixLength);
-        IReadOnlyList<MemberRun>? runs = null;
-
-        foreach (var change in changes)
-        {
-            if (!ReadOnlyRegions.Changes(regions, change.Offset, change.Length))
-                continue;
-            runs ??= ReadOnlyRegions.MemberRuns(text, prefixLength);
-            if (!IsQualifierTheRenameOwns(runs, changes, change))
-                return change;
-        }
-        return null;
-    }
-
-    /// <summary>Whether <paramref name="change"/> is a qualifier of a member that <paramref name="changes"/> renames.</summary>
-    private static bool IsQualifierTheRenameOwns(IReadOnlyList<MemberRun> runs, IReadOnlyList<TextChange> changes, TextChange change)
-    {
-        foreach (var run in runs)
-        {
-            // DescribesMember is defensive. Only an edit that changes a region is asked about, and an orphan is no
-            // region and overlaps no run, so an edit starting in one reaches a region only past its own line, and is
-            // then none of its qualifiers: the answer is false either way.
-            if (!run.DescribesMember || change.Offset < run.Region.Start || change.Offset >= run.Region.End)
-                continue;
-            foreach (var line in run.Lines)
-            {
-                if (line.Qualifier is not { } qualifier || line.QualifierOffset != change.Offset
-                    || qualifier.Length != change.Length)
-                    continue;
-
-                DeclaredName? member = run.Member;
-                if (run.Kind == MemberRunKind.Variable)
-                {
-                    member = null;
-                    foreach (var declared in run.Declared)
-                    {
-                        if (declared.Kind != DeclarationKind.Procedure
-                            && string.Equals(declared.Name, qualifier, StringComparison.OrdinalIgnoreCase))
-                            member = declared;
-                    }
-                }
-                if (member is not { } renamed)
-                    return false;
-                foreach (var other in changes)
-                {
-                    if (other.Offset == renamed.Offset && other.Length == renamed.Name.Length
-                        && string.Equals(other.Text, change.Text, StringComparison.Ordinal))
-                        return true;
-                }
-                return false;
-            }
-            return false;
-        }
-        return false;
     }
 
     /// <summary>
@@ -2055,7 +1968,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </para>
     /// </remarks>
     internal string? RenameRefusalAt(int offset, string word) =>
-        IsReadOnlyRegion(offset, 0) || ReadOnlyRegions.DeclaredNames(Document.Text, bufferPrefix.Length).Contains(word)
+        IsReadOnlyRegion(offset, 0) || regionRules?.HeaderDeclares(Document.Text, bufferPrefix.Length, word) == true
             ? localization.GetString("Str.CodeEditor.Msg.RenameTouchesReadOnly")
             : null;
 
@@ -2070,9 +1983,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (IsReadOnly)
             return new ContentReplacement(null, localization.GetString("Str.CodeEditor.FileNotSaved.Banner"), HeaderKept: false);
 
-        var result = GuardedContent.Replace(Document.Text, bufferPrefix.Length, DocumentNewLines.Normalize(incoming, Document.Text));
+        var result = regionRules?.Replace(Document.Text, bufferPrefix.Length, DocumentNewLines.Normalize(incoming, Document.Text))
+            ?? new ContentReplacement(DocumentNewLines.Normalize(incoming, Document.Text), null, false);
         if (result.NewText is { } text)
-            ReplaceBody(text[bufferPrefix.Length..]);
+            Document.Text = text;
         return result;
     }
 
@@ -2139,7 +2053,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         var after = Document.Text;
         foreach (var edit in lastFirst)
             after = after.Remove(edit.Offset, edit.Length).Insert(edit.Offset, edit.Text);
-        if (GuardedContent.RangeEditRefusal(Document.Text, after, bufferPrefix.Length) is { } refusal)
+        if (regionRules?.RangeEditRefusal(Document.Text, after, bufferPrefix.Length) is { } refusal)
             return string.Format(localization.GetString("Str.CodeEditor.RangeEditRefused"), refusal);
 
         ApplyAsOneStep(lastFirst);
@@ -2173,7 +2087,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     /// <summary>The shared member name used by guarded edits and automation refusals.</summary>
     internal string? MemberNamedBy(TextRegion region) =>
-        GuardedContent.MemberNamedBy(Document.Text, bufferPrefix.Length, region);
+        regionRules?.MemberNamedBy(Document.Text, bufferPrefix.Length, region);
 
     /// <summary>Refuses a programmatic write before it can change text or consume undo history.</summary>
     internal bool RefuseWholeFileWrite()

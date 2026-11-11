@@ -116,7 +116,7 @@ public class MemberRunFoldTests : IDisposable
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, statusBar, new BookmarkService(), breakpoints,
-            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(), regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
+            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(), regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules());
         made.Add(vm);
         return vm;
     }

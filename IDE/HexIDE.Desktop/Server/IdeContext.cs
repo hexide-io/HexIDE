@@ -40,6 +40,7 @@ internal sealed class IdeContext : IDisposable
 
     /// <summary>The project file format, for a tool that has to know a document's companion file.</summary>
     public IProjectFileFormat ProjectFileFormat { get; }
+    public HexIDE.Language.IReadOnlyRegionRules? ReadOnlyRegionRules { get; }
 
     public IdeContext(
         IProjectManager projectManager,
@@ -61,7 +62,8 @@ internal sealed class IdeContext : IDisposable
         HexIDE.Redaction.Pseudonymiser pseudonyms,
         HexIDE.Localization.ILocalizationService localization,
         ISettingsService settings,
-        IProjectFileFormat projectFileFormat)
+        IProjectFileFormat projectFileFormat,
+        HexIDE.Language.IReadOnlyRegionRules? readOnlyRegionRules = null)
     {
         ProjectManager = projectManager;
         DocumentDockService = documentDockService;
@@ -84,6 +86,7 @@ internal sealed class IdeContext : IDisposable
         Localization = localization;
         Settings = settings;
         ProjectFileFormat = projectFileFormat;
+        ReadOnlyRegionRules = readOnlyRegionRules;
     }
 
     public void Dispose() => Diagnostics.Dispose();
