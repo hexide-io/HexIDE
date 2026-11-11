@@ -8,6 +8,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using AvaloniaEdit;
 using AvaloniaEdit.Folding;
+using HexIDE.Automation;
 using HexIDE.Bookmarks;
 using HexIDE.Debugging;
 using HexIDE.Events;
@@ -61,11 +62,14 @@ public class ReadOnlyRegionReaderViewTests : IDisposable
                 if (text[i] == '\n')
                     starts.Add(i + 1);
             }
-            return ranges.Select(r => new TextRegion(starts[r.First - 1], starts[r.Last])).ToList();
+            // The view also queries regions before the fixture's document is bound, on an empty buffer.
+            // Omit ranges absent from that buffer; the tests below assert them on the bound document.
+            return ranges.Where(r => r.Last < starts.Count)
+                .Select(r => new TextRegion(starts[r.First - 1], starts[r.Last])).ToList();
         }
     }
 
-    private TextEditor Show(IReadOnlyRegionReader reader)
+    private TextEditor Show(IReadOnlyRegionReader reader, IReadOnlyRegionRules? rules = null)
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
@@ -78,7 +82,7 @@ public class ReadOnlyRegionReaderViewTests : IDisposable
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
             Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(),
-            regionReader: reader);
+            regionReader: reader, regionRules: rules);
         made.Add(vm);
 
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Notes", ModuleKind.StandardModule);
@@ -94,6 +98,74 @@ public class ReadOnlyRegionReaderViewTests : IDisposable
         window.Content = view;
         Dispatcher.UIThread.RunJobs();
         return view.FindControl<TextEditor>("TextEditor")!;
+    }
+
+    private sealed class Words : IReadOnlyRegionRules
+    {
+        public string? DescribeRegions(string text, int prefixLength, IReadOnlyList<TextRegion> regions)
+        {
+            text.Should().StartWith("alpha");
+            prefixLength.Should().Be(0);
+            regions.Should().Equal(new TextRegion(7, 13), new TextRegion(27, 36));
+            return "the second and fifth headings";
+        }
+    }
+
+    private sealed class NoWords : IReadOnlyRegionRules;
+
+    private static string ExpectedWords(int provider) => provider == 0 ? "the second and fifth headings" : "read-only text";
+    private TextEditor ShowWords(int provider) => Show(new FixedLines((2, 2), (5, 5)),
+        provider == 0 ? new Words() : provider == 1 ? new NoWords() : null);
+
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void CaretNoteUsesTheFormatsWords(int provider)
+    {
+        var single = Show(new FixedLines((2, 2)), provider == 0 ? new SingleWords() : provider == 1 ? new NoWords() : null);
+        single.CaretOffset = 8;
+        var note = CaretPlacement.Where((CodeEditorViewModel)single.DataContext!, 2, 2);
+        note.Should().Contain("That is in " + (provider == 0 ? "the second heading" : "read-only text"));
+        note.Should().NotContain("Attribute").And.NotContain("header").And.NotContain("designer").And.NotContain("VB6");
+    }
+
+    private sealed class SingleWords : IReadOnlyRegionRules
+    {
+        public string? DescribeRegions(string text, int prefixLength, IReadOnlyList<TextRegion> regions)
+        {
+            regions.Should().Equal(new TextRegion(7, 13));
+            return "the second heading";
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void TypingRefusalUsesTheFormatsWords(int provider)
+    {
+        var editor = Show(new FixedLines((2, 2)), provider == 0 ? new SingleWords() : provider == 1 ? new NoWords() : null);
+        editor.CaretOffset = 8;
+        var result = UiAutomationDriver.PressKey(editor, "X", null);
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain("is in " + (provider == 0 ? "the second heading" : "read-only text"));
+        result.Error!.Split(", which only the IDE changes", StringSplitOptions.None)[0].Should()
+            .NotContain("Attribute").And.NotContain("header").And.NotContain("designer").And.NotContain("VB6");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void PartialSelectionUsesTheFormatsWordsForTheSet(int provider)
+    {
+        var editor = ShowWords(provider);
+        editor.Select(8, 31);
+        var result = UiAutomationDriver.PressKey(editor, "Delete", null);
+        result.Success.Should().BeTrue(result.Error);
+        result.Detail.Should().Contain("in " + ExpectedWords(provider) + ", which only the IDE changes");
+        result.Detail.Should().NotContain("Attribute").And.NotContain("header").And.NotContain("VB6");
     }
 
     private static List<Color?> ColoursOn(TextEditor editor, int line) =>

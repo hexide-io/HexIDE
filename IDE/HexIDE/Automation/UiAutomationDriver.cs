@@ -4254,15 +4254,15 @@ public static class UiAutomationDriver
         if (deletable == length)
             return !deletes && editor.IsReadOnlyRegion(offset, length)
                 ? new PartialEdit(deletable, "no protected text was left in the replaced span. ") : null;
-        var names = editor.ReadOnlyRegionsNow.Where(r =>
+        var affected = editor.ReadOnlyRegionsNow.Where(r =>
         {
             var from = Math.Max(offset, r.EditStart);
             var to = Math.Min(offset + length, r.End);
             return to > from && segments.Sum(s => Math.Max(0, Math.Min(to, s.EndOffset) - Math.Max(from, s.Offset))) < to - from;
-        }).Select(r => editor.MemberNamedBy(r) is { } name
-            ? "the Attribute lines describing " + name : "the file's header").Distinct();
+        }).ToList();
+        var description = editor.DescribeRegions(affected);
         return new PartialEdit(deletable,
-            $"left {length - deletable} char(s) from the original selection in {string.Join(" and ", names)}, which only the IDE changes (the designer, a save, a rename). ");
+            $"left {length - deletable} char(s) from the original selection in {description}, which only the IDE changes (the designer, a save, a rename). ");
     }
 
     private static string SelectionState(TextArea area) =>
@@ -4322,9 +4322,7 @@ public static class UiAutomationDriver
             return null;
 
         var affected = editor.ReadOnlyRegionsNow.Where(r => r.Changes(span.Offset, span.Length)).ToList();
-        var names = affected.Select(r => editor.MemberNamedBy(r)).ToList();
-        var header = names.Any(n => n is null);
-        var region = header ? "the file's header" : "the Attribute lines describing " + string.Join(", ", names);
+        var region = editor.DescribeRegions(affected);
         var unchanged = written ?? "Nothing was written.";
         var prefix = $"{tool} refused: ";
         var ownership = ", which only the IDE changes (the designer, a save, a rename). ";
@@ -4332,7 +4330,7 @@ public static class UiAutomationDriver
         if (span.Deletes && span.Length > 0 && span.Offset + span.Length == area.Caret.Offset)
             return new InteractOutcome(false, mechanism, null,
                 prefix + "the text before the caret belongs to " + region + ownership + unchanged
-              + (header
+              + (affected.Any(r => editor.MemberNamedBy(r) is null)
                   ? " Edit the code after the header instead; the header is changed through the designer, a save or a rename."
                   : " Deleting the member's whole declaration (all physical lines if continued) removes its Attribute lines too; "
                     + "select the declaration's whole text and press_key Delete to remove both."));

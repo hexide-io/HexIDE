@@ -16,6 +16,9 @@ public sealed class Vb6ReadOnlyRegionRules : IReadOnlyRegionRules
     public string? MemberNamedBy(string text, int prefixLength, TextRegion region) =>
         GuardedContent.MemberNamedBy(text, prefixLength, region);
 
+    public string? DescribeRegions(string text, int prefixLength, IReadOnlyList<TextRegion> regions) =>
+        GuardedContent.DescribeRegions(text, prefixLength, regions);
+
     public bool HeaderDeclares(string text, int prefixLength, string name) =>
         ReadOnlyRegions.DeclaredNames(text, prefixLength).Contains(name);
 
