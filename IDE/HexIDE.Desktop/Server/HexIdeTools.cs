@@ -271,7 +271,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return (null, null, found.Error);
             target = document;
             if (document.Form is { CanSaveFaithfully: false })
-                return (null, null, ctx.Localization.GetString("Str.CodeEditor.FileNotSaved.Banner"));
+                return (null, null, CodeEditorViewModel.ReadOnlyWriteRefusal);
             if (ProjectWriteSafety.Prepare(document, ctx.ProjectFileFormat, out recoveryNote) is { } safetyRefusal)
                 return (null, null, safetyRefusal);
 

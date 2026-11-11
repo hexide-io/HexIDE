@@ -25,7 +25,7 @@ public class WorkingCopyReplyTests
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns([]);
         var localization = Substitute.For<ILocalizationService>();
-        localization.GetString("Str.CodeEditor.FileNotSaved.Banner").Returns("file cannot be saved");
+        localization.GetString(Arg.Any<string>()).Returns(c => "⟦" + c.Arg<string>() + "⟧");
         var writer = Substitute.For<IProjectService>();
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
             null!, Substitute.For<IProjectRunnerService>(), writer, new EventBus(),
@@ -35,7 +35,7 @@ public class WorkingCopyReplyTests
         var result = await new HexIdeTools(context).SetFileContentAsync("Form1", "Option Explicit\r\n' changed");
 
         result.Success.Should().BeFalse();
-        result.Error.Should().Be("file cannot be saved");
+        result.Error.Should().Be($"This file will not be saved: {Distribution.DisplayName} cannot yet reproduce it faithfully, so saving it would change it. Its code is part of the file, so no change to it is accepted. Nothing was changed.");
         form.Code.Should().Be("Option Explicit");
         await writer.DidNotReceiveWithAnyArgs().SaveForm(default!, default);
     }

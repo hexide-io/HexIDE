@@ -14,6 +14,27 @@ the mechanism.
 
 ## Requirements
 
+### Requirement: Program results about IDE-owned text SHALL be English
+Refusals of edits to text only the IDE changes, and a save's notes about text it rewrote, SHALL be
+English when returned to a program, including automation replies and add-in results. Where they name a
+format's regions they SHALL use the format's English phrase, or "read-only text" when none is supplied.
+
+#### Scenario: An add-in's range edit is refused in a non-English IDE
+- **GIVEN** the IDE uses a non-English language
+- **WHEN** an add-in's range edit is refused because it would change read-only text
+- **THEN** the entire result is English, including the sentence around the format's findings
+
+### Requirement: People SHALL see the IDE's own words for IDE-owned text
+A message a person sees about text only the IDE changes SHALL use a localization key in the active
+language, in the IDE's own words, naming no format's parts. This includes a refused rename, a refused
+breakpoint or bookmark, Find skipping matches, and Replace All reporting skipped matches.
+
+#### Scenario: Find skips read-only matches in a non-English IDE
+- **GIVEN** the IDE uses a non-English language
+- **WHEN** Find finds matches only in read-only text
+- **THEN** its message uses the active language and explains that only the IDE changes that text
+- **AND** it names no format's parts
+
 ### Requirement: Every user-facing string SHALL be addressed by a key
 Text shown to the user SHALL be referenced by a stable key resolved at display time, and SHALL NOT be
 written as a literal at the point of use.

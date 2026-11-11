@@ -78,13 +78,9 @@ public static class MarkLineRules
             return null;
 
         var header = text.HeaderLineCount;
-        var where = header == 0
-            ? "the Attribute lines that describe a member"
-            : $"its header ({first}..{first + header - 1}) or the Attribute lines that describe a member";
         // "line" is what Run To Cursor and Set Next Statement ask for, and "no line can go there" says nothing.
-        var consequence = what == "line" ? "execution can never stop there" : $"no {what} can go there";
-        return $"{Listed(readOnly)} {IsAre(readOnly)} in a read-only part of {display}: {where}. Neither ever " +
-               $"runs, so {consequence}" +
+        var consequence = what == "line" ? "execution can't be sent there" : $"no {what} can go there";
+        return $"{Listed(readOnly)} {IsAre(readOnly)} read-only text in {display}, which only the IDE changes, so {consequence}" +
                $"{(header == 0 ? "" : $"; its code starts at {first + header}, {Counting}")}. " +
                "Nothing was changed.";
     }
