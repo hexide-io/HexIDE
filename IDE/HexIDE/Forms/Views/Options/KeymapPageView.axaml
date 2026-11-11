@@ -38,7 +38,7 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-            <WrapPanel Grid.Row="3">
+            <WrapPanel Grid.Row="3" ItemSpacing="4" LineSpacing="4">
                 <Button x:Name="SetButton" Content="{DynamicResource Str.Options.Keymap.Set}" Command="{CompiledBinding SetCommand}" />
                 <Button x:Name="ClearButton" Content="{DynamicResource Str.Options.Keymap.Clear}" Command="{CompiledBinding ClearCommand}" />
                 <Button x:Name="ResetButton" Content="{DynamicResource Str.LspArtifact.Reset}" Command="{CompiledBinding ResetCommand}" />

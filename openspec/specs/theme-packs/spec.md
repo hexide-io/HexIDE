@@ -104,6 +104,18 @@ including template parts and popup content when focus or selection is activated 
 - **AND** switching to Classic restores existing menu and tool-header geometry, including when a menu is reopened
 - **AND** repeated switches load exactly one shared border style include for a requesting pack and none for other packs
 
+### Requirement: Dialog layouts leave room for outside focus rings
+Every control that draws the high-contrast packs' outside focus ring, on an Options page or in one of the IDE's standard
+dialogs, SHALL leave at least 4 DIP between itself and each neighbour, and at least 2 DIP inside its window, in every
+theme. Items, tabs and tree rows draw focus inside their own border and need no gap. The Properties pane's object selector and the filter below it SHALL sit at least 4 DIP inside the pane, aligned with
+each other and 4 DIP apart, in normal and maximized windows. Its tabs SHALL keep the pane's full width, because they
+draw focus inside and a narrower strip wraps in a docked pane.
+
+#### Scenario: Focusing controls in tight layouts
+- **WHEN** either high-contrast pack is active and focus moves through these controls
+- **THEN** each outside 2 DIP ring fits without covering its neighbour or being clipped at the window edge
+- **AND** the layout gaps remain when switching to another theme
+
 ### Requirement: Editor links SHALL follow the theme
 Editors SHALL use the `LinkText` theme colour (`LinkTextBrush`) for web and mail links.
 Every shipped pack SHALL declare it with at least 4.5:1 contrast against its own `Window` background.
