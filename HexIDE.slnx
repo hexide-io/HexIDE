@@ -16,6 +16,7 @@
     <Project Path="IDE/HexIDE.Lsp.TestServer/HexIDE.Lsp.TestServer.csproj" />
     <Project Path="IDE/HexIDE.Runtime/HexIDE.Runtime.csproj" />
     <Project Path="IDE/HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj" />
+    <Project Path="IDE/HexIDE.Runtime.Integration.Tests/HexIDE.Runtime.Integration.Tests.csproj" />
     <Project Path="IDE/HexIDE.Tests/HexIDE.Tests.csproj" />
     <Project Path="IDE/HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj" />
     <Project Path="IDE/HexIDE.Standalone/HexIDE.Standalone.csproj" />

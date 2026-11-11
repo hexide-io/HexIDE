@@ -4,7 +4,7 @@ using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Tests.Debugging;
+namespace HexIDE.Runtime.Integration.Tests.Debugging;
 
 /// <summary>
 /// Debugger P8 / D7 — a live control value in the Locals tree expands to its readable VB6 properties. Needs a real

@@ -10,6 +10,7 @@ using Avalonia;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using HexIDE.Integration.Tests;
 using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
@@ -18,7 +19,7 @@ using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Controls;
+namespace HexIDE.Runtime.Integration.Tests.Controls;
 
 /// <summary>
 /// A ProgressBar drawn as VB6 draws it (#1082), pixel for pixel, against VB6's own: corpus/inbox-controls/look holds two
