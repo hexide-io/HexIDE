@@ -156,7 +156,7 @@ public class PictureLoadTests
             designer.CanUndo.Should().BeFalse();
             designer.UndoStack.Redo();
             form.AbsolutePath = Path.ChangeExtension(path, ".frm");
-            var service = new ProjectService(null!, windows, bus, Substitute.For<IProjectManager>(),
+            var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), null!, windows, bus, Substitute.For<IProjectManager>(),
                 Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
                 Substitute.For<IUserSidecarService>(), new FileBaselineStore(), loc, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
             (await service.SaveForm(form, saveAs: false, interactive: false)).Should().BeTrue();

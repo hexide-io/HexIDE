@@ -50,7 +50,7 @@ public class UserControlSaveRoundTripTests : IDisposable
 
         loadedProject = () => captured ?? throw new InvalidOperationException("project was never loaded");
 
-        return new ProjectService(
+        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
             () => throw new InvalidOperationException("new-project dialog must not be reached"),
             Substitute.For<IWindowManager>(),
             Substitute.For<IEventBus>(),

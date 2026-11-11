@@ -87,7 +87,7 @@ public class GuardedWritersTests : IDisposable
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), localization, regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules());
+            Substitute.For<HexIDE.Debugging.IRunScope>(), localization, regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
         made.Add(vm);
         return vm;
     }

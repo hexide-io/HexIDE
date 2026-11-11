@@ -35,10 +35,10 @@ public class ProjectOffersTests : IDisposable
         strings.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>().StartsWith("Str.ContributedProject.", StringComparison.Ordinal) ? call.Arg<string>() + " {0} {1}" : call.Arg<string>());
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel>());
-        _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
+        _service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException("no new-project dialog"), _windows,
             Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
-            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
+            new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
             new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 

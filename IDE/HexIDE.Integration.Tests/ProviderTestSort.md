@@ -37,15 +37,11 @@ A test that reaches the provider only at run time, through the application's com
 | `Automation/UiAutomationDriverTests.cs` | split |
 | `Automation/UiSaveAnswerTimingTests.cs` | split |
 | `Controls/BracketDepthRenderingTests.cs` | split |
-| `Controls/CaptionAccessKeyTests.cs` | provider |
 | `Controls/ClassicRenderTests.cs` | split |
 | `Controls/DockOpacityTests.cs` | split |
 | `Controls/DropdownListNameTests.cs` | split |
-| `Controls/ImageListDesignerTests.cs` | provider |
-| `Controls/MonthViewDrawingTests.cs` | provider |
 | `Controls/MousePointerValuesTests.cs` | split |
 | `Controls/OptionButtonPropertyEditorTests.cs` | split |
-| `Controls/ProgressBarDrawingTests.cs` | provider |
 | `Controls/TabStripDrawingTests.cs` | provider |
 | `Debugging/CallStackReplyTests.cs` | split |
 | `TestRunners.cs` | split |

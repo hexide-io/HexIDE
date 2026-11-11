@@ -60,7 +60,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte").Returns(ReadByteForByteText);
         localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte.Many").Returns(ReadByteForByteManyText);
 
-        return new ProjectService(
+        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
             () => throw new InvalidOperationException("new-project dialog must not be reached"),
             windowManager,
             eventBus,

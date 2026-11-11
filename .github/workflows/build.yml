@@ -26,6 +26,7 @@ env:
   MIN_TESTS_TWINBASIC: 200      # 226
   MIN_TESTS_IDE: 6166           # 6491 measured (WSL, #3213); catches short runs; raise to 95% of a new full total.
   MIN_TESTS_INTEGRATION: 5120   # 5389 measured (WSL, #2870); catches short runs; raise to 95% of a new full total.
+  MIN_TESTS_RUNTIME_INTEGRATION: 63     # 67 measured (WSL, #3663); raise to 95% of a new full total as tests move in.
   MIN_TESTS_LSP_SERVER: 624     # 657 measured (WSL, #3213); catches short runs; raise to 95% of a new full total.
 
 jobs:
@@ -265,6 +266,28 @@ jobs:
             echo "::error title=Integration test hung::Still running when the hang dump was taken: $(tr -s '[:space:]' ' ' < "$log")"
           done
 
+      # The runtime alone, in an application that loads only what the Standalone runner loads (#3663). Run, checked and
+      # named on a hang as the Integration suite is, above.
+      - name: Run Runtime Integration Tests (headless Avalonia, the runtime alone)
+        id: runtime-integration
+        timeout-minutes: 30
+        run: dotnet test HexIDE.Runtime.Integration.Tests/HexIDE.Runtime.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename runtime-integration-results.xml --hangdump --hangdump-timeout 10m --hangdump-type Heap
+
+      - name: Check xunit's report for errors MTP does not count (Runtime Integration)
+        if: ${{ !cancelled() && steps.runtime-integration.outcome != 'skipped' }}
+        shell: bash
+        run: bash ../scripts/check-xunit-report.sh HexIDE.Runtime.Integration.Tests/TestResults/runtime-integration-results.xml
+
+      - name: Name a hung Runtime Integration test
+        if: ${{ failure() && steps.runtime-integration.outcome == 'failure' }}
+        shell: bash
+        run: |
+          for log in HexIDE.Runtime.Integration.Tests/TestResults/*_hang.log; do
+            [ -f "$log" ] || continue
+            cat "$log"
+            echo "::error title=Runtime Integration test hung::Still running when the hang dump was taken: $(tr -s '[:space:]' ' ' < "$log")"
+          done
+
       # First-party add-in signing: restore the publisher key from a repo secret so the (Exists-gated)
       # PackAIChatAddin target signs and bundles the add-ins. Forks/PRs receive no secret → the value is
       # empty → packing is skipped and the build still succeeds. The key never lives in the repo.
@@ -461,7 +484,7 @@ jobs:
             fi
             if [ -n "$low" ]; then
               echo "$low: ending the test run so the runner survives" >> "$log"
-              pkill -f 'HexIDE\.(Integration\.)?Tests'
+              pkill -f 'HexIDE\.(Runtime\.Integration\.|Integration\.)?Tests'
               exit 0
             fi
           done
@@ -529,6 +552,28 @@ jobs:
             [ -f "$log" ] || continue
             cat "$log"
             echo "::error title=Integration test hung::Still running when the hang dump was taken: $(tr -s '[:space:]' ' ' < "$log")"
+          done
+
+      # The runtime alone, in an application that loads only what the Standalone runner loads (#3663). Run, checked and
+      # named on a hang as the Integration suite is, above.
+      - name: Run Runtime Integration Tests (headless Avalonia, the runtime alone)
+        id: runtime-integration
+        timeout-minutes: 30
+        run: dotnet test HexIDE.Runtime.Integration.Tests/HexIDE.Runtime.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename runtime-integration-results.xml --hangdump --hangdump-timeout 10m --hangdump-type Heap
+
+      - name: Check xunit's report for errors MTP does not count (Runtime Integration)
+        if: ${{ !cancelled() && steps.runtime-integration.outcome != 'skipped' }}
+        shell: bash
+        run: bash ../scripts/check-xunit-report.sh HexIDE.Runtime.Integration.Tests/TestResults/runtime-integration-results.xml
+
+      - name: Name a hung Runtime Integration test
+        if: ${{ failure() && steps.runtime-integration.outcome == 'failure' }}
+        shell: bash
+        run: |
+          for log in HexIDE.Runtime.Integration.Tests/TestResults/*_hang.log; do
+            [ -f "$log" ] || continue
+            cat "$log"
+            echo "::error title=Runtime Integration test hung::Still running when the hang dump was taken: $(tr -s '[:space:]' ' ' < "$log")"
           done
 
       - name: Upload test results on failure

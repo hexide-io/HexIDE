@@ -3,7 +3,7 @@ using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Tests;
+namespace HexIDE.Runtime.Integration.Tests;
 
 /// <summary>
 /// Regression for the adversarial bug-hunt HIGH: assigning an Integer to a double-typed control property
