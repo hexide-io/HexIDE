@@ -259,7 +259,7 @@ public class MainViewViewModelTests
         HexIDE.Debugging.ExternalDebugService? external = null, IEditorService? editor = null,
         FindReferencesToolViewModel? references = null, CallHierarchyToolViewModel? hierarchy = null,
         IWindowStateService? windowState = null, AddinToolWindowService? tools = null,
-        HexIDE.Runtime.Debugging.IDebugController? debug = null)
+        HexIDE.Runtime.Debugging.IDebugController? debug = null, IFocusedProjectUtil? focus = null)
     {
         projects ??= _projectService;
         var mockDocDock = dock ?? Substitute.For<IDocumentDockService>();
@@ -332,7 +332,7 @@ public class MainViewViewModelTests
             new HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel(lsRegistry, Substitute.For<HexIDE.Lsp.ILspClient>(),
                 mockDocDock, editorService, loc),
             _projectManager,
-            _focusedProjectUtil,
+            focus ?? _focusedProjectUtil,
             projects,
             editorService,
             mockDocDock,
@@ -1658,21 +1658,84 @@ public class MainViewViewModelTests
 
     /// <summary>A code window on a module of the given project, keeping its marks in <paramref name="breakpoints"/>.</summary>
     private static HexIDE.Forms.ViewModels.CodeEditorViewModel CodeWindow(
-        ProjectDefinition project, string name, HexIDE.Debugging.IBreakpointService breakpoints)
+        ProjectDefinition project, string name, HexIDE.Debugging.IBreakpointService breakpoints,
+        ModuleKind? kind = ModuleKind.StandardModule)
     {
-        var module = new ModuleDefinition(project, name, ModuleKind.StandardModule);
+        var module = new ModuleDefinition(project, name, kind ?? ModuleKind.StandardModule);
         module.UpdateCode("Option Explicit\r\n\r\nSub Main()\r\n    Debug.Print 1\r\nEnd Sub\r\n");
-        project.AddModule(module);
+        if (kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
+            module.UpdateFormPart(FormDefinition.NewDesignerHalf(project,
+                HexIDE.Runtime.Components.FormComponentClass.ForRoot(
+                    kind == ModuleKind.UserControl ? "VB.UserControl" : "VB.PropertyPage"), name,
+                kind == ModuleKind.UserControl ? "VB.UserControl" : "VB.PropertyPage"));
+        if (kind is not null) project.AddModule(module);
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<HexIDE.Events.CreateOrNavigateToSubEvent>(Arg.Any<Action<HexIDE.Events.CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
         eventBus.Subscribe<HexIDE.Events.ApplyAllUnsavedChangesEvent>(Arg.Any<Action<HexIDE.Events.ApplyAllUnsavedChangesEvent>>()).Returns(Substitute.For<IDisposable>());
         eventBus.Subscribe<HexIDE.Events.FormUnloadedEvent>(Arg.Any<Action<HexIDE.Events.FormUnloadedEvent>>()).Returns(Substitute.For<IDisposable>());
-        return new HexIDE.Forms.ViewModels.CodeEditorViewModel(
+        var code = new HexIDE.Forms.ViewModels.CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(), eventBus,
             Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), breakpoints,
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
-            Substitute.For<ILocalizationService>()).Initialize(module);
+            Substitute.For<ILocalizationService>());
+        if (kind is not null) return code.Initialize(module);
+        var form = new FormDefinition(project, HexIDE.Runtime.Components.FormComponentClass.Instance, name);
+        project.AddForm(form);
+        return code.Initialize(form);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(ModuleKind.StandardModule)]
+    [InlineData(ModuleKind.ClassModule)]
+    [InlineData(ModuleKind.UserControl)]
+    [InlineData(ModuleKind.PropertyPage)]
+    [InlineData(null)]
+    public void FocusedProjectUtil_CodeWindowUsesItsOwningProject(ModuleKind? kind)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "First");
+        var startup = new ProjectDefinition(VBProjectType.EXE, "Startup");
+        _projectManager.LoadedProjects.Returns(new List<ProjectDefinition> { project, startup });
+        _projectManager.StartupProject.Returns(startup);
+        using var code = CodeWindow(project, "Member1", new HexIDE.Debugging.BreakpointService(), kind);
+        var dock = Substitute.For<IDocumentDockService>();
+        var focus = new FocusedProjectUtil(dock, _projectManager);
+
+        dock.ActiveDocument.Returns(code);
+        dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock,
+            new PropertyChangedEventArgs(nameof(IDocumentDockService.ActiveDocument)));
+
+        focus.FocusedProject.Should().BeSameAs(project);
+        focus.FocusedOrStartupProject.Should().BeSameAs(project);
+        focus.FocusedForm.Should().BeSameAs(code.FormDefinition);
+    }
+
+    [AvaloniaFact]
+    public void AddModule_FromModuleCodeWindowAddsToItsOwningProject()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "First");
+        var startup = new ProjectDefinition(VBProjectType.EXE, "Startup");
+        _projectManager.LoadedProjects.Returns(new List<ProjectDefinition> { project, startup });
+        _projectManager.StartupProject.Returns(startup);
+        using var code = CodeWindow(project, "Module1", new HexIDE.Debugging.BreakpointService());
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns(code);
+        var focus = new FocusedProjectUtil(dock, _projectManager);
+        _projectService.NextFreeModuleName(Arg.Any<ProjectDefinition>(), ModuleKind.StandardModule).Returns("Module2");
+        _projectService.AddNewModule(Arg.Any<ProjectDefinition>(), "Module2", ModuleKind.StandardModule)
+            .Returns(ci =>
+            {
+                var owner = ci.Arg<ProjectDefinition>();
+                var module = new ModuleDefinition(owner, "Module2", ModuleKind.StandardModule);
+                owner.AddModule(module);
+                return Task.FromResult(module);
+            });
+        var shell = Build(_runnerService, dock, focus: focus);
+
+        shell.AddModuleCommand.Execute(null);
+
+        project.Modules.Should().Contain(m => m.Name == "Module2");
+        startup.Modules.Should().BeEmpty();
     }
 
     [AvaloniaTheory]

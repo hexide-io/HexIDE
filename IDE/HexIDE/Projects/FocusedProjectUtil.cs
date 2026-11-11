@@ -49,7 +49,7 @@ public partial class FocusedProjectUtil : IFocusedProjectUtil
         else if (documentDockService.ActiveDocument is CodeEditorViewModel codeEdit)
         {
             FocusedForm = codeEdit.FormDefinition;
-            FocusedProject = FocusedForm?.Owner;
+            FocusedProject = codeEdit.ModuleDefinition?.Owner ?? FocusedForm?.Owner;
         }
         else
         {
