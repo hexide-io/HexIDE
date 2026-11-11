@@ -23,16 +23,13 @@ namespace HexIDE.IDE;
 /// render that varies shows every project as edited.
 /// </para>
 /// </remarks>
-public interface IProjectFileFormat : IFormFileReader
+public interface IProjectFileFormat : IFormFileFormat
 {
-    /// <summary>A form's file, as it would be written under this name, by which its text cites its companion.</summary>
-    RenderedFile RenderForm(FormDefinition form, string fileName);
-
     /// <summary>A module's file, as it would be written under this name.</summary>
     RenderedFile RenderModule(ModuleDefinition module, string fileName);
 
-    /// <summary>The part of a form's file above its code, which the code window shows in front of the code.</summary>
-    string RenderDesignerHeader(FormDefinition form, string fileName);
+    /// <inheritdoc/>
+    RenderedFile IFormFileFormat.RenderDesignerFile(ModuleDefinition module, string fileName) => RenderModule(module, fileName);
 
     /// <summary>A project's file, as it would be written at this path.</summary>
     /// <param name="project">The project.</param>

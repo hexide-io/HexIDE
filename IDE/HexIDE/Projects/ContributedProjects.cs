@@ -23,19 +23,31 @@ public sealed record ContributedProjectType(AddinProjectType Type, string AddinI
 
     internal void Withdraw() => _withdrawn.Cancel();
 
-    /// <summary>What a project of this type offers: nothing, until an add-in can write its own project.</summary>
-    public ProjectOffers Offers => ProjectOffers.Nothing;
+    /// <summary>
+    /// What a project of this type offers: its forms written where its type can render them, and nothing else until an add-in
+    /// can write its own project.
+    /// </summary>
+    public ProjectOffers Offers => Type.Forms is IFormFileFormat ? ProjectOffers.Nothing with { WritesForms = true } : ProjectOffers.Nothing;
 }
 
 /// <summary>
-/// Reads a contributed project's forms through its type's reader, for as long as the type is there. An add-in that has gone
-/// isn't asked, and one that throws, or gives back a form with no root, has failed to read that form and nothing else.
+/// Reads and renders a contributed project's forms through its type's format, for as long as the type is there. An add-in
+/// that has gone is never asked again. One that throws, or gives back a form with no root, has failed to read that form and
+/// nothing else, and one that throws while rendering has rendered nothing.
 /// </summary>
 /// <remarks>
-/// Every form it reads is marked read-only, whichever of open, reload and crash recovery asked, as a reload takes its verdict
-/// from the read. The only writer is the IDE's own, and rendering a file an add-in read through it would change the file silently.
+/// <para>
+/// Where the type only reads, every form it reads is marked read-only, whichever of open, reload and crash recovery asked, as
+/// a reload takes its verdict from the read. Nothing else can write it: rendering what an add-in read as a VB6 file would
+/// change the file silently.
+/// </para>
+/// <para>
+/// A render is checked before anything is written: it ends with the code it was given, which is how the code window finds
+/// the header, and a companion goes beside its file. The companion's path is held to the file's folder when it's read too,
+/// so a project file's member can't steer a read or a write anywhere else.
+/// </para>
 /// </remarks>
-internal sealed class ContributedFormReader(ContributedProjectType type) : IFormFileReader
+internal sealed class ContributedFormFormat(ContributedProjectType type) : IFormFileFormat
 {
     public FormDefinition? ReadForm(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems) =>
         Read(problems, forms => forms.ReadForm(project, text, companion, problems));
@@ -70,22 +82,87 @@ internal sealed class ContributedFormReader(ContributedProjectType type) : IForm
             return null;
         }
 
-        form?.MarkUnfaithfulToSave(UnfaithfulSaveCause.ReadByAddin, $"{type.Origin} read this form, and nothing can write what an add-in read yet");
+        if (forms is not IFormFileFormat)
+            form?.MarkUnfaithfulToSave(UnfaithfulSaveCause.ReadByAddin, $"{type.Origin} read this form, and its project type has nothing that writes one");
         return form;
+    }
+
+    public RenderedFile RenderForm(FormDefinition form, string fileName) =>
+        Render(form.Name, form.Code, fileName, forms => forms.RenderForm(form, fileName));
+
+    public RenderedFile RenderDesignerFile(ModuleDefinition module, string fileName) =>
+        Render(module.Name, module.Code, fileName, forms => forms.RenderDesignerFile(module, fileName));
+
+    public string RenderDesignerHeader(FormDefinition form, string fileName) =>
+        Ask(form.Name, forms => forms.RenderDesignerHeader(form, fileName));
+
+    private RenderedFile Render(string document, string code, string fileName, Func<IFormFileFormat, RenderedFile> render)
+    {
+        var rendered = Ask(document, render);
+        if (rendered.Text is not { } text || !text.EndsWith(code, StringComparison.Ordinal))
+            throw Refused(document, "what it rendered doesn't end with the code it was given, so the header can't be told from it");
+        if (rendered.Companion is { Length: > 0 } && CompanionPath(fileName) is null)
+            throw Refused(document, "it rendered a companion, and named nowhere beside the file to put it");
+        return rendered;
+    }
+
+    // Never asks a type that has gone: turning the add-in off, or withdrawing its consent, is what stops it running.
+    private T Ask<T>(string document, Func<IFormFileFormat, T> ask)
+    {
+        if (type.Withdrawn.IsCancellationRequested)
+            throw Refused(document, "it's no longer loaded");
+        if (type.Type.Forms is not IFormFileFormat format)
+            throw Refused(document, "its project type has nothing that writes forms");
+        try
+        {
+            return ask(format);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "{Origin} could not render {Document}", type.Origin, document);
+            throw new FormRenderRefusal(document, type.Origin, ex.Message, ex.Message);
+        }
+    }
+
+    private FormRenderRefusal Refused(string document, string reason)
+    {
+        Log.Warning("Not writing {Document}: {Origin} can't render it, as {Reason}", document, type.Origin, reason);
+        return new FormRenderRefusal(document, type.Origin, reason);
     }
 
     public string? CompanionPath(string path)
     {
         if (type.Withdrawn.IsCancellationRequested)
             return null;
+        string? companion;
         try
         {
-            return type.Type.Forms?.CompanionPath(path);
+            companion = type.Type.Forms?.CompanionPath(path);
         }
         catch (Exception ex)
         {
             Log.Warning(ex, "{Origin} could not name a form's companion", type.Origin);
             return null;
+        }
+        if (companion is null || IsBeside(path, companion))
+            return companion;
+        Log.Warning("{Origin} names {Companion} as the companion of {Path}, which isn't beside it, so it's neither read nor written",
+            type.Origin, companion, path);
+        return null;
+    }
+
+    // In the same folder as the file, and not the file itself.
+    private static bool IsBeside(string path, string companion)
+    {
+        try
+        {
+            var (file, other) = (Path.GetFullPath(path), Path.GetFullPath(companion));
+            return !HostFilePath.Equals(file, other)
+                   && HostFilePath.Equals(Path.GetDirectoryName(file) ?? "", Path.GetDirectoryName(other) ?? "");
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
         }
     }
 }
@@ -197,7 +274,7 @@ public sealed partial class ContributedProjects
             ContributedBy = type.AddinId,
             Offers = type.Offers,
             ContributorTitle = type.Origin,
-            FormReader = new ContributedFormReader(type),
+            FormFormat = new ContributedFormFormat(type),
         };
         project.AbsolutePath = path;
         project.ItemLinesDirectory = Path.GetDirectoryName(path)!;
@@ -276,7 +353,7 @@ public sealed partial class ContributedProjects
     {
         var path = member.Path;
         // Set on every project a contributed type opened, the only ones that reach here.
-        var reader = project.FormReader!;
+        var reader = project.FormFormat!;
         var bytes = await ReadFile(path);
         var read = Vb6TextFile.ReadDocument(bytes, null, hostAnsi);
         var companionPath = reader.CompanionPath(path);

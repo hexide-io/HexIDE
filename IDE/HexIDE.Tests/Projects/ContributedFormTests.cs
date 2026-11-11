@@ -17,7 +17,8 @@ namespace HexIDE.Tests.Projects;
 
 /// <summary>
 /// A form an add-in's project type lists: read through the type's own reader, from a format and with controls that aren't
-/// VB6's, and held read-only because nothing can write what an add-in read yet (#3623).
+/// VB6's (#3623). Held read-only where the type only reads, and written through the type's own format where it can render
+/// (#3666).
 /// </summary>
 public sealed class ContributedFormTests : IDisposable
 {
@@ -31,6 +32,8 @@ public sealed class ContributedFormTests : IDisposable
     private readonly FileBaselineStore _baselines = new();
     private readonly ContributedProjects _types = new() { ReadFile = path => Task.FromResult(File.ReadAllBytes(path)) };
     private readonly StandInForms _forms = new();
+    private readonly StandInFormat _format = new();
+    private readonly HeaderRefresher _headers;
     private readonly ProjectService _service;
     private IAddinProjectChanges? _changes;
 
@@ -50,14 +53,15 @@ public sealed class ContributedFormTests : IDisposable
         strings.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() switch
         {
             "Str.ContributedProject.FormReadOnly" => "An add-in read this, so it wasn't saved.",
+            "Str.ContributedProject.RenderRefused" => "{0} wasn't written by {1}.",
             var key => key + " {0} {1}",
         });
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<HexIDE.Forms.ViewModels.BaseEditorWindowViewModel>());
+        _headers = new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
         _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             _events, projects, Substitute.For<IRecentProjectsService>(),
-            Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, strings,
-            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
+            Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, strings, _headers,
             new Vb6ProjectFileFormat(), new ComponentRegistry(),
             contributed: _types);
     }
@@ -332,17 +336,21 @@ public sealed class ContributedFormTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task VB6_s_own_format_can_be_a_type_s_reader_with_a_real_form_and_its_companion()
+    public async Task VB6_s_own_format_can_be_a_type_s_format_and_writes_a_real_form_as_a_vbp_s_save_would()
     {
         var frm = Path.Join(_dir, "Real.frm");
         File.WriteAllText(frm, "VERSION 5.00\r\nBegin VB.Form Real\r\n   Caption         =   \"Real\"\r\nEnd\r\nAttribute VB_Name = \"Real\"\r\nPrivate Sub Form_Load()\r\nEnd Sub\r\n");
         using var type = Contribute(new Vb6ProjectFileFormat(), new AddinProjectMember(frm, AddinMemberKind.Form));
-
         var form = await OpenedForm();
 
         form.Name.Should().Be("Real");
-        form.Code.Should().Contain("Form_Load");
-        form.CanSaveFaithfully.Should().BeFalse();
+        form.CanSaveFaithfully.Should().BeTrue("VB6's format renders what it reads, by whichever route it was asked");
+        _service.HasUnsavedChanges(form).Should().BeFalse();
+        form.UpdateCode(form.Code + "Private Sub Form_Click()\r\nEnd Sub\r\n");
+        (await _service.SaveForm(form, saveAs: false)).Should().BeTrue();
+
+        File.ReadAllText(frm).Should().Be(new Vb6ProjectFileFormat().RenderForm(form, "Real.frm").Text);
+        File.ReadAllText(frm).Should().Contain("Form_Click");
     }
 
     [AvaloniaTheory]
@@ -452,6 +460,7 @@ public sealed class ContributedFormTests : IDisposable
 
     [AvaloniaTheory]
     [InlineData(UnfaithfulSaveCause.ReadByAddin, true)]
+    [InlineData(UnfaithfulSaveCause.RefusedByFormat, true)]
     [InlineData(UnfaithfulSaveCause.NestedContainers, false)]
     public void The_designer_s_banner_has_its_own_words_for_a_form_an_add_in_read(UnfaithfulSaveCause cause, bool ownWords)
     {
@@ -465,6 +474,245 @@ public sealed class ContributedFormTests : IDisposable
         designer.IsReadOnly.Should().BeTrue();
         designer.IsReadByAddin.Should().Be(ownWords);
     }
+
+    [AvaloniaFact]
+    public async Task A_form_its_type_can_render_is_written_through_that_format_companion_first()
+    {
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        var form = await OpenedForm();
+        form.CanSaveFaithfully.Should().BeTrue("its type can write what it read");
+        form.UnfaithfulSaveCauses.Should().NotHaveFlag(UnfaithfulSaveCause.ReadByAddin);
+        _service.HasUnsavedChanges(form).Should().BeFalse("nothing has changed since it was read");
+
+        form.UpdateCode("changed");
+        _format.Companion = [4, 5];
+        _service.HasUnsavedChanges(form).Should().BeTrue();
+        var opened = new List<string>();
+        AtomicFileWriter.OpenStream.Value = temporary =>
+        {
+            opened.Add(Path.GetFileName(temporary));
+            return new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        };
+        try
+        {
+            (await _service.SaveForm(form, saveAs: false)).Should().BeTrue();
+        }
+        finally
+        {
+            AtomicFileWriter.OpenStream.Value = null;
+        }
+
+        File.ReadAllText(FormFile).Should().Be("Main\nchanged");
+        File.ReadAllBytes(CompanionFile).Should().Equal(4, 5);
+        opened.Should().HaveCount(2);
+        opened[0].Should().StartWith("Main.sbin.", "an interrupted save then leaves a pair that refuses to load, not one that loads wrongly");
+        opened[1].Should().StartWith("Main.sform.");
+        _service.HasUnsavedChanges(form).Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task Saving_the_project_writes_its_edited_forms_and_modules_and_never_its_project_file()
+    {
+        var bas = Path.Join(_dir, "Code.bas");
+        File.WriteAllText(bas, "Attribute VB_Name = \"Code\"\r\nSub Main()\r\nEnd Sub\r\n");
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form), new AddinProjectMember(bas, AddinMemberKind.StandardModule));
+        var project = await Opened();
+        project.Forms.Single().UpdateCode("changed");
+        project.Modules.Single().UpdateCode("Sub Main()\r\n    Debug.Print 1\r\nEnd Sub\r\n");
+
+        await _service.SaveAllProjects(saveAs: false);
+
+        File.ReadAllText(FormFile).Should().Be("Main\nchanged");
+        File.ReadAllText(bas).Should().Contain("Debug.Print 1");
+        File.ReadAllText(ProjectFile).Should().Be("a project");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(AddinMemberKind.UserControl)]
+    [InlineData(AddinMemberKind.PropertyPage)]
+    public async Task A_designer_member_its_type_can_render_is_written_through_that_format(AddinMemberKind kind)
+    {
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, kind));
+        var module = (await Opened()).Modules.Single();
+        module.FormPart!.CanSaveFaithfully.Should().BeTrue();
+        _service.HasUnsavedChanges(module).Should().BeFalse();
+
+        module.UpdateCode("changed");
+        _format.Companion = [6];
+        (await _service.SaveModule(module, saveAs: false)).Should().BeTrue();
+
+        File.ReadAllText(FormFile).Should().Be("Main\nchanged");
+        File.ReadAllBytes(CompanionFile).Should().Equal(6);
+        _format.DesignerRenders.Should().NotBeEmpty();
+        _service.HasUnsavedChanges(module).Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task A_form_its_reader_refuses_opens_read_only_and_a_save_names_it_with_the_add_in_s_words()
+    {
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        _format.Instead = (project, _) =>
+        {
+            var refused = _format.Read(project);
+            refused.MarkUnfaithfulToSave(UnfaithfulSaveCause.RefusedByFormat, "it holds a gauge I can't write");
+            return refused;
+        };
+        var form = await OpenedForm();
+        var before = File.ReadAllBytes(FormFile);
+
+        form.UpdateCode("changed");
+        var saved = await _service.SaveForm(form, saveAs: false);
+
+        form.CanSaveFaithfully.Should().BeFalse();
+        saved.Should().BeFalse();
+        File.ReadAllBytes(FormFile).Should().Equal(before);
+        await ToldOf("An add-in read this, so it wasn't saved.");
+        await ToldOf("Main: it holds a gauge I can't write");
+    }
+
+    [AvaloniaFact]
+    public async Task A_form_its_format_cannot_render_when_it_is_read_opens_read_only_with_the_add_in_s_words()
+    {
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        _format.Throws = new InvalidOperationException("the gauge is broken");
+
+        var form = await OpenedForm();
+
+        form.CanSaveFaithfully.Should().BeFalse("a format that can't render what it just read can't save it");
+        form.UnfaithfulSaveCauses.Should().HaveFlag(UnfaithfulSaveCause.RefusedByFormat);
+        form.UnfaithfulSaveReason.Should().Contain("the gauge is broken");
+    }
+
+    [AvaloniaFact]
+    public async Task A_render_that_throws_ends_the_save_before_anything_is_written_and_says_why()
+    {
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        var form = await OpenedForm();
+        var before = File.ReadAllBytes(FormFile);
+        form.UpdateCode("changed");
+        _format.Companion = [9];
+        _format.Throws = new InvalidOperationException("the gauge is broken");
+
+        var save = () => _service.SaveForm(form, saveAs: false);
+
+        await save.Should().ThrowAsync<FormRenderRefusal>();
+        File.ReadAllBytes(FormFile).Should().Equal(before);
+        File.ReadAllBytes(CompanionFile).Should().Equal(1, 2, 3);
+        await ToldOf("Main wasn't written by A provider.");
+        await ToldOf("the gauge is broken");
+    }
+
+    [AvaloniaFact]
+    public async Task A_render_that_does_not_end_with_the_code_is_never_written()
+    {
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        var form = await OpenedForm();
+        var before = File.ReadAllBytes(FormFile);
+        form.UpdateCode("changed");
+        _format.Text = (name, code) => code + "\n" + name;
+
+        var save = () => _service.SaveForm(form, saveAs: false);
+
+        await save.Should().ThrowAsync<FormRenderRefusal>("the code window takes the header to be the render less the code");
+        File.ReadAllBytes(FormFile).Should().Equal(before);
+        await ToldOf("Main wasn't written by A provider.");
+    }
+
+    [AvaloniaFact]
+    public async Task A_companion_outside_the_form_s_folder_is_never_read_or_written()
+    {
+        var elsewhere = Path.Join(_dir, "elsewhere", "Main.sbin");
+        Directory.CreateDirectory(Path.GetDirectoryName(elsewhere)!);
+        File.WriteAllBytes(elsewhere, [8]);
+        _format.CompanionAt = _ => elsewhere;
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+
+        var form = await OpenedForm();
+        form.UpdateCode("changed");
+        var saved = await _service.SaveForm(form, saveAs: false);
+
+        _format.Reads.Single().Companion.Should().BeNull("a companion is read from beside its file or not at all");
+        form.CanSaveFaithfully.Should().BeFalse("its render has a companion with nowhere beside the file to go");
+        saved.Should().BeFalse();
+        File.ReadAllBytes(elsewhere).Should().Equal(8);
+    }
+
+    [AvaloniaFact]
+    public async Task Crash_recovery_keeps_a_copy_rendered_by_the_type_s_format()
+    {
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        var form = await OpenedForm();
+        form.UpdateCode("changed");
+        _format.Companion = [4];
+
+        var copy = _service.CaptureUnsavedWork().Single().Documents.Single().Content;
+
+        copy.Should().NotBeNull();
+        copy!.Text.Should().Be("Main\nchanged");
+        copy.CompanionFileName.Should().Be("Main.sbin");
+        copy.Companion.Should().Equal(4);
+    }
+
+    [AvaloniaFact]
+    public async Task A_form_whose_render_fails_keeps_what_its_last_capture_said()
+    {
+        var edited = Path.Join(_dir, "Edited.sform");
+        File.WriteAllText(edited, "Edited\nfirst");
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form), new AddinProjectMember(edited, AddinMemberKind.Form));
+        var project = await Opened();
+        var (untouched, changed) = (project.Forms.Single(f => f.Name == "Main"), project.Forms.Single(f => f.Name == "Edited"));
+        changed.UpdateCode("changed");
+        _service.CaptureUnsavedWork();
+
+        _format.Throws = new InvalidOperationException("the gauge is broken");
+        changed.UpdateCode("changed again");
+
+        _service.HasUnsavedChanges(changed).Should().BeTrue("its last capture carried an edit");
+        _service.HasUnsavedChanges(untouched).Should().BeFalse("its last capture carried none");
+        var documents = _service.CaptureUnsavedWork().Single().Documents;
+        documents.Single(d => d.Name == "Edited").Content!.Text.Should().Be("Edited\nchanged", "the copy from the last capture that could render it");
+        documents.Single(d => d.Name == "Main").Content.Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public async Task Once_the_add_in_has_gone_its_format_is_never_called_again()
+    {
+        var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        var form = await OpenedForm();
+        form.UpdateCode("changed");
+        _service.CaptureUnsavedWork();
+        var (renders, reads) = (_format.Renders.Count, _format.Reads.Count);
+
+        type.Dispose();
+        _service.HasUnsavedChanges(form).Should().BeTrue("the last capture before it went carried the edit");
+        _service.CaptureUnsavedWork().Single().Documents.Single().Content!.Text.Should().Be("Main\nchanged");
+        _headers.LayoutChanged(form);
+        WriteForm("second");
+        await _service.ReloadFormFromDisk(form);
+        var save = () => _service.SaveForm(form, saveAs: false);
+        await save.Should().ThrowAsync<FormRenderRefusal>();
+
+        _format.Renders.Should().HaveCount(renders, "its consent, or its being turned on, is what let it run");
+        _format.Reads.Should().HaveCount(reads);
+        File.ReadAllText(FormFile).Should().Be("Main\nsecond");
+    }
+
+    [AvaloniaFact]
+    public async Task The_header_over_the_code_is_rendered_by_the_form_s_own_format()
+    {
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        var form = await OpenedForm();
+
+        _headers.LayoutChanged(form);
+
+        _format.Renders.Should().Contain("header Main.sform");
+        form.DesignerText.Should().Be("Main\n");
+    }
+
+    [Fact]
+    public void No_product_code_renders_a_form_past_the_format_its_project_names() =>
+        ProductSource.FilesMatching(new Regex(@"\b_?format\s*\.\s*(RenderForm|RenderDesignerFile|RenderDesignerHeader|CompanionExtension)\b"))
+            .Should().BeEmpty("a project an add-in opened has its forms written by that add-in's format, or by nothing");
 
     [Fact]
     public void No_product_code_reads_a_form_past_the_reader_its_project_names() =>
@@ -480,7 +728,7 @@ public sealed class ContributedFormTests : IDisposable
     }
 
     // A format that is nothing like VB6's: the name on the first line and the code after it, beside a .sbin.
-    private sealed class StandInForms : IFormFileReader
+    private class StandInForms : IFormFileReader
     {
         private string _text = "";
 
@@ -510,6 +758,44 @@ public sealed class ContributedFormTests : IDisposable
             return new FormDefinition(project, [new ComponentInstance(Root, parts[0])], parts[1]);
         }
 
-        public string? CompanionPath(string path) => Path.ChangeExtension(path, ".sbin");
+        public Func<string, string>? CompanionAt { get; set; }
+
+        public string? CompanionPath(string path) => CompanionAt?.Invoke(path) ?? Path.ChangeExtension(path, ".sbin");
+    }
+
+    // The same format, and it renders: the name, a line break and the code, beside the companion it is given.
+    private sealed class StandInFormat : StandInForms, IFormFileFormat
+    {
+        public List<string> Renders { get; } = [];
+
+        public List<string> DesignerRenders { get; } = [];
+
+        public byte[]? Companion { get; set; } = [1, 2, 3];
+
+        public Func<string, string, string>? Text { get; set; }
+
+        public Exception? Throws { get; set; }
+
+        public RenderedFile RenderForm(FormDefinition form, string fileName) => Render(form.Name, form.Code, fileName);
+
+        public RenderedFile RenderDesignerFile(ModuleDefinition module, string fileName)
+        {
+            DesignerRenders.Add(fileName);
+            return Render(module.Name, module.Code, fileName);
+        }
+
+        public string RenderDesignerHeader(FormDefinition form, string fileName)
+        {
+            Renders.Add("header " + fileName);
+            if (Throws is { } thrown) throw thrown;
+            return form.Name + "\n";
+        }
+
+        private RenderedFile Render(string name, string code, string fileName)
+        {
+            Renders.Add(fileName);
+            if (Throws is { } thrown) throw thrown;
+            return new((Text ?? ((n, c) => n + "\n" + c))(name, code), Companion);
+        }
     }
 }

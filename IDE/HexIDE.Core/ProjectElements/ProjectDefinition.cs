@@ -83,8 +83,11 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     /// <summary>What this project's type lets the IDE do with it. A project the IDE read itself offers everything.</summary>
     public ProjectOffers Offers { get; init; } = ProjectOffers.Everything;
 
-    /// <summary>What reads this project's forms, where that isn't the IDE's own format.</summary>
-    public HexIDE.IDE.IFormFileReader? FormReader { get; init; }
+    /// <summary>
+    /// What reads and renders this project's forms, where that isn't the IDE's own format. Every read and render of one of
+    /// its forms goes through this, so a project an add-in opened never has a form read or written as a VB6 file.
+    /// </summary>
+    public HexIDE.IDE.IFormFileFormat? FormFormat { get; init; }
 
     /// <summary>The title of the add-in that opened this project, for display; null when <see cref="ContributedBy"/> is.</summary>
     public string? ContributorTitle { get; init; }
