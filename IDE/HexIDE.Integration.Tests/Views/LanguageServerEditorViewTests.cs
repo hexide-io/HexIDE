@@ -82,7 +82,10 @@ public sealed class LanguageServerEditorViewTests
                 (first.TranslatePoint(default, view)!.Value.Y + first.Bounds.Height).Should().BeLessThanOrEqualTo(view.Bounds.Height);
             }
             var fields = editor.GetVisualDescendants().OfType<TextBox>().ToArray();
-            fields.Should().HaveCount(27);
+            // One box per field the form offers, counted from the form rather than written down, so a new field (#1209's
+            // tcpRole) doesn't fail this.
+            fields.Should().HaveCount(((LanguageServerEditorViewModel)editor.DataContext!).Fields.Count)
+                .And.HaveCountGreaterThanOrEqualTo(28);
             void Set(string name, string value) => fields.Single(t =>
                 t.DataContext is LanguageServerFieldViewModel f && f.Name == name).Text = value;
             if (action == "add")
