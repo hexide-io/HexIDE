@@ -9,13 +9,20 @@ namespace HexIDE.Tests.Infrastructure;
 /// answer_next_file_dialog arms several files as one answer, for an Open that lets a person select them (#2408). It
 /// used to arm one path, so a multi-select Open could only ever be answered with one file.
 /// </summary>
-public class AnswerNextFileDialogPathsTests
+public class AnswerNextFileDialogPathsTests : IDisposable
 {
     // The tool reads nothing from the IDE.
     private readonly HexIdeTools tools = new(null!);
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     public AnswerNextFileDialogPathsTests()
+    {
+        ScriptedFileDialogs.Clear();
+        ScriptedFileDialogs.TakeUnreportedRefusal();
+    }
+
+    // The answers are process-wide, so one left armed is taken by the next test that opens a picker (#3745).
+    public void Dispose()
     {
         ScriptedFileDialogs.Clear();
         ScriptedFileDialogs.TakeUnreportedRefusal();

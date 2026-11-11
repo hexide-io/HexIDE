@@ -13,12 +13,19 @@ namespace HexIDE.Tests.IDE;
 /// would leave a live override behind it, and the damage would show up somewhere else entirely. Everything
 /// else here is a queue.
 /// </remarks>
-public class ScriptedFileDialogsTests
+public class ScriptedFileDialogsTests : IDisposable
 {
     public ScriptedFileDialogsTests()
     {
         ScriptedFileDialogs.Clear();
         // A refusal another test left unreported would otherwise be told here.
+        ScriptedFileDialogs.TakeUnreportedRefusal();
+    }
+
+    // The answers are process-wide, so one left armed is taken by the next test that opens a picker (#3745).
+    public void Dispose()
+    {
+        ScriptedFileDialogs.Clear();
         ScriptedFileDialogs.TakeUnreportedRefusal();
     }
 
