@@ -428,6 +428,7 @@
     "Str.Designer.ReadOnly.Banner": "読み取り専用 — HexIDE はまだこのフォームを忠実に再現できないため、保存するとフォームが変化してしまいます。表示と実行はできますが、変更は保存されません。",
     "Str.ContributedProject.FormReadOnly": "読み取り専用 — これを読み込んだアドインはこれを書き戻せないため、変更は保存されません。",
     "Str.ContributedProject.RenderRefused": "何も書き込まれませんでした。{1} が {0} を書き込めなかったため、ファイルが変更される前に保存を中止しました。",
+    "Str.ContributedProject.SavedInPlace": "{1} はプロジェクトファイルを開いた場所にのみ書き込むため、{0} はその場所に保存されます。",
     "Str.ContributedProject.MemberOverProjectFile": "何も書き込まれませんでした。{0} がプロジェクト自身のファイル {1} に上書き保存されるところだったため、ファイルが変更される前に保存を中止しました。",
     "Str.ContributedProject.WithdrawWithChanges": "{0} はこれらを読み込んでおり、保存されていない変更があります:\n\n{1}\n\n無効にする前に保存しますか? 無効にした後は HexIDE で保存できません。",
     "Str.ContributedProject.WithdrawnWithChanges": "{0} は読み込まれていないため、HexIDE はこれらを保存できません:\n\n{1}\n\nクラッシュ回復は、それぞれについて最後に取ったコピーを保持しています。そのコピーより後の変更は保持されていません。",

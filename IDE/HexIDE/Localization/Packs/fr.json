@@ -428,6 +428,7 @@
     "Str.Designer.ReadOnly.Banner": "Lecture seule — HexIDE ne sait pas encore reproduire cette feuille fidèlement ; l'enregistrer la modifierait. Vous pouvez la consulter et l'exécuter, mais les modifications ne seront pas enregistrées.",
     "Str.ContributedProject.FormReadOnly": "Lecture seule — le complément qui l'a lu ne peut pas le réécrire : les modifications apportées ne seront donc pas enregistrées.",
     "Str.ContributedProject.RenderRefused": "Rien n'a été écrit. {1} n'a pas pu écrire {0} : l'enregistrement s'est donc arrêté avant qu'un fichier ne soit modifié.",
+    "Str.ContributedProject.SavedInPlace": "{0} est enregistré là où il a été ouvert, car {1} écrit son fichier de projet uniquement à cet endroit.",
     "Str.ContributedProject.MemberOverProjectFile": "Rien n'a été écrit. {0} aurait été enregistré par-dessus {1}, le fichier du projet lui-même : l'enregistrement s'est donc arrêté avant qu'un fichier ne soit modifié.",
     "Str.ContributedProject.WithdrawWithChanges": "{0} lit ces éléments, et ils contiennent des modifications non enregistrées :\n\n{1}\n\nLes enregistrer avant de le désactiver ? Une fois désactivé, HexIDE ne pourra plus les enregistrer.",
     "Str.ContributedProject.WithdrawnWithChanges": "{0} n'est plus chargé : HexIDE ne peut donc pas enregistrer ces éléments :\n\n{1}\n\nLa récupération après plantage conserve la dernière copie qu'elle a prise de chacun. Ce qui a été modifié après cette copie n'a pas été conservé.",

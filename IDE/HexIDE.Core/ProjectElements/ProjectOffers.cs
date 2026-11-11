@@ -9,6 +9,9 @@ public sealed record ProjectOffers
     /// <summary>The IDE saves the project's own file: it can count as edited, and a language server can be given its text.</summary>
     public bool WritesProjectFile { get; init; }
 
+    /// <summary>Save Project As can write the project's file somewhere new.</summary>
+    public bool MovesProjectFile { get; init; }
+
     /// <summary>
     /// The IDE can render the project's forms: to save one, to compare it with its file, and to keep a copy for crash
     /// recovery. Where it can't, a form is never edited and nothing renders it.
@@ -37,6 +40,7 @@ public sealed record ProjectOffers
     public static ProjectOffers Everything { get; } = new()
     {
         WritesProjectFile = true,
+        MovesProjectFile = true,
         WritesForms = true,
         Makes = true,
         Runs = true,

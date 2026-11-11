@@ -120,6 +120,7 @@ public partial class MainViewViewModel : ObservableObject
     public DelegateCommand SaveFormCommand { get; }
     public DelegateCommand RemoveDocumentCommand { get; }
     public DelegateCommand SaveFormAsCommand { get; }
+    public DelegateCommand SaveProjectAsCommand { get; }
 
     public DelegateCommand StartDefaultProjectCommand { get; }
     public DelegateCommand StartExternalDebugCommand { get; }
@@ -1457,6 +1458,11 @@ public partial class MainViewViewModel : ObservableObject
         RemoveDocumentCommand = new DelegateCommand(() => RemoveActiveDocument().ListenErrors(),
             () => RemovableDocument != null);
         ProjectExplorer.ObservePropertyChanged(x => x.SelectedItem).Subscribe(_ => UpdateRemoveDocumentMenu());
+        SaveProjectAsCommand = new DelegateCommand(SaveProjectAs,
+            () => projectManager.LoadedProjects.Any(project => project.Offers.MovesProjectFile));
+        projectManager.ProjectLoaded += _ => SaveProjectAsCommand.RaiseCanExecutedChanged();
+        projectManager.ProjectUnloaded += _ => SaveProjectAsCommand.RaiseCanExecutedChanged();
+
         SaveFormCommand = new DelegateCommand(() => SaveActiveForm(false),
             () => FocusedProjectUtil.FocusedForm != null);
         SaveFormAsCommand = new DelegateCommand(() => SaveActiveForm(true),
@@ -1533,7 +1539,7 @@ public partial class MainViewViewModel : ObservableObject
 
         // Routed commands listen to CommandManager, not to the delegate behind their binding.
         foreach (var command in new[] { ToggleBreakpointCommand, RunToCursorCommand, SetNextStatementCommand,
-                     ShowNextStatementCommand, EditWatchCommand })
+                     ShowNextStatementCommand, EditWatchCommand, SaveProjectAsCommand })
             command.CanExecuteChanged += (_, _) => Avalonia.Labs.Input.CommandManager.InvalidateRequerySuggested();
 
         if (externalDebugger is not null)
@@ -1565,6 +1571,7 @@ public partial class MainViewViewModel : ObservableObject
         FocusedProjectUtil.ObservePropertyChanged(x => x.FocusedOrStartupProject)
             .Subscribe(_ =>
             {
+                SaveProjectAsCommand.RaiseCanExecutedChanged();
                 ProjectReferencesCommand.RaiseCanExecutedChanged();
                 ProjectComponentsCommand.RaiseCanExecutedChanged();
                 ProjectPropertiesCommand.RaiseCanExecutedChanged();

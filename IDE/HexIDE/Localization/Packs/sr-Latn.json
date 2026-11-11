@@ -390,6 +390,7 @@
     "Str.Designer.ReadOnly.Banner": "Samo za čitanje — HexIDE još ne može verno da reprodukuje ovaj obrazac, pa bi ga čuvanje promenilo. Možete ga pregledati i pokrenuti, ali izmene neće biti sačuvane.",
     "Str.ContributedProject.FormReadOnly": "Samo za čitanje — dodatak koji je ovo pročitao ne može to da upiše nazad, pa izmene neće biti sačuvane.",
     "Str.ContributedProject.RenderRefused": "Ništa nije upisano. {1} nije mogao da upiše {0}, pa je čuvanje zaustavljeno pre nego što se bilo koja datoteka promenila.",
+    "Str.ContributedProject.SavedInPlace": "{0} se čuva tamo gde je otvoren jer {1} samo tamo upisuje njegovu projektnu datoteku.",
     "Str.ContributedProject.MemberOverProjectFile": "Ništa nije upisano. {0} bi bio sačuvan preko {1}, sopstvene datoteke projekta, pa je čuvanje zaustavljeno pre nego što se bilo koja datoteka promenila.",
     "Str.ContributedProject.WithdrawWithChanges": "{0} čita ove stavke i u njima ima nesačuvanih izmena:\n\n{1}\n\nDa li želite da ih sačuvate pre isključivanja? Posle isključivanja HexIDE ne može da ih sačuva.",
     "Str.ContributedProject.WithdrawnWithChanges": "{0} više nije učitan, pa HexIDE ne može da sačuva ove stavke:\n\n{1}\n\nOporavak posle pada čuva poslednju kopiju koju je napravio za svaku. Izmene posle te kopije nisu sačuvane.",

@@ -62,7 +62,7 @@ public class UiSaveAnswerTimingTests
             {
                 // The same resolution and Execute as invoke_menu_item, without a transport or desktop lifetime.
                 var menu = window.GetVisualDescendants().OfType<Menu>().First();
-                var found = MenuPath.Resolve(menu.Items, "File/Save Project As...");
+                var found = MenuPath.Resolve(menu.Items, opensPicker ? "File/Save Project As..." : "File/Save Project");
                 found.Error.Should().BeNull();
                 found.Command.Should().NotBeNull();
                 found.Command!.CanExecute(found.CommandParameter).Should().BeTrue();

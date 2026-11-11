@@ -428,6 +428,7 @@
     "Str.Designer.ReadOnly.Banner": "Hanya-baca — HexIDE belum dapat menghasilkan kembali formulir ini secara persis, sehingga menyimpannya akan mengubahnya. Anda dapat melihat dan menjalankannya, tetapi perubahan tidak akan disimpan.",
     "Str.ContributedProject.FormReadOnly": "Hanya baca — add-in yang membaca ini tidak dapat menulisnya kembali, sehingga perubahan padanya tidak akan disimpan.",
     "Str.ContributedProject.RenderRefused": "Tidak ada yang ditulis. {1} tidak dapat menulis {0}, sehingga penyimpanan berhenti sebelum ada file yang berubah.",
+    "Str.ContributedProject.SavedInPlace": "{0} disimpan di tempat asalnya dibuka, karena {1} hanya menulis berkas proyeknya di sana.",
     "Str.ContributedProject.MemberOverProjectFile": "Tidak ada yang ditulis. {0} akan disimpan menimpa {1}, file milik proyek itu sendiri, sehingga penyimpanan berhenti sebelum ada file yang berubah.",
     "Str.ContributedProject.WithdrawWithChanges": "{0} membaca item ini, dan ada perubahan yang belum disimpan:\n\n{1}\n\nSimpan sebelum dinonaktifkan? Setelah dinonaktifkan, HexIDE tidak dapat menyimpannya.",
     "Str.ContributedProject.WithdrawnWithChanges": "{0} tidak lagi dimuat, sehingga HexIDE tidak dapat menyimpan item ini:\n\n{1}\n\nPemulihan crash menyimpan salinan terakhir yang diambilnya dari masing-masing. Perubahan setelah salinan itu tidak disimpan.",
