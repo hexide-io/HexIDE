@@ -58,6 +58,19 @@ public class MemberRunFollowsItsLineTests : IDisposable
         "Attribute Go.VB_Description = \"Goes\"\r\n" +
         "End Sub\r\n";
 
+    [AvaloniaFact]
+    public void TheWindowSeesEachDescribingRunAsOneOfItsRegionsAndNoOrphan()
+    {
+        // The reader's two answers agree (#3668): every run that hangs from a declaration is a read-only region, and
+        // the orphan under the comment is neither.
+        var vm = OpenCode();
+
+        vm.HangingRegionsNow.Select(r => r.Name).Should().Equal("Count", "Go", "Total");
+        vm.ReadOnlyRegionsNow.Should().Contain(vm.HangingRegionsNow.Select(r => r.Region));
+        vm.ReadOnlyRegionsNow.Should().HaveCount(vm.HangingRegionsNow.Count + 1, "the header and the three runs");
+        VerdictsOf(vm).Should().ContainSingle(r => r.Kind == MemberRunKind.Orphan, "the premise: the run under the comment");
+    }
+
     [AvaloniaTheory]
     [InlineData("Public Sub Go() ' does X", "' does X", "Go")]
     [InlineData("Public Sub Go() ' does X", "X", "Go")]
