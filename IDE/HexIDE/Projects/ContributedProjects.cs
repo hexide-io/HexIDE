@@ -25,10 +25,11 @@ public sealed record ContributedProjectType(AddinProjectType Type, string AddinI
 
     /// <summary>
     /// What a project of this type offers: its forms written where its type can render them, and its own file, with
-    /// membership where that file carries it, where its type has a writer. Never Components, Make or Run.
+    /// membership and references where that file carries them, where its type has a writer. Never Components, Make or Run.
     /// </summary>
     public ProjectOffers Offers => ProjectOffers.Nothing with
     {
+        SetsReferences = Type.ProjectFile is { } references && references.Carries.HasFlag(ProjectFileParts.References),
         WritesForms = Type.Forms is IFormFileFormat,
         WritesProjectFile = Type.ProjectFile is not null,
         ChangesMembership = Type.ProjectFile is { } writer && writer.Carries.HasFlag(ProjectFileParts.Members),

@@ -2366,23 +2366,31 @@ public partial class ProjectService : IProjectService
                 HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
     }
 
-    public Task SaveAllProjects(bool saveAs)
+    public async Task SaveAllProjects(bool saveAs)
     {
         var files = projectManager.LoadedProjects.SelectMany(project => FilesOf(project, saveAs)).ToList();
         if (projectManager.CurrentGroup is { } group)
             files.Add((group, saveAs));
-        return SaveAll(files);
+        var written = await SaveAll(files);
+        var savedInPlace = saveAs
+            ? written.Select(destination => destination.Document).OfType<ProjectDefinition>()
+                .Where(project => !project.Offers.MovesProjectFile).ToList()
+            : [];
+        if (savedInPlace.Count > 0)
+            await windowManager.MessageBox(string.Join("\n", savedInPlace.Select(project =>
+                string.Format(localization.GetString("Str.ContributedProject.SavedInPlace"), project.Name, project.ContributorTitle))),
+                icon: MessageBoxIcon.Information);
     }
 
     /// <summary>
     /// Every project at once, as one operation: one refusal leaves every project and the group as they
     /// were, and the refusals HexIDE cannot reproduce are reported in one dialog rather than one per project.
     /// </summary>
-    private async Task SaveAll(IReadOnlyList<(object Document, bool SaveAs)> files)
+    private async Task<IReadOnlyList<Destination>> SaveAll(IReadOnlyList<(object Document, bool SaveAs)> files)
     {
         try
         {
-            await WithSaveRefusals(() => SaveFiles(files));
+            return await WithSaveRefusals(() => SaveFiles(files));
         }
         finally
         {

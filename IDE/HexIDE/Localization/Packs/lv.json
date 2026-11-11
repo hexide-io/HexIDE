@@ -390,6 +390,7 @@
     "Str.Designer.ReadOnly.Banner": "Tikai lasāma — HexIDE vēl nevar precīzi atveidot šo formu, tāpēc saglabāšana to mainītu. Varat to skatīt un palaist, bet izmaiņas netiks saglabātas.",
     "Str.ContributedProject.FormReadOnly": "Tikai lasāms — papildinājums, kas to nolasīja, nevar to ierakstīt atpakaļ, tāpēc izmaiņas netiks saglabātas.",
     "Str.ContributedProject.RenderRefused": "Nekas netika ierakstīts. {1} nevarēja ierakstīt {0}, tāpēc saglabāšana tika apturēta, pirms mainījās kāds fails.",
+    "Str.ContributedProject.SavedInPlace": "{0} tiek saglabāts tur, kur tas tika atvērts, jo {1} tā projekta failu raksta tikai tur.",
     "Str.ContributedProject.MemberOverProjectFile": "Nekas netika ierakstīts. {0} tiktu saglabāts pāri {1}, paša projekta failam, tāpēc saglabāšana tika apturēta, pirms mainījās kāds fails.",
     "Str.ContributedProject.WithdrawWithChanges": "{0} lasa šos vienumus, un tajos ir nesaglabātas izmaiņas:\n\n{1}\n\nVai saglabāt tos pirms izslēgšanas? Pēc izslēgšanas HexIDE tos nevarēs saglabāt.",
     "Str.ContributedProject.WithdrawnWithChanges": "{0} vairs nav ielādēts, tāpēc HexIDE nevar saglabāt šos vienumus:\n\n{1}\n\nAvārijas atkopšana glabā pēdējo kopiju, ko tā izveidoja no katra. Izmaiņas pēc šīs kopijas netika saglabātas.",

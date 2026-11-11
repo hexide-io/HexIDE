@@ -428,6 +428,7 @@
     "Str.Designer.ReadOnly.Banner": "Alleen-lezen — HexIDE kan dit formulier nog niet getrouw reproduceren, dus opslaan zou het wijzigen. U kunt het bekijken en uitvoeren, maar wijzigingen worden niet opgeslagen.",
     "Str.ContributedProject.FormReadOnly": "Alleen-lezen — de invoegtoepassing die dit heeft gelezen, kan het niet terugschrijven, dus wijzigingen worden niet opgeslagen.",
     "Str.ContributedProject.RenderRefused": "Er is niets geschreven. {1} kon {0} niet schrijven, dus het opslaan is gestopt voordat er een bestand veranderde.",
+    "Str.ContributedProject.SavedInPlace": "{0} wordt opgeslagen waar het is geopend, omdat {1} het projectbestand alleen daar schrijft.",
     "Str.ContributedProject.MemberOverProjectFile": "Er is niets geschreven. {0} zou over {1}, het eigen bestand van het project, worden opgeslagen, dus het opslaan is gestopt voordat er een bestand veranderde.",
     "Str.ContributedProject.WithdrawWithChanges": "{0} leest deze items, en ze hebben niet-opgeslagen wijzigingen:\n\n{1}\n\nOpslaan voordat het wordt uitgeschakeld? Daarna kan HexIDE ze niet meer opslaan.",
     "Str.ContributedProject.WithdrawnWithChanges": "{0} is niet meer geladen, dus HexIDE kan deze items niet opslaan:\n\n{1}\n\nCrashherstel bewaart de laatste kopie die het van elk heeft gemaakt. Wat daarna is gewijzigd, is niet bewaard.",

@@ -46,6 +46,24 @@ public class MainViewViewModelTests
         _sut = Build(_runnerService);
     }
 
+    [Avalonia.Headless.XUnit.AvaloniaFact]
+    public void Save_project_as_requires_a_project_that_offers_moving_its_file()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Contributed") { Offers = ProjectOffers.Nothing };
+        _projectManager.LoadedProjects.Returns(new List<ProjectDefinition> { project });
+        _sut.SaveProjectAsCommand.CanExecute(null).Should().BeFalse();
+        using var requery = new RequeryProbe();
+        project.Offers = ProjectOffers.Everything;
+        _sut.SaveProjectAsCommand.CanExecute(null).Should().BeTrue();
+        _projectManager.ProjectLoaded += Raise.Event<Action<ProjectDefinition>>(project);
+        requery.ShouldHaveRefreshed();
+        DebugCommand(_sut, "SaveProjectAs").CanExecute(null).Should().BeTrue();
+        _projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
+        _projectManager.ProjectUnloaded += Raise.Event<Action<ProjectDefinition>>(project);
+        requery.ShouldHaveRefreshed();
+        _sut.SaveProjectAsCommand.CanExecute(null).Should().BeFalse();
+    }
+
     private static System.IDisposable MenuTheme()
     {
         var theme = new Avalonia.Themes.Simple.SimpleTheme();

@@ -428,6 +428,7 @@
     "Str.Designer.ReadOnly.Banner": "Salt okunur — HexIDE bu formu henüz aslına sadık biçimde yeniden üretemiyor, dolayısıyla kaydedilmesi onu değiştirirdi. Formu görüntüleyebilir ve çalıştırabilirsiniz, ancak değişiklikler kaydedilmeyecek.",
     "Str.ContributedProject.FormReadOnly": "Salt okunur — bunu okuyan eklenti onu geri yazamıyor; bu nedenle üzerindeki değişiklikler kaydedilmeyecek.",
     "Str.ContributedProject.RenderRefused": "Hiçbir şey yazılmadı. {1}, {0} öğesini yazamadı; bu nedenle kaydetme, herhangi bir dosya değişmeden önce durduruldu.",
+    "Str.ContributedProject.SavedInPlace": "{1} proje dosyasını yalnızca açıldığı konuma yazdığı için {0} bu konuma kaydedilir.",
     "Str.ContributedProject.MemberOverProjectFile": "Hiçbir şey yazılmadı. {0}, projenin kendi dosyası olan {1} üzerine kaydedilecekti; bu nedenle kaydetme, herhangi bir dosya değişmeden önce durduruldu.",
     "Str.ContributedProject.WithdrawWithChanges": "{0} bunları okuyor ve kaydedilmemiş değişiklikleri var:\n\n{1}\n\nKapatılmadan önce kaydedilsin mi? Kapatıldıktan sonra HexIDE bunları kaydedemez.",
     "Str.ContributedProject.WithdrawnWithChanges": "{0} artık yüklü değil, bu nedenle HexIDE bunları kaydedemiyor:\n\n{1}\n\nKilitlenme kurtarma, her birinden aldığı son kopyayı saklar. O kopyadan sonra yapılan değişiklikler saklanmadı.",

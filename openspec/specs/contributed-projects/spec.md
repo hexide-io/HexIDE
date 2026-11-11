@@ -117,11 +117,13 @@ Saving a contributed project, Save As included, SHALL write its edited modules, 
 through its type's format. Where the type has no project-file writer, the save SHALL NOT write the project file, ask where
 it goes, or add it to the recent list, and the file SHALL NOT count as edited. Where it has one, the IDE SHALL render the
 project file through that writer and nothing else, and SHALL write it, in the encoding the writer names, only at the path
-the project was opened from, Save Project As included. No member SHALL be written at that path, whichever route names it.
+the project was opened from. Save Project As SHALL be unavailable when no loaded project offers moving its project file.
+Within a wider Save Project As, a contributed project SHALL be saved in place and the user SHALL be told once, with each
+project whose own project file was written named. No member SHALL be written at that path, whichever route names it.
 
-Adding and removing members SHALL be offered only where the type's writer carries members. Project Properties, References
-and Components SHALL NOT be offered. Whatever isn't offered SHALL be refused with a reason from any other route, automation
-and crash recovery included.
+Adding and removing members SHALL be offered only where the type's writer carries members. References SHALL be offered only
+where the writer carries references. Project Properties and Components SHALL NOT be offered. Whatever isn't offered SHALL
+be refused with a reason from any other route, automation and crash recovery included.
 
 A writer that throws SHALL end a save before any file is written, and the user SHALL be told which project and which
 add-in, with what the add-in said. Elsewhere the IDE SHALL keep the last answer and the last crash-recovery copy the writer
@@ -142,6 +144,20 @@ or otherwise.
 - **WHEN** a type's writer carries members, and the user adds a module and saves
 - **THEN** the module's file is written, and then the project file as the writer renders it, at the path the project was
   opened from
+
+#### Scenario: References carried by the writer
+- **WHEN** the type's writer carries references, and the user changes References and saves
+- **THEN** the project file includes those references as its writer renders them
+- **AND** a writer without references leaves References refused with a reason
+
+#### Scenario: Save Project As with contributed projects
+- **WHEN** only contributed projects are loaded
+- **THEN** Save Project As is unavailable
+- **WHEN** a VB6 project is loaded alongside a contributed project, and the user chooses Save Project As
+- **THEN** only the VB6 project's file asks for a destination, the contributed project's file is saved in place, and a
+  single message names only the contributed projects whose own project files were written
+- **WHEN** the contributed type has no project-file writer, or the save writes no project file for it
+- **THEN** the message does not name it; dismissing a destination picker writes neither project file and shows no such message
 
 #### Scenario: The project file changed outside the IDE
 - **WHEN** the add-in's own program changed the project file since the IDE opened it, and the user saves changes of the
