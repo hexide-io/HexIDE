@@ -15,7 +15,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A ListBox with MultiSelect 1 (Simple) and 2 (Extended), driven with pointer and key input (#1413). The form is the

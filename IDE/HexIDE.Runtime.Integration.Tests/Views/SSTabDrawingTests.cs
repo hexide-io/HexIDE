@@ -7,9 +7,10 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.VisualTree;
+using HexIDE.Integration.Tests;
 using HexIDE.Runtime.BuiltinControls;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class SSTabDrawingTests : WindowTestFixture
 {

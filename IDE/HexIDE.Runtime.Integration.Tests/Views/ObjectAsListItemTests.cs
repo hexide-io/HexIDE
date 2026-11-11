@@ -2,9 +2,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A class instance handed to a control method that wants text, as <c>List1.AddItem w</c> does, stands for its default

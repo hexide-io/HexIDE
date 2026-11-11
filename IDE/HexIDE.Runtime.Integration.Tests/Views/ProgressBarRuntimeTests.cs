@@ -3,10 +3,11 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
+using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A running ProgressBar's members (#1082). Every row is vb6.exe's, native and p-code agreeing, from a form holding one

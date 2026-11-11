@@ -14,6 +14,10 @@ public class WindowLifetimeTests
     [InlineData(typeof(LabelColourTests), nameof(LabelColourTests.A_BackColor_set_at_run_time_paints_and_reads_back))]
     [InlineData(typeof(ListBoxClickTests), nameof(ListBoxClickTests.A_ListIndex_out_of_range_raises_380_and_no_Click))]
     [InlineData(typeof(ListBoxSelectedTests), nameof(ListBoxSelectedTests.MultiSelect_reads_as_an_Integer_and_cannot_be_assigned))]
+    [InlineData(typeof(OptionButtonValueTests), nameof(OptionButtonValueTests.AnUnparseableStringIntoABoolean_IsATrappableTypeMismatch))]
+    [InlineData(typeof(PictureBoxContainerRuntimeTests), nameof(PictureBoxContainerRuntimeTests.AContainedControl_IsDrawnInsideTheBorder))]
+    [InlineData(typeof(RuntimeStackingTests), nameof(RuntimeStackingTests.A_controls_plane_does_not_come_from_its_number))]
+    [InlineData(typeof(SymbolFontTests), nameof(SymbolFontTests.A_Wingdings_Label_draws_its_glyphs_where_the_font_is_installed_and_reads_back_its_letters))]
     public Task Disposing_a_test_closes_every_window_it_opened(Type type, string method)
         => WindowLifetime.Disposing_a_test_closes_every_window_it_opened(type, method);
 }

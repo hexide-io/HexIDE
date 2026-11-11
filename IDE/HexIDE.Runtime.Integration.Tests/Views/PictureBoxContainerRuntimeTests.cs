@@ -5,12 +5,14 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Classic.Avalonia.Theme;
+using HexIDE.Integration.Tests;
+using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using static HexIDE.Integration.Tests.Views.ContainerRuntimeHarness;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// Issue #84 phase 5 — a PictureBox is a real container at run time. It is the container in four of the six

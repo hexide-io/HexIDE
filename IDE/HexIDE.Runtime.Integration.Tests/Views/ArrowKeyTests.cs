@@ -6,7 +6,7 @@ using Avalonia.Input;
 using Avalonia.VisualTree;
 using HexIDE.Runtime.BuiltinControls;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// The arrow keys on an option button, a check box and a command button move the focus to the previous or next control in
