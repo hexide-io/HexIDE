@@ -220,7 +220,7 @@ public class ProjectSmokeRunnerTests
         // Match the Standalone host's theme and runtime control resources.
         Application.Current!.Styles.Add(new SimpleTheme());
         VBLoader.DefaultFormIcon = new WindowIcon(AssetLoader.Open(new Uri("avares://HexIDE.Standalone/form.ico")));
-        foreach (var dictionary in new[] { "VBLabel.axaml", "Resources.axaml" })
+        foreach (var dictionary in new[] { "SystemColors.axaml", "VBLabel.axaml", "Resources.axaml" })
             Application.Current.Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://HexIDE.Standalone/"))
             {
                 Source = new Uri("avares://HexIDE.Runtime/BuiltinControls/" + dictionary)
