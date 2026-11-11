@@ -1,8 +1,9 @@
 using System;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
+using HexIDE.Integration.Tests.Views;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A control converted to a number stands for its default member in VB6: measured, <c>CInt(Text1)</c> is 12 where

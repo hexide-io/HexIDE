@@ -6,7 +6,7 @@ using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.BuiltinControls;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class FormPositionTests
 {

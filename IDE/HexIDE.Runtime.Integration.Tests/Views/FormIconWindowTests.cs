@@ -6,7 +6,7 @@ using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// The icon a running form's window is made with (#1594): the form's own, none for (None), and the runner's default for a

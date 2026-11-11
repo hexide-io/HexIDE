@@ -4,8 +4,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Integration.Tests.Views;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // VB6 SP6 native and p-code, #1094 groups 1–3.
 public class DTPickerRuntimeTests

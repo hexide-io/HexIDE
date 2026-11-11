@@ -4,8 +4,9 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Integration.Tests.Views;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// <c>AddItem</c>'s Item is a String, so a list holds the text CStr makes of what was added (#772). It used to hold

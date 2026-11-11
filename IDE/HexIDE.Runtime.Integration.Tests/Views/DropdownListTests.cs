@@ -7,7 +7,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A ComboBox's Style, and a Dropdown List's Text (#1428). Every expectation is vb6.exe's, native and p-code agreeing: the
