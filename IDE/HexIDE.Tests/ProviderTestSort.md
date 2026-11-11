@@ -1,0 +1,136 @@
+# Test files that bind provider types: HexIDE.Tests
+
+The sort of this project's tests for #3411, the move of the interpreter and forms engine to an optional provider. `ProviderTestSortTests` writes it and fails when it and the build disagree. Don't edit the rows by hand: run the test, and copy `artifacts/provider-test-sort/HexIDE.Tests.md` over this file. The same run writes `HexIDE.Tests-detail.md` beside it, with each file's counts and provider types.
+
+A file is listed when something in it binds a symbol from a provider assembly, `HexIDE.Runtime` or `HexIDE.Standalone`. A symbol counts for the assembly it comes from, and so does every type in its signature. `HexIDE.Core` counts for neither side, so a namespace decides nothing: Core declares `HexIDE.Runtime.*` namespaces of its own. Every other `HexIDE*` assembly is the IDE's. A test counts what its class's setup and the helpers it calls bind, followed through the test project to a fixed point.
+
+- **provider:** its tests bind provider symbols and no IDE symbols. A file with no tests is judged on what it declares.
+- **split:** some of its tests bind a provider symbol, and some bind an IDE symbol.
+- **IDE:** none of its tests binds a provider symbol, though something else in the file does.
+
+A provider file whose tests also bind Core may be testing Core with a provider type for its fixture, and then it stays with the IDE once that fixture has a stand-in. The detail's Core column says which files to read first.
+
+A test that reaches the provider only at run time, through the application's composition or by opening VB6 files, isn't seen here. The detail flags both, as a text indicator that doesn't decide the label.
+
+| File | Label |
+|---|---|
+| `Addins/AddinContributionTrustTests.cs` | split |
+| `Addins/AddinEditorGuardTests.cs` | split |
+| `Addins/AddinInitializationTests.cs` | split |
+| `Addins/AddinWholeFileTests.cs` | split |
+| `AnimationClipTests.cs` | provider |
+| `Components/PropertyTextTests.cs` | split |
+| `ControlPropertyCoercionTests.cs` | provider |
+| `Controls/VBCheckBoxTests.cs` | provider |
+| `Controls/Vb6FoldingAdapterTests.cs` | split |
+| `Corpus/ProjectCorpusSmokeTests.cs` | split |
+| `Corpus/ProjectSmokeHarness.cs` | provider |
+| `Corpus/ProjectSmokeHarnessTests.cs` | provider |
+| `Corpus/ProjectSmokeMakeTests.cs` | split |
+| `Corpus/ProjectSmokeResultTests.cs` | provider |
+| `Corpus/ProjectSmokeRunnerTests.cs` | provider |
+| `Corpus/ProjectSmokeService.cs` | split |
+| `Corpus/ProjectSmokeServiceTests.cs` | split |
+| `DebugAdapter/DebuggerCompositionTests.cs` | split |
+| `DebugAdapter/ExternalDebugServiceTests.cs` | split |
+| `DebugAdapter/RunEngineSeamTests.cs` | split |
+| `DebugAdapter/RunWithTests.cs` | split |
+| `Debugging/BreakpointServiceTests.cs` | split |
+| `Debugging/ControlLocalsTests.cs` | provider |
+| `IDE/DirtyDetectorTests.cs` | split |
+| `IDE/DocumentContentTests.cs` | split |
+| `IDE/EditorServiceNavigationTests.cs` | split |
+| `IDE/FileWatcherServiceTests.cs` | split |
+| `IDE/FindReplaceServiceTests.cs` | split |
+| `IDE/HeaderRefresherTests.cs` | split |
+| `IDE/MarkLineRulesTests.cs` | split |
+| `IDE/NamedDocumentsTests.cs` | split |
+| `IDE/RecentlyClosedDocumentsTests.cs` | split |
+| `IDE/UserFileWriteFailureTests.cs` | split |
+| `IDE/Vb6CompileLogTests.cs` | split |
+| `IDE/Vb6ToolchainDiagnosticsTests.cs` | split |
+| `Infrastructure/DocumentTabsModifiedTests.cs` | split |
+| `Infrastructure/FormControlsSummaryTests.cs` | split |
+| `Infrastructure/FormatSelectionTests.cs` | split |
+| `Infrastructure/ImplicitDocumentNamingTests.cs` | split |
+| `Infrastructure/ProjectWriteSafetyTests.cs` | split |
+| `Infrastructure/SetLockKeyTests.cs` | split |
+| `Infrastructure/WorkingCopyReplyTests.cs` | split |
+| `LspClient/BundledServerRespectsTheIdesRegionsTests.cs` | split |
+| `LspClient/DocumentWireNameTests.cs` | split |
+| `LspClient/TypeLibraryNamesTests.cs` | split |
+| `LspClient/TypeLibraryServicePathTests.cs` | split |
+| `LspClient/WorkspaceArtifactProjectTests.cs` | split |
+| `ProjectElements/DesignerHalfEncodingTests.cs` | provider |
+| `ProjectElements/DocumentIdentityTests.cs` | provider |
+| `ProjectElements/DocumentLookupTests.cs` | provider |
+| `ProjectElements/ProjectNamingTests.cs` | provider |
+| `Projects/AddExistingFileTests.cs` | split |
+| `Projects/CompanionBinaryPreservationTests.cs` | split |
+| `Projects/ContributedProjectTests.cs` | split |
+| `Projects/DesignerHalfSaveTests.cs` | split |
+| `Projects/DocumentSavedAnnouncementTests.cs` | split |
+| `Projects/MemberWithoutAFileTests.cs` | split |
+| `Projects/PackageEncodingTests.cs` | split |
+| `Projects/ProjectFileFormatSeamTests.cs` | split |
+| `Projects/ProjectLoadWarningTests.cs` | split |
+| `Projects/SaveRecordsTheHeaderTests.cs` | split |
+| `Projects/SourceEncodingPersistenceTests.cs` | split |
+| `Projects/SubMainStartupObjectTests.cs` | split |
+| `Projects/UnsavedMemberRefusalTests.cs` | split |
+| `Projects/UserControlSaveRoundTripTests.cs` | split |
+| `Recovery/RecoveryOffersTests.cs` | split |
+| `Recovery/UnsavedWorkCaptureTests.cs` | split |
+| `Runtime/VbLocaleDefaultTests.cs` | provider |
+| `Runtime/VbSettingsStoreTests.cs` | provider |
+| `Serialization/CodeWindowTextTests.cs` | provider |
+| `Serialization/FormCodeTextTests.cs` | provider |
+| `Serialization/GuardedContentMemberRunTests.cs` | provider |
+| `Serialization/GuardedContentTests.cs` | provider |
+| `Serialization/LineEditsTests.cs` | provider |
+| `Serialization/LoneCrLineEndTests.cs` | provider |
+| `Serialization/MemberAttributeCorpusTests.cs` | provider |
+| `Serialization/MemberAttributeQualifiersTests.cs` | provider |
+| `Serialization/MemberDeclarationsTests.cs` | provider |
+| `Serialization/MemberRunsTests.cs` | provider |
+| `Serialization/ReadOnlyRegionsTests.cs` | provider |
+| `Serialization/SafeImageDecoderTests.cs` | provider |
+| `Serialization/ToolbarSerializationTests.cs` | provider |
+| `Serialization/VbNameRetargetTests.cs` | provider |
+| `Sidecar/SidecarMigrationTests.cs` | split |
+| `Sidecar/UserSidecarBreakpointTests.cs` | split |
+| `Sidecar/UserSidecarSaveTests.cs` | split |
+| `TestHelpers.cs` | provider |
+| `TestRunners.cs` | split |
+| `Tools/PreservedItemTreeTests.cs` | split |
+| `Tools/ProjectTreeAccessibleNameTests.cs` | split |
+| `ViewModels/ArrayElementRenameTests.cs` | split |
+| `ViewModels/CodeEditorUndoTests.cs` | split |
+| `ViewModels/CodeEditorViewModelTests.cs` | split |
+| `ViewModels/CodeWindowHoldsTheFileTests.cs` | split |
+| `ViewModels/ComponentClassNameTests.cs` | split |
+| `ViewModels/ComponentNamingTests.cs` | split |
+| `ViewModels/ComponentsViewModelTests.cs` | split |
+| `ViewModels/DocumentModifiedMarkerTests.cs` | split |
+| `ViewModels/DocumentSessionTests.cs` | split |
+| `ViewModels/EventStubTests.cs` | split |
+| `ViewModels/FindProjectScopeTests.cs` | split |
+| `ViewModels/FindReferencesToolViewModelTests.cs` | split |
+| `ViewModels/FindReplaceViewModelTests.cs` | split |
+| `ViewModels/GuardedFormattingTests.cs` | split |
+| `ViewModels/GuardedWritersTests.cs` | split |
+| `ViewModels/MainViewViewModelTests.cs` | split |
+| `ViewModels/MarkOnReadOnlyLineTests.cs` | split |
+| `ViewModels/MemberRunFollowsItsLineTests.cs` | split |
+| `ViewModels/ModuleRenameTests.cs` | split |
+| `ViewModels/OutlineToolViewModelTests.cs` | split |
+| `ViewModels/PictureExportTests.cs` | split |
+| `ViewModels/ProjectPropertiesViewModelTests.cs` | split |
+| `ViewModels/ProjectToolViewModelTests.cs` | split |
+| `ViewModels/PropertyFilterTests.cs` | split |
+| `ViewModels/RawPropertyRowsTests.cs` | split |
+| `ViewModels/ReadOnlyRegionReaderSeamTests.cs` | split |
+| `ViewModels/ReadOnlySectionProviderTests.cs` | split |
+| `ViewModels/ReferencesViewModelTests.cs` | split |
+| `ViewModels/SaveChangesViewModelTests.cs` | split |
+| `ViewModels/WorkspaceRenameTests.cs` | split |
