@@ -294,7 +294,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // better: a designer block exactly as the form has it applies nothing, and one that differs is
             // refused with the reason. The separate refusal had to go in the same change as the read, or this
             // tool would have refused exactly what get_file_content now returns.
-            var replaced = HexIDE.IDE.DocumentContent.Write(document, CodeEditorOf(document), content);
+            var replaced = HexIDE.IDE.DocumentContent.Write(document, CodeEditorOf(document), content, ctx.ReadOnlyRegionRules);
             if (replaced.Refusal is { } refusal)
                 return (null, null, refusal);
 

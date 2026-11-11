@@ -5,9 +5,6 @@ using HexIDE.Language;
 
 namespace HexIDE.Runtime.Serialization;
 
-/// <summary>A replacement of <see cref="Length"/> characters at <see cref="Offset"/> with <see cref="Text"/>.</summary>
-public readonly record struct TextChange(int Offset, int Length, string Text);
-
 /// <summary>What a reduction kept and what it had to leave out.</summary>
 /// <param name="Changes">The changes to apply, in ascending order of offset and not overlapping.</param>
 /// <param name="DroppedLines">

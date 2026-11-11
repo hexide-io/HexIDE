@@ -59,7 +59,9 @@ public class WorkspaceRenameTests : IDisposable
         Substitute.For<IWindowManager>(), editors, projects, Substitute.For<IEventBus>(), client,
         Substitute.For<ISettingsService>(), status, Substitute.For<IBookmarkService>(),
         Substitute.For<HexIDE.Debugging.IBreakpointService>(),
-        Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
+        Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(), localization,
+        regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(),
+        regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules());
 
     private CodeEditorViewModel Open(ModuleDefinition module)
     {

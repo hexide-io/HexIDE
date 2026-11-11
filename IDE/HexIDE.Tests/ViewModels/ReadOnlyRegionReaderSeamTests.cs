@@ -20,6 +20,129 @@ namespace HexIDE.Tests.ViewModels;
 /// </summary>
 public class ReadOnlyRegionReaderSeamTests : IDisposable
 {
+
+    private sealed class Rules : IReadOnlyRegionRules
+    {
+        public bool RefuseRename { get; set; } = true;
+        public ContentReplacement Replace(string current, int prefixLength, string incoming) =>
+            new(null, "Keep the notes intact.", false);
+        public string? RangeEditRefusal(string before, string after, int prefixLength) => "the notes changed";
+        public string? MemberNamedBy(string text, int prefixLength, TextRegion region) => "the second heading";
+        public bool RenameMayWrite(string text, int prefixLength, IReadOnlyList<TextChange> changes, TextChange edit) =>
+            !RefuseRename;
+        public bool HeaderDeclares(string text, int prefixLength, string name) => name == "gamma";
+    }
+
+    private sealed class NoRules : IReadOnlyRegionRules { }
+
+    [AvaloniaFact]
+    public void ReplacementUsesTheRulesRefusal()
+    {
+        var vm = NewEditor(null, rules: new Rules()).Initialize(Notes());
+        vm.ReplaceContent("new notes").Refusal.Should().Be("Keep the notes intact.");
+        vm.Document.Text.Should().Be(Text);
+    }
+
+    [AvaloniaFact]
+    public void RangeEditUsesTheRulesFindings()
+    {
+        var localization = new LocalizationService();
+        var vm = NewEditor(null, localization, new Rules()).Initialize(Notes());
+        vm.ApplyEdits([new TextChange(0, 5, "ALPHA")]).Should().Be(
+            string.Format(localization.GetString("Str.CodeEditor.RangeEditRefused"), "the notes changed"));
+        vm.Document.Text.Should().Be(Text);
+    }
+
+    [AvaloniaFact]
+    public void RegionEditUsesTheRulesMemberName()
+    {
+        var vm = NewEditor(new FixedLines((2, 2)), rules: new Rules()).Initialize(Notes());
+        vm.ApplyEdits([new TextChange(At(vm, "beta"), 1, "B")]).Should().Be(
+            "The edit at line 2, column 1 would change the Attribute lines describing the second heading, which only the IDE changes. Nothing was changed.");
+        vm.Document.Text.Should().Be(Text);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RenameUsesBothAnswersFromTheRules(bool workspace)
+    {
+        var rules = new Rules();
+        var vm = NewEditor(new FixedLines((2, 2)), new LocalizationService(), rules).Initialize(Notes());
+        TextEdit[] edits = [new(new LspRange(new Position(1, 0), new Position(1, 4)), "BETA")];
+        string? Rename() => workspace
+            ? vm.ApplyRename(new WorkspaceEdit(new Dictionary<string, TextEdit[]> { [vm.GetDocumentUriPublic()] = edits }), "beta", takeFocus: false)
+            : vm.ApplyRename(edits, "beta");
+        Rename().Should().NotBeNull();
+        vm.Document.Text.Should().Be(Text);
+        rules.RefuseRename = false;
+        Rename().Should().BeNull();
+        vm.Document.Text.Should().Be(Text.Replace("beta", "BETA"));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void RenameWithoutPermissionLeavesTheReadersRegionAlone(bool workspace, bool defaults)
+    {
+        var vm = NewEditor(new FixedLines((2, 2)), new LocalizationService(),
+            defaults ? new NoRules() : null).Initialize(Notes());
+        TextEdit[] edits = [new(new LspRange(new Position(1, 0), new Position(1, 4)), "BETA")];
+
+        var refusal = workspace
+            ? vm.ApplyRename(new WorkspaceEdit(new Dictionary<string, TextEdit[]> { [vm.GetDocumentUriPublic()] = edits }), "beta", takeFocus: false)
+            : vm.ApplyRename(edits, "beta");
+
+        refusal.Should().NotBeNull();
+        vm.Document.Text.Should().Be(Text);
+    }
+
+    [AvaloniaFact]
+    public void HeaderDeclarationUsesTheRulesAnswer()
+    {
+        var vm = NewEditor(null, new LocalizationService(), new Rules()).Initialize(Notes());
+        vm.RenameRefusalAt(At(vm, "gamma"), "gamma").Should().NotBeNull();
+        vm.RenameRefusalAt(At(vm, "delta"), "delta").Should().BeNull();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MissingAndDefaultRulesAllowWritesOnVb6Text(bool defaults)
+    {
+        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Notes", ModuleKind.StandardModule);
+        module.UpdateCode("Attribute VB_Name = \"Notes\"\r\nPublic Sub Total()\r\nAttribute Total.VB_Description = \"sum\"\r\nEnd Sub\r\n");
+        var vm = NewEditor(null, rules: defaults ? new NoRules() : null).Initialize(module);
+        vm.RenameRefusalAt(0, "Notes").Should().BeNull();
+        vm.MemberNamedBy(new TextRegion(0, 1)).Should().BeNull();
+        vm.ApplyEdits([new TextChange(0, 1, "x")]).Should().BeNull();
+        vm.ApplyRename([new TextEdit(new LspRange(new Position(0, 0), new Position(0, 1)), "y")], "x").Should().BeNull();
+        vm.ReplaceContent("new notes").Should().Be(new ContentReplacement("new notes", null, false));
+        vm.Document.Text.Should().Be("new notes");
+    }
+
+    [Fact]
+    public void ClosedDocumentUsesTheRulesRefusal()
+    {
+        var module = Notes();
+        DocumentContent.Write(DocumentIdentity.For(module), null, "new notes", new Rules())
+            .Refusal.Should().Be("Keep the notes intact.");
+        module.Code.Should().Be(Text);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ClosedDocumentWithoutRulesAcceptsIncomingText(bool defaults)
+    {
+        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Notes", ModuleKind.StandardModule);
+        DocumentContent.Write(DocumentIdentity.For(module), null, "new notes", defaults ? new NoRules() : null)
+            .Should().Be(new ContentReplacement("new notes", null, false));
+        module.Code.Should().Be("new notes");
+    }
+
     private const string Text = "alpha\r\nbeta\r\ngamma\r\ndelta\r\nepsilon\r\nzeta\r\n";
 
     private readonly List<CodeEditorViewModel> made = [];
@@ -48,7 +171,7 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
         }
     }
 
-    private CodeEditorViewModel NewEditor(IReadOnlyRegionReader? reader, ILocalizationService? localization = null)
+    private CodeEditorViewModel NewEditor(IReadOnlyRegionReader? reader, ILocalizationService? localization = null, IReadOnlyRegionRules? rules = null)
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
@@ -61,7 +184,7 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
             Substitute.For<IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<HexIDE.Debugging.IRunScope>(), localization ?? Substitute.For<ILocalizationService>(),
-            regionReader: reader);
+            regionReader: reader, regionRules: rules);
         made.Add(vm);
         return vm;
     }
@@ -307,7 +430,7 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
         }
     }
 
-    private CodeEditorViewModel OpenTucked(ILocalizationService? localization = null)
+    private CodeEditorViewModel OpenTucked(ILocalizationService? localization = null, IReadOnlyRegionRules? rules = null)
     {
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Notes", ModuleKind.StandardModule);
         module.RecordOriginalHeader("");
@@ -384,7 +507,7 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
         var vm = OpenTucked(localization);
         var before = vm.Document.Text;
 
-        var refusal = vm.ApplyEdits([new HexIDE.Runtime.Serialization.TextChange(EndOf(vm, "heading Two"), 0, "\r\nx")]);
+        var refusal = vm.ApplyEdits([new HexIDE.Language.TextChange(EndOf(vm, "heading Two"), 0, "\r\nx")]);
 
         refusal.Should().EndWith("would part Two from its lines.");
         vm.Document.Text.Should().Be(before);

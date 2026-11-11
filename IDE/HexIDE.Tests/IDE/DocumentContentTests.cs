@@ -85,7 +85,7 @@ public class DocumentContentTests : IDisposable
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), Substitute.For<ILocalizationService>());
+            Substitute.For<IRunScope>(), Substitute.For<ILocalizationService>(), regionRules: new Vb6ReadOnlyRegionRules());
         made.Add(vm);
         return vm;
     }
@@ -106,7 +106,7 @@ public class DocumentContentTests : IDisposable
         var before = DocumentContent.Read(DocumentIdentity.For(module), editor);
         var incoming = before.ReplaceLineEndings(incomingNewline);
 
-        var result = DocumentContent.Write(DocumentIdentity.For(module), editor, incoming);
+        var result = DocumentContent.Write(DocumentIdentity.For(module), editor, incoming, rules: new Vb6ReadOnlyRegionRules());
 
         result.Refusal.Should().BeNull();
         DocumentContent.Read(DocumentIdentity.For(module), editor).Should().Be(before);
@@ -216,7 +216,7 @@ public class DocumentContentTests : IDisposable
         read.Should().Be(Vb6TextFile.ReadDocument(bytes).Text, "reading a form returns its whole file, designer block included");
         read.Should().StartWith("VERSION ");
 
-        var written = DocumentContent.Write(document, editor: null, read);
+        var written = DocumentContent.Write(document, editor: null, read, rules: new Vb6ReadOnlyRegionRules());
         written.Refusal.Should().BeNull("the write takes back exactly what the read returned");
         written.NewText.Should().Be(read);
         DocumentContent.LeftOutAttributeLines(document, read).Should().BeFalse("nothing was left out, so nothing is reported kept");
@@ -239,7 +239,7 @@ public class DocumentContentTests : IDisposable
         var bytes = await File.ReadAllBytesAsync(form.AbsolutePath!, TestContext.Current.CancellationToken);
         var incoming = DocumentContent.Read(document, null).ReplaceLineEndings("\n");
 
-        DocumentContent.Write(document, null, incoming).Refusal.Should().BeNull();
+        DocumentContent.Write(document, null, incoming, rules: new Vb6ReadOnlyRegionRules()).Refusal.Should().BeNull();
         (await service.SaveForm(form, saveAs: false, interactive: false)).Should().BeTrue();
 
         (await File.ReadAllBytesAsync(form.AbsolutePath!, TestContext.Current.CancellationToken))
@@ -264,7 +264,7 @@ public class DocumentContentTests : IDisposable
         var document = DocumentIdentity.For(form);
 
         var read = DocumentContent.Read(document, editor: null);
-        DocumentContent.Write(document, editor: null, read).Refusal.Should().BeNull();
+        DocumentContent.Write(document, editor: null, read, rules: new Vb6ReadOnlyRegionRules()).Refusal.Should().BeNull();
         (await service.SaveForm(form, saveAs: false, interactive: false)).Should().BeTrue();
 
         var after = Vb6TextFile.ReadDocument(await File.ReadAllBytesAsync(frm, TestContext.Current.CancellationToken)).Text;
@@ -307,7 +307,7 @@ public class DocumentContentTests : IDisposable
         var read = DocumentContent.Read(document, vm);
         read.Should().Be(Frm, "an open window's buffer is the whole file");
 
-        DocumentContent.Write(document, vm, read).Refusal.Should().BeNull();
+        DocumentContent.Write(document, vm, read, rules: new Vb6ReadOnlyRegionRules()).Refusal.Should().BeNull();
 
         vm.Document.Text.Should().Be(Frm);
         DocumentContent.CodeAheadOfModel(document, vm).Should().BeFalse();
@@ -333,7 +333,7 @@ public class DocumentContentTests : IDisposable
                 var read = DocumentContent.Read(document, editor: null);
                 read.Should().Be(file, $"{document.Name} reads as its whole file");
 
-                var written = DocumentContent.Write(document, editor: null, read);
+                var written = DocumentContent.Write(document, editor: null, read, rules: new Vb6ReadOnlyRegionRules());
                 written.Refusal.Should().BeNull($"{document.Name} takes back what reading it returned");
                 written.NewText.Should().Be(read);
                 (document.Module?.Code ?? document.Form!.Code).Should().Be(code);
@@ -437,7 +437,7 @@ public class DocumentContentTests : IDisposable
         var document = DocumentIdentity.For(form);
         var designer = form.DesignerText;
 
-        var result = DocumentContent.Write(document, editor: null, Frm.Replace("Enabled = False", "Enabled = True"));
+        var result = DocumentContent.Write(document, editor: null, Frm.Replace("Enabled = False", "Enabled = True"), rules: new Vb6ReadOnlyRegionRules());
 
         result.Refusal.Should().BeNull();
         form.Code.Should().Contain("Command1.Enabled = True").And.StartWith("Attribute VB_Name");
@@ -454,7 +454,7 @@ public class DocumentContentTests : IDisposable
         var document = DocumentIdentity.For(form);
         var (code, designer) = (form.Code, form.DesignerText);
 
-        var result = DocumentContent.Write(document, editor: null, Frm.Replace(from, to));
+        var result = DocumentContent.Write(document, editor: null, Frm.Replace(from, to), rules: new Vb6ReadOnlyRegionRules());
 
         result.Refusal.Should().Contain("header");
         form.Code.Should().Be(code);
@@ -471,12 +471,12 @@ public class DocumentContentTests : IDisposable
         var document = DocumentIdentity.For(module);
         var code = module.Code;
 
-        var changed = DocumentContent.Write(document, editor: null, code.Replace("The order total", "The total"));
+        var changed = DocumentContent.Write(document, editor: null, code.Replace("The order total", "The total"), rules: new Vb6ReadOnlyRegionRules());
 
         changed.Refusal.Should().Contain("the Attribute lines describing Total are changed");
         module.Code.Should().Be(code);
 
-        DocumentContent.Write(document, editor: null, code.Replace("Total", "Amount")).Refusal.Should().BeNull();
+        DocumentContent.Write(document, editor: null, code.Replace("Total", "Amount"), rules: new Vb6ReadOnlyRegionRules()).Refusal.Should().BeNull();
         module.Code.Should().Be(code.Replace("Total", "Amount"));
     }
 
@@ -500,7 +500,7 @@ public class DocumentContentTests : IDisposable
             _ => incoming.Replace(attribute, ""),
         };
 
-        var result = DocumentContent.Write(document, editor: null, incoming);
+        var result = DocumentContent.Write(document, editor: null, incoming, rules: new Vb6ReadOnlyRegionRules());
 
         result.Refusal.Should().Contain("header").And.Contain("Attribute lines describing Total")
             .And.Contain($"are {change}");
@@ -518,7 +518,7 @@ public class DocumentContentTests : IDisposable
         var document = DocumentIdentity.For(form);
         var vm = NewEditor().Initialize(form);
 
-        DocumentContent.Write(document, vm, Frm.Replace("\"OK\"", "\"Go\"")).Refusal.Should().Contain("header");
+        DocumentContent.Write(document, vm, Frm.Replace("\"OK\"", "\"Go\""), rules: new Vb6ReadOnlyRegionRules()).Refusal.Should().Contain("header");
 
         vm.Document.Text.Should().Be(Frm);
     }
@@ -530,7 +530,7 @@ public class DocumentContentTests : IDisposable
         var document = DocumentIdentity.For(form);
         const string body = "Option Explicit\r\nPrivate Sub Form_Load()\r\nEnd Sub\r\n";
 
-        DocumentContent.Write(document, editor: null, body).Refusal.Should().BeNull();
+        DocumentContent.Write(document, editor: null, body, rules: new Vb6ReadOnlyRegionRules()).Refusal.Should().BeNull();
 
         DocumentContent.Read(document, editor: null).Should().EndWith(
             "Attribute VB_PredeclaredId = True\r\n" + body, "the form's Attribute lines are kept in front of the code");
@@ -542,10 +542,10 @@ public class DocumentContentTests : IDisposable
         var document = DocumentOf("class");
         var whole = DocumentContent.Read(document, editor: null);
 
-        DocumentContent.Write(document, editor: null, "Option Explicit\r\n").Refusal.Should().BeNull();
+        DocumentContent.Write(document, editor: null, "Option Explicit\r\n", rules: new Vb6ReadOnlyRegionRules()).Refusal.Should().BeNull();
         document.Module!.Code.Should().Be("Option Explicit\r\n");
 
-        DocumentContent.Write(document, editor: null, whole).Refusal.Should().BeNull();
+        DocumentContent.Write(document, editor: null, whole, rules: new Vb6ReadOnlyRegionRules()).Refusal.Should().BeNull();
         DocumentContent.Read(document, editor: null).Should().Be(whole);
     }
 
