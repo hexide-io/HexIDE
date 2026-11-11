@@ -79,7 +79,8 @@ Where the type only reads, a form it read SHALL open read-only in the designer a
 it, say that the add-in that read it can't write it back, and leave its file as it was. The IDE's own writers are for its
 own files, so it SHALL NOT render such a form as a `.frm` for any purpose, and the form SHALL NOT count as edited. Rendering
 it through VB6's writer would change the file silently, which `docs/serialization-outcomes.md` forbids. VB6's own format is
-a format like any other here, so a type MAY supply it.
+a format like any other here, so a type MAY supply it, and what it writes then SHALL be byte for byte what the same
+project writes when opened from its `.vbp`.
 
 #### Scenario: A provider's form opens
 - **WHEN** a project type lists a form and supplies only a reader
@@ -92,6 +93,11 @@ a format like any other here, so a type MAY supply it.
 #### Scenario: Saving a form a provider's format renders
 - **WHEN** a project type supplies a format, and the user edits one of its forms and saves
 - **THEN** the format renders the form, and the IDE writes its companion and then its text
+
+#### Scenario: VB6's own format through a project type
+- **WHEN** a project type supplies VB6's own format and lists a `.vbp` project's members, and the user saves its forms,
+  UserControls and PropertyPages, edited or not
+- **THEN** each file and its companion are byte for byte what the project's `.vbp` route writes for the same edit
 
 #### Scenario: A render the IDE can't write
 - **WHEN** at a save the format throws, or renders text that doesn't end with the form's code

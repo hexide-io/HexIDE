@@ -45,8 +45,8 @@ public class ProjectCorpusSmokeTests
         }
     }
 
-    [Fact]
-    public async Task Every_corpus_project_opens_saves_runs_for_three_seconds_and_makes_or_refuses()
+    /// <summary>The corpus every project check runs over: the repository's own, and any the environment adds.</summary>
+    internal static List<string> Roots()
     {
         var repo = RepositoryRoot();
         var roots = new List<string>
@@ -60,6 +60,13 @@ public class ProjectCorpusSmokeTests
             "saved*", SearchOption.AllDirectories));
         roots.AddRange(AdditionalRoots(Environment.GetEnvironmentVariable("HEXIDE_ROUNDTRIP_CORPUS"),
             Environment.GetEnvironmentVariable("VB6_TEMPLATES")));
+        return roots;
+    }
+
+    [Fact]
+    public async Task Every_corpus_project_opens_saves_runs_for_three_seconds_and_makes_or_refuses()
+    {
+        var roots = Roots();
         var evidence = Path.Join(AppContext.BaseDirectory, "TestResults", "project-smoke-evidence");
         if (Directory.Exists(evidence)) Directory.Delete(evidence, true);
         var results = new List<ProjectSmokeResult>();
