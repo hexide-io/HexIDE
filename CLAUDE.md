@@ -20,6 +20,7 @@ pwsh scripts/test.ps1 IDE/HexIDE.Runtime.Tests/          # VB6 interpreter tests
 pwsh scripts/test.ps1 LspServer/HexIDE.VbLspServer.Tests/ # LSP server tests
 pwsh scripts/test.ps1 IDE/HexIDE.Tests/                  # IDE ViewModel tests (foreign servers — see below)
 pwsh scripts/test.ps1 IDE/HexIDE.Integration.Tests/      # Headless Avalonia UI tests
+pwsh scripts/test.ps1 IDE/HexIDE.Runtime.Integration.Tests/ # Headless Avalonia tests of the runtime alone
 
 # Run a single test — NOTE the `--`, and that this is NOT VSTest's --filter (see below)
 pwsh scripts/test.ps1 IDE/HexIDE.Runtime.Tests/ -- --filter-method "*DebugPrint_WithStringLiteral_ShouldOutputCorrectString"
@@ -40,11 +41,12 @@ cd IDE && dotnet publish HexIDE.Desktop -f net10.0 -o bin/
 cd LspServer && dotnet build HexIDE.VbLspServer/
 ```
 
-**A test run that could hang carries a hang-dump timeout**, as CI's Integration step does:
+**A test run that could hang carries a hang-dump timeout**, as CI's headless steps do:
 `pwsh scripts/test.ps1 IDE/HexIDE.Integration.Tests/ -- --hangdump --hangdump-timeout 10m`. The timeout counts
 quiet time, minutes in which no test starts or finishes. So it ends a hang and names the tests still running,
-but it doesn't end a slow, healthy run (hexide-gen measured it in #2618). Only `HexIDE.Integration.Tests`
-references `Microsoft.Testing.Extensions.HangDump` today. Another project rejects the option until it has the
+but it doesn't end a slow, healthy run (hexide-gen measured it in #2618). Only the two headless suites,
+`HexIDE.Integration.Tests` and `HexIDE.Runtime.Integration.Tests`, reference
+`Microsoft.Testing.Extensions.HangDump` today. Another project rejects the option until it has the
 package, with its licence line.
 
 CI runs two parallel jobs in `.github/workflows/build.yml`: `build-ide` (working dir `IDE/`) and `build-lsp-server` (working dir `LspServer/`), alongside two guard jobs.
@@ -55,7 +57,7 @@ seven days (#1309). This includes both `build-ide-desktop` matrix runners. If a 
 
 CI, `scripts/test.ps1` and `scripts/test-linux.sh` enforce test-count floors from `MIN_TESTS_*` in
 `.github/workflows/build.yml` (#883). A short run must fail so its logs are kept by #1309.
-The four main-suite floors are about 95% of the measured totals recorded beside them; raise them
+The five main-suite floors are about 95% of the measured totals recorded beside them; raise them
 when the suites grow. Both scripts use a floor of one for a filtered run, or accept an explicit
 `--minimum-expected-tests` after `--` for a known slice. Run local suites from the repository root
 with `pwsh scripts/test.ps1 <project> [arguments]` (Windows PowerShell 5.1 also works via
@@ -313,22 +315,31 @@ queued, so every later requery was lost and `FormatSelectionTests`' nine predica
 `TestApp.BuildAvaloniaApp` seeds a pending requery before headless starts, so a regression fails those
 nine cases at once.
 
-**An Integration run that ends hundreds short and still says `Passed!` lost those tests to xunit errors,
+**A headless run that ends hundreds short and still says `Passed!` lost those tests to xunit errors,
 which MTP does not count** ([#2486](https://github.com/hexide-io/HexIDE/issues/2486)). xunit records a
 test case that throws before its test starts as an error, not a failure, and its MTP adapter drops that
 error. The summary, the exit code and a floor with room to spare all see nothing but a smaller total. So
 read xunit's own report: add `--report-xunit --report-xunit-filename x.xml` after the `--`, then run
 `bash scripts/check-xunit-report.sh` on the file. A relative `--results-directory TestResults` puts it in the
-project's own `TestResults/`, on Windows and under WSL alike. CI does both on every Integration step. The cause measured was
+project's own `TestResults/`, on Windows and under WSL alike. CI does both on every step of the two headless
+suites, `HexIDE.Integration.Tests` and `HexIDE.Runtime.Integration.Tests`. The cause measured was
 Avalonia.Headless 12.0.2 starting each test on whatever context the dispatcher thread was left holding,
 fixed by moving to 12.0.4. **Keep the headless packages at Avalonia's version.** `HeadlessTestContextTests`
 fails loudly if one starts a test on a leftover context again.
 
-**A hung Integration run ends 10 minutes after a test last started or finished, and names what was running**
-([#2530](https://github.com/hexide-io/HexIDE/issues/2530)). Every Integration step passes
-`--hangdump --hangdump-timeout 10m --hangdump-type Mini` (`Microsoft.Testing.Extensions.HangDump`, kept at the
+**A second cause: a dictionary loaded by its `avares://` address before its assembly has loaded**
+([#3663](https://github.com/hexide-io/HexIDE/issues/3663)). Avalonia finds an `avares://` address's compiled
+XAML only in an assembly that is already loaded. A test application that merges such a dictionary first fails
+every test of a class that has not yet touched that assembly, before the test starts. `dotnet test` said 25 of
+25 while 42 tests never ran. Name the assembly through one of its types, as `HexIDE.Runtime.Integration.Tests`'
+`TestApp` does, and judge a new headless project by xunit's report from its first run: it has no earlier total
+to fall short of.
+
+**A hung headless run ends 10 minutes after a test last started or finished, and names what was running**
+([#2530](https://github.com/hexide-io/HexIDE/issues/2530)). Every step of the two headless suites passes
+`--hangdump --hangdump-timeout 10m --hangdump-type Heap` (`Microsoft.Testing.Extensions.HangDump`, kept at the
 Microsoft.Testing.Platform version xunit.v3 brings). The results directory then holds a `*_hang.log` listing each
-test still running and how long it had run, beside a mini dump with managed stacks
+test still running and how long it had run, beside a heap dump with managed stacks
 (`dotnet-dump analyze <file> -c "clrstack -all"`). CI turns the log into an error annotation and uploads both.
 Before this, a hang ran out the 30-minute step limit and left no report at all. Add the same options after the
 `--` to get this locally.
@@ -622,6 +633,7 @@ Package versions are pinned centrally in the root `Directory.Packages.props` (Av
 | `HexIDE.Runtime.Tests` | xUnit interpreter tests |
 | `HexIDE.Tests` | IDE ViewModel unit tests |
 | `HexIDE.Integration.Tests` | Headless Avalonia UI tests (`Avalonia.Headless.XUnit`) |
+| `HexIDE.Runtime.Integration.Tests` | Headless Avalonia tests of the runtime alone, with only the resources `HexIDE.Standalone` loads |
 | `HexIDE.Desktop` | Desktop entry point; conditionally copies LspServer exe to output |
 | `HexIDE.Standalone` | Headless VB6 runner (no IDE) |
 | `HexIDE.Browser` | WebAssembly entry point (future aspiration) |
@@ -998,6 +1010,8 @@ Inherit `BaseVBTestFixture`. Call `await Run("VB6 code")`. Assert via `AssertDeb
 
 **Testing internals:** both `HexIDE` and `HexIDE.Runtime` expose their `internal` members to the test projects
 (`HexIDE.Runtime.Tests`, `HexIDE.Tests`, `HexIDE.Integration.Tests`) via `<InternalsVisibleTo>` in each `.csproj`.
+`HexIDE.Runtime.Integration.Tests`, which references the runtime but not the IDE, sees `HexIDE.Runtime`'s and
+`HexIDE.Core`'s.
 So a test may call an `internal` type/method directly (e.g. `RuntimeExtensions.ExecuteSub`) — prefer that over
 widening visibility to `public` just for a test. When a new test project needs runtime internals, add it to the
 `InternalsVisibleTo` ItemGroup in the relevant `.csproj`.
