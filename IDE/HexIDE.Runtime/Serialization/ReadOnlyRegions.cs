@@ -1018,11 +1018,43 @@ public static class ReadOnlyRegions
     /// one however it goes on, <c>Attribute = 5</c> included; such a line names nothing, and describes nothing.
     /// <c>AttributeCount = 3</c> starts with another word.
     /// </remarks>
-    private static bool IsAttributeLine(string text, Line line)
+    private static bool IsAttributeLine(string text, Line line) =>
+        IsAttributeLine(text.AsSpan(line.Start, line.ContentEnd - line.Start));
+
+    /// <summary>
+    /// True when <paramref name="line"/>, one physical line, starts an attribute line: its first word is
+    /// <c>Attribute</c>, in any case and at any indent. See <see cref="IsAttributeLine(string, Line)"/>.
+    /// </summary>
+    public static bool IsAttributeLine(ReadOnlySpan<char> line)
     {
-        var content = text.AsSpan(line.Start, line.ContentEnd - line.Start).TrimStart();
+        var content = line.TrimStart();
         return content.StartsWith("Attribute", StringComparison.OrdinalIgnoreCase)
                && (content.Length == "Attribute".Length || !IsNameCharacter(content["Attribute".Length]));
+    }
+
+    /// <summary>
+    /// The attribute lines of the run of <paramref name="text"/> from <paramref name="start"/>, the start of its first
+    /// line, to <paramref name="end"/>, the end of its last line's text, each a logical line read as
+    /// <see cref="MemberRuns"/> reads it. For a run already found, such as a <see cref="MemberRun"/>'s region.
+    /// </summary>
+    internal static List<AttributeLine> AttributeLinesIn(string text, int start, int end)
+    {
+        var attributes = new List<AttributeLine>();
+        var pos = start;
+        while (pos < end)
+        {
+            var first = pos;
+            var (lineEnd, next) = SourceLines.LineAt(text, pos);
+            // As LogicalLinesOf joins them: a continued line takes the next, when there is one.
+            while (lineEnd < end && next < text.Length && EndsWithContinuation(text.AsSpan(pos, lineEnd - pos)))
+            {
+                pos = next;
+                (lineEnd, next) = SourceLines.LineAt(text, pos);
+            }
+            attributes.Add(ReadAttributeLine(text, first, lineEnd));
+            pos = next;
+        }
+        return attributes;
     }
 
     /// <summary>

@@ -1,16 +1,22 @@
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
 using HexIDE.Language;
-using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Forms;
 
 /// <summary>
 /// What typing may change in a code window: nothing at all while the document is held read-only as a whole,
-/// and otherwise everything but its header and its members' attribute runs (hexide-io/HexIDE#273 task 3.7).
-/// And the two rules that keep a run with the line it describes (tasks 4.5 and 4.5a): where a line break typed
-/// at that line's end goes, and how far a deletion of that line reaches.
+/// and otherwise everything but its read-only regions (hexide-io/HexIDE#273 task 3.7), a VB6 file's header and its
+/// members' attribute runs. And the two rules that keep a region that hangs from a line with that line (tasks 4.5
+/// and 4.5a): where a line break typed at that line's end goes, and how far a deletion of that line reaches.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <b>Which regions there are, and what a line of text means, is the reader's</b> (<see cref="IReadOnlyRegionReader"/>,
+/// #3411 slice 6). This class reads positions, and asks the reader the few questions about text that placing a line
+/// break needs. Here "run" is a <see cref="HangingRegion"/>, and "the line it describes" is the line it hangs from.
+/// </para>
+/// </remarks>
 /// <remarks>
 /// <para>
 /// <b>One provider carries both gates, because the editor has room for only one.</b> Binding
@@ -32,8 +38,8 @@ namespace HexIDE.Forms;
 /// the line and its run as one change, which is one undo step.
 /// </para>
 /// <para>
-/// <b>The line a run describes is its logical line</b>, <see cref="MemberRun.DescribedStart"/> to its anchor, as
-/// 4.1's reader decides it, and not the physical line above the run, which is what this read until task 4.5a. The
+/// <b>The line a run describes is its logical line</b>, <see cref="HangingRegion.LineStart"/> to its anchor, as
+/// the reader decides it, and not the physical line above the run, which is what this read until task 4.5a. The
 /// two differ for a continued declaration only, and the difference is what deleting part of one does. Deleting
 /// its last physical line no longer takes the run: what is left above it is still the declaration, which the
 /// developer is part-way through rewriting, and the run stays under it, describing it while it still declares the
@@ -45,16 +51,34 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
     private readonly TextDocument document;
     private readonly Func<bool> wholeDocumentReadOnly;
     private readonly Func<IReadOnlyList<TextRegion>> regions;
-    private readonly Func<IReadOnlyList<MemberRun>> runs;
+    private readonly Func<IReadOnlyList<HangingRegion>> runs;
+    private readonly IReadOnlyRegionReader reader;
 
+    /// <param name="document">The window's document.</param>
+    /// <param name="wholeDocumentReadOnly">Whether the document is held read-only as a whole, read live.</param>
+    /// <param name="regions">Its read-only regions as it stands, read live.</param>
+    /// <param name="runs">Those of them that hang from a line, as it stands, read live.</param>
+    /// <param name="reader">
+    /// The reader both came from, asked about a run's line and about text placed at its end. Null when there is none,
+    /// and there are then no runs to ask about.
+    /// </param>
     public CodeWindowReadOnlySections(TextDocument document, Func<bool> wholeDocumentReadOnly,
-        Func<IReadOnlyList<TextRegion>> regions, Func<IReadOnlyList<MemberRun>> runs)
+        Func<IReadOnlyList<TextRegion>> regions, Func<IReadOnlyList<HangingRegion>> runs, IReadOnlyRegionReader? reader)
         : base(document)
     {
         this.document = document;
         this.wholeDocumentReadOnly = wholeDocumentReadOnly;
         this.regions = regions;
         this.runs = runs;
+        this.reader = reader ?? NoReader.Instance;
+    }
+
+    /// <summary>A reader with no regions, whose questions are answered by the interface's defaults.</summary>
+    private sealed class NoReader : IReadOnlyRegionReader
+    {
+        public static readonly NoReader Instance = new();
+
+        public IReadOnlyList<TextRegion> Regions(string text, int prefixLength) => [];
     }
 
     /// <summary>
@@ -114,7 +138,7 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
         }
         foreach (var run in runs())
         {
-            if (!run.DescribesMember || Takes(run, segment.Offset, segment.EndOffset))
+            if (Takes(run, segment.Offset, segment.EndOffset))
                 continue;
             yield return (run.Region.EditStart, run.Region.End);
         }
@@ -137,8 +161,8 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
     /// review). A replacement of the line's text alone takes nothing: the run stays, for whatever the new line declares.
     /// </para>
     /// </remarks>
-    internal bool Takes(MemberRun run, int start, int end) =>
-        run.DescribesMember && start <= TextStart(run) && end >= run.LastContentEnd;
+    internal bool Takes(HangingRegion run, int start, int end) =>
+        start <= TextStart(run) && end >= run.LastContentEnd;
 
     /// <summary>
     /// What a deletion of <paramref name="length"/> characters at <paramref name="offset"/> removes in this code
@@ -179,9 +203,9 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
             // Only saves work: this run's line, and every later one's, starts at or after the deletion's end, and a
             // described line has text, so the deletion cannot reach the end of it, which the test below wants
             // (equivalent under mutation).
-            if (run.DescribedStart >= end)
+            if (run.LineStart >= end)
                 break;
-            if (!run.DescribesMember || offset > TextStart(run) || end < TextEnd(run))
+            if (offset > TextStart(run) || end < TextEnd(run))
                 continue;
             // A deletion ending at or before the anchor ends before the run, so the run's last line's text end is
             // always the further; one past the anchor may reach beyond the run, and keeps its own end then.
@@ -208,7 +232,7 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
         }
         foreach (var run in runs())
         {
-            if (run.DescribesMember && !Takes(run, start, start + widened) && run.Region.Changes(start, widened))
+            if (!Takes(run, start, start + widened) && run.Region.Changes(start, widened))
                 return true;
         }
         return false;
@@ -221,9 +245,10 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
     /// <remarks>
     /// The whitespace is let in because Enter treats a caret before trailing whitespace as the end of the line,
     /// and a line break put there would leave the run hanging from a line of nothing but that whitespace, which
-    /// declares nothing. A trailing comment qualifies too: its remaining text moves after the run (#1037).
+    /// declares nothing. A trailing comment qualifies too: its remaining text moves after the run (#1037). Where the
+    /// comment starts is the reader's (<see cref="IReadOnlyRegionReader.CommentStart"/>).
     /// </remarks>
-    internal MemberRun? RunHangingFrom(int offset)
+    internal HangingRegion? RunHangingFrom(int offset)
     {
         foreach (var run in runs())
         {
@@ -231,16 +256,17 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
                 continue;
             // Only saves work: a later run's line starts past offset, so the line break before it stands between
             // offset and its anchor, and the blanks test below refuses it (equivalent under mutation).
-            if (run.DescribedStart > offset)
+            if (run.LineStart > offset)
                 break;
-            if (!run.DescribesMember)
-                continue;
-            var comment = ReadOnlyRegions.CommentStartOn(document.Text, run.DescribedStart, run.Anchor);
+            var comment = CommentStart(run);
             if (offset >= comment || OnlyBlanks(offset, comment))
                 return run;
         }
         return null;
     }
+
+    /// <summary>Where a comment starts on the line <paramref name="run"/> hangs from, or its anchor when it has none.</summary>
+    internal int CommentStart(HangingRegion run) => reader.CommentStart(document.Text, run);
 
     /// <summary>
     /// Where text holding a line break goes when it would replace <c>[offset, offset + length)</c> and so land at
@@ -294,42 +320,18 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
         var nextBreak = nextLine.IndexOfAny('\r', '\n');
         if (nextBreak >= 0)
             nextLine = nextLine[..nextBreak];
-        nextLine = nextLine.TrimStart();
-        if (length == 0 && !normalized.AsSpan(0, lineBreak).Trim().IsEmpty
-            && nextLine.StartsWith("Attribute", StringComparison.OrdinalIgnoreCase)
-            && (nextLine.Length == "Attribute".Length
-                || !(char.IsLetterOrDigit(nextLine["Attribute".Length]) || nextLine["Attribute".Length] == '_')))
+        if (length == 0 && !normalized.AsSpan(0, lineBreak).Trim().IsEmpty && reader.StartsHangingRegion(nextLine))
         {
             // Keep a pasted declaration with its own run, rather than merging it into this member's (#1041).
             var pasted = normalized.EndsWith(newline, StringComparison.Ordinal) ? normalized[..^newline.Length] : normalized;
             return new LineBreakPastRun(run, offset, length, string.Empty, run.LastContentEnd, newline + pasted);
         }
-        if (offset <= TextStart(run))
-        {
-            // A whole declaration may be preceded by comments or blank lines (#1039). Keep its run under the
-            // first logical line it can describe, using the same continuation rule as the member reader.
-            var pasted = new TextDocument(normalized);
-            var start = 0;
-            foreach (var line in pasted.Lines)
-            {
-                var content = pasted.GetText(line).AsSpan().TrimEnd();
-                if (line.NextLine is not null && content.Length > 1 && content[^1] == '_' && char.IsWhiteSpace(content[^2]))
-                    continue;
-                var declared = ReadOnlyRegions.NamesDeclaredOn(normalized, start, line.EndOffset);
-                var compatible = run.Kind == MemberRunKind.Procedure
-                    ? declared.Any(d => d.Kind == DeclarationKind.Procedure)
-                    : run.Lines.All(a => declared.Any(d => d.Kind is DeclarationKind.Variable or DeclarationKind.Constant
-                        && string.Equals(d.Name, a.Qualifier, StringComparison.OrdinalIgnoreCase)));
-                if (compatible)
-                {
-                    lineBreak = line.EndOffset;
-                    break;
-                }
-                start = line.Offset + line.TotalLength;
-            }
-        }
+        // A whole declaration may be preceded by comments or blank lines (#1039). Keep its run under the first
+        // logical line it can describe, which the reader finds.
+        if (offset <= TextStart(run) && reader.LineToHangFrom(document.Text, run, normalized) is { } hangFrom)
+            lineBreak = hangFrom;
         var end = offset + length;
-        var moved = ReadOnlyRegions.CommentStartOn(document.Text, run.DescribedStart, run.Anchor) < run.Anchor
+        var moved = CommentStart(run) < run.Anchor
             ? document.GetText(end, run.Anchor - end)
             : string.Empty;
         return new LineBreakPastRun(run, offset, length + moved.Length, normalized[..lineBreak],
@@ -337,19 +339,19 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
     }
 
     /// <summary>The first character of <paramref name="run"/>'s described line that is not a space or a tab.</summary>
-    private int TextStart(MemberRun run)
+    private int TextStart(HangingRegion run)
     {
-        var at = run.DescribedStart;
+        var at = run.LineStart;
         while (at < run.Anchor && document.GetCharAt(at) is ' ' or '\t')
             at++;
         return at;
     }
 
     /// <summary>Just past the last character of <paramref name="run"/>'s described line that is not a space or a tab.</summary>
-    private int TextEnd(MemberRun run)
+    private int TextEnd(HangingRegion run)
     {
         var at = run.Anchor;
-        while (at > run.DescribedStart && document.GetCharAt(at - 1) is ' ' or '\t')
+        while (at > run.LineStart && document.GetCharAt(at - 1) is ' ' or '\t')
             at--;
         return at;
     }
@@ -377,7 +379,7 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
 /// <param name="TailAt">Where the rest goes, in the text as it stood: the end of the run's last line's text.</param>
 /// <param name="Tail">The rest, including any leading line break and moved comment text; empty when neither remains.</param>
 /// <param name="MovedLength">The length of that moved text, which the caret precedes.</param>
-internal sealed record LineBreakPastRun(MemberRun Run, int Offset, int Length, string Head, int TailAt, string Tail, int MovedLength = 0)
+internal sealed record LineBreakPastRun(HangingRegion Run, int Offset, int Length, string Head, int TailAt, string Tail, int MovedLength = 0)
 {
     /// <summary>Where the tail starts once both parts are written.</summary>
     public int TailStart => TailAt - Length + Head.Length;

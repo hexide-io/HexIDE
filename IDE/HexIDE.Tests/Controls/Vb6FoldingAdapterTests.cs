@@ -109,7 +109,7 @@ public class Vb6FoldingAdapterTests
 
     // ── A member's attribute run (task 4.3) ─────────────────────────────────────────────────────────────
 
-    private static List<NewFolding> RunFoldsOf(string text) => Vb6FoldingAdapter.MemberRuns(ReadOnlyRegions.MemberRuns(text, 0));
+    private static List<NewFolding> RunFoldsOf(string text) => Vb6FoldingAdapter.HangingRegions(new Vb6ReadOnlyRegionReader().HangingRegions(text, 0));
 
     private static int EndOf(string text, string line) => text.IndexOf(line, StringComparison.Ordinal) + line.Length;
 

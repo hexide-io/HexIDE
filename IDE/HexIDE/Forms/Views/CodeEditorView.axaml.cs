@@ -25,6 +25,7 @@ using HexIDE.Controls;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.Editor;
+using HexIDE.Language;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Themes;
 using HexIDE.Tools.ObjectBrowser;
@@ -1059,8 +1060,8 @@ public partial class CodeEditorView : UserControl
         var header = Vb6FoldingAdapter.Header(vm.Document, vm.ReadOnlyRegionsNow);
         var freshHeader = previousHeader is null || header is null
                           || previousHeader.StartOffset != header.StartOffset || previousHeader.EndOffset != header.EndOffset;
-        var runs = vm.MemberRunsNow;
-        var own = Vb6FoldingAdapter.MemberRuns(runs);
+        var runs = vm.HangingRegionsNow;
+        var own = Vb6FoldingAdapter.HangingRegions(runs);
         if (header is not null)
             own.Insert(0, header);
         Vb6FoldingAdapter.Update(manager, Vb6FoldingAdapter.Merge(own, server ?? shown));
@@ -1088,13 +1089,13 @@ public partial class CodeEditorView : UserControl
 
         foreach (var run in runs)
         {
-            if (run.Key is not { } key || RunSection(run) is not { } section) continue;
+            if (RunSection(run) is not { } section) continue;
             if (runSections.TryGetValue(section, out var folded))
                 section.IsFolded = folded;
             else
             {
                 var caretInside = section.StartOffset < caret && caret <= section.EndOffset;
-                section.IsFolded = !caretInside && !vm.ExpandedMemberRuns.Contains(key);
+                section.IsFolded = !caretInside && !vm.ExpandedHangingRegions.Contains(run.Key);
             }
             section.Tag = RunFoldTag;
         }
@@ -1125,9 +1126,9 @@ public partial class CodeEditorView : UserControl
             vm.HeaderFoldExpanded = !header.IsFolded;
         if (_foldingManager is null) return;
 
-        var runs = vm.MemberRunsNow;
-        var matched = new List<(FoldingSection Section, MemberRunKey Key)>();
-        var keys = new Dictionary<FoldingSection, MemberRunKey>();
+        var runs = vm.HangingRegionsNow;
+        var matched = new List<(FoldingSection Section, HangingRegionKey Key)>();
+        var keys = new Dictionary<FoldingSection, HangingRegionKey>();
         foreach (var section in _foldingManager.AllFoldings)
         {
             if (!ReferenceEquals(section.Tag, RunFoldTag)) continue;
@@ -1144,14 +1145,14 @@ public partial class CodeEditorView : UserControl
         foreach (var (section, key) in matched)
         {
             if (_runKeys.TryGetValue(section, out var was) && was != key)
-                vm.ExpandedMemberRuns.Remove(was);
+                vm.ExpandedHangingRegions.Remove(was);
         }
         foreach (var (section, key) in matched)
         {
             if (section.IsFolded)
-                vm.ExpandedMemberRuns.Remove(key);
+                vm.ExpandedHangingRegions.Remove(key);
             else
-                vm.ExpandedMemberRuns.Add(key);
+                vm.ExpandedHangingRegions.Add(key);
         }
 
         // Rebuilt from the sections the manager holds. One it has removed never comes back to be compared, so keeping
@@ -1170,7 +1171,7 @@ public partial class CodeEditorView : UserControl
     /// anew. A run whose first sighting by a new view is after its rename keeps its old key in the set, which is the
     /// state before this was added.
     /// </remarks>
-    private readonly Dictionary<FoldingSection, MemberRunKey> _runKeys = [];
+    private readonly Dictionary<FoldingSection, HangingRegionKey> _runKeys = [];
 
     /// <summary>The header's folding section, or null when none is shown.</summary>
     private FoldingSection? HeaderSection()
@@ -1185,7 +1186,7 @@ public partial class CodeEditorView : UserControl
     }
 
     /// <summary>The folding section at <paramref name="run"/>'s fold's offsets, whoever made it, or null.</summary>
-    private FoldingSection? RunSection(MemberRun run)
+    private FoldingSection? RunSection(HangingRegion run)
     {
         if (_foldingManager is null) return null;
         foreach (var section in _foldingManager.GetFoldingsAt(run.Anchor))
@@ -1196,12 +1197,12 @@ public partial class CodeEditorView : UserControl
         return null;
     }
 
-    /// <summary>The run describing a member whose fold is at <paramref name="section"/>'s offsets, or null.</summary>
-    private static MemberRun? RunOf(IReadOnlyList<MemberRun> runs, FoldingSection section)
+    /// <summary>The hanging region whose fold is at <paramref name="section"/>'s offsets, or null.</summary>
+    private static HangingRegion? RunOf(IReadOnlyList<HangingRegion> runs, FoldingSection section)
     {
         foreach (var run in runs)
         {
-            if (run.DescribesMember && run.Anchor == section.StartOffset && run.LastContentEnd == section.EndOffset)
+            if (run.Anchor == section.StartOffset && run.LastContentEnd == section.EndOffset)
                 return run;
         }
         return null;
@@ -1222,7 +1223,7 @@ public partial class CodeEditorView : UserControl
               && headerSection.EndOffset == header.EndOffset;
         if (!headerIsCurrent) return false;
 
-        var runs = vm.MemberRunsNow;
+        var runs = vm.HangingRegionsNow;
         var shown = 0;
         foreach (var section in _foldingManager.AllFoldings)
         {
@@ -1230,12 +1231,7 @@ public partial class CodeEditorView : UserControl
             if (RunOf(runs, section) is null) return false;
             shown++;
         }
-        var wanted = 0;
-        foreach (var run in runs)
-        {
-            if (run.DescribesMember) wanted++;
-        }
-        return shown == wanted;
+        return shown == runs.Count;
     }
 
     /// <summary>
@@ -1356,7 +1352,7 @@ public partial class CodeEditorView : UserControl
         {
             if (!ReferenceEquals(section.Tag, RunFoldTag) || !section.IsFolded || section.EndOffset != caret) continue;
             var target = section.StartOffset;
-            if (stepFrom == section.StartOffset && RunOf(vm.MemberRunsNow, section) is { } run && run.Region.End > caret)
+            if (stepFrom == section.StartOffset && RunOf(vm.HangingRegionsNow, section) is { } run && run.Region.End > caret)
                 target = run.Region.End;
             _placingCaret = true;
             try
@@ -2263,7 +2259,7 @@ public partial class CodeEditorView : UserControl
     /// <b>At the end of a described line the line break goes after the run</b> (#273 task 4.5), as a line of its own
     /// in the document's newline, and the closer is looked for past the run, all as one undo step with the
     /// declaration's re-casing. Put at the caret, the line break would leave the run hanging from an empty line,
-    /// describing nothing. The declaration is read as 4.1's reader reads it, from <see cref="MemberRun.DescribedStart"/>:
+    /// describing nothing. The declaration is read as 4.1's reader reads it, from <see cref="HangingRegion.LineStart"/>:
     /// its continuation rule, an underscore after whitespace, and not <see cref="VbAutoCloseProvider.IsContinuationLine"/>'s
     /// looser one, which would take a declaration ending in a name like <c>Total_</c> for one continuing into the run,
     /// and break the line at the caret.
@@ -2295,9 +2291,9 @@ public partial class CodeEditorView : UserControl
                 currentLineNumber, currentLineText, caretOffset, currentDocLine.EndOffset);
 
             // A comment's remaining text follows the run, with ordinary mid-line indentation and no closer (#1037).
-            if (run is not null && caretOffset < run.Anchor
-                && ReadOnlyRegions.CommentStartOn(doc.Text, run.DescribedStart, run.Anchor) < run.Anchor
-                && vm?.InsertLineBreakPastRun(caretOffset, 0,
+            if (vm is not null && run is not null && caretOffset < run.Anchor
+                && vm.ReadOnlySections.CommentStart(run) < run.Anchor
+                && vm.InsertLineBreakPastRun(caretOffset, 0,
                     "\n" + VbAutoCloseProvider.GetIndentation(currentLineText)) is { } commentSplit)
             {
                 caret.Offset = commentSplit.End;
@@ -2326,7 +2322,7 @@ public partial class CodeEditorView : UserControl
             // Find the first physical line of the logical line (for continuations)
             var startLineNumber = currentLineNumber;
             if (run is not null)
-                startLineNumber = doc.GetLineByOffset(run.DescribedStart).LineNumber;
+                startLineNumber = doc.GetLineByOffset(run.LineStart).LineNumber;
             else
             {
                 while (startLineNumber > 1)

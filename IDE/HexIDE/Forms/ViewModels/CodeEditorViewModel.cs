@@ -282,7 +282,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 if (sub != -1)
                 {
                     Log.Debug("CodeEditorViewModel: Found 'Sub {SubName}' at offset {Offset}, navigating", e.Sub, sub);
-                    var run = MemberRunsNow.FirstOrDefault(r => r.DescribesMember && r.DescribedStart <= sub && sub <= r.Anchor);
+                    var run = HangingRegionsNow.FirstOrDefault(r => r.LineStart <= sub && sub <= r.Anchor);
                     var nextNewLineIndex = Document.IndexOf("\n", sub, Document.TextLength - sub, StringComparison.OrdinalIgnoreCase);
                     this.NavigateToOffset(run is not null ? run.Region.End : nextNewLineIndex == -1 ? sub : nextNewLineIndex + 1);
                 }
@@ -658,7 +658,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal bool HeaderFoldExpanded { get; set; }
 
     /// <summary>
-    /// The member attribute runs the developer has expanded in this window, by key (#273 task 4.3).
+    /// The regions hanging from a line, a VB6 member's attribute runs, that the developer has expanded in this window,
+    /// by key (#273 task 4.3).
     /// </summary>
     /// <remarks>
     /// For the reason <see cref="HeaderFoldExpanded"/> is held here, and by key rather than by offset, because what
@@ -669,7 +670,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// renamed or renumbered, goes, so a name a retype passes through is not left in the set to open some other
     /// member's run later (task 4.3 review). The view keeps both rules; design.md, "Settled while building 4.3".
     /// </remarks>
-    internal HashSet<MemberRunKey> ExpandedMemberRuns { get; } = [];
+    internal HashSet<HangingRegionKey> ExpandedHangingRegions { get; } = [];
 
     /// <summary>
     /// Toggles a breakpoint on the 1-based <paramref name="line"/>, unless it would set one on a read-only line.
@@ -1405,7 +1406,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (RefuseWholeFileWrite()) return new Reduction([], 0);
         var before = Document.Text;
         var reduction = LineEdits.ReduceFormatting(before, Rewrite(before, edits),
-            RegionsOf(before, bufferPrefix.Length), MemberRunsNow);
+            RegionsOf(before, bufferPrefix.Length), HangingRegionsNow);
 
         if (reduction.Changes.Count > 0)
         {
@@ -1516,43 +1517,43 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private int regionsCachePrefixLength;
 
     /// <summary>
-    /// Every run of attribute lines below this buffer's header as it stands, those describing a member and the
-    /// orphans alike (<see cref="ReadOnlyRegions.MemberRuns"/>).
+    /// The read-only regions of this buffer as it stands that hang from the line above them, a VB6 member's attribute
+    /// runs (<see cref="IReadOnlyRegionReader.HangingRegions"/>). Empty with no reader.
     /// </summary>
     /// <remarks>
     /// Cached as <see cref="ReadOnlyRegionsNow"/> is, the prefix's length included: a reload whose text is the
     /// buffer's own but whose split is not returns before it changes the document, so the version alone would keep
-    /// runs read against the old split. The view reads it once an edit group has changed the text and once as the
-    /// group begins, to keep a fold on each run that describes a member (#273 task 4.3), and when a step to the right
-    /// lands at the end of one; never at every change of a group, which made a format of N lines N whole-buffer
-    /// scans (task 4.3 review, <see cref="MemberRunScans"/>).
+    /// regions read against the old split. The view reads it once an edit group has changed the text and once as the
+    /// group begins, to keep a fold on each (#273 task 4.3), and when a step to the right lands at the end of one;
+    /// never at every change of a group, which made a format of N lines N whole-buffer scans (task 4.3 review,
+    /// <see cref="HangingRegionScans"/>).
     /// </remarks>
-    internal IReadOnlyList<MemberRun> MemberRunsNow
+    internal IReadOnlyList<HangingRegion> HangingRegionsNow
     {
         get
         {
             var version = Document.Version;
-            if (runsCache is null || !ReferenceEquals(runsCacheVersion, version)
-                || runsCachePrefixLength != bufferPrefix.Length)
+            if (hangingCache is null || !ReferenceEquals(hangingCacheVersion, version)
+                || hangingCachePrefixLength != bufferPrefix.Length)
             {
-                runsCache = ReadOnlyRegions.MemberRuns(Document.Text, bufferPrefix.Length);
-                runsCacheVersion = version;
-                runsCachePrefixLength = bufferPrefix.Length;
-                MemberRunScans++;
+                hangingCache = regionReader?.HangingRegions(Document.Text, bufferPrefix.Length) ?? [];
+                hangingCacheVersion = version;
+                hangingCachePrefixLength = bufferPrefix.Length;
+                HangingRegionScans++;
             }
-            return runsCache;
+            return hangingCache;
         }
     }
 
     /// <summary>
-    /// How many times <see cref="MemberRunsNow"/> has read the whole buffer, for the tests that hold the code window
+    /// How many times <see cref="HangingRegionsNow"/> has read the whole buffer, for the tests that hold the code window
     /// to one read per edit group however many changes the group makes (#273 task 4.3 review).
     /// </summary>
-    internal int MemberRunScans { get; private set; }
+    internal int HangingRegionScans { get; private set; }
 
-    private IReadOnlyList<MemberRun>? runsCache;
-    private ITextSourceVersion? runsCacheVersion;
-    private int runsCachePrefixLength;
+    private IReadOnlyList<HangingRegion>? hangingCache;
+    private ITextSourceVersion? hangingCacheVersion;
+    private int hangingCachePrefixLength;
 
     /// <summary>
     /// The section provider the view installs on its text area (task 3.7): the regions above plus the
@@ -1560,7 +1561,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </summary>
     internal CodeWindowReadOnlySections ReadOnlySections =>
         readOnlySections ??= new CodeWindowReadOnlySections(Document, () => IsReadOnly, () => ReadOnlyRegionsNow,
-            () => MemberRunsNow);
+            () => HangingRegionsNow, regionReader);
 
     private CodeWindowReadOnlySections? readOnlySections;
 
@@ -2102,11 +2103,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         {
             var edit = edits[i];
             if (edit.Text.AsSpan().IndexOfAny('\r', '\n') >= 0
-                && ReadOnlySections.RunHangingFrom(edit.Offset + edit.Length) is { Member: { } member })
+                && ReadOnlySections.RunHangingFrom(edit.Offset + edit.Length) is { } run)
             {
                 var at = Document.GetLocation(edit.Offset);
                 return $"{describe?.Invoke(i) ?? $"The edit at line {at.Line}, column {at.Column}"} "
-                       + string.Format(localization.GetString("Str.CodeEditor.Msg.LineBreakSeparatesAttributes"), member.Name);
+                       + string.Format(localization.GetString("Str.CodeEditor.Msg.LineBreakSeparatesAttributes"), run.Name);
             }
         }
 
