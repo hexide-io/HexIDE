@@ -39,9 +39,24 @@ public sealed record AddinProjectType(string Title)
     /// project's open and whenever such a file changes, and one that throws is taken not to have read it.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>Written only where it can also render.</b> Where this is an <see cref="HexIDE.IDE.IFormFileFormat"/>, HexIDE saves
+    /// the forms it read through its renders, as it saves a .vbp's forms. Where it only reads, each of its forms opens
+    /// read-only and is never written.
+    /// </para>
+    /// <para>
+    /// <b>A format runs often.</b> Besides each save, HexIDE renders a form to tell whether it was edited, which crash recovery
+    /// asks every few seconds of every form of every open project, and to refresh the header over its code. All of it is on
+    /// the UI thread. One that throws hasn't rendered, and the form is saved by nothing until it renders again.
+    /// </para>
+    /// <para>
+    /// <b>Called only while the type is registered.</b> Once the add-in is turned off, or its consent is withdrawn, HexIDE
+    /// neither reads nor renders through it again.
+    /// </para>
+    /// <para>
     /// The controls on a form are the add-in's own <see cref="HexIDE.Runtime.Components.IComponentClass"/>es, which
-    /// <see cref="IHexIdeHost.RegisterComponent"/> offers in the toolbox. HexIDE doesn't yet write a form an add-in read, so
-    /// each opens read-only.
+    /// <see cref="IHexIdeHost.RegisterComponent"/> offers in the toolbox.
+    /// </para>
     /// </remarks>
     public HexIDE.IDE.IFormFileReader? Forms { get; init; }
 }

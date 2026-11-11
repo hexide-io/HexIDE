@@ -262,8 +262,12 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public string? ReadOnlyReason => formDefinition?.UnfaithfulSaveReason;
 
-    /// <summary>Whether it is read-only because an add-in read it, which the banner has its own words for.</summary>
-    public bool IsReadByAddin => formDefinition is { } form && form.UnfaithfulSaveCauses.HasFlag(UnfaithfulSaveCause.ReadByAddin);
+    /// <summary>
+    /// Whether it is read-only because the add-in that read it can't write it back, which the banner has its own words for:
+    /// its type has nothing that writes, or its format refused it.
+    /// </summary>
+    public bool IsReadByAddin => formDefinition is { } form
+        && (form.UnfaithfulSaveCauses & (UnfaithfulSaveCause.ReadByAddin | UnfaithfulSaveCause.RefusedByFormat)) != 0;
 
     public DesignerUndoStack UndoStack { get; private set; } = null!;
     public DelegateCommand UndoCommand { get; private set; } = null!;
