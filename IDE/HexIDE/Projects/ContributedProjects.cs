@@ -50,6 +50,9 @@ public sealed record ContributedProjectType(AddinProjectType Type, string AddinI
 /// </remarks>
 internal sealed class ContributedFormFormat(ContributedProjectType type) : IFormFileFormat
 {
+    /// <summary>The type whose format this is, and so the add-in that reads and writes these forms.</summary>
+    internal ContributedProjectType Type => type;
+
     /// <summary>The project whose forms these are, whose files a companion may never be. Set once it is built.</summary>
     internal ProjectDefinition? Project { get; set; }
 
@@ -207,6 +210,9 @@ public sealed partial class ContributedProjects
     /// <summary>Raised when a type is contributed or taken out.</summary>
     public event Action? TypesChanged;
 
+    /// <summary>Raised once a type has been taken out, on the thread that took it out, before <see cref="TypesChanged"/>.</summary>
+    public event Action<ContributedProjectType>? TypeWithdrawn;
+
     /// <summary>
     /// Reads a member's file as it is added. The file system's read, except under test, where the test decides when each
     /// read completes and so in what order the add-in's reports finish.
@@ -254,6 +260,7 @@ public sealed partial class ContributedProjects
             lock (_gate) removed = _types.Remove(contributed);
             if (!removed) return;
             contributed.Withdraw();
+            TypeWithdrawn?.Invoke(contributed);
             TypesChanged?.Invoke();
         });
         // An add-in whose initialisation fails has its type taken out with its other contributions.

@@ -124,6 +124,15 @@ public interface IProjectService
     bool HasUnsavedChanges(ModuleDefinition module);
 
     /// <summary>
+    /// Asked before an add-in is turned off or its consent withdrawn, while its format can still write: whether any form,
+    /// UserControl or PropertyPage it reads has unsaved changes, and if so what to do, as closing a project asks. Save writes
+    /// them now, Don't Save lets them go, and Cancel keeps the add-in.
+    /// </summary>
+    /// <param name="addinId">The add-in's manifest id.</param>
+    /// <returns>True when the add-in may be taken out: nothing was unsaved, they were saved, or the user let them go.</returns>
+    Task<bool> ConfirmAddinWithdrawal(string addinId);
+
+    /// <summary>
     /// Every loaded project that has something unsaved, with what a save would write for each of its unsaved files,
     /// for crash recovery's backup (hexide-io/HexIDE#499). Writes nothing. Call it on the UI thread: it first brings in
     /// whatever an open editor or designer holds ahead of its model, as a save does.

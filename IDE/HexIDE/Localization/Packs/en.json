@@ -387,6 +387,8 @@
     "Str.Designer.ReadOnly.Banner": "Read-only — HexIDE cannot yet reproduce this form faithfully, so saving it would change it. You can view and run it, but changes will not be saved.",
     "Str.ContributedProject.FormReadOnly": "Read-only — the add-in that read this can't write it back, so changes to it won't be saved.",
     "Str.ContributedProject.RenderRefused": "Nothing was written. {1} couldn't write {0}, so the save stopped before any file changed.",
+    "Str.ContributedProject.WithdrawWithChanges": "{0} reads these, and they have unsaved changes:\n\n{1}\n\nSave them before it's turned off? Once it's off, HexIDE can't save them.",
+    "Str.ContributedProject.WithdrawnWithChanges": "{0} is no longer loaded, so HexIDE can't save these:\n\n{1}\n\nCrash recovery keeps the copy it last took of each. Anything changed after that copy wasn't kept.",
     "Str.Designer.Unmodelled.NotSupported": "Not supported in HexIDE",
     "Str.Designer.Unmodelled.ViewOnly": "View-only in the designer",
     "Str.Designer.Context.Cut": "Cu_t",

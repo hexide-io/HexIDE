@@ -1118,6 +1118,23 @@ public class CodeEditorViewModelTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void AFormMadeReadOnlyOutsideAReloadTellsItsCodeWindow()
+    {
+        var changed = new List<Action<FormReadOnlyChangedEvent>>();
+        _eventBus.Subscribe(Arg.Do<Action<FormReadOnlyChangedEvent>>(h => changed.Add(h))).Returns(Substitute.For<IDisposable>());
+        var form = TestHelpers.CreateForm(name: "Form1");
+        var vm = CreateSut().Initialize(form);
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        form.MarkUnfaithfulToSave(UnfaithfulSaveCause.ReadByAddin, "it has gone");
+        foreach (var handler in changed.ToList()) handler(new FormReadOnlyChangedEvent(form));
+
+        vm.IsReadOnly.Should().BeTrue();
+        raised.Should().Contain(nameof(vm.IsReadOnly));
+    }
+
+    [AvaloniaFact]
     public async Task ASaveOfSomeOtherDocumentIsIgnored()
     {
         // Every editor hears every save. Without the match, saving one module would announce a save of

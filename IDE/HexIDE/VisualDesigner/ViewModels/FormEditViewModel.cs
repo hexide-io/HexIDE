@@ -311,6 +311,16 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             RedoCommand.RaiseCanExecutedChanged();
             RefreshModified();
         };
+        // Made read-only, or writable, without a reload: as when the add-in that writes it is taken out.
+        AutoDispose(this.eventBus.Subscribe<FormReadOnlyChangedEvent>(e =>
+        {
+            if (formDefinition is not null && ReferenceEquals(e.Designer, formDefinition))
+            {
+                OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsReadOnly)));
+                OnPropertyChanged(new PropertyChangedEventArgs(nameof(ReadOnlyReason)));
+                OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsReadByAddin)));
+            }
+        }));
         AutoDispose(this.eventBus.Subscribe<DocumentSavedEvent>(e =>
         {
             if ((e.Form is not null && ReferenceEquals(e.Form, formDefinition))

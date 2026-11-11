@@ -66,8 +66,14 @@ companion before the text. It SHALL refuse a render that doesn't end with the co
 takes the header to be the render less the code, and a companion the format names outside its file's folder, which it
 SHALL NOT read either. A form that the format refuses as it reads it, or can't render once read, SHALL open read-only, with
 the add-in's words where it gave any. A render that throws, or is refused, at a save SHALL end the save before anything is
-written and say why. Once the type has been taken out, the IDE SHALL NOT read or render through it again: a form it can no
-longer render SHALL keep whether it was edited, and the copy crash recovery last took of it.
+written and say why.
+
+Before an add-in is turned off, or its consent withdrawn, while a form its format writes has unsaved changes, the IDE SHALL
+ask, as closing a project does. Save SHALL write them while the add-in can still write them, Don't Save SHALL let them go,
+and Cancel SHALL leave the add-in as it was, as SHALL a save that fails. Once the type has been taken out, the IDE SHALL NOT
+read or render through it again, and each of its forms SHALL be read-only. A form whose unsaved changes nobody was asked
+about SHALL keep the copy crash recovery last took of it, and the user SHALL be told that what changed after that copy
+wasn't kept.
 
 Where the type only reads, a form it read SHALL open read-only in the designer and the code window, and a save SHALL refuse
 it, say that the add-in that read it can't write it back, and leave its file as it was. The IDE's own writers are for its
@@ -91,9 +97,14 @@ a format like any other here, so a type MAY supply it.
 - **WHEN** at a save the format throws, or renders text that doesn't end with the form's code
 - **THEN** nothing is written, and the user is told which form and which add-in, with what the add-in said
 
-#### Scenario: The add-in is taken out
-- **WHEN** the add-in is turned off, or its consent is withdrawn, while one of its forms has an unsaved edit
-- **THEN** its format is not asked again, the form still counts as edited, and crash recovery keeps the copy it last took
+#### Scenario: The add-in is turned off with a form edited
+- **WHEN** the user turns the add-in off, or withdraws its consent, while one of its forms has an unsaved edit
+- **THEN** the IDE asks first: Save writes the form, Don't Save lets the edit go, and Cancel leaves the add-in on
+
+#### Scenario: The add-in goes with nobody asked
+- **WHEN** the type is taken out while one of its forms has an unsaved edit that nobody was asked about
+- **THEN** its format isn't asked again, the form is read-only, crash recovery keeps the copy it last took, and the user is
+  told that later changes weren't kept
 
 ### Requirement: The IDE SHALL NOT write, make or run a contributed project
 Saving a contributed project, Save As included, SHALL write its edited modules, SHALL write its edited forms only through

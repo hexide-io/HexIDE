@@ -428,6 +428,8 @@
     "Str.Designer.ReadOnly.Banner": "Só de leitura — o HexIDE ainda não consegue reproduzir este formulário fielmente, pelo que guardá-lo iria alterá-lo. Pode vê-lo e executá-lo, mas as alterações não serão guardadas.",
     "Str.ContributedProject.FormReadOnly": "Só de leitura — o suplemento que leu isto não o consegue voltar a escrever, pelo que as alterações não serão guardadas.",
     "Str.ContributedProject.RenderRefused": "Nada foi escrito. {1} não conseguiu escrever {0}, pelo que a gravação parou antes de algum ficheiro ser alterado.",
+    "Str.ContributedProject.WithdrawWithChanges": "{0} lê estes elementos, e têm alterações não guardadas:\n\n{1}\n\nGuardá-los antes de o desativar? Depois de desativado, o HexIDE não os consegue guardar.",
+    "Str.ContributedProject.WithdrawnWithChanges": "{0} já não está carregado, pelo que o HexIDE não consegue guardar estes elementos:\n\n{1}\n\nA recuperação após falhas mantém a última cópia que fez de cada um. O que foi alterado depois dessa cópia não foi mantido.",
     "Str.Designer.Unmodelled.NotSupported": "Não suportado no HexIDE",
     "Str.Designer.Unmodelled.ViewOnly": "Somente visualização no designer",
     "Str.Designer.Context.Cut": "Cor_tar",

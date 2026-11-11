@@ -390,6 +390,8 @@
     "Str.Designer.ReadOnly.Banner": "Írásvédett — a HexIDE még nem tudja hűen visszaadni ezt az űrlapot, ezért a mentés módosítaná. Megtekintheti és futtathatja, de a változtatások nem lesznek mentve.",
     "Str.ContributedProject.FormReadOnly": "Csak olvasható — a bővítmény, amely ezt beolvasta, nem tudja visszaírni, ezért a módosítások nem lesznek mentve.",
     "Str.ContributedProject.RenderRefused": "Semmi sem lett kiírva. {1} nem tudta kiírni ezt: {0}, ezért a mentés leállt, mielőtt bármelyik fájl megváltozott volna.",
+    "Str.ContributedProject.WithdrawWithChanges": "{0} olvassa ezeket, és nem mentett módosítások vannak bennük:\n\n{1}\n\nMenti őket a kikapcsolás előtt? Kikapcsolás után a HexIDE nem tudja menteni őket.",
+    "Str.ContributedProject.WithdrawnWithChanges": "{0} már nincs betöltve, ezért a HexIDE nem tudja menteni ezeket:\n\n{1}\n\nAz összeomlás utáni helyreállítás megőrzi az egyes elemekről utoljára készített másolatot. Az azután történt módosítások nem maradtak meg.",
     "Str.Designer.Unmodelled.NotSupported": "A HexIDE nem támogatja",
     "Str.Designer.Unmodelled.ViewOnly": "Csak megtekinthető a tervezőben",
     "Str.Designer.Context.Cut": "_Kivágás",

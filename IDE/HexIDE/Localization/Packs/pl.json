@@ -428,6 +428,8 @@
     "Str.Designer.ReadOnly.Banner": "Tylko do odczytu — HexIDE nie potrafi jeszcze wiernie odtworzyć tego formularza, więc zapisanie go wprowadziłoby w nim zmiany. Możesz go wyświetlić i uruchomić, ale zmiany nie zostaną zapisane.",
     "Str.ContributedProject.FormReadOnly": "Tylko do odczytu — dodatek, który to odczytał, nie potrafi tego zapisać z powrotem, więc zmiany nie zostaną zapisane.",
     "Str.ContributedProject.RenderRefused": "Nic nie zostało zapisane. {1} nie mógł zapisać {0}, więc zapisywanie zatrzymało się, zanim zmienił się jakikolwiek plik.",
+    "Str.ContributedProject.WithdrawWithChanges": "{0} odczytuje te elementy, a zawierają one niezapisane zmiany:\n\n{1}\n\nZapisać je przed wyłączeniem? Po wyłączeniu HexIDE nie będzie mógł ich zapisać.",
+    "Str.ContributedProject.WithdrawnWithChanges": "{0} nie jest już załadowany, więc HexIDE nie może zapisać tych elementów:\n\n{1}\n\nOdzyskiwanie po awarii przechowuje ostatnią kopię, jaką wykonało dla każdego z nich. Zmiany wprowadzone po tej kopii nie zostały zachowane.",
     "Str.Designer.Unmodelled.NotSupported": "Nieobsługiwane w HexIDE",
     "Str.Designer.Unmodelled.ViewOnly": "W projektancie tylko do podglądu",
     "Str.Designer.Context.Cut": "Wy_tnij",
