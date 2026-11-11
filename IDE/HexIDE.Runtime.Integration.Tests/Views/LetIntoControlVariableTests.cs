@@ -15,7 +15,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A Let into a variable holding a control, <c>t = "x"</c> with <c>t As TextBox</c> (#1493), assigns the control's default
