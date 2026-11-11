@@ -61,7 +61,7 @@ public class WorkspaceRenameTests : IDisposable
         Substitute.For<HexIDE.Debugging.IBreakpointService>(),
         Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(), localization,
         regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(),
-        regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules());
+        regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
 
     private CodeEditorViewModel Open(ModuleDefinition module)
     {

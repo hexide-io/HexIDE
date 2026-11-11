@@ -60,10 +60,10 @@ public sealed class ContributedProjectTests : IDisposable
         });
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<HexIDE.Forms.ViewModels.BaseEditorWindowViewModel>());
-        _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
+        _service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException("no new-project dialog"), _windows,
             _events, projects, _recent,
             Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, strings,
-            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
+            new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
             new Vb6ProjectFileFormat(), new ComponentRegistry(),
             contributed: _types);
     }

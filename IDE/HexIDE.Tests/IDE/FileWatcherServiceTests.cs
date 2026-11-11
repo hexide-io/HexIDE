@@ -86,6 +86,7 @@ public class FileWatcherServiceTests : IDisposable
     }
 
     private ProjectService ProjectService() => new(
+        new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
         () => throw new InvalidOperationException(), Substitute.For<IWindowManager>(), new EventBus(),
         manager, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
         Substitute.For<IUserSidecarService>(), new FileBaselineStore(),

@@ -73,7 +73,7 @@ public class MainViewViewModelTests
             }
             return Task.FromResult(true);
         });
-        return new ProjectService(() => throw new System.InvalidOperationException(), _windowManager,
+        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new System.InvalidOperationException(), _windowManager,
             _eventBus, _projectManager, _recentProjects, Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(), _localization,
             Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
@@ -108,7 +108,7 @@ public class MainViewViewModelTests
             ((HexIDE.Forms.ViewModels.SaveChangesViewModel)ci.Arg<IDialog>()).No();
             return Task.FromResult(!cancelSave);
         });
-        var service = new ProjectService(
+        var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
             () => new HexIDE.Forms.ViewModels.NewProjectViewModel(_windowManager, _recentProjects,
                 _settingsService, profile, _localization),
             _windowManager, _eventBus, _projectManager, _recentProjects,

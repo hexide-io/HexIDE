@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using HexIDE.Language;
 
 namespace HexIDE.Runtime.Serialization;
@@ -74,17 +73,6 @@ public static class MemberAttributeQualifiers
         return rewrites;
     }
 
-    /// <summary><paramref name="text"/> with <paramref name="rewrites"/> made, which must be in order of offset.</summary>
-    public static string Apply(string text, IReadOnlyList<TextChange> rewrites)
-    {
-        if (rewrites.Count == 0)
-            return text;
-        var builder = new StringBuilder(text);
-        for (var i = rewrites.Count - 1; i >= 0; i--)
-            builder.Remove(rewrites[i].Offset, rewrites[i].Length).Insert(rewrites[i].Offset, rewrites[i].Text);
-        return builder.ToString();
-    }
-
     /// <summary>
     /// <paramref name="body"/>, the code a document carries after <paramref name="prefix"/>, with its runs'
     /// qualifiers rewritten; the same instance when nothing changes.
@@ -98,6 +86,6 @@ public static class MemberAttributeQualifiers
     {
         var whole = prefix + body;
         var rewrites = Rewrites(whole, prefix.Length);
-        return rewrites.Count == 0 ? body : Apply(whole, rewrites)[prefix.Length..];
+        return rewrites.Count == 0 ? body : TextChanges.Apply(whole, rewrites)[prefix.Length..];
     }
 }

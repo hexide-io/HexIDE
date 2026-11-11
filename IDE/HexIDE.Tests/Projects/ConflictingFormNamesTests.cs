@@ -51,7 +51,7 @@ public class ConflictingFormNamesTests : IDisposable
         localization.GetString("Str.Dialog.ConflictingNames")
             .Returns("Conflicting names were found in '{0}'. The name '{1}' will be used.");
 
-        return new ProjectService(
+        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
             () => throw new InvalidOperationException("new-project dialog must not be reached"),
             windowManager,
             Substitute.For<IEventBus>(),

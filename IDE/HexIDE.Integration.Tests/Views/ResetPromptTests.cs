@@ -444,7 +444,7 @@ public class ResetPromptTests : IDisposable
         Show(vm);
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { vm });
-        using var refresher = new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
+        using var refresher = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
         var form = vm.FormDefinition!;
         var code = vm.BufferBody;
 

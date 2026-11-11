@@ -3,6 +3,7 @@ using System.Text.Json;
 using Avalonia.Headless.XUnit;
 using HexIDE.Localization;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
 using HexIDE.Tests.Infrastructure;
 
@@ -192,7 +193,7 @@ public sealed class AddinRouteCorpusTests
         var sidecar = Substitute.For<IUserSidecarService>();
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
-        var service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), windows,
+        var service = new ProjectService(new Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException("no new-project dialog"), windows,
             Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
             Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry(), contributed: types);

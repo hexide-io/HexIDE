@@ -6,6 +6,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Localization;
+using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
 using HexIDE.Tests.Infrastructure;
 
@@ -55,7 +56,7 @@ public sealed class ContributedProjectFileTests : IDisposable
         });
         _windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(),
             Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>()).Returns(Task.FromResult(MessageBoxResult.Ok));
-        _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
+        _service = new ProjectService(new Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException("no new-project dialog"), _windows,
             Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
             Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry(), contributed: _types);
