@@ -80,14 +80,23 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     /// </summary>
     public string? ContributedBy { get; init; }
 
-    /// <summary>What this project's type lets the IDE do with it. A project the IDE read itself offers everything.</summary>
-    public ProjectOffers Offers { get; init; } = ProjectOffers.Everything;
+    /// <summary>
+    /// What this project's type lets the IDE do with it. A project the IDE read itself offers everything. Set again when the
+    /// type that opened it is withdrawn, which leaves it offering nothing.
+    /// </summary>
+    public ProjectOffers Offers { get; set; } = ProjectOffers.Everything;
 
     /// <summary>
     /// What reads and renders this project's forms, where that isn't the IDE's own format. Every read and render of one of
     /// its forms goes through this, so a project an add-in opened never has a form read or written as a VB6 file.
     /// </summary>
     public HexIDE.IDE.IFormFileFormat? FormFormat { get; init; }
+
+    /// <summary>
+    /// What renders this project's own file, where that isn't the IDE's own format. Every render of the project file goes
+    /// through this, so a project an add-in opened never has its file written as a <c>.vbp</c>.
+    /// </summary>
+    public HexIDE.IDE.IProjectFileWriter? ProjectFileWriter { get; init; }
 
     /// <summary>The title of the add-in that opened this project, for display; null when <see cref="ContributedBy"/> is.</summary>
     public string? ContributorTitle { get; init; }

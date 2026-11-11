@@ -39,6 +39,7 @@
     "Str.Designer.ReadOnly.Banner": "Só de leitura — o HexIDE ainda não consegue reproduzir este formulário fielmente, pelo que salvá-lo iria alterá-lo. Pode vê-lo e executá-lo, mas as alterações não serão salvas.",
     "Str.ContributedProject.FormReadOnly": "Somente leitura — o suplemento que leu isto não consegue gravá-lo de volta, portanto as alterações não serão salvas.",
     "Str.ContributedProject.RenderRefused": "Nada foi gravado. {1} não conseguiu gravar {0}, portanto o salvamento parou antes que qualquer arquivo fosse alterado.",
+    "Str.ContributedProject.MemberOverProjectFile": "Nada foi gravado. {0} seria salvo por cima de {1}, o próprio arquivo do projeto, portanto o salvamento parou antes que qualquer arquivo fosse alterado.",
     "Str.ContributedProject.WithdrawWithChanges": "{0} lê estes itens, e eles têm alterações não salvas:\n\n{1}\n\nSalvá-los antes de desativá-lo? Depois de desativado, o HexIDE não conseguirá salvá-los.",
     "Str.ContributedProject.WithdrawnWithChanges": "{0} não está mais carregado, portanto o HexIDE não consegue salvar estes itens:\n\n{1}\n\nA recuperação de falhas mantém a última cópia que fez de cada um. O que foi alterado depois dessa cópia não foi mantido.",
     "Str.Designer.Context.AlignToGrid": "Alinhar à Grade",
