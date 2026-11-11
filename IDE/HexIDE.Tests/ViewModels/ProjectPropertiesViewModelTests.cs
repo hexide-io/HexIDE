@@ -12,6 +12,7 @@ public class ProjectPropertiesViewModelTests
     /// rules have their own, in <c>ProjectNameRefusalTests</c>.
     /// </summary>
     private static string? NoNameObjection(string _) => null;
+
     [Fact]
     public void Apply_GeneralPropertiesOnly_PreservesProjectTypeAndStartupObject()
     {
