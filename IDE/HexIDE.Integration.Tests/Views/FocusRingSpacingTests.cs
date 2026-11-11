@@ -120,8 +120,15 @@ public class FocusRingSpacingTests
             rect.Left.Should().BeGreaterThanOrEqualTo(4);
             rect.Top.Should().BeGreaterThanOrEqualTo(4);
             (window.Bounds.Width - rect.Right).Should().BeGreaterThanOrEqualTo(4);
-            var filter = view.FindControl<TextBox>("PropertyFilter")!;
-            (Bounds(filter, window).Top - rect.Bottom).Should().BeGreaterThanOrEqualTo(4);
+            var filter = Bounds(view.FindControl<TextBox>("PropertyFilter")!, window);
+            (filter.Top - rect.Bottom).Should().BeGreaterThanOrEqualTo(4);
+            // The filter sat flush with the pane's edge one row down, and in Classic the two no longer lined up (#3659).
+            (window.Bounds.Width - filter.Right).Should().BeGreaterThanOrEqualTo(4);
+            filter.Left.Should().Be(rect.Left);
+            filter.Right.Should().Be(rect.Right);
+            var errors = new List<string>();
+            Check(view, window, errors);
+            string.Join(Environment.NewLine, errors.Distinct()).Should().BeEmpty();
         }
         finally { window.Close(); themes.Apply("Classic"); }
     }
