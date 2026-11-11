@@ -29,7 +29,9 @@ public class ProjectToolViewModelTests
     {
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString("Str.Tool.Project.RemoveFormFormat").Returns("Remove {0}");
-        localization.GetString("Str.Tool.Project.Title").Returns("Project Group - Group1");
+        localization.GetString("Str.Tool.Project.TitleEmpty").Returns("Project Group - Group1");
+        localization.GetString("Str.Tool.Project.TitleGroup").Returns("Project Group - {0}");
+        localization.GetString("Str.Tool.Project.TitleProject").Returns("Project - {0}");
         return new(projectManager, eventBus, projectService, editorService, localization);
     }
 
@@ -41,6 +43,101 @@ public class ProjectToolViewModelTests
         projectManager.ProjectLoaded += Raise.Event<Action<ProjectDefinition>>(project);
         projectVm = vm.LoadedProjects[0];
         return vm;
+    }
+
+    [Fact]
+    public void GroupRename_NotifiesTheExistingRootNode()
+    {
+        var group = new ProjectGroupDefinition("Group1");
+        projectManager.CurrentGroup.Returns(group);
+        var vm = CreateVm();
+        var root = vm.RootItems.Should().ContainSingle().Subject.Should().BeOfType<ProjectGroupViewModel>().Subject;
+        var notifications = new List<string?>();
+        var observable = root as System.ComponentModel.INotifyPropertyChanged;
+        observable.Should().NotBeNull();
+        observable!.PropertyChanged += (_, e) => notifications.Add(e.PropertyName);
+
+        group.Name = "OuterGroup";
+
+        notifications.Should().Contain("DisplayName");
+        root.DisplayName.Should().Be("Project Group - OuterGroup");
+        vm.RootItems.Should().ContainSingle().Which.Should().BeSameAs(root);
+    }
+
+    [Fact]
+    public void GroupRootNode_UsesTheLocalizedTitle()
+    {
+        projectManager.CurrentGroup.Returns(new ProjectGroupDefinition("Group1"));
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString(Arg.Any<string>()).Returns("");
+        localization.GetString("Str.Tool.Project.TitleGroup").Returns("Projektgruppe - {0}");
+
+        var vm = new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, localization);
+
+        vm.RootItems.Should().ContainSingle().Which.Should().BeOfType<ProjectGroupViewModel>()
+            .Which.DisplayName.Should().Be("Projektgruppe - Group1");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PaneTitle_FollowsLoadedNameAndRename(bool grouped)
+    {
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Tool.Project.TitleEmpty").Returns("Project Group - Group1");
+        localization.GetString("Str.Tool.Project.TitleGroup").Returns("Project Group - {0}");
+        localization.GetString("Str.Tool.Project.TitleProject").Returns("Project - {0}");
+        var project = TestHelpers.CreateProject("FirstProject");
+        projectManager.LoadedProjects.Returns(new List<ProjectDefinition> { project });
+        var group = new ProjectGroupDefinition("FirstGroup");
+        if (grouped) projectManager.CurrentGroup.Returns(group);
+        var vm = new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, localization);
+        vm.Title.Should().Be(grouped ? "Project Group - FirstGroup" : "Project - FirstProject");
+        var notifications = new List<string?>();
+        vm.PropertyChanged += (_, e) => notifications.Add(e.PropertyName);
+
+        if (grouped) group.Name = "Renamed";
+        else project.Name = "Renamed";
+
+        vm.Title.Should().Be(grouped ? "Project Group - Renamed" : "Project - Renamed");
+        notifications.Should().Contain("Title");
+        localization.GetString("Str.Tool.Project.TitleGroup").Returns("Grupa projektów - {0}");
+        localization.GetString("Str.Tool.Project.TitleProject").Returns("Projekt - {0}");
+        localization.LanguageChanged += Raise.Event<Action>();
+        vm.Title.Should().Be(grouped ? "Grupa projektów - Renamed" : "Projekt - Renamed");
+    }
+
+    [Fact]
+    public void PaneTitle_FollowsGroupCreationClearingAndProjectUnloading()
+    {
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Tool.Project.TitleEmpty").Returns("Project Group - Group1");
+        localization.GetString("Str.Tool.Project.TitleGroup").Returns("Project Group - {0}");
+        localization.GetString("Str.Tool.Project.TitleProject").Returns("Project - {0}");
+        var vm = new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, localization);
+        vm.Title.Should().Be("Project Group - Group1");
+        localization.GetString("Str.Tool.Project.TitleEmpty").Returns("Grupo de proxectos - Grupo1");
+        localization.LanguageChanged += Raise.Event<Action>();
+        vm.Title.Should().Be("Grupo de proxectos - Grupo1");
+        localization.GetString("Str.Tool.Project.TitleEmpty").Returns("Project Group - Group1");
+        var project = TestHelpers.CreateProject("OnlyProject");
+        projectManager.ProjectLoaded += Raise.Event<Action<ProjectDefinition>>(project);
+        vm.Title.Should().Be("Project - OnlyProject");
+        var group = new ProjectGroupDefinition("MadeGroup");
+        projectManager.CurrentGroup.Returns(group);
+        projectManager.PropertyChanged += Raise.Event<System.ComponentModel.PropertyChangedEventHandler>(
+            projectManager, new System.ComponentModel.PropertyChangedEventArgs("CurrentGroup"));
+        vm.Title.Should().Be("Project Group - MadeGroup");
+        projectManager.CurrentGroup.Returns((ProjectGroupDefinition?)null);
+        projectManager.PropertyChanged += Raise.Event<System.ComponentModel.PropertyChangedEventHandler>(
+            projectManager, new System.ComponentModel.PropertyChangedEventArgs("CurrentGroup"));
+        vm.Title.Should().Be("Project - OnlyProject");
+        group.Name = "Detached";
+        vm.Title.Should().Be("Project - OnlyProject");
+        projectManager.ProjectUnloaded += Raise.Event<Action<ProjectDefinition>>(project);
+        vm.Title.Should().Be("Project Group - Group1");
+        project.Name = "Detached";
+        vm.Title.Should().Be("Project Group - Group1");
     }
 
     // TestHelpers projects are unsaved (null AbsolutePath), so every member renders at the

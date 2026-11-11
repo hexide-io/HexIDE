@@ -43,7 +43,7 @@ public class LocalizationServiceTests
     [InlineData("Str.Tool.ObjectBrowser.Toolbar.CopySignature", "Kopiuj sygnaturę do schowka")]
     [InlineData("Str.Tool.ObjectBrowser.Toolbar.ClearSearch", "Wyczyść wyszukiwanie")]
     [InlineData("Str.Tool.Properties.Title", "Właściwości")]
-    [InlineData("Str.Tool.Project.Title", "Grupa projektów - Group1")]
+    [InlineData("Str.Tool.Project.TitleGroup", "Grupa projektów - {0}")]
     [InlineData("Str.Tool.FormLayout.Title", "Układ formularza")]
     [InlineData("Str.Tool.ObjectBrowser.Title", "Przeglądarka obiektów")]
     [InlineData("Str.Tool.Project.PropertiesFormat", "Właściwości {0}")]
