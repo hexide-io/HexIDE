@@ -2731,7 +2731,7 @@ public partial class ProjectService : IProjectService
         }
         catch (FormRenderRefusal)
         {
-            return !letGo.TryGetValue(document, out _) && lastRenders.TryGetValue(document, out var last) ? last.Copy : null;
+            return lastRenders.TryGetValue(document, out var last) ? last.Copy : null;
         }
     }
 
