@@ -76,7 +76,7 @@ public partial class ProjectPropertiesViewModel : ObservableObject, IDialog
 
         selectedStartupObject = projectDefinition.StartsAtSubMain
             ? ProjectStartupObjectViewModel.SubMain
-            : StartupObjects.FirstOrDefault(x => x.Form == projectDefinition.StartupForm);
+            : StartupObjects.FirstOrDefault(x => !x.IsSubMain && x.Form == projectDefinition.StartupForm);
         projectName = projectDefinition.Name;
         projectDescription = projectDefinition.Description;
 
@@ -94,12 +94,12 @@ public partial class ProjectPropertiesViewModel : ObservableObject, IDialog
             return;
         projectDefinition.ProjectType = SelectedProjectType;
         // Assign through exactly one of the two: they are mutually exclusive on the model, and setting
-        // StartupForm to null while leaving StartsAtSubMain true would silently keep Sub Main selected
-        // after the user picked (nothing).
+        // StartupForm to null while leaving StartsAtSubMain true would silently keep Sub Main selected.
+        // No selected row leaves the project's startup unchanged (#3730).
         if (selectedStartupObject?.IsSubMain == true)
             projectDefinition.StartsAtSubMain = true;
-        else
-            projectDefinition.StartupForm = selectedStartupObject?.Form;
+        else if (selectedStartupObject is { } startupObject)
+            projectDefinition.StartupForm = startupObject.Form;
     }
 
     private void OnProjectNameChanged()
