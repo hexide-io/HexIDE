@@ -70,7 +70,7 @@ public partial class ProjectService
         {
             return string.Equals(render().Text, content.Text, StringComparison.Ordinal);
         }
-        catch (FormRenderRefusal)
+        catch (RenderRefusal)
         {
             return false;
         }

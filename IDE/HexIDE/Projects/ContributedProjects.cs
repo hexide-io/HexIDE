@@ -24,10 +24,71 @@ public sealed record ContributedProjectType(AddinProjectType Type, string AddinI
     internal void Withdraw() => _withdrawn.Cancel();
 
     /// <summary>
-    /// What a project of this type offers: its forms written where its type can render them, and nothing else until an add-in
-    /// can write its own project.
+    /// What a project of this type offers: its forms written where its type can render them, and its own file, with
+    /// membership where that file carries it, where its type has a writer. Never Components, Make or Run.
     /// </summary>
-    public ProjectOffers Offers => Type.Forms is IFormFileFormat ? ProjectOffers.Nothing with { WritesForms = true } : ProjectOffers.Nothing;
+    public ProjectOffers Offers => ProjectOffers.Nothing with
+    {
+        WritesForms = Type.Forms is IFormFileFormat,
+        WritesProjectFile = Type.ProjectFile is not null,
+        ChangesMembership = Type.ProjectFile is { } writer && writer.Carries.HasFlag(ProjectFileParts.Members),
+    };
+}
+
+/// <summary>
+/// Renders a contributed project's own file through its type's writer, for as long as the type is there, and only for the
+/// path the project was opened from (#3698). An add-in that has gone is never asked again, and one that throws has rendered
+/// nothing.
+/// </summary>
+internal sealed class ContributedProjectFile(ContributedProjectType type, string openedFrom) : IProjectFileWriter
+{
+    /// <summary>The type whose writer this is, and so the add-in that writes this project's file.</summary>
+    internal ContributedProjectType Type => type;
+
+    /// <summary>The project file the type read, which is the only place it's written.</summary>
+    internal string OpenedFrom { get; } = Path.GetFullPath(openedFrom);
+
+    public ProjectFileParts Carries => type.Type.ProjectFile?.Carries ?? ProjectFileParts.None;
+
+    public System.Text.Encoding Encoding => type.Type.ProjectFile?.Encoding ?? new System.Text.UTF8Encoding(false);
+
+    public string RenderProject(ProjectDefinition project, string path, Func<object, string?>? pathOf)
+    {
+        if (type.Withdrawn.IsCancellationRequested)
+            throw Refused(project.Name, "it's no longer loaded");
+        if (type.Type.ProjectFile is not { } writer)
+            throw Refused(project.Name, "its project type has nothing that writes its project file");
+        if (!IsWhereItLives(path))
+            throw Refused(project.Name, "HexIDE writes its project file only where it was opened");
+        try
+        {
+            return writer.RenderProject(project, path, pathOf);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "{Origin} could not render {Project}'s project file", type.Origin, project.Name);
+            throw new RenderRefusal(project.Name, type.Origin, ex.Message, ex.Message);
+        }
+    }
+
+    /// <summary>Whether <paramref name="path"/> is the project file the type read.</summary>
+    internal bool IsWhereItLives(string path)
+    {
+        try
+        {
+            return HostFilePath.Equals(Path.GetFullPath(path), OpenedFrom);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+    }
+
+    internal RenderRefusal Refused(string project, string reason)
+    {
+        Log.Warning("Not writing {Project}'s project file: {Origin} can't render it, as {Reason}", project, type.Origin, reason);
+        return new RenderRefusal(project, type.Origin, reason);
+    }
 }
 
 /// <summary>
@@ -126,14 +187,14 @@ internal sealed class ContributedFormFormat(ContributedProjectType type) : IForm
         catch (Exception ex)
         {
             Log.Warning(ex, "{Origin} could not render {Document}", type.Origin, document);
-            throw new FormRenderRefusal(document, type.Origin, ex.Message, ex.Message);
+            throw new RenderRefusal(document, type.Origin, ex.Message, ex.Message);
         }
     }
 
-    internal FormRenderRefusal Refused(string document, string reason)
+    internal RenderRefusal Refused(string document, string reason)
     {
         Log.Warning("Not writing {Document}: {Origin} can't render it, as {Reason}", document, type.Origin, reason);
-        return new FormRenderRefusal(document, type.Origin, reason);
+        return new RenderRefusal(document, type.Origin, reason);
     }
 
     public string? CompanionPath(string path)
@@ -308,7 +369,11 @@ public sealed partial class ContributedProjects
             Offers = type.Offers,
             ContributorTitle = type.Origin,
             FormFormat = format,
+            ProjectFileWriter = type.Type.ProjectFile is not null ? new ContributedProjectFile(type, path) : null,
         };
+        // Its file is written in what its writer names. Without one it's never written, so its encoding says nothing.
+        if (type.Type.ProjectFile is { } writer)
+            project.TextEncoding = EncodingOf(writer.Encoding);
         format.Project = project;
         project.AbsolutePath = path;
         project.ItemLinesDirectory = Path.GetDirectoryName(path)!;
@@ -348,6 +413,9 @@ public sealed partial class ContributedProjects
     {
         if (!Path.IsPathFullyQualified(member.Path))
             throw new ArgumentException($"'{member.Path}' is not a full path.");
+        // A member's save would write over the project's own file.
+        if (IsTheProjectFile(project, member.Path))
+            throw new ArgumentException($"'{member.Path}' is the project's own file, so it can't be one of its members.");
         if (MemberAt(project, member.Path) is not null)
             return null;
         if (member.Kind == AddinMemberKind.Other)
@@ -423,6 +491,25 @@ public sealed partial class ContributedProjects
         project.AddModule(module);
         return module;
     }
+
+    /// <summary>Whether <paramref name="path"/> is <paramref name="project"/>'s own file, which no member may be.</summary>
+    internal static bool IsTheProjectFile(ProjectDefinition project, string path)
+    {
+        if (project.AbsolutePath is not { } own)
+            return false;
+        try
+        {
+            return HostFilePath.Equals(Path.GetFullPath(path), Path.GetFullPath(own));
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return true;
+        }
+    }
+
+    // The encoding an add-in's writer names, as the IDE's own files name theirs: its code page, and a BOM where UTF-8 has one.
+    private static Vb6TextEncoding EncodingOf(System.Text.Encoding encoding) =>
+        new(encoding.CodePage, encoding.CodePage == 65001 && encoding.GetPreamble().Length > 0);
 
     /// <summary>The module, form or other file of <paramref name="project"/> at <paramref name="path"/>, or null.</summary>
     internal static object? MemberAt(ProjectDefinition project, string path) =>

@@ -597,7 +597,7 @@ public sealed class ContributedFormTests : IDisposable
 
         var save = () => _service.SaveForm(form, saveAs: false);
 
-        await save.Should().ThrowAsync<FormRenderRefusal>();
+        await save.Should().ThrowAsync<RenderRefusal>();
         File.ReadAllBytes(FormFile).Should().Equal(before);
         File.ReadAllBytes(CompanionFile).Should().Equal(1, 2, 3);
         await ToldOf("Main wasn't written by A provider.");
@@ -615,7 +615,7 @@ public sealed class ContributedFormTests : IDisposable
 
         var save = () => _service.SaveForm(form, saveAs: false);
 
-        await save.Should().ThrowAsync<FormRenderRefusal>("the code window takes the header to be the render less the code");
+        await save.Should().ThrowAsync<RenderRefusal>("the code window takes the header to be the render less the code");
         File.ReadAllBytes(FormFile).Should().Equal(before);
         await ToldOf("Main wasn't written by A provider.");
     }
@@ -670,7 +670,7 @@ public sealed class ContributedFormTests : IDisposable
 
         var save = () => _service.SaveForm(form, saveAs: false);
 
-        await save.Should().ThrowAsync<FormRenderRefusal>("a companion written there would overwrite one of the project's own files");
+        await save.Should().ThrowAsync<RenderRefusal>("a companion written there would overwrite one of the project's own files");
         File.ReadAllBytes(sibling).Should().Equal(siblingBefore);
         File.ReadAllBytes(FormFile).Should().Equal(formBefore);
         File.ReadAllBytes(CompanionFile).Should().Equal(companionBefore);
