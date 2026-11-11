@@ -1,0 +1,40 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:common="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia">
+
+    <!--
+        VB6's system colours, for a program the runtime runs outside the IDE: the Standalone runner, and so every made
+        program (#3695). VBColorExtensions.ToBrush looks a system colour up in the application's resources, and draws
+        DeepPink where nothing defines it.
+
+        Inside the IDE the IDE's theme defines the same keys, and its values are the ones a running program sees there
+        (#806 is about giving system colours a source of their own). These are the IDE's Classic values, so a program
+        looks the same made as it does run under Classic; SystemColourPaletteTests keeps the two tables equal.
+    -->
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.AppWorkspaceBrushKey}"        Color="#ABABAB" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.WindowBrushKey}"              Color="#FFFFFF" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.WindowTextBrushKey}"          Color="#000000" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.ActiveCaptionTextBrushKey}"   Color="#FFFFFF" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.ControlBrushKey}"             Color="#F0F0F0" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.ControlTextBrushKey}"         Color="#000000" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.ControlDarkBrushKey}"         Color="#808080" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.ControlLightBrushKey}"        Color="#FFFFFF" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.ControlLightLightBrushKey}"   Color="#FFFFFF" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.ControlDarkDarkBrushKey}"     Color="#404040" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.WindowFrameBrushKey}"         Color="#646464" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.MenuBrushKey}"                Color="#F0F0F0" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.MenuTextBrushKey}"            Color="#000000" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.HighlightBrushKey}"           Color="#000080" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.HighlightTextBrushKey}"       Color="#FFFFFF" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.DesktopBrushKey}"             Color="#000000" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.GrayTextBrushKey}"            Color="#808080" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.InactiveCaptionBrushKey}"     Color="#ABABAB" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.InactiveCaptionTextBrushKey}" Color="#666666" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.ScrollBarBrushKey}"           Color="#C8C8C8" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.ActiveCaptionBrushKey}"       Color="#99B4D1" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.ActiveBorderBrushKey}"        Color="#B4B4B4" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.InactiveBorderBrushKey}"      Color="#F4F7FC" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.InfoTextBrushKey}"            Color="#000000" />
+    <SolidColorBrush x:Key="{x:Static common:SystemColors.InfoBrushKey}"                Color="#FFFFE1" />
+
+</ResourceDictionary>
