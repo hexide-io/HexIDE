@@ -11,6 +11,7 @@ try {
         'IDE/HexIDE.Runtime.Tests' = 'RUNTIME'
         'IDE/HexIDE.Tests' = 'IDE'
         'IDE/HexIDE.Integration.Tests' = 'INTEGRATION'
+        'IDE/HexIDE.Runtime.Integration.Tests' = 'RUNTIME_INTEGRATION'
         'IDE/HexIDE.TwinBasic.Tests' = 'TWINBASIC'
         'LspServer/HexIDE.VbLspServer.Tests' = 'LSP_SERVER'
     }

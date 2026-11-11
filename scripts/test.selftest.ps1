@@ -38,13 +38,22 @@ function Check($project, $arguments, $expected, $status = 0) {
     $script:checks++
 }
 try {
-    foreach ($pair in @(
+    $pairs = @(
         @('IDE/HexIDE.Runtime.Tests', 'RUNTIME'), @('IDE/HexIDE.Tests', 'IDE'),
-        @('IDE/HexIDE.Integration.Tests', 'INTEGRATION'), @('LspServer/HexIDE.VbLspServer.Tests', 'LSP_SERVER'),
-        @('IDE/HexIDE.TwinBasic.Tests', 'TWINBASIC'))) {
+        @('IDE/HexIDE.Integration.Tests', 'INTEGRATION'), @('IDE/HexIDE.Runtime.Integration.Tests', 'RUNTIME_INTEGRATION'),
+        @('LspServer/HexIDE.VbLspServer.Tests', 'LSP_SERVER'), @('IDE/HexIDE.TwinBasic.Tests', 'TWINBASIC'))
+    foreach ($pair in $pairs) {
         $floor = [regex]::Match($workflow, "(?m)^  MIN_TESTS_$($pair[1]): *([0-9]+)").Groups[1].Value
         Check $pair[0] @() @('test', (Join-Path $root $pair[0]), '--', '--minimum-expected-tests', $floor)
     }
+    # A suite given a floor in build.yml but not listed above would go unchecked here, and the runner could refuse
+    # it while CI runs it (#3663).
+    $floors = @([regex]::Matches($workflow, '(?m)^  MIN_TESTS_([A-Z_]+):') | ForEach-Object { $_.Groups[1].Value } | Sort-Object)
+    $listed = @($pairs | ForEach-Object { $_[1] } | Sort-Object)
+    if (($floors -join ' ') -cne ($listed -join ' ')) {
+        throw "build.yml has floors for $($floors -join ' ') but this test checks $($listed -join ' ')"
+    }
+    $script:checks++
     foreach ($filter in @('--filter-class', '--filter-method', '--filter-query', '--filter-not-method')) {
         Check 'IDE/HexIDE.Tests/' @('--no-build', '--', $filter, '*Example*') @(
             'test', (Join-Path $root 'IDE/HexIDE.Tests'), '--no-build', '--', '--minimum-expected-tests', '1', $filter, '*Example*')
