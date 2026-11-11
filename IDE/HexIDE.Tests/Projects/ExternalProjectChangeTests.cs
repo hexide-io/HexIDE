@@ -2,6 +2,7 @@ using System.IO;
 using Avalonia.Headless.XUnit;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Localization;
+using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
 
 namespace HexIDE.Tests.Projects;
@@ -27,7 +28,7 @@ public sealed class ExternalProjectChangeTests : IDisposable
         var sidecar = Substitute.For<IUserSidecarService>();
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
-        _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
+        _service = new ProjectService(new Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException("no new-project dialog"), _windows,
             Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), Substitute.For<ILocalizationService>(),
             Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
