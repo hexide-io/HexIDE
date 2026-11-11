@@ -258,7 +258,7 @@ public class ReadOnlyGreyingTests : IDisposable
     private static void ExpandRuns(CodeEditorViewModel vm, params string[] members)
     {
         foreach (var member in members)
-            vm.ExpandedMemberRuns.Add(new MemberRunKey(member.ToUpperInvariant(), 0));
+            vm.ExpandedHangingRegions.Add(new HangingRegionKey(member.ToUpperInvariant(), 0));
     }
 
     private static void ExpandHeader(TextEditor editor)

@@ -3623,7 +3623,7 @@ public static class UiAutomationDriver
                 return new InteractOutcome(true, TypedMechanism,
                     $"typed {text.Length} char(s) into {surface.GetType().Name}"
                     + $"{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))}{replaced}. "
-                    + $"The edit ended on the declaration of {placed.Run.Member?.Name}, so the text from its "
+                    + $"The edit ended on the declaration of {placed.Run.Name}, so the text from its "
                     + "first line break on went after that member's Attribute lines, which follow the line they "
                     + $"describe; any remaining comment text followed it. Its line breaks were written as the file's. The caret is now at offset {placed.End}.",
                     null);

@@ -21,6 +21,7 @@ using HexIDE.Forms.ViewModels;
 using HexIDE.Forms.Views;
 using HexIDE.IDE;
 using HexIDE.Localization;
+using HexIDE.Language;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Projects;
@@ -135,7 +136,7 @@ public class MemberRunFoldTests : IDisposable
 
         editor.CaretOffset.Should().Be(editor.Document.Text.IndexOf("    Debug.Print 1", StringComparison.Ordinal));
         RunFold(editor, "Public Sub Form_Load()")!.IsFolded.Should().BeTrue();
-        vm.ExpandedMemberRuns.Should().BeEmpty();
+        vm.ExpandedHangingRegions.Should().BeEmpty();
     }
 
     private CodeEditorViewModel Open(string code, ModuleKind kind = ModuleKind.StandardModule)
@@ -649,7 +650,7 @@ public class MemberRunFoldTests : IDisposable
         vm.Document.EndUpdate();
         Dispatcher.UIThread.RunJobs();
 
-        vm.MemberRunsNow.Single().Key.Should().Be(new MemberRunKey("GOO", 0), "the premise: the run is Goo's now");
+        vm.HangingRegionsNow.Single().Key.Should().Be(new HangingRegionKey("GOO", 0), "the premise: the run is Goo's now");
         var after = RunFold(editor, "Public Sub Goo()");
         after.Should().BeSameAs(fold, "the premise: the section was paired, not made anew");
         after!.EndOffset.Should().Be(LineWith(editor, "Attribute Go.VB_HelpID").EndOffset);
@@ -700,7 +701,7 @@ public class MemberRunFoldTests : IDisposable
         var end = LineWith(editor, "End Property");
         vm.Document.Remove(get.Offset, end.Offset + end.TotalLength - get.Offset);
         Dispatcher.UIThread.RunJobs();
-        vm.MemberRunsNow.Single(r => r.DescribesMember).Key.Should().Be(new MemberRunKey("TOTAL", 0),
+        vm.HangingRegionsNow.Single().Key.Should().Be(new HangingRegionKey("TOTAL", 0),
             "the premise: the Let's run has the Get's key");
         RunFold(editor, "Property Let Total")!.IsFolded.Should().BeFalse("the premise: and is still open");
 
@@ -762,8 +763,8 @@ public class MemberRunFoldTests : IDisposable
         vm.Document.Insert(LineWith(editor, "End Property").Offset, "Attribute Total.VB_Description = \"Sets the total\"\r\n");
         Dispatcher.UIThread.RunJobs();
 
-        vm.MemberRunsNow.Where(r => r.DescribesMember).Select(r => r.Key)
-            .Should().Equal([new MemberRunKey("TOTAL", 0), new MemberRunKey("TOTAL", 1)], "the premise: the Let's run is first");
+        vm.HangingRegionsNow.Select(r => r.Key)
+            .Should().Equal([new HangingRegionKey("TOTAL", 0), new HangingRegionKey("TOTAL", 1)], "the premise: the Let's run is first");
         RunFold(editor, "Property Let Total")!.IsFolded.Should().BeTrue();
         RunFold(editor, "Property Get Total")!.IsFolded.Should().BeFalse();
 
@@ -1333,7 +1334,7 @@ public class MemberRunFoldTests : IDisposable
         var (_, editor) = Show(vm);
         RunFold(editor, "Public Sub P7()")!.IsFolded = false;
         Dispatcher.UIThread.RunJobs();
-        var scans = vm.MemberRunScans;
+        var scans = vm.HangingRegionScans;
 
         var reduction = vm.ApplyFormatting([new TextEdit(
             new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(vm.Document.LineCount, 0)),
@@ -1341,7 +1342,7 @@ public class MemberRunFoldTests : IDisposable
         Dispatcher.UIThread.RunJobs();
 
         reduction.Changes.Should().HaveCount(200, "the premise: one change per body line, in one group");
-        (vm.MemberRunScans - scans).Should().BeLessThanOrEqualTo(2,
+        (vm.HangingRegionScans - scans).Should().BeLessThanOrEqualTo(2,
             "the runs are read as the group begins and once it has changed the text, not at each of its changes");
         RunFold(editor, "Public Sub P7()")!.IsFolded.Should().BeFalse("and what was recorded still holds");
         RunFold(editor, "Public Sub P8()")!.IsFolded.Should().BeTrue();
@@ -1354,13 +1355,13 @@ public class MemberRunFoldTests : IDisposable
         // prefix's length says the runs were read against another split. Here the prefix takes in the declaration, and
         // the run below it hangs from no line of code.
         var vm = Open(Procedure);
-        vm.MemberRunsNow.Should().ContainSingle(r => r.DescribesMember, "the premise");
+        vm.HangingRegionsNow.Should().ContainSingle("the premise");
         var text = vm.Document.Text;
         var split = text.IndexOf("Attribute Go.VB_Description", StringComparison.Ordinal);
 
         vm.ReloadFrom(text[..split], text[split..]);
 
         vm.Document.Text.Should().Be(text, "the premise: the text is the same");
-        vm.MemberRunsNow.Should().NotContain(r => r.DescribesMember);
+        vm.HangingRegionsNow.Should().BeEmpty();
     }
 }
