@@ -12,7 +12,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // Measured in #2437 and docs/vb6-fidelity-oracle/a-forms-own-activecontrol.md (#2279).
 public class FormActiveControlTests

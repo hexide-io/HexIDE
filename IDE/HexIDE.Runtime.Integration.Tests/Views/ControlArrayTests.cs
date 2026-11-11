@@ -8,8 +8,9 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using RecordingRoot = HexIDE.Integration.Tests.Views.ContainerRuntimeHarness.RecordingRoot;
+using HexIDE.Integration.Tests.Views;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// VB6 control arrays — N controls sharing one Name with distinct integer indices (Command1(0), Command1(1)),

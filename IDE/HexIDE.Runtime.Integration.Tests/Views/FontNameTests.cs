@@ -16,7 +16,7 @@ using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// FontName at run time (#1141). Every expected line is what vb6.exe printed for the same statements, native and p-code

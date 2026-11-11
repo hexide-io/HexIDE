@@ -15,7 +15,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A ComboBox's Click, Change and DropDown (#1429). Each case replays one of the probe's sequences on its form, and every

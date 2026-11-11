@@ -10,7 +10,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A form's Controls collection (#1060): <c>For Each c In Controls</c>, <c>Controls.Count</c>, and <c>Controls(i)</c> and

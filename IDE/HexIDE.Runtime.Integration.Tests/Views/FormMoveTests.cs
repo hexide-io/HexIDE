@@ -10,7 +10,7 @@ using HexIDE.Runtime;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A form's Move (#1569). The program is the probe that ran on vb6.exe SP6, native and p-code alike, less the rows that are
