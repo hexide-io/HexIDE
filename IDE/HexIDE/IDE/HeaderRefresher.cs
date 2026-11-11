@@ -97,7 +97,17 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
             return;
         }
 
-        var header = format.RenderDesignerHeader(form, fileName);
+        // Through the form's own format: an add-in's form has its header rendered by the add-in, or by nothing.
+        string header;
+        try
+        {
+            header = (form.Owner.FormFormat ?? format).RenderDesignerHeader(form, fileName);
+        }
+        catch (HexIDE.Projects.FormRenderRefusal refusal)
+        {
+            Log.Debug("HeaderRefresher: not re-rendering {Document} — {Reason}", identity.Display, refusal.Message);
+            return;
+        }
 
         // One undo entry per commit, however many of the IDE's writes it takes. A rename moves both the
         // designer block's Begin line and the code section's VB_Name, and two entries would let any undo that

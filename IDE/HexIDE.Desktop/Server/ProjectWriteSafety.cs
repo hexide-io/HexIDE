@@ -30,8 +30,9 @@ internal static class ProjectWriteSafety
             if (root is null)
                 return Refused($"Refused '{path}': the project has no folder. Save Project in the IDE first. Nothing was changed.");
             var paths = new List<string> { path };
-            if (document.Form is not null || document.Module?.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
-                paths.Add(Path.ChangeExtension(path, format.CompanionExtension(path)));
+            if ((document.Form is not null || document.Module?.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
+                && (document.Project.FormFormat ?? format).CompanionPath(path) is { } companion)
+                paths.Add(companion);
             foreach (var candidate in paths)
                 if (Refusal(root, candidate) is { } refusal)
                     return Refused(refusal);

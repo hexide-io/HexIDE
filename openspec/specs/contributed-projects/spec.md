@@ -58,22 +58,46 @@ shown. Once the type has been taken out, a reload SHALL ask nothing and SHALL le
 A UserControl or a PropertyPage SHALL be listed and read the same way, and SHALL join the project as a module with its
 designer half. UserControls SHALL be read before the other members, because a form can hold them.
 
-Until the type can render its forms, a form read by an add-in SHALL open read-only in the designer and the code window, and
-a save SHALL refuse it, say that the IDE can't yet write what an add-in read, and leave its file as it was. The IDE's own
-writers are for its own files, so it SHALL NOT render such a form as a `.frm` for any purpose, and the form SHALL NOT count
-as edited. Rendering it through VB6's writer would change the file silently, which `docs/serialization-outcomes.md` forbids.
+A type MAY supply a format in place of a reader: a reader that also renders a form, a UserControl's or PropertyPage's file,
+and the header over its code. Where it does, the IDE SHALL write the forms it read through that format, as it writes a
+`.vbp`'s, and every render of one SHALL go through it: to save, to tell whether it was edited, to check that its file's code
+page can hold it, to keep a copy for crash recovery and to refresh the header over its code. The IDE SHALL write the
+companion before the text. It SHALL refuse a render that doesn't end with the code it was given, because the code window
+takes the header to be the render less the code, and a companion the format names outside its file's folder, which it
+SHALL NOT read either. A form that the format refuses as it reads it, or can't render once read, SHALL open read-only, with
+the add-in's words where it gave any. A render that throws, or is refused, at a save SHALL end the save before anything is
+written and say why. Once the type has been taken out, the IDE SHALL NOT read or render through it again: a form it can no
+longer render SHALL keep whether it was edited, and the copy crash recovery last took of it.
+
+Where the type only reads, a form it read SHALL open read-only in the designer and the code window, and a save SHALL refuse
+it, say that the add-in that read it can't write it back, and leave its file as it was. The IDE's own writers are for its
+own files, so it SHALL NOT render such a form as a `.frm` for any purpose, and the form SHALL NOT count as edited. Rendering
+it through VB6's writer would change the file silently, which `docs/serialization-outcomes.md` forbids. VB6's own format is
+a format like any other here, so a type MAY supply it.
 
 #### Scenario: A provider's form opens
-- **WHEN** a project type lists a form and supplies a reader
+- **WHEN** a project type lists a form and supplies only a reader
 - **THEN** the form is in the Project Explorer and opens in the designer, read-only
 
 #### Scenario: Saving a form an add-in read
 - **WHEN** the user saves such a form
 - **THEN** the save is refused, the user is told why, and its file is unchanged
 
+#### Scenario: Saving a form a provider's format renders
+- **WHEN** a project type supplies a format, and the user edits one of its forms and saves
+- **THEN** the format renders the form, and the IDE writes its companion and then its text
+
+#### Scenario: A render the IDE can't write
+- **WHEN** at a save the format throws, or renders text that doesn't end with the form's code
+- **THEN** nothing is written, and the user is told which form and which add-in, with what the add-in said
+
+#### Scenario: The add-in is taken out
+- **WHEN** the add-in is turned off, or its consent is withdrawn, while one of its forms has an unsaved edit
+- **THEN** its format is not asked again, the form still counts as edited, and crash recovery keeps the copy it last took
+
 ### Requirement: The IDE SHALL NOT write, make or run a contributed project
-Saving a contributed project, Save As included, SHALL write its edited modules, SHALL NOT write the forms an add-in read,
-and SHALL NOT write the project file,
+Saving a contributed project, Save As included, SHALL write its edited modules, SHALL write its edited forms only through
+its type's format, and SHALL NOT write the project file,
 ask where it goes, or add it to the recent list; the file SHALL NOT count as edited. Adding or removing its members,
 Project Properties, References and Components SHALL NOT be offered, and SHALL be refused with a reason from any other
 route, automation and crash recovery included. The IDE's Make SHALL refuse it with a reason, and the IDE's interpreter

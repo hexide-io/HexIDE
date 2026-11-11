@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Platform.Storage;
@@ -632,7 +633,7 @@ public partial class ProjectService : IProjectService
 
     private void MoveCompanionBaselines(ProjectDefinition project, string from, string to)
     {
-        if (project.FormReader?.CompanionPath(from) is { } companionFrom && project.FormReader.CompanionPath(to) is { } companionTo)
+        if (project.FormFormat?.CompanionPath(from) is { } companionFrom && project.FormFormat.CompanionPath(to) is { } companionTo)
             MoveBaselines(companionFrom, companionTo);
     }
 
@@ -798,10 +799,10 @@ public partial class ProjectService : IProjectService
     private readonly List<string> refusedThisSave = new();
 
     /// <summary>
-    /// Those of <see cref="refusedThisSave"/> an add-in read. The reason is a different one: VB6 and its files have nothing
-    /// to do with why they aren't written.
+    /// Those of <see cref="refusedThisSave"/> an add-in read and can't write, with what the add-in said where it said
+    /// anything. The reason is a different one: VB6 and its files have nothing to do with why they aren't written.
     /// </summary>
-    private readonly HashSet<string> refusedAsReadByAddin = new();
+    private readonly Dictionary<string, string?> refusedAsReadByAddin = new();
 
     /// <summary>
     /// Bank a refusal for the current save. Only ever called by an entry point that is followed by a drain
@@ -876,6 +877,18 @@ public partial class ProjectService : IProjectService
                     string.Format(localization.GetString("Str.Dialog.SourceEncoding.NothingWritten"),
                         refusal.Document, refusal.CodePage, refusal.Character, refusal.CodePoint,
                         refusal.Line.Length > 0 ? refusal.Line : refusal.Character),
+                    HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+            throw;
+        }
+        catch (FormRenderRefusal refusal)
+        {
+            Log.Warning("Not saving: {Addin} didn't render {Document}, as {Reason}", refusal.Addin, refusal.Document, refusal.Reason);
+            refusing?.Invoke($"{refusal.Addin} couldn't render {refusal.Document}, so nothing was written", interactive);
+            // What the add-in said is shown as it said it, below a sentence of the IDE's own.
+            if (interactive)
+                await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.ContributedProject.RenderRefused"), refusal.Document, refusal.Addin)
+                    + (refusal.AddinWords is { Length: > 0 } words ? "\n\n" + words : ""),
                     HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
             throw;
         }
@@ -1085,18 +1098,24 @@ public partial class ProjectService : IProjectService
             case FormDefinition { CanSaveFaithfully: false } form:
                 Log.Warning("Refusing to save {Form}: {Reason}", form.Name, form.UnfaithfulSaveReason);
                 RecordRefusal(form.Name);
-                if (form.UnfaithfulSaveCauses.HasFlag(UnfaithfulSaveCause.ReadByAddin))
-                    refusedAsReadByAddin.Add(form.Name);
+                RecordIfAnAddinsRefusal(form.Name, form);
                 return true;
             case ModuleDefinition module when DesignerPartOf(module) is { CanSaveFaithfully: false } designerPart:
                 Log.Warning("Refusing to write {Module}: {Reason}", module.Name, designerPart.UnfaithfulSaveReason);
                 RecordRefusal(module.Name);
-                if (designerPart.UnfaithfulSaveCauses.HasFlag(UnfaithfulSaveCause.ReadByAddin))
-                    refusedAsReadByAddin.Add(module.Name);
+                RecordIfAnAddinsRefusal(module.Name, designerPart);
                 return true;
             default:
                 return false;
         }
+    }
+
+    private void RecordIfAnAddinsRefusal(string name, FormDefinition designer)
+    {
+        if (designer.UnfaithfulSaveCauses.HasFlag(UnfaithfulSaveCause.RefusedByFormat))
+            refusedAsReadByAddin[name] = designer.UnfaithfulSaveReason;
+        else if (designer.UnfaithfulSaveCauses.HasFlag(UnfaithfulSaveCause.ReadByAddin))
+            refusedAsReadByAddin[name] = null;
     }
 
     private static string? PickerDirectory(ProjectDefinition owner, string? previousDirectory) =>
@@ -1306,14 +1325,31 @@ public partial class ProjectService : IProjectService
         }
     }
 
-    private RenderedFile RenderForm(FormDefinition form, string path) => format.RenderForm(form, Path.GetFileName(path));
+    private RenderedFile RenderForm(FormDefinition form, string path) =>
+        CompanionHasSomewhere(form.Owner, form.Name, path, FormFormatOf(form.Owner).RenderForm(form, Path.GetFileName(path)));
 
-    // What reads this project's forms. Every read of one comes through here, so a project an add-in opened never has a form
-    // read as a VB6 file.
-    private IFormFileReader FormReaderOf(ProjectDefinition project) => project.FormReader ?? format;
+    // What reads and renders this project's forms. Every read and render of one comes through here, so a project an add-in
+    // opened never has a form read or written as a VB6 file.
+    private IFormFileFormat FormFormatOf(ProjectDefinition project) => project.FormFormat ?? format;
 
-    /// <summary>A module's file as it would be written at <paramref name="path"/>.</summary>
-    private RenderedFile RenderModule(ModuleDefinition module, string path) => format.RenderModule(module, Path.GetFileName(path));
+    /// <summary>
+    /// A module's file as it would be written at <paramref name="path"/>: a UserControl's or PropertyPage's through the format
+    /// its project's forms are read with, and any other through the IDE's own, as it was read.
+    /// </summary>
+    private RenderedFile RenderModule(ModuleDefinition module, string path) =>
+        DesignerPartOf(module) is not null
+            ? CompanionHasSomewhere(module.Owner, module.Name, path, FormFormatOf(module.Owner).RenderDesignerFile(module, Path.GetFileName(path)))
+            : format.RenderModule(module, Path.GetFileName(path));
+
+    // An add-in's render with a companion needs somewhere that companion may go: beside the file, and on none of the project's
+    // own files. Checked here, with the whole path, so a save that would put it anywhere else stops before it writes anything.
+    private RenderedFile CompanionHasSomewhere(ProjectDefinition project, string document, string path, RenderedFile rendered) =>
+        project.FormFormat is ContributedFormFormat contributed && rendered.Companion is { Length: > 0 } && CompanionPathOf(project, path) is null
+            ? throw contributed.Refused(document, "it rendered a companion, and named nowhere it may go: beside the file, and none of the project's own files")
+            : rendered;
+
+    /// <summary>Where a designer file's companion goes, as the format that reads the file names it; null where it has none.</summary>
+    private string? CompanionPathOf(ProjectDefinition project, string sourcePath) => FormFormatOf(project).CompanionPath(sourcePath);
 
     private string RenderGroup(ProjectGroupDefinition group, string path, Func<object, string?>? pathOf) =>
         format.RenderGroup(path, projectManager.LoadedProjects, projectManager.StartupProject, group.UnknownLines, pathOf);
@@ -1326,7 +1362,7 @@ public partial class ProjectService : IProjectService
 
         var project = form.Owner;
         var errorSink = new DeserializeErrorSink(localization);
-        var reader = FormReaderOf(project);
+        var reader = FormFormatOf(project);
 
         // The designer file is read FIRST: its cited offsets are what partition the companion, so the
         // companion cannot be parsed without it. See FrxDeserializer.
@@ -1382,7 +1418,7 @@ public partial class ProjectService : IProjectService
         if (module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
         {
             var errorSink = new DeserializeErrorSink(localization);
-            var reader = FormReaderOf(module.Owner);
+            var reader = FormFormatOf(module.Owner);
             var companion = await ReadCompanion(path, reader);
             var fresh = reader.ReadDesignerPart(module.Owner, source, companion, errorSink);
             if (fresh != null)
@@ -1777,8 +1813,8 @@ public partial class ProjectService : IProjectService
             var (_, companion) = file.Document is ModuleDefinition moduleDocument
                 ? RenderModule(moduleDocument, file.Path)
                 : RenderForm(designer, file.Path);
-            if (companion is { Length: > 0 } || designer.CitedCompanionBlobCount > 0)
-                outputs.Add(Path.ChangeExtension(file.Path, CompanionBinaryExtension(file.Path)));
+            if ((companion is { Length: > 0 } || designer.CitedCompanionBlobCount > 0) && CompanionPathOf(project, file.Path) is { } companionPath)
+                outputs.Add(companionPath);
         }
         var existing = outputs.Where(File.Exists).Distinct().ToArray();
         if (existing.Length > 0
@@ -1827,10 +1863,10 @@ public partial class ProjectService : IProjectService
             return false;
 
         var path = Path.Join(dir, fileName);
-        // Only the designer kinds have a binary file. CompanionBinaryExtension answers .frx for a .bas or a .cls too.
+        // Only the designer kinds have a binary file. VB6's format names a .frx companion for a .bas or a .cls too.
         return File.Exists(path)
             || Path.GetExtension(fileName).ToLowerInvariant() is ".frm" or ".ctl" or ".pag"
-               && File.Exists(Path.ChangeExtension(path, CompanionBinaryExtension(path)))
+               && CompanionPathOf(project, path) is { } companion && File.Exists(companion)
             || project.PreservedItemLines.Any(line => KeptLineNames(project, line, path));
     }
 
@@ -1953,7 +1989,7 @@ public partial class ProjectService : IProjectService
         var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // Form text before companion: the .frm's cited offsets partition the .frx.
-        var reader = FormReaderOf(project);
+        var reader = FormFormatOf(project);
         var companion = await ReadCompanion(absolutePath, reader);
         var form = reader.ReadForm(project, source, companion, new DeserializeErrorSink(localization));
         if (form == null)
@@ -2004,7 +2040,7 @@ public partial class ProjectService : IProjectService
         // what stops an adopted UserControl being text-only while a loaded one opens in the designer.
         if (kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
         {
-            var reader = FormReaderOf(project);
+            var reader = FormFormatOf(project);
             var companion = await ReadCompanion(absolutePath, reader);
             var formPart = reader.ReadDesignerPart(project, source, companion, new DeserializeErrorSink(localization));
             if (formPart != null)
@@ -2161,14 +2197,16 @@ public partial class ProjectService : IProjectService
             return;
 
         // Told apart, because they're refused for different reasons, and a save of a group can reach both.
-        var byAddin = refusedThisSave.Where(refusedAsReadByAddin.Contains).ToList();
+        var byAddin = refusedThisSave.Where(refusedAsReadByAddin.ContainsKey).ToList();
         var others = refusedThisSave.Except(byAddin).ToList();
         refusedThisSave.Clear();
+        var addinWords = new Dictionary<string, string?>(refusedAsReadByAddin);
         refusedAsReadByAddin.Clear();
 
         if (interactive && byAddin.Count > 0)
             await windowManager.MessageBox(
-                localization.GetString("Str.ContributedProject.FormReadOnly") + "\n\n" + string.Join("\n", byAddin.Select(n => $"  • {n}")),
+                localization.GetString("Str.ContributedProject.FormReadOnly") + "\n\n" + string.Join("\n", byAddin.Select(n =>
+                    addinWords[n] is { Length: > 0 } words ? $"  • {n}: {words}" : $"  • {n}")),
                 HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
         if (others.Count == 0)
             return;
@@ -2362,7 +2400,9 @@ public partial class ProjectService : IProjectService
     /// </summary>
     private void WriteCompanionBinary(string sourcePath, byte[]? content, FormDefinition form)
     {
-        var companionPath = Path.ChangeExtension(sourcePath, CompanionBinaryExtension(sourcePath));
+        // Every format names one for a file whose render has one: an add-in's that doesn't has had its render refused.
+        if (CompanionPathOf(form.Owner, sourcePath) is not { } companionPath)
+            return;
 
         if (content is { Length: > 0 })
         {
@@ -2393,8 +2433,6 @@ public partial class ProjectService : IProjectService
         baselineStore.Remove(companionPath);
         renderBaselines.Remove(companionPath);
     }
-
-    private string CompanionBinaryExtension(string sourceFilePath) => format.CompanionExtension(sourceFilePath);
 
     /// <summary>
     /// Reads the companion binary beside a designer file, if it has one, and records it. Always route companion
@@ -2611,7 +2649,7 @@ public partial class ProjectService : IProjectService
             {
                 var fileName = form.AbsolutePath is { } path ? Path.GetFileName(path) : form.Name + ".frm";
                 documents.Add(new(form.Name, "Form", form.AbsolutePath, form.TextEncoding,
-                    IsDirty(form) ? Unsaved(fileName, RenderForm(form, fileName)) : null, DiskHashOf(form.AbsolutePath)));
+                    CopyOf(form, form.Owner, fileName, () => IsDirty(form), () => RenderForm(form, fileName)), DiskHashOf(form.AbsolutePath)));
             }
             foreach (var module in project.Modules)
             {
@@ -2619,7 +2657,7 @@ public partial class ProjectService : IProjectService
                     ? Path.GetFileName(path)
                     : module.Name + "." + ModuleExtension(module.Kind);
                 documents.Add(new(module.Name, module.Kind.ToString(), module.AbsolutePath, module.TextEncoding,
-                    IsDirty(module) ? Unsaved(fileName, RenderModule(module, fileName)) : null, DiskHashOf(module.AbsolutePath)));
+                    CopyOf(module, module.Owner, fileName, () => IsDirty(module), () => RenderModule(module, fileName)), DiskHashOf(module.AbsolutePath)));
             }
 
             var projectDirty = IsDirty(project);
@@ -2674,10 +2712,51 @@ public partial class ProjectService : IProjectService
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ProjectDefinition, string>
         NotionalProjectPaths = new();
 
-    private HexIDE.Recovery.UnsavedFile Unsaved(string fileName, RenderedFile rendered) =>
-        rendered.Companion is { Length: > 0 } companion
-            ? new(fileName, rendered.Text, Path.ChangeExtension(fileName, CompanionBinaryExtension(fileName)), companion)
+    /// <summary>What crash recovery keeps of a form or module: what a save would write now, or null when nothing is unsaved.</summary>
+    /// <remarks>
+    /// A form whose add-in's format can't render it, because the add-in has gone or it throws, keeps the copy its last capture
+    /// took, rather than dropping out of the backup: a crash then keeps the edits up to that capture.
+    /// </remarks>
+    private HexIDE.Recovery.UnsavedFile? CopyOf(object document, ProjectDefinition project, string fileName, Func<bool> edited,
+        Func<RenderedFile> render)
+    {
+        try
+        {
+            var copy = edited() ? Unsaved(project, fileName, render()) : null;
+            if (project.FormFormat is not null)
+                lastRenders.AddOrUpdate(document, new LastRender(copy is not null, copy));
+            return copy;
+        }
+        catch (FormRenderRefusal)
+        {
+            return lastRenders.TryGetValue(document, out var last) ? last.Copy : null;
+        }
+    }
+
+    private HexIDE.Recovery.UnsavedFile Unsaved(ProjectDefinition project, string fileName, RenderedFile rendered) =>
+        rendered.Companion is { Length: > 0 } companion && CompanionPathOf(project, fileName) is { } companionPath
+            ? new(fileName, rendered.Text, Path.GetFileName(companionPath), companion)
             : new(fileName, rendered.Text);
+
+    /// <summary>
+    /// What an add-in's form or designer file last rendered to, for when its format can't render it: whether it was edited, by
+    /// the last render that answered, and the copy crash recovery last took of it.
+    /// </summary>
+    private readonly ConditionalWeakTable<object, LastRender> lastRenders = new();
+
+    private sealed record LastRender(bool Edited, HexIDE.Recovery.UnsavedFile? Copy);
+
+    // A fresh answer, kept for an add-in's format. An edit since the last capture keeps that capture's copy: it is the newest
+    // one there is.
+    private bool Answered(object document, ProjectDefinition project, bool edited)
+    {
+        if (project.FormFormat is not null)
+            lastRenders.AddOrUpdate(document, new LastRender(edited,
+                edited && lastRenders.TryGetValue(document, out var last) ? last.Copy : null));
+        return edited;
+    }
+
+    private bool LastAnswer(object document) => lastRenders.TryGetValue(document, out var last) && last.Edited;
 
     private bool IsDirty(FormDefinition form)
     {
@@ -2689,8 +2768,15 @@ public partial class ProjectService : IProjectService
         if (path is null || IsScratchFile(form.Owner, path))
             return true;
 
-        var (text, binary) = RenderForm(form, path);
-        return !BaselineMatches(path, text) || CompanionWouldChange(path, binary);
+        try
+        {
+            var (text, binary) = RenderForm(form, path);
+            return Answered(form, form.Owner, !BaselineMatches(path, text) || CompanionWouldChange(form.Owner, path, binary));
+        }
+        catch (FormRenderRefusal)
+        {
+            return LastAnswer(form);
+        }
     }
 
     private bool IsDirty(ModuleDefinition module)
@@ -2703,8 +2789,17 @@ public partial class ProjectService : IProjectService
         if (path is null || IsScratchFile(module.Owner, path))
             return true;
 
-        var (text, binary) = RenderModule(module, path);
-        return !BaselineMatches(path, text) || (DesignerPartOf(module) is not null && CompanionWouldChange(path, binary));
+        try
+        {
+            var (text, binary) = RenderModule(module, path);
+            return DesignerPartOf(module) is null
+                ? !BaselineMatches(path, text)
+                : Answered(module, module.Owner, !BaselineMatches(path, text) || CompanionWouldChange(module.Owner, path, binary));
+        }
+        catch (FormRenderRefusal)
+        {
+            return LastAnswer(module);
+        }
     }
 
     /// <summary>
@@ -2723,9 +2818,10 @@ public partial class ProjectService : IProjectService
         renderBaselines.TryGetValue(path, out var known) && known == FileHasher.Hash(rendered);
 
     /// <summary>True when a save would write, change, or delete the companion binary (.frx/.ctx/.pgx).</summary>
-    private bool CompanionWouldChange(string sourcePath, byte[]? binary)
+    private bool CompanionWouldChange(ProjectDefinition project, string sourcePath, byte[]? binary)
     {
-        var companionPath = Path.ChangeExtension(sourcePath, CompanionBinaryExtension(sourcePath));
+        if (CompanionPathOf(project, sourcePath) is not { } companionPath)
+            return false;
         if (binary is { Length: > 0 })
             return !renderBaselines.TryGetValue(companionPath, out var known)
                    || known != FileHasher.Hash(binary);
@@ -2759,9 +2855,22 @@ public partial class ProjectService : IProjectService
     {
         if (form.AbsolutePath is not { } path || !form.Owner.Offers.WritesForms)
             return;
-        var (text, binary) = RenderForm(form, path);
-        RecordRender(path, text, binary);
+        try
+        {
+            var (text, binary) = RenderForm(form, path);
+            RecordRender(form.Owner, path, text, binary);
+            Answered(form, form.Owner, edited: false);
+        }
+        catch (FormRenderRefusal refusal)
+        {
+            RefusedAtRead(form, refusal);
+        }
     }
+
+    // A format that can't render what it has just read can't save it, so the form opens read-only, as if its reader had said
+    // so. Its words go with it where it gave any, and the IDE's own go to the log.
+    private static void RefusedAtRead(FormDefinition designer, FormRenderRefusal refusal) =>
+        designer.MarkUnfaithfulToSave(UnfaithfulSaveCause.RefusedByFormat, refusal.AddinWords ?? "");
 
     /// <inheritdoc cref="SnapshotRenderBaseline(FormDefinition)"/>
     private void SnapshotRenderBaseline(ModuleDefinition module)
@@ -2769,17 +2878,30 @@ public partial class ProjectService : IProjectService
         if (module.AbsolutePath is not { } path || (DesignerPartOf(module) is not null && !module.Owner.Offers.WritesForms))
             return;
 
-        var (text, binary) = RenderModule(module, path);
+        RenderedFile rendered;
+        try
+        {
+            rendered = RenderModule(module, path);
+        }
+        catch (FormRenderRefusal refusal) when (DesignerPartOf(module) is { } designerPart)
+        {
+            RefusedAtRead(designerPart, refusal);
+            return;
+        }
         if (DesignerPartOf(module) is not null)
-            RecordRender(path, text, binary);
+        {
+            RecordRender(module.Owner, path, rendered.Text, rendered.Companion);
+            Answered(module, module.Owner, edited: false);
+        }
         else
-            renderBaselines[path] = FileHasher.Hash(text);
+            renderBaselines[path] = FileHasher.Hash(rendered.Text);
     }
 
-    private void RecordRender(string path, string text, byte[]? binary)
+    private void RecordRender(ProjectDefinition project, string path, string text, byte[]? binary)
     {
         renderBaselines[path] = FileHasher.Hash(text);
-        var companionPath = Path.ChangeExtension(path, CompanionBinaryExtension(path));
+        if (CompanionPathOf(project, path) is not { } companionPath)
+            return;
         if (binary is { Length: > 0 })
             renderBaselines[companionPath] = FileHasher.Hash(binary);
         else

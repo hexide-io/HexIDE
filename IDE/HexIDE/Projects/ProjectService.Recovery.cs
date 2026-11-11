@@ -18,7 +18,7 @@ public partial class ProjectService
     /// <inheritdoc/>
     public bool ApplyRecovered(FormDefinition form, UnsavedFile content)
     {
-        var fresh = FormReaderOf(form.Owner).ReadForm(form.Owner, content.Text, CompanionOf(content), new DeserializeErrorSink(localization));
+        var fresh = FormFormatOf(form.Owner).ReadForm(form.Owner, content.Text, CompanionOf(content), new DeserializeErrorSink(localization));
         if (fresh is null)
             return false;
         form.UpdateCode(fresh.Code);
@@ -32,7 +32,7 @@ public partial class ProjectService
     {
         if (module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
         {
-            var fresh = FormReaderOf(module.Owner).ReadDesignerPart(module.Owner, content.Text, CompanionOf(content), new DeserializeErrorSink(localization));
+            var fresh = FormFormatOf(module.Owner).ReadDesignerPart(module.Owner, content.Text, CompanionOf(content), new DeserializeErrorSink(localization));
             if (fresh is null)
                 return false;
             module.UpdateCode(fresh.Code);
@@ -58,12 +58,23 @@ public partial class ProjectService
     }
 
     /// <inheritdoc/>
-    public bool RecoveredMatches(FormDefinition form, UnsavedFile content) =>
-        string.Equals(RenderForm(form, content.FileName).Text, content.Text, StringComparison.Ordinal);
+    public bool RecoveredMatches(FormDefinition form, UnsavedFile content) => RendersAs(() => RenderForm(form, content.FileName), content);
 
     /// <inheritdoc/>
-    public bool RecoveredMatches(ModuleDefinition module, UnsavedFile content) =>
-        string.Equals(RenderModule(module, content.FileName).Text, content.Text, StringComparison.Ordinal);
+    public bool RecoveredMatches(ModuleDefinition module, UnsavedFile content) => RendersAs(() => RenderModule(module, content.FileName), content);
+
+    // An add-in's format that can't render the document can't say it matches, so the copy is offered.
+    private static bool RendersAs(Func<RenderedFile> render, UnsavedFile content)
+    {
+        try
+        {
+            return string.Equals(render().Text, content.Text, StringComparison.Ordinal);
+        }
+        catch (FormRenderRefusal)
+        {
+            return false;
+        }
+    }
 
     /// <inheritdoc/>
     public object? AddRecovered(ProjectDefinition project, UnsavedDocument document)
@@ -76,7 +87,7 @@ public partial class ProjectService
 
         if (document.Kind == "Form")
         {
-            var form = FormReaderOf(project).ReadForm(project, content.Text, CompanionOf(content), new DeserializeErrorSink(localization));
+            var form = FormFormatOf(project).ReadForm(project, content.Text, CompanionOf(content), new DeserializeErrorSink(localization));
             if (form is null)
                 return null;
             form.TextEncoding = document.Encoding;
