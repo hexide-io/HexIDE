@@ -1236,9 +1236,9 @@ public partial class ProjectService : IProjectService
         _ => document.ToString() ?? "",
     };
 
-    // Whether HexIDE checks a project's file for a change made outside it before writing it. An add-in's, so far: its own
-    // program is the likely second writer. A .vbp's is #3699's.
-    private static bool ChecksOutsideChanges(ProjectDefinition project) => project.ProjectFileWriter is ContributedProjectFile;
+    // Whether HexIDE checks a project's file for a change made outside it before writing it.
+    private static bool ChecksOutsideChanges(ProjectDefinition project) =>
+        project.ProjectFileWriter is null or ContributedProjectFile;
 
     /// <summary>
     /// Where a project file about to be written changed on disk since HexIDE last read or wrote it: left as it is where HexIDE
