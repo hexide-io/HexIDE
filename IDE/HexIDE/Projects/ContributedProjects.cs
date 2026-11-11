@@ -37,7 +37,13 @@ public sealed record ContributedProjectType(AddinProjectType Type, string AddinI
 /// </remarks>
 internal sealed class ContributedFormReader(ContributedProjectType type) : IFormFileReader
 {
-    public FormDefinition? ReadForm(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems)
+    public FormDefinition? ReadForm(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems) =>
+        Read(problems, forms => forms.ReadForm(project, text, companion, problems));
+
+    public FormDefinition? ReadDesignerPart(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems) =>
+        Read(problems, forms => forms.ReadDesignerPart(project, text, companion, problems));
+
+    private FormDefinition? Read(IDeserializeErrorSink problems, Func<IFormFileReader, FormDefinition?> read)
     {
         if (type.Withdrawn.IsCancellationRequested)
         {
@@ -53,7 +59,7 @@ internal sealed class ContributedFormReader(ContributedProjectType type) : IForm
         FormDefinition? form;
         try
         {
-            form = forms.ReadForm(project, text, companion, problems);
+            form = read(forms);
             // The name is the root's, and every view of the form asks for it.
             _ = form?.Name;
         }
@@ -199,7 +205,8 @@ public sealed partial class ContributedProjects
         project.SetReferences(content.References.Select(ToVbReference));
 
         var problems = new List<string>();
-        foreach (var member in content.Members)
+        // UserControls first, as a .vbp's are: a form can hold them, so its read has to find them there. In order otherwise.
+        foreach (var member in content.Members.OrderBy(member => member.Kind != AddinMemberKind.UserControl))
         {
             try
             {
@@ -238,8 +245,8 @@ public sealed partial class ContributedProjects
             project.AddRelatedDocument(document);
             return document;
         }
-        if (member.Kind == AddinMemberKind.Form)
-            return await AddFormAsync(project, member.Path, hostAnsi, fileRead, localization, readProblems);
+        if (member.Kind is AddinMemberKind.Form or AddinMemberKind.UserControl or AddinMemberKind.PropertyPage)
+            return await AddDesignerFileAsync(project, member, hostAnsi, fileRead, localization, readProblems);
 
         // A document module is kept as a class module with its header as it came: it is the host document's code,
         // for reading and editing, and nothing runs or instantiates it.
@@ -264,9 +271,10 @@ public sealed partial class ContributedProjects
     }
 
     // Reads the text before the companion, as a .vbp's forms are: the text says how the companion divides.
-    private async Task<FormDefinition> AddFormAsync(ProjectDefinition project, string path, Vb6TextEncoding hostAnsi,
+    private async Task<object> AddDesignerFileAsync(ProjectDefinition project, AddinProjectMember member, Vb6TextEncoding hostAnsi,
         Action<string, byte[]>? fileRead, ILocalizationService localization, ICollection<string>? readProblems)
     {
+        var path = member.Path;
         // Set on every project a contributed type opened, the only ones that reach here.
         var reader = project.FormReader!;
         var bytes = await ReadFile(path);
@@ -275,22 +283,34 @@ public sealed partial class ContributedProjects
         var companion = companionPath is not null && File.Exists(companionPath) ? await ReadFile(companionPath) : null;
 
         var problems = new ProjectService.DeserializeErrorSink(localization);
-        var form = reader.ReadForm(project, read.Text, companion, problems);
-        if (form is null)
+        var designer = member.Kind == AddinMemberKind.Form
+            ? reader.ReadForm(project, read.Text, companion, problems)
+            : reader.ReadDesignerPart(project, read.Text, companion, problems);
+        if (designer is null)
             throw new ArgumentException(problems.Errors.Count > 0 ? string.Join(" ", problems.Errors) : "It couldn't be read as a form.");
-        if (ProjectNaming.IsNameTaken(project, form.Name))
+        if (ProjectNaming.IsNameTaken(project, designer.Name))
             throw new MemberNameTakenException(string.Format(localization.GetString("Str.ContributedProject.NameTaken"),
-                Path.GetFileName(path), form.Name, project.Name));
+                Path.GetFileName(path), designer.Name, project.Name));
 
         fileRead?.Invoke(path, bytes);
         if (companion is not null)
             fileRead?.Invoke(companionPath!, companion);
         foreach (var problem in problems.Errors)
             readProblems?.Add($"{path}: {problem}");
-        form.AbsolutePath = path;
-        form.TextEncoding = read.Encoding;
-        project.AddForm(form);
-        return form;
+        designer.AbsolutePath = path;
+        if (member.Kind == AddinMemberKind.Form)
+        {
+            designer.TextEncoding = read.Encoding;
+            project.AddForm(designer);
+            return designer;
+        }
+
+        var kind = member.Kind == AddinMemberKind.UserControl ? ModuleKind.UserControl : ModuleKind.PropertyPage;
+        var module = new ModuleDefinition(project, designer.Name, kind) { AbsolutePath = path, TextEncoding = read.Encoding };
+        module.UpdateFormPart(designer);
+        module.UpdateCode(designer.Code);
+        project.AddModule(module);
+        return module;
     }
 
     /// <summary>The module, form or other file of <paramref name="project"/> at <paramref name="path"/>, or null.</summary>

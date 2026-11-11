@@ -34,9 +34,9 @@ public sealed record AddinProjectType(string Title)
     public required Func<string, IAddinProjectChanges, CancellationToken, Task<AddinProjectContent>> OpenAsync { get; init; }
 
     /// <summary>
-    /// What reads the forms its projects list, each from its file's text and companion. Needed only by a type that lists
-    /// <see cref="AddinMemberKind.Form"/> members: one listed with no reader is left out and named. It is called on the UI
-    /// thread, for a project's open and whenever a form's file changes, and one that throws is taken not to have read the form.
+    /// What reads the forms, UserControls and PropertyPages its projects list, each from its file's text and companion. Needed
+    /// only by a type that lists those: one listed with no reader is left out and named. It is called on the UI thread, for a
+    /// project's open and whenever such a file changes, and one that throws is taken not to have read it.
     /// </summary>
     /// <remarks>
     /// The controls on a form are the add-in's own <see cref="HexIDE.Runtime.Components.IComponentClass"/>es, which
@@ -85,6 +85,12 @@ public enum AddinMemberKind
 
     /// <summary>A form, read through <see cref="AddinProjectType.Forms"/>. Its name is the one the reader gives it.</summary>
     Form,
+
+    /// <summary>A UserControl, read and named as a form is. UserControls are read first, because a form can hold them.</summary>
+    UserControl,
+
+    /// <summary>A PropertyPage, read and named as a form is.</summary>
+    PropertyPage,
 }
 
 /// <summary>A type library a contributed project references.</summary>

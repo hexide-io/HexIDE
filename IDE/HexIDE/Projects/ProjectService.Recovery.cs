@@ -32,7 +32,7 @@ public partial class ProjectService
     {
         if (module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
         {
-            var fresh = format.ReadDesignerPart(module.Owner, content.Text, CompanionOf(content), new DeserializeErrorSink(localization));
+            var fresh = FormReaderOf(module.Owner).ReadDesignerPart(module.Owner, content.Text, CompanionOf(content), new DeserializeErrorSink(localization));
             if (fresh is null)
                 return false;
             module.UpdateCode(fresh.Code);

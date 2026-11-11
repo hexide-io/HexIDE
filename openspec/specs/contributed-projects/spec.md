@@ -55,6 +55,9 @@ with no reader lists, that its reader cannot read, or whose reader throws, SHALL
 reader said, and the project SHALL still open. A form read with problems SHALL join the project and the problems SHALL be
 shown. Once the type has been taken out, a reload SHALL ask nothing and SHALL leave the form as it is.
 
+A UserControl or a PropertyPage SHALL be listed and read the same way, and SHALL join the project as a module with its
+designer half. UserControls SHALL be read before the other members, because a form can hold them.
+
 Until the type can render its forms, a form read by an add-in SHALL open read-only in the designer and the code window, and
 a save SHALL refuse it, say that the IDE can't yet write what an add-in read, and leave its file as it was. The IDE's own
 writers are for its own files, so it SHALL NOT render such a form as a `.frm` for any purpose, and the form SHALL NOT count
