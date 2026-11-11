@@ -466,6 +466,7 @@ public partial class ProjectService : IProjectService
             if (projectFileBytes is not null)
                 baselineStore.Record(projectPath, projectFileBytes);
             projectManager.AddProject(project);
+            EnsureGroupIfMultiple();
             recentProjects.Add(projectPath);
             await sidecar.LoadAsync(project);
             SnapshotRenderBaselines(project);
@@ -737,6 +738,7 @@ public partial class ProjectService : IProjectService
         var readByteForByte = readByteForByteList.ToList();
 
         projectManager.AddProject(project);
+        EnsureGroupIfMultiple();
         recentProjects.Add(projectPath);
         await sidecar.LoadAsync(project);
 

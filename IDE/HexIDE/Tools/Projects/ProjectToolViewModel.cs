@@ -113,7 +113,6 @@ public partial class ProjectToolViewModel : Tool
         this.localization = localization;
         this.archives = archives;
         if (archives != null) archives.Changed += RebuildRootItems;
-        localization.BindTitle(this, "Str.Tool.Project.Title");
         localization.LanguageChanged += () =>
         {
             RebuildRootItems();
@@ -186,9 +185,19 @@ public partial class ProjectToolViewModel : Tool
     {
         var previous = RootItems.OfType<ArchiveTreeNode>().SelectMany(WalkArchive).ToDictionary(n => n.Entry.Identity);
         var selected = (SelectedItem as ArchiveTreeNode)?.Entry.Identity;
+        foreach (var group in RootItems.OfType<ProjectGroupViewModel>())
+        {
+            group.PropertyChanged -= OnTitleSourceChanged;
+            group.Dispose();
+        }
         RootItems.Clear();
         if (projectManager.CurrentGroup != null)
-            RootItems.Add(new ProjectGroupViewModel(projectManager.CurrentGroup, LoadedProjects));
+        {
+            var group = new ProjectGroupViewModel(projectManager.CurrentGroup, LoadedProjects,
+                localization.GetString("Str.Tool.Project.TitleGroup"));
+            group.PropertyChanged += OnTitleSourceChanged;
+            RootItems.Add(group);
+        }
         else
             foreach (var p in LoadedProjects)
                 RootItems.Add(p);
@@ -201,9 +210,21 @@ public partial class ProjectToolViewModel : Tool
                     if (previous.TryGetValue(node.Entry.Identity, out var old)) node.IsExpanded = old.IsExpanded;
                 RootItems.Add(root);
             }
+        RefreshTitle();
         if (selected != null)
             SelectedItem = RootItems.OfType<ArchiveTreeNode>().SelectMany(WalkArchive)
                 .FirstOrDefault(n => n.Entry.Identity.Equals(selected));
+    }
+
+    private void OnTitleSourceChanged(object? sender, PropertyChangedEventArgs e) => RefreshTitle();
+
+    private void RefreshTitle()
+    {
+        Title = projectManager.CurrentGroup is { } group
+            ? string.Format(localization.GetString("Str.Tool.Project.TitleGroup"), group.Name)
+            : LoadedProjects.FirstOrDefault() is { } project
+                ? string.Format(localization.GetString("Str.Tool.Project.TitleProject"), project.Name)
+                : localization.GetString("Str.Tool.Project.TitleEmpty");
     }
 
     private static IEnumerable<ArchiveTreeNode> WalkArchive(ArchiveTreeNode node)
@@ -232,6 +253,8 @@ public partial class ProjectToolViewModel : Tool
         var vm = new ProjectViewModel(this, obj);
         projectToViewModel[obj] = vm;
         LoadedProjects.Add(vm);
+        vm.PropertyChanged += OnTitleSourceChanged;
+        RefreshTitle();
         if (projectManager.CurrentGroup == null)
             RootItems.Add(vm);
     }
@@ -241,7 +264,9 @@ public partial class ProjectToolViewModel : Tool
         var vm = projectToViewModel[obj];
         LoadedProjects.Remove(vm);
         RootItems.Remove(vm);
+        vm.PropertyChanged -= OnTitleSourceChanged;
         vm.Dispose();
+        RefreshTitle();
         projectToViewModel.Remove(obj);
     }
 
