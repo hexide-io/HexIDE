@@ -2,6 +2,9 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.ContributedProject.PropertiesReadOnly": "{0} é aberto por {1}: suas propriedades são definidas pelo programa ao qual pertence, não pelo HexIDE.",
+    "Str.ContributedProject.ReferencesReadOnly": "{0} é aberto por {1}: suas referências são definidas pelo programa ao qual pertence, não pelo HexIDE.",
+    "Str.ContributedProject.ComponentsReadOnly": "{0} é aberto por {1}: seus componentes são definidos pelo programa ao qual pertence, não pelo HexIDE.",
     "Str.AIChat.Refusal": "O provedor recusou esta solicitação.",
     "Str.Lsp.EditRequiresUserCommand": "O HexIDE só aplica as alterações de um servidor durante a execução de um comando iniciado pelo usuário.",
     "Str.Lsp.NoWorkspaceEditor": "Nenhum editor do espaço de trabalho está disponível.",

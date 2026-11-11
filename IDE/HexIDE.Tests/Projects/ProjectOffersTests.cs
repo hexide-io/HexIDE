@@ -107,7 +107,7 @@ public class ProjectOffersTests : IDisposable
         await _service.EditProjectReferences(project);
         await _service.EditProjectComponents(project);
 
-        await WasTold("Str.ContributedProject.SettingsReadOnly");
+        await WasTold("Str.ContributedProject." + denied[4..] + "ReadOnly");
         await _windows.Received(2).ShowDialog(Arg.Any<IDialog>());
     }
 
@@ -120,7 +120,8 @@ public class ProjectOffersTests : IDisposable
         await _service.EditProjectReferences(project);
         await _service.EditProjectComponents(project);
 
-        await WasNotTold("Str.ContributedProject.SettingsReadOnly");
+        foreach (var dialog in new[] { "Properties", "References", "Components" })
+            await WasNotTold($"Str.ContributedProject.{dialog}ReadOnly");
         await _windows.Received(3).ShowDialog(Arg.Any<IDialog>());
     }
 

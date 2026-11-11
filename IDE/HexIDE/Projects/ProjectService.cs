@@ -1598,14 +1598,14 @@ public partial class ProjectService : IProjectService
 
     public async Task EditProjectProperties(ProjectDefinition project)
     {
-        if (await RefusedSettings(project, project.Offers.SetsProperties))
+        if (await RefusedSettings(project, project.Offers.SetsProperties, "Str.ContributedProject.PropertiesReadOnly"))
             return;
         var vm = new ProjectPropertiesViewModel(project, proposed =>
             !ProjectNaming.IsValidName(proposed)
                 ? string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), proposed)
             : ProjectNaming.IsProjectNameTaken(projectManager.LoadedProjects, proposed, project)
                 ? string.Format(localization.GetString("Str.Naming.Msg.ProjectNameTaken"), proposed)
-            : null, localization);
+            : null, localization, generalPropertiesOnly: project.ProjectFileWriter is not null);
         if (!await windowManager.ShowDialog(vm))
             return;
 
@@ -1614,7 +1614,7 @@ public partial class ProjectService : IProjectService
 
     public async Task EditProjectReferences(ProjectDefinition project)
     {
-        if (await RefusedSettings(project, project.Offers.SetsReferences))
+        if (await RefusedSettings(project, project.Offers.SetsReferences, "Str.ContributedProject.ReferencesReadOnly"))
             return;
         var vm = new ReferencesViewModel(project, referenceLibraryService, windowManager, localization);
         if (!await windowManager.ShowDialog(vm))
@@ -1624,19 +1624,19 @@ public partial class ProjectService : IProjectService
 
     // A setting the project's type doesn't offer is kept where HexIDE never writes it: a change made here would be lost
     // on close, unprompted, or overwritten by the add-in's next report.
-    private async Task<bool> RefusedSettings(ProjectDefinition project, bool offered)
+    private async Task<bool> RefusedSettings(ProjectDefinition project, bool offered, string refusalKey)
     {
         if (offered)
             return false;
         await windowManager.MessageBox(
-            string.Format(localization.GetString("Str.ContributedProject.SettingsReadOnly"), project.Name, project.ContributorTitle),
+            string.Format(localization.GetString(refusalKey), project.Name, project.ContributorTitle),
             icon: MessageBoxIcon.Information);
         return true;
     }
 
     public async Task EditProjectComponents(ProjectDefinition project)
     {
-        if (await RefusedSettings(project, project.Offers.SetsComponents))
+        if (await RefusedSettings(project, project.Offers.SetsComponents, "Str.ContributedProject.ComponentsReadOnly"))
             return;
         var vm = new ComponentsViewModel(project, componentRegistry, windowManager, localization);
         await windowManager.ShowDialog(vm);

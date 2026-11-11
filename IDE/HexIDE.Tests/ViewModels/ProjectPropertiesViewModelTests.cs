@@ -13,6 +13,27 @@ public class ProjectPropertiesViewModelTests
     /// </summary>
     private static string? NoNameObjection(string _) => null;
     [Fact]
+    public void Apply_GeneralPropertiesOnly_PreservesProjectTypeAndStartupObject()
+    {
+        var project = TestHelpers.CreateProjectWithForm("Original", "MainForm");
+        var startup = project.StartupForm;
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection, generalPropertiesOnly: true);
+        vm.ProjectName = "Updated";
+        vm.ProjectDescription = "New description";
+        vm.SelectedProjectType = VBProjectType.OleDll;
+        vm.SelectedStartupObject = ProjectStartupObjectViewModel.SubMain;
+
+        vm.Apply(project);
+
+        project.Name.Should().Be("Updated");
+        project.Description.Should().Be("New description");
+        project.ProjectType.Should().Be(VBProjectType.EXE);
+        project.StartupForm.Should().BeSameAs(startup);
+        project.StartsAtSubMain.Should().BeFalse();
+        vm.CanSetVb6Properties.Should().BeFalse();
+    }
+
+    [Fact]
     public void Title_IncludesProjectName()
     {
         var project = TestHelpers.CreateProject("MyApp");
