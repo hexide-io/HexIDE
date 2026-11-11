@@ -1179,11 +1179,11 @@
     "Str.Project.AlreadyOpen": "Projekti {0} on jo avoinna.",
     "Str.Options.Addins.Overview": "Lisäosat laajentavat HexIDEä työkaluilla ja asetuksilla. Asenna purkamalla allekirjoitettu lisäosapaketti omaan kansioonsa alla olevassa hakemistossa ja käynnistä HexIDE uudelleen. Hallitse lisäosaa valitsemalla se puusta.",
     "Str.Tool.LanguageServers.Editor.Customise": "Mukauta",
-    "Str.Tool.LanguageServers.Editor.Help": "Tyhjä arvo tyhjentää kentän. JSON-kenttiin annetaan JSON-arvoja. Tallennus muistaa alla olevan komennon; ota käyttöön käynnistämällä uudelleen.",
+    "Str.Tool.LanguageServers.Editor.Help": "Mukautettaessa muuttamattomat kentät perivät oletusarvot. Täytetyn kentän tyhjentäminen kirjoittaa null-arvon. JSON-kenttiin annetaan JSON-arvoja. Tallennus muistaa alla olevan komennon; ota käyttöön käynnistämällä uudelleen.",
     "Str.Tool.LanguageServers.Editor.Command": "Ratkaistu komento (argumentteineen)",
     "Str.Tool.LanguageServers.Editor.Save": "Tallenna",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Tämä tunnus on jo olemassa. Muokkaa tai mukauta sitä.",
-    "Str.Tool.LanguageServers.Editor.InvalidJson": "Virheellinen JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Virheellinen JSON: {1}",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Työtilan paikkamerkit odottavat projektikansion valintaa.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Tiedosto on muuttunut. Avaa lomake uudelleen ennen tallennusta."
   }

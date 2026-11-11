@@ -35,6 +35,7 @@
     "Str.Dock.MaximizeRestore": "Maximise or restore pane",
     "Str.PropDesc.MaskColor": "The colour used for transparent pixels.",
     "Str.PropDesc.UseMaskColor": "Whether to use the mask colour.",
-    "Str.Menu.View.RecentEdits": "_Recent Edits"
+    "Str.Menu.View.RecentEdits": "_Recent Edits",
+    "Str.Tool.LanguageServers.Editor.Help": "When customising, untouched fields inherit defaults. Clearing a populated field writes null. JSON fields take JSON values. Save remembers the command shown below; restart to apply."
   }
 }

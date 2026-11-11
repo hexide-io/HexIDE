@@ -34,12 +34,15 @@ Tools → Language & Debug Servers offers **Add** and **Edit** for user entries,
 bundled entries. The same form covers the entry fields below, including capture limits, workspace-file
 and project-import declarations. Field names use the JSON spelling so they match this reference.
 Fields marked JSON accept JSON values (including `null`); other fields accept plain text. Clearing a
-previously written value writes `null`. A new field left blank stays absent. Existing entry ids are read-only.
+populated value writes `null`. When customizing, untouched fields inherit their defaults, while clearing
+a populated field writes an explicit `null` override. A new field left blank stays absent.
+Existing entry ids are read-only.
 
 Opening the form focuses its first field. Only the fields scroll; validation problems, the command
 preview and Save stay below them while you edit. Cancel or Save returns to the server list.
 
-Validation uses the same loader and configuration-problem messages as the file. The form shows the full
+Validation uses the same loader and configuration-problem messages as the file. Invalid JSON names
+the field using its form label. The form shows the full
 command with arguments and environment, resolving pipe placeholders against the current project. Without
 a project folder, workspace placeholders stay visible with an explanation. Nothing starts from the form.
 **Save** is consent to the displayed command and remembers its command identity, including arguments and
@@ -49,6 +52,8 @@ A bundled entry is read-only. Customize writes only the fields changed from its 
 normal layering rules still apply. Saving patches only changed values: other entries, unknown fields,
 and comments remain as written, including unknown fields inside the nested declarations. If the file
 changes while the form is open, saving refuses to overwrite it and asks you to reopen the form.
+New entries put each property on its own line, using the surrounding indentation, with `id` first
+and the remaining fields in the order below. The form includes `tcpRole`.
 Cancel writes nothing. Test connection and automatic refresh of hand-edits are not available yet.
 
 ## A worked example

@@ -107,6 +107,92 @@ public sealed class LanguageServerEditorTests : IDisposable
         new LanguageServerCommandStore(Seen).IsNewOrChanged("bundled", LanguageServerConfigLoader.LaunchedCommandOf(effective)!).Should().BeFalse();
     }
 
+    [Theory]
+    [InlineData("arguments")]
+    [InlineData("environment")]
+    [InlineData("initializationOptions")]
+    [InlineData("workspaceArtifact.settings")]
+    public void InvalidJsonNamesTheFieldLabel(string name)
+    {
+        var form = Form("bundled", true);
+        Set(form, name, "{");
+        form.CanSave.Should().BeFalse();
+        form.Problems.Should().Contain(name);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CustomiseInheritsUntouchedFieldsAndWritesNullForClearedValues(bool clear)
+    {
+        var form = Form("bundled", true);
+        Set(form, "displayName", "Custom");
+        if (clear) Set(form, "arguments", "");
+        form.CanSave.Should().BeTrue();
+        form.SaveCommand.Execute(null);
+        using var document = LanguageServerEditorStore.Parse(File.ReadAllText(Config));
+        var entry = document.RootElement.GetProperty("servers")[0];
+        if (clear) entry.GetProperty("arguments").ValueKind.Should().Be(JsonValueKind.Null);
+        else entry.TryGetProperty("arguments", out _).Should().BeFalse();
+        var effective = Store().Load().Entries.Single(e => e.Id == "bundled");
+        if (clear) effective.Arguments.Should().BeNull();
+        else effective.Arguments!.Text.Should().Be(Default.Arguments!.Text);
+    }
+
+    [Fact]
+    public void HelpExplainsInheritanceAndClearing()
+    {
+        new LocalizationService().GetString("Str.Tool.LanguageServers.Editor.Help").ToLowerInvariant()
+            .Should().Contain("inherit").And.Contain("clear");
+    }
+
+    [Theory]
+    [InlineData("  ")]
+    [InlineData("\t")]
+    public void AddUsesNeighbourIndentationAndDocumentedPropertyOrder(string indent)
+    {
+        var other = indent + indent + """{"id":"other", /* untouched */ "enabled":false}""";
+        var original = "{\n" + indent + "\"servers\": [\n" + other + "\n" + indent + "]\n}";
+        File.WriteAllText(Config, original);
+        var form = Form();
+        Set(form, "displayName", "New");
+        Set(form, "enabled", "false");
+        Set(form, "id", "new");
+        Set(form, "arguments", """["one", "two"]""");
+        form.SaveCommand.Execute(null);
+        var saved = File.ReadAllText(Config).ReplaceLineEndings("\n");
+        var expected = "{\n" + indent + indent + indent + "\"id\": \"new\",\n"
+            + indent + indent + indent + "\"arguments\": [\n"
+            + indent + indent + indent + indent + "\"one\",\n"
+            + indent + indent + indent + indent + "\"two\"\n"
+            + indent + indent + indent + "],\n"
+            + indent + indent + indent + "\"displayName\": \"New\",\n"
+            + indent + indent + indent + "\"enabled\": false\n"
+            + indent + indent + "}";
+        saved.Should().Contain(expected);
+        saved.Should().Contain(other);
+        saved.Replace(expected + ",\n" + indent + indent, "", StringComparison.Ordinal)
+            .Should().Be(original.ReplaceLineEndings("\n"));
+    }
+
+    [Fact]
+    public void TcpRoleIsEditableValidatedAndSaved()
+    {
+        var form = Form();
+        form.Fields.Select(f => f.Name).Should().Contain("tcpRole");
+        Set(form, "id", "tcp");
+        Set(form, "extensions", """[".x"]""");
+        Set(form, "languageId", "x");
+        Set(form, "transport", "tcp");
+        Set(form, "endpoint", "tcp://localhost:6005");
+        Set(form, "tcpRole", "invalid");
+        form.CanSave.Should().BeFalse();
+        Set(form, "tcpRole", "listen");
+        form.CanSave.Should().BeTrue();
+        form.SaveCommand.Execute(null);
+        Store().Load().Entries.Single(e => e.Id == "tcp").TcpRole.Should().Be("listen");
+    }
+
     [Fact]
     public void AConcurrentHandEditIsNeverOverwrittenOrRecordedAsSeen()
     {
@@ -126,8 +212,8 @@ public sealed class LanguageServerEditorTests : IDisposable
     public void FormCoversEveryDocumentedEntryFieldIncludingNestedDeclarations()
     {
         var names = Form().Fields.Select(f => f.Name).ToArray();
-        names.Should().BeEquivalentTo("id", "displayName", "extensions", "languageId", "transport", "command", "arguments",
-            "environment", "workingDirectory", "pipeName", "pipeRole", "endpoint", "websocketRole", "initializationOptions",
+        names.Should().Equal("id", "extensions", "languageId", "transport", "command", "arguments",
+            "environment", "workingDirectory", "pipeName", "pipeRole", "endpoint", "tcpRole", "websocketRole", "displayName", "initializationOptions",
             "trace", "priority", "enabled", "capture.envelopeEntries", "capture.prologueEntries", "capture.payloadBytesPerConnection",
             "capture.frameBytes", "workspaceArtifact.path", "workspaceArtifact.provider", "workspaceArtifact.settings",
             "workspaceArtifact.restartOnChange", "projectImport.command", "projectImport.arguments");

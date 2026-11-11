@@ -1179,11 +1179,11 @@
     "Str.Project.AlreadyOpen": "Projekt {0} je už otvorený.",
     "Str.Options.Addins.Overview": "Doplnky rozširujú HexIDE o nástroje a nastavenia. Ak chcete doplnok nainštalovať, rozbaľte podpísaný balík do vlastného priečinka v nižšie uvedenom adresári a reštartujte HexIDE. Doplnok môžete spravovať výberom v strome.",
     "Str.Tool.LanguageServers.Editor.Customise": "Prispôsobiť",
-    "Str.Tool.LanguageServers.Editor.Help": "Prázdna hodnota vymaže pole. Polia JSON prijímajú hodnoty JSON. Uloženie si zapamätá príkaz nižšie; zmeny použijete reštartom.",
+    "Str.Tool.LanguageServers.Editor.Help": "Pri prispôsobení nezmenené polia dedia predvolené hodnoty. Vymazanie vyplneného poľa zapíše null. Polia JSON prijímajú hodnoty JSON. Uloženie si zapamätá príkaz nižšie; zmeny použijete reštartom.",
     "Str.Tool.LanguageServers.Editor.Command": "Vyhodnotený príkaz (vrátane argumentov)",
     "Str.Tool.LanguageServers.Editor.Save": "Uložiť",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Toto ID už existuje. Upravte ho alebo prispôsobte.",
-    "Str.Tool.LanguageServers.Editor.InvalidJson": "Neplatný JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Neplatný JSON: {1}",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Zástupné symboly pracovného priestoru čakajú na výber priečinka projektu.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Súbor sa zmenil. Pred uložením znovu otvorte formulár."
   }

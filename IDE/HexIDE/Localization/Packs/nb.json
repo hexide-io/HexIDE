@@ -1179,11 +1179,11 @@
     "Str.Project.AlreadyOpen": "Prosjektet {0} er allerede åpent.",
     "Str.Options.Addins.Overview": "Tillegg utvider HexIDE med verktøy og innstillinger. Installer ved å pakke ut en signert tilleggspakke i en egen mappe i katalogen nedenfor, og start HexIDE på nytt. Velg et tillegg i treet for å administrere det.",
     "Str.Tool.LanguageServers.Editor.Customise": "Tilpass",
-    "Str.Tool.LanguageServers.Editor.Help": "En tom verdi tømmer feltet. JSON-felt tar JSON-verdier. Lagring husker kommandoen nedenfor; start på nytt for å ta i bruk.",
+    "Str.Tool.LanguageServers.Editor.Help": "Ved tilpasning arver uendrede felt standardverdiene. Tømming av et utfylt felt skriver null. JSON-felt tar JSON-verdier. Lagring husker kommandoen nedenfor; start på nytt for å ta i bruk.",
     "Str.Tool.LanguageServers.Editor.Command": "Utvidet kommando (med argumenter)",
     "Str.Tool.LanguageServers.Editor.Save": "Lagre",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Denne ID-en finnes allerede. Rediger eller tilpass den.",
-    "Str.Tool.LanguageServers.Editor.InvalidJson": "Ugyldig JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Ugyldig JSON: {1}",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Plassholdere for arbeidsområdet venter på valg av prosjektmappe.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Filen er endret. Åpne skjemaet på nytt før lagring."
   }

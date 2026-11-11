@@ -2710,6 +2710,10 @@ command identity as seen. The form SHALL NOT start a process.
 Saving SHALL patch only the changed values of that entry, preserving unrelated entries, unknown fields
 and comments. Customize SHALL write only changed fields and the bundled id. An existing entry id SHALL
 be read-only. A file changed since the form opened SHALL NOT be overwritten.
+Invalid JSON SHALL name the field using its displayed label. Untouched customized fields SHALL inherit;
+clearing a populated field SHALL write explicit null. The help text SHALL explain both.
+New entries SHALL put each property on its own line, matching surrounding indentation, with id first
+and the rest in documentation order. The form SHALL include tcpRole.
 
 #### Scenario: Edit in a short tool pane
 - **WHEN** Add, Edit or Customize opens a form taller than the tool pane
