@@ -23,7 +23,7 @@ using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.RichText;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class RichTextBoxInputTests
 {

@@ -4,7 +4,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
 
-namespace HexIDE.Integration.Tests.Views;
+using HexIDE.Integration.Tests;
+using HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // vb6.exe SP6, native and p-code: #1087, issuecomment-6427372779 and the StatusBar oracle entry.
 public class StatusBarRuntimeTests

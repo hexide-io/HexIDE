@@ -13,7 +13,7 @@ using HexIDE.Runtime;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A control's Move, and a form's ScaleWidth and ScaleHeight (#1071), which the Battleship demo's board needs to lay out

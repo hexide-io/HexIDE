@@ -17,7 +17,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A program of several forms (#822, slice 2a): default instances made where a form's name is first used, Load, Show,

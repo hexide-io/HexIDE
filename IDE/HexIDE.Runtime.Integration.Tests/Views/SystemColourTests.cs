@@ -4,7 +4,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using HexIDE.Runtime.BuiltinTypes;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// Every one of VB6's 25 system colours has a value, and the seven that had none take Windows 10's (#908).

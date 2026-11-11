@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
+using HexIDE.Integration.Tests;
 using HexIDE.Runtime.BuiltinTypes;
 using System.Threading;
 using Avalonia.Headless.XUnit;
@@ -17,7 +18,7 @@ using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.RichText;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class RichTextBoxRuntimeTests
 {

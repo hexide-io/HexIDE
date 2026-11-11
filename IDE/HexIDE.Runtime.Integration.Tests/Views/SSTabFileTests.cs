@@ -4,13 +4,15 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using HexIDE.Integration.Tests;
+using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class SSTabFileTests : WindowTestFixture
 {

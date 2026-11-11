@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Interpreter;
@@ -12,7 +13,7 @@ using Avalonia.Input.Raw;
 using Avalonia.Threading;
 using HexIDE.Runtime.BuiltinControls;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class MonthViewInputTests
 {

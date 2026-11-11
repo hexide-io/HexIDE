@@ -10,7 +10,7 @@ using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Interpreter;
 using MessageBox = HexIDE.Runtime.Dialogs.MessageBox;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A program's message box keeps waiting for an answer until it gets one or the run ends (#820).

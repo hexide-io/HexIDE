@@ -2,13 +2,14 @@ using System;
 using System.Globalization;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
+using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// Assigning to a control property converts the right-hand side to the property's type, as VB6 does (#768)
