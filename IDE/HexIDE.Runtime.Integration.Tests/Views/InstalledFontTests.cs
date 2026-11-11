@@ -4,7 +4,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using HexIDE.Runtime.BuiltinTypes;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A VB6 font is drawn in the family it names when that family is installed (#1132): Courier New in Courier New, not in

@@ -4,12 +4,13 @@ using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Headless.XUnit;
+using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class MaskedEdBoxBindingTests
 {

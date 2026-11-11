@@ -8,7 +8,7 @@ using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // The ListView oracle's keyboard measurements (#1085), native and p-code identical.
 public class ListViewKeyboardTests

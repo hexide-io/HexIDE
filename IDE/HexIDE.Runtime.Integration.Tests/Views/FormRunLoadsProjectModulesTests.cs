@@ -7,7 +7,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// The IDE's real form-run entry point must hand the project's modules to the interpreter
