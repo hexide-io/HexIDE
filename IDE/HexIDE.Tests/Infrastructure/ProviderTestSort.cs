@@ -4,6 +4,7 @@ using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Operations;
 
 // Linked into HexIDE.Integration.Tests too, so each test project checks its own listing against its own build (#3663).
 namespace HexIDE.Tests.Infrastructure;
@@ -63,7 +64,7 @@ internal static class ProviderTestSort
     /// Compiles <paramref name="project"/>'s sources against the build the test runs from, as
     /// <c>AvaloniaTestGuardTests</c> does, and sorts every file under the project's folder that binds a provider symbol.
     /// </summary>
-    public static (IReadOnlyList<FileSort> Sort, IReadOnlyList<string> Unbound) Of(string project, CancellationToken cancel)
+    public static (IReadOnlyList<FileSort> Sort, IReadOnlyList<string> Errors) Of(string project, CancellationToken cancel)
     {
         var folder = ProjectFolder(project);
         var csproj = XDocument.Load(Path.Join(folder, project + ".csproj"));
@@ -82,29 +83,37 @@ internal static class ProviderTestSort
             .Append("System.ComponentModel")
             .Distinct()
             .Select(name => $"global using {name};");
-        var trees = own.Concat(linked).Distinct()
-            .Select(path => CSharpSyntaxTree.ParseText(File.ReadAllText(path), Parsing, path, cancellationToken: cancel))
-            .ToList();
-        trees.Add(CSharpSyntaxTree.ParseText(string.Join("\n", usings), cancellationToken: cancel));
+        var paths = own.Concat(linked).Distinct().ToList();
+        var parsed = new SyntaxTree[paths.Count];
+        Parallel.For(0, paths.Count, new ParallelOptions { CancellationToken = cancel },
+            i => parsed[i] = CSharpSyntaxTree.ParseText(File.ReadAllText(paths[i]), Parsing, paths[i], cancellationToken: cancel));
+        var trees = parsed.Append(CSharpSyntaxTree.ParseText(string.Join("\n", usings), cancellationToken: cancel)).ToList();
         var compilation = CSharpCompilation.Create(project, trees, References.Value,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        // A name that doesn't bind can't be sorted, and a sort that quietly skipped it would pass. So every one is reported.
-        var unbound = compilation.GetDiagnostics(cancel)
-            .Where(d => d.Id is "CS0246" or "CS0234" or "CS0012")
-            .Select(d => $"{Relative(folder, d.Location.SourceTree?.FilePath ?? "")}: {d.Id} {d.GetMessage()}")
-            .Distinct()
-            .ToList();
         var listed = trees.Where(tree => tree.FilePath.Length > 0 && !Path.GetRelativePath(folder, tree.FilePath).StartsWith(".."));
-        return (Sort(compilation, listed, folder, cancel), unbound);
+        return Sort(compilation, listed, folder, cancel);
     }
 
-    /// <summary>Sorts <paramref name="files"/> within <paramref name="compilation"/>, with paths relative to <paramref name="folder"/>.</summary>
-    public static IReadOnlyList<FileSort> Sort(CSharpCompilation compilation, IEnumerable<SyntaxTree> files, string folder,
-        CancellationToken cancel)
+    /// <summary>
+    /// Sorts <paramref name="files"/> within <paramref name="compilation"/>, with paths relative to <paramref name="folder"/>,
+    /// and lists the compilation's errors.
+    /// </summary>
+    /// <remarks>
+    /// The sort trusts a name only in a compilation that builds as the project does. A name that doesn't bind, or binds to
+    /// two types at once, can't be sorted, and a sort that quietly skipped it would pass with a shorter listing. So every
+    /// error is reported, apart from CS8795, a partial method whose other half a source generator writes in the real build.
+    /// </remarks>
+    public static (IReadOnlyList<FileSort> Sort, IReadOnlyList<string> Errors) Sort(CSharpCompilation compilation,
+        IEnumerable<SyntaxTree> files, string folder, CancellationToken cancel)
     {
+        var errors = compilation.GetDiagnostics(cancel)
+            .Where(d => d.Severity == DiagnosticSeverity.Error && d.Id != "CS8795")
+            .Select(d => $"{Relative(folder, d.Location.SourceTree?.FilePath ?? "")}: {d.Id} {d.GetMessage()}")
+            .Distinct()
+            .Order(StringComparer.Ordinal)
+            .ToList();
         var graph = new Graph(compilation);
-        foreach (var tree in compilation.SyntaxTrees)
-            graph.Read(tree, cancel);
+        graph.ReadAll(cancel);
         var sorts = new List<FileSort>();
         foreach (var tree in files)
         {
@@ -139,7 +148,7 @@ internal static class ProviderTestSort
                 coreAndProvider, whole.ProviderTypes.Order(StringComparer.Ordinal).ToList(), flags));
         }
 
-        return sorts.OrderBy(sort => sort.Path, StringComparer.Ordinal).ToList();
+        return (sorts.OrderBy(sort => sort.Path, StringComparer.Ordinal).ToList(), errors);
     }
 
     /// <summary>The rows of a listing, by path.</summary>
@@ -176,10 +185,11 @@ internal static class ProviderTestSort
     }
 
     /// <summary>Each file's counts, provider types and flags, written beside the listing.</summary>
-    public static string Detail(string project, IReadOnlyList<FileSort> sort)
+    public static string Detail(string project, IReadOnlyList<FileSort> sort, TimeSpan took)
     {
         var text = new StringBuilder();
         text.Append($"# Provider test sort, detail: {project}\n\n");
+        text.Append($"Bound and sorted in {took.TotalSeconds:0.0} s on {Environment.ProcessorCount} logical processors.\n\n");
         text.Append($"{sort.Count} files: {sort.Count(f => f.Label == Provider)} provider, {sort.Count(f => f.Label == Split)} split, ");
         text.Append($"{sort.Count(f => f.Label == Ide)} IDE. Of their {sort.Sum(f => f.Tests)} tests, {sort.Sum(f => f.ProviderOnly)} bind provider ");
         text.Append($"symbols only, {sort.Sum(f => f.Both)} both sides, and {sort.Sum(f => f.IdeOnly)} IDE symbols only.\n\n");
@@ -208,9 +218,15 @@ internal static class ProviderTestSort
     private static readonly string[] ImplicitUsings =
         ["System", "System.Collections.Generic", "System.IO", "System.Linq", "System.Net.Http", "System.Threading", "System.Threading.Tasks"];
 
+    /// <summary>
+    /// What the test run itself resolved, less the test assembly, whose sources are what gets compiled. Not every assembly in
+    /// the output folder: some are copied there and never referenced, such as the bundled language server, and its own
+    /// <c>LineRange</c> made Core's ambiguous.
+    /// </summary>
     public static readonly Lazy<MetadataReference[]> References = new(() =>
         ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-            .Concat(Directory.GetFiles(AppContext.BaseDirectory, "*.dll"))
+            .Where(path => !string.Equals(Path.GetFileName(path), Path.GetFileName(typeof(ProviderTestSortTests).Assembly.Location),
+                StringComparison.OrdinalIgnoreCase))
             .GroupBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
             .Select(group => (MetadataReference)MetadataReference.CreateFromFile(group.First()))
             .ToArray());
@@ -262,16 +278,53 @@ internal static class ProviderTestSort
 
     private sealed record Reached(IReadOnlySet<string> ProviderTypes, bool Ide, bool Core);
 
+    /// <summary>What one file binds, read on its own so that files can be read in parallel and merged afterwards.</summary>
+    private sealed class TreeRead(SyntaxTree tree)
+    {
+        public readonly SyntaxTree Tree = tree;
+        public readonly Dictionary<Key, Node> Nodes = [];
+        public readonly Dictionary<ISymbol, string> Names = new(SymbolEqualityComparer.Default);
+        public bool Composition;
+
+        public Node NodeOf(Key key)
+        {
+            if (!Nodes.TryGetValue(key, out var node))
+                Nodes[key] = node = new Node();
+            return node;
+        }
+    }
+
     private sealed class Graph(CSharpCompilation compilation)
     {
         private readonly Dictionary<Key, Node> _nodes = [];
         private readonly HashSet<SyntaxTree> _composition = [];
 
-        private Node NodeOf(Key key)
+        /// <summary>Reads every file. Each one binds against the same immutable compilation, so they can go in parallel.</summary>
+        public void ReadAll(CancellationToken cancel)
         {
-            if (!_nodes.TryGetValue(key, out var node))
-                _nodes[key] = node = new Node();
-            return node;
+            var trees = compilation.SyntaxTrees;
+            var reads = new TreeRead[trees.Length];
+            Parallel.For(0, trees.Length, new ParallelOptions { CancellationToken = cancel },
+                i => reads[i] = Read(trees[i], cancel));
+            foreach (var read in reads)
+            {
+                foreach (var (key, node) in read.Nodes)
+                {
+                    if (!_nodes.TryGetValue(key, out var into))
+                    {
+                        _nodes[key] = node;
+                        continue;
+                    }
+
+                    into.ProviderTypes.UnionWith(node.ProviderTypes);
+                    into.Edges.UnionWith(node.Edges);
+                    into.Ide |= node.Ide;
+                    into.Core |= node.Core;
+                }
+
+                if (read.Composition)
+                    _composition.Add(read.Tree);
+            }
         }
 
         private bool IsSource(ISymbol symbol) =>
@@ -290,71 +343,206 @@ internal static class ProviderTestSort
             _ => null,
         };
 
-        /// <summary>The nearest declaration that owns <paramref name="node"/>, or null outside any.</summary>
-        private static Key? Owner(SyntaxNode node, SemanticModel model, CancellationToken cancel)
-        {
-            for (var current = node.Parent; current is not null; current = current.Parent)
-            {
-                // A field's type sits beside its declarators, not under one, and belongs to the field all the same.
-                if (current is BaseFieldDeclarationSyntax field)
-                    return Declared(field.Declaration.Variables[0], model, cancel);
-                if (Declared(current, model, cancel) is { } key)
-                    return key;
-            }
-
-            return null;
-        }
-
-        public void Read(SyntaxTree tree, CancellationToken cancel)
+        /// <summary>
+        /// Reads one file: each declaration's signature from its symbol, and its bodies, initialisers and attributes as the
+        /// operations they bind to. Each member is bound once, where asking for each name's symbol rebinds what's around it.
+        /// </summary>
+        private TreeRead Read(SyntaxTree tree, CancellationToken cancel)
         {
             var model = compilation.GetSemanticModel(tree);
-            foreach (var node in tree.GetRoot(cancel).DescendantNodes())
+            var read = new TreeRead(tree);
+            var declarations = tree.GetRoot(cancel)
+                .DescendantNodes(node => node is not (BlockSyntax or ArrowExpressionClauseSyntax or EqualsValueClauseSyntax));
+            foreach (var declaration in declarations)
+            {
+                if (Declared(declaration, model, cancel) is not { } key)
+                    continue;
+                var into = read.NodeOf(key);
+                Signature(read, into, key.Symbol);
+                foreach (var part in Parts(declaration))
+                {
+                    if (model.GetOperation(part, cancel) is { } operation)
+                        Walk(read, into, operation, model, cancel);
+                    else
+                        Names(read, into, part, model, cancel);
+                }
+            }
+
+            return read;
+        }
+
+        /// <summary>The parts of a declaration that bind: attributes, parameter defaults, bodies and initialisers.</summary>
+        private static IEnumerable<SyntaxNode> Parts(SyntaxNode declaration)
+        {
+            var attributes = declaration switch
+            {
+                VariableDeclaratorSyntax { Parent.Parent: BaseFieldDeclarationSyntax field } => field.AttributeLists,
+                MemberDeclarationSyntax member => member.AttributeLists,
+                _ => default,
+            };
+            var parameters = declaration switch
+            {
+                BaseMethodDeclarationSyntax method => method.ParameterList.Parameters,
+                IndexerDeclarationSyntax indexer => indexer.ParameterList.Parameters,
+                DelegateDeclarationSyntax @delegate => @delegate.ParameterList.Parameters,
+                TypeDeclarationSyntax { ParameterList: { } primary } => primary.Parameters,
+                _ => default,
+            };
+            var accessors = declaration is BasePropertyDeclarationSyntax { AccessorList: { } list } ? list.Accessors : default;
+            var parts = attributes.SelectMany(each => each.Attributes).Cast<SyntaxNode>()
+                .Concat(parameters.SelectMany(parameter => parameter.AttributeLists.SelectMany(each => each.Attributes)))
+                .Concat(parameters.Select(parameter => parameter.Default).OfType<SyntaxNode>())
+                .Concat(accessors.SelectMany(accessor => accessor.AttributeLists.SelectMany(each => each.Attributes)))
+                .Concat(accessors);
+            return parts.Concat(declaration switch
+            {
+                BaseMethodDeclarationSyntax => [declaration],
+                PropertyDeclarationSyntax property => new SyntaxNode?[] { property.ExpressionBody, property.Initializer }.OfType<SyntaxNode>(),
+                IndexerDeclarationSyntax { ExpressionBody: { } body } => [body],
+                VariableDeclaratorSyntax { Initializer: { } initializer } => [initializer],
+                EnumMemberDeclarationSyntax { EqualsValue: { } value } => [value],
+                TypeDeclarationSyntax { BaseList: { } bases } => bases.Types.OfType<PrimaryConstructorBaseTypeSyntax>(),
+                _ => [],
+            });
+        }
+
+        /// <summary>The types a declaration's own symbol names: what it returns, takes, holds, extends and constrains.</summary>
+        private void Signature(TreeRead read, Node into, ISymbol symbol)
+        {
+            switch (symbol)
+            {
+                case IMethodSymbol method:
+                    BindType(read, into, method.ReturnType);
+                    foreach (var parameter in method.Parameters)
+                        BindType(read, into, parameter.Type);
+                    foreach (var constraint in method.TypeParameters.SelectMany(parameter => parameter.ConstraintTypes))
+                        BindType(read, into, constraint);
+                    break;
+                case IPropertySymbol property:
+                    BindType(read, into, property.Type);
+                    foreach (var parameter in property.Parameters)
+                        BindType(read, into, parameter.Type);
+                    break;
+                case IFieldSymbol field:
+                    BindType(read, into, field.Type);
+                    break;
+                case IEventSymbol @event:
+                    BindType(read, into, @event.Type);
+                    break;
+                case INamedTypeSymbol type:
+                    BindType(read, into, type.BaseType);
+                    foreach (var implemented in type.Interfaces)
+                        BindType(read, into, implemented);
+                    foreach (var constraint in type.TypeParameters.SelectMany(parameter => parameter.ConstraintTypes))
+                        BindType(read, into, constraint);
+                    if (type.DelegateInvokeMethod is { } invoke)
+                        Signature(read, into, invoke);
+                    // A primary constructor's parameters are declared on the type, not on a member of their own.
+                    foreach (var primary in type.InstanceConstructors.Where(constructor =>
+                                 constructor.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() is TypeDeclarationSyntax)))
+                        Signature(read, into, primary);
+                    break;
+            }
+        }
+
+        /// <summary>Every symbol and type an operation and the operations under it use, implicit ones included.</summary>
+        private void Walk(TreeRead read, Node into, IOperation operation, SemanticModel model, CancellationToken cancel)
+        {
+            foreach (var each in operation.DescendantsAndSelf())
+            {
+                BindType(read, into, each.Type);
+                switch (each)
+                {
+                    case IObjectCreationOperation { Constructor: { } constructor }:
+                        Bind(read, into, constructor);
+                        // Whatever is handed the object can call any of it, so constructing one of the project's own
+                        // classes counts everything the class declares.
+                        if (IsSource(constructor.ContainingType))
+                            into.Edges.Add(new Key(constructor.ContainingType.OriginalDefinition, Kind.TypeWhole));
+                        break;
+                    case IInvocationOperation invocation:
+                        Bind(read, into, invocation.TargetMethod);
+                        break;
+                    case IMemberReferenceOperation reference:
+                        Bind(read, into, reference.Member);
+                        break;
+                    case IAnonymousFunctionOperation function:
+                        Signature(read, into, function.Symbol);
+                        break;
+                    case ILocalFunctionOperation function:
+                        Signature(read, into, function.Symbol);
+                        break;
+                    // The operation for a nameof is its constant, and a method it names isn't a reference under it. A test that
+                    // runs another file's test by its name, as WindowLifetimeTests does, depends on that test all the same.
+                    case INameOfOperation nameOf:
+                        Names(read, into, nameOf.Argument.Syntax, model, cancel);
+                        break;
+                }
+
+                if (each switch
+                    {
+                        IConversionOperation conversion => conversion.OperatorMethod,
+                        IBinaryOperation binary => binary.OperatorMethod,
+                        IUnaryOperation unary => unary.OperatorMethod,
+                        ICompoundAssignmentOperation compound => compound.OperatorMethod,
+                        IIncrementOrDecrementOperation step => step.OperatorMethod,
+                        _ => null,
+                    } is { } userOperator)
+                    Bind(read, into, userOperator);
+                BindType(read, into, each switch
+                {
+                    ITypeOfOperation typeOf => typeOf.TypeOperand,
+                    IIsTypeOperation isType => isType.TypeOperand,
+                    ISizeOfOperation sizeOf => sizeOf.TypeOperand,
+                    IDeclarationPatternOperation pattern => pattern.MatchedType,
+                    ITypePatternOperation pattern => pattern.MatchedType,
+                    IRecursivePatternOperation pattern => pattern.MatchedType,
+                    IVariableDeclaratorOperation variable => variable.Symbol.Type,
+                    ICatchClauseOperation @catch => @catch.ExceptionType,
+                    _ => null,
+                });
+            }
+        }
+
+        /// <summary>
+        /// For a part Roslyn gives no operation for: the symbol of every name in it, and of every construction, indexer and
+        /// attribute, which bind a symbol with no name of their own.
+        /// </summary>
+        private void Names(TreeRead read, Node into, SyntaxNode part, SemanticModel model, CancellationToken cancel)
+        {
+            foreach (var node in part.DescendantNodesAndSelf())
             {
                 if (node is not (SimpleNameSyntax or ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax
                     or ConstructorInitializerSyntax or ElementAccessExpressionSyntax or AttributeSyntax
-                    or PrimaryConstructorBaseTypeSyntax or InvocationExpressionSyntax or MemberAccessExpressionSyntax
-                    or AwaitExpressionSyntax))
+                    or PrimaryConstructorBaseTypeSyntax))
                     continue;
-                if (Owner(node, model, cancel) is not { } owner)
-                    continue;
-                var into = NodeOf(owner);
                 var info = model.GetSymbolInfo(node, cancel);
-                var symbols = info.Symbol is { } bound ? [bound] : info.CandidateSymbols;
-                foreach (var symbol in symbols)
+                foreach (var symbol in info.Symbol is { } bound ? [bound] : info.CandidateSymbols)
                 {
-                    Bind(into, symbol);
+                    Bind(read, into, symbol);
                     if (node is ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax
                         && symbol is IMethodSymbol { ContainingType: { } created } && IsSource(created))
                         into.Edges.Add(new Key(created.OriginalDefinition, Kind.TypeWhole));
                 }
-
-                if (node is ExpressionSyntax expression)
-                {
-                    var type = model.GetTypeInfo(expression, cancel).Type;
-                    BindType(into, type);
-                    // The application's composition supplies the provider through DISetup's bindings, which no name shows.
-                    if (type is INamedTypeSymbol { Name: "RealComposition" } or INamedTypeSymbol { Name: "DISetup", ContainingNamespace.Name: "HexIDE" })
-                        _composition.Add(tree);
-                }
             }
         }
 
-        private void Bind(Node into, ISymbol symbol)
+        private void Bind(TreeRead read, Node into, ISymbol symbol)
         {
             switch (symbol)
             {
                 case INamespaceSymbol or IAliasSymbol or ILabelSymbol or IDiscardSymbol:
                     return;
                 case ILocalSymbol local:
-                    BindType(into, local.Type);
+                    BindType(read, into, local.Type);
                     return;
                 case IParameterSymbol parameter:
-                    BindType(into, parameter.Type);
+                    BindType(read, into, parameter.Type);
                     return;
                 case IRangeVariableSymbol:
                     return;
                 case ITypeSymbol type:
-                    BindType(into, type);
+                    BindType(read, into, type);
                     return;
             }
 
@@ -363,62 +551,78 @@ internal static class ProviderTestSort
                 if (symbol is IMethodSymbol { MethodKind: MethodKind.LocalFunction or MethodKind.AnonymousFunction })
                     return;
                 into.Edges.Add(new Key(symbol.OriginalDefinition, Kind.Member));
+                // A generic helper's type arguments are named where it's used, not in the helper.
+                if (symbol is IMethodSymbol { IsGenericMethod: true } generic)
+                {
+                    foreach (var argument in generic.TypeArguments)
+                        BindType(read, into, argument);
+                }
+
+                BindType(read, into, symbol.ContainingType);
                 return;
             }
 
-            Mark(into, symbol.ContainingAssembly, symbol.ContainingType?.ToDisplayString() ?? symbol.ToDisplayString());
-            BindType(into, symbol.ContainingType);
+            Mark(read, into, symbol.ContainingAssembly, (ISymbol?)symbol.ContainingType ?? symbol);
+            BindType(read, into, symbol.ContainingType);
             switch (symbol)
             {
                 case IMethodSymbol method:
-                    BindType(into, method.ReturnType);
+                    BindType(read, into, method.ReturnType);
                     foreach (var parameter in method.Parameters)
-                        BindType(into, parameter.Type);
+                        BindType(read, into, parameter.Type);
                     foreach (var argument in method.TypeArguments)
-                        BindType(into, argument);
+                        BindType(read, into, argument);
                     break;
                 case IPropertySymbol property:
-                    BindType(into, property.Type);
+                    BindType(read, into, property.Type);
                     foreach (var parameter in property.Parameters)
-                        BindType(into, parameter.Type);
+                        BindType(read, into, parameter.Type);
                     break;
                 case IFieldSymbol field:
-                    BindType(into, field.Type);
+                    BindType(read, into, field.Type);
                     break;
                 case IEventSymbol @event:
-                    BindType(into, @event.Type);
+                    BindType(read, into, @event.Type);
                     break;
             }
         }
 
-        private void BindType(Node into, ITypeSymbol? type)
+        private void BindType(TreeRead read, Node into, ITypeSymbol? type)
         {
             switch (type)
             {
                 case null or ITypeParameterSymbol or IErrorTypeSymbol:
                     return;
                 case IArrayTypeSymbol array:
-                    BindType(into, array.ElementType);
+                    BindType(read, into, array.ElementType);
                     return;
                 case IPointerTypeSymbol pointer:
-                    BindType(into, pointer.PointedAtType);
+                    BindType(read, into, pointer.PointedAtType);
                     return;
                 case INamedTypeSymbol named:
+                    // The application's composition supplies the provider through DISetup's bindings, which no name shows.
+                    if (named is { Name: "RealComposition" } or { Name: "DISetup", ContainingNamespace.Name: "HexIDE" })
+                        read.Composition = true;
                     if (!IsSource(named))
-                        Mark(into, named.ContainingAssembly, named.OriginalDefinition.ToDisplayString());
+                        Mark(read, into, named.ContainingAssembly, named.OriginalDefinition);
                     foreach (var argument in named.TypeArguments)
-                        BindType(into, argument);
+                        BindType(read, into, argument);
                     return;
             }
         }
 
-        private void Mark(Node into, IAssemblySymbol? assembly, string name)
+        private void Mark(TreeRead read, Node into, IAssemblySymbol? assembly, ISymbol named)
         {
             if (assembly is null || SymbolEqualityComparer.Default.Equals(assembly, compilation.Assembly))
                 return;
             var assemblyName = assembly.Identity.Name;
             if (ProviderAssemblies.Contains(assemblyName))
+            {
+                // Formatting a name is the walk's dearest step, so only the provider's are formatted, and once per file.
+                if (!read.Names.TryGetValue(named, out var name))
+                    read.Names[named] = name = named.ToDisplayString();
                 into.ProviderTypes.Add(name);
+            }
             else if (assemblyName == SharedAssembly)
                 into.Core = true;
             else if (assemblyName.StartsWith("HexIDE", StringComparison.Ordinal))
@@ -501,14 +705,16 @@ public class ProviderTestSortTests
     {
         var project = typeof(ProviderTestSortTests).Assembly.GetName().Name!;
         var cancel = TestContext.Current.CancellationToken;
-        var (sort, unbound) = ProviderTestSort.Of(project, cancel);
-        unbound.Should().BeEmpty("a name the sort can't bind can't be sorted");
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var (sort, errors) = ProviderTestSort.Of(project, cancel);
+        clock.Stop();
+        errors.Should().BeEmpty("the sort trusts a name only in a compilation that builds, as the project does");
 
         var output = Path.Join(ProviderTestSort.Root(), "artifacts", "provider-test-sort");
         Directory.CreateDirectory(output);
         var written = Path.Join(output, project + ".md");
         File.WriteAllText(written, ProviderTestSort.Listing(project, sort));
-        File.WriteAllText(Path.Join(output, project + "-detail.md"), ProviderTestSort.Detail(project, sort));
+        File.WriteAllText(Path.Join(output, project + "-detail.md"), ProviderTestSort.Detail(project, sort, clock.Elapsed));
 
         var listingPath = Path.Join(ProviderTestSort.ProjectFolder(project), ProviderTestSort.ListingName);
         var listed = File.Exists(listingPath)
@@ -527,7 +733,7 @@ public class ProviderTestSortTests
     // Each case is a test file in miniature, sorted against the real assemblies: InterpreterBrackets is the provider's,
     // MainViewViewModel the IDE's, and FormDefinition Core's, though its namespace is HexIDE.Runtime.ProjectElements.
     [Theory]
-    [InlineData("class T { [Fact] public void A() { var f = new HexIDE.Runtime.ProjectElements.FormDefinition(); } }", null)]
+    [InlineData("class T { [Fact] public void A() { HexIDE.Runtime.ProjectElements.FormDefinition? f = null; } }", null)]
     [InlineData("class T { [Fact] public void A() { var b = new HexIDE.Runtime.Interpreter.InterpreterBrackets(); } }", "provider")]
     [InlineData("class T { [Fact] public void A() { var b = new HexIDE.Runtime.Interpreter.InterpreterBrackets(); } " +
                 "[Fact] public void B() { HexIDE.MainViewViewModel? m = null; } }", "split")]
@@ -542,6 +748,8 @@ public class ProviderTestSortTests
                 "[Fact] public void A() { HexIDE.MainViewViewModel? m = null; } }", "split")]
     [InlineData("class T { [Fact] public void A() { var r = Reader(); } " +
                 "static HexIDE.Language.IBracketReader Reader() => new HexIDE.Runtime.Interpreter.InterpreterBrackets(); }", "provider")]
+    [InlineData("class T { [Theory] [InlineData(nameof(Other.Run))] public void A(string name) { } } " +
+                "class Other { public void Run() { var b = new HexIDE.Runtime.Interpreter.InterpreterBrackets(); } }", "provider")]
     public void A_file_is_sorted_by_the_assembly_each_name_it_binds_comes_from(string source, string? expected)
     {
         var cancel = TestContext.Current.CancellationToken;
@@ -551,8 +759,9 @@ public class ProviderTestSortTests
         var compilation = CSharpCompilation.Create("Case", [tree, usings], ProviderTestSort.References.Value,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        var sort = ProviderTestSort.Sort(compilation, [tree], folder, cancel);
+        var (sort, errors) = ProviderTestSort.Sort(compilation, [tree], folder, cancel);
 
+        errors.Should().BeEmpty();
         var labels = sort.Select(file => file.Label).ToList();
         labels.Should().Equal(expected is null ? [] : [expected]);
     }
