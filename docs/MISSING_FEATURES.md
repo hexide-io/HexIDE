@@ -595,7 +595,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Watch types (Break When Value Is/Changes) | Done | The Add Watch dialog's three watch types; Break-When-True (level-triggered) / Break-When-Changed (edge-triggered) evaluated at the pause-gate — native debugger P6b |
 | Call Stack window | Done (Phase 5) | Dockable pane; running activation chain (Module.Procedure + Line) from `IDebugController.GetCallStack()`, current frame arrowed; selecting a caller opens its calling statement with a green gutter triangle; MCP `get_call_stack` |
 | Project Group (.vbg) | Done | Full round-trip: open/save `.vbg`; Project Explorer shows group root node; `StartupProject=` preserved |
-| Multiple projects open simultaneously | Done | Opening a `.vbg` loads all member projects; group root shown in Project Explorer |
+| Multiple projects open simultaneously | Done | Opening a `.vbg` loads all member projects; group root shown in Project Explorer. Project commands and the window title follow the active form, module, class, UserControl or PropertyPage code window’s project (#3715) |
 
 ---
 
