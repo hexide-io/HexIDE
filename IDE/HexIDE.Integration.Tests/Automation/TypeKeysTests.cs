@@ -92,6 +92,37 @@ public class TypeKeysTests : IDisposable
         + "Attribute Total.VB_UserMemId = 0\r\n    Total = 1\r\nEnd Function\r\n";
 
     [AvaloniaFact]
+    public void TypingOverTwoMembersRunsNamesThemTogether()
+    {
+        var editor = Show("Public Sub A()\r\nAttribute A.VB_Description = \"a\"\r\nEnd Sub\r\n"
+            + "Public Sub B()\r\nAttribute B.VB_Description = \"b\"\r\nEnd Sub\r\n");
+        var start = editor.Text.IndexOf("Attribute A", StringComparison.Ordinal);
+        var end = editor.Text.LastIndexOf("End Sub", StringComparison.Ordinal);
+        editor.Select(start, end - start);
+        var before = editor.Text;
+
+        var result = UiAutomationDriver.PressKey(editor, "Enter", null);
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain("the Attribute lines describing A and B, which only the IDE changes");
+        editor.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void PartialSelectionReachingHeaderAndMemberNamesOnlyTheHeader()
+    {
+        var editor = Show(WithRun);
+        var end = editor.Text.IndexOf("    Total = 1", StringComparison.Ordinal) + 4;
+        editor.Select(3, end - 3);
+
+        var result = UiAutomationDriver.TypeText(editor, "x");
+
+        result.Success.Should().BeTrue(result.Error);
+        result.Detail.Should().Contain("in the document's header (its designer block, class header or leading Attribute lines), which only the IDE changes")
+            .And.NotContain("describing Total");
+    }
+
+    [AvaloniaFact]
     public void Delete1055_Partial_run_selection_deletes_code_and_names_what_stays()
     {
         var editor = Show(WithRun);
@@ -125,7 +156,7 @@ public class TypeKeysTests : IDisposable
 
         result.Success.Should().BeTrue(result.Error);
         editor.Text.Should().Be(before.Remove(code, end - code));
-        result.Detail.Should().Contain("deleted 6 char(s)").And.Contain("the file's header")
+        result.Detail.Should().Contain("deleted 6 char(s)").And.Contain("the document's header (its designer block, class header or leading Attribute lines)")
             .And.Contain("which only the IDE changes").And.Contain($"caret is now at offset {editor.CaretOffset}")
             .And.Contain("no selection remains");
         editor.SelectionLength.Should().Be(0);
@@ -171,7 +202,7 @@ public class TypeKeysTests : IDisposable
             editor.Text.Should().Be(person.Text);
             editor.CaretOffset.Should().Be(person.CaretOffset);
             editor.SelectionLength.Should().Be(person.SelectionLength).And.Be(0);
-            typed.Detail.Should().Contain(header ? "the file's header" : "the Attribute lines describing Total");
+            typed.Detail.Should().Contain(header ? "the document's header (its designer block, class header or leading Attribute lines)" : "the Attribute lines describing Total");
 
             var keyboard = Show(WithRun);
             keyboard.Select(start, end - start);
@@ -214,7 +245,7 @@ public class TypeKeysTests : IDisposable
         var refused = UiAutomationDriver.PressKey(editor, "Delete", null);
 
         refused.Success.Should().BeFalse();
-        refused.Error.Should().Contain("is in the file's header, which only the IDE changes")
+        refused.Error.Should().Contain("is in the document's header (its designer block, class header or leading Attribute lines), which only the IDE changes")
             .And.NotContain("or a member");
         editor.Text.Should().Be(before);
     }

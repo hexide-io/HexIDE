@@ -2057,32 +2057,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         return null;
     }
 
-    /// <summary>
-    /// What a refused edit would change, as its refusal says it: the header, or the attribute lines of each member
-    /// whose run it reaches, named as a refused replacement names them (#273 task 4.5b).
-    /// </summary>
-    /// <remarks>
-    /// The header is named when the edit reaches it at all, as it always was; an edit reaching only members' runs
-    /// names those members, where it used to say "the header or a member's Attribute lines" and leave the caller to
-    /// work out which.
-    /// </remarks>
-    private string WhatAnEditChanges(IReadOnlyList<TextRegion> regions, TextChange edit)
-    {
-        var members = new List<string>();
-        foreach (var region in regions)
-        {
-            if (!region.Changes(edit.Offset, edit.Length))
-                continue;
-            if (MemberNamedBy(region) is not { } member)
-                return "the document's header (its designer block, class header or leading Attribute lines)";
-            members.Add(member);
-        }
-        return "the Attribute lines describing " + (members.Count == 1
-            ? members[0]
-            : string.Join(", ", members.GetRange(0, members.Count - 1)) + " and " + members[^1]);
-    }
+    private string WhatAnEditChanges(IReadOnlyList<TextRegion> regions, TextChange edit) =>
+        DescribeRegions(regions.Where(r => r.Changes(edit.Offset, edit.Length)).ToList());
 
-    /// <summary>The shared member name used by guarded edits and automation refusals.</summary>
+    /// <summary>The format's phrase for the regions reached by an edit or caret.</summary>
+    internal string DescribeRegions(IReadOnlyList<TextRegion> regions) =>
+        (regions.Count == 0 ? null : regionRules?.DescribeRegions(Document.Text, bufferPrefix.Length, regions))
+        ?? "read-only text";
+
+    /// <summary>The member name used to choose automation's deletion advice.</summary>
     internal string? MemberNamedBy(TextRegion region) =>
         regionRules?.MemberNamedBy(Document.Text, bufferPrefix.Length, region);
 

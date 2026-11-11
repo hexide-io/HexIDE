@@ -23,6 +23,8 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
 
     private sealed class Rules : IReadOnlyRegionRules
     {
+        public string? DescribeRegions(string text, int prefixLength, IReadOnlyList<TextRegion> regions) =>
+            "the second heading";
         public bool RefuseRename { get; set; } = true;
         public ContentReplacement Replace(string current, int prefixLength, string incoming) =>
             new(null, "Keep the notes intact.", false);
@@ -54,11 +56,35 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void RegionEditUsesTheRulesMemberName()
+    public void RegionEditUsesTheRulesDescription()
     {
         var vm = NewEditor(new FixedLines((2, 2)), rules: new Rules()).Initialize(Notes());
         vm.ApplyEdits([new TextChange(At(vm, "beta"), 1, "B")]).Should().Be(
-            "The edit at line 2, column 1 would change the Attribute lines describing the second heading, which only the IDE changes. Nothing was changed.");
+            "The edit at line 2, column 1 would change the second heading, which only the IDE changes. Nothing was changed.");
+        vm.Document.Text.Should().Be(Text);
+    }
+
+    [AvaloniaFact]
+    public void EmptyRegionsUseReadOnlyTextWithoutAskingTheRules()
+    {
+        var rules = Substitute.For<IReadOnlyRegionRules>();
+        rules.DescribeRegions(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<IReadOnlyList<TextRegion>>())
+            .Returns("the second heading");
+        var vm = NewEditor(null, rules: rules).Initialize(Notes());
+
+        vm.DescribeRegions([]).Should().Be("read-only text");
+
+        rules.DidNotReceive().DescribeRegions(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<IReadOnlyList<TextRegion>>());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RegionEditWithoutWordsUsesReadOnlyText(bool defaults)
+    {
+        var vm = NewEditor(new FixedLines((2, 2)), rules: defaults ? new NoRules() : null).Initialize(Notes());
+        vm.ApplyEdits([new TextChange(At(vm, "beta"), 1, "B")]).Should().Be(
+            "The edit at line 2, column 1 would change read-only text, which only the IDE changes. Nothing was changed.");
         vm.Document.Text.Should().Be(Text);
     }
 

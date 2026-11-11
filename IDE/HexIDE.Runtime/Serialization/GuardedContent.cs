@@ -100,6 +100,21 @@ public static class GuardedContent
         return null;
     }
 
+    /// <summary>The header alone when reached, otherwise the members whose attribute lines are reached.</summary>
+    public static string DescribeRegions(string text, int prefixLength, IReadOnlyList<TextRegion> regions)
+    {
+        var members = new List<string>();
+        foreach (var region in regions)
+        {
+            if (MemberNamedBy(text, prefixLength, region) is not { } member)
+                return "the document's header (its designer block, class header or leading Attribute lines)";
+            members.Add(member);
+        }
+        return "the Attribute lines describing " + (members.Count == 1
+            ? members[0]
+            : string.Join(", ", members.GetRange(0, members.Count - 1)) + " and " + members[^1]);
+    }
+
     /// <summary>
     /// Member findings for the text a set of range edits would leave, or null when it preserves the runs.
     /// The caller supplies range-edit wording around the findings; the header must already have been checked.

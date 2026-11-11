@@ -19,6 +19,29 @@ public class ProjectPropertiesViewIntegrationTests
     /// rules have their own, in <c>ProjectNameRefusalTests</c>.
     /// </summary>
     private static string? NoNameObjection(string _) => null;
+    [AvaloniaFact]
+    public void GeneralPropertiesOnly_DisablesTheVb6Fields()
+    {
+        var vm = new ProjectPropertiesViewModel(new ProjectDefinition(VBProjectType.EXE, "Ledger"),
+            NoNameObjection, generalPropertiesOnly: true);
+        var view = new ProjectPropertiesView { DataContext = vm };
+        var window = new Window { Content = view, Width = 500, Height = 500 };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var controls = view.GetLogicalDescendants().OfType<Control>().Distinct().ToArray();
+            controls.OfType<ComboBox>().Where(c => c.ItemsSource == vm.ProjectTypes || c.ItemsSource == vm.StartupObjects)
+                .Should().HaveCount(2).And.OnlyContain(c => !c.IsEffectivelyEnabled);
+            controls.OfType<TextBox>().Where(t => t.Text == vm.ProjectName || t.Text == vm.ProjectDescription)
+                .Should().HaveCount(2).And.OnlyContain(t => t.IsEffectivelyEnabled);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]

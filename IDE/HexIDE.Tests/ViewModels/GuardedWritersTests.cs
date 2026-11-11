@@ -666,6 +666,23 @@ public class GuardedWritersTests : IDisposable
         vm.Document.Text.Should().Be(before);
     }
 
+    [AvaloniaTheory]
+    [InlineData(2, "A and B")]
+    [InlineData(3, "A, B and C")]
+    public void AnEditReachingSeveralMembersNamesThemTogether(int count, string names)
+    {
+        var vm = OpenClass();
+        vm.Document.Text = string.Concat(new[] { "A", "B", "C" }.Take(count).Select(name =>
+            $"Public Sub {name}()\r\nAttribute {name}.VB_Description = \"x\"\r\nEnd Sub\r\n"));
+        var before = vm.Document.Text;
+        var start = before.IndexOf("Attribute", StringComparison.Ordinal);
+        var end = before.LastIndexOf("End Sub", StringComparison.Ordinal);
+
+        vm.ApplyEdits([new TextChange(start, end - start, "")]).Should().Be(
+            $"The edit at line 2, column 1 would change the Attribute lines describing {names}, which only the IDE changes. Nothing was changed.");
+        vm.Document.Text.Should().Be(before);
+    }
+
     [AvaloniaFact]
     public void AnEditInsideAMembersAttributeLineIsRefused()
     {

@@ -2,19 +2,20 @@ using HexIDE.Language;
 
 namespace HexIDE.Projects;
 
-/// <summary>The member qualifiers changed by one save, for the caller's successful reply.</summary>
+/// <summary>The changes one save reports to the caller in its successful reply.</summary>
 public sealed class SaveRewriteReport
 {
     private readonly List<string> notes = [];
 
     public string Note => string.Concat(notes);
 
-    internal void Record(string whole, IReadOnlyList<TextChange> changes)
+    internal void Record(string whole, IReadOnlyList<TextChange> changes, IReadOnlyRegionWriter writer)
     {
         foreach (var change in changes)
         {
-            var oldName = whole.Substring(change.Offset, change.Length);
-            var note = $" The save wrote {change.Text}'s Attribute lines with its name (they said {oldName}), as VB6's own Save does.";
+            if (writer.DescribeSaveRewrite(whole, change) is not { } sentence)
+                continue;
+            var note = " " + sentence;
             if (!notes.Contains(note))
                 notes.Add(note);
         }

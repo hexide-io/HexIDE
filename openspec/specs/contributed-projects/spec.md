@@ -122,8 +122,10 @@ Within a wider Save Project As, a contributed project SHALL be saved in place an
 project whose own project file was written named. No member SHALL be written at that path, whichever route names it.
 
 Adding and removing members SHALL be offered only where the type's writer carries members. References SHALL be offered only
-where the writer carries references. Project Properties and Components SHALL NOT be offered. Whatever isn't offered SHALL
-be refused with a reason from any other route, automation and crash recovery included.
+where the writer carries references. Project Properties SHALL offer name and description only where the writer carries
+properties; Project Type and startup object SHALL be disabled and left unchanged when the dialog is applied. Components
+SHALL NOT be offered. Whatever isn't offered SHALL be refused with a reason naming only the refused dialog's settings
+from any other route, automation and crash recovery included.
 
 A writer that throws SHALL end a save before any file is written, and the user SHALL be told which project and which
 add-in, with what the add-in said. Elsewhere the IDE SHALL keep the last answer and the last crash-recovery copy the writer
@@ -149,6 +151,12 @@ or otherwise.
 - **WHEN** the type's writer carries references, and the user changes References and saves
 - **THEN** the project file includes those references as its writer renders them
 - **AND** a writer without references leaves References refused with a reason
+
+#### Scenario: Properties carried by the writer
+- **WHEN** the type's writer carries properties, and the user changes the project's name or description and saves
+- **THEN** the project file includes those properties as its writer renders them
+- **AND** Project Type and startup object are disabled, and applying the dialog leaves both unchanged
+- **AND** a writer without properties leaves Project Properties refused with a reason about properties alone
 
 #### Scenario: Save Project As with contributed projects
 - **WHEN** only contributed projects are loaded

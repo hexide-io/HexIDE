@@ -202,8 +202,9 @@ public sealed class ContributedProjectTests : IDisposable
         await _service.EditProjectComponents(project);
 
         await _windows.DidNotReceive().ShowDialog(Arg.Any<IDialog>());
-        await _windows.Received(3).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.SettingsReadOnly Ledger RDCore for HexIDE"),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+        foreach (var dialog in new[] { "Properties", "References", "Components" })
+            await _windows.Received(1).MessageBox(Arg.Is<string>(text => text == $"Str.ContributedProject.{dialog}ReadOnly Ledger RDCore for HexIDE"),
+                Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 
     [AvaloniaFact]

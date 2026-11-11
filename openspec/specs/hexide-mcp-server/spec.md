@@ -644,7 +644,8 @@ When the whole window refuses typing, the note SHALL say so. A caret where `type
 
 #### Scenario: A line inside a form's header
 - **WHEN** `open_file` opens Form1 of a new project at line 16, inside its header
-- **THEN** the note says the caret is in the file's header, which only the IDE changes, and names line 18, column 1,
+- **THEN** the note says the caret is in the document's header (its designer block, class header or leading Attribute lines),
+  which only the IDE changes, and names line 18, column 1,
   offset 485, as the nearest place that can be edited
 
 ### Requirement: A tool that names a document SHALL name its project, and count lines from the top of the file

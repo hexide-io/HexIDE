@@ -15,6 +15,12 @@ public interface IReadOnlyRegionWriter
     IReadOnlyList<TextChange> SaveRewrites(string text, int prefixLength) => [];
 
     /// <summary>
+    /// A complete sentence reporting one change a save made, or null when nothing should be said. The change's
+    /// offsets index into <paramref name="text"/>, the whole text that <see cref="SaveRewrites"/> read.
+    /// </summary>
+    string? DescribeSaveRewrite(string text, TextChange change) => null;
+
+    /// <summary>
     /// The change that makes the code after <paramref name="prefixLength"/> name its document <paramref name="name"/>;
     /// null when it already does, or names nothing. Offsets are into <paramref name="text"/>. VB6 compares the name
     /// by value, so a line spaced differently from how VB6 writes it isn't rewritten.

@@ -361,7 +361,7 @@ public class CaretPlacementTests : IDisposable
         var past = vm.PastReadOnlyRegion(vm.CaretOffset);
         var to = vm.Document.GetLocation(past);
         CaretPlacement.Where(vm, 2, 1).Should().Be($"The caret is at line 2, column 1: offset {vm.CaretOffset} in the text "
-            + "get_file_content returns. That is in the file's header, which only the IDE changes, so type_text there would "
+            + "get_file_content returns. That is in the document's header (its designer block, class header or leading Attribute lines), which only the IDE changes, so type_text there would "
             + $"be refused. The nearest place that can be edited is line {to.Line}, column {to.Column}: offset {past}.");
         vm.IsReadOnlyRegion(past, 0).Should().BeFalse("the place it names is one type_text writes at");
     }
