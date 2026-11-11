@@ -7,7 +7,7 @@ using Avalonia.VisualTree;
 using HexIDE.Runtime.BuiltinControls;
 using static HexIDE.Integration.Tests.Views.ContainerRuntimeHarness;
 
-namespace HexIDE.Integration.Tests.Controls;
+namespace HexIDE.Runtime.Integration.Tests.Controls;
 
 /// <summary>
 /// A caption's access key, drawn as vb6.exe draws it (#920). HexIDE turned every <c>&amp;</c> into Avalonia's <c>_</c>, so

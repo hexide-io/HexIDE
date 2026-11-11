@@ -18,8 +18,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Addins/AddinInitializationTests.cs` | split |
 | `Addins/AddinWholeFileTests.cs` | split |
 | `Components/PropertyTextTests.cs` | split |
-| `ControlPropertyCoercionTests.cs` | provider |
-| `Controls/VBCheckBoxTests.cs` | provider |
 | `Controls/Vb6FoldingAdapterTests.cs` | split |
 | `Corpus/ProjectCorpusSmokeTests.cs` | split |
 | `Corpus/ProjectSmokeHarness.cs` | provider |
@@ -33,7 +31,6 @@ A test that reaches the provider only at run time, through the application's com
 | `DebugAdapter/RunEngineSeamTests.cs` | split |
 | `DebugAdapter/RunWithTests.cs` | split |
 | `Debugging/BreakpointServiceTests.cs` | split |
-| `Debugging/ControlLocalsTests.cs` | provider |
 | `IDE/DirtyDetectorTests.cs` | split |
 | `IDE/DocumentContentTests.cs` | split |
 | `IDE/EditorServiceNavigationTests.cs` | split |

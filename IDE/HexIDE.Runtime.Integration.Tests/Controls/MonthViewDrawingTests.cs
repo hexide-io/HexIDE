@@ -8,7 +8,7 @@ using Avalonia.Media.Imaging;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.BuiltinControls;
 
-namespace HexIDE.Integration.Tests.Controls;
+namespace HexIDE.Runtime.Integration.Tests.Controls;
 
 public class MonthViewDrawingTests
 {

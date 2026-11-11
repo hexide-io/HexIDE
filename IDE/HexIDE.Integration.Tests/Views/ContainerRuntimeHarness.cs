@@ -102,25 +102,20 @@ internal static class ContainerRuntimeHarness
     }
 
     /// <summary>
-    /// Gives a test window the same resource dictionaries the application gives itself.
+    /// Gives a test window the same resource dictionaries the application gives itself: the IDE's set in
+    /// HexIDE.Integration.Tests, and only what the Standalone runner loads in HexIDE.Runtime.Integration.Tests (#3663).
     ///
-    /// Both halves matter. VBFrame and VBPictureBox have ControlThemes of their own, so without
-    /// HexIDE.Runtime's dictionary they get no template, no presenter and no realised children. And without
-    /// the IDE's own Classic theme these tests render against a set of dictionaries NO USER EVER SEES, so a
-    /// defect that appears only under the real set passes here — which is not hypothetical: Classic.axaml
-    /// carries an implicit ControlTheme for Separator that turns a menu separator into a two-pixel dot, and
-    /// the menu tests were green through two rounds of fixing it.
+    /// Both matter. VBFrame and VBPictureBox have ControlThemes of their own, so without HexIDE.Runtime's
+    /// dictionary they get no template, no presenter and no realised children. And a window drawn against any
+    /// other set renders against dictionaries NO USER EVER SEES, so a defect that appears only under the real set
+    /// passes here — which is not hypothetical: Classic.axaml carries an implicit ControlTheme for Separator that
+    /// turns a menu separator into a two-pixel dot, and the menu tests were green through two rounds of fixing it.
     /// </summary>
     internal static void MergeAppResources(Window window)
     {
-        foreach (var source in new[]
-                 {
-                     "avares://HexIDE.Runtime/BuiltinControls/Resources.axaml",
-                     "avares://HexIDE/Themes/Classic.axaml",
-                 })
+        foreach (var dictionary in Application.Current!.Resources.MergedDictionaries.OfType<ResourceInclude>().ToList())
         {
-            window.Resources.MergedDictionaries.Add(
-                new ResourceInclude(new Uri("avares://HexIDE.Integration.Tests/")) { Source = new Uri(source) });
+            window.Resources.MergedDictionaries.Add(new ResourceInclude(dictionary.Source!) { Source = dictionary.Source });
         }
 
         // No stubbed SystemColors brushes. They used to be invented here, and inventing them is how a rule

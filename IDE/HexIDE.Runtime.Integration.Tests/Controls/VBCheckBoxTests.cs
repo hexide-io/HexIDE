@@ -1,7 +1,7 @@
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
 
-namespace HexIDE.Tests.Controls;
+namespace HexIDE.Runtime.Integration.Tests.Controls;
 
 /// <summary>
 /// Regression for the adversarial bug-hunt MED: a user click updated the checkbox's IsChecked but left the VB6
