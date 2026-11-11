@@ -46,6 +46,26 @@ public class ProjectToolViewModelTests
     }
 
     [Fact]
+    public void GroupAccessibleName_UsesTheLocalizedDisplayNameAndFollowsRename()
+    {
+        var group = new ProjectGroupDefinition("Group1");
+        projectManager.CurrentGroup.Returns(group);
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Tool.Project.TitleGroup").Returns("Projektgruppe - {0}");
+        var vm = new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, localization);
+        var root = vm.RootItems.Should().ContainSingle().Which.Should().BeOfType<ProjectGroupViewModel>().Subject;
+        var node = root.Should().BeAssignableTo<IProjectTreeElement>().Subject;
+        node.AccessibleName.Should().Be(root.DisplayName).And.Be("Projektgruppe - Group1");
+        var notifications = new List<string?>();
+        node.PropertyChanged += (_, e) => notifications.Add(e.PropertyName);
+
+        group.Name = "Renamed";
+
+        notifications.Should().Contain(nameof(IProjectTreeElement.AccessibleName));
+        node.AccessibleName.Should().Be(root.DisplayName).And.Be("Projektgruppe - Renamed");
+    }
+
+    [Fact]
     public void GroupRename_NotifiesTheExistingRootNode()
     {
         var group = new ProjectGroupDefinition("Group1");

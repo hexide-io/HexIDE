@@ -594,7 +594,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Breakpoint condition / hit count | Partial | VB6's watch-based conditional break shipped (Break-When-True/Changed watches evaluated at the pause-gate — P6b). Condition… in the gutter edits per-line expressions, with distinct glyphs/tooltips and `.user.hexproj` persistence, including header shifts and removal (#2914). Capable DAP adapters receive conditions; incapable adapters stop unconditionally with a once-per-session notice. Interpreter runs evaluate conditions in the executing frame, skip false results and stop with Immediate output on errors (#3005). Hit counts remain deferred |
 | Watch types (Break When Value Is/Changes) | Done | The Add Watch dialog's three watch types; Break-When-True (level-triggered) / Break-When-Changed (edge-triggered) evaluated at the pause-gate — native debugger P6b |
 | Call Stack window | Done (Phase 5) | Dockable pane; running activation chain (Module.Procedure + Line) from `IDebugController.GetCallStack()`, current frame arrowed; selecting a caller opens its calling statement with a green gutter triangle; MCP `get_call_stack` |
-| Project Group (.vbg) | Done | Full round-trip: open/save `.vbg`; Project Explorer shows group root node; `StartupProject=` preserved |
+| Project Group (.vbg) | Done | Full round-trip: open/save `.vbg`; Project Explorer shows group root node with a localized accessible name that follows renames (#3735); `StartupProject=` preserved |
 | Multiple projects open simultaneously | Done | Opening a `.vbg` loads all member projects; group root shown in Project Explorer. Project commands and the window title follow the active form, module, class, UserControl or PropertyPage code window’s project (#3715) |
 
 ---
