@@ -649,8 +649,7 @@ public sealed class ContributedFormTests : IDisposable
 
         _format.Reads.Single().Companion.Should().BeNull();
         saved.Should().BeFalse();
-        File.ReadAllText(FormFile).Should().Be("Main
-first");
+        File.ReadAllText(FormFile).Should().Be("Main\nfirst");
     }
 
     [AvaloniaFact]
@@ -660,8 +659,7 @@ first");
         var form = await OpenedForm();
         type.Dispose();
 
-        _service.RecoveredMatches(form, new UnsavedFile("Main.sform", "Main
-first")).Should().BeFalse(
+        _service.RecoveredMatches(form, new UnsavedFile("Main.sform", "Main\nfirst")).Should().BeFalse(
             "nothing can say the copy matches, so it's offered");
     }
 
