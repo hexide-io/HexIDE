@@ -94,10 +94,11 @@ public static class Vb6FoldingAdapter
     }
 
     /// <summary>
-    /// The fold of each run in <paramref name="runs"/> that describes a member, in order: from the end of the line
-    /// it describes to the end of its last line (hexide-io/HexIDE#273 task 4.3). An orphan has none.
+    /// The fold of each region in <paramref name="runs"/>, in order: from the end of the line it hangs from to the end
+    /// of its last line (hexide-io/HexIDE#273 task 4.3). For a VB6 file these are its members' attribute runs, and an
+    /// orphaned run, which hangs from nothing, is not among them.
     /// </summary>
-    /// <param name="runs">A buffer's attribute runs; see <see cref="ReadOnlyRegions.MemberRuns"/>.</param>
+    /// <param name="runs">A buffer's regions that hang from a line; see <see cref="IReadOnlyRegionReader.HangingRegions"/>.</param>
     /// <remarks>
     /// <para>
     /// <b>The fold starts at the run's anchor, part-way along a line</b>, because folded, the run is hidden the way
@@ -119,14 +120,14 @@ public static class Vb6FoldingAdapter
     /// never meet: the line above a run is never an attribute line, or the two would be one run.
     /// </para>
     /// </remarks>
-    public static List<NewFolding> MemberRuns(IReadOnlyList<MemberRun> runs)
+    public static List<NewFolding> HangingRegions(IReadOnlyList<HangingRegion> runs)
     {
         var folds = new List<NewFolding>();
         foreach (var run in runs)
         {
             // The length is defensive (#273 task 4.3 review): a run that describes a member ends on a line that holds
             // `Attribute`, so its fold is never empty, and Merge drops an empty fold anyway.
-            if (run.DescribesMember && run.LastContentEnd > run.Anchor)
+            if (run.LastContentEnd > run.Anchor)
                 folds.Add(new NewFolding(run.Anchor, run.LastContentEnd));
         }
         return folds;
