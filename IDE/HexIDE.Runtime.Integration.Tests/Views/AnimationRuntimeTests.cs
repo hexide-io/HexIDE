@@ -6,8 +6,9 @@ using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Integration.Tests.Views;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class AnimationRuntimeTests
 {

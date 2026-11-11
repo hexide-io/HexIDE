@@ -6,8 +6,10 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using HexIDE.Runtime;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Integration.Tests;
+using HexIDE.Integration.Tests.Views;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A ListBox's Click when code sets ListIndex (#1374). Every expectation is vb6.exe's, native and p-code agreeing (the

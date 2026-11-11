@@ -8,8 +8,9 @@ using HexIDE.Runtime;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
+using HexIDE.Integration.Tests;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A control-array element named through its form, <c>Form1.Text1(0).Text</c>, from another form's code (#1386). The forms
