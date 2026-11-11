@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using HexIDE.IDE;
 using Microsoft.Extensions.Logging;
@@ -73,6 +74,12 @@ public sealed class LanguageServerEditorStore(
         return text;
     }
 
+    /// <summary>
+    /// Writes text as it was typed. The file is the user's to read, not a web page, so only what JSON itself requires is
+    /// escaped: the default encoder would write "café" as "café" and "C++" as "C++".
+    /// </summary>
+    public static readonly JsonSerializerOptions AsTyped = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
     private static string AddEntry(string text, Node servers, string added)
     {
         static string IndentAt(string source, int position)
@@ -95,6 +102,7 @@ public sealed class LanguageServerEditorStore(
         using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions
         {
             Indented = true, IndentCharacter = unit[0], IndentSize = unit.Length, NewLine = newline,
+            Encoder = AsTyped.Encoder,
         }))
             document.RootElement.WriteTo(writer);
         var formatted = Encoding.UTF8.GetString(stream.ToArray()).Replace(newline, newline + entryIndent, StringComparison.Ordinal);
@@ -142,7 +150,7 @@ public sealed class LanguageServerEditorStore(
     }
 
     private static string Insert(string text, Node root, string name, string value) =>
-        text.Insert(root.Start + 1, JsonSerializer.Serialize(name) + ":" + value + (root.Properties.Count > 0 ? "," : ""));
+        text.Insert(root.Start + 1, JsonSerializer.Serialize(name, AsTyped) + ":" + value + (root.Properties.Count > 0 ? "," : ""));
 
     private sealed class Node
     {

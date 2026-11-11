@@ -107,7 +107,7 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
             {
                 if (field.Text == field.Original) continue;
                 var literal = string.IsNullOrWhiteSpace(field.Text) ? "null"
-                    : field.IsJson ? field.Text : JsonSerializer.Serialize(field.Text);
+                    : field.IsJson ? field.Text : JsonSerializer.Serialize(field.Text, LanguageServerEditorStore.AsTyped);
                 try
                 {
                     using var parsed = LanguageServerEditorStore.Parse(literal);
@@ -126,7 +126,7 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
                 Problems = _localization.GetString("Str.Tool.LanguageServers.Editor.DuplicateId");
                 return;
             }
-            if (_customise) changes["id"] = JsonSerializer.Serialize(_id);
+            if (_customise) changes["id"] = JsonSerializer.Serialize(_id, LanguageServerEditorStore.AsTyped);
             _updated = _store.Change(_original, _customise ? null : _id, changes);
             var result = _store.Preview(_updated);
             Problems = FormatProblems(result.Problems.Where(p => p.EntryId is null || p.EntryId == id));

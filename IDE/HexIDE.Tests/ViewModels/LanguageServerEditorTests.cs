@@ -176,6 +176,30 @@ public sealed class LanguageServerEditorTests : IDisposable
     }
 
     [Fact]
+    public void AddAndEditWriteTextAsTyped()
+    {
+        var form = Form();
+        Set(form, "id", "typed");
+        Set(form, "extensions", """[".x"]""");
+        Set(form, "languageId", "x");
+        Set(form, "transport", "stdio");
+        Set(form, "command", "server");
+        Set(form, "displayName", "C++ <check> & café");
+        Set(form, "environment", """{"PATH_EXTRA": "a&b <c> + café"}""");
+        form.CanSave.Should().BeTrue(form.Problems);
+        form.SaveCommand.Execute(null);
+        var saved = File.ReadAllText(Config);
+        saved.Should().Contain("\"C++ <check> & café\"").And.Contain("\"a&b <c> + café\"").And.NotContain(@"\u");
+
+        var edit = Form("typed");
+        edit.Fields.Single(f => f.Name == "environment").Text.Should().Contain("a&b <c> + café");
+        Set(edit, "workingDirectory", "C:/Projets/été");
+        edit.CanSave.Should().BeTrue(edit.Problems);
+        edit.SaveCommand.Execute(null);
+        File.ReadAllText(Config).Should().Contain("\"C:/Projets/été\"").And.NotContain(@"\u");
+    }
+
+    [Fact]
     public void TcpRoleIsEditableValidatedAndSaved()
     {
         var form = Form();
