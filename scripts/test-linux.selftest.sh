@@ -29,13 +29,23 @@ check() {
         echo "ok: $*"
     fi
 }
-for pair in 'IDE/HexIDE.Runtime.Tests RUNTIME' 'IDE/HexIDE.Tests IDE' \
-            'IDE/HexIDE.Integration.Tests INTEGRATION' 'LspServer/HexIDE.VbLspServer.Tests LSP_SERVER' \
-            'IDE/HexIDE.TwinBasic.Tests TWINBASIC'; do
+pairs=('IDE/HexIDE.Runtime.Tests RUNTIME' 'IDE/HexIDE.Tests IDE'
+       'IDE/HexIDE.Integration.Tests INTEGRATION' 'IDE/HexIDE.Runtime.Integration.Tests RUNTIME_INTEGRATION'
+       'LspServer/HexIDE.VbLspServer.Tests LSP_SERVER' 'IDE/HexIDE.TwinBasic.Tests TWINBASIC')
+for pair in "${pairs[@]}"; do
     read -r project key <<< "$pair"
     floor=$(sed -n "s/^  MIN_TESTS_${key}: *\([0-9]*\).*/\1/p" .github/workflows/build.yml)
     check "<--><--minimum-expected-tests><$floor>" "$project"
 done
+# A suite given a floor in build.yml but not listed above would go unchecked here, and the runner could refuse it
+# while CI runs it (#3663).
+floors=$(sed -n 's/^  MIN_TESTS_\([A-Z_]*\):.*/\1/p' .github/workflows/build.yml | sort | paste -sd ' ' -)
+listed=$(for pair in "${pairs[@]}"; do echo "${pair#* }"; done | sort | paste -sd ' ' -)
+if [ "$floors" != "$listed" ]; then
+    echo "FAIL: build.yml has floors for $floors but this test checks $listed"; fail=$((fail + 1))
+else
+    echo 'ok: every floor in build.yml is checked'
+fi
 check '<--no-build><--><--minimum-expected-tests><1><--filter-class><*ExampleTests>' \
     IDE/HexIDE.Tests --no-build -- --filter-class '*ExampleTests'
 check '<--><--minimum-expected-tests><1><--filter-not-method><*Example>' \

@@ -41,6 +41,7 @@ add_test_floor() {
         IDE/HexIDE.Runtime.Tests) key=RUNTIME ;;
         IDE/HexIDE.Tests) key=IDE ;;
         IDE/HexIDE.Integration.Tests) key=INTEGRATION ;;
+        IDE/HexIDE.Runtime.Integration.Tests) key=RUNTIME_INTEGRATION ;;
         IDE/HexIDE.TwinBasic.Tests) key=TWINBASIC ;;
         LspServer/HexIDE.VbLspServer.Tests) key=LSP_SERVER ;;
         *) echo "test-linux.sh: no CI test floor for $project" >&2; return 2 ;;
