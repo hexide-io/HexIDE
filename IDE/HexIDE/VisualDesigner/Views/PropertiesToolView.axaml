@@ -117,9 +117,7 @@
             </Border>
         </DataTemplate>
     </UserControl.Resources>
-    <!-- Inset 4 DIP so a high-contrast focus ring keeps its outer pixels at a docked pane's edge, with the selector and the
-         filter lined up (#3659). -->
-    <Grid Margin="4">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -127,7 +125,9 @@
             <RowDefinition Height="2" />
             <RowDefinition Height="80" />
         </Grid.RowDefinitions>
-        <ComboBox x:Name="ObjectSelector" Margin="0,0,0,4"
+        <!-- The selector and the filter sit 4 DIP in, lined up, so a high-contrast focus ring keeps its outer pixels at a docked
+             pane's edge (#3659). The tabs and rows below draw focus inside, so they keep the pane's full width. -->
+        <ComboBox x:Name="ObjectSelector" Margin="4"
                   SelectedItem="{CompiledBinding SelectedComponentProxy}"
                   ItemsSource="{CompiledBinding ComponentsProxy}">
             <ComboBox.ItemTemplate>
@@ -139,7 +139,7 @@
                 </DataTemplate>
             </ComboBox.ItemTemplate>
         </ComboBox>
-        <TextBox Grid.Row="1" Name="PropertyFilter" Margin="0,0,0,4"
+        <TextBox Grid.Row="1" Name="PropertyFilter" Margin="4,0,4,4"
                  Text="{CompiledBinding FilterText, Mode=TwoWay}"
                  PlaceholderText="{DynamicResource Str.Tool.Properties.Filter}"
                  AutomationProperties.Name="{DynamicResource Str.Tool.Properties.Filter}" />

@@ -133,6 +133,25 @@ public class FocusRingSpacingTests
         finally { window.Close(); themes.Apply("Classic"); }
     }
 
+    [AvaloniaFact]
+    public void PropertiesTabsKeepThePanesFullWidth()
+    {
+        // At a normal window size the docked pane is about 141 DIP wide. An inset round the whole pane wrapped
+        // Categorized under Alphabetic there and took a row from the property list (#3659's live check). Headless text
+        // measures narrower than the IDE's, so the wrap itself can't be reproduced here; the width it needs can.
+        var view = new HexIDE.VisualDesigner.Views.PropertiesToolView();
+        var window = new Window { Content = view, Width = 141, Height = 600 };
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var tabs = Bounds(view.FindControl<TabControl>("TabProperties")!, window);
+            tabs.Left.Should().Be(0);
+            tabs.Width.Should().Be(window.Bounds.Width);
+        }
+        finally { window.Close(); }
+    }
+
     private static IEnumerable<OptionsNodeViewModel> Nodes(IEnumerable<OptionsNodeViewModel> nodes)
     {
         foreach (var node in nodes)

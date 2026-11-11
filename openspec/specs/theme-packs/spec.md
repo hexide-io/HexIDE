@@ -107,8 +107,9 @@ including template parts and popup content when focus or selection is activated 
 ### Requirement: Dialog layouts leave room for outside focus rings
 Every control that draws the high-contrast packs' outside focus ring, on an Options page or in one of the IDE's standard
 dialogs, SHALL leave at least 4 DIP between itself and each neighbour, and at least 2 DIP inside its window, in every
-theme. Items, tabs and tree rows draw focus inside their own border and need no gap. The Properties pane SHALL inset its content at least 4 DIP from its edges, with the object selector and
-the filter below it aligned and 4 DIP apart, in normal and maximized windows.
+theme. Items, tabs and tree rows draw focus inside their own border and need no gap. The Properties pane's object selector and the filter below it SHALL sit at least 4 DIP inside the pane, aligned with
+each other and 4 DIP apart, in normal and maximized windows. Its tabs SHALL keep the pane's full width, because they
+draw focus inside and a narrower strip wraps in a docked pane.
 
 #### Scenario: Focusing controls in tight layouts
 - **WHEN** either high-contrast pack is active and focus moves through these controls
