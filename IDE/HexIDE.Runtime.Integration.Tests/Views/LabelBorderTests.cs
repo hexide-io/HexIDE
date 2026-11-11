@@ -9,8 +9,10 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
+using HexIDE.Integration.Tests;
+using HexIDE.Integration.Tests.Views;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A Label's border (#1077), read pixel by pixel from a real Skia frame of the hosted form and compared with what vb6.exe

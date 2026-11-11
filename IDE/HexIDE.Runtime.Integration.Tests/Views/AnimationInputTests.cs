@@ -5,8 +5,10 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Integration.Tests;
+using HexIDE.Integration.Tests.Views;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class AnimationInputTests : WindowTestFixture
 {

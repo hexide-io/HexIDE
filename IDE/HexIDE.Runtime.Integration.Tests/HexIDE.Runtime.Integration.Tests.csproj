@@ -36,6 +36,8 @@
         <Compile Include="..\HexIDE.Integration.Tests\HeadlessFontWarmUp.cs" Link="Infrastructure\HeadlessFontWarmUp.cs" />
         <Compile Include="..\HexIDE.Integration.Tests\WindowLeakGuard.cs" Link="Infrastructure\WindowLeakGuard.cs" />
         <Compile Include="..\HexIDE.Integration.Tests\RepoTree.cs" Link="Infrastructure\RepoTree.cs" />
+        <Compile Include="..\HexIDE.Integration.Tests\WindowTestFixture.cs" Link="Infrastructure\WindowTestFixture.cs" />
+        <Compile Include="..\HexIDE.Integration.Tests\WindowLifetime.cs" Link="Infrastructure\WindowLifetime.cs" />
         <Compile Include="..\HexIDE.Integration.Tests\Views\ContainerRuntimeHarness.cs" Link="Views\ContainerRuntimeHarness.cs" />
     </ItemGroup>
 

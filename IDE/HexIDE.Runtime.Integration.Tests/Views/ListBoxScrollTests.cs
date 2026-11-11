@@ -10,8 +10,10 @@ using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Integration.Tests;
+using HexIDE.Integration.Tests.Views;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>TopIndex assignment measurements from #3275, native and p-code agreeing; measuring PR #3286.</summary>
 public class ListBoxScrollTests : WindowTestFixture
