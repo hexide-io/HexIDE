@@ -94,9 +94,10 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Language.IConditionalCodeReader>(out var conditionalCode);
                 ctx.Inject<HexIDE.Language.IBracketReader>(out var brackets);
                 ctx.Inject<HexIDE.Language.IReadOnlyRegionReader>(out var regionReader);
+                ctx.Inject<HexIDE.Language.IReadOnlyRegionRules>(out var regionRules);
                 return new CodeEditorViewModel(windows, editors, projects, events, lsp, settings, status,
                     bookmarks, breakpoints, debugger, run, localization, external, stack, recentEdits, conditionalCode, brackets,
-                    regionReader);
+                    regionReader, regionRules);
             })
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
@@ -114,6 +115,7 @@ public partial class DISetup
             .Bind<IProjectFileFormat>().As(Singleton).To<HexIDE.Projects.Vb6ProjectFileFormat>()
             .Bind<HexIDE.Language.IBracketReader>().As(Singleton).To<HexIDE.Runtime.Interpreter.InterpreterBrackets>()
             .Bind<HexIDE.Language.IReadOnlyRegionReader>().As(Singleton).To<HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader>()
+            .Bind<HexIDE.Language.IReadOnlyRegionRules>().As(Singleton).To<HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
             .Bind().As(Singleton).To<MainViewViewModel.DockFactory>()
             .Bind().As(Singleton).To<EventBus>()
@@ -435,6 +437,7 @@ public partial class DISetup
             .Root<IDocumentDockService>("DocumentDockService")
             .Root<IProjectRunnerService>("ProjectRunnerService")
             .Root<IProjectService>("ProjectService")
+            .Root<HexIDE.Language.IReadOnlyRegionRules>("ReadOnlyRegionRules")
             .Root<IProjectFileFormat>("ProjectFileFormat")
             .Root<IEventBus>("EventBus")
             .Root<IUserSidecarService>("UserSidecarService")
