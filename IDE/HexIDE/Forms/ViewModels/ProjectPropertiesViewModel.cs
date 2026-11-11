@@ -15,6 +15,8 @@ public partial class ProjectPropertiesViewModel : ObservableObject, IDialog
 {
     public string Title { get; }
     public bool CanResize => false;
+
+    public bool CanSetVb6Properties { get; }
     public event Action<bool>? CloseRequested;
 
     /// <summary>The Project Type list: what each row reads, and the value the project file stores.</summary>
@@ -52,10 +54,12 @@ public partial class ProjectPropertiesViewModel : ObservableObject, IDialog
     /// Answers why a proposed project name cannot be used, or null when it can. Required rather than
     /// optional: a validator that can be left out is one that silently is.
     /// </param>
+    /// <param name="generalPropertiesOnly">An add-in writer carries name and description, not VB6 type or startup settings.</param>
     public ProjectPropertiesViewModel(ProjectDefinition projectDefinition, Func<string, string?> validateName,
-        ILocalizationService? localization = null)
+        ILocalizationService? localization = null, bool generalPropertiesOnly = false)
     {
         this.validateName = validateName;
+        CanSetVb6Properties = !generalPropertiesOnly;
         Title = string.Format(localization?.GetString("Str.Dialog.ProjectProperties.TitleFormat") ?? "{0} - Project Properties",
             projectDefinition.Name);
         ProjectTypes =
@@ -86,6 +90,8 @@ public partial class ProjectPropertiesViewModel : ObservableObject, IDialog
     {
         projectDefinition.Name = projectName;
         projectDefinition.Description = projectDescription;
+        if (!CanSetVb6Properties)
+            return;
         projectDefinition.ProjectType = SelectedProjectType;
         // Assign through exactly one of the two: they are mutually exclusive on the model, and setting
         // StartupForm to null while leaving StartsAtSubMain true would silently keep Sub Main selected

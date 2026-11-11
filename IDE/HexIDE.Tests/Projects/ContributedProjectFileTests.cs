@@ -144,7 +144,7 @@ public sealed class ContributedProjectFileTests : IDisposable
         offers.ChangesMembership.Should().Be(changesMembership);
         offers.SetsReferences.Should().Be(hasWriter && carries.HasFlag(ProjectFileParts.References));
         offers.MovesProjectFile.Should().BeFalse();
-        offers.SetsProperties.Should().BeFalse("Project Properties comes with #3698's third change");
+        offers.SetsProperties.Should().Be(hasWriter && carries.HasFlag(ProjectFileParts.Properties));
         offers.SetsComponents.Should().BeFalse("Components is VB6's project-file text, slice 10's");
         offers.Makes.Should().BeFalse();
         offers.Runs.Should().BeFalse();
@@ -175,8 +175,73 @@ public sealed class ContributedProjectFileTests : IDisposable
         using var type = Contribute();
         await _service.EditProjectReferences(await Opened());
 
-        await ToldOf("Str.ContributedProject.SettingsReadOnly");
+        await ToldOf("Str.ContributedProject.ReferencesReadOnly");
         await _windows.DidNotReceive().ShowDialog(Arg.Any<ReferencesViewModel>());
+    }
+
+    [AvaloniaFact]
+    public async Task Properties_applied_in_the_dialog_are_saved_where_the_writer_carries_them()
+    {
+        _writer.Carries |= ProjectFileParts.Properties;
+        using var type = Contribute();
+        var project = await Opened();
+        project.StartsAtSubMain = true;
+        _windows.ShowDialog(Arg.Any<ProjectPropertiesViewModel>()).Returns(call =>
+        {
+            var vm = call.Arg<ProjectPropertiesViewModel>();
+            vm.CanSetVb6Properties.Should().BeFalse();
+            vm.ProjectName = "Renamed";
+            vm.ProjectDescription = "A new description";
+            vm.SelectedProjectType = VBProjectType.OleDll;
+            vm.SelectedStartupObject = null;
+            return Task.FromResult(true);
+        });
+
+        await _service.EditProjectProperties(project);
+        await _service.SaveProject(project, saveAs: false);
+
+        await _windows.Received(1).ShowDialog(Arg.Any<ProjectPropertiesViewModel>());
+        File.ReadAllText(ProjectFile).Should().Be("ledger\r\nCode.bas\r\nname Renamed\r\ndescription A new description\r\n");
+        project.ProjectType.Should().Be(VBProjectType.EXE);
+        project.StartsAtSubMain.Should().BeTrue();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_settings_refusal_names_only_the_dialog_refused(bool properties)
+    {
+        _writer.Carries |= ProjectFileParts.References;
+        using var type = Contribute();
+        var project = await Opened();
+
+        if (properties)
+            await _service.EditProjectProperties(project);
+        else
+            await _service.EditProjectComponents(project);
+
+        await ToldOf(properties ? "Str.ContributedProject.PropertiesReadOnly" : "Str.ContributedProject.ComponentsReadOnly");
+        await _windows.DidNotReceive().ShowDialog(Arg.Any<ProjectPropertiesViewModel>());
+        await _windows.DidNotReceive().ShowDialog(Arg.Any<ComponentsViewModel>());
+    }
+
+    [AvaloniaFact]
+    public async Task References_applied_in_the_dialog_reach_the_next_render()
+    {
+        _writer.Carries |= ProjectFileParts.References;
+        using var type = Contribute();
+        var project = await Opened();
+        _windows.ShowDialog(Arg.Any<ReferencesViewModel>()).Returns(call =>
+        {
+            call.Arg<ReferencesViewModel>().References.Add(new ReferencesReferenceViewModel(
+                new VbReference("probe", "1.0", 0, null, "Probe library"), isChecked: true, isBuiltIn: false));
+            return Task.FromResult(true);
+        });
+
+        await _service.EditProjectReferences(project);
+        await _service.SaveProject(project, saveAs: false);
+
+        File.ReadAllText(ProjectFile).Should().Be("ledger\r\nCode.bas\r\nref Probe library\r\n");
     }
 
     [AvaloniaFact]
@@ -628,6 +693,11 @@ public sealed class ContributedProjectFileTests : IDisposable
             }
             foreach (var reference in project.References)
                 lines.Add("ref " + reference.Name);
+            if (Carries.HasFlag(ProjectFileParts.Properties))
+            {
+                lines.Add("name " + project.Name);
+                lines.Add("description " + project.Description);
+            }
             return string.Join("\r\n", lines) + "\r\n";
         }
     }

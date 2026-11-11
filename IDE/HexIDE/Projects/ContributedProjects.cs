@@ -29,6 +29,7 @@ public sealed record ContributedProjectType(AddinProjectType Type, string AddinI
     /// </summary>
     public ProjectOffers Offers => ProjectOffers.Nothing with
     {
+        SetsProperties = Type.ProjectFile is { } properties && properties.Carries.HasFlag(ProjectFileParts.Properties),
         SetsReferences = Type.ProjectFile is { } references && references.Carries.HasFlag(ProjectFileParts.References),
         WritesForms = Type.Forms is IFormFileFormat,
         WritesProjectFile = Type.ProjectFile is not null,

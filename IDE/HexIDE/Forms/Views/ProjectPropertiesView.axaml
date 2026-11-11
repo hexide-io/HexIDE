@@ -21,10 +21,10 @@
                     <Grid ColumnDefinitions="188,15,160" RowDefinitions="Auto,4,Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Str.Dialog.ProjectProperties.General.ProjectType}" />
                         <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource Str.Dialog.ProjectProperties.General.StartupObject}" />
-                        <ComboBox Grid.Row="2" Grid.Column="0"
+                        <ComboBox Grid.Row="2" Grid.Column="0" IsEnabled="{CompiledBinding CanSetVb6Properties}"
                                     SelectedItem="{CompiledBinding SelectedProjectTypeChoice}"
                                     ItemsSource="{CompiledBinding ProjectTypes}" />
-                        <ComboBox Grid.Row="2" Grid.Column="2"
+                        <ComboBox Grid.Row="2" Grid.Column="2" IsEnabled="{CompiledBinding CanSetVb6Properties}"
                                     SelectedItem="{CompiledBinding SelectedStartupObject}"
                                     ItemsSource="{CompiledBinding StartupObjects}" />
                     </Grid>
