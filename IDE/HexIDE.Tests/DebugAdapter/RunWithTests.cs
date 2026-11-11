@@ -26,6 +26,7 @@ public class RunWithTests : IAsyncDisposable
     private readonly DebugLaunchService _launches;
     private readonly ProjectRunnerService _runner;
     private readonly List<string> _interpreterStarts = [];
+    private readonly StandInRunEngine _engine = new() { StartFailure = new RunFailure("No startup form", null) };
     private readonly TaskCompletionSource<AddinProjectInfo> _asked = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public RunWithTests()
@@ -35,11 +36,10 @@ public class RunWithTests : IAsyncDisposable
         _projects.StartupProject.Returns(_project);
         var strings = Substitute.For<ILocalizationService>();
         strings.GetString("Str.Debug.RunWith.Unavailable").Returns("{0} isn't available");
-        _runner = TestRunners.WithInterpreter(Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), _projects, strings,
-            Substitute.For<IDebugGate>(), Substitute.For<IBreakpointService>(), new WatchService(), new RunScope(), debugger,
+        _runner = TestRunners.WithEngine(_engine, Substitute.For<IEventBus>(), _projects, strings,
+            Substitute.For<IDebugController>(), Substitute.For<IBreakpointService>(), new WatchService(), new RunScope(), debugger,
             debugLaunches: _launches, runChoices: _choices, statusBar: _status);
-        // The test project has no startup form, so the interpreter's start fails at once and says so: that is how a
-        // test sees that F5 went to the interpreter.
+        // The stand-in engine fails its start at once and says so: that is how a test sees that F5 went to the engine.
         _runner.StartFailed += _interpreterStarts.Add;
     }
 

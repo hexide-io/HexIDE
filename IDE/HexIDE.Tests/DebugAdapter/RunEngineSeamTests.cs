@@ -18,7 +18,7 @@ public class RunEngineSeamTests
     private readonly ProjectDefinition _project = TestHelpers.CreateProject("Invoices");
     private readonly IProjectManager _projects = Substitute.For<IProjectManager>();
     private readonly IDebugGate _debugger = Substitute.For<IDebugGate>();
-    private readonly FakeEngine _engine = new();
+    private readonly StandInRunEngine _engine = new();
     private readonly ProjectRunnerService _runner;
     private readonly List<string> _startFailures = [];
     private readonly List<string> _runFailures = [];
@@ -289,52 +289,5 @@ public class RunEngineSeamTests
         var interpreter = new BasicInterpreter(Substitute.For<IBasicStandardLibrary>(), new ModuleExecutionContext(), new ExecutionEnvironment(), code);
         var act = async () => await interpreter.Execute();
         return (await act.Should().ThrowAsync<VBRunTimeException>()).Which;
-    }
-
-    private sealed class FakeEngine : IRunEngine
-    {
-        public event Action<RunFailure>? ErrorMet;
-
-        public Func<RunFailure, Task<bool>>? HaltHost { get; set; }
-
-        public void Meets(RunFailure failure) => ErrorMet?.Invoke(failure);
-
-        public bool RunsIt { get; set; } = true;
-        public string? Refusal { get; set; }
-        public RunFailure? StartFailure { get; set; }
-        public Action? OnPrepare { get; set; }
-        public FakeRun Run { get; } = new();
-        public int Prepared { get; private set; }
-
-        public bool Runs(ProjectDefinition project) => RunsIt;
-
-        public string? RefusesToStart(ProjectDefinition project) => Refusal;
-
-        public RunStart Prepare(ProjectDefinition project)
-        {
-            Prepared++;
-            OnPrepare?.Invoke();
-            return StartFailure is { } failure ? RunStart.Failed(failure) : RunStart.Started(Run);
-        }
-    }
-
-    private sealed class FakeRun : IEngineRun
-    {
-        public TaskCompletionSource<RunFailure?> Ended { get; } = new();
-        public Action? OnRun { get; set; }
-        public Action? OnEnd { get; set; }
-        public int Ends { get; private set; }
-
-        public Task<RunFailure?> RunToEndAsync()
-        {
-            OnRun?.Invoke();
-            return Ended.Task;
-        }
-
-        public void End()
-        {
-            Ends++;
-            OnEnd?.Invoke();
-        }
     }
 }
