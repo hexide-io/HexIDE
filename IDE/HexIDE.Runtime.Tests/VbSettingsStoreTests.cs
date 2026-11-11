@@ -2,7 +2,7 @@ using System.Runtime.Versioning;
 using HexIDE.Runtime.Interpreter;
 using Microsoft.Win32;
 
-namespace HexIDE.Tests.Runtime;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// The stores a program's settings are kept in (#1562): the registry, where vb6.exe keeps them, and the file used where

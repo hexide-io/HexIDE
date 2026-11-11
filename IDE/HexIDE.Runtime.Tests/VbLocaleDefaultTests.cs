@@ -2,7 +2,7 @@ using System.Globalization;
 using HexIDE.IDE;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Tests.Runtime;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// The locale the host hands the interpreter at startup (#777). Here rather than beside the other locale tests

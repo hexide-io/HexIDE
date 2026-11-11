@@ -21,10 +21,19 @@ public partial class AddinOptionsPageViewModel : ObservableObject
     private readonly string _assemblyPath;
     private readonly string _manifestHash;
     private readonly string? _compatibilityError;
+    private readonly string _addinId;
+    private readonly Func<string, Task<bool>>? _confirmWithdrawal;
 
-    public AddinOptionsPageViewModel(IAddinRegistry registry, AddinInfo info, Func<object>? contributedFactory = null)
+    /// <param name="confirmWithdrawal">
+    /// Asked before the add-in is turned off or its consent withdrawn, with its id: false keeps it as it is. It's how forms the
+    /// add-in writes are saved, or let go, while it can still write them.
+    /// </param>
+    public AddinOptionsPageViewModel(IAddinRegistry registry, AddinInfo info, Func<object>? contributedFactory = null,
+        Func<string, Task<bool>>? confirmWithdrawal = null)
     {
         _registry = registry;
+        _addinId = info.Id;
+        _confirmWithdrawal = confirmWithdrawal;
         _assemblyPath = info.AssemblyPath;
         _manifestHash = info.ManifestHash;
         _compatibilityError = info.CompatibilityError;
@@ -96,8 +105,10 @@ public partial class AddinOptionsPageViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ToggleEnabled()
+    private async Task ToggleEnabled()
     {
+        if (IsAddinEnabled && !await MayWithdraw())
+            return;
         _registry.SetEnabled(_assemblyPath, !IsAddinEnabled);
         Status = _registry.GetStatus(_assemblyPath);
         RestartNoteVisible = true;
@@ -105,12 +116,17 @@ public partial class AddinOptionsPageViewModel : ObservableObject
 
     /// <summary>Drops the recorded consent so the add-in is re-prompted next launch.</summary>
     [RelayCommand]
-    private void RevokeConsent()
+    private async Task RevokeConsent()
     {
+        if (!await MayWithdraw())
+            return;
         _registry.RevokeConsent(_manifestHash);
         ConsentRevoked = true;   // hide the button; in-process add-in code unloads on restart
         RestartNoteVisible = true;
     }
+
+    // Asked before the add-in is taken out, so what it writes can be saved while it still can.
+    private Task<bool> MayWithdraw() => _confirmWithdrawal is null ? Task.FromResult(true) : _confirmWithdrawal(_addinId);
 
     // The trust chain for the "Trust" expander. A verified add-in carries its chain; an unsigned/untrusted
     // one carries none, so we show why; a revoked one keeps its (still-valid) chain plus a revoked banner.

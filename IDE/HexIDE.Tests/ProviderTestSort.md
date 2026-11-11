@@ -17,7 +17,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Addins/AddinEditorGuardTests.cs` | split |
 | `Addins/AddinInitializationTests.cs` | split |
 | `Addins/AddinWholeFileTests.cs` | split |
-| `AnimationClipTests.cs` | provider |
 | `Components/PropertyTextTests.cs` | split |
 | `ControlPropertyCoercionTests.cs` | provider |
 | `Controls/VBCheckBoxTests.cs` | provider |
@@ -79,8 +78,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/UserControlSaveRoundTripTests.cs` | split |
 | `Recovery/RecoveryOffersTests.cs` | split |
 | `Recovery/UnsavedWorkCaptureTests.cs` | split |
-| `Runtime/VbLocaleDefaultTests.cs` | provider |
-| `Runtime/VbSettingsStoreTests.cs` | provider |
 | `Serialization/CodeWindowTextTests.cs` | provider |
 | `Serialization/FormCodeTextTests.cs` | provider |
 | `Serialization/GuardedContentMemberRunTests.cs` | provider |

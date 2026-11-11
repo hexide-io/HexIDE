@@ -32,6 +32,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
     private readonly IDeveloperModeService _devMode;
     private readonly ILocalizationService _localization;
     private readonly IEventBus _eventBus;
+    private readonly Func<string, Task<bool>>? _confirmAddinWithdrawal;
     private readonly string _originalTheme;
     private readonly string _originalLanguage;
     private readonly List<IOptionsPage> _pages = [];
@@ -62,8 +63,10 @@ public partial class OptionsViewModel : ObservableObject, IDialog
     public OptionsViewModel(ISettingsService settings, IThemeService themeService, IKeymapService keymapService,
                             ILanguageSwitchService languageSwitch, IAddinRegistry addinRegistry,
                             AddinOptionsService addinOptions, IDeveloperModeService devMode,
-                            ILocalizationService localization, IEventBus eventBus, string? initialNodeKey = null, IWindowManager? windows = null)
+                            ILocalizationService localization, IEventBus eventBus, string? initialNodeKey = null, IWindowManager? windows = null,
+                            Func<string, Task<bool>>? confirmAddinWithdrawal = null)
     {
+        _confirmAddinWithdrawal = confirmAddinWithdrawal;
         _settings = settings;
         _themeService = themeService;
         _keymapService = keymapService;
@@ -143,7 +146,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
             group.Add(Group("Str.Options.Node.NoAddins", overview));
         foreach (var info in addins)
         {
-            var page = new AddinOptionsPageViewModel(_addinRegistry, info, _addinOptions.GetFactoryFor(info.AssemblyPath));
+            var page = new AddinOptionsPageViewModel(_addinRegistry, info, _addinOptions.GetFactoryFor(info.AssemblyPath), _confirmAddinWithdrawal);
             // Add-in node label is the add-in's own name — not localized (no key).
             group.Add(new OptionsNodeViewModel(page.Title, page));
         }

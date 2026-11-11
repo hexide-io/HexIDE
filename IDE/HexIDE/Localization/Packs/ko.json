@@ -428,6 +428,8 @@
     "Str.Designer.ReadOnly.Banner": "읽기 전용 — HexIDE가 아직 이 폼을 충실하게 재현할 수 없어 저장하면 폼이 바뀝니다. 보고 실행할 수는 있지만 변경 내용은 저장되지 않습니다.",
     "Str.ContributedProject.FormReadOnly": "읽기 전용 — 이것을 읽은 추가 기능이 이것을 다시 쓸 수 없으므로 변경 내용이 저장되지 않습니다.",
     "Str.ContributedProject.RenderRefused": "아무것도 쓰지 않았습니다. {1}에서 {0}을(를) 쓸 수 없어서 파일이 변경되기 전에 저장을 중단했습니다.",
+    "Str.ContributedProject.WithdrawWithChanges": "{0}에서 이 항목을 읽고 있으며, 저장되지 않은 변경 내용이 있습니다:\n\n{1}\n\n끄기 전에 저장하시겠습니까? 끈 후에는 HexIDE에서 저장할 수 없습니다.",
+    "Str.ContributedProject.WithdrawnWithChanges": "{0}이(가) 더 이상 로드되어 있지 않아 HexIDE에서 이 항목을 저장할 수 없습니다:\n\n{1}\n\n충돌 복구는 각 항목에 대해 마지막으로 만든 복사본을 보관합니다. 그 이후의 변경 내용은 보관되지 않았습니다.",
     "Str.Designer.Unmodelled.NotSupported": "HexIDE에서 지원되지 않음",
     "Str.Designer.Unmodelled.ViewOnly": "디자이너에서는 보기 전용",
     "Str.Designer.Context.Cut": "잘라내기",

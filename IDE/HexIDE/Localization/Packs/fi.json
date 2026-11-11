@@ -428,6 +428,8 @@
     "Str.Designer.ReadOnly.Banner": "Vain luku — HexIDE ei vielä pysty toistamaan tätä lomaketta uskollisesti, joten tallentaminen muuttaisi sitä. Voit tarkastella lomaketta ja suorittaa sen, mutta muutoksia ei tallenneta.",
     "Str.ContributedProject.FormReadOnly": "Vain luku — apuohjelma, joka luki tämän, ei pysty kirjoittamaan sitä takaisin, joten siihen tehtyjä muutoksia ei tallenneta.",
     "Str.ContributedProject.RenderRefused": "Mitään ei kirjoitettu. {1} ei pystynyt kirjoittamaan kohdetta {0}, joten tallennus pysähtyi ennen kuin mikään tiedosto muuttui.",
+    "Str.ContributedProject.WithdrawWithChanges": "{0} lukee nämä, ja niissä on tallentamattomia muutoksia:\n\n{1}\n\nTallennetaanko ne ennen poistamista käytöstä? Kun se on poissa käytöstä, HexIDE ei voi tallentaa niitä.",
+    "Str.ContributedProject.WithdrawnWithChanges": "{0} ei ole enää ladattuna, joten HexIDE ei voi tallentaa näitä:\n\n{1}\n\nKaatumisen jälkeinen palautus säilyttää viimeisimmän kopion, jonka se otti kustakin. Kopion jälkeen tehtyjä muutoksia ei säilytetty.",
     "Str.Designer.Unmodelled.NotSupported": "Ei tuettu HexIDE:ssä",
     "Str.Designer.Unmodelled.ViewOnly": "Suunnittelutilassa vain katseltavissa",
     "Str.Designer.Context.Cut": "_Leikkaa",

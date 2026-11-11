@@ -428,6 +428,8 @@
     "Str.Designer.ReadOnly.Banner": "唯讀 — HexIDE 目前尚無法忠實地重現此表單，儲存將會改變它。您可以檢視與執行它，但變更不會儲存。",
     "Str.ContributedProject.FormReadOnly": "唯讀 — 讀取此項目的增益集無法將其寫回，因此對它的變更不會儲存。",
     "Str.ContributedProject.RenderRefused": "未寫入任何內容。{1} 無法寫入 {0}，因此在任何檔案變更之前已停止儲存。",
+    "Str.ContributedProject.WithdrawWithChanges": "{0} 讀取這些項目，而它們有未儲存的變更：\n\n{1}\n\n要在關閉它之前儲存嗎？關閉後，HexIDE 將無法儲存它們。",
+    "Str.ContributedProject.WithdrawnWithChanges": "{0} 已不再載入，因此 HexIDE 無法儲存這些項目：\n\n{1}\n\n當機復原保留了它為每個項目所做的最後一份副本。在該副本之後所做的變更未被保留。",
     "Str.Designer.Unmodelled.NotSupported": "HexIDE 不支援",
     "Str.Designer.Unmodelled.ViewOnly": "在設計工具中僅供檢視",
     "Str.Designer.Context.Cut": "剪下(_T)",

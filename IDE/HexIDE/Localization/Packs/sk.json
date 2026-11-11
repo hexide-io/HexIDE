@@ -390,6 +390,8 @@
     "Str.Designer.ReadOnly.Banner": "Iba na čítanie — HexIDE zatiaľ nedokáže tento formulár verne reprodukovať a uloženie by ho zmenilo. Môžete ho prezerať a spustiť, zmeny sa však neuložia.",
     "Str.ContributedProject.FormReadOnly": "Iba na čítanie — doplnok, ktorý toto načítal, to nedokáže zapísať späť, takže zmeny sa neuložia.",
     "Str.ContributedProject.RenderRefused": "Nič sa nezapísalo. {1} nedokázal zapísať {0}, takže ukladanie sa zastavilo skôr, ako sa zmenil akýkoľvek súbor.",
+    "Str.ContributedProject.WithdrawWithChanges": "{0} číta tieto položky a sú v nich neuložené zmeny:\n\n{1}\n\nUložiť ich pred vypnutím? Po vypnutí ich HexIDE nedokáže uložiť.",
+    "Str.ContributedProject.WithdrawnWithChanges": "{0} už nie je načítaný, takže HexIDE nedokáže uložiť tieto položky:\n\n{1}\n\nObnova po havárii uchováva poslednú kópiu, ktorú z každej vytvorila. Zmeny po tejto kópii sa neuchovali.",
     "Str.Designer.Unmodelled.NotSupported": "Nepodporované v HexIDE",
     "Str.Designer.Unmodelled.ViewOnly": "V návrhárovi iba na prezeranie",
     "Str.Designer.Context.Cut": "Vy_strihnúť",

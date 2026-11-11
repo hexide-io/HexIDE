@@ -360,6 +360,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (moduleDefinition is not null && ReferenceEquals(e.Module, moduleDefinition)) ReconcileWireName();
         }));
 
+        // As a reload's verdict is shown: the section provider reads it live, and this is for the banner.
+        AutoDispose(this.eventBus.Subscribe<FormReadOnlyChangedEvent>(e =>
+        {
+            if (formDefinition is null || !ReferenceEquals(e.Designer, formDefinition)) return;
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsReadOnly)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(ReadOnlyReason)));
+        }));
         AutoDispose(this.eventBus.Subscribe<FormMovedEvent>(e =>
         {
             if (formDefinition is not null && ReferenceEquals(e.Form, formDefinition)) ReconcileWireName();

@@ -390,6 +390,8 @@
     "Str.Designer.ReadOnly.Banner": "Samo za čitanje — HexIDE još ne može vjerno reproducirati ovaj obrazac, pa bi ga spremanje promijenilo. Možete ga pregledavati i pokretati, ali promjene neće biti spremljene.",
     "Str.ContributedProject.FormReadOnly": "Samo za čitanje — dodatak koji je ovo pročitao ne može to ponovno zapisati, pa promjene na tome neće biti spremljene.",
     "Str.ContributedProject.RenderRefused": "Ništa nije zapisano. {1} nije mogao zapisati {0}, pa je spremanje zaustavljeno prije nego što se ijedna datoteka promijenila.",
+    "Str.ContributedProject.WithdrawWithChanges": "{0} čita ove stavke i u njima ima nespremljenih promjena:\n\n{1}\n\nŽelite li ih spremiti prije isključivanja? Nakon isključivanja HexIDE ih ne može spremiti.",
+    "Str.ContributedProject.WithdrawnWithChanges": "{0} više nije učitan, pa HexIDE ne može spremiti ove stavke:\n\n{1}\n\nOporavak nakon rušenja čuva posljednju kopiju koju je napravio od svake. Promjene nakon te kopije nisu sačuvane.",
     "Str.Designer.Unmodelled.NotSupported": "Nije podržano u HexIDE-u",
     "Str.Designer.Unmodelled.ViewOnly": "Samo za pregled u dizajneru",
     "Str.Designer.Context.Cut": "_Izreži",
