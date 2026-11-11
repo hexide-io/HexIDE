@@ -1033,6 +1033,26 @@ guard SHALL agree with its persistence path: only a pathless member needs an arm
 - **WHEN** automation persists a form or module with an existing scratch path
 - **THEN** the edit is written to that path without a picker, and the member remains user-unsaved
 
+### Requirement: Outside project edits require a save decision
+
+HexIDE SHALL check a VB6 project file against the last read or write before replacing it (#3699).
+If both disk bytes and the local project changed, it SHALL offer Reload, Keep My Changes and Cancel
+through the existing cancellable file conflict dialog. If only disk changed, it SHALL preserve the
+file without a question. An unchanged disk file SHALL save without a conflict question.
+
+#### Scenario: Another editor changes the project
+- **GIVEN** an opened `.vbp` with a local project edit and different bytes now on disk
+- **WHEN** the user saves the project
+- **THEN** the conflict dialog offers Reload, Keep My Changes and Cancel before any file is written
+- **AND** Reload reopens the disk project with the existing member-unsaved-changes prompt
+- **AND** Keep My Changes writes the local project
+- **AND** Cancel leaves every file untouched
+
+#### Scenario: Only the other editor changed the project
+- **GIVEN** an opened `.vbp` with no local project edit and different bytes now on disk
+- **WHEN** the user saves the project
+- **THEN** the external project bytes survive without a conflict question
+
 ## Out of Scope
 - **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
   carried, never read.

@@ -76,6 +76,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/DocumentSavedAnnouncementTests.cs` | split |
 | `Projects/DuplicateProjectOpenTests.cs` | split |
 | `Projects/ExternalFormChangeTests.cs` | split |
+| `Projects/ExternalProjectChangeTests.cs` | split |
 | `Projects/KeptLinesAfterSaveAsTests.cs` | split |
 | `Projects/LoneCrModuleSaveTests.cs` | split |
 | `Projects/MadeProgramTests.cs` | split |
