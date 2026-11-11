@@ -13,6 +13,9 @@ public interface IFormFileReader
     /// <returns>The form, or null when the text can't be read as one, which goes to <paramref name="problems"/>.</returns>
     FormDefinition? ReadForm(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems);
 
+    /// <summary>The designer half of a UserControl's or PropertyPage's file, read as <see cref="ReadForm"/> reads a form.</summary>
+    FormDefinition? ReadDesignerPart(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems);
+
     /// <summary>The companion file that goes with this form's file, or null when a form of this kind has none.</summary>
     string? CompanionPath(string path);
 }

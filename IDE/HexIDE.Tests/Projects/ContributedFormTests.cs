@@ -346,6 +346,111 @@ public sealed class ContributedFormTests : IDisposable
     }
 
     [AvaloniaTheory]
+    [InlineData(AddinMemberKind.UserControl, ModuleKind.UserControl)]
+    [InlineData(AddinMemberKind.PropertyPage, ModuleKind.PropertyPage)]
+    public async Task A_designer_member_is_read_by_its_type_s_reader_and_joins_as_a_module_with_its_designer_half(AddinMemberKind kind, ModuleKind moduleKind)
+    {
+        using var type = Contribute(_forms, new AddinProjectMember(FormFile, kind));
+
+        var module = (await Opened()).Modules.Should().ContainSingle().Subject;
+
+        module.Name.Should().Be("Main");
+        module.Kind.Should().Be(moduleKind);
+        module.Code.Should().Be("first");
+        module.AbsolutePath.Should().Be(FormFile);
+        module.FormPart.Should().NotBeNull();
+        module.FormPart!.AbsolutePath.Should().Be(FormFile);
+        _forms.DesignerReads.Should().ContainSingle();
+        _forms.DesignerReads[0].Companion.Should().Equal(1, 2, 3);
+        _baselines.Matches(CompanionFile, [1, 2, 3]).Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public async Task A_designer_member_an_add_in_read_is_read_only_is_never_rendered_and_a_save_leaves_its_file_alone()
+    {
+        using var type = Contribute(_forms, new AddinProjectMember(FormFile, AddinMemberKind.UserControl));
+        var module = (await Opened()).Modules.Single();
+        var before = File.ReadAllBytes(FormFile);
+
+        module.UpdateCode("changed");
+        var saved = await _service.SaveModule(module, saveAs: false);
+
+        module.FormPart!.CanSaveFaithfully.Should().BeFalse();
+        _service.HasUnsavedChanges(module).Should().BeFalse("nothing can render it, and it opens read-only");
+        saved.Should().BeFalse();
+        File.ReadAllBytes(FormFile).Should().Equal(before);
+        await ToldOf("An add-in read this, so it wasn't saved.");
+    }
+
+    [AvaloniaFact]
+    public async Task UserControls_are_read_before_the_forms_that_can_hold_them()
+    {
+        var control = Path.Join(_dir, "Gauge.sform");
+        File.WriteAllText(control, "Gauge\ncontrol");
+        using var type = Contribute(_forms, new AddinProjectMember(FormFile, AddinMemberKind.Form), new AddinProjectMember(control, AddinMemberKind.UserControl));
+        var heldAtFormRead = new List<string>();
+        var read = _forms.Read;
+        _forms.Instead = (project, _) =>
+        {
+            heldAtFormRead.AddRange(project.Modules.Select(module => module.Name));
+            return read(project);
+        };
+
+        await Opened();
+
+        heldAtFormRead.Should().Equal("Gauge");
+    }
+
+    [AvaloniaFact]
+    public async Task A_designer_member_reloads_and_recovers_through_its_type_s_reader()
+    {
+        using var type = Contribute(_forms, new AddinProjectMember(FormFile, AddinMemberKind.PropertyPage));
+        var module = (await Opened()).Modules.Single();
+        WriteForm("second");
+        File.WriteAllBytes(CompanionFile, [4]);
+
+        (await _service.ReloadModuleFromDisk(module)).Should().BeTrue();
+
+        module.Code.Should().Be("second");
+        _forms.DesignerReads[1].Companion.Should().Equal(4);
+        module.FormPart!.CanSaveFaithfully.Should().BeFalse();
+
+        _service.ApplyRecovered(module, new UnsavedFile("Main.sform", "Main\nrecovered", "Main.sbin", [7])).Should().BeTrue();
+
+        module.Code.Should().Be("recovered");
+        _forms.DesignerReads[2].Companion.Should().Equal(7);
+        module.FormPart.CanSaveFaithfully.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task A_designer_member_with_no_reader_is_left_out_and_named()
+    {
+        using var type = Contribute(null, new AddinProjectMember(FormFile, AddinMemberKind.UserControl));
+
+        (await Opened()).Modules.Should().BeEmpty();
+
+        await ToldOf(FormFile);
+    }
+
+    [AvaloniaFact]
+    public async Task A_designer_member_moved_takes_its_companion_s_baseline_with_it()
+    {
+        using var type = Contribute(_forms, new AddinProjectMember(FormFile, AddinMemberKind.UserControl));
+        var module = (await Opened()).Modules.Single();
+        var (movedForm, movedCompanion) = (Path.Join(_dir, "Moved.sform"), Path.Join(_dir, "Moved.sbin"));
+        File.Move(FormFile, movedForm);
+        File.Move(CompanionFile, movedCompanion);
+
+        _changes!.MemberMoved(FormFile, movedForm);
+        Dispatcher.UIThread.RunJobs();
+
+        module.AbsolutePath.Should().Be(movedForm);
+        module.FormPart!.AbsolutePath.Should().Be(movedForm);
+        _baselines.Matches(movedCompanion, [1, 2, 3]).Should().BeTrue();
+        _baselines.TryGet(CompanionFile).Should().BeNull();
+    }
+
+    [AvaloniaTheory]
     [InlineData(UnfaithfulSaveCause.ReadByAddin, true)]
     [InlineData(UnfaithfulSaveCause.NestedContainers, false)]
     public void The_designer_s_banner_has_its_own_words_for_a_form_an_add_in_read(UnfaithfulSaveCause cause, bool ownWords)
@@ -363,7 +468,7 @@ public sealed class ContributedFormTests : IDisposable
 
     [Fact]
     public void No_product_code_reads_a_form_past_the_reader_its_project_names() =>
-        ProductSource.FilesMatching(new Regex(@"\b_?format\s*\.\s*ReadForm\b"))
+        ProductSource.FilesMatching(new Regex(@"\b_?format\s*\.\s*(ReadForm|ReadDesignerPart)\b"))
             .Should().BeEmpty("a project an add-in opened has its forms read by that add-in, on every path that reads one");
 
     private static IComponentClass StandInRoot()
@@ -381,6 +486,8 @@ public sealed class ContributedFormTests : IDisposable
 
         public List<(string Text, byte[]? Companion)> Reads { get; } = [];
 
+        public List<(string Text, byte[]? Companion)> DesignerReads { get; } = [];
+
         public Func<ProjectDefinition, IDeserializeErrorSink, FormDefinition?>? Instead { get; set; }
 
         public FormDefinition? ReadForm(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems)
@@ -388,6 +495,13 @@ public sealed class ContributedFormTests : IDisposable
             Reads.Add((text, companion));
             _text = text;
             return Instead is { } instead ? instead(project, problems) : Read(project);
+        }
+
+        public FormDefinition? ReadDesignerPart(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems)
+        {
+            DesignerReads.Add((text, companion));
+            _text = text;
+            return Read(project);
         }
 
         public FormDefinition Read(ProjectDefinition project)
