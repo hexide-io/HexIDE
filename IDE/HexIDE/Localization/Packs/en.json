@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Save",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "This id already exists. Edit or customize it instead.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Invalid JSON: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: '{1}' is not one of {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Workspace placeholders remain unresolved until a project folder is chosen.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "The file changed. Reopen the form before saving."
   }

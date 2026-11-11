@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Uložiť",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Toto ID už existuje. Upravte ho alebo prispôsobte.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Neplatný JSON: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: „{1}“ nie je jednou z hodnôt {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Zástupné symboly pracovného priestoru čakajú na výber priečinka projektu.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Súbor sa zmenil. Pred uložením znovu otvorte formulár."
   }

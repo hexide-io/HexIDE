@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Enregistrer",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Cet identifiant existe déjà. Modifiez-le ou personnalisez-le.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: JSON non valide : {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0} : « {1} » ne fait pas partie des valeurs {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Les espaces réservés de travail attendent le choix du dossier du projet.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Le fichier a changé. Rouvrez le formulaire avant d’enregistrer."
   }

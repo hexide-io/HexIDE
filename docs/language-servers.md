@@ -42,7 +42,11 @@ Opening the form focuses its first field. Only the fields scroll; validation pro
 preview and Save stay below them while you edit. Cancel or Save returns to the server list.
 
 Validation uses the same loader and configuration-problem messages as the file. Invalid JSON names
-the field using its form label. The form shows the full
+the field using its form label, followed by 1-based line and character column (`field:line:column`).
+Transport, connection roles and trace use dropdowns with the documented choices and an empty choice
+for an unset value (inherited when left untouched during Customize). An existing unrecognized value
+remains selected and is reported as a problem. Only the selected transport’s fields are shown; hiding
+a field preserves its value. The form shows the full
 command with arguments and environment, resolving pipe placeholders against the current project. Without
 a project folder, workspace placeholders stay visible with an explanation. Nothing starts from the form.
 **Save** is consent to the displayed command and remembers its command identity, including arguments and
@@ -53,7 +57,8 @@ normal layering rules still apply. Saving patches only changed values: other ent
 and comments remain as written, including unknown fields inside the nested declarations. If the file
 changes while the form is open, saving refuses to overwrite it and asks you to reopen the form.
 New entries put each property on its own line, using the surrounding indentation, with `id` first
-and the remaining fields in the order below. The form includes `tcpRole`.
+and the remaining fields in the order below. New properties added to existing entries also use their
+own lines and documentation order. New entries use inline arrays when neighboring entries do.
 Cancel writes nothing. Test connection and automatic refresh of hand-edits are not available yet.
 
 ## A worked example

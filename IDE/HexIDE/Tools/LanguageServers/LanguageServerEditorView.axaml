@@ -10,10 +10,13 @@
                 <ItemsControl ItemsSource="{CompiledBinding Fields}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="ls:LanguageServerFieldViewModel">
-                            <StackPanel Margin="0,3">
+                            <StackPanel Margin="0,3" IsVisible="{CompiledBinding IsVisible}">
                                 <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="{CompiledBinding Name}" /><TextBlock Text="JSON" IsVisible="{CompiledBinding IsJson}" Opacity="0.7" /></StackPanel>
-                                <TextBox Text="{CompiledBinding Text, Mode=TwoWay}" IsReadOnly="{CompiledBinding IsReadOnly}"
+                                <TextBox Text="{CompiledBinding Text, Mode=TwoWay}" IsReadOnly="{CompiledBinding IsReadOnly}" IsVisible="{CompiledBinding !HasChoices}"
                                          AutomationProperties.Name="{CompiledBinding Name}" />
+                                <ComboBox ItemsSource="{CompiledBinding Choices}" SelectedItem="{CompiledBinding Text, Mode=TwoWay}"
+                                          IsVisible="{CompiledBinding HasChoices}" HorizontalAlignment="Stretch"
+                                          AutomationProperties.Name="{CompiledBinding Name}" />
                             </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

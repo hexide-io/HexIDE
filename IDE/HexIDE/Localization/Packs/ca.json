@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Desa",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Aquest identificador ja existeix. Editeu-lo o personalitzeu-lo.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: JSON no vàlid: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: «{1}» no és un dels valors {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Els marcadors de l’espai de treball esperen que es triï una carpeta de projecte.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "El fitxer ha canviat. Torneu a obrir el formulari abans de desar."
   }

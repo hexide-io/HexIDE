@@ -20,6 +20,85 @@ namespace HexIDE.Integration.Tests.Views;
 public sealed class LanguageServerEditorViewTests
 {
     [AvaloniaTheory]
+    [InlineData("transport", ",stdio,pipe,websocket,tcp")]
+    [InlineData("pipeRole", ",connect,listen")]
+    [InlineData("websocketRole", ",connect,listen")]
+    [InlineData("tcpRole", ",connect,listen")]
+    [InlineData("trace", ",off,messages,verbose")]
+    public void ChoiceFieldsKeepUnknownValuesAndOfferDocumentedChoices(string name, string choices)
+    {
+        WithEditor("{\"id\":\"probe\",\"enabled\":false,\"" + name + "\":\"unknown\"}", (form, view) =>
+        {
+            var field = form.Fields.Single(f => f.Name == name);
+            var combo = view.GetVisualDescendants().OfType<ComboBox>().SingleOrDefault(c => ReferenceEquals(c.DataContext, field));
+            combo.Should().NotBeNull();
+            combo!.Items.Cast<string>().Should().Equal(choices.Split(',').Append("unknown"));
+            combo.SelectedItem.Should().Be("unknown");
+            field.Text.Should().Be("unknown");
+            // Re-enable the entry so the loader validates the unknown value.
+            form.Fields.Single(f => f.Name == "enabled").Text = "true";
+            form.Problems.Should().Contain("unknown").And.Contain(name);
+            combo.SelectedItem = choices.Split(',')[1];
+            field.Text.Should().Be(choices.Split(',')[1]);
+            combo.SelectedItem = "";
+            field.Text.Should().BeEmpty();
+        });
+    }
+
+    [AvaloniaTheory]
+    [InlineData("stdio", "command,arguments,environment,workingDirectory")]
+    [InlineData("pipe", "command,arguments,environment,workingDirectory,pipeName,pipeRole")]
+    [InlineData("tcp", "command,arguments,environment,workingDirectory,endpoint,tcpRole")]
+    [InlineData("websocket", "endpoint,websocketRole")]
+    public void TransportShowsOnlyItsFieldsAndPreservesHiddenValues(string transport, string visible)
+    {
+        WithEditor("{\"id\":\"probe\",\"enabled\":false,\"transport\":\"pipe\",\"pipeName\":\"keep\"}", (form, view) =>
+        {
+            var selector = view.GetVisualDescendants().OfType<ComboBox>().Single(c =>
+                c.DataContext is LanguageServerFieldViewModel f && f.Name == "transport");
+            selector.SelectedItem = transport;
+            var transportFields = "command,arguments,environment,workingDirectory,pipeName,pipeRole,endpoint,tcpRole,websocketRole".Split(',');
+            foreach (var name in transportFields)
+            {
+                var box = view.GetVisualDescendants().OfType<TextBox>()
+                    .Where(t => !t.GetVisualAncestors().OfType<ComboBox>().Any()).Single(t =>
+                    t.DataContext is LanguageServerFieldViewModel f && f.Name == name);
+                box.GetVisualAncestors().OfType<StackPanel>().First().IsVisible.Should().Be(visible.Split(',').Contains(name), name);
+            }
+            form.Fields.Single(f => f.Name == "displayName").Text = "Changed";
+            form.CanSave.Should().BeTrue(form.Problems);
+            form.SaveCommand.Execute(null);
+        }, saved => saved.Should().Contain("\"pipeName\":\"keep\"").And.Contain("Changed"));
+    }
+
+    private static void WithEditor(string entry, Action<LanguageServerEditorViewModel, LanguageServerEditorView> check,
+        Action<string>? checkSaved = null)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-choice-view-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "lsp-servers.json");
+        File.WriteAllText(path, "{\"servers\":[" + entry + "]}");
+        var store = new LanguageServerEditorStore(path, [], NullLogger<LanguageServerConfigLoader>.Instance,
+            new LanguageServerCommandStore(Path.Combine(directory, "seen.json")));
+        var form = new LanguageServerEditorViewModel(store, new LocalizationService(), null, "probe", false, () => { });
+        var view = new LanguageServerEditorView { DataContext = form };
+        var window = new Window { Content = view, Width = 800, Height = 280 };
+        window.SetRenderScaling(1.5);
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            check(form, view);
+            checkSaved?.Invoke(File.ReadAllText(path));
+        }
+        finally
+        {
+            window.Close();
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTheory]
     [InlineData("add", true)]
     [InlineData("add", false)]
     [InlineData("edit", true)]
@@ -81,7 +160,8 @@ public sealed class LanguageServerEditorViewTests
                 first.TranslatePoint(default, view)!.Value.Y.Should().BeGreaterThanOrEqualTo(0);
                 (first.TranslatePoint(default, view)!.Value.Y + first.Bounds.Height).Should().BeLessThanOrEqualTo(view.Bounds.Height);
             }
-            var fields = editor.GetVisualDescendants().OfType<TextBox>().ToArray();
+            var fields = editor.GetVisualDescendants().OfType<TextBox>()
+                .Where(t => !t.GetVisualAncestors().OfType<ComboBox>().Any()).ToArray();
             // One box per field the form offers, counted from the form rather than written down, so a new field (#1209's
             // tcpRole) doesn't fail this.
             fields.Should().HaveCount(((LanguageServerEditorViewModel)editor.DataContext!).Fields.Count)

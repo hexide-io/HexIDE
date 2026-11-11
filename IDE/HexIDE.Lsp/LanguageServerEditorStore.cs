@@ -59,7 +59,7 @@ public sealed class LanguageServerEditorStore(
             var added = "{}";
             // Set inserts at the front. Reverse the form's documented order, keeping id first.
             foreach (var (path, value) in changes.OrderBy(p => p.Key == "id" ? 0 : 1).Reverse())
-                added = Set(added, path.Split('.'), value);
+                added = Set(added, path.Split('.'), value, formatNewFields: false);
             return AddEntry(text, servers, added);
         }
         foreach (var (path, value) in changes)
@@ -105,7 +105,28 @@ public sealed class LanguageServerEditorStore(
             Encoder = AsTyped.Encoder,
         }))
             document.RootElement.WriteTo(writer);
-        var formatted = Encoding.UTF8.GetString(stream.ToArray()).Replace(newline, newline + entryIndent, StringComparison.Ordinal);
+        var formatted = Encoding.UTF8.GetString(stream.ToArray());
+        bool HasInlineArray(Node node) => (text[node.Start] == '[' && node.Items.Count > 0
+            && !text[node.Start..node.End].Contains('\n'))
+            || node.Properties.Values.Any(HasInlineArray) || node.Items.Any(HasInlineArray);
+        if (servers.Items.Any(HasInlineArray))
+        {
+            var arrays = new List<Node>();
+            void Collect(Node node)
+            {
+                if (formatted[node.Start] == '[') arrays.Add(node);
+                else foreach (var child in node.Properties.Values.Concat(node.Items)) Collect(child);
+            }
+            Collect(Node.Read(formatted));
+            foreach (var array in arrays.OrderByDescending(n => n.Start))
+            {
+                using var items = Parse(formatted[array.Start..array.End]);
+                var inline = "[" + string.Join(", ", items.RootElement.EnumerateArray()
+                    .Select(item => JsonSerializer.Serialize(item, AsTyped))) + "]";
+                formatted = formatted[..array.Start] + inline + formatted[array.End..];
+            }
+        }
+        formatted = formatted.Replace(newline, newline + entryIndent, StringComparison.Ordinal);
         if (servers.Items.Count > 0)
         {
             var position = servers.Items[0].Start;
@@ -136,21 +157,43 @@ public sealed class LanguageServerEditorStore(
         return true;
     }
 
-    private static string Set(string text, string[] path, string value)
+    private static string Set(string text, string[] path, string value, bool formatNewFields = true)
     {
         var root = Node.Read(text);
         if (!root.Properties.TryGetValue(path[0], out var node))
         {
-            var nested = path.Length == 1 ? value : Set("{}", path[1..], value);
-            return Insert(text, root, path[0], nested);
+            var nested = path.Length == 1 ? value : Set("{}", path[1..], value, formatNewFields);
+            return formatNewFields ? Insert(text, root, path[0], nested)
+                : text.Insert(root.Start + 1, JsonSerializer.Serialize(path[0], AsTyped) + ":" + nested + (root.Properties.Count > 0 ? "," : ""));
         }
         var replacement = path.Length == 1 ? value
-            : Set(text[node.Start..node.End].TrimStart().StartsWith('{') ? text[node.Start..node.End] : "{}", path[1..], value);
+            : Set(text[node.Start..node.End].TrimStart().StartsWith('{') ? text[node.Start..node.End] : "{}", path[1..], value, formatNewFields);
         return text[..node.Start] + replacement + text[node.End..];
     }
 
-    private static string Insert(string text, Node root, string name, string value) =>
-        text.Insert(root.Start + 1, JsonSerializer.Serialize(name, AsTyped) + ":" + value + (root.Properties.Count > 0 ? "," : ""));
+    private static readonly string[] FieldOrder =
+    [
+        "id", "extensions", "languageId", "transport", "command", "arguments", "environment", "workingDirectory",
+        "pipeName", "pipeRole", "endpoint", "tcpRole", "websocketRole", "displayName", "initializationOptions",
+        "trace", "priority", "enabled", "capture", "workspaceArtifact", "projectImport",
+    ];
+
+    private static string Insert(string text, Node root, string name, string value)
+    {
+        if (root.Properties.Count == 0)
+            return text.Insert(root.Start + 1, JsonSerializer.Serialize(name, AsTyped) + ":" + value + (root.Properties.Count > 0 ? "," : ""));
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var first = root.PropertyStarts.First().Value;
+        var line = text.LastIndexOf('\n', first) + 1;
+        var indent = new string(text[line..first].TakeWhile(c => c is ' ' or '\t').ToArray());
+        if (indent.Length == 0) indent = "  ";
+        var rank = Array.IndexOf(FieldOrder, name);
+        var next = root.PropertyStarts.FirstOrDefault(p => rank >= 0 && Array.IndexOf(FieldOrder, p.Key) > rank);
+        var literal = JsonSerializer.Serialize(name, AsTyped) + ": " + value;
+        if (next.Key is not null)
+            return text.Insert(next.Value, (text.Contains('\n') ? "" : newline + indent) + literal + "," + newline + indent);
+        return text.Insert(root.Properties.Last().Value.End, "," + newline + indent + literal);
+    }
 
     private sealed class Node
     {
@@ -158,6 +201,7 @@ public sealed class LanguageServerEditorStore(
         public int End;
         public Dictionary<string, Node> Properties { get; } = new(StringComparer.Ordinal);
         public List<Node> Items { get; } = [];
+        public Dictionary<string, int> PropertyStarts { get; } = new(StringComparer.Ordinal);
 
         public static Node Read(string text)
         {
@@ -177,6 +221,7 @@ public sealed class LanguageServerEditorStore(
                 while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
                 {
                     var name = reader.GetString()!;
+                    node.PropertyStarts[name] = Encoding.UTF8.GetCharCount(bytes.AsSpan(0, (int)reader.TokenStartIndex));
                     reader.Read();
                     node.Properties[name] = Read(ref reader, bytes);
                 }

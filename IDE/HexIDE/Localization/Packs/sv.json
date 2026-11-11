@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Spara",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Detta id finns redan. Redigera eller anpassa det.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Ogiltig JSON: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: ”{1}” är inte ett av värdena {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Platshållare för arbetsytan väntar på val av projektmapp.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Filen har ändrats. Öppna formuläret igen innan du sparar."
   }

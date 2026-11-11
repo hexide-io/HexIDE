@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "บันทึก",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "มี ID นี้แล้ว โปรดแก้ไขหรือปรับแต่ง",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: JSON ไม่ถูกต้อง: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: '{1}' ไม่ใช่ค่าใดค่าหนึ่งใน {2}",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "ตัวยึดตำแหน่งพื้นที่ทำงานรอการเลือกโฟลเดอร์โครงการ",
     "Str.Tool.LanguageServers.Editor.FileChanged": "ไฟล์เปลี่ยนแปลงแล้ว โปรดเปิดแบบฟอร์มใหม่ก่อนบันทึก"
   }

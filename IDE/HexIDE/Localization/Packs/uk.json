@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Зберегти",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Цей ідентифікатор уже існує. Змініть або налаштуйте його.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Неприпустимий JSON: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: «{1}» не входить до числа значень {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Підстановки робочої області очікують вибору папки проєкту.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Файл змінено. Перед збереженням відкрийте форму знову."
   }

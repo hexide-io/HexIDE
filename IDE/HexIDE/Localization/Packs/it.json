@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Salva",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Questo ID esiste già. Modificarlo o personalizzarlo.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: JSON non valido: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: «{1}» non è uno dei valori {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "I segnaposto dell’area di lavoro attendono la scelta della cartella del progetto.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Il file è cambiato. Riaprire il modulo prima di salvare."
   }
