@@ -18,6 +18,12 @@ public class FileConflictViewModel : ObservableObject, IDialog
 
     public ObservableCollection<ConflictedFileViewModel> Files { get; } = new();
 
+    /// <summary>
+    /// Whether the dialog also offers Cancel, which closes it with neither choice made: for a save that hasn't written
+    /// anything yet, as an add-in's project file is asked about (#3698).
+    /// </summary>
+    public bool CanCancel { get; init; }
+
     /// <summary>True if the user chose Reload-all; false if Keep-all. Valid after the dialog closes.</summary>
     public bool ReloadChosen { get; private set; }
 
@@ -33,6 +39,13 @@ public class FileConflictViewModel : ObservableObject, IDialog
     {
         ReloadChosen = false;
         CloseRequested?.Invoke(true);
+    }
+
+    // Esc reaches it as well, so where the dialog offers no Cancel it does nothing, as Esc did before there was one.
+    public void Cancel()
+    {
+        if (CanCancel)
+            CloseRequested?.Invoke(false);
     }
 }
 

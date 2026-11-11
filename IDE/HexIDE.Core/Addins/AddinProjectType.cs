@@ -6,11 +6,13 @@ namespace HexIDE.Addins;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Read-only membership.</b> The project file is the add-in's program's to write, never HexIDE's: saving writes the
-/// modules that were edited and not the project file. Adding and removing members, Project Properties, References and
-/// Components are not offered for the project, and HexIDE neither makes nor runs it. Renaming a module is offered, as its
-/// name is the <c>Attribute VB_Name</c> in its own file. A change to the project's membership reaches HexIDE the other way,
-/// through <see cref="IAddinProjectChanges"/>.
+/// <b>Membership through the type's writer.</b> Where the type has a <see cref="ProjectFile"/> writer, HexIDE writes the
+/// project file from what it renders, and offers whatever the render carries: adding and removing members, References and
+/// Project Properties' name and description. Without one, the project file is the add-in's program's to write, never
+/// HexIDE's: saving writes the modules that were edited and not the project file, and none of those is offered. Components
+/// is never offered, and HexIDE neither makes nor runs the project. Renaming a module is offered either way, as its name is
+/// the <c>Attribute VB_Name</c> in its own file. A change made outside HexIDE reaches it the other way, through
+/// <see cref="IAddinProjectChanges"/>.
 /// </para>
 /// <para>
 /// <b>Opened only when the user opens one.</b> HexIDE asks the add-in to read a file it names, from Open Project, the
@@ -59,6 +61,32 @@ public sealed record AddinProjectType(string Title)
     /// </para>
     /// </remarks>
     public HexIDE.IDE.IFormFileReader? Forms { get; init; }
+
+    /// <summary>
+    /// What renders its projects' own files, so that HexIDE can write the changes it offers to them. Without one, HexIDE never
+    /// writes a project file of this type, and its membership and settings can only change outside HexIDE.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Where it's written.</b> Only at the path the project was opened from: Save Project As writes it there too, and
+    /// asks for no new place. No member is ever written at that path, whichever route names it.
+    /// </para>
+    /// <para>
+    /// <b>A writer runs often.</b> Besides each save, HexIDE renders the project file to tell whether the project was edited,
+    /// which crash recovery asks every few seconds and closing asks too, and once when the project opens. All of it is on the
+    /// UI thread. One that throws hasn't rendered, and the project file is saved by nothing until it renders again.
+    /// </para>
+    /// <para>
+    /// <b>A file changed outside HexIDE.</b> HexIDE keeps the bytes it last read or wrote. A save that finds the file changed
+    /// asks whether to reload it, through <see cref="OpenAsync"/>, overwrite it, or cancel, where HexIDE has changes of its
+    /// own to write. Where it has none, the file is left as it is.
+    /// </para>
+    /// <para>
+    /// <b>Called only while the type is registered.</b> Once the add-in is turned off, or its consent is withdrawn, HexIDE
+    /// never renders through it again. It asks first about a project file with unsaved changes, as it does about forms.
+    /// </para>
+    /// </remarks>
+    public HexIDE.IDE.IProjectFileWriter? ProjectFile { get; init; }
 }
 
 /// <summary>What a project file holds, as the add-in read it.</summary>

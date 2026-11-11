@@ -103,7 +103,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
         {
             header = (form.Owner.FormFormat ?? format).RenderDesignerHeader(form, fileName);
         }
-        catch (HexIDE.Projects.FormRenderRefusal refusal)
+        catch (HexIDE.Projects.RenderRefusal refusal)
         {
             Log.Debug("HeaderRefresher: not re-rendering {Document} — {Reason}", identity.Display, refusal.Message);
             return;
