@@ -212,7 +212,8 @@ public class WorkingCopyReplyTests
         using var locked = attack == "locked"
             ? new FileStream(originalPath, FileMode.Open, FileAccess.Read, FileShare.None) : null;
         form.AbsolutePath = attack == "picker" ? null : unsafePath;
-        if (attack == "picker") ScriptedFileDialogs.AnswerNextWith(unsafePath);
+        // Clear first: an answer another test left armed would be taken in place of this one (#3745).
+        if (attack == "picker") { ScriptedFileDialogs.Clear(); ScriptedFileDialogs.AnswerNextWith(unsafePath); }
         var codeBefore = form.Code;
         var captionBefore = form.Components[0].GetPropertyOrDefault(HexIDE.Runtime.Components.VBProperties.CaptionProperty);
         var countBefore = form.Components.Count;
