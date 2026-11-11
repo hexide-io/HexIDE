@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Mentés",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Ez az azonosító már létezik. Szerkessze vagy szabja testre.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Érvénytelen JSON: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: A(z) „{1}” nem szerepel a következő értékek között: {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "A munkaterület helyőrzői a projektmappa kiválasztására várnak.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "A fájl megváltozott. Mentés előtt nyissa meg újra az űrlapot."
   }

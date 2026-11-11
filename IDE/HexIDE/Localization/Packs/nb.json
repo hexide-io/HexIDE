@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Lagre",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Denne ID-en finnes allerede. Rediger eller tilpass den.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Ugyldig JSON: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: «{1}» er ikke en av {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Plassholdere for arbeidsområdet venter på valg av prosjektmappe.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Filen er endret. Åpne skjemaet på nytt før lagring."
   }

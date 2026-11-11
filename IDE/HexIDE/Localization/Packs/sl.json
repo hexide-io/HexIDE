@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Shrani",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Ta ID že obstaja. Uredite ga ali prilagodite.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Neveljaven JSON: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: »{1}« ni ena od vrednosti {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Označbe delovnega prostora čakajo na izbiro projektne mape.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Datoteka se je spremenila. Pred shranjevanjem znova odprite obrazec."
   }

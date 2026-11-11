@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Simpan",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "ID ini sudah ada. Edit atau sesuaikan.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: JSON tidak valid: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: '{1}' bukan salah satu dari {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Placeholder ruang kerja menunggu pemilihan folder proyek.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Berkas berubah. Buka kembali formulir sebelum menyimpan."
   }

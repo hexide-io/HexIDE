@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
+using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HexIDE.Localization;
@@ -17,7 +18,14 @@ public sealed class LanguageServerFieldViewModel : ObservableObject
     public bool IsJson { get; }
     public bool IsReadOnly { get; }
     public string Original { get; }
-    public string Text { get => _text; set => SetProperty(ref _text, value); }
+    private readonly string[] _allowed;
+    public IReadOnlyList<string> Choices { get; }
+    public bool IsKnownChoice => _allowed.Length == 0 || _allowed.Contains(Text.Trim(), StringComparer.OrdinalIgnoreCase);
+    public IEnumerable<string> AllowedChoices => _allowed.Skip(1);
+    public bool HasChoices => Choices.Count > 0;
+    private bool _isVisible = true;
+    public bool IsVisible { get => _isVisible; internal set => SetProperty(ref _isVisible, value); }
+    public string Text { get => _text; set => SetProperty(ref _text, value ?? ""); }
 
     public LanguageServerFieldViewModel(string name, string text, bool json, bool readOnly)
     {
@@ -25,6 +33,16 @@ public sealed class LanguageServerFieldViewModel : ObservableObject
         Original = _text = text;
         IsJson = json;
         IsReadOnly = readOnly;
+        string[] choices = name switch
+        {
+            "transport" => ["", "stdio", "pipe", "websocket", "tcp"],
+            "pipeRole" or "websocketRole" or "tcpRole" => ["", "connect", "listen"],
+            "trace" => ["", "off", "messages", "verbose"],
+            _ => [],
+        };
+        _allowed = choices;
+        Choices = choices.Length > 0 && !choices.Contains(text, StringComparer.Ordinal)
+            ? [.. choices, text] : choices;
     }
 }
 
@@ -37,6 +55,7 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
     private readonly string _original;
     private readonly string? _id;
     private readonly bool _customise;
+    private readonly string? _inheritedTransport;
     private readonly Action _close;
     private string? _updated;
     private LanguageServerEntry? _entry;
@@ -70,6 +89,8 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
             ? JsonSerializer.Serialize(store.Defaults.Single(e => e.Id == id), LanguageServerConfigJsonContext.Default.LanguageServerEntry)
             : store.UserEntry(_original, id) ?? "{}";
         using var document = LanguageServerEditorStore.Parse(source);
+        if (!document.RootElement.TryGetProperty("transport", out _))
+            _inheritedTransport = store.Defaults.FirstOrDefault(e => e.Id == id)?.Transport;
         foreach (var name in new[]
         {
             "id", "extensions", "languageId", "transport", "command", "arguments", "environment",
@@ -86,7 +107,7 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
             var text = value.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null ? ""
                 : json || value.ValueKind != JsonValueKind.String ? value.GetRawText() : value.GetString() ?? "";
             var field = new LanguageServerFieldViewModel(name, text, json, name == "id" && id is not null);
-            field.PropertyChanged += (_, _) => Validate();
+            field.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(LanguageServerFieldViewModel.Text)) Validate(); };
             Fields.Add(field);
         }
         Validate();
@@ -96,6 +117,19 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
 
     private void Validate()
     {
+        var transportField = Fields.Single(f => f.Name == "transport");
+        var transport = (string.IsNullOrWhiteSpace(transportField.Text)
+            ? _inheritedTransport : transportField.Text)?.Trim().ToLowerInvariant();
+        foreach (var field in Fields)
+            field.IsVisible = field.Name switch
+            {
+                "command" or "arguments" or "environment" or "workingDirectory" => transport is "stdio" or "pipe" or "tcp",
+                "pipeName" or "pipeRole" => transport == "pipe",
+                "endpoint" => transport is "websocket" or "tcp",
+                "websocketRole" => transport == "websocket",
+                "tcpRole" => transport == "tcp",
+                _ => true,
+            };
         CanSave = false;
         _updated = null;
         _entry = null;
@@ -115,7 +149,8 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
                 catch (JsonException ex)
                 {
                     Problems = OriginalFileProblem() ?? string.Format(
-                        _localization.GetString("Str.Tool.LanguageServers.Editor.InvalidJson"), field.Name, ex.Message);
+                        _localization.GetString("Str.Tool.LanguageServers.Editor.InvalidJson"), $"{field.Name}:{ex.LineNumber.GetValueOrDefault() + 1}:{JsonColumn(literal, ex)}",
+                        ex.Message.Split(" LineNumber:", StringSplitOptions.None)[0]);
                     return;
                 }
                 changes[field.Name] = literal;
@@ -129,7 +164,11 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
             if (_customise) changes["id"] = JsonSerializer.Serialize(_id, LanguageServerEditorStore.AsTyped);
             _updated = _store.Change(_original, _customise ? null : _id, changes);
             var result = _store.Preview(_updated);
-            Problems = FormatProblems(result.Problems.Where(p => p.EntryId is null || p.EntryId == id));
+            var choiceProblems = Fields.Where(f => !f.IsKnownChoice).Select(f => string.Format(
+                _localization.GetString("Str.Tool.LanguageServers.Editor.InvalidChoice"), f.Name, f.Text,
+                string.Join(", ", f.AllowedChoices.Select(c => "'" + c + "'"))));
+            Problems = string.Join(Environment.NewLine, choiceProblems.Append(
+                FormatProblems(result.Problems.Where(p => p.EntryId is null || p.EntryId == id))).Where(p => p.Length > 0));
             _entry = result.Entries.LastOrDefault(e => e.Id == id);
             if (_entry is null || result.Problems.Any(p => p.EntryRejected && (p.EntryId is null || p.EntryId == id))) return;
             Preview = CommandPreview(_entry);
@@ -143,6 +182,20 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
         {
             Problems = OriginalFileProblem() ?? ex.Message;
         }
+    }
+
+    private static int JsonColumn(string text, JsonException exception)
+    {
+        var bytes = Encoding.UTF8.GetBytes(text);
+        var start = 0;
+        for (long line = 0; line < exception.LineNumber.GetValueOrDefault() && start < bytes.Length; line++)
+        {
+            var next = Array.IndexOf(bytes, (byte)'\n', start);
+            if (next < 0) break;
+            start = next + 1;
+        }
+        var length = (int)Math.Clamp(exception.BytePositionInLine.GetValueOrDefault(), 0, bytes.Length - start);
+        return Encoding.UTF8.GetCharCount(bytes.AsSpan(start, length)) + 1;
     }
 
     private string? OriginalFileProblem()

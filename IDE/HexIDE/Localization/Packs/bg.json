@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Запис",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Този идентификатор вече съществува. Редактирайте или персонализирайте го.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Невалиден JSON: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: „{1}“ не е сред {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Заместителите на работната област чакат избор на папка на проект.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Файлът е променен. Отворете отново формуляра преди записване."
   }

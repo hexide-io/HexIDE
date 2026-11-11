@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "حفظ",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "هذا المعرف موجود بالفعل. عدّله أو خصّصه.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: JSON غير صالح: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: القيمة '{1}' ليست من بين {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "تظل العناصر النائبة لمساحة العمل دون حل حتى اختيار مجلد مشروع.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "تغيّر الملف. أعد فتح النموذج قبل الحفظ."
   }

@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Gem",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Dette id findes allerede. Rediger eller tilpas det.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Ugyldig JSON: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: '{1}' er ikke en af {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Pladsholdere for arbejdsområdet venter på valg af projektmappe.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Filen er ændret. Åbn formularen igen, før du gemmer."
   }

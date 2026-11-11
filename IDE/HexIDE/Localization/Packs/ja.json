@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "保存",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "この ID は既に存在します。編集またはカスタマイズしてください。",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: 無効な JSON: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: 「{1}」は {2} のいずれでもありません。",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "プロジェクトフォルダーを選択するまでワークスペースのプレースホルダーは解決されません。",
     "Str.Tool.LanguageServers.Editor.FileChanged": "ファイルが変更されました。保存する前にフォームを開き直してください。"
   }

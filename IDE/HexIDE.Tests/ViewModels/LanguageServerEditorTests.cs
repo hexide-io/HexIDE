@@ -35,6 +35,45 @@ public sealed class LanguageServerEditorTests : IDisposable
     private static void Set(LanguageServerEditorViewModel vm, string name, string value) => vm.Fields.Single(f => f.Name == name).Text = value;
 
     [Fact]
+    public void FieldJsonLocationsCountLinesAndCharactersFromOne()
+    {
+        var form = Form("bundled", true);
+        Set(form, "environment", "{\n\"é\": !}");
+        form.Problems.Should().Contain("environment:2:6").And.NotContain("BytePositionInLine").And.NotContain("LineNumber");
+    }
+
+    [Fact]
+    public void EditInsertsANewPropertyOnItsOwnLineInDocumentedOrder()
+    {
+        var original = """
+            {"servers": [
+              {
+                "id": "probe",
+                "enabled": false // retained
+              }
+            ]}
+            """;
+        File.WriteAllText(Config, original);
+        var form = Form("probe");
+        Set(form, "displayName", "New");
+        form.SaveCommand.Execute(null);
+        File.ReadAllText(Config).ReplaceLineEndings("\n").Should().Be(original.ReplaceLineEndings("\n")
+            .Replace("\"enabled\": false", "\"displayName\": \"New\",\n    \"enabled\": false", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void NewEntryUsesInlineArraysWhenItsNeighboursDo()
+    {
+        File.WriteAllText(Config, "{\"servers\": [\n  " + Entry + "\n]}");
+        var form = Form();
+        Set(form, "id", "new");
+        Set(form, "extensions", "[\".a\", \".b\"]");
+        Set(form, "enabled", "false");
+        form.SaveCommand.Execute(null);
+        File.ReadAllText(Config).Should().Contain("\"extensions\": [\".a\", \".b\"]").And.Contain(Entry);
+    }
+
+    [Fact]
     public void AddValidatesAsYouTypeAndSavesThePreviewedCommand()
     {
         var closed = false;

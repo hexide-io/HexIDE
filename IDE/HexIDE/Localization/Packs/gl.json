@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Gardar",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Este identificador xa existe. Edíteo ou personalíceo.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: JSON non válido: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: «{1}» non é un dos valores {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Os marcadores do espazo de traballo agardan a que se escolla un cartafol de proxecto.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "O ficheiro cambiou. Abra de novo o formulario antes de gardar."
   }

@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Tallenna",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Tämä tunnus on jo olemassa. Muokkaa tai mukauta sitä.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Virheellinen JSON: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: '{1}' ei ole mikään arvoista {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Työtilan paikkamerkit odottavat projektikansion valintaa.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Tiedosto on muuttunut. Avaa lomake uudelleen ennen tallennusta."
   }

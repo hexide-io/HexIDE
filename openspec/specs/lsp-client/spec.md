@@ -2724,7 +2724,18 @@ be read-only. A file changed since the form opened SHALL NOT be overwritten.
 Invalid JSON SHALL name the field using its displayed label. Untouched customized fields SHALL inherit;
 clearing a populated field SHALL write explicit null. The help text SHALL explain both.
 New entries SHALL put each property on its own line, matching surrounding indentation, with id first
-and the rest in documentation order. The form SHALL include tcpRole.
+and the rest in documentation order. New fields in existing entries SHALL also use their own lines,
+surrounding indentation and documentation order. New entries SHALL use inline arrays when neighboring
+entries use inline arrays. JSON field errors SHALL report 1-based lines and character columns.
+The form SHALL offer dropdowns for transport, pipeRole, websocketRole, tcpRole and trace, containing the
+documented values plus an empty choice. Existing unrecognized values SHALL remain selected and be
+reported as problems. Only fields used by the selected transport SHALL be visible; hiding a field SHALL
+NOT clear its value.
+
+#### Scenario: Change transport without losing connection settings
+- **WHEN** a user changes a pipe entry to stdio
+- **THEN** pipeName and pipeRole are hidden and their stored values remain unchanged
+- **AND** selecting pipe again shows the retained values
 
 #### Scenario: Edit in a short tool pane
 - **WHEN** Add, Edit or Customize opens a form taller than the tool pane
