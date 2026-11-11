@@ -48,6 +48,7 @@ cd IDE
 dotnet test HexIDE.Runtime.Tests/                        # VB6 interpreter
 dotnet test HexIDE.Tests/                                # IDE view-models
 dotnet test HexIDE.Integration.Tests/                    # headless Avalonia UI
+dotnet test HexIDE.Runtime.Integration.Tests/            # headless Avalonia, the runtime as a made program runs it
 cd ../LspServer && dotnet test HexIDE.VbLspServer.Tests/ # LSP server
 ```
 

@@ -12,7 +12,7 @@ using HexIDE.Runtime.Components.InBox;
 using Shapes = Avalonia.Controls.Shapes;
 using SystemColors = Classic.CommonControls.SystemColors;
 
-namespace HexIDE.Integration.Tests.Controls;
+namespace HexIDE.Runtime.Integration.Tests.Controls;
 
 public class ImageListDesignerTests
 {

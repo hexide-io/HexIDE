@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+        Headless tests of the runtime as a made program runs it: running controls drawn under Avalonia headless, in an
+        application that loads only what the Standalone runner loads. The provider's half of HexIDE.Integration.Tests
+        (#3411, #3663). It references no IDE project, so a test here can't lean on the IDE's theme, as 74 tests there
+        did without anyone seeing it (#3695).
+
+        Not part of HexIDE.Runtime.Tests, which runs its tests in parallel: a headless application runs them one at a
+        time, and would hold up that suite's 8,500.
+    -->
+    <PropertyGroup>
+        <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
+        <Nullable>enable</Nullable>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <OutputType>Exe</OutputType>
+        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+        <!-- As in HexIDE.Integration.Tests: a failing run names the test, its message, file, line and stack. -->
+        <TestingPlatformShowTestsFailure>true</TestingPlatformShowTestsFailure>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia.Headless.XUnit" />
+        <PackageReference Include="Avalonia.Skia" />
+        <PackageReference Include="AwesomeAssertions" />
+        <PackageReference Include="Microsoft.Testing.Extensions.HangDump" />
+        <PackageReference Include="NSubstitute" />
+        <PackageReference Include="xunit.v3" />
+    </ItemGroup>
+
+    <!-- HexIDE.Integration.Tests' guards and helpers that need nothing of the IDE's, shared rather than copied. -->
+    <ItemGroup>
+        <Compile Include="..\HexIDE.Integration.Tests\CultureGuardAttribute.cs" Link="Infrastructure\CultureGuardAttribute.cs" />
+        <Compile Include="..\HexIDE.Integration.Tests\HeadlessFontWarmUp.cs" Link="Infrastructure\HeadlessFontWarmUp.cs" />
+        <Compile Include="..\HexIDE.Integration.Tests\WindowLeakGuard.cs" Link="Infrastructure\WindowLeakGuard.cs" />
+        <Compile Include="..\HexIDE.Integration.Tests\RepoTree.cs" Link="Infrastructure\RepoTree.cs" />
+        <Compile Include="..\HexIDE.Integration.Tests\Views\ContainerRuntimeHarness.cs" Link="Views\ContainerRuntimeHarness.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="AwesomeAssertions" />
+        <Using Include="NSubstitute" />
+        <Using Include="Xunit" />
+        <Using Include="Avalonia.Headless.XUnit" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
+        <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />
+        <ProjectReference Include="..\HexIDE.Standalone\HexIDE.Standalone.csproj" />
+    </ItemGroup>
+
+</Project>
