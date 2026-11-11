@@ -1,9 +1,10 @@
 using System;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
+using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A control where a value is wanted stands for its default member in VB6: <c>s = Text1</c> reads Text1.Text,

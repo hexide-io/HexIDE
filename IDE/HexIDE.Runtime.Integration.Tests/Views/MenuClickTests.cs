@@ -13,7 +13,7 @@ using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// When a menu's Click is raised (#1344): as a menu that holds items opens, and for a shortcut, each menu's from the top

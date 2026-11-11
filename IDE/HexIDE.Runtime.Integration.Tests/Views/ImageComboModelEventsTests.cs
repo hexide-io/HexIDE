@@ -7,7 +7,7 @@ using HexIDE.Runtime;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.BuiltinControls;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // #1092 group 2 corrects group 1: code Change is posted, including unchanged assignments.
 public class ImageComboModelEventsTests

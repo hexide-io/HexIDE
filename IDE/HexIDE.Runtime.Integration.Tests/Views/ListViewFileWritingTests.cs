@@ -3,12 +3,13 @@ using System.IO;
 using System.Linq;
 using Avalonia.Headless.XUnit;
 using Avalonia.Controls;
+using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class ListViewFileWritingTests
 {
