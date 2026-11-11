@@ -1,7 +1,7 @@
 using System.Text;
 using HexIDE.Runtime.Media;
 
-namespace HexIDE.Tests;
+namespace HexIDE.Runtime.Tests;
 
 public class AnimationClipTests
 {
