@@ -6,6 +6,7 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://HexIDE.Runtime/BuiltinControls/SystemColors.axaml" />
                 <!-- <ResourceInclude Source="avares://HexIDE.Runtime/BuiltinControls/VBTimer.axaml" /> -->
                 <ResourceInclude Source="avares://HexIDE.Runtime/BuiltinControls/VBLabel.axaml" />
                 <ResourceInclude Source="avares://HexIDE.Runtime/BuiltinControls/Resources.axaml" />
