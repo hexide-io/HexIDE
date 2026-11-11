@@ -36,6 +36,7 @@ public class MakeOutcomesTests : IDisposable
     public void Dispose() => Directory.Delete(ide, true);
 
     private ProjectService Service() => new(
+        new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
         () => throw new InvalidOperationException(), windows, events, Substitute.For<IProjectManager>(),
         Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
         Substitute.For<IUserSidecarService>(), new FileBaselineStore(), localization,

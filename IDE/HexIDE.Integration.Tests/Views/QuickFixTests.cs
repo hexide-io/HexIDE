@@ -47,7 +47,7 @@ public class QuickFixTests : IDisposable
         settings.TabWidth.Returns(4);
         vm = new CodeEditorViewModel(messages, editors, Substitute.For<IProjectService>(),
             Substitute.For<IEventBus>(), client, settings, Substitute.For<IStatusBarService>(), new BookmarkService(),
-            new BreakpointService(), Substitute.For<IDebugController>(), new RunScope(), localization, regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules());
+            new BreakpointService(), Substitute.For<IDebugController>(), new RunScope(), localization, regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", ModuleKind.StandardModule);
         module.AbsolutePath = OperatingSystem.IsWindows() ? @"C:\HexIDE-quick-fix\Module1.bas"
             : Path.Combine(Path.GetTempPath(), "HexIDE-quick-fix", "Module1.bas");
@@ -215,7 +215,7 @@ public class QuickFixTests : IDisposable
     {
         using var target = new CodeEditorViewModel(messages, editors, Substitute.For<IProjectService>(),
             Substitute.For<IEventBus>(), client, vm.Settings, Substitute.For<IStatusBarService>(), new BookmarkService(),
-            new BreakpointService(), Substitute.For<IDebugController>(), new RunScope(), new LocalizationService(), regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules());
+            new BreakpointService(), Substitute.For<IDebugController>(), new RunScope(), new LocalizationService(), regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "Other"), "Other", ModuleKind.StandardModule);
         module.UpdateCode("Public Sub OtherName()\r\nEnd Sub\r\n");
         target.Initialize(module);

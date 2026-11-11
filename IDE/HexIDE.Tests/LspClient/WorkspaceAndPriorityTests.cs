@@ -216,7 +216,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
                 var windows = Substitute.For<IWindowManager>();
                 windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
                     .Returns(Path.Combine(newDirectory, "P.vbp"));
-                var service = new ProjectService(() => throw new InvalidOperationException(), windows,
+                var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(), windows,
                     Substitute.For<IEventBus>(), model, Substitute.For<IRecentProjectsService>(),
                     Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
                     new FileBaselineStore(), Substitute.For<HexIDE.Localization.ILocalizationService>(),
@@ -273,7 +273,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
             var windows = Substitute.For<IWindowManager>();
             windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
                 .Returns(Path.Combine(root, "P.vbp"));
-            var service = new ProjectService(() => throw new InvalidOperationException(), windows,
+            var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(), windows,
                 Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
                 Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
                 new FileBaselineStore(), Substitute.For<HexIDE.Localization.ILocalizationService>(),

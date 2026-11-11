@@ -46,7 +46,7 @@ internal static class ProjectSmokeService
         var sidecar = Substitute.For<IUserSidecarService>();
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
-        var service = new ProjectService(() => throw new InvalidOperationException("Unexpected project dialog"),
+        var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException("Unexpected project dialog"),
             windows, Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), localization,
             Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());

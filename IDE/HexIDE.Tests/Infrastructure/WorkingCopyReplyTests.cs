@@ -75,7 +75,7 @@ public class WorkingCopyReplyTests
         dock.OpenDocuments.Returns([]);
         var events = new EventBus();
         var windows = Substitute.For<IWindowManager>();
-        var service = new ProjectService(() => throw new InvalidOperationException(), windows, events,
+        var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(), windows, events,
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
@@ -188,7 +188,7 @@ public class WorkingCopyReplyTests
         dock.OpenDocuments.Returns([]);
         var events = new EventBus();
         var windows = Substitute.For<IWindowManager>();
-        var service = new ProjectService(() => throw new InvalidOperationException(), windows, events,
+        var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(), windows, events,
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());

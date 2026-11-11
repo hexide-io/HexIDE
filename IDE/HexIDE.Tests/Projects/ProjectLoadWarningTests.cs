@@ -39,7 +39,7 @@ public class ProjectLoadWarningTests : IDisposable
         await File.WriteAllTextAsync(path, "Type=Exe\r\nName=\"P\"\r\nForm=Form1.frm\r\n" + extra, token);
         var manager = Substitute.For<IProjectManager>();
         manager.LoadedProjects.Returns(new List<ProjectDefinition>());
-        var service = new ProjectService(() => throw new InvalidOperationException(), windows,
+        var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
             new FileBaselineStore(), localization, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());

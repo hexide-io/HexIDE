@@ -26,7 +26,7 @@ public class ModuleRenameTests
         dock.OpenDocuments.Returns(new List<HexIDE.Forms.ViewModels.BaseEditorWindowViewModel>());
         loc.GetString("Str.Naming.Msg.NotAVb6Name").Returns("Invalid: {0}");
         loc.GetString("Str.Naming.Msg.DocumentNameTaken").Returns("Taken: {0}");
-        _ = new HeaderRefresher(bus, dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
+        _ = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), bus, dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
         return new PropertiesToolViewModel(dock, bus, windows, loc, new Vb6ProjectFileFormat());
     }
 
@@ -54,7 +54,7 @@ public class ModuleRenameTests
             Substitute.For<IProjectService>(), bus, Substitute.For<HexIDE.Lsp.ILspClient>(),
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(), new BookmarkService(),
             new BreakpointService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), loc).Initialize(module);
+            Substitute.For<IRunScope>(), loc, regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter()).Initialize(module);
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
         editor.Document.Insert(editor.Document.TextLength, "Dim x As Long\r\n");
         var manager = Substitute.For<IProjectManager>();

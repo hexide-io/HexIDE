@@ -65,7 +65,7 @@ public class ProjectFileFormatSeamTests : IDisposable
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns("{0}");
-        return new ProjectService(() => throw new InvalidOperationException("no new-project dialog here"), _windows,
+        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException("no new-project dialog here"), _windows,
             Substitute.For<IEventBus>(), _projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, localization,
             Substitute.For<IHeaderRefresher>(), format: _format, new ComponentRegistry());
@@ -320,7 +320,7 @@ public class ProjectFileFormatSeamTests : IDisposable
         var form = _loaded.Single().Forms.Single();
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel>());
-        using var refresher = new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService(), _format);
+        using var refresher = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), new EventBus(), dock, new BreakpointService(), new BookmarkService(), _format);
 
         refresher.LayoutChanged(form);
 

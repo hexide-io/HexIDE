@@ -202,7 +202,7 @@ public sealed class SidecarMigrationTests : IDisposable
             return Task.FromResult(true);
         });
 
-        var service = new ProjectService(
+        var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
             () => throw new InvalidOperationException("new-project dialog must not be reached"),
             windowManager,
             Substitute.For<IEventBus>(),

@@ -11,13 +11,14 @@ using AvaloniaEdit.Utils;
 using HexIDE.Addins;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
+using HexIDE.IDE;
+using HexIDE.Language;
+using HexIDE.Localization;
+using HexIDE.Lsp;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
-using HexIDE.IDE;
-using HexIDE.Localization;
 using HexIDE.Sidecar;
-using HexIDE.Lsp;
 using Serilog;
 
 namespace HexIDE.Projects;
@@ -39,8 +40,9 @@ public partial class ProjectService : IProjectService
     private readonly ContributedProjects? contributed;
     private readonly IProjectFileFormat format;
     private readonly IComponentRegistry componentRegistry;
+    private readonly IReadOnlyRegionWriter regionWriter;
 
-    public ProjectService(Func<NewProjectViewModel> newProjectVm,
+    public ProjectService(IReadOnlyRegionWriter regionWriter, Func<NewProjectViewModel> newProjectVm,
         IWindowManager windowManager,
         IEventBus eventBus,
         IProjectManager projectManager,
@@ -59,6 +61,7 @@ public partial class ProjectService : IProjectService
         this.contributed = contributed;
         if (contributed is not null)
             contributed.TypeWithdrawn += OnTypeWithdrawn;
+        this.regionWriter = regionWriter;
         this.format = format;
         this.componentRegistry = componentRegistry;
         this.newProjectVm = newProjectVm;
@@ -790,10 +793,9 @@ public partial class ProjectService : IProjectService
 
         void Reconcile(string name, string code, Action<string> update, string? path)
         {
-            if (name.Length == 0 || FormCodeText.VbNameOf(code) is not { } vbName
-                || string.Equals(vbName, name, StringComparison.Ordinal))
+            if (name.Length == 0 || regionWriter.NameRewrite(code, 0, name) is not { } change)
                 return;
-            update(FormCodeText.RetargetVbName(code, name));
+            update(TextChanges.Apply(code, [change]));
             notices.Add(string.Format(localization.GetString("Str.Dialog.ConflictingNames"), path ?? name, name));
         }
     }
@@ -2502,8 +2504,9 @@ public partial class ProjectService : IProjectService
     /// </remarks>
     private string? RewrittenQualifiers(object document, string path, bool ownCommand, string prefix, string code, SaveRewriteReport? rewrites)
     {
-        var rewritten = MemberAttributeQualifiers.Rewrite(prefix, code);
-        if (ReferenceEquals(rewritten, code))
+        var whole = prefix + code;
+        var changes = regionWriter.SaveRewrites(whole, prefix.Length);
+        if (changes.Count == 0)
             return null;
         var written = document switch
         {
@@ -2512,8 +2515,8 @@ public partial class ProjectService : IProjectService
             _ => throw new ArgumentException($"HexIDE does not rewrite a {document.GetType().Name}.", nameof(document)),
         };
         if (written)
-            rewrites?.Record(prefix, code);
-        return written ? rewritten : null;
+            rewrites?.Record(whole, changes);
+        return written ? TextChanges.Apply(whole, changes)[prefix.Length..] : null;
     }
 
     /// <summary>
