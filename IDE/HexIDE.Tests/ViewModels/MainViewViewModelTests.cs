@@ -916,6 +916,59 @@ public class MainViewViewModelTests
 
     // --- Title ---
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Renaming_the_current_project_or_group_refreshes_titles_and_headers(bool group)
+    {
+        _localization.GetString("Str.Menu.File.SaveProjectFormat").Returns("Save {0}");
+        _localization.GetString("Str.Menu.File.SaveProjectGroup").Returns("Save Group {0}");
+        _localization.GetString("Str.Menu.File.RemoveProjectFormat").Returns("Remove {0}");
+        _localization.GetString("Str.Menu.File.MakeProjectFormat").Returns("Make {0}");
+        var project = TestHelpers.CreateProject("Project1");
+        var projectGroup = new ProjectGroupDefinition("Group1");
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(project);
+        _focusedProjectUtil.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(
+            _focusedProjectUtil, new PropertyChangedEventArgs(nameof(IFocusedProjectUtil.FocusedOrStartupProject)));
+        if (group)
+        {
+            _projectManager.CurrentGroup.Returns(projectGroup);
+            _projectManager.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(
+                _projectManager, new PropertyChangedEventArgs(nameof(IProjectManager.CurrentGroup)));
+        }
+        var changed = new List<string?>();
+        _sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        if (group)
+            projectGroup.Name = "InsideName";
+        else
+            project.Name = "InsideName";
+
+        changed.Should().Contain(nameof(_sut.WindowTitle)).And.Contain(nameof(_sut.Title))
+            .And.Contain(nameof(_sut.SaveProjectMenuHeader));
+        _sut.WindowTitle.Should().Be("InsideName - HexIDE [design]");
+        _sut.SaveProjectMenuHeader.Should().Be(group ? "Save Group InsideName" : "Save InsideName");
+        if (!group)
+        {
+            changed.Should().Contain(nameof(_sut.RemoveProjectMenuHeader)).And.Contain(nameof(_sut.MakeProjectMenuHeader));
+            _sut.RemoveProjectMenuHeader.Should().Be("Remove InsideName");
+            _sut.MakeProjectMenuHeader.Should().Be("Make InsideName");
+        }
+
+        _focusedProjectUtil.FocusedOrStartupProject.Returns((ProjectDefinition?)null);
+        _focusedProjectUtil.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(
+            _focusedProjectUtil, new PropertyChangedEventArgs(nameof(IFocusedProjectUtil.FocusedOrStartupProject)));
+        _projectManager.CurrentGroup.Returns((ProjectGroupDefinition?)null);
+        _projectManager.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(
+            _projectManager, new PropertyChangedEventArgs(nameof(IProjectManager.CurrentGroup)));
+        changed.Clear();
+
+        project.Name = "DetachedProject";
+        projectGroup.Name = "DetachedGroup";
+
+        changed.Should().BeEmpty("previous projects and groups are no longer followed");
+    }
+
     [AvaloniaFact]
     public void Title_NoFocusedProject_ReturnsDesignDefault()
     {

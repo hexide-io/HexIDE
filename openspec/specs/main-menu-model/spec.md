@@ -37,6 +37,22 @@ Help's brand home and support commands retain their dynamic caption bindings and
 precede the existing repository web entry, and record the `HasBrandHome` and `HasBrandSupport`
 visibility bindings used by the host.
 
+### Requirement: Project captions follow renames
+
+The host SHALL refresh the main and OS window titles and name-aware project menu headers when the
+focused or startup project's Name changes. It SHALL follow the current group's Name for the title and
+Save Project Group header, and stop following a project or group when it is replaced or cleared.
+
+#### Scenario: Rename in Project Properties
+
+- **WHEN** Project Properties applies a new project name
+- **THEN** the window title and Save, Remove and Make project headers show the new name immediately
+
+#### Scenario: Rename the current group
+
+- **WHEN** the current group's name changes
+- **THEN** the window title and Save Project Group header show the new group name immediately
+
 ### Requirement: Command arguments have registered types
 
 Command arguments SHALL carry explicit string, boolean or integer types and match the registered command

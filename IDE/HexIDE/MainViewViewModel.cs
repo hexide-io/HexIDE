@@ -1592,6 +1592,26 @@ public partial class MainViewViewModel : ObservableObject
                 RaiseDynamicMenuHeaders();
             });
 
+        FocusedProjectUtil.ObservePropertyChanged(x => x.FocusedOrStartupProject)
+            .Select(project => project?.ObservePropertyChanged(x => x.Name) ?? Observable.Empty<string>())
+            .Switch()
+            .Subscribe(_ =>
+            {
+                OnPropertyChanged(nameof(Title));
+                OnPropertyChanged(nameof(WindowTitle));
+                RaiseDynamicMenuHeaders();
+            });
+
+        projectManager.ObservePropertyChanged(x => x.CurrentGroup)
+            .Select(group => group?.ObservePropertyChanged(x => x.Name) ?? Observable.Empty<string>())
+            .Switch()
+            .Subscribe(_ =>
+            {
+                OnPropertyChanged(nameof(Title));
+                OnPropertyChanged(nameof(WindowTitle));
+                RaiseDynamicMenuHeaders();
+            });
+
         projectRunnerService.ObservePropertyChanged(x => x.CanEndProject)
             .Subscribe(_ => EndProjectCommand.RaiseCanExecutedChanged());
 
