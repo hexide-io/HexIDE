@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.IDE;
 
 namespace HexIDE.Runtime.Tests;
 

@@ -26,12 +26,12 @@ public sealed class RuntimeErrorLog(TimeProvider? clock = null)
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
     private readonly object _gate = new();
     private string? _message;
-    private HexIDE.Runtime.Interpreter.ErrorLocation? _where;
+    private ErrorLocation? _where;
     private DateTimeOffset _at;
     private int _sequence;
 
     /// <summary>Records an error, with where it was raised when a statement raised it (#955).</summary>
-    public void Record(string message, HexIDE.Runtime.Interpreter.ErrorLocation? where = null)
+    public void Record(string message, ErrorLocation? where = null)
     {
         lock (_gate)
         {
@@ -47,7 +47,7 @@ public sealed class RuntimeErrorLog(TimeProvider? clock = null)
     /// <summary>
     /// The most recent error, or null when none has been raised since the last <see cref="Clear"/>.
     /// </summary>
-    public (string Message, DateTimeOffset At, int Sequence, HexIDE.Runtime.Interpreter.ErrorLocation? Where)? Last
+    public (string Message, DateTimeOffset At, int Sequence, ErrorLocation? Where)? Last
     {
         get
         {

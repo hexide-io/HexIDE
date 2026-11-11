@@ -23,7 +23,6 @@ using HexIDE.Projects;
 using HexIDE.Runtime;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.Components;
-using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Addins;
 using HexIDE.Tools;

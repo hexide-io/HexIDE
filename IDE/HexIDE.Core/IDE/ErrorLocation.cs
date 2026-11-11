@@ -1,6 +1,6 @@
 using System;
 
-namespace HexIDE.Runtime.Interpreter;
+namespace HexIDE.IDE;
 
 /// <summary>
 /// The module and line an error was raised at, counted from the top of the file as the code window numbers it (#955).

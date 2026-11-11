@@ -1489,7 +1489,7 @@ public class MainViewViewModelTests
     [AvaloniaFact]
     public void An_error_the_program_carries_on_after_is_recorded_and_shown()
     {
-        var at = new HexIDE.Runtime.Interpreter.ErrorLocation("Form1", 2);
+        var at = new ErrorLocation("Form1", 2);
         _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(false);
 
         _runnerService.ErrorMet += Raise.Event<System.Action<RunFailure>>(new RunFailure("Sub or Function not defined", at));
@@ -1510,7 +1510,7 @@ public class MainViewViewModelTests
     [InlineData(true, false, false, false)]   // End after the run has ended some other way: nothing to end
     public async Task A_halt_is_recorded_before_its_dialog_and_answered_from_it(bool answer, bool canEnd, bool debug, bool ends)
     {
-        var at = new HexIDE.Runtime.Interpreter.ErrorLocation("Form1", 2);
+        var at = new ErrorLocation("Form1", 2);
         var recordedFirst = false;
         _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(_ =>
         {

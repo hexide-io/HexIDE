@@ -1,6 +1,5 @@
 using System;
 using System.Threading.Tasks;
-using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.IDE;
