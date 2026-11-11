@@ -1325,7 +1325,8 @@ public partial class ProjectService : IProjectService
         }
     }
 
-    private RenderedFile RenderForm(FormDefinition form, string path) => FormFormatOf(form.Owner).RenderForm(form, Path.GetFileName(path));
+    private RenderedFile RenderForm(FormDefinition form, string path) =>
+        CompanionHasSomewhere(form.Owner, form.Name, path, FormFormatOf(form.Owner).RenderForm(form, Path.GetFileName(path)));
 
     // What reads and renders this project's forms. Every read and render of one comes through here, so a project an add-in
     // opened never has a form read or written as a VB6 file.
@@ -1337,8 +1338,15 @@ public partial class ProjectService : IProjectService
     /// </summary>
     private RenderedFile RenderModule(ModuleDefinition module, string path) =>
         DesignerPartOf(module) is not null
-            ? FormFormatOf(module.Owner).RenderDesignerFile(module, Path.GetFileName(path))
+            ? CompanionHasSomewhere(module.Owner, module.Name, path, FormFormatOf(module.Owner).RenderDesignerFile(module, Path.GetFileName(path)))
             : format.RenderModule(module, Path.GetFileName(path));
+
+    // An add-in's render with a companion needs somewhere that companion may go: beside the file, and on none of the project's
+    // own files. Checked here, with the whole path, so a save that would put it anywhere else stops before it writes anything.
+    private RenderedFile CompanionHasSomewhere(ProjectDefinition project, string document, string path, RenderedFile rendered) =>
+        project.FormFormat is ContributedFormFormat contributed && rendered.Companion is { Length: > 0 } && CompanionPathOf(project, path) is null
+            ? throw contributed.Refused(document, "it rendered a companion, and named nowhere it may go: beside the file, and none of the project's own files")
+            : rendered;
 
     /// <summary>Where a designer file's companion goes, as the format that reads the file names it; null where it has none.</summary>
     private string? CompanionPathOf(ProjectDefinition project, string sourcePath) => FormFormatOf(project).CompanionPath(sourcePath);

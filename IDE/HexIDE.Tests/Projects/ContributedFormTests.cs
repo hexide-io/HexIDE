@@ -652,6 +652,48 @@ public sealed class ContributedFormTests : IDisposable
         File.ReadAllText(FormFile).Should().Be("Main\nfirst");
     }
 
+    [AvaloniaTheory]
+    [InlineData("member")]
+    [InlineData("project")]
+    public async Task A_companion_named_as_another_of_the_project_s_files_ends_the_save_before_anything_changes(string which)
+    {
+        var bas = Path.Join(_dir, "Code.bas");
+        File.WriteAllText(bas, "Attribute VB_Name = \"Code\"\r\nSub Main()\r\nEnd Sub\r\n");
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form), new AddinProjectMember(bas, AddinMemberKind.StandardModule));
+        var form = (await Opened()).Forms.Single();
+        var sibling = which == "member" ? bas : ProjectFile;
+        var (siblingBefore, formBefore, companionBefore) = (File.ReadAllBytes(sibling), File.ReadAllBytes(FormFile), File.ReadAllBytes(CompanionFile));
+        _format.CompanionAt = _ => sibling;
+        form.UpdateCode("changed");
+
+        var save = () => _service.SaveForm(form, saveAs: false);
+
+        await save.Should().ThrowAsync<FormRenderRefusal>("a companion written there would overwrite one of the project's own files");
+        File.ReadAllBytes(sibling).Should().Equal(siblingBefore);
+        File.ReadAllBytes(FormFile).Should().Equal(formBefore);
+        File.ReadAllBytes(CompanionFile).Should().Equal(companionBefore);
+        await ToldOf("Main wasn't written by A provider.");
+    }
+
+    [AvaloniaFact]
+    public async Task A_form_whose_format_names_another_member_as_its_companion_is_never_read_with_it_and_opens_read_only()
+    {
+        var bas = Path.Join(_dir, "Code.bas");
+        File.WriteAllText(bas, "Attribute VB_Name = \"Code\"\r\nSub Main()\r\nEnd Sub\r\n");
+        _format.CompanionAt = _ => bas;
+        using var type = Contribute(_format, new AddinProjectMember(bas, AddinMemberKind.StandardModule), new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        var before = File.ReadAllBytes(bas);
+
+        var form = (await Opened()).Forms.Single();
+        form.UpdateCode("changed");
+        var saved = await _service.SaveForm(form, saveAs: false);
+
+        _format.Reads.Single().Companion.Should().BeNull("a module's bytes are no form's companion");
+        form.CanSaveFaithfully.Should().BeFalse();
+        saved.Should().BeFalse();
+        File.ReadAllBytes(bas).Should().Equal(before);
+    }
+
     [AvaloniaFact]
     public async Task Once_the_add_in_has_gone_crash_recovery_offers_its_copy_rather_than_asking_it()
     {

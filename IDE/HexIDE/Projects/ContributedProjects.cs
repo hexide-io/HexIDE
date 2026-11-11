@@ -43,12 +43,16 @@ public sealed record ContributedProjectType(AddinProjectType Type, string AddinI
 /// </para>
 /// <para>
 /// A render is checked before anything is written: it ends with the code it was given, which is how the code window finds
-/// the header, and a companion goes beside its file. The companion's path is held to the file's folder when it's read too,
-/// so a project file's member can't steer a read or a write anywhere else.
+/// the header. A companion goes beside its file, and never on the file itself, another of the project's members or the
+/// project's own file, so a format that names one wrongly can't write over anything the project holds. That holds when a
+/// companion is read too.
 /// </para>
 /// </remarks>
 internal sealed class ContributedFormFormat(ContributedProjectType type) : IFormFileFormat
 {
+    /// <summary>The project whose forms these are, whose files a companion may never be. Set once it is built.</summary>
+    internal ProjectDefinition? Project { get; set; }
+
     public FormDefinition? ReadForm(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems) =>
         Read(problems, forms => forms.ReadForm(project, text, companion, problems));
 
@@ -88,21 +92,20 @@ internal sealed class ContributedFormFormat(ContributedProjectType type) : IForm
     }
 
     public RenderedFile RenderForm(FormDefinition form, string fileName) =>
-        Render(form.Name, form.Code, fileName, forms => forms.RenderForm(form, fileName));
+        Render(form.Name, form.Code, forms => forms.RenderForm(form, fileName));
 
     public RenderedFile RenderDesignerFile(ModuleDefinition module, string fileName) =>
-        Render(module.Name, module.Code, fileName, forms => forms.RenderDesignerFile(module, fileName));
+        Render(module.Name, module.Code, forms => forms.RenderDesignerFile(module, fileName));
 
     public string RenderDesignerHeader(FormDefinition form, string fileName) =>
         Ask(form.Name, forms => forms.RenderDesignerHeader(form, fileName));
 
-    private RenderedFile Render(string document, string code, string fileName, Func<IFormFileFormat, RenderedFile> render)
+    private RenderedFile Render(string document, string code, Func<IFormFileFormat, RenderedFile> render)
     {
         var rendered = Ask(document, render);
         if (rendered.Text is not { } text || !text.EndsWith(code, StringComparison.Ordinal))
             throw Refused(document, "what it rendered doesn't end with the code it was given, so the header can't be told from it");
-        if (rendered.Companion is { Length: > 0 } && CompanionPath(fileName) is null)
-            throw Refused(document, "it rendered a companion, and named nowhere beside the file to put it");
+        // Where a companion may go is checked with the file's whole path, which only the IDE's side has: ProjectService.
         return rendered;
     }
 
@@ -124,7 +127,7 @@ internal sealed class ContributedFormFormat(ContributedProjectType type) : IForm
         }
     }
 
-    private FormRenderRefusal Refused(string document, string reason)
+    internal FormRenderRefusal Refused(string document, string reason)
     {
         Log.Warning("Not writing {Document}: {Origin} can't render it, as {Reason}", document, type.Origin, reason);
         return new FormRenderRefusal(document, type.Origin, reason);
@@ -144,10 +147,10 @@ internal sealed class ContributedFormFormat(ContributedProjectType type) : IForm
             Log.Warning(ex, "{Origin} could not name a form's companion", type.Origin);
             return null;
         }
-        if (companion is null || IsBeside(path, companion))
+        if (companion is null || IsBeside(path, companion) && !IsTheProjects(companion))
             return companion;
-        Log.Warning("{Origin} names {Companion} as the companion of {Path}, which isn't beside it, so it's neither read nor written",
-            type.Origin, companion, path);
+        Log.Warning("{Origin} names {Companion} as the companion of {Path}, which isn't beside it or is one of the project's own "
+                    + "files, so it's neither read nor written", type.Origin, companion, path);
         return null;
     }
 
@@ -164,6 +167,28 @@ internal sealed class ContributedFormFormat(ContributedProjectType type) : IForm
         {
             return false;
         }
+    }
+
+    // The project's own file, or any member it holds, whatever its kind: a companion written there would overwrite it.
+    private bool IsTheProjects(string companion)
+    {
+        if (Project is not { } project)
+            return false;
+        string full;
+        try
+        {
+            full = Path.GetFullPath(companion);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return true;
+        }
+        return project.Forms.Select(form => form.AbsolutePath)
+            .Concat(project.Modules.Select(module => module.AbsolutePath))
+            .Concat(project.RelatedDocuments.Select(document => document.AbsolutePath))
+            .Append(project.AbsolutePath)
+            .OfType<string>()
+            .Any(own => HostFilePath.Equals(Path.GetFullPath(own), full));
     }
 }
 
@@ -269,13 +294,15 @@ public sealed partial class ContributedProjects
         string path, AddinProjectContent content, ContributedProjectType type, Vb6TextEncoding hostAnsi,
         Action<string, byte[]>? fileRead, ILocalizationService localization)
     {
+        var format = new ContributedFormFormat(type);
         var project = new ProjectDefinition(VBProjectType.EXE, content.Name)
         {
             ContributedBy = type.AddinId,
             Offers = type.Offers,
             ContributorTitle = type.Origin,
-            FormFormat = new ContributedFormFormat(type),
+            FormFormat = format,
         };
+        format.Project = project;
         project.AbsolutePath = path;
         project.ItemLinesDirectory = Path.GetDirectoryName(path)!;
         project.ListedFolders = [.. content.Folders];
