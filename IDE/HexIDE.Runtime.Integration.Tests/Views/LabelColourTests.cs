@@ -11,8 +11,10 @@ using Avalonia.Threading;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Integration.Tests;
+using HexIDE.Integration.Tests.Views;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A Label's colours paint when a program sets them, and a Label's or TextBox's colours from the form read back as

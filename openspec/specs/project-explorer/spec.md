@@ -10,6 +10,25 @@ that arrangement leaves the developer unable to see the shape of their own proje
 
 ## Requirements
 
+### Requirement: Explorer names SHALL follow the loaded group or project
+The group root SHALL notify its display name when the group's name changes. The pane title SHALL use
+localized `Project Group - {0}` for a loaded group and `Project - {0}` for a lone project without a group.
+It SHALL follow group creation or clearing, group and project renames, and language changes. With nothing
+loaded it SHALL retain the localized `Project Group - Group1` title (#3713).
+
+#### Scenario: Saving a group under a new name
+- **WHEN** saving the group changes its name
+- **THEN** the existing root node and the pane title show the new name
+
+#### Scenario: Clearing a group or changing language
+- **WHEN** the group is cleared leaving one project, or the IDE language changes
+- **THEN** the pane title reflects the loaded project and the current language
+
+#### Scenario: Adding an existing project beside another
+- **WHEN** an existing VB6 or add-in project is loaded while another project is loaded without a group
+- **THEN** the IDE SHALL create `Group1`, and the explorer shows its group root and localized group title
+- **AND** opening a lone project creates no group, while opening a `.vbg` uses that file's group
+
 ### Requirement: The tree SHALL show members in their filesystem hierarchy
 The tree SHALL present the project's members beneath the project file, arranged by their location on disk.
 

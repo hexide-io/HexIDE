@@ -255,10 +255,13 @@ public sealed class ContributedProjectFileTests : IDisposable
         await _service.OpenProject(vbp);
         var moved = Path.Join(_dir, "Moved.vbp");
         PickForSave(moved);
+        _windows.SaveFilePickerAsync(Arg.Is<FilePickerSaveOptions>(options => options.DefaultExtension == "vbg"),
+            Arg.Any<string?>()).Returns(Path.Join(_dir, "Group.vbg"));
 
         await _service.SaveAllProjects(true);
 
-        await _windows.Received(1).SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        await _windows.Received(1).SaveFilePickerAsync(
+            Arg.Is<FilePickerSaveOptions>(options => options.DefaultExtension == "vbp"), Arg.Any<string?>());
         File.Exists(moved).Should().BeTrue();
         project.AbsolutePath.Should().Be(ProjectFile);
         File.ReadAllText(ProjectFile).Should().Be("ledger\r\n");
@@ -276,6 +279,8 @@ public sealed class ContributedProjectFileTests : IDisposable
         await _service.OpenProject(vbp);
         var moved = Path.Join(_dir, "Moved.vbp");
         PickForSave(moved);
+        _windows.SaveFilePickerAsync(Arg.Is<FilePickerSaveOptions>(options => options.DefaultExtension == "vbg"),
+            Arg.Any<string?>()).Returns(Path.Join(_dir, "Group.vbg"));
 
         await _service.SaveAllProjects(true);
 
