@@ -638,6 +638,34 @@ public sealed class ContributedFormTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task A_companion_named_as_the_form_s_own_file_is_never_written_over_it()
+    {
+        _format.CompanionAt = path => path;
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+
+        var form = await OpenedForm();
+        form.UpdateCode("changed");
+        var saved = await _service.SaveForm(form, saveAs: false);
+
+        _format.Reads.Single().Companion.Should().BeNull();
+        saved.Should().BeFalse();
+        File.ReadAllText(FormFile).Should().Be("Main
+first");
+    }
+
+    [AvaloniaFact]
+    public async Task Once_the_add_in_has_gone_crash_recovery_offers_its_copy_rather_than_asking_it()
+    {
+        var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        var form = await OpenedForm();
+        type.Dispose();
+
+        _service.RecoveredMatches(form, new UnsavedFile("Main.sform", "Main
+first")).Should().BeFalse(
+            "nothing can say the copy matches, so it's offered");
+    }
+
+    [AvaloniaFact]
     public async Task Crash_recovery_keeps_a_copy_rendered_by_the_type_s_format()
     {
         using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
