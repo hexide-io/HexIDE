@@ -390,6 +390,8 @@
     "Str.Designer.ReadOnly.Banner": "Samo za branje — HexIDE tega obrazca še ne more zvesto poustvariti, zato bi ga shranjevanje spremenilo. Lahko si ga ogledate in zaženete, vendar spremembe ne bodo shranjene.",
     "Str.ContributedProject.FormReadOnly": "Samo za branje — dodatek, ki je to prebral, tega ne more zapisati nazaj, zato spremembe ne bodo shranjene.",
     "Str.ContributedProject.RenderRefused": "Nič ni bilo zapisano. {1} ni mogel zapisati {0}, zato se je shranjevanje ustavilo, preden se je spremenila katera koli datoteka.",
+    "Str.ContributedProject.WithdrawWithChanges": "{0} bere te elemente, ki imajo neshranjene spremembe:\n\n{1}\n\nJih želite shraniti, preden ga izklopite? Po izklopu jih HexIDE ne bo mogel shraniti.",
+    "Str.ContributedProject.WithdrawnWithChanges": "{0} ni več naložen, zato HexIDE teh elementov ne more shraniti:\n\n{1}\n\nObnovitev po zrušitvi hrani zadnjo kopijo, ki jo je naredila za vsakega. Spremembe po tej kopiji niso bile ohranjene.",
     "Str.Designer.Unmodelled.NotSupported": "Ni podprto v HexIDE",
     "Str.Designer.Unmodelled.ViewOnly": "V oblikovalniku samo za ogled",
     "Str.Designer.Context.Cut": "Iz_reži",

@@ -50,6 +50,52 @@ public class AddinOptionsPageViewModelTests
         sut.RestartNoteVisible.Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task Deactivate_asks_first_with_the_add_in_s_id_and_goes_ahead_only_on_yes(bool answer, bool deactivated)
+    {
+        _registry.GetStatus(Identified.AssemblyPath).Returns(AddinStatus.Loaded);
+        var asked = new List<string>();
+        var sut = new AddinOptionsPageViewModel(_registry, Identified, confirmWithdrawal: id => { asked.Add(id); return Task.FromResult(answer); });
+
+        await sut.ToggleEnabledCommand.ExecuteAsync(null);
+
+        asked.Should().Equal("the-addin");
+        _registry.Received(deactivated ? 1 : 0).SetEnabled(Identified.AssemblyPath, false);
+        sut.RestartNoteVisible.Should().Be(deactivated);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task Revoking_consent_asks_first_and_goes_ahead_only_on_yes(bool answer, bool revoked)
+    {
+        _registry.GetStatus(Identified.AssemblyPath).Returns(AddinStatus.Loaded);
+        var sut = new AddinOptionsPageViewModel(_registry, Identified, confirmWithdrawal: _ => Task.FromResult(answer));
+
+        await sut.RevokeConsentCommand.ExecuteAsync(null);
+
+        _registry.Received(revoked ? 1 : 0).RevokeConsent("the-hash");
+        sut.ConsentRevoked.Should().Be(revoked);
+    }
+
+    [Fact]
+    public async Task Activating_asks_nothing()
+    {
+        _registry.GetStatus(Identified.AssemblyPath).Returns(AddinStatus.Disabled);
+        var asked = false;
+        var sut = new AddinOptionsPageViewModel(_registry, Identified, confirmWithdrawal: _ => { asked = true; return Task.FromResult(false); });
+
+        await sut.ToggleEnabledCommand.ExecuteAsync(null);
+
+        asked.Should().BeFalse();
+        _registry.Received(1).SetEnabled(Identified.AssemblyPath, true);
+    }
+
+    private static readonly AddinInfo Identified =
+        new("/addins/Y.dll", "Provider", "Reads forms", "1.0.0", "Someone", Id: "the-addin", ManifestHash: "the-hash");
+
     [Fact]
     public void Toggle_FromDisabled_Activates()
     {

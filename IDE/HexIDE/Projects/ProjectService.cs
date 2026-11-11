@@ -57,6 +57,8 @@ public partial class ProjectService : IProjectService
         ContributedProjects? contributed = null)
     {
         this.contributed = contributed;
+        if (contributed is not null)
+            contributed.TypeWithdrawn += OnTypeWithdrawn;
         this.format = format;
         this.componentRegistry = componentRegistry;
         this.newProjectVm = newProjectVm;
@@ -2729,7 +2731,7 @@ public partial class ProjectService : IProjectService
         }
         catch (FormRenderRefusal)
         {
-            return lastRenders.TryGetValue(document, out var last) ? last.Copy : null;
+            return !letGo.TryGetValue(document, out _) && lastRenders.TryGetValue(document, out var last) ? last.Copy : null;
         }
     }
 
@@ -2756,7 +2758,95 @@ public partial class ProjectService : IProjectService
         return edited;
     }
 
-    private bool LastAnswer(object document) => lastRenders.TryGetValue(document, out var last) && last.Edited;
+    private bool LastAnswer(object document) =>
+        !letGo.TryGetValue(document, out _) && lastRenders.TryGetValue(document, out var last) && last.Edited;
+
+    /// <summary>Forms and designer files whose unsaved edits the user let go as their add-in was taken out.</summary>
+    private readonly ConditionalWeakTable<object, object> letGo = new();
+
+    /// <inheritdoc/>
+    public async Task<bool> ConfirmAddinWithdrawal(string addinId)
+    {
+        ContributedProjectType? type = null;
+        var unsaved = new List<(object Document, string Name)>();
+        foreach (var project in projectManager.LoadedProjects)
+        {
+            if (project.FormFormat is not ContributedFormFormat format
+                || !string.Equals(format.Type.AddinId, addinId, StringComparison.OrdinalIgnoreCase))
+                continue;
+            type = format.Type;
+            unsaved.AddRange(project.Forms.Where(IsDirty).Select(form => ((object)form, form.Name)));
+            unsaved.AddRange(project.Modules.Where(module => DesignerPartOf(module) is not null && IsDirty(module))
+                .Select(module => ((object)module, module.Name)));
+        }
+        if (type is null || unsaved.Count == 0)
+            return true;
+
+        var answer = await windowManager.MessageBox(
+            string.Format(localization.GetString("Str.ContributedProject.WithdrawWithChanges"), type.Origin,
+                string.Join("\n", unsaved.Select(member => $"  • {member.Name}"))),
+            HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+        switch (answer)
+        {
+            case MessageBoxResult.Yes:
+                // While its consent stands, because the user chose this. One that isn't written keeps the add-in, or its
+                // edit would go with it.
+                try
+                {
+                    foreach (var (document, _) in unsaved)
+                        if (!await (document is FormDefinition form ? SaveForm(form, saveAs: false) : SaveModule((ModuleDefinition)document, saveAs: false)))
+                            return false;
+                }
+                catch (Exception ex) when (ex is FormRenderRefusal or SourceEncodingRefusal or UnsavedMemberRefusal or OperationCanceledException)
+                {
+                    return false;
+                }
+                return true;
+            case MessageBoxResult.No:
+                foreach (var (document, _) in unsaved)
+                    letGo.AddOrUpdate(document, document);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    // What an add-in wrote can't be written once it has gone: each of its forms goes read-only, and what shows one is told.
+    // Where nobody was asked first, an edit stays in crash recovery's last copy, and the user is told the rest wasn't kept.
+    private void OnTypeWithdrawn(ContributedProjectType type)
+    {
+        var stranded = new List<string>();
+        foreach (var project in projectManager.LoadedProjects)
+        {
+            if (project.FormFormat is not ContributedFormFormat format || !ReferenceEquals(format.Type, type))
+                continue;
+            foreach (var form in project.Forms)
+            {
+                if (LastAnswer(form)) stranded.Add(form.Name);
+                NoLongerWritable(form, type);
+            }
+            foreach (var module in project.Modules)
+            {
+                if (DesignerPartOf(module) is not { } designerPart) continue;
+                if (LastAnswer(module)) stranded.Add(module.Name);
+                NoLongerWritable(designerPart, type);
+            }
+        }
+        if (stranded.Count == 0)
+            return;
+        Log.Warning("{Origin} went with unsaved changes to {Documents}", type.Origin, stranded);
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => windowManager.MessageBox(
+                string.Format(localization.GetString("Str.ContributedProject.WithdrawnWithChanges"), type.Origin,
+                    string.Join("\n", stranded.Select(name => $"  • {name}"))),
+                HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning)
+            .ListenErrors());
+    }
+
+    private void NoLongerWritable(FormDefinition designer, ContributedProjectType type)
+    {
+        designer.MarkUnfaithfulToSave(UnfaithfulSaveCause.ReadByAddin, $"{type.Origin} is no longer loaded, so nothing can write this");
+        eventBus.Publish(new FormReadOnlyChangedEvent(designer));
+    }
 
     private bool IsDirty(FormDefinition form)
     {

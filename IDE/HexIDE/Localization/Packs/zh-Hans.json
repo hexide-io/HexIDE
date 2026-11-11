@@ -428,6 +428,8 @@
     "Str.Designer.ReadOnly.Banner": "只读 — HexIDE 目前还无法忠实地重现此窗体，保存会改变它。可以查看和运行它，但更改不会被保存。",
     "Str.ContributedProject.FormReadOnly": "只读 — 读取此项的加载项无法将其写回，因此对它的更改不会被保存。",
     "Str.ContributedProject.RenderRefused": "未写入任何内容。{1} 无法写入 {0}，因此在任何文件更改之前已停止保存。",
+    "Str.ContributedProject.WithdrawWithChanges": "{0} 读取这些项，它们有未保存的更改：\n\n{1}\n\n要在关闭它之前保存吗？关闭后，HexIDE 将无法保存它们。",
+    "Str.ContributedProject.WithdrawnWithChanges": "{0} 已不再加载，因此 HexIDE 无法保存这些项：\n\n{1}\n\n崩溃恢复保留了它为每一项所做的最后一份副本。在该副本之后所做的更改未被保留。",
     "Str.Designer.Unmodelled.NotSupported": "HexIDE 不支持",
     "Str.Designer.Unmodelled.ViewOnly": "在设计器中仅供查看",
     "Str.Designer.Context.Cut": "剪切(_T)",

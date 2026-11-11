@@ -390,6 +390,8 @@
     "Str.Designer.ReadOnly.Banner": "Só lectura: HexIDE aínda non pode reproducir fielmente este formulario, polo que gardalo alteraríao. Pode velo e executalo, pero non se gardarán os cambios.",
     "Str.ContributedProject.FormReadOnly": "Só lectura — o complemento que o leu non pode volver escribilo, polo que os cambios non se gardarán.",
     "Str.ContributedProject.RenderRefused": "Non se escribiu nada. {1} non puido escribir {0}, así que o gardado detívose antes de cambiar ningún ficheiro.",
+    "Str.ContributedProject.WithdrawWithChanges": "{0} le estes elementos, e teñen cambios sen gardar:\n\n{1}\n\nQueres gardalos antes de desactivalo? Unha vez desactivado, HexIDE non poderá gardalos.",
+    "Str.ContributedProject.WithdrawnWithChanges": "{0} xa non está cargado, polo que HexIDE non pode gardar estes elementos:\n\n{1}\n\nA recuperación tras fallos conserva a última copia que fixo de cada un. O que se cambiou despois desa copia non se conservou.",
     "Str.Designer.Unmodelled.NotSupported": "Non compatible con HexIDE",
     "Str.Designer.Unmodelled.ViewOnly": "Só visualización no deseñador",
     "Str.Designer.Context.Cut": "_Cortar",

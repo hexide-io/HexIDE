@@ -428,6 +428,8 @@
     "Str.Designer.ReadOnly.Banner": "للقراءة فقط — لا يستطيع HexIDE حتى الآن إعادة إنتاج هذا النموذج بأمانة، لذا فإن حفظه سيغيّره. يمكنك عرضه وتشغيله، لكن لن يتم حفظ التغييرات.",
     "Str.ContributedProject.FormReadOnly": "للقراءة فقط — لا تستطيع الوظيفة الإضافية التي قرأت هذا كتابته مرة أخرى، لذا لن تُحفظ التغييرات عليه.",
     "Str.ContributedProject.RenderRefused": "لم تتم كتابة أي شيء. تعذّر على {1} كتابة {0}، لذا توقف الحفظ قبل تغيير أي ملف.",
+    "Str.ContributedProject.WithdrawWithChanges": "تقرأ {0} هذه العناصر، وفيها تغييرات غير محفوظة:\n\n{1}\n\nهل تريد حفظها قبل إيقاف تشغيلها؟ بعد إيقافها لن يستطيع HexIDE حفظها.",
+    "Str.ContributedProject.WithdrawnWithChanges": "لم تعد {0} محمّلة، لذا لا يستطيع HexIDE حفظ هذه العناصر:\n\n{1}\n\nيحتفظ استرداد الأعطال بآخر نسخة أخذها من كل منها. أي تغيير بعد تلك النسخة لم يُحتفظ به.",
     "Str.Designer.Unmodelled.NotSupported": "غير مدعوم في HexIDE",
     "Str.Designer.Unmodelled.ViewOnly": "للعرض فقط في المصمم",
     "Str.Designer.Context.Cut": "قص",

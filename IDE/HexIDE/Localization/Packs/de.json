@@ -428,6 +428,8 @@
     "Str.Designer.ReadOnly.Banner": "Schreibgeschützt — HexIDE kann dieses Formular noch nicht originalgetreu wiedergeben, sodass es beim Speichern verändert würde. Sie können es anzeigen und ausführen, Änderungen werden jedoch nicht gespeichert.",
     "Str.ContributedProject.FormReadOnly": "Schreibgeschützt — das Add-In, das dies gelesen hat, kann es nicht zurückschreiben, daher werden Änderungen daran nicht gespeichert.",
     "Str.ContributedProject.RenderRefused": "Es wurde nichts geschrieben. {1} konnte {0} nicht schreiben, daher wurde das Speichern beendet, bevor sich eine Datei änderte.",
+    "Str.ContributedProject.WithdrawWithChanges": "{0} liest diese Elemente, und sie enthalten ungespeicherte Änderungen:\n\n{1}\n\nVor dem Deaktivieren speichern? Danach kann HexIDE sie nicht mehr speichern.",
+    "Str.ContributedProject.WithdrawnWithChanges": "{0} ist nicht mehr geladen, daher kann HexIDE diese Elemente nicht speichern:\n\n{1}\n\nDie Absturzwiederherstellung behält die letzte Kopie, die sie von jedem angelegt hat. Was danach geändert wurde, ist nicht erhalten.",
     "Str.Designer.Unmodelled.NotSupported": "In HexIDE nicht unterstützt",
     "Str.Designer.Unmodelled.ViewOnly": "Im Designer nur zur Ansicht",
     "Str.Designer.Context.Cut": "_Ausschneiden",

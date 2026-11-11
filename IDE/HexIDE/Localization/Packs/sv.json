@@ -428,6 +428,8 @@
     "Str.Designer.ReadOnly.Banner": "Skrivskyddad — HexIDE kan ännu inte återge det här formuläret exakt, så det skulle ändras om det sparades. Du kan visa och köra det, men ändringar sparas inte.",
     "Str.ContributedProject.FormReadOnly": "Skrivskyddad — tillägget som läste detta kan inte skriva tillbaka det, så ändringar i det sparas inte.",
     "Str.ContributedProject.RenderRefused": "Ingenting skrevs. {1} kunde inte skriva {0}, så sparandet avbröts innan någon fil ändrades.",
+    "Str.ContributedProject.WithdrawWithChanges": "{0} läser dessa, och de har ändringar som inte är sparade:\n\n{1}\n\nVill du spara dem innan det stängs av? När det är avstängt kan HexIDE inte spara dem.",
+    "Str.ContributedProject.WithdrawnWithChanges": "{0} är inte längre inläst, så HexIDE kan inte spara dessa:\n\n{1}\n\nKraschåterställningen behåller den senaste kopian den tog av var och en. Ändringar efter den kopian sparades inte.",
     "Str.Designer.Unmodelled.NotSupported": "Stöds inte i HexIDE",
     "Str.Designer.Unmodelled.ViewOnly": "Endast visning i designern",
     "Str.Designer.Context.Cut": "Klipp _ut",

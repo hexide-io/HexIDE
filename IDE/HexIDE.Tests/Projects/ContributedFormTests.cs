@@ -54,6 +54,8 @@ public sealed class ContributedFormTests : IDisposable
         {
             "Str.ContributedProject.FormReadOnly" => "An add-in read this, so it wasn't saved.",
             "Str.ContributedProject.RenderRefused" => "{0} wasn't written by {1}.",
+            "Str.ContributedProject.WithdrawWithChanges" => "{0} has unsaved forms: {1}",
+            "Str.ContributedProject.WithdrawnWithChanges" => "{0} has gone, and these weren't saved: {1}",
             var key => key + " {0} {1}",
         });
         var dock = Substitute.For<IDocumentDockService>();
@@ -759,8 +761,7 @@ public sealed class ContributedFormTests : IDisposable
         _headers.LayoutChanged(form);
         WriteForm("second");
         await _service.ReloadFormFromDisk(form);
-        var save = () => _service.SaveForm(form, saveAs: false);
-        await save.Should().ThrowAsync<FormRenderRefusal>();
+        (await _service.SaveForm(form, saveAs: false)).Should().BeFalse("what it wrote is read-only once it has gone");
 
         _format.Renders.Should().HaveCount(renders, "its consent, or its being turned on, is what let it run");
         _format.Reads.Should().HaveCount(reads);
@@ -778,6 +779,159 @@ public sealed class ContributedFormTests : IDisposable
         _format.Renders.Should().Contain("header Main.sform");
         form.DesignerText.Should().Be("Main\n");
     }
+
+    [AvaloniaFact]
+    public async Task Before_its_add_in_goes_an_edited_form_is_asked_about_and_Save_writes_it_while_it_can()
+    {
+        var gauge = Path.Join(_dir, "Gauge.sform");
+        File.WriteAllText(gauge, "Gauge\ncontrol");
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form), new AddinProjectMember(gauge, AddinMemberKind.UserControl));
+        var project = await Opened();
+        var (form, control) = (project.Forms.Single(), project.Modules.Single());
+        form.UpdateCode("changed");
+        control.UpdateCode("control changed");
+        Answer(MessageBoxResult.Yes);
+
+        (await _service.ConfirmAddinWithdrawal(Provider.Id)).Should().BeTrue();
+
+        await ToldOf("A provider has unsaved forms:");
+        await ToldOf("Main");
+        await ToldOf("Gauge");
+        File.ReadAllText(FormFile).Should().Be("Main\nchanged");
+        File.ReadAllText(gauge).Should().Be("Gauge\ncontrol changed");
+        _service.HasUnsavedChanges(form).Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task Don_t_Save_lets_the_add_in_go_and_the_edit_with_it()
+    {
+        var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        var form = await OpenedForm();
+        form.UpdateCode("changed");
+        _service.CaptureUnsavedWork();
+        Answer(MessageBoxResult.No);
+
+        (await _service.ConfirmAddinWithdrawal(Provider.Id)).Should().BeTrue();
+        type.Dispose();
+        Dispatcher.UIThread.RunJobs();
+
+        File.ReadAllText(FormFile).Should().Be("Main\nfirst");
+        _service.HasUnsavedChanges(form).Should().BeFalse("the user let it go");
+        _service.CaptureUnsavedWork().Should().BeEmpty();
+        await _windows.DidNotReceive().MessageBox(Arg.Is<string>(said => said.Contains("weren't saved")), Arg.Any<string?>(),
+            Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+    }
+
+    [AvaloniaFact]
+    public async Task Cancel_keeps_the_add_in_and_the_edit()
+    {
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        var form = await OpenedForm();
+        form.UpdateCode("changed");
+        Answer(MessageBoxResult.Cancel);
+
+        (await _service.ConfirmAddinWithdrawal(Provider.Id)).Should().BeFalse();
+
+        File.ReadAllText(FormFile).Should().Be("Main\nfirst");
+        _service.HasUnsavedChanges(form).Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public async Task A_save_that_fails_keeps_the_add_in()
+    {
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        var form = await OpenedForm();
+        form.UpdateCode("changed");
+        _service.HasUnsavedChanges(form).Should().BeTrue();
+        Answer(MessageBoxResult.Yes);
+        _format.Throws = new InvalidOperationException("the gauge is broken");
+
+        (await _service.ConfirmAddinWithdrawal(Provider.Id)).Should().BeFalse("its edit would otherwise be lost with it");
+
+        File.ReadAllText(FormFile).Should().Be("Main\nfirst");
+    }
+
+    [AvaloniaFact]
+    public async Task An_add_in_with_nothing_unsaved_goes_without_a_question()
+    {
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        await OpenedForm();
+
+        (await _service.ConfirmAddinWithdrawal(Provider.Id)).Should().BeTrue();
+
+        await _windows.DidNotReceiveWithAnyArgs().MessageBox(default!, default, default, default, default, default);
+    }
+
+    [AvaloniaFact]
+    public async Task Another_add_in_going_asks_nothing_about_this_one_s_forms()
+    {
+        using var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        var form = await OpenedForm();
+        form.UpdateCode("changed");
+
+        (await _service.ConfirmAddinWithdrawal("someone-else")).Should().BeTrue();
+
+        await _windows.DidNotReceiveWithAnyArgs().MessageBox(default!, default, default, default, default, default);
+    }
+
+    [AvaloniaFact]
+    public async Task Once_its_add_in_has_gone_what_it_wrote_is_read_only_and_its_views_are_told()
+    {
+        var gauge = Path.Join(_dir, "Gauge.sform");
+        File.WriteAllText(gauge, "Gauge\ncontrol");
+        var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form), new AddinProjectMember(gauge, AddinMemberKind.UserControl));
+        var project = await Opened();
+        var (form, control) = (project.Forms.Single(), project.Modules.Single().FormPart!);
+
+        type.Dispose();
+
+        form.CanSaveFaithfully.Should().BeFalse();
+        form.UnfaithfulSaveCauses.Should().HaveFlag(UnfaithfulSaveCause.ReadByAddin);
+        control.CanSaveFaithfully.Should().BeFalse();
+        _events.Received(1).Publish(Arg.Is<FormReadOnlyChangedEvent>(e => e.Designer == form));
+        _events.Received(1).Publish(Arg.Is<FormReadOnlyChangedEvent>(e => e.Designer == control));
+    }
+
+    [AvaloniaFact]
+    public async Task Gone_with_no_one_asked_its_forms_keep_the_last_copy_and_the_user_is_told_later_changes_weren_t_kept()
+    {
+        var type = Contribute(_format, new AddinProjectMember(FormFile, AddinMemberKind.Form));
+        var form = await OpenedForm();
+        form.UpdateCode("changed");
+        _service.CaptureUnsavedWork();
+        form.UpdateCode("changed again");
+
+        type.Dispose();
+        Dispatcher.UIThread.RunJobs();
+
+        await ToldOf("A provider has gone, and these weren't saved:");
+        await ToldOf("Main");
+        _service.HasUnsavedChanges(form).Should().BeTrue();
+        _service.CaptureUnsavedWork().Single().Documents.Single().Content!.Text.Should().Be("Main\nchanged");
+    }
+
+    [AvaloniaFact]
+    public void A_form_made_read_only_outside_a_reload_tells_its_designer()
+    {
+        var bus = new EventBus();
+        var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "Ledger"), [new ComponentInstance(Root, "Main")], "");
+        using var designer = new HexIDE.VisualDesigner.FormEditViewModel(null!, bus, Substitute.For<IProjectService>(),
+            Substitute.For<IEditorService>(), Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(),
+            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+        var raised = new List<string?>();
+        designer.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        form.MarkUnfaithfulToSave(UnfaithfulSaveCause.ReadByAddin, "it has gone");
+        bus.Publish(new FormReadOnlyChangedEvent(form));
+        Dispatcher.UIThread.RunJobs();
+
+        designer.IsReadOnly.Should().BeTrue();
+        raised.Should().Contain(nameof(designer.IsReadOnly)).And.Contain(nameof(designer.IsReadByAddin));
+    }
+
+    private void Answer(MessageBoxResult answer) =>
+        _windows.MessageBox(Arg.Is<string>(said => said.Contains("has unsaved forms")), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(),
+            Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>()).Returns(answer);
 
     [Fact]
     public void No_product_code_renders_a_form_past_the_format_its_project_names() =>
