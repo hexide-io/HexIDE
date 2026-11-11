@@ -182,7 +182,13 @@ retain their exit code and fault. Stop and restart currently await teardown befo
 the same bound as IDE exit; no path gets a ten-second wait. Both process-owning transports retain their exit
 handlers through disposal and record the end once. Deliberate disposal logs a natural exit code at
 information level with the server identity; a timeout kill is logged separately. Unexpected exits
-remain warnings. The Unix guard and post-kill waits described above still exceed #491's requested
+remain warnings. Launched named-pipe transports attach their exit handler before enabling process
+exit events. Notices are replayed to the first Notice subscriber, then that startup buffer is cleared
+and no further history is retained; later subscribers receive only future notices. Unexpected closure
+remains replayable for the current connect attempt (#2685). Subscriber callbacks run serially in
+publication order outside the process/readers' gate, so a Closed handler can await disposal without
+blocking the readers. Deliberate teardown still suppresses unexpected closure.
+The Unix guard and post-kill waits described above still exceed #491's requested
 two-second total bound; integrating that deadline with descendant cleanup remains outstanding.
 Whole-composition IDE tests use a per-test owner that awaits disposal of the language registry,
 including when an assertion fails (#2588). A source guard rejects direct `DISetup` construction
