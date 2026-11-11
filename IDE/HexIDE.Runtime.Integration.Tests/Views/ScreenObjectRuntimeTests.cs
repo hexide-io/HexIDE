@@ -12,7 +12,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// The members of <c>Screen</c> a running form answers (#2431): <c>ActiveForm</c>, <c>ActiveControl</c>, and the pointer

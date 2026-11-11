@@ -13,7 +13,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// An option group is one Tab stop (#1583). Each case replays the Tab and Shift+Tab steps of vb6.exe's probes on the

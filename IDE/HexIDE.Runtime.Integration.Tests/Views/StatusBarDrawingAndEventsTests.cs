@@ -9,10 +9,12 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Media.Imaging;
+using HexIDE.Integration.Tests;
+using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // Measured: #1087, issuecomment-6427372779. Pixel metrics themselves are not oracle assertions.
 public class StatusBarDrawingAndEventsTests : WindowTestFixture

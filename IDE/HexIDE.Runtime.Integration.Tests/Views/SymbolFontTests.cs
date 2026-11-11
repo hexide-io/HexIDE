@@ -5,12 +5,14 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using Avalonia.VisualTree;
+using HexIDE.Integration.Tests;
+using HexIDE.Integration.Tests.Views;
 using HexIDE.IDE;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
 using static HexIDE.Integration.Tests.Views.ContainerRuntimeHarness;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A caption in a symbol font is drawn as the font's glyphs, as GDI draws it for VB6 (#1133): a Wingdings Label captioned

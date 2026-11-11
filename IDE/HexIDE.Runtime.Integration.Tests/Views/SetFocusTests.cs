@@ -14,7 +14,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// SetFocus (#1061). Every expectation was measured on vb6.exe, native and p-code agreeing, with compiled probes on the
