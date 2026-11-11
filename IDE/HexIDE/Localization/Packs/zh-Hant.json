@@ -1179,11 +1179,11 @@
     "Str.Project.AlreadyOpen": "專案 {0} 已開啟。",
     "Str.Options.Addins.Overview": "增益集為 HexIDE 加入工具和設定。若要安裝增益集，請將已簽署的增益集套件解壓縮至下方目錄中的獨立資料夾，然後重新啟動 HexIDE。在樹狀清單中選取增益集即可管理。",
     "Str.Tool.LanguageServers.Editor.Customise": "自訂",
-    "Str.Tool.LanguageServers.Editor.Help": "留空可清除值。JSON 欄位接受 JSON 值。儲存將記住下方命令；重新啟動後生效。",
+    "Str.Tool.LanguageServers.Editor.Help": "自訂時，未修改的欄位繼承預設值。清空已有值的欄位會寫入 null。 JSON 欄位接受 JSON 值。儲存將記住下方命令；重新啟動後生效。",
     "Str.Tool.LanguageServers.Editor.Command": "解析後的命令（包括引數）",
     "Str.Tool.LanguageServers.Editor.Save": "儲存",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "此 ID 已存在。請編輯或自訂該項目。",
-    "Str.Tool.LanguageServers.Editor.InvalidJson": "無效的 JSON：{0}",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: 無效的 JSON：{1}",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "選擇專案資料夾後才能解析工作區預留位置。",
     "Str.Tool.LanguageServers.Editor.FileChanged": "檔案已變更。請重新開啟表單後再儲存。"
   }

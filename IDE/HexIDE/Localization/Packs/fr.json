@@ -1179,11 +1179,11 @@
     "Str.Project.AlreadyOpen": "Le projet {0} est déjà ouvert.",
     "Str.Options.Addins.Overview": "Les compléments ajoutent des outils et des paramètres à HexIDE. Pour en installer un, extrayez un paquet signé dans son propre dossier dans le répertoire ci-dessous, puis redémarrez HexIDE. Sélectionnez un complément dans l’arborescence pour le gérer.",
     "Str.Tool.LanguageServers.Editor.Customise": "Personnaliser",
-    "Str.Tool.LanguageServers.Editor.Help": "Une valeur vide efface le champ. Les champs JSON attendent des valeurs JSON. Enregistrer mémorise la commande ci-dessous ; redémarrez pour appliquer.",
+    "Str.Tool.LanguageServers.Editor.Help": "Lors de la personnalisation, les champs inchangés héritent des valeurs par défaut. Vider un champ renseigné écrit null. Les champs JSON attendent des valeurs JSON. Enregistrer mémorise la commande ci-dessous ; redémarrez pour appliquer.",
     "Str.Tool.LanguageServers.Editor.Command": "Commande résolue (arguments inclus)",
     "Str.Tool.LanguageServers.Editor.Save": "Enregistrer",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Cet identifiant existe déjà. Modifiez-le ou personnalisez-le.",
-    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON non valide : {0}",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: JSON non valide : {1}",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Les espaces réservés de travail attendent le choix du dossier du projet.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Le fichier a changé. Rouvrez le formulaire avant d’enregistrer."
   }

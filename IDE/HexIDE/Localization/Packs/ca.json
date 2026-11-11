@@ -1179,11 +1179,11 @@
     "Str.Project.AlreadyOpen": "El projecte {0} ja està obert.",
     "Str.Options.Addins.Overview": "Els complements amplien HexIDE amb eines i opcions. Per instal·lar-ne un, extraieu un paquet signat a la seva pròpia carpeta dins del directori indicat a sota i reinicieu HexIDE. Seleccioneu un complement a l’arbre per gestionar-lo.",
     "Str.Tool.LanguageServers.Editor.Customise": "Personalitza",
-    "Str.Tool.LanguageServers.Editor.Help": "Un valor buit esborra el camp. Els camps JSON accepten valors JSON. Desar recorda l’ordre de sota; reinicieu per aplicar-la.",
+    "Str.Tool.LanguageServers.Editor.Help": "En personalitzar, els camps sense canvis hereten els valors predeterminats. Buidar un camp amb valor escriu null. Els camps JSON accepten valors JSON. Desar recorda l’ordre de sota; reinicieu per aplicar-la.",
     "Str.Tool.LanguageServers.Editor.Command": "Ordre resolta (amb arguments)",
     "Str.Tool.LanguageServers.Editor.Save": "Desa",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Aquest identificador ja existeix. Editeu-lo o personalitzeu-lo.",
-    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON no vàlid: {0}",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: JSON no vàlid: {1}",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Els marcadors de l’espai de treball esperen que es triï una carpeta de projecte.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "El fitxer ha canviat. Torneu a obrir el formulari abans de desar."
   }

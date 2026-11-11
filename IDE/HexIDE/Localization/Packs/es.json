@@ -1179,11 +1179,11 @@
     "Str.Project.AlreadyOpen": "El proyecto {0} ya está abierto.",
     "Str.Options.Addins.Overview": "Los complementos amplían HexIDE con herramientas y opciones. Para instalar uno, extraiga un paquete firmado en su propia carpeta dentro del directorio indicado abajo y reinicie HexIDE. Seleccione un complemento en el árbol para administrarlo.",
     "Str.Tool.LanguageServers.Editor.Customise": "Personalizar",
-    "Str.Tool.LanguageServers.Editor.Help": "Un valor vacío borra el campo. Los campos JSON aceptan valores JSON. Guardar recuerda el comando de abajo; reinicie para aplicar.",
+    "Str.Tool.LanguageServers.Editor.Help": "Al personalizar, los campos sin cambios heredan los valores predeterminados. Vaciar un campo con valor escribe null. Los campos JSON aceptan valores JSON. Guardar recuerda el comando de abajo; reinicie para aplicar.",
     "Str.Tool.LanguageServers.Editor.Command": "Comando resuelto (con argumentos)",
     "Str.Tool.LanguageServers.Editor.Save": "Guardar",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Este identificador ya existe. Edítelo o personalícelo.",
-    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON no válido: {0}",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: JSON no válido: {1}",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Los marcadores del espacio de trabajo esperan a que se elija una carpeta de proyecto.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "El archivo ha cambiado. Vuelva a abrir el formulario antes de guardar."
   }

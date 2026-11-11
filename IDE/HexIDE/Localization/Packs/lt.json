@@ -1179,11 +1179,11 @@
     "Str.Project.AlreadyOpen": "Projektas {0} jau atidarytas.",
     "Str.Options.Addins.Overview": "Priedai papildo HexIDE įrankiais ir nuostatomis. Norėdami įdiegti, išskleiskite pasirašytą priedo paketą į atskirą aplanką toliau nurodytame kataloge ir paleiskite HexIDE iš naujo. Pasirinkite priedą medyje, kad jį tvarkytumėte.",
     "Str.Tool.LanguageServers.Editor.Customise": "Tinkinti",
-    "Str.Tool.LanguageServers.Editor.Help": "Tuščia reikšmė išvalo lauką. JSON laukai priima JSON reikšmes. Išsaugojimas įsimena toliau pateiktą komandą; pritaikykite paleidę iš naujo.",
+    "Str.Tool.LanguageServers.Editor.Help": "Tinkinant nepakeisti laukai paveldi numatytąsias reikšmes. Išvalius užpildytą lauką įrašoma null. JSON laukai priima JSON reikšmes. Išsaugojimas įsimena toliau pateiktą komandą; pritaikykite paleidę iš naujo.",
     "Str.Tool.LanguageServers.Editor.Command": "Išspręsta komanda (su argumentais)",
     "Str.Tool.LanguageServers.Editor.Save": "Išsaugoti",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Šis ID jau yra. Redaguokite arba tinkinkite jį.",
-    "Str.Tool.LanguageServers.Editor.InvalidJson": "Netinkamas JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Netinkamas JSON: {1}",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Darbo srities vietaženkliai laukia projekto aplanko pasirinkimo.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Failas pasikeitė. Prieš išsaugodami atverkite formą iš naujo."
   }
