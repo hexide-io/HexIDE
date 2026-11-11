@@ -46,6 +46,24 @@ public class MainViewViewModelTests
         _sut = Build(_runnerService);
     }
 
+    [Avalonia.Headless.XUnit.AvaloniaFact]
+    public void Save_project_as_requires_a_project_that_offers_moving_its_file()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Contributed") { Offers = ProjectOffers.Nothing };
+        _projectManager.LoadedProjects.Returns(new List<ProjectDefinition> { project });
+        _sut.SaveProjectAsCommand.CanExecute(null).Should().BeFalse();
+        using var requery = new RequeryProbe();
+        project.Offers = ProjectOffers.Everything;
+        _sut.SaveProjectAsCommand.CanExecute(null).Should().BeTrue();
+        _projectManager.ProjectLoaded += Raise.Event<Action<ProjectDefinition>>(project);
+        requery.ShouldHaveRefreshed();
+        DebugCommand(_sut, "SaveProjectAs").CanExecute(null).Should().BeTrue();
+        _projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
+        _projectManager.ProjectUnloaded += Raise.Event<Action<ProjectDefinition>>(project);
+        requery.ShouldHaveRefreshed();
+        _sut.SaveProjectAsCommand.CanExecute(null).Should().BeFalse();
+    }
+
     private static System.IDisposable MenuTheme()
     {
         var theme = new Avalonia.Themes.Simple.SimpleTheme();
@@ -259,7 +277,7 @@ public class MainViewViewModelTests
         HexIDE.Debugging.ExternalDebugService? external = null, IEditorService? editor = null,
         FindReferencesToolViewModel? references = null, CallHierarchyToolViewModel? hierarchy = null,
         IWindowStateService? windowState = null, AddinToolWindowService? tools = null,
-        HexIDE.Runtime.Debugging.IDebugController? debug = null)
+        HexIDE.Runtime.Debugging.IDebugController? debug = null, IFocusedProjectUtil? focus = null)
     {
         projects ??= _projectService;
         var mockDocDock = dock ?? Substitute.For<IDocumentDockService>();
@@ -332,7 +350,7 @@ public class MainViewViewModelTests
             new HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel(lsRegistry, Substitute.For<HexIDE.Lsp.ILspClient>(),
                 mockDocDock, editorService, loc),
             _projectManager,
-            _focusedProjectUtil,
+            focus ?? _focusedProjectUtil,
             projects,
             editorService,
             mockDocDock,
@@ -915,6 +933,59 @@ public class MainViewViewModelTests
     }
 
     // --- Title ---
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Renaming_the_current_project_or_group_refreshes_titles_and_headers(bool group)
+    {
+        _localization.GetString("Str.Menu.File.SaveProjectFormat").Returns("Save {0}");
+        _localization.GetString("Str.Menu.File.SaveProjectGroup").Returns("Save Group {0}");
+        _localization.GetString("Str.Menu.File.RemoveProjectFormat").Returns("Remove {0}");
+        _localization.GetString("Str.Menu.File.MakeProjectFormat").Returns("Make {0}");
+        var project = TestHelpers.CreateProject("Project1");
+        var projectGroup = new ProjectGroupDefinition("Group1");
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(project);
+        _focusedProjectUtil.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(
+            _focusedProjectUtil, new PropertyChangedEventArgs(nameof(IFocusedProjectUtil.FocusedOrStartupProject)));
+        if (group)
+        {
+            _projectManager.CurrentGroup.Returns(projectGroup);
+            _projectManager.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(
+                _projectManager, new PropertyChangedEventArgs(nameof(IProjectManager.CurrentGroup)));
+        }
+        var changed = new List<string?>();
+        _sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        if (group)
+            projectGroup.Name = "InsideName";
+        else
+            project.Name = "InsideName";
+
+        changed.Should().Contain(nameof(_sut.WindowTitle)).And.Contain(nameof(_sut.Title))
+            .And.Contain(nameof(_sut.SaveProjectMenuHeader));
+        _sut.WindowTitle.Should().Be("InsideName - HexIDE [design]");
+        _sut.SaveProjectMenuHeader.Should().Be(group ? "Save Group InsideName" : "Save InsideName");
+        if (!group)
+        {
+            changed.Should().Contain(nameof(_sut.RemoveProjectMenuHeader)).And.Contain(nameof(_sut.MakeProjectMenuHeader));
+            _sut.RemoveProjectMenuHeader.Should().Be("Remove InsideName");
+            _sut.MakeProjectMenuHeader.Should().Be("Make InsideName");
+        }
+
+        _focusedProjectUtil.FocusedOrStartupProject.Returns((ProjectDefinition?)null);
+        _focusedProjectUtil.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(
+            _focusedProjectUtil, new PropertyChangedEventArgs(nameof(IFocusedProjectUtil.FocusedOrStartupProject)));
+        _projectManager.CurrentGroup.Returns((ProjectGroupDefinition?)null);
+        _projectManager.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(
+            _projectManager, new PropertyChangedEventArgs(nameof(IProjectManager.CurrentGroup)));
+        changed.Clear();
+
+        project.Name = "DetachedProject";
+        projectGroup.Name = "DetachedGroup";
+
+        changed.Should().BeEmpty("previous projects and groups are no longer followed");
+    }
 
     [AvaloniaFact]
     public void Title_NoFocusedProject_ReturnsDesignDefault()
@@ -1658,21 +1729,84 @@ public class MainViewViewModelTests
 
     /// <summary>A code window on a module of the given project, keeping its marks in <paramref name="breakpoints"/>.</summary>
     private static HexIDE.Forms.ViewModels.CodeEditorViewModel CodeWindow(
-        ProjectDefinition project, string name, HexIDE.Debugging.IBreakpointService breakpoints)
+        ProjectDefinition project, string name, HexIDE.Debugging.IBreakpointService breakpoints,
+        ModuleKind? kind = ModuleKind.StandardModule)
     {
-        var module = new ModuleDefinition(project, name, ModuleKind.StandardModule);
+        var module = new ModuleDefinition(project, name, kind ?? ModuleKind.StandardModule);
         module.UpdateCode("Option Explicit\r\n\r\nSub Main()\r\n    Debug.Print 1\r\nEnd Sub\r\n");
-        project.AddModule(module);
+        if (kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
+            module.UpdateFormPart(FormDefinition.NewDesignerHalf(project,
+                HexIDE.Runtime.Components.FormComponentClass.ForRoot(
+                    kind == ModuleKind.UserControl ? "VB.UserControl" : "VB.PropertyPage"), name,
+                kind == ModuleKind.UserControl ? "VB.UserControl" : "VB.PropertyPage"));
+        if (kind is not null) project.AddModule(module);
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<HexIDE.Events.CreateOrNavigateToSubEvent>(Arg.Any<Action<HexIDE.Events.CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
         eventBus.Subscribe<HexIDE.Events.ApplyAllUnsavedChangesEvent>(Arg.Any<Action<HexIDE.Events.ApplyAllUnsavedChangesEvent>>()).Returns(Substitute.For<IDisposable>());
         eventBus.Subscribe<HexIDE.Events.FormUnloadedEvent>(Arg.Any<Action<HexIDE.Events.FormUnloadedEvent>>()).Returns(Substitute.For<IDisposable>());
-        return new HexIDE.Forms.ViewModels.CodeEditorViewModel(
+        var code = new HexIDE.Forms.ViewModels.CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(), eventBus,
             Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), breakpoints,
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
-            Substitute.For<ILocalizationService>()).Initialize(module);
+            Substitute.For<ILocalizationService>());
+        if (kind is not null) return code.Initialize(module);
+        var form = new FormDefinition(project, HexIDE.Runtime.Components.FormComponentClass.Instance, name);
+        project.AddForm(form);
+        return code.Initialize(form);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(ModuleKind.StandardModule)]
+    [InlineData(ModuleKind.ClassModule)]
+    [InlineData(ModuleKind.UserControl)]
+    [InlineData(ModuleKind.PropertyPage)]
+    [InlineData(null)]
+    public void FocusedProjectUtil_CodeWindowUsesItsOwningProject(ModuleKind? kind)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "First");
+        var startup = new ProjectDefinition(VBProjectType.EXE, "Startup");
+        _projectManager.LoadedProjects.Returns(new List<ProjectDefinition> { project, startup });
+        _projectManager.StartupProject.Returns(startup);
+        using var code = CodeWindow(project, "Member1", new HexIDE.Debugging.BreakpointService(), kind);
+        var dock = Substitute.For<IDocumentDockService>();
+        var focus = new FocusedProjectUtil(dock, _projectManager);
+
+        dock.ActiveDocument.Returns(code);
+        dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock,
+            new PropertyChangedEventArgs(nameof(IDocumentDockService.ActiveDocument)));
+
+        focus.FocusedProject.Should().BeSameAs(project);
+        focus.FocusedOrStartupProject.Should().BeSameAs(project);
+        focus.FocusedForm.Should().BeSameAs(code.FormDefinition);
+    }
+
+    [AvaloniaFact]
+    public void AddModule_FromModuleCodeWindowAddsToItsOwningProject()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "First");
+        var startup = new ProjectDefinition(VBProjectType.EXE, "Startup");
+        _projectManager.LoadedProjects.Returns(new List<ProjectDefinition> { project, startup });
+        _projectManager.StartupProject.Returns(startup);
+        using var code = CodeWindow(project, "Module1", new HexIDE.Debugging.BreakpointService());
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns(code);
+        var focus = new FocusedProjectUtil(dock, _projectManager);
+        _projectService.NextFreeModuleName(Arg.Any<ProjectDefinition>(), ModuleKind.StandardModule).Returns("Module2");
+        _projectService.AddNewModule(Arg.Any<ProjectDefinition>(), "Module2", ModuleKind.StandardModule)
+            .Returns(ci =>
+            {
+                var owner = ci.Arg<ProjectDefinition>();
+                var module = new ModuleDefinition(owner, "Module2", ModuleKind.StandardModule);
+                owner.AddModule(module);
+                return Task.FromResult(module);
+            });
+        var shell = Build(_runnerService, dock, focus: focus);
+
+        shell.AddModuleCommand.Execute(null);
+
+        project.Modules.Should().Contain(m => m.Name == "Module2");
+        startup.Modules.Should().BeEmpty();
     }
 
     [AvaloniaTheory]

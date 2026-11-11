@@ -25,9 +25,9 @@ public class XamlCommandBindingsTests
     [Fact]
     public void Plumbing_no_XAML_binds_is_not_reachable()
     {
-        // OnInitialized reruns startup; MakeProject skips the guard on the MakeProjectCommand the menu binds.
+        // OnInitialized reruns startup; MakeProject and SaveProjectAs skip the guards on the commands the menu binds.
         UiAutomationDriver.CommandMethods(typeof(MainViewViewModel)).Select(m => m.Name)
-            .Should().NotContain(["OnInitialized", "SaveLayout", "MakeProject"]).And.Contain("SaveProjectAs");
+            .Should().NotContain(["OnInitialized", "SaveLayout", "MakeProject", "SaveProjectAs"]).And.Contain("SaveProject");
     }
 
     [Fact]

@@ -390,6 +390,7 @@
     "Str.Designer.ReadOnly.Banner": "Només lectura: HexIDE encara no pot reproduir fidelment aquest formulari i desar-lo el canviaria. Podeu visualitzar-lo i executar-lo, però els canvis no es desaran.",
     "Str.ContributedProject.FormReadOnly": "Només lectura — el complement que ho ha llegit no ho pot tornar a escriure, de manera que els canvis que hi feu no es desaran.",
     "Str.ContributedProject.RenderRefused": "No s'ha escrit res. {1} no ha pogut escriure {0}, de manera que el desament s'ha aturat abans de canviar cap fitxer.",
+    "Str.ContributedProject.SavedInPlace": "{0} es desa on es va obrir, perquè {1} només hi escriu el fitxer del projecte.",
     "Str.ContributedProject.MemberOverProjectFile": "No s'ha escrit res. {0} s'hauria desat sobre {1}, el fitxer del mateix projecte, de manera que el desament s'ha aturat abans de canviar cap fitxer.",
     "Str.ContributedProject.WithdrawWithChanges": "{0} llegeix aquests elements, i tenen canvis sense desar:\n\n{1}\n\nVoleu desar-los abans de desactivar-lo? Un cop desactivat, HexIDE no els podrà desar.",
     "Str.ContributedProject.WithdrawnWithChanges": "{0} ja no està carregat, de manera que HexIDE no pot desar aquests elements:\n\n{1}\n\nLa recuperació de fallades conserva l'última còpia que n'ha fet de cadascun. Els canvis posteriors a aquesta còpia no s'han conservat.",

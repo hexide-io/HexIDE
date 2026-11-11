@@ -428,6 +428,7 @@
     "Str.Designer.ReadOnly.Banner": "Jen pro čtení — HexIDE zatím nedokáže tento formulář věrně reprodukovat, takže uložení by jej změnilo. Můžete si jej prohlédnout a spustit, ale změny se neuloží.",
     "Str.ContributedProject.FormReadOnly": "Jen pro čtení — doplněk, který toto načetl, to neumí zapsat zpět, takže změny v tom nebudou uloženy.",
     "Str.ContributedProject.RenderRefused": "Nic nebylo zapsáno. {1} nemohl zapsat {0}, takže ukládání se zastavilo dříve, než se změnil jakýkoli soubor.",
+    "Str.ContributedProject.SavedInPlace": "{0} se ukládá tam, odkud byl otevřen, protože {1} zapisuje soubor projektu pouze tam.",
     "Str.ContributedProject.MemberOverProjectFile": "Nic nebylo zapsáno. {0} by se uložil přes {1}, vlastní soubor projektu, takže ukládání se zastavilo dříve, než se změnil jakýkoli soubor.",
     "Str.ContributedProject.WithdrawWithChanges": "{0} čte tyto položky a jsou v nich neuložené změny:\n\n{1}\n\nUložit je před vypnutím? Po vypnutí je HexIDE nemůže uložit.",
     "Str.ContributedProject.WithdrawnWithChanges": "{0} už není načten, takže HexIDE nemůže uložit tyto položky:\n\n{1}\n\nObnova po havárii uchovává poslední kopii, kterou z každé pořídila. Změny provedené po této kopii uchovány nebyly.",

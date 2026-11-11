@@ -428,6 +428,7 @@
     "Str.Designer.ReadOnly.Banner": "Sola lettura — HexIDE non è ancora in grado di riprodurre fedelmente questo form, quindi salvarlo lo altererebbe. Puoi visualizzarlo ed eseguirlo, ma le modifiche non verranno salvate.",
     "Str.ContributedProject.FormReadOnly": "Sola lettura — il componente aggiuntivo che lo ha letto non può riscriverlo, quindi le modifiche non verranno salvate.",
     "Str.ContributedProject.RenderRefused": "Non è stato scritto nulla. {1} non è riuscito a scrivere {0}, quindi il salvataggio si è interrotto prima che qualsiasi file cambiasse.",
+    "Str.ContributedProject.SavedInPlace": "{0} viene salvato dove è stato aperto, perché {1} scrive il suo file di progetto solo lì.",
     "Str.ContributedProject.MemberOverProjectFile": "Non è stato scritto nulla. {0} sarebbe stato salvato sopra {1}, il file del progetto stesso, quindi il salvataggio si è interrotto prima che qualsiasi file cambiasse.",
     "Str.ContributedProject.WithdrawWithChanges": "{0} legge questi elementi, che contengono modifiche non salvate:\n\n{1}\n\nSalvarli prima di disattivarlo? Una volta disattivato, HexIDE non potrà salvarli.",
     "Str.ContributedProject.WithdrawnWithChanges": "{0} non è più caricato, quindi HexIDE non può salvare questi elementi:\n\n{1}\n\nIl ripristino dopo un arresto anomalo conserva l'ultima copia che ha preso di ciascuno. Le modifiche successive a quella copia non sono state conservate.",

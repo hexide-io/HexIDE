@@ -47,12 +47,13 @@ public sealed class ContributedProjectFileTests : IDisposable
         var strings = Substitute.For<ILocalizationService>();
         strings.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() switch
         {
+            "Str.ContributedProject.SavedInPlace" => "{0} is saved where it was opened, because {1} writes its project file only there.",
             "Str.ContributedProject.RenderRefused" => "{0} wasn't written by {1}.",
             "Str.ContributedProject.MemberOverProjectFile" => "{0} would go over {1}.",
             "Str.ContributedProject.MembershipReadOnly" => "{0} is {1}'s to change.",
             "Str.ContributedProject.WithdrawWithChanges" => "{0} has unsaved files: {1}",
             "Str.ContributedProject.WithdrawnWithChanges" => "{0} has gone, and these weren't saved: {1}",
-            var key => key + " {0} {1}",
+            var key => key.StartsWith("Str.ContributedProject.", StringComparison.Ordinal) ? key + " {0} {1}" : key,
         });
         _windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(),
             Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>()).Returns(Task.FromResult(MessageBoxResult.Ok));
@@ -141,11 +142,104 @@ public sealed class ContributedProjectFileTests : IDisposable
 
         offers.WritesProjectFile.Should().Be(writesProjectFile);
         offers.ChangesMembership.Should().Be(changesMembership);
-        offers.SetsReferences.Should().BeFalse("References comes with #3698's second change");
+        offers.SetsReferences.Should().Be(hasWriter && carries.HasFlag(ProjectFileParts.References));
+        offers.MovesProjectFile.Should().BeFalse();
         offers.SetsProperties.Should().BeFalse("Project Properties comes with #3698's third change");
         offers.SetsComponents.Should().BeFalse("Components is VB6's project-file text, slice 10's");
         offers.Makes.Should().BeFalse();
         offers.Runs.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Built_in_projects_offer_moving_their_project_file() =>
+        ProjectOffers.Everything.MovesProjectFile.Should().BeTrue();
+
+    [AvaloniaFact]
+    public async Task References_are_saved_where_the_writer_carries_them()
+    {
+        _writer.Carries |= ProjectFileParts.References;
+        using var type = Contribute();
+        var project = await Opened();
+        await _service.EditProjectReferences(project);
+        await _windows.Received(1).ShowDialog(Arg.Any<ReferencesViewModel>());
+        project.SetReferences([new VbReference("probe", "1.0", 0, null, "Probe library")]);
+
+        await _service.SaveProject(project, saveAs: false);
+
+        File.ReadAllText(ProjectFile).Should().Be("ledger\r\nCode.bas\r\nref Probe library\r\n");
+    }
+
+    [AvaloniaFact]
+    public async Task References_are_refused_where_the_writer_does_not_carry_them()
+    {
+        using var type = Contribute();
+        await _service.EditProjectReferences(await Opened());
+
+        await ToldOf("Str.ContributedProject.SettingsReadOnly");
+        await _windows.DidNotReceive().ShowDialog(Arg.Any<ReferencesViewModel>());
+    }
+
+    [AvaloniaFact]
+    public async Task Save_project_as_moves_only_the_vbp_and_names_the_project_saved_in_place()
+    {
+        using var type = Contribute();
+        var project = await Opened();
+        await _service.RemoveDocument(DocumentIdentity.For(project.Modules.Single()));
+        var vbp = Path.Join(_dir, "Probe.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nName=\"Probe\"\r\n");
+        await _service.OpenProject(vbp);
+        var moved = Path.Join(_dir, "Moved.vbp");
+        PickForSave(moved);
+
+        await _service.SaveAllProjects(true);
+
+        await _windows.Received(1).SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        File.Exists(moved).Should().BeTrue();
+        project.AbsolutePath.Should().Be(ProjectFile);
+        File.ReadAllText(ProjectFile).Should().Be("ledger\r\n");
+        await ToldOf("Ledger is saved where it was opened, because A provider writes its project file only there.");
+    }
+
+    [AvaloniaFact]
+    public async Task Save_project_as_does_not_name_a_project_without_a_writer()
+    {
+        using var type = Contribute(null);
+        await Opened();
+        var before = File.ReadAllBytes(ProjectFile);
+        var vbp = Path.Join(_dir, "Probe.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nName=\"Probe\"\r\n");
+        await _service.OpenProject(vbp);
+        var moved = Path.Join(_dir, "Moved.vbp");
+        PickForSave(moved);
+
+        await _service.SaveAllProjects(true);
+
+        File.Exists(moved).Should().BeTrue();
+        File.ReadAllBytes(ProjectFile).Should().Equal(before);
+        await _windows.DidNotReceive().MessageBox(Arg.Is<string>(said => said.Contains("is saved where it was opened")),
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+    }
+
+    [AvaloniaFact]
+    public async Task Save_project_as_with_a_dismissed_picker_writes_nothing_and_names_no_project()
+    {
+        using var type = Contribute();
+        var project = await Opened();
+        await _service.RemoveDocument(DocumentIdentity.For(project.Modules.Single()));
+        var before = File.ReadAllBytes(ProjectFile);
+        var vbp = Path.Join(_dir, "Probe.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nName=\"Probe\"\r\n");
+        var vbpBefore = File.ReadAllBytes(vbp);
+        await _service.OpenProject(vbp);
+        _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>()).Returns((string?)null);
+
+        var save = () => _service.SaveAllProjects(true);
+
+        await save.Should().ThrowAsync<OperationCanceledException>();
+        File.ReadAllBytes(ProjectFile).Should().Equal(before);
+        File.ReadAllBytes(vbp).Should().Equal(vbpBefore);
+        await _windows.DidNotReceive().MessageBox(Arg.Is<string>(said => said.Contains("is saved where it was opened")),
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 
     [AvaloniaFact]
@@ -532,6 +626,8 @@ public sealed class ContributedProjectFileTests : IDisposable
                 if (at is not null)
                     lines.Add(Path.GetRelativePath(folder, at));
             }
+            foreach (var reference in project.References)
+                lines.Add("ref " + reference.Name);
             return string.Join("\r\n", lines) + "\r\n";
         }
     }

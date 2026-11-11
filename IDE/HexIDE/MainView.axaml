@@ -77,7 +77,7 @@
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveProjectCommand}"
                               ExecutingCommand="{CompiledBinding SaveProject}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveProjectAsCommand}"
-                              ExecutingCommand="{CompiledBinding SaveProjectAs}" />
+                              ExecutingCommand="{CompiledBinding SaveProjectAsCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenProjectCommand}"
                               ExecutingCommand="{CompiledBinding OpenProject}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.MakeProjectCommand}"
