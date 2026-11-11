@@ -689,6 +689,8 @@ public sealed class ContributedFormTests : IDisposable
         var (untouched, changed) = (project.Forms.Single(f => f.Name == "Main"), project.Forms.Single(f => f.Name == "Edited"));
         changed.UpdateCode("changed");
         _service.CaptureUnsavedWork();
+        // Asked again between captures, as the title bar and the close prompt ask: the copy has to outlive that too.
+        _service.HasUnsavedChanges(changed).Should().BeTrue();
 
         _format.Throws = new InvalidOperationException("the gauge is broken");
         changed.UpdateCode("changed again");
