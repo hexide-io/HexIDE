@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Lưu",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "ID này đã tồn tại. Hãy sửa hoặc tùy chỉnh.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: JSON không hợp lệ: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: '{1}' không phải là một trong các giá trị {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Chỗ giữ chỗ của không gian làm việc chờ chọn thư mục dự án.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Tệp đã thay đổi. Mở lại biểu mẫu trước khi lưu."
   }

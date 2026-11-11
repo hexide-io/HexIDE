@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Αποθήκευση",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Αυτό το αναγνωριστικό υπάρχει ήδη. Επεξεργαστείτε ή προσαρμόστε το.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Μη έγκυρο JSON: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: Το «{1}» δεν είναι μία από τις τιμές {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Τα σύμβολα του χώρου εργασίας περιμένουν επιλογή φακέλου έργου.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Το αρχείο άλλαξε. Ανοίξτε ξανά τη φόρμα πριν από την αποθήκευση."
   }

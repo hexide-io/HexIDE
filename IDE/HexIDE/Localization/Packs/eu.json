@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Gorde",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "ID hori badago jada. Editatu edo pertsonalizatu.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: JSON baliogabea: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: '{1}' ez da balio hauetako bat: {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Lan-eremuko leku-markak proiektu-karpeta aukeratu arte daude zain.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Fitxategia aldatu da. Ireki berriro inprimakia gorde aurretik."
   }

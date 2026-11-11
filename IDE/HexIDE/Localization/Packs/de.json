@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Speichern",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Diese ID existiert bereits. Bearbeiten oder passen Sie den Eintrag an.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Ungültiges JSON: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: „{1}“ ist keiner der Werte {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Arbeitsbereichsplatzhalter bleiben bis zur Auswahl eines Projektordners unaufgelöst.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Die Datei wurde geändert. Öffnen Sie das Formular vor dem Speichern erneut."
   }

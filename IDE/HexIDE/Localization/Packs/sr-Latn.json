@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "Sačuvaj",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "Ovaj ID već postoji. Uredite ga ili prilagodite.",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Neispravan JSON: {1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: „{1}” nije jedna od vrednosti {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Zamenski simboli radnog prostora čekaju izbor fascikle projekta.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Datoteka je promenjena. Ponovo otvorite obrazac pre čuvanja."
   }

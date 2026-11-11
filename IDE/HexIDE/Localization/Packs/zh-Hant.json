@@ -1187,6 +1187,7 @@
     "Str.Tool.LanguageServers.Editor.Save": "儲存",
     "Str.Tool.LanguageServers.Editor.DuplicateId": "此 ID 已存在。請編輯或自訂該項目。",
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: 無效的 JSON：{1}",
+    "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}：「{1}」不是 {2} 中的值。",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "選擇專案資料夾後才能解析工作區預留位置。",
     "Str.Tool.LanguageServers.Editor.FileChanged": "檔案已變更。請重新開啟表單後再儲存。"
   }
