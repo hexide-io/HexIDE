@@ -1,4 +1,5 @@
 using System;
+using HexIDE.IDE;
 
 namespace HexIDE.Runtime.Interpreter;
 

@@ -83,7 +83,7 @@ public class HaltOnErrorTests
         public required List<string> Printed { get; init; }
         public required List<string> Failed { get; init; }
         public required List<string> Halts { get; init; }
-        public required List<HexIDE.Runtime.Interpreter.ErrorLocation?> Places { get; init; }
+        public required List<ErrorLocation?> Places { get; init; }
         public required Queue<TaskCompletionSource<bool>> Pending { get; init; }
         public required Action Detach { get; init; }
 
@@ -139,7 +139,7 @@ public class HaltOnErrorTests
 
         // The IDE's dialog, held until the test answers it. End ends the run, as the IDE's does.
         var halts = new List<string>();
-        var places = new List<HexIDE.Runtime.Interpreter.ErrorLocation?>();
+        var places = new List<ErrorLocation?>();
         var pending = new Queue<TaskCompletionSource<bool>>();
         runner.HaltHost = async failure =>
         {
@@ -296,7 +296,7 @@ public class HaltOnErrorTests
         run.Halts.Should().ContainSingle().Which.Should().Contain("Division by zero");
         // Where it was raised, counted as the code window numbers lines: the nested handler's, not the click's (#955).
         var line = (Header + code).ReplaceLineEndings("\n").Split('\n').ToList().FindIndex(l => l.Contains(@"1 \ d")) + 1;
-        run.Places.Should().ContainSingle().Which.Should().Be(new HexIDE.Runtime.Interpreter.ErrorLocation("Form1", line));
+        run.Places.Should().ContainSingle().Which.Should().Be(new ErrorLocation("Form1", line));
         run.Tick();
         Pump();
         run.Tick();

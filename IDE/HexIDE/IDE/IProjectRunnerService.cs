@@ -96,7 +96,7 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     /// read while it runs; null at any other time, and when no statement raised it, as for a syntax error found before
     /// the run began (#955).
     /// </summary>
-    HexIDE.Runtime.Interpreter.ErrorLocation? FailureLocation => null;
+    ErrorLocation? FailureLocation => null;
 
     /// <summary>The project currently running, or null when nothing is.</summary>
     ProjectDefinition? RunningProject { get; }
