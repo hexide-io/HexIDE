@@ -4,8 +4,7 @@ using Dock.Model.Core;
 
 namespace HexIDE.IDE;
 
-/// <summary>The four canonical dock regions a built-in tool window can occupy. Floating and pinning
-/// are disabled, so every arrangement resolves to one of these. See
+/// <summary>The four home dock regions a built-in tool window can occupy. See
 /// openspec/specs/ide-state-persistence/spec.md — the tool-window arrangement requirement.</summary>
 public enum DockRegion
 {
@@ -24,6 +23,10 @@ public sealed record DockLayoutNode(
     string Kind, double? Proportion, Orientation Orientation, Alignment Alignment, string? Context,
     IReadOnlyList<string> Tools, string? ActiveTool, IReadOnlyList<DockLayoutNode> Children);
 
+/// <summary>A floating tool tab group, with its normal bounds in DIP and its window state.</summary>
+public sealed record FloatingLayoutState(IReadOnlyList<string> Tools, string? ActiveTool,
+    double X, double Y, double Width, double Height, WindowState State);
+
 /// <summary>The IDE dock layout, with per-tool fallback placements and an optional split tree.
 /// A present <c>dock-layout.json</c> overrides <see cref="Default"/>; Reset Window Layout restores it.</summary>
 public sealed record LayoutManifest(
@@ -37,6 +40,7 @@ public sealed record LayoutManifest(
         Tools = Default.Tools.Select(t => t with { Open = false }).ToArray(),
     };
     public DockLayoutNode? Topology { get; init; }
+    public IReadOnlyList<FloatingLayoutState> Floating { get; init; } = [];
 
     public const int CurrentVersion = 2;
     public const double DefaultLeftProportion = 0.06;
