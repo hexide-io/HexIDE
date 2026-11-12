@@ -329,3 +329,12 @@ Credits SHALL remain append-only after HexIDE's protected upstream credits.
 - **AND** the user opens About in Canadian French
 - **THEN** the Canadian tagline, French credits and fallback sponsor text appear
 - **AND** HexIDE's own credits remain first
+
+### Requirement: Docking chrome follows the active language
+The IDE SHALL localize all 36 user-facing docking menu and drag-preview resource strings
+from its language packs, including access keys, at startup and on every language switch.
+Developer-only docking debug labels are excluded.
+
+#### Scenario: Switching docking menus to a pseudo language
+- **WHEN** the user switches to Pseudo (LTR)
+- **THEN** tool-pane, document-tab, pinned-tool and tool-tab menus and drag-preview labels use bracketed pseudo text

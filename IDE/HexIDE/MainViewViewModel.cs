@@ -12,6 +12,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using HexIDE.Controls;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
@@ -398,6 +399,7 @@ public partial class MainViewViewModel : ObservableObject
                 ["languageServers"]   = languageServers,
                 ["protocolInspector"] = protocolInspector,
             };
+            DefaultHostWindowLocator = () => new ToolHostWindow(this);
             documentDockFactory.Value = this;
         }
 
@@ -408,11 +410,141 @@ public partial class MainViewViewModel : ObservableObject
             return dock;
         }
 
-        public override IToolDock CreateToolDock()
+        private sealed class ToolHostWindow : Dock.Avalonia.Controls.HostWindow, IHostWindow
         {
-            var toolDock = base.CreateToolDock();
-            toolDock.CanFloat = false;
-            return toolDock;
+            private readonly DockFactory factory;
+            private readonly List<INotifyPropertyChanged> titleSources = new();
+
+            public ToolHostWindow(DockFactory factory)
+            {
+                this.factory = factory;
+                // The pane's close box runs its tool command; Dock's extra host-close handler
+                // would return the tool first and clear the command parameter (#3770, Dock#1109).
+                LayoutUpdated += (_, _) =>
+                {
+                    foreach (var chrome in this.GetVisualDescendants().OfType<Dock.Avalonia.Controls.ToolChromeControl>())
+                        DetachGrip(chrome);
+                };
+            }
+
+            private void UpdateTitle(object? sender = null, PropertyChangedEventArgs? e = null)
+            {
+                if (e != null && e.PropertyName is not (nameof(IDock.ActiveDockable) or nameof(IDockable.Title))) return;
+                foreach (var source in titleSources) source.PropertyChanged -= UpdateTitle;
+                titleSources.Clear();
+                IDockable? active = Window?.Layout;
+                while (active != null)
+                {
+                    if (active is INotifyPropertyChanged source)
+                    {
+                        titleSources.Add(source);
+                        source.PropertyChanged += UpdateTitle;
+                    }
+                    if (active is not IDock dock || dock.ActiveDockable == null) break;
+                    active = dock.ActiveDockable;
+                }
+                if (Window is { } model && active != null)
+                    model.Title = Title = active.Title;
+            }
+
+            protected override void OnClosed(EventArgs e)
+            {
+                foreach (var source in titleSources) source.PropertyChanged -= UpdateTitle;
+                titleSources.Clear();
+                base.OnClosed(e);
+            }
+
+            void IHostWindow.Present(bool isDialog)
+            {
+                if (IsVisible) return;
+                factory.OnWindowOpened(Window);
+                UpdateTitle();
+                // Use the workspace's native window as the owner.
+                var owner = factory.DockControls.OfType<Dock.Avalonia.Controls.DockControl>()
+                    .Where(c => ReferenceEquals(c.Layout, factory.liveLayout))
+                    .Select(TopLevel.GetTopLevel).OfType<Window>().FirstOrDefault();
+                Width = Math.Max(320, double.IsFinite(Width) ? Width : 320);
+                Height = Math.Max(200, double.IsFinite(Height) ? Height : 200);
+                if (owner != null)
+                {
+                    if (owner.Screens.ScreenFromWindow(owner) is { } screen)
+                    {
+                        var area = screen.WorkingArea;
+                        var scaling = screen.Scaling;
+                        Width = Math.Min(Width, area.Width / scaling);
+                        Height = Math.Min(Height, area.Height / scaling);
+                        Position = new PixelPoint(
+                            Math.Clamp(Position.X, area.X, area.Right - (int)Math.Ceiling(Width * scaling)),
+                            Math.Clamp(Position.Y, area.Y, area.Bottom - (int)Math.Ceiling(Height * scaling)));
+                    }
+                    if (isDialog) _ = ShowDialog(owner);
+                    else Show(owner);
+                }
+                else Show();
+            }
+        }
+
+        private void RememberToolSlots(IDockable dockable)
+        {
+            if (liveLayout == null) return;
+            CaptureManifest(liveLayout);
+            foreach (var (key, tool) in toolsByKey)
+                if ((ReferenceEquals(tool, dockable) || FindContainer(dockable, tool) != null)
+                    && FindContainer(liveLayout, tool) != null)
+                {
+                    var path = new List<DockSlot>();
+                    IDockable child = tool;
+                    while (FindContainer(liveLayout, child) is { } parent && parent is not IRootDock)
+                    {
+                        path.Add(new DockSlot(parent, child, parent.VisibleDockables!.IndexOf(child),
+                            parent.VisibleDockables.Where(d => d is not IProportionalDockSplitter)
+                                .Select(d => (d, d.Proportion)).ToArray()));
+                        child = parent;
+                    }
+                    closedSlots[key] = path;
+                }
+        }
+
+        public override void SplitToWindow(IDock dock, IDockable dockable, double x, double y,
+            double width, double height, DockWindowOptions? options)
+        {
+            RememberToolSlots(dockable);
+            var pane = dockable is IToolDock ? dockable : dock;
+            pane.GetVisibleBounds(out _, out _, out var paneWidth, out var paneHeight);
+            if (double.IsFinite(paneWidth)) width = Math.Max(width, paneWidth);
+            if (double.IsFinite(paneHeight)) height = Math.Max(height, paneHeight);
+            base.SplitToWindow(dock, dockable, x, y, width, height, options);
+        }
+
+        public override void FloatAllDockables(IDockable dockable, DockWindowOptions? options)
+        {
+            if (dockable.Owner is IToolDock dock) RememberToolSlots(dock);
+            base.FloatAllDockables(dockable, options);
+        }
+
+        public override IDockWindow? CreateWindowFrom(IDockable dockable)
+        {
+            var window = base.CreateWindowFrom(dockable);
+            if (window != null)
+                window.Title = dockable is IDock dock ? dock.ActiveDockable?.Title ?? dockable.Title : dockable.Title;
+            return window;
+        }
+
+        public override bool OnWindowClosing(IDockWindow? window)
+        {
+            if (!base.OnWindowClosing(window)) return false;
+            if (liveLayout != null && window?.Layout is { } floating)
+            {
+                // Closing a floating tool window returns its tools to the workspace.
+                var tools = toolsByKey.Values.OfType<Tool>()
+                    .Where(t => FindContainer(floating, t) != null).ToArray();
+                foreach (var tool in tools) RemoveDockable(tool, false);
+                // A floated dock can itself be a saved slot: detach it before reusing it, so host
+                // teardown cannot close tools that have already returned to the workspace.
+                foreach (var child in floating.VisibleDockables?.ToArray() ?? []) RemoveDockable(child, false);
+                foreach (var tool in tools) PlaceTool(liveLayout, tool, rightFallback: true);
+            }
+            return true;
         }
 
         public override IRootDock CreateLayout() =>
@@ -425,24 +557,8 @@ public partial class MainViewViewModel : ObservableObject
 
         public override void CloseDockable(IDockable dockable)
         {
-            if (liveLayout != null)
-            {
-                CaptureManifest(liveLayout);
-                foreach (var (key, tool) in toolsByKey)
-                    if (ReferenceEquals(tool, dockable) || FindContainer(dockable, tool) != null)
-                    {
-                        var path = new List<DockSlot>();
-                        IDockable child = tool;
-                        while (FindContainer(liveLayout, child) is { } parent && parent is not IRootDock)
-                        {
-                            path.Add(new DockSlot(parent, child, parent.VisibleDockables!.IndexOf(child),
-                                parent.VisibleDockables.Where(d => d is not IProportionalDockSplitter)
-                                    .Select(d => (d, d.Proportion)).ToArray()));
-                            child = parent;
-                        }
-                        closedSlots[key] = path;
-                    }
-            }
+            if (dockable == null) return; // Dock's close command can lose its parameter during teardown.
+            RememberToolSlots(dockable);
             base.CloseDockable(dockable);
             LayoutChanged?.Invoke();
         }
@@ -2249,6 +2365,11 @@ public partial class MainViewViewModel : ObservableObject
                 if (FindDock<T>(visible, predicate) is { } ret)
                     return ret;
         }
+
+        if (dockable is IRootDock root && root.Windows != null)
+            foreach (var window in root.Windows)
+                if (window.Layout is { } floating && FindDock<T>(floating, predicate) is { } found)
+                    return found;
 
         return null;
     }

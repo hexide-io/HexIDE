@@ -29,6 +29,10 @@ public class TestApp : Application
         Console.Error.WriteLine("1085 probe: theme end");
         Styles.Add(new Dock.Avalonia.Themes.Simple.DockSimpleTheme());
         Console.Error.WriteLine("1085 probe: dock theme end");
+        Styles.Add(new StyleInclude(new Uri("avares://HexIDE/"))
+        {
+            Source = new Uri("avares://HexIDE/Themes/ToolChrome.axaml"),
+        });
         Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
         {
             Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml"),

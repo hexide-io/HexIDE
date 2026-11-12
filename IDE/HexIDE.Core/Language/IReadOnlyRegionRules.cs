@@ -3,13 +3,14 @@ namespace HexIDE.Language;
 /// <summary>A format's rules for writes to read-only text, separate from reading its regions.</summary>
 public interface IReadOnlyRegionRules
 {
-    /// <summary>The replacement to apply, or the format's refusal. With no policy, keep the incoming text.</summary>
+    /// <summary>The replacement to apply, the format's refusal, or null to leave the decision to the IDE.</summary>
     /// <remarks>
-    /// <c>ReplaceContent</c> assigning <c>Document.Text = text</c> and the closed-document writer's
-    /// <c>text.StartsWith(prefix)</c>
-    /// fallback are equivalent for VB6 only because the replacement's new text always begins with the current header.
+    /// With null, the IDE accepts incoming text only when the reader's regions retain their text and order,
+    /// and hanging regions retain their keys and order. Added regions are refused too. The IDE reads incoming
+    /// text with the current prefix's length when it starts with that prefix, and zero otherwise; it never puts
+    /// the prefix back. An override returning a replacement owns the whole decision.
     /// </remarks>
-    ContentReplacement Replace(string current, int prefixLength, string incoming) => new(incoming, null, false);
+    ContentReplacement? Replace(string current, int prefixLength, string incoming) => null;
 
     /// <summary>Findings about the result of range edits, in the format's words; null when allowed.</summary>
     string? RangeEditRefusal(string before, string after, int prefixLength) => null;

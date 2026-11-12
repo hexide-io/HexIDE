@@ -54,6 +54,22 @@ public class WatchEvalTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task UndeclaredMemberWatchDoesNotCreateVariable()
+    {
+        var (dbg, run) = await BreakWithLocals();
+        try
+        {
+            (await dbg.EvaluateWatchAsync("Nope.F()"))!.Ok.Should().BeFalse();
+            dbg.GetLocals()!.Locals.Should().NotContain(n => n.Name == "Nope");
+        }
+        finally
+        {
+            dbg.Stop();
+            await run.Guarded();
+        }
+    }
+
+    [Fact]
     public async Task EvaluateWatch_NotPaused_IsNull()
     {
         // A freshly-constructed controller is Running, not Paused → no frame to evaluate against.

@@ -2,6 +2,7 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Unavailable": "Nenhum servidor de linguagem em execução para {0} oferece “Localizar referências”",
     "Str.ContributedProject.PropertiesReadOnly": "{0} é aberto por {1}: suas propriedades são definidas pelo programa ao qual pertence, não pelo HexIDE.",
     "Str.ContributedProject.ReferencesReadOnly": "{0} é aberto por {1}: suas referências são definidas pelo programa ao qual pertence, não pelo HexIDE.",
     "Str.ContributedProject.ComponentsReadOnly": "{0} é aberto por {1}: seus componentes são definidos pelo programa ao qual pertence, não pelo HexIDE.",
@@ -154,6 +155,20 @@
     "Str.Tool.LanguageServers.Editor.Help": "Ao personalizar, os campos inalterados herdam os valores padrão. Esvaziar um campo preenchido grava null. Os campos JSON aceitam valores JSON. Salvar memoriza o comando abaixo; reinicie para aplicar.",
     "Str.Tool.LanguageServers.Editor.Save": "Salvar",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Os marcadores do espaço de trabalho aguardam a escolha da pasta do projeto.",
-    "Str.Tool.LanguageServers.Editor.FileChanged": "O arquivo foi alterado. Reabra o formulário antes de salvar."
+    "Str.Tool.LanguageServers.Editor.FileChanged": "O arquivo foi alterado. Reabra o formulário antes de salvar.",
+    "Str.Dock.DocumentTabStripItemCloseOtherTabs": "Fechar as outras abas",
+    "Str.Dock.DocumentTabStripItemCloseAllTabs": "Fechar todas as abas",
+    "Str.Dock.DocumentTabStripItemCloseTabsLeft": "Fechar abas à e_squerda",
+    "Str.Dock.DocumentTabStripItemCloseTabsRight": "Fechar abas à _direita",
+    "Str.Dock.DocumentTabStripItemCloseTabsAbove": "Fechar todas as abas _acima",
+    "Str.Dock.DocumentTabStripItemCloseTabsBelow": "Fechar todas as abas a_baixo",
+    "Str.Dock.DocumentTabStripItemTabLayout": "Disposição das abas",
+    "Str.Dock.DocumentTabStripItemTabLayoutLeft": "_Colocar abas à esquerda",
+    "Str.Dock.DocumentTabStripItemTabLayoutTop": "Colocar abas em c_ima",
+    "Str.Dock.DocumentTabStripItemTabLayoutRight": "Colocar abas à _direita",
+    "Str.Dock.DocumentTabStripItemLayoutModeTabbed": "Com abas",
+    "Str.Dock.ToolPinItemControlDockAsDocument": "Acoplar como documento em aba",
+    "Str.Dock.ToolChromeControlDockAsDocument": "Acoplar como documento em aba",
+    "Str.Dock.ToolTabStripItemDockAsDocument": "Acoplar como documento em aba"
   }
 }

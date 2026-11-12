@@ -26,7 +26,7 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
         public string? DescribeRegions(string text, int prefixLength, IReadOnlyList<TextRegion> regions) =>
             "the second heading";
         public bool RefuseRename { get; set; } = true;
-        public ContentReplacement Replace(string current, int prefixLength, string incoming) =>
+        public ContentReplacement? Replace(string current, int prefixLength, string incoming) =>
             new(null, "Keep the notes intact.", false);
         public string? RangeEditRefusal(string before, string after, int prefixLength) => "the notes changed";
         public bool RenameMayWrite(string text, int prefixLength, IReadOnlyList<TextChange> changes, TextChange edit) =>
@@ -154,7 +154,7 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
     public void ClosedDocumentUsesTheRulesRefusal()
     {
         var module = Notes();
-        DocumentContent.Write(DocumentIdentity.For(module), null, "new notes", new Rules(), format: new Vb6ProjectFileFormat())
+        DocumentContent.Write(DocumentIdentity.For(module), null, "new notes", new Rules(), format: new Vb6ProjectFileFormat(), reader: Substitute.For<IReadOnlyRegionReader>())
             .Refusal.Should().Be("Keep the notes intact.");
         module.Code.Should().Be(Text);
     }
@@ -165,9 +165,158 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
     public void ClosedDocumentWithoutRulesAcceptsIncomingText(bool defaults)
     {
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Notes", ModuleKind.StandardModule);
-        DocumentContent.Write(DocumentIdentity.For(module), null, "new notes", defaults ? new NoRules() : null, format: new Vb6ProjectFileFormat())
+        DocumentContent.Write(DocumentIdentity.For(module), null, "new notes", defaults ? new NoRules() : null, format: new Vb6ProjectFileFormat(), reader: Substitute.For<IReadOnlyRegionReader>())
             .Should().Be(new ContentReplacement("new notes", null, false));
         module.Code.Should().Be("new notes");
+    }
+
+    private sealed class DescribingRules : IReadOnlyRegionRules
+    {
+        public string? DescribeRegions(string text, int prefixLength, IReadOnlyList<TextRegion> regions) => "the tucked notes";
+    }
+
+    private sealed class UnattachedNotes : IReadOnlyRegionReader
+    {
+        public IReadOnlyList<TextRegion> Regions(string text, int prefixLength) => new Headings().Regions(text, prefixLength);
+    }
+
+    public static TheoryData<string, string, string> ReplacementCases
+    {
+        get
+        {
+            var cases = new TheoryData<string, string, string>();
+            foreach (var site in new[] { "set_file_content", "TrySetContent", "closed writer" })
+                foreach (var policy in new[] { "no rules", "rules without Replace", "rules with a phrase" })
+                    foreach (var change in new[] { "changed", "dropped", "added", "reordered", "line renamed", "reordered without hanging" })
+                        cases.Add(site, policy, change);
+            return cases;
+        }
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(ReplacementCases))]
+    public async Task ReplacementWithoutAFormatRulePreservesTheReadersRegions(string site, string policy, string change)
+    {
+        const string before = "heading One\r\n~ first\r\nplain\r\nheading Two\r\n~ second\r\nend\r\n";
+        var incoming = change switch
+        {
+            "changed" => before.Replace("~ first", "~ changed"),
+            "dropped" => before.Replace("~ first\r\n", ""),
+            "added" => before + "heading Three\r\n~ third\r\n",
+            "reordered" or "reordered without hanging" => "heading Two\r\n~ second\r\nplain\r\nheading One\r\n~ first\r\nend\r\n",
+            _ => before.Replace("heading One", "heading Other")
+        };
+        var module = Notes();
+        module.UpdateCode(before);
+        module.Owner.AddModule(module);
+        IReadOnlyRegionRules? rules = policy switch { "rules without Replace" => new NoRules(), "rules with a phrase" => new DescribingRules(), _ => null };
+        IReadOnlyRegionReader reader = change == "reordered without hanging" ? new UnattachedNotes() : new Headings();
+        if (change == "added" && policy == "rules with a phrase")
+        {
+            rules = Substitute.For<IReadOnlyRegionRules>();
+            var added = reader.Regions(incoming, 0).Last();
+            rules.DescribeRegions(incoming, 0,
+                Arg.Is<IReadOnlyList<TextRegion>>(r => r.Count == 1 && r[0] == added)).Returns("the tucked notes");
+        }
+        var vm = NewEditor(reader, rules: rules).Initialize(module);
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.OpenDocuments.Returns([vm]);
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([module.Owner]);
+        var addin = new HexIDE.Addins.AddinEditorService(dock, Substitute.For<IEditorService>(), projects,
+            format: new Vb6ProjectFileFormat(), reader: reader);
+        module.Owner.WorkingDirectory = Path.Join(Path.GetTempPath(), "hexide-3732-" + Guid.NewGuid().ToString("N"));
+        module.AbsolutePath = Path.Join(module.Owner.WorkingDirectory, "Notes.bas");
+        var service = Substitute.For<IProjectService>();
+        service.SaveModule(module, false, false, Arg.Any<SaveRewriteReport?>()).Returns(Task.FromResult(true));
+        using var context = new HexIDE.Desktop.Server.IdeContext(projects, dock, Substitute.For<ILspClient>(), null!,
+            Substitute.For<IProjectRunnerService>(), service, new EventBus(), null!, null!, null!, null!, null!,
+            null!, null!, null!, null!, null!, new LocalizationService(), null!, new Vb6ProjectFileFormat(), reader, rules);
+
+        async Task<string?> Write(string text)
+        {
+            if (site == "TrySetContent")
+            {
+                var result = await addin.TrySetContent("Notes", text, null);
+                return result.Reason;
+            }
+            if (site == "set_file_content")
+            {
+                var result = await new HexIDE.Desktop.Server.HexIdeTools(context).SetFileContentAsync("Notes", text);
+                return result.Error;
+            }
+            return DocumentContent.Write(DocumentIdentity.For(module), null, text,
+                rules, new Vb6ProjectFileFormat(), reader).Refusal;
+        }
+
+        var phrase = policy == "rules with a phrase" ? "the tucked notes" : "read-only text";
+        (await Write(incoming)).Should().Be(
+            $"The content would change {phrase}, which only the IDE changes. Nothing was changed.");
+        vm.Document.Text.Should().Be(before);
+        module.Code.Should().Be(before);
+
+        var accepted = "outside\r\n" + before.Replace("plain", "moved plain");
+        (await Write(accepted)).Should().BeNull();
+        (site == "closed writer" ? module.Code : vm.Document.Text).Should().Be(accepted);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReplacementDescribesOnlyTheCurrentRegionItChangesOrDrops(bool drop)
+    {
+        const string before = "heading One\r\n~ first\r\nheading Two\r\n~ second\r\n";
+        var module = Notes();
+        module.UpdateCode(before);
+        var reader = new Headings();
+        var regions = reader.Regions(before, 0);
+        var rules = Substitute.For<IReadOnlyRegionRules>();
+        rules.DescribeRegions(before, 0,
+            Arg.Is<IReadOnlyList<TextRegion>>(r => r.Count == 1 && r[0] == regions[0])).Returns("the first tucked note");
+        var incoming = before.Replace("~ first\r\n", drop ? "" : "~ changed\r\n");
+
+        DocumentContent.Write(DocumentIdentity.For(module), null, incoming, rules,
+            new Vb6ProjectFileFormat(), reader).Refusal.Should().Be(
+                "The content would change the first tucked note, which only the IDE changes. Nothing was changed.");
+        module.Code.Should().Be(before);
+    }
+
+    private sealed class PrefixReader : IReadOnlyRegionReader
+    {
+        public List<(string Text, int Prefix)> Reads { get; } = [];
+        public IReadOnlyList<TextRegion> Regions(string text, int prefixLength)
+        {
+            Reads.Add((text, prefixLength));
+            return prefixLength == 0 ? [] : [new TextRegion(0, prefixLength)];
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CodeOnlyReplacementCannotDropTheReadersPrefix(bool closed)
+    {
+        const string prefix = "title Notes\r\n";
+        var module = Notes();
+        module.RecordOriginalHeader(prefix);
+        var reader = new PrefixReader();
+        var vm = NewEditor(reader).Initialize(module);
+        var whole = prefix + Text;
+        reader.Reads.Clear();
+
+        DocumentContent.Write(DocumentIdentity.For(module), closed ? null : vm, Text, null,
+            new Vb6ProjectFileFormat(), reader).Refusal.Should().Be(
+                "The content would change read-only text, which only the IDE changes. Nothing was changed.");
+        reader.Reads.Should().Contain((whole, prefix.Length)).And.Contain((Text, 0));
+        vm.Document.Text.Should().Be(whole);
+        module.Code.Should().Be(Text);
+
+        reader.Reads.Clear();
+        var incoming = whole + "new line\r\n";
+        DocumentContent.Write(DocumentIdentity.For(module), closed ? null : vm, incoming, null,
+            new Vb6ProjectFileFormat(), reader).Refusal.Should().BeNull();
+        reader.Reads.Should().Contain((incoming, prefix.Length));
+        (closed ? prefix + module.Code : vm.Document.Text).Should().Be(incoming);
     }
 
     private const string Text = "alpha\r\nbeta\r\ngamma\r\ndelta\r\nepsilon\r\nzeta\r\n";

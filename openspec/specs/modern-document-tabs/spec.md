@@ -29,7 +29,7 @@ behaves consistently instead of having a separate set of rules inside one region
 ### Requirement: Code documents and designers SHALL remain docked
 Code documents and designers SHALL NOT offer Float or Float all in their tab menu. A float attempt through
 another route SHALL leave the document docked and listed among the open document tabs. Tool-window
-floating SHALL remain unchanged.
+floating SHALL remain available.
 
 #### Scenario: Code tab menu
 - **WHEN** the developer opens a code document's or designer's tab menu
@@ -72,7 +72,30 @@ requires knowing which that is, whereas a control on the tab is unambiguous.
 
 ### Requirement: Tool windows SHALL remain distinct from documents
 Tool windows SHALL continue to dock, float and resize independently, and SHALL NOT be presented as document
-tabs.
+tabs. Floating a tool SHALL show its view in a visible window owned by the main window, with the tool's
+caption and a maximize/restore button. Floating tools SHALL remain visible in the tool-window inventory.
+The host caption SHALL follow the active tool and language changes. The initial client size SHALL be
+at least the docked pane's size and 320 by 200 DIPs, limited to the main window's screen working area;
+the host SHALL open within that working area. Closing the floating window SHALL return its tools to
+their original dock slot, proportions and tab group. The pane's own close box SHALL hide the tool;
+View SHALL reopen it docked.
+
+#### Scenario: Float and return a tool
+- **WHEN** the developer chooses Float on a docked tool pane
+- **THEN** an owned window shows the tool's view, title and maximize/restore button
+- **AND** the tool-window inventory reports the tool as visible
+- **WHEN** the developer closes the floating window
+- **THEN** the tool reappears docked in the main window at its previous proportion
+
+#### Scenario: Close a floating tool from its pane
+- **WHEN** the developer clicks the tool pane's own close box inside a floating host
+- **THEN** the tool is hidden without returning to the docked workspace
+- **WHEN** the developer opens that tool from View
+- **THEN** it reappears docked
+
+#### Scenario: Float and return tabbed tools
+- **WHEN** the developer floats a tool dock containing two tabs and closes the host
+- **THEN** both tools return together as tabs in the dock's old slot
 
 The distinction is the point of the layout: documents are what is being worked on and tool windows are what
 is being worked with. Collapsing them would mean the project tree competing for space with the file it
@@ -82,6 +105,16 @@ deliberately.
 #### Scenario: Arranging the workspace
 - **WHEN** the developer docks or resizes a tool window
 - **THEN** it behaves as a tool window and does not join the document tabs
+
+### Requirement: Tool pane titles preserve their buttons
+A docked tool pane SHALL ellipsize a title wider than the available header space, reserving the
+width of its visible close and pin buttons. The full title SHALL remain available through the title's
+tooltip and the pane's accessible name. This layout rule SHALL NOT change document tab templates.
+
+#### Scenario: A long title in a narrow tool pane
+- **WHEN** a tool pane has a title longer than its header at 100% or 150% scaling
+- **THEN** the title shows a character ellipsis and the visible header buttons remain inside the pane
+- **AND** the tooltip and accessible name retain the full title
 
 ### Requirement: Editor tabs indicate unsaved changes
 Designer, code and carried-file editors SHALL forward their existing dirty-state signals to Dock's

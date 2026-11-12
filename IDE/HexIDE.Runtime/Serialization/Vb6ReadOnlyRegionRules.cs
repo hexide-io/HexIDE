@@ -7,7 +7,7 @@ namespace HexIDE.Runtime.Serialization;
 /// <summary>VB6's rules for writes to read-only regions.</summary>
 public sealed class Vb6ReadOnlyRegionRules : IReadOnlyRegionRules
 {
-    public ContentReplacement Replace(string current, int prefixLength, string incoming) =>
+    public ContentReplacement? Replace(string current, int prefixLength, string incoming) =>
         GuardedContent.Replace(current, prefixLength, incoming);
 
     public string? RangeEditRefusal(string before, string after, int prefixLength) =>

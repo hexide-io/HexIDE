@@ -282,6 +282,15 @@ one-based line number and line text, rather than the location record's string re
 An empty answer SHALL show a localized no-references row. A failed server SHALL have an error row while
 successful servers' locations remain visible. Callers SHALL be able to supply locations without a request.
 
+#### Scenario: No running server offers references
+- **WHEN** no running language server for the document offers `referencesProvider`
+- **THEN** the pane SHALL show a localized row naming the document and explaining that no running server offers Find References
+- **AND** no references request SHALL be sent, and the command SHALL remain enabled
+
+#### Scenario: A provider finds no references
+- **WHEN** a running server offers references and returns an empty answer
+- **THEN** the pane SHALL show the existing localized no-references row
+
 #### Scenario: A reference in another module
 - **WHEN** the user presses Shift+F12 and selects a result from a second module
 - **THEN** Enter opens that module at the returned position

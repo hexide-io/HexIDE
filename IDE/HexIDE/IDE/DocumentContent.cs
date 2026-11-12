@@ -14,8 +14,9 @@ namespace HexIDE.IDE;
 /// <b>The text is the whole file, and it is the text every line number counts in.</b> An open code window's
 /// buffer, or, with no window open, the model's composition of the same file, so line 1 is the file's first
 /// line whether or not the document happens to be open, exactly as the mark tools count it. The write accepts
-/// what the read returns, the whole file with its header unchanged, or the code alone with the header kept,
-/// through <see cref="IReadOnlyRegionRules"/>, which decides what a replacement may touch.
+/// what the read returns, through <see cref="ContentReplacementRules"/>, which decides what a replacement
+/// may touch. A format may also accept code alone and keep the header; the IDE's fallback refuses code
+/// alone when the prefix holds a read-only region.
 /// </para>
 /// <para>
 /// The automation tools are compiled into an executable nothing else references, so the rule lives here,
@@ -63,9 +64,9 @@ public static class DocumentContent
         && !string.Equals(editor.BufferBody, document.Module?.Code ?? document.Form!.Code, StringComparison.Ordinal);
 
     /// <summary>
-    /// Replaces the document's content with <paramref name="incoming"/>, keeping its header, or refuses when
-    /// the format's rules refuse it (<see cref="IReadOnlyRegionRules"/>). Nothing
-    /// changes when it is refused.
+    /// Replaces the document's content with <paramref name="incoming"/> through the format's replacement rule,
+    /// or the IDE's when there are no rules or Replace returns null. Keeping the header is the format's
+    /// behaviour; the IDE's rule refuses code alone when the prefix holds a region. Nothing changes on refusal.
     /// </summary>
     /// <remarks>
     /// With a code window open the buffer takes the text and the model is given it at the next flush, as it is
@@ -73,7 +74,7 @@ public static class DocumentContent
     /// the model's composition of the file, and the body is what is written back to it.
     /// </remarks>
     public static ContentReplacement Write(DocumentIdentity document, CodeEditorViewModel? editor, string incoming,
-        IReadOnlyRegionRules? rules, IProjectFileFormat format)
+        IReadOnlyRegionRules? rules, IProjectFileFormat format, IReadOnlyRegionReader reader)
     {
         if (editor is not null)
             return editor.ReplaceContent(incoming);
@@ -81,8 +82,8 @@ public static class DocumentContent
         var prefix = document.Module is { } module ? format.CodePrefix(module) : format.CodePrefix(document.Form!);
         var whole = prefix + (document.Module?.Code ?? document.Form!.Code);
         Action<string> update = document.Module is { } target ? target.UpdateCode : document.Form!.UpdateCode;
-        var result = rules?.Replace(whole, prefix.Length, DocumentNewLines.Normalize(incoming, whole))
-            ?? new ContentReplacement(DocumentNewLines.Normalize(incoming, whole), null, false);
+        var result = ContentReplacementRules.Replace(whole, prefix,
+            DocumentNewLines.Normalize(incoming, whole), reader, rules);
         if (result.NewText is { } text)
             update(text.StartsWith(prefix, StringComparison.Ordinal) ? text[prefix.Length..] : text);
         return result;
