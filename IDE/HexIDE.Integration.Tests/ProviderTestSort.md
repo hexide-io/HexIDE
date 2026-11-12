@@ -42,6 +42,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Controls/DropdownListNameTests.cs` | split |
 | `Controls/MousePointerValuesTests.cs` | split |
 | `Controls/OptionButtonPropertyEditorTests.cs` | split |
+| `Controls/ProjectGroupExpansionTests.cs` | split |
 | `Controls/TabStripDrawingTests.cs` | provider |
 | `Debugging/CallStackReplyTests.cs` | split |
 | `TestRunners.cs` | split |
