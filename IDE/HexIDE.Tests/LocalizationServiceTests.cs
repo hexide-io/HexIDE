@@ -369,7 +369,7 @@ public class LocalizationServiceTests
     [InlineData("ja")]
     [InlineData("zh-Hans")]
     [InlineData("zh-Hant")]
-    public void Apply_CjkPack_PreservesEveryEnglishAccessKey(string language)
+    public void Apply_CjkPack_PreservesEnglishAccessKeysExceptDock(string language)
     {
         var sut = CreateSut();
         sut.Apply("en");
@@ -378,6 +378,12 @@ public class LocalizationServiceTests
         sut.Apply(language);
         foreach (var (key, value) in canonical)
         {
+            // Dock labels omit access keys in non-Latin scripts (#3776).
+            if (key.StartsWith("Str.Dock.", StringComparison.Ordinal))
+            {
+                sut.GetString(key).Should().NotContain("_", key);
+                continue;
+            }
             // These underscores belong to identifiers, not access keys (#41).
             if (key is "Str.Vb6Toolchain.Vb6NotFound" or "Str.Dialog.ConflictingNames")
                 continue;
