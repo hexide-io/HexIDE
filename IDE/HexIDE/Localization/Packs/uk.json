@@ -2,6 +2,8 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Вкладки документів",
+    "Str.Dock.ToolTabs": "Вкладки інструментів",
     "Str.AIChat.Refusal": "Постачальник відхилив цей запит.",
     "Str.AIChat.TokenLimit": "Відповідь досягла ліміту токенів і є неповною.",
     "Str.Startup.PlatformSummary": "Лише Linux. Система виведення: x11 (типово), auto або wayland.",

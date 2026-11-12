@@ -2,6 +2,8 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Document tabs",
+    "Str.Dock.ToolTabs": "Tool tabs",
     "Str.AIChat.Refusal": "The provider declined this request.",
     "Str.AIChat.TokenLimit": "The reply reached the token limit and is incomplete.",
     "Str.Startup.PlatformSummary": "Linux only. Display backend: x11 (default), auto or wayland.",

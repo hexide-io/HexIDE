@@ -2,6 +2,8 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Pestañas de documentos",
+    "Str.Dock.ToolTabs": "Pestañas de herramientas",
     "Str.AIChat.Refusal": "El proveedor rechazó esta solicitud.",
     "Str.AIChat.TokenLimit": "La respuesta alcanzó el límite de tokens y está incompleta.",
     "Str.Startup.PlatformSummary": "Solo Linux. Motor gráfico: x11 (predeterminado), auto o wayland.",
