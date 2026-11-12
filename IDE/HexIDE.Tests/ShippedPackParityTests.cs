@@ -508,6 +508,7 @@ public class ShippedPackParityTests
                 "Str.Document.UserControlSuffix", "Str.Document.PropertyPageSuffix",
                 "Str.Dialog.Color.Rgb",
                 "Str.Tool.Outline.Kind.Interface", "Str.Tool.Outline.Kind.Variable",
+                "Str.Dock.DocumentTabStripItemLayoutModeMdi",
                 "Str.Tool.LanguageServers.Vm.Age.Seconds",
                 "Str.Tool.LanguageServers.Vm.Elapsed",
             });
