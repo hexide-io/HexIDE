@@ -904,7 +904,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             if (!bangFound && interpreter.UnclaimedLibraryObject(name) is { Value: VbForms } forms)
                 (bangFound, bangTarget) = (true, forms);
             if (!bangFound)
-                throw new NotImplementedException($"`{context.GetText()}` is supported only on a Collection and a form's Controls");
+            {
+                UnclaimedMemberReceiver(name);
+                throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
+            }
             return await Bang(bangTarget, bang);
         }
         var identifier = await ExtractIdentifier(context);
@@ -937,8 +940,21 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 return objectResult;
             return libraryObject;
         }
+        return UnclaimedMemberReceiver(identifier);
+    }
+
+    private Vb6Value UnclaimedMemberReceiver(string identifier)
+    {
         VbIntrinsicNames.RefuseMissingObject(identifier);
-        throw new VBVariableNotDefinedException(identifier);
+        if (currentModule.PrePass.RequireVariableDefinitions || interpreter.SuppressImplicitDeclaration)
+            throw new VBVariableNotDefinedException(identifier);
+        if (VbIntrinsicNames.IsIntrinsic(identifier))
+            throw new NotImplementedException(
+                identifier + " is a VB6 intrinsic that HexIDE does not implement yet");
+        // As on a bare read, report the implicit value without allocating: watches must not create it (#3778).
+        return currentModule.PrePass.DefaultTypeOf(identifier) is { } defaultType
+            ? (VbNumeric.IsDeclarableScalar(defaultType) ? new Vb6Value(defaultType).AsFixedType() : new Vb6Value(defaultType))
+            : Vb6Value.Variant;
     }
 
     /// <summary>
