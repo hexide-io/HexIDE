@@ -1777,7 +1777,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     // ---- Debugger ----
 
     [McpServerTool(Name = "get_breakpoints")]
-    [Description("Returns the breakpoint line numbers for a form or module, named by its own VB6 name in any loaded project (case does not matter). Lines are 1-based and counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. Empty array if none. The reply's 'project' and 'document' name it as the IDE spells them, and 'uri' is the name a language server knows it by: its file: URI, or untitled:<project>/<name>.<ext> while it has no file, as get_diagnostics reports it.")]
+    [Description("Returns the breakpoint line numbers for a form or module, named by its own VB6 name in any loaded project (case does not matter). Lines are 1-based and counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. Empty array if none. The optional conditions map gives each conditional line's expression, keyed by line number; it is absent when all breakpoints are unconditional. The note names conditional lines. A condition is a VB expression evaluated in the line's procedure each time it is reached, pausing when True. The reply's 'project' and 'document' name it as the IDE spells them, and 'uri' is the name a language server knows it by: its file: URI, or untitled:<project>/<name>.<ext> while it has no file, as get_diagnostics reports it.")]
     public async Task<BreakpointsResult> GetBreakpointsAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1786,14 +1786,18 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (lookup.Document is not { } document)
                 return new BreakpointsResult(null, null, null, [], lookup.Error);
 
+            var lines = ctx.BreakpointService.GetBreakpoints(document);
+            var conditions = BreakpointConditions(document, lines);
             return new BreakpointsResult(document.Project.Name, document.Name, DocumentWireName.For(document),
-                [.. ctx.BreakpointService.GetBreakpoints(document)], null);
+                [.. lines], null, conditions, ConditionalLinesNote(conditions));
         });
     }
 
     [McpServerTool(Name = "set_breakpoints")]
-    [Description("Replaces all breakpoints for a form or module with the supplied 1-based line numbers, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Named by its own VB6 name in any loaded project (case does not matter); pass `project` to say which when a group holds two of one name. Pass an empty array to clear them. A line the document does not have is refused, and so is a new breakpoint on a line of the header or of a member's Attribute lines, which never run; then nothing is changed, and the reply says where the code starts. Takes effect immediately if that project is the one running. The note reports what the document holds afterwards, and 'project' and 'document' name it as the IDE spells them.")]
-    public async Task<MutateResult> SetBreakpointsAsync(string name, int[] lines, string? project = null, CancellationToken ct = default)
+    [Description("Replaces all breakpoints for a form or module with the supplied 1-based line numbers, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Named by its own VB6 name in any loaded project (case does not matter); pass `project` to say which when a group holds two of one name. Pass an empty array to clear them. Optional `conditions` maps line numbers to expressions, e.g. {\"6\":\"i = 3\"} with lines [6]. Omitted keys keep existing conditions; explicit blank expressions clear them. Conditions are VB expressions evaluated in the line's procedure each time it is reached, pausing when True. A condition key absent from lines is refused with nothing changed. A line the document does not have is refused, and so is a new breakpoint on a line of the header or of a member's Attribute lines, which never run; then nothing is changed, and the reply says where the code starts. Takes effect immediately if that project is the one running. The note names conditions set or cleared and reports what the document holds afterwards, and 'project' and 'document' name it as the IDE spells them.")]
+    public async Task<MutateResult> SetBreakpointsAsync(string name, int[] lines, string? project = null,
+        [Description("Optional map from breakpoint line number to condition expression; keys must also appear in lines. Omitted keys keep old conditions; explicit blank expressions clear them.")] Dictionary<int, string>? conditions = null,
+        CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -1806,10 +1810,48 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (OutsideDocument(document, lines, first: 1, "breakpoint", ctx.BreakpointService.GetBreakpoints(document)) is { } outside)
                 return Naming(new MutateResult(false, outside, ctx.ProjectRunnerService.CodeEditNote()?.TrimStart()), document);
 
+            if (conditions is not null)
+            {
+                var missing = conditions.Keys.Where(line => !lines.Contains(line)).Order().ToArray();
+                if (missing.Length > 0)
+                    return Naming(new MutateResult(false,
+                        $"Condition line(s) {string.Join(", ", missing)}: not a breakpoint in lines. Nothing changed."), document);
+            }
+
+            var changes = new List<string>();
             ctx.BreakpointService.SetDocument(document, lines);
-            return Naming(new MutateResult(true, null, Held(document, ctx.BreakpointService.GetBreakpoints(document), "breakpoint") + ctx.ProjectRunnerService.CodeEditNote()), document);
+            if (conditions is not null)
+                foreach (var (line, condition) in conditions.OrderBy(pair => pair.Key))
+                {
+                    var old = ctx.BreakpointService.GetCondition(document, line);
+                    ctx.BreakpointService.SetCondition(document, line, condition);
+                    if (string.IsNullOrWhiteSpace(condition))
+                    {
+                        // A blank for a line that had no condition changes nothing, so it is not reported as a clear.
+                        if (old is not null) changes.Add($"Cleared line {line}'s condition \"{old}\".");
+                    }
+                    else
+                        changes.Add($"Set line {line}'s condition \"{condition}\".");
+                }
+            var held = ctx.BreakpointService.GetBreakpoints(document);
+            var note = string.Join(" ", new[] { Held(document, held, "breakpoint"),
+                ConditionalLinesNote(BreakpointConditions(document, held)), string.Join(" ", changes),
+                ctx.ProjectRunnerService.CodeEditNote()?.Trim() }.Where(part => !string.IsNullOrEmpty(part)));
+            return Naming(new MutateResult(true, null, note), document);
         });
     }
+
+    private Dictionary<int, string>? BreakpointConditions(DocumentIdentity document, IReadOnlyList<int> lines)
+    {
+        var conditions = new Dictionary<int, string>();
+        foreach (var line in lines)
+            if (ctx.BreakpointService.GetCondition(document, line) is { } condition)
+                conditions[line] = condition;
+        return conditions.Count == 0 ? null : conditions;
+    }
+
+    private static string? ConditionalLinesNote(Dictionary<int, string>? conditions) =>
+        conditions is null ? null : $"Conditional breakpoint lines: {string.Join(", ", conditions.Keys)}.";
 
     [McpServerTool(Name = "clear_all_breakpoints")]
     [Description("Removes every breakpoint the IDE holds, in EVERY loaded project rather than only the startup one. With a group open that is more than it sounds; to clear one document, call set_breakpoints with an empty array. The reply's 'note' says how many breakpoints were cleared, in how many documents.")]
@@ -4354,7 +4396,9 @@ internal record BookmarksResult(string? Project, string? Document, string? Uri, 
 /// <param name="Project">The project holding the document, by name.</param>
 /// <param name="Document">The document's own VB6 name, as the IDE spells it rather than as the call spelled it.</param>
 /// <param name="Uri">The name a language server knows this document by.</param>
-internal record BreakpointsResult(string? Project, string? Document, string? Uri, int[] Lines, string? Error);
+internal record BreakpointsResult(string? Project, string? Document, string? Uri, int[] Lines, string? Error,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    Dictionary<int, string>? Conditions = null, string? Note = null);
 
 /// <param name="Project">
 /// The running project, by name, while paused: <c>Module</c> is a bare name, and a group may hold two documents
