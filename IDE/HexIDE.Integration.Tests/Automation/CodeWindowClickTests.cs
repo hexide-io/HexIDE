@@ -6,9 +6,12 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.Editing;
+using AvaloniaEdit.Folding;
 using AvaloniaEdit.Rendering;
 using HexIDE.Automation;
 using HexIDE.Bookmarks;
@@ -105,6 +108,51 @@ public class CodeWindowClickTests
         }
 
         public void Dispose() { display.Dispose(); lenses.Dispose(); Window.Close(); Vm.Dispose(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Covered_text_names_the_cover_and_the_line_it_covers(bool drag, bool otherCover)
+    {
+        using var scene = new Scene();
+        scene.Editor.Document.Text = "Sub Helper()\n" + string.Join("\n", Enumerable.Repeat("' abcdefghijklmnop", 120)) + "\nEnd Sub";
+        scene.Render();
+        var view = (CodeEditorView)scene.Window.Content!;
+        var headers = view.FindControl<StackPanel>("StickyHeaders")!;
+        var settings = Substitute.For<ISettingsService>();
+        settings.IsStickyScrollEnabled.Returns(true);
+        settings.StickyScrollDepth.Returns(1);
+        var folds = (FoldingManager)scene.Editor.TextArea.TextView.GetService(typeof(FoldingManager))!;
+        var fold = folds.CreateFolding(0, scene.Editor.Document.TextLength);
+        using var sticky = new StickyScrollController(headers, scene.Editor, settings, () => [fold]);
+        scene.Editor.GetVisualDescendants().OfType<ScrollViewer>().First().Offset = new Vector(0, 400);
+        scene.Render();
+        sticky.Refresh();
+        if (otherCover)
+        {
+            var parent = (Grid)headers.Parent!;
+            headers.IsVisible = false;
+            headers = new StackPanel { VerticalAlignment = VerticalAlignment.Top };
+            parent.Children.Add(headers);
+            headers.Children.Add(new Button { Content = "Other cover", HorizontalAlignment = HorizontalAlignment.Stretch });
+        }
+        scene.Render();
+        var header = headers.Children.OfType<Button>().Single();
+        var local = header.TranslatePoint(new Point(60, header.Bounds.Height / 2), scene.Editor)!.Value;
+        var textView = scene.Editor.TextArea.TextView;
+        var textPoint = scene.Editor.TranslatePoint(local, textView)!.Value;
+        var coveredLine = textView.GetPosition(textPoint + textView.ScrollOffset)!.Value.Line;
+        var point = FormattableString.Invariant($"{local.X},{local.Y}");
+        var result = await UiAutomationDriver.FinishAsync(await UiAutomationDriver.InteractAsync(scene.Editor, "click",
+            point + (drag ? FormattableString.Invariant($" to {local.X + 60},{local.Y + 50}") : "")));
+        result.Success.Should().BeTrue(result.Error);
+        result.Detail.Should().Contain(otherCover ? "on 'Button[Other cover]', which covers line " : "on the sticky header for 'Sub Helper()', which covers line ")
+            .And.Contain($"covers line {coveredLine} of P3827/Main")
+            .And.NotContain($"; line {coveredLine}, column")
+            .And.NotContain($"; line {coveredLine} of");
     }
 
     [AvaloniaTheory]
