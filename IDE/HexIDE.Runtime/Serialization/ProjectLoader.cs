@@ -241,6 +241,23 @@ public sealed class ProjectLoader
             }
         }
 
+        // Decide after every member has loaded: a later module can collide too. Collisions are unmeasured
+        // (#3774), so keep the project-line name for those rather than choosing a winner by load order.
+        var names = project.Modules.Select(m => (Module: m, Original: m.Name,
+            Loaded: ModuleFileFormat.HandlesHeader(m.Kind)
+                ? ModuleFileFormat.ModuleNameFor(m.Name, m.OriginalHeader) : m.Name)).ToArray();
+        foreach (var item in names)
+        {
+            if (names.Any(other => other.Module != item.Module &&
+                    (string.Equals(other.Original, item.Loaded, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(other.Loaded, item.Loaded, StringComparison.OrdinalIgnoreCase))) ||
+                project.Forms.Any(f => string.Equals(f.Name, item.Loaded, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            if (!string.Equals(item.Original, item.Loaded, StringComparison.OrdinalIgnoreCase))
+                item.Module.ProjectLineName = item.Original;
+            item.Module.Name = item.Loaded;
+        }
+
         // Always retain the startup form NAME so Startup= survives round-trip even when its .frm was
         // missing and no FormDefinition was created (the live StartupForm, if found, takes precedence).
         project.StartupFormName = serializedProject.StartupFormName;

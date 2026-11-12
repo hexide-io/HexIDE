@@ -266,6 +266,7 @@ public partial class UserSidecarService : IUserSidecarService
                 quiet.Add(project);
                 try
                 {
+                    state.Owed |= MigrateLoadedNames(project, data, owned);
                     var (migrated, consumed, consumedFile) = Apply(project, data, path, owned);
                     // The file's choice unless the user made one while it was read, as a mark made meanwhile is kept.
                     if (runChoices?.Get(project) is null) runChoices?.Set(project, data.RunWith);
@@ -717,6 +718,9 @@ public partial class UserSidecarService : IUserSidecarService
                 }
                 state.UnreadableLogged = false;
             }
+
+            if (source is not null)
+                MigrateLoadedNames(project, source, state.Owned);
 
             var bookmarks = Collect(project, bookmarkService.GetBookmarks, 0, header: false);
             var breakpoints = Collect(project, breakpointService.GetBreakpoints, 1, header: false);
