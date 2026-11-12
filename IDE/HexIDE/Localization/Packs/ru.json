@@ -1244,6 +1244,8 @@
     "Str.Dock.ToolTabStripItemAutoHide": "Автоматически скрывать",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Закрепить как документ с вкладкой",
     "Str.Dock.ToolTabStripItemClose": "Закрыть",
-    "Str.AIChat.ApiKeyRequired": "Требуется ключ API. Задайте apiKey в chat-settings.json."
+    "Str.AIChat.ApiKeyRequired": "Требуется ключ API. Задайте переменную среды HEXIDE_AI_API_KEY или apiKey в chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ Конфиденциальность: ваши сообщения, содержимое активного файла (для формы — также её компоновка и подписи) и его диагностика отправляются в {0} — сторонний сервис, настроенный вами в параметрах ИИ-чата.",
+    "Str.AIChat.PrivacyKeyTip": "Совет: задайте переменную среды HEXIDE_AI_API_KEY, чтобы не хранить ключ API в файле."
   }
 }

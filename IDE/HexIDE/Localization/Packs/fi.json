@@ -1244,6 +1244,8 @@
     "Str.Dock.ToolTabStripItemAutoHide": "_Piilota automaattisesti",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Telakoi välilehdelliseksi asiakirjaksi",
     "Str.Dock.ToolTabStripItemClose": "_Sulje",
-    "Str.AIChat.ApiKeyRequired": "API-avain vaaditaan. Aseta apiKey tiedostossa chat-settings.json."
+    "Str.AIChat.ApiKeyRequired": "API-avain vaaditaan. Aseta ympäristömuuttuja HEXIDE_AI_API_KEY tai apiKey tiedostossa chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ Tietosuoja: viestisi, aktiivisen tiedoston sisältö (lomakkeessa myös asettelu ja otsikot) ja sen diagnostiikka lähetetään osoitteeseen {0} — kolmannen osapuolen palveluun, jonka määritit tekoälychatin asetuksissa.",
+    "Str.AIChat.PrivacyKeyTip": "Vihje: aseta ympäristömuuttuja HEXIDE_AI_API_KEY, jotta API-avainta ei tarvitse tallentaa tiedostoon."
   }
 }

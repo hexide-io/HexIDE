@@ -1244,6 +1244,8 @@
     "Str.Tool.LanguageServers.Editor.FileChanged": "Filen er endret. Åpne skjemaet på nytt før lagring.",
     "Str.Dock.DocumentTabs": "Dokumentfaner",
     "Str.Dock.ToolTabs": "Verktøyfaner",
-    "Str.AIChat.ApiKeyRequired": "API-nøkkel kreves. Angi apiKey i chat-settings.json."
+    "Str.AIChat.ApiKeyRequired": "API-nøkkel kreves. Angi miljøvariabelen HEXIDE_AI_API_KEY, eller apiKey i chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ Personvern: meldingene dine, innholdet i den aktive filen (for et skjema også oppsett og tekster) og diagnostikken sendes til {0} — en tredjepartstjeneste du har konfigurert i innstillingene for KI-chat.",
+    "Str.AIChat.PrivacyKeyTip": "Tips: angi miljøvariabelen HEXIDE_AI_API_KEY for å unngå å lagre API-nøkkelen i en fil."
   }
 }

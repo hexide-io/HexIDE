@@ -385,7 +385,8 @@ public class LocalizationServiceTests
                 continue;
             }
             // These underscores belong to identifiers, not access keys (#41).
-            if (key is "Str.Vb6Toolchain.Vb6NotFound" or "Str.Dialog.ConflictingNames")
+            if (key is "Str.Vb6Toolchain.Vb6NotFound" or "Str.Dialog.ConflictingNames"
+                or "Str.AIChat.ApiKeyRequired" or "Str.AIChat.PrivacyKeyTip")
                 continue;
             var marker = value.IndexOf('_');
             if (marker < 0) continue;
@@ -1097,6 +1098,7 @@ public class LocalizationServiceTests
                 placeholders.Matches(canonical[key]).Select(m => m.Value), key);
             value.Replace("VB_Name", "", StringComparison.Ordinal)
                 .Replace("VB6_EXE", "", StringComparison.Ordinal)
+                .Replace("HEXIDE_AI_API_KEY", "", StringComparison.Ordinal)
                 .Should().NotContain("_", key);
         }
     }

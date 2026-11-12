@@ -1244,6 +1244,8 @@
     "Str.Tool.LanguageServers.Editor.FileChanged": "파일이 변경되었습니다. 저장하기 전에 양식을 다시 여세요.",
     "Str.Dock.DocumentTabs": "문서 탭",
     "Str.Dock.ToolTabs": "도구 탭",
-    "Str.AIChat.ApiKeyRequired": "API 키가 필요합니다. chat-settings.json의 apiKey를 설정하세요."
+    "Str.AIChat.ApiKeyRequired": "API 키가 필요합니다. HEXIDE_AI_API_KEY 환경 변수 또는 chat-settings.json의 apiKey를 설정하세요.",
+    "Str.AIChat.PrivacyNotice": "ℹ 개인정보 보호: 메시지, 활성 파일의 내용(폼의 경우 레이아웃과 캡션 포함) 및 진단 정보가 AI 채팅 설정에서 구성한 타사 서비스인 {0}(으)로 전송됩니다.",
+    "Str.AIChat.PrivacyKeyTip": "팁: API 키를 파일에 저장하지 않으려면 HEXIDE_AI_API_KEY 환경 변수를 설정하세요."
   }
 }

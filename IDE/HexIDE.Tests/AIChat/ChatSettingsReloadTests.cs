@@ -16,6 +16,7 @@ public class ChatSettingsReloadTests
     [InlineData("invalid", "api.anthropic.com", true)]
     public void OpeningTheExistingPanelReloadsSettings(string change, string expectedHost, bool responding)
     {
+        new HexIDE.Localization.LocalizationService().Apply("en");
         var directory = Path.Join(Path.GetTempPath(), "hexide-chat-reload-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         try
