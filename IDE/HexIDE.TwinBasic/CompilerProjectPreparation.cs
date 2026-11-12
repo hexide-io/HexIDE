@@ -82,9 +82,16 @@ public sealed class CompilerPreparedProject : IDisposable
 /// </summary>
 public static class CompilerProjectPreparation
 {
-    public static async Task<CompilerPreparedProject> PrepareAsync(CompilerRootSession root, string projectPath,
+    public static Task<CompilerPreparedProject> PrepareAsync(CompilerRootSession root, string projectPath,
         ICompilerPackageProvider packages, CompilerProjectPreparationLimits? limits = null,
         CancellationToken cancellationToken = default)
+        => PrepareAsync(root, projectPath, packages, limits, cancellationToken,
+            static (deadline, timeout) => deadline.CancelAfter(timeout));
+
+    // Tests arm the real deadline after their peer has received the request (#3627).
+    internal static async Task<CompilerPreparedProject> PrepareAsync(CompilerRootSession root, string projectPath,
+        ICompilerPackageProvider packages, CompilerProjectPreparationLimits? limits,
+        CancellationToken cancellationToken, Action<CancellationTokenSource, TimeSpan> startDeadline)
     {
         ArgumentNullException.ThrowIfNull(root);
         if (!root.TryClaimProjectPreparation()) throw new InvalidOperationException("The compiler root already has a project owner.");
@@ -101,7 +108,7 @@ public static class CompilerProjectPreparation
             if (!Path.IsPathFullyQualified(projectPath) || !string.Equals(Path.GetExtension(projectPath), ".twinproj", StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("An absolute project-container path is required.", nameof(projectPath));
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            deadline.CancelAfter(timeout);
+            startDeadline(deadline, timeout);
             try
             {
                 directory = Path.Combine(Path.GetFullPath(Path.GetTempPath()), "hexide-compiler-" + Guid.NewGuid().ToString("N"));
