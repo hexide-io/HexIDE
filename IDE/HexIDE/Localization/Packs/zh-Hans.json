@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "{0}:{1} 处的调用",
     "Str.Tool.FindReferences.Title": "查找引用",
     "Str.Tool.FindReferences.Empty": "没有引用",
+    "Str.Tool.FindReferences.Unavailable": "为 {0} 运行的语言服务器均不提供查找引用功能",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "调试适配器 {0} 未响应结束命令，已在等待 {1} 秒后停止。",
     "Str.Debug.External.BreakpointConditionUnsupported": "请通过断点边栏菜单中的“条件…”设置条件。 文件 '{0}'，断点条目 {1}。",

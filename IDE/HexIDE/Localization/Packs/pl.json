@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Wywołanie w {0}:{1}",
     "Str.Tool.FindReferences.Title": "Znajdź odwołania",
     "Str.Tool.FindReferences.Empty": "Brak odwołań",
+    "Str.Tool.FindReferences.Unavailable": "Żaden serwer językowy uruchomiony dla {0} nie oferuje polecenia „Znajdź odwołania”",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Adapter debugowania {0} nie odpowiedział na polecenie Zakończ i został zatrzymany po {1} sekundach oczekiwania.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Ustaw warunki przez Warunek… w menu marginesu punktów przerwania. Plik '{0}', wpis punktu przerwania {1}.",

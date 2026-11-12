@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Klic na {0}:{1}",
     "Str.Tool.FindReferences.Title": "Poišči sklice",
     "Str.Tool.FindReferences.Empty": "Ni sklicev",
+    "Str.Tool.FindReferences.Unavailable": "Noben jezikovni strežnik, ki se izvaja za {0}, ne ponuja ukaza »Poišči sklice«",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Razhroščevalni vmesnik {0} se ni odzval na ukaz za konec in je bil ustavljen po {1} sekundah čakanja.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Pogoje nastavite z ukazom Pogoj… v meniju roba prekinitvenih točk. Datoteka '{0}', vnos prekinitvene točke {1}.",

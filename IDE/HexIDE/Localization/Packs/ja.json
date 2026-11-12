@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "{0}:{1} の呼び出し",
     "Str.Tool.FindReferences.Title": "参照の検索",
     "Str.Tool.FindReferences.Empty": "参照がありません",
+    "Str.Tool.FindReferences.Unavailable": "{0} で実行中の言語サーバーは参照の検索を提供していません",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "デバッグ アダプター {0} が終了コマンドに応答しなかったため、{1} 秒待機した後に停止しました。",
     "Str.Debug.External.BreakpointConditionUnsupported": "ブレークポイントの余白メニューの「条件…」で条件を設定してください。 ファイル '{0}'、ブレークポイント項目 {1}。",

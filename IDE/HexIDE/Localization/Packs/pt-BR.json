@@ -2,6 +2,7 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Unavailable": "Nenhum servidor de linguagem em execução para {0} oferece “Localizar referências”",
     "Str.ContributedProject.PropertiesReadOnly": "{0} é aberto por {1}: suas propriedades são definidas pelo programa ao qual pertence, não pelo HexIDE.",
     "Str.ContributedProject.ReferencesReadOnly": "{0} é aberto por {1}: suas referências são definidas pelo programa ao qual pertence, não pelo HexIDE.",
     "Str.ContributedProject.ComponentsReadOnly": "{0} é aberto por {1}: seus componentes são definidos pelo programa ao qual pertence, não pelo HexIDE.",

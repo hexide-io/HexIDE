@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Panggilan di {0}:{1}",
     "Str.Tool.FindReferences.Title": "Cari referensi",
     "Str.Tool.FindReferences.Empty": "Tidak ada referensi",
+    "Str.Tool.FindReferences.Unavailable": "Tidak ada server bahasa yang berjalan untuk {0} yang menyediakan “Cari referensi”",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Adaptor debug {0} tidak merespons Akhiri dan dihentikan setelah menunggu {1} detik.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Atur kondisi melalui Kondisi… pada menu margin titik henti. Berkas '{0}', entri breakpoint {1}.",

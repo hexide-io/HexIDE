@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Crida a {0}:{1}",
     "Str.Tool.FindReferences.Title": "Cerca referències",
     "Str.Tool.FindReferences.Empty": "No hi ha referències",
+    "Str.Tool.FindReferences.Unavailable": "Cap servidor de llenguatge en execució per a {0} ofereix «Cerca referències»",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "L’adaptador de depuració {0} no ha respost a Finalitza i s’ha aturat després d’esperar {1} segons.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Definiu condicions amb Condició… al menú del marge dels punts d’interrupció. Fitxer '{0}', entrada de punt d’interrupció {1}.",

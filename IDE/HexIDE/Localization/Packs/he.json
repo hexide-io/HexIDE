@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "קריאה במיקום {0}:{1}",
     "Str.Tool.FindReferences.Title": "חיפוש הפניות",
     "Str.Tool.FindReferences.Empty": "אין הפניות",
+    "Str.Tool.FindReferences.Unavailable": "אף שרת שפה שפועל עבור {0} אינו מציע חיפוש הפניות",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "מתאם ניפוי הבאגים {0} לא הגיב לפקודת הסיום ונעצר לאחר המתנה של {1} שניות.",
     "Str.Debug.External.BreakpointConditionUnsupported": "הגדר תנאים דרך תנאי… בתפריט שולי נקודות העצירה. קובץ '{0}', רשומת נקודת עצירה {1}.",

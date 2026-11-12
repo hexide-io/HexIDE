@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp;
@@ -29,6 +30,8 @@ public class FindReferencesToolViewModelTests
         second.UpdateCode("Call Greet\n");
         projects.LoadedProjects.Returns([project]);
         documents.OpenDocuments.Returns([]);
+        client.SupportsCapability(Arg.Any<string>(), "referencesProvider").Returns(true);
+        localization.GetString("Str.Tool.FindReferences.Unavailable").Returns("No language server running for {0} offers Find References");
         localization.GetString("Str.Tool.FindReferences.Empty").Returns("No references");
         localization.GetString("Str.Tool.FindReferences.Error").Returns("{0}: {1}");
     }
@@ -37,6 +40,43 @@ public class FindReferencesToolViewModelTests
     private static Location At(ModuleDefinition module) => new(DocumentWireName.For(DocumentIdentity.For(module)),
         new LspRange(new Position(FormCodeText.LineBreaks(FormCodeText.Prefix(module)), 5),
             new Position(FormCodeText.LineBreaks(FormCodeText.Prefix(module)), 10)));
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task NoRunningProviderShowsUnavailableWithoutRequesting(bool running, bool offers)
+    {
+        var server = Substitute.For<ILspClient>();
+        server.IsRunning.Returns(running);
+        server.SupportsCapability(Arg.Any<string>(), "referencesProvider").Returns(offers);
+        await using var registry = new LspClientRegistry(
+            [new LanguageServerRegistration("test", "test", DocumentLanguage.Vb6Extensions,
+                DocumentLanguage.Vb6, () => server)], Substitute.For<ILogger<LspClientRegistry>>());
+        var uri = At(first).Uri;
+        await registry.OpenDocumentAsync(uri, "code", TestContext.Current.CancellationToken);
+        var vm = new FindReferencesToolViewModel(registry, editors, projects, documents, localization, format: new Vb6ProjectFileFormat());
+        vm.ShowLocations([At(second)]);
+        await vm.SearchAsync(uri, new Position(0, 5), TestContext.Current.CancellationToken);
+        vm.Rows.Should().ContainSingle().Which.Before.Should()
+            .Be("No language server running for First offers Find References");
+        await server.DidNotReceiveWithAnyArgs().RequestReferencesAsync(default!, default!, Arg.Any<CancellationToken>());
+        localization.LanguageChanged += Raise.Event<Action>();
+        vm.Rows.Should().ContainSingle().Which.Before.Should()
+            .Be("No language server running for First offers Find References");
+        vm.ShowLocations([]);
+        vm.Rows.Should().ContainSingle().Which.Before.Should().Be("No references");
+    }
+
+    [Fact]
+    public async Task SupportingProviderWithEmptyAnswerStillShowsNoReferences()
+    {
+        client.FindReferencesAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new ReferenceSearchResult([], []));
+        var vm = Create();
+        await vm.SearchAsync(At(first).Uri, new Position(0, 5), TestContext.Current.CancellationToken);
+        vm.Rows.Should().ContainSingle().Which.Before.Should().Be("No references");
+        await client.Received(1).FindReferencesAsync(At(first).Uri, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+    }
 
     [Fact]
     public void GivenLocationsGroupInProjectOrderAndHighlightTheRangeWithoutRequesting()
