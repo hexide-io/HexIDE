@@ -873,15 +873,13 @@ explicitCallStmt
     | eCS_MemberProcedureCall
     ;
 
-// parantheses are required in case of args -> empty parantheses are removed
 eCS_ProcedureCall
-    : CALL WS ambiguousIdentifier typeHint? (WS? LPAREN WS? argsCall WS? RPAREN)?
+    : CALL WS ambiguousIdentifier typeHint? (WS? LPAREN WS? (argsCall WS?)? RPAREN)?
     ;
 
-// parantheses are required in case of args -> empty parantheses are removed
 eCS_MemberProcedureCall
     : CALL WS implicitCallStmt_InStmt? DOT WS? ambiguousIdentifier typeHint? (
-        WS? LPAREN WS? argsCall WS? RPAREN
+        WS? LPAREN WS? (argsCall WS?)? RPAREN
     )?
     ;
 
