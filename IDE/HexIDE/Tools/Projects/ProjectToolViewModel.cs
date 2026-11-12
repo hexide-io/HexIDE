@@ -183,6 +183,7 @@ public partial class ProjectToolViewModel : Tool
 
     private void RebuildRootItems()
     {
+        var previousGroup = RootItems.OfType<ProjectGroupViewModel>().FirstOrDefault();
         var previous = RootItems.OfType<ArchiveTreeNode>().SelectMany(WalkArchive).ToDictionary(n => n.Entry.Identity);
         var selected = (SelectedItem as ArchiveTreeNode)?.Entry.Identity;
         foreach (var group in RootItems.OfType<ProjectGroupViewModel>())
@@ -195,6 +196,8 @@ public partial class ProjectToolViewModel : Tool
         {
             var group = new ProjectGroupViewModel(projectManager.CurrentGroup, LoadedProjects,
                 localization.GetString("Str.Tool.Project.TitleGroup"));
+            if (previousGroup?.Group == group.Group)
+                group.IsExpanded = previousGroup.IsExpanded;
             group.PropertyChanged += OnTitleSourceChanged;
             RootItems.Add(group);
         }
