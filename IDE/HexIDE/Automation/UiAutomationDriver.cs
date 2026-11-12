@@ -230,8 +230,7 @@ public static class UiAutomationDriver
             DistinctLabelOf(NameOf(control, peer), peer),
             peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : editorReadOnly,
             control is Window window ? ReadFrame(window) : null,
-            peer.GetProvider<IExpandCollapseProvider>() is { } expansion
-                ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null,
+            ReadExpandCollapseState(peer, control),
             itemTexts,
             itemsNote,
             // The pointer it shows, and where that is set (#2453).
@@ -606,7 +605,7 @@ public static class UiAutomationDriver
         if (control is not null && Safe(() => MultiSelectOwner(control) is not null, false)) list.Add("multiSelectItem");
         if (peer.GetProvider<IValueProvider>() is not null) list.Add("value");
         if (peer.GetProvider<IToggleProvider>() is not null) list.Add("toggle");
-        if (peer.GetProvider<IExpandCollapseProvider>() is not null) list.Add("expandCollapse");
+        if (ReadExpandCollapseState(peer, control) is not null) list.Add("expandCollapse");
         // Both only when the verb would do something. ItemsControlAutomationPeer implements IScrollProvider
         // on EVERY ListBox, TreeView and TreeViewItem, whether or not there is a scroller behind it, and a
         // ProgressBar's range is read-only; advertising those kept 40 inert nodes in the default tree
@@ -621,24 +620,12 @@ public static class UiAutomationDriver
                  && Safe(() => OwnScrollerFor(control, vertical: true) is not null || OwnScrollerFor(control, vertical: false) is not null, false))
             list.Add("scroll");
 
-        // Advertised so the verb is discoverable: a control owning a context menu or a flyout accepts
-        // expand/collapse even though its peer offers no ExpandCollapse provider. Without this the action
-        // exists and nothing says so, which is how the eight toolbar Add commands came to be recorded as
-        // unreachable.
-        if (control is not null
-            && (control.ContextMenu is not null || FlyoutsOf(control).Any())
-            && !list.Contains("expandCollapse"))
-            list.Add("expandCollapse");
-
-        if (control is MenuItem menuItem)
+        if (control is MenuItem)
         {
             // Avalonia 12.0.5's peer offers a toggle on a checkable item that only sets IsChecked, and Interact refuses
             // toggle on every menu item for that reason, so advertising it would promise a verb that only refuses.
             list.Remove("toggle");
             if (!list.Contains("invoke")) list.Add("invoke");
-            // Only where there is a submenu to open: advertising expandCollapse on a leaf would promise
-            // an action that correctly refuses.
-            if (menuItem.HasSubMenu && !list.Contains("expandCollapse")) list.Add("expandCollapse");
         }
 
         // A DataGridRow's peer offers NOTHING — not selectionItem, not invoke — so a grid was the one
@@ -652,12 +639,25 @@ public static class UiAutomationDriver
         // all. Selecting a node is the precondition for its context menu, its toolbar and every
         // SelectedForm/SelectedModule/SelectedProject command, and none of that was reachable.
         if (control is TreeViewItem && !list.Contains("selectionItem")) list.Add("selectionItem");
-        // Nor expand or collapse, so a collapsed node's children, once realized and then hidden, were out of reach
-        // except by keyboard. Only on a node that has children, as for a menu item with a submenu.
-        if (control is TreeViewItem { ItemCount: > 0 } && !list.Contains("expandCollapse")) list.Add("expandCollapse");
 
         return [.. list];
     }
+
+    // Discovery and inspection share the same state, including capabilities Interact supplies without a peer provider.
+    private static string? ReadExpandCollapseState(AutomationPeer peer, Control? control) => Safe<string?>(() =>
+    {
+        if (peer.GetProvider<IExpandCollapseProvider>() is { } provider)
+            return provider.ExpandCollapseState.ToString();
+        if (control is TreeViewItem { ItemCount: > 0 } node)
+            return node.IsExpanded ? "Expanded" : "Collapsed";
+        if (control is MenuItem { HasSubMenu: true } menu)
+            return menu.IsSubMenuOpen ? "Expanded" : "Collapsed";
+        if (control is null) return null;
+        var flyouts = FlyoutsOf(control).ToArray();
+        if (control.ContextMenu is null && flyouts.Length == 0) return null;
+        return (control.ContextMenu is { } contextMenu && IsOpenOn(contextMenu, control))
+               || flyouts.Any(f => IsOpenOn(f, control)) ? "Expanded" : "Collapsed";
+    }, null);
 
     // ── interaction (Phase 6) ───────────────────────────────────────────────────────────────────────
 
