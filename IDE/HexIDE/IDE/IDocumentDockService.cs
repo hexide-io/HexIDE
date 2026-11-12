@@ -36,6 +36,9 @@ public interface IDocumentDockService : INotifyPropertyChanged
     /// <summary>The zero-based document area in layout order.</summary>
     int AreaOf(IDockable tab);
 
+    /// <summary>The document area that last held focus, falling back to the first area.</summary>
+    Dock.Model.Controls.IDocumentDock? FocusedArea { get; }
+
     /// <summary>The frontmost tab, whatever kind it is.</summary>
     IDockable? ActiveTab { get; }
 
