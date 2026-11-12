@@ -1241,6 +1241,10 @@ Each search replaces the list, grouped by module in project order,
 with line numbers and the returned range emphasized. Enter or double-click navigates through
 `EditorService.NavigateTo`; empty answers and server errors appear as localized rows. Result rows
 expose their module, line number and line text as their accessible name.
+When no running server for the document offers references, the pane instead names the document
+and explains that Find References is unavailable; no request is sent. The command stays enabled
+so its menu and shortcut explain the missing provider (#3758). A server still initializing is not
+running for this check. An empty answer from an available provider still shows “No references”.
 `FindReferencesToolViewModel.ShowLocations` fills the same pane without a request, for code-lens callers
 (#2906). Binding remains the server's responsibility.
 

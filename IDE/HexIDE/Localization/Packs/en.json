@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Call at {0}:{1}",
     "Str.Tool.FindReferences.Title": "Find References",
     "Str.Tool.FindReferences.Empty": "No references",
+    "Str.Tool.FindReferences.Unavailable": "No language server running for {0} offers Find References",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Debug adapter {0} did not respond to End and was stopped after waiting {1} seconds.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Set conditions with Condition… in the breakpoint gutter menu. File '{0}', breakpoint entry {1}.",

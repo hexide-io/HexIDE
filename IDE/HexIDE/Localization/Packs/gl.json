@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Chamada en {0}:{1}",
     "Str.Tool.FindReferences.Title": "Buscar referencias",
     "Str.Tool.FindReferences.Empty": "Non hai referencias",
+    "Str.Tool.FindReferences.Unavailable": "Ningún servidor de linguaxe en execución para {0} ofrece «Buscar referencias»",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "O adaptador de depuración {0} non respondeu a Finalizar e detívose tras agardar {1} segundos.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Defina condicións con Condición… no menú da marxe dos puntos de interrupción. Ficheiro '{0}', entrada de punto de interrupción {1}.",

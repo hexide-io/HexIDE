@@ -4,9 +4,9 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using HexIDE.Runtime.BuiltinTypes;
-using HexIDE.Tests.Infrastructure;
+using HexIDE.Integration.Tests;
 
-namespace HexIDE.Tests.Runtime;
+namespace HexIDE.Runtime.Integration.Tests;
 
 /// <summary>
 /// A made program runs on the Standalone runner, which has only the dictionaries its <c>App.axaml</c> names. A VB6

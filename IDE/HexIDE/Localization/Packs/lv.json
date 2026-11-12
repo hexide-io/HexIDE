@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Izsaukums vietā {0}:{1}",
     "Str.Tool.FindReferences.Title": "Atrast atsauces",
     "Str.Tool.FindReferences.Empty": "Nav atsauču",
+    "Str.Tool.FindReferences.Unavailable": "Neviens dokumentam {0} palaistais valodas serveris nepiedāvā komandu „Atrast atsauces”",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Atkļūdošanas adapteris {0} neatbildēja uz beigšanas komandu un tika apturēts pēc {1} sekunžu gaidīšanas.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Iestatiet nosacījumus pārtraukumpunktu piemales izvēlnē ar Nosacījums…. Fails '{0}', pārtraukumpunkta ieraksts {1}.",
