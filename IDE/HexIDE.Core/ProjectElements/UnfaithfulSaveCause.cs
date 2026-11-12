@@ -34,7 +34,7 @@ public enum UnfaithfulSaveCause
     UnreproducibleBinaryContent = 1 << 1,
 
     /// <summary>An invisible UserControl's size has no measured conversion to missing saved extents.</summary>
-    MissingUserControlExtents = 1 << 2,
+    MissingUserControlExtents = 1 << 6,
 
     /// <summary>An add-in's project type read this form, and has nothing that writes what it read.</summary>
     ReadByAddin = 1 << 4,
