@@ -78,6 +78,7 @@ public sealed class SplitDocumentTabsTests
         service.RecentlyClosed.Entries.Should().BeEmpty("moving a tab is not closing it");
         service.TryActivate<ProjectDocumentViewModel>(t => t == editor).Should().BeTrue();
         service.ActiveDocument.Should().BeSameAs(editor);
+        service.AreaOf(editor).Should().Be(1);
         service.CloseDocument(editor);
         service.OpenDocuments.Should().BeEmpty();
         service.RecentlyClosed.Entries.Should().ContainSingle();
@@ -103,6 +104,79 @@ public sealed class SplitDocumentTabsTests
         factory.SetFocusedDockable((IDock)tool.Owner!, tool);
 
         service.ActiveTab.Should().BeSameAs(moved, "the split area held focus last, not the first area");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NewDocumentOpensInLastFocusedArea(bool focusTool)
+    {
+        var (factory, _) = DockFactoryTests.CreateFactory();
+        factory.InitLayout(factory.CreateLayout());
+        using var service = new DocumentDockService(new DockFactoryReference { Value = factory }, new EventBus());
+        service.TrackTabs();
+        factory.AddDockable(factory.DocumentDock!, new Document { Title = "First" });
+        var moved = new Document { Title = "Moved" };
+        factory.AddDockable(factory.DocumentDock!, moved);
+        Split(factory, moved);
+        if (focusTool)
+        {
+            var tool = Walk(factory.DocumentLayout!).OfType<Dock.Model.Controls.ITool>().First();
+            factory.SetFocusedDockable((IDock)tool.Owner!, tool);
+        }
+
+        var editor = new ProjectDocumentViewModel(Substitute.For<ILocalizationService>()).Initialize(TestHelpers.CreateProject());
+        service.OpenDocument(editor);
+
+        service.AreaOf(editor).Should().Be(1);
+        service.ActiveTab.Should().BeSameAs(editor);
+    }
+
+    [AvaloniaFact]
+    public void NewDocumentWithoutSplitOpensInFirstArea()
+    {
+        var (factory, _) = DockFactoryTests.CreateFactory();
+        factory.InitLayout(factory.CreateLayout());
+        using var service = new DocumentDockService(new DockFactoryReference { Value = factory }, new EventBus());
+        var editor = new ProjectDocumentViewModel(Substitute.For<ILocalizationService>()).Initialize(TestHelpers.CreateProject());
+
+        service.OpenDocument(editor);
+
+        service.AreaOf(editor).Should().Be(0);
+        service.ActiveTab.Should().BeSameAs(editor);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OpeningRepliesReportArea(bool designer)
+    {
+        var project = TestHelpers.CreateProjectWithForm();
+        var (factory, _) = DockFactoryTests.CreateFactory();
+        factory.InitLayout(factory.CreateLayout());
+        using var service = new DocumentDockService(new DockFactoryReference { Value = factory }, new EventBus());
+        service.TrackTabs();
+        factory.AddDockable(factory.DocumentDock!, new Document { Title = "First" });
+        var moved = new Document { Title = "Moved" };
+        factory.AddDockable(factory.DocumentDock!, moved);
+        Split(factory, moved);
+        var editor = new ProjectDocumentViewModel(Substitute.For<ILocalizationService>()).Initialize(project);
+        var editors = Substitute.For<IEditorService>();
+        editors.When(e => e.EditForm(project.Forms[0])).Do(_ => service.OpenDocument(editor));
+        editors.When(e => e.EditCode(project.Forms[0])).Do(_ => service.OpenDocument(editor));
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([project]);
+        using var context = new IdeContext(projects, service, Substitute.For<ILspClient>(), editors,
+            Substitute.For<IProjectRunnerService>(), null!, null!, null!, null!, null!, null!, null!, null!,
+            null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+        var tools = new HexIdeTools(context);
+
+        var result = designer ? await tools.ViewDesignerAsync(project.Forms[0].Name)
+            : await tools.OpenFileAsync(project.Forms[0].Name);
+        var reply = JsonSerializer.SerializeToElement(result, ReplyJson.Options);
+
+        result.Success.Should().BeTrue();
+        reply.GetProperty("area").GetInt32().Should().Be(1);
     }
 
     private static IEnumerable<IDockable> Walk(IDockable node)

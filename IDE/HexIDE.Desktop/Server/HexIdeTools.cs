@@ -793,7 +793,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "open_file")]
-    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it; in a split code window that is the pane last used, which is the one 'line' moves. The reply's 'note' names the tab now active and how many are open. Pass 'line', and 'column' if wanted, to put the caret there, as the code window numbers them, so type_text and press_key act at that point with no offset to work out; the note always gives the caret's line, column and offset, even without 'line'. In the header or an Attribute line it also names the nearest editable place.")]
+    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it; in a split code window that is the pane last used, which is the one 'line' moves. The reply's 'area' is the document area (0 for the first, 1 for the next, in layout order). New tabs open in the area last used; an existing tab stays in its area. The reply's 'note' names the tab now active and how many are open. Pass 'line', and 'column' if wanted, to put the caret there, as the code window numbers them, so type_text and press_key act at that point with no offset to work out; the note always gives the caret's line, column and offset, even without 'line'. In the header or an Attribute line it also names the nearest editable place.")]
     public async Task<MutateResult> OpenFileAsync(
         string name, string? project = null,
         [Description("Where to put the caret: a 1-based line, counted from the top of the file with its header included, "
@@ -833,7 +833,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                             $"{document.Display} was opened, but its code window could not be found to put the caret in"), document);
                 }
                 placedIn = document;
-                return Naming(new MutateResult(true, null, TabStateNote()), document);
+                return Naming(new MutateResult(true, null, TabStateNote(), Area: ctx.DocumentDockService.ActiveTab is { } tab ? ctx.DocumentDockService.AreaOf(tab) : null), document);
             }
             if (found.Carried is { } carried)
             {
@@ -855,7 +855,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                             $"{carried.Name} was opened, but its editor could not be found to put the caret in"), found);
                 }
                 placedInCarried = carried;
-                return Naming(new MutateResult(true, null, TabStateNote()), found);
+                return Naming(new MutateResult(true, null, TabStateNote(), Area: ctx.DocumentDockService.ActiveTab is { } tab ? ctx.DocumentDockService.AreaOf(tab) : null), found);
             }
             return new MutateResult(false, found.Error);
         });
@@ -878,7 +878,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "view_designer")]
-    [Description("Opens a form or UserControl by name in the visual designer, bringing it to the front. Useful before take_snapshot to ensure the designer surface is visible. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. The designer gets keyboard focus, as opening it by hand gives it. The reply's 'note' names the tab now active and how many are open.")]
+    [Description("Opens a form or UserControl by name in the visual designer, bringing it to the front. Useful before take_snapshot to ensure the designer surface is visible. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. The designer gets keyboard focus, as opening it by hand gives it. The reply's 'area' is the document area (0 for the first, 1 for the next, in layout order). New tabs open in the area last used; an existing tab stays in its area. The reply's 'note' names the tab now active and how many are open.")]
     public async Task<MutateResult> ViewDesignerAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await FocusingTheActiveTabAsync(await Dispatcher.UIThread.InvokeAsync(() =>
@@ -887,7 +887,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (named.Form is not { } form)
                 return new MutateResult(false, named.Error);
             ctx.EditorService.EditForm(form);
-            return Naming(new MutateResult(true, null, TabStateNote()), named.Document);
+            return Naming(new MutateResult(true, null, TabStateNote(), Area: ctx.DocumentDockService.ActiveTab is { } tab ? ctx.DocumentDockService.AreaOf(tab) : null), named.Document);
         }));
     }
 
@@ -4280,7 +4280,7 @@ internal record DiagnosticItem(
 /// <param name="Document">The document's own name, as the IDE spells it rather than as the call spelled it.</param>
 internal record MutateResult(
     bool Success, string? Error, string? Note = null, string? Project = null, string? Document = null,
-    string? Printed = null);
+    string? Printed = null, int? Area = null);
 
 /// <summary>
 /// What <c>shutdown_ide</c> tore down on the way out. <see cref="Requested"/> is deliberately not

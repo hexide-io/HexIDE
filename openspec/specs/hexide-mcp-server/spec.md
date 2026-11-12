@@ -1749,6 +1749,8 @@ naming each, and SHALL say whether `project` or `type` picks one. When none does
 
 The document tab tools SHALL enumerate every document area under the layout root in layout order. Each listed tab SHALL report a zero-based `area` identifying its document area. Activation and closing SHALL find tabs in split areas, and the active tab SHALL be the active dockable of the document area that has focus.
 
+The `open_file` and `view_designer` replies SHALL report the opened tab's zero-based `area` in layout order.
+
 #### Scenario: A tab moves into a split area
 - **WHEN** the dock factory moves a document tab into a new document area
 - **THEN** `get_document_tabs` includes it with its area's index
