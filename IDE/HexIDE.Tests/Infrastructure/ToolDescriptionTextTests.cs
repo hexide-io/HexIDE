@@ -69,6 +69,16 @@ public class ToolDescriptionTextTests
         ToolSource.Unparsed.Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData("type_text")]
+    [InlineData("press_key")]
+    public void Keyboard_tools_explain_observed_code_window_refusals(string tool)
+    {
+        ToolSource.Tools.Single(t => t.Name == tool).Description
+            .Should().Contain("refused by the code window")
+            .And.Contain("status bar").And.Contain("caret");
+    }
+
     [Fact]
     public void Type_texts_mode_names_the_characters_it_presses_as_Enter_and_Tab()
     {

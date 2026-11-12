@@ -1843,3 +1843,27 @@ segment fails in a non-English IDE.
 
 - **WHEN** Immediate is floating in a German IDE and the caller selects `window: "immediate"`
 - **THEN** the floating host is reached regardless of its translated title
+
+### Requirement: Keyboard tools observe the code window's refusal after delivery
+
+`type_text` in keyboard mode and `press_key` SHALL deliver an attempted edit to the code window before
+judging its protected regions. When the key leaves the document unchanged in a protected region, the
+reply SHALL say "refused by the code window", quote the status-bar message only when the key advanced
+the message counter, or say "which gave no message" when it did not, and report the caret offset and
+once that nothing was written. Keyboard typing SHALL stop after that sent key and identify the unsent
+remainder. Document-mode typing SHALL keep its pre-check and existing replies.
+
+#### Scenario: A character in a protected region
+
+- **WHEN** either keyboard tool sends a character in a form header, member Attribute run or hanging Attribute run
+- **THEN** the window's text-entering handler runs, its refusal message is reported, and the document stays unchanged
+
+#### Scenario: A run becomes protected during typing
+
+- **WHEN** earlier keys create an Attribute run and the window refuses the next key
+- **THEN** the reply identifies that key as sent, keeps the earlier text and sends nothing after it
+
+#### Scenario: A silent refusal while an earlier message still shows
+
+- **WHEN** a refused key sets a status message and a later refused Backspace sets none before it expires
+- **THEN** the later reply says the code window gave no message, without quoting the earlier reason
