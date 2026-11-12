@@ -59,6 +59,73 @@ public class LspClientRegistryTests
 
     private static LspRange Span(int line) => new(new Position(line, 0), new Position(line, 1));
 
+    [Fact]
+    public async Task UserRestartKeepsLoadedRegistrationAfterConfigurationFileChanges()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "hexide-restart-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var path = Path.Combine(dir, "lsp-servers.json");
+            await File.WriteAllTextAsync(path,
+                """{"servers":[{"id":"selected","transport":"stdio","command":"original","extensions":[".bas"],"languageId":"vb6"}]}""",
+                TestContext.Current.CancellationToken);
+            var loaded = new LanguageServerConfigLoader(path, Substitute.For<ILogger<LanguageServerConfigLoader>>()).Load([]);
+            var registration = new LanguageServerRegistrationFactory(Substitute.For<ILoggerFactory>()).Create(loaded.Entries).Single();
+            var first = FakeServer();
+            var second = FakeServer();
+            var made = 0;
+            await using var registry = Registry(registration with { CreateClient = () => ++made == 1 ? first : second });
+            await registry.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(path, "invalid JSON", TestContext.Current.CancellationToken);
+
+            await registry.RestartAsync("selected", TestContext.Current.CancellationToken);
+
+            registry.Connections.Single().Endpoint.Should().Contain("original");
+            made.Should().Be(2);
+            await second.Received(1).OpenDocumentAsync(Vb6Doc, "code", Arg.Any<CancellationToken>());
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UserRestartReplacesOnlySelectedServerAndReopensLatestDocument(bool exited)
+    {
+        var first = FakeServer();
+        var replacement = FakeServer();
+        var other = FakeServer();
+        var made = 0;
+        await using var capture = new HexIDE.Conversations.ConversationLog();
+        await using var registry = new LspClientRegistry([
+            Registration("selected", first) with { CreateClient = () => ++made == 1 ? first : replacement },
+            Registration("other", other)], Substitute.For<ILogger<LspClientRegistry>>(), capture: capture);
+        var ct = TestContext.Current.CancellationToken;
+        await registry.OpenDocumentAsync(Vb6Doc, "before", ct);
+        if (exited)
+        {
+            first.IsRunning.Returns(false);
+            first.StateChanged += Raise.Event<EventHandler>(first, EventArgs.Empty);
+        }
+        await registry.ChangeDocumentAsync(Vb6Doc, 2, "latest", ct);
+
+        await registry.RestartAsync("selected", ct);
+
+        for (var waited = 0; capture.Snapshot("selected").Count == 0 && waited < 5000; waited += 20)
+            await Task.Delay(20, ct);
+        capture.Snapshot("selected").Should().ContainSingle(e => e.Detail == "restart requested by user"
+            && e.Kind == HexIDE.Conversations.ConversationEntryKind.Lifecycle);
+        capture.Snapshot("other").Should().BeEmpty();
+        made.Should().Be(2);
+        await first.Received(1).StopAsync();
+        await replacement.Received(1).StartAsync(Arg.Any<CancellationToken>());
+        await replacement.Received(1).OpenDocumentAsync(Vb6Doc, "latest", Arg.Any<CancellationToken>());
+        await other.DidNotReceive().StopAsync();
+        await other.Received(1).StartAsync(Arg.Any<CancellationToken>());
+        await other.Received(1).OpenDocumentAsync(Vb6Doc, "before", Arg.Any<CancellationToken>());
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -178,6 +245,7 @@ public class LspClientRegistryTests
     {
         var server = FakeServer();
         var logger = Substitute.For<ILogger<LspClientRegistry>>();
+        await using var capture = new HexIDE.Conversations.ConversationLog();
         await using var registry = new LspClientRegistry([Registration("server", server)], logger);
         await registry.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
         logger.ClearReceivedCalls();

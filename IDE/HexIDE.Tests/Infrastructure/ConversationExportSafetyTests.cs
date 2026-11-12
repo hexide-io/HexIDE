@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System.IO;
 using HexIDE.Conversations;
 using HexIDE.Desktop.Server;
@@ -15,7 +16,7 @@ public class ConversationExportSafetyTests
         await using var capture = new ConversationLog();
         using var context = new IdeContext(Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(),
             Substitute.For<ILspClient>(), null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            null!, capture, new Pseudonymiser(), null!, null!, new Vb6ProjectFileFormat());
+            null!, capture, new Pseudonymiser(), null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         var tools = new HexIdeTools(context);
         LspExportResult? first = null;
         LspExportResult? second = null;

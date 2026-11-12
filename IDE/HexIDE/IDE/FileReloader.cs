@@ -21,7 +21,8 @@ public sealed class FileReloader(
     IEventBus eventBus,
     IStatusBarService statusBar,
     ILocalizationService localization,
-    IHeaderRefresher headerRefresher)
+    IHeaderRefresher headerRefresher,
+    IProjectFileFormat format)
 {
     public Task ReloadAsync(WatchedFileTarget t) => ReplaceAsync(t,
         () => t.Form is not null ? projectService.ReloadFormFromDisk(t.Form) : projectService.ReloadModuleFromDisk(t.Module!),
@@ -43,8 +44,8 @@ public sealed class FileReloader(
         var identity = t.Form is not null ? DocumentIdentity.For(t.Form)
             : t.Module is not null ? DocumentIdentity.For(t.Module)
             : null;
-        var oldPrefix = t.Form is not null ? FormCodeText.Prefix(t.Form)
-            : t.Module is not null ? FormCodeText.Prefix(t.Module)
+        var oldPrefix = t.Form is not null ? format.CodePrefix(t.Form)
+            : t.Module is not null ? format.CodePrefix(t.Module)
             : "";
 
         if (!await replace())
@@ -54,8 +55,8 @@ public sealed class FileReloader(
         // push the bare code section into a buffer whose prefix was still the header read when the document
         // was opened. The window lost its header, and — because the split is by the prefix's length — the
         // next flush cut the head off the reloaded code and wrote the remainder back as the document.
-        var newPrefix = t.Form is not null ? FormCodeText.Prefix(t.Form)
-            : t.Module is not null ? FormCodeText.Prefix(t.Module)
+        var newPrefix = t.Form is not null ? format.CodePrefix(t.Form)
+            : t.Module is not null ? format.CodePrefix(t.Module)
             : "";
         if (identity is not null)
             headerRefresher.ShiftMarks(identity, oldPrefix, newPrefix);

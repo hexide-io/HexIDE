@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Serveris paleidžiamas atvėrus pirmą jo aptarnaujamos kalbos dokumentą, todėl iki tol nėra eilutės, kurią būtų galima pažymėti. Tai nekeičia jau įrašytų duomenų.",
     "Str.Tool.LanguageServers.KeepBodies": "Išsaugoti pranešimų turinį",
     "Str.Tool.LanguageServers.ShowAllMessages": "Rodyti visus įrašytus pranešimus",
+    "Str.Tool.LanguageServers.Restart": "_Paleisti iš naujo",
     "Str.Tool.LanguageServers.ShowMessages": "Rodyti jo pranešimus",
     "Str.Tool.LanguageServers.CopyReport": "Kopijuoti ataskaitą",
     "Str.Tool.LanguageServers.ReportRedacted": "Ataskaitoje keliai ir adresai pakeičiami išgalvotais pavadinimais.",

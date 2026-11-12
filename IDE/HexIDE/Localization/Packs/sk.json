@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Server sa spúšťa pri prvom dokumente jazyka, ktorý obsluhuje, preto dovtedy nie je k dispozícii žiadny riadok na začiarknutie. Už zaznamenané údaje sa tým nemenia.",
     "Str.Tool.LanguageServers.KeepBodies": "Uchovávať telá správ",
     "Str.Tool.LanguageServers.ShowAllMessages": "Zobraziť všetky zaznamenané správy",
+    "Str.Tool.LanguageServers.Restart": "_Reštartovať",
     "Str.Tool.LanguageServers.ShowMessages": "Zobraziť jeho správy",
     "Str.Tool.LanguageServers.CopyReport": "Kopírovať správu o stave",
     "Str.Tool.LanguageServers.ReportRedacted": "Správa o stave nahrádza cesty a adresy vymyslenými názvami.",

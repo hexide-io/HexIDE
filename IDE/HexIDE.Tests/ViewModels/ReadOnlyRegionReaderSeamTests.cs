@@ -154,7 +154,7 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
     public void ClosedDocumentUsesTheRulesRefusal()
     {
         var module = Notes();
-        DocumentContent.Write(DocumentIdentity.For(module), null, "new notes", new Rules())
+        DocumentContent.Write(DocumentIdentity.For(module), null, "new notes", new Rules(), format: new Vb6ProjectFileFormat())
             .Refusal.Should().Be("Keep the notes intact.");
         module.Code.Should().Be(Text);
     }
@@ -165,7 +165,7 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
     public void ClosedDocumentWithoutRulesAcceptsIncomingText(bool defaults)
     {
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Notes", ModuleKind.StandardModule);
-        DocumentContent.Write(DocumentIdentity.For(module), null, "new notes", defaults ? new NoRules() : null)
+        DocumentContent.Write(DocumentIdentity.For(module), null, "new notes", defaults ? new NoRules() : null, format: new Vb6ProjectFileFormat())
             .Should().Be(new ContentReplacement("new notes", null, false));
         module.Code.Should().Be("new notes");
     }
@@ -211,7 +211,7 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
             Substitute.For<IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<HexIDE.Debugging.IRunScope>(), localization ?? Substitute.For<ILocalizationService>(),
-            regionReader: reader, regionRules: rules);
+                new Vb6ProjectFileFormat(), reader ?? Substitute.For<IReadOnlyRegionReader>(), regionRules: rules);
         made.Add(vm);
         return vm;
     }
@@ -323,7 +323,7 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel>());
         var documents = new FindProjectDocuments(dock, projects, Substitute.For<IEditorService>(), () => module.Owner,
-            new FixedLines((2, 2)));
+            new Vb6ProjectFileFormat(), new FixedLines((2, 2)));
 
         var document = documents.GetDocuments(allProjects: true).Single();
 

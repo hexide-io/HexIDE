@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System.IO;
 using Avalonia.Platform.Storage;
 using HexIDE.Bookmarks;
@@ -359,7 +360,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         using var context = new HexIDE.Desktop.Server.IdeContext(Substitute.For<IProjectManager>(),
             Substitute.For<IDocumentDockService>(), Substitute.For<HexIDE.Lsp.ILspClient>(), null!,
             Substitute.For<IProjectRunnerService>(), null!, null!, null!, null!, null!, null!, null!, null!,
-            null!, null!, capture, new Pseudonymiser(), null!, null!, new Vb6ProjectFileFormat());
+            null!, null!, capture, new Pseudonymiser(), null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         var tools = new HexIDE.Desktop.Server.HexIdeTools(context) { ConversationExportDirectory = root };
         Func<Task> export = () => tools.ExportLspConversationAsync(ct: TestContext.Current.CancellationToken);
         await export.Should().ThrowAsync<IOException>();
@@ -377,7 +378,9 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var target = Target("P.user.hexproj");
         File.WriteAllText(target, "{\"version\":4}");
         var bookmarks = new BookmarkService();
-        var service = new UserSidecarService(bookmarks, new BreakpointService(), Substitute.For<IProjectManager>());
+        var service = new UserSidecarService(bookmarks, new BreakpointService(), Substitute.For<IProjectManager>(),
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader());
         await service.LoadAsync(project);
         bookmarks.SetBookmarks(DocumentIdentity.For(project.Forms[0]), [1]);
         var original = File.ReadAllBytes(target);

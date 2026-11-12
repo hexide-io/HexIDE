@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using HexIDE.Addins;
 using HexIDE.IDE;
 using HexIDE.Localization;
@@ -34,7 +35,9 @@ public sealed class AddinLanguageServerTests : IDisposable
         // The add-in is this test assembly, as the add-in manager would list it.
         _addins.GetAll().Returns([new AddinInfo(typeof(AddinLanguageServerTests).Assembly.Location, "Probe Add-in", "", "1.0", "")]);
         _host = new HexIdeHost(new AddinMenuService(), new AddinToolWindowService(), _events, _addins,
-            new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), _projects),
+            new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), _projects,
+                format: new Vb6ProjectFileFormat(),
+                reader: new Vb6ReadOnlyRegionReader()),
             new AddinProjectService(_projects), _diagnostics, new AddinCommandService(), new AddinProjectTemplateService(),
             new AddinOptionsService(), new ComponentRegistry(), _runner,
             new LanguageServerContributions(_router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),

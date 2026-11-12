@@ -870,6 +870,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Un server si avvia al primo documento di un linguaggio di cui dichiara la competenza, quindi fino ad allora non c'è alcuna riga da spuntare. Questo non modifica ciò che è già stato registrato.",
     "Str.Tool.LanguageServers.KeepBodies": "Conserva i corpi dei messaggi",
     "Str.Tool.LanguageServers.ShowAllMessages": "Mostra tutti i messaggi registrati",
+    "Str.Tool.LanguageServers.Restart": "_Riavvia",
     "Str.Tool.LanguageServers.ShowMessages": "Mostra i suoi messaggi",
     "Str.Tool.LanguageServers.CopyReport": "Copia rapporto",
     "Str.Tool.LanguageServers.ReportRedacted": "Il rapporto sostituisce percorsi e indirizzi con nomi fittizi.",

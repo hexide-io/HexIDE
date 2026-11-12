@@ -870,6 +870,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "שרת עולה עם המסמך הראשון בשפה שבתחומו, ולכן עד אז אין שורה לסמן. אין בכך כדי לשנות את מה שכבר נרשם.",
     "Str.Tool.LanguageServers.KeepBodies": "שמור גופי הודעות",
     "Str.Tool.LanguageServers.ShowAllMessages": "הצג את כל ההודעות שנרשמו",
+    "Str.Tool.LanguageServers.Restart": "הפעלה מחדש",
     "Str.Tool.LanguageServers.ShowMessages": "הצג את ההודעות שלו",
     "Str.Tool.LanguageServers.CopyReport": "העתק דוח",
     "Str.Tool.LanguageServers.ReportRedacted": "הדוח מחליף נתיבים וכתובות בשמות בדויים.",

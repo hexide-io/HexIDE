@@ -870,6 +870,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "服务器要等到打开它所声明语言的第一个文档时才会启动，因此在那之前没有可勾选的行。此设置不会改变已经记录的内容。",
     "Str.Tool.LanguageServers.KeepBodies": "保留消息正文",
     "Str.Tool.LanguageServers.ShowAllMessages": "显示所有已记录的消息",
+    "Str.Tool.LanguageServers.Restart": "重新启动(_R)",
     "Str.Tool.LanguageServers.ShowMessages": "显示它的消息",
     "Str.Tool.LanguageServers.CopyReport": "复制报告",
     "Str.Tool.LanguageServers.ReportRedacted": "报告会将路径和地址替换为虚构名称。",

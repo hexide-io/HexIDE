@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using HexIDE.Bookmarks;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
@@ -60,7 +61,8 @@ public class WorkspaceRenameTests : IDisposable
         Substitute.For<ISettingsService>(), status, Substitute.For<IBookmarkService>(),
         Substitute.For<HexIDE.Debugging.IBreakpointService>(),
         Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(), localization,
-        regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(),
+            new Vb6ProjectFileFormat(),
+            new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(),
         regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
 
     private CodeEditorViewModel Open(ModuleDefinition module)

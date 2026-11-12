@@ -86,7 +86,9 @@ public class OpeningCaretTests : IDisposable
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
-            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(), regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
+            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(),
+                new Vb6ProjectFileFormat(),
+                new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
         made.Add(vm);
         return vm;
     }

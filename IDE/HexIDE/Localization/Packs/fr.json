@@ -870,6 +870,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Un serveur démarre à l'ouverture du premier document d'un langage qu'il prend en charge ; jusque-là, il n'y a aucune ligne à cocher. Ceci ne modifie pas ce qui a déjà été enregistré.",
     "Str.Tool.LanguageServers.KeepBodies": "Conserver le corps des messages",
     "Str.Tool.LanguageServers.ShowAllMessages": "Afficher tous les messages enregistrés",
+    "Str.Tool.LanguageServers.Restart": "_Redémarrer",
     "Str.Tool.LanguageServers.ShowMessages": "Afficher ses messages",
     "Str.Tool.LanguageServers.CopyReport": "Copier le rapport",
     "Str.Tool.LanguageServers.ReportRedacted": "Le rapport remplace les chemins et les adresses par des noms fictifs.",

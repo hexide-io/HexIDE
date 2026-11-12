@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Diagnostics;
@@ -384,7 +385,9 @@ public class HoverThroughWindowInputTests
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), editors ?? Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
-            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(), externalDebugger: external);
+            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(),
+                new Vb6ProjectFileFormat(),
+                new Vb6ReadOnlyRegionReader(), externalDebugger: external);
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", ModuleKind.StandardModule);
         module.UpdateCode("Option Explicit\r\n\r\nPrivate Sub Foo()\r\n    Mid\r\nEnd Sub\r\n");
         vm.Initialize(module);

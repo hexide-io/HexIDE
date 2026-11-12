@@ -53,7 +53,7 @@ public class CodeLensTests
         var documents = Substitute.For<IDocumentDockService>();
         documents.OpenDocuments.Returns([]);
         var editors = Substitute.For<IEditorService>();
-        var results = new FindReferencesToolViewModel(client, editors, projects, documents, localization);
+        var results = new FindReferencesToolViewModel(client, editors, projects, documents, localization, format: new Vb6ProjectFileFormat());
         var settings = Substitute.For<ISettingsService>();
         settings.TabWidth.Returns(4);
         typeof(ISettingsService).GetProperty("ShowCodeLenses")?.SetValue(settings, check != "off");
@@ -63,7 +63,7 @@ public class CodeLensTests
             Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
+            Substitute.For<HexIDE.Debugging.IRunScope>(), localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
         module.UpdateCode(check == "viewport"

@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Сървърът стартира при първия документ на език, който обслужва, така че дотогава няма ред за отметка. Това не променя вече записаното.",
     "Str.Tool.LanguageServers.KeepBodies": "Запазване на телата на съобщенията",
     "Str.Tool.LanguageServers.ShowAllMessages": "Показване на всички записани съобщения",
+    "Str.Tool.LanguageServers.Restart": "Рестартиране",
     "Str.Tool.LanguageServers.ShowMessages": "Показване на съобщенията му",
     "Str.Tool.LanguageServers.CopyReport": "Копиране на отчета",
     "Str.Tool.LanguageServers.ReportRedacted": "Отчетът заменя пътищата и адресите с измислени имена.",

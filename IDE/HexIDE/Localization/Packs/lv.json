@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Serveris sāk darboties, kad tiek atvērts pirmais tā atbalstītās valodas dokuments, tāpēc līdz tam nav rindas, ko atzīmēt. Tas nemaina jau ierakstīto.",
     "Str.Tool.LanguageServers.KeepBodies": "Saglabāt ziņojumu saturu",
     "Str.Tool.LanguageServers.ShowAllMessages": "Rādīt visus ierakstītos ziņojumus",
+    "Str.Tool.LanguageServers.Restart": "_Restartēt",
     "Str.Tool.LanguageServers.ShowMessages": "Rādīt tā ziņojumus",
     "Str.Tool.LanguageServers.CopyReport": "Kopēt pārskatu",
     "Str.Tool.LanguageServers.ReportRedacted": "Pārskatā ceļi un adreses tiek aizstāti ar izdomātiem nosaukumiem.",

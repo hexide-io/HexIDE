@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Server käivitub esimese toetatud keeles dokumendi avamisel, seega pole seni rida, mida märkida. See ei muuda juba salvestatut.",
     "Str.Tool.LanguageServers.KeepBodies": "Säilita sõnumite sisu",
     "Str.Tool.LanguageServers.ShowAllMessages": "Näita kõiki salvestatud sõnumeid",
+    "Str.Tool.LanguageServers.Restart": "_Taaskäivita",
     "Str.Tool.LanguageServers.ShowMessages": "Näita selle sõnumeid",
     "Str.Tool.LanguageServers.CopyReport": "Kopeeri aruanne",
     "Str.Tool.LanguageServers.ReportRedacted": "Aruanne asendab teed ja aadressid väljamõeldud nimedega.",

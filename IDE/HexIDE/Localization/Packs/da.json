@@ -870,6 +870,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "En server starter ved det første dokument på et sprog, den håndterer, så indtil da er der ingen række at markere. Dette ændrer ikke, hvad der allerede er optaget.",
     "Str.Tool.LanguageServers.KeepBodies": "Gem meddelelsesindhold",
     "Str.Tool.LanguageServers.ShowAllMessages": "Vis alle optagede meddelelser",
+    "Str.Tool.LanguageServers.Restart": "_Genstart",
     "Str.Tool.LanguageServers.ShowMessages": "Vis dens meddelelser",
     "Str.Tool.LanguageServers.CopyReport": "Kopiér rapport",
     "Str.Tool.LanguageServers.ReportRedacted": "Rapporten erstatter stier og adresser med opdigtede navne.",

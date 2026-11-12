@@ -79,6 +79,15 @@ public sealed class Vb6ProjectFileFormat : IProjectFileFormat
     public (string Header, string Body) SplitModule(string text, ModuleKind kind) => ModuleFileFormat.SplitHeader(text, kind);
 
     /// <inheritdoc/>
+    public string CodePrefix(FormDefinition form) => FormCodeText.Prefix(form);
+
+    /// <inheritdoc/>
+    public string CodePrefix(ModuleDefinition module) => FormCodeText.Prefix(module);
+
+    /// <inheritdoc/>
+    public bool PrefixCarriesName(ModuleDefinition module) => ModuleFileFormat.HandlesHeader(module.Kind);
+
+    /// <inheritdoc/>
     public string CompanionExtension(string path) => ProjectLoader.CompanionBinaryExtension(path);
 
     /// <inheritdoc/>

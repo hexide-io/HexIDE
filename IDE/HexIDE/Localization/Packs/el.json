@@ -870,6 +870,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Ένας διακομιστής ξεκινά με το πρώτο έγγραφο μιας γλώσσας που δηλώνει, οπότε ως τότε δεν υπάρχει γραμμή για να επιλέξετε. Αυτό δεν αλλάζει όσα έχουν ήδη καταγραφεί.",
     "Str.Tool.LanguageServers.KeepBodies": "Διατήρηση σωμάτων μηνυμάτων",
     "Str.Tool.LanguageServers.ShowAllMessages": "Εμφάνιση όλων των καταγεγραμμένων μηνυμάτων",
+    "Str.Tool.LanguageServers.Restart": "Επανεκκίνηση",
     "Str.Tool.LanguageServers.ShowMessages": "Εμφάνιση των μηνυμάτων του",
     "Str.Tool.LanguageServers.CopyReport": "Αντιγραφή αναφοράς",
     "Str.Tool.LanguageServers.ReportRedacted": "Η αναφορά αντικαθιστά διαδρομές και διευθύνσεις με πλαστά ονόματα.",

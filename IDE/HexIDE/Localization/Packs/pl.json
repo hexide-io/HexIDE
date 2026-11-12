@@ -870,6 +870,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Serwer uruchamia się przy pierwszym dokumencie w języku, który obsługuje, więc do tego czasu nie ma wiersza do zaznaczenia. Nie zmienia to tego, co już zarejestrowano.",
     "Str.Tool.LanguageServers.KeepBodies": "Zachowuj treści komunikatów",
     "Str.Tool.LanguageServers.ShowAllMessages": "Pokaż wszystkie zarejestrowane komunikaty",
+    "Str.Tool.LanguageServers.Restart": "_Uruchom ponownie",
     "Str.Tool.LanguageServers.ShowMessages": "Pokaż jego komunikaty",
     "Str.Tool.LanguageServers.CopyReport": "Kopiuj raport",
     "Str.Tool.LanguageServers.ReportRedacted": "Raport zastępuje ścieżki i adresy zmyślonymi nazwami.",

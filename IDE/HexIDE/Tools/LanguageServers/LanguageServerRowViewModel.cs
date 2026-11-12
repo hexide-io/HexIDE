@@ -71,15 +71,17 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
     private readonly ILocalizationService _localization;
     private readonly ConversationLog _capture;
     private readonly IEventBus? _events;
+    private readonly ILanguageConnectionRegistry? _registry;
 
     public LanguageServerRowViewModel(
         LanguageServerConnection connection, ILocalizationService localization, ConversationLog capture,
-        IEventBus? events = null)
+        IEventBus? events = null, ILanguageConnectionRegistry? registry = null)
     {
         _c = connection;
         _localization = localization;
         _capture = capture;
         _events = events;
+        _registry = registry;
     }
 
     public string OutputText => _capture.Output.Text(Id) is { Length: > 0 } text
@@ -96,6 +98,9 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
     internal void AgeChanged() => OnPropertyChanged(nameof(Age));
 
     internal void OutputChanged() => OnPropertyChanged(nameof(OutputText));
+
+    [RelayCommand]
+    private Task RestartAsync() => _registry?.RestartAsync(Id) ?? Task.CompletedTask;
 
     /// <summary>
     /// Opens the protocol inspector on this server's traffic alone.
@@ -114,8 +119,7 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
     /// Whether message bodies are being kept for this server.
     /// </summary>
     /// <remarks>
-    /// <b>The row's only writable state, and the window's first interactivity of any kind.</b> It reads
-    /// through to the capture rather than holding a copy, so it cannot drift from what is actually being
+    /// It reads through to the capture rather than holding a copy, so it cannot drift from what is actually being
     /// recorded — which matters here more than usual, because two other things arm the same connection: the
     /// automation surface and the launch flag.
     ///
@@ -147,6 +151,8 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
     /// <summary>The add-in that contributed this connection (#2760); empty for the configuration file and the bundled server.</summary>
     public string Origin => _c.Origin ?? "";
     public bool HasOrigin => !string.IsNullOrWhiteSpace(_c.Origin);
+
+    public bool IsLanguageServer => _c.Kind == LanguageConnectionKind.LanguageServer;
 
     /// <summary>
     /// Which protocol this row speaks. Not localized: <c>LSP</c> and <c>DAP</c> are protocol names, in the

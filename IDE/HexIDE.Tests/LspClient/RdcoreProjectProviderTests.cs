@@ -127,6 +127,38 @@ public sealed class RdcoreProjectProviderTests
     }
 
     [Fact]
+    public void AVbpInTheRootIsTheSourceProjectByItsName()
+    {
+        using var json = Produce(new("Probe", Path.Combine(Root, "Probe.vbp"),
+            [File("Main.bas", WorkspaceProjectFileKind.Module)], []));
+        var info = json.RootElement.GetProperty("ProjectInfo");
+        info.GetProperty("SourceProject").GetString().Should().Be("Probe.vbp");
+        info.EnumerateObject().Select(p => p.Name).Should().Equal(
+            "Name", "References", "Modules", "OtherFiles", "Folders", "SourceProject", "PrecompilerConstants");
+    }
+
+    [Theory]
+    [InlineData("sub", "App.vbp", "sub/App.vbp")]
+    [InlineData("..", "App.VBP", "../App.VBP")]
+    public void AVbpElsewhereIsRelativeToTheRootWithForwardSlashesOnEveryHost(string folder, string file, string expected)
+    {
+        using var json = Produce(new("App", Path.GetFullPath(Path.Combine(Root, folder, file)),
+            [File("Main.bas", WorkspaceProjectFileKind.Module)], []));
+        json.RootElement.GetProperty("ProjectInfo").GetProperty("SourceProject").GetString().Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("Probe.rdproj")]
+    [InlineData("Probe.vbg")]
+    public void OnlyAVbpIsASourceProject(string? definition)
+    {
+        using var json = Produce(new("Probe", definition is null ? null : Path.Combine(Root, definition),
+            [File("Main.bas", WorkspaceProjectFileKind.Module)], []));
+        json.RootElement.GetProperty("ProjectInfo").TryGetProperty("SourceProject", out _).Should().BeFalse();
+    }
+
+    [Fact]
     public void SameProjectGivesTheSameBytes()
     {
         var project = new WorkspaceProjectSnapshot("Probe", null, [File("Main.bas", WorkspaceProjectFileKind.Module)], [],

@@ -870,6 +870,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Server se spustí až s prvním dokumentem jazyka, který obsluhuje, takže do té doby neexistuje řádek, který by šlo zaškrtnout. Na tom, co už bylo zaznamenáno, to nic nemění.",
     "Str.Tool.LanguageServers.KeepBodies": "Uchovávat těla zpráv",
     "Str.Tool.LanguageServers.ShowAllMessages": "Zobrazit všechny zaznamenané zprávy",
+    "Str.Tool.LanguageServers.Restart": "_Restartovat",
     "Str.Tool.LanguageServers.ShowMessages": "Zobrazit jeho zprávy",
     "Str.Tool.LanguageServers.CopyReport": "Kopírovat hlášení",
     "Str.Tool.LanguageServers.ReportRedacted": "Hlášení nahrazuje cesty a adresy smyšlenými názvy.",

@@ -113,7 +113,7 @@ public class DockFactoryTests
         var documents = Substitute.For<IDocumentDockService>();
         documents.OpenDocuments.Returns([]);
         var results = new FindReferencesToolViewModel(Substitute.For<ILspClient>(), Substitute.For<IEditorService>(),
-            projects, documents, loc);
+            projects, documents, loc, format: new Vb6ProjectFileFormat());
         var host = new Dock.Avalonia.Controls.DockControl { Layout = root };
         host.DataTemplates.Add(new Avalonia.Controls.Templates.FuncDataTemplate<FindReferencesToolViewModel>(
             (_, _) => new FindReferencesToolView()));

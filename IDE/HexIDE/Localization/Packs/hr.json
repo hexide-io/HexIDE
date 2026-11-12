@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Poslužitelj se pokreće pri otvaranju prvog dokumenta jezika koji podržava, pa do tada nema retka za označavanje. Ovo ne mijenja već zabilježene podatke.",
     "Str.Tool.LanguageServers.KeepBodies": "Zadrži tijela poruka",
     "Str.Tool.LanguageServers.ShowAllMessages": "Prikaži sve zabilježene poruke",
+    "Str.Tool.LanguageServers.Restart": "_Ponovno pokreni",
     "Str.Tool.LanguageServers.ShowMessages": "Prikaži njegove poruke",
     "Str.Tool.LanguageServers.CopyReport": "Kopiraj izvješće",
     "Str.Tool.LanguageServers.ReportRedacted": "Izvješće zamjenjuje putanje i adrese izmišljenim nazivima.",

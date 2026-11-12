@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -84,7 +85,7 @@ public class CurrentStatementBarTests : IDisposable
             Substitute.For<IBreakpointService>(),
             _debug,
             _runScope,
-            localization, callStack: _stack);
+            localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader(), callStack: _stack);
     }
 
     /// <summary>A module whose own name and whose file name deliberately disagree.</summary>

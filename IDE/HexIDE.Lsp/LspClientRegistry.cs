@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using HexIDE.Lsp.Messages;
+using HexIDE.Conversations;
 using Microsoft.Extensions.Logging;
 
 namespace HexIDE.Lsp;
@@ -41,6 +42,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private readonly TimeProvider _timeProvider;
     private readonly ILspWorkspace? _workspace;
     private readonly IWorkspaceArtifactService? _artifacts;
+    private readonly ConversationLog? _capture;
 
     // Each connection is a source of its own, and so is anything injecting through this router. Without
     // this, two servers claiming one document overwrote each other and a build erased both (#358).
@@ -91,9 +93,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         ILspWorkspace? workspace = null,
         IReadOnlyList<LanguageServerConfigProblem>? configurationProblems = null,
         IWorkspaceArtifactService? artifacts = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        ConversationLog? capture = null)
     {
         _logger = logger;
+        _capture = capture;
         _diagnosticLifecycle = new(logger);
         _timeProvider = timeProvider ?? TimeProvider.System;
         _workspace = workspace;
@@ -1215,6 +1219,44 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         e.StateSince = DateTimeOffset.UtcNow;
     }
 
+    /// <summary>Restarts only the entry the user selected, including one that stopped or failed.</summary>
+    public async Task RestartAsync(string id, CancellationToken cancellationToken = default)
+    {
+        await _restartGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (_entries.FirstOrDefault(e => e.Registration.Id == id) is not { } entry) return;
+            try
+            {
+                _capture?.Record(id, ConversationDirection.Local, ConversationEntryKind.Lifecycle,
+                    null, null, 0, detail: "restart requested by user");
+            }
+            catch (Exception) { /* a capture is never worth breaking a connection for */ }
+            await RestartEntryAsync(entry, cancellationToken, startWithoutDocuments: true);
+        }
+        finally { _restartGate.Release(); }
+    }
+
+    private async Task RestartEntryAsync(Entry entry, CancellationToken cancellationToken, bool startWithoutDocuments = false)
+    {
+        foreach (var (uri, known) in _open)
+            if (ClaimantsFor(uri, known.IsProjectMember).Contains(entry)) HoldOpen(entry, uri);
+        await StopForRestartAsync(entry);
+        entry.State = LanguageConnectionState.NotStarted;
+        entry.StateSince = DateTimeOffset.UtcNow;
+        try
+        {
+            if (startWithoutDocuments) await EnsureStartedAsync(entry, cancellationToken);
+            await ReopenKnownDocumentsAsync(null, cancellationToken, only: entry);
+        }
+        finally
+        {
+            if (startWithoutDocuments)
+                foreach (var uri in _open.Keys) ReleaseOpen(entry, uri);
+            ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
     private void OnArtifactRestartRequested(LanguageServerRegistration server) => _ = RestartForArtifactAsync(server);
 
     /// <summary>
@@ -1238,11 +1280,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                 if (_entries.FirstOrDefault(x => ReferenceEquals(x.Registration, server)) is not
                     { Client: not null, State: LanguageConnectionState.Running } e) return;
                 _logger.LogInformation("Restarting {Server}: its workspace artefact changed.", serverId);
-                foreach (var (uri, known) in _open)
-                    if (ClaimantsFor(uri, known.IsProjectMember).Contains(e)) HoldOpen(e, uri);
-                await StopForRestartAsync(e);
-                await ReopenKnownDocumentsAsync(null, CancellationToken.None, only: e);
-                ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+                await RestartEntryAsync(e, CancellationToken.None);
             }
             finally { _restartGate.Release(); }
         }

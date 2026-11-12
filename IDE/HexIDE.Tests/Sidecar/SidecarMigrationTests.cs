@@ -189,7 +189,7 @@ public sealed class SidecarMigrationTests : IDisposable
         loaded.Clear();
         var bookmarks = new BookmarkService();
         var breakpoints = new BreakpointService();
-        var sidecar = new UserSidecarService(bookmarks, breakpoints, projectManager)
+        var sidecar = new UserSidecarService(bookmarks, breakpoints, projectManager, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader())
         {
             // A change waits until the test saves explicitly; nothing is written behind its back.
             Debounce = token => Task.Delay(Timeout.Infinite, token),
@@ -226,7 +226,7 @@ public sealed class SidecarMigrationTests : IDisposable
 
     /// <summary>The 1-based line of a document as its code window numbers it, without its terminator.</summary>
     private static string LineOf(DocumentIdentity document, int line) =>
-        CodeWindowText.Of(document).Text.Split('\n')[line - 1].TrimEnd('\r');
+        DocumentContent.TextOf(document, null, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).Text.Split('\n')[line - 1].TrimEnd('\r');
 
     /// <summary>The 1-based line the statement was on in the document's code, which is how version 1 counted.</summary>
     private static int OldLineOf(string fileText, ModuleKind? kind, string statement)
@@ -313,7 +313,9 @@ public sealed class SidecarMigrationTests : IDisposable
         var opened = await Open(vbp);
         var document = Doc(opened.Project, name);
         var statement = Marked[name].Statement;
-        var line = Array.IndexOf(CodeWindowText.Of(document).Text.ReplaceLineEndings("\n").Split('\n'), statement) + 1;
+        var line = Array.IndexOf(DocumentContent.TextOf(document, null,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader()).Text.ReplaceLineEndings("\n").Split('\n'), statement) + 1;
         opened.Bookmarks.SetBookmarks(document, [line - 1]);
         opened.Breakpoints.SetDocument(document, [line]);
         await opened.Sidecar.SaveAsync(opened.Project);
@@ -511,7 +513,9 @@ public sealed class SidecarMigrationTests : IDisposable
         var breakpoint = second.Breakpoints.GetBreakpoints(gone).Should().ContainSingle().Subject;
         LineOf(gone, breakpoint).Should().Be("    Debug.Print 1", "the mark is on the statement it was set on");
         var written = ReadJson(SidecarPath);
-        Lines(written, "codeBreakpoints", "Gone").Should().Equal(breakpoint - CodeWindowText.Of(gone).HeaderLineCount);
+        Lines(written, "codeBreakpoints", "Gone").Should().Equal(breakpoint - DocumentContent.TextOf(gone, null,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader()).HeaderLineCount);
         Lines(written, "codeBreakpoints", "Utils").Should().Equal(5);
         written.ContainsKey("breakpoints").Should().BeFalse("the entry left the old keys once it was migrated");
     }
@@ -675,8 +679,12 @@ public sealed class SidecarMigrationTests : IDisposable
             "a bookmark counts from 0 and a breakpoint from 1, and the two were on one statement");
 
         var written = ReadJson(SidecarPath);
-        Lines(written, "codeBreakpoints", name).Should().Equal(breakpoint - CodeWindowText.Of(document).HeaderLineCount);
-        Lines(written, "codeBookmarks", name).Should().Equal(breakpoint - 1 - CodeWindowText.Of(document).HeaderLineCount);
+        Lines(written, "codeBreakpoints", name).Should().Equal(breakpoint - DocumentContent.TextOf(document, null,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader()).HeaderLineCount);
+        Lines(written, "codeBookmarks", name).Should().Equal(breakpoint - 1 - DocumentContent.TextOf(document, null,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader()).HeaderLineCount);
         written.ContainsKey("breakpoints").Should().BeFalse("every entry was placed, so none is left in the old keys");
         written.ContainsKey("bookmarks").Should().BeFalse();
         written["version"]!.GetValue<int>().Should().Be(3);
@@ -1025,7 +1033,9 @@ public sealed class SidecarMigrationTests : IDisposable
         File.WriteAllText(SidecarOf(project),
             """{ "version": 2, "fileBreakpoints": { "Absent": [4], "Utils": [3] }, "breakpoints": { "Gone": [2] } }""");
         var breakpoints = new BreakpointService();
-        var sidecar = new UserSidecarService(new BookmarkService(), breakpoints, projectManager);
+        var sidecar = new UserSidecarService(new BookmarkService(), breakpoints, projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader());
         await sidecar.LoadAsync(project);
 
         project.AbsolutePath = Path.Join(dir, "there", "P.vbp");
@@ -1055,7 +1065,9 @@ public sealed class SidecarMigrationTests : IDisposable
         var project = InMemoryProject(Path.Join(dir, "rename"));
         File.WriteAllText(SidecarOf(project), """{ "version": 2, "fileBreakpoints": { "Utils": [3] } }""");
         var breakpoints = new BreakpointService();
-        var sidecar = new UserSidecarService(new BookmarkService(), breakpoints, projectManager);
+        var sidecar = new UserSidecarService(new BookmarkService(), breakpoints, projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader());
         await sidecar.LoadAsync(project);
         var utils = DocumentIdentity.For(project.Modules[0]);
 

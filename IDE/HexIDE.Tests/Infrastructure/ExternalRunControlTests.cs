@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System.Text.Json;
 using Avalonia.Headless.XUnit;
 using HexIDE.Conversations;
@@ -64,7 +65,7 @@ public class ExternalRunControlTests : CompositionTestBase
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(),
             Substitute.For<ILspClient>(), null!, composition.ProjectRunnerService, null!, null!, null!, null!,
             composition.DebugController, composition.Root, null!, null!, null!, null!, composition.Capture,
-            null!, composition.LocalizationService, null!, new Vb6ProjectFileFormat());
+            null!, composition.LocalizationService, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         var tools = new HexIdeTools(context);
         var printed = new ProgramPrinted();
         printed.FollowRuns(composition.ProjectRunnerService);
@@ -157,7 +158,9 @@ public class ExternalRunControlTests : CompositionTestBase
         projects.LoadedProjects.Returns([project]);
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
             null!, composition.ProjectRunnerService, null!, null!, null!, null!, composition.DebugController,
-            composition.Root, null!, null!, null!, null!, capture, null!, composition.LocalizationService, null!, new Vb6ProjectFileFormat());
+            composition.Root, null!, null!, null!, null!, capture, null!, composition.LocalizationService, null!,
+                new Vb6ProjectFileFormat(),
+                new Vb6ReadOnlyRegionReader());
         var tools = new HexIdeTools(context);
         var run = external.StartAsync(await ExternalDebugServiceTests.Configuration(directory, mode));
         try

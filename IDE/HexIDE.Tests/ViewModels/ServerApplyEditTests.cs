@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Nerdbank.Streams;
@@ -71,7 +72,9 @@ public class ServerApplyEditTests : IAsyncDisposable
         Substitute.For<IWindowManager>(), editors, projects, Substitute.For<IEventBus>(), client,
         Substitute.For<ISettingsService>(), status, Substitute.For<IBookmarkService>(),
         Substitute.For<HexIDE.Debugging.IBreakpointService>(),
-        Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
+        Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(), localization,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader());
 
     private CodeEditorViewModel Open(ModuleDefinition module)
     {

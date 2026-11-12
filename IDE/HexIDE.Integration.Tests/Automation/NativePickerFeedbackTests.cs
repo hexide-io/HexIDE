@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Linq;
@@ -119,7 +120,7 @@ public class NativePickerFeedbackTests
         lifetimeField.SetValue(Application.Current!, lifetime);
         using var context = new IdeContext(null!, null!, Substitute.For<HexIDE.Lsp.ILspClient>(),
             null!, null!, null!, null!, null!, null!, Substitute.For<IDebugController>(), null!, null!, null!, null!,
-            null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
+            null!, null!, null!, null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         var tools = new HexIdeTools(context);
         window.Show();
         try

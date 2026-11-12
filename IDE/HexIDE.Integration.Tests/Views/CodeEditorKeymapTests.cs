@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System;
 using System.Linq;
 using Avalonia.Controls;
@@ -118,7 +119,7 @@ public class CodeEditorKeymapTests
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<HexIDE.Debugging.IRunScope>(),
-            localization);
+            localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
     }
 
     private static KeyEventArgs Press(TextEditor editor, string gesture)

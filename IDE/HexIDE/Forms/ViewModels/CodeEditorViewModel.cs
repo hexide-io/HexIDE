@@ -217,8 +217,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <summary>What says where this module's parentheses are, or null where nothing does, and then none is coloured.</summary>
     public HexIDE.Language.IBracketReader? Brackets { get; }
 
-    /// <summary>Says where this window's read-only regions are. With none, nothing here is read-only.</summary>
-    private readonly IReadOnlyRegionReader? regionReader;
+    private readonly IProjectFileFormat format;
+    /// <summary>Says where this window's read-only regions are.</summary>
+    private readonly IReadOnlyRegionReader regionReader;
     private readonly IReadOnlyRegionRules? regionRules;
     private readonly IReadOnlyRegionWriter? regionWriter;
 
@@ -234,15 +235,17 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Runtime.Debugging.IDebugController debugController,
         HexIDE.Debugging.IRunScope runScope,
         ILocalizationService localization,
+        IProjectFileFormat format,
+        IReadOnlyRegionReader regionReader,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
         HexIDE.Tools.CallStackToolViewModel? callStack = null,
         HexIDE.Tools.RecentEditHistory? recentEditHistory = null,
         HexIDE.Language.IConditionalCodeReader? conditionalCode = null,
         HexIDE.Language.IBracketReader? brackets = null,
-        IReadOnlyRegionReader? regionReader = null,
         IReadOnlyRegionRules? regionRules = null,
         IReadOnlyRegionWriter? regionWriter = null)
     {
+        this.format = format;
         ConditionalCode = conditionalCode;
         Brackets = brackets;
         this.regionReader = regionReader;
@@ -413,7 +416,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             // document BEFORE the buffer above was written back to the definition.
             RefreshModelModified();
             if (session is { } closing)
-                ProjectLspDocument.CloseWindow(lspClient, Identity, closing, eventBus, IsModified && !unloading);
+                ProjectLspDocument.CloseWindow(lspClient, Identity, closing, eventBus, format, IsModified && !unloading);
         }));
     }
 
@@ -453,8 +456,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// current one, so this is what gets put back.
     /// </summary>
     private string ModelHeader =>
-        moduleDefinition is { } module ? FormCodeText.Prefix(module)
-        : formDefinition is { } form ? FormCodeText.Prefix(form)
+        moduleDefinition is { } module ? format.CodePrefix(module)
+        : formDefinition is { } form ? format.CodePrefix(form)
         : bufferPrefix;
 
     /// <summary>
@@ -657,7 +660,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal int BufferPrefixLength => bufferPrefix.Length;
 
     /// <summary>The buffer as every line number for this window counts it: from the top of the file.</summary>
-    public CodeWindowText CodeWindowText => new(Document.Text, bufferPrefix.Length);
+    public CodeWindowText CodeWindowText => new(Document.Text, bufferPrefix.Length, ReadOnlyRegionsNow);
 
     /// <summary>
     /// True once the developer has expanded the header's fold in this window, and false again once they fold
@@ -977,7 +980,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             .Subscribe(_ => { Title = ComputeTitle(); ReconcileWireName(); }));
         // The whole file, not the code section (#273 task 3.2). One line number now means the same
         // thing to the editor, a language server, the interpreter and the debugger.
-        bufferPrefix = FormCodeText.Prefix(formElement);
+        bufferPrefix = format.CodePrefix(formElement);
         Document.Text = bufferPrefix + formElement.Code;
         ClearUndoHistoryAfterLoad();
         PlaceCaretBelowHeader();
@@ -1018,7 +1021,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             .Subscribe(_ => { Title = ComputeTitle(); ReconcileWireName(); }));
         // As above. For a .ctl/.pag the prefix comes from the FormPart's designer half, and the body is
         // the MODULE's code -- which is the pairing the save path writes for those kinds too.
-        bufferPrefix = FormCodeText.Prefix(moduleElement);
+        bufferPrefix = format.CodePrefix(moduleElement);
         Document.Text = bufferPrefix + moduleElement.Code;
         ClearUndoHistoryAfterLoad();
         PlaceCaretBelowHeader();
@@ -1517,7 +1520,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     }
 
     private IReadOnlyList<TextRegion> RegionsOf(string text, int prefixLength) =>
-        regionReader?.Regions(text, prefixLength) ?? [];
+        regionReader.Regions(text, prefixLength);
 
     private IReadOnlyList<TextRegion>? regionsCache;
     private ITextSourceVersion? regionsCacheVersion;
@@ -1543,7 +1546,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (hangingCache is null || !ReferenceEquals(hangingCacheVersion, version)
                 || hangingCachePrefixLength != bufferPrefix.Length)
             {
-                hangingCache = regionReader?.HangingRegions(Document.Text, bufferPrefix.Length) ?? [];
+                hangingCache = regionReader.HangingRegions(Document.Text, bufferPrefix.Length);
                 hangingCacheVersion = version;
                 hangingCachePrefixLength = bufferPrefix.Length;
                 HangingRegionScans++;
@@ -1797,7 +1800,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             var module = identity.Module;
             var form = module is not null ? module.FormPart : identity.Form;
             if (form is { CanSaveFaithfully: false }) return Refuse(target.Uri);
-            var prefix = editor?.bufferPrefix ?? (module is not null ? FormCodeText.Prefix(module) : FormCodeText.Prefix(form!));
+            var prefix = editor?.bufferPrefix ?? (module is not null ? format.CodePrefix(module) : format.CodePrefix(form!));
             var document = editor?.Document ?? new TextDocument(prefix + (module?.Code ?? form!.Code));
             var (local, server) = versions[i];
             if (codeAction && server is not null && server.Text != document.Text)
@@ -2483,7 +2486,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private int FindEventHandler(string handlerName)
     {
         var searchText = $"Sub {handlerName}";
-        var start = ReadOnlyRegions.HeaderEnd(Document.Text, bufferPrefix.Length);
+        var start = CodeWindowText.LeadingRegion?.End ?? 0;
         while (start < Document.TextLength)
         {
             var match = Document.IndexOf(searchText, start, Document.TextLength - start, StringComparison.OrdinalIgnoreCase);

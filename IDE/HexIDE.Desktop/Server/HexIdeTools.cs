@@ -204,7 +204,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 // from different things: the editor's code section against the model's Code. The whole buffer
                 // never equals Code, so comparing what this returns would call every open document edited.
                 var editor = CodeEditorOf(document);
-                var text = HexIDE.IDE.DocumentContent.Read(document, editor);
+                var text = HexIDE.IDE.DocumentContent.Read(document, editor, ctx.ProjectFileFormat, ctx.ReadOnlyRegionReader);
                 var codeAhead = HexIDE.IDE.DocumentContent.CodeAheadOfModel(document, editor);
                 if (document.Form is { } form)
                 {
@@ -254,7 +254,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (ProjectWriteSafety.NameRefusal(name) is { } nameRefusal)
             return new MutateResult(false, nameRefusal);
         string recoveryNote = "";
-        var restoredHeader = false;
+        string? restoredHeader = null;
         string? editNote = null;
         DocumentIdentity? target = null;
         NamedDocument found = default;
@@ -294,14 +294,17 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // better: a designer block exactly as the form has it applies nothing, and one that differs is
             // refused with the reason. The separate refusal had to go in the same change as the read, or this
             // tool would have refused exactly what get_file_content now returns.
-            var replaced = HexIDE.IDE.DocumentContent.Write(document, CodeEditorOf(document), content, ctx.ReadOnlyRegionRules);
+            var replaced = HexIDE.IDE.DocumentContent.Write(document, CodeEditorOf(document), content, ctx.ReadOnlyRegionRules, ctx.ProjectFileFormat);
             if (replaced.Refusal is { } refusal)
                 return (null, null, refusal);
 
-            // Whether the CALLER left a form's Attribute block out, not whether anything was put back: the
-            // designer block is always put back in front of code sent alone. The block is the form's identity,
-            // and leaving it out used to delete it with no warning, straight to disk (gap 14).
-            restoredHeader = HexIDE.IDE.DocumentContent.LeftOutAttributeLines(document, content);
+            // Report what the caller left out, rather than whether the guard restored any text:
+            // a prefix is always restored when code is sent alone.
+            if (HexIDE.IDE.DocumentContent.LeftOutLeadingRegion(document, content, ctx.ProjectFileFormat, ctx.ReadOnlyRegionReader) is { } omitted)
+            {
+                restoredHeader = ctx.ReadOnlyRegionRules?.DescribeRegions(omitted.Text.Text, omitted.Text.PrefixLength, [omitted.Region])
+                    ?? "read-only text";
+            }
             editNote = ctx.ProjectRunnerService.CodeEditNote(edit: true);
             return (document.Form, document.Module, null);
         });
@@ -332,10 +335,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return Naming(new MutateResult(false, cancel.After($"The new code is in the IDE, but the file was not written. {refused.Message}"), editNote?.TrimStart()), target);
             return Naming(written
                 ? new MutateResult(true, null, cancel.After(await Dispatcher.UIThread.InvokeAsync(() => WrittenNote(target!)) + recoveryNote + editNote + rewrites.Note
-                    + (restoredHeader
-                        ? " Kept the form's Attribute header, which the content omitted. VB_Name is the form's "
-                          + "identity; without this the write would have destroyed it. Call get_file_content "
-                          + "first and edit what it returns, which includes the header."
+                    + (restoredHeader is not null
+                        ? $" Kept {restoredHeader}, which the content left out. Call get_file_content first and edit what it returns, which includes it."
                         : "")))
                 : new MutateResult(false, cancel.After("HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged."), editNote?.TrimStart()), target);
@@ -387,7 +388,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     private string WrittenNote(DocumentIdentity document)
     {
         var editor = CodeEditorOf(document);
-        var lines = HexIDE.IDE.DocumentContent.TextOf(document, editor).LineCount;
+        var lines = HexIDE.IDE.DocumentContent.TextOf(document, editor, ctx.ProjectFileFormat, ctx.ReadOnlyRegionReader).LineCount;
         return WriteLocationNote(document.Project, document.AbsolutePath) + $" Its lines are numbered 1..{lines}, from the top of "
                + "the file with the header included, as get_file_content returns it. "
                + (editor is not null
@@ -819,7 +820,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             {
                 // Checked against the text get_file_content returns before anything opens, so a refusal changes nothing.
                 if (line is { } wanted && HexIDE.Automation.CaretPlacement.Refusal(
-                        HexIDE.IDE.DocumentContent.TextOf(document, CodeEditorOf(document)).Text, wanted, column ?? 1) is { } refusal)
+                        HexIDE.IDE.DocumentContent.TextOf(document, CodeEditorOf(document), ctx.ProjectFileFormat, ctx.ReadOnlyRegionReader).Text, wanted, column ?? 1) is { } refusal)
                     return Naming(new MutateResult(false, $"Nothing was opened: in {document.Display}, {refusal}"), document);
                 if (document.Form is { } form)
                     ctx.EditorService.EditCode(form);
@@ -1763,7 +1764,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
             // Counted from 1 here and from 0 in the store (#571); MarkLineRules converts both ways.
             var (outside, toStore) = HexIDE.IDE.MarkLineRules.BookmarkRequest(
-                HexIDE.IDE.DocumentContent.TextOf(document, CodeEditorOf(document)), document.Display, lines,
+                HexIDE.IDE.DocumentContent.TextOf(document, CodeEditorOf(document), ctx.ProjectFileFormat, ctx.ReadOnlyRegionReader), document.Display, lines,
                 ctx.BookmarkService.GetBookmarks(document));
             if (outside is not null)
                 return Naming(new MutateResult(false, outside), document);
@@ -3791,7 +3792,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     /// </remarks>
     private string? OutsideDocument(DocumentIdentity document, int[] lines, int first, string what, IReadOnlyCollection<int>? held = null)
     {
-        var text = HexIDE.IDE.DocumentContent.TextOf(document, CodeEditorOf(document));
+        var text = HexIDE.IDE.DocumentContent.TextOf(document, CodeEditorOf(document), ctx.ProjectFileFormat, ctx.ReadOnlyRegionReader);
         return HexIDE.IDE.MarkLineRules.Refusal(text, document.Display, lines, held ?? [], first, what);
     }
 

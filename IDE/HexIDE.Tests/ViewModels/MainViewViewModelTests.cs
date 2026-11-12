@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System.Linq;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -160,7 +161,7 @@ public class MainViewViewModelTests
     {
         var references = new FindReferencesToolViewModel(Substitute.For<ILspClient>(),
             Substitute.For<IEditorService>(), _projectManager,
-            Substitute.For<IDocumentDockService>(), _localization);
+            Substitute.For<IDocumentDockService>(), _localization, format: new Vb6ProjectFileFormat());
         var shell = Build(_runnerService, references: references);
         references.ShowLocations([]);
         references.Owner.Should().NotBeNull();
@@ -1749,7 +1750,7 @@ public class MainViewViewModelTests
             Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), breakpoints,
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
-            Substitute.For<ILocalizationService>());
+            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         if (kind is not null) return code.Initialize(module);
         var form = new FormDefinition(project, HexIDE.Runtime.Components.FormComponentClass.Instance, name);
         project.AddForm(form);

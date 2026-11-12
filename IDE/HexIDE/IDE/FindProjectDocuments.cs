@@ -13,7 +13,7 @@ namespace HexIDE.IDE;
 
 /// <summary>Uses live buffers first; searching never flushes an editor or opens a non-matching file.</summary>
 internal sealed class FindProjectDocuments(IDocumentDockService dock, IProjectManager projects,
-    IEditorService editors, Func<ProjectDefinition?> selectedProject, IReadOnlyRegionReader? regionReader = null)
+    IEditorService editors, Func<ProjectDefinition?> selectedProject, IProjectFileFormat format, IReadOnlyRegionReader regionReader)
 {
     public ProjectDefinition? CurrentProject => dock.ActiveDocument switch
     {
@@ -35,15 +35,15 @@ internal sealed class FindProjectDocuments(IDocumentDockService dock, IProjectMa
         {
             if (!allProjects && project != CurrentProject) continue;
             foreach (var module in project.Modules)
-                result.Add(Lookup(module) ?? new UnopenedDocument(FormCodeText.WholeFile(module),
-                    FormCodeText.Prefix(module).Length, () => { editors.EditCode(module); return Lookup(module); },
+                result.Add(Lookup(module) ?? new UnopenedDocument(format.CodePrefix(module) + module.Code,
+                    format.CodePrefix(module).Length, () => { editors.EditCode(module); return Lookup(module); },
                     isReadOnly: () => module.FormPart is { CanSaveFaithfully: false },
                     regionReader: regionReader));
             foreach (var form in project.Forms)
             {
                 if (project.Modules.Any(module => module.FormPart == form)) continue;
-                result.Add(Lookup(form) ?? new UnopenedDocument(FormCodeText.WholeFile(form),
-                    FormCodeText.Prefix(form).Length, () => { editors.EditCode(form); return Lookup(form); },
+                result.Add(Lookup(form) ?? new UnopenedDocument(format.CodePrefix(form) + form.Code,
+                    format.CodePrefix(form).Length, () => { editors.EditCode(form); return Lookup(form); },
                     isReadOnly: () => !form.CanSaveFaithfully,
                     regionReader: regionReader));
             }

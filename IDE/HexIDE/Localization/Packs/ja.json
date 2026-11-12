@@ -870,6 +870,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "サーバーは、担当する言語のドキュメントが最初に開かれたときに起動します。それまではチェックを付ける行が存在しません。この設定は、すでに記録された内容を変更するものではありません。",
     "Str.Tool.LanguageServers.KeepBodies": "メッセージ本文を保持する",
     "Str.Tool.LanguageServers.ShowAllMessages": "記録されたすべてのメッセージを表示",
+    "Str.Tool.LanguageServers.Restart": "再起動(_R)",
     "Str.Tool.LanguageServers.ShowMessages": "このサーバーのメッセージを表示",
     "Str.Tool.LanguageServers.CopyReport": "レポートをコピー",
     "Str.Tool.LanguageServers.ReportRedacted": "レポートでは、パスとアドレスが架空の名前に置き換えられます。",

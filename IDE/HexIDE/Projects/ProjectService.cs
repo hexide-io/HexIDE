@@ -2446,7 +2446,7 @@ public partial class ProjectService : IProjectService
         // model alone, as it leaves the header. Before the repointing below, too, which is what lets the rewrite
         // tell a write to the form's own file from a write somewhere else.
         if (adoptHeader
-            && RewrittenQualifiers(form, formPath, ownCommand, FormCodeText.Prefix(form), form.Code, rewrites) is { } requalified)
+            && RewrittenQualifiers(form, formPath, ownCommand, format.CodePrefix(form), form.Code, rewrites) is { } requalified)
             form.UpdateCode(requalified);
 
         var (frmText, frxContent) = RenderForm(form, formPath);
@@ -2687,7 +2687,7 @@ public partial class ProjectService : IProjectService
     {
         // As SerializeFormToFile: before the render and the repointing, and not for a copy (#273 task 4.4).
         if (adoptHeader
-            && RewrittenQualifiers(module, modulePath, ownCommand, FormCodeText.Prefix(module), module.Code, rewrites) is { } requalified)
+            && RewrittenQualifiers(module, modulePath, ownCommand, format.CodePrefix(module), module.Code, rewrites) is { } requalified)
             module.UpdateCode(requalified);
 
         var (text, companion) = RenderModule(module, modulePath);

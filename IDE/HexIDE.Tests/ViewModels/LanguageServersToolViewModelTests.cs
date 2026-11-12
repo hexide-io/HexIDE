@@ -19,9 +19,8 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
     /// A real capture, not a substitute.
     /// </summary>
     /// <remarks>
-    /// Arming is the one thing on this window a person changes, and the row reads it straight back off the
-    /// capture rather than holding a copy. A mock would let the row be wrong about what is actually being
-    /// recorded while every assertion here passed.
+    /// The row reads arming straight back off the capture rather than holding a copy. A mock would let the
+    /// row be wrong about what is actually being recorded while every assertion here passed.
     /// </remarks>
     private readonly ConversationLog _capture = new();
     private readonly IEventBus _events = Substitute.For<IEventBus>();
@@ -31,6 +30,22 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
     {
         await _capture.DisposeAsync();
         GC.SuppressFinalize(this);
+    }
+
+    [Theory]
+    [InlineData(LanguageConnectionState.Stopped)]
+    [InlineData(LanguageConnectionState.Failed)]
+    [InlineData(LanguageConnectionState.Running)]
+    [InlineData(LanguageConnectionState.NotStarted)]
+    public async Task RestartIsAvailableInEveryStateAndNamesOnlyItsRow(LanguageConnectionState state)
+    {
+        var (vm, registry) = Sut(Conn("selected", "vb6", state), Conn("other", "vb6"));
+        var row = vm.Groups.Single().Rows.Single(r => r.Id == "selected");
+        var command = row.RestartCommand;
+        command.CanExecute(null).Should().BeTrue();
+        await command.ExecuteAsync(null);
+        await registry.Received(1).RestartAsync("selected", Arg.Any<CancellationToken>());
+        await registry.DidNotReceive().RestartAsync("other", Arg.Any<CancellationToken>());
     }
 
     [Fact]

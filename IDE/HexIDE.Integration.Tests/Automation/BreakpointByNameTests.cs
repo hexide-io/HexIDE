@@ -105,7 +105,9 @@ public sealed class BreakpointByNameTests : IDisposable
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), bookmarks, breakpoints,
-            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>());
+            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(),
+                new Vb6ProjectFileFormat(),
+                new Vb6ReadOnlyRegionReader());
         made.Add(vm);
         return vm.Initialize(form);
     }
@@ -269,7 +271,9 @@ public sealed class BreakpointByNameTests : IDisposable
         var breakpoints = new BreakpointService();
         var bookmarks = new BookmarkService();
         // Written as the IDE writes it, on the change, with the delay taken out so the test need not wait it.
-        var sidecar = new UserSidecarService(bookmarks, breakpoints, projectManager) { Debounce = _ => Task.CompletedTask };
+        var sidecar = new UserSidecarService(bookmarks, breakpoints, projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader()) { Debounce = _ => Task.CompletedTask };
 
         var window = OpenCodeWindow(form, breakpoints, bookmarks);
         var editor = Show(window);
@@ -328,7 +332,9 @@ public sealed class BreakpointByNameTests : IDisposable
         names.Should().Equal(["Form1"], "the sidecar names the document as the IDE does, and never as the caller spelled it");
 
         var reloaded = new BreakpointService();
-        await new UserSidecarService(new BookmarkService(), reloaded, projectManager).LoadAsync(project);
+        await new UserSidecarService(new BookmarkService(), reloaded, projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader()).LoadAsync(project);
         reloaded.GetBreakpoints(DocumentIdentity.For(form)).Should().Equal([Line], "the next session finds it on Form1");
     }
 }

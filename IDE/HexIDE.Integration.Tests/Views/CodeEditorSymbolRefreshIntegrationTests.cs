@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System;
 using System.Threading;
 using Avalonia.Headless.XUnit;
@@ -65,7 +66,7 @@ public class CodeEditorSymbolRefreshIntegrationTests
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<HexIDE.Debugging.IRunScope>(),
-            localization);
+            localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
     }
 
     private static ModuleDefinition AModule()

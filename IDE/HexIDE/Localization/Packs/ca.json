@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Un servidor s'inicia amb el primer document d'un llenguatge que admet; fins aleshores no hi ha cap fila per marcar. Això no canvia el que ja s'ha enregistrat.",
     "Str.Tool.LanguageServers.KeepBodies": "Conserva els cossos dels missatges",
     "Str.Tool.LanguageServers.ShowAllMessages": "Mostra tots els missatges enregistrats",
+    "Str.Tool.LanguageServers.Restart": "_Reinicia",
     "Str.Tool.LanguageServers.ShowMessages": "Mostra els seus missatges",
     "Str.Tool.LanguageServers.CopyReport": "Copia l'informe",
     "Str.Tool.LanguageServers.ReportRedacted": "L'informe substitueix els camins i les adreces per noms ficticis.",

@@ -114,7 +114,7 @@ public class ResultsLayoutRenderTests
         var documents = Substitute.For<IDocumentDockService>();
         documents.OpenDocuments.Returns([]);
         var references = new FindReferencesToolViewModel(Substitute.For<ILspClient>(),
-            Substitute.For<IEditorService>(), projects, documents, loc);
+            Substitute.For<IEditorService>(), projects, documents, loc, format: new Vb6ProjectFileFormat());
         var calls = new CallHierarchyToolViewModel(Substitute.For<ILspClient>(), Substitute.For<IEditorService>(), loc);
         ResultsToolViewModel results = hierarchy ? calls : references;
         var host = new Dock.Avalonia.Controls.DockControl { Layout = root, Factory = factory };

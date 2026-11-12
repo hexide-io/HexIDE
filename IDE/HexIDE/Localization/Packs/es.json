@@ -870,6 +870,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Un servidor se inicia con el primer documento de un lenguaje que cubre, así que hasta entonces no hay ninguna fila que marcar. Esto no cambia lo que ya se ha registrado.",
     "Str.Tool.LanguageServers.KeepBodies": "Conservar los cuerpos de los mensajes",
     "Str.Tool.LanguageServers.ShowAllMessages": "Mostrar todos los mensajes registrados",
+    "Str.Tool.LanguageServers.Restart": "_Reiniciar",
     "Str.Tool.LanguageServers.ShowMessages": "Mostrar sus mensajes",
     "Str.Tool.LanguageServers.CopyReport": "Copiar informe",
     "Str.Tool.LanguageServers.ReportRedacted": "El informe reemplaza las rutas y direcciones por nombres inventados.",

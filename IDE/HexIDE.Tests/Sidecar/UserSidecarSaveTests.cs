@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System.IO;
 using System.Text.Json.Nodes;
 using HexIDE.Bookmarks;
@@ -65,7 +66,7 @@ public sealed class UserSidecarSaveTests : IDisposable
 
     private UserSidecarService Service(BookmarkService bookmarks, BreakpointService? breakpoints = null,
         Func<string, Task<string>>? read = null) =>
-        new(bookmarks, breakpoints ?? new BreakpointService(), projectManager)
+        new(bookmarks, breakpoints ?? new BreakpointService(), projectManager, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader())
         {
             Debounce = debounce.Wait,
             ReadText = read ?? (path => Task.FromResult(File.ReadAllText(path))),
@@ -140,7 +141,9 @@ public sealed class UserSidecarSaveTests : IDisposable
     {
         var project = Project();
         var choices = new RunChoiceStore();
-        var sidecar = new UserSidecarService(new BookmarkService(), new BreakpointService(), projectManager, choices)
+        var sidecar = new UserSidecarService(new BookmarkService(), new BreakpointService(), projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader(), choices)
         {
             Debounce = debounce.Wait,
             ReadText = path => Task.FromResult(File.ReadAllText(path)),
@@ -156,7 +159,9 @@ public sealed class UserSidecarSaveTests : IDisposable
         choices.Get(project).Should().BeNull("an unloaded project's choice goes with it, and is not saved as gone");
         Read(SidecarOf(project))["runWith"]!.GetValue<string>().Should().Be("RDCore for HexIDE/RDCore");
         var reopened = new RunChoiceStore();
-        await new UserSidecarService(new BookmarkService(), new BreakpointService(), projectManager, reopened)
+        await new UserSidecarService(new BookmarkService(), new BreakpointService(), projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader(), reopened)
         {
             ReadText = path => Task.FromResult(File.ReadAllText(path)),
         }.LoadAsync(project);
@@ -170,7 +175,9 @@ public sealed class UserSidecarSaveTests : IDisposable
         File.WriteAllText(SidecarOf(project), """{ "version": 3, "runWith": "com.example.old/Old" }""");
         var reading = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         var choices = new RunChoiceStore();
-        var sidecar = new UserSidecarService(new BookmarkService(), new BreakpointService(), projectManager, choices)
+        var sidecar = new UserSidecarService(new BookmarkService(), new BreakpointService(), projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader(), choices)
         {
             Debounce = debounce.Wait,
             ReadText = _ => reading.Task,
@@ -189,7 +196,9 @@ public sealed class UserSidecarSaveTests : IDisposable
     {
         var project = Project();
         var choices = new RunChoiceStore();
-        var sidecar = new UserSidecarService(new BookmarkService(), new BreakpointService(), projectManager, choices)
+        var sidecar = new UserSidecarService(new BookmarkService(), new BreakpointService(), projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader(), choices)
         {
             Debounce = debounce.Wait,
             ReadText = path => Task.FromResult(File.ReadAllText(path)),
