@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Подія",
     "Str.Tool.Outline.Kind.Operator": "Оператор",
     "Str.Tool.Outline.Kind.TypeParameter": "Параметр типу",
+    "Str.Debug.Conditions.EvaluationFailed": "Не вдалося обчислити умову точки зупинки '{0}' у {1}, рядок {2}: {3}",
     "Str.Debug.Conditions.Prompt": "Зупинятися на цьому рядку, лише коли цей вираз істинний:",
     "Str.Debug.Conditions.Edit": "Умова…",
     "Str.Debug.Conditions.AdapterIgnored": "Цей адаптер ігнорує умови й зупиняється щоразу.",

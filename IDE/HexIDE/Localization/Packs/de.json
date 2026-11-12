@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Ereignis",
     "Str.Tool.Outline.Kind.Operator": "Operator",
     "Str.Tool.Outline.Kind.TypeParameter": "Typparameter",
+    "Str.Debug.Conditions.EvaluationFailed": "Die Haltepunktbedingung '{0}' in {1}, Zeile {2}, konnte nicht ausgewertet werden: {3}",
     "Str.Debug.Conditions.Prompt": "In dieser Zeile nur anhalten, wenn dieser Ausdruck wahr ist:",
     "Str.Debug.Conditions.Edit": "Bedingung…",
     "Str.Debug.Conditions.AdapterIgnored": "Dieser Adapter ignoriert Haltepunktbedingungen und hält jedes Mal an.",

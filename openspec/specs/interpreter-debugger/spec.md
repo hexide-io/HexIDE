@@ -15,6 +15,20 @@ prompt for a reset and the execution point moves only between top-level statemen
 
 ## Requirements
 
+### Requirement: Failed breakpoint conditions explain the stop
+
+The interpreter SHALL pause when a breakpoint condition cannot be evaluated. The stop SHALL retain
+the expression and evaluation error as breakpoint details. The IDE SHALL show the expression, module,
+line and error in its localized status bar while paused. Run-control replies and debug-state inspection
+SHALL explain the failed condition and its line; the evaluation error SHALL NOT enter program output.
+
+#### Scenario: A condition cannot be parsed or resolved in the executing frame
+- **WHEN** evaluating a breakpoint condition returns an error or throws
+- **THEN** execution pauses before the statement with the failed expression and error attached
+- **AND** the run or step note and debug-state note explain the failed evaluation
+- **AND** only program output appears in `printed`
+- **AND** resuming or ending the run clears the paused failure detail
+
 ### Requirement: Breakpoints SHALL be toggleable from every VB6-familiar entry point
 The IDE SHALL let the developer toggle a breakpoint from the keyboard, the Debug menu, and the breakpoint gutter, and SHALL clear every breakpoint on request.
 

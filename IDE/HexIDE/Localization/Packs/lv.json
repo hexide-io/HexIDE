@@ -1201,6 +1201,7 @@
     "Str.Tool.Outline.Kind.Event": "Notikums",
     "Str.Tool.Outline.Kind.Operator": "Operators",
     "Str.Tool.Outline.Kind.TypeParameter": "Tipa parametrs",
+    "Str.Debug.Conditions.EvaluationFailed": "Nevarēja novērtēt pārtraukumpunkta nosacījumu '{0}' modulī {1}, {2}. rindā: {3}",
     "Str.Debug.Conditions.Prompt": "Apstāties šajā rindā tikai tad, ja šī izteiksme ir patiesa:",
     "Str.Debug.Conditions.Edit": "Nosacījums…",
     "Str.Debug.Conditions.AdapterIgnored": "Šis adapteris ignorē nosacījumus un apstājas katru reizi.",

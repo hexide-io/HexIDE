@@ -1201,6 +1201,7 @@
     "Str.Tool.Outline.Kind.Event": "Događaj",
     "Str.Tool.Outline.Kind.Operator": "Operator",
     "Str.Tool.Outline.Kind.TypeParameter": "Parametar tipa",
+    "Str.Debug.Conditions.EvaluationFailed": "Uvjet prekidne točke '{0}' u {1}, redak {2}, nije moguće vrednovati: {3}",
     "Str.Debug.Conditions.Prompt": "Zaustavi se na ovom retku samo kada je ovaj izraz istinit:",
     "Str.Debug.Conditions.Edit": "Uvjet…",
     "Str.Debug.Conditions.AdapterIgnored": "Ovaj adapter zanemaruje uvjete i zaustavlja se svaki put.",

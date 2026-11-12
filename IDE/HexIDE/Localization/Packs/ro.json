@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Eveniment",
     "Str.Tool.Outline.Kind.Operator": "Operator",
     "Str.Tool.Outline.Kind.TypeParameter": "Parametru de tip",
+    "Str.Debug.Conditions.EvaluationFailed": "Condiția punctului de întrerupere '{0}' din {1}, linia {2}, nu a putut fi evaluată: {3}",
     "Str.Debug.Conditions.Prompt": "Oprește la această linie numai când această expresie este adevărată:",
     "Str.Debug.Conditions.Edit": "Condiție…",
     "Str.Debug.Conditions.AdapterIgnored": "Acest adaptor ignoră condițiile și se oprește de fiecare dată.",

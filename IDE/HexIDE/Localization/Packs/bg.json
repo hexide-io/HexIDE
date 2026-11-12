@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Събитие",
     "Str.Tool.Outline.Kind.Operator": "Оператор",
     "Str.Tool.Outline.Kind.TypeParameter": "Параметър на тип",
+    "Str.Debug.Conditions.EvaluationFailed": "Условието на точката на прекъсване '{0}' в {1}, ред {2}, не може да бъде оценено: {3}",
     "Str.Debug.Conditions.Prompt": "Спиране на този ред само когато този израз е истина:",
     "Str.Debug.Conditions.Edit": "Условие…",
     "Str.Debug.Conditions.AdapterIgnored": "Този адаптер игнорира условията и спира всеки път.",

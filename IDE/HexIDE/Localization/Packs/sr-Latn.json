@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Događaj",
     "Str.Tool.Outline.Kind.Operator": "Operator",
     "Str.Tool.Outline.Kind.TypeParameter": "Parametar tipa",
+    "Str.Debug.Conditions.EvaluationFailed": "Nije moguće izračunati uslov tačke prekida '{0}' u {1}, red {2}: {3}",
     "Str.Debug.Conditions.Prompt": "Zaustavi se na ovom redu samo kada je ovaj izraz tačan:",
     "Str.Debug.Conditions.Edit": "Uslov…",
     "Str.Debug.Conditions.AdapterIgnored": "Ovaj adapter zanemaruje uslove i zaustavlja se svaki put.",

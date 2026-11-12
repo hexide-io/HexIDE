@@ -1201,6 +1201,7 @@
     "Str.Tool.Outline.Kind.Event": "イベント",
     "Str.Tool.Outline.Kind.Operator": "演算子",
     "Str.Tool.Outline.Kind.TypeParameter": "型パラメーター",
+    "Str.Debug.Conditions.EvaluationFailed": "{1} の {2} 行目のブレークポイント条件 '{0}' を評価できませんでした: {3}",
     "Str.Debug.Conditions.Prompt": "この式が True の場合にのみ、この行で停止します:",
     "Str.Debug.Conditions.Edit": "条件…",
     "Str.Debug.Conditions.AdapterIgnored": "このアダプターは条件を無視し、毎回停止します。",

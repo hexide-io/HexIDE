@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Sündmus",
     "Str.Tool.Outline.Kind.Operator": "Operaator",
     "Str.Tool.Outline.Kind.TypeParameter": "Tüübiparameeter",
+    "Str.Debug.Conditions.EvaluationFailed": "Katkestuspunkti tingimust '{0}' mooduli {1} real {2} ei saanud hinnata: {3}",
     "Str.Debug.Conditions.Prompt": "Peatu sellel real ainult siis, kui see avaldis on tõene:",
     "Str.Debug.Conditions.Edit": "Tingimus…",
     "Str.Debug.Conditions.AdapterIgnored": "See adapter eirab tingimusi ja peatub iga kord.",

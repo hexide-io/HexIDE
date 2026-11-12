@@ -180,6 +180,9 @@ public partial class MainViewViewModel : ObservableObject
         OnPropertyChanged(nameof(WindowTitle));
         if (IsProgramRunning && !IsInBreakMode)
             StatusBar.SetMessage(localization.GetString("Str.StatusBar.Running"));
+        else if (IsInBreakMode && debugController.CurrentStop is { ConditionError: { } error } stop)
+            StatusBar.SetMessage(string.Format(localization.GetString("Str.Debug.Conditions.EvaluationFailed"),
+                stop.ConditionExpression, stop.Module, stop.Line, error));
         else
             StatusBar.ClearMessage();
     }

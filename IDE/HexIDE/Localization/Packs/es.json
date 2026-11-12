@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Evento",
     "Str.Tool.Outline.Kind.Operator": "Operador",
     "Str.Tool.Outline.Kind.TypeParameter": "Parámetro de tipo",
+    "Str.Debug.Conditions.EvaluationFailed": "No se pudo evaluar la condición del punto de interrupción '{0}' en {1}, línea {2}: {3}",
     "Str.Debug.Conditions.Prompt": "Detener en esta línea solo cuando esta expresión sea verdadera:",
     "Str.Debug.Conditions.Edit": "Condición…",
     "Str.Debug.Conditions.AdapterIgnored": "Este adaptador ignora las condiciones y se detiene siempre.",

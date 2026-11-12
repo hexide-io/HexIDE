@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Συμβάν",
     "Str.Tool.Outline.Kind.Operator": "Τελεστής",
     "Str.Tool.Outline.Kind.TypeParameter": "Παράμετρος τύπου",
+    "Str.Debug.Conditions.EvaluationFailed": "Δεν ήταν δυνατή η αξιολόγηση της συνθήκης σημείου διακοπής '{0}' στο {1}, γραμμή {2}: {3}",
     "Str.Debug.Conditions.Prompt": "Διακοπή σε αυτή τη γραμμή μόνο όταν αυτή η έκφραση είναι αληθής:",
     "Str.Debug.Conditions.Edit": "Συνθήκη…",
     "Str.Debug.Conditions.AdapterIgnored": "Αυτός ο προσαρμογέας αγνοεί τις συνθήκες και σταματά κάθε φορά.",

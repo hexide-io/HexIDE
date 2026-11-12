@@ -1201,6 +1201,7 @@
     "Str.Tool.Outline.Kind.Event": "Hendelse",
     "Str.Tool.Outline.Kind.Operator": "Operator",
     "Str.Tool.Outline.Kind.TypeParameter": "Typeparameter",
+    "Str.Debug.Conditions.EvaluationFailed": "Stoppunktbetingelsen '{0}' i {1}, linje {2}, kunne ikke evalueres: {3}",
     "Str.Debug.Conditions.Prompt": "Stopp på denne linjen bare når dette uttrykket er sant:",
     "Str.Debug.Conditions.Edit": "Betingelse…",
     "Str.Debug.Conditions.AdapterIgnored": "Denne adapteren ignorerer betingelser og stopper hver gang.",
