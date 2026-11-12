@@ -450,6 +450,7 @@
     "Str.Designer.Context.AlignToGrid": "对齐到网格",
     "Str.Designer.Context.Properties": "属性",
     "Str.CodeEditor.FileNotSaved.Banner": "此文件不会被保存 — HexIDE 目前还无法忠实地重现它，保存会改变它。其代码是文件的一部分，因此在此窗口中的输入会被拒绝。",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "已拒绝输入，因为此文本为只读，只能由 IDE 更改。",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "未重命名，因为这会更改此文件中的只读文本，而这些文本仅由 IDE 更改。",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "未重命名，因为此操作还会编辑其他文档：{0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "无法对 {0} 应用重命名。",

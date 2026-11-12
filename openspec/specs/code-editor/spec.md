@@ -158,8 +158,11 @@ marks it as not the developer's to edit, meeting the same contrast requirement a
 theme. It SHALL NOT be editable.
 
 The header is the class `VERSION` and `BEGIN … END` block, or the `VERSION` line, object references and
-designer block of a form, UserControl or PropertyPage — followed, for every kind, by the run of `Attribute`
-lines that opens the code.
+designer block of a form, UserControl or PropertyPage, followed by their leading `Attribute` run.
+For a module whose format reports `PrefixCarriesName`, the header SHALL end at the composed prefix:
+leading `Attribute` lines typed into its code SHALL remain editable, even while incomplete (#3798).
+Member attribute runs SHALL retain their existing read-only behaviour. Refused typing SHALL explain
+in the status bar that the text belongs to the IDE and is read-only.
 
 The fold is what keeps the window recognisable to somebody who never saw the header in VB6: a form's code
 still starts at the top of what they see. A fold that reopened whenever the document was reformatted or

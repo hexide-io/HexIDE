@@ -411,6 +411,7 @@
     "Str.Designer.Context.AlignToGrid": "Poravnaj na mrežo",
     "Str.Designer.Context.Properties": "Lastnosti",
     "Str.CodeEditor.FileNotSaved.Banner": "Ta datoteka ne bo shranjena — HexIDE je še ne more zvesto poustvariti, zato bi jo shranjevanje spremenilo. Njena koda je del datoteke, zato vnos v tem oknu ni dovoljen.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Vnos je bil zavrnjen, ker je to besedilo samo za branje in ga spreminja le IDE.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Preimenovanje ni bilo izvedeno, ker bi spremenilo besedilo samo za branje v tej datoteki, ki ga spreminja samo IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Preimenovanje ni bilo izvedeno, ker ureja tudi druge dokumente: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Preimenovanja ni mogoče uporabiti za {0}.",

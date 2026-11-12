@@ -445,6 +445,7 @@
     "Str.Designer.Context.AlignToGrid": "Lygiuoti prie tinklelio",
     "Str.Designer.Context.Properties": "Savybės",
     "Str.CodeEditor.FileNotSaved.Banner": "Šis failas nebus įrašytas — HexIDE dar negali jo tiksliai atkurti, todėl įrašymas jį pakeistų. Kodas yra failo dalis, todėl šiame lange rašyti neleidžiama.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Įvestis atmesta, nes šis tekstas skirtas tik skaityti ir jį keičia tik IDE.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Pervadinimas neatliktas, nes jis pakeistų šio failo tik skaityti skirtą tekstą, kurį keičia tik IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Pavadinimas nepakeistas, nes taip pat būtų redaguojami kiti dokumentai: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Negalima pritaikyti pervardijimo dokumentui {0}.",

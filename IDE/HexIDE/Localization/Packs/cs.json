@@ -450,6 +450,7 @@
     "Str.Designer.Context.AlignToGrid": "Zarovnat k mřížce",
     "Str.Designer.Context.Properties": "Vlastnosti",
     "Str.CodeEditor.FileNotSaved.Banner": "Tento soubor nebude uložen — HexIDE jej zatím nedokáže věrně reprodukovat, takže uložení by jej změnilo. Jeho kód je součástí souboru, proto se psaní v tomto okně odmítá.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Psaní bylo odmítnuto, protože tento text je jen pro čtení a mění jej pouze IDE.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Přejmenování nebylo provedeno, protože by změnilo text jen pro čtení v tomto souboru, který mění pouze IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Přejmenování nebylo provedeno, protože upravuje i jiné dokumenty: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Přejmenování nelze použít na {0}.",

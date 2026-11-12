@@ -1521,7 +1521,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     }
 
     private IReadOnlyList<TextRegion> RegionsOf(string text, int prefixLength) =>
-        regionReader.Regions(text, prefixLength);
+        regionReader.Regions(text, prefixLength,
+            moduleDefinition is { } module && format.PrefixCarriesName(module));
 
     private IReadOnlyList<TextRegion>? regionsCache;
     private ITextSourceVersion? regionsCacheVersion;
@@ -1587,8 +1588,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// themselves (Enter's auto-close and auto-indent, a completion's commit), so the banner's "typing in this
     /// window is refused" holds for them too.
     /// </summary>
-    public bool RefusesTyping(int offset, int length) =>
-        IsReadOnly || IsReadOnlyRegion(offset, length);
+    public bool RefusesTyping(int offset, int length)
+    {
+        if (!IsReadOnly && !IsReadOnlyRegion(offset, length))
+            return false;
+        statusBarService.SetTemporaryMessage(localization.GetString(IsReadOnly
+            ? "Str.CodeEditor.FileNotSaved.Banner"
+            : "Str.CodeEditor.Msg.TypingChangesReadOnlyText"), TimeSpan.FromSeconds(6));
+        return true;
+    }
 
     /// <inheritdoc/>
     public (int Offset, int Length) WidenDeletion(int offset, int length) =>
@@ -1841,7 +1849,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             var resolved = Resolve(document, target.Edits);
             for (var j = 1; j < resolved.Count; j++)
                 if (resolved[j].Offset + resolved[j].Length > resolved[j - 1].Offset) return Refuse(target.Uri);
-            if (resolved.Any(c => ReadOnlyRegions.Changes(RegionsOf(document.Text, prefix.Length), c.Offset, c.Length)
+            if (resolved.Any(c => ReadOnlyRegions.Changes(regionReader.Regions(document.Text, prefix.Length,
+                    module is not null && format.PrefixCarriesName(module)), c.Offset, c.Length)
                 && (codeAction || regionRules?.RenameMayWrite(document.Text, prefix.Length, resolved, c) != true)))
                 return Refuse(target.Uri);
             prepared.Add((target.Uri, identity, resolved));

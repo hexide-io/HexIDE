@@ -1856,6 +1856,14 @@ public partial class CodeEditorView : UserControl
             _completionWindow?.Close();
             return;
         }
+        if (e.Text is { Length: > 0 } && DataContext is CodeEditorViewModel owner
+            && EditedSpan() is { } span && !ClipboardEditWouldWrite(paste: true)
+            && owner.RefusesTyping(span.Offset, span.Length))
+        {
+            e.Handled = true;
+            _completionWindow?.Close();
+            return;
+        }
         // Shift+Enter, and any other input that types a line break, at the end of a described line (#273 task 4.5).
         // Taken here because AvaloniaEdit raises this before it writes and writes nothing once it is handled.
         if (e.Text is { } typed && PlaceTypedLineBreakPastRun(typed))

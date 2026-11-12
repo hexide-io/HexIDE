@@ -37,6 +37,7 @@ public class TypeKeysTests : IDisposable
 {
     private readonly List<Window> windows = [];
     private readonly List<CodeEditorViewModel> made = [];
+    private readonly IStatusBarService status = Substitute.For<IStatusBarService>();
     private readonly ILspClient lsp = Substitute.For<ILspClient>();
 
     public TypeKeysTests()
@@ -55,7 +56,7 @@ public class TypeKeysTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private TextEditor Show(string code)
+    private TextEditor Show(string code, ModuleKind kind = ModuleKind.StandardModule, string? header = null, bool form = false)
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
@@ -66,16 +67,26 @@ public class TypeKeysTests : IDisposable
         settings.TabWidth.Returns(4);
         settings.AutoListMembers.Returns(true);
 
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
-            eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
-            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(),
+            eventBus, lsp, settings, status, new BookmarkService(), new BreakpointService(),
+            Substitute.For<IDebugController>(), new RunScope(), localization,
                 new Vb6ProjectFileFormat(),
                 new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
         made.Add(vm);
-        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", ModuleKind.StandardModule);
+        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", kind);
+        if (header is not null) module.RecordOriginalHeader(header);
         module.UpdateCode(code);
-        vm.Initialize(module);
+        if (form)
+        {
+            var definition = new FormDefinition(module.Owner, HexIDE.Runtime.Components.FormComponentClass.Instance, "Form1");
+            definition.UpdateCode(code);
+            vm.Initialize(definition);
+        }
+        else
+            vm.Initialize(module);
 
         var window = new Window { Width = 1200, Height = 800 };
         windows.Add(window);
@@ -84,6 +95,74 @@ public class TypeKeysTests : IDisposable
         window.Content = view;
         Dispatcher.UIThread.RunJobs();
         return view.FindControl<TextEditor>("TextEditor")!;
+    }
+
+    [AvaloniaTheory]
+    [InlineData(ModuleKind.StandardModule, false)]
+    [InlineData(ModuleKind.StandardModule, true)]
+    [InlineData(ModuleKind.ClassModule, false)]
+    [InlineData(ModuleKind.ClassModule, true)]
+    public void TypedLeadingAttributeStaysEditable(ModuleKind kind, bool headed)
+    {
+        var header = headed
+            ? (kind == ModuleKind.ClassModule ? "VERSION 1.0 CLASS\r\nBEGIN\r\nEND\r\n" : "")
+                + "Attribute VB_Name = \"Module1\"\r\n"
+            : "";
+        var editor = Show("\r\nPublic Function OddW() As Long\r\n    OddW = 7\r\nEnd Function\r\n", kind, header);
+        var start = header.Length;
+        editor.CaretOffset = start;
+        const string typed = "Attribute VB_Name = \"WName\"";
+        foreach (var ch in typed)
+        {
+            editor.TextArea.RaiseEvent(new TextInputEventArgs
+            {
+                RoutedEvent = InputElement.TextInputEvent, Text = ch.ToString(),
+            });
+        }
+        editor.Text.Substring(start, typed.Length).Should().Be(typed);
+        editor.Select(start, typed.Length + 2);
+        UiAutomationDriver.PressKey(editor, "Delete", null).Success.Should().BeTrue();
+        editor.Text.Should().Be(header + "Public Function OddW() As Long\r\n    OddW = 7\r\nEnd Function\r\n");
+    }
+
+    [AvaloniaFact]
+    public void RefusedTextInputExplainsWhyInTheStatusBar()
+    {
+        var editor = Show(WithRun);
+        PutCaretAfter(editor, "Attribute Total.VB_");
+        var before = editor.Text;
+        editor.TextArea.RaiseEvent(new TextInputEventArgs
+        {
+            RoutedEvent = InputElement.TextInputEvent, Text = "x",
+        });
+        editor.Text.Should().Be(before);
+        status.Received().SetTemporaryMessage("Str.CodeEditor.Msg.TypingChangesReadOnlyText", Arg.Any<TimeSpan>());
+    }
+
+    [AvaloniaFact]
+    public void FormAttributeRunStillRefusesTextInput()
+    {
+        var editor = Show("Attribute VB_Name = \"Form1\"\r\nOption Explicit\r\n", form: true);
+        editor.CaretOffset = 12;
+        var before = editor.Text;
+        editor.TextArea.RaiseEvent(new TextInputEventArgs
+        {
+            RoutedEvent = InputElement.TextInputEvent, Text = "x",
+        });
+        editor.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void TypedMemberAttributeStillJoinsTheMembersReadOnlyRun()
+    {
+        var editor = Show("Public Sub Foo()\r\n\r\nEnd Sub\r\n", header: "");
+        editor.CaretOffset = "Public Sub Foo()\r\n".Length;
+        foreach (var ch in "Attribute Foo.VB_Description = \"description\"")
+            editor.TextArea.RaiseEvent(new TextInputEventArgs
+            {
+                RoutedEvent = InputElement.TextInputEvent, Text = ch.ToString(),
+            });
+        editor.Text.Should().Be("Public Sub Foo()\r\nAttribute Foo.\r\nEnd Sub\r\n");
     }
 
     private static void PutCaretAfter(TextEditor editor, string text) =>

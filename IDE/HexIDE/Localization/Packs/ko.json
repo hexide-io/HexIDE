@@ -484,6 +484,7 @@
     "Str.Designer.Context.AlignToGrid": "눈금에 맞춤",
     "Str.Designer.Context.Properties": "속성",
     "Str.CodeEditor.FileNotSaved.Banner": "이 파일은 저장되지 않습니다 — HexIDE가 아직 이 파일을 충실하게 재현할 수 없어 저장하면 파일이 바뀝니다. 코드도 파일의 일부이므로 이 창에서의 입력은 거부됩니다.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "이 텍스트는 읽기 전용이며 IDE만 변경할 수 있으므로 입력이 거부되었습니다.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "이 파일에서 IDE만 변경하는 읽기 전용 텍스트를 바꾸게 되므로 이름을 변경하지 않았습니다.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "다른 문서도 편집하므로 이름을 변경하지 않았습니다: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "{0}에 이름 바꾸기를 적용할 수 없습니다.",
