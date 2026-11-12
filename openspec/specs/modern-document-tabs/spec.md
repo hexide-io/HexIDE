@@ -84,8 +84,9 @@ caption and a maximize/restore button. Floating tools SHALL remain visible in th
 The host caption SHALL follow the active tool and language changes. The initial client size SHALL be
 at least the docked pane's size and 320 by 200 DIPs, limited to the main window's screen working area;
 the host SHALL open within that working area. Closing the floating window SHALL return its tools to
-their original dock slot, proportions and tab group. The pane's own close box SHALL hide the tool;
-View SHALL reopen it docked.
+their original dock slot, proportions and tab group, preserving the saved tab order even when
+tools are registered in a different order or the window was restored from the layout manifest.
+The pane's own close box SHALL hide the tool; View SHALL reopen it docked.
 
 #### Scenario: Float and return a tool
 - **WHEN** the developer chooses Float on a docked tool pane

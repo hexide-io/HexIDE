@@ -13,8 +13,10 @@ using Avalonia.VisualTree;
 using Dock.Avalonia.Controls;
 using Dock.Model.Controls;
 using HexIDE.Tools;
+using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Automation;
+using System.Text.Json;
 
 namespace HexIDE.Integration.Tests.Controls;
 
@@ -25,6 +27,7 @@ public class ToolFloatingTests
     {
         await using var owned = new RealComposition();
         var vm = owned.Composition.Root;
+        vm.ResetWindowLayout();
         var factory = (MainViewViewModel.DockFactory)typeof(MainViewViewModel)
             .GetField("dockFactory", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(vm)!;
         var locator = new Avalonia.Controls.Templates.FuncDataTemplate<ImmediateToolViewModel>((_, _) =>
@@ -32,7 +35,7 @@ public class ToolFloatingTests
         Application.Current!.DataTemplates.Add(locator);
         var window = new Window
         {
-            Content = new DockControl { Name = "DockControl", Layout = vm.Layout }, Width = 1000, Height = 700,
+            Content = new DockControl { Layout = vm.Layout }, Width = 1000, Height = 700,
         };
         try
         {
@@ -172,6 +175,198 @@ public class ToolFloatingTests
         oldParent.VisibleDockables![oldIndex].Should().BeSameAs(vm.Immediate.Owner);
         ((IDock)vm.Immediate.Owner!).VisibleDockables.Should().Equal(vm.Immediate, vm.Locals);
     });
+
+    public static System.Collections.Generic.IEnumerable<object[]> ReturnCycles =>
+        Enumerable.Range(0, 20).Select(index => new object[] { index });
+
+    [AvaloniaTheory]
+    [MemberData(nameof(ReturnCycles))]
+    public Task Three_floating_tabs_return_in_saved_order(int cycle) =>
+        CheckThreeTabReturn(cycle, restore: false);
+
+    [AvaloniaTheory]
+    [MemberData(nameof(ReturnCycles))]
+    public Task Three_restored_floating_tabs_return_in_saved_order(int cycle) =>
+        CheckThreeTabReturn(cycle, restore: true);
+
+    private static async Task CheckThreeTabReturn(int cycle, bool restore)
+    {
+        await using var restoredOwned = new RealComposition();
+        await WithWorkspace((vm, factory, window, _) =>
+        {
+            vm.OpenLocalsTool();
+            vm.OpenWatchesTool();
+            var home = (IDock)vm.Immediate.Owner!;
+            factory.MoveDockable((IDock)vm.Locals.Owner!, home, vm.Locals, vm.Immediate);
+            factory.MoveDockable((IDock)vm.Watches.Owner!, home, vm.Watches, vm.Immediate);
+            // Reverse registration order so returning by the tool registry cannot pass by chance.
+            home.VisibleDockables!.Remove(vm.Immediate);
+            home.VisibleDockables.Remove(vm.Locals);
+            home.VisibleDockables.Add(vm.Locals);
+            home.VisibleDockables.Add(vm.Immediate);
+            home.VisibleDockables.Should().Equal(vm.Watches, vm.Locals, vm.Immediate);
+            home.ActiveDockable = home.VisibleDockables[cycle % 3];
+            factory.FloatAllDockables(vm.Immediate);
+            Dispatcher.UIThread.RunJobs();
+            var layout = (IRootDock)vm.Layout;
+            if (restore)
+            {
+                var manifest = LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(factory.CaptureManifest(layout)))!;
+                FloatingHost(vm).Close();
+                vm = restoredOwned.Composition.Root;
+                factory = GetFactory(vm);
+                layout = factory.ApplyLayout(manifest);
+                factory.InitLayout(layout);
+                ((DockControl)window.Content!).Layout = layout;
+                Dispatcher.UIThread.RunJobs();
+                layout.ShowWindows.Execute(null);
+                Dispatcher.UIThread.RunJobs();
+            }
+            try
+            {
+                ((IDock)vm.Immediate.Owner!).VisibleDockables.Should().Equal(vm.Watches, vm.Locals, vm.Immediate);
+                ((Window)layout.Windows!.Single().Host!).Close();
+                Dispatcher.UIThread.RunJobs();
+                factory.FindRoot(vm.Immediate).Should().BeSameAs(layout);
+                vm.Locals.Owner.Should().BeSameAs(vm.Immediate.Owner);
+                vm.Watches.Owner.Should().BeSameAs(vm.Immediate.Owner);
+                ((IDock)vm.Immediate.Owner!).VisibleDockables.Should().Equal(vm.Watches, vm.Locals, vm.Immediate);
+            }
+            finally
+            {
+                foreach (var floating in layout.Windows?.ToArray() ?? []) (floating.Host as Window)?.Close();
+            }
+        });
+    }
+
+    [AvaloniaTheory]
+    [InlineData(WindowState.Normal, 1.0)]
+    [InlineData(WindowState.Normal, 1.5)]
+    [InlineData(WindowState.Maximized, 1.0)]
+    public async Task Floating_manifest_restores_tabs_active_bounds_and_home(WindowState state, double scaling)
+    {
+        await using var restoredOwned = new RealComposition();
+        await WithWorkspace((vm, factory, window, _) =>
+        {
+            vm.OpenLocalsTool();
+            factory.MoveDockable((IDock)vm.Locals.Owner!, (IDock)vm.Immediate.Owner!, vm.Locals, vm.Immediate);
+            factory.FloatAllDockables(vm.Immediate);
+            Dispatcher.UIThread.RunJobs();
+            var host = FloatingHost(vm);
+            host.SetRenderScaling(scaling);
+            host.Position = new PixelPoint((int)(100 * scaling), (int)(120 * scaling));
+            host.Width = 700;
+            host.Height = 220;
+            ((IDock)vm.Immediate.Owner!).ActiveDockable = vm.Locals;
+            Dispatcher.UIThread.RunJobs();
+            host.WindowState = state;
+            Dispatcher.UIThread.RunJobs();
+            var json = LayoutManifestJson.Serialize(factory.CaptureManifest(vm.Layout));
+            using var document = JsonDocument.Parse(json);
+            document.RootElement.GetProperty("floating").GetArrayLength().Should().Be(1);
+            host.Close();
+            var restoredVm = restoredOwned.Composition.Root;
+            var restoredFactory = GetFactory(restoredVm);
+            var restored = restoredFactory.ApplyLayout(LayoutManifestJson.Deserialize(json)!);
+            restoredFactory.InitLayout(restored);
+            ((DockControl)window.Content!).Layout = restored;
+            Dispatcher.UIThread.RunJobs();
+            restored.ShowWindows.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            try
+            {
+                var floating = restored.Windows.Should().ContainSingle().Subject;
+                var restoredHost = (HostWindow)floating.Host!;
+                restoredHost.Owner.Should().BeSameAs(window);
+                ((IDock)restoredVm.Immediate.Owner!).VisibleDockables.Should().Equal(restoredVm.Immediate, restoredVm.Locals);
+                ((IDock)restoredVm.Immediate.Owner!).ActiveDockable.Should().BeSameAs(restoredVm.Locals);
+                restoredHost.WindowState.Should().Be(state);
+                restoredHost.WindowState = WindowState.Normal;
+                Dispatcher.UIThread.RunJobs();
+                restoredHost.Position.Should().Be(new PixelPoint(100, 120));
+                restoredHost.Width.Should().Be(700);
+                restoredHost.Height.Should().Be(220);
+                restoredHost.WindowState.Should().Be(WindowState.Normal);
+                restoredHost.Close();
+                restoredFactory.FindRoot(restoredVm.Immediate).Should().BeSameAs(restored);
+                restoredVm.Immediate.Owner.Should().BeSameAs(restoredVm.Locals.Owner);
+                restoredFactory.CaptureManifest(restored).Tools.Single(t => t.Key == "immediate").Region.Should().Be(DockRegion.Bottom);
+            }
+            finally
+            {
+                foreach (var floating in restored.Windows?.ToArray() ?? []) (floating.Host as Window)?.Close();
+            }
+        });
+    }
+
+    [AvaloniaFact]
+    public Task Offscreen_floating_manifest_uses_owner_screen_and_skips_unknown_tools() => WithWorkspace((vm, factory, window, _) =>
+    {
+        var manifest = LayoutManifestJson.Deserialize("""
+            {"version":2,"leftProportion":0.06,"rightProportion":0.2,
+             "tools":[{"key":"immediate","open":true,"region":"bottom","order":0}],
+             "floating":[{"tools":["gone","immediate"],"activeTool":"gone","x":90000,"y":90000,
+                           "width":700,"height":220,"state":"normal"},
+                          {"tools":["gone"],"x":0,"y":0,"width":700,"height":220,"state":"normal"}]}
+            """)!;
+        var restored = factory.ApplyLayout(manifest);
+        factory.InitLayout(restored);
+        ((DockControl)window.Content!).Layout = restored;
+        Dispatcher.UIThread.RunJobs();
+        restored.ShowWindows.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var host = (HostWindow)restored.Windows.Should().ContainSingle().Subject.Host!;
+            host.Owner.Should().BeSameAs(window);
+            var screen = window.Screens.ScreenFromWindow(window)!;
+            screen.WorkingArea.Contains(new PixelRect(host.Position,
+                PixelSize.FromSize(host.FrameSize ?? host.ClientSize, host.RenderScaling))).Should().BeTrue($"position {host.Position}, frame {host.FrameSize}, client {host.ClientSize}, area {screen.WorkingArea}");
+            ((IDock)vm.Immediate.Owner!).ActiveDockable.Should().BeSameAs(vm.Immediate);
+        }
+        finally
+        {
+            foreach (var floating in restored.Windows?.ToArray() ?? []) (floating.Host as Window)?.Close();
+        }
+    });
+
+    [AvaloniaFact]
+    public Task Legacy_manifest_without_floating_keeps_tools_docked() => WithWorkspace((vm, factory, window, _) =>
+    {
+        var json = LayoutManifestJson.Serialize(factory.CaptureManifest(vm.Layout));
+        var node = System.Text.Json.Nodes.JsonNode.Parse(json)!;
+        node.AsObject().Remove("floating");
+        var restored = factory.ApplyLayout(LayoutManifestJson.Deserialize(node.ToJsonString())!);
+        factory.InitLayout(restored);
+        ((DockControl)window.Content!).Layout = restored;
+        restored.Windows.Should().BeNullOrEmpty();
+        factory.FindRoot(vm.Immediate).Should().BeSameAs(restored);
+        factory.CaptureManifest(restored).Tools.Single(t => t.Key == "immediate").Open.Should().BeTrue();
+    });
+
+    [AvaloniaTheory]
+    [InlineData(1.0)]
+    [InlineData(1.5)]
+    public Task Floating_placement_clamps_the_frame_at_right_edge(double scaling) => WithWorkspace((vm, factory, window, _) =>
+    {
+        factory.FloatDockable(vm.Immediate);
+        Dispatcher.UIThread.RunJobs();
+        var host = FloatingHost(vm);
+        host.SetRenderScaling(scaling);
+        var area = window.Screens.ScreenFromWindow(window)!.WorkingArea;
+        host.Width = 700;
+        host.Height = 220;
+        host.Position = new PixelPoint(area.Right - (int)(700 * host.RenderScaling), area.Y);
+        // Headless has no native frame. Supply the border reported by a decorated platform window.
+        var clamp = host.GetType().GetMethod("ClampToScreen", BindingFlags.Instance | BindingFlags.NonPublic);
+        clamp.Should().NotBeNull();
+        clamp!.Invoke(host, [window, (Size?)new Size(host.ClientSize.Width + 14, host.ClientSize.Height + 30)]);
+        (host.Position.X + (int)Math.Ceiling((host.Width + 14) * host.RenderScaling)).Should().BeLessThanOrEqualTo(area.Right);
+    }, scaling);
+
+    private static MainViewViewModel.DockFactory GetFactory(MainViewViewModel vm) =>
+        (MainViewViewModel.DockFactory)typeof(MainViewViewModel)
+            .GetField("dockFactory", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(vm)!;
 
     [AvaloniaTheory]
     [InlineData("DockControl", "Host", "Dock host", "Dock-Host")]
@@ -391,6 +586,7 @@ public class ToolFloatingTests
     {
         await using var owned = new RealComposition();
         var vm = owned.Composition.Root;
+        vm.ResetWindowLayout();
         var factory = (MainViewViewModel.DockFactory)typeof(MainViewViewModel)
             .GetField("dockFactory", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(vm)!;
         var locator = new Avalonia.Controls.Templates.FuncDataTemplate<ImmediateToolViewModel>((_, _) => new ImmediateToolView());

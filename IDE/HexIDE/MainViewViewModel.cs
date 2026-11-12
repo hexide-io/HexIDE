@@ -314,6 +314,7 @@ public partial class MainViewViewModel : ObservableObject
         private readonly Dictionary<string, List<DockSlot>> closedSlots = new();
         private readonly Dictionary<IDockable, double> restoredProportions = new();
         private IRootDock? liveLayout;
+        private readonly Dictionary<IDockWindow, FloatingLayoutState> restoredWindows = new();
         private readonly Dictionary<string, IToolDock> pendingToolDocks = new();
         private readonly Dictionary<IToolDock, DockLayoutNode> pendingToolGroups = new();
         private double leftProportion = LayoutManifest.DefaultLeftProportion;
@@ -431,10 +432,35 @@ public partial class MainViewViewModel : ObservableObject
         {
             private readonly DockFactory factory;
             private readonly List<INotifyPropertyChanged> titleSources = new();
+            private FloatingLayoutState? normalBounds;
+            private bool discardingLayout;
+
+            internal void DiscardLayout()
+            {
+                discardingLayout = true;
+                Close();
+            }
+
+            internal FloatingLayoutState Capture(IReadOnlyList<string> tools, string? active)
+            {
+                if (WindowState == WindowState.Normal || normalBounds == null) RememberNormalBounds();
+                var bounds = normalBounds ?? new FloatingLayoutState([], null,
+                    Position.X / RenderScaling, Position.Y / RenderScaling, Width, Height, WindowState.Normal);
+                return bounds with { Tools = tools, ActiveTool = active, State = WindowState };
+            }
+
+            private void RememberNormalBounds()
+            {
+                if (WindowState != WindowState.Normal || !IsVisible) return;
+                normalBounds = new FloatingLayoutState([], null, Position.X / RenderScaling,
+                    Position.Y / RenderScaling, Width, Height, WindowState.Normal);
+            }
 
             public ToolHostWindow(DockFactory factory)
             {
                 this.factory = factory;
+                PositionChanged += (_, _) => Dispatcher.UIThread.Post(RememberNormalBounds);
+                SizeChanged += (_, _) => Dispatcher.UIThread.Post(RememberNormalBounds);
                 // The pane's close box runs its tool command; Dock's extra host-close handler
                 // would return the tool first and clear the command parameter (#3770, Dock#1109).
                 LayoutUpdated += (_, _) =>
@@ -464,6 +490,14 @@ public partial class MainViewViewModel : ObservableObject
                     model.Title = Title = active.Title;
             }
 
+            protected override void OnClosing(WindowClosingEventArgs e)
+            {
+                // Avalonia asks owned windows first, before the main window can veto exit.
+                // Leave their layout intact for both a cancelled exit and the confirmed save.
+                if (discardingLayout || e.CloseReason == WindowCloseReason.OwnerWindowClosing) return;
+                base.OnClosing(e);
+            }
+
             protected override void OnClosed(EventArgs e)
             {
                 foreach (var source in titleSources) source.PropertyChanged -= UpdateTitle;
@@ -473,13 +507,27 @@ public partial class MainViewViewModel : ObservableObject
 
             void IHostWindow.Present(bool isDialog)
             {
+                var restored = Window is { } model && factory.restoredWindows.ContainsKey(model);
+                try { PresentCore(isDialog); }
+                catch (Exception ex) when (restored && Window != null)
+                {
+                    Log.Warning(ex, "Failed to present a restored tool window; returning its tools home");
+                    factory.ReturnRestoredWindow(Window);
+                }
+            }
+
+            private void PresentCore(bool isDialog)
+            {
                 if (IsVisible) return;
-                factory.OnWindowOpened(Window);
-                UpdateTitle();
                 // Use the workspace's native window as the owner.
                 var owner = factory.DockControls.OfType<Dock.Avalonia.Controls.DockControl>()
                     .Where(c => ReferenceEquals(c.Layout, factory.liveLayout))
                     .Select(TopLevel.GetTopLevel).OfType<Window>().FirstOrDefault();
+                // InitLayout presents saved windows before the workspace has joined a native window.
+                // MainView retries on attachment and on a layout switch, once an owner is available.
+                if (owner == null && Window is { } pending && factory.restoredWindows.ContainsKey(pending)) return;
+                factory.OnWindowOpened(Window);
+                UpdateTitle();
                 Width = Math.Max(320, double.IsFinite(Width) ? Width : 320);
                 Height = Math.Max(200, double.IsFinite(Height) ? Height : 200);
                 if (owner != null)
@@ -498,13 +546,88 @@ public partial class MainViewViewModel : ObservableObject
                     else Show(owner);
                 }
                 else Show();
+                if (Window is { } model && factory.restoredWindows.Remove(model, out var saved))
+                {
+                    Width = saved.Width;
+                    Height = saved.Height;
+                    Position = new PixelPoint((int)Math.Round(saved.X * RenderScaling), (int)Math.Round(saved.Y * RenderScaling));
+                    ClampToScreen(owner ?? this);
+                    RememberNormalBounds();
+                    UpdateLayout();
+                    WindowState = saved.State;
+                }
+                if (owner != null && WindowState == WindowState.Normal) ClampToScreen(owner);
+                RememberNormalBounds();
+                if (Window is { } current)
+                {
+                    current.X = Position.X;
+                    current.Y = Position.Y;
+                    current.Width = Width;
+                    current.Height = Height;
+                }
+            }
+
+            internal void ClampToScreen(Window owner, Size? measuredFrame = null)
+            {
+                var screen = Screens.ScreenFromPoint(Position) ?? owner.Screens.ScreenFromWindow(owner);
+                if (screen == null) return;
+                var area = screen.WorkingArea;
+                var frame = measuredFrame ?? FrameSize ?? ClientSize;
+                var borderWidth = Math.Max(0, frame.Width - ClientSize.Width);
+                var borderHeight = Math.Max(0, frame.Height - ClientSize.Height);
+                Width = Math.Min(Width, Math.Max(0, area.Width / RenderScaling - borderWidth));
+                Height = Math.Min(Height, Math.Max(0, area.Height / RenderScaling - borderHeight));
+                var width = (int)Math.Ceiling((Width + borderWidth) * RenderScaling);
+                var height = (int)Math.Ceiling((Height + borderHeight) * RenderScaling);
+                Position = new PixelPoint(Math.Clamp(Position.X, area.X, Math.Max(area.X, area.Right - width)),
+                    Math.Clamp(Position.Y, area.Y, Math.Max(area.Y, area.Bottom - height)));
             }
         }
 
-        private void RememberToolSlots(IDockable dockable)
+        internal void PresentRestoredWindows()
+        {
+            foreach (var window in restoredWindows.Keys.ToArray())
+            {
+                try
+                {
+                    window.Present(false);
+                    if (window.Host is Window { IsVisible: true }) continue;
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Failed to present a restored tool window; returning its tools home");
+                }
+                ReturnRestoredWindow(window);
+            }
+        }
+
+        private void ReturnRestoredWindow(IDockWindow window)
+        {
+            ReturnWindowTools(window);
+            restoredWindows.Remove(window);
+            window.Exit();
+            RemoveWindow(window);
+        }
+
+        private void RememberToolSlots(IDockable dockable, bool restoring = false)
         {
             if (liveLayout == null) return;
-            CaptureManifest(liveLayout);
+            // Restore removes tools from an unrendered tree; its collapsed sizes are not home sizes.
+            if (!restoring) CaptureManifest(liveLayout);
+            double HomeProportion(IDockable sibling)
+            {
+                if (!restoring) return sibling.Proportion;
+                if (sibling is IToolDock dock && dock.VisibleDockables?.Select(KeyOf).OfType<string>().FirstOrDefault() is { } key)
+                {
+                    var proportion = lastPlacements.GetValueOrDefault(key)?.Proportion;
+                    return proportion is > 0 ? proportion.Value : Home.GetValueOrDefault(key)?.Proportion ?? 0.3;
+                }
+                if (sibling is IToolDock)
+                    foreach (var slot in closedSlots.Values.SelectMany(p => p))
+                        foreach (var saved in slot.Siblings)
+                            if (ReferenceEquals(saved.Dock, sibling)) return saved.Proportion;
+                return restoredProportions.GetValueOrDefault(sibling, sibling.Proportion);
+            }
             foreach (var (key, tool) in toolsByKey)
                 if ((ReferenceEquals(tool, dockable) || FindContainer(dockable, tool) != null)
                     && FindContainer(liveLayout, tool) != null)
@@ -515,7 +638,7 @@ public partial class MainViewViewModel : ObservableObject
                     {
                         path.Add(new DockSlot(parent, child, parent.VisibleDockables!.IndexOf(child),
                             parent.VisibleDockables.Where(d => d is not IProportionalDockSplitter)
-                                .Select(d => (d, d.Proportion)).ToArray()));
+                                .Select(d => (d, HomeProportion(d))).ToArray()));
                         child = parent;
                     }
                     closedSlots[key] = path;
@@ -550,18 +673,26 @@ public partial class MainViewViewModel : ObservableObject
         public override bool OnWindowClosing(IDockWindow? window)
         {
             if (!base.OnWindowClosing(window)) return false;
+            ReturnWindowTools(window);
+            return true;
+        }
+
+        private void ReturnWindowTools(IDockWindow? window)
+        {
             if (liveLayout != null && window?.Layout is { } floating)
             {
                 // Closing a floating tool window returns its tools to the workspace.
+                // Insert earlier tabs first: a later index clamps to zero in an empty home dock.
                 var tools = toolsByKey.Values.OfType<Tool>()
-                    .Where(t => FindContainer(floating, t) != null).ToArray();
+                    .Where(t => FindContainer(floating, t) != null)
+                    .OrderBy(t => KeyOf(t) is { } key && closedSlots.TryGetValue(key, out var path) && path.Count > 0
+                        ? path[0].Index : int.MaxValue).ToArray();
                 foreach (var tool in tools) RemoveDockable(tool, false);
                 // A floated dock can itself be a saved slot: detach it before reusing it, so host
                 // teardown cannot close tools that have already returned to the workspace.
                 foreach (var child in floating.VisibleDockables?.ToArray() ?? []) RemoveDockable(child, false);
                 foreach (var tool in tools) PlaceTool(liveLayout, tool, rightFallback: true);
             }
-            return true;
         }
 
         public override IRootDock CreateLayout() =>
@@ -599,9 +730,17 @@ public partial class MainViewViewModel : ObservableObject
 
         private IRootDock BuildLayout(LayoutManifest m, IDocumentDock? reuseDocument)
         {
+            // Retire native hosts before reusing the tools in the incoming layout.
+            foreach (var window in liveLayout?.Windows?.ToArray() ?? [])
+            {
+                if (window.Host is ToolHostWindow host) host.DiscardLayout();
+                else window.Exit();
+                RemoveWindow(window);
+            }
             foreach (var tool in toolsByKey.Values.OfType<AddinToolWindowViewModel>().ToArray())
                 m = MigrateAddinKey(m, tool);
             closedSlots.Clear();
+            restoredWindows.Clear();
             restoredProportions.Clear();
             pendingToolDocks.Clear();
             pendingToolGroups.Clear();
@@ -771,6 +910,46 @@ public partial class MainViewViewModel : ObservableObject
                     if (lastPlacements.TryGetValue(key, out var placement))
                         lastPlacements[key] = placement with { Open = false };
             }
+            if (m.Floating.Count > 0)
+            {
+                InitLayout(rootDock);
+                var used = new HashSet<string>();
+                foreach (var saved in m.Floating)
+                {
+                    var tools = saved.Tools.Where(k => toolsByKey.TryGetValue(k, out var tool)
+                            && tool is Tool && used.Add(k))
+                        .Select(k => toolsByKey[k]).ToArray();
+                    if (tools.Length == 0) continue;
+                    // Older manifests have only individual home placements. Preserve a saved
+                    // floating tab group there too, rather than returning it as separate panes.
+                    if (m.Topology == null && tools[0].Owner is IToolDock home)
+                    {
+                        foreach (var tool in tools.Skip(1))
+                            if (tool.Owner is IToolDock source && !ReferenceEquals(source, home)
+                                && lastPlacements.GetValueOrDefault(KeyOf(tool)!)?.Region
+                                    == lastPlacements.GetValueOrDefault(KeyOf(tools[0])!)?.Region)
+                                MoveDockable(source, home, tool, home.VisibleDockables!.LastOrDefault());
+                    }
+                    foreach (var tool in tools) RememberToolSlots(tool, restoring: true);
+                    foreach (var tool in tools) RemoveDockable(tool, false);
+                    var group = CreateToolDock();
+                    group.VisibleDockables = CreateList(tools);
+                    group.ActiveDockable = tools.FirstOrDefault(t => KeyOf(t) == saved.ActiveTool) ?? tools[0];
+                    var window = CreateWindowFrom(group);
+                    if (window == null)
+                    {
+                        foreach (var tool in tools) RemoveDockable(tool, false);
+                        foreach (var tool in tools.OfType<Tool>()) PlaceTool(rootDock, tool, rightFallback: true);
+                        continue;
+                    }
+                    window.X = saved.X;
+                    window.Y = saved.Y;
+                    window.Width = saved.Width;
+                    window.Height = saved.Height;
+                    restoredWindows[window] = saved;
+                    AddWindow(rootDock, window);
+                }
+            }
             return rootDock;
         }
 
@@ -923,13 +1102,30 @@ public partial class MainViewViewModel : ObservableObject
                 is { Proportion: > 0 } rd)
                 right = rd.Proportion;
 
+            var floating = new List<FloatingLayoutState>();
+            foreach (var window in layout.Windows ?? [])
+            {
+                if (window.Layout == null) continue;
+                IEnumerable<IDockable> Leaves(IDockable node) => node is IDock dock
+                    ? (dock.VisibleDockables ?? []).SelectMany(Leaves) : [node];
+                var keys = Leaves(window.Layout).Select(KeyOf).OfType<string>().ToArray();
+                if (keys.Length == 0) continue;
+                IDockable active = window.Layout;
+                while (active is IDock { ActiveDockable: { } child }) active = child;
+                var host = window.Host as Window;
+                var scaling = host?.RenderScaling ?? 1;
+                floating.Add(restoredWindows.TryGetValue(window, out var pending) ? pending : host is ToolHostWindow toolHost ? toolHost.Capture(keys, KeyOf(active)) : new FloatingLayoutState(keys, KeyOf(active),
+                    (host?.Position.X ?? window.X) / scaling, (host?.Position.Y ?? window.Y) / scaling,
+                    host?.Width ?? window.Width, host?.Height ?? window.Height, host?.WindowState ?? WindowState.Normal));
+            }
+            var floatingKeys = floating.SelectMany(w => w.Tools).ToHashSet();
             var states = new List<ToolLayoutState>(LayoutManifest.Default.Tools.Count);
             foreach (var def in LayoutManifest.Default.Tools)
             {
                 var located = Locate(layout, toolsByKey[def.Key]);
                 states.Add(located is { } loc
                     ? new ToolLayoutState(def.Key, true, loc.Region, loc.Order, loc.Proportion)
-                    : lastPlacements.GetValueOrDefault(def.Key, def) with { Open = false });
+                    : lastPlacements.GetValueOrDefault(def.Key, def) with { Open = floatingKeys.Contains(def.Key) });
             }
 
             foreach (var key in deferredTools.Keys.Concat(toolsByKey.Keys.Where(k => k.StartsWith("addin:", StringComparison.Ordinal))).Distinct())
@@ -939,7 +1135,7 @@ public partial class MainViewViewModel : ObservableObject
                 var located = toolsByKey.TryGetValue(key, out var tool) ? Locate(layout, tool) : null;
                 states.Add(located is { } loc
                     ? new ToolLayoutState(key, true, loc.Region, loc.Order, loc.Proportion)
-                    : toolsByKey.ContainsKey(key) ? saved with { Open = false } : saved);
+                    : toolsByKey.ContainsKey(key) ? saved with { Open = floatingKeys.Contains(key) } : saved);
             }
 
             leftProportion = left;
@@ -949,6 +1145,7 @@ public partial class MainViewViewModel : ObservableObject
             return new LayoutManifest(LayoutManifest.CurrentVersion, left, right, states)
             {
                 Topology = layout.DefaultDockable is { } tree ? CaptureTopology(tree) : null,
+                Floating = floating,
             };
         }
 
@@ -1115,6 +1312,15 @@ public partial class MainViewViewModel : ObservableObject
                         ApplyProportion(sibling, siblingProportion);
                     slot.Parent.ActiveDockable = slot.Child;
                 }
+                // Empty home docks will collapse again; reserve only panes that now hold tools.
+                foreach (var parent in path.Select(s => s.Parent).Distinct())
+                    if (parent.Context as string == nameof(MiddleDock)
+                        && parent.VisibleDockables?.OfType<IDocumentDock>().FirstOrDefault() is { } documents)
+                    {
+                        var shares = parent.VisibleDockables.OfType<IToolDock>()
+                            .Where(d => d.VisibleDockables?.Count > 0).Sum(d => d.Proportion);
+                        if (double.IsFinite(shares) && shares < 1) ApplyProportion(documents, 1 - shares);
+                    }
                 InitDockable(path[^1].Parent, path[^1].Parent.Owner);
                 FocusDockable((IDock)tool.Owner!, tool);
                 RefreshLayout(layout);
