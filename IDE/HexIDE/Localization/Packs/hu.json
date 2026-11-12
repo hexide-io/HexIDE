@@ -2,6 +2,8 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Dokumentumfülek",
+    "Str.Dock.ToolTabs": "Eszközfülek",
     "Str.AIChat.Refusal": "A szolgáltató elutasította ezt a kérést.",
     "Str.AIChat.TokenLimit": "A válasz elérte a tokenkorlátot, és nem teljes.",
     "Str.Startup.PlatformSummary": "Csak Linux. Megjelenítő: x11 (alapértelmezett), auto vagy wayland.",

@@ -2,6 +2,8 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "문서 탭",
+    "Str.Dock.ToolTabs": "도구 탭",
     "Str.AIChat.Refusal": "공급자가 이 요청을 거부했습니다.",
     "Str.AIChat.TokenLimit": "응답이 토큰 한도에 도달하여 완전하지 않습니다.",
     "Str.Startup.PlatformSummary": "Linux 전용. 표시 백엔드: x11 (기본값), auto 또는 wayland.",

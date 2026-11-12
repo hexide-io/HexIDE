@@ -2,6 +2,8 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Separadores de documentos",
+    "Str.Dock.ToolTabs": "Separadores de ferramentas",
     "Str.AIChat.Refusal": "O fornecedor recusou este pedido.",
     "Str.AIChat.TokenLimit": "A resposta atingiu o limite de tokens e está incompleta.",
     "Str.Startup.PlatformSummary": "Apenas Linux. Motor gráfico: x11 (predefinido), auto ou wayland.",

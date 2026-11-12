@@ -127,3 +127,12 @@ code window, restore its caret position. History SHALL NOT persist across sessio
 #### Scenario: More than twenty windows close
 - **WHEN** a twenty-first window closes
 - **THEN** the oldest history entry is discarded
+
+### Requirement: Dock tab strips have localized automation names
+Document and tool tab strips SHALL expose the localized document-tabs and tool-tabs labels as their
+accessible names, overriding the dock title and the library's English fallback.
+
+#### Scenario: Splitting the document area in another language
+- **WHEN** the user creates a horizontal or vertical document dock with a non-English language selected
+- **THEN** both document strips expose the localized document-tabs name, even if the new dock title is `IDocumentDock`
+- **AND** tool strips expose the localized tool-tabs name

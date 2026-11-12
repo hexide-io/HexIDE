@@ -2,6 +2,8 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Dock.DocumentTabs": "כרטיסיות מסמכים",
+    "Str.Dock.ToolTabs": "כרטיסיות כלים",
     "Str.AIChat.Refusal": "הספק דחה את הבקשה הזו.",
     "Str.AIChat.TokenLimit": "התשובה הגיעה למגבלת האסימונים ואינה שלמה.",
     "Str.Startup.PlatformSummary": "Linux בלבד. מנגנון תצוגה: x11 (ברירת מחדל), auto או wayland.",

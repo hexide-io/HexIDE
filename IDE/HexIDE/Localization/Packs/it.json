@@ -2,6 +2,8 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Schede dei documenti",
+    "Str.Dock.ToolTabs": "Schede degli strumenti",
     "Str.AIChat.Refusal": "Il fornitore ha rifiutato questa richiesta.",
     "Str.AIChat.TokenLimit": "La risposta ha raggiunto il limite di token ed è incompleta.",
     "Str.Startup.PlatformSummary": "Solo Linux. Backend grafico: x11 (predefinito), auto o wayland.",

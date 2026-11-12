@@ -2,6 +2,8 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Karty dokumentów",
+    "Str.Dock.ToolTabs": "Karty narzędzi",
     "Str.AIChat.Refusal": "Dostawca odrzucił to żądanie.",
     "Str.AIChat.TokenLimit": "Odpowiedź osiągnęła limit tokenów i jest niepełna.",
     "Str.Startup.PlatformSummary": "Tylko Linux. Mechanizm wyświetlania: x11 (domyślny), auto lub wayland.",

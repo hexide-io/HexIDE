@@ -2,6 +2,8 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "ドキュメントのタブ",
+    "Str.Dock.ToolTabs": "ツールのタブ",
     "Str.AIChat.Refusal": "プロバイダーがこのリクエストを拒否しました。",
     "Str.AIChat.TokenLimit": "応答がトークン上限に達したため、未完了です。",
     "Str.Startup.PlatformSummary": "Linux のみ。表示バックエンド: x11 (既定)、auto、wayland。",

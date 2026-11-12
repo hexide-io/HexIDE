@@ -2,6 +2,8 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Dock.DocumentTabs": "علامات تبويب المستندات",
+    "Str.Dock.ToolTabs": "علامات تبويب الأدوات",
     "Str.AIChat.Refusal": "رفض مزود الخدمة هذا الطلب.",
     "Str.AIChat.TokenLimit": "بلغ الرد حد الرموز وهو غير مكتمل.",
     "Str.Startup.PlatformSummary": "Linux فقط. واجهة العرض: x11 (افتراضي) أو auto أو wayland.",

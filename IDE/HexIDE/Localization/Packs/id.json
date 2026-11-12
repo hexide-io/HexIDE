@@ -2,6 +2,8 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Tab dokumen",
+    "Str.Dock.ToolTabs": "Tab alat",
     "Str.AIChat.Refusal": "Penyedia menolak permintaan ini.",
     "Str.AIChat.TokenLimit": "Balasan mencapai batas token dan belum lengkap.",
     "Str.Startup.PlatformSummary": "Khusus Linux. Backend tampilan: x11 (bawaan), auto atau wayland.",

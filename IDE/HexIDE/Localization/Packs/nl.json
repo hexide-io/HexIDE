@@ -2,6 +2,8 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Documenttabbladen",
+    "Str.Dock.ToolTabs": "Hulptabbladen",
     "Str.AIChat.Refusal": "De aanbieder heeft dit verzoek geweigerd.",
     "Str.AIChat.TokenLimit": "Het antwoord heeft de tokenlimiet bereikt en is onvolledig.",
     "Str.Startup.PlatformSummary": "Alleen Linux. Weergavebackend: x11 (standaard), auto of wayland.",
