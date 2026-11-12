@@ -1097,6 +1097,7 @@
     "Str.Automation.ChooseFont": "Schriftart auswählen",
     "Str.Automation.ToggleList": "Liste öffnen oder schließen",
     "Str.Automation.Close": "Schließen",
+    "Str.Dock.NoDocumentsOpen": "Keine Dokumente geöffnet",
     "Str.Dock.ScrollUp": "Registerkarten nach oben scrollen",
     "Str.Dock.ScrollDown": "Registerkarten nach unten scrollen",
     "Str.Dock.Menu": "Fenstermenü",

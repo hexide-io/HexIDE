@@ -1131,6 +1131,7 @@
     "Str.Automation.ChooseFont": "Scegli carattere",
     "Str.Automation.ToggleList": "Apri o chiudi elenco",
     "Str.Automation.Close": "Chiudi",
+    "Str.Dock.NoDocumentsOpen": "Nessun documento aperto",
     "Str.Dock.ScrollUp": "Scorri schede in alto",
     "Str.Dock.ScrollDown": "Scorri schede in basso",
     "Str.Dock.Menu": "Menu del pannello",

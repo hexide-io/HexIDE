@@ -1060,6 +1060,7 @@
     "Str.Automation.ChooseFont": "Vali font",
     "Str.Automation.ToggleList": "Ava või sulge loend",
     "Str.Automation.Close": "Sulge",
+    "Str.Dock.NoDocumentsOpen": "Ühtegi dokumenti pole avatud",
     "Str.Dock.ScrollUp": "Keri vahekaarte üles",
     "Str.Dock.ScrollDown": "Keri vahekaarte alla",
     "Str.Dock.Menu": "Paani menüü",

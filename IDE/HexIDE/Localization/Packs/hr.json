@@ -1094,6 +1094,7 @@
     "Str.Automation.ChooseFont": "Odaberi font",
     "Str.Automation.ToggleList": "Otvori ili zatvori popis",
     "Str.Automation.Close": "Zatvori",
+    "Str.Dock.NoDocumentsOpen": "Nema otvorenih dokumenata",
     "Str.Dock.ScrollUp": "Pomakni kartice gore",
     "Str.Dock.ScrollDown": "Pomakni kartice dolje",
     "Str.Dock.Menu": "Izbornik okna",

@@ -1131,6 +1131,7 @@
     "Str.Automation.ChooseFont": "בחירת גופן",
     "Str.Automation.ToggleList": "פתיחה או סגירה של הרשימה",
     "Str.Automation.Close": "סגור",
+    "Str.Dock.NoDocumentsOpen": "אין מסמכים פתוחים",
     "Str.Dock.ScrollUp": "גלילת כרטיסיות למעלה",
     "Str.Dock.ScrollDown": "גלילת כרטיסיות למטה",
     "Str.Dock.Menu": "תפריט החלונית",

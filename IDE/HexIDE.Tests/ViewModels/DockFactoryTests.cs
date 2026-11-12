@@ -23,7 +23,7 @@ namespace HexIDE.Tests.ViewModels;
 
 public class DockFactoryTests
 {
-    internal static (MainViewViewModel.DockFactory factory, ImmediateToolViewModel immediate) CreateFactory(LayoutManifest? manifest = null, ToolBoxToolViewModel? toolbox = null)
+    internal static (MainViewViewModel.DockFactory factory, ImmediateToolViewModel immediate) CreateFactory(LayoutManifest? manifest = null, ToolBoxToolViewModel? toolbox = null, ILocalizationService? localization = null)
     {
         var docDock = Substitute.For<IDocumentDockService>();
         var eventBus = Substitute.For<IEventBus>();
@@ -31,8 +31,8 @@ public class DockFactoryTests
         var projectManager = Substitute.For<IProjectManager>();
         var projectService = Substitute.For<IProjectService>();
         var editorService = Substitute.For<IEditorService>();
-        var loc = Substitute.For<ILocalizationService>();
-        loc.ActiveLanguage.Returns("en");
+        var loc = localization ?? Substitute.For<ILocalizationService>();
+        if (localization == null) loc.ActiveLanguage.Returns("en");
 
         // ToolBoxToolViewModel loads Avalonia bitmaps in its ctor; bypass since the tree never renders.
         var toolBox = toolbox ?? (ToolBoxToolViewModel)RuntimeHelpers.GetUninitializedObject(typeof(ToolBoxToolViewModel));
@@ -69,8 +69,56 @@ public class DockFactoryTests
             toolBox, projectExplorer, properties, formLayout,
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             languageServers, protocolInspector, wss, new DockFactoryReference(), new HexIDE.Tools.OutlineToolViewModel(
-                Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IDocumentDockService>()));
+                Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IDocumentDockService>()), loc);
         return (factory, immediate);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EmptyDocumentContentUsesActiveLanguage(bool frameworkCreated)
+    {
+        var loc = Substitute.For<ILocalizationService>();
+        loc.GetString("Str.Dock.NoDocumentsOpen").Returns("Keine Dokumente geöffnet");
+        var (factory, _) = CreateFactory(localization: loc);
+        factory.CreateLayout();
+        var dock = frameworkCreated ? factory.CreateDocumentDock() : factory.DocumentDock!;
+
+        dock.EmptyContent.Should().Be("Keine Dokumente geöffnet");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EmptyDocumentContentFollowsLanguageSwitch(bool frameworkCreated)
+    {
+        var loc = Substitute.For<ILocalizationService>();
+        loc.GetString("Str.Dock.NoDocumentsOpen").Returns("No documents open");
+        var (factory, _) = CreateFactory(localization: loc);
+        var root = factory.CreateLayout();
+        var dock = frameworkCreated ? factory.CreateDocumentDock() : factory.DocumentDock!;
+        // A split's new dock goes into the layout beside the first, as Dock's New Horizontal Document Dock puts it:
+        // the switch reaches the docks in the layout, and one that has left it needs no text.
+        if (frameworkCreated) factory.AddDockable(root, dock);
+
+        loc.GetString("Str.Dock.NoDocumentsOpen").Returns("Keine Dokumente geöffnet");
+        loc.LanguageChanged += Raise.Event<Action>();
+
+        dock.EmptyContent.Should().Be("Keine Dokumente geöffnet");
+    }
+
+    [AvaloniaFact]
+    public void EmptyDocumentContentIsBracketedInPseudo()
+    {
+        var loc = new LocalizationService();
+        loc.Apply("en");
+        var (factory, _) = CreateFactory(localization: loc);
+        factory.CreateLayout();
+
+        loc.Apply("pseudo");
+
+        var text = factory.DocumentDock!.EmptyContent.Should().BeOfType<string>().Subject;
+        text.Should().StartWith("⟦").And.EndWith("⟧");
     }
 
     [AvaloniaTheory]

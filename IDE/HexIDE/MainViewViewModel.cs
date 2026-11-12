@@ -304,6 +304,7 @@ public partial class MainViewViewModel : ObservableObject
         internal const double MinimumDocumentHeight = 120;
 
         private readonly IWindowStateService windowStateService;
+        private readonly ILocalizationService localization;
         private readonly Dictionary<string, IDockable> toolsByKey;
         private readonly Dictionary<string, ToolLayoutState> deferredTools = new();
         private readonly Dictionary<string, int> savedOrders = new();
@@ -364,7 +365,8 @@ public partial class MainViewViewModel : ObservableObject
             HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel protocolInspector,
             IWindowStateService windowStateService,
             DockFactoryReference documentDockFactory,
-            OutlineToolViewModel outline)
+            OutlineToolViewModel outline,
+            ILocalizationService localization)
         {
             ArgumentNullException.ThrowIfNull(toolBox);
             ArgumentNullException.ThrowIfNull(project);
@@ -382,9 +384,19 @@ public partial class MainViewViewModel : ObservableObject
             ArgumentNullException.ThrowIfNull(windowStateService);
             ArgumentNullException.ThrowIfNull(documentDockFactory);
             ArgumentNullException.ThrowIfNull(outline);
+            ArgumentNullException.ThrowIfNull(localization);
 
             Outline = outline;
             this.windowStateService = windowStateService;
+            this.localization = localization;
+            // One subscription for every document dock in the layout, not one per dock: a dock that collapses or is
+            // removed would otherwise stay subscribed to this singleton for the rest of the session (#3771).
+            localization.LanguageChanged += () =>
+            {
+                if (liveLayout is null) return;
+                var empty = localization.GetString("Str.Dock.NoDocumentsOpen");
+                Find<IDocumentDock>(liveLayout, d => { d.EmptyContent = empty; return false; });
+            };
             toolsByKey = new Dictionary<string, IDockable>
             {
                 ["toolbox"]           = toolBox,
@@ -407,6 +419,13 @@ public partial class MainViewViewModel : ObservableObject
         }
 
         public static bool IsToolHostWindow(Window window) => window is ToolHostWindow;
+
+        public override IDocumentDock CreateDocumentDock()
+        {
+            var dock = base.CreateDocumentDock();
+            dock.EmptyContent = localization.GetString("Str.Dock.NoDocumentsOpen");
+            return dock;
+        }
 
         private sealed class ToolHostWindow : Dock.Avalonia.Controls.HostWindow, IHostWindow
         {
@@ -663,14 +682,12 @@ public partial class MainViewViewModel : ObservableObject
             }
             else
             {
-                dd = new DocumentDock
-                {
-                    CanClose = false,
-                    CanFloat = false,
-                    CanCreateDocument = false,
-                    IsCollapsable = false,
-                    VisibleDockables = CreateList<IDockable>(),
-                };
+                dd = (DocumentDock)CreateDocumentDock();
+                dd.CanClose = false;
+                dd.CanFloat = false;
+                dd.CanCreateDocument = false;
+                dd.IsCollapsable = false;
+                dd.VisibleDockables = CreateList<IDockable>();
             }
             dd.MinHeight = Math.Max(MinimumDocumentHeight, double.IsFinite(dd.MinHeight) ? dd.MinHeight : 0);
             DocumentDock = dd;

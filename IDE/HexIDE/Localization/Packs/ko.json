@@ -1131,6 +1131,7 @@
     "Str.Automation.ChooseFont": "글꼴 선택",
     "Str.Automation.ToggleList": "목록 열기 또는 닫기",
     "Str.Automation.Close": "닫기",
+    "Str.Dock.NoDocumentsOpen": "열린 문서 없음",
     "Str.Dock.ScrollUp": "탭을 위로 스크롤",
     "Str.Dock.ScrollDown": "탭을 아래로 스크롤",
     "Str.Dock.Menu": "창 메뉴",
