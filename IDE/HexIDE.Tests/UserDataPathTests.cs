@@ -1,3 +1,4 @@
+using System.Reflection;
 using HexIDE.IDE;
 
 namespace HexIDE.Tests;
@@ -68,6 +69,9 @@ public class UserDataPathTests
         // Pinned so the Unix fix cannot quietly change where existing Windows users' files live.
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
-        UserDataPath.Directory.Should().Be(Path.Combine(appData, "HexIDE"));
+        // The process uses a temporary profile. Inspect the default calculation without reading or moving it.
+        var platformBase = typeof(UserDataPath).GetMethod("Base", BindingFlags.NonPublic | BindingFlags.Static)!
+            .Invoke(null, null);
+        platformBase.Should().Be(appData);
     }
 }
