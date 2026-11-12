@@ -1713,6 +1713,20 @@ ancestor); otherwise it SHALL omit the path rather than name an unrelated contro
 - **WHEN** the Watches tree's ContextMenu has focus and `press_key` sends Escape to its watch row
 - **THEN** the reply names the menu at the tree's `ContextMenu` path, and the menu closes
 
+### Requirement: Typing replies wait for the editor's language-server work
+`type_text` in keyboard mode and `press_key` SHALL wait up to 2 s for pending completion, parameter-info
+and on-type formatting work after each key, including applying or discarding formatting edits, before
+reporting the caret. A reply that reaches that budget SHALL say that work may still change the editor.
+A key with no pending work SHALL incur no fixed delay.
+
+#### Scenario: A line break receives an on-type formatting edit
+- **WHEN** either tool sends Enter and the language server indents the new line and adds `End If`
+- **THEN** the reply reports the caret after that edit and an immediate document read includes the edit
+
+#### Scenario: The automation budget expires
+- **WHEN** the editor's language-server work has not settled within the automation budget
+- **THEN** the reply names the outstanding work and warns that the editor may still change
+
 ### Requirement: press_key reads a chord written as one key
 `press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it
 as modifiers added to any `modifiers` given, and its reply SHALL say how it read the chord. A chord whose leading
