@@ -445,6 +445,7 @@
     "Str.Designer.Context.AlignToGrid": "Rácshoz igazítás",
     "Str.Designer.Context.Properties": "Tulajdonságok",
     "Str.CodeEditor.FileNotSaved.Banner": "Ez a fájl nem lesz mentve — a HexIDE még nem tudja hűen visszaadni, ezért a mentés módosítaná. A kód a fájl része, ezért ebbe az ablakba nem lehet gépelni.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "A gépelés elutasítva, mert ez a szöveg csak olvasható, és csak az IDE módosítja.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Az átnevezés nem történt meg, mert a fájl olyan írásvédett szövegét módosítaná, amelyet csak az IDE módosít.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Az átnevezés nem történt meg, mert más dokumentumokat is módosítana: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Az átnevezés nem alkalmazható erre: {0}.",

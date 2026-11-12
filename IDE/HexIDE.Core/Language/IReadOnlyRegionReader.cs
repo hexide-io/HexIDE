@@ -23,6 +23,14 @@ public interface IReadOnlyRegionReader
     IReadOnlyList<TextRegion> Regions(string text, int prefixLength);
 
     /// <summary>
+    /// Reads regions with the format's prefix policy. When <paramref name="prefixIsEntireHeader"/> is true,
+    /// a reader that recognises an implicit header may not extend it into the developer's code.
+    /// Readers with explicit regions keep their own answer by default.
+    /// </summary>
+    IReadOnlyList<TextRegion> Regions(string text, int prefixLength, bool prefixIsEntireHeader) =>
+        Regions(text, prefixLength);
+
+    /// <summary>
     /// The regions of <paramref name="text"/> that hang from the line above them, in order. Each one's
     /// <see cref="HangingRegion.Region"/> is also one of <see cref="Regions"/>.
     /// </summary>

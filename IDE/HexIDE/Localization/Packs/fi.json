@@ -450,6 +450,7 @@
     "Str.Designer.Context.AlignToGrid": "Kohdista ruudukkoon",
     "Str.Designer.Context.Properties": "Ominaisuudet",
     "Str.CodeEditor.FileNotSaved.Banner": "Tätä tiedostoa ei tallenneta — HexIDE ei vielä pysty toistamaan sitä uskollisesti, joten tallentaminen muuttaisi sitä. Sen koodi on osa tiedostoa, joten tähän ikkunaan kirjoittaminen estetään.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Kirjoittaminen estettiin, koska tämä teksti on vain luku -tilassa ja vain IDE muuttaa sitä.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Nimeä ei muutettu, koska se muuttaisi tämän tiedoston vain luku -tekstiä, jota vain IDE muuttaa.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Uudelleennimeämistä ei tehty, koska se muokkaa myös muita asiakirjoja: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Uudelleennimeämistä ei voi tehdä kohteessa {0}.",

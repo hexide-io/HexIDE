@@ -849,10 +849,10 @@ public class GuardedWritersTests : IDisposable
     [AvaloniaFact]
     public void AFileInsertedAfterAHeaderWithNoFinalLineBreakStartsALineOfItsOwn()
     {
-        // The header's attribute run carries on into the code, whose last line has no terminator.
-        var module = TestHelpers.CreateModule(name: "Module1");
-        module.UpdateCode("Attribute VB_Description = \"Helpers\"");
-        var vm = NewEditor().Initialize(module);
+        // A form's leading attribute run stays read-only, even with no final terminator.
+        var form = new FormDefinition(Project, HexIDE.Runtime.Components.FormComponentClass.Instance, "Module1");
+        form.UpdateCode("Attribute VB_Description = \"Helpers\"");
+        var vm = NewEditor().Initialize(form);
         var before = vm.Document.Text;
 
         vm.InsertPastReadOnlyRegion(3, 0, "Sub Main()\r\nEnd Sub\r\n");

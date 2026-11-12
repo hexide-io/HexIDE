@@ -450,6 +450,7 @@
     "Str.Designer.Context.AlignToGrid": "Выровнять по сетке",
     "Str.Designer.Context.Properties": "Свойства",
     "Str.CodeEditor.FileNotSaved.Banner": "Этот файл не будет сохранён — HexIDE пока не может воспроизвести его в точности, поэтому сохранение изменило бы его. Его код — часть файла, так что ввод в этом окне отклоняется.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Ввод отклонён, поскольку этот текст доступен только для чтения и изменяется только IDE.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Переименование не выполнено, поскольку оно изменило бы текст только для чтения в этом файле, который изменяет только IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Переименование не выполнено, поскольку оно также изменяет другие документы: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Не удалось применить переименование к {0}.",

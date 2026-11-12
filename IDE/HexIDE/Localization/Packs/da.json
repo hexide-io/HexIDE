@@ -450,6 +450,7 @@
     "Str.Designer.Context.AlignToGrid": "Justér efter gitter",
     "Str.Designer.Context.Properties": "Egenskaber",
     "Str.CodeEditor.FileNotSaved.Banner": "Denne fil bliver ikke gemt — HexIDE kan endnu ikke gengive den nøjagtigt, så den ville blive ændret, hvis den blev gemt. Dens kode er en del af filen, så indtastning i dette vindue afvises.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Indtastning blev afvist, fordi denne tekst er skrivebeskyttet og kun ændres af IDE’et.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Omdøbningen blev ikke udført, fordi den ville ændre skrivebeskyttet tekst i denne fil, som kun IDE'et ændrer.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Omdøbningen blev ikke udført, fordi den også ændrer andre dokumenter: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Kan ikke anvende omdøbning på {0}.",

@@ -15,6 +15,26 @@ public sealed class Vb6ReadOnlyRegionReader : IReadOnlyRegionReader
     public IReadOnlyList<TextRegion> Regions(string text, int prefixLength) => ReadOnlyRegions.Of(text, prefixLength);
 
     /// <inheritdoc/>
+    public IReadOnlyList<TextRegion> Regions(string text, int prefixLength, bool prefixIsEntireHeader)
+    {
+        var regions = Regions(text, prefixLength);
+        if (!prefixIsEntireHeader)
+            return regions;
+
+        // The reader put module attributes in the prefix; anything typed below it is the developer's (#3798).
+        var bounded = new List<TextRegion>();
+        foreach (var region in regions)
+        {
+            if (region.Start != 0 || region.Anchor is not null)
+                bounded.Add(region);
+            else if (prefixLength > 0)
+                bounded.Add(region with { End = prefixLength,
+                    OpenEnded = prefixLength == text.Length && !text.EndsWith('\n') && !text.EndsWith('\r') });
+        }
+        return bounded;
+    }
+
+    /// <inheritdoc/>
     /// <remarks>
     /// Each run that describes a member (<see cref="ReadOnlyRegions.MemberRuns"/>), keyed by its
     /// <see cref="MemberRunKey"/> and named by the member's declaration as it spells it.

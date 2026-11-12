@@ -484,6 +484,7 @@
     "Str.Designer.Context.AlignToGrid": "יישר לרשת",
     "Str.Designer.Context.Properties": "מאפיינים",
     "Str.CodeEditor.FileNotSaved.Banner": "קובץ זה לא יישמר — HexIDE עדיין אינו יכול לשחזר אותו נאמנה, ולכן שמירתו תשנה אותו. הקוד שלו הוא חלק מהקובץ, ומשום כך הקלדה בחלון זה נדחית.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "ההקלדה נדחתה משום שטקסט זה הוא לקריאה בלבד ורק סביבת הפיתוח משנה אותו.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "שינוי השם לא בוצע כי הוא היה משנה טקסט לקריאה בלבד בקובץ זה, שרק סביבת הפיתוח משנה.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "שינוי השם לא בוצע משום שהוא עורך גם מסמכים אחרים: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "לא ניתן להחיל שינוי שם על {0}.",

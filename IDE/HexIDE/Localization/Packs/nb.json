@@ -484,6 +484,7 @@
     "Str.Designer.Context.AlignToGrid": "Juster etter rutenett",
     "Str.Designer.Context.Properties": "Egenskaper",
     "Str.CodeEditor.FileNotSaved.Banner": "Denne filen blir ikke lagret — HexIDE kan ennå ikke gjengi den nøyaktig, så den ville bli endret om den ble lagret. Koden er en del av filen, så skriving i dette vinduet avvises.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Inntasting ble avvist fordi denne teksten er skrivebeskyttet og bare endres av IDE-et.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Omdøpingen ble ikke utført fordi den ville endre skrivebeskyttet tekst i denne filen, som bare IDE-et endrer.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Navneendringen ble ikke utført fordi den også endrer andre dokumenter: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Kan ikke bruke navneendring på {0}.",
