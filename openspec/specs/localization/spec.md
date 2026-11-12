@@ -333,3 +333,8 @@ Developer-only docking debug labels are excluded.
 #### Scenario: Switching docking menus to a pseudo language
 - **WHEN** the user switches to Pseudo (LTR)
 - **THEN** tool-pane, document-tab, pinned-tool and tool-tab menus and drag-preview labels use bracketed pseudo text
+
+#### Scenario: Dragging a document tab with a translated status
+- **WHEN** a document tab is dragged in any shipped language
+- **THEN** its preview widens beyond the tab's preferred width as needed to fit the title and reserved status allowance
+- **AND** Dock, Float and None status labels fit in full alongside the title (#3802)
