@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Event",
     "Str.Tool.Outline.Kind.Operator": "Operator",
     "Str.Tool.Outline.Kind.TypeParameter": "Type parameter",
+    "Str.Debug.Conditions.EvaluationFailed": "Breakpoint condition '{0}' at {1} line {2} couldn't be evaluated: {3}",
     "Str.Debug.Conditions.Prompt": "Break at this line only when this expression is True:",
     "Str.Debug.Conditions.Edit": "Condition…",
     "Str.Debug.Conditions.AdapterIgnored": "This adapter ignores breakpoint conditions and stops every time.",
@@ -1242,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Dock",
     "Str.Dock.ToolTabStripItemAutoHide": "_Auto Hide",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Dock as Tabbed Document",
-    "Str.Dock.ToolTabStripItemClose": "_Close"
+    "Str.Dock.ToolTabStripItemClose": "_Close",
+    "Str.AIChat.ApiKeyRequired": "API key required. Set apiKey in chat-settings.json."
   }
 }

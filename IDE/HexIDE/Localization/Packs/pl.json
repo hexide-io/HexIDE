@@ -1201,6 +1201,7 @@
     "Str.Tool.Outline.Kind.Event": "Zdarzenie",
     "Str.Tool.Outline.Kind.Operator": "Operator",
     "Str.Tool.Outline.Kind.TypeParameter": "Parametr typu",
+    "Str.Debug.Conditions.EvaluationFailed": "Nie można obliczyć warunku punktu przerwania '{0}' w {1}, wiersz {2}: {3}",
     "Str.Debug.Conditions.Prompt": "Zatrzymaj w tym wierszu tylko wtedy, gdy to wyrażenie jest prawdziwe:",
     "Str.Debug.Conditions.Edit": "Warunek…",
     "Str.Debug.Conditions.AdapterIgnored": "Ten adapter ignoruje warunki i zatrzymuje się za każdym razem.",
@@ -1242,6 +1243,7 @@
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Symbole obszaru roboczego czekają na wybór folderu projektu.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Plik się zmienił. Otwórz formularz ponownie przed zapisaniem.",
     "Str.Dock.DocumentTabs": "Karty dokumentów",
-    "Str.Dock.ToolTabs": "Karty narzędzi"
+    "Str.Dock.ToolTabs": "Karty narzędzi",
+    "Str.AIChat.ApiKeyRequired": "Wymagany jest klucz API. Ustaw apiKey w chat-settings.json."
   }
 }

@@ -98,6 +98,28 @@ public class MainViewViewModelTests
             Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 
+    [AvaloniaFact]
+    public void Failed_breakpoint_condition_is_visible_in_the_status_bar_until_continue()
+    {
+        var debug = Substitute.For<HexIDE.Runtime.Debugging.IDebugController>();
+        var sut = Build(_runnerService, debug: debug);
+        _localization.GetString("Str.Debug.Conditions.EvaluationFailed").Returns("Condition {0} at {1}:{2} failed: {3}");
+        var stop = new HexIDE.Runtime.Debugging.StoppedInfo(
+            HexIDE.Runtime.Debugging.StopReason.Breakpoint, "Module1", 7, "x >", "Syntax error");
+        debug.State.Returns(HexIDE.Runtime.Debugging.DebugState.Paused);
+        debug.CurrentStop.Returns(stop);
+        debug.Stopped += Raise.Event<Action<HexIDE.Runtime.Debugging.StoppedInfo>>(stop);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        _statusBarService.Received().SetMessage("Condition x > at Module1:7 failed: Syntax error");
+        _statusBarService.ClearReceivedCalls();
+        debug.State.Returns(HexIDE.Runtime.Debugging.DebugState.Running);
+        debug.CurrentStop.Returns((HexIDE.Runtime.Debugging.StoppedInfo?)null);
+        debug.Continued += Raise.Event<Action>();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        _statusBarService.Received().ClearMessage();
+        GC.KeepAlive(sut);
+    }
+
     [AvaloniaTheory]
     [InlineData(false, false)]
     [InlineData(true, false)]

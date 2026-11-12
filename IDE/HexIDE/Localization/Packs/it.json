@@ -1201,6 +1201,7 @@
     "Str.Tool.Outline.Kind.Event": "Evento",
     "Str.Tool.Outline.Kind.Operator": "Operatore",
     "Str.Tool.Outline.Kind.TypeParameter": "Parametro di tipo",
+    "Str.Debug.Conditions.EvaluationFailed": "Impossibile valutare la condizione del punto di interruzione '{0}' in {1}, riga {2}: {3}",
     "Str.Debug.Conditions.Prompt": "Interrompi su questa riga solo quando questa espressione è vera:",
     "Str.Debug.Conditions.Edit": "Condizione…",
     "Str.Debug.Conditions.AdapterIgnored": "Questo adattatore ignora le condizioni e si arresta ogni volta.",
@@ -1242,6 +1243,7 @@
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "I segnaposto dell’area di lavoro attendono la scelta della cartella del progetto.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Il file è cambiato. Riaprire il modulo prima di salvare.",
     "Str.Dock.DocumentTabs": "Schede dei documenti",
-    "Str.Dock.ToolTabs": "Schede degli strumenti"
+    "Str.Dock.ToolTabs": "Schede degli strumenti",
+    "Str.AIChat.ApiKeyRequired": "È necessaria una chiave API. Impostare apiKey in chat-settings.json."
   }
 }

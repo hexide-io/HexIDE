@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "事件",
     "Str.Tool.Outline.Kind.Operator": "运算符",
     "Str.Tool.Outline.Kind.TypeParameter": "类型参数",
+    "Str.Debug.Conditions.EvaluationFailed": "无法计算 {1} 第 {2} 行的断点条件 '{0}'：{3}",
     "Str.Debug.Conditions.Prompt": "仅当此表达式为 True 时在此行中断：",
     "Str.Debug.Conditions.Edit": "条件…",
     "Str.Debug.Conditions.AdapterIgnored": "此适配器忽略条件，每次都会停止。",
@@ -1242,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "停靠",
     "Str.Dock.ToolTabStripItemAutoHide": "自动隐藏",
     "Str.Dock.ToolTabStripItemDockAsDocument": "停靠为选项卡式文档",
-    "Str.Dock.ToolTabStripItemClose": "关闭"
+    "Str.Dock.ToolTabStripItemClose": "关闭",
+    "Str.AIChat.ApiKeyRequired": "需要 API 密钥。请设置 chat-settings.json 中的 apiKey。"
   }
 }

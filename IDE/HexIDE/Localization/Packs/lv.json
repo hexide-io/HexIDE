@@ -1201,6 +1201,7 @@
     "Str.Tool.Outline.Kind.Event": "Notikums",
     "Str.Tool.Outline.Kind.Operator": "Operators",
     "Str.Tool.Outline.Kind.TypeParameter": "Tipa parametrs",
+    "Str.Debug.Conditions.EvaluationFailed": "Nevarēja novērtēt pārtraukumpunkta nosacījumu '{0}' modulī {1}, {2}. rindā: {3}",
     "Str.Debug.Conditions.Prompt": "Apstāties šajā rindā tikai tad, ja šī izteiksme ir patiesa:",
     "Str.Debug.Conditions.Edit": "Nosacījums…",
     "Str.Debug.Conditions.AdapterIgnored": "Šis adapteris ignorē nosacījumus un apstājas katru reizi.",
@@ -1242,6 +1243,7 @@
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Darbvietas vietturi gaida projekta mapes izvēli.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Fails ir mainījies. Pirms saglabāšanas atveriet veidlapu vēlreiz.",
     "Str.Dock.DocumentTabs": "Dokumentu cilnes",
-    "Str.Dock.ToolTabs": "Rīku cilnes"
+    "Str.Dock.ToolTabs": "Rīku cilnes",
+    "Str.AIChat.ApiKeyRequired": "Nepieciešama API atslēga. Iestatiet apiKey failā chat-settings.json."
   }
 }

@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Událost",
     "Str.Tool.Outline.Kind.Operator": "Operátor",
     "Str.Tool.Outline.Kind.TypeParameter": "Parametr typu",
+    "Str.Debug.Conditions.EvaluationFailed": "Podmínku bodu přerušení '{0}' v {1} na řádku {2} nelze vyhodnotit: {3}",
     "Str.Debug.Conditions.Prompt": "Zastavit na tomto řádku pouze tehdy, když je tento výraz pravdivý:",
     "Str.Debug.Conditions.Edit": "Podmínka…",
     "Str.Debug.Conditions.AdapterIgnored": "Tento adaptér ignoruje podmínky a zastaví pokaždé.",
@@ -1242,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Ukotvit",
     "Str.Dock.ToolTabStripItemAutoHide": "_Automaticky skrývat",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Ukotvit jako dokument s kartou",
-    "Str.Dock.ToolTabStripItemClose": "_Zavřít"
+    "Str.Dock.ToolTabStripItemClose": "_Zavřít",
+    "Str.AIChat.ApiKeyRequired": "Je vyžadován klíč API. Nastavte apiKey v chat-settings.json."
   }
 }

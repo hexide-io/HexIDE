@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Événement",
     "Str.Tool.Outline.Kind.Operator": "Opérateur",
     "Str.Tool.Outline.Kind.TypeParameter": "Paramètre de type",
+    "Str.Debug.Conditions.EvaluationFailed": "Impossible d'évaluer la condition du point d'arrêt '{0}' dans {1}, ligne {2} : {3}",
     "Str.Debug.Conditions.Prompt": "Arrêter à cette ligne uniquement lorsque cette expression est vraie :",
     "Str.Debug.Conditions.Edit": "Condition…",
     "Str.Debug.Conditions.AdapterIgnored": "Cet adaptateur ignore les conditions des points d’arrêt et s’arrête à chaque passage.",
@@ -1242,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Ancrer",
     "Str.Dock.ToolTabStripItemAutoHide": "_Masquer automatiquement",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Ancrer comme document à onglet",
-    "Str.Dock.ToolTabStripItemClose": "F_ermer"
+    "Str.Dock.ToolTabStripItemClose": "F_ermer",
+    "Str.AIChat.ApiKeyRequired": "Une clé API est requise. Définissez apiKey dans chat-settings.json."
   }
 }

@@ -16,6 +16,14 @@ Opening a code editor or a designer SHALL present it as a tab in the IDE's docum
 A new document SHALL open in the document area that last held focus, including after focus moves to a
 tool pane, falling back to the first area. An already open document SHALL be activated in its own area.
 
+The Object Browser, protocol inspector, Language & Debug Servers and translation editor SHALL follow
+this same area selection and activation rule, retaining one tab and one owner after a move.
+
+#### Scenario: Reopening a moved tool document
+- **WHEN** a tool document has been moved into a second area and is opened again from View
+- **THEN** its existing tab is activated there without adding a tab to the first area
+- **AND** closing its tab removes it from the area that shows it
+
 #### Scenario: Opening while using a split area
 - **WHEN** the second document area last held focus and a new document is opened
 - **THEN** the new tab opens in that second area
@@ -84,8 +92,9 @@ caption and a maximize/restore button. Floating tools SHALL remain visible in th
 The host caption SHALL follow the active tool and language changes. The initial client size SHALL be
 at least the docked pane's size and 320 by 200 DIPs, limited to the main window's screen working area;
 the host SHALL open within that working area. Closing the floating window SHALL return its tools to
-their original dock slot, proportions and tab group. The pane's own close box SHALL hide the tool;
-View SHALL reopen it docked.
+their original dock slot, proportions and tab group, preserving the saved tab order even when
+tools are registered in a different order or the window was restored from the layout manifest.
+The pane's own close box SHALL hide the tool; View SHALL reopen it docked.
 
 #### Scenario: Float and return a tool
 - **WHEN** the developer chooses Float on a docked tool pane

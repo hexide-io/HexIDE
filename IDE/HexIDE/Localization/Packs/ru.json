@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Событие",
     "Str.Tool.Outline.Kind.Operator": "Оператор",
     "Str.Tool.Outline.Kind.TypeParameter": "Параметр типа",
+    "Str.Debug.Conditions.EvaluationFailed": "Не удалось вычислить условие точки останова '{0}' в {1}, строка {2}: {3}",
     "Str.Debug.Conditions.Prompt": "Останавливаться на этой строке, только когда это выражение истинно:",
     "Str.Debug.Conditions.Edit": "Условие…",
     "Str.Debug.Conditions.AdapterIgnored": "Этот адаптер игнорирует условия и останавливается каждый раз.",
@@ -1242,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "Закрепить",
     "Str.Dock.ToolTabStripItemAutoHide": "Автоматически скрывать",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Закрепить как документ с вкладкой",
-    "Str.Dock.ToolTabStripItemClose": "Закрыть"
+    "Str.Dock.ToolTabStripItemClose": "Закрыть",
+    "Str.AIChat.ApiKeyRequired": "Требуется ключ API. Задайте apiKey в chat-settings.json."
   }
 }

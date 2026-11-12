@@ -1201,6 +1201,7 @@
     "Str.Tool.Outline.Kind.Event": "Gebeurtenis",
     "Str.Tool.Outline.Kind.Operator": "Operator",
     "Str.Tool.Outline.Kind.TypeParameter": "Typeparameter",
+    "Str.Debug.Conditions.EvaluationFailed": "De onderbrekingspuntvoorwaarde '{0}' in {1}, regel {2}, kon niet worden geëvalueerd: {3}",
     "Str.Debug.Conditions.Prompt": "Alleen op deze regel stoppen als deze expressie waar is:",
     "Str.Debug.Conditions.Edit": "Voorwaarde…",
     "Str.Debug.Conditions.AdapterIgnored": "Deze adapter negeert voorwaarden en stopt elke keer.",
@@ -1242,6 +1243,7 @@
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Werkruimteplaatsaanduidingen wachten op de keuze van een projectmap.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Het bestand is gewijzigd. Open het formulier opnieuw voordat u opslaat.",
     "Str.Dock.DocumentTabs": "Documenttabbladen",
-    "Str.Dock.ToolTabs": "Hulptabbladen"
+    "Str.Dock.ToolTabs": "Hulptabbladen",
+    "Str.AIChat.ApiKeyRequired": "API-sleutel vereist. Stel apiKey in chat-settings.json in."
   }
 }

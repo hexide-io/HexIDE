@@ -33,21 +33,32 @@ public class DebuggerTests : BaseVBTestFixture
         AssertDebugLog([1, 2, 3]);
     }
 
-    [Fact]
-    public async Task ConditionalBreakpoint_ErrorStopsAndWritesImmediate()
+    [Theory]
+    [InlineData("x >", "Syntax error")]
+    [InlineData("missingName", "Variable not defined")]
+    public async Task ConditionalBreakpoint_ErrorStopsWithoutProgramOutput(string expression, string error)
     {
-        var (vb, dbg) = NewDebuggable("Debug.Print 1\n", "M");
+        var (vb, dbg) = NewDebuggable("Debug.Print 1\nSub Other()\nDim missingName As Integer\nEnd Sub\n", "M");
         dbg.SetBreakpoints("M", [1]);
-        dbg.SetBreakpointConditions("M", new Dictionary<int, string> { [1] = "missingName" });
+        dbg.SetBreakpointConditions("M", new Dictionary<int, string> { [1] = expression });
         var output = new List<string>();
         var hits = 0;
         void Capture(string text) => output.Add(text);
         VBDebugConsole.Written += Capture;
-        dbg.Stopped += info => { info.Reason.Should().Be(StopReason.Breakpoint); hits++; dbg.Continue(); };
+        StoppedInfo? stopped = null;
+        dbg.Stopped += info => { stopped = info; hits++; dbg.Continue(); };
         try { await vb.Execute().Guarded(); }
         finally { VBDebugConsole.Written -= Capture; }
-        hits.Should().Be(1);
-        output.Should().ContainSingle(text => text.Contains("missingName: Syntax error", StringComparison.Ordinal));
+        using (new AwesomeAssertions.Execution.AssertionScope())
+        {
+            hits.Should().Be(1);
+            stopped.Should().NotBeNull();
+            stopped?.Reason.Should().Be(StopReason.Breakpoint);
+            stopped?.ConditionExpression.Should().Be(expression);
+            stopped?.ConditionError.Should().Be(error);
+            dbg.CurrentStop.Should().BeNull();
+            output.Should().NotContain(text => text.Contains(error, StringComparison.Ordinal));
+        }
     }
 
     [Theory]
