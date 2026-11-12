@@ -202,7 +202,7 @@ public class ForegroundWindowTests : IDisposable
             .Contain("\"auto\" (the default: ").And.NotContain("the default here");
         ForegroundWindow.Pick("Nope", main, [main, form], ideByDefault: true).Error.Should()
             .StartWith("Unknown window 'Nope'. Use \"ide\" (the default here: the IDE window, even while a program is running), "
-                       + "\"auto\" (any visible window other than the IDE's own, a dialog first), or the name or title of an open")
+                       + "\"auto\" (any visible window other than the IDE's own, a dialog first, a floating IDE tool never), or the name or title of an open")
             .And.NotContain("(the default: ");
     }
 

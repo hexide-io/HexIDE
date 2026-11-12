@@ -882,6 +882,21 @@ share it side by side, the refusal SHALL name what does reach one of them, rathe
 - **THEN** it is refused, naming both
 - **AND** the refusal says which of them `auto` reaches
 
+### Requirement: Floating tools SHALL remain part of the IDE
+Automatic window selection SHALL exclude the IDE's Dock host windows, while explicit window titles and
+unknown-name listings SHALL still reach and enumerate them. Forced shutdown SHALL leave those hosts open
+for the main window's shutdown rather than first closing them as dialogs. A failed path in the IDE SHALL
+name any floating tool windows and explain how to dump them for fresh paths.
+
+#### Scenario: A tool floats beside the IDE or a running form
+- **WHEN** Immediate is floating and a caller uses `window: "auto"`
+- **THEN** selection prefers a real dialog, otherwise a running form, otherwise the IDE
+- **AND** `window: "Immediate"` still reaches the floating tool
+
+#### Scenario: A saved IDE path targets a tool that has since floated
+- **WHEN** the path fails in the IDE and a tool is floating
+- **THEN** the refusal names the floating window title to pass as `window` to `dump_visual_tree`
+
 ### Requirement: The window-state reply SHALL say what its numbers measure
 The window-state reply SHALL give `scale`, and the window's `outer` rectangle, its `frame` as drawn and its `client`
 area, each on the screen in device-independent pixels, beside `x`, `y`, `width` and `height`, which it SHALL keep as
