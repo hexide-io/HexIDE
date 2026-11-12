@@ -16,6 +16,14 @@ Opening a code editor or a designer SHALL present it as a tab in the IDE's docum
 A new document SHALL open in the document area that last held focus, including after focus moves to a
 tool pane, falling back to the first area. An already open document SHALL be activated in its own area.
 
+The Object Browser, protocol inspector, Language & Debug Servers and translation editor SHALL follow
+this same area selection and activation rule, retaining one tab and one owner after a move.
+
+#### Scenario: Reopening a moved tool document
+- **WHEN** a tool document has been moved into a second area and is opened again from View
+- **THEN** its existing tab is activated there without adding a tab to the first area
+- **AND** closing its tab removes it from the area that shows it
+
 #### Scenario: Opening while using a split area
 - **WHEN** the second document area last held focus and a new document is opened
 - **THEN** the new tab opens in that second area

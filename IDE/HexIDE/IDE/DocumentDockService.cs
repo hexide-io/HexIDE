@@ -75,7 +75,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         }
     }
 
-    private IDocumentDock? FocusedArea
+    public IDocumentDock? FocusedArea
     {
         get
         {

@@ -2542,25 +2542,21 @@ public partial class MainViewViewModel : ObservableObject
 
     public void OpenCallStackTool() => OpenOrActivateTool(CallStack, false);
     public void OpenColorPaletteTool() => OpenOrActivateTool(ColorPalette, false);
-    public void OpenObjectBrowserTool()
+    private void OpenOrActivateToolDocument(IDockable tool)
     {
-        var docDock = FindDock<DocumentDock>(_ => true);
-        if (docDock == null) return;
-
-        if (docDock.VisibleDockables?.Contains(ObjectBrowser) == true)
-        {
-            dockFactory.FocusDockable(docDock, ObjectBrowser);
-            docDock.ActiveDockable = ObjectBrowser;
-            return;
-        }
+        if (documentDockService.TryActivateAny(tab => ReferenceEquals(tab, tool))) return;
+        var docDock = documentDockService.FocusedArea;
+        if (docDock is null) return;
 
         docDock.VisibleDockables ??= dockFactory.CreateList<IDockable>();
-        docDock.VisibleDockables.Add(ObjectBrowser);
-        dockFactory.InitDockable(ObjectBrowser, docDock);
-        dockFactory.FocusDockable(docDock, ObjectBrowser);
-        docDock.ActiveDockable = ObjectBrowser;
+        docDock.VisibleDockables.Add(tool);
+        dockFactory.InitDockable(tool, docDock);
+        dockFactory.FocusDockable(docDock, tool);
+        docDock.ActiveDockable = tool;
         ScheduleLayoutSave();
     }
+
+    public void OpenObjectBrowserTool() => OpenOrActivateToolDocument(ObjectBrowser);
     /// <summary>Opens the language-server view, or brings it forward if it is already open.</summary>
     public ICommand OpenLanguageServersCommand { get; private set; } = null!;
 
@@ -2592,69 +2588,18 @@ public partial class MainViewViewModel : ObservableObject
     /// </remarks>
     public void OpenProtocolInspector(string? connectionId)
     {
-        var docDock = FindDock<DocumentDock>(_ => true);
-        if (docDock == null) return;
-
         if (connectionId is { Length: > 0 }) ProtocolInspector.ShowOnly(connectionId);
 
         // Re-read on every open rather than only on construction. The capture has been recording since
         // the session began, so a tab opened an hour in must not show what was there an hour ago.
         ProtocolInspector.Refresh();
 
-        if (docDock.VisibleDockables?.Contains(ProtocolInspector) == true)
-        {
-            dockFactory.FocusDockable(docDock, ProtocolInspector);
-            docDock.ActiveDockable = ProtocolInspector;
-            return;
-        }
-
-        docDock.VisibleDockables ??= dockFactory.CreateList<IDockable>();
-        docDock.VisibleDockables.Add(ProtocolInspector);
-        dockFactory.InitDockable(ProtocolInspector, docDock);
-        dockFactory.FocusDockable(docDock, ProtocolInspector);
-        docDock.ActiveDockable = ProtocolInspector;
-        ScheduleLayoutSave();
+        OpenOrActivateToolDocument(ProtocolInspector);
     }
 
-    public void OpenLanguageServers()
-    {
-        var docDock = FindDock<DocumentDock>(_ => true);
-        if (docDock == null) return;
+    public void OpenLanguageServers() => OpenOrActivateToolDocument(LanguageServers);
 
-        if (docDock.VisibleDockables?.Contains(LanguageServers) == true)
-        {
-            dockFactory.FocusDockable(docDock, LanguageServers);
-            docDock.ActiveDockable = LanguageServers;
-            return;
-        }
-
-        docDock.VisibleDockables ??= dockFactory.CreateList<IDockable>();
-        docDock.VisibleDockables.Add(LanguageServers);
-        dockFactory.InitDockable(LanguageServers, docDock);
-        dockFactory.FocusDockable(docDock, LanguageServers);
-        docDock.ActiveDockable = LanguageServers;
-        ScheduleLayoutSave();
-    }
-
-    public void OpenTranslationEditor()
-    {
-        var docDock = FindDock<DocumentDock>(_ => true);
-        if (docDock == null) return;
-
-        if (docDock.VisibleDockables?.Contains(TranslationEditor) == true)
-        {
-            dockFactory.FocusDockable(docDock, TranslationEditor);
-            docDock.ActiveDockable = TranslationEditor;
-            return;
-        }
-
-        docDock.VisibleDockables ??= dockFactory.CreateList<IDockable>();
-        docDock.VisibleDockables.Add(TranslationEditor);
-        dockFactory.InitDockable(TranslationEditor, docDock);
-        dockFactory.FocusDockable(docDock, TranslationEditor);
-        docDock.ActiveDockable = TranslationEditor;
-        ScheduleLayoutSave();
-    }
+    public void OpenTranslationEditor() => OpenOrActivateToolDocument(TranslationEditor);
     public void OpenProjectExplorerTool() => OpenOrActivateTool(ProjectExplorer, true);
     public void OpenPropertiesTool() => OpenOrActivateTool(Properties, true);
     public void OpenFormLayoutTool() => OpenOrActivateTool(FormLayout, true);

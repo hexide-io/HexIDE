@@ -1769,6 +1769,8 @@ naming each, and SHALL say whether `project` or `type` picks one. When none does
 
 ### Requirement: Document tabs across split areas
 
+When duplicate matches are tool tabs, the refusal SHALL direct callers to locate the intended tab’s close button with `dump_visual_tree` and invoke it with `interact`, rather than suggesting document names or projects.
+
 The document tab tools SHALL enumerate every document area under the layout root in layout order. Each listed tab SHALL report a zero-based `area` identifying its document area. Activation and closing SHALL find tabs in split areas, and the active tab SHALL be the active dockable of the document area that has focus.
 
 The `open_file` and `view_designer` replies SHALL report the opened tab's zero-based `area` in layout order.

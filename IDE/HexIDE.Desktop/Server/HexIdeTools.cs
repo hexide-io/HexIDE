@@ -3548,6 +3548,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         {
             1 => (matches[0], null, null),
             0 => (null, $"No open tab for {lookup.Document!.Display}" + (type is null ? "." : $" of type '{type}'."), null),
+            _ when matches.All(tab => TabType(tab) == "tool") => (null, "More than one tab matches. These are tool tabs. Use dump_visual_tree to locate the intended tab’s close button, then interact to invoke it. Tool tabs have no document name or project to distinguish them.", null),
             _ => (null, "More than one tab matches. Pass `name` and `project` to identify the document, and `type` (code or designer) to choose its tab. get_document_tabs lists them.", null),
         };
     }
