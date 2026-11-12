@@ -14,6 +14,31 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Breakpoint conditions through automation
+
+`set_breakpoints` SHALL retain its required `name` and `lines` arguments and accept an optional
+`conditions` map from 1-based file line to expression. It SHALL preserve existing conditions for kept lines whose keys are omitted,
+and clear a condition only for an explicit blank expression through the breakpoint service's condition API.
+The generated map schema SHALL advertise numeric keys with `propertyNames.pattern: ^[0-9]+$`.
+The setter SHALL name expressions set or cleared. A condition key absent
+from `lines` SHALL refuse the request before changing any breakpoint.
+`get_breakpoints` SHALL retain `lines`, include `conditions` only when expressions exist, and name
+conditional lines in its note. The setter's note SHALL also name conditional lines in the resulting state.
+
+#### Scenario: Set and read a conditional breakpoint
+- **WHEN** a caller sets `lines: [6]` with `conditions: {"6": "i = 3"}`
+- **THEN** line 6 holds that expression and the getter returns it with a note naming line 6 as conditional
+
+#### Scenario: Preserve conditions unless explicitly cleared
+- **WHEN** a caller sets `lines: [6]` without conditions after line 6 held an expression
+- **THEN** line 6 keeps its expression
+- **AND WHEN** the caller supplies `conditions: {"6": ""}`
+- **THEN** line 6 is unconditional and the reply names the cleared expression
+
+#### Scenario: Refuse a condition without a breakpoint
+- **WHEN** a caller sets `lines: [6]` with a condition for line 7
+- **THEN** the reply explains that line 7 is not a breakpoint in `lines` and nothing changes
+
 ### Requirement: Advertised expansion has inspectable state
 
 `inspect_element` SHALL report `expandCollapseState` wherever `expandCollapse` is advertised.
@@ -24,6 +49,12 @@ state, and a context-menu or flyout owner from whether its popup is open on that
 #### Scenario: Inspect a tree node before and after expanding
 - **WHEN** a node with children is inspected before and after `interact expand`
 - **THEN** its state changes from `Collapsed` to `Expanded`
+
+#### Scenario: Inspect and expand a leaf tree node
+- **WHEN** a leaf tree node is inspected
+- **THEN** its native `LeafNode` state MAY be reported, but `expandCollapse` SHALL NOT be advertised
+- **AND WHEN** `interact expand` targets it
+- **THEN** the reply SHALL refuse with an explanation that it has nothing to show
 
 #### Scenario: Inspect a popup owner
 - **WHEN** a control owning a context menu or flyout is inspected with its popup closed, then open
@@ -1242,10 +1273,17 @@ locations or .NET type names for that overflow. Nothing in the tool SHALL run fo
 A `dump_visual_tree` match reply SHALL name unselected document tabs when searching the IDE window,
 and unselected Options pages when searching the Options dialog, and explain how to select them.
 This note SHALL accompany both empty and nonempty matches, alongside any depth-limit warning.
+A tab selected in any document area SHALL be excluded from the unselected list, regardless of focus.
+A zero-match note SHALL list the searched fields in order: Name, label, AutomationId, ClassName,
+ControlType, typeNameAsName and the DataContext type.
 
 #### Scenario: An editor is behind a designer
 - **WHEN** a match search runs with a code tab open but unselected
 - **THEN** the note names that tab, says its contents are not in the tree, and directs the caller to `activate_document_tab`
+
+#### Scenario: Two document areas each show a tab
+- **WHEN** a match search runs with different tabs selected in two document areas and another tab unselected
+- **THEN** the note names only the unselected tab, leaving out both shown tabs
 
 #### Scenario: A setting is on another Options page
 - **WHEN** a match search runs in Options with other pages unselected
@@ -1771,3 +1809,23 @@ The `open_file` and `view_designer` replies SHALL report the opened tab's zero-b
 - **THEN** `get_document_tabs` includes it with its area's index
 - **AND** `activate_document_tab` and `close_document_tab` can address it
 - **AND** the closing state note counts tabs in all document areas
+
+### Requirement: Tool-window paths survive language and project-name changes
+
+Tool chrome, shown tool panes and tool tabs SHALL expose AutomationIds derived from their saved-layout
+keys, using `Tool.<key>`, while retaining translated automation names. Shared chrome SHALL use the
+sorted membership keys as `ToolGroup.<key+key>` so selecting another tab does not change its identity.
+Floating tool hosts SHALL accept each contained tool's key as a window selector and list those keys
+beside their title when an unknown window is requested. A path refusal SHALL mention floating tools
+only when its failing segment names one, and SHALL explain translated names and stable ids when a
+segment fails in a non-English IDE.
+
+#### Scenario: A German tool with an English-source stable path
+
+- **WHEN** a caller resolves the dumped `TitleBar[Tool.locals]/Pane[Tool.locals]` segments after switching to German
+- **THEN** the same shown tool is reached and its automation name remains translated
+
+#### Scenario: A floating Immediate window
+
+- **WHEN** Immediate is floating in a German IDE and the caller selects `window: "immediate"`
+- **THEN** the floating host is reached regardless of its translated title

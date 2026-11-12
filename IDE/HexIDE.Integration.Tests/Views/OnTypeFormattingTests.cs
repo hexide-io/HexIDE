@@ -327,9 +327,9 @@ public class OnTypeFormattingTests
                 Substitute.For<IProjectService>(), Substitute.For<IEventBus>(), client, settings,
                 Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
                 Substitute.For<IDebugController>(), new RunScope(), localization, new Vb6ProjectFileFormat(), new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
-            var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", ModuleKind.StandardModule);
-            module.AbsolutePath = Path.Combine(Path.GetTempPath(), "HexIDE-on-type", "Module1.bas");
-            module.RecordOriginalHeader("");
+            var module = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"),
+                HexIDE.Runtime.Components.FormComponentClass.Instance, "Module1");
+            module.AbsolutePath = Path.Combine(Path.GetTempPath(), "HexIDE-on-type", "Module1.frm");
             module.UpdateCode(string.Join(newline, "Attribute VB_Name = \"Module1\"", "Public Sub Test()", "    if True then", "End Sub"));
             if (lastLine)
                 module.UpdateCode(string.Join(newline, "Attribute VB_Name = \"Module1\"", "Public Sub Test()", "    if True then"));

@@ -1426,7 +1426,7 @@ public class UiAutomationDriverTests
             node.IsExpanded = true;
             Dispatcher.UIThread.RunJobs();
             UiAutomationDriver.Inspect(ContainerOf(tree, environment.Children[1]), "leaf")
-                .ExpandCollapseState.Should().BeNull();
+                .ExpandCollapseState.Should().Be("LeafNode");
         }
         finally { window.Close(); }
     }
@@ -1446,6 +1446,44 @@ public class UiAutomationDriverTests
             var leaf = ContainerOf(tree, environment.Children[1]);
             UiAutomationDriver.DescribeProviders(ControlAutomationPeer.CreatePeerForElement(leaf), leaf)
                 .Should().NotContain("expandCollapse", "a leaf has nothing to expand, and would refuse");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Expand_LeafNode_RefusesClearly()
+    {
+        var (window, tree, environment, _) = BuildCollapsibleTreeWindow();
+        try
+        {
+            ContainerOf(tree, environment).IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            var leaf = ContainerOf(tree, environment.Children[1]);
+
+            var result = UiAutomationDriver.Interact(leaf, "expand", null);
+
+            result.Success.Should().BeFalse();
+            result.Error.Should().Contain("nothing to show");
+            UiAutomationDriver.Inspect(leaf, "leaf").ExpandCollapseState.Should().Be("LeafNode");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Collapse_LeafNode_RefusesClearly()
+    {
+        var (window, tree, environment, _) = BuildCollapsibleTreeWindow();
+        try
+        {
+            ContainerOf(tree, environment).IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            var leaf = ContainerOf(tree, environment.Children[1]);
+
+            // Avalonia 12.1.5's native leaf provider throws on Collapse; the reply must say why, not relay the throw.
+            var result = UiAutomationDriver.Interact(leaf, "collapse", null);
+
+            result.Success.Should().BeFalse();
+            result.Error.Should().Contain("nothing to collapse").And.NotContain("threw");
         }
         finally { window.Close(); }
     }

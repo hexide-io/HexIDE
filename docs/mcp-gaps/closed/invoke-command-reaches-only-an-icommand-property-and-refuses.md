@@ -61,3 +61,6 @@ a refusal that names what it looked for. [#836](https://github.com/hexide-io/Hex
 > - **`invoke_command` `DeleteForm`, with `TreeItem[Form1 (Form1.frm)]` selected,** replied "called method
 >   'DeleteForm' on ProjectToolViewModel; no Can method guards it, so check that it did what was meant". No prompt
 >   opened, and `get_project_info` then listed no forms.
+
+For current calls, use `Pane[Project Group - Group1]` → `Pane[Tool.project]`. The calls above retain their historical measurement.
+See [#3825](3825.md) for shared title bars and floating-window selectors.

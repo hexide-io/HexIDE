@@ -28,3 +28,6 @@ it and dumping it.
 >   had closed between the calls: the next `expand` replied "expanded", not "already open". Why it closed was not
 >   established, and it happened once in this run. The refusal said what to do, and the retry worked. Not filed
 >   without a reproduction.
+
+For current calls, use `Pane[Properties]` → `Pane[Tool.properties]`. The calls above retain their historical measurement.
+See [#3825](3825.md) for shared title bars and floating-window selectors.

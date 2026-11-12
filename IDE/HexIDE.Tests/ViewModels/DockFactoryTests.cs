@@ -73,6 +73,30 @@ public class DockFactoryTests
         return (factory, immediate);
     }
 
+    [Fact]
+    public void Every_builtin_and_addin_uses_its_saved_layout_key_for_automation()
+    {
+        var (factory, _) = CreateFactory();
+        var root = factory.CreateLayout();
+        var tools = (System.Collections.Generic.Dictionary<string, IDockable>)typeof(MainViewViewModel.DockFactory)
+            .GetField("toolsByKey", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(factory)!;
+        var automation = typeof(MainViewViewModel).Assembly.GetType("HexIDE.Automation.ToolAutomation");
+        automation.Should().NotBeNull();
+        var keyOf = automation!.GetMethod("KeyOf")!;
+        tools.Should().HaveCount(14);
+        foreach (var (key, tool) in tools)
+            keyOf.Invoke(null, [tool]).Should().Be(key);
+
+        var first = new HexIDE.Addins.AddinToolWindowViewModel("inspector", "Inspector", () => new object(), "sample");
+        factory.RegisterAddinTool(root, first);
+        keyOf.Invoke(null, [first]).Should().Be("addin:" + first.Id);
+        var (restarted, _) = CreateFactory();
+        var again = new HexIDE.Addins.AddinToolWindowViewModel("inspector", "Prüfer", () => new object(), "sample");
+        restarted.RegisterAddinTool(restarted.CreateLayout(), again);
+        keyOf.Invoke(null, [again]).Should().Be(keyOf.Invoke(null, [first]));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

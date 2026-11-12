@@ -2,6 +2,11 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Host de encaixe",
+    "Str.Dock.Root": "Encaixe raiz",
+    "Str.Dock.PinnedHost": "Host de encaixe fixado",
+    "Str.Dock.PinnedToolTabs": "Abas de ferramentas fixadas",
+    "Str.Dock.CommandBars": "Barras de comandos de encaixe",
     "Str.Dock.DocumentTabs": "Abas de documentos",
     "Str.Dock.ToolTabs": "Abas de ferramentas",
     "Str.Tool.FindReferences.Unavailable": "Nenhum servidor de linguagem em execução para {0} oferece “Localizar referências”",

@@ -1526,7 +1526,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     }
 
     private IReadOnlyList<TextRegion> RegionsOf(string text, int prefixLength) =>
-        regionReader.Regions(TextForRegions(text, prefixLength), prefixLength);
+        regionReader.Regions(TextForRegions(text, prefixLength), prefixLength, PrefixIsEntireHeader);
 
     // Only an accepted input edit starts ownership; navigating onto a file's attributes never does (#3819).
     private DocumentLine? typedLine;
@@ -1568,10 +1568,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             return text;
         // Hide only a newly recognised member attribute line from the reader. The file's leading run and
         // a declaration with an existing run keep their usual protection. Offsets and line breaks stay put.
-        if (!regionReader.Regions(text, prefixLength).Any(r => r.Anchor is not null && r.Touches(line.Offset, line.Length)))
+        if (!regionReader.Regions(text, prefixLength, PrefixIsEntireHeader).Any(r => r.Anchor is not null && r.Touches(line.Offset, line.Length)))
             return text;
         return text.Remove(line.Offset, line.Length).Insert(line.Offset, new string(' ', line.Length));
     }
+
+    private bool PrefixIsEntireHeader => moduleDefinition is { } module && format.PrefixCarriesName(module);
 
     private IReadOnlyList<TextRegion>? regionsCache;
     private ITextSourceVersion? regionsCacheVersion;
@@ -1637,8 +1639,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// themselves (Enter's auto-close and auto-indent, a completion's commit), so the banner's "typing in this
     /// window is refused" holds for them too.
     /// </summary>
-    public bool RefusesTyping(int offset, int length) =>
-        IsReadOnly || IsReadOnlyRegion(offset, length);
+    public bool RefusesTyping(int offset, int length)
+    {
+        if (!IsReadOnly && !IsReadOnlyRegion(offset, length))
+            return false;
+        statusBarService.SetTemporaryMessage(localization.GetString(IsReadOnly
+            ? "Str.CodeEditor.FileNotSaved.Banner"
+            : "Str.CodeEditor.Msg.TypingChangesReadOnlyText"), TimeSpan.FromSeconds(6));
+        return true;
+    }
 
     /// <inheritdoc/>
     public (int Offset, int Length) WidenDeletion(int offset, int length) =>
@@ -1891,7 +1900,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             var resolved = Resolve(document, target.Edits);
             for (var j = 1; j < resolved.Count; j++)
                 if (resolved[j].Offset + resolved[j].Length > resolved[j - 1].Offset) return Refuse(target.Uri);
-            if (resolved.Any(c => ReadOnlyRegions.Changes(RegionsOf(document.Text, prefix.Length), c.Offset, c.Length)
+            if (resolved.Any(c => ReadOnlyRegions.Changes(regionReader.Regions(document.Text, prefix.Length,
+                    module is not null && format.PrefixCarriesName(module)), c.Offset, c.Length)
                 && (codeAction || regionRules?.RenameMayWrite(document.Text, prefix.Length, resolved, c) != true)))
                 return Refuse(target.Uri);
             prepared.Add((target.Uri, identity, resolved));

@@ -663,12 +663,14 @@ public class McpRestartTests
         // SessionGuardTests drive that order for real; this proves the IDE registers through it, with the session it
         // was started for, and reports that session in /health.
         source.Should().Contain(".WithHttpTransport(McpTransport.Configure)")
-            .And.MatchRegex(@"ToolFilters\.Register\([\s\S]*?ReplyJson\.Options\), session\)")
+            .And.MatchRegex(@"ToolFilters\.Register\([\s\S]*?ToolSchemas\.For\([\s\S]*?\), session\)")
             .And.Contain("app.UseLoopbackOnly(port);")
             .And.Contain("Session: session,")
             .And.Contain(".AddCallToolFilter(OpenDialogNote.Filter)")
             .And.Contain(".AddCallToolFilter(HeldButtonNote.Filter)")
-            .And.Contain(".WithTools<HexIdeTools>(ReplyJson.Options)");
+            .And.Contain(".WithTools(ToolSchemas.For(new HexIdeTools(context, new HttpContextAccessor())))");
+        ToolSource.WithoutComments(File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE",
+            "HexIDE.Desktop", "Server", "ToolSchemas.cs"))).Should().Contain("SerializerOptions = ReplyJson.Options");
 
         var startup = ToolSource.WithoutComments(
             File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Desktop", "DesktopStartup.cs")));

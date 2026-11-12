@@ -44,7 +44,7 @@ public class StartupBindingTests
                 dock.Layout = new RootDock { Id = "test-dock", Title = "Test dock", CanDrag = false, CanDrop = false, DockGroup = "test-group" };
                 Dispatcher.UIThread.RunJobs();
                 AutomationProperties.GetAutomationId(dock).Should().Be("test-dock");
-                AutomationProperties.GetName(dock).Should().Be("Test dock");
+                AutomationProperties.GetName(dock).Should().Be("Dock host");
                 DockProperties.GetIsDragEnabled(dock).Should().BeFalse();
                 DockProperties.GetIsDropEnabled(dock).Should().BeFalse();
                 DockProperties.GetDockGroup(dock).Should().Be("test-group");

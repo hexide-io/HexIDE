@@ -24,3 +24,6 @@ give what the program printed in `printed`, so the commonest check after a run t
 **Live (2026-10-28, Windows, headless `claude -p` from the descriptions alone).** After a run whose `Form_Load` printed
 two lines, `dump_visual_tree {"window":"ide","match":"TextEditor"}` returned the one node above, `match: "Immediate"`
 returned it among six, and `inspect_element` on it gave `value: "Hello from 2513\nsecond line\n"`.
+
+For current calls, use `TitleBar[Immediate]` → `TitleBar[Tool.immediate]`, `Pane[Immediate]` → `Pane[Tool.immediate]`. The calls above retain their historical measurement.
+See [#3825](3825.md) for shared title bars and floating-window selectors.

@@ -138,6 +138,12 @@ A document with no file yet SHALL hold the header its first save will write.
 - **THEN** the code window's text afterwards is the text of the file that was written
 - **AND** that update is not something the developer can undo, and does not mark the document as edited
 
+#### Scenario: Saving a module with no name attribute
+- **WHEN** a loaded module has no `Attribute VB_Name` and saving adds it (#3823)
+- **THEN** the model and an open code window SHALL adopt the written header without reopening
+- **AND** breakpoints and bookmarks SHALL move with the code below it
+- **AND** opening the module alone SHALL leave it clean; a save may normalise an unedited file
+
 ### Requirement: Syntax colours SHALL meet the editor contrast bar
 Every named VB6 syntax foreground SHALL be a solid colour with a WCAG AA contrast ratio of at least
 4.5:1 against Classic's editor background in the light palette and against both Dark and Abyss editor
@@ -158,8 +164,11 @@ marks it as not the developer's to edit, meeting the same contrast requirement a
 theme. It SHALL NOT be editable.
 
 The header is the class `VERSION` and `BEGIN … END` block, or the `VERSION` line, object references and
-designer block of a form, UserControl or PropertyPage — followed, for every kind, by the run of `Attribute`
-lines that opens the code.
+designer block of a form, UserControl or PropertyPage, followed by their leading `Attribute` run.
+For a module whose format reports `PrefixCarriesName`, the header SHALL end at the composed prefix:
+leading `Attribute` lines typed into its code SHALL remain editable, even while incomplete (#3798).
+Member attribute runs SHALL retain their existing read-only behaviour. Refused typing SHALL explain
+in the status bar that the text belongs to the IDE and is read-only.
 
 The fold is what keeps the window recognisable to somebody who never saw the header in VB6: a form's code
 still starts at the top of what they see. A fold that reopened whenever the document was reformatted or

@@ -25,3 +25,6 @@ showed `…/TitleBar[Toolbox]/Pane[Toolbox]/Tab[PART_TabStrip]/…/TabItem[Prope
   showed the Toolbox filling the left panel with no tab strip.
 - `{"name":"Properties Window","visible":true}` answered `Properties is now shown.`, and both were visible again.
 - The same call with `"Properties"` answered `Properties is now shown, as it was already.`
+
+For current calls, use `TabItem[Properties]` → `TabItem[Tool.properties]`, `TitleBar[Toolbox]` → `TitleBar[Tool.toolbox]`, `Pane[Toolbox]` → `Pane[Tool.toolbox]`. The calls above retain their historical measurement.
+See [#3825](3825.md) for shared title bars and floating-window selectors.

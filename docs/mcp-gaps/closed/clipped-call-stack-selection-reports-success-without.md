@@ -24,3 +24,6 @@ replies should verify/report the resulting model selection. The underlying cause
 > deeper row can be selected. Not reproduced: with the fixture adapter, a select on a caller row by its path moves the
 > debugger, and a row clipped out of view has no container, so no path reaches it. The closest match found is the
 > declined row, which needs a select made while the session has moved on. Guarded by `SelectVerifiedTests`.
+
+For current calls, use `TitleBar[Call Stack]` → `TitleBar[Tool.callStack]`, `Pane[Call Stack]` → `Pane[Tool.callStack]`. The calls above retain their historical measurement.
+See [#3825](3825.md) for shared title bars and floating-window selectors.

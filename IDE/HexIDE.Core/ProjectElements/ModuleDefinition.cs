@@ -62,6 +62,9 @@ public partial class ModuleDefinition : INotifyPropertyChanged
         set => SetField(ref absolutePath, value);
     }
 
+    /// <summary>The project-line name before the loader adopted VB_Name; used to migrate personal state.</summary>
+    public string? ProjectLineName { get; set; }
+
     public string Name
     {
         get => name;

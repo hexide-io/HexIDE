@@ -33,6 +33,8 @@ public class AddExistingFileTests : IDisposable
     {
         var projectManager = Substitute.For<IProjectManager>();
         projectManager.LoadedProjects.Returns(_ => loaded);
+        projectManager.When(m => m.AddProject(Arg.Any<ProjectDefinition>()))
+            .Do(ci => loaded.Add(ci.Arg<ProjectDefinition>()));
 
         var sidecar = Substitute.For<IUserSidecarService>();
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
@@ -76,6 +78,32 @@ public class AddExistingFileTests : IDisposable
       + "Public Sub Greet()\r\n"
       + "    Debug.Print \"hi\"\r\n"
       + "End Sub\r\n";
+
+    // #3774; measured in vb6-fidelity-oracle/a-modules-name-line-below-the-top-of-its-file.md.
+    [Theory]
+    [InlineData("Module", "bas", true)]
+    [InlineData("Class", "cls", true)]
+    [InlineData("Module", "bas", false)]
+    public async Task Saving_a_loaded_project_uses_the_files_name(string kind, string extension, bool hasName)
+    {
+        var name = hasName ? "QName" : "WName";
+        var memberPath = Stage("Odd." + extension,
+            (kind == "Class" ? "VERSION 1.0 CLASS\r\nBEGIN\r\nEND\r\n" : "") +
+            (hasName ? "Attribute VB_Name = \"QName\"\r\n" : "") + "Public Counter As Long\r\n");
+        var projectPath = Stage("Made.vbp", $"Type=Exe\r\n{kind}=WName; Odd.{extension}\r\nName=\"Made\"\r\n");
+        var service = MakeService();
+        await service.OpenProject(projectPath);
+        var project = loaded.Single();
+
+        project.Modules[0].UpdateCode(project.Modules[0].Code + "' dirty\r\n");
+        await service.SaveProject(project, saveAs: false);
+
+        File.ReadAllText(projectPath).Should().Contain($"{kind}={name}; Odd.{extension}");
+        File.ReadAllText(memberPath).ReplaceLineEndings("\n").Should()
+            .Contain($"Attribute VB_Name = \"{name}\"\n");
+        if (!hasName)
+            File.ReadAllText(memberPath).Should().StartWith("Attribute VB_Name = \"WName\"");
+    }
 
     [Fact]
     public async Task AnAdoptedModuleTakesItsNameFromVbNameNotTheFilename()

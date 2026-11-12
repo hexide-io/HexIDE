@@ -47,6 +47,8 @@ public class SaveRecordsTheHeaderTests : IDisposable
     {
         var projectManager = Substitute.For<IProjectManager>();
         projectManager.LoadedProjects.Returns(_ => loaded);
+        projectManager.When(m => m.AddProject(Arg.Any<ProjectDefinition>()))
+            .Do(ci => loaded.Add(ci.Arg<ProjectDefinition>()));
 
         var sidecar = Substitute.For<IUserSidecarService>();
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
@@ -111,6 +113,60 @@ public class SaveRecordsTheHeaderTests : IDisposable
         form.DesignerText.Should().Be(onDisk[..^form.Code.Length]);
         FormCodeText.WholeFile(form).Should().Be(onDisk,
             "the invariant in one line: the buffer is the text of the file as it stands");
+    }
+
+    // Missing-name save measured in https://github.com/hexide-io/HexIDE/issues/3774; fixture from #3823.
+    [Avalonia.Headless.XUnit.AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AHeaderlessModulesSavedCopyIncludesTheNameLine(bool open)
+    {
+        var path = Path.Join(dir, "Plain.bas");
+        const string body = "Public Function Hi() As String\r\n    Hi = \"plain\"\r\nEnd Function\r\n";
+        File.WriteAllText(path, body);
+        var vbp = Path.Join(dir, "P.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nModule=NoName; Plain.bas\r\nName=\"P\"\r\n");
+        var marks = new BreakpointService();
+        var bookmarks = new BookmarkService();
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel>());
+        using var refresher = new HeaderRefresher(new Vb6ReadOnlyRegionWriter(), new EventBus(), dock,
+            marks, bookmarks, new Vb6ProjectFileFormat());
+        var service = MakeService(refresher);
+        await service.OpenProject(vbp);
+        var project = loaded.Single();
+        var module = project.Modules.Single();
+        var document = DocumentIdentity.For(module);
+        marks.SetDocument(document, [2]);
+        bookmarks.SetBookmarks(document, [1]);
+        using var editor = open ? new CodeEditorViewModel(Substitute.For<IWindowManager>(),
+            Substitute.For<IEditorService>(), Substitute.For<IProjectService>(), new EventBus(),
+            Substitute.For<HexIDE.Lsp.ILspClient>(), Substitute.For<ISettingsService>(),
+            Substitute.For<IStatusBarService>(), bookmarks, marks,
+            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<IRunScope>(),
+            new HexIDE.Localization.LocalizationService(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).Initialize(module) : null;
+        dock.OpenDocuments.Returns(editor is null ? new List<BaseEditorWindowViewModel>() : [editor]);
+        if (editor is not null) editor.CaretOffset = body.IndexOf("Hi =", StringComparison.Ordinal);
+        service.HasUnsavedChanges(module).Should().BeFalse();
+
+        await service.SaveProject(project, saveAs: false);
+
+        var onDisk = File.ReadAllText(path);
+        onDisk.Should().Be("Attribute VB_Name = \"NoName\"\r\n" + body);
+        FormCodeText.WholeFile(module).Should().Be(onDisk);
+        System.Text.Encoding.UTF8.GetBytes(FormCodeText.WholeFile(module)).Should().Equal(File.ReadAllBytes(path));
+        marks.GetBreakpoints(document).Should().Equal(3);
+        bookmarks.GetBookmarks(document).Should().Equal(2);
+        service.HasUnsavedChanges(module).Should().BeFalse();
+        if (editor is not null)
+        {
+            editor.Document.Text.Should().Be(onDisk);
+            editor.Document.Text[editor.CaretOffset..].Should().StartWith("Hi =");
+            editor.Document.Insert(editor.Document.TextLength, "' edit\r\n");
+            editor.UndoRequested(() => editor.Document.UndoStack.Undo());
+            editor.Document.Text.Should().Be(onDisk);
+            editor.BufferBody.Should().Be(body);
+        }
     }
 
     [Fact]

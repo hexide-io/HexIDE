@@ -1,5 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:core="clr-namespace:Dock.Model.Core;assembly=Dock.Model"
+        xmlns:automation="clr-namespace:HexIDE.Automation"
         xmlns:controls="clr-namespace:HexIDE.Controls"
         xmlns:converters="clr-namespace:HexIDE.Converters">
     <!--
@@ -16,6 +18,22 @@
                 <Binding Path="$self.(ToolTip.Tip)" />
             </MultiBinding>
         </Setter>
+    </Style>
+    <Style Selector="ToolChromeControl" x:DataType="core:IDock">
+        <Setter Property="AutomationProperties.AutomationId">
+            <MultiBinding Converter="{x:Static automation:ToolAutomation.Instance}">
+                <Binding Path="." />
+                <Binding Path="VisibleDockables.Count" />
+            </MultiBinding>
+        </Setter>
+    </Style>
+    <Style Selector="ToolControl" x:DataType="core:IDock">
+        <Setter Property="AutomationProperties.AutomationId"
+                Value="{CompiledBinding ActiveDockable, Converter={x:Static automation:ToolAutomation.Instance}}" />
+    </Style>
+    <Style Selector="DocumentTabStripItem, ToolTabStripItem" x:DataType="core:IDockable">
+        <Setter Property="AutomationProperties.AutomationId"
+                Value="{CompiledBinding ., Converter={x:Static automation:ToolAutomation.Instance}}" />
     </Style>
     <!-- Localize the base theme's scroll bar button names (#1868). -->
     <Style Selector="ScrollBar:vertical /template/ RepeatButton#PART_LineUpButton">
@@ -41,6 +59,28 @@
     </Style>
     <Style Selector="ScrollBar:horizontal /template/ RepeatButton#PART_LineDownButton">
         <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.LineRight}" />
+    </Style>
+    <!-- Localize Dock structural parts; keep their automation paths independent of language (#3806). -->
+    <Style Selector="DockControl">
+        <Setter Property="AutomationProperties.AutomationId" Value="Dock host" />
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.Host}" />
+    </Style>
+    <Style Selector="RootDockControl">
+        <Setter Property="AutomationProperties.AutomationId" Value="Root dock" />
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.Root}" />
+    </Style>
+    <Style Selector="PinnedDockControl">
+        <Setter Property="AutomationProperties.AutomationId" Value="Pinned dock host" />
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.PinnedHost}" />
+    </Style>
+    <Style Selector="ToolPinnedControl">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.PinnedToolTabs}" />
+    </Style>
+    <Style Selector="DockCommandBarHost">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.CommandBars}" />
+    </Style>
+    <Style Selector="DockSelectorOverlay">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.DocumentsSelector}" />
     </Style>
     <Style Selector="DocumentTabStrip">
         <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.DocumentTabs}" />

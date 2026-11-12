@@ -146,3 +146,8 @@ The #3757 reader and rename change relies on [a module's name line below the top
 measured by hexide-int in [#3777](https://github.com/hexide-io/HexIDE/pull/3777): module-level name lines
 are recognised below code and saved in the header; preceding blank lines follow the header. HexIDE keeps
 text above a class's VERSION block to avoid VB6's measured loss of that text.
+
+The #3774 loaded-name change uses the same [module-name measurement](vb6-fidelity-oracle/a-modules-name-line-below-the-top-of-its-file.md)
+([#3777](https://github.com/hexide-io/HexIDE/pull/3777)): a `.bas` or `.cls` takes its identity from
+`VB_Name`, silently overriding the `.vbp` name; without that attribute the project line wins. The IDE's
+Save Project writes the chosen name into the `.vbp`. Name collisions were not measured.

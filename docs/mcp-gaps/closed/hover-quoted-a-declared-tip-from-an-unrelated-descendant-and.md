@@ -12,3 +12,6 @@
 `hovered (0, 25.6) on TextEditor[Editor]; no tip opened within -5ms (…); declared tip: Add Project`. The pointer
 went to a code editor. The declared tip was the Standard toolbar's, found by a search of the target's descendants.
 The negative dwell had been clamped to 0 but was reported as given.
+
+For current calls, use `Pane[Immediate]` → `Pane[Tool.immediate]`. The calls above retain their historical measurement.
+See [#3825](3825.md) for shared title bars and floating-window selectors.
