@@ -15,7 +15,7 @@ using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A TextBox's MultiLine and ScrollBars (#1340). The form is vb6.exe's probe, six boxes for the five ways a box can be

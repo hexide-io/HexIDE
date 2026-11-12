@@ -9,7 +9,7 @@ using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// Keys a TextBox takes itself, after a selection code set (#1385). Every row was measured on vb6.exe with real keys,
