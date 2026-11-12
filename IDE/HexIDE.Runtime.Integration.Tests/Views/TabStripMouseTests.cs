@@ -8,11 +8,12 @@ using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class TabStripMouseTests
 {
@@ -22,7 +23,7 @@ public class TabStripMouseTests
     [InlineData(false, true, "Down1Up1(2,0,1050,150)Click1")]
     public void MouseUp_sees_selection_and_cancel_still_Clicks(bool cancel, bool right, string expected)
     {
-        var window = TabStripKeyboardTests.Open(cancel, mouse: true);
+        var window = TabStripForm.Open(cancel, mouse: true);
         try
         {
             Click(window, new Point(70, 10), right ? MouseButton.Right : MouseButton.Left);
@@ -34,7 +35,7 @@ public class TabStripMouseTests
     [AvaloniaFact]
     public void Selected_tab_click_does_not_raise_BeforeClick()
     {
-        var window = TabStripKeyboardTests.Open(mouse: true);
+        var window = TabStripForm.Open(mouse: true);
         try
         {
             Click(window, new Point(10, 10));
@@ -46,7 +47,7 @@ public class TabStripMouseTests
     [AvaloniaFact]
     public void Client_area_raises_no_control_or_form_events()
     {
-        var window = TabStripKeyboardTests.Open(mouse: true);
+        var window = TabStripForm.Open(mouse: true);
         try
         {
             Click(window, new Point(70, 70));
@@ -60,7 +61,7 @@ public class TabStripMouseTests
     [InlineData(true, "Down1Up1(1,2,1050,150)Click1")]
     public void MultiSelect_clicks_skip_BeforeClick(bool control, string expected)
     {
-        var window = TabStripKeyboardTests.Open(mouse: true, multi: true);
+        var window = TabStripForm.Open(mouse: true, multi: true);
         try
         {
             Click(window, new Point(70, 10), modifiers: control ? RawInputModifiers.Control : RawInputModifiers.None);
@@ -78,7 +79,7 @@ public class TabStripMouseTests
     [AvaloniaFact]
     public void Double_click_has_a_second_MouseUp_and_Click_without_MouseDown()
     {
-        var window = TabStripKeyboardTests.Open(mouse: true);
+        var window = TabStripForm.Open(mouse: true);
         var platform = window.PlatformImpl!;
         var inputProperty = platform.GetType().GetProperty("Input")!;
         var input = (System.Action<RawInputEventArgs>)inputProperty.GetValue(platform)!;
@@ -112,7 +113,7 @@ public class TabStripMouseTests
     [InlineData("TabFixedHeight")]
     public void Header_layouts_reserved_for_drawing_refuse_mouse_input(string property)
     {
-        var window = TabStripKeyboardTests.Open(mouse: true);
+        var window = TabStripForm.Open(mouse: true);
         Exception? fault = null;
         void Faulted(VBWindowContext context, Exception error)
         {

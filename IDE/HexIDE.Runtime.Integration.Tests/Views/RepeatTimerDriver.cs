@@ -2,7 +2,7 @@ using System;
 using System.Reflection;
 using Avalonia.Threading;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // Drive the wired handler without waiting for dispatcher scheduling or changing the control.
 internal static class RepeatTimerDriver
