@@ -7,7 +7,7 @@ using Avalonia.VisualTree;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.BuiltinControls;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class ToolbarDrawingTests
 {

@@ -9,7 +9,10 @@ using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+using HexIDE.Integration.Tests;
+using HexIDE.Integration.Tests.Views;
+
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // Measured on vb6.exe SP6, native and p-code: #1088, issuecomment-6428845889,
 // docs/vb6-fidelity-oracle/in-box-controls-the-toolbar.md. Runtime object model; drawing and persistence are separate slices.

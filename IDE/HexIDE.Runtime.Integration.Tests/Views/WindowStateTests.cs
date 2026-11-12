@@ -8,7 +8,7 @@ using HexIDE.Runtime;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A form's WindowState (#1152), against what vb6.exe gave in the guest's console session, native and p-code alike (the

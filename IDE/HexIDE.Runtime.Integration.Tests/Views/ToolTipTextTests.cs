@@ -11,7 +11,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// ToolTipText (#1403). Every expectation is vb6.exe's, native and p-code agreeing (the oracle's "ToolTipText: which

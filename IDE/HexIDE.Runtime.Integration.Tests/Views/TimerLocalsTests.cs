@@ -9,7 +9,7 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// The Locals window lists a Timer, a control array and a form's <c>Me</c> as VB6's does (#2329). hexide-int measured VB6's

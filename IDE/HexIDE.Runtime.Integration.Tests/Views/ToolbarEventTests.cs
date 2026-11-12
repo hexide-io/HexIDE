@@ -14,7 +14,9 @@ using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Integration.Tests.Views;
+using HexIDE.Integration.Tests.Views;
+
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // Real-input measurements: #1088, issuecomment-6428845889.
 public class ToolbarEventTests
