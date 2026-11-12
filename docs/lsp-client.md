@@ -1137,6 +1137,11 @@ No undo group stays open while awaiting a server. A detached view discards its a
 `OnTypeFormattingTests` drives a scripted server through headless keyboard input; a live IDE check is
 still needed for the editing gesture and rendering.
 
+Automation's `type_text` keyboard mode and `press_key` wait for this work through applying or discarding
+the edits before reporting the caret (#3657), alongside completion and parameter info. The automation
+budget is 2 s per key; reaching it adds a warning that a popup or formatting edit may still arrive.
+A key with nothing pending adds no fixed delay. The formatting request's own 250 ms budget is unchanged.
+
 Completion requests use the start of the identifier around the caret, including for Complete Word,
 so servers that filter by the preceding word return the full list for that context ([#3340](https://github.com/hexide-io/HexIDE/issues/3340)).
 The editor keeps that list visible and selects prefix matches against the whole word around the caret;
