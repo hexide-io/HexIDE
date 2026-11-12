@@ -1,7 +1,9 @@
 using System.Linq;
 using System.Text.RegularExpressions;
 using Avalonia;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.Editing;
@@ -36,6 +38,17 @@ internal static class CodeWindowPointer
         {
             number = position.Line;
             column = $", column {position.Column}";
+        }
+        if (TopLevel.GetTopLevel(target) is { } top && target.TranslatePoint(point, top) is { } inWindow
+            && top.InputHitTest(inWindow) is Control hit
+            && !ReferenceEquals(hit, editor.TextArea) && !editor.TextArea.IsVisualAncestorOf(hit))
+        {
+            var cover = hit.GetSelfAndVisualAncestors().OfType<Button>().FirstOrDefault() ?? hit;
+            var name = ControlAutomationPeer.CreatePeerForElement(cover)?.GetName();
+            var covering = cover is Button { Parent: StackPanel { Name: "StickyHeaders" } }
+                ? $"the sticky header for '{name}'"
+                : $"'{cover.GetType().Name}{(string.IsNullOrEmpty(name) ? "" : $"[{name}]")}'";
+            return $"; on {covering}, which covers line {number} of {vm.Identity.Display}";
         }
         var marks = (vm.HasBreakpoint(number) ? "; breakpoint" : "")
                     + (vm.BookmarkService.IsBookmarked(vm.Identity, number - 1) ? "; bookmark" : "");
