@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Kutsu kohdassa {0}:{1}",
     "Str.Tool.FindReferences.Title": "Etsi viittaukset",
     "Str.Tool.FindReferences.Empty": "Ei viittauksia",
+    "Str.Tool.FindReferences.Unavailable": "Mikään kohteelle {0} käynnissä oleva kielipalvelin ei tarjoa toimintoa ”Etsi viittaukset”",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Virheenkorjaussovitin {0} ei vastannut Lopeta-komentoon, ja se pysäytettiin {1} sekunnin odotuksen jälkeen.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Aseta ehdot keskeytyskohtamarginaalin valikon Ehto…-komennolla. Tiedosto '{0}', keskeytyskohtamerkintä {1}.",

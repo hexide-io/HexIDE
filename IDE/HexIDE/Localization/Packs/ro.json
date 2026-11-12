@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Apel la {0}:{1}",
     "Str.Tool.FindReferences.Title": "Găsește referințe",
     "Str.Tool.FindReferences.Empty": "Nicio referință",
+    "Str.Tool.FindReferences.Unavailable": "Niciun server de limbaj care rulează pentru {0} nu oferă „Găsește referințe”",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Adaptorul de depanare {0} nu a răspuns la comanda de încheiere și a fost oprit după {1} secunde de așteptare.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Definiți condiții prin Condiție… în meniul marginii punctelor de întrerupere. Fișierul '{0}', intrarea punctului de întrerupere {1}.",

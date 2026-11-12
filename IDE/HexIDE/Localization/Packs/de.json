@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Aufruf bei {0}:{1}",
     "Str.Tool.FindReferences.Title": "Verweise suchen",
     "Str.Tool.FindReferences.Empty": "Keine Verweise",
+    "Str.Tool.FindReferences.Unavailable": "Kein für {0} laufender Sprachserver bietet „Verweise suchen“ an",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Der Debugadapter {0} hat auf Beenden nicht geantwortet und wurde nach {1} Sekunden Wartezeit gestoppt.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Legen Sie Bedingungen über Bedingung… im Kontextmenü der Haltepunktleiste fest. Datei '{0}', Haltepunkteintrag {1}.",

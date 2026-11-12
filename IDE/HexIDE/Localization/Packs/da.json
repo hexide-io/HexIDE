@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Kald ved {0}:{1}",
     "Str.Tool.FindReferences.Title": "Find referencer",
     "Str.Tool.FindReferences.Empty": "Ingen referencer",
+    "Str.Tool.FindReferences.Unavailable": "Ingen kørende sprogserver for {0} tilbyder Find referencer",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Fejlfindingsadapteren {0} svarede ikke på Afslut og blev stoppet efter {1} sekunders ventetid.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Angiv betingelser med Betingelse… i menuen i margen for stoppunkter. Fil '{0}', breakpointpost {1}.",

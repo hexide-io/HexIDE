@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Chiamata in {0}:{1}",
     "Str.Tool.FindReferences.Title": "Trova riferimenti",
     "Str.Tool.FindReferences.Empty": "Nessun riferimento",
+    "Str.Tool.FindReferences.Unavailable": "Nessun server di linguaggio in esecuzione per {0} offre «Trova riferimenti»",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "L’adattatore di debug {0} non ha risposto a Termina ed è stato arrestato dopo un’attesa di {1} secondi.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Impostare le condizioni con Condizione… nel menu del margine dei punti di interruzione. File '{0}', voce del punto di interruzione {1}.",

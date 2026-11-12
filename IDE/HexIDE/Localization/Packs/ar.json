@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "استدعاء عند {0}:{1}",
     "Str.Tool.FindReferences.Title": "البحث عن المراجع",
     "Str.Tool.FindReferences.Empty": "لا توجد مراجع",
+    "Str.Tool.FindReferences.Unavailable": "لا يوفر أي خادم لغة يعمل للمستند {0} ميزة البحث عن المراجع",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "لم يستجب محول التصحيح {0} لأمر الإنهاء، وتم إيقافه بعد انتظار {1} ثانية.",
     "Str.Debug.External.BreakpointConditionUnsupported": "عيّن الشروط عبر شرط… في قائمة هامش نقاط التوقف. الملف '{0}'، إدخال نقطة التوقف {1}.",

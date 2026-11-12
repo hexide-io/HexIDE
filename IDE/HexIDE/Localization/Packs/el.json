@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Κλήση στο {0}:{1}",
     "Str.Tool.FindReferences.Title": "Εύρεση αναφορών",
     "Str.Tool.FindReferences.Empty": "Δεν υπάρχουν αναφορές",
+    "Str.Tool.FindReferences.Unavailable": "Κανένας διακομιστής γλώσσας που εκτελείται για το {0} δεν προσφέρει εύρεση αναφορών",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Ο προσαρμογέας αποσφαλμάτωσης {0} δεν ανταποκρίθηκε στον τερματισμό και διακόπηκε μετά από αναμονή {1} δευτερολέπτων.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Ορίστε συνθήκες από το Συνθήκη… στο μενού περιθωρίου σημείων διακοπής. Αρχείο '{0}', καταχώριση σημείου διακοπής {1}.",

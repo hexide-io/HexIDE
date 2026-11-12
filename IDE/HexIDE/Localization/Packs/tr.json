@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "{0}:{1} konumunda çağrı",
     "Str.Tool.FindReferences.Title": "Başvuruları bul",
     "Str.Tool.FindReferences.Empty": "Başvuru yok",
+    "Str.Tool.FindReferences.Unavailable": "{0} için çalışan hiçbir dil sunucusu “Başvuruları bul” komutunu desteklemiyor",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "{0} hata ayıklama bağdaştırıcısı Sonlandır komutuna yanıt vermedi ve {1} saniye beklendikten sonra durduruldu.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Koşulları kesme noktası kenar boşluğu menüsündeki Koşul… ile ayarlayın. Dosya '{0}', kesme noktası girdisi {1}.",

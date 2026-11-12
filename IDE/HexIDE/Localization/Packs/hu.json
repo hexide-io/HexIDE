@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Hívás itt: {0}:{1}",
     "Str.Tool.FindReferences.Title": "Hivatkozások keresése",
     "Str.Tool.FindReferences.Empty": "Nincsenek hivatkozások",
+    "Str.Tool.FindReferences.Unavailable": "A(z) {0} dokumentumhoz futó nyelvi kiszolgálók egyike sem kínálja a „Hivatkozások keresése” parancsot",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "A(z) {0} hibakeresési adapter nem válaszolt a Befejezés parancsra, és {1} másodperc várakozás után leállt.",
     "Str.Debug.External.BreakpointConditionUnsupported": "A feltételeket a töréspontsáv menüjének Feltétel… elemével adhatja meg. Fájl: '{0}', töréspontbejegyzés: {1}.",

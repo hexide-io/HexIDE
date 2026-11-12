@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Lời gọi tại {0}:{1}",
     "Str.Tool.FindReferences.Title": "Tìm tham chiếu",
     "Str.Tool.FindReferences.Empty": "Không có tham chiếu",
+    "Str.Tool.FindReferences.Unavailable": "Không có máy chủ ngôn ngữ nào đang chạy cho {0} cung cấp tính năng tìm tham chiếu",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Bộ điều hợp gỡ lỗi {0} không phản hồi lệnh Kết thúc và đã bị dừng sau khi chờ {1} giây.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Đặt điều kiện bằng Điều kiện… trong trình đơn lề điểm dừng. Tệp '{0}', mục điểm dừng {1}.",

@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Aanroep op {0}:{1}",
     "Str.Tool.FindReferences.Title": "Verwijzingen zoeken",
     "Str.Tool.FindReferences.Empty": "Geen verwijzingen",
+    "Str.Tool.FindReferences.Unavailable": "Geen actieve taalserver voor {0} biedt ‘Verwijzingen zoeken’ aan",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Debugadapter {0} reageerde niet op Beëindigen en is na {1} seconden wachten gestopt.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Stel voorwaarden in via Voorwaarde… in het menu van de onderbrekingspuntmarge. Bestand '{0}', onderbrekingspuntvermelding {1}.",

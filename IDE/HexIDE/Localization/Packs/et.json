@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Kutse asukohas {0}:{1}",
     "Str.Tool.FindReferences.Title": "Otsi viiteid",
     "Str.Tool.FindReferences.Empty": "Viiteid pole",
+    "Str.Tool.FindReferences.Unavailable": "Ükski dokumendi {0} jaoks töötav keeleserver ei paku käsku „Otsi viiteid“",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Silumisadapter {0} ei vastanud lõpetamiskäsule ja peatati pärast {1} sekundi pikkust ootamist.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Määrake tingimused katkestuspunktide veerise menüüs käsuga Tingimus…. Fail '{0}', katkestuspunkti kirje {1}.",

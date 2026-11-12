@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Iškvietimas ties {0}:{1}",
     "Str.Tool.FindReferences.Title": "Rasti nuorodas",
     "Str.Tool.FindReferences.Empty": "Nuorodų nėra",
+    "Str.Tool.FindReferences.Unavailable": "Nė vienas dokumentui {0} veikiantis kalbos serveris neteikia komandos „Rasti nuorodas“",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Derinimo adapteris {0} neatsakė į baigimo komandą ir buvo sustabdytas palaukus {1} sekundžių.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Sąlygas nustatykite lūžio taškų paraštės meniu komanda Sąlyga…. Failas '{0}', stabdos taško įrašas {1}.",

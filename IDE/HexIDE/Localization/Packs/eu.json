@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Deia {0}:{1} kokapenean",
     "Str.Tool.FindReferences.Title": "Bilatu erreferentziak",
     "Str.Tool.FindReferences.Empty": "Ez dago erreferentziarik",
+    "Str.Tool.FindReferences.Unavailable": "{0} dokumenturako martxan dagoen hizkuntza-zerbitzari batek ere ez du «Bilatu erreferentziak» eskaintzen",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "{0} arazketa-egokigailuak ez dio Amaitu aginduari erantzun eta {1} segundo itxaron ondoren gelditu da.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Ezarri baldintzak eten-puntuen marjinako menuko Baldintza… aukerarekin. '{0}' fitxategia, {1}. eten-puntuaren sarrera.",

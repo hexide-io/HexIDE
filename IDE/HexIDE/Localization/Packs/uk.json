@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Виклик у {0}:{1}",
     "Str.Tool.FindReferences.Title": "Знайти посилання",
     "Str.Tool.FindReferences.Empty": "Немає посилань",
+    "Str.Tool.FindReferences.Unavailable": "Жоден мовний сервер, що працює для {0}, не підтримує команду «Знайти посилання»",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Адаптер налагодження {0} не відповів на команду завершення й був зупинений після очікування протягом {1} секунд.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Задайте умови через «Умова…» в меню поля точок зупинки. Файл '{0}', запис точки зупину {1}.",

@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "{0}:{1} 的呼叫",
     "Str.Tool.FindReferences.Title": "尋找參照",
     "Str.Tool.FindReferences.Empty": "沒有參照",
+    "Str.Tool.FindReferences.Unavailable": "為 {0} 執行的語言伺服器均未提供尋找參照功能",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "偵錯配接器 {0} 未回應結束命令，已在等候 {1} 秒後停止。",
     "Str.Debug.External.BreakpointConditionUnsupported": "請透過中斷點邊欄選單中的「條件…」設定條件。 檔案 '{0}'，中斷點項目 {1}。",

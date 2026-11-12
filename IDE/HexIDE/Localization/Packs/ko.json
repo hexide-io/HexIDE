@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "{0}:{1}의 호출",
     "Str.Tool.FindReferences.Title": "참조 찾기",
     "Str.Tool.FindReferences.Empty": "참조 없음",
+    "Str.Tool.FindReferences.Unavailable": "{0}에 대해 실행 중인 언어 서버 중 참조 찾기를 제공하는 서버가 없습니다",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "디버그 어댑터 {0}이(가) 종료 명령에 응답하지 않아 {1}초 동안 기다린 후 중지되었습니다.",
     "Str.Debug.External.BreakpointConditionUnsupported": "중단점 여백 메뉴의 조건…에서 조건을 설정하세요. 파일 '{0}', 중단점 항목 {1}.",

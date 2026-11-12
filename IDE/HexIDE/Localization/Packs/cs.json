@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Volání na {0}:{1}",
     "Str.Tool.FindReferences.Title": "Najít odkazy",
     "Str.Tool.FindReferences.Empty": "Žádné odkazy",
+    "Str.Tool.FindReferences.Unavailable": "Žádný jazykový server spuštěný pro {0} nenabízí „Najít odkazy“",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Ladicí adaptér {0} neodpověděl na příkaz Ukončit a byl zastaven po čekání {1} sekund.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Podmínky nastavte příkazem Podmínka… v nabídce okraje zarážek. Soubor '{0}', položka bodu přerušení {1}.",

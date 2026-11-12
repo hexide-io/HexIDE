@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Poziv na {0}:{1}",
     "Str.Tool.FindReferences.Title": "Pronađi reference",
     "Str.Tool.FindReferences.Empty": "Nema referenci",
+    "Str.Tool.FindReferences.Unavailable": "Nijedan jezički server pokrenut za {0} ne nudi „Pronađi reference”",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Adapter za otklanjanje grešaka {0} nije odgovorio na naredbu Završi i zaustavljen je nakon čekanja od {1} sekundi.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Postavite uslove preko Uslov… u meniju margine prelomnih tačaka. Datoteka '{0}', stavka tačke prekida {1}.",

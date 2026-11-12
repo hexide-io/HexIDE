@@ -32,6 +32,7 @@ public class FindReferencesTests
     public void ShiftF12SearchesAtTheCaret()
     {
         var client = Substitute.For<ILspClient>();
+        client.SupportsCapability(Arg.Any<string>(), "referencesProvider").Returns(true);
         var localization = new LocalizationService();
         localization.Apply("en");
         var projects = Substitute.For<IProjectManager>();

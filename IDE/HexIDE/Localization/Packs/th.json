@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "การเรียกที่ {0}:{1}",
     "Str.Tool.FindReferences.Title": "ค้นหาการอ้างอิง",
     "Str.Tool.FindReferences.Empty": "ไม่มีการอ้างอิง",
+    "Str.Tool.FindReferences.Unavailable": "ไม่มีเซิร์ฟเวอร์ภาษาที่ทำงานสำหรับ {0} ที่รองรับการค้นหาการอ้างอิง",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "อะแดปเตอร์ดีบัก {0} ไม่ตอบสนองต่อคำสั่งจบ และถูกหยุดหลังจากรอ {1} วินาที",
     "Str.Debug.External.BreakpointConditionUnsupported": "ตั้งเงื่อนไขผ่าน เงื่อนไข… ในเมนูขอบจุดหยุด ไฟล์ '{0}' รายการจุดพัก {1}",

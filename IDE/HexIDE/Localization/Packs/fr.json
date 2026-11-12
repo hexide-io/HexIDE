@@ -25,6 +25,7 @@
     "Str.Tool.CallHierarchy.CallSite": "Appel à {0}:{1}",
     "Str.Tool.FindReferences.Title": "Rechercher les références",
     "Str.Tool.FindReferences.Empty": "Aucune référence",
+    "Str.Tool.FindReferences.Unavailable": "Aucun serveur de langage en cours d’exécution pour {0} ne propose « Rechercher les références »",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "L’adaptateur de débogage {0} n’a pas répondu à Terminer et a été arrêté après {1} secondes d’attente.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Définissez les conditions via Condition… dans le menu de la marge des points d’arrêt. Fichier '{0}', entrée de point d’arrêt {1}.",
