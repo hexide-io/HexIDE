@@ -29,6 +29,14 @@ loaded it SHALL retain the localized `Project Group - Group1` title (#3713).
 - **THEN** the IDE SHALL create `Group1`, and the explorer shows its group root and localized group title
 - **AND** opening a lone project creates no group, while opening a `.vbg` uses that file's group
 
+### Requirement: The group root SHALL expose its displayed name to automation
+The group root's tree item SHALL use its localized display name as its accessible name through the
+same binding as the other project tree nodes (#3735). It SHALL notify that name when the group is renamed.
+
+#### Scenario: Renaming an accessible group root
+- **WHEN** the loaded group is renamed
+- **THEN** its existing tree item's accessible name matches the updated localized display label
+
 ### Requirement: The tree SHALL show members in their filesystem hierarchy
 The tree SHALL present the project's members beneath the project file, arranged by their location on disk.
 
