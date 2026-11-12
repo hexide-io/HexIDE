@@ -446,7 +446,6 @@
                     <!-- Dock's theme traverses Layout before it is bound at startup. -->
                     <Style Selector="DockControl" x:DataType="DockControl">
                         <Setter Property="AutomationProperties.AutomationId" Value="{CompiledBinding $self.Layout?.Id}" />
-                        <Setter Property="AutomationProperties.Name" Value="{CompiledBinding $self.Layout?.Title}" />
                         <Setter Property="dockSettings:DockProperties.IsDragEnabled" Value="{CompiledBinding $self.Layout?.CanDrag, TargetNullValue={x:True}}" />
                         <Setter Property="dockSettings:DockProperties.IsDropEnabled" Value="{CompiledBinding $self.Layout?.CanDrop, TargetNullValue={x:True}}" />
                         <Setter Property="dockSettings:DockProperties.DockGroup" Value="{CompiledBinding $self.Layout?.DockGroup}" />

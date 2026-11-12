@@ -2,6 +2,12 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Doki host",
+    "Str.Dock.Root": "Juurdokk",
+    "Str.Dock.PinnedHost": "Kinnitatud doki host",
+    "Str.Dock.PinnedToolTabs": "Kinnitatud tööriistade vahekaardid",
+    "Str.Dock.CommandBars": "Doki käsuribad",
+    "Str.Dock.DocumentsSelector": "Dokumendivalija",
     "Str.Dock.DocumentTabs": "Dokumentide vahekaardid",
     "Str.Dock.ToolTabs": "Tööriistade vahekaardid",
     "Str.AIChat.Refusal": "Teenusepakkuja keeldus sellest päringust.",

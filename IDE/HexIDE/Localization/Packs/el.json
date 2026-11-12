@@ -2,6 +2,12 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Κεντρικός υποδοχέας αγκύρωσης",
+    "Str.Dock.Root": "Ριζική αγκύρωση",
+    "Str.Dock.PinnedHost": "Υποδοχέας καρφιτσωμένης αγκύρωσης",
+    "Str.Dock.PinnedToolTabs": "Καρτέλες καρφιτσωμένων εργαλείων",
+    "Str.Dock.CommandBars": "Γραμμές εντολών αγκύρωσης",
+    "Str.Dock.DocumentsSelector": "Επιλογέας εγγράφων",
     "Str.Dock.DocumentTabs": "Καρτέλες εγγράφων",
     "Str.Dock.ToolTabs": "Καρτέλες εργαλείων",
     "Str.AIChat.Refusal": "Ο πάροχος απέρριψε αυτό το αίτημα.",

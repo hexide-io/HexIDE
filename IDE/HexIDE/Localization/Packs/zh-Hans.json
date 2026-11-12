@@ -2,6 +2,12 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "停靠宿主",
+    "Str.Dock.Root": "根停靠区",
+    "Str.Dock.PinnedHost": "已固定停靠宿主",
+    "Str.Dock.PinnedToolTabs": "已固定工具选项卡",
+    "Str.Dock.CommandBars": "停靠命令栏",
+    "Str.Dock.DocumentsSelector": "文档选择器",
     "Str.Dock.DocumentTabs": "文档选项卡",
     "Str.Dock.ToolTabs": "工具选项卡",
     "Str.AIChat.Refusal": "提供商拒绝了此请求。",

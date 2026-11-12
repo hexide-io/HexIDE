@@ -2,6 +2,12 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Dokošanas resursdators",
+    "Str.Dock.Root": "Saknes doks",
+    "Str.Dock.PinnedHost": "Piespraustas dokošanas resursdators",
+    "Str.Dock.PinnedToolTabs": "Piesprausto rīku cilnes",
+    "Str.Dock.CommandBars": "Dokošanas komandu joslas",
+    "Str.Dock.DocumentsSelector": "Dokumentu atlasītājs",
     "Str.Dock.DragPreviewControlDock": "Dokot",
     "Str.Dock.DragPreviewControlFloat": "Peldošs",
     "Str.Dock.DragPreviewControlNone": "Nav",

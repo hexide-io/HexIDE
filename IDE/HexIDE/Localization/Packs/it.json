@@ -2,6 +2,12 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Contenitore di ancoraggio",
+    "Str.Dock.Root": "Ancoraggio radice",
+    "Str.Dock.PinnedHost": "Contenitore di ancoraggio bloccato",
+    "Str.Dock.PinnedToolTabs": "Schede degli strumenti bloccati",
+    "Str.Dock.CommandBars": "Barre dei comandi di ancoraggio",
+    "Str.Dock.DocumentsSelector": "Selettore di documenti",
     "Str.Dock.DragPreviewControlDock": "Ancora",
     "Str.Dock.DragPreviewControlFloat": "Mobile",
     "Str.Dock.DragPreviewControlNone": "Nessuno",

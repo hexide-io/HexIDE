@@ -2,6 +2,12 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Хост за закачване",
+    "Str.Dock.Root": "Коренно закачване",
+    "Str.Dock.PinnedHost": "Хост за фиксирано закачване",
+    "Str.Dock.PinnedToolTabs": "Раздели на фиксирани инструменти",
+    "Str.Dock.CommandBars": "Ленти с команди за закачване",
+    "Str.Dock.DocumentsSelector": "Избор на документи",
     "Str.Dock.DocumentTabs": "Раздели на документи",
     "Str.Dock.ToolTabs": "Раздели на инструменти",
     "Str.AIChat.Refusal": "Доставчикът отказа тази заявка.",

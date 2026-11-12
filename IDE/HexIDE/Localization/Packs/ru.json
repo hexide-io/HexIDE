@@ -2,6 +2,12 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Контейнер закрепления",
+    "Str.Dock.Root": "Корневая область закрепления",
+    "Str.Dock.PinnedHost": "Контейнер прикреплённых окон",
+    "Str.Dock.PinnedToolTabs": "Вкладки прикреплённых инструментов",
+    "Str.Dock.CommandBars": "Панели команд закрепления",
+    "Str.Dock.DocumentsSelector": "Выбор документов",
     "Str.Dock.DocumentTabs": "Вкладки документов",
     "Str.Dock.ToolTabs": "Вкладки инструментов",
     "Str.AIChat.Refusal": "Провайдер отклонил этот запрос.",

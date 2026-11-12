@@ -2,6 +2,12 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Telakointi-isäntä",
+    "Str.Dock.Root": "Juuritelakka",
+    "Str.Dock.PinnedHost": "Kiinnitetyn telakoinnin isäntä",
+    "Str.Dock.PinnedToolTabs": "Kiinnitetyt työkaluvälilehdet",
+    "Str.Dock.CommandBars": "Telakoinnin komentopalkit",
+    "Str.Dock.DocumentsSelector": "Asiakirjavalitsin",
     "Str.Dock.DocumentTabs": "Asiakirjavälilehdet",
     "Str.Dock.ToolTabs": "Työkaluvälilehdet",
     "Str.AIChat.Refusal": "Palveluntarjoaja hylkäsi tämän pyynnön.",

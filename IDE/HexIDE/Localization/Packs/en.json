@@ -2,6 +2,12 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Dock host",
+    "Str.Dock.Root": "Root dock",
+    "Str.Dock.PinnedHost": "Pinned dock host",
+    "Str.Dock.PinnedToolTabs": "Pinned tool tabs",
+    "Str.Dock.CommandBars": "Dock command bars",
+    "Str.Dock.DocumentsSelector": "Documents selector",
     "Str.Dock.DocumentTabs": "Document tabs",
     "Str.Dock.ToolTabs": "Tool tabs",
     "Str.AIChat.Refusal": "The provider declined this request.",

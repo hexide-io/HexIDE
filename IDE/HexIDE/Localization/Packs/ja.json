@@ -2,6 +2,12 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "ドックホスト",
+    "Str.Dock.Root": "ルートドック",
+    "Str.Dock.PinnedHost": "固定ドックホスト",
+    "Str.Dock.PinnedToolTabs": "固定ツールタブ",
+    "Str.Dock.CommandBars": "ドックコマンドバー",
+    "Str.Dock.DocumentsSelector": "ドキュメントセレクター",
     "Str.Dock.DragPreviewControlDock": "ドッキング",
     "Str.Dock.DragPreviewControlFloat": "フローティング",
     "Str.Dock.DragPreviewControlNone": "なし",

@@ -2,6 +2,12 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Dokkolási gazda",
+    "Str.Dock.Root": "Gyökérdokk",
+    "Str.Dock.PinnedHost": "Rögzített dokkolási gazda",
+    "Str.Dock.PinnedToolTabs": "Rögzített eszközlapok",
+    "Str.Dock.CommandBars": "Dokkolási parancssávok",
+    "Str.Dock.DocumentsSelector": "Dokumentumválasztó",
     "Str.Dock.DragPreviewControlDock": "Dokkolás",
     "Str.Dock.DragPreviewControlFloat": "Lebegtetés",
     "Str.Dock.DragPreviewControlNone": "Nincs",

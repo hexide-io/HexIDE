@@ -2,6 +2,12 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Forankringsvært",
+    "Str.Dock.Root": "Rodforankring",
+    "Str.Dock.PinnedHost": "Vært for fastgjort forankring",
+    "Str.Dock.PinnedToolTabs": "Fastgjorte værktøjsfaner",
+    "Str.Dock.CommandBars": "Kommandolinjer til forankring",
+    "Str.Dock.DocumentsSelector": "Dokumentvælger",
     "Str.Dock.DocumentTabs": "Dokumentfaner",
     "Str.Dock.ToolTabs": "Værktøjsfaner",
     "Str.AIChat.Refusal": "Udbyderen afviste denne anmodning.",

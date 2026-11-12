@@ -2,6 +2,12 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Host dokowania",
+    "Str.Dock.Root": "Główny obszar dokowania",
+    "Str.Dock.PinnedHost": "Host przypiętego dokowania",
+    "Str.Dock.PinnedToolTabs": "Karty przypiętych narzędzi",
+    "Str.Dock.CommandBars": "Paski poleceń dokowania",
+    "Str.Dock.DocumentsSelector": "Wybór dokumentów",
     "Str.Dock.DragPreviewControlDock": "Zadokuj",
     "Str.Dock.DragPreviewControlFloat": "Pływające",
     "Str.Dock.DragPreviewControlNone": "Brak",
