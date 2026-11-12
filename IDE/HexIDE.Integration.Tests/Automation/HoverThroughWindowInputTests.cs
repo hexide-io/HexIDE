@@ -652,7 +652,7 @@ public class HoverThroughWindowInputTests
                 var view = (CodeEditorView)window.Content!;
                 if (action == "completion") view.TriggerCompletion();
                 else view.TriggerSignatureHelp();
-                if (CodeEditorView.PendingPopupsOf(editor) is { } pending) await pending;
+                if (CodeEditorView.PendingKeyRequestsOf(editor) is { } pending) await pending;
                 CodeEditorView.OpenPopupsOf(editor).Should().ContainSingle();
             }
             ToolTip.GetIsOpen(editor).Should().BeFalse();

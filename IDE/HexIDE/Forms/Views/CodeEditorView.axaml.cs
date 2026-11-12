@@ -65,15 +65,14 @@ public partial class CodeEditorView : UserControl
     private Task _signatureShown = Task.CompletedTask;
 
     /// <summary>
-    /// What the completion list and parameter info <paramref name="editor"/> last asked the language server for are
-    /// still waiting on, null when nothing is: type_text's keyboard mode waits for it after each key, as a person's next
-    /// key comes after the list a letter opened has appeared (#943 review). A request a later key superseded ends then.
+    /// The editor's pending completion, parameter-info and on-type formatting work, through showing or applying the
+    /// answer. Typing tools wait after each key before reading back; null means there is nothing to wait for.
     /// </summary>
-    internal static Task? PendingPopupsOf(TextEditor editor) =>
+    internal static Task? PendingKeyRequestsOf(TextEditor editor) =>
         Avalonia.LogicalTree.LogicalExtensions.FindLogicalAncestorOfType<CodeEditorView>(editor) is { } view
         && ReferenceEquals(view.TextEditor, editor)
-        && !(view._completionShown.IsCompleted && view._signatureShown.IsCompleted)
-            ? Task.WhenAll(view._completionShown, view._signatureShown)
+        && !(view._completionShown.IsCompleted && view._signatureShown.IsCompleted && view.PendingOnTypeFormatting.IsCompleted)
+            ? Task.WhenAll(view._completionShown, view._signatureShown, view.PendingOnTypeFormatting)
             : null;
 
     /// <summary>

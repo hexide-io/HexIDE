@@ -29,7 +29,7 @@ function Check($project, $arguments, $expected, $status = 0) {
     $output = & $powerShell -NoProfile -File $child 2>&1 | Out-String
     if ($LASTEXITCODE -ne $status) { throw "Wrong exit code for ${project}: $LASTEXITCODE; $output" }
     $captured = @()
-    if (Test-Path $capturePath) { $captured = @(Get-Content $capturePath -Raw | ConvertFrom-Json) }
+    if (Test-Path $capturePath) { $captured = @(Get-Content $capturePath -Raw | ConvertFrom-Json | Write-Output) }
     if (($captured -join '|') -cne ($expected -join '|')) {
         throw "Wrong arguments: $($captured -join '|'); expected $($expected -join '|')"
     }

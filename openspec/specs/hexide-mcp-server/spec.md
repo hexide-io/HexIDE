@@ -401,7 +401,9 @@ The IDE SHALL give the dock pane's Menu, Pin, Maximize/Restore and Close buttons
 localized automation names describing their actions. The name SHALL belong to the control's automation peer and be
 accepted by path matching, as well as being available to screen readers. Document-tab close buttons, designer caption buttons,
 dropdown toggles, property color/font picker buttons and all eight scroll bar line/page buttons SHALL likewise
-have localized names describing their actions.
+have localized names describing their actions. Menu scroll arrows and ButtonSpinner increase/decrease
+buttons SHALL also expose localized action names. Dialog descriptions SHALL list only visible answer buttons,
+excluding toggle buttons, repeat buttons and buttons owned by another control’s template.
 
 #### Scenario: Discovering an icon-only dock button
 - **WHEN** a caller discovers a dock pane's close button
@@ -1710,6 +1712,20 @@ ancestor); otherwise it SHALL omit the path rather than name an unrelated contro
 
 - **WHEN** the Watches tree's ContextMenu has focus and `press_key` sends Escape to its watch row
 - **THEN** the reply names the menu at the tree's `ContextMenu` path, and the menu closes
+
+### Requirement: Typing replies wait for the editor's language-server work
+`type_text` in keyboard mode and `press_key` SHALL wait up to 2 s for pending completion, parameter-info
+and on-type formatting work after each key, including applying or discarding formatting edits, before
+reporting the caret. A reply that reaches that budget SHALL say that work may still change the editor.
+A key with no pending work SHALL incur no fixed delay.
+
+#### Scenario: A line break receives an on-type formatting edit
+- **WHEN** either tool sends Enter and the language server indents the new line and adds `End If`
+- **THEN** the reply reports the caret after that edit and an immediate document read includes the edit
+
+#### Scenario: The automation budget expires
+- **WHEN** the editor's language-server work has not settled within the automation budget
+- **THEN** the reply names the outstanding work and warns that the editor may still change
 
 ### Requirement: press_key reads a chord written as one key
 `press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it

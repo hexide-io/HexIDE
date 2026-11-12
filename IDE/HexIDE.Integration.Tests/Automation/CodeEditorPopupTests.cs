@@ -398,7 +398,7 @@ public class CodeEditorPopupTests : IDisposable
         editor.CaretOffset = editor.Text.Length;
         window.KeyTextInput("e");
         Pump();
-        var pending = CodeEditorView.PendingPopupsOf(editor);
+        var pending = CodeEditorView.PendingKeyRequestsOf(editor);
         pending.Should().NotBeNull();
         editor.CaretOffset = vm.BufferPrefixLength + freeText.Length;
         reply.SetResult([new CompletionItem("On Error", CompletionItemKind.Keyword)]);

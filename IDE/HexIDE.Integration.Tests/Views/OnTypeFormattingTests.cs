@@ -11,6 +11,7 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using AvaloniaEdit;
 using HexIDE.Bookmarks;
+using HexIDE.Automation;
 using HexIDE.Debugging;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
@@ -49,6 +50,49 @@ public class OnTypeFormattingTests
         await f.Formatted();
         f.Vm.Document.Text.Should().Be(f.Before.Insert(f.Start, newline + "        " + newline + "    End If"));
         f.Editor.CaretOffset.Should().Be(f.Start + newline.Length + 8);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AutomationReplyWaitsForFormattingAndReportsTheAppliedCaret(bool pressKey)
+    {
+        await using var f = await Fixture.Open();
+        var reply = AutomationEnter(f.Editor, pressKey);
+        var request = await f.Request();
+        reply.IsCompleted.Should().BeFalse("the formatting answer has not been sent yet");
+        f.Answer(request);
+        var outcome = await reply.WaitAsync(Fixture.HangTimeout, TestContext.Current.CancellationToken);
+        outcome.Success.Should().BeTrue(outcome.Error);
+        f.Vm.Document.Text.Should().Be(f.Before.Insert(f.Start, "\n        \n    End If"));
+        outcome.Detail.Should().Contain($"the caret is at offset {f.Start + 9}");
+        outcome.Detail.Should().NotContain("had not answered");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AutomationReplyNamesFormattingStillPendingAtItsBudget(bool pressKey)
+    {
+        await using var f = await Fixture.Open();
+        var wait = UiAutomationDriver.PopupWait;
+        UiAutomationDriver.PopupWait = TimeSpan.Zero;
+        try
+        {
+            var outcome = await AutomationEnter(f.Editor, pressKey);
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Contain("on-type formatting").And.Contain("within 0 ms");
+        }
+        finally { UiAutomationDriver.PopupWait = wait; }
+    }
+
+    private static Task<InteractOutcome> AutomationEnter(TextEditor editor, bool pressKey)
+    {
+        if (!pressKey) return UiAutomationDriver.TypeKeysAsync(editor, "\n");
+        // Exercise main's synchronous delivery too, so the regression can prove the missing wait.
+        var method = typeof(UiAutomationDriver).GetMethod("PressKeyAsync");
+        return method is null ? Task.FromResult(UiAutomationDriver.PressKey(editor, "Enter", null))
+            : (Task<InteractOutcome>)method.Invoke(null, [editor, "Enter", null, null, TestContext.Current.CancellationToken])!;
     }
 
     [AvaloniaFact]

@@ -3088,7 +3088,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "auto-indent, completion or auto-close. \"keyboard\" types it as a person does, a key at a time, to "
                      + "the focused control: KeyDown, TextInput and KeyUp per character, \\n as Enter and \\t as Tab, with "
                      + "key bindings tried first, so what typing drives runs. In a code window that is the completion "
-                     + "request a letter makes, parameter info on ( and , and auto-indent and the End a line break adds; "
+                     + "request a letter makes, parameter info on ( and , on-type formatting, and auto-indent and the End a line break adds; "
                      + "after each key the language server's answer is waited for, up to 2 s. The text that lands may "
                      + "differ from what was sent, so read it back. A Tab that moves focus sends the rest to where focus "
                      + "went. The typing stops, and the reply says after how many keys, at a key a protected line refuses, "
@@ -3425,7 +3425,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     private static string? TipOn(Control c) =>
         ToolTip.GetIsOpen(c) && UiAutomationDriver.TipText(ToolTip.GetTip(c)) is { } text ? text : null;
     [McpServerTool(Name = "press_key")]
-    [Description("Presses a key on the control at 'target' through the window's platform input, so access keys (Alt+letter), menus and key bindings see it with optional 'modifiers', whose own keys go down before it and up after, as a person's chord, and types the key's character if it has one; 'window' selects the top-level window. If target contains the keyboard focus, presses there without moving it. Unmodified Escape stays in a focused attached menu or flyout placed on target's ancestor; the reply names its path. Otherwise focuses the DEEPEST input surface under 'target' (a code editor's TextArea); falls back to the first focusable descendant, and FAILS when nothing under 'target' can take keyboard focus. The reply says 'moved focus from <path or nothing> to <path>' when it moved focus before delivery, which raises a running program's focus events. The mechanism is 'window-input', or 'routed-key' when focus or platform input was unavailable and KeyDown/KeyUp were raised on the surface instead, which skips access keys; a refusal reads 'keyboard'. In a code window, Delete or Back over a selection deletes only its editable parts, and says what was left. Any other change to the file's header or a member's Attribute lines, which only the IDE changes, is refused; the reply names the region and gives an editable offset into the whole file (get_file_content), or advice for a backward deletion. A key deleting the whole of a declaration's line deletes its Attribute lines with it, as the code window's keys do, and is not refused. Navigation keys are never refused. Refused on a disabled control, and while a modal dialog is open over the window, which would take a person's keys. " + ProgramWaitNote)]
+    [Description("Presses a key on the control at 'target' through window input: access keys (Alt+letter), menus and key bindings see it. Optional 'modifiers' go down before and up after it; it types the key's character. 'window' selects the window. Retains focus inside target. Unmodified Escape stays in a focused attached menu or flyout placed on target's ancestor; the reply names its path. Otherwise focuses the DEEPEST input surface under 'target' (a code editor's TextArea); falls back to the first focusable descendant, and FAILS when nothing under 'target' can take keyboard focus. The reply says 'moved focus from <path or nothing> to <path>' when it moved focus before delivery, raising the program's focus events. The mechanism is 'window-input', or 'routed-key' when focus or platform input was unavailable and KeyDown/KeyUp were raised on the surface instead, which skips access keys; a refusal reads 'keyboard'. In a code window, Delete or Back over a selection deletes only its editable parts, and says what was left. Any other change to the file's header or a member's Attribute lines, which only the IDE changes, is refused; the reply names the region and gives an editable offset into the whole file (get_file_content), or advice for a backward deletion. A key deleting the whole of a declaration's line deletes its Attribute lines with it, as the code window's keys do, and is not refused. Navigation is allowed. Waits up to 2 s for completion, parameter info and on-type formatting, including applied edits, then reports the caret; a budget expiry says so. Refused on a disabled control, and while a modal dialog is open over the window, which would take a person's keys. " + ProgramWaitNote)]
     public async Task<InteractOutcome> PressKeyAsync(
         [Description("A control's path from dump_visual_tree, including ContextMenu/Flyout segments for attached popups.")] string target,
         [Description("An Avalonia Key name: Enter, Tab, Back, Delete, Escape, Down, S, ... A chord written as one, such as 'Ctrl+H', is read as key 'H' with modifiers 'Ctrl', and the reply says so.")] string key,
@@ -3434,7 +3434,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         CancellationToken ct = default)
     {
         UiAutomationDriver.ProgramWatch? watch = null;
-        var outcome = await Dispatcher.UIThread.InvokeAsync(() =>
+        var outcome = await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             var (active, _, error) = ResolveActiveWindow(window);
             if (active is null)
@@ -3446,7 +3446,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
             // Read before the action: a MsgBox it answers closes, and loses what ties it to the program (#1232).
             watch = UiAutomationDriver.WatchProgram(active, () => ctx.DebugController.CurrentStop);
-            return UiAutomationDriver.PressKey(control, key, modifiers, target);
+            return await UiAutomationDriver.PressKeyAsync(control, key, modifiers, target, ct);
         });
         return await WaitForProgramAsync(watch, outcome, ct);
     }
