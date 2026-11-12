@@ -21,6 +21,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Automation/CaretPlacementTests.cs` | split |
 | `Automation/CloseWindowTests.cs` | split |
 | `Automation/CodeEditorPopupTests.cs` | split |
+| `Automation/CodeWindowClickTests.cs` | split |
 | `Automation/DesignerOverlayTreeTests.cs` | split |
 | `Automation/HeldButtonTests.cs` | split |
 | `Automation/HoverThroughWindowInputTests.cs` | split |

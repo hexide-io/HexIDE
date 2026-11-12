@@ -920,7 +920,7 @@ public static class UiAutomationDriver
                     return DoChangeSelection(control, peer, value, add: false);
 
                 case "doubleclick":
-                    return DoDoubleClick(control, peer);
+                    return DoDoubleClick(control, peer, value);
 
                 case "click":
                     // The press only: the release is still to come, as the outcome's Release (FinishAsync).
@@ -1641,7 +1641,7 @@ public static class UiAutomationDriver
     /// the target itself and left to bubble.
     /// </para>
     /// </remarks>
-    private static InteractOutcome DoDoubleClick(Control control, AutomationPeer peer)
+    private static InteractOutcome DoDoubleClick(Control control, AutomationPeer peer, string? value)
     {
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Err("the control is not attached to a window, so it cannot be clicked");
@@ -1687,7 +1687,10 @@ public static class UiAutomationDriver
                       + (completionWindow.IsOpen ? "; the completion list is still open" : "; the completion list closed"));
         }
 
-        var centre = new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
+        if (!CodeWindowPointer.Aim(control, ref value, out var aimError)) return Err(aimError!);
+        if (!TryParseClick(value, out var doubleAt, out _, out _, out _, out _, out _, out var parseError)) return Err(parseError);
+        var centre = doubleAt ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
+        var codeNote = CodeWindowPointer.Note(control, centre);
         if (control.TranslatePoint(centre, topLevel) is not { } atTopLevel)
             return Err($"could not translate the centre of '{Describe(control)}' into window coordinates");
 
@@ -1704,7 +1707,7 @@ public static class UiAutomationDriver
             : treeRefusal.Contains(SelectionUnread, StringComparison.Ordinal) ? $" (whether it was selected first is not known: {treeRefusal})"
             : treeRefusal.Length > 0 ? $" (but it was not selected first: {treeRefusal})"
             : "";
-        return Ok($"raised DoubleTapped on '{LabelOf(control, peer)}'{note}; no pointer press was sent; "
+        return Ok($"raised DoubleTapped on '{LabelOf(control, peer)}'{note}{codeNote}; no pointer press was sent; "
                   + "use 'click' with 'double' in 'value' for a running form's DblClick");
     }
 
@@ -1839,6 +1842,7 @@ public static class UiAutomationDriver
     {
         static InteractOutcome Fail(string error) => new(false, "pointer", null, error);
 
+        if (!CodeWindowPointer.Aim(control, ref value, out var aimError)) return Fail(aimError!);
         if (!TryParseClick(value, out var at, out var button, out var keys, out var twice, out var destination, out var hold, out var problem))
             return Fail(problem);
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
@@ -1848,7 +1852,7 @@ public static class UiAutomationDriver
         var local = at ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
         if (control.TranslatePoint(local, topLevel) is not { } inWindow)
             return Fail($"could not translate ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}' into window coordinates");
-        var where = $"({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}', which is ({inWindow.X.ToString("0.#", CultureInfo.InvariantCulture)}, {inWindow.Y.ToString("0.#", CultureInfo.InvariantCulture)}) in the window";
+        var where = $"({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}', which is ({inWindow.X.ToString("0.#", CultureInfo.InvariantCulture)}, {inWindow.Y.ToString("0.#", CultureInfo.InvariantCulture)}) in the window" + CodeWindowPointer.Note(control, local);
         // What a real press there reaches: the topmost element at that point that takes the pointer.
         if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive hit)
             return Fail($"{NothingTakesThePointer}{where}, so nothing was pressed: the point is outside the target, "
@@ -1972,6 +1976,9 @@ public static class UiAutomationDriver
                     ?? topLevel.InputHitTest(releasePoint) as Avalonia.Interactivity.Interactive;
                 if (releasedOn is null)
                     return Fail($"pressed {pressed}; nothing takes the pointer at the release point {releaseWhere}");
+                var releaseCode = topLevel.InputHitTest(releasePoint) is Control releaseTarget
+                    && topLevel.TranslatePoint(releasePoint, releaseTarget) is { } localRelease
+                    ? CodeWindowPointer.Note(releaseTarget, localRelease) : "";
                 var releaseTime = ButtonTimestamp();
                 if (!RawPointer.Button(topLevel, releasePoint, button, down: false, rawKeys, mouse, releaseTime))
                     releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, RawPointer.InSurface(topLevel, releasePoint),
@@ -1983,7 +1990,7 @@ public static class UiAutomationDriver
                 pointer.Capture(null);
                 var docked = placedBefore is null ? "" : DockMoved(placedBefore, DockPlacement(dockLayout!), pressedDockHandle);
                 var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{arrival}{(second ? secondLanding : "")}"
-                    + (destination is null ? "" : $"; released at {releaseWhere}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
+                    + (destination is null ? (releaseCode.Length == 0 ? "" : $"; released{releaseCode}") : $"; released at {releaseWhere}{releaseCode}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
 #if DEBUG
                 return UiSaveFeedback.After(saveWatch, outcome);
@@ -2222,7 +2229,14 @@ public static class UiAutomationDriver
             return await ToggleSettledAsync(control, action, value);
         // A wheel is hit-tested as a press is, against what was drawn (#2576).
         var verb = Normalise(action);
-        if (verb is not ("click" or "wheel"))
+        if (verb is "click" or "doubleclick")
+        {
+            if (HeldButton.Current is not null || Shows(control) is not true || DisabledInteractionRefusal(control, verb) is not null)
+                return Interact(control, action, value);
+            var aimed = value;
+            if (!CodeWindowPointer.Aim(control, ref aimed, out var aimError)) return Err(aimError!);
+        }
+        if (verb is not ("click" or "wheel" or "doubleclick"))
             return Interact(control, action, value);
         var wait = frameWait ?? ClickFrameWait;
         var drawn = await NextFrameDrawnAsync(control, wait);

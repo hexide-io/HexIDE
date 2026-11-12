@@ -13,6 +13,14 @@ public class InteractClickDescriptionTests
     private static ToolSource.Tool Interact => ToolSource.Tools.Single(t => t.Name == "interact");
 
     [Fact]
+    public void Code_window_input_describes_line_targets_and_position_replies()
+    {
+        Interact.Parameters.Single(p => p.Name == "value").Description.Should()
+            .Contain("line:N").And.Contain("line:N,col:M").And.Contain("line count");
+        Interact.Description.Should().Contain("project/document").And.Contain("breakpoint/bookmark");
+    }
+
+    [Fact]
     public void The_value_description_gives_the_grammar_the_refusals_quote()
     {
         Interact.Parameters.Single(p => p.Name == "value").Description.Should().Contain(UiAutomationDriver.ClickValue);
