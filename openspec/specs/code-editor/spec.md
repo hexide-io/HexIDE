@@ -351,12 +351,12 @@ one visible line, so a mark set there would land on a line the developer cannot 
 
 #### Scenario: An add-in replaces a document's content
 - **WHEN** an add-in replaces a document's content with text whose header differs from the document's
-- **THEN** the replacement is refused and the add-in is told why
+- **THEN** the replacement is refused and the add-in is told why in English
 
 #### Scenario: An add-in replaces a document's content, changing a member's attribute lines
 - **WHEN** an add-in replaces a document's content with text that changes, adds or drops a member's attribute
   lines, other than by moving or renaming them with that member or deleting them with its declaration
-- **THEN** the replacement is refused and the add-in is told which member
+- **THEN** the replacement is refused and the add-in is told which member in English
 
 #### Scenario: A breakpoint in a form the IDE cannot save faithfully
 - **WHEN** the developer sets a breakpoint on a line of code in such a form
@@ -443,9 +443,9 @@ nowhere else.
 
 ### Requirement: Find SHALL NOT match inside a read-only region
 Find, Find Next and Replace SHALL search only text outside read-only regions.
-If matches exist only in those regions within the selected scope, Find SHALL explain that the text is in the
-header or a procedure's Attribute lines, which only the IDE changes. Replace All SHALL report the number of
-matches skipped in those regions beside the number of replacements made, including when none were made.
+If matches exist only in those regions within the selected scope, Find SHALL explain that the matches are in
+read-only text, which only the IDE changes, without naming any format's parts. Replace All SHALL report the
+number of matches skipped in those regions beside the number of replacements made, including when none were made.
 
 VB6's Find never searched the header, because the header was not in its code window. A search that now stopped
 inside a folded designer block would land the developer on text they cannot change, in a region they cannot
@@ -457,11 +457,11 @@ see.
 
 #### Scenario: Search text exists only in protected regions
 - **WHEN** Find Next finds no searchable match but the selected scope contains a match in a read-only region
-- **THEN** the message explains why Find skips the header and procedure Attribute lines instead of saying not found
+- **THEN** the localized message explains that Find skips read-only text because only the IDE changes it, instead of saying not found
 
 #### Scenario: Replace All leaves protected matches alone
 - **WHEN** Replace All encounters matches in the header or procedure Attribute lines within the selected scope
-- **THEN** its message reports both the replacements made and the matches skipped, using the selected search options
+- **THEN** its localized message reports both the replacements made and the matches skipped in read-only text, using the selected search options and naming no format's parts
 
 ### Requirement: Event-handler searches SHALL start after the header
 Both designer double-click navigation and the Object/Procedure boxes SHALL search for an event handler starting

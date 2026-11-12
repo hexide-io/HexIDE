@@ -63,8 +63,8 @@ public class MarkLineRulesTests
     {
         var refusal = Breakpoints(3, 12);
 
-        refusal.Should().StartWith("3 is in a read-only part of P/frmOrders")
-            .And.Contain("its header (1..9)")
+        refusal.Should().StartWith("3 is read-only text in P/frmOrders")
+            .And.Contain("which only the IDE changes")
             .And.Contain("its code starts at 10")
             .And.EndWith("Nothing was changed.");
     }
@@ -74,16 +74,16 @@ public class MarkLineRulesTests
     {
         // run_to_cursor and set_next_statement ask for a "line"; "no line can go there" would say nothing.
         MarkLineRules.Refusal(Form, "P/frmOrders", [3], [], first: 1, "line")
-            .Should().Contain("so execution can never stop there").And.NotContain("no line");
+            .Should().Contain("so execution can't be sent there").And.NotContain("no line");
     }
 
     [Fact]
     public void ALineOfTheAttributeRunIsRefusedLikeTheDesignerBlock() =>
-        Breakpoints(9).Should().StartWith("9 is in a read-only part");
+        Breakpoints(9).Should().StartWith("9 is read-only text");
 
     [Fact]
     public void ARefusalListsEveryOffendingLineOnce() =>
-        Breakpoints(4, 2, 4).Should().StartWith("2, 4 are in a read-only part");
+        Breakpoints(4, 2, 4).Should().StartWith("2, 4 are read-only text");
 
     [Fact]
     public void AReadOnlyLineAlreadyMarkedIsLetThrough()
@@ -101,7 +101,7 @@ public class MarkLineRulesTests
 
         var refusal = MarkLineRules.Refusal(text, "P/Order", [2], [], first: 1, "breakpoint");
 
-        refusal.Should().Contain("the Attribute lines that describe a member")
+        refusal.Should().Contain("read-only text in P/Order, which only the IDE changes")
             .And.NotContain("header").And.NotContain("code starts");
     }
 

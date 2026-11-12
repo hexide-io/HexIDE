@@ -780,6 +780,34 @@ public class MemberRunFollowsItsLineTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void TypeTextPastARunNamesTheFormatsRegion()
+    {
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        editor.CaretOffset = LineWith(editor, "Public Sub Go()").EndOffset;
+
+        var outcome = UiAutomationDriver.TypeText(editor, " \r\nx");
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Contain("The edit ended on the line above the Attribute lines describing Go");
+    }
+
+    [AvaloniaFact]
+    public void BackspaceAfterARunOffersTheAnchoredLineHint()
+    {
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        var runEnd = LineWith(editor, "Attribute Go.VB_UserMemId");
+        PutCaret(editor, runEnd.Offset + runEnd.TotalLength);
+
+        var outcome = UiAutomationDriver.PressKey(editor, "Back", null);
+
+        outcome.Success.Should().BeFalse();
+        outcome.Error.Should().Contain("the Attribute lines describing Go")
+            .And.Contain("Deleting the whole of the line above that read-only text");
+    }
+
+    [AvaloniaFact]
     public void TypeTextPastARunLeavesNoSelectionForTheNextWriteToGoOver()
     {
         var vm = Open(Procedure);

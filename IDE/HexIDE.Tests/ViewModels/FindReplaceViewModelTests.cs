@@ -33,8 +33,8 @@ public partial class FindReplaceViewModelTests
         localization.GetString("Str.FindReplace.Msg.ScopeAllOpenDocuments").Returns("All Open Documents");
         localization.GetString("Str.FindReplace.Msg.NotFound").Returns("The search text '{0}' was not found.");
         localization.GetString("Str.FindReplace.Msg.ReplacementsMade").Returns("{0} replacement(s) made.");
-        localization.GetString("Str.FindReplace.Msg.ProtectedOnly").Returns("Protected only: {0}");
-        localization.GetString("Str.FindReplace.Msg.ReplacementsWithSkipped").Returns("{0} replaced; {1} skipped.");
+        localization.GetString("Str.FindReplace.Msg.ReadOnlyTextOnly").Returns("Protected only: {0}");
+        localization.GetString("Str.FindReplace.Msg.ReplacementsSkippingReadOnlyText").Returns("{0} replaced; {1} skipped.");
         localization.GetString("Str.FindReplace.Msg.InvalidRegex").Returns("Invalid regular expression pattern.");
         localization.GetString("Str.FindReplace.Msg.NothingToSearch")
             .Returns("There is nothing here for Find to search.");

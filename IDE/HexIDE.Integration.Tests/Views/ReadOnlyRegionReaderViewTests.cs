@@ -134,7 +134,7 @@ public class ReadOnlyRegionReaderViewTests : IDisposable
     {
         public string? DescribeRegions(string text, int prefixLength, IReadOnlyList<TextRegion> regions)
         {
-            regions.Should().Equal(new TextRegion(7, 13));
+            regions.Select(r => (r.Start, r.End)).Should().Equal((7, 13));
             return "the second heading";
         }
     }
@@ -150,7 +150,7 @@ public class ReadOnlyRegionReaderViewTests : IDisposable
         var result = UiAutomationDriver.PressKey(editor, "X", null);
         result.Success.Should().BeFalse();
         result.Error.Should().Contain("is in " + (provider == 0 ? "the second heading" : "read-only text"));
-        result.Error!.Split(", which only the IDE changes", StringSplitOptions.None)[0].Should()
+        result.Error.Should()
             .NotContain("Attribute").And.NotContain("header").And.NotContain("designer").And.NotContain("VB6");
     }
 
@@ -165,7 +165,47 @@ public class ReadOnlyRegionReaderViewTests : IDisposable
         var result = UiAutomationDriver.PressKey(editor, "Delete", null);
         result.Success.Should().BeTrue(result.Error);
         result.Detail.Should().Contain("in " + ExpectedWords(provider) + ", which only the IDE changes");
-        result.Detail.Should().NotContain("Attribute").And.NotContain("header").And.NotContain("VB6");
+        result.Detail.Should().NotContain("Attribute").And.NotContain("header").And.NotContain("designer").And.NotContain("VB6");
+    }
+
+    private sealed class HangingHeading : IReadOnlyRegionReader
+    {
+        public IReadOnlyList<TextRegion> Regions(string text, int prefixLength) =>
+            HangingRegions(text, prefixLength).Select(h => h.Region).ToList();
+
+        public IReadOnlyList<HangingRegion> HangingRegions(string text, int prefixLength) =>
+            text.Length < 20 ? [] :
+            [new(new TextRegion(7, 13, Anchor: 5), 0, 5, 11, new HangingRegionKey("One", 0), "One")];
+    }
+
+    [AvaloniaFact]
+    public void LineBreakNoteUsesTheFormatsSingularPhrase()
+    {
+        var editor = Show(new HangingHeading(), new SingleWords());
+        editor.CaretOffset = 5;
+
+        var result = UiAutomationDriver.TypeText(editor, "\r\nx");
+
+        result.Success.Should().BeTrue(result.Error);
+        result.Detail.Should().Contain("The edit ended on the line above the second heading");
+        result.Detail.Should().NotContain("Attribute").And.NotContain("header").And.NotContain("designer").And.NotContain("VB6");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DeletionHintUsesTheRegionsAnchor(bool hanging)
+    {
+        var editor = Show(hanging ? new HangingHeading() : new FixedLines((2, 2)), new SingleWords());
+        editor.CaretOffset = 13;
+
+        var result = UiAutomationDriver.PressKey(editor, "Back", null);
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain("the second heading").And.Contain(hanging
+            ? "Deleting the whole of the line above that read-only text"
+            : "Edit after that read-only text instead.");
+        result.Error.Should().NotContain("Attribute").And.NotContain("header").And.NotContain("designer").And.NotContain("VB6");
     }
 
     private static List<Color?> ColoursOn(TextEditor editor, int line) =>

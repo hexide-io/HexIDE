@@ -26,7 +26,7 @@ public class MarkOnReadOnlyLineTests : IDisposable
 
     public MarkOnReadOnlyLineTests()
     {
-        localization.GetString("Str.CodeEditor.Msg.NoMarkOnReadOnlyLine").Returns("no mark on line {0}");
+        localization.GetString("Str.CodeEditor.Msg.NoMarkOnReadOnlyText").Returns("no mark on line {0}");
     }
 
     public void Dispose()

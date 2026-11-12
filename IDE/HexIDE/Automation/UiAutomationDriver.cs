@@ -3612,6 +3612,7 @@ public static class UiAutomationDriver
             if (AreaOf(surface) is { } codeArea && CodeWindowOf(codeArea) is { } window
                 && (codeArea.Selection.IsEmpty ? (codeArea.Caret.Offset, 0)
                     : (codeArea.Selection.SurroundingSegment.Offset, codeArea.Selection.SurroundingSegment.Length)) is var (from, span)
+                && window.Document.Text is var beforeText
                 && window.InsertLineBreakPastRun(from, span, insertedText) is { } placed)
             {
                 // The replaced text's selection would carry over onto what replaced it, for the next write to go over.
@@ -3623,9 +3624,9 @@ public static class UiAutomationDriver
                 return new InteractOutcome(true, TypedMechanism,
                     $"typed {text.Length} char(s) into {surface.GetType().Name}"
                     + $"{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))}{replaced}. "
-                    + $"The edit ended on the declaration of {placed.Run.Name}, so the text from its "
-                    + "first line break on went after that member's Attribute lines, which follow the line they "
-                    + $"describe; any remaining comment text followed it. Its line breaks were written as the file's. The caret is now at offset {placed.End}.",
+                    + $"The edit ended on the line above {window.DescribeRegions([placed.Run.Region], beforeText)}, so the text from its "
+                    + "first line break on went after that read-only text, which stays with the line above it; "
+                    + $"any remaining comment text followed it. Its line breaks were written as the file's. The caret is now at offset {placed.End}.",
                     null);
             }
 
@@ -4262,7 +4263,7 @@ public static class UiAutomationDriver
         }).ToList();
         var description = editor.DescribeRegions(affected);
         return new PartialEdit(deletable,
-            $"left {length - deletable} char(s) from the original selection in {description}, which only the IDE changes (the designer, a save, a rename). ");
+            $"left {length - deletable} char(s) from the original selection in {description}, which only the IDE changes. ");
     }
 
     private static string SelectionState(TextArea area) =>
@@ -4325,15 +4326,15 @@ public static class UiAutomationDriver
         var region = editor.DescribeRegions(affected);
         var unchanged = written ?? "Nothing was written.";
         var prefix = $"{tool} refused: ";
-        var ownership = ", which only the IDE changes (the designer, a save, a rename). ";
+        var ownership = ", which only the IDE changes. ";
         const string offsets = " Offsets count from the start of the file, in the text get_file_content returns.";
         if (span.Deletes && span.Length > 0 && span.Offset + span.Length == area.Caret.Offset)
             return new InteractOutcome(false, mechanism, null,
                 prefix + "the text before the caret belongs to " + region + ownership + unchanged
-              + (affected.Any(r => editor.MemberNamedBy(r) is null)
-                  ? " Edit the code after the header instead; the header is changed through the designer, a save or a rename."
-                  : " Deleting the member's whole declaration (all physical lines if continued) removes its Attribute lines too; "
-                    + "select the declaration's whole text and press_key Delete to remove both."));
+              + (affected.Any(r => r.Anchor is null)
+                  ? " Edit after that read-only text instead."
+                  : " Deleting the whole of the line above that read-only text (all its physical lines, if it is continued) removes the read-only text with it; "
+                    + "select that line's whole text and press_key Delete to remove both."));
 
         var past = editor.PastReadOnlyRegion(span.Offset);
         // A selection starting outside a region, or an offset already at the caret, offers no useful move.
