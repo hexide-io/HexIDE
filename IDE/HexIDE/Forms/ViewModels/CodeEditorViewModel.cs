@@ -1973,18 +1973,17 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             : null;
 
     /// <summary>
-    /// Replaces this document's content, keeping its header: the rule add-in <c>SetContent</c> and automation
-    /// <c>set_file_content</c> share. Refused when the file is held read-only as a whole, or the content would
-    /// change the header or a member's attribute lines other than by moving or renaming them with it or deleting
-    /// them with its declaration (#273 task 4.5b).
+    /// Replaces this document's content through <see cref="ContentReplacementRules"/>: the rule add-in
+    /// <c>SetContent</c> and automation <c>set_file_content</c> share. Refused when the file is held read-only
+    /// as a whole or the replacement rule refuses it.
     /// </summary>
     public ContentReplacement ReplaceContent(string incoming)
     {
         if (IsReadOnly)
             return new ContentReplacement(null, ReadOnlyWriteRefusal, HeaderKept: false);
 
-        var result = regionRules?.Replace(Document.Text, bufferPrefix.Length, DocumentNewLines.Normalize(incoming, Document.Text))
-            ?? new ContentReplacement(DocumentNewLines.Normalize(incoming, Document.Text), null, false);
+        var result = ContentReplacementRules.Replace(Document.Text, bufferPrefix,
+            DocumentNewLines.Normalize(incoming, Document.Text), regionReader, regionRules);
         if (result.NewText is { } text)
             Document.Text = text;
         return result;
