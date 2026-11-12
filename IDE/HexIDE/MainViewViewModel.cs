@@ -406,6 +406,8 @@ public partial class MainViewViewModel : ObservableObject
             documentDockFactory.Value = this;
         }
 
+        public static bool IsToolHostWindow(Window window) => window is ToolHostWindow;
+
         private sealed class ToolHostWindow : Dock.Avalonia.Controls.HostWindow, IHostWindow
         {
             private readonly DockFactory factory;

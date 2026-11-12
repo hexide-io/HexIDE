@@ -37,7 +37,7 @@ internal static class IdeShutdown
         {
             foreach (var w in lifetime.Windows.Reverse().ToList())
             {
-                if (w == mainWindow || !w.IsVisible)
+                if (w == mainWindow || !w.IsVisible || MainViewViewModel.DockFactory.IsToolHostWindow(w))
                     continue;
                 w.Close();
                 closed++;
