@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System;
 using System.Linq;
 using System.Threading;
@@ -55,7 +56,7 @@ public class ServerApplyEditFocusTests
             Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
+            Substitute.For<HexIDE.Debugging.IRunScope>(), localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         editors = new EditorService(dock, NewEditor, () => throw new InvalidOperationException(),
             () => throw new InvalidOperationException(), () => throw new InvalidOperationException(), () => manager, localization);
         try

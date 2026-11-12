@@ -33,7 +33,7 @@ public class FindReferencesToolViewModelTests
         localization.GetString("Str.Tool.FindReferences.Error").Returns("{0}: {1}");
     }
 
-    private FindReferencesToolViewModel Create() => new(client, editors, projects, documents, localization);
+    private FindReferencesToolViewModel Create() => new(client, editors, projects, documents, localization, format: new Vb6ProjectFileFormat());
     private static Location At(ModuleDefinition module) => new(DocumentWireName.For(DocumentIdentity.For(module)),
         new LspRange(new Position(FormCodeText.LineBreaks(FormCodeText.Prefix(module)), 5),
             new Position(FormCodeText.LineBreaks(FormCodeText.Prefix(module)), 10)));

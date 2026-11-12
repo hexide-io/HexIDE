@@ -95,7 +95,9 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), Substitute.For<ILocalizationService>(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
+            Substitute.For<IRunScope>(), Substitute.For<ILocalizationService>(),
+                new Vb6ProjectFileFormat(),
+                new Vb6ReadOnlyRegionReader(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
         made.Add(vm);
         open.Add(vm);
         return document.Module is { } module ? vm.Initialize(module) : vm.Initialize(document.Form!);

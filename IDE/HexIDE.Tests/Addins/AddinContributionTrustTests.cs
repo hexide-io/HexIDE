@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System.Text.Json;
 using Avalonia.Headless.XUnit;
 using HexIDE.Addins;
@@ -92,7 +93,9 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
         _events = new AddinEventService(_projects, runner, new EventBus());
         _diagnostics = new AddinDiagnosticsService(_router, _projects);
         _host = new HexIdeHost(new AddinMenuService(), new AddinToolWindowService(), _events, _registry,
-            new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), _projects),
+            new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), _projects,
+                format: new Vb6ProjectFileFormat(),
+                reader: new Vb6ReadOnlyRegionReader()),
             new AddinProjectService(_projects), _diagnostics, new AddinCommandService(), new AddinProjectTemplateService(),
             new AddinOptionsService(), new ComponentRegistry(), runner,
             new LanguageServerContributions(_router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),

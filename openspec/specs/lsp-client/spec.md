@@ -453,6 +453,17 @@ running.
 - **THEN** the client reports itself as not running and language features go inert
 - **AND** the IDE does not restart it automatically within the session
 
+#### Scenario: The user restarts a stopped server
+- **WHEN** the user restarts a stopped server in Language & Debug Servers
+- **THEN** it starts with its loaded registration and is sent the open documents it claims
+- **AND** the configuration file is not read again
+- **AND** every other entry keeps running untouched
+- **AND** the protocol inspector records that the user requested the restart
+
+#### Scenario: The user restarts a running server
+- **WHEN** the user restarts a running server
+- **THEN** only that entry stops and starts, and its open documents are sent once to the new connection
+
 ### Requirement: Result shapes SHALL distinguish "empty" from "nothing to show"
 Requests returning a collection SHALL return a non-null, possibly-empty collection. Requests returning a
 single result or an optional collection SHALL return absent to mean "nothing to show".

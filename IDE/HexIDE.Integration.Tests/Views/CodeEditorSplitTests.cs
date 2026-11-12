@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using Avalonia;
 using Avalonia.Headless;
 using Avalonia.Input.Platform;
@@ -599,7 +600,7 @@ public class CodeEditorSplitTests : IDisposable
         using var context = new HexIDE.Desktop.Server.IdeContext(composition.ProjectManager,
             composition.DocumentDockService, _lspClient, composition.EditorService,
             null!, null!, null!, null!, null!, null!, composition.Root, null!, null!, null!, null!,
-            null!, null!, composition.LocalizationService, null!, null!);
+            null!, null!, composition.LocalizationService, null!, null!, new Vb6ReadOnlyRegionReader());
         try
         {
             return await new HexIDE.Desktop.Server.HexIdeTools(context).OpenFileAsync(name, line: line, column: column);
@@ -648,7 +649,7 @@ public class CodeEditorSplitTests : IDisposable
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             _runScope,
-            localization);
+            localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
     }
 
     private static ModuleDefinition AModule()

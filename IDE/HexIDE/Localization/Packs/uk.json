@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Сервер запускається на першому документі мови, яку він обслуговує, тож доти немає рядка, який можна позначити. Це не змінює того, що вже записано.",
     "Str.Tool.LanguageServers.KeepBodies": "Зберігати тіла повідомлень",
     "Str.Tool.LanguageServers.ShowAllMessages": "Показати всі записані повідомлення",
+    "Str.Tool.LanguageServers.Restart": "Перезапустити",
     "Str.Tool.LanguageServers.ShowMessages": "Показати його повідомлення",
     "Str.Tool.LanguageServers.CopyReport": "Копіювати звіт",
     "Str.Tool.LanguageServers.ReportRedacted": "У звіті шляхи й адреси замінено на вигадані імена.",

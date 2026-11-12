@@ -692,6 +692,8 @@ public class HeaderRefresherTests
             Substitute.For<IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<IRunScope>(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(),
+                new Vb6ProjectFileFormat(),
+                new Vb6ReadOnlyRegionReader(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
     }
 }

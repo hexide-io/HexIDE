@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -133,7 +134,7 @@ public class ActiveFormSaveTests
         using var vm = new CodeEditorViewModel(Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), projects,
             shell.Composition.EventBus, lsp, settings, Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<IBreakpointService>(), Substitute.For<IDebugController>(), new RunScope(),
-            Substitute.For<ILocalizationService>()).Initialize(form);
+            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).Initialize(form);
         shell.Composition.DocumentDockService.OpenDocument(vm);
         var view = new CodeEditorView { DataContext = vm };
         shell.Content.Children.Add(view);

@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System.Text.Json;
 using Dock.Model.Core;
 using Dock.Model.Mvvm.Controls;
@@ -34,7 +35,9 @@ public sealed class DocumentTabsModifiedTests : IDisposable
         var projects = Substitute.For<IProjectManager>();
         projects.LoadedProjects.Returns([project]);
         context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), null!, Substitute.For<IProjectRunnerService>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
+                new Vb6ProjectFileFormat(),
+                new Vb6ReadOnlyRegionReader());
         tools = new HexIdeTools(context);
     }
 
@@ -61,7 +64,7 @@ public sealed class DocumentTabsModifiedTests : IDisposable
         bus, Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
         Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
         Substitute.For<IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
-        Substitute.For<ILocalizationService>()).Initialize(Form));
+        Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).Initialize(Form));
 
     private RelatedDocumentEditorViewModel Carried(string content)
     {

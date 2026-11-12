@@ -28,6 +28,11 @@ leave you without VB6 support permanently.
 Changes take effect on restart. Data applies live in HexIDE — themes, keymaps, languages — and code does
 not; a language server is a process, so it belongs to the second group.
 
+Each server row offers **Restart**, including a stopped or failed server. It stops that entry if
+necessary, starts it with the registration loaded when HexIDE started, and sends it the open documents
+it claims. Other entries keep running. The protocol inspector records that you requested the restart.
+Restart does not reload `lsp-servers.json`; configuration edits still take effect when HexIDE next starts.
+
 ## Editing in the window
 
 Tools → Language & Debug Servers offers **Add** and **Edit** for user entries, and **Customize** for
@@ -482,9 +487,10 @@ without which it analyses nothing. Current RDCore builds import the project inst
 It lists every form, module, class and user control the project carries by its path relative to the
 workspace root, including one in a subfolder or beside the project's folder, and carries the project's
 references and its Conditional Compilation Arguments. It lists no other files, because RDCore parses
-anything listed as code. `settings.version` sets the file's `Version`, which names the file's format. The
-default is `1.0`, the format RDCore reads and writes, and RDCore opens a file of any version from `6c1ed90d` on. An
-older build refuses a version newer than its own, so set `settings.version` to `0.1.0` for one. A `.rdproj` you wrote yourself
+anything listed as code. For a project saved as a `.vbp`, it records that file as `SourceProject`, relative
+to the workspace root and separated by `/`, as RDCore's import does ([below](#rdcore)).
+`settings.version` sets the file's `Version`, which names the file's format. The default is `1.0`, the format
+RDCore reads and writes, and RDCore opens a file of any version from `6c1ed90d` on. An older build refuses a version newer than its own, so set `settings.version` to `0.1.0` for one. A `.rdproj` you wrote yourself
 is left alone. For a build that reads the file only when it starts, the entry should also set
 `"restartOnChange": true`: then a module added while it runs is analysed after a restart, rather than from its
 next start.
@@ -586,3 +592,15 @@ Give `command` the absolute path of your build. The import needs a saved project
 in Tools → Language Servers rather than given an invented URI. If your build doesn't advertise
 `rdcore.importProject`, the same window reports the command as unavailable: use the
 [`rdcore` workspace-artefact provider](#generated-workspace-files) in place of `projectImport`.
+
+**A VB6 project.** RDCore gives a project VB6's implicit `VBRUN` and `VB` libraries only when it knows the
+project is VB6. Its default language is RD-VBA, so without that a form reports `VBC09311` for VB's own types.
+For a VB6 workspace, add this to the entry (#3317):
+
+```json
+"initializationOptions": { "language": "vb6" }
+```
+
+RDCore has said it will take VB6 from the `.vbp` a project file records as its `SourceProject` when the client
+names no language. RDCore's import records it, and so does the `rdcore` provider. Once RDCore does that, the
+entry won't need the option. A language the entry names still wins.

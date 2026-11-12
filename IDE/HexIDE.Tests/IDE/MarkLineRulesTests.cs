@@ -30,7 +30,8 @@ public class MarkLineRulesTests
 
     // The model splits a form after its designer block, so the attribute run is the code's first lines.
     private static readonly CodeWindowText Form =
-        new(FormText, FormText.IndexOf("Attribute VB_Name", StringComparison.Ordinal));
+        new(FormText, FormText.IndexOf("Attribute VB_Name", StringComparison.Ordinal),
+            new Vb6ReadOnlyRegionReader().Regions(FormText, FormText.IndexOf("Attribute VB_Name", StringComparison.Ordinal)));
 
     private static string? Breakpoints(params int[] lines) =>
         MarkLineRules.Refusal(Form, "P/frmOrders", lines, [], first: 1, "breakpoint");
@@ -96,8 +97,8 @@ public class MarkLineRulesTests
     [Fact]
     public void ADocumentWithNoHeaderDoesNotTalkAboutOne()
     {
-        var text = new CodeWindowText(
-            "Public Function Total() As Currency\r\nAttribute Total.VB_Description = \"x\"\r\nEnd Function\r\n", 0);
+        const string code = "Public Function Total() As Currency\r\nAttribute Total.VB_Description = \"x\"\r\nEnd Function\r\n";
+        var text = new CodeWindowText(code, 0, new Vb6ReadOnlyRegionReader().Regions(code, 0));
 
         var refusal = MarkLineRules.Refusal(text, "P/Order", [2], [], first: 1, "breakpoint");
 

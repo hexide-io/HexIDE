@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "서버는 자신이 담당하는 언어의 문서를 처음 열 때 시작되므로, 그전에는 선택할 행이 없습니다. 이 설정은 이미 기록된 내용에는 영향을 주지 않습니다.",
     "Str.Tool.LanguageServers.KeepBodies": "메시지 본문 보관",
     "Str.Tool.LanguageServers.ShowAllMessages": "기록된 메시지 모두 보기",
+    "Str.Tool.LanguageServers.Restart": "다시 시작",
     "Str.Tool.LanguageServers.ShowMessages": "이 서버의 메시지 보기",
     "Str.Tool.LanguageServers.CopyReport": "보고서 복사",
     "Str.Tool.LanguageServers.ReportRedacted": "보고서는 경로와 주소를 가명으로 대체합니다.",

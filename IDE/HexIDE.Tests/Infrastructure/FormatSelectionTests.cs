@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using Avalonia.Labs.Input;
 using Avalonia.Threading;
 using HexIDE.Desktop.Server;
@@ -134,7 +135,9 @@ public class FormatSelectionTests
         var dock = Substitute.For<IDocumentDockService>();
         dock.ActiveDocument.Returns(vm);
         using var context = new IdeContext(Substitute.For<IProjectManager>(), dock, Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
+                new Vb6ProjectFileFormat(),
+                new Vb6ReadOnlyRegionReader());
         var tools = new HexIdeTools(context);
         var controls = vm.AllComponents.Where(c => c.Name.StartsWith("Command")).ToArray();
         for (var count = 0; count < minimum; count++)

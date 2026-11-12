@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Een server start bij het eerste document van een taal die hij claimt, dus tot dan is er geen rij om aan te vinken. Dit verandert niets aan wat al is vastgelegd.",
     "Str.Tool.LanguageServers.KeepBodies": "Berichtinhoud bewaren",
     "Str.Tool.LanguageServers.ShowAllMessages": "Alle vastgelegde berichten tonen",
+    "Str.Tool.LanguageServers.Restart": "_Opnieuw starten",
     "Str.Tool.LanguageServers.ShowMessages": "Zijn berichten tonen",
     "Str.Tool.LanguageServers.CopyReport": "Rapport kopiëren",
     "Str.Tool.LanguageServers.ReportRedacted": "Het rapport vervangt paden en adressen door verzonnen namen.",
