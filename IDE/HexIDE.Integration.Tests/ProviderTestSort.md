@@ -156,6 +156,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/TabStripForm.cs` | provider |
 | `Views/TabStripKeyboardTests.cs` | split |
 | `Views/TimerOnTheDesignerTests.cs` | split |
+| `Views/ToolReactivationFocusTests.cs` | split |
 | `Views/ToolbarDesignerPersistenceTests.cs` | split |
 | `Views/ToolboxFromRegistryTests.cs` | split |
 | `Views/UncreatableControlTests.cs` | split |
