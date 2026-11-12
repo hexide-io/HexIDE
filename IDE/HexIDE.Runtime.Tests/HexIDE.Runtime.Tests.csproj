@@ -30,4 +30,10 @@
         <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />
     </ItemGroup>
 
+    <!-- Redirect before any test can read or write the contributor's IDE profile (#3805). -->
+    <ItemGroup>
+        <Compile Include="..\HexIDE.Integration.Tests\TemporaryProfile.cs" Link="Infrastructure\TemporaryProfile.cs" />
+        <Compile Include="..\HexIDE.Integration.Tests\TemporaryProfileTests.cs" Link="Infrastructure\TemporaryProfileTests.cs" />
+    </ItemGroup>
+
 </Project>

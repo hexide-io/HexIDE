@@ -52,6 +52,12 @@ dotnet test HexIDE.Runtime.Integration.Tests/            # headless Avalonia, th
 cd ../LspServer && dotnet test HexIDE.VbLspServer.Tests/ # LSP server
 ```
 
+Test assemblies that reference the IDE or runtime redirect `UserDataPath` in a module initializer to a
+fresh temporary profile for each test process, with best-effort deletion at process exit. Settings,
+layout, recent projects and language-server configuration must never come from or overwrite the
+contributor's own IDE profile (#3805). Seed any profile state a test needs explicitly; tests of redirect
+rules use private `UserDataRoot` instances rather than moving the process-wide root.
+
 > **First-party add-ins:** the Desktop build only signs/bundles the bundled add-ins when a first-party
 > signing key is present; a normal clone has none, so the build simply skips that step and prints a note.
 > Everything else builds and runs. To work on an add-in anyway, see

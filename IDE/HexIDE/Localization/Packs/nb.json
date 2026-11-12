@@ -1131,6 +1131,7 @@
     "Str.Automation.ChooseFont": "Velg skrift",
     "Str.Automation.ToggleList": "Åpne eller lukk liste",
     "Str.Automation.Close": "Lukk",
+    "Str.Dock.NoDocumentsOpen": "Ingen åpne dokumenter",
     "Str.Dock.ScrollUp": "Rull faner opp",
     "Str.Dock.ScrollDown": "Rull faner ned",
     "Str.Dock.Menu": "Panelmeny",

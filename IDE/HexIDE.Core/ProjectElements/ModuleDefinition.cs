@@ -141,6 +141,10 @@ public partial class ModuleDefinition : INotifyPropertyChanged
     /// </remarks>
     public string? OriginalHeader { get; private set; }
 
+    /// <summary>Load-time file-line permutation for migrating historical sidecar marks; null when no lines moved.</summary>
+    public int[]? LoadedLineMap { get; set; }
+    public int LoadedOldHeaderLines { get; set; }
+
     public void RecordOriginalHeader(string? header) => OriginalHeader = header;
 
     public event PropertyChangedEventHandler? PropertyChanged;

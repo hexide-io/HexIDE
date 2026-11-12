@@ -13,6 +13,13 @@ draws generally between VB6's intent and its accidents.
 ## Requirements
 ### Requirement: Documents SHALL open as tabs in the document area
 Opening a code editor or a designer SHALL present it as a tab in the IDE's document area.
+A new document SHALL open in the document area that last held focus, including after focus moves to a
+tool pane, falling back to the first area. An already open document SHALL be activated in its own area.
+
+#### Scenario: Opening while using a split area
+- **WHEN** the second document area last held focus and a new document is opened
+- **THEN** the new tab opens in that second area
+
 
 One presentation for every document is what makes the shell predictable: the developer learns where things
 open once. It also puts documents under the same docking model as everything else, so window management

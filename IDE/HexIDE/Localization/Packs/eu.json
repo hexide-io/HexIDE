@@ -1060,6 +1060,7 @@
     "Str.Automation.ChooseFont": "Aukeratu letra-tipoa",
     "Str.Automation.ToggleList": "Ireki edo itxi zerrenda",
     "Str.Automation.Close": "Itxi",
+    "Str.Dock.NoDocumentsOpen": "Ez dago dokumenturik irekita",
     "Str.Dock.ScrollUp": "Korritu fitxak gora",
     "Str.Dock.ScrollDown": "Korritu fitxak behera",
     "Str.Dock.Menu": "Panelaren menua",

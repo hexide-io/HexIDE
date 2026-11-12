@@ -1097,6 +1097,7 @@
     "Str.Automation.ChooseFont": "Elegir fuente",
     "Str.Automation.ToggleList": "Abrir o cerrar lista",
     "Str.Automation.Close": "Cerrar",
+    "Str.Dock.NoDocumentsOpen": "No hay documentos abiertos",
     "Str.Dock.ScrollUp": "Desplazar pestañas hacia arriba",
     "Str.Dock.ScrollDown": "Desplazar pestañas hacia abajo",
     "Str.Dock.Menu": "Menú del panel",

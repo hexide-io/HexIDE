@@ -370,7 +370,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         }
         finally
         {
-            // Production wiring uses the real history service; retain the developer's entire history,
+            // Production wiring uses the real history service; retain the temporary profile's entire history,
             // including entries that adding the fixture could have evicted from a full list.
             if (savedRecent != null) File.WriteAllBytes(recentPath, savedRecent);
             else File.Delete(recentPath);

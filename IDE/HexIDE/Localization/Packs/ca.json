@@ -1060,6 +1060,7 @@
     "Str.Automation.ChooseFont": "Tria un tipus de lletra",
     "Str.Automation.ToggleList": "Obre o tanca la llista",
     "Str.Automation.Close": "Tanca",
+    "Str.Dock.NoDocumentsOpen": "No hi ha documents oberts",
     "Str.Dock.ScrollUp": "Desplaça les pestanyes amunt",
     "Str.Dock.ScrollDown": "Desplaça les pestanyes avall",
     "Str.Dock.Menu": "Menú del plafó",

@@ -68,13 +68,21 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     {
         get
         {
-            if (factory.Value is not { } f) return Dock?.ActiveDockable;
+            return FocusedArea?.ActiveDockable ?? Dock?.ActiveDockable;
+        }
+    }
+
+    private IDocumentDock? FocusedArea
+    {
+        get
+        {
+            if (factory.Value is not { } f) return Dock;
             var areas = f.DocumentAreas.ToList();
             var focused = f.DocumentLayout?.FocusedDockable;
             var area = areas.FirstOrDefault(d => ReferenceEquals(d, focused?.Owner) || ReferenceEquals(d, focused));
             if (area is not null) lastFocusedArea = area;
             else if (lastFocusedArea is not null && areas.Contains(lastFocusedArea)) area = lastFocusedArea;
-            return area?.ActiveDockable ?? Dock?.ActiveDockable;
+            return area ?? Dock;
         }
     }
 
@@ -138,14 +146,13 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
 
     public void OpenDocument(BaseEditorWindowViewModel vm, bool takeFocus = true)
     {
-        var dock = Dock;
+        if (Dock is { } first) EnsureDockSubscription(first);
+        var dock = FocusedArea;
         if (dock is null)
         {
             Log.Warning("DocumentDockService: DocumentDock not yet initialized, cannot open '{Title}'", vm.Title);
             return;
         }
-
-        EnsureDockSubscription(dock);
 
         openDocuments.Add(vm);
         eventBus.Publish(new FileOpenedEvent(vm.Title, vm.OpenDocument));

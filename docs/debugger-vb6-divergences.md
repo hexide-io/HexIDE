@@ -595,13 +595,6 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   created form's header still first appears at its first designer change, save or reload
   ([#885](https://github.com/hexide-io/HexIDE/issues/885)); version 3 can now distinguish its code marks from
   marks already in a header.
-- **Reordered module headers (#3757):** collecting a module-level name from below code changes the composed
-  file before its first save. The B1 comment moves from line 1 to line 2; B6's final name line moves to line 1.
-  Stores still hold bare line numbers; `ShiftMarks` shifts body marks by the prefix-height difference rather
-  than matching source text. Legacy version-1 sidecar migration likewise adds the recognised prefix: in
-  `SidecarMigrationTests.ReorderedModuleHeadersPinHistoricalMarksAndLoadDirtiness`, old line 6 becomes line 7 (`End Sub`)
-  instead of following `Debug.Print 1`. Mapping historical marks through the reorder is
-  [#3796](https://github.com/hexide-io/HexIDE/issues/3796).
 - **Numbered D23 when task 3.16 recorded it**, and renumbered in #273's documentation pass: merging main brought
   in main's own D23 (#1011, cited from `VBWindowContext`), which came first.
 

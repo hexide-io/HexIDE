@@ -1097,6 +1097,7 @@
     "Str.Automation.ChooseFont": "選擇字型",
     "Str.Automation.ToggleList": "開啟或關閉清單",
     "Str.Automation.Close": "關閉",
+    "Str.Dock.NoDocumentsOpen": "沒有開啟的文件",
     "Str.Dock.ScrollUp": "向上捲動索引標籤",
     "Str.Dock.ScrollDown": "向下捲動索引標籤",
     "Str.Dock.Menu": "窗格選單",

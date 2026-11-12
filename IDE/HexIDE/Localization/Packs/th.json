@@ -1060,6 +1060,7 @@
     "Str.Automation.ChooseFont": "เลือกแบบอักษร",
     "Str.Automation.ToggleList": "เปิดหรือปิดรายการ",
     "Str.Automation.Close": "ปิด",
+    "Str.Dock.NoDocumentsOpen": "ไม่มีเอกสารที่เปิดอยู่",
     "Str.Dock.ScrollUp": "เลื่อนแท็บขึ้น",
     "Str.Dock.ScrollDown": "เลื่อนแท็บลง",
     "Str.Dock.Menu": "เมนูบานหน้าต่าง",

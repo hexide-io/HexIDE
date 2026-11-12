@@ -326,7 +326,7 @@ public class MainViewViewModelTests
             languageServers,
             protocolInspector,
             windowStateService, new DockFactoryReference(), new HexIDE.Tools.OutlineToolViewModel(
-                Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IDocumentDockService>()));
+                Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IDocumentDockService>()), loc);
 
         var languageSwitch = Substitute.For<ILanguageSwitchService>();
         languageSwitch.ActiveLanguage.Returns("en");

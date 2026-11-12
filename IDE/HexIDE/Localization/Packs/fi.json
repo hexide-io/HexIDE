@@ -1097,6 +1097,7 @@
     "Str.Automation.ChooseFont": "Valitse fontti",
     "Str.Automation.ToggleList": "Avaa tai sulje luettelo",
     "Str.Automation.Close": "Sulje",
+    "Str.Dock.NoDocumentsOpen": "Ei avoimia asiakirjoja",
     "Str.Dock.ScrollUp": "Vieritä välilehtiä ylös",
     "Str.Dock.ScrollDown": "Vieritä välilehtiä alas",
     "Str.Dock.Menu": "Paneelin valikko",
