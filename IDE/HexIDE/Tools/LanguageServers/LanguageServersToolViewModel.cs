@@ -266,7 +266,7 @@ public partial class LanguageServersToolViewModel : Document
 
         var rows = _registry.Connections
             .Select(c => (Connection: c,
-                          Row: new LanguageServerRowViewModel(c, _localization, _capture, _events)))
+                          Row: new LanguageServerRowViewModel(c, _localization, _capture, _events, _registry)))
             .ToList();
 
         // Highest priority first within a language: that is the order the registry itself picks in, for the

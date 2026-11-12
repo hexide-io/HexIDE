@@ -322,7 +322,7 @@ public partial class DISetup
                 }
 
                 return new LspClientRegistry(
-                    registrations, loggerFactory.CreateLogger<LspClientRegistry>(), workspace, problems, artifacts);
+                    registrations, loggerFactory.CreateLogger<LspClientRegistry>(), workspace, problems, artifacts, capture: capture);
             })
             // One factory for the configured servers and the ones add-ins contribute, so both are made the same way.
             .Bind<LanguageServerRegistrationFactory>().As(Singleton).To(ctx =>

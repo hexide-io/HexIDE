@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Ein Server startet beim ersten Dokument einer Sprache, für die er zuständig ist, daher gibt es bis dahin keine Zeile zum Ankreuzen. Dies ändert nichts an dem, was bereits aufgezeichnet wurde.",
     "Str.Tool.LanguageServers.KeepBodies": "Nachrichteninhalte aufbewahren",
     "Str.Tool.LanguageServers.ShowAllMessages": "Alle aufgezeichneten Nachrichten anzeigen",
+    "Str.Tool.LanguageServers.Restart": "_Neu starten",
     "Str.Tool.LanguageServers.ShowMessages": "Seine Nachrichten anzeigen",
     "Str.Tool.LanguageServers.CopyReport": "Bericht kopieren",
     "Str.Tool.LanguageServers.ReportRedacted": "Der Bericht ersetzt Pfade und Adressen durch erfundene Namen.",

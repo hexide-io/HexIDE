@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Palvelin käynnistyy vasta ensimmäisestä asiakirjasta, jonka kieltä se käsittelee, joten siihen asti ei ole riviä, jonka voisi rastittaa. Tämä ei muuta sitä, mitä on jo tallennettu.",
     "Str.Tool.LanguageServers.KeepBodies": "Säilytä viestien sisällöt",
     "Str.Tool.LanguageServers.ShowAllMessages": "Näytä kaikki tallennetut viestit",
+    "Str.Tool.LanguageServers.Restart": "_Käynnistä uudelleen",
     "Str.Tool.LanguageServers.ShowMessages": "Näytä sen viestit",
     "Str.Tool.LanguageServers.CopyReport": "Kopioi raportti",
     "Str.Tool.LanguageServers.ReportRedacted": "Raportti korvaa polut ja osoitteet keksityillä nimillä.",

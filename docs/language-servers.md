@@ -28,6 +28,11 @@ leave you without VB6 support permanently.
 Changes take effect on restart. Data applies live in HexIDE — themes, keymaps, languages — and code does
 not; a language server is a process, so it belongs to the second group.
 
+Each server row offers **Restart**, including a stopped or failed server. It stops that entry if
+necessary, starts it with the registration loaded when HexIDE started, and sends it the open documents
+it claims. Other entries keep running. The protocol inspector records that you requested the restart.
+Restart does not reload `lsp-servers.json`; configuration edits still take effect when HexIDE next starts.
+
 ## Editing in the window
 
 Tools → Language & Debug Servers offers **Add** and **Edit** for user entries, and **Customize** for

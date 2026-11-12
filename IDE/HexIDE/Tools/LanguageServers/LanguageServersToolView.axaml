@@ -259,10 +259,8 @@
                                                            IsVisible="{CompiledBinding SendingNothing}"
                                                            Text="{DynamicResource Str.Tool.LanguageServers.SendingNothing}" />
 
-                                                <!-- THE WINDOW'S FIRST INTERACTIVITY OF ANY KIND, and it
-                                                     belongs here rather than in the inspector: this is the
-                                                     list of servers, and arming is a per-server decision
-                                                     about one of them.
+                                                <!-- Keep message bodies belongs here rather than in the inspector: this is the
+                                                     list of servers, and arming is a per-server decision about one of them.
 
                                                      Envelopes are recorded either way. What this governs is
                                                      content, which is the only part with a privacy cost and
@@ -278,6 +276,11 @@
                                                     <Button DockPanel.Dock="Right"
                                                             Command="{CompiledBinding ShowMessagesCommand}"
                                                             Content="{DynamicResource Str.Tool.LanguageServers.ShowMessages}" />
+
+                                                    <Button DockPanel.Dock="Right" Margin="0,0,6,0"
+                                                            IsVisible="{CompiledBinding IsLanguageServer}"
+                                                            Command="{CompiledBinding RestartCommand}"
+                                                            Content="{DynamicResource Str.Tool.LanguageServers.Restart}" />
 
                                                     <CheckBox VerticalAlignment="Center"
                                                               IsChecked="{CompiledBinding IsArmed}"

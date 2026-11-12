@@ -868,6 +868,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "A kiszolgáló az általa kezelt nyelv első dokumentumánál indul, így addig nincs bejelölhető sora. Ez a már rögzített adatokat nem módosítja.",
     "Str.Tool.LanguageServers.KeepBodies": "Üzenettörzsek megőrzése",
     "Str.Tool.LanguageServers.ShowAllMessages": "Minden rögzített üzenet megjelenítése",
+    "Str.Tool.LanguageServers.Restart": "Új_raindítás",
     "Str.Tool.LanguageServers.ShowMessages": "Üzeneteinek megjelenítése",
     "Str.Tool.LanguageServers.CopyReport": "Jelentés másolása",
     "Str.Tool.LanguageServers.ReportRedacted": "A jelentés az elérési utakat és címeket kitalált nevekre cseréli.",

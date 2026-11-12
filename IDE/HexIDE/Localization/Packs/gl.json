@@ -868,6 +868,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Un servidor arrinca co primeiro documento dunha linguaxe que admite, polo que ata entón non hai ningunha fila que marcar. Isto non modifica o que xa se rexistrou.",
     "Str.Tool.LanguageServers.KeepBodies": "Conservar o contido das mensaxes",
     "Str.Tool.LanguageServers.ShowAllMessages": "Mostrar todas as mensaxes rexistradas",
+    "Str.Tool.LanguageServers.Restart": "_Reiniciar",
     "Str.Tool.LanguageServers.ShowMessages": "Mostrar as súas mensaxes",
     "Str.Tool.LanguageServers.CopyReport": "Copiar informe",
     "Str.Tool.LanguageServers.ReportRedacted": "O informe substitúe as rutas e os enderezos por nomes inventados.",

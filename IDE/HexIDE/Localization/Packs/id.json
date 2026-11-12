@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Sebuah server dimulai pada dokumen pertama dari bahasa yang dicakupnya, jadi sampai saat itu tidak ada baris yang dapat dicentang. Ini tidak mengubah apa yang sudah direkam.",
     "Str.Tool.LanguageServers.KeepBodies": "Simpan isi pesan",
     "Str.Tool.LanguageServers.ShowAllMessages": "Tampilkan semua pesan yang direkam",
+    "Str.Tool.LanguageServers.Restart": "_Mulai ulang",
     "Str.Tool.LanguageServers.ShowMessages": "Tampilkan pesannya",
     "Str.Tool.LanguageServers.CopyReport": "Salin laporan",
     "Str.Tool.LanguageServers.ReportRedacted": "Laporan mengganti jalur dan alamat dengan nama rekaan.",

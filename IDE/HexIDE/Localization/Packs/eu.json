@@ -868,6 +868,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Zerbitzaria onartzen duen hizkuntzaren lehen dokumentuarekin abiarazten da; beraz, ordura arte ez dago markatzeko errenkadarik. Honek ez du aldatzen dagoeneko erregistratutakoa.",
     "Str.Tool.LanguageServers.KeepBodies": "Mantendu mezu-gorputzak",
     "Str.Tool.LanguageServers.ShowAllMessages": "Erakutsi erregistratutako mezu guztiak",
+    "Str.Tool.LanguageServers.Restart": "_Berrabiarazi",
     "Str.Tool.LanguageServers.ShowMessages": "Erakutsi haren mezuak",
     "Str.Tool.LanguageServers.CopyReport": "Kopiatu txostena",
     "Str.Tool.LanguageServers.ReportRedacted": "Txostenak bideak eta helbideak asmatutako izenekin ordezten ditu.",

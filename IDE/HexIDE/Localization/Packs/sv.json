@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "En server startar vid det första dokumentet på ett språk den hanterar, så innan dess finns det ingen rad att kryssa i. Det här ändrar inte det som redan har registrerats.",
     "Str.Tool.LanguageServers.KeepBodies": "Behåll meddelandekroppar",
     "Str.Tool.LanguageServers.ShowAllMessages": "Visa alla registrerade meddelanden",
+    "Str.Tool.LanguageServers.Restart": "_Starta om",
     "Str.Tool.LanguageServers.ShowMessages": "Visa dess meddelanden",
     "Str.Tool.LanguageServers.CopyReport": "Kopiera rapport",
     "Str.Tool.LanguageServers.ReportRedacted": "Rapporten ersätter sökvägar och adresser med påhittade namn.",
