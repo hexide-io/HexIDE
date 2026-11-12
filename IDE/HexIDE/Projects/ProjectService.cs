@@ -2161,7 +2161,7 @@ public partial class ProjectService : IProjectService
 
         // .bas/.cls: strip the VB6 header so Code is the body only (a no-op for .ctl/.pag).
         var (preservedHeader, body) = format.SplitModule(source, kind);
-        var name = ModuleNameFor(absolutePath, preservedHeader);
+        var name = ModuleFileFormat.ModuleNameFor(Path.GetFileNameWithoutExtension(absolutePath), preservedHeader);
 
         // Before the baseline is recorded, so a refused file leaves no trace: a baseline for a module the
         // project does not carry would have the dirty check answering about a stranger.
@@ -2210,35 +2210,6 @@ public partial class ProjectService : IProjectService
         var document = new RelatedDocumentDefinition(project, Path.GetFileName(absolutePath), absolutePath);
         project.AddRelatedDocument(document);
         return document;
-    }
-
-    /// <summary>
-    /// The module's own name, read out of its VB6 header, falling back to the filename.
-    ///
-    /// <para>
-    /// A .vbp's <c>Module=Name; path</c> field and the file's <c>Attribute VB_Name</c> can disagree, and
-    /// VB_Name is the one that decides the module's identity to code that qualifies a call through it.
-    /// Taking the filename would silently rename an adopted module, and the rename would only surface
-    /// later, as something failing to resolve.
-    /// </para>
-    /// </summary>
-    private static string ModuleNameFor(string absolutePath, string? header)
-    {
-        if (header is not null)
-        {
-            foreach (var line in header.Split('\n'))
-            {
-                var trimmed = line.TrimStart();
-                if (!trimmed.StartsWith("Attribute VB_Name", StringComparison.OrdinalIgnoreCase))
-                    continue;
-                var open = trimmed.IndexOf('"');
-                var close = open >= 0 ? trimmed.IndexOf('"', open + 1) : -1;
-                if (close > open)
-                    return trimmed[(open + 1)..close];
-            }
-        }
-
-        return Path.GetFileNameWithoutExtension(absolutePath);
     }
 
     /// <summary>

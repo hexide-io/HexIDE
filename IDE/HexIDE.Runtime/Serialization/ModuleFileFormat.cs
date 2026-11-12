@@ -29,6 +29,29 @@ namespace HexIDE.Runtime.Serialization;
 /// </remarks>
 public static class ModuleFileFormat
 {
+    /// <summary>
+    /// The module's own name, read out of its VB6 header, falling back to the caller's name.
+    ///
+    /// <para>
+    /// A .vbp's <c>Module=Name; path</c> field and the file's <c>Attribute VB_Name</c> can disagree, and
+    /// VB_Name is the one that decides the module's identity to code that qualifies a call through it.
+    /// Taking the filename would silently rename an adopted module, and the rename would only surface
+    /// later, as something failing to resolve.
+    /// </para>
+    /// </summary>
+    public static string ModuleNameFor(string fallbackName, string? header)
+    {
+        if (header is not null)
+        {
+            // Use the shared parser: a prefix match would also claim VB_NameX.
+            foreach (var line in SourceLines.Split(header))
+                if (FormCodeText.VbNameValue(line.AsSpan().Trim()) is { Length: > 0 } name)
+                    return name;
+        }
+
+        return fallbackName;
+    }
+
     /// <summary>True for the kinds whose header this class manages (standard + class modules).</summary>
     public static bool HandlesHeader(ModuleKind kind) =>
         kind is ModuleKind.StandardModule or ModuleKind.ClassModule;

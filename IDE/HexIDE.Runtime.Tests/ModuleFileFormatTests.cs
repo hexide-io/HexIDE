@@ -5,6 +5,14 @@ namespace HexIDE.Runtime.Tests;
 
 public class ModuleFileFormatTests
 {
+    [Theory]
+    [InlineData("Attribute VB_Name = \"\"")]
+    [InlineData("Attribute VB_NameX = \"Q\"")]
+    public void ModuleNameFor_RequiresANonemptyParsedName(string header)
+    {
+        ModuleFileFormat.ModuleNameFor("WName", header).Should().Be("WName");
+    }
+
     [Fact]
     public void Class_ToFileContent_HasVb6ClassHeader()
     {
