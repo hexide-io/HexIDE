@@ -227,6 +227,13 @@ fold that starts at the end of the line it describes hides them the way VB6 did 
 file. Making the run follow its line is what stops an ordinary edit leaving an attribute describing something
 that is no longer there — which read-only text would otherwise do, because a deletion is carved around it.
 
+A member attribute line receiving an accepted text entry, paste, Backspace or Delete in the code window
+SHALL remain the developer's to finish or delete until the caret and any selection leave that line, or the
+document is saved or reloaded (#3819). During that edit the region reader SHALL exclude the line from member
+runs, including the runs used to place Enter and Shift+Enter. Leaving the line SHALL invalidate the cached
+regions even when the text has not changed. An IDE write SHALL NOT start this tracking, and moving onto an
+already read-only attribute line SHALL NOT make it editable. The file's leading run SHALL keep its existing rules.
+
 An attribute line left describing nothing SHALL be preserved, not removed: it is inert text, and the IDE does
 not know what the developer meant by it. A run of attribute lines describes a member when it sits directly
 under that member's declaration, with any lines continued into it, and VB6 reads every line of it as that
@@ -253,6 +260,11 @@ For a file ending in a folded member attribute run without a final line break, S
 whole buffer while leaving the caret at the declaration's end; Shift+Left SHALL then end the selection one
 character before that point. Select-to-document-end from above the run SHALL select only to the declaration's
 end. This edge case is retained by decision #1019; the measured VB6-saved files all have a final line break.
+
+#### Scenario: Typing a member attribute one key at a time
+- **WHEN** a developer types `Attribute Bar.VB_UserMemId = -4` under Bar's declaration and then types `5`
+- **THEN** every key writes, leaving `-45`, and the line can still be finished or deleted
+- **AND** once the caret and selection leave the line it becomes read-only if it belongs to the member's run
 
 #### Scenario: Pasting a comment before a replacement declaration
 - **WHEN** the developer selects a described declaration's text through its end and pastes a comment followed

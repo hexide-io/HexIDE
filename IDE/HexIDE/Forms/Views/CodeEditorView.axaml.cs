@@ -166,6 +166,7 @@ public partial class CodeEditorView : UserControl
             TextEditor?.CanRedo ?? false);
         DeleteLine = new DelegateCommand(() =>
         {
+            using var input = TrackTypedEdits();
             ArmResetPrompt();
             if (!DeleteLinesWithTheirRuns())
                 AvaloniaEditCommands.DeleteLine.Execute(null, TextEditor.TextArea);
@@ -178,12 +179,14 @@ public partial class CodeEditorView : UserControl
         // widens the selection first (#273 task 4.5a); a cut with nothing selected takes the caret's line.
         Cut = new DelegateCommand(() =>
         {
+            using var input = TrackTypedEdits();
             WidenSelectionForDeletion(wholeLineWhenEmpty: TextEditor.Options.CutCopyWholeLine);
             AskBeforeClipboardEdit(paste: false);
             TextEditor.Cut();
         }, () => true);
         Delete = new DelegateCommand(() =>
         {
+            using var input = TrackTypedEdits();
             ArmResetPrompt();
             WidenSelectionForDeletion(wholeLineWhenEmpty: false);
             if (TextEditor.TextArea.Selection.IsEmpty)
@@ -199,10 +202,8 @@ public partial class CodeEditorView : UserControl
             AskBeforeClipboardEdit(paste: true);
             if (TextEditor.TextArea.Selection is RectangleSelection { IsEmpty: false })
                 _ = PasteOverBoxAsync();
-            else if (SelectionEndsWhereARunHangs())
-                _ = PasteAtTheEndOfADescribedLineAsync();
             else
-                TextEditor.Paste();
+                _ = PasteAtTheEndOfADescribedLineAsync();
         }, () => true);
         PasteAsComment = new DelegateCommand(() => _ = PasteAsCommentAsync(), () => true);
         SelectAll = new DelegateCommand(() => TextEditor.SelectAll(), () => true);
@@ -477,6 +478,7 @@ public partial class CodeEditorView : UserControl
                     vm.SelectionLength = TextEditor.SelectionLength;
                 }
                 finally { _syncingSelection = false; }
+                if (!_selectingTypedLine) CheckTypedLine(vm);
             };
             TextEditor.TextArea.SelectionChanged += _editorSelectionSync;
 
@@ -487,6 +489,8 @@ public partial class CodeEditorView : UserControl
             // Kept so detach removes both from the same document: the view model, and with it the document,
             // outlives a dock move that re-materialises this view.
             _watchedDocument = vm.Document;
+            _watchedDocument.Changed += OnDocumentChangedForTypedLine;
+            vm.RegionOwnershipChanged += OnRegionOwnershipChanged;
             _watchedDocument.Changing += OnDocumentChangingForResetPrompt;
             _watchedDocument.UpdateStarted += OnDocumentUpdateStartedForFolding;
             _watchedDocument.Changing += OnDocumentChangingForFolding;
@@ -782,10 +786,12 @@ public partial class CodeEditorView : UserControl
 
         if (DataContext is CodeEditorViewModel vm)
         {
+            vm.RegionOwnershipChanged -= OnRegionOwnershipChanged;
             vm.FocusWindowRequest -= VmOnFocusWindowRequest;
             vm.MarkersChanged -= OnMarkersChanged;
             if (_watchedDocument is not null)
             {
+                _watchedDocument.Changed -= OnDocumentChangedForTypedLine;
                 _watchedDocument.Changing -= OnDocumentChangingForResetPrompt;
                 _watchedDocument.UpdateStarted -= OnDocumentUpdateStartedForFolding;
                 _watchedDocument.Changing -= OnDocumentChangingForFolding;
@@ -946,6 +952,7 @@ public partial class CodeEditorView : UserControl
         if (IsActivePane && DataContext is CodeEditorViewModel vm)
         {
             vm.CaretOffset = TextEditor.CaretOffset;
+            if (!_selectingTypedLine) CheckTypedLine(vm);
             // Clearing a selection can raise SelectionChanged before the caret moves to its new start.
             if (TextEditor.TextArea.Selection.IsEmpty)
                 _editorSelectionSync?.Invoke(sender, e);
@@ -1840,6 +1847,7 @@ public partial class CodeEditorView : UserControl
 
     private void OnTextEntering(object? sender, TextInputEventArgs e)
     {
+        if (e.Text is { Length: > 0 }) ArmTypedEdit();
         if (e.Text is { Length: > 0 })
             DismissHover();
 
@@ -1915,12 +1923,49 @@ public partial class CodeEditorView : UserControl
     // header refresh, a reload. It never asks, which the code-editor capability requires of a designer change.
     private void ArmResetPrompt()
     {
+        ArmTypedEdit();
         if (_resetPromptOpen || DataContext is not CodeEditorViewModel vm || !vm.IsProjectRunning)
             return;
         _resetPromptArmed = true;
         // Disarmed once this input has been handled. The edit it makes, if it makes one, is applied before then:
         // AvaloniaEdit writes typed text and edit keys synchronously inside the event that delivered them.
         Avalonia.Threading.Dispatcher.UIThread.Post(() => _resetPromptArmed = false);
+    }
+
+    private bool _typedEditArmed;
+    private bool _selectingTypedLine;
+    private int _typedEditTicket;
+
+    private IDisposable TrackTypedEdits()
+    {
+        ArmTypedEdit();
+        return new ActionDisposable(() => _typedEditArmed = false);
+    }
+
+    private void ArmTypedEdit()
+    {
+        _typedEditArmed = true;
+        var ticket = ++_typedEditTicket;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (_typedEditTicket == ticket) _typedEditArmed = false;
+        });
+    }
+
+    private void OnDocumentChangedForTypedLine(object? sender, DocumentChangeEventArgs e)
+    {
+        if (!IsActivePane || DataContext is not CodeEditorViewModel vm) return;
+        if (_typedEditArmed)
+            vm.AcceptTypedEdit(e.Offset + e.InsertionLength);
+    }
+
+    private void CheckTypedLine(CodeEditorViewModel vm) =>
+        vm.TypedCaretMoved(TextEditor.CaretOffset, TextEditor.SelectionStart, TextEditor.SelectionLength);
+
+    private void OnRegionOwnershipChanged()
+    {
+        TextEditor.TextArea.TextView.Redraw();
+        if (DataContext is CodeEditorViewModel vm) ScheduleFolding(vm);
     }
 
     private void OnDocumentChangingForResetPrompt(object? sender, DocumentChangeEventArgs e)
@@ -1957,6 +2002,7 @@ public partial class CodeEditorView : UserControl
     /// </remarks>
     private void AskBeforeClipboardEdit(bool paste)
     {
+        ArmTypedEdit();
         if (ClipboardEditWouldWrite(paste))
             StartResetPrompt();
     }
@@ -2042,6 +2088,7 @@ public partial class CodeEditorView : UserControl
 
     private void OnTextEntered(object? sender, TextInputEventArgs e)
     {
+        _typedEditArmed = false;
         if (e.Text is not { Length: > 0 }) return;
         if (DataContext is CodeEditorViewModel owner && owner.SupportsOnTypeFormatting(e.Text))
             PendingOnTypeFormatting = FormatTypedCharacterAsync(owner, e.Text);
@@ -2061,6 +2108,7 @@ public partial class CodeEditorView : UserControl
 
     private void OnEditorKeyDown(object? sender, KeyEventArgs e)
     {
+        _selectingTypedLine = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         // Ahead of AvaloniaEdit's own handling, which moves the caret: a step to the right from the end of a
         // declaration whose run is folded goes past the run, where End or a click landing on the same stop do not
         // (KeepCaretOffFoldedRunsEnd, #273 task 4.3). A step is a key the caret navigation steps right for, whatever
@@ -2245,6 +2293,9 @@ public partial class CodeEditorView : UserControl
     private void OnEditorKeyHandled(object? sender, KeyEventArgs e)
     {
         _stepRightFrom = -1;
+        _typedEditArmed = false;
+        _selectingTypedLine = false;
+        if (DataContext is CodeEditorViewModel owner) CheckTypedLine(owner);
         if (e.Key == Key.Insert && DataContext is CodeEditorViewModel vm)
             vm.StatusBar.InsertMode = !TextEditor.TextArea.OverstrikeMode;
     }
@@ -2611,6 +2662,7 @@ public partial class CodeEditorView : UserControl
         if (string.IsNullOrEmpty(text) || DataContext is not CodeEditorViewModel vm)
             return;
 
+        using var input = TrackTypedEdits();
         var area = TextEditor.TextArea;
         if (area.Options.ConvertTabsToSpaces)
             text = text.Replace("\t", new string(' ', area.Options.IndentationSize));
@@ -2642,6 +2694,7 @@ public partial class CodeEditorView : UserControl
         if (string.IsNullOrEmpty(text))
             return;
 
+        using var input = TrackTypedEdits();
         var area = TextEditor.TextArea;
         text = TextUtilities.NormalizeNewLines(text, TextUtilities.GetNewLineFromDocument(area.Document, area.Caret.Line));
         if (area.Options.ConvertTabsToSpaces)

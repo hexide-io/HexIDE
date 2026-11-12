@@ -355,7 +355,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             var mine = (e.Module is not null && ReferenceEquals(e.Module, moduleDefinition))
                     || (e.Form is not null && ReferenceEquals(e.Form, formDefinition));
 
-            if (mine) RefreshModelModified();
+            if (mine)
+            {
+                EndTypedLine();
+                RefreshModelModified();
+            }
 
             // A save is also the commonest way a document's NAME changes: a first save gives it a file,
             // and saving a project into another directory repoints every one of them. So reconcile the
@@ -1149,6 +1153,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     internal void ReloadFrom(string newPrefix, string newBody)
     {
+        EndTypedLine();
         var whole = newPrefix + newBody;
         var oldPrefixLength = bufferPrefix.Length;
         bufferPrefix = newPrefix;
@@ -1521,7 +1526,52 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     }
 
     private IReadOnlyList<TextRegion> RegionsOf(string text, int prefixLength) =>
-        regionReader.Regions(text, prefixLength);
+        regionReader.Regions(TextForRegions(text, prefixLength), prefixLength);
+
+    // Only an accepted input edit starts ownership; navigating onto a file's attributes never does (#3819).
+    private DocumentLine? typedLine;
+    internal event Action? RegionOwnershipChanged;
+
+    internal void AcceptTypedEdit(int offset)
+    {
+        typedLine = Document.GetLineByOffset(offset);
+        regionsCache = null;
+        hangingCache = null;
+    }
+
+    internal void TypedCaretMoved(int offset, int selectionStart, int selectionLength)
+    {
+        if (typedLine is not { IsDeleted: false } line)
+        {
+            EndTypedLine();
+            return;
+        }
+        if (Document.GetLineByOffset(offset) == line
+            || (selectionLength > 0 && selectionStart <= line.EndOffset
+                && selectionStart + selectionLength > line.Offset))
+            return;
+        EndTypedLine();
+    }
+
+    private void EndTypedLine()
+    {
+        if (typedLine is null) return;
+        typedLine = null;
+        regionsCache = null;
+        hangingCache = null;
+        RegionOwnershipChanged?.Invoke();
+    }
+
+    private string TextForRegions(string text, int prefixLength)
+    {
+        if (typedLine is not { IsDeleted: false } line || line.EndOffset > text.Length)
+            return text;
+        // Hide only a newly recognised member attribute line from the reader. The file's leading run and
+        // a declaration with an existing run keep their usual protection. Offsets and line breaks stay put.
+        if (!regionReader.Regions(text, prefixLength).Any(r => r.Anchor is not null && r.Touches(line.Offset, line.Length)))
+            return text;
+        return text.Remove(line.Offset, line.Length).Insert(line.Offset, new string(' ', line.Length));
+    }
 
     private IReadOnlyList<TextRegion>? regionsCache;
     private ITextSourceVersion? regionsCacheVersion;
@@ -1547,7 +1597,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (hangingCache is null || !ReferenceEquals(hangingCacheVersion, version)
                 || hangingCachePrefixLength != bufferPrefix.Length)
             {
-                hangingCache = regionReader.HangingRegions(Document.Text, bufferPrefix.Length);
+                hangingCache = regionReader.HangingRegions(TextForRegions(Document.Text, bufferPrefix.Length), bufferPrefix.Length);
                 hangingCacheVersion = version;
                 hangingCachePrefixLength = bufferPrefix.Length;
                 HangingRegionScans++;
