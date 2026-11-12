@@ -39,7 +39,7 @@ public class FindReferencesTests
         projects.LoadedProjects.Returns([]);
         documents.OpenDocuments.Returns([]);
         var editors = Substitute.For<IEditorService>();
-        var results = new FindReferencesToolViewModel(client, editors, projects, documents, localization);
+        var results = new FindReferencesToolViewModel(client, editors, projects, documents, localization, format: new Vb6ProjectFileFormat());
         client.FindReferencesAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
             .Returns(new ReferenceSearchResult([], []));
         var settings = Substitute.For<ISettingsService>();
@@ -51,7 +51,7 @@ public class FindReferencesTests
             Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
+            Substitute.For<HexIDE.Debugging.IRunScope>(), localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
         module.UpdateCode("Call Greet\r\n");
@@ -86,7 +86,8 @@ public class FindReferencesTests
         editors.NavigateTo("untitled:P/Module1.bas", 3, 6).Returns(true);
         var localization = new LocalizationService();
         localization.Apply("en");
-        var vm = new FindReferencesToolViewModel(Substitute.For<ILspClient>(), editors, projects, documents, localization);
+        var vm = new FindReferencesToolViewModel(Substitute.For<ILspClient>(), editors, projects, documents, localization,
+            format: new Vb6ProjectFileFormat());
         vm.ShowLocations([new Location("untitled:P/Module1.bas", new HexIDE.Lsp.Messages.Range(new Position(2, 5), new Position(2, 10)))]);
         var view = new FindReferencesToolView { DataContext = vm };
         var window = new Window { Content = view, Width = 800, Height = 400 };
@@ -134,14 +135,15 @@ public class FindReferencesTests
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
+            Substitute.For<HexIDE.Debugging.IRunScope>(), localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         editor.Initialize(module);
         // Use the open editor's document so the accessible name includes unsaved line text.
         documents.OpenDocuments.Returns([editor]);
         var uri = editor.GetDocumentUriPublic();
         editors.DocumentNameForUri(uri).Returns("Module1");
         var line = FormCodeText.LineBreaks(FormCodeText.Prefix(module));
-        var vm = new FindReferencesToolViewModel(Substitute.For<ILspClient>(), editors, projects, documents, localization);
+        var vm = new FindReferencesToolViewModel(Substitute.For<ILspClient>(), editors, projects, documents, localization,
+            format: new Vb6ProjectFileFormat());
         vm.ShowLocations([new Location(uri, new HexIDE.Lsp.Messages.Range(new Position(line, 5), new Position(line, 10)))]);
         var view = new FindReferencesToolView { DataContext = vm };
         var window = new Window { Content = view, Width = 800, Height = 400 };

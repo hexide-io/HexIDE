@@ -102,7 +102,7 @@ public sealed class RecoveryOffersTests : IDisposable
 
         return new RecoveryOffers(recovery, session.Service, session.Manager, windows, localization, dock,
             session.Store, clock, bus ?? Substitute.For<IEventBus>(), Substitute.For<IStatusBarService>(),
-            Substitute.For<IHeaderRefresher>());
+            Substitute.For<IHeaderRefresher>(), format: new Vb6ProjectFileFormat());
     }
 
     /// <summary>Writes a saved project of a form and two modules into <paramref name="folder"/>, and names its file.</summary>

@@ -30,15 +30,22 @@ public static class DocumentContent
     /// </summary>
     /// <param name="document">The form, module or class.</param>
     /// <param name="editor">The code window open on <paramref name="document"/>, or null when there is none.</param>
-    public static string Read(DocumentIdentity document, CodeEditorViewModel? editor) =>
-        TextOf(document, editor).Text;
+    public static string Read(DocumentIdentity document, CodeEditorViewModel? editor,
+        IProjectFileFormat format, IReadOnlyRegionReader reader) =>
+        TextOf(document, editor, format, reader).Text;
 
     /// <summary>
     /// What <see cref="Read"/> returns, with what its line numbers need: the document as its code window
     /// numbers it, open or not.
     /// </summary>
-    public static CodeWindowText TextOf(DocumentIdentity document, CodeEditorViewModel? editor) =>
-        editor?.CodeWindowText ?? CodeWindowText.Of(document);
+    public static CodeWindowText TextOf(DocumentIdentity document, CodeEditorViewModel? editor,
+        IProjectFileFormat format, IReadOnlyRegionReader reader)
+    {
+        if (editor is not null) return editor.CodeWindowText;
+        var prefix = document.Module is { } module ? format.CodePrefix(module) : format.CodePrefix(document.Form!);
+        var text = prefix + (document.Module?.Code ?? document.Form!.Code);
+        return new CodeWindowText(text, prefix.Length, reader.Regions(text, prefix.Length));
+    }
 
     /// <summary>
     /// True when <paramref name="editor"/> holds code its document's model has not been given yet.
@@ -65,14 +72,15 @@ public static class DocumentContent
     /// given anything typed. With none, the model's code takes it directly: the rule is the same, applied to
     /// the model's composition of the file, and the body is what is written back to it.
     /// </remarks>
-    public static ContentReplacement Write(DocumentIdentity document, CodeEditorViewModel? editor, string incoming, IReadOnlyRegionRules? rules)
+    public static ContentReplacement Write(DocumentIdentity document, CodeEditorViewModel? editor, string incoming,
+        IReadOnlyRegionRules? rules, IProjectFileFormat format)
     {
         if (editor is not null)
             return editor.ReplaceContent(incoming);
 
-        var (whole, prefix, update) = document.Module is { } module
-            ? (FormCodeText.WholeFile(module), FormCodeText.Prefix(module), (Action<string>)module.UpdateCode)
-            : (FormCodeText.WholeFile(document.Form!), FormCodeText.Prefix(document.Form!), document.Form!.UpdateCode);
+        var prefix = document.Module is { } module ? format.CodePrefix(module) : format.CodePrefix(document.Form!);
+        var whole = prefix + (document.Module?.Code ?? document.Form!.Code);
+        Action<string> update = document.Module is { } target ? target.UpdateCode : document.Form!.UpdateCode;
         var result = rules?.Replace(whole, prefix.Length, DocumentNewLines.Normalize(incoming, whole))
             ?? new ContentReplacement(DocumentNewLines.Normalize(incoming, whole), null, false);
         if (result.NewText is { } text)
@@ -81,17 +89,17 @@ public static class DocumentContent
     }
 
     /// <summary>
-    /// True when <paramref name="incoming"/> is a form's code with its leading <c>Attribute</c> lines left out,
-    /// and the form has them: the case a write reports, because those lines carry the form's identity and a
-    /// caller composing code rather than editing what it read leaves them out without knowing.
+    /// The model's text and leading region when incoming text read without a prefix has no leading region,
+    /// the document's leading region ends past its prefix, and the document is not a module for which
+    /// <c>PrefixCarriesName</c> is true. The prefix may be empty, as a new form's is. Otherwise null.
     /// </summary>
-    /// <remarks>
-    /// Asked of the caller's text, not of whether the guard put anything back: the guard always puts the
-    /// designer block back in front of code sent alone, so its own answer is true for text that left out
-    /// nothing a caller could have been expected to send.
-    /// </remarks>
-    public static bool LeftOutAttributeLines(DocumentIdentity document, string incoming) =>
-        document.Form is { } form
-        && ReadOnlyRegions.HeaderEnd(incoming, 0) == 0
-        && FormCodeText.AttributeBlock(form.Code).Length > 0;
+    public static (CodeWindowText Text, TextRegion Region)? LeftOutLeadingRegion(DocumentIdentity document, string incoming,
+        IProjectFileFormat format, IReadOnlyRegionReader reader)
+    {
+        var text = TextOf(document, null, format, reader);
+        return new CodeWindowText(incoming, 0, reader.Regions(incoming, 0)).LeadingRegion is null
+            && text.LeadingRegion is { } leading && leading.End > text.PrefixLength
+            && !(document.Module is { } module && format.PrefixCarriesName(module))
+            ? (text, leading) : null;
+    }
 }

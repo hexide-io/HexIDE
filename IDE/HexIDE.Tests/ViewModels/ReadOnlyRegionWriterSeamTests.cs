@@ -34,6 +34,8 @@ public class ReadOnlyRegionWriterSeamTests : IDisposable
         Directory.CreateDirectory(dir);
         projects.LoadedProjects.Returns(_ => loaded);
         projects.When(p => p.AddProject(Arg.Any<ProjectDefinition>())).Do(c => loaded.Add(c.Arg<ProjectDefinition>()));
+        format.CodePrefix(Arg.Any<FormDefinition>()).Returns(c => FormCodeText.Prefix(c.Arg<FormDefinition>()));
+        format.CodePrefix(Arg.Any<ModuleDefinition>()).Returns(c => FormCodeText.Prefix(c.Arg<ModuleDefinition>()));
         format.RenderForm(Arg.Any<FormDefinition>(), Arg.Any<string>())
             .Returns(c => new RenderedFile(c.Arg<FormDefinition>().Code, null));
         format.RenderProject(Arg.Any<ProjectDefinition>(), Arg.Any<string>(), Arg.Any<Func<object, string?>?>(), Arg.Any<bool>())
@@ -113,7 +115,7 @@ public class ReadOnlyRegionWriterSeamTests : IDisposable
             windows, Substitute.For<IEditorService>(), Substitute.For<IProjectService>(), new EventBus(),
             Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             new BookmarkService(), new BreakpointService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), new LocalizationService(), regionReader: new NoteReader(), regionWriter: provider);
+            Substitute.For<IRunScope>(), new LocalizationService(), new Vb6ProjectFileFormat(), new NoteReader(), regionWriter: provider);
         editors.Add(vm);
         return vm.Initialize(module);
     }

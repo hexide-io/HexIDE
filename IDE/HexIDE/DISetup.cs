@@ -96,9 +96,10 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Language.IReadOnlyRegionReader>(out var regionReader);
                 ctx.Inject<HexIDE.Language.IReadOnlyRegionRules>(out var regionRules);
                 ctx.Inject<HexIDE.Language.IReadOnlyRegionWriter>(out var regionWriter);
+                ctx.Inject<IProjectFileFormat>(out var format);
                 return new CodeEditorViewModel(windows, editors, projects, events, lsp, settings, status,
-                    bookmarks, breakpoints, debugger, run, localization, external, stack, recentEdits, conditionalCode, brackets,
-                    regionReader, regionRules, regionWriter);
+                    bookmarks, breakpoints, debugger, run, localization, format, regionReader, external, stack, recentEdits, conditionalCode, brackets,
+                    regionRules, regionWriter);
             })
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
@@ -210,7 +211,9 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Debugging.IBreakpointService>(out var breakpoints);
                 ctx.Inject<IProjectManager>(out var projectManager);
                 ctx.Inject<HexIDE.Debugging.IRunChoiceStore>(out var runChoices);
-                return new UserSidecarService(bookmarks, breakpoints, projectManager, runChoices);
+                ctx.Inject<IProjectFileFormat>(out var format);
+                ctx.Inject<HexIDE.Language.IReadOnlyRegionReader>(out var reader);
+                return new UserSidecarService(bookmarks, breakpoints, projectManager, format, reader, runChoices);
             })
             .Bind<IFindReplaceService>().As(Singleton).To<FindReplaceService>()
             .Bind().As(Singleton).To(ctx =>
@@ -440,6 +443,7 @@ public partial class DISetup
             .Root<IDocumentDockService>("DocumentDockService")
             .Root<IProjectRunnerService>("ProjectRunnerService")
             .Root<IProjectService>("ProjectService")
+            .Root<HexIDE.Language.IReadOnlyRegionReader>("ReadOnlyRegionReader")
             .Root<HexIDE.Language.IReadOnlyRegionRules>("ReadOnlyRegionRules")
             .Root<IProjectFileFormat>("ProjectFileFormat")
             .Root<IEventBus>("EventBus")

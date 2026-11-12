@@ -82,7 +82,7 @@ public class ReadOnlyRegionReaderViewTests : IDisposable
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
             Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(),
-            regionReader: reader, regionRules: rules);
+                new Vb6ProjectFileFormat(), reader, regionRules: rules);
         made.Add(vm);
 
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Notes", ModuleKind.StandardModule);

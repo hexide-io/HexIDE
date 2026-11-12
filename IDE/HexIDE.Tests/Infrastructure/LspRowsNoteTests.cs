@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using HexIDE.Conversations;
 using HexIDE.Desktop.Server;
 using HexIDE.IDE;
@@ -19,7 +20,7 @@ public class LspRowsNoteTests
         var capture = new ConversationLog();
         var context = new IdeContext(Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(),
             Substitute.For<ILspClient>(), null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            null!, capture, new Pseudonymiser(), null!, null!, new Vb6ProjectFileFormat());
+            null!, capture, new Pseudonymiser(), null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         return (capture, context, new HexIdeTools(context));
     }
 

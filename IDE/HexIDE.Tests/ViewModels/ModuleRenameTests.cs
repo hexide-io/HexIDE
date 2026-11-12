@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using HexIDE.Bookmarks;
@@ -54,7 +55,9 @@ public class ModuleRenameTests
             Substitute.For<IProjectService>(), bus, Substitute.For<HexIDE.Lsp.ILspClient>(),
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(), new BookmarkService(),
             new BreakpointService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), loc, regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter()).Initialize(module);
+            Substitute.For<IRunScope>(), loc,
+                new Vb6ProjectFileFormat(),
+                new Vb6ReadOnlyRegionReader(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter()).Initialize(module);
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
         editor.Document.Insert(editor.Document.TextLength, "Dim x As Long\r\n");
         var manager = Substitute.For<IProjectManager>();

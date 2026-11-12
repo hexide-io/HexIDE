@@ -49,7 +49,7 @@ public class FindReferencesHeightTests
         var documents = Substitute.For<IDocumentDockService>();
         documents.OpenDocuments.Returns([]);
         var results = new FindReferencesToolViewModel(Substitute.For<ILspClient>(),
-            Substitute.For<IEditorService>(), projects, documents, localization);
+            Substitute.For<IEditorService>(), projects, documents, localization, format: new Vb6ProjectFileFormat());
         var callClient = Substitute.For<ILspClient>();
         callClient.FindCallHierarchyAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
             .Returns(new CallHierarchyResult([], []));

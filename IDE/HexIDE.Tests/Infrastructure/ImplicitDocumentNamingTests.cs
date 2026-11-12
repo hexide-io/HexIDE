@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System.Reflection;
 using System.Text.Json;
 using Dock.Model.Core;
@@ -28,7 +29,7 @@ public class ImplicitDocumentNamingTests
             events, Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
-            Substitute.For<ILocalizationService>());
+            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         return vm.Initialize(form);
     }
 
@@ -46,7 +47,9 @@ public class ImplicitDocumentNamingTests
             var runner = Substitute.For<IProjectRunnerService>();
             runner.RunningProject.Returns(Second);
             Context = new IdeContext(projects, Dock, Substitute.For<ILspClient>(), null!, runner,
-                null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
+                null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
+                    new Vb6ProjectFileFormat(),
+                    new Vb6ReadOnlyRegionReader());
             Tools = new HexIdeTools(Context);
         }
         public void Tabs(params IDockable[] tabs)

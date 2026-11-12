@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System.Text.Json;
 using HexIDE.Desktop.Server;
 using HexIDE.IDE;
@@ -42,7 +43,9 @@ public class FormControlsSummaryTests
             Substitute.For<HexIDE.Localization.ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form) : null;
         dock.OpenDocuments.Returns(designer is null ? [] : [designer]);
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
+                new Vb6ProjectFileFormat(),
+                new Vb6ReadOnlyRegionReader());
 
         var tools = new HexIdeTools(context);
         var missing = await tools.GetFormControlsAsync("Form1", controlName: "Absent");
@@ -93,7 +96,9 @@ public class FormControlsSummaryTests
         dock.OpenDocuments.Returns([]);
         // Only these services are used by this read-only tool; the context also subscribes to diagnostics.
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
+                new Vb6ProjectFileFormat(),
+                new Vb6ReadOnlyRegionReader());
         var tools = new HexIdeTools(context);
 
         foreach (var name in new string?[] { null, "Control1" })
