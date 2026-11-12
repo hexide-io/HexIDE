@@ -54,7 +54,7 @@ public class FindReferencesToolViewModelTests
                 DocumentLanguage.Vb6, () => server)], Substitute.For<ILogger<LspClientRegistry>>());
         var uri = At(first).Uri;
         await registry.OpenDocumentAsync(uri, "code", TestContext.Current.CancellationToken);
-        var vm = new FindReferencesToolViewModel(registry, editors, projects, documents, localization);
+        var vm = new FindReferencesToolViewModel(registry, editors, projects, documents, localization, format: new Vb6ProjectFileFormat());
         vm.ShowLocations([At(second)]);
         await vm.SearchAsync(uri, new Position(0, 5), TestContext.Current.CancellationToken);
         vm.Rows.Should().ContainSingle().Which.Before.Should()
