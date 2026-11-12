@@ -33,6 +33,10 @@ public class TestApp : Application
         {
             Source = new Uri("avares://HexIDE/Themes/ToolChrome.axaml"),
         });
+        Styles.Add(new StyleInclude(new Uri("avares://HexIDE/"))
+        {
+            Source = new Uri("avares://HexIDE/Themes/DragPreview.axaml"),
+        });
         Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
         {
             Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml"),
