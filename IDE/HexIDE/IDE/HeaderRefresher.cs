@@ -143,7 +143,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     public void ApplyHeader(FormDefinition form, string header)
     {
         var identity = DocumentIdentity.For(form);
-        var current = FormCodeText.Prefix(form);
+        var current = format.CodePrefix(form);
 
         // The model half only when the model actually moves, because the marks move with it and a shift of
         // zero must not announce itself to two stores, three gutters and the sidecar.
@@ -226,7 +226,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
 
         if (document.Module is { } module)
         {
-            if (!ModuleFileFormat.HandlesHeader(module.Kind))
+            if (!format.PrefixCarriesName(module))
                 RetargetCode(module.Code, name, module.UpdateCode);
         }
         else if (document.Form is { } form)
@@ -236,8 +236,8 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
 
         if (EditorFor(document) is { } editor)
         {
-            if (document.Module is { } headed && ModuleFileFormat.HandlesHeader(headed.Kind))
-                editor.RefreshPrefix(FormCodeText.Prefix(headed));
+            if (document.Module is { } headed && format.PrefixCarriesName(headed))
+                editor.RefreshPrefix(format.CodePrefix(headed));
             editor.RetargetVbName(name);
         }
     }

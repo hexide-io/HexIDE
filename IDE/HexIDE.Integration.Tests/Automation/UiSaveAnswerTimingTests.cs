@@ -1,3 +1,5 @@
+using HexIDE.Runtime.Serialization;
+using HexIDE.Projects;
 using System;
 using System.Linq;
 using System.Threading;
@@ -118,7 +120,7 @@ public class UiSaveAnswerTimingTests
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), composition.ProjectService,
             composition.EventBus, lsp, settings, Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<IBreakpointService>(), Substitute.For<IDebugController>(), new RunScope(),
-            Substitute.For<ILocalizationService>()).Initialize(form);
+            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).Initialize(form);
         var view = new CodeEditorView { DataContext = vm };
         var window = new Window { Content = view, Width = 900, Height = 600 };
         window.Show();

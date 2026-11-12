@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using Avalonia.Headless.XUnit;
 using HexIDE.Addins;
 using HexIDE.Desktop.Server;
@@ -20,7 +21,7 @@ public class NoRunEngineReplyTests : CompositionTestBase
     private HexIdeTools ToolsOver(IProjectRunnerService runner, IProjectManager projects) =>
         new(new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(), null!, runner, null!,
             null!, null!, null!, Composition.DebugController, Composition.Root, null!, null!, null!, null!, Composition.Capture,
-            null!, Composition.LocalizationService, null!, new Vb6ProjectFileFormat()));
+            null!, Composition.LocalizationService, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()));
 
     private HexIdeTools Tools() => ToolsOver(Composition.ProjectRunnerService, Composition.ProjectManager);
 
@@ -105,7 +106,9 @@ public class NoRunEngineReplyTests : CompositionTestBase
         strings.GetString("Str.Menu.Run.RunWith.Launch").Returns("{0} (von {1})");
         var tools = new HexIdeTools(new IdeContext(Composition.ProjectManager, Substitute.For<IDocumentDockService>(),
             Substitute.For<ILspClient>(), null!, Composition.ProjectRunnerService, null!, null!, null!, null!,
-            Composition.DebugController, Composition.Root, null!, null!, null!, null!, Composition.Capture, null!, strings, null!, new Vb6ProjectFileFormat()));
+            Composition.DebugController, Composition.Root, null!, null!, null!, null!, Composition.Capture, null!, strings, null!,
+                new Vb6ProjectFileFormat(),
+                new Vb6ReadOnlyRegionReader()));
 
         var reply = await tools.RunProjectAsync(Ct);
 

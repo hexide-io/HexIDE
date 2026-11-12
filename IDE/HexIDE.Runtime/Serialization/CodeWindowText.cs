@@ -1,6 +1,6 @@
 using System.Collections.Generic;
+using System.Linq;
 using HexIDE.Language;
-using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Runtime.Serialization;
 
@@ -10,9 +10,9 @@ namespace HexIDE.Runtime.Serialization;
 /// </summary>
 /// <param name="Text">The whole file: an open editor's buffer, or the model's composition of it.</param>
 /// <param name="PrefixLength">
-/// The length of the header the text was composed with, which is how its read-only regions are found. See
-/// <see cref="ReadOnlyRegions.Of"/>.
+/// The length of the prefix the text was composed with.
 /// </param>
+/// <param name="Regions">The reader's read-only regions for this text and prefix.</param>
 /// <remarks>
 /// Every line number the IDE takes or gives for a code window counts in this text: breakpoints, bookmarks, the
 /// current statement, the Call Stack, and the automation and add-in surfaces. Before the buffer held the whole
@@ -20,18 +20,8 @@ namespace HexIDE.Runtime.Serialization;
 /// section, which is shorter by the header — so a mark near the end of a form was refused, or dropped at load,
 /// although the code window showed it on a line that exists.
 /// </remarks>
-public readonly record struct CodeWindowText(string Text, int PrefixLength)
+public readonly record struct CodeWindowText(string Text, int PrefixLength, IReadOnlyList<TextRegion> Regions)
 {
-    /// <summary>The document's whole file as the model composes it, for a document with no code window open.</summary>
-    /// <remarks>
-    /// An open window's buffer may hold edits the model has not been given yet, and its line numbers are the
-    /// ones the developer sees, so a caller that has the window asks it instead.
-    /// </remarks>
-    public static CodeWindowText Of(DocumentIdentity document) =>
-        document.Module is { } module
-            ? new CodeWindowText(FormCodeText.WholeFile(module), FormCodeText.Prefix(module).Length)
-            : new CodeWindowText(FormCodeText.WholeFile(document.Form!), FormCodeText.Prefix(document.Form!).Length);
-
     /// <summary>
     /// How many lines the code window shows. A final line break starts one more line, as an editor shows it.
     /// </summary>
@@ -51,10 +41,19 @@ public readonly record struct CodeWindowText(string Text, int PrefixLength)
     }
 
     /// <summary>The number of lines the header occupies, which is also the line before the code starts.</summary>
-    public int HeaderLineCount => ReadOnlyRegions.HeaderLineCount(Text, PrefixLength);
+    public int HeaderLineCount
+    {
+        get
+        {
+            var end = LeadingRegion?.End ?? 0;
+            var lines = Text[..end].Count(c => c == '\n');
+            return end > 0 && Text[end - 1] != '\n' ? lines + 1 : lines;
+        }
+    }
 
-    /// <summary>The read-only regions of the text: its header and every member's attribute run.</summary>
-    public IReadOnlyList<TextRegion> Regions => ReadOnlyRegions.Of(Text, PrefixLength);
+    /// <summary>The region at the start of the text that hangs from nothing, when there is one.</summary>
+    public TextRegion? LeadingRegion => Regions.Where(region => region.Start == 0 && region.Anchor is null)
+        .Cast<TextRegion?>().FirstOrDefault();
 
     /// <summary>
     /// True when the 1-based <paramref name="line"/> is in a read-only region, where no breakpoint or bookmark

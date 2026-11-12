@@ -16,15 +16,17 @@ internal sealed class ProjectLspDocument : IDisposable
 {
     private static readonly ConditionalWeakTable<ILspClient, Dictionary<DocumentIdentity, ProjectLspDocument>> Held = new();
     private readonly Dictionary<DocumentIdentity, ProjectLspDocument> documents;
+    private readonly IProjectFileFormat format;
     private readonly DocumentIdentity identity;
     private readonly LspDocumentSession session;
     private readonly List<IDisposable> subscriptions = [];
     private bool disposed;
 
-    private ProjectLspDocument(ILspClient client, DocumentIdentity identity, LspDocumentSession session, IEventBus events)
+    private ProjectLspDocument(ILspClient client, DocumentIdentity identity, LspDocumentSession session, IEventBus events, IProjectFileFormat format)
     {
         documents = Held.GetOrCreateValue(client);
         this.identity = identity;
+        this.format = format;
         this.session = session;
         if (documents.TryGetValue(identity, out var previous)) previous.Dispose();
         documents[identity] = this;
@@ -48,12 +50,12 @@ internal sealed class ProjectLspDocument : IDisposable
     }
 
     public static void CloseWindow(ILspClient client, DocumentIdentity identity, LspDocumentSession session,
-        IEventBus events, bool dirty)
+        IEventBus events, IProjectFileFormat format, bool dirty)
     {
         if (dirty)
         {
             var holder = session.CreateProjectHolder();
-            _ = new ProjectLspDocument(client, identity, holder, events);
+            _ = new ProjectLspDocument(client, identity, holder, events, format);
         }
         session.Dispose();
     }
@@ -68,7 +70,7 @@ internal sealed class ProjectLspDocument : IDisposable
     {
         await session.FlushAsync();
         if (disposed) return;
-        session.UpdateText(identity.Module is { } module ? FormCodeText.WholeFile(module) : FormCodeText.WholeFile(identity.Form!));
+        session.UpdateText(identity.Module is { } module ? format.CodePrefix(module) + module.Code : format.CodePrefix(identity.Form!) + identity.Form!.Code);
         await session.RenameAsync(DocumentWireName.For(identity));
         await session.NotifySavedAsync();
         Dispose();

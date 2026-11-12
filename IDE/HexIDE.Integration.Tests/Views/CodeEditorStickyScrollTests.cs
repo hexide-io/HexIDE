@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using Avalonia.VisualTree;
 using AvaloniaEdit;
 using System.Linq;
@@ -171,7 +172,7 @@ public class CodeEditorStickyScrollTests : IDisposable
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<HexIDE.Debugging.IRunScope>(),
-            localization);
+            localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
     }
 
     private static ModuleDefinition AModule()

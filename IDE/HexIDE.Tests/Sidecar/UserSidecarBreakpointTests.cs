@@ -46,7 +46,7 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         var manager = Substitute.For<IProjectManager>();
         var project = MakeSavedProject();
         var store = new BreakpointService();
-        var sidecar = new UserSidecarService(new BookmarkService(), store, manager);
+        var sidecar = new UserSidecarService(new BookmarkService(), store, manager, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         store.SetDocument(Module1(project), [3, 5]);
         store.SetCondition(Module1(project), 3, "i = 3");
         await sidecar.SaveAsync(project);
@@ -57,14 +57,14 @@ public sealed class UserSidecarBreakpointTests : IDisposable
                 .GetProperty("2").GetString().Should().Be("i = 3", "the module has one header line");
 
         var reloaded = new BreakpointService();
-        var second = new UserSidecarService(new BookmarkService(), reloaded, manager);
+        var second = new UserSidecarService(new BookmarkService(), reloaded, manager, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         await second.LoadAsync(project);
         reloaded.GetCondition(Module1(project), 3).Should().Be("i = 3");
         reloaded.GetCondition(Module1(project), 5).Should().BeNull();
         reloaded.SetCondition(Module1(project), 3, "");
         await second.SaveAsync(project);
         var third = new BreakpointService();
-        await new UserSidecarService(new BookmarkService(), third, manager).LoadAsync(project);
+        await new UserSidecarService(new BookmarkService(), third, manager, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).LoadAsync(project);
         third.GetBreakpoints(Module1(project)).Should().Equal(3, 5);
         third.GetCondition(Module1(project), 3).Should().BeNull();
     }
@@ -82,7 +82,7 @@ public sealed class UserSidecarBreakpointTests : IDisposable
                                             "Missing": { "4": "j = 2" } } }
             """, TestContext.Current.CancellationToken);
         var store = new BreakpointService();
-        var sidecar = new UserSidecarService(new BookmarkService(), store, manager);
+        var sidecar = new UserSidecarService(new BookmarkService(), store, manager, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         await sidecar.LoadAsync(project);
         store.GetCondition(Module1(project), 3).Should().Be("i = 3");
         store.GetCondition(Module1(project), 9).Should().BeNull();
@@ -103,7 +103,9 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         var project = MakeSavedProject();
 
         var breakpoints1 = new BreakpointService();
-        var sidecar1 = new UserSidecarService(new BookmarkService(), breakpoints1, projectManager);
+        var sidecar1 = new UserSidecarService(new BookmarkService(), breakpoints1, projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader());
         breakpoints1.SetDocument(Form1(project), new[] { 4, 8 });
         breakpoints1.SetDocument(Module1(project), new[] { 2 });
 
@@ -114,7 +116,9 @@ public sealed class UserSidecarBreakpointTests : IDisposable
 
         // A fresh service instance reloads the same breakpoints from that file.
         var breakpoints2 = new BreakpointService();
-        var sidecar2 = new UserSidecarService(new BookmarkService(), breakpoints2, projectManager);
+        var sidecar2 = new UserSidecarService(new BookmarkService(), breakpoints2, projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader());
         await sidecar2.LoadAsync(project);
 
         breakpoints2.GetBreakpoints(Form1(project)).Should().Equal(4, 8);
@@ -133,7 +137,9 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         var project = MakeSavedProject();
 
         var breakpoints = new BreakpointService();
-        var sidecar = new UserSidecarService(new BookmarkService(), breakpoints, projectManager);
+        var sidecar = new UserSidecarService(new BookmarkService(), breakpoints, projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader());
         breakpoints.SetDocument(Module1(project), new[] { 2 });
         await sidecar.SaveAsync(project);
 
@@ -169,7 +175,7 @@ public sealed class UserSidecarBreakpointTests : IDisposable
 
         var bookmarks = new BookmarkService();
         var breakpoints = new BreakpointService();
-        await new UserSidecarService(bookmarks, breakpoints, projectManager).LoadAsync(project);
+        await new UserSidecarService(bookmarks, breakpoints, projectManager, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).LoadAsync(project);
 
         bookmarks.GetBookmarks(Form1(project)).Should().Equal(1);
         breakpoints.GetBreakpoints(Module1(project)).Should().Equal(3, 7);
@@ -184,7 +190,7 @@ public sealed class UserSidecarBreakpointTests : IDisposable
 
         var bookmarks1 = new BookmarkService();
         var breakpoints1 = new BreakpointService();
-        var sidecar1 = new UserSidecarService(bookmarks1, breakpoints1, projectManager);
+        var sidecar1 = new UserSidecarService(bookmarks1, breakpoints1, projectManager, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         bookmarks1.SetBookmarks(Form1(project), new[] { 1 });   // bookmarks are 0-based; value is opaque here
         breakpoints1.SetDocument(Form1(project), new[] { 5 });
 
@@ -192,7 +198,7 @@ public sealed class UserSidecarBreakpointTests : IDisposable
 
         var bookmarks2 = new BookmarkService();
         var breakpoints2 = new BreakpointService();
-        var sidecar2 = new UserSidecarService(bookmarks2, breakpoints2, projectManager);
+        var sidecar2 = new UserSidecarService(bookmarks2, breakpoints2, projectManager, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         await sidecar2.LoadAsync(project);
 
         bookmarks2.GetBookmarks(Form1(project)).Should().Equal(1);
@@ -207,7 +213,9 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         var project = MakeSavedProject();
 
         var breakpoints = new BreakpointService();
-        var sidecar = new UserSidecarService(new BookmarkService(), breakpoints, projectManager);
+        var sidecar = new UserSidecarService(new BookmarkService(), breakpoints, projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader());
         breakpoints.SetDocument(Form1(project), new[] { 5 });
         await sidecar.SaveAsync(project); // persist to the .user.hexproj
 
@@ -219,7 +227,9 @@ public sealed class UserSidecarBreakpointTests : IDisposable
 
         // ...but clearing memory must NOT erase the on-disk sidecar: a fresh load still gets the breakpoint back.
         var reloaded = new BreakpointService();
-        await new UserSidecarService(new BookmarkService(), reloaded, projectManager).LoadAsync(project);
+        await new UserSidecarService(new BookmarkService(), reloaded, projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader()).LoadAsync(project);
         reloaded.GetBreakpoints(Form1(project)).Should().Equal(5);
     }
 
@@ -235,7 +245,9 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         var project = MakeSavedProject();
 
         var bookmarks = new BookmarkService();
-        var sidecar = new UserSidecarService(bookmarks, new BreakpointService(), projectManager);
+        var sidecar = new UserSidecarService(bookmarks, new BreakpointService(), projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader());
         bookmarks.SetBookmarks(Form1(project), new[] { 7 });
 
         // As the save itself does: the form's file is written as its path is set. A path naming no file is a
@@ -247,7 +259,9 @@ public sealed class UserSidecarBreakpointTests : IDisposable
 
         await sidecar.SaveAsync(project);
         var reloaded = new BookmarkService();
-        await new UserSidecarService(reloaded, new BreakpointService(), projectManager).LoadAsync(project);
+        await new UserSidecarService(reloaded, new BreakpointService(), projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader()).LoadAsync(project);
         reloaded.GetBookmarks(Form1(project)).Should().Equal(7);
     }
 
@@ -278,7 +292,7 @@ public sealed class UserSidecarBreakpointTests : IDisposable
 
         var bookmarks = new BookmarkService();
         var breakpoints = new BreakpointService();
-        var sidecar = new UserSidecarService(bookmarks, breakpoints, projectManager);
+        var sidecar = new UserSidecarService(bookmarks, breakpoints, projectManager, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         await sidecar.LoadAsync(project);
 
         bookmarks.GetBookmarks(Form1(project)).Should().Equal([0, 11], "bookmarks count from 0");
@@ -309,7 +323,9 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         var project = TestHelpers.CreateProjectWithModule("P", "Module1");
         project.Modules[0].UpdateCode("Option Explicit");
         project.AbsolutePath = Path.Combine(_dir, "P.vbp");
-        CodeWindowText.Of(Module1(project)).LineCount.Should().Be(2, "the premise: a two-line module");
+        DocumentContent.TextOf(Module1(project), null,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader()).LineCount.Should().Be(2, "the premise: a two-line module");
         var sidecarPath = Path.Combine(_dir, "P.user.hexproj");
         await File.WriteAllTextAsync(sidecarPath,
             $$"""{ "version": 2, "fileBreakpoints": { "Module1": [{{string.Join(", ", lines)}}] } }""",
@@ -318,7 +334,9 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         var projectManager = Substitute.For<IProjectManager>();
         projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
         var breakpoints = new BreakpointService();
-        var sidecar = new UserSidecarService(new BookmarkService(), breakpoints, projectManager);
+        var sidecar = new UserSidecarService(new BookmarkService(), breakpoints, projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader());
         await sidecar.LoadAsync(project);
         return (project, breakpoints, sidecar, sidecarPath);
     }
@@ -369,7 +387,9 @@ public sealed class UserSidecarBreakpointTests : IDisposable
 
         var breakpoints = new BreakpointService();
         using var log = new CapturedLog();
-        await new UserSidecarService(new BookmarkService(), breakpoints, projectManager).LoadAsync(project);
+        await new UserSidecarService(new BookmarkService(), breakpoints, projectManager,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader()).LoadAsync(project);
 
         breakpoints.GetBreakpoints(Module1(project)).Should().Equal(2, 13);
         log.Messages.Should().ContainSingle(m => m.Contains("had 12 line(s) of code"))
@@ -433,7 +453,7 @@ public sealed class UserSidecarBreakpointTests : IDisposable
 
         var bookmarks = new BookmarkService();
         var breakpoints = new BreakpointService();
-        await new UserSidecarService(bookmarks, breakpoints, projectManager).LoadAsync(project);
+        await new UserSidecarService(bookmarks, breakpoints, projectManager, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).LoadAsync(project);
 
         breakpoints.GetBreakpoints(DocumentIdentity.For(form)).Should().Equal(lastOfCode);
         bookmarks.GetBookmarks(DocumentIdentity.For(form)).Should().Equal(lastOfCode - 1);

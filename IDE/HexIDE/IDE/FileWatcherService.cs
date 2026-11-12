@@ -77,7 +77,7 @@ public sealed class FileWatcherService : IFileWatcherService
 
         coalescer = new ChangeCoalescer(clock);
         dirtyDetector = new DirtyDetector(baselineStore, projectService, format);
-        reloader = new FileReloader(projectService, eventBus, statusBar, localization, headerRefresher);
+        reloader = new FileReloader(projectService, eventBus, statusBar, localization, headerRefresher, format);
         conflictGate = new ConflictGate(windowManager, ReloadConflictsAsync, KeepConflictsAsync);
 
         projectManager.ProjectLoaded += OnProjectLoaded;

@@ -187,7 +187,9 @@ public class DesignerCommitTests
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(), Substitute.For<IDebugController>(),
-            Substitute.For<IRunScope>(), Substitute.For<ILocalizationService>(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
+            Substitute.For<IRunScope>(), Substitute.For<ILocalizationService>(),
+                new Vb6ProjectFileFormat(),
+                new Vb6ReadOnlyRegionReader(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
     }
 
     [AvaloniaFact]

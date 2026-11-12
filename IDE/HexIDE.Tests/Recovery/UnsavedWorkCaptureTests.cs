@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System.IO;
 using System.Text;
 using HexIDE.Events;
@@ -92,7 +93,7 @@ public sealed class UnsavedWorkCaptureTests : IDisposable
         bus, Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
         Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
         Substitute.For<IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
-        Substitute.For<ILocalizationService>()).Initialize(module));
+        Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).Initialize(module));
 
     private FormEditViewModel Designer(IProjectService service, FormDefinition form) => Made(new FormEditViewModel(
         new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(), new ComponentRegistry(),

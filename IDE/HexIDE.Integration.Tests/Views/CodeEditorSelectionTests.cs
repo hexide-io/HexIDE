@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -66,7 +67,7 @@ public class CodeEditorSelectionTests : IDisposable
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<HexIDE.Debugging.IRunScope>(),
-            localization, regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
+            localization, new Vb6ProjectFileFormat(), new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
     }
 
     private static ModuleDefinition AModule()
@@ -254,7 +255,7 @@ public class CodeEditorSelectionTests : IDisposable
         var dock = Substitute.For<IDocumentDockService>();
         dock.ActiveDocument.Returns(vm);
         var addin = new AddinEditorService(dock, Substitute.For<IEditorService>(),
-            Substitute.For<IProjectManager>());
+            Substitute.For<IProjectManager>(), format: new Vb6ProjectFileFormat(), reader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
 
         foreach (var length in new[] { 3, 8, 0 })
         {

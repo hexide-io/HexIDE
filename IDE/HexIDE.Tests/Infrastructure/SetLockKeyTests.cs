@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using HexIDE.Desktop.Server;
 using HexIDE.IDE;
 using HexIDE.Lsp;
@@ -13,7 +14,9 @@ public sealed class SetLockKeyTests : IDisposable
 {
     private readonly IdeContext context = new(Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(),
         Substitute.For<ILspClient>(), null!, Substitute.For<IProjectRunnerService>(),
-        null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
+        null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader());
     private readonly HexIdeTools tools;
 
     public SetLockKeyTests() => tools = new HexIdeTools(context);

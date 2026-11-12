@@ -56,6 +56,8 @@ public partial class UserSidecarService : IUserSidecarService
 
     private readonly IBookmarkService bookmarkService;
     private readonly IBreakpointService breakpointService;
+    private readonly IProjectFileFormat format;
+    private readonly HexIDE.Language.IReadOnlyRegionReader reader;
     private readonly IProjectManager projectManager;
     private readonly IRunChoiceStore? runChoices;
 
@@ -79,11 +81,13 @@ public partial class UserSidecarService : IUserSidecarService
     };
 
     public UserSidecarService(IBookmarkService bookmarkService, IBreakpointService breakpointService,
-        IProjectManager projectManager, IRunChoiceStore? runChoices = null)
+        IProjectManager projectManager, IProjectFileFormat format, HexIDE.Language.IReadOnlyRegionReader reader, IRunChoiceStore? runChoices = null)
     {
         this.bookmarkService = bookmarkService;
         this.breakpointService = breakpointService;
         this.projectManager = projectManager;
+        this.format = format;
+        this.reader = reader;
         this.runChoices = runChoices;
         // The personal-state stores persist to the same per-user sidecar, on the same debounced save.
         bookmarkService.BookmarksChanged += OnSidecarStateChanged;
@@ -350,7 +354,7 @@ public partial class UserSidecarService : IUserSidecarService
     /// the old keys, so those keys are always counted the old way. An entry naming a document the project owns
     /// (<see cref="OwnedAtOpen"/>) is checked against the lines its document's code had, which is what the old
     /// numbering counted, then moved down by the number of lines the code window now shows above that code:
-    /// <see cref="FormCodeText.Prefix(DocumentIdentity)"/>. That is the header of a <c>.bas</c> or <c>.cls</c>,
+    /// the format's code prefix. That is the header of a <c>.bas</c> or <c>.cls</c>,
     /// and only the designer block of a form, UserControl or PropertyPage, whose old window already began at its
     /// <c>Attribute</c> lines: shifting by the whole header would put every mark on a form five lines too low.
     /// It is re-keyed to the document's name and leaves the old keys. Bookmarks stay 0-based and breakpoints
@@ -425,7 +429,7 @@ public partial class UserSidecarService : IUserSidecarService
         .ToDictionary(entry => entry.Key, entry => entry.Value) ?? [];
 
     /// <summary>Version 3 code lines are counted from the end of the full read-only header.</summary>
-    private static void GatherAnchored(ILookup<string, DocumentIdentity> byName, HashSet<string> owned,
+    private void GatherAnchored(ILookup<string, DocumentIdentity> byName, HashSet<string> owned,
         Dictionary<string, List<int>>? entries, int first, string what, string path,
         Dictionary<DocumentIdentity, List<int>> into)
     {
@@ -441,7 +445,7 @@ public partial class UserSidecarService : IUserSidecarService
 
             foreach (var document in byName[NameIn(key)])
             {
-                var shift = CodeWindowText.Of(document).HeaderLineCount;
+                var shift = DocumentContent.TextOf(document, null, format, reader).HeaderLineCount;
                 // Check before adding, so a negative or overflowing offset cannot become a valid file line.
                 var invalid = lines.Where(line => line < first || (long)line + shift > int.MaxValue).ToList();
                 if (invalid.Count > 0)
@@ -456,11 +460,11 @@ public partial class UserSidecarService : IUserSidecarService
     }
 
     /// <summary>File-relative header marks survive; member Attribute lines still cannot be marked.</summary>
-    private static void AddFileLines(Dictionary<DocumentIdentity, List<int>> into, DocumentIdentity document,
+    private void AddFileLines(Dictionary<DocumentIdentity, List<int>> into, DocumentIdentity document,
         IReadOnlyCollection<int> lines, int first, string what, string path)
     {
         var valid = WithinDocument(document, lines, first, what, path);
-        var count = CodeWindowText.Of(document).HeaderLineCount;
+        var count = DocumentContent.TextOf(document, null, format, reader).HeaderLineCount;
         AddTo(into, document, valid.Where(line => line - first < count));
         AddTo(into, document, OffReadOnlyLines(document,
             valid.Where(line => line - first >= count).ToList(), first, what, path));
@@ -470,7 +474,7 @@ public partial class UserSidecarService : IUserSidecarService
     /// Moves one kind's version-1 entries into <paramref name="into"/>, in the file's numbering, and answers the
     /// entries left for a later opening and the entries moved.
     /// </summary>
-    private static (Dictionary<string, List<int>> Left, Dictionary<string, List<int>> Moved) Migrate(
+    private (Dictionary<string, List<int>> Left, Dictionary<string, List<int>> Moved) Migrate(
         ILookup<string, DocumentIdentity> byName, HashSet<string> owned, Dictionary<string, List<int>>? entries,
         int first, string what, string path, Dictionary<DocumentIdentity, List<int>> into)
     {
@@ -491,7 +495,7 @@ public partial class UserSidecarService : IUserSidecarService
 
             foreach (var document in byName[name])
             {
-                var shift = FormCodeText.LineBreaks(FormCodeText.Prefix(document));
+                var shift = FormCodeText.LineBreaks(document.Module is { } module ? format.CodePrefix(module) : format.CodePrefix(document.Form!));
                 var moving = WithinOldCode(document, lines, first, what, path).Select(line => line + shift);
                 AddTo(into, document, OffReadOnlyLines(document, moving.ToList(), first, what, path));
             }
@@ -509,7 +513,7 @@ public partial class UserSidecarService : IUserSidecarService
     /// An entry for a name the project does not own is not applied, and is not lost: a save takes it from the file
     /// as the file holds it then. See <see cref="Carry"/>.
     /// </remarks>
-    private static void Gather(ILookup<string, DocumentIdentity> byName, HashSet<string> owned,
+    private void Gather(ILookup<string, DocumentIdentity> byName, HashSet<string> owned,
         Dictionary<string, List<int>>? entries, int first, string what, string path,
         Dictionary<DocumentIdentity, List<int>> into)
     {
@@ -563,7 +567,7 @@ public partial class UserSidecarService : IUserSidecarService
     private static IEnumerable<int> WithinOldCode(
         DocumentIdentity document, IReadOnlyCollection<int> lines, int first, string what, string path)
     {
-        var code = new CodeWindowText(document.Module?.Code ?? document.Form!.Code, PrefixLength: 0);
+        var code = new CodeWindowText(document.Module?.Code ?? document.Form!.Code, PrefixLength: 0, Regions: []);
         var (kept, dropped) = MarkLineRules.Within(code, lines, first);
         if (dropped.Count > 0)
             Log.Warning("Dropped {What:l}s on {Lines} from {Path}: they were written before lines counted from the top of " +
@@ -586,10 +590,10 @@ public partial class UserSidecarService : IUserSidecarService
     /// designer block above its code, so its last line is that many lines further down than the code's.
     /// </para>
     /// </remarks>
-    private static IReadOnlyList<int> WithinDocument(
+    private IReadOnlyList<int> WithinDocument(
         DocumentIdentity document, IReadOnlyCollection<int> lines, int first, string what, string path)
     {
-        var text = CodeWindowText.Of(document);
+        var text = DocumentContent.TextOf(document, null, format, reader);
         var (kept, dropped) = MarkLineRules.Within(text, lines, first);
         if (dropped.Count > 0)
             Log.Warning("Dropped {What:l}s on {Lines} from {Path}: {Document} has {Count} line(s), numbered {First}..{Last}",
@@ -601,12 +605,12 @@ public partial class UserSidecarService : IUserSidecarService
     /// The <paramref name="lines"/>, numbered from <paramref name="first"/>, that are not on a read-only line of
     /// <paramref name="document"/>; the rest are logged and dropped. See <see cref="Apply"/> for why.
     /// </summary>
-    private static IEnumerable<int> OffReadOnlyLines(
+    private IEnumerable<int> OffReadOnlyLines(
         DocumentIdentity document, IReadOnlyList<int> lines, int first, string what, string path)
     {
         if (lines.Count == 0) return lines;
 
-        var text = CodeWindowText.Of(document);
+        var text = DocumentContent.TextOf(document, null, format, reader);
         var regions = text.Regions;
         var dropped = lines.Where(line => ReadOnlyRegions.IsReadOnlyLine(text.Text, regions, line - first + 1))
             .Distinct().ToList();
@@ -901,13 +905,13 @@ public partial class UserSidecarService : IUserSidecarService
     /// <see cref="Carry"/>, from the file; one for a document it did own and no longer has — renamed or removed this
     /// session — is not written, because the stores have nothing for it.
     /// </remarks>
-    private static Dictionary<string, List<int>> Collect(
+    private Dictionary<string, List<int>> Collect(
         ProjectDefinition project, Func<DocumentIdentity, IReadOnlyList<int>> getLines, int first, bool header)
     {
         var map = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
         foreach (var document in DocumentLookup.DocumentsOf(project))
         {
-            var shift = CodeWindowText.Of(document).HeaderLineCount;
+            var shift = DocumentContent.TextOf(document, null, format, reader).HeaderLineCount;
             var lines = getLines(document).Where(line => (line - first < shift) == header)
                 .Select(line => header ? line : line - shift).ToList();
             if (lines.Count == 0) continue;
