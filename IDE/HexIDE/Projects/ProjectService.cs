@@ -2678,10 +2678,11 @@ public partial class ProjectService : IProjectService
         // the MODULE's, which is the pairing this path writes and the one the code window composes from. Gated
         // for the same reason announceSave exists -- Make writes a copy into a temporary directory and restores
         // every path afterwards, so neither the save nor the header it rendered there is the developer's. A .bas
-        // or .cls has no designer half to adopt, but its open buffer still takes the qualifiers the save rewrote.
+        // or .cls adopts the header the save put before its body as well.
         if (adoptHeader)
             headerRefresher.Saved(DocumentIdentity.For(module),
-                DesignerPartOf(module) is not null ? FormCodeText.DesignerHalfOf(text, module.Code) : null);
+                DesignerPartOf(module) is not null ? FormCodeText.DesignerHalfOf(text, module.Code)
+                    : text.EndsWith(module.Code, StringComparison.Ordinal) ? text[..(text.Length - module.Code.Length)] : null);
     }
 
     private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath, bool includeRelatedDocuments = true)

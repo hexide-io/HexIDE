@@ -50,8 +50,7 @@ public interface IHeaderRefresher
     /// </summary>
     /// <param name="document">The document written.</param>
     /// <param name="header">
-    /// The designer half the save rendered; null for a <c>.bas</c> or <c>.cls</c>, whose header the save does not
-    /// re-render.
+    /// The designer half or module header the save wrote; null when no prefix can be adopted.
     /// </param>
     void Saved(DocumentIdentity document, string? header);
 
