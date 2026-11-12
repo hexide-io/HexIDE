@@ -2,6 +2,8 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Zavihki dokumentov",
+    "Str.Dock.ToolTabs": "Zavihki orodij",
     "Str.AIChat.Refusal": "Ponudnik je zavrnil to zahtevo.",
     "Str.AIChat.TokenLimit": "Odgovor je dosegel omejitev žetonov in ni popoln.",
     "Str.Startup.PlatformSummary": "Samo Linux. Prikazovalni sistem: x11 (privzeto), auto ali wayland.",

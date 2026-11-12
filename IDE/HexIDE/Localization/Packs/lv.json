@@ -1233,6 +1233,8 @@
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Nederīgs JSON: {1}",
     "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: “{1}” nav viena no vērtībām {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Darbvietas vietturi gaida projekta mapes izvēli.",
-    "Str.Tool.LanguageServers.Editor.FileChanged": "Fails ir mainījies. Pirms saglabāšanas atveriet veidlapu vēlreiz."
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Fails ir mainījies. Pirms saglabāšanas atveriet veidlapu vēlreiz.",
+    "Str.Dock.DocumentTabs": "Dokumentu cilnes",
+    "Str.Dock.ToolTabs": "Rīku cilnes"
   }
 }

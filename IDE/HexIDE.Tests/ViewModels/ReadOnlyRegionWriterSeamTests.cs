@@ -78,7 +78,7 @@ public class ReadOnlyRegionWriterSeamTests : IDisposable
             return RewriteOnSave && at >= 0 ? [new TextChange(at, 5, "current")] : [];
         }
 
-        public TextChange? NameRewrite(string text, int prefixLength, string name)
+        public TextChange? NameRewrite(string text, int prefixLength, string name, bool moduleLevel = false)
         {
             var at = text.IndexOf("title ", prefixLength, StringComparison.Ordinal);
             if (at < 0) return null;

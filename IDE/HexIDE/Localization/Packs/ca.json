@@ -2,6 +2,8 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Pestanyes de documents",
+    "Str.Dock.ToolTabs": "Pestanyes d’eines",
     "Str.AIChat.Refusal": "El proveïdor ha rebutjat aquesta sol·licitud.",
     "Str.AIChat.TokenLimit": "La resposta ha arribat al límit de tokens i és incompleta.",
     "Str.Startup.PlatformSummary": "Només Linux. Motor gràfic: x11 (per defecte), auto o wayland.",

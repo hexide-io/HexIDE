@@ -2,6 +2,8 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Kartice dokumenata",
+    "Str.Dock.ToolTabs": "Kartice alatki",
     "Str.AIChat.Refusal": "Pružalac je odbio ovaj zahtev.",
     "Str.AIChat.TokenLimit": "Odgovor je dostigao ograničenje tokena i nije potpun.",
     "Str.Startup.PlatformSummary": "Samo Linux. Sistem prikaza: x11 (podrazumevano), auto ili wayland.",

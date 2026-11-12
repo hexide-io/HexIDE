@@ -2,6 +2,8 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "文件索引標籤",
+    "Str.Dock.ToolTabs": "工具索引標籤",
     "Str.AIChat.Refusal": "供應商拒絕了此請求。",
     "Str.AIChat.TokenLimit": "回覆已達到權杖上限，內容不完整。",
     "Str.Startup.PlatformSummary": "僅限 Linux。顯示後端：x11（預設）、auto 或 wayland。",

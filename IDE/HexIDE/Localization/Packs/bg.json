@@ -2,6 +2,8 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Раздели на документи",
+    "Str.Dock.ToolTabs": "Раздели на инструменти",
     "Str.AIChat.Refusal": "Доставчикът отказа тази заявка.",
     "Str.AIChat.TokenLimit": "Отговорът достигна лимита за токени и е непълен.",
     "Str.Startup.PlatformSummary": "Само Linux. Графична среда: x11 (по подразбиране), auto или wayland.",

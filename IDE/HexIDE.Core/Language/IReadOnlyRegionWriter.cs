@@ -2,8 +2,9 @@ namespace HexIDE.Language;
 
 /// <summary>The changes the IDE itself makes to a format's read-only text.</summary>
 /// <remarks>
-/// Each change lies inside a region the reader marks for the same text and prefix. The code window's caret
+/// Save rewrites lie inside a region the reader marks for the same text and prefix. The code window's caret
 /// arithmetic and undo loop depend on this: an IDE write is skipped by Undo in the code window.
+/// A name typed into a headerless module's body can also be rewritten when the module is renamed.
 /// </remarks>
 public interface IReadOnlyRegionWriter
 {
@@ -24,6 +25,7 @@ public interface IReadOnlyRegionWriter
     /// The change that makes the code after <paramref name="prefixLength"/> name its document <paramref name="name"/>;
     /// null when it already does, or names nothing. Offsets are into <paramref name="text"/>. VB6 compares the name
     /// by value, so a line spaced differently from how VB6 writes it isn't rewritten.
+    /// <paramref name="moduleLevel"/> permits a name anywhere outside a procedure, rather than only in the leading run.
     /// </summary>
-    TextChange? NameRewrite(string text, int prefixLength, string name) => null;
+    TextChange? NameRewrite(string text, int prefixLength, string name, bool moduleLevel = false) => null;
 }

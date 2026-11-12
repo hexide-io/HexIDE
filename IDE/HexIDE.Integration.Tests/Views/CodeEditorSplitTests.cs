@@ -599,7 +599,7 @@ public class CodeEditorSplitTests : IDisposable
         lifetimeField.SetValue(app, lifetime);
         using var context = new HexIDE.Desktop.Server.IdeContext(composition.ProjectManager,
             composition.DocumentDockService, _lspClient, composition.EditorService,
-            null!, null!, null!, null!, null!, null!, composition.Root, null!, null!, null!, null!,
+            null!, null!, null!, null!, null!, null!, (MainViewViewModel)((MainView)window.Content!).DataContext!, null!, null!, null!, null!,
             null!, null!, composition.LocalizationService, null!, null!, new Vb6ReadOnlyRegionReader());
         try
         {

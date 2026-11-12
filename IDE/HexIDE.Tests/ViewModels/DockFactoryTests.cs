@@ -23,7 +23,7 @@ namespace HexIDE.Tests.ViewModels;
 
 public class DockFactoryTests
 {
-    private static (MainViewViewModel.DockFactory factory, ImmediateToolViewModel immediate) CreateFactory(LayoutManifest? manifest = null, ToolBoxToolViewModel? toolbox = null, ILocalizationService? localization = null)
+    internal static (MainViewViewModel.DockFactory factory, ImmediateToolViewModel immediate) CreateFactory(LayoutManifest? manifest = null, ToolBoxToolViewModel? toolbox = null, ILocalizationService? localization = null)
     {
         var docDock = Substitute.For<IDocumentDockService>();
         var eventBus = Substitute.For<IEventBus>();
@@ -274,6 +274,48 @@ public class DockFactoryTests
         service.TryActivate<HexIDE.Forms.ViewModels.RelatedDocumentEditorViewModel>(vm => vm == second, true)
             .Should().BeTrue();
         factory.DocumentDock.ActiveDockable.Should().BeSameAs(second);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("list")]
+    [InlineData("close")]
+    [InlineData("activate")]
+    [InlineData("active")]
+    public void TabServiceSeesFactorySplit(string operation)
+    {
+        var (factory, _) = CreateFactory();
+        factory.InitLayout(factory.CreateLayout());
+        using var service = new DocumentDockService(new DockFactoryReference { Value = factory },
+            Substitute.For<IEventBus>());
+        var original = factory.DocumentDock!;
+        var first = new Document { Title = "First" };
+        var moved = new Document { Title = "Moved" };
+        factory.AddDockable(original, first);
+        factory.AddDockable(original, moved);
+        var split = factory.CreateDocumentDock();
+        split.VisibleDockables = factory.CreateList<IDockable>();
+        factory.MoveDockable(original, split, moved, null);
+        factory.SplitToDock(original, split, DockOperation.Bottom);
+        factory.SetFocusedDockable(original, first);
+        original.ActiveDockable = first;
+        split.ActiveDockable = moved;
+
+        switch (operation)
+        {
+            case "list": service.AllTabs.Should().Equal(first, moved); break;
+            case "close":
+                service.TryCloseAny(t => t.Title == "Moved").Should().BeTrue();
+                split.VisibleDockables.Should().BeEmpty();
+                break;
+            case "activate":
+                service.TryActivateAny(t => t.Title == "Moved").Should().BeTrue();
+                split.ActiveDockable.Should().BeSameAs(moved);
+                break;
+            case "active":
+                factory.SetFocusedDockable(split, moved);
+                service.ActiveTab.Should().BeSameAs(moved);
+                break;
+        }
     }
 
     private static void LayoutWindow(Avalonia.Controls.Window window)
