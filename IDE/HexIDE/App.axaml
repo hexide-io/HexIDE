@@ -35,6 +35,7 @@
         <StyleInclude Source="avares://HexIDE/Automation/AccessKeyNames.axaml" />
 
         <StyleInclude Source="avares://HexIDE/Themes/ToolChrome.axaml" />
+        <StyleInclude Source="avares://HexIDE/Themes/DragPreview.axaml" />
     </Application.Styles>
 
     <Application.DataTemplates>
