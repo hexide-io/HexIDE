@@ -153,7 +153,14 @@ public static class ModuleFileFormat
     /// Unmeasured shapes retain the leading-header split. An empty header means nothing was recognised.
     /// </summary>
     public static (string Header, string Body) SplitHeader(string fileContent, ModuleKind kind)
+        => SplitHeader(fileContent, kind, out _, out _);
+
+    /// <summary>Also reports a zero-based file-line permutation only when lines moved, and the old prefix height.</summary>
+    public static (string Header, string Body) SplitHeader(string fileContent, ModuleKind kind,
+        out int[]? lineMap, out int oldHeaderLines)
     {
+        lineMap = null;
+        oldHeaderLines = 0;
         if (!HandlesHeader(kind) || string.IsNullOrEmpty(fileContent))
             return ("", fileContent);
 
@@ -227,6 +234,21 @@ public static class ModuleFileFormat
         // Moving an unterminated final header line would join it to the body. Its save bytes are unmeasured.
         if (header.Length > 0 && body.Length > 0 && !SourceLines.IsLineEnd(header[^1]))
             return SplitLeadingHeader(fileContent, kind);
+        var map = new int[lines.Length];
+        var next = 0;
+        for (var i = 0; i < lines.Length; i++)
+            if (selected[i]) map[i] = next++;
+        var moved = false;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (!selected[i]) map[i] = next++;
+            moved |= map[i] != i;
+        }
+        if (moved)
+        {
+            lineMap = map;
+            oldHeaderLines = SourceLines.Count(SplitLeadingHeader(fileContent, kind).Header);
+        }
         return (header.ToString(), body.ToString());
     }
 

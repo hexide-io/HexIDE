@@ -24,8 +24,18 @@ public partial class UserSidecarService
                 {
                     if (!NameIn(name).Equals(document.Name, StringComparison.OrdinalIgnoreCase)) continue;
                     foreach (var (line, expression) in conditions)
-                        if (breakpointService.IsBreakpoint(document, line + offset))
-                            breakpointService.SetCondition(document, line + offset, expression);
+                    {
+                        var target = (long)line + offset;
+                        if (!IsCollected(data.CollectedModuleHeaders, document)
+                            && document.Module is { LoadedLineMap: { } map } module)
+                        {
+                            var old = (long)line - 1 + (offset == 0 ? 0 : module.LoadedOldHeaderLines);
+                            if (old < 0 || old >= map.Length) continue;
+                            target = map[(int)old] + 1;
+                        }
+                        if (target is >= 1 and <= int.MaxValue && breakpointService.IsBreakpoint(document, (int)target))
+                            breakpointService.SetCondition(document, (int)target, expression);
+                    }
                 }
             }
         }

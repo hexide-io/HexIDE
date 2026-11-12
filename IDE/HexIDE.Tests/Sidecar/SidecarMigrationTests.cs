@@ -805,37 +805,79 @@ public sealed class SidecarMigrationTests : IDisposable
         Lines(written, "codeBookmarks", "Utils").Should().Equal(4);
     }
 
-    /// <summary>Pin historical mark arithmetic and load dirtiness when collecting a name (#3757).</summary>
+    /// <summary>Marks follow their statement when collecting a name (#3796).</summary>
     [Theory]
-    [InlineData(1, false, 7, "End Sub")]
+    [InlineData(1, false, 6, "    Debug.Print 1")]
     [InlineData(2, false, 6, "    Debug.Print 1")]
-    [InlineData(3, false, 7, "End Sub")]
+    [InlineData(3, false, 6, "    Debug.Print 1")]
     [InlineData(1, true, 6, "    Debug.Print 1")]
-    [InlineData(2, true, 5, "Public Sub Go()")]
+    [InlineData(2, true, 6, "    Debug.Print 1")]
     [InlineData(3, true, 6, "    Debug.Print 1")]
-    public async Task ReorderedModuleHeadersPinHistoricalMarksAndLoadDirtiness(int version, bool afterProcedure, int expectedLine, string expectedText)
+    [InlineData(1, false, 9, "    Debug.Print 1", true)]
+    [InlineData(2, false, 9, "    Debug.Print 1", true)]
+    [InlineData(3, false, 9, "    Debug.Print 1", true)]
+    [InlineData(1, false, 0, "", false, true)]
+    [InlineData(2, false, 0, "", false, true)]
+    [InlineData(3, false, 0, "", false, true)]
+    [InlineData(1, true, 0, "", false, true)]
+    [InlineData(2, true, 0, "", false, true)]
+    [InlineData(3, true, 0, "", false, true)]
+    [InlineData(1, false, 0, "", true, true)]
+    [InlineData(2, false, 0, "", true, true)]
+    [InlineData(3, false, 0, "", true, true)]
+    public async Task ReorderedModuleHeadersPinHistoricalMarksAndLoadDirtiness(int version, bool afterProcedure, int expectedLine, string expectedText, bool isClass = false, bool markHeader = false)
     {
         var originalLines = afterProcedure
             ? new[] { "' generated", "Option Explicit", "", "Public Sub Go()", "    Debug.Print 1", "End Sub", "Attribute VB_Name = \"Odd\"" }
             : new[] { "' generated", "Attribute VB_Name = \"Odd\"", "Option Explicit", "", "Public Sub Go()", "    Debug.Print 1", "End Sub" };
-        File.WriteAllText(Path.Join(dir, "Odd.bas"), Crlf(originalLines));
-        var vbp = Stage("Module=Odd; Odd.bas");
+        var classPrefix = new[] { "VERSION 1.0 CLASS", "BEGIN", "END" };
+        if (isClass) originalLines = classPrefix.Concat(originalLines).ToArray();
+        var file = isClass ? "Odd.cls" : "Odd.bas";
+        File.WriteAllText(Path.Join(dir, file), Crlf(originalLines));
+        var vbp = Stage($"{(isClass ? "Class" : "Module")}=Odd; {file}");
         var line = afterProcedure ? 5 : 6;
+        if (markHeader) line = afterProcedure ? 7 : 2;
+        if (isClass && version == 2) line += 3;
         var breakpointKey = version == 1 ? "breakpoints" : version == 2 ? "fileBreakpoints" : "codeBreakpoints";
         var bookmarkKey = version == 1 ? "bookmarks" : version == 2 ? "fileBookmarks" : "codeBookmarks";
+        var condition = version == 3
+            ? $$""", "codeBreakpointConditions": { "Odd": { "{{line}}": "x > 0" } }"""
+            : "";
         File.WriteAllText(SidecarPath,
-            $$"""{ "version": {{version}}, "{{breakpointKey}}": { "Odd": [{{line}}] }, "{{bookmarkKey}}": { "Odd": [{{line - 1}}] } }""");
+            $$"""{ "version": {{version}}, "{{breakpointKey}}": { "Odd": [{{line}}] }, "{{bookmarkKey}}": { "Odd": [{{line - 1}}] } {{condition}} }""");
         var opened = await Open(vbp);
         var odd = Doc(opened.Project, "Odd");
-        odd.Module!.OriginalHeader.Should().Be("Attribute VB_Name = \"Odd\"\r\n");
+        odd.Module!.OriginalHeader.Should().Be((isClass ? Crlf(classPrefix) : "") + "Attribute VB_Name = \"Odd\"\r\n");
         opened.Service.HasUnsavedChanges(odd.Module).Should().BeFalse("load snapshots the composed render, not the disk bytes");
-        opened.Breakpoints.GetBreakpoints(odd).Should().Equal(expectedLine);
-        opened.Bookmarks.GetBookmarks(odd).Should().Equal(expectedLine - 1);
-        LineOf(odd, expectedLine).Should().Be(expectedText);
+        if (markHeader)
+        {
+            opened.Breakpoints.GetBreakpoints(odd).Should().BeEmpty();
+            opened.Bookmarks.GetBookmarks(odd).Should().BeEmpty();
+        }
+        else
+        {
+            opened.Breakpoints.GetBreakpoints(odd).Should().Equal(expectedLine);
+            opened.Bookmarks.GetBookmarks(odd).Should().Equal(expectedLine - 1);
+            LineOf(odd, expectedLine).Should().Be(expectedText);
+            if (version == 3) opened.Breakpoints.GetCondition(odd, expectedLine).Should().Be("x > 0");
+        }
         var composed = FormCodeText.WholeFile(odd.Module);
-        composed.Split("\r\n")[1].Should().Be("' generated");
+        composed.Split("\r\n")[isClass ? 4 : 1].Should().Be("' generated");
+        await opened.Sidecar.SaveAsync(opened.Project);
+        Close(opened.Project);
+        opened = await Open(vbp);
+        odd = Doc(opened.Project, "Odd");
+        opened.Breakpoints.GetBreakpoints(odd).Should().Equal(markHeader ? [] : new[] { expectedLine });
+        opened.Bookmarks.GetBookmarks(odd).Should().Equal(markHeader ? [] : new[] { expectedLine - 1 });
+        if (!markHeader && version == 3)
+            opened.Breakpoints.GetCondition(odd, expectedLine).Should().Be("x > 0");
         await opened.Service.SaveProject(opened.Project, saveAs: false);
         File.ReadAllText(odd.AbsolutePath!).Should().Be(composed);
+        Close(opened.Project);
+        opened = await Open(vbp);
+        odd = Doc(opened.Project, "Odd");
+        opened.Breakpoints.GetBreakpoints(odd).Should().Equal(markHeader ? [] : new[] { expectedLine });
+        opened.Bookmarks.GetBookmarks(odd).Should().Equal(markHeader ? [] : new[] { expectedLine - 1 });
     }
 
     /// <summary>

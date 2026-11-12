@@ -51,10 +51,6 @@ carries is read as UTF-8 or, where that fails, as Latin-1, and is saved in the e
 The module-name collection and save order follows [measurement #3777](../../../docs/vb6-fidelity-oracle/a-modules-name-line-below-the-top-of-its-file.md).
 Selecting the loaded name when `.vbp` and `VB_Name` disagree remains separate work (#3774).
 
-**Known defect:** a breakpoint or bookmark saved for a module whose name line was below code can land on another
-statement once the reader moves that line into the header ([#3796](https://github.com/hexide-io/HexIDE/issues/3796)).
-The requirement below states the intended behaviour.
-
 ## Requirements
 
 ### Requirement: Module name attributes are collected into the file header
