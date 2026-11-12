@@ -29,6 +29,19 @@ loaded it SHALL retain the localized `Project Group - Group1` title (#3713).
 - **THEN** the IDE SHALL create `Group1`, and the explorer shows its group root and localized group title
 - **AND** opening a lone project creates no group, while opening a `.vbg` uses that file's group
 
+### Requirement: A new group root SHALL start expanded
+The group root SHALL start expanded after adding a second project or opening a `.vbg`, showing its
+project items (#3741). Rebuilding the same group's root when the language changes SHALL preserve the
+expansion chosen by the user.
+
+#### Scenario: A group becomes visible
+- **WHEN** a second project is added or a two-project `.vbg` opens
+- **THEN** the group is expanded and both project items exist in the tree
+
+#### Scenario: A collapsed group survives a language change
+- **WHEN** the user collapses the group and changes the IDE language
+- **THEN** the rebuilt group remains collapsed
+
 ### Requirement: The group root SHALL expose its displayed name to automation
 The group root's tree item SHALL use its localized display name as its accessible name through the
 same binding as the other project tree nodes (#3735). It SHALL notify that name when the group is renamed.

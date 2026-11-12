@@ -32,7 +32,7 @@ public partial class ProjectGroupViewModel : ObservableObject, IDisposable, IPro
     public ProjectGroupDefinition Group { get; }
     private readonly string title;
 
-    [Notify] private bool isExpanded;
+    [Notify] private bool isExpanded = true;
 
     /// <inheritdoc/>
     public string AccessibleName => DisplayName;
