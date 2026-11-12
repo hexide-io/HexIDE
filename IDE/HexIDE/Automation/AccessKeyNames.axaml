@@ -60,6 +60,18 @@
     <Style Selector="ScrollBar:horizontal /template/ RepeatButton#PART_LineDownButton">
         <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.LineRight}" />
     </Style>
+    <Style Selector="ScrollViewer /template/ RepeatButton[(DockPanel.Dock)=Top]">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.LineUp}" />
+    </Style>
+    <Style Selector="ScrollViewer /template/ RepeatButton[(DockPanel.Dock)=Bottom]">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.LineDown}" />
+    </Style>
+    <Style Selector="ButtonSpinner /template/ RepeatButton#PART_IncreaseButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Spinner.Increase}" />
+    </Style>
+    <Style Selector="ButtonSpinner /template/ RepeatButton#PART_DecreaseButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Spinner.Decrease}" />
+    </Style>
     <!-- Localize Dock structural parts; keep their automation paths independent of language (#3806). -->
     <Style Selector="DockControl">
         <Setter Property="AutomationProperties.AutomationId" Value="Dock host" />

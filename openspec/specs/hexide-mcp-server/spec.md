@@ -401,7 +401,9 @@ The IDE SHALL give the dock pane's Menu, Pin, Maximize/Restore and Close buttons
 localized automation names describing their actions. The name SHALL belong to the control's automation peer and be
 accepted by path matching, as well as being available to screen readers. Document-tab close buttons, designer caption buttons,
 dropdown toggles, property color/font picker buttons and all eight scroll bar line/page buttons SHALL likewise
-have localized names describing their actions.
+have localized names describing their actions. Menu scroll arrows and ButtonSpinner increase/decrease
+buttons SHALL also expose localized action names. Dialog descriptions SHALL list only visible answer buttons,
+excluding toggle buttons, repeat buttons and buttons owned by another control’s template.
 
 #### Scenario: Discovering an icon-only dock button
 - **WHEN** a caller discovers a dock pane's close button
