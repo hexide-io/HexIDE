@@ -1548,7 +1548,9 @@ actions `invoke_command` and `set_property` SHALL continue to act on the view mo
 ### Requirement: Code-window pointer input SHALL identify its document position
 `interact` SHALL report the 1-based document line and, over text, column for `click`, `double_click`
 and drag endpoints in a code window or its margins, with the identity `<project>/<document>` and any
-breakpoint or bookmark at the press. Pixel coordinates SHALL remain accepted. These targets SHALL also
+breakpoint or bookmark at the press. When an element covers the text, the reply SHALL instead name
+the sticky procedure header or other covering control and the document line it covers, without
+presenting it as a text position. Pixel coordinates SHALL remain accepted. These targets SHALL also
 accept `line:N` and `line:N,col:M`, scroll an off-screen position into view and use its rendered glyph
 position, including code-lens spacing. A line outside the document SHALL be refused with its line count.
 
@@ -1556,6 +1558,11 @@ position, including code-lens spacing. A line outside the document SHALL be refu
 - **WHEN** a code lens has added space before a click in a code-window margin
 - **THEN** the reply reports the line under the actual point, using the margin's rendered lines
 - **AND** `line:5` aims at line 5 with that spacing in place
+
+#### Scenario: A sticky header receives a click or drag press
+- **WHEN** a click or drag starts on a sticky procedure header covering a code-window line
+- **THEN** the reply names the header and says which document line it covers
+- **AND** the press is not described as a line and column reached in the text
 
 ### Requirement: A click SHALL move the pointer there before it presses
 `interact`'s `click` SHALL raise a pointer move at the point on the element it presses before the press, as a person's
