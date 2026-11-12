@@ -136,3 +136,8 @@ error 5, and MIRR's all-positive error 11 and finance-rate -1 error 5. Native an
 The #2626 resource function measurements (vb6.exe SP6, matching native and p-code runs) are recorded in
 [LoadResString, LoadResData and LoadResPicture](vb6-fidelity-oracle/loadresstring-loadresdata-and-loadrespicture.md).
 The measuring authors' page remains the source for string, byte-array, bitmap and error results.
+
+The #3757 reader and rename change relies on [a module's name line below the top of its file](vb6-fidelity-oracle/a-modules-name-line-below-the-top-of-its-file.md),
+measured by hexide-int in [#3777](https://github.com/hexide-io/HexIDE/pull/3777): module-level name lines
+are recognised below code and saved in the header; preceding blank lines follow the header. HexIDE keeps
+text above a class's VERSION block to avoid VB6's measured loss of that text.

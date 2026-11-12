@@ -82,8 +82,8 @@ public static class ModuleFileFormat
         if (!string.IsNullOrEmpty(preservedHeader))
             return RetargetVbName(preservedHeader, name) + body;
 
-        // Nothing split off. A body that already carries its own VB_Name is the whole file, in a shape the reader did not
-        // take as a header, and gets nothing in front: the literal would give it a second header, which is #472. One
+        // Nothing split off. A body that carries its own VB_Name (for example, typed into a headerless module)
+        // gets nothing in front: the literal would give it a second header, which is #472. One
         // with none is a module HexIDE is creating, or a file written without a header, and VB6 writes one for both.
         return CarriesVbName(body) ? body : Header(name, kind) + body;
     }
@@ -125,8 +125,7 @@ public static class ModuleFileFormat
 
     /// <summary>
     /// Rewrites the <c>Attribute VB_Name</c> line to say <paramref name="name"/>, so the header follows the
-    /// module's name rather than the one it was read with. No gesture renames a module yet
-    /// (hexide-io/HexIDE#493).
+    /// module's name rather than the one it was read with.
     /// </summary>
     private static string RetargetVbName(string header, string name)
     {
@@ -149,10 +148,97 @@ public static class ModuleFileFormat
         SplitHeader(fileContent, kind).Body;
 
     /// <summary>
-    /// Split file content into its verbatim header and its body. <c>Header</c> is empty when no header was
-    /// recognised, which is also the signal that there is nothing to preserve.
+    /// Collect the module header and leave other lines in body order (#3777). The first module-level name
+    /// moves into the header; text above a class VERSION block is kept below it to avoid VB6's text loss.
+    /// Unmeasured shapes retain the leading-header split. An empty header means nothing was recognised.
     /// </summary>
     public static (string Header, string Body) SplitHeader(string fileContent, ModuleKind kind)
+    {
+        if (!HandlesHeader(kind) || string.IsNullOrEmpty(fileContent))
+            return ("", fileContent);
+
+        var lines = SourceLines.Split(fileContent);
+
+        var name = FormCodeText.VbNameLine(fileContent, moduleLevel: true);
+        if (name is null)
+            return SplitLeadingHeader(fileContent, kind);
+
+        var selected = new bool[lines.Length];
+        var version = -1;
+        if (kind == ModuleKind.ClassModule)
+        {
+            for (var n = 0; n < lines.Length; n++)
+                if (lines[n].TrimStart().StartsWith("VERSION", StringComparison.OrdinalIgnoreCase)
+                    && lines[n].IndexOf("CLASS", StringComparison.OrdinalIgnoreCase) >= 0)
+                { version = n; break; }
+        }
+        if (version >= 0)
+        {
+            var i = version;
+            selected[i++] = true;
+            if (i < lines.Length && lines[i].Trim().Equals("BEGIN", StringComparison.OrdinalIgnoreCase))
+            {
+                selected[i++] = true;
+                while (i < lines.Length && !lines[i].Trim().Equals("END", StringComparison.OrdinalIgnoreCase)
+                       && !lines[i].TrimStart().StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase))
+                    selected[i++] = true;
+                if (i < lines.Length && lines[i].Trim().Equals("END", StringComparison.OrdinalIgnoreCase))
+                    selected[i] = true;
+            }
+        }
+
+        // #3777: the first module-level name line belongs to the header wherever it was written.
+        // Member attributes and unmeasured second/inside-procedure names stay in the body.
+        if (name is { } nameSpan)
+        {
+            var nameLine = SourceLines.Count(fileContent[..nameSpan.Start]);
+            var from = nameLine;
+            var to = nameLine + 1;
+            var leading = 0;
+            while (leading < lines.Length && lines[leading].Trim().Length == 0) leading++;
+            var inLeadingRun = true;
+            for (var i = leading; i < nameLine; i++)
+                inLeadingRun &= IsModuleAttribute(lines[i]);
+            if (kind == ModuleKind.ClassModule || inLeadingRun)
+            {
+                while (from > 0 && IsModuleAttribute(lines[from - 1])
+                       && FormCodeText.VbNameValue(lines[from - 1].AsSpan().Trim()) is null)
+                    from--;
+                while (to < lines.Length && IsModuleAttribute(lines[to])
+                       && FormCodeText.VbNameValue(lines[to].AsSpan().Trim()) is null)
+                    to++;
+            }
+            if (kind == ModuleKind.ClassModule)
+                for (var i = 0; i < lines.Length; i++)
+                    if ((i < from || i >= to) && IsModuleAttribute(lines[i])
+                        && FormCodeText.VbNameValue(lines[i].AsSpan().Trim()) is null)
+                        return SplitLeadingHeader(fileContent, kind); // separated class attributes are unmeasured
+            for (var i = from; i < to; i++) selected[i] = true;
+        }
+
+        var header = new System.Text.StringBuilder();
+        var body = new System.Text.StringBuilder();
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var target = selected[i] ? header : body;
+            target.Append(lines[i]);
+            if (i < lines.Length - 1) target.Append("\r\n");
+        }
+        // Moving an unterminated final header line would join it to the body. Its save bytes are unmeasured.
+        if (header.Length > 0 && body.Length > 0 && !SourceLines.IsLineEnd(header[^1]))
+            return SplitLeadingHeader(fileContent, kind);
+        return (header.ToString(), body.ToString());
+    }
+
+    private static bool IsModuleAttribute(string line)
+    {
+        var text = line.AsSpan().Trim();
+        if (!text.StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase)) return false;
+        var equals = text.IndexOf('=');
+        return equals >= 0 && text[..equals].IndexOf('.') < 0;
+    }
+
+    private static (string Header, string Body) SplitLeadingHeader(string fileContent, ModuleKind kind)
     {
         if (!HandlesHeader(kind) || string.IsNullOrEmpty(fileContent))
             return ("", fileContent);
@@ -186,7 +272,7 @@ public static class ModuleFileFormat
         }
 
         // Contiguous Attribute lines (VB_Name, VB_PredeclaredId, ...)
-        while (i < lines.Length && lines[i].TrimStart().StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase))
+        while (i < lines.Length && IsModuleAttribute(lines[i]))
             i++;
 
         if (i == start)
