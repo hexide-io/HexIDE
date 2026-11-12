@@ -49,9 +49,26 @@ carries is read as UTF-8 or, where that fails, as Latin-1, and is saved in the e
 > the IDE does not model began to be carried ([#60](https://github.com/hexide-io/HexIDE/issues/60)).
 
 The module-name collection and save order follows [measurement #3777](../../../docs/vb6-fidelity-oracle/a-modules-name-line-below-the-top-of-its-file.md).
-Selecting the loaded name when `.vbp` and `VB_Name` disagree remains separate work (#3774).
 
 ## Requirements
+
+### Requirement: A loaded module takes its name from its file
+A loaded `.bas` or `.cls` SHALL take its name from its header's `Attribute VB_Name`, falling back to
+its `.vbp` line when no name is present. Loading SHALL show no warning or dialog for a mismatch.
+Save Project SHALL write the loaded name into the `.vbp` and preserve it in the module file.
+Collisions with another project member remain unmeasured; HexIDE SHALL retain the `.vbp` name for that module.
+
+#### Scenario: The file and project line disagree
+- **GIVEN** `Module=WName; Odd.bas` and a file with `Attribute VB_Name = "QName"`
+- **WHEN** the project loads
+- **THEN** the module is named `QName` and code can call `QName.Who()`
+- **AND** Save Project writes `Module=QName; Odd.bas` and keeps the file's name `QName`
+- **AND** a class file's name similarly determines the type available to `New`
+
+#### Scenario: A module has no name attribute
+- **GIVEN** `Module=WName; Odd.bas` and no name attribute in the file
+- **WHEN** the project loads and is saved
+- **THEN** the module keeps `WName` and the saved file begins with `Attribute VB_Name = "WName"`
 
 ### Requirement: Module name attributes are collected into the file header
 The reader SHALL collect the first module-level `VB_Name` outside procedures into a `.bas` header.

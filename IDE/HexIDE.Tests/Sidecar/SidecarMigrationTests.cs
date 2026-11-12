@@ -52,6 +52,51 @@ public sealed class SidecarMigrationTests : IDisposable
         try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ }
     }
 
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(1, true)]
+    [InlineData(2, false)]
+    [InlineData(2, true)]
+    [InlineData(3, false)]
+    [InlineData(3, true)]
+    public async Task LoadedNameMigratesMarksAndConditions(int version, bool hasNewEntry)
+    {
+        var vbp = Stage("Module=WName; Odd.bas");
+        File.WriteAllText(Path.Join(dir, "Odd.bas"), Crlf(
+            "Attribute VB_Name = \"QName\"", "Public Sub Go()", "    Debug.Print 1", "End Sub"));
+        var breakpointKey = version == 1 ? "breakpoints" : version == 2 ? "fileBreakpoints" : "codeBreakpoints";
+        var bookmarkKey = version == 1 ? "bookmarks" : version == 2 ? "fileBookmarks" : "codeBookmarks";
+        var breakpointLine = version == 2 ? 3 : 2;
+        var preferred = hasNewEntry ? $", \"QName\": [{(version == 2 ? 2 : 1)}]" : "";
+        var preferredCondition = hasNewEntry ? ", \"QName\": { \"1\": \"x = 2\" }" : "";
+        File.WriteAllText(SidecarPath, $$"""
+            { "version": {{version}},
+              "{{breakpointKey}}": { "WName": [{{breakpointLine}}]{{preferred}} },
+              "{{bookmarkKey}}": { "WName": [{{breakpointLine - 1}}] },
+              "codeBreakpointConditions": { "WName": { "2": "x = 1" }{{preferredCondition}} } }
+            """);
+        var opened = await Open(vbp);
+        var document = Doc(opened.Project, "QName");
+        opened.Breakpoints.GetBreakpoints(document).Should().Equal(hasNewEntry ? 2 : 3);
+        opened.Bookmarks.GetBookmarks(document).Should().Equal(2);
+        if (!hasNewEntry)
+        {
+            LineOf(document, 3).Should().Be("    Debug.Print 1");
+            opened.Breakpoints.GetCondition(document, 3).Should().Be("x = 1");
+        }
+        opened.Breakpoints.GetCondition(document, hasNewEntry ? 2 : 3).Should().Be(hasNewEntry ? "x = 2" : "x = 1");
+        await opened.Sidecar.SaveAsync(opened.Project);
+        var written = ReadJson(SidecarPath);
+        Lines(written, "codeBreakpoints", "QName").Should().Equal(hasNewEntry ? 1 : 2);
+        Lines(written, "codeBookmarks", "QName").Should().Equal(1);
+        File.ReadAllText(SidecarPath).Should().NotContain("WName");
+        var reopened = await Open(vbp);
+        var again = Doc(reopened.Project, "QName");
+        reopened.Breakpoints.GetBreakpoints(again).Should().Equal(hasNewEntry ? 2 : 3);
+        reopened.Bookmarks.GetBookmarks(again).Should().Equal(2);
+        reopened.Breakpoints.GetCondition(again, hasNewEntry ? 2 : 3).Should().Be(hasNewEntry ? "x = 2" : "x = 1");
+    }
+
     // ── Fixtures ─────────────────────────────────────────────────────────────────────────────────────────
 
     private static string Crlf(params string[] lines) => string.Join("\r\n", lines) + "\r\n";

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text;
+using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
@@ -10,7 +11,7 @@ namespace HexIDE.Runtime.Tests;
 /// alone, read into a list the run never saw, so every module was missing and a second form had no definition. These read
 /// a project from disk as both hosts do and check that every member joins the project.
 /// </summary>
-public sealed class ProjectLoaderTests : IDisposable
+public sealed class ProjectLoaderTests : BaseVBTestFixture, IDisposable
 {
     private readonly string dir = Path.Combine(Path.GetTempPath(), "hexide-loader-" + Guid.NewGuid().ToString("N"));
 
@@ -82,6 +83,56 @@ public sealed class ProjectLoaderTests : IDisposable
 
             """);
         return Path.Combine(dir, "Made.vbp");
+    }
+
+    // vb6.exe native/p-code and IDE: docs/vb6-fidelity-oracle/a-modules-name-line-below-the-top-of-its-file.md.
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task The_file_name_line_decides_the_loaded_identity(bool isClass, bool belowCode)
+    {
+        var kind = isClass ? "Class" : "Module";
+        var extension = isClass ? "cls" : "bas";
+        var name = isClass ? "ClsA" : "QName";
+        var body = "Public Function Who() As Integer\r\nWho = 7\r\nEnd Function\r\n";
+        var header = isClass ? "VERSION 1.0 CLASS\r\nBEGIN\r\nEND\r\n" : "";
+        var attribute = $"Attribute VB_Name = \"{name}\"\r\n";
+        Write($"Odd.{extension}", header + (belowCode ? body + attribute : attribute + body));
+        Write("Starter.bas", "Attribute VB_Name = \"Starter\"\r\nSub Main()\r\n" +
+            (isClass ? $"Dim o As {name}\r\nSet o = New {name}\r\nDebug.Print o.Who()" : $"Debug.Print {name}.Who()") +
+            "\r\nEnd Sub\r\n");
+        Write("Made.vbp", $"Type=Exe\r\nModule=Starter; Starter.bas\r\n{kind}=WName; Odd.{extension}\r\nStartup=\"Sub Main\"\r\nName=\"Made\"\r\n");
+        var sink = new Sink();
+        var project = (await new ProjectLoader().LoadAsync(Path.Combine(dir, "Made.vbp"), sink)).Project;
+
+        sink.Errors.Should().BeEmpty();
+        project.Modules[1].Name.Should().Be(name);
+        var modules = project.Modules.Where(m => m.Kind == ModuleKind.StandardModule).ToArray();
+        var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs, SettingsStore), context, rootEnv,
+            modules[0].Code, modules[0].Name, modules.Skip(1).Select(m => (m.Name, m.Code)).ToArray(),
+            project.Modules.Where(m => m.Kind == ModuleKind.ClassModule).Select(m => (m.Name, m.Code)).ToArray());
+        await vb.RunStartupSubMain();
+        AssertDebugLog([new Vb6Value((short)7)]);
+    }
+
+    [Theory]
+    [InlineData("Form")]
+    [InlineData("Module")]
+    [InlineData("Class")]
+    public async Task An_unmeasured_collision_keeps_the_project_line_name(string otherKind)
+    {
+        Write("Odd.bas", "Attribute VB_Name = \"Taken\"\r\nPublic Counter As Long\r\n");
+        Write("Other.frm", Form("Taken"));
+        Write("Other.bas", "Attribute VB_Name = \"Taken\"\r\n");
+        Write("Other.cls", "VERSION 1.0 CLASS\r\nBEGIN\r\nEND\r\nAttribute VB_Name = \"Taken\"\r\n");
+        var other = otherKind == "Form" ? "Form=Other.frm" : $"{otherKind}=Taken; Other.{(otherKind == "Class" ? "cls" : "bas")}";
+        Write("Made.vbp", $"Type=Exe\r\nModule=WName; Odd.bas\r\n{other}\r\nName=\"Made\"\r\n");
+
+        var project = (await new ProjectLoader().LoadAsync(Path.Combine(dir, "Made.vbp"), new Sink())).Project;
+
+        project.Modules[0].Name.Should().Be("WName");
     }
 
     [Fact]

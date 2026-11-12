@@ -207,11 +207,21 @@ the old keys would instead have the earlier version show every mark on the wrong
 Entries SHALL be keyed within a sidecar by the document's name. The sidecar belongs to one project already, so
 the project needs no naming inside it.
 
+When a loaded module takes its file's `VB_Name` over its `.vbp` name (#3774), each mark or condition
+entry SHALL prefer the loaded name and fall back to the recorded project-line name only when that entry
+has no loaded-name key. A save SHALL key the migrated entries by the loaded name.
+
 Marks in the earlier format SHALL be recognised by where the sidecar records them, and SHALL be migrated whatever
 format the sidecar says it is in. A version that keeps content it does not understand, and has no migration,
 keeps a migrated sidecar's format and new marks and writes its own beside them, in the earlier format; read by
 the format alone, those would be taken as already migrated, and every one would be shown too high by the header's
 length.
+
+#### Scenario: A module loaded under its file name keeps earlier marks
+- **GIVEN** `Module=WName; Odd.bas`, whose file declares `VB_Name = "QName"`, and sidecar marks under `WName`
+- **WHEN** the project is opened and its sidecar saved
+- **THEN** the breakpoint, condition and bookmark remain on their lines and are keyed by `QName`
+- **AND** an existing entry under `QName` takes precedence over the corresponding `WName` entry
 
 #### Scenario: Opening a project with an earlier sidecar
 - **GIVEN** a sidecar with a breakpoint on the third line of a class's code, recorded before this change
