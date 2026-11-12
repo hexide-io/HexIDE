@@ -533,7 +533,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         var prefix = _format.CodePrefix(module);
         rules.Replace(prefix + module.Code, prefix.Length, "plain new").Returns(new ContentReplacement(prefix + "plain new", null, true));
 
-        DocumentContent.Write(DocumentIdentity.For(module), null, "plain new", rules, _format).Refusal.Should().BeNull();
+        DocumentContent.Write(DocumentIdentity.For(module), null, "plain new", rules, _format, reader: new PrefixReader()).Refusal.Should().BeNull();
 
         module.Code.Should().Be("plain new");
         rules.Received(1).Replace(prefix + "plain old", prefix.Length, "plain new");

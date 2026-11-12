@@ -81,7 +81,7 @@ public class RunningCodeEditTests : IAsyncDisposable
         Phase("create context and root");
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
             null!, runner, save, null!, null!, marks, controller, Composition.Root, null!, null!, null!, null!,
-            null!, null!, Composition.LocalizationService, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            null!, null!, Composition.LocalizationService, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader(), new Vb6ReadOnlyRegionRules());
         var tools = new HexIdeTools(context);
         save.SaveForm(form, false, interactive: false, rewrites: Arg.Any<HexIDE.Projects.SaveRewriteReport>()).Returns(true);
         save.SaveModule(module, false, interactive: false, rewrites: Arg.Any<HexIDE.Projects.SaveRewriteReport>()).Returns(true);
