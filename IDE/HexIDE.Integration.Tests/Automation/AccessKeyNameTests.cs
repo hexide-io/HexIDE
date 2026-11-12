@@ -95,6 +95,9 @@ public class AccessKeyNameTests
     public void An_icon_button_with_no_tooltip_is_not_given_its_icons_type_name_in_a_dump()
     {
         var button = new Button { Content = new Avalonia.Controls.Shapes.Path() };
+        // Avalonia 12.1.5 stopped supplying this name itself (#22378); keep exercising our
+        // filter for peers that still return a content type name.
+        AutomationProperties.SetName(button, "Avalonia.Controls.Shapes.Path");
         var window = Show(new StackPanel { Children = { button } });
         try
         {

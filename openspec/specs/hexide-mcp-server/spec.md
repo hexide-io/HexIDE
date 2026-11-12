@@ -25,6 +25,12 @@ state, and a context-menu or flyout owner from whether its popup is open on that
 - **WHEN** a node with children is inspected before and after `interact expand`
 - **THEN** its state changes from `Collapsed` to `Expanded`
 
+#### Scenario: Inspect and expand a leaf tree node
+- **WHEN** a leaf tree node is inspected
+- **THEN** its native `LeafNode` state MAY be reported, but `expandCollapse` SHALL NOT be advertised
+- **AND WHEN** `interact expand` targets it
+- **THEN** the reply SHALL refuse with an explanation that it has nothing to show
+
 #### Scenario: Inspect a popup owner
 - **WHEN** a control owning a context menu or flyout is inspected with its popup closed, then open
 - **THEN** its state changes from `Collapsed` to `Expanded`

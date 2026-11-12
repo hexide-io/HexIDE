@@ -605,7 +605,7 @@ public static class UiAutomationDriver
         if (control is not null && Safe(() => MultiSelectOwner(control) is not null, false)) list.Add("multiSelectItem");
         if (peer.GetProvider<IValueProvider>() is not null) list.Add("value");
         if (peer.GetProvider<IToggleProvider>() is not null) list.Add("toggle");
-        if (ReadExpandCollapseState(peer, control) is not null) list.Add("expandCollapse");
+        if (ReadExpandCollapseState(peer, control) is { } state && state != "LeafNode") list.Add("expandCollapse");
         // Both only when the verb would do something. ItemsControlAutomationPeer implements IScrollProvider
         // on EVERY ListBox, TreeView and TreeViewItem, whether or not there is a scroller behind it, and a
         // ProgressBar's range is read-only; advertising those kept 40 inert nodes in the default tree
@@ -783,6 +783,8 @@ public static class UiAutomationDriver
                     {
                         if (exp.ExpandCollapseState == ExpandCollapseState.Expanded)
                             return Ok($"'{LabelOf(control, peer)}' was already expanded");
+                        if (exp.ExpandCollapseState == ExpandCollapseState.LeafNode)
+                            return ExpandedVerified(exp, LabelOf(control, peer), true);
                         exp.Expand();
                         return ExpandedVerified(exp, LabelOf(control, peer), true);
                     }
@@ -833,6 +835,9 @@ public static class UiAutomationDriver
                     {
                         if (col.ExpandCollapseState == ExpandCollapseState.Collapsed)
                             return Ok($"'{LabelOf(control, peer)}' was already collapsed");
+                        // A leaf's native provider (Avalonia 12.1.5) throws on Collapse rather than refusing (#3809).
+                        if (col.ExpandCollapseState == ExpandCollapseState.LeafNode)
+                            return Err($"'{LabelOf(control, peer)}' was not collapsed: it has nothing to collapse");
                         col.Collapse();
                         return ExpandedVerified(col, LabelOf(control, peer), false);
                     }
