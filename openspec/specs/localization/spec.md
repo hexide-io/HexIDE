@@ -24,6 +24,16 @@ format's regions they SHALL use the format's English phrase, or "read-only text"
 - **WHEN** an add-in's range edit is refused because it would change read-only text
 - **THEN** the entire result is English, including the sentence around the format's findings
 
+#### Scenario: A program replaces a file held read-only in a German IDE
+- **GIVEN** the IDE uses German and holds the entire file read-only
+- **WHEN** a program attempts to replace its content
+- **THEN** the refusal is entirely English and the buffer is unchanged
+
+#### Scenario: An add-in inserts a line break before read-only text in a German IDE
+- **GIVEN** the IDE uses German
+- **WHEN** an add-in inserts a line break that would separate a line from its hanging read-only text
+- **THEN** the refusal and its advice are entirely English and the buffer is unchanged
+
 ### Requirement: People SHALL see the IDE's own words for IDE-owned text
 A message a person sees about text only the IDE changes SHALL use a localization key in the active
 language, in the IDE's own words, naming no format's parts. This includes a refused rename, a refused
