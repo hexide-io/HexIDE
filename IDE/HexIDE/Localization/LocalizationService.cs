@@ -519,11 +519,12 @@ public sealed class LocalizationService : ILocalizationService
         }
     }
 
-    private static ResourceDictionary BuildResourceDictionary(Dictionary<string, string> strings)
+    private ResourceDictionary BuildResourceDictionary(Dictionary<string, string> strings)
     {
         var dict = new ResourceDictionary();
         foreach (var (key, value) in strings)
             dict[key] = value;
+        DockStrings.Populate(dict, this);
         return dict;
     }
 

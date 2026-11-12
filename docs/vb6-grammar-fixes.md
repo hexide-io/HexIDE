@@ -78,9 +78,14 @@ something this project can offer outward rather than something it must ask for.
 | 12 | A literal ending in its point (`5.`, `5.D1`, `5.#`) | lexer | `DOUBLELITERAL` `[0-9]* DOT [0-9]+` → `([0-9]+ DOT [0-9]* | DOT [0-9]+)` |
 | 13 | Option lines directly before a broken procedure (#939) | parser (server only) | `moduleOptions? NEWLINE* moduleBody?` → `(moduleOptions \| moduleBody)?` |
 | 14 | A member statement with an unspaced parenthesised argument (`Form2.Show(0)`, `Text1.Move(100)`) | parser | permit the missing `WS` in `iCS_B_MemberProcedureCall` only when the next token is `LPAREN`; retain `argsCall` so the parentheses remain an expression and pass a copy (#1064, oracle "Several forms", measurement 13) |
+| 15 | `Call` with empty parentheses (`Call Helper()`, `Call obj.Method()`) | parser | make `argsCall` optional inside the parentheses in `eCS_ProcedureCall` and `eCS_MemberProcedureCall`: `(WS? LPAREN WS? (argsCall WS?)? RPAREN)?` (#3779) |
 
 Provenance: VB6 Language Reference ("Line numbers", "If…Then…Else", "Type Declaration Characters"), each
 verified against `vb6.exe`; deliberately divergent from the Rubberduck grammar.
+
+**Fix 15:** provenance is the VB6 Language Reference's Call statement and the vb6.exe SP6 native/p-code
+[measurement in #3780](https://github.com/hexide-io/HexIDE/pull/3780), recorded under
+[`Call` with empty parentheses](vb6-fidelity-oracle/an-undeclared-name-before-a-dot.md#call-with-empty-parentheses-2026-11-12-3779).
 
 **Fix 7 has a different provenance, and a wider blast radius than its size suggests (2026-09-20).** It was
 not read out of the language reference at all — it was measured against files VB6 itself wrote: the VB98

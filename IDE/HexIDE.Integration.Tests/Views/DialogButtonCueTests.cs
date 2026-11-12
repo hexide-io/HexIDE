@@ -193,11 +193,13 @@ public class DialogButtonCueTests
     }
 
     [AvaloniaFact]
-    public void EveryIdeWindowTypeUsesDialogChromeExceptMainWindow()
+    public void EveryIdeWindowTypeUsesDialogChromeExceptMainWindowAndDockHosts()
     {
         var windows = typeof(DialogWindow).Assembly.GetTypes()
             .Where(type => typeof(Window).IsAssignableFrom(type) && !type.IsAbstract
-                && type != typeof(HexIDE.MainWindow)).ToArray();
+                && type != typeof(HexIDE.MainWindow)
+                // Dock owns floating tool chrome, rather than the IDE's dialog theme.
+                && !typeof(Dock.Model.Core.IHostWindow).IsAssignableFrom(type)).ToArray();
         windows.Should().NotBeEmpty();
         foreach (var type in windows)
         {

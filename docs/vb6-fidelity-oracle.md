@@ -136,3 +136,8 @@ error 5, and MIRR's all-positive error 11 and finance-rate -1 error 5. Native an
 The #2626 resource function measurements (vb6.exe SP6, matching native and p-code runs) are recorded in
 [LoadResString, LoadResData and LoadResPicture](vb6-fidelity-oracle/loadresstring-loadresdata-and-loadrespicture.md).
 The measuring authors' page remains the source for string, byte-array, bitmap and error results.
+
+Issue [#3778](https://github.com/hexide-io/HexIDE/issues/3778) uses the native and p-code measurements
+from [An undeclared name before a dot](vb6-fidelity-oracle/an-undeclared-name-before-a-dot.md)
+(measuring PR [#3780](https://github.com/hexide-io/HexIDE/pull/3780)): without Option Explicit,
+the probed undeclared object receivers raise trappable 424 and remain Empty.

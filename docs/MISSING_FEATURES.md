@@ -190,6 +190,7 @@
 | Tile Vertically | — | Missing | Not in the Window menu, as Tile Horizontally |
 | Cascade | — | Missing | Not in the Window menu, as Tile Horizontally |
 | Arrange Icons | — | Missing | Not in the Window menu |
+| Docking chrome localization | — | Done | All 36 user-facing tool, document-tab, pinned-tool and drag-preview strings follow startup and live language changes, including pseudo localization (#3776). Developer debug strings are excluded; supervisor live menu verification pending |
 | Tool-window layout persistence | — | Partial | Split topology, tabs and proportions round-trip across restart, including late add-in slots and their ancestor proportions (#2295). Repeated close/show cycles preserve sizing and restore a closed split member to its own dock, including when saved closed and shown after a restart (#2387). Unrecognized docks retain the home-region fallback (#2277). Headless layout checked; live rendering verification pending |
 | Open document restoration | — | Done | Reopening a saved project restores its code, designer, carried-file and project tabs in order, including the active tab (#51). Recorded per user on project close or clean IDE exit; missing members are skipped and recovery mode bypasses it. Unsaved work remains under crash recovery. Live restart verification pending. |
 | Main window geometry | — | Done | Normal restore bounds are sampled after transitions settle and applied by layout before a maximized relaunch. State, moves and resizes save after a 250 ms debounce; clean close flushes immediately, and restored bounds (including defaults) fit the destination working area with window minimum sizes respected; disconnected-monitor positions return to the primary screen (#3088). See [ide-state-persistence](../openspec/specs/ide-state-persistence/spec.md) |
@@ -242,6 +243,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Data View | Stub | Button present; no Data View window |
 | Position display (twips) | Done | Shows selected component position |
 | Size display (twips) | Done | Shows selected component size |
+| Tool-window floating | Done | Float opens an owned host with a live active-tool title, view, usable initial size and maximize/restore button; floating tools remain visible in the inventory. Closing the host restores the original dock proportions and tab group; the pane’s own close box hides the tool, and View reopens it docked (#3770). Round-two live rendering verification pending |
 | Document containment | Done | Code and designer tabs stay docked: Float and Float all are unavailable, and programmatic float attempts leave the document in its tab (#1361) |
 
 ---
