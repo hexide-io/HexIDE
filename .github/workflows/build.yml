@@ -201,8 +201,10 @@ jobs:
       #
       # Only the key-completeness test is excluded. Its two neighbours check that the manifest and the
       # files on disk agree, which no contributor change has a reason to break.
+      # 45, not 30: on macOS this step took 21 to 28 minutes on main on 2026-11-11, and batch 305 timed out at 30
+      # with no test failing. The cap is only a backstop for a hang, so headroom costs nothing on a good run.
       - name: Run ViewModel Tests
-        timeout-minutes: 30
+        timeout-minutes: 45
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
           HEXIDE_FOREIGN_LSP_NO_PATH: '1'
@@ -507,8 +509,10 @@ jobs:
       # result — and the outside-contributor handling build-ide does for it has a single place to live.
       # build-ide remains the one that blocks on it.
       # --long-running names any test still running after two minutes, so a hang says which test it is.
+      # 45, not 30: on macOS this step took 21 to 28 minutes on main on 2026-11-11, and batch 305 timed out at 30
+      # with no test failing. The cap is only a backstop for a hang, so headroom costs nothing on a good run.
       - name: Run ViewModel Tests
-        timeout-minutes: 30
+        timeout-minutes: 45
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
           HEXIDE_FOREIGN_LSP_NO_PATH: '1'
