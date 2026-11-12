@@ -1408,6 +1408,30 @@ public class UiAutomationDriverTests
     }
 
     [AvaloniaFact]
+    public void Inspect_TreeNode_ReportsExpandCollapseState()
+    {
+        var (window, tree, environment, _) = BuildCollapsibleTreeWindow();
+        try
+        {
+            var node = ContainerOf(tree, environment);
+            var closed = UiAutomationDriver.Inspect(node, "node");
+            closed.Providers.Should().Contain("expandCollapse");
+            closed.ExpandCollapseState.Should().Be("Collapsed");
+
+            UiAutomationDriver.Interact(node, "expand", null).Success.Should().BeTrue();
+            UiAutomationDriver.Inspect(node, "node").ExpandCollapseState.Should().Be("Expanded");
+
+            UiAutomationDriver.Interact(node, "collapse", null).Success.Should().BeTrue();
+            UiAutomationDriver.Inspect(node, "node").ExpandCollapseState.Should().Be("Collapsed");
+            node.IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.Inspect(ContainerOf(tree, environment.Children[1]), "leaf")
+                .ExpandCollapseState.Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void DescribeProviders_TreeNode_AdvertisesExpandCollapse_OnlyWhereItHasChildren()
     {
         var (window, tree, environment, _) = BuildCollapsibleTreeWindow();
