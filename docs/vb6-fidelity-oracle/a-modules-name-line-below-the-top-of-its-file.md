@@ -64,7 +64,9 @@ each row:
    This is **save 2**.
 5. For B0 to B4, C0, C1 and C3, also run File, Save Project.
 
-Every step was checked against a screenshot, and every file was copied back after each save.
+Every file was copied back after each save, and the saved bytes are the evidence for the save columns. The
+screenshots read were every row's code window, which also shows its Project Explorer, and the Properties window for
+B1, C1 and C3.
 
 | Row | On opening | The code window shows | Save 1 begins | Save 2 begins |
 |---|---|---|---|---|
@@ -102,7 +104,7 @@ module `QRenamed`, as in `Module=QRenamed; Odd.bas`, though its line had said `W
 ### In HexIDE (#3757, at `b681449ea`)
 
 The probed files were loaded in HexIDE, with the `.vbp` naming each module as its `VB_Name` did. Each module was renamed
-to `QRenamed` in the Properties window, and the project was saved with File, Save:
+to `QRenamed` in the Properties window, and the project was saved with File > Save Probe:
 
 | File | Rename made | The saved file's name line |
 |---|---|---|
@@ -111,9 +113,12 @@ to `QRenamed` in the Properties window, and the project was saved with File, Sav
 | B1's shape, with the comment deleted in the code window and the window closed before the rename | with the window closed | `QName`, now the first line, unchanged |
 | C3's shape | with the code window closed | `QClass`, under the comment, unchanged |
 | C1's shape | with the code window closed | `QClass`, unchanged; HexIDE keeps the comment, and the program runs |
+| B4's shape, no name line, with `Attribute VB_Name = "WName"` typed as the code window's first line and the window closed | with the window closed | `WName`, unchanged |
 
 Each `.vbp` said `QRenamed`, so the saved files disagree with their project. VB6 reads them back by their old names, the
-opposite of what was asked. The third row is #3757's case 1: deleting a comment in the code window reaches it.
+opposite of what was asked. The third and last rows are #3757's case 1, the name line in the code of a module with no
+header split off: deleting a comment in the code window reaches it, and so does typing the line into a module that had
+none. A whole-file write through the automation surface (`set_file_content`) that adds the line is refused.
 
 HexIDE also names a loaded `.bas` or `.cls` by its `.vbp` line rather than its `VB_Name`. Its next save rewrites the
 file's `VB_Name` to match the `.vbp`, the reverse of VB6 (#3774).
