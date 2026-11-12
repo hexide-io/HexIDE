@@ -1,6 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:dock="using:Dock.Avalonia.Controls">
+        xmlns:dock="using:Dock.Avalonia.Controls"
+        xmlns:controls="using:HexIDE.Controls">
     <!-- Dock 12.0.0.2's DragPreviewHelper locks the window size while Status is empty.
          Reserve 110 DIP: widest shipped status bg/Float measured 95 DIP at font size 10,
          plus 10%, rounded up to tens (DragPreviewTests). A new pack with a longer status
@@ -8,5 +9,8 @@
          Re-check the helper and PART_StatusText on a Dock upgrade (#3790). -->
     <Style Selector="dock|DragPreviewControl /template/ TextBlock#PART_StatusText">
         <Setter Property="MinWidth" Value="110" />
+    </Style>
+    <Style Selector=":is(dock|DragPreviewWindow)">
+        <Setter Property="controls:DocumentDragPreview.FitStatus" Value="True" />
     </Style>
 </Styles>
