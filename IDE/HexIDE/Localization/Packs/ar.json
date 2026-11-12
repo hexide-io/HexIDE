@@ -1244,6 +1244,8 @@
     "Str.Dock.ToolTabStripItemAutoHide": "إخفاء تلقائي",
     "Str.Dock.ToolTabStripItemDockAsDocument": "إرساء كمستند ذي علامة تبويب",
     "Str.Dock.ToolTabStripItemClose": "إغلاق",
-    "Str.AIChat.ApiKeyRequired": "مفتاح API مطلوب. عيّن apiKey في chat-settings.json."
+    "Str.AIChat.ApiKeyRequired": "مفتاح API مطلوب. عيّن متغير البيئة HEXIDE_AI_API_KEY أو apiKey في chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ الخصوصية: تُرسل رسائلك ومحتويات الملف النشط (بما فيها التخطيط والتسميات التوضيحية للنموذج) وتشخيصاته إلى {0} — وهي خدمة تابعة لجهة خارجية قمت بتكوينها في إعدادات دردشة الذكاء الاصطناعي.",
+    "Str.AIChat.PrivacyKeyTip": "نصيحة: عيّن متغير البيئة HEXIDE_AI_API_KEY لتجنب تخزين مفتاح API في ملف."
   }
 }

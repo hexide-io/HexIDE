@@ -1244,6 +1244,8 @@
     "Str.Tool.LanguageServers.Editor.FileChanged": "Il file è cambiato. Riaprire il modulo prima di salvare.",
     "Str.Dock.DocumentTabs": "Schede dei documenti",
     "Str.Dock.ToolTabs": "Schede degli strumenti",
-    "Str.AIChat.ApiKeyRequired": "È necessaria una chiave API. Impostare apiKey in chat-settings.json."
+    "Str.AIChat.ApiKeyRequired": "È necessaria una chiave API. Impostare la variabile di ambiente HEXIDE_AI_API_KEY, oppure apiKey in chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ Privacy: i messaggi, il contenuto del file attivo (per un form, anche il layout e le didascalie) e la relativa diagnostica vengono inviati a {0}, un servizio di terze parti configurato nelle impostazioni della chat IA.",
+    "Str.AIChat.PrivacyKeyTip": "Suggerimento: impostare la variabile di ambiente HEXIDE_AI_API_KEY per evitare di memorizzare la chiave API in un file."
   }
 }

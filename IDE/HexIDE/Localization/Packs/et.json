@@ -1244,6 +1244,8 @@
     "Str.Dock.ToolTabStripItemAutoHide": "_Peida automaatselt",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Doki vahekaardiga dokumendina",
     "Str.Dock.ToolTabStripItemClose": "_Sulge",
-    "Str.AIChat.ApiKeyRequired": "Vajalik on API võti. Määrake apiKey failis chat-settings.json."
+    "Str.AIChat.ApiKeyRequired": "Vajalik on API-võti. Määrake keskkonnamuutuja HEXIDE_AI_API_KEY või apiKey failis chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ Privaatsus: teie sõnumid, aktiivse faili sisu (vormi puhul ka paigutus ja pealdised) ning selle diagnostika saadetakse teenusele {0} — kolmanda osapoole teenusele, mille seadistasite AI-vestluse sätetes.",
+    "Str.AIChat.PrivacyKeyTip": "Vihje: määrake keskkonnamuutuja HEXIDE_AI_API_KEY, et vältida API-võtme salvestamist faili."
   }
 }

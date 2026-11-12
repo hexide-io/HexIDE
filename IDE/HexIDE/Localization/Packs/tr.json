@@ -1244,6 +1244,8 @@
     "Str.Dock.ToolTabStripItemAutoHide": "_Otomatik gizle",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Sekmeli belge olarak sabitle",
     "Str.Dock.ToolTabStripItemClose": "_Kapat",
-    "Str.AIChat.ApiKeyRequired": "API anahtarı gerekli. chat-settings.json içindeki apiKey değerini ayarlayın."
+    "Str.AIChat.ApiKeyRequired": "API anahtarı gerekli. HEXIDE_AI_API_KEY ortam değişkenini veya chat-settings.json içindeki apiKey değerini ayarlayın.",
+    "Str.AIChat.PrivacyNotice": "ℹ Gizlilik: mesajlarınız, etkin dosyanın içeriği (formlar için yerleşim ve başlıklar da dahil) ve tanı bilgileri, AI Sohbet ayarlarında yapılandırdığınız üçüncü taraf hizmeti olan {0} adresine gönderilir.",
+    "Str.AIChat.PrivacyKeyTip": "İpucu: API anahtarınızı bir dosyada saklamamak için HEXIDE_AI_API_KEY ortam değişkenini ayarlayın."
   }
 }
