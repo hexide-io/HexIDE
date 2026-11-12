@@ -48,7 +48,42 @@ carries is read as UTF-8 or, where that fails, as Latin-1, and is saved in the e
 > fallen to none, each form leaving only by round-tripping, the last of them when content cited by a control
 > the IDE does not model began to be carried ([#60](https://github.com/hexide-io/HexIDE/issues/60)).
 
+The module-name collection and save order follows [measurement #3777](../../../docs/vb6-fidelity-oracle/a-modules-name-line-below-the-top-of-its-file.md).
+Selecting the loaded name when `.vbp` and `VB_Name` disagree remains separate work (#3774).
+
+**Known defect:** a breakpoint or bookmark saved for a module whose name line was below code can land on another
+statement once the reader moves that line into the header ([#3796](https://github.com/hexide-io/HexIDE/issues/3796)).
+The requirement below states the intended behaviour.
+
 ## Requirements
+
+### Requirement: Module name attributes are collected into the file header
+The reader SHALL collect the first module-level `VB_Name` outside procedures into a `.bas` header.
+For a `.cls`, it SHALL collect the `VERSION`…`END` block and the contiguous module-attribute run
+containing the name. Other lines SHALL keep their body order. A rename SHALL rewrite the name in the
+header when present, or in the code otherwise.
+
+#### Scenario: Unmeasured name and attribute shapes
+- **GIVEN** a dotted member attribute, a name inside a procedure, or a second name line
+- **WHEN** a module is read
+- **THEN** those lines stay in place
+- **AND** separated class attribute runs and relocation of an unterminated final name retain their prior split pending measurement
+
+#### Scenario: A name below a comment or blank line
+- **WHEN** a module is loaded with a comment or blank line above its module name attribute
+- **THEN** its next save writes the name in the header and the comment or blank line below it
+- **AND** renaming it with its code window open or closed reaches the saved name attribute
+
+#### Scenario: Text above a class VERSION line
+- **WHEN** a class has text before its `VERSION` line
+- **THEN** HexIDE preserves that text in order below the collected header
+- **AND** it deliberately diverges from VB6's C1 result, which drops the text, to avoid losing user content
+
+#### Scenario: Load normalises the composition without a user edit
+- **WHEN** collecting the name changes the order of a file's lines at load
+- **THEN** the load's render baseline keeps `hasUnsavedChanges` false until the model is edited
+- **AND** Save Project still writes the normalised file
+- **AND** a breakpoint or bookmark saved before the load stays on the statement it marked
 
 ### Requirement: Directory saves require replacement consent
 HexIDE's SaveProjectToDirectory operation SHALL name existing source, binary companion and project

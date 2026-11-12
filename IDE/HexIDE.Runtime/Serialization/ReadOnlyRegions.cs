@@ -297,6 +297,20 @@ public static class ReadOnlyRegions
     public static IReadOnlyList<DeclaredName> NamesDeclaredOn(string text, int start, int end) =>
         ReadDeclarations(text, start, end, out _);
 
+    /// <summary>Whether a logical line opens or closes a procedure body.</summary>
+    internal static (bool Opens, bool Closes) ProcedureBoundary(string text, int start, int end)
+    {
+        ReadDeclarations(text, start, end, out var opens);
+        var tokens = TokensOf(text, start, end);
+        var closes = false;
+        for (var i = 0; i + 1 < tokens.Count; i++)
+            if ((i == 0 || tokens[i - 1].Kind == TokenKind.Colon)
+                && IsWord(text, tokens, i, tokens.Count, "End")
+                && IsWord(text, tokens, i + 1, tokens.Count, "Sub", "Function", "Property"))
+                closes = true;
+        return (opens, closes);
+    }
+
     /// <summary>The first comment's offset on a declaration, or <paramref name="end"/> when it has none.</summary>
     public static int CommentStartOn(string text, int start, int end)
     {

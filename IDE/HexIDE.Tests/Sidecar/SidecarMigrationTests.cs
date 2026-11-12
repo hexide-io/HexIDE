@@ -181,7 +181,7 @@ public sealed class SidecarMigrationTests : IDisposable
     private string SidecarPath => Path.Join(dir, "Shop.user.hexproj");
 
     private sealed record Opened(
-        ProjectDefinition Project, BookmarkService Bookmarks, BreakpointService Breakpoints, UserSidecarService Sidecar);
+        ProjectDefinition Project, BookmarkService Bookmarks, BreakpointService Breakpoints, UserSidecarService Sidecar, ProjectService Service);
 
     /// <summary>Opens the project as the IDE does, with this test's own stores and sidecar service.</summary>
     private async Task<Opened> Open(string vbp)
@@ -215,7 +215,7 @@ public sealed class SidecarMigrationTests : IDisposable
             Substitute.For<IHeaderRefresher>(),
             new Vb6ProjectFileFormat(), new ComponentRegistry());
         await service.OpenProject(vbp);
-        return new Opened(loaded.Single(), bookmarks, breakpoints, sidecar);
+        return new Opened(loaded.Single(), bookmarks, breakpoints, sidecar, service);
     }
 
     private void Close(ProjectDefinition project) =>
@@ -805,35 +805,37 @@ public sealed class SidecarMigrationTests : IDisposable
         Lines(written, "codeBookmarks", "Utils").Should().Equal(4);
     }
 
-    /// <summary>
-    /// A module whose header the reader did not recognise (hexide-io/HexIDE#472) keeps its whole file in its code,
-    /// so the old window already showed the whole file and nothing moves.
-    /// </summary>
-    /// <remarks>
-    /// This is what tells the prefix apart from the header region. The code window still finds a header in such
-    /// a file, from its text, so a shift taken from the header region would move the mark two lines down.
-    /// </remarks>
-    [Fact]
-    public async Task AModuleWhoseHeaderWasNotRecognisedDoesNotMove()
+    /// <summary>Pin historical mark arithmetic and load dirtiness when collecting a name (#3757).</summary>
+    [Theory]
+    [InlineData(1, false, 7, "End Sub")]
+    [InlineData(2, false, 6, "    Debug.Print 1")]
+    [InlineData(3, false, 7, "End Sub")]
+    [InlineData(1, true, 6, "    Debug.Print 1")]
+    [InlineData(2, true, 5, "Public Sub Go()")]
+    [InlineData(3, true, 6, "    Debug.Print 1")]
+    public async Task ReorderedModuleHeadersPinHistoricalMarksAndLoadDirtiness(int version, bool afterProcedure, int expectedLine, string expectedText)
     {
-        // A comment above the attribute run: a blank line there no longer hides the header (#472).
-        File.WriteAllText(Path.Join(dir, "Odd.bas"), Crlf(
-            "' generated",
-            "Attribute VB_Name = \"Odd\"",
-            "Option Explicit",
-            "",
-            "Public Sub Go()",
-            "    Debug.Print 1",
-            "End Sub"));
+        var originalLines = afterProcedure
+            ? new[] { "' generated", "Option Explicit", "", "Public Sub Go()", "    Debug.Print 1", "End Sub", "Attribute VB_Name = \"Odd\"" }
+            : new[] { "' generated", "Attribute VB_Name = \"Odd\"", "Option Explicit", "", "Public Sub Go()", "    Debug.Print 1", "End Sub" };
+        File.WriteAllText(Path.Join(dir, "Odd.bas"), Crlf(originalLines));
         var vbp = Stage("Module=Odd; Odd.bas");
-        File.WriteAllText(SidecarPath, """{ "version": 1, "breakpoints": { "Odd": [6] } }""");
-
+        var line = afterProcedure ? 5 : 6;
+        var breakpointKey = version == 1 ? "breakpoints" : version == 2 ? "fileBreakpoints" : "codeBreakpoints";
+        var bookmarkKey = version == 1 ? "bookmarks" : version == 2 ? "fileBookmarks" : "codeBookmarks";
+        File.WriteAllText(SidecarPath,
+            $$"""{ "version": {{version}}, "{{breakpointKey}}": { "Odd": [{{line}}] }, "{{bookmarkKey}}": { "Odd": [{{line - 1}}] } }""");
         var opened = await Open(vbp);
-
         var odd = Doc(opened.Project, "Odd");
-        odd.Module!.OriginalHeader.Should().BeEmpty("the reader split nothing off");
-        opened.Breakpoints.GetBreakpoints(odd).Should().Equal(6);
-        LineOf(odd, 6).Should().Be("    Debug.Print 1");
+        odd.Module!.OriginalHeader.Should().Be("Attribute VB_Name = \"Odd\"\r\n");
+        opened.Service.HasUnsavedChanges(odd.Module).Should().BeFalse("load snapshots the composed render, not the disk bytes");
+        opened.Breakpoints.GetBreakpoints(odd).Should().Equal(expectedLine);
+        opened.Bookmarks.GetBookmarks(odd).Should().Equal(expectedLine - 1);
+        LineOf(odd, expectedLine).Should().Be(expectedText);
+        var composed = FormCodeText.WholeFile(odd.Module);
+        composed.Split("\r\n")[1].Should().Be("' generated");
+        await opened.Service.SaveProject(opened.Project, saveAs: false);
+        File.ReadAllText(odd.AbsolutePath!).Should().Be(composed);
     }
 
     /// <summary>

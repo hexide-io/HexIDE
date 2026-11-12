@@ -2,6 +2,8 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Belge sekmeleri",
+    "Str.Dock.ToolTabs": "Araç sekmeleri",
     "Str.AIChat.Refusal": "Sağlayıcı bu isteği reddetti.",
     "Str.AIChat.TokenLimit": "Yanıt belirteç sınırına ulaştı ve tamamlanamadı.",
     "Str.Startup.PlatformSummary": "Yalnızca Linux. Görüntü altyapısı: x11 (varsayılan), auto veya wayland.",

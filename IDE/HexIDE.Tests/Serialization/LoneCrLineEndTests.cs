@@ -93,16 +93,17 @@ public class LoneCrLineEndTests
     }
 
     [Fact]
-    public void A_header_the_split_did_not_find_is_not_doubled_when_its_VB_Name_follows_a_lone_CR()
+    public void A_name_after_a_comment_and_lone_CR_is_collected_without_a_second_header()
     {
-        // A comment above the attributes leaves the whole file in the body, and the body's own VB_Name line, below a
-        // lone CR, is what tells the writer to add no header of its own.
+        // #3757/#3777 collect the module-level name below a comment; a lone CR ends its preceding line too.
+        // The existing split's CRLF normalisation applies to every retained line.
         const string file = "' generated\rAttribute VB_Name = \"M\"\rPublic X As Long\r";
 
         var (header, body) = ModuleFileFormat.SplitHeader(file, ModuleKind.StandardModule);
 
-        header.Should().BeEmpty();
-        ModuleFileFormat.ToFileContent(body, "M", ModuleKind.StandardModule, header).Should().Be(file);
+        header.Should().Be("Attribute VB_Name = \"M\"\r\n");
+        body.Should().Be("' generated\r\nPublic X As Long\r\n");
+        ModuleFileFormat.ToFileContent(body, "M", ModuleKind.StandardModule, header).Should().Be(header + body);
     }
 
     [Fact]

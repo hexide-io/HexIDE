@@ -204,8 +204,8 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     /// <remarks>
     /// <para>
     /// <b>Where the line lives depends on the kind, and so does the write.</b> A <c>.bas</c> or <c>.cls</c>
-    /// keeps it in the header, which the model already renders from the live name, so only an open buffer
-    /// can be stale and re-heading it is the whole job. A form keeps it in <c>Code</c>, and a UserControl or
+    /// keeps it in the header, which the model renders from the live name. If no header was read, a name
+    /// typed into the code instead follows the rename there (#3757). A form keeps it in <c>Code</c>, and a UserControl or
     /// PropertyPage in its module's <c>Code</c>, because their code section opens with the attribute run —
     /// so for those the model's text is rewritten too, which is what makes a closed document's next save say
     /// the right thing.
@@ -226,7 +226,9 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
 
         if (document.Module is { } module)
         {
-            if (!format.PrefixCarriesName(module))
+            if (format.PrefixCarriesName(module))
+                RetargetCode(module.Code, name, module.UpdateCode, moduleLevel: true, prefix: format.CodePrefix(module));
+            else
                 RetargetCode(module.Code, name, module.UpdateCode);
         }
         else if (document.Form is { } form)
@@ -242,10 +244,10 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
         }
     }
 
-    private void RetargetCode(string code, string name, Action<string> update)
+    private void RetargetCode(string code, string name, Action<string> update, bool moduleLevel = false, string prefix = "")
     {
-        if (regionWriter.NameRewrite(code, 0, name) is { } change)
-            update(TextChanges.Apply(code, [change]));
+        if (regionWriter.NameRewrite(prefix + code, prefix.Length, name, moduleLevel) is { } change)
+            update(TextChanges.Apply(code, [new HexIDE.Language.TextChange(change.Offset - prefix.Length, change.Length, change.Text)]));
     }
 
     /// <summary>

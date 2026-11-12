@@ -42,6 +42,12 @@
     <Style Selector="ScrollBar:horizontal /template/ RepeatButton#PART_LineDownButton">
         <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.LineRight}" />
     </Style>
+    <Style Selector="DocumentTabStrip">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.DocumentTabs}" />
+    </Style>
+    <Style Selector="ToolTabStrip">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.ToolTabs}" />
+    </Style>
     <!-- Name Dock's icon-only template parts at the control, so peers and path matching agree (#542). -->
     <Style Selector="ToolChromeControl /template/ Button#PART_MenuButton">
         <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.Menu}" />

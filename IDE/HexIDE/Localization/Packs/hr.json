@@ -1232,6 +1232,8 @@
     "Str.Tool.LanguageServers.Editor.InvalidJson": "{0}: Neispravan JSON: {1}",
     "Str.Tool.LanguageServers.Editor.InvalidChoice": "{0}: „{1}” nije jedna od vrijednosti {2}.",
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Zamjenski znakovi radnog prostora čekaju odabir mape projekta.",
-    "Str.Tool.LanguageServers.Editor.FileChanged": "Datoteka je promijenjena. Ponovno otvorite obrazac prije spremanja."
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Datoteka je promijenjena. Ponovno otvorite obrazac prije spremanja.",
+    "Str.Dock.DocumentTabs": "Kartice dokumenata",
+    "Str.Dock.ToolTabs": "Kartice alata"
   }
 }

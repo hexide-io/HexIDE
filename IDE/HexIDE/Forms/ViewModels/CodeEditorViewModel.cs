@@ -851,8 +851,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// code section opens with the leading <c>Attribute</c> run, which is why the prefix stops at the
     /// designer block's <c>End</c>. So this replaces one line below the prefix and leaves
     /// <see cref="bufferPrefix"/> alone. A <c>.bas</c> or <c>.cls</c> keeps its <c>VB_Name</c> in the
-    /// header, where <see cref="RefreshPrefix"/> puts it; its body opens with no attribute run, so this finds
-    /// nothing there and does nothing.
+    /// header, where <see cref="RefreshPrefix"/> puts it. A headerless module may instead have a name
+    /// typed into its body; that line follows a rename too (#3757).
     /// </para>
     /// <para>
     /// <b>Recorded, and marked as the IDE's own</b>, for the reasons <see cref="RefreshPrefix"/> gives: an
@@ -862,7 +862,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     internal void RetargetVbName(string name)
     {
-        if (regionWriter?.NameRewrite(Document.Text, bufferPrefix.Length, name) is not { } change)
+        if (regionWriter?.NameRewrite(Document.Text, bufferPrefix.Length, name,
+                moduleDefinition is { } module && format.PrefixCarriesName(module)) is not { } change)
             return;
         var (offset, length, line) = change;
         var caret = CaretOffset;

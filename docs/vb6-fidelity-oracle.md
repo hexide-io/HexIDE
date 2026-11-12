@@ -141,3 +141,8 @@ Issue [#3778](https://github.com/hexide-io/HexIDE/issues/3778) uses the native a
 from [An undeclared name before a dot](vb6-fidelity-oracle/an-undeclared-name-before-a-dot.md)
 (measuring PR [#3780](https://github.com/hexide-io/HexIDE/pull/3780)): without Option Explicit,
 the probed undeclared object receivers raise trappable 424 and remain Empty.
+
+The #3757 reader and rename change relies on [a module's name line below the top of its file](vb6-fidelity-oracle/a-modules-name-line-below-the-top-of-its-file.md),
+measured by hexide-int in [#3777](https://github.com/hexide-io/HexIDE/pull/3777): module-level name lines
+are recognised below code and saved in the header; preceding blank lines follow the header. HexIDE keeps
+text above a class's VERSION block to avoid VB6's measured loss of that text.

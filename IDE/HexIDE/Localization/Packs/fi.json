@@ -2,6 +2,8 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.DocumentTabs": "Asiakirjavälilehdet",
+    "Str.Dock.ToolTabs": "Työkaluvälilehdet",
     "Str.AIChat.Refusal": "Palveluntarjoaja hylkäsi tämän pyynnön.",
     "Str.AIChat.TokenLimit": "Vastaus saavutti tokenrajan ja jäi kesken.",
     "Str.Startup.PlatformSummary": "Vain Linux. Näyttötausta: x11 (oletus), auto tai wayland.",
