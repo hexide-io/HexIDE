@@ -189,6 +189,13 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
         {
             if (header is not null && (document.Form ?? document.Module?.FormPart) is { } designer)
                 ApplyHeader(designer, header);
+            else if (header is not null && document.Module is { } module)
+            {
+                var current = format.CodePrefix(module);
+                module.RecordOriginalHeader(header);
+                ShiftMarks(document, current, header);
+                editor?.RefreshPrefix(header);
+            }
             editor?.AdoptRewrittenQualifiers(document.Module?.Code ?? document.Form!.Code);
         }
         finally
