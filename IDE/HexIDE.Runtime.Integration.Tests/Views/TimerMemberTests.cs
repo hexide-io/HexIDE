@@ -4,7 +4,9 @@ using Avalonia.Headless.XUnit;
 using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.BuiltinControls;
 
-namespace HexIDE.Integration.Tests.Views;
+using HexIDE.Integration.Tests.Views;
+
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // vb6.exe SP6, native and p-code: oracle "What a Timer has at run time" (#801).
 public class TimerMemberTests

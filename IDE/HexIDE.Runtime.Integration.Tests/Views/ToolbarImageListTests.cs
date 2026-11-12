@@ -10,7 +10,10 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+using HexIDE.Integration.Tests;
+using HexIDE.Integration.Tests.Views;
+
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // #1088 and #2334 ImageList probes, native and p-code. Painting is a separate slice.
 public class ToolbarImageListTests

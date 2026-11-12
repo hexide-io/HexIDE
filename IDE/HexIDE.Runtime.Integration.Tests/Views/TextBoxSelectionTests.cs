@@ -7,7 +7,7 @@ using HexIDE.Runtime;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A TextBox's SelStart, SelLength and SelText (#1150). The form is vb6.exe's probe, run as it ran there, and every line

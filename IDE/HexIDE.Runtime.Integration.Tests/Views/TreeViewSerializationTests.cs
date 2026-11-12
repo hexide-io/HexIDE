@@ -6,7 +6,9 @@ using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+using HexIDE.Integration.Tests;
+
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class TreeViewSerializationTests
 {
