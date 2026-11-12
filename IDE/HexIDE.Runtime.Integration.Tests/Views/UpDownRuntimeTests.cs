@@ -10,6 +10,8 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
+using HexIDE.Integration.Tests;
+using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Interpreter;
@@ -17,7 +19,7 @@ using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // VB6 SP6 native and p-code: oracle "In-box controls: the UpDown", object model (#1093 part A).
 public class UpDownRuntimeTests

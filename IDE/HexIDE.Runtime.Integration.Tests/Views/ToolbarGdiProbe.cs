@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // Independent Windows reference for the installed Segoe UI 9 pt font at 96 dpi.
 internal static class ToolbarGdiProbe

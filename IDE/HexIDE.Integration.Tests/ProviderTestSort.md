@@ -42,7 +42,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Controls/DropdownListNameTests.cs` | split |
 | `Controls/MousePointerValuesTests.cs` | split |
 | `Controls/OptionButtonPropertyEditorTests.cs` | split |
-| `Controls/TabStripDrawingTests.cs` | provider |
 | `Debugging/CallStackReplyTests.cs` | split |
 | `TestRunners.cs` | split |
 | `Views/ActiveFormSaveTests.cs` | split |
@@ -85,7 +84,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/FileWatcherReloadTests.cs` | split |
 | `Views/FindReferencesTests.cs` | split |
 | `Views/FlatScrollBarFileTests.cs` | split |
-| `Views/FlatScrollBarInputTests.cs` | provider |
 | `Views/FontSizeInPointsTests.cs` | split |
 | `Views/ForegroundWindowLifetimeTests.cs` | split |
 | `Views/ForegroundWindowTests.cs` | split |
@@ -135,15 +133,13 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/SubMainFormsTests.cs` | split |
 | `Views/SyntaxErrorAtStartTests.cs` | split |
 | `Views/TabIndexAssignmentTests.cs` | split |
+| `Views/TabStripForm.cs` | provider |
 | `Views/TabStripKeyboardTests.cs` | split |
-| `Views/TabStripMouseTests.cs` | provider |
 | `Views/TimerOnTheDesignerTests.cs` | split |
-| `Views/ToolbarCaptionTests.cs` | provider |
 | `Views/ToolbarDesignerPersistenceTests.cs` | split |
 | `Views/ToolboxFromRegistryTests.cs` | split |
 | `Views/UncreatableControlTests.cs` | split |
 | `Views/UnloadTests.cs` | split |
 | `Views/UnmodelledControlPlaceholderTests.cs` | split |
-| `Views/UpDownRuntimeTests.cs` | provider |
 | `Views/WindowShortcutFocusTests.cs` | split |
 | `WindowLifetimeTests.cs` | split |
