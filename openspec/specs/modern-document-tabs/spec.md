@@ -83,6 +83,16 @@ deliberately.
 - **WHEN** the developer docks or resizes a tool window
 - **THEN** it behaves as a tool window and does not join the document tabs
 
+### Requirement: Tool pane titles preserve their buttons
+A docked tool pane SHALL ellipsize a title wider than the available header space, reserving the
+width of its visible close and pin buttons. The full title SHALL remain available through the title's
+tooltip and the pane's accessible name. This layout rule SHALL NOT change document tab templates.
+
+#### Scenario: A long title in a narrow tool pane
+- **WHEN** a tool pane has a title longer than its header at 100% or 150% scaling
+- **THEN** the title shows a character ellipsis and the visible header buttons remain inside the pane
+- **AND** the tooltip and accessible name retain the full title
+
 ### Requirement: Editor tabs indicate unsaved changes
 Designer, code and carried-file editors SHALL forward their existing dirty-state signals to Dock's
 modified marker. Designer checks SHALL include pending component membership and the owning module's

@@ -1,0 +1,143 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:core="using:Dock.Model.Core"
+        xmlns:controls="using:Dock.Model.Controls"
+        xmlns:converters="using:Dock.Avalonia.Converters"
+        xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia">
+    <!-- Template adapted from Dock 12.0.0.2, ToolChromeControl.axaml (MIT).
+         Reserve the buttons' width before the title (#3724); retain Dock's parts and bindings.
+         The only changes from Dock's template are the title's place after the buttons, its trimming and tooltip, and
+         compiled bindings. On a Dock upgrade, diff this against that version's
+         src/Dock.Avalonia.Themes.Fluent/Controls/ToolChromeControl.axaml and carry its changes across. -->
+    <!--
+    The MIT License (MIT)
+
+    Copyright (c) Wiesław Šoltés
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+    -->
+    <Style Selector="ToolChromeControl" x:DataType="controls:IToolDock">
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Grid RowDefinitions="Auto,*">
+              <DeferredContentPresenter x:Name="PART_ContentPresenter"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Content="{TemplateBinding Content}"
+                                        ContentTemplate="{TemplateBinding ContentTemplate}"
+                                        Padding="{TemplateBinding Padding}"
+                                        Grid.Row="1" />
+              <Border x:Name="PART_Border"
+                      BorderBrush="{TemplateBinding BorderBrush}"
+                      VerticalAlignment="Top"
+                      ContextFlyout="{TemplateBinding ToolFlyout}"
+                      Grid.Row="{CompiledBinding GripMode, Converter={x:Static GripModeConverters.GridRowAutoHideConverter}}">
+                <Grid x:Name="PART_Grip">
+                  <DockPanel LastChildFill="True" Margin="{DynamicResource DockToolChromeHeaderMargin}">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                      <Button x:Name="PART_MenuButton"
+                              Theme="{TemplateBinding MenuButtonTheme}"
+                              Flyout="{TemplateBinding ToolFlyout}">
+                        <Viewbox Margin="{DynamicResource DockToolChromeMenuIconMargin}">
+                          <Path x:Name="PART_MenuPath" />
+                        </Viewbox>
+                      </Button>
+                      <Button x:Name="PART_PinButton"
+                              Command="{CompiledBinding Owner.Factory.PinDockable}"
+                              CommandParameter="{CompiledBinding ActiveDockable}"
+                              Theme="{TemplateBinding PinButtonTheme}">
+                        <Button.IsVisible>
+                          <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <MultiBinding Converter="{x:Static converters:DockCapabilityConverters.CanPinMultiConverter}">
+                              <Binding Path="ActiveDockable" />
+                              <Binding Path="ActiveDockable.CanPin" />
+                              <Binding Path="ActiveDockable.DockCapabilityOverrides.CanPin" />
+                              <Binding Path="(core:IDock).DockCapabilityPolicy.CanPin" />
+                            </MultiBinding>
+                            <TemplateBinding Property="IsFloating" Converter="{x:Static BoolConverters.Not}" />
+                          </MultiBinding>
+                        </Button.IsVisible>
+                        <Viewbox>
+                          <Path x:Name="PART_PinPath" />
+                        </Viewbox>
+                      </Button>
+                      <Button x:Name="PART_MaximizeRestoreButton"
+                              IsVisible="{TemplateBinding IsFloating}"
+                              Theme="{TemplateBinding MaximizeButtonTheme}">
+                        <Viewbox>
+                          <Path x:Name="PART_MaximizeRestorePath" />
+                        </Viewbox>
+                      </Button>
+                      <Button x:Name="PART_CloseButton"
+                              Command="{CompiledBinding Owner.Factory.CloseDockable}"
+                              CommandParameter="{CompiledBinding ActiveDockable}"
+                              Theme="{TemplateBinding CloseButtonTheme}">
+                        <Button.IsVisible>
+                          <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <MultiBinding Converter="{x:Static converters:DockCapabilityConverters.CanCloseMultiConverter}">
+                              <Binding Path="ActiveDockable" />
+                              <Binding Path="ActiveDockable.CanClose" />
+                              <Binding Path="ActiveDockable.DockCapabilityOverrides.CanClose" />
+                              <Binding Path="(core:IDock).DockCapabilityPolicy.CanClose" />
+                            </MultiBinding>
+                            <MultiBinding Converter="{x:Static converters:CanRemoveDockableConverter.Instance}">
+                              <Binding Path="(core:IDock).CanCloseLastDockable" FallbackValue="{x:True}" />
+                              <Binding Path="(core:IDock).VisibleDockables.Count" FallbackValue="0" />
+                            </MultiBinding>
+                          </MultiBinding>
+                        </Button.IsVisible>
+                        <Viewbox>
+                          <Path x:Name="PART_ClosePath" />
+                        </Viewbox>
+                      </Button>
+                    </StackPanel>
+                    <Panel DockPanel.Dock="Left">
+                      <TextBlock x:Name="PART_Title"
+                                 Text="{CompiledBinding ActiveDockable.Title}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip.Tip="{CompiledBinding ActiveDockable.Title}" />
+                    </Panel>
+                    <Grid x:Name="PART_Grid" />
+                  </DockPanel>
+                </Grid>
+              </Border>
+              <Panel x:Name="PART_Panel"
+                     Background="{TemplateBinding BorderBrush}"
+                     Height="{DynamicResource DockToolChromeDividerThickness}"
+                     VerticalAlignment="Top"
+                     Grid.Row="{CompiledBinding GripMode, Converter={x:Static GripModeConverters.GridRowAutoHideConverter}}" />
+            </Grid>
+          </ControlTemplate>
+        </Setter>
+
+        <Setter Property="Background" Value="{DynamicResource DockTitleBarBrush}" />
+        <!-- A tool pane's chrome is named by the title it shows, its active tool's; its peer named it by its
+             content's type, "Dock.Avalonia.Controls.ToolControl", on every pane (#542). -->
+        <Setter Property="AutomationProperties.Name" Value="{CompiledBinding ActiveDockable.Title}" />
+    </Style>
+    <!-- PART_Background is the title bar panel; this covers the inactive (non-:active) state -->
+    <Style Selector="ToolChromeControl /template/ Border#PART_Background">
+        <Setter Property="Background" Value="{DynamicResource DockTitleBarBrush}" />
+    </Style>
+    <Style Selector="ToolChromeControl /template/ TextBlock#PART_Title">
+        <Setter Property="Padding" Value="1,1,0,0" />
+        <Setter Property="Foreground" Value="{DynamicResource {x:Static commonControls:SystemColors.ControlTextBrushKey}}" />
+    </Style>
+</Styles>

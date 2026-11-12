@@ -29,7 +29,9 @@ see each project for its authors and full license text.
 - **Avalonia.Labs** — the experimental `RoutedCommand`/`CommandManager` **vendored** into
   `IDE/HexIDE/AvaloniaLabs.CommandManager/` — © The Avalonia Project; the MIT notice ships in that
   folder's `LICENSE`. <https://github.com/AvaloniaUI/Avalonia.Labs>
-- **Dock** (`Avalonia`, `Model`, `Model.Avalonia`, `Model.MVVM`, `Themes.Simple`) — © Wiesław Šoltés
+- **Dock** (`Avalonia`, `Model`, `Model.Avalonia`, `Model.MVVM`, `Themes.Simple`) — © Wiesław Šoltés.
+  `IDE/HexIDE/Themes/ToolChrome.axaml` adapts its 12.0.0.2 tool-header template; the MIT notice is retained
+  in that file. <https://github.com/wieslawsoltes/Dock>
 - **Classic.Avalonia** (Theme, CommonControls) — © the Avalonia community
 - **CommunityToolkit.Mvvm** — © .NET Foundation and Contributors
 - **R3** — © Cysharp, Inc.

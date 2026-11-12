@@ -2,8 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:HexIDE="clr-namespace:HexIDE"
              xmlns:dockSimple="clr-namespace:Dock.Avalonia.Themes.Simple;assembly=Dock.Avalonia.Themes.Simple"
-             xmlns:dockCore="clr-namespace:Dock.Model.Core;assembly=Dock.Model"
-             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
              x:Class="HexIDE.App"
              RequestedThemeVariant="Light">
 
@@ -36,20 +34,7 @@
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml" />
         <StyleInclude Source="avares://HexIDE/Automation/AccessKeyNames.axaml" />
 
-        <Style Selector="ToolChromeControl">
-            <Setter Property="Background" Value="{DynamicResource DockTitleBarBrush}" />
-            <!-- A tool pane's chrome is named by the title it shows, its active tool's; its peer named it by its
-                 content's type, "Dock.Avalonia.Controls.ToolControl", on every pane (#542). -->
-            <Setter Property="AutomationProperties.Name" Value="{CompiledBinding ActiveDockable.Title}" x:DataType="dockCore:IDock" />
-        </Style>
-        <!-- PART_Background is the title bar panel; this covers the inactive (non-:active) state -->
-        <Style Selector="ToolChromeControl /template/ Border#PART_Background">
-            <Setter Property="Background" Value="{DynamicResource DockTitleBarBrush}" />
-        </Style>
-        <Style Selector="ToolChromeControl /template/ TextBlock#PART_Title">
-            <Setter Property="Padding" Value="1,1,0,0" />
-            <Setter Property="Foreground" Value="{DynamicResource {x:Static commonControls:SystemColors.ControlTextBrushKey}}" />
-        </Style>
+        <StyleInclude Source="avares://HexIDE/Themes/ToolChrome.axaml" />
     </Application.Styles>
 
     <Application.DataTemplates>
