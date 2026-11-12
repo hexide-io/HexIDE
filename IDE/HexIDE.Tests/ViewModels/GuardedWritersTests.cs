@@ -740,6 +740,52 @@ public class GuardedWritersTests : IDisposable
         vm.Document.Text.Should().Be(before);
     }
 
+    // #3687: these already-fixed paths must stay English even with a real German pack active.
+    [AvaloniaTheory]
+    [InlineData("whole file")]
+    [InlineData("range findings")]
+    [InlineData("line break")]
+    public void ProgramRefusalsStayEnglishInAGermanIde(string path)
+    {
+        var german = new LocalizationService();
+        german.Apply("de");
+        try
+        {
+            german.ActiveLanguage.Should().Be("de");
+            german.GetString("Str.CodeEditor.FileNotSaved.Banner").Should().StartWith("Diese Datei");
+            localization.GetString(Arg.Any<string>()).Returns(c => german.GetString(c.Arg<string>()));
+            var vm = path == "whole file" ? OpenFormHeldReadOnly() : OpenClass();
+            var before = vm.Document.Text;
+
+            if (path == "whole file")
+            {
+                vm.ReplaceContent(before + "' edit").Refusal.Should().Be(
+                    $"This file will not be saved: {Distribution.DisplayName} cannot yet reproduce it faithfully, so saving it would change it. "
+                    + "Its code is part of the file, so no change to it is accepted. Nothing was changed.");
+            }
+            else if (path == "range findings")
+            {
+                vm.ApplyEdits([new TextChange(vm.Document.TextLength, 0,
+                    "Public Sub Added()\r\nAttribute Added.VB_Description = \"x\"\r\nEnd Sub\r\n")]).Should().Be(
+                    "Edits refused: Attribute lines describing Added are added. Nothing was changed.");
+            }
+            else
+            {
+                var line = vm.Document.GetLineByOffset(before.IndexOf("Public Function Total", StringComparison.Ordinal));
+                vm.ApplyEdits([new TextChange(line.EndOffset, 0, "\r\nx")]).Should().Be(
+                    $"The edit at line {line.LineNumber}, column {line.Length + 1} would put a line break in the line above the Attribute lines describing Total or in that line's trailing comment, "
+                    + "parting the line from the read-only text below it. Insert new lines after that read-only text instead. Nothing was changed.");
+            }
+
+            vm.Document.Text.Should().Be(before);
+            vm.Document.UndoStack.CanUndo.Should().BeFalse();
+        }
+        finally
+        {
+            german.Apply("en");
+        }
+    }
+
     [AvaloniaFact]
     public void WholeFileReadOnlyRefusesContentReplacement()
     {

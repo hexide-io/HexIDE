@@ -77,6 +77,7 @@ public static class OpenDialogs
     // its title alone does not tell the reset prompt from the run-time error dialog: both are 'HexIDE' (#1365, #1975).
     // The buttons listed are the ways to answer it, so a toggle is not one: a check box and a radio button are buttons to
     // Avalonia, and Options listed "Prompt for project" beside OK and Cancel (#2079).
+    // Repeat buttons and other template parts operate their owning control rather than answer the dialog (#3671).
     internal static string DescriptionOf(Window dialog)
     {
         var controls = dialog.GetVisualDescendants().OfType<Control>().ToList();
@@ -91,7 +92,9 @@ public static class OpenDialogs
             _ => null,
         };
         var buttons = string.Join("/", controls.OfType<Button>()
-            .Where(b => b is not Avalonia.Controls.Primitives.ToggleButton && b.IsEffectivelyVisible)
+            .Where(b => b is not Avalonia.Controls.Primitives.ToggleButton
+                && b is not RepeatButton
+                && b.TemplatedParent is null && b.IsEffectivelyVisible)
             .Select(b => ControlAutomationPeer.CreatePeerForElement(b)?.GetName()?.Replace("_", ""))
             .Where(name => !string.IsNullOrWhiteSpace(name)));
         var details = new List<string>();

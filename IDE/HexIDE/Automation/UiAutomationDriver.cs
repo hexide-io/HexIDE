@@ -3708,7 +3708,7 @@ public static class UiAutomationDriver
     /// <para>Each key goes where the keyboard sends it, to the focused control, with the key bindings on it and its
     /// ancestors tried first, as Avalonia's keyboard device delivers one (<see cref="DeliverKey"/>). So a Tab that
     /// moves focus sends the next key to the control it moved to, and an Enter bound to a command runs it.</para>
-    /// <para>After each key the code window's completion and parameter-info requests are waited for, up to
+    /// <para>After each key the code window's completion, parameter-info and on-type formatting requests are waited for, up to
     /// <see cref="PopupWait"/>, as a person's next key comes after the list a letter opened has appeared; a later key
     /// otherwise overtook the server's answer, and the list opened after the typing was over (#943 review).</para>
     /// <para>The typing stops, and says how far it got, at a key a protected line refuses, where a person's would be
@@ -3774,11 +3774,7 @@ public static class UiAutomationDriver
                 var span = area is null ? null : EditSpan(area, key, mods) ?? TypingSpan(area, typed);
                 if (DeliverKey(at, key, mods, typed) is { } handled)
                     (sentText, tookText) = (sentText + 1, tookText + (handled ? 1 : 0));
-                // The next key once what this one set off ahead of input has run, and the list or parameter info it
-                // asked the language server for has come back.
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Input);
-                if (FocusedEditor(top) is { } codeEditor && HexIDE.Forms.Views.CodeEditorView.PendingPopupsOf(codeEditor) is { } pending
-                    && await Task.WhenAny(pending, Task.Delay(PopupWait, ct)) != pending)
+                if (!await WaitForEditorAsync(top, ct))
                     unanswered++;
 
                 if (area is not null && span is not null && area.Document.Text == textBefore
@@ -3801,8 +3797,8 @@ public static class UiAutomationDriver
             var caret = AreaOf(at) is { } typedInto ? $"; the caret is at offset {typedInto.Caret.Offset}" : "";
             var moved = ReferenceEquals(at, start) ? "" : $"; focus moved on to {Describe(at)}, where the keys after it went";
             var slow = unanswered == 0 ? ""
-                : $"; the language server had not answered {unanswered} key(s)' completion or parameter-info request "
-                  + $"within {PopupWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms, so a list may still open";
+                : $"; the language server had not answered {unanswered} key(s)' completion, parameter-info or on-type formatting request "
+                  + $"within {PopupWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms, so a popup or formatting edit may still arrive";
             var selectionNote = replacedSelection is not null && AreaOf(start) is { } finalArea
                 ? "; " + replacedSelection.Left + SelectionState(finalArea) : "";
             // Shift's own key around a capital, as DeliverKey sends it (#2422).
@@ -3835,8 +3831,44 @@ public static class UiAutomationDriver
         }
     }
 
-    /// <summary>How long <see cref="TypeKeysAsync"/> waits after a key for the language server's completion answer.</summary>
+    /// <summary>How long typing tools wait after a key for the language server's editor work.</summary>
     internal static TimeSpan PopupWait = TimeSpan.FromSeconds(2);
+
+    private static async Task<bool> WaitForEditorAsync(TopLevel top, CancellationToken ct)
+    {
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Input);
+        if (FocusedEditor(top) is not { } editor || HexIDE.Forms.Views.CodeEditorView.PendingKeyRequestsOf(editor) is not { } pending)
+            return true;
+        if (await Task.WhenAny(pending, Task.Delay(PopupWait, ct)) != pending)
+        {
+            ct.ThrowIfCancellationRequested();
+            return false;
+        }
+        await pending;
+        return true;
+    }
+
+    /// <summary>Presses the key, then waits for the code window's answers before reporting its caret.</summary>
+    public static async Task<InteractOutcome> PressKeyAsync(
+        Control control, string key, string? modifiers, string? controlPath = null, CancellationToken ct = default)
+    {
+        var outcome = PressKey(control, key, modifiers, controlPath);
+        if (!outcome.Success || TopLevel.GetTopLevel(control) is not { } top)
+            return outcome;
+        try
+        {
+            var answered = await WaitForEditorAsync(top, ct);
+            var caret = FocusedEditor(top) is { } editor ? $"; the caret is at offset {editor.CaretOffset}" : "";
+            var slow = answered ? "" : "; the language server had not answered the key's completion, parameter-info or "
+                + $"on-type formatting request within {PopupWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms, "
+                + "so a popup or formatting edit may still arrive";
+            return outcome with { Detail = outcome.Detail + caret + slow };
+        }
+        catch (OperationCanceledException)
+        {
+            return outcome with { Success = false, Error = "press_key was cancelled after delivery; read the text back" };
+        }
+    }
 
     // The code editor whose text area has focus, for the requests its keys make.
     private static TextEditor? FocusedEditor(TopLevel top) =>

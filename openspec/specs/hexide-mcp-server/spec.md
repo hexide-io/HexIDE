@@ -401,7 +401,9 @@ The IDE SHALL give the dock pane's Menu, Pin, Maximize/Restore and Close buttons
 localized automation names describing their actions. The name SHALL belong to the control's automation peer and be
 accepted by path matching, as well as being available to screen readers. Document-tab close buttons, designer caption buttons,
 dropdown toggles, property color/font picker buttons and all eight scroll bar line/page buttons SHALL likewise
-have localized names describing their actions.
+have localized names describing their actions. Menu scroll arrows and ButtonSpinner increase/decrease
+buttons SHALL also expose localized action names. Dialog descriptions SHALL list only visible answer buttons,
+excluding toggle buttons, repeat buttons and buttons owned by another control’s template.
 
 #### Scenario: Discovering an icon-only dock button
 - **WHEN** a caller discovers a dock pane's close button
@@ -1546,7 +1548,9 @@ actions `invoke_command` and `set_property` SHALL continue to act on the view mo
 ### Requirement: Code-window pointer input SHALL identify its document position
 `interact` SHALL report the 1-based document line and, over text, column for `click`, `double_click`
 and drag endpoints in a code window or its margins, with the identity `<project>/<document>` and any
-breakpoint or bookmark at the press. Pixel coordinates SHALL remain accepted. These targets SHALL also
+breakpoint or bookmark at the press. When an element covers the text, the reply SHALL instead name
+the sticky procedure header or other covering control and the document line it covers, without
+presenting it as a text position. Pixel coordinates SHALL remain accepted. These targets SHALL also
 accept `line:N` and `line:N,col:M`, scroll an off-screen position into view and use its rendered glyph
 position, including code-lens spacing. A line outside the document SHALL be refused with its line count.
 
@@ -1554,6 +1558,11 @@ position, including code-lens spacing. A line outside the document SHALL be refu
 - **WHEN** a code lens has added space before a click in a code-window margin
 - **THEN** the reply reports the line under the actual point, using the margin's rendered lines
 - **AND** `line:5` aims at line 5 with that spacing in place
+
+#### Scenario: A sticky header receives a click or drag press
+- **WHEN** a click or drag starts on a sticky procedure header covering a code-window line
+- **THEN** the reply names the header and says which document line it covers
+- **AND** the press is not described as a line and column reached in the text
 
 ### Requirement: A click SHALL move the pointer there before it presses
 `interact`'s `click` SHALL raise a pointer move at the point on the element it presses before the press, as a person's
@@ -1710,6 +1719,20 @@ ancestor); otherwise it SHALL omit the path rather than name an unrelated contro
 
 - **WHEN** the Watches tree's ContextMenu has focus and `press_key` sends Escape to its watch row
 - **THEN** the reply names the menu at the tree's `ContextMenu` path, and the menu closes
+
+### Requirement: Typing replies wait for the editor's language-server work
+`type_text` in keyboard mode and `press_key` SHALL wait up to 2 s for pending completion, parameter-info
+and on-type formatting work after each key, including applying or discarding formatting edits, before
+reporting the caret. A reply that reaches that budget SHALL say that work may still change the editor.
+A key with no pending work SHALL incur no fixed delay.
+
+#### Scenario: A line break receives an on-type formatting edit
+- **WHEN** either tool sends Enter and the language server indents the new line and adds `End If`
+- **THEN** the reply reports the caret after that edit and an immediate document read includes the edit
+
+#### Scenario: The automation budget expires
+- **WHEN** the editor's language-server work has not settled within the automation budget
+- **THEN** the reply names the outstanding work and warns that the editor may still change
 
 ### Requirement: press_key reads a chord written as one key
 `press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it
