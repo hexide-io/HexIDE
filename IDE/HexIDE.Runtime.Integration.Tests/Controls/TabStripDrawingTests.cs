@@ -14,7 +14,7 @@ using HexIDE.Runtime;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.BuiltinControls;
 
-namespace HexIDE.Integration.Tests.Controls;
+namespace HexIDE.Runtime.Integration.Tests.Controls;
 
 public class TabStripDrawingTests
 {
@@ -82,7 +82,7 @@ public class TabStripDrawingTests
     [InlineData("TabFixedHeight")]
     public void Unsupported_drawing_reports_not_implemented_on_the_form_queue(string property)
     {
-        var window = TabStripKeyboardTests.Open();
+        var window = TabStripForm.Open();
         Exception? fault = null;
         void Faulted(VBWindowContext context, Exception error)
         {

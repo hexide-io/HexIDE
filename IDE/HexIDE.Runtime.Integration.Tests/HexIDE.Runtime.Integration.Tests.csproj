@@ -39,6 +39,7 @@
         <Compile Include="..\HexIDE.Integration.Tests\WindowTestFixture.cs" Link="Infrastructure\WindowTestFixture.cs" />
         <Compile Include="..\HexIDE.Integration.Tests\WindowLifetime.cs" Link="Infrastructure\WindowLifetime.cs" />
         <Compile Include="..\HexIDE.Integration.Tests\Views\ContainerRuntimeHarness.cs" Link="Views\ContainerRuntimeHarness.cs" />
+        <Compile Include="..\HexIDE.Integration.Tests\Views\TabStripForm.cs" Link="Views\TabStripForm.cs" />
     </ItemGroup>
 
     <ItemGroup>
