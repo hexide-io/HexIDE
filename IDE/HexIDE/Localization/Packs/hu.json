@@ -1057,6 +1057,7 @@
     "Str.Automation.ChooseFont": "Betűtípus kiválasztása",
     "Str.Automation.ToggleList": "Lista megnyitása vagy bezárása",
     "Str.Automation.Close": "Bezárás",
+    "Str.Dock.NoDocumentsOpen": "Nincs megnyitott dokumentum",
     "Str.Dock.ScrollUp": "Lapfülek görgetése felfelé",
     "Str.Dock.ScrollDown": "Lapfülek görgetése lefelé",
     "Str.Dock.Menu": "Ablaktábla menüje",

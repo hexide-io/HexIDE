@@ -1094,6 +1094,7 @@
     "Str.Automation.ChooseFont": "Choisir une police",
     "Str.Automation.ToggleList": "Ouvrir ou fermer la liste",
     "Str.Automation.Close": "Fermer",
+    "Str.Dock.NoDocumentsOpen": "Aucun document ouvert",
     "Str.Dock.ScrollUp": "Faire défiler les onglets vers le haut",
     "Str.Dock.ScrollDown": "Faire défiler les onglets vers le bas",
     "Str.Dock.Menu": "Menu du volet",

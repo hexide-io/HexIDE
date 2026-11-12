@@ -1057,6 +1057,7 @@
     "Str.Automation.ChooseFont": "Izberi pisavo",
     "Str.Automation.ToggleList": "Odpri ali zapri seznam",
     "Str.Automation.Close": "Zapri",
+    "Str.Dock.NoDocumentsOpen": "Ni odprtih dokumentov",
     "Str.Dock.ScrollUp": "Pomakni zavihke navzgor",
     "Str.Dock.ScrollDown": "Pomakni zavihke navzdol",
     "Str.Dock.Menu": "Meni podokna",

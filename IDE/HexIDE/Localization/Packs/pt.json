@@ -1094,6 +1094,7 @@
     "Str.Automation.ChooseFont": "Escolher tipo de letra",
     "Str.Automation.ToggleList": "Abrir ou fechar lista",
     "Str.Automation.Close": "Fechar",
+    "Str.Dock.NoDocumentsOpen": "Nenhum documento aberto",
     "Str.Dock.ScrollUp": "Deslocar separadores para cima",
     "Str.Dock.ScrollDown": "Deslocar separadores para baixo",
     "Str.Dock.Menu": "Menu do painel",

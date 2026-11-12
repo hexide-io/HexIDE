@@ -1057,6 +1057,7 @@
     "Str.Automation.ChooseFont": "Choose font",
     "Str.Automation.ToggleList": "Open or close list",
     "Str.Automation.Close": "Close",
+    "Str.Dock.NoDocumentsOpen": "No documents open",
     "Str.Dock.ScrollUp": "Scroll tabs up",
     "Str.Dock.ScrollDown": "Scroll tabs down",
     "Str.Dock.Menu": "Pane menu",

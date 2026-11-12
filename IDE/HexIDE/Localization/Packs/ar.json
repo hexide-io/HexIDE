@@ -1094,6 +1094,7 @@
     "Str.Automation.ChooseFont": "اختيار خط",
     "Str.Automation.ToggleList": "فتح القائمة أو إغلاقها",
     "Str.Automation.Close": "إغلاق",
+    "Str.Dock.NoDocumentsOpen": "لا توجد مستندات مفتوحة",
     "Str.Dock.ScrollUp": "تمرير علامات التبويب لأعلى",
     "Str.Dock.ScrollDown": "تمرير علامات التبويب لأسفل",
     "Str.Dock.Menu": "قائمة اللوحة",

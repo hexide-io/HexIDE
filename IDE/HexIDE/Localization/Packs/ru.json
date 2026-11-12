@@ -1094,6 +1094,7 @@
     "Str.Automation.ChooseFont": "Выбрать шрифт",
     "Str.Automation.ToggleList": "Открыть или закрыть список",
     "Str.Automation.Close": "Закрыть",
+    "Str.Dock.NoDocumentsOpen": "Нет открытых документов",
     "Str.Dock.ScrollUp": "Прокрутить вкладки вверх",
     "Str.Dock.ScrollDown": "Прокрутить вкладки вниз",
     "Str.Dock.Menu": "Меню панели",

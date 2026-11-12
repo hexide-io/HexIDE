@@ -1094,6 +1094,7 @@
     "Str.Automation.ChooseFont": "Wybierz czcionkę",
     "Str.Automation.ToggleList": "Otwórz lub zamknij listę",
     "Str.Automation.Close": "Zamknij",
+    "Str.Dock.NoDocumentsOpen": "Brak otwartych dokumentów",
     "Str.Dock.ScrollUp": "Przewiń karty w górę",
     "Str.Dock.ScrollDown": "Przewiń karty w dół",
     "Str.Dock.Menu": "Menu panelu",

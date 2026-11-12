@@ -1057,6 +1057,7 @@
     "Str.Automation.ChooseFont": "Pasirinkti šriftą",
     "Str.Automation.ToggleList": "Atverti arba užverti sąrašą",
     "Str.Automation.Close": "Užverti",
+    "Str.Dock.NoDocumentsOpen": "Nėra atvertų dokumentų",
     "Str.Dock.ScrollUp": "Slinkti korteles aukštyn",
     "Str.Dock.ScrollDown": "Slinkti korteles žemyn",
     "Str.Dock.Menu": "Srities meniu",

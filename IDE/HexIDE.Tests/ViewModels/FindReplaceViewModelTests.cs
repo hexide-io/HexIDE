@@ -1240,7 +1240,7 @@ public partial class FindReplaceViewModelTests
             languageServers,
             protocolInspector,
             windowStateService, new DockFactoryReference(), new HexIDE.Tools.OutlineToolViewModel(
-                Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IDocumentDockService>()));
+                Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IDocumentDockService>()), loc);
 
         return new MainViewViewModel(
             windowManager,
