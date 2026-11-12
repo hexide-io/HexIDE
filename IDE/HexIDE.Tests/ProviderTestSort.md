@@ -113,7 +113,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/WriteAtSaveTests.cs` | split |
 | `Recovery/RecoveryOffersTests.cs` | split |
 | `Recovery/UnsavedWorkCaptureTests.cs` | split |
-| `Runtime/StandaloneSystemColourTests.cs` | provider |
 | `Serialization/CodeWindowTextTests.cs` | split |
 | `Serialization/FormCodeTextTests.cs` | provider |
 | `Serialization/GuardedContentMemberRunTests.cs` | provider |
