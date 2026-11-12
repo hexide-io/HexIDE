@@ -13,6 +13,8 @@ using Avalonia.VisualTree;
 using Dock.Avalonia.Controls;
 using Dock.Model.Controls;
 using HexIDE.Tools;
+using HexIDE.Localization;
+using HexIDE.Automation;
 
 namespace HexIDE.Integration.Tests.Controls;
 
@@ -30,7 +32,7 @@ public class ToolFloatingTests
         Application.Current!.DataTemplates.Add(locator);
         var window = new Window
         {
-            Content = new DockControl { Layout = vm.Layout }, Width = 1000, Height = 700,
+            Content = new DockControl { Name = "DockControl", Layout = vm.Layout }, Width = 1000, Height = 700,
         };
         try
         {
@@ -172,6 +174,112 @@ public class ToolFloatingTests
     });
 
     [AvaloniaTheory]
+    [InlineData("DockControl", "Host", "Dock host", "Dock-Host")]
+    [InlineData("RootDockControl", "Root", "Root dock", "Stammdock")]
+    [InlineData("PinnedDockControl", "PinnedHost", "Pinned dock host", "Host für angeheftete Fenster")]
+    [InlineData("ToolPinnedControl", "PinnedToolTabs", "Pinned tool tabs", "Angeheftete Werkzeugregisterkarten")]
+    [InlineData("DockCommandBarHost", "CommandBars", "Dock command bars", "Dock-Befehlsleisten")]
+    [InlineData("DockSelectorOverlay", "DocumentsSelector", "Documents selector", "Dokumentauswahl")]
+    public Task Dock_parts_have_localized_names_in_main_and_floating_windows(
+        string className, string key, string english, string german) => WithWorkspace((vm, factory, window, _) =>
+    {
+        var localization = Substitute.For<ILocalizationService>();
+        var resourceKey = "Str.Dock." + key;
+        var resources = Application.Current!.Resources;
+        var hadResource = resources.TryGetValue(resourceKey, out var original);
+        try
+        {
+            factory.FloatDockable(vm.Immediate);
+            Dispatcher.UIThread.RunJobs();
+            foreach (var expected in new[] { german, english })
+            {
+                localization.GetString(resourceKey).Returns(expected);
+                resources[resourceKey] = localization.GetString(resourceKey);
+                Dispatcher.UIThread.RunJobs();
+                foreach (var host in new Window[] { FloatingHost(vm), window })
+                {
+                    var parts = host.GetVisualDescendants().OfType<Control>()
+                        .Where(c => c.GetType().Name == className).ToArray();
+                    parts.Should().HaveCount(className == "ToolPinnedControl" ? 4 : 1);
+                    foreach (var part in parts)
+                        ControlAutomationPeer.CreatePeerForElement(part)!.GetName().Should().Be(expected);
+
+                    var nodes = Flatten(UiAutomationDriver.Dump(host, "Window", 40, false))
+                        .Where(n => n.ClassName == className).ToArray();
+                    nodes.Should().HaveCount(parts.Length);
+                    foreach (var node in nodes)
+                    {
+                        (node.Label ?? node.Name).Should().Be(expected);
+                        var segment = className switch
+                        {
+                            "DockCommandBarHost" => "ToolBar[PART_CommandBarHost]",
+                            "DockSelectorOverlay" => "List[PART_SelectorOverlay]",
+                            "ToolPinnedControl" => $"Tab[#{Array.IndexOf(nodes, node)}]",
+                            "DockControl" when host == window => "Pane[DockControl]",
+                            _ => $"Pane[{english}]",
+                        };
+                        node.Path.Should().EndWith("/" + segment);
+                        UiAutomationDriver.Resolve(host, node.Path).control.Should().NotBeNull();
+                    }
+                }
+            }
+        }
+        finally
+        {
+            if (hadResource) resources[resourceKey] = original;
+            else resources.Remove(resourceKey);
+        }
+    }, mainView: true);
+
+    [AvaloniaFact]
+    public Task Main_view_dock_host_follows_the_active_language() => WithWorkspace((_, _, window, _) =>
+    {
+        var dock = window.GetVisualDescendants().OfType<DockControl>().Single();
+        window.Resources["Str.Dock.Host"] = "Dock-Host";
+        Dispatcher.UIThread.RunJobs();
+        ControlAutomationPeer.CreatePeerForElement(dock)!.GetName().Should().Be("Dock-Host");
+        window.Resources["Str.Dock.Host"] = "Dock host";
+        Dispatcher.UIThread.RunJobs();
+        ControlAutomationPeer.CreatePeerForElement(dock)!.GetName().Should().Be("Dock host");
+    }, mainView: true);
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task German_dock_paths_keep_the_English_segments(bool floating) => WithWorkspace((vm, factory, window, _) =>
+    {
+        window.Resources["Str.Dock.Root"] = "Stammdock";
+        window.Resources["Str.Dock.PinnedHost"] = "Host für angeheftete Fenster";
+        Window host = window;
+        if (floating)
+        {
+            factory.FloatDockable(vm.Immediate);
+            Dispatcher.UIThread.RunJobs();
+            host = FloatingHost(vm);
+        }
+        host.Resources["Str.Dock.Host"] = "Dock-Host";
+        host.Resources["Str.Dock.Root"] = "Stammdock";
+        host.Resources["Str.Dock.PinnedHost"] = "Host für angeheftete Fenster";
+        Dispatcher.UIThread.RunJobs();
+        var dock = host.GetVisualDescendants().OfType<DockControl>().Single();
+        var root = dock.GetVisualDescendants().OfType<RootDockControl>().Single();
+        var pinned = root.GetVisualDescendants().OfType<PinnedDockControl>().Single();
+        var dockPath = UiAutomationDriver.PathWithin(host, "Window", dock)!;
+        dockPath.Should().EndWith(floating ? "/Pane[Dock host]" : "/Pane[DockControl]");
+        var rootPath = dockPath + "/Pane[Root dock]";
+        var resolved = UiAutomationDriver.Resolve(host, rootPath);
+        resolved.error.Should().BeNull();
+        resolved.control.Should().BeSameAs(root);
+        var pinnedPath = rootPath + "/Pane[Pinned dock host]";
+        UiAutomationDriver.Resolve(host, pinnedPath).control.Should().BeSameAs(pinned);
+        ControlAutomationPeer.CreatePeerForElement(root)!.GetName().Should().Be("Stammdock");
+        ControlAutomationPeer.CreatePeerForElement(pinned)!.GetName().Should().Be("Host für angeheftete Fenster");
+    }, mainView: true);
+
+    private static System.Collections.Generic.IEnumerable<UiNode> Flatten(UiNode node) =>
+        node.Children.SelectMany(Flatten).Prepend(node);
+
+    [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
     public Task Auto_ignores_floating_tools(bool runningForm) => WithWorkspace((vm, factory, window, _) =>
@@ -279,7 +387,7 @@ public class ToolFloatingTests
         (HostWindow)((IRootDock)vm.Layout).Windows!.Single().Host!;
 
     private static async Task WithWorkspace(Action<MainViewViewModel, MainViewViewModel.DockFactory, Window, DISetup> check,
-        double scaling = 1)
+        double scaling = 1, bool mainView = false)
     {
         await using var owned = new RealComposition();
         var vm = owned.Composition.Root;
@@ -287,7 +395,11 @@ public class ToolFloatingTests
             .GetField("dockFactory", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(vm)!;
         var locator = new Avalonia.Controls.Templates.FuncDataTemplate<ImmediateToolViewModel>((_, _) => new ImmediateToolView());
         Application.Current!.DataTemplates.Add(locator);
-        var window = new Window { Content = new DockControl { Layout = vm.Layout }, Width = 1000, Height = 700 };
+        var window = new Window
+        {
+            Content = mainView ? new MainView { DataContext = vm } : new DockControl { Name = "DockControl", Layout = vm.Layout },
+            Width = 1000, Height = 700,
+        };
         window.SetRenderScaling(scaling);
         try
         {

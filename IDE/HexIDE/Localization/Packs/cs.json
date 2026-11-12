@@ -2,6 +2,12 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Hostitel dokování",
+    "Str.Dock.Root": "Kořenové dokování",
+    "Str.Dock.PinnedHost": "Hostitel připnutého dokování",
+    "Str.Dock.PinnedToolTabs": "Karty připnutých nástrojů",
+    "Str.Dock.CommandBars": "Panely příkazů dokování",
+    "Str.Dock.DocumentsSelector": "Výběr dokumentů",
     "Str.Dock.DocumentTabs": "Karty dokumentů",
     "Str.Dock.ToolTabs": "Karty nástrojů",
     "Str.AIChat.Refusal": "Poskytovatel tento požadavek odmítl.",

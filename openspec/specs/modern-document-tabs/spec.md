@@ -159,3 +159,26 @@ accessible names, overriding the dock title and the library's English fallback.
 - **WHEN** the user creates a horizontal or vertical document dock with a non-English language selected
 - **THEN** both document strips expose the localized document-tabs name, even if the new dock title is `IDocumentDock`
 - **AND** tool strips expose the localized tool-tabs name
+
+### Requirement: Dock structural parts have localized automation names
+The dock host, root dock, pinned dock host, pinned tool tabs, dock command bars and documents selector
+SHALL expose explicit localized automation names in both the main window and floating tool windows,
+overriding the dock title and the library's English fallback.
+
+#### Scenario: Floating a tool in another language
+- **WHEN** a tool is floated with German selected
+- **THEN** all six kinds of dock parts in both windows expose their German names
+- **AND** none of those parts in the floating window announces `IRootDock`
+
+#### Scenario: Changing the language while a tool floats
+- **WHEN** the active language changes with a tool window floating
+- **THEN** the structural dock names update in both windows
+- **AND** automation paths retain their English segments: `Pane[Root dock]` and `Pane[Pinned dock host]`
+  in both windows, `Pane[DockControl]` in the main window and `Pane[Dock host]` in floating windows
+- **AND** command bars and the selector retain their template-part segments, while pinned strips retain
+  their sibling indices
+
+#### Scenario: Resolving a dock path in German
+- **WHEN** an automation caller resolves a main-window path through `Pane[DockControl]/Pane[Root dock]`
+  or a floating-window path through `Pane[Dock host]/Pane[Root dock]` with German selected
+- **THEN** the path resolves to the root dock even though its accessible name is `Stammdock`

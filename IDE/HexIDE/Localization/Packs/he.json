@@ -2,6 +2,12 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Dock.Host": "מארח עגינה",
+    "Str.Dock.Root": "עגינת שורש",
+    "Str.Dock.PinnedHost": "מארח עגינה מוצמד",
+    "Str.Dock.PinnedToolTabs": "לשוניות כלים מוצמדות",
+    "Str.Dock.CommandBars": "סרגלי פקודות עגינה",
+    "Str.Dock.DocumentsSelector": "בורר מסמכים",
     "Str.Dock.DragPreviewControlDock": "עיגון",
     "Str.Dock.DragPreviewControlFloat": "ציפה",
     "Str.Dock.DragPreviewControlNone": "ללא",

@@ -2,6 +2,12 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Dockhost",
+    "Str.Dock.Root": "Hoofddock",
+    "Str.Dock.PinnedHost": "Host voor vastgemaakte docks",
+    "Str.Dock.PinnedToolTabs": "Vastgemaakte gereedschapstabbladen",
+    "Str.Dock.CommandBars": "Dockopdrachtbalken",
+    "Str.Dock.DocumentsSelector": "Documentkiezer",
     "Str.Dock.DragPreviewControlDock": "Vastmaken",
     "Str.Dock.DragPreviewControlFloat": "Zwevend",
     "Str.Dock.DragPreviewControlNone": "Geen",

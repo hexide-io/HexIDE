@@ -2,6 +2,12 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Dockningsvärd",
+    "Str.Dock.Root": "Rotdocka",
+    "Str.Dock.PinnedHost": "Värd för fäst dockning",
+    "Str.Dock.PinnedToolTabs": "Fästa verktygsflikar",
+    "Str.Dock.CommandBars": "Dockningskommandofält",
+    "Str.Dock.DocumentsSelector": "Dokumentväljare",
     "Str.Dock.DocumentTabs": "Dokumentflikar",
     "Str.Dock.ToolTabs": "Verktygsflikar",
     "Str.AIChat.Refusal": "Leverantören avböjde denna begäran.",

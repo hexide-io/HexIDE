@@ -2,6 +2,12 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Hôte d’ancrage",
+    "Str.Dock.Root": "Ancrage racine",
+    "Str.Dock.PinnedHost": "Hôte d’ancrage épinglé",
+    "Str.Dock.PinnedToolTabs": "Onglets d’outils épinglés",
+    "Str.Dock.CommandBars": "Barres de commandes d’ancrage",
+    "Str.Dock.DocumentsSelector": "Sélecteur de documents",
     "Str.Dock.DocumentTabs": "Onglets de documents",
     "Str.Dock.ToolTabs": "Onglets d’outils",
     "Str.AIChat.Refusal": "Le fournisseur a refusé cette demande.",

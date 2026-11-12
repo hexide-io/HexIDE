@@ -2,6 +2,12 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Host penambatan",
+    "Str.Dock.Root": "Tambatan akar",
+    "Str.Dock.PinnedHost": "Host tambatan tersemat",
+    "Str.Dock.PinnedToolTabs": "Tab alat tersemat",
+    "Str.Dock.CommandBars": "Bilah perintah penambatan",
+    "Str.Dock.DocumentsSelector": "Pemilih dokumen",
     "Str.Dock.DragPreviewControlDock": "Tambatkan",
     "Str.Dock.DragPreviewControlFloat": "Mengambang",
     "Str.Dock.DragPreviewControlNone": "Tidak ada",

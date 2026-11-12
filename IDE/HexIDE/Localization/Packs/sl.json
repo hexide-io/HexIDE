@@ -2,6 +2,12 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Gostitelj sidranja",
+    "Str.Dock.Root": "Korensko sidrišče",
+    "Str.Dock.PinnedHost": "Gostitelj pripetega sidranja",
+    "Str.Dock.PinnedToolTabs": "Zavihki pripetih orodij",
+    "Str.Dock.CommandBars": "Ukazne vrstice sidranja",
+    "Str.Dock.DocumentsSelector": "Izbirnik dokumentov",
     "Str.Dock.DocumentTabs": "Zavihki dokumentov",
     "Str.Dock.ToolTabs": "Zavihki orodij",
     "Str.AIChat.Refusal": "Ponudnik je zavrnil to zahtevo.",

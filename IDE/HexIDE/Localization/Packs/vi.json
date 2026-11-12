@@ -2,6 +2,12 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Vùng chứa neo",
+    "Str.Dock.Root": "Vùng neo gốc",
+    "Str.Dock.PinnedHost": "Vùng chứa neo đã ghim",
+    "Str.Dock.PinnedToolTabs": "Thẻ công cụ đã ghim",
+    "Str.Dock.CommandBars": "Thanh lệnh neo",
+    "Str.Dock.DocumentsSelector": "Bộ chọn tài liệu",
     "Str.Dock.DocumentTabs": "Thẻ tài liệu",
     "Str.Dock.ToolTabs": "Thẻ công cụ",
     "Str.AIChat.Refusal": "Nhà cung cấp đã từ chối yêu cầu này.",

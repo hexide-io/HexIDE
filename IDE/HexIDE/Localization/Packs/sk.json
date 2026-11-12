@@ -2,6 +2,12 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Hostiteľ dokovania",
+    "Str.Dock.Root": "Koreňové dokovanie",
+    "Str.Dock.PinnedHost": "Hostiteľ pripnutého dokovania",
+    "Str.Dock.PinnedToolTabs": "Karty pripnutých nástrojov",
+    "Str.Dock.CommandBars": "Panely príkazov dokovania",
+    "Str.Dock.DocumentsSelector": "Výber dokumentov",
     "Str.Dock.DocumentTabs": "Karty dokumentov",
     "Str.Dock.ToolTabs": "Karty nástrojov",
     "Str.AIChat.Refusal": "Poskytovateľ túto požiadavku odmietol.",

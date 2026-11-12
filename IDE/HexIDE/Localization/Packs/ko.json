@@ -2,6 +2,12 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "도킹 호스트",
+    "Str.Dock.Root": "루트 도크",
+    "Str.Dock.PinnedHost": "고정된 도킹 호스트",
+    "Str.Dock.PinnedToolTabs": "고정된 도구 탭",
+    "Str.Dock.CommandBars": "도킹 명령 모음",
+    "Str.Dock.DocumentsSelector": "문서 선택기",
     "Str.Dock.DragPreviewControlDock": "도킹",
     "Str.Dock.DragPreviewControlFloat": "부동",
     "Str.Dock.DragPreviewControlNone": "없음",

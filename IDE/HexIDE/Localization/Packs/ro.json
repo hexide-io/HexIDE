@@ -2,6 +2,12 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Gazdă de andocare",
+    "Str.Dock.Root": "Andocare rădăcină",
+    "Str.Dock.PinnedHost": "Gazdă de andocare fixată",
+    "Str.Dock.PinnedToolTabs": "File de instrumente fixate",
+    "Str.Dock.CommandBars": "Bare de comenzi de andocare",
+    "Str.Dock.DocumentsSelector": "Selector de documente",
     "Str.Dock.DocumentTabs": "File de documente",
     "Str.Dock.ToolTabs": "File de instrumente",
     "Str.AIChat.Refusal": "Furnizorul a refuzat această cerere.",

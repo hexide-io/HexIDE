@@ -2,6 +2,12 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Anfitrião de ancoragem",
+    "Str.Dock.Root": "Ancoragem raiz",
+    "Str.Dock.PinnedHost": "Anfitrião de ancoragem afixada",
+    "Str.Dock.PinnedToolTabs": "Separadores de ferramentas afixadas",
+    "Str.Dock.CommandBars": "Barras de comandos de ancoragem",
+    "Str.Dock.DocumentsSelector": "Seletor de documentos",
     "Str.Dock.DocumentTabs": "Separadores de documentos",
     "Str.Dock.ToolTabs": "Separadores de ferramentas",
     "Str.AIChat.Refusal": "O fornecedor recusou este pedido.",

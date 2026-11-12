@@ -42,6 +42,28 @@
     <Style Selector="ScrollBar:horizontal /template/ RepeatButton#PART_LineDownButton">
         <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.LineRight}" />
     </Style>
+    <!-- Localize Dock structural parts; keep their automation paths independent of language (#3806). -->
+    <Style Selector="DockControl">
+        <Setter Property="AutomationProperties.AutomationId" Value="Dock host" />
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.Host}" />
+    </Style>
+    <Style Selector="RootDockControl">
+        <Setter Property="AutomationProperties.AutomationId" Value="Root dock" />
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.Root}" />
+    </Style>
+    <Style Selector="PinnedDockControl">
+        <Setter Property="AutomationProperties.AutomationId" Value="Pinned dock host" />
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.PinnedHost}" />
+    </Style>
+    <Style Selector="ToolPinnedControl">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.PinnedToolTabs}" />
+    </Style>
+    <Style Selector="DockCommandBarHost">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.CommandBars}" />
+    </Style>
+    <Style Selector="DockSelectorOverlay">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.DocumentsSelector}" />
+    </Style>
     <Style Selector="DocumentTabStrip">
         <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.DocumentTabs}" />
     </Style>

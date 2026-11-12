@@ -2,6 +2,12 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Yerleştirme konağı",
+    "Str.Dock.Root": "Kök yerleştirme alanı",
+    "Str.Dock.PinnedHost": "Sabitlenmiş yerleştirme konağı",
+    "Str.Dock.PinnedToolTabs": "Sabitlenmiş araç sekmeleri",
+    "Str.Dock.CommandBars": "Yerleştirme komut çubukları",
+    "Str.Dock.DocumentsSelector": "Belge seçici",
     "Str.Dock.DocumentTabs": "Belge sekmeleri",
     "Str.Dock.ToolTabs": "Araç sekmeleri",
     "Str.AIChat.Refusal": "Sağlayıcı bu isteği reddetti.",

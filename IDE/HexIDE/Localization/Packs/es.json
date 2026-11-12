@@ -2,6 +2,12 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.Dock.Host": "Contenedor de acoplamiento",
+    "Str.Dock.Root": "Acoplamiento raíz",
+    "Str.Dock.PinnedHost": "Contenedor de acoplamiento anclado",
+    "Str.Dock.PinnedToolTabs": "Pestañas de herramientas ancladas",
+    "Str.Dock.CommandBars": "Barras de comandos de acoplamiento",
+    "Str.Dock.DocumentsSelector": "Selector de documentos",
     "Str.Dock.DocumentTabs": "Pestañas de documentos",
     "Str.Dock.ToolTabs": "Pestañas de herramientas",
     "Str.AIChat.Refusal": "El proveedor rechazó esta solicitud.",
