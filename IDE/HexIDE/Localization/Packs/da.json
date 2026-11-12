@@ -1242,6 +1242,7 @@
     "Str.Dock.ToolTabStripItemDock": "F_astgør",
     "Str.Dock.ToolTabStripItemAutoHide": "_Skjul automatisk",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Fastgør som dokument med faneblad",
-    "Str.Dock.ToolTabStripItemClose": "_Luk"
+    "Str.Dock.ToolTabStripItemClose": "_Luk",
+    "Str.AIChat.ApiKeyRequired": "API-nøgle kræves. Angiv apiKey i chat-settings.json."
   }
 }

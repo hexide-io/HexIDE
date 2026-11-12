@@ -1242,6 +1242,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Ancrer",
     "Str.Dock.ToolTabStripItemAutoHide": "_Masquer automatiquement",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Ancrer comme document à onglet",
-    "Str.Dock.ToolTabStripItemClose": "F_ermer"
+    "Str.Dock.ToolTabStripItemClose": "F_ermer",
+    "Str.AIChat.ApiKeyRequired": "Une clé API est requise. Définissez apiKey dans chat-settings.json."
   }
 }

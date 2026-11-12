@@ -1242,6 +1242,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Docka",
     "Str.Dock.ToolTabStripItemAutoHide": "Dölj _automatiskt",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Docka som dokumentflik",
-    "Str.Dock.ToolTabStripItemClose": "_Stäng"
+    "Str.Dock.ToolTabStripItemClose": "_Stäng",
+    "Str.AIChat.ApiKeyRequired": "API-nyckel krävs. Ange apiKey i chat-settings.json."
   }
 }

@@ -1242,6 +1242,7 @@
     "Str.Dock.ToolTabStripItemDock": "N_eo",
     "Str.Dock.ToolTabStripItemAutoHide": "_Tự động ẩn",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Neo dưới dạng tài liệu có thẻ",
-    "Str.Dock.ToolTabStripItemClose": "_Đóng"
+    "Str.Dock.ToolTabStripItemClose": "_Đóng",
+    "Str.AIChat.ApiKeyRequired": "Cần có khóa API. Đặt apiKey trong chat-settings.json."
   }
 }

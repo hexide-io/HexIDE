@@ -1242,6 +1242,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Dock",
     "Str.Dock.ToolTabStripItemAutoHide": "_Auto Hide",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Dock as Tabbed Document",
-    "Str.Dock.ToolTabStripItemClose": "_Close"
+    "Str.Dock.ToolTabStripItemClose": "_Close",
+    "Str.AIChat.ApiKeyRequired": "API key required. Set apiKey in chat-settings.json."
   }
 }

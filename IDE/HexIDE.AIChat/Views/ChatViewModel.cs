@@ -75,14 +75,16 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public ChatViewModel(IHexIdeHost host, string settingsDir)
+    public ChatViewModel(IHexIdeHost host, string settingsDir) : this(host, settingsDir, new ChatClient()) { }
+
+    internal ChatViewModel(IHexIdeHost host, string settingsDir, ChatClient client)
     {
         _host        = host;
         _settingsDir = settingsDir;
         _settings    = ChatSettings.Load(settingsDir);
         _historyPath = Path.Combine(settingsDir, "chat-history.json");
         _session     = ChatSession.LoadFrom(_historyPath);
-        _client      = new ChatClient();
+        _client      = client;
         _tools       = new IdeToolExecutor(host);
 
         foreach (var msg in _session.Log.Where(m => m.Role is "user" or "assistant"))
@@ -102,6 +104,14 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     {
         var text = InputText.Trim();
         if (string.IsNullOrEmpty(text) || IsResponding) return;
+
+        // Loopback as the URI resolves it (localhost and all of 127.0.0.0/8 and ::1), as OpenAiClient already decides.
+        var localEndpoint = Uri.TryCreate(_settings.BaseUrl, UriKind.Absolute, out var endpoint) && endpoint.IsLoopback;
+        if (!localEndpoint && string.IsNullOrWhiteSpace(_settings.ResolveApiKey()))
+        {
+            ShowError(new ChatStopException("Str.AIChat.ApiKeyRequired"));
+            return;
+        }
 
         using var cancellation = new CancellationTokenSource();
         _responseCancellation = cancellation;

@@ -1242,6 +1242,7 @@
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "מצייני המיקום של סביבת העבודה ייפתרו לאחר בחירת תיקיית פרויקט.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "הקובץ השתנה. יש לפתוח שוב את הטופס לפני השמירה.",
     "Str.Dock.DocumentTabs": "כרטיסיות מסמכים",
-    "Str.Dock.ToolTabs": "כרטיסיות כלים"
+    "Str.Dock.ToolTabs": "כרטיסיות כלים",
+    "Str.AIChat.ApiKeyRequired": "נדרש מפתח API. יש להגדיר apiKey בקובץ chat-settings.json."
   }
 }

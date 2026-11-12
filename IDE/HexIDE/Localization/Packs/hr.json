@@ -1242,6 +1242,7 @@
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Zamjenski znakovi radnog prostora čekaju odabir mape projekta.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Datoteka je promijenjena. Ponovno otvorite obrazac prije spremanja.",
     "Str.Dock.DocumentTabs": "Kartice dokumenata",
-    "Str.Dock.ToolTabs": "Kartice alata"
+    "Str.Dock.ToolTabs": "Kartice alata",
+    "Str.AIChat.ApiKeyRequired": "Potreban je API ključ. Postavite apiKey u chat-settings.json."
   }
 }

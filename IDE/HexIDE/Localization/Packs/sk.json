@@ -1242,6 +1242,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Ukotviť",
     "Str.Dock.ToolTabStripItemAutoHide": "_Automaticky skrývať",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Ukotviť ako dokument s kartou",
-    "Str.Dock.ToolTabStripItemClose": "_Zavrieť"
+    "Str.Dock.ToolTabStripItemClose": "_Zavrieť",
+    "Str.AIChat.ApiKeyRequired": "Vyžaduje sa kľúč API. Nastavte apiKey v chat-settings.json."
   }
 }

@@ -1242,6 +1242,7 @@
     "Str.Dock.ToolTabStripItemDock": "Закріпити",
     "Str.Dock.ToolTabStripItemAutoHide": "Автоматично приховувати",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Закріпити як документ із вкладкою",
-    "Str.Dock.ToolTabStripItemClose": "Закрити"
+    "Str.Dock.ToolTabStripItemClose": "Закрити",
+    "Str.AIChat.ApiKeyRequired": "Потрібен ключ API. Задайте apiKey у chat-settings.json."
   }
 }

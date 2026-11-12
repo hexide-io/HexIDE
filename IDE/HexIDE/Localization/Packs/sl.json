@@ -1242,6 +1242,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Zasidraj",
     "Str.Dock.ToolTabStripItemAutoHide": "_Samodejno skrij",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Zasidraj kot dokument z zavihkom",
-    "Str.Dock.ToolTabStripItemClose": "Z_apri"
+    "Str.Dock.ToolTabStripItemClose": "Z_apri",
+    "Str.AIChat.ApiKeyRequired": "Potreben je ključ API. Nastavite apiKey v chat-settings.json."
   }
 }

@@ -1242,6 +1242,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Acoplar",
     "Str.Dock.ToolTabStripItemAutoHide": "_Ocultar automaticamente",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Acoplar como documento com separador",
-    "Str.Dock.ToolTabStripItemClose": "F_echar"
+    "Str.Dock.ToolTabStripItemClose": "F_echar",
+    "Str.AIChat.ApiKeyRequired": "É necessária uma chave API. Defina apiKey em chat-settings.json."
   }
 }

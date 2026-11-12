@@ -1242,6 +1242,7 @@
     "Str.Dock.ToolTabStripItemDock": "เทียบชิด",
     "Str.Dock.ToolTabStripItemAutoHide": "ซ่อนอัตโนมัติ",
     "Str.Dock.ToolTabStripItemDockAsDocument": "เทียบชิดเป็นเอกสารแบบแท็บ",
-    "Str.Dock.ToolTabStripItemClose": "ปิด"
+    "Str.Dock.ToolTabStripItemClose": "ปิด",
+    "Str.AIChat.ApiKeyRequired": "ต้องใช้คีย์ API ตั้งค่า apiKey ใน chat-settings.json"
   }
 }

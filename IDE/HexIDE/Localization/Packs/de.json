@@ -1242,6 +1242,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Andocken",
     "Str.Dock.ToolTabStripItemAutoHide": "A_utomatisch ausblenden",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Als Dokument mit Registerkarte andocken",
-    "Str.Dock.ToolTabStripItemClose": "S_chließen"
+    "Str.Dock.ToolTabStripItemClose": "S_chließen",
+    "Str.AIChat.ApiKeyRequired": "API-Schlüssel erforderlich. Setzen Sie apiKey in chat-settings.json."
   }
 }

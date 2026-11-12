@@ -1242,6 +1242,7 @@
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Placeholder ruang kerja menunggu pemilihan folder proyek.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Berkas berubah. Buka kembali formulir sebelum menyimpan.",
     "Str.Dock.DocumentTabs": "Tab dokumen",
-    "Str.Dock.ToolTabs": "Tab alat"
+    "Str.Dock.ToolTabs": "Tab alat",
+    "Str.AIChat.ApiKeyRequired": "Kunci API diperlukan. Atur apiKey di chat-settings.json."
   }
 }

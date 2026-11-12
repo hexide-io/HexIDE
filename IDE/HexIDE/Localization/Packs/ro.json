@@ -1242,6 +1242,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Andochează",
     "Str.Dock.ToolTabStripItemAutoHide": "A_scunde automat",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Andochează ca document cu filă",
-    "Str.Dock.ToolTabStripItemClose": "În_chide"
+    "Str.Dock.ToolTabStripItemClose": "În_chide",
+    "Str.AIChat.ApiKeyRequired": "Este necesară o cheie API. Setați apiKey în chat-settings.json."
   }
 }

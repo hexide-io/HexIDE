@@ -1242,6 +1242,7 @@
     "Str.Dock.ToolTabStripItemDock": "إرساء",
     "Str.Dock.ToolTabStripItemAutoHide": "إخفاء تلقائي",
     "Str.Dock.ToolTabStripItemDockAsDocument": "إرساء كمستند ذي علامة تبويب",
-    "Str.Dock.ToolTabStripItemClose": "إغلاق"
+    "Str.Dock.ToolTabStripItemClose": "إغلاق",
+    "Str.AIChat.ApiKeyRequired": "مفتاح API مطلوب. عيّن apiKey في chat-settings.json."
   }
 }

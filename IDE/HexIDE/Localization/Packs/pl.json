@@ -1242,6 +1242,7 @@
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Symbole obszaru roboczego czekają na wybór folderu projektu.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Plik się zmienił. Otwórz formularz ponownie przed zapisaniem.",
     "Str.Dock.DocumentTabs": "Karty dokumentów",
-    "Str.Dock.ToolTabs": "Karty narzędzi"
+    "Str.Dock.ToolTabs": "Karty narzędzi",
+    "Str.AIChat.ApiKeyRequired": "Wymagany jest klucz API. Ustaw apiKey w chat-settings.json."
   }
 }

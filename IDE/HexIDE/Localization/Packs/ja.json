@@ -1242,6 +1242,7 @@
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "プロジェクトフォルダーを選択するまでワークスペースのプレースホルダーは解決されません。",
     "Str.Tool.LanguageServers.Editor.FileChanged": "ファイルが変更されました。保存する前にフォームを開き直してください。",
     "Str.Dock.DocumentTabs": "ドキュメントのタブ",
-    "Str.Dock.ToolTabs": "ツールのタブ"
+    "Str.Dock.ToolTabs": "ツールのタブ",
+    "Str.AIChat.ApiKeyRequired": "API キーが必要です。chat-settings.json の apiKey を設定してください。"
   }
 }

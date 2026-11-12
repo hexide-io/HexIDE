@@ -1242,6 +1242,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Usidri",
     "Str.Dock.ToolTabStripItemAutoHide": "_Automatski sakrij",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Usidri kao dokument sa karticom",
-    "Str.Dock.ToolTabStripItemClose": "_Zatvori"
+    "Str.Dock.ToolTabStripItemClose": "_Zatvori",
+    "Str.AIChat.ApiKeyRequired": "Potreban je API ključ. Podesite apiKey u chat-settings.json."
   }
 }
