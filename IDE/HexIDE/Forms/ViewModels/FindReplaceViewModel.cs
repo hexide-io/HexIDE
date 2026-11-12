@@ -354,7 +354,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         {
             _windowManager.MessageBox(
                 string.Format(_localization.GetString(ProtectedMatchesInScope(editor) > 0
-                    ? "Str.FindReplace.Msg.ProtectedOnly" : "Str.FindReplace.Msg.NotFound"), SearchText),
+                    ? "Str.FindReplace.Msg.ReadOnlyTextOnly" : "Str.FindReplace.Msg.NotFound"), SearchText),
                 _localization.GetString("Str.FindReplace.Msg.TitleFind"),
                 MessageBoxButtons.Ok,
                 MessageBoxIcon.Information);
@@ -439,13 +439,13 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         var message = leftOut > 0
                 ? string.Format(_localization.GetString("Str.FindReplace.Msg.ReplacementsWithFilesLeftOut"), count, leftOut)
                 : skipped > 0
-                ? string.Format(_localization.GetString("Str.FindReplace.Msg.ReplacementsWithSkipped"), count, skipped)
+                ? string.Format(_localization.GetString("Str.FindReplace.Msg.ReplacementsSkippingReadOnlyText"), count, skipped)
                 : count > 0
                 ? string.Format(_localization.GetString("Str.FindReplace.Msg.ReplacementsMade"), count)
                 : string.Format(_localization.GetString("Str.FindReplace.Msg.NotFound"), SearchText);
         if (leftOut > 0 && skipped > 0)
             message += Environment.NewLine + string.Format(
-                _localization.GetString("Str.FindReplace.Msg.ReplacementsWithSkipped"), count, skipped);
+                _localization.GetString("Str.FindReplace.Msg.ReplacementsSkippingReadOnlyText"), count, skipped);
         await _windowManager.MessageBox(message,
             _localization.GetString("Str.FindReplace.Msg.TitleReplace"),
             MessageBoxButtons.Ok,

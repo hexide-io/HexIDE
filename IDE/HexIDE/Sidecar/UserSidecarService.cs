@@ -612,8 +612,7 @@ public partial class UserSidecarService : IUserSidecarService
             .Distinct().ToList();
         if (dropped.Count == 0) return lines;
 
-        Log.Warning("Dropped {What:l}s on {Lines} from {Path}: in {Document} those are read-only lines, of its header " +
-                    "or of the Attribute lines that describe a member, where nothing can be marked",
+        Log.Warning("Dropped {What:l}s on {Lines} from {Path}: in {Document} those are read-only lines, where nothing can be marked",
             what, dropped, path, document.Display);
         return lines.Where(line => !dropped.Contains(line));
     }

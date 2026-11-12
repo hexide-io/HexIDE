@@ -32,7 +32,7 @@ public class GuardedWritersTests : IDisposable
 
     public GuardedWritersTests()
     {
-        localization.GetString("Str.CodeEditor.Msg.RenameTouchesReadOnly").Returns("rename refused");
+        localization.GetString("Str.CodeEditor.Msg.RenameChangesReadOnlyText").Returns("rename refused");
     }
 
     public void Dispose()
@@ -684,6 +684,16 @@ public class GuardedWritersTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void ALineBreakBeforeAMembersRunUsesTheFormatsWords()
+    {
+        var vm = OpenClass();
+        var line = vm.Document.GetLineByOffset(vm.Document.Text.IndexOf("Public Function Total", StringComparison.Ordinal));
+
+        vm.ApplyEdits([new TextChange(line.EndOffset, 0, "\r\nx")]).Should()
+            .Contain("in the line above the Attribute lines describing Total");
+    }
+
+    [AvaloniaFact]
     public void AnEditInsideAMembersAttributeLineIsRefused()
     {
         var vm = OpenClass();
@@ -731,11 +741,11 @@ public class GuardedWritersTests : IDisposable
     [AvaloniaFact]
     public void WholeFileReadOnlyRefusesContentReplacement()
     {
-        localization.GetString("Str.CodeEditor.FileNotSaved.Banner").Returns("file cannot be saved");
+        localization.GetString(Arg.Any<string>()).Returns(c => "⟦" + c.Arg<string>() + "⟧");
         var vm = OpenFormHeldReadOnly();
         var before = vm.Document.Text;
 
-        vm.ReplaceContent(before.Replace("= False", "= True")).Refusal.Should().Be("file cannot be saved");
+        vm.ReplaceContent(before.Replace("= False", "= True")).Refusal.Should().Be($"This file will not be saved: {Distribution.DisplayName} cannot yet reproduce it faithfully, so saving it would change it. Its code is part of the file, so no change to it is accepted. Nothing was changed.");
 
         vm.Document.Text.Should().Be(before);
         vm.Document.UndoStack.CanUndo.Should().BeFalse();
@@ -744,12 +754,12 @@ public class GuardedWritersTests : IDisposable
     [AvaloniaFact]
     public void WholeFileReadOnlyRefusesRangeEdits()
     {
-        localization.GetString("Str.CodeEditor.FileNotSaved.Banner").Returns("file cannot be saved");
+        localization.GetString(Arg.Any<string>()).Returns(c => "⟦" + c.Arg<string>() + "⟧");
         var vm = OpenFormHeldReadOnly();
         var before = vm.Document.Text;
 
         vm.ApplyEdits([new TextChange(before.IndexOf("False", StringComparison.Ordinal), 5, "True")])
-            .Should().Be("file cannot be saved");
+            .Should().Be($"This file will not be saved: {Distribution.DisplayName} cannot yet reproduce it faithfully, so saving it would change it. Its code is part of the file, so no change to it is accepted. Nothing was changed.");
 
         vm.Document.Text.Should().Be(before);
         vm.Document.UndoStack.CanUndo.Should().BeFalse();

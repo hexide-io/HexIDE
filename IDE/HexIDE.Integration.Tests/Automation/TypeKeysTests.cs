@@ -224,7 +224,7 @@ public class TypeKeysTests : IDisposable
 
         refused.Success.Should().BeFalse();
         refused.Error.Should().Contain("text before the caret belongs to the Attribute lines describing Total")
-            .And.Contain("Deleting the member's whole declaration")
+            .And.Contain("Deleting the whole of the line above that read-only text")
             .And.NotContain($"CaretOffset={caret}").And.NotContain("nearest place");
         editor.Text.Should().Be(before);
 

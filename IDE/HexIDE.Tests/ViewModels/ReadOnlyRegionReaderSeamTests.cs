@@ -29,7 +29,6 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
         public ContentReplacement Replace(string current, int prefixLength, string incoming) =>
             new(null, "Keep the notes intact.", false);
         public string? RangeEditRefusal(string before, string after, int prefixLength) => "the notes changed";
-        public string? MemberNamedBy(string text, int prefixLength, TextRegion region) => "the second heading";
         public bool RenameMayWrite(string text, int prefixLength, IReadOnlyList<TextChange> changes, TextChange edit) =>
             !RefuseRename;
         public bool HeaderDeclares(string text, int prefixLength, string name) => name == "gamma";
@@ -48,17 +47,20 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
     [AvaloniaFact]
     public void RangeEditUsesTheRulesFindings()
     {
-        var localization = new LocalizationService();
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString(Arg.Any<string>()).Returns(c => "⟦" + c.Arg<string>() + "⟧");
         var vm = NewEditor(null, localization, new Rules()).Initialize(Notes());
         vm.ApplyEdits([new TextChange(0, 5, "ALPHA")]).Should().Be(
-            string.Format(localization.GetString("Str.CodeEditor.RangeEditRefused"), "the notes changed"));
+            "Edits refused: the notes changed. Nothing was changed.");
         vm.Document.Text.Should().Be(Text);
     }
 
     [AvaloniaFact]
     public void RegionEditUsesTheRulesDescription()
     {
-        var vm = NewEditor(new FixedLines((2, 2)), rules: new Rules()).Initialize(Notes());
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString(Arg.Any<string>()).Returns(c => "⟦" + c.Arg<string>() + "⟧");
+        var vm = NewEditor(new FixedLines((2, 2)), localization, new Rules()).Initialize(Notes());
         vm.ApplyEdits([new TextChange(At(vm, "beta"), 1, "B")]).Should().Be(
             "The edit at line 2, column 1 would change the second heading, which only the IDE changes. Nothing was changed.");
         vm.Document.Text.Should().Be(Text);
@@ -142,7 +144,6 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
         module.UpdateCode("Attribute VB_Name = \"Notes\"\r\nPublic Sub Total()\r\nAttribute Total.VB_Description = \"sum\"\r\nEnd Sub\r\n");
         var vm = NewEditor(null, rules: defaults ? new NoRules() : null).Initialize(module);
         vm.RenameRefusalAt(0, "Notes").Should().BeNull();
-        vm.MemberNamedBy(new TextRegion(0, 1)).Should().BeNull();
         vm.ApplyEdits([new TextChange(0, 1, "x")]).Should().BeNull();
         vm.ApplyRename([new TextEdit(new LspRange(new Position(0, 0), new Position(0, 1)), "y")], "x").Should().BeNull();
         vm.ReplaceContent("new notes").Should().Be(new ContentReplacement("new notes", null, false));
@@ -461,7 +462,7 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Notes", ModuleKind.StandardModule);
         module.RecordOriginalHeader("");
         module.UpdateCode(Tucked);
-        var vm = NewEditor(new Headings(), localization).Initialize(module);
+        var vm = NewEditor(new Headings(), localization, rules).Initialize(module);
         vm.Document.Text.Should().Be(Tucked, "the premise: nothing VB6 is in the buffer");
         return vm;
     }
@@ -529,13 +530,13 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
     public void AnEditThatWouldLeaveARegionUnderAnotherLineIsRefusedByTheRegionsName()
     {
         var localization = Substitute.For<ILocalizationService>();
-        localization.GetString("Str.CodeEditor.Msg.LineBreakSeparatesAttributes").Returns("would part {0} from its lines.");
-        var vm = OpenTucked(localization);
+        localization.GetString(Arg.Any<string>()).Returns(c => "⟦" + c.Arg<string>() + "⟧");
+        var vm = OpenTucked(localization, new Rules());
         var before = vm.Document.Text;
 
         var refusal = vm.ApplyEdits([new HexIDE.Language.TextChange(EndOf(vm, "heading Two"), 0, "\r\nx")]);
 
-        refusal.Should().EndWith("would part Two from its lines.");
+        refusal.Should().Be("The edit at line 7, column 12 would put a line break in the line above the second heading or in that line's trailing comment, parting the line from the read-only text below it. Insert new lines after that read-only text instead. Nothing was changed.");
         vm.Document.Text.Should().Be(before);
     }
 

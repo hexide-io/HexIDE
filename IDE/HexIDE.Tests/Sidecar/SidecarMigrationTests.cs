@@ -733,6 +733,8 @@ public sealed class SidecarMigrationTests : IDisposable
         readOnlyDrops.Should().Contain(m => m.Contains("Shop/Orders") && m.Contains("breakpoint"));
         readOnlyDrops.Should().Contain(m => m.Contains("Shop/Orders") && m.Contains("bookmark"));
         readOnlyDrops.Should().Contain(m => m.Contains("Shop/Utils"));
+        readOnlyDrops.Should().OnlyContain(m => m.EndsWith("those are read-only lines, where nothing can be marked"));
+
 
         var written = ReadJson(SidecarPath);
         Lines(written, "codeBreakpoints", "Orders").Should().Equal(breakpoint - 25);

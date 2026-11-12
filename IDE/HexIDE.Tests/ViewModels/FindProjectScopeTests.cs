@@ -148,7 +148,7 @@ public partial class FindReplaceViewModelTests : IDisposable
 
         _findOpen.Should().BeEmpty();
         _findEditors.DidNotReceive().EditCode(module);
-        await _windowManager.Received().MessageBox(Arg.Is<string>(text => text.Contains("ProtectedOnly")),
+        await _windowManager.Received().MessageBox(Arg.Is<string>(text => text.Contains("ReadOnlyTextOnly")),
             Arg.Any<string>(), MessageBoxButtons.Ok, MessageBoxIcon.Information);
     }
 

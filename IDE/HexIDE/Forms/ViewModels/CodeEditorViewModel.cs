@@ -773,7 +773,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (!ReadOnlyRegions.IsReadOnlyLine(Document.Text, ReadOnlyRegionsNow, line))
             return false;
         statusBarService.SetTemporaryMessage(
-            string.Format(localization.GetString("Str.CodeEditor.Msg.NoMarkOnReadOnlyLine"), line),
+            string.Format(localization.GetString("Str.CodeEditor.Msg.NoMarkOnReadOnlyText"), line),
             TimeSpan.FromSeconds(6));
         return true;
     }
@@ -1904,7 +1904,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 continue;
             Log.Information("Refused a rename of {Name} in {Document}: an edit at offset {Offset} is in a read-only region",
                 oldName, identity?.Display, refused.Offset);
-            return localization.GetString("Str.CodeEditor.Msg.RenameTouchesReadOnly");
+            return localization.GetString("Str.CodeEditor.Msg.RenameChangesReadOnlyText");
         }
 
         ApplyAsOneStep(changes);
@@ -1966,7 +1966,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     internal string? RenameRefusalAt(int offset, string word) =>
         IsReadOnlyRegion(offset, 0) || regionRules?.HeaderDeclares(Document.Text, bufferPrefix.Length, word) == true
-            ? localization.GetString("Str.CodeEditor.Msg.RenameTouchesReadOnly")
+            ? localization.GetString("Str.CodeEditor.Msg.RenameChangesReadOnlyText")
             : null;
 
     /// <summary>
@@ -1978,7 +1978,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public ContentReplacement ReplaceContent(string incoming)
     {
         if (IsReadOnly)
-            return new ContentReplacement(null, localization.GetString("Str.CodeEditor.FileNotSaved.Banner"), HeaderKept: false);
+            return new ContentReplacement(null, ReadOnlyWriteRefusal, HeaderKept: false);
 
         var result = regionRules?.Replace(Document.Text, bufferPrefix.Length, DocumentNewLines.Normalize(incoming, Document.Text))
             ?? new ContentReplacement(DocumentNewLines.Normalize(incoming, Document.Text), null, false);
@@ -2000,7 +2000,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal string? ApplyEdits(IReadOnlyList<TextChange> edits, Func<int, string>? describe = null)
     {
         if (IsReadOnly)
-            return localization.GetString("Str.CodeEditor.FileNotSaved.Banner");
+            return ReadOnlyWriteRefusal;
 
         var regions = ReadOnlyRegionsNow;
         for (var i = 0; i < edits.Count; i++)
@@ -2025,7 +2025,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             {
                 var at = Document.GetLocation(edit.Offset);
                 return $"{describe?.Invoke(i) ?? $"The edit at line {at.Line}, column {at.Column}"} "
-                       + string.Format(localization.GetString("Str.CodeEditor.Msg.LineBreakSeparatesAttributes"), run.Name);
+                       + $"would put a line break in the line above {DescribeRegions([run.Region])} or in that line's trailing comment, "
+                       + "parting the line from the read-only text below it. Insert new lines after that read-only text instead. Nothing was changed.";
             }
         }
 
@@ -2051,7 +2052,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         foreach (var edit in lastFirst)
             after = after.Remove(edit.Offset, edit.Length).Insert(edit.Offset, edit.Text);
         if (regionRules?.RangeEditRefusal(Document.Text, after, bufferPrefix.Length) is { } refusal)
-            return string.Format(localization.GetString("Str.CodeEditor.RangeEditRefused"), refusal);
+            return $"Edits refused: {refusal}. Nothing was changed.";
 
         ApplyAsOneStep(lastFirst);
         return null;
@@ -2061,13 +2062,14 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         DescribeRegions(regions.Where(r => r.Changes(edit.Offset, edit.Length)).ToList());
 
     /// <summary>The format's phrase for the regions reached by an edit or caret.</summary>
-    internal string DescribeRegions(IReadOnlyList<TextRegion> regions) =>
-        (regions.Count == 0 ? null : regionRules?.DescribeRegions(Document.Text, bufferPrefix.Length, regions))
+    internal string DescribeRegions(IReadOnlyList<TextRegion> regions, string? text = null) =>
+        (regions.Count == 0 ? null : regionRules?.DescribeRegions(text ?? Document.Text, bufferPrefix.Length, regions))
         ?? "read-only text";
 
-    /// <summary>The member name used to choose automation's deletion advice.</summary>
-    internal string? MemberNamedBy(TextRegion region) =>
-        regionRules?.MemberNamedBy(Document.Text, bufferPrefix.Length, region);
+    /// <summary>The English refusal returned to programs for a file the IDE cannot save faithfully.</summary>
+    internal static string ReadOnlyWriteRefusal =>
+        $"This file will not be saved: {Distribution.DisplayName} cannot yet reproduce it faithfully, so saving it would change it. "
+        + "Its code is part of the file, so no change to it is accepted. Nothing was changed.";
 
     /// <summary>Refuses a programmatic write before it can change text or consume undo history.</summary>
     internal bool RefuseWholeFileWrite()

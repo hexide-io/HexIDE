@@ -55,6 +55,49 @@ public class ShippedPackParityTests
     /// <summary>The canonical pack every other one is measured against.</summary>
     private const string Canonical = "en";
 
+    [Theory]
+    [InlineData("Str.CodeEditor.Msg.RenameChangesReadOnlyText", "Str.CodeEditor.Msg.RenameTouchesReadOnly")]
+    [InlineData("Str.CodeEditor.Msg.NoMarkOnReadOnlyText", "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine")]
+    [InlineData("Str.FindReplace.Msg.ReadOnlyTextOnly", "Str.FindReplace.Msg.ProtectedOnly")]
+    [InlineData("Str.FindReplace.Msg.ReplacementsSkippingReadOnlyText", "Str.FindReplace.Msg.ReplacementsWithSkipped")]
+    public void PeopleSeeTheIdesOwnWordsForReadOnlyText(string key, string retiredKey)
+    {
+        var canonical = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), "en.json")),
+            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        canonical.Should().ContainKey(key);
+        foreach (var word in new[] { "Attribute", "header", "designer", "VB6" })
+            canonical[key].Should().NotContainEquivalentOf(word);
+        foreach (var file in Directory.EnumerateFiles(PacksDirectory(), "*.json"))
+        {
+            var pack = JsonSerializer.Deserialize(File.ReadAllText(file),
+                LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+            pack.Should().NotContainKey(retiredKey, file);
+            if (IsFullTranslation(Path.GetFileNameWithoutExtension(file)))
+            {
+                pack.Should().ContainKey(key, file);
+                Regex.Matches(pack[key], @"\{\d+\}").Select(m => m.Value).Should().BeEquivalentTo(
+                    Regex.Matches(canonical[key], @"\{\d+\}").Select(m => m.Value), file);
+            }
+        }
+    }
+
+    [Fact]
+    public void NoPackHasKeysAbsentFromCanonicalEnglish()
+    {
+        var packs = PacksDirectory();
+        var canonical = KeysOf(Path.Combine(packs, $"{Canonical}.json"));
+        canonical.Should().NotBeEmpty("the canonical pack defines the keys that may ship");
+
+        var unexpected = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(packs, "*.json"))
+        {
+            unexpected.AddRange(KeysOf(file).Except(canonical).Order(StringComparer.Ordinal)
+                .Select(key => $"{Path.GetFileName(file)}: {key}"));
+        }
+
+        unexpected.Should().BeEmpty("all packs, including regional overrides, use only canonical English keys");
+    }
+
     [Fact]
     public void PackAmpersandsAreLiteralRatherThanAccessKeyMarkers()
     {

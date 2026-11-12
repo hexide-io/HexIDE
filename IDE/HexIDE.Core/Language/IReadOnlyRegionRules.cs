@@ -14,9 +14,6 @@ public interface IReadOnlyRegionRules
     /// <summary>Findings about the result of range edits, in the format's words; null when allowed.</summary>
     string? RangeEditRefusal(string before, string after, int prefixLength) => null;
 
-    /// <summary>The member name used only to choose press_key's deletion hint, or null for the header.</summary>
-    string? MemberNamedBy(string text, int prefixLength, TextRegion region) => null;
-
     /// <summary>
     /// A noun phrase naming the non-empty set of regions an edit or the caret reaches, or null for the IDE's
     /// generic wording. The phrase must read after both "would change" and "is in".

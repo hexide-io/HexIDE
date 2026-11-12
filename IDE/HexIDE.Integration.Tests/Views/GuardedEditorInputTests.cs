@@ -329,7 +329,10 @@ public class GuardedEditorInputTests : IDisposable
         var before = vm.Document.Text;
         editor.TextArea.Caret.Offset = before.IndexOf("Option Explicit", StringComparison.Ordinal);
 
-        UiAutomationDriver.PressKey(editor, "Back", null).Success.Should().BeFalse();
+        var outcome = UiAutomationDriver.PressKey(editor, "Back", null);
+        outcome.Success.Should().BeFalse();
+        outcome.Error.Should().Contain("Edit after that read-only text instead.")
+            .And.NotContain("Deleting the whole");
 
         vm.Document.Text.Should().Be(before);
     }
