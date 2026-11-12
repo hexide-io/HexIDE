@@ -28,3 +28,6 @@ surfaces; the code editor remains a node because its context menu advertises `ex
 also checks a `None` peer across an unusable-to-usable range. Integration suite: 2,063 passed. IDE unit suite:
 3,273 passed, 28 environment-dependent skips. ToolDescription tests: 31 passed. Debug desktop build: zero warnings.
 Tree hygiene passed. Live MCP verification was not run in this task, which prohibited MCP calls.
+
+For current calls, use `TitleBar[Immediate]` → `TitleBar[Tool.immediate]`, `Pane[Immediate]` → `Pane[Tool.immediate]`. The calls above retain their historical measurement.
+See [#3825](3825.md) for shared title bars and floating-window selectors.

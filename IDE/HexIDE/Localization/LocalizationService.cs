@@ -141,6 +141,7 @@ public sealed class LocalizationService : ILocalizationService
 
             _currentLanguageDict = BuildResourceDictionary(map);
             _currentLanguageDict[FlowDirectionKey] = FlowDirection;
+            _currentLanguageDict["Ide.Language"] = id == "system" ? ResolvedLanguage : id;
             app.Resources.MergedDictionaries.Add(_currentLanguageDict);
         }
 

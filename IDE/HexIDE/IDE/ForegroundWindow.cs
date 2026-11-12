@@ -67,7 +67,8 @@ public static class ForegroundWindow
         // A window by its title, or a running form by its name, which outlives a caption the program changes.
         var named = windows.Where(w => w != mainWindow
             && (string.Equals(w.Title, scope, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(VBProps.GetName(w), scope, StringComparison.OrdinalIgnoreCase))).ToList();
+                || string.Equals(VBProps.GetName(w), scope, StringComparison.OrdinalIgnoreCase)
+                || MainViewViewModel.DockFactory.FloatingTools(w).Any(t => string.Equals(t.Key, scope, StringComparison.OrdinalIgnoreCase)))).ToList();
         var shown = named.Where(w => w.IsVisible).ToList();
         if (shown.Count == 1)
             return (shown[0], null);
@@ -143,7 +144,13 @@ public static class ForegroundWindow
     private static string Titles(IEnumerable<Window> windows) =>
         string.Join(", ", windows.Select(w => VBProps.GetName(w) is { Length: > 0 } name
             ? $"{name} (\"{w.Title}\")"
-            : $"\"{w.Title}\""));
+            : $"\"{w.Title}\"" + FloatingKeys(w)));
+
+    private static string FloatingKeys(Window window)
+    {
+        var keys = MainViewViewModel.DockFactory.FloatingTools(window).Select(t => t.Key).ToArray();
+        return keys.Length == 0 ? "" : " (tool keys: " + string.Join(", ", keys) + ")";
+    }
 
     /// <summary>
     /// Prefers a visible window other than <paramref name="mainWindow"/>: a dialog first, then the one
@@ -190,6 +197,15 @@ public static class ForegroundWindow
         return best ?? mainWindow;
     }
 
+    private static bool FailedTool(string error, string key, string? title)
+    {
+        var end = error.IndexOf("' under '", StringComparison.Ordinal);
+        if (!error.StartsWith("no child matching '", StringComparison.Ordinal) || end < 0) return false;
+        var segment = error["no child matching '".Length..end];
+        return segment == "#Tool." + key || segment.EndsWith("[Tool." + key + "]", StringComparison.Ordinal)
+            || title is { Length: > 0 } && segment.EndsWith("[" + title + "]", StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// <paramref name="path"/> resolved in <paramref name="picked"/>, as the automation tools resolve one, with a failure naming
     /// that window when the choice was left to <c>"auto"</c> and fell on a window other than the IDE's own (#1264).
@@ -206,18 +222,25 @@ public static class ForegroundWindow
         string path, string? scope, Window picked, Window mainWindow, string pickedName)
     {
         var (control, error) = HexIDE.Automation.UiAutomationDriver.Resolve(picked, path);
+        if (control is null && error is not null && error.StartsWith("no child matching", StringComparison.Ordinal)
+            && Avalonia.Application.Current?.TryGetResource("Ide.Language", null, out var language) == true
+            && language is string id && id is not ("en" or "en-GB")
+            // A segment already naming a stable id did not fail for want of one (#3825).
+            && !error.Contains("[Tool.", StringComparison.Ordinal))
+            error += ". Names follow the IDE language (" + id + "); use stable AutomationIds such as TitleBar[Tool.locals]/Pane[Tool.locals], Tool.properties, Tool.project or TabItem[Tool.languageServers]. Discover paths with dump_visual_tree";
         if (control is null && error is not null && picked == mainWindow
             && !error.StartsWith(HexIDE.Automation.UiAutomationDriver.EmptyPath, StringComparison.Ordinal)
             && !error.StartsWith(HexIDE.Automation.UiAutomationDriver.NotFromWindow, StringComparison.Ordinal)
             && Avalonia.Application.Current?.ApplicationLifetime is
                 Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime lifetime)
         {
-            var floating = lifetime.Windows.Where(w => w.IsVisible && MainViewViewModel.DockFactory.IsToolHostWindow(w));
-            var hints = floating.Select(w => $"window: \"{w.Title}\"").ToList();
+            var floating = lifetime.Windows.Where(w => w.IsVisible && MainViewViewModel.DockFactory.IsToolHostWindow(w)
+                && MainViewViewModel.DockFactory.FloatingTools(w).Any(t => FailedTool(error, t.Key, t.Title)));
+            var hints = floating.Select(w => $"window: \"{w.Title}\"" + FloatingKeys(w)).ToList();
             if (hints.Count > 0)
                 return (null, $"{error}. Tools are floating in separate IDE windows: {string.Join(", ", hints)}. "
-                              + "If this path came from a tool that has since floated, use dump_visual_tree with its "
-                              + "window title for fresh paths; its old IDE path no longer reaches it.");
+                              + "If this path came from a tool that has since floated, pass that window (its title, or the tool's key such as "
+                              + "window: \"immediate\") to dump_visual_tree for fresh paths; its old IDE path no longer reaches it.");
         }
         if (control is null && error is not null && StackedNote(picked, scope) is { } stacked)
             return (null, $"{error}. {stacked}");
