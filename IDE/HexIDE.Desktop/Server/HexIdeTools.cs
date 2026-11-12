@@ -2906,7 +2906,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         var note = total switch
         {
-            0 => $"Nothing matches '{match}'. Name, AutomationId, ClassName, ControlType, typeNameAsName and the "
+            0 => $"Nothing matches '{match}'. Name, label, AutomationId, ClassName, ControlType, typeNameAsName and the "
                  + "DataContext type are searched, as text that contains it, ignoring case.",
             1 => $"1 node matches '{match}'.",
             _ when total > MatchLimit => $"{total} nodes match '{match}'; the first {MatchLimit}, in tree order, are listed. "
@@ -2916,7 +2916,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (unsearched > 0)
             note += $" {unsearched} {(unsearched == 1 ? "branch" : "branches")} stopped at maxDepth and {(unsearched == 1 ? "was" : "were")} "
               + "not searched: raise maxDepth, or search again from a truncated node's path as 'root'.";
-        var tabs = dock?.AllTabs.Where(t => !ReferenceEquals(t, dock.ActiveTab)).Select(t => t.Title ?? "").ToArray() ?? [];
+        var shownTabs = dock?.ShownTabs ?? [];
+        var tabs = dock?.AllTabs.Where(t => !shownTabs.Contains(t)).Select(t => t.Title ?? "").ToArray() ?? [];
         if (tabs.Length > 0)
             note += $" {tabs.Length} open tab(s) are not selected, and what they hold is not in the tree: "
                     + string.Join(", ", tabs.Select(t => $"'{t}'")) + ". activate_document_tab brings one to the front.";

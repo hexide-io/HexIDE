@@ -1242,10 +1242,17 @@ locations or .NET type names for that overflow. Nothing in the tool SHALL run fo
 A `dump_visual_tree` match reply SHALL name unselected document tabs when searching the IDE window,
 and unselected Options pages when searching the Options dialog, and explain how to select them.
 This note SHALL accompany both empty and nonempty matches, alongside any depth-limit warning.
+A tab selected in any document area SHALL be excluded from the unselected list, regardless of focus.
+A zero-match note SHALL list the searched fields in order: Name, label, AutomationId, ClassName,
+ControlType, typeNameAsName and the DataContext type.
 
 #### Scenario: An editor is behind a designer
 - **WHEN** a match search runs with a code tab open but unselected
 - **THEN** the note names that tab, says its contents are not in the tree, and directs the caller to `activate_document_tab`
+
+#### Scenario: Two document areas each show a tab
+- **WHEN** a match search runs with different tabs selected in two document areas and another tab unselected
+- **THEN** the note names only the unselected tab, leaving out both shown tabs
 
 #### Scenario: A setting is on another Options page
 - **WHEN** a match search runs in Options with other pages unselected

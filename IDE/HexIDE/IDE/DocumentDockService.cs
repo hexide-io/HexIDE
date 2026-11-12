@@ -64,6 +64,9 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     public IReadOnlyList<IDockable> AllTabs =>
         factory.Value is { } f ? [.. f.DocumentAreas.SelectMany(d => d.VisibleDockables ?? [])] : [];
 
+    public IReadOnlyList<IDockable> ShownTabs =>
+        factory.Value is { } f ? [.. f.DocumentAreas.Select(d => d.ActiveDockable).OfType<IDockable>()] : [];
+
     public IDockable? ActiveTab
     {
         get

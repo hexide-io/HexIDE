@@ -30,6 +30,9 @@ public interface IDocumentDockService : INotifyPropertyChanged
     /// </remarks>
     IReadOnlyList<IDockable> AllTabs { get; }
 
+    /// <summary>The selected tab in each document area, in layout order, regardless of focus.</summary>
+    IReadOnlyList<IDockable> ShownTabs { get; }
+
     /// <summary>The zero-based document area in layout order.</summary>
     int AreaOf(IDockable tab);
 
