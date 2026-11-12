@@ -23,11 +23,12 @@ public class DragDockTests
 {
     internal sealed record Layout(Window Window, DockControl Host, ToolDock Left, ToolDock Right, Tool Alpha, Tool Beta);
 
-    internal static Layout Shown()
+    internal static Layout Shown(System.Action<Tool, Tool>? configure = null)
     {
         var factory = new Factory();
         var alpha = new Tool { Id = "Alpha", Title = "Alpha" };
         var beta = new Tool { Id = "Beta", Title = "Beta" };
+        configure?.Invoke(alpha, beta);
         var left = new ToolDock
         {
             Id = "Left", Proportion = 0.5,

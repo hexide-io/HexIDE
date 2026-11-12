@@ -40,3 +40,6 @@ at launch.
 **Suggested fix.** `invoke_command` falling back to a public parameterless method, listed by `inspect_element`, and
 a refusal that names what it looked for rather than a property. An action to open a context menu is not needed:
 `expand` is it. [#836](https://github.com/hexide-io/HexIDE/issues/836).
+
+For current calls, use `Pane[Project Group - Group1]` → `Pane[Tool.project]`. The calls above retain their historical measurement.
+See [#3825](3825.md) for shared title bars and floating-window selectors.

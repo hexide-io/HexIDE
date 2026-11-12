@@ -28,3 +28,6 @@ use `interact` `set_property` with `Value=…` on the row, which is the reflecti
 
 **Suggested fix.** Push the text box's binding to its source after `set_value`, or say in the reply that
 nothing has been committed: [#625](https://github.com/hexide-io/HexIDE/issues/625).
+
+For current calls, use `Pane[Properties]` → `Pane[Tool.properties]`. The calls above retain their historical measurement.
+See [#3825](3825.md) for shared title bars and floating-window selectors.

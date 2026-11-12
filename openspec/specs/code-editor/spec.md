@@ -138,6 +138,12 @@ A document with no file yet SHALL hold the header its first save will write.
 - **THEN** the code window's text afterwards is the text of the file that was written
 - **AND** that update is not something the developer can undo, and does not mark the document as edited
 
+#### Scenario: Saving a module with no name attribute
+- **WHEN** a loaded module has no `Attribute VB_Name` and saving adds it (#3823)
+- **THEN** the model and an open code window SHALL adopt the written header without reopening
+- **AND** breakpoints and bookmarks SHALL move with the code below it
+- **AND** opening the module alone SHALL leave it clean; a save may normalise an unedited file
+
 ### Requirement: Syntax colours SHALL meet the editor contrast bar
 Every named VB6 syntax foreground SHALL be a solid colour with a WCAG AA contrast ratio of at least
 4.5:1 against Classic's editor background in the light palette and against both Dark and Abyss editor

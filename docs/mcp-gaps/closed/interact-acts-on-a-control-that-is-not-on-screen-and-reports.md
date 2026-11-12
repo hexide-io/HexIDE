@@ -31,3 +31,6 @@ one without it.
 
 **Suggested fix.** Refuse a provider or pointer action on a control that is not effectively visible, saying why
 and naming the `isHidden` flag. [#1069](https://github.com/hexide-io/HexIDE/issues/1069).
+
+For current add-in tool paths, discover the `Tool.<addin key>` ids with `dump_visual_tree`. The calls above retain their historical measurement.
+See [#3825](3825.md) for shared title bars and floating-window selectors.

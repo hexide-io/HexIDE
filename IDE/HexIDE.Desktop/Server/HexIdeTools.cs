@@ -184,7 +184,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_file_content")]
-    [Description("Returns the current text of a named form, module or carried file: the open editor's text if it is open, otherwise the IDE's copy (for a carried file, the file on disk). For a form, module or class that is its WHOLE FILE, open or not: a form's VERSION line and designer block, a class's header and the leading Attribute lines come first, then the code. So line 1 is the file's first line, as set_breakpoints, set_bookmarks, get_diagnostics and the debugger tools count it, and an editor offset (interact set_property CaretOffset, or the offset a type_text or press_key refusal gives) indexes this text. set_file_content takes it back as it is, or the code alone. A form created in this session and not yet saved or changed in the designer has no header yet, so its text is its code alone. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was read, as the IDE spells them. hasUnsavedChanges is true when saving would change the file on disk — edits typed in the editor, controls added, removed or reordered in the designer, or any other change to the IDE's copy since it was last loaded or saved. A document with no file yet always has unsaved changes.")]
+    [Description("Returns the current text of a named form, module or carried file: the open editor's text if it is open, otherwise the IDE's copy (for a carried file, the file on disk). For a form, module or class that is its WHOLE FILE, open or not: a form's VERSION line and designer block, a class's header and the leading Attribute lines come first, then the code. So line 1 is the file's first line, as set_breakpoints, set_bookmarks, get_diagnostics and the debugger tools count it, and an editor offset (interact set_property CaretOffset, or the offset a type_text or press_key refusal gives) indexes this text. set_file_content takes it back as it is, or the code alone. A form created in this session and not yet saved or changed in the designer has no header yet, so its text is its code alone. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was read, as the IDE spells them. hasUnsavedChanges means the document has edits not yet saved, including code and designer changes. A save can still normalise a file the IDE did not write, for example by adding a missing module name line. A document with no file yet always has unsaved changes.")]
     public async Task<FileContentResult> GetFileContentAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1777,7 +1777,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     // ---- Debugger ----
 
     [McpServerTool(Name = "get_breakpoints")]
-    [Description("Returns the breakpoint line numbers for a form or module, named by its own VB6 name in any loaded project (case does not matter). Lines are 1-based and counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. Empty array if none. The reply's 'project' and 'document' name it as the IDE spells them, and 'uri' is the name a language server knows it by: its file: URI, or untitled:<project>/<name>.<ext> while it has no file, as get_diagnostics reports it.")]
+    [Description("Returns the breakpoint line numbers for a form or module, named by its own VB6 name in any loaded project (case does not matter). Lines are 1-based and counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. Empty array if none. The optional conditions map gives each conditional line's expression, keyed by line number; it is absent when all breakpoints are unconditional. The note names conditional lines. A condition is a VB expression evaluated in the line's procedure each time it is reached, pausing when True. The reply's 'project' and 'document' name it as the IDE spells them, and 'uri' is the name a language server knows it by: its file: URI, or untitled:<project>/<name>.<ext> while it has no file, as get_diagnostics reports it.")]
     public async Task<BreakpointsResult> GetBreakpointsAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1786,14 +1786,18 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (lookup.Document is not { } document)
                 return new BreakpointsResult(null, null, null, [], lookup.Error);
 
+            var lines = ctx.BreakpointService.GetBreakpoints(document);
+            var conditions = BreakpointConditions(document, lines);
             return new BreakpointsResult(document.Project.Name, document.Name, DocumentWireName.For(document),
-                [.. ctx.BreakpointService.GetBreakpoints(document)], null);
+                [.. lines], null, conditions, ConditionalLinesNote(conditions));
         });
     }
 
     [McpServerTool(Name = "set_breakpoints")]
-    [Description("Replaces all breakpoints for a form or module with the supplied 1-based line numbers, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Named by its own VB6 name in any loaded project (case does not matter); pass `project` to say which when a group holds two of one name. Pass an empty array to clear them. A line the document does not have is refused, and so is a new breakpoint on a line of the header or of a member's Attribute lines, which never run; then nothing is changed, and the reply says where the code starts. Takes effect immediately if that project is the one running. The note reports what the document holds afterwards, and 'project' and 'document' name it as the IDE spells them.")]
-    public async Task<MutateResult> SetBreakpointsAsync(string name, int[] lines, string? project = null, CancellationToken ct = default)
+    [Description("Replaces all breakpoints for a form or module with the supplied 1-based line numbers, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Named by its own VB6 name in any loaded project (case does not matter); pass `project` to say which when a group holds two of one name. Pass an empty array to clear them. Optional `conditions` maps line numbers to expressions, e.g. {\"6\":\"i = 3\"} with lines [6]. Omitted keys keep existing conditions; explicit blank expressions clear them. Conditions are VB expressions evaluated in the line's procedure each time it is reached, pausing when True. A condition key absent from lines is refused with nothing changed. A line the document does not have is refused, and so is a new breakpoint on a line of the header or of a member's Attribute lines, which never run; then nothing is changed, and the reply says where the code starts. Takes effect immediately if that project is the one running. The note names conditions set or cleared and reports what the document holds afterwards, and 'project' and 'document' name it as the IDE spells them.")]
+    public async Task<MutateResult> SetBreakpointsAsync(string name, int[] lines, string? project = null,
+        [Description("Optional map from breakpoint line number to condition expression; keys must also appear in lines. Omitted keys keep old conditions; explicit blank expressions clear them.")] Dictionary<int, string>? conditions = null,
+        CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -1806,10 +1810,48 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (OutsideDocument(document, lines, first: 1, "breakpoint", ctx.BreakpointService.GetBreakpoints(document)) is { } outside)
                 return Naming(new MutateResult(false, outside, ctx.ProjectRunnerService.CodeEditNote()?.TrimStart()), document);
 
+            if (conditions is not null)
+            {
+                var missing = conditions.Keys.Where(line => !lines.Contains(line)).Order().ToArray();
+                if (missing.Length > 0)
+                    return Naming(new MutateResult(false,
+                        $"Condition line(s) {string.Join(", ", missing)}: not a breakpoint in lines. Nothing changed."), document);
+            }
+
+            var changes = new List<string>();
             ctx.BreakpointService.SetDocument(document, lines);
-            return Naming(new MutateResult(true, null, Held(document, ctx.BreakpointService.GetBreakpoints(document), "breakpoint") + ctx.ProjectRunnerService.CodeEditNote()), document);
+            if (conditions is not null)
+                foreach (var (line, condition) in conditions.OrderBy(pair => pair.Key))
+                {
+                    var old = ctx.BreakpointService.GetCondition(document, line);
+                    ctx.BreakpointService.SetCondition(document, line, condition);
+                    if (string.IsNullOrWhiteSpace(condition))
+                    {
+                        // A blank for a line that had no condition changes nothing, so it is not reported as a clear.
+                        if (old is not null) changes.Add($"Cleared line {line}'s condition \"{old}\".");
+                    }
+                    else
+                        changes.Add($"Set line {line}'s condition \"{condition}\".");
+                }
+            var held = ctx.BreakpointService.GetBreakpoints(document);
+            var note = string.Join(" ", new[] { Held(document, held, "breakpoint"),
+                ConditionalLinesNote(BreakpointConditions(document, held)), string.Join(" ", changes),
+                ctx.ProjectRunnerService.CodeEditNote()?.Trim() }.Where(part => !string.IsNullOrEmpty(part)));
+            return Naming(new MutateResult(true, null, note), document);
         });
     }
+
+    private Dictionary<int, string>? BreakpointConditions(DocumentIdentity document, IReadOnlyList<int> lines)
+    {
+        var conditions = new Dictionary<int, string>();
+        foreach (var line in lines)
+            if (ctx.BreakpointService.GetCondition(document, line) is { } condition)
+                conditions[line] = condition;
+        return conditions.Count == 0 ? null : conditions;
+    }
+
+    private static string? ConditionalLinesNote(Dictionary<int, string>? conditions) =>
+        conditions is null ? null : $"Conditional breakpoint lines: {string.Join(", ", conditions.Keys)}.";
 
     [McpServerTool(Name = "clear_all_breakpoints")]
     [Description("Removes every breakpoint the IDE holds, in EVERY loaded project rather than only the startup one. With a group open that is more than it sounds; to clear one document, call set_breakpoints with an empty array. The reply's 'note' says how many breakpoints were cleared, in how many documents.")]
@@ -2658,7 +2700,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         "Which top-level window the path is resolved against: \"auto\" (default) is any visible window other than the "
         + "IDE's own, whether or not it is on top: a dialog, the Find window, or a running VB6 program's form, INCLUDING "
         + "while it is paused at a breakpoint; among several, a dialog wins, then the one with focus, then the one opened "
-        + "last, else the IDE's own. Floating IDE tools are skipped by auto; use their window title. \"ide\" reaches the IDE's own window; a window's title, or a running form's name such as \"Form2\", reaches that "
+        + "last, else the IDE's own. Floating IDE tools are skipped by auto; use their stable layout key (such as \"immediate\") or window title. \"ide\" reaches the IDE's own window; a window's title, or a running form's name such as \"Form2\", reaches that "
         + "window, or of two stacked under one name the one on top, which is how a form behind another form of the program is reached. An unknown name is refused with "
         + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle.";
 
@@ -2666,7 +2708,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [Description("Returns the active window's live control tree to address controls (see 'window'). Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Adorners are under their control. Overflow never inserts a path segment. Context menus and flyouts have a ContextMenu or Flyout segment under their owner; owner paths stay stable. Each node carries its addressing 'path' (feed it back as a target), ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers and isEnabled. Providers and their interact actions: invoke → invoke, selection and selectionItem → select and remove_from_selection, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. Nodes may carry 'isHidden' and 'isOffscreen'; 'flagsNote' says what each means when a node has one. A long ListBox makes rows only for what is in view and a focused row, so its dump lists those; interact 'select' with a value scrolls to the rest. Top-level 'focusedPath' names the keyboard focus anywhere in the window, or 'focusReason' says why there is none. Scope a dump with 'root', or search with 'match'; 'maxDepth' and 'interactiveOnly' say what is kept and when a node is 'truncated'. A tree over about 40,000 characters is cut to fit, keeping the active document, and the 'note', written first, says what was cut.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
-                     + "scope the dump this way. name is x:Name when set; label is the peer text when different. A segment accepts either.")]
+                     + "scope the dump this way. Tool parts use stable AutomationIds such as TitleBar[Tool.locals]/Pane[Tool.locals]; tool document tabs use TabItem[Tool.languageServers]. name is x:Name when set; label is the peer text when different. A segment accepts either.")]
         string? root = null,
         [Description("How many levels to walk, counted in control-view levels rather than raw visuals; at least 1. "
                      + "Default 20. A node whose children lie below the cut-off carries \"truncated\": true and an "
@@ -4354,7 +4396,9 @@ internal record BookmarksResult(string? Project, string? Document, string? Uri, 
 /// <param name="Project">The project holding the document, by name.</param>
 /// <param name="Document">The document's own VB6 name, as the IDE spells it rather than as the call spelled it.</param>
 /// <param name="Uri">The name a language server knows this document by.</param>
-internal record BreakpointsResult(string? Project, string? Document, string? Uri, int[] Lines, string? Error);
+internal record BreakpointsResult(string? Project, string? Document, string? Uri, int[] Lines, string? Error,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    Dictionary<int, string>? Conditions = null, string? Note = null);
 
 /// <param name="Project">
 /// The running project, by name, while paused: <c>Module</c> is a bare name, and a group may hold two documents
