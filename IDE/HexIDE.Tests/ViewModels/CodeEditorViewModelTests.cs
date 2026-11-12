@@ -362,10 +362,9 @@ public class CodeEditorViewModelTests : IDisposable
     [AvaloniaFact]
     public void AModuleWhoseHeaderWasNotRecognisedGetsNoPrefix()
     {
-        // A header the reader did not recognise, such as one under a comment, leaves the WHOLE file in Code with
-        // an empty recorded header (hexide-io/HexIDE#472). Prepending the canonical literal on top of that would show
-        // the developer two headers. Null means "never read from disk"; empty means "read, and nothing was split
-        // off", and the buffer must tell them apart.
+        // A headerless file records an empty header; a developer can then type a name into its code (#3757).
+        // Prepending the canonical literal would show two names. Null means "never read from disk"; empty means
+        // "read, and nothing was split off", and the buffer must tell them apart.
         var module = TestHelpers.CreateModule(name: "Module1");
         module.RecordOriginalHeader("");
         module.UpdateCode("' generated\r\nAttribute VB_Name = \"Module1\"\r\nOption Explicit\r\n");

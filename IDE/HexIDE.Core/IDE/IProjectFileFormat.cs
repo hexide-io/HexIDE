@@ -92,10 +92,9 @@ public interface IProjectFileFormat : IFormFileFormat
     string CodePrefix(ModuleDefinition module);
 
     /// <summary>
-    /// Whether the module's kind carries its name in the prefix. VB6 answers true for every .bas and .cls,
-    /// including an unsplit file whose prefix is empty and whose VB_Name is still in its code.
-    /// The omission note asks whether to leave out the remark; a rename asks whether the name is in the prefix.
-    /// That rename answer is wrong for an unsplit file (#3757).
+    /// Whether the module's kind carries its name in the prefix: true for .bas and .cls.
+    /// After read, measured .bas/.cls shapes carry their module-level VB_Name in the prefix.
+    /// A rename also rewrites a name left in the code, as after an editor write to a headerless module.
     /// </summary>
     bool PrefixCarriesName(ModuleDefinition module);
 

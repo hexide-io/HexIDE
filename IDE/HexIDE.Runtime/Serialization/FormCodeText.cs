@@ -72,13 +72,15 @@ public static class FormCodeText
     /// hexide-io/HexIDE#465 recorded <see cref="AttributeBlock"/> doing before it was fixed the same way.
     /// </para>
     /// <para>
-    /// Only the LEADING run counts, for the same reason as <see cref="AttributeBlock"/>: an
-    /// <c>Attribute</c> line further down describes a member. Blank lines before it are skipped.
+    /// By default only the leading run counts. With <c>moduleLevel</c>, the first name outside a procedure
+    /// counts wherever it sits (#3777); member attributes are distinguished by their dotted qualifier.
     /// </para>
     /// </remarks>
-    public static (int Start, int Length)? VbNameLine(string code)
+    public static (int Start, int Length)? VbNameLine(string code, bool moduleLevel = false)
     {
         var pos = 0;
+        var inProcedure = false;
+        var logicalStart = 0;
         while (pos < code.Length)
         {
             var (end, next) = SourceLines.LineAt(code, pos);
@@ -86,10 +88,17 @@ public static class FormCodeText
             var line = code.AsSpan(pos, end - pos).Trim();
             if (line.Length > 0)
             {
-                if (!line.StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase))
+                if (!moduleLevel && !line.StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase))
                     return null;
-                if (VbNameValue(line) is not null)
+                if (!inProcedure && VbNameValue(line) is not null)
                     return (pos, end - pos);
+            }
+            if (moduleLevel && !ReadOnlyRegions.EndsWithContinuation(line))
+            {
+                var (opens, closes) = ReadOnlyRegions.ProcedureBoundary(code, logicalStart, end);
+                if (opens) inProcedure = true;
+                if (closes) inProcedure = false;
+                logicalStart = next;
             }
             pos = next;
         }
@@ -113,9 +122,9 @@ public static class FormCodeText
     /// exists to keep a name in step — recorded as a gap of its own rather than papered over.
     /// </para>
     /// </remarks>
-    public static string RetargetVbName(string code, string name)
+    public static string RetargetVbName(string code, string name, bool moduleLevel = false)
     {
-        if (VbNameLine(code) is not var (start, length))
+        if (VbNameLine(code, moduleLevel) is not var (start, length))
             return code;
         if (string.Equals(VbNameValue(code.AsSpan(start, length).Trim()), name, StringComparison.Ordinal))
             return code;
@@ -138,7 +147,7 @@ public static class FormCodeText
     /// Parsed as keyword, attribute name, <c>=</c>, value, rather than tested with a prefix: a prefix test
     /// for <c>Attribute VB_Name</c> would also claim an attribute whose name merely starts with it.
     /// </remarks>
-    private static string? VbNameValue(ReadOnlySpan<char> line)
+    internal static string? VbNameValue(ReadOnlySpan<char> line)
     {
         const string keyword = "Attribute";
         const string attribute = "VB_Name";

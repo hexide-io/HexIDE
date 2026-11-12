@@ -13,11 +13,13 @@ public sealed class Vb6ReadOnlyRegionWriter : IReadOnlyRegionWriter
     public string? DescribeSaveRewrite(string text, TextChange change) =>
         $"The save wrote {change.Text}'s Attribute lines with its name (they said {text.Substring(change.Offset, change.Length)}), as VB6's own Save does.";
 
-    public TextChange? NameRewrite(string text, int prefixLength, string name)
+    public TextChange? NameRewrite(string text, int prefixLength, string name, bool moduleLevel = false)
     {
+        if (moduleLevel && FormCodeText.VbNameLine(text[..prefixLength], moduleLevel: true) is not null)
+            return null;
         var code = text[prefixLength..];
-        if (FormCodeText.VbNameLine(code) is not var (start, length)
-            || ReferenceEquals(FormCodeText.RetargetVbName(code, name), code))
+        if (FormCodeText.VbNameLine(code, moduleLevel) is not var (start, length)
+            || ReferenceEquals(FormCodeText.RetargetVbName(code, name, moduleLevel), code))
             return null;
         return new TextChange(prefixLength + start, length, FormCodeText.VbNameAttribute(name));
     }
