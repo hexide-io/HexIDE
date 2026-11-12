@@ -14,6 +14,31 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Breakpoint conditions through automation
+
+`set_breakpoints` SHALL retain its required `name` and `lines` arguments and accept an optional
+`conditions` map from 1-based file line to expression. It SHALL preserve existing conditions for kept lines whose keys are omitted,
+and clear a condition only for an explicit blank expression through the breakpoint service's condition API.
+The generated map schema SHALL advertise numeric keys with `propertyNames.pattern: ^[0-9]+$`.
+The setter SHALL name expressions set or cleared. A condition key absent
+from `lines` SHALL refuse the request before changing any breakpoint.
+`get_breakpoints` SHALL retain `lines`, include `conditions` only when expressions exist, and name
+conditional lines in its note. The setter's note SHALL also name conditional lines in the resulting state.
+
+#### Scenario: Set and read a conditional breakpoint
+- **WHEN** a caller sets `lines: [6]` with `conditions: {"6": "i = 3"}`
+- **THEN** line 6 holds that expression and the getter returns it with a note naming line 6 as conditional
+
+#### Scenario: Preserve conditions unless explicitly cleared
+- **WHEN** a caller sets `lines: [6]` without conditions after line 6 held an expression
+- **THEN** line 6 keeps its expression
+- **AND WHEN** the caller supplies `conditions: {"6": ""}`
+- **THEN** line 6 is unconditional and the reply names the cleared expression
+
+#### Scenario: Refuse a condition without a breakpoint
+- **WHEN** a caller sets `lines: [6]` with a condition for line 7
+- **THEN** the reply explains that line 7 is not a breakpoint in `lines` and nothing changes
+
 ### Requirement: Advertised expansion has inspectable state
 
 `inspect_element` SHALL report `expandCollapseState` wherever `expandCollapse` is advertised.
