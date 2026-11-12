@@ -77,14 +77,17 @@ public sealed class CompilerRootSession : IDisposable
     // Own the supplied transport, including on validation failure. Used by offline socket tests.
     internal static async Task<CompilerRootSession> InitializeAsync(CompilerWebSocketTransport transport,
         CompilerRootInitialization initialization, CompilerRootHandshakeLimits? limits = null,
-        CancellationToken cancellationToken = default, ICompilerSessionCodec? codec = null)
+        CancellationToken cancellationToken = default, ICompilerSessionCodec? codec = null,
+        Action<CancellationTokenSource, TimeSpan>? startDeadline = null)
     {
         try
         {
             codec ??= new CompilerWireCodec();
             var settings = Prepare(initialization, limits, codec);
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            deadline.CancelAfter(settings.Timeout);
+            // Offline peers can receive the request before arming the deadline (#3627).
+            if (startDeadline is null) deadline.CancelAfter(settings.Timeout);
+            else startDeadline(deadline, settings.Timeout);
             try { return await InitializeCoreAsync(transport, settings, codec, deadline.Token).ConfigureAwait(false); }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             { throw new TimeoutException("Compiler root initialization timed out."); }

@@ -83,8 +83,9 @@ internal sealed class CompilerSessionTestPeer(TcpClient client, TcpClient server
         resources.Complete();
         return peer;
     }
-    internal Task<CompilerRootSession> Initialize(CompilerRootHandshakeLimits? limits = null, CancellationToken? token = null) =>
-        CompilerRootSession.InitializeAsync(Transport, InMemoryCompilerSessionCodec.Options, limits, token ?? Token, Codec);
+    internal Task<CompilerRootSession> Initialize(CompilerRootHandshakeLimits? limits = null, CancellationToken? token = null,
+        Action<CancellationTokenSource, TimeSpan>? startDeadline = null) =>
+        CompilerRootSession.InitializeAsync(Transport, InMemoryCompilerSessionCodec.Options, limits, token ?? Token, Codec, startDeadline);
     internal async Task<InMemoryCompilerSessionCodec.Request> Request()
     {
         var buffer = new byte[1];

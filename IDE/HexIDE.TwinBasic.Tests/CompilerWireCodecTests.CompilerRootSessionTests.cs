@@ -168,9 +168,14 @@ public sealed partial class CompilerWireCodecTests
         public async Task Handshake_deadline_includes_time_between_notifications()
         {
             using var pair = await Pair.Create();
-            var connect = CompilerRootSession.InitializeAsync(pair.Transport, Options(), new(Timeout: TimeSpan.FromMilliseconds(250)), Token);
+            CancellationTokenSource? deadline = null;
+            var connect = CompilerRootSession.InitializeAsync(pair.Transport, Options(), new(Timeout: TimeSpan.FromMilliseconds(250)), Token,
+                startDeadline: (source, _) => deadline = source);
             await pair.Request();
             await pair.Reply(-1, 123, []);
+            deadline.Should().NotBeNull();
+            connect.IsCompleted.Should().BeFalse();
+            deadline!.CancelAfter(TimeSpan.FromMilliseconds(250));
             await FluentActions.Awaiting(() => connect).Should().ThrowExactlyAsync<TimeoutException>();
             await FluentActions.Awaiting(() => pair.Transport.ReceiveAsync(Token)).Should().ThrowExactlyAsync<ObjectDisposedException>();
         }

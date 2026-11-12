@@ -170,10 +170,15 @@ public sealed partial class CompilerWireCodecTests
         public async Task Deadline_cleans_stage_when_compiler_does_not_reply()
         {
             using var peer = await Peer.Create();
+            CancellationTokenSource? deadline = null;
             var prepare = CompilerProjectPreparation.PrepareAsync(peer.Root, peer.Source, Provider.Missing,
-                new(Timeout: TimeSpan.FromMilliseconds(300)), Token);
+                new(Timeout: TimeSpan.FromMilliseconds(300)), Token,
+                (source, timeout) => { deadline = source; timeout.Should().Be(TimeSpan.FromMilliseconds(300)); });
             var load = await peer.Request();
-            await FluentActions.Awaiting(() => prepare).Should().ThrowExactlyAsync<TimeoutException>();
+            deadline.Should().NotBeNull();
+            prepare.IsCompleted.Should().BeFalse();
+            deadline!.CancelAfter(TimeSpan.FromMilliseconds(300));
+            await FluentActions.Awaiting(() => prepare.WaitAsync(TimeSpan.FromSeconds(5), Token)).Should().ThrowExactlyAsync<TimeoutException>();
             Directory.Exists(Path.GetDirectoryName(Encoding.UTF8.GetString(load.Payload))).Should().BeFalse();
         }
 

@@ -35,6 +35,10 @@ Preparation SHALL enforce configured project, message, aggregate data, package, 
 - **WHEN** the compiler rejects the project for DEP or LAA configuration
 - **THEN** the mismatch is reported without changing configuration or restarting the compiler
 
+#### Scenario: Compiler never replies
+- **WHEN** the preparation deadline expires while the compiler has not replied
+- **THEN** preparation reports a timeout, closes the owned root and removes its staging folder
+
 #### Scenario: Provider completes after cancellation
 - **WHEN** an asynchronous provider returns a stream after preparation was cancelled
 - **THEN** that stream is disposed without resuming preparation
