@@ -24,6 +24,56 @@ public partial class TraceOnTheWireTests
             .GetProperty("window").GetProperty("workDoneProgress").GetBoolean().Should().BeTrue();
     }
 
+    private static bool HasResponseId(JsonElement frame, string expected)
+    {
+        try
+        {
+            return frame.ValueKind == JsonValueKind.Object
+                && frame.TryGetProperty("id", out var id) && id.GetRawText() == expected;
+        }
+        catch (InvalidOperationException)
+        {
+            // Includes disposed documents: an unreadable frame must not abort the wait (#3678).
+            return false;
+        }
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("[]")]
+    [InlineData("360")]
+    [InlineData("true")]
+    [InlineData("\"text\"")]
+    public void ResponsePredicateIgnoresNonObjectFrames(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        HasResponseId(document.RootElement, "360").Should().BeFalse();
+    }
+
+    [Fact]
+    public void ResponsePredicateIgnoresUndefinedFrames() =>
+        HasResponseId(default, "360").Should().BeFalse();
+
+    [Fact]
+    public void ResponsePredicateIgnoresDisposedFrames()
+    {
+        var document = JsonDocument.Parse("{\"id\":360}");
+        var frame = document.RootElement;
+        document.Dispose();
+        HasResponseId(frame, "360").Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("{\"id\":360,\"result\":null}", true)]
+    [InlineData("{\"id\":361}", false)]
+    [InlineData("{\"id\":\"360\"}", false)]
+    [InlineData("{}", false)]
+    public void ResponsePredicateMatchesOnlyTheExpectedId(string json, bool expected)
+    {
+        using var document = JsonDocument.Parse(json);
+        HasResponseId(document.RootElement, "360").Should().Be(expected);
+    }
+
     [Theory]
     [InlineData("\"index\"")]
     [InlineData("1")]
@@ -36,10 +86,10 @@ public partial class TraceOnTheWireTests
             .Replace("TOKEN", token));
         await EventuallyAsync(() =>
         {
-            lock (_received) return _received.Any(d => d.RootElement.TryGetProperty("id", out var id) && id.GetRawText() == "360");
+            lock (_received) return _received.Any(d => HasResponseId(d.RootElement, "360"));
         });
         JsonElement response;
-        lock (_received) response = _received.Single(d => d.RootElement.TryGetProperty("id", out var id) && id.GetRawText() == "360").RootElement;
+        lock (_received) response = _received.Single(d => HasResponseId(d.RootElement, "360")).RootElement;
         response.TryGetProperty("error", out _).Should().BeFalse();
         response.GetProperty("result").ValueKind.Should().Be(JsonValueKind.Null);
 
