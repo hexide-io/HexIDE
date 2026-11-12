@@ -331,6 +331,21 @@ public partial class MainViewViewModel : ObservableObject
         public ProportionalDock? MiddleDock;
         public DocumentDock? DocumentDock { get; private set; }
 
+        internal IRootDock? DocumentLayout => liveLayout;
+
+        internal IEnumerable<IDocumentDock> DocumentAreas => Walk(liveLayout).OfType<IDocumentDock>();
+
+        private static IEnumerable<IDockable> Walk(IDockable? node)
+        {
+            if (node is null) yield break;
+            yield return node;
+            if (node is IDock { VisibleDockables: { } children })
+                foreach (var child in children)
+                    foreach (var descendant in Walk(child))
+                        yield return descendant;
+        }
+
+
         public OutlineToolViewModel Outline { get; }
 
         public DockFactory(ToolBoxToolViewModel toolBox,

@@ -30,6 +30,9 @@ public interface IDocumentDockService : INotifyPropertyChanged
     /// </remarks>
     IReadOnlyList<IDockable> AllTabs { get; }
 
+    /// <summary>The zero-based document area in layout order.</summary>
+    int AreaOf(IDockable tab);
+
     /// <summary>The frontmost tab, whatever kind it is.</summary>
     IDockable? ActiveTab { get; }
 

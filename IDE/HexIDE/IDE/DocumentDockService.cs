@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
+using Dock.Model.Controls;
 using Dock.Model.Core;
+using Dock.Model.Core.Events;
 using Dock.Model.Mvvm.Controls;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
@@ -19,6 +20,8 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     private readonly List<BaseEditorWindowViewModel> openDocuments = new();
     private bool subscribedToDock;
     private BaseEditorWindowViewModel? activeDocument;
+    // The document area that last held focus, so focus moving to a tool pane doesn't hand the active tab back to the first area.
+    private IDocumentDock? lastFocusedArea;
 
     public RecentlyClosedDocuments RecentlyClosed { get; } = new();
 
@@ -59,17 +62,29 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     public BaseEditorWindowViewModel? ActiveDocument => activeDocument;
 
     public IReadOnlyList<IDockable> AllTabs =>
-        Dock?.VisibleDockables is { } tabs ? [.. tabs] : [];
+        factory.Value is { } f ? [.. f.DocumentAreas.SelectMany(d => d.VisibleDockables ?? [])] : [];
 
-    public IDockable? ActiveTab => Dock?.ActiveDockable;
+    public IDockable? ActiveTab
+    {
+        get
+        {
+            if (factory.Value is not { } f) return Dock?.ActiveDockable;
+            var areas = f.DocumentAreas.ToList();
+            var focused = f.DocumentLayout?.FocusedDockable;
+            var area = areas.FirstOrDefault(d => ReferenceEquals(d, focused?.Owner) || ReferenceEquals(d, focused));
+            if (area is not null) lastFocusedArea = area;
+            else if (lastFocusedArea is not null && areas.Contains(lastFocusedArea)) area = lastFocusedArea;
+            return area?.ActiveDockable ?? Dock?.ActiveDockable;
+        }
+    }
+
+    public int AreaOf(IDockable tab) => factory.Value is { } f
+        ? f.DocumentAreas.TakeWhile(d => d.VisibleDockables?.Contains(tab) != true).Count() : 0;
 
     public bool TryActivateAny(Func<IDockable, bool> predicate)
     {
-        var dock = Dock;
-        if (dock?.VisibleDockables is null) return false;
-
-        var match = dock.VisibleDockables.FirstOrDefault(predicate);
-        if (match is null) return false;
+        var match = AllTabs.FirstOrDefault(predicate);
+        if (match?.Owner is not IDocumentDock dock) return false;
 
         factory.Value!.FocusDockable(dock, match);
         dock.ActiveDockable = match;
@@ -78,11 +93,8 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
 
     public bool TryCloseAny(Func<IDockable, bool> predicate)
     {
-        var dock = Dock;
-        if (dock?.VisibleDockables is null) return false;
-
-        var match = dock.VisibleDockables.FirstOrDefault(predicate);
-        if (match is null) return false;
+        var match = AllTabs.FirstOrDefault(predicate);
+        if (match?.Owner is not IDocumentDock) return false;
 
         // An editor goes through the service's own path, which keeps its bookkeeping and its events
         // intact. Anything else is a document the shell added straight to the dock, so it leaves the same
@@ -115,11 +127,8 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
 
     public bool TryActivate<T>(Func<T, bool> predicate, bool takeFocus = true) where T : BaseEditorWindowViewModel
     {
-        var dock = Dock;
-        if (dock is null) return false;
-
         var match = openDocuments.OfType<T>().FirstOrDefault(predicate);
-        if (match is null) return false;
+        if (match?.Owner is not IDocumentDock dock) return false;
 
         if (!takeFocus) return true;
         factory.Value!.FocusDockable(dock, match);
@@ -157,19 +166,24 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     private void EnsureDockSubscription(DocumentDock dock)
     {
         if (subscribedToDock) return;
-        if (dock.VisibleDockables is INotifyCollectionChanged ncc)
-            ncc.CollectionChanged += OnVisibleDockablesChanged;
+        // Collection removal also happens during a split or a move. Only a real close disposes an editor.
+        factory.Value!.DockableClosed += OnDockableClosed;
+        factory.Value.FocusedDockableChanged += OnFocusedDockableChanged;
         dock.PropertyChanged += OnDockPropertyChanged;
         subscribedToDock = true;
     }
 
+    private void UpdateActiveDocument()
+    {
+        activeDocument = ActiveTab as BaseEditorWindowViewModel;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ActiveDocument)));
+    }
+
+    private void OnFocusedDockableChanged(object? sender, FocusedDockableChangedEventArgs e) => UpdateActiveDocument();
+
     private void OnDockPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(DocumentDock.ActiveDockable))
-        {
-            activeDocument = (sender as DocumentDock)?.ActiveDockable as BaseEditorWindowViewModel;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ActiveDocument)));
-        }
+        if (e.PropertyName == nameof(DocumentDock.ActiveDockable)) UpdateActiveDocument();
     }
 
     private void OnCloseRequest(IMdiWindow window)
@@ -178,20 +192,19 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
             factory.Value!.CloseDockable(vm);
     }
 
-    private void OnVisibleDockablesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void OnDockableClosed(object? sender, DockableClosedEventArgs e)
     {
-        if (e.OldItems is null) return;
-        foreach (var item in e.OldItems)
+        if (e.Dockable is not { } tab) return;
+        if (tab.Owner is not IDocumentDock && tab is not BaseEditorWindowViewModel) return;
+        RecentlyClosed.Record(tab);
+        if (tab is BaseEditorWindowViewModel removed && openDocuments.Remove(removed))
         {
-            if (item is IDockable tab) RecentlyClosed.Record(tab);
-            if (item is BaseEditorWindowViewModel removed && openDocuments.Remove(removed))
-            {
-                eventBus.Publish(new FileClosedEvent(removed.Title, removed.OpenDocument));
-                removed.CloseRequest -= OnCloseRequest;
-                removed.Dispose();
-                Log.Debug("DocumentDockService: Disposed '{Title}'", removed.Title);
-            }
+            eventBus.Publish(new FileClosedEvent(removed.Title, removed.OpenDocument));
+            removed.CloseRequest -= OnCloseRequest;
+            removed.Dispose();
+            Log.Debug("DocumentDockService: Disposed '{Title}'", removed.Title);
         }
+        UpdateActiveDocument();
     }
 
     public void CloseDocument(BaseEditorWindowViewModel vm)
@@ -214,11 +227,12 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     {
         projectUnloadedSub.Dispose();
         RecentlyClosed.Dispose();
-        if (Dock is { } dock)
+        if (subscribedToDock && factory.Value is { } f)
         {
-            dock.PropertyChanged -= OnDockPropertyChanged;
-            if (dock.VisibleDockables is INotifyCollectionChanged ncc)
-                ncc.CollectionChanged -= OnVisibleDockablesChanged;
+            f.DockableClosed -= OnDockableClosed;
+            f.FocusedDockableChanged -= OnFocusedDockableChanged;
         }
+        if (Dock is { } dock)
+            dock.PropertyChanged -= OnDockPropertyChanged;
     }
 }
