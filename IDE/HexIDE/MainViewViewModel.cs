@@ -414,11 +414,29 @@ public partial class MainViewViewModel : ObservableObject
                 ["languageServers"]   = languageServers,
                 ["protocolInspector"] = protocolInspector,
             };
+            foreach (var (key, tool) in toolsByKey)
+                HexIDE.Automation.ToolAutomation.Register(tool, key);
             DefaultHostWindowLocator = () => new ToolHostWindow(this);
             documentDockFactory.Value = this;
         }
 
         public static bool IsToolHostWindow(Window window) => window is ToolHostWindow;
+
+        internal static IEnumerable<(string Key, string? Title)> FloatingTools(Window window)
+        {
+            if (window is not ToolHostWindow { Window.Layout: { } layout }) yield break;
+            foreach (var tool in Descendants(layout))
+                if (HexIDE.Automation.ToolAutomation.KeyOf(tool) is { } key)
+                    yield return (key, tool.Title);
+
+            static IEnumerable<IDockable> Descendants(IDockable node)
+            {
+                yield return node;
+                if (node is IDock { VisibleDockables: { } children })
+                    foreach (var child in children)
+                        foreach (var item in Descendants(child)) yield return item;
+            }
+        }
 
         public override IDocumentDock CreateDocumentDock()
         {
@@ -1059,6 +1077,7 @@ public partial class MainViewViewModel : ObservableObject
         {
             var key = "addin:" + tool.Id;
             toolsByKey[key] = tool;
+            HexIDE.Automation.ToolAutomation.Register(tool, key);
             var oldKey = "addin:" + tool.WindowId;
             if (oldKey != key && deferredTools.Remove(oldKey, out var legacy))
             {
@@ -1086,7 +1105,10 @@ public partial class MainViewViewModel : ObservableObject
         public void PlaceTool(IRootDock layout, Tool tool, bool rightFallback)
         {
             if (tool is AddinToolWindowViewModel)
+            {
                 toolsByKey["addin:" + tool.Id] = tool;
+                HexIDE.Automation.ToolAutomation.Register(tool, "addin:" + tool.Id);
+            }
             var key = KeyOf(tool);
             if (key != null && closedSlots.Remove(key, out var path) && path.Count > 0)
             {

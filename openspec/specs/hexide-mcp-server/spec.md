@@ -1784,3 +1784,23 @@ The `open_file` and `view_designer` replies SHALL report the opened tab's zero-b
 - **THEN** `get_document_tabs` includes it with its area's index
 - **AND** `activate_document_tab` and `close_document_tab` can address it
 - **AND** the closing state note counts tabs in all document areas
+
+### Requirement: Tool-window paths survive language and project-name changes
+
+Tool chrome, shown tool panes and tool tabs SHALL expose AutomationIds derived from their saved-layout
+keys, using `Tool.<key>`, while retaining translated automation names. Shared chrome SHALL use the
+sorted membership keys as `ToolGroup.<key+key>` so selecting another tab does not change its identity.
+Floating tool hosts SHALL accept each contained tool's key as a window selector and list those keys
+beside their title when an unknown window is requested. A path refusal SHALL mention floating tools
+only when its failing segment names one, and SHALL explain translated names and stable ids when a
+segment fails in a non-English IDE.
+
+#### Scenario: A German tool with an English-source stable path
+
+- **WHEN** a caller resolves the dumped `TitleBar[Tool.locals]/Pane[Tool.locals]` segments after switching to German
+- **THEN** the same shown tool is reached and its automation name remains translated
+
+#### Scenario: A floating Immediate window
+
+- **WHEN** Immediate is floating in a German IDE and the caller selects `window: "immediate"`
+- **THEN** the floating host is reached regardless of its translated title

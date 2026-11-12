@@ -24,3 +24,6 @@ with `Dock's layout is unchanged, so nothing was docked: …`. Guarded by `DragD
 - A drag back onto its own title strip said the layout was unchanged.
 - A drop on the Toolbox dock's upper half split it, with Properties in a new dock above the Toolbox. The reply said
   Properties moved "to a dock of its own".
+
+For current calls, use `TitleBar[Immediate]` → `TitleBar[Tool.immediate]`. The calls above retain their historical measurement.
+See [#3825](3825.md) for shared title bars and floating-window selectors.

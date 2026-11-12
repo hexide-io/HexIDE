@@ -383,6 +383,49 @@ public class ToolFloatingTests
         finally { field.SetValue(app, previous); }
     });
 
+    [AvaloniaFact]
+    public Task Floating_tool_key_survives_German_and_lists_its_title() => WithWorkspace((vm, factory, window, composition) =>
+    {
+        var strings = composition.LocalizationService;
+        var original = strings.ActiveLanguage;
+        try
+        {
+            strings.Apply("de");
+            factory.FloatDockable(vm.Immediate);
+            Dispatcher.UIThread.RunJobs();
+            var host = FloatingHost(vm);
+            HexIDE.IDE.ForegroundWindow.Pick("immediate", window, [window, host]).Window.Should().BeSameAs(host);
+            HexIDE.IDE.ForegroundWindow.Pick("Nope", window, [window, host]).Error.Should()
+                .Contain("tool keys: immediate").And.Contain(host.Title!);
+        }
+        finally { strings.Apply(original); }
+    });
+
+    [AvaloniaFact]
+    public Task Unrelated_floating_tool_is_not_blamed_for_a_German_path_failure() => WithWorkspace((vm, factory, window, composition) =>
+    {
+        factory.FloatDockable(vm.Immediate);
+        Dispatcher.UIThread.RunJobs();
+        var host = FloatingHost(vm);
+        var app = Application.Current!;
+        var field = typeof(Application).GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(f => f.FieldType == typeof(Avalonia.Controls.ApplicationLifetimes.IApplicationLifetime));
+        var previous = field.GetValue(app);
+        var language = composition.LocalizationService.ActiveLanguage;
+        var lifetime = Substitute.For<Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime>();
+        lifetime.MainWindow.Returns(window);
+        lifetime.Windows.Returns(new[] { window, host });
+        try
+        {
+            composition.LocalizationService.Apply("de");
+            field.SetValue(app, lifetime);
+            var result = HexIDE.IDE.ForegroundWindow.Resolve("Window/TitleBar[Locals]", "ide", window, window, window.Title!);
+            result.Error.Should().NotContain("Tools are floating").And.Contain("Names follow the IDE language (de)")
+                .And.Contain("Tool.locals").And.Contain("Tool.properties").And.Contain("Tool.project");
+        }
+        finally { field.SetValue(app, previous); composition.LocalizationService.Apply(language); }
+    });
+
     private static HostWindow FloatingHost(MainViewViewModel vm) =>
         (HostWindow)((IRootDock)vm.Layout).Windows!.Single().Host!;
 
