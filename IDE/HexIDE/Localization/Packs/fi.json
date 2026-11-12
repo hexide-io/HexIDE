@@ -1243,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Telakoi",
     "Str.Dock.ToolTabStripItemAutoHide": "_Piilota automaattisesti",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Telakoi välilehdelliseksi asiakirjaksi",
-    "Str.Dock.ToolTabStripItemClose": "_Sulje"
+    "Str.Dock.ToolTabStripItemClose": "_Sulje",
+    "Str.AIChat.ApiKeyRequired": "API-avain vaaditaan. Aseta apiKey tiedostossa chat-settings.json."
   }
 }

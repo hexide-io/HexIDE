@@ -1243,6 +1243,7 @@
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Plassholdere for arbeidsområdet venter på valg av prosjektmappe.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Filen er endret. Åpne skjemaet på nytt før lagring.",
     "Str.Dock.DocumentTabs": "Dokumentfaner",
-    "Str.Dock.ToolTabs": "Verktøyfaner"
+    "Str.Dock.ToolTabs": "Verktøyfaner",
+    "Str.AIChat.ApiKeyRequired": "API-nøkkel kreves. Angi apiKey i chat-settings.json."
   }
 }

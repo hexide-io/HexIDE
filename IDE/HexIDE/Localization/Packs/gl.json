@@ -1243,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Acoplar",
     "Str.Dock.ToolTabStripItemAutoHide": "A_gochar automaticamente",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Acoplar como documento con lapela",
-    "Str.Dock.ToolTabStripItemClose": "_Pechar"
+    "Str.Dock.ToolTabStripItemClose": "_Pechar",
+    "Str.AIChat.ApiKeyRequired": "Precísase unha clave API. Configure apiKey en chat-settings.json."
   }
 }

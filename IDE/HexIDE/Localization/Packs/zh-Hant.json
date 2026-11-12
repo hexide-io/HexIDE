@@ -1243,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "停駐",
     "Str.Dock.ToolTabStripItemAutoHide": "自動隱藏",
     "Str.Dock.ToolTabStripItemDockAsDocument": "停駐為索引標籤式文件",
-    "Str.Dock.ToolTabStripItemClose": "關閉"
+    "Str.Dock.ToolTabStripItemClose": "關閉",
+    "Str.AIChat.ApiKeyRequired": "需要 API 金鑰。請設定 chat-settings.json 中的 apiKey。"
   }
 }

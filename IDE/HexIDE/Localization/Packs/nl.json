@@ -1243,6 +1243,7 @@
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "Werkruimteplaatsaanduidingen wachten op de keuze van een projectmap.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "Het bestand is gewijzigd. Open het formulier opnieuw voordat u opslaat.",
     "Str.Dock.DocumentTabs": "Documenttabbladen",
-    "Str.Dock.ToolTabs": "Hulptabbladen"
+    "Str.Dock.ToolTabs": "Hulptabbladen",
+    "Str.AIChat.ApiKeyRequired": "API-sleutel vereist. Stel apiKey in chat-settings.json in."
   }
 }

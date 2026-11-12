@@ -23,7 +23,7 @@ public class NativeToolRoundTests
         try
         {
             File.WriteAllText(Path.Combine(directory, "chat-settings.json"),
-                new JsonObject { ["maxTurnsBeforeCompaction"] = compact ? 2 : 100 }.ToJsonString());
+                new JsonObject { ["apiKey"] = "test-key", ["maxTurnsBeforeCompaction"] = compact ? 2 : 100 }.ToJsonString());
             var host = Substitute.For<IHexIdeHost>();
             var editor = Substitute.For<IEditorAccess>();
             host.Editor.Returns(editor);
@@ -65,6 +65,7 @@ public class NativeToolRoundTests
         resources[keys[1]] = "localized token limit";
         try
         {
+            File.WriteAllText(Path.Combine(directory, "chat-settings.json"), """{"apiKey":"test-key"}""");
             var chat = new ChatViewModel(Substitute.For<IHexIdeHost>(), directory) { InputText = "hello" };
             using var client = new ChatClient(new HttpClient(new StopHandler(reason, explanation)));
             typeof(ChatViewModel).GetField("_client", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(chat, client);

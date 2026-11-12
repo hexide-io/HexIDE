@@ -1243,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Ainguratu",
     "Str.Dock.ToolTabStripItemAutoHide": "_Ezkutatu automatikoki",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Ainguratu fitxadun dokumentu gisa",
-    "Str.Dock.ToolTabStripItemClose": "_Itxi"
+    "Str.Dock.ToolTabStripItemClose": "_Itxi",
+    "Str.AIChat.ApiKeyRequired": "API gakoa behar da. Ezarri apiKey chat-settings.json fitxategian."
   }
 }

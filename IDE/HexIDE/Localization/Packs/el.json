@@ -1243,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "Αγκύρωση",
     "Str.Dock.ToolTabStripItemAutoHide": "Αυτόματη απόκρυψη",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Αγκύρωση ως έγγραφο με καρτέλα",
-    "Str.Dock.ToolTabStripItemClose": "Κλείσιμο"
+    "Str.Dock.ToolTabStripItemClose": "Κλείσιμο",
+    "Str.AIChat.ApiKeyRequired": "Απαιτείται κλειδί API. Ορίστε apiKey στο chat-settings.json."
   }
 }

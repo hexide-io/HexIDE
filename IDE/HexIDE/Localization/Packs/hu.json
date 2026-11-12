@@ -1243,6 +1243,7 @@
     "Str.Tool.LanguageServers.Editor.NoWorkspace": "A munkaterület helyőrzői a projektmappa kiválasztására várnak.",
     "Str.Tool.LanguageServers.Editor.FileChanged": "A fájl megváltozott. Mentés előtt nyissa meg újra az űrlapot.",
     "Str.Dock.DocumentTabs": "Dokumentumfülek",
-    "Str.Dock.ToolTabs": "Eszközfülek"
+    "Str.Dock.ToolTabs": "Eszközfülek",
+    "Str.AIChat.ApiKeyRequired": "API-kulcs szükséges. Állítsa be az apiKey értékét a chat-settings.json fájlban."
   }
 }

@@ -1243,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Acobla",
     "Str.Dock.ToolTabStripItemAutoHide": "A_maga automàticament",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Acobla com a document amb pestanya",
-    "Str.Dock.ToolTabStripItemClose": "_Tanca"
+    "Str.Dock.ToolTabStripItemClose": "_Tanca",
+    "Str.AIChat.ApiKeyRequired": "Cal una clau API. Establiu apiKey a chat-settings.json."
   }
 }

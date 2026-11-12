@@ -1243,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Doki",
     "Str.Dock.ToolTabStripItemAutoHide": "_Peida automaatselt",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Doki vahekaardiga dokumendina",
-    "Str.Dock.ToolTabStripItemClose": "_Sulge"
+    "Str.Dock.ToolTabStripItemClose": "_Sulge",
+    "Str.AIChat.ApiKeyRequired": "Vajalik on API võti. Määrake apiKey failis chat-settings.json."
   }
 }
