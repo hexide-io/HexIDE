@@ -98,8 +98,8 @@ public static class ForegroundWindow
         return (null, $"Unknown window '{scope}'. Use "
                     + (ideByDefault
                         ? "\"ide\" (the default here: the IDE window, even while a program is running), \"auto\" (any visible "
-                          + "window other than the IDE's own, a dialog first), "
-                        : "\"auto\" (the default: any visible window other than the IDE's own, a dialog first), \"ide\" (the "
+                          + "window other than the IDE's own, a dialog first, a floating IDE tool never), "
+                        : "\"auto\" (the default: any visible window other than the IDE's own, a dialog first, a floating IDE tool never), \"ide\" (the "
                           + "IDE window, even while a program is running), ")
                     + "or the name or title of an open "
                     + (open.Count == 0
@@ -149,6 +149,7 @@ public static class ForegroundWindow
     /// Prefers a visible window other than <paramref name="mainWindow"/>: a dialog first, then the one
     /// with focus, then the one opened last, excluding windows that own another visible window. Falls
     /// back to <paramref name="mainWindow"/> when no candidate remains; does not read z-order.
+    /// Floating IDE tool hosts are excluded, both as candidates and as windows covering their owners.
     /// </summary>
     /// <param name="mainWindow">The application's main window; returned when no other candidate exists.</param>
     /// <param name="windows">All top-level windows, in creation order (as the lifetime reports them).</param>
@@ -158,7 +159,7 @@ public static class ForegroundWindow
         var covered = new HashSet<Window>();
         foreach (var w in windows)
         {
-            if (w.IsVisible && w.Owner is Window owner)
+            if (w.IsVisible && !MainViewViewModel.DockFactory.IsToolHostWindow(w) && w.Owner is Window owner)
                 covered.Add(owner);
         }
 
@@ -173,7 +174,7 @@ public static class ForegroundWindow
         var bestScore = -1;
         foreach (var w in windows)
         {
-            if (w == mainWindow || !w.IsVisible || covered.Contains(w))
+            if (w == mainWindow || !w.IsVisible || MainViewViewModel.DockFactory.IsToolHostWindow(w) || covered.Contains(w))
                 continue;
 
             var score = (w.Owner is Window ? 2 : 0) + (w.IsActive ? 1 : 0);
@@ -205,6 +206,19 @@ public static class ForegroundWindow
         string path, string? scope, Window picked, Window mainWindow, string pickedName)
     {
         var (control, error) = HexIDE.Automation.UiAutomationDriver.Resolve(picked, path);
+        if (control is null && error is not null && picked == mainWindow
+            && !error.StartsWith(HexIDE.Automation.UiAutomationDriver.EmptyPath, StringComparison.Ordinal)
+            && !error.StartsWith(HexIDE.Automation.UiAutomationDriver.NotFromWindow, StringComparison.Ordinal)
+            && Avalonia.Application.Current?.ApplicationLifetime is
+                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime lifetime)
+        {
+            var floating = lifetime.Windows.Where(w => w.IsVisible && MainViewViewModel.DockFactory.IsToolHostWindow(w));
+            var hints = floating.Select(w => $"window: \"{w.Title}\"").ToList();
+            if (hints.Count > 0)
+                return (null, $"{error}. Tools are floating in separate IDE windows: {string.Join(", ", hints)}. "
+                              + "If this path came from a tool that has since floated, use dump_visual_tree with its "
+                              + "window title for fresh paths; its old IDE path no longer reaches it.");
+        }
         if (control is null && error is not null && StackedNote(picked, scope) is { } stacked)
             return (null, $"{error}. {stacked}");
         if (control is not null || error is null || picked == mainWindow

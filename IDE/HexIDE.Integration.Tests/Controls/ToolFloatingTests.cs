@@ -171,6 +171,110 @@ public class ToolFloatingTests
         ((IDock)vm.Immediate.Owner!).VisibleDockables.Should().Equal(vm.Immediate, vm.Locals);
     });
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task Auto_ignores_floating_tools(bool runningForm) => WithWorkspace((vm, factory, window, _) =>
+    {
+        var form = new Window { Title = "Form1" };
+        try
+        {
+            if (runningForm) form.Show();
+            factory.FloatDockable(vm.Immediate);
+            Dispatcher.UIThread.RunJobs();
+            var host = FloatingHost(vm);
+            HexIDE.IDE.ForegroundWindow.Pick("auto", window, [window, form, host]).Window.Should()
+                .BeSameAs(runningForm ? form : window);
+        }
+        finally { form.Close(); }
+    });
+
+    [AvaloniaFact]
+    public Task Floating_tool_is_named_and_listed_and_real_dialog_still_wins() => WithWorkspace((vm, factory, window, composition) =>
+    {
+        factory.FloatDockable(vm.Immediate);
+        Dispatcher.UIThread.RunJobs();
+        var host = FloatingHost(vm);
+        HexIDE.IDE.ForegroundWindow.Pick(host.Title, window, [window, host]).Window.Should().BeSameAs(host);
+        HexIDE.IDE.ForegroundWindow.Pick("Nope", window, [window, host]).Error.Should().Contain($"\"{host.Title}\"");
+        var dialog = new Window { Title = host.Title };
+        try
+        {
+            _ = dialog.ShowDialog(window);
+            HexIDE.IDE.ForegroundWindow.Pick("auto", window, [window, dialog, host]).Window.Should().BeSameAs(dialog);
+        }
+        finally { dialog.Close(); }
+    });
+
+    [AvaloniaFact]
+    public Task Forced_shutdown_preserves_floating_tool_and_closes_dialog() => WithWorkspace((vm, factory, window, _) =>
+    {
+        factory.FloatDockable(vm.Immediate);
+        Dispatcher.UIThread.RunJobs();
+        var host = FloatingHost(vm);
+        var dialog = new Window { Title = "Find" };
+        dialog.Show(window);
+        var app = Application.Current!;
+        var field = typeof(Application).GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(f => f.FieldType == typeof(Avalonia.Controls.ApplicationLifetimes.IApplicationLifetime));
+        var previous = field.GetValue(app);
+        var force = Static.ForceCloseWithoutPrompt;
+        var lifetime = Substitute.For<Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime>();
+        lifetime.MainWindow.Returns(window);
+        lifetime.Windows.Returns(new[] { window, host, dialog });
+        var runner = Substitute.For<HexIDE.IDE.IProjectRunnerService>();
+        using var context = new HexIDE.Desktop.Server.IdeContext(null!, null!, Substitute.For<HexIDE.Lsp.ILspClient>(),
+            null!, runner, null!, null!, null!, null!, null!, vm, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+        try
+        {
+            field.SetValue(app, lifetime);
+            var result = HexIDE.Desktop.Server.IdeShutdown.Prepare(context, force: true);
+            host.IsVisible.Should().BeTrue();
+            factory.FindRoot(vm.Immediate).Should().NotBeSameAs(vm.Layout);
+            dialog.IsVisible.Should().BeFalse();
+            result.DialogsClosed.Should().Be(1);
+        }
+        finally
+        {
+            field.SetValue(app, previous);
+            Static.ForceCloseWithoutPrompt = force;
+            dialog.Close();
+        }
+    });
+
+    [AvaloniaFact]
+    public Task Stale_ide_path_names_the_floating_window_to_dump() => WithWorkspace((vm, factory, window, _) =>
+    {
+        static System.Collections.Generic.IEnumerable<HexIDE.Automation.UiNode> Flatten(HexIDE.Automation.UiNode node) =>
+            node.Children.SelectMany(Flatten).Prepend(node);
+        var path = Flatten(HexIDE.Automation.UiAutomationDriver.Dump(window, "Window", 30, interactiveOnly: false))
+            .First(n => n.DataContextType == nameof(ImmediateToolViewModel)).Path;
+        HexIDE.IDE.ForegroundWindow.Resolve(path, "ide", window, window, window.Title!).Control.Should().NotBeNull();
+        factory.FloatDockable(vm.Immediate);
+        Dispatcher.UIThread.RunJobs();
+        var host = FloatingHost(vm);
+        var app = Application.Current!;
+        var field = typeof(Application).GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(f => f.FieldType == typeof(Avalonia.Controls.ApplicationLifetimes.IApplicationLifetime));
+        var previous = field.GetValue(app);
+        var lifetime = Substitute.For<Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime>();
+        lifetime.MainWindow.Returns(window);
+        lifetime.Windows.Returns(new[] { window, host });
+        try
+        {
+            field.SetValue(app, lifetime);
+            var result = HexIDE.IDE.ForegroundWindow.Resolve(path, "ide", window, window, window.Title!);
+            result.Control.Should().BeNull();
+            result.Error.Should().Contain("floating").And.Contain($"window: \"{host.Title}\"").And.Contain("dump_visual_tree");
+            var fresh = Flatten(HexIDE.Automation.UiAutomationDriver.Dump(host, "Window", 30, interactiveOnly: false))
+                .First(n => n.DataContextType == nameof(ImmediateToolViewModel)).Path;
+            HexIDE.IDE.ForegroundWindow.Resolve(fresh, host.Title, host, window, host.Title!).Control.Should().NotBeNull();
+            HexIDE.IDE.ForegroundWindow.Resolve("", "ide", window, window, window.Title!).Error.Should().NotContain("floating");
+            HexIDE.IDE.ForegroundWindow.Resolve("Immediate/x", "ide", window, window, window.Title!).Error.Should().NotContain("floating");
+        }
+        finally { field.SetValue(app, previous); }
+    });
+
     private static HostWindow FloatingHost(MainViewViewModel vm) =>
         (HostWindow)((IRootDock)vm.Layout).Windows!.Single().Host!;
 

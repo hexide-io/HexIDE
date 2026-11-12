@@ -243,7 +243,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Data View | Stub | Button present; no Data View window |
 | Position display (twips) | Done | Shows selected component position |
 | Size display (twips) | Done | Shows selected component size |
-| Tool-window floating | Done | Float opens an owned host with a live active-tool title, view, usable initial size and maximize/restore button; floating tools remain visible in the inventory. Closing the host restores the original dock proportions and tab group; the pane’s own close box hides the tool, and View reopens it docked (#3770). Round-two live rendering verification pending |
+| Tool-window floating | Done | Float opens an owned host with a live active-tool title, view, usable initial size and maximize/restore button; floating tools remain visible in the inventory. Closing the host restores the original dock proportions and tab group; the pane’s own close box hides the tool, and View reopens it docked (#3770). Automation skips floating hosts under `auto` and forced shutdown, retains title addressing, and explains stale IDE paths (#3803). Round-two live rendering verification pending |
 | Document containment | Done | Code and designer tabs stay docked: Float and Float all are unavailable, and programmatic float attempts leave the document in its tab (#1361) |
 
 ---
