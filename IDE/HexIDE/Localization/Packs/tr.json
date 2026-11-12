@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Olay",
     "Str.Tool.Outline.Kind.Operator": "İşleç",
     "Str.Tool.Outline.Kind.TypeParameter": "Tür parametresi",
+    "Str.Debug.Conditions.EvaluationFailed": "{1} içinde {2}. satırdaki '{0}' kesme noktası koşulu değerlendirilemedi: {3}",
     "Str.Debug.Conditions.Prompt": "Bu satırda yalnızca bu ifade doğru olduğunda dur:",
     "Str.Debug.Conditions.Edit": "Koşul…",
     "Str.Debug.Conditions.AdapterIgnored": "Bu bağdaştırıcı koşulları yok sayar ve her seferinde durur.",

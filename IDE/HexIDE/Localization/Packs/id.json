@@ -1201,6 +1201,7 @@
     "Str.Tool.Outline.Kind.Event": "Peristiwa",
     "Str.Tool.Outline.Kind.Operator": "Operator",
     "Str.Tool.Outline.Kind.TypeParameter": "Parameter tipe",
+    "Str.Debug.Conditions.EvaluationFailed": "Kondisi titik henti '{0}' di {1} baris {2} tidak dapat dievaluasi: {3}",
     "Str.Debug.Conditions.Prompt": "Berhenti di baris ini hanya ketika ekspresi ini bernilai benar:",
     "Str.Debug.Conditions.Edit": "Kondisi…",
     "Str.Debug.Conditions.AdapterIgnored": "Adaptor ini mengabaikan kondisi dan selalu berhenti.",

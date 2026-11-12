@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Dogodek",
     "Str.Tool.Outline.Kind.Operator": "Operator",
     "Str.Tool.Outline.Kind.TypeParameter": "Parameter tipa",
+    "Str.Debug.Conditions.EvaluationFailed": "Pogoja prekinitvene točke '{0}' v {1}, vrstica {2}, ni bilo mogoče ovrednotiti: {3}",
     "Str.Debug.Conditions.Prompt": "Ustavi se v tej vrstici samo, ko je ta izraz resničen:",
     "Str.Debug.Conditions.Edit": "Pogoj…",
     "Str.Debug.Conditions.AdapterIgnored": "Ta adapter prezre pogoje in se vsakič ustavi.",

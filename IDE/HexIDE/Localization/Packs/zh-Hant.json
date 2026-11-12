@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "事件",
     "Str.Tool.Outline.Kind.Operator": "運算子",
     "Str.Tool.Outline.Kind.TypeParameter": "型別參數",
+    "Str.Debug.Conditions.EvaluationFailed": "無法評估 {1} 第 {2} 行的中斷點條件 '{0}'：{3}",
     "Str.Debug.Conditions.Prompt": "僅當此運算式為 True 時在此行中斷：",
     "Str.Debug.Conditions.Edit": "條件…",
     "Str.Debug.Conditions.AdapterIgnored": "此配接器忽略條件，每次都會停止。",

@@ -1201,6 +1201,7 @@
     "Str.Tool.Outline.Kind.Event": "이벤트",
     "Str.Tool.Outline.Kind.Operator": "연산자",
     "Str.Tool.Outline.Kind.TypeParameter": "형식 매개 변수",
+    "Str.Debug.Conditions.EvaluationFailed": "{1}의 {2}행에서 중단점 조건 '{0}'을(를) 평가할 수 없습니다: {3}",
     "Str.Debug.Conditions.Prompt": "이 식이 True일 때만 이 줄에서 중단:",
     "Str.Debug.Conditions.Edit": "조건…",
     "Str.Debug.Conditions.AdapterIgnored": "이 어댑터는 조건을 무시하고 매번 중지합니다.",

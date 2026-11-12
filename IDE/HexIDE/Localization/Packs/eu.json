@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Gertaera",
     "Str.Tool.Outline.Kind.Operator": "Eragilea",
     "Str.Tool.Outline.Kind.TypeParameter": "Mota-parametroa",
+    "Str.Debug.Conditions.EvaluationFailed": "Ezin izan da '{0}' eten-puntuaren baldintza ebaluatu {1} moduluko {2}. lerroan: {3}",
     "Str.Debug.Conditions.Prompt": "Gelditu lerro honetan adierazpen hau egiazkoa denean soilik:",
     "Str.Debug.Conditions.Edit": "Baldintza…",
     "Str.Debug.Conditions.AdapterIgnored": "Egokigailu honek baldintzak ez ditu kontuan hartzen eta beti gelditzen da.",
