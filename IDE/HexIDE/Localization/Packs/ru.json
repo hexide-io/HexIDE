@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Сервер запускается при открытии первого документа на языке, который он заявил, так что до этого отмечать нечего. На уже записанное это не влияет.",
     "Str.Tool.LanguageServers.KeepBodies": "Сохранять тела сообщений",
     "Str.Tool.LanguageServers.ShowAllMessages": "Показать все записанные сообщения",
+    "Str.Tool.LanguageServers.Restart": "Перезапустить",
     "Str.Tool.LanguageServers.ShowMessages": "Показать его сообщения",
     "Str.Tool.LanguageServers.CopyReport": "Копировать отчёт",
     "Str.Tool.LanguageServers.ReportRedacted": "В отчёте пути и адреса заменены вымышленными именами.",

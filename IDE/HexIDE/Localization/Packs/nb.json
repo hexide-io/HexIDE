@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "En server starter ved det første dokumentet i et språk den håndterer, så inntil da finnes det ingen rad å krysse av. Dette endrer ikke det som allerede er registrert.",
     "Str.Tool.LanguageServers.KeepBodies": "Behold meldingsinnhold",
     "Str.Tool.LanguageServers.ShowAllMessages": "Vis alle registrerte meldinger",
+    "Str.Tool.LanguageServers.Restart": "_Start på nytt",
     "Str.Tool.LanguageServers.ShowMessages": "Vis meldingene dens",
     "Str.Tool.LanguageServers.CopyReport": "Kopier rapport",
     "Str.Tool.LanguageServers.ReportRedacted": "Rapporten erstatter baner og adresser med oppdiktede navn.",

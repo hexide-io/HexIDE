@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "伺服器會在開啟其所宣告語言的第一份文件時啟動，因此在那之前沒有可勾選的項目。這不會改變已經記錄的內容。",
     "Str.Tool.LanguageServers.KeepBodies": "保留訊息內容",
     "Str.Tool.LanguageServers.ShowAllMessages": "顯示所有已記錄的訊息",
+    "Str.Tool.LanguageServers.Restart": "重新啟動(_R)",
     "Str.Tool.LanguageServers.ShowMessages": "顯示其訊息",
     "Str.Tool.LanguageServers.CopyReport": "複製報告",
     "Str.Tool.LanguageServers.ReportRedacted": "報告會將路徑與位址替換為化名。",

@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "يبدأ الخادم عند أول مستند بلغة يعلن خدمتها، فلا يوجد صف لتحديده قبل ذلك. وهذا لا يغيّر ما تم تسجيله بالفعل.",
     "Str.Tool.LanguageServers.KeepBodies": "الاحتفاظ بمتون الرسائل",
     "Str.Tool.LanguageServers.ShowAllMessages": "عرض جميع الرسائل المسجّلة",
+    "Str.Tool.LanguageServers.Restart": "إعادة التشغيل",
     "Str.Tool.LanguageServers.ShowMessages": "عرض رسائله",
     "Str.Tool.LanguageServers.CopyReport": "نسخ التقرير",
     "Str.Tool.LanguageServers.ReportRedacted": "يستبدل التقرير المسارات والعناوين بأسماء مستعارة.",

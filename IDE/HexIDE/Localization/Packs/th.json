@@ -868,6 +868,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "เซิร์ฟเวอร์จะเริ่มเมื่อเปิดเอกสารแรกของภาษาที่ให้บริการ ก่อนหน้านั้นจึงไม่มีแถวให้เลือก ตัวเลือกนี้ไม่เปลี่ยนข้อมูลที่บันทึกไปแล้ว",
     "Str.Tool.LanguageServers.KeepBodies": "เก็บเนื้อหาข้อความ",
     "Str.Tool.LanguageServers.ShowAllMessages": "แสดงข้อความที่บันทึกไว้ทั้งหมด",
+    "Str.Tool.LanguageServers.Restart": "เริ่มใหม่",
     "Str.Tool.LanguageServers.ShowMessages": "แสดงข้อความของเซิร์ฟเวอร์นี้",
     "Str.Tool.LanguageServers.CopyReport": "คัดลอกรายงาน",
     "Str.Tool.LanguageServers.ReportRedacted": "รายงานจะแทนที่เส้นทางและที่อยู่ด้วยชื่อสมมติ",

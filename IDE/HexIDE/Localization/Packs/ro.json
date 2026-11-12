@@ -868,6 +868,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Un server pornește la primul document al unui limbaj pe care îl deservește, așa că până atunci nu există un rând de bifat. Aceasta nu modifică ceea ce a fost deja înregistrat.",
     "Str.Tool.LanguageServers.KeepBodies": "Păstrează corpurile mesajelor",
     "Str.Tool.LanguageServers.ShowAllMessages": "Afișează toate mesajele înregistrate",
+    "Str.Tool.LanguageServers.Restart": "_Repornește",
     "Str.Tool.LanguageServers.ShowMessages": "Afișează mesajele sale",
     "Str.Tool.LanguageServers.CopyReport": "Copiază raportul",
     "Str.Tool.LanguageServers.ReportRedacted": "Raportul înlocuiește căile și adresele cu nume fictive.",
