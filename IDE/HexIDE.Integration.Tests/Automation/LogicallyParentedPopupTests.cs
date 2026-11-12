@@ -402,6 +402,33 @@ public class LogicallyParentedPopupTests
         finally { UiAutomationDriver.Interact(target, "collapse", null); window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData(PopupRoute.ContextMenu)]
+    [InlineData(PopupRoute.ContextFlyout)]
+    [InlineData(PopupRoute.AttachedFlyout)]
+    [InlineData(PopupRoute.ButtonFlyout)]
+    public void Inspect_PopupOwner_ReportsExpandCollapseState(PopupRoute route)
+    {
+        var (target, isOpen) = Owning(route);
+        var window = Show(target);
+        try
+        {
+            var closed = UiAutomationDriver.Inspect(target, "owner");
+            closed.Providers.Should().Contain("expandCollapse");
+            closed.ExpandCollapseState.Should().Be("Collapsed");
+
+            UiAutomationDriver.Interact(target, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            isOpen().Should().BeTrue();
+            UiAutomationDriver.Inspect(target, "owner").ExpandCollapseState.Should().Be("Expanded");
+
+            UiAutomationDriver.Interact(target, "collapse", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.Inspect(target, "owner").ExpandCollapseState.Should().Be("Collapsed");
+        }
+        finally { UiAutomationDriver.Interact(target, "collapse", null); window.Close(); }
+    }
+
     public enum PopupRoute { ContextMenu, ContextFlyout, AttachedFlyout, ButtonFlyout }
 
     private static (Control Target, Func<bool> IsOpen) Owning(PopupRoute route)

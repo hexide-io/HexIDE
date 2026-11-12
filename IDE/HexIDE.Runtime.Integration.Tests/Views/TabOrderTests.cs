@@ -6,7 +6,9 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Integration.Tests.Views;
+using HexIDE.Integration.Tests.Views;
+
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A control's TabIndex and TabStop at run time (#1974). Every row is vb6.exe's, native and p-code agreeing, from the same

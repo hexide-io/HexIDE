@@ -15,7 +15,9 @@ using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+using HexIDE.Integration.Tests.Views;
+
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // #1631 part B, vb6.exe SP6 native and p-code, real input: issuecomment-6425849231.
 public partial class UserControlKeyTests

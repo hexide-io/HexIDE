@@ -16,7 +16,9 @@ using Avalonia.Media.Imaging;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Integration.Tests.Views;
+using HexIDE.Integration.Tests.Views;
+
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // Measurements: docs/vb6-fidelity-oracle/in-box-controls-the-listview.md, Icons and Drawing (#1085).
 public class ListViewImageListTests

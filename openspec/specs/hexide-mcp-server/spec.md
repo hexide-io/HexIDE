@@ -14,6 +14,21 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Advertised expansion has inspectable state
+
+`inspect_element` SHALL report `expandCollapseState` wherever `expandCollapse` is advertised.
+The automation peer's expand/collapse provider SHALL take precedence. Without that provider, a tree
+node with children SHALL report `Expanded` or `Collapsed` from `IsExpanded`, a submenu from its open
+state, and a context-menu or flyout owner from whether its popup is open on that control (#3742).
+
+#### Scenario: Inspect a tree node before and after expanding
+- **WHEN** a node with children is inspected before and after `interact expand`
+- **THEN** its state changes from `Collapsed` to `Expanded`
+
+#### Scenario: Inspect a popup owner
+- **WHEN** a control owning a context menu or flyout is inspected with its popup closed, then open
+- **THEN** its state changes from `Collapsed` to `Expanded`
+
 ### Requirement: Call stack replies summarise recursion and bound rows
 
 `get_call_stack` SHALL collapse consecutive frames with identical procedure, module and line into one

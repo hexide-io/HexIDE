@@ -11,7 +11,9 @@ using Avalonia.VisualTree;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Integration.Tests.Views;
+using HexIDE.Integration.Tests.Views;
+
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // Measurements: docs/vb6-fidelity-oracle/in-box-controls-the-treeview.md, "Scrolling" (#2359).
 public class TreeViewScrollingTests

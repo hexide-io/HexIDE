@@ -13,7 +13,9 @@ using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Integration.Tests.Views;
+using HexIDE.Integration.Tests.Views;
+
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // The control-binding slice of #1086; expectations are the oracle's measured TreeView rows.
 public class TreeViewRuntimeTests
