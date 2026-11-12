@@ -247,6 +247,17 @@ New marks SHALL NOT be written under older keys: older builds ignore the new key
 so their rewrites cannot leave stale header metadata beside marks they have moved. Builds predating #466 can
 still lose unknown content, as with version 2.
 
+When a module header is collected from below code at load, historical marks SHALL follow the reader's
+old-to-new line permutation. Marks on lines collected into the header SHALL be dropped. A rewritten sidecar
+SHALL record which documents' version-3 marks already use the collected order (`collectedModuleHeaders`),
+so reopening before the module is saved SHALL NOT migrate those marks twice. Missing documents' records
+SHALL be preserved with their marks. Breakpoint conditions SHALL follow their breakpoint through the same map.
+
+#### Scenario: Reopening a module before and after saving its reordered header
+- **GIVEN** historical marks on a statement in a module whose name line is below code
+- **WHEN** the project opens, rewrites its sidecar, and reopens before or after saving the module
+- **THEN** bookmarks, breakpoints and their conditions remain on that statement
+
 #### Scenario: A conflicted external header change followed by a reopen
 - **GIVEN** code bookmarks and breakpoints saved in version 3
 - **WHEN** an external edit changes the header length, is classified as a conflict and stays unapplied, and the

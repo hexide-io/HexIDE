@@ -206,7 +206,9 @@ public sealed class ProjectLoader
                 var (moduleSource, _, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath, ProjectEncodingRecords.Read(serializedProject.ExtensionTail, modulePath));
                 module.TextEncoding = moduleEncoding;
                 // .bas/.cls: strip the VB6 header so Code is the body only (no-op for .pag/.ctl).
-                var (preservedHeader, moduleBody) = ModuleFileFormat.SplitHeader(moduleSource, moduleKind);
+                var (preservedHeader, moduleBody) = ModuleFileFormat.SplitHeader(moduleSource, moduleKind, out var lineMap, out var oldHeaderLines);
+                module.LoadedLineMap = lineMap;
+                module.LoadedOldHeaderLines = oldHeaderLines;
 
                 module.RecordOriginalHeader(preservedHeader);
 

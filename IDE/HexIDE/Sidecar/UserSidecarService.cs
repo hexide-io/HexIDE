@@ -372,6 +372,8 @@ public partial class UserSidecarService : IUserSidecarService
     /// </para>
     /// <para>
     /// <b>A mark on a read-only line is dropped and logged</b>, except a file-relative header mark (versions 2 and 3).
+    /// A load that reorders module lines maps historical marks through that permutation first; a line collected
+    /// into the header is dropped, including a file-relative mark (#3796).
     /// Nothing in the IDE sets one there since #273 task 3.12, but a mark is a bare line number, so one already set can come to sit there: an
     /// edit that adds or removes lines above it, a line below it coming to describe a member, or a reload
     /// (debugger-vb6-divergences D24). The save writes what the stores hold, so such a mark reaches the file and is
@@ -392,11 +394,11 @@ public partial class UserSidecarService : IUserSidecarService
         var (oldBreakpoints, consumedBreakpoints) =
             Migrate(byName, owned, data.Breakpoints, first: 1, "breakpoint", path, breakpoints);
         Gather(byName, owned, data.FileBookmarks, first: 0, "bookmark", path, bookmarks);
-        GatherAnchored(byName, owned, data.CodeBookmarks, 0, "bookmark", path, bookmarks);
-        Gather(byName, owned, data.HeaderBookmarks, 0, "bookmark", path, bookmarks);
+        GatherAnchored(byName, owned, data.CodeBookmarks, 0, "bookmark", path, bookmarks, data.CollectedModuleHeaders);
+        Gather(byName, owned, data.HeaderBookmarks, 0, "bookmark", path, bookmarks, data.CollectedModuleHeaders);
         Gather(byName, owned, data.FileBreakpoints, first: 1, "breakpoint", path, breakpoints);
-        GatherAnchored(byName, owned, data.CodeBreakpoints, 1, "breakpoint", path, breakpoints);
-        Gather(byName, owned, data.HeaderBreakpoints, 1, "breakpoint", path, breakpoints);
+        GatherAnchored(byName, owned, data.CodeBreakpoints, 1, "breakpoint", path, breakpoints, data.CollectedModuleHeaders);
+        Gather(byName, owned, data.HeaderBreakpoints, 1, "breakpoint", path, breakpoints, data.CollectedModuleHeaders);
 
         foreach (var (document, lines) in bookmarks)
             bookmarkService.SetBookmarks(document, lines);
@@ -408,6 +410,7 @@ public partial class UserSidecarService : IUserSidecarService
         var migrated = new UserSidecarData
         {
             Version = data.Version,
+            CollectedModuleHeaders = data.CollectedModuleHeaders,
             FileBookmarks = data.FileBookmarks,
             FileBreakpoints = data.FileBreakpoints,
             Bookmarks = oldBookmarks.Count > 0 ? oldBookmarks : null,
@@ -431,7 +434,7 @@ public partial class UserSidecarService : IUserSidecarService
     /// <summary>Version 3 code lines are counted from the end of the full read-only header.</summary>
     private void GatherAnchored(ILookup<string, DocumentIdentity> byName, HashSet<string> owned,
         Dictionary<string, List<int>>? entries, int first, string what, string path,
-        Dictionary<DocumentIdentity, List<int>> into)
+        Dictionary<DocumentIdentity, List<int>> into, List<string>? collected = null)
     {
         if (entries == null) return;
         foreach (var (key, lines) in entries)
@@ -445,6 +448,8 @@ public partial class UserSidecarService : IUserSidecarService
 
             foreach (var document in byName[NameIn(key)])
             {
+                if (!IsCollected(collected, document)
+                    && AddReorderedLines(into, document, lines, first, what, path, codeRelative: true)) continue;
                 var shift = DocumentContent.TextOf(document, null, format, reader).HeaderLineCount;
                 // Check before adding, so a negative or overflowing offset cannot become a valid file line.
                 var invalid = lines.Where(line => line < first || (long)line + shift > int.MaxValue).ToList();
@@ -459,10 +464,28 @@ public partial class UserSidecarService : IUserSidecarService
         }
     }
 
+    private static bool IsCollected(List<string>? collected, DocumentIdentity document) =>
+        collected?.Contains(document.Name, StringComparer.OrdinalIgnoreCase) == true;
+
+    private bool AddReorderedLines(Dictionary<DocumentIdentity, List<int>> into, DocumentIdentity document,
+        IReadOnlyCollection<int> lines, int first, string what, string path, bool codeRelative)
+    {
+        if (document.Module is not { LoadedLineMap: { } map } module) return false;
+        var shift = codeRelative ? module.LoadedOldHeaderLines : 0;
+        var mapped = lines.Select(line => (long)line - first + shift)
+            .Where(line => line >= 0 && line < map.Length)
+            .Select(line => map[(int)line] + first).ToList();
+        // A source line collected into the header is no longer a markable code line.
+        AddTo(into, document, OffReadOnlyLines(document,
+            WithinDocument(document, mapped, first, what, path), first, what, path));
+        return true;
+    }
+
     /// <summary>File-relative header marks survive; member Attribute lines still cannot be marked.</summary>
     private void AddFileLines(Dictionary<DocumentIdentity, List<int>> into, DocumentIdentity document,
-        IReadOnlyCollection<int> lines, int first, string what, string path)
+        IReadOnlyCollection<int> lines, int first, string what, string path, bool collected = false)
     {
+        if (!collected && AddReorderedLines(into, document, lines, first, what, path, codeRelative: false)) return;
         var valid = WithinDocument(document, lines, first, what, path);
         var count = DocumentContent.TextOf(document, null, format, reader).HeaderLineCount;
         AddTo(into, document, valid.Where(line => line - first < count));
@@ -495,6 +518,7 @@ public partial class UserSidecarService : IUserSidecarService
 
             foreach (var document in byName[name])
             {
+                if (AddReorderedLines(into, document, lines, first, what, path, codeRelative: true)) continue;
                 var shift = FormCodeText.LineBreaks(document.Module is { } module ? format.CodePrefix(module) : format.CodePrefix(document.Form!));
                 var moving = WithinOldCode(document, lines, first, what, path).Select(line => line + shift);
                 AddTo(into, document, OffReadOnlyLines(document, moving.ToList(), first, what, path));
@@ -515,7 +539,7 @@ public partial class UserSidecarService : IUserSidecarService
     /// </remarks>
     private void Gather(ILookup<string, DocumentIdentity> byName, HashSet<string> owned,
         Dictionary<string, List<int>>? entries, int first, string what, string path,
-        Dictionary<DocumentIdentity, List<int>> into)
+        Dictionary<DocumentIdentity, List<int>> into, List<string>? collected = null)
     {
         if (entries == null) return;
         foreach (var (key, lines) in entries)
@@ -528,7 +552,7 @@ public partial class UserSidecarService : IUserSidecarService
             }
 
             foreach (var document in byName[NameIn(key)])
-                AddFileLines(into, document, lines, first, what, path);
+                AddFileLines(into, document, lines, first, what, path, IsCollected(collected, document));
         }
     }
 
@@ -756,9 +780,13 @@ public partial class UserSidecarService : IUserSidecarService
                 return;
             }
 
+            var collected = DocumentLookup.DocumentsOf(project)
+                .Where(d => d.Module?.LoadedLineMap != null).Select(d => d.Name)
+                .Concat(source?.CollectedModuleHeaders ?? []).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             var data = new UserSidecarData
             {
                 Version = version,
+                CollectedModuleHeaders = collected.Count > 0 ? collected : null,
                 CodeBookmarks = bookmarks.Count > 0 ? bookmarks : null,
                 CodeBreakpoints = breakpoints.Count > 0 ? breakpoints : null,
                 CodeBreakpointConditions = codeConditions.Count > 0 ? codeConditions : null,
@@ -1001,6 +1029,10 @@ internal class UserSidecarData
     /// </remarks>
     [JsonPropertyName("version")]
     public int Version { get; set; } = 1;
+
+    /// <summary>Documents whose version-3 marks already use the collected module header's order (#3796).</summary>
+    [JsonPropertyName("collectedModuleHeaders")]
+    public List<string>? CollectedModuleHeaders { get; set; }
 
     /// <summary>Version 3 bookmarks, 0-based from the first line after the full read-only header.</summary>
     [JsonPropertyName("codeBookmarks")]
