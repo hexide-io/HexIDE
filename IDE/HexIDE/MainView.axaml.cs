@@ -36,6 +36,11 @@ public partial class MainView : UserControl
         // Register shortcut tracking before markup or the renderer assigns its first command.
         System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(MenuUtils).TypeHandle);
         InitializeComponent();
+        DockControl.AttachedToVisualTree += (_, _) => PresentRestoredWindows();
+        DockControl.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == Dock.Avalonia.Controls.DockControl.LayoutProperty) PresentRestoredWindows();
+        };
         var viewNames = this.GetLogicalDescendants().OfType<Control>().Prepend(this)
             .Where(control => control.Name is not null && ReferenceEquals(this.FindNameScope()!.Find(control.Name), control))
             .ToArray();
@@ -66,6 +71,17 @@ public partial class MainView : UserControl
         DockPanel.SetDock(automation, Avalonia.Controls.Dock.Right);
         StatusBarPanel.Children.Insert(2, automation);
 #endif
+    }
+
+    private void PresentRestoredWindows()
+    {
+        // Attachment precedes Show; wait until the owner and Dock's control registration are ready.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (TopLevel.GetTopLevel(DockControl) is Window { IsVisible: true }
+                && DockControl.Layout?.Factory is MainViewViewModel.DockFactory factory)
+                factory.PresentRestoredWindows();
+        }, DispatcherPriority.Background);
     }
 
     private MainViewViewModel? _focusOwner;

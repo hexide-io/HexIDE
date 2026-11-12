@@ -129,4 +129,5 @@ public enum StopReason { Breakpoint, Step, Pause, StopStatement, Watch, RuntimeE
 public readonly record struct WatchBreakSpec(string Expression, bool BreakOnChange);
 
 /// <summary>Where and why execution is paused (line is 1-based, matching the editor and ANTLR).</summary>
-public readonly record struct StoppedInfo(StopReason Reason, string Module, int Line);
+public readonly record struct StoppedInfo(StopReason Reason, string Module, int Line,
+    string? ConditionExpression = null, string? ConditionError = null);

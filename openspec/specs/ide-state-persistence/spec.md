@@ -70,12 +70,45 @@ working area SHALL remain unchanged.
 
 ### Requirement: The tool window arrangement SHALL be restored
 The IDE SHALL record which tool windows are open, where they are docked, and their sizes, and restore that
-arrangement on the next launch.
+arrangement on the next launch. It SHALL also restore floating tool windows, including their tab order,
+active tool, DIP bounds and window state, while retaining their home dock placements.
 
 Which panels a developer keeps open is a working style, not a preference to re-express each morning —
 someone who closed the toolbox because they work in code did so deliberately. Sizes matter as much as
 visibility: a properties panel restored to a default width is one the developer has to widen again before
 they can read it.
+
+#### Scenario: Reopening floating tools
+- **WHEN** the IDE exits with floating tool windows open
+- **THEN** it SHALL save each window's tool keys in tab order, active key, DIP bounds and state before closing the hosts
+- **AND** present those windows once the main window and its docking control are attached on the next launch or a layout switch, retaining the tools' home dock slots for docking back
+- **AND** a window that cannot be presented SHALL return its tools to their home dock slots
+- **AND** unknown tool keys SHALL be skipped, and windows left empty SHALL not open
+- **AND** bounds on a disconnected monitor SHALL return to the owner's screen, with the frame fitted inside its working area
+- **AND** manifests without a floating list SHALL retain their existing docked restoration behavior
+
+#### Scenario: Switching layouts with floating tools
+- **WHEN** a panel layout is replaced
+- **THEN** the outgoing layout's owned tool windows SHALL close without returning their tools into the arriving layout
+- **AND** the arriving layout SHALL present exactly one owned window per saved floating entry
+- **AND** repeated switches SHALL not leave duplicate hosts
+
+#### Scenario: Returning a restored tab group
+- **WHEN** a restored floating window closes
+- **THEN** its tools SHALL return in order to their home tab group with its saved proportion and visible height
+- **AND** a manifest without topology SHALL reconstruct the group from the floating entry for tools sharing a home region
+
+#### Scenario: Every tool in a region floats
+- **WHEN** every tool in a region is floating during layout capture
+- **THEN** each tool SHALL retain its loaded or last docked home proportion across saves
+- **AND** returning tools with zero or missing saved home proportions SHALL use their slot defaults so they remain visible
+
+#### Scenario: Cancelling exit with floating tools
+- **WHEN** the main window begins closing while tools are floating
+- **THEN** its owned hosts SHALL retain their tools until the layout is saved
+- **WHEN** the exit is cancelled
+- **THEN** each host SHALL remain visible with its tabs and caption intact
+- **AND** only a close of the host itself SHALL return its tools to the workspace
 
 #### Scenario: Toolbox home
 - **WHEN** the IDE starts without recorded state or resets its window layout

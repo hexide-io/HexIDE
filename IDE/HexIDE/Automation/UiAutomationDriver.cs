@@ -925,7 +925,7 @@ public static class UiAutomationDriver
                     return DoChangeSelection(control, peer, value, add: false);
 
                 case "doubleclick":
-                    return DoDoubleClick(control, peer);
+                    return DoDoubleClick(control, peer, value);
 
                 case "click":
                     // The press only: the release is still to come, as the outcome's Release (FinishAsync).
@@ -1646,7 +1646,7 @@ public static class UiAutomationDriver
     /// the target itself and left to bubble.
     /// </para>
     /// </remarks>
-    private static InteractOutcome DoDoubleClick(Control control, AutomationPeer peer)
+    private static InteractOutcome DoDoubleClick(Control control, AutomationPeer peer, string? value)
     {
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Err("the control is not attached to a window, so it cannot be clicked");
@@ -1692,7 +1692,10 @@ public static class UiAutomationDriver
                       + (completionWindow.IsOpen ? "; the completion list is still open" : "; the completion list closed"));
         }
 
-        var centre = new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
+        if (!CodeWindowPointer.Aim(control, ref value, out var aimError)) return Err(aimError!);
+        if (!TryParseClick(value, out var doubleAt, out _, out _, out _, out _, out _, out var parseError)) return Err(parseError);
+        var centre = doubleAt ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
+        var codeNote = CodeWindowPointer.Note(control, centre);
         if (control.TranslatePoint(centre, topLevel) is not { } atTopLevel)
             return Err($"could not translate the centre of '{Describe(control)}' into window coordinates");
 
@@ -1709,7 +1712,7 @@ public static class UiAutomationDriver
             : treeRefusal.Contains(SelectionUnread, StringComparison.Ordinal) ? $" (whether it was selected first is not known: {treeRefusal})"
             : treeRefusal.Length > 0 ? $" (but it was not selected first: {treeRefusal})"
             : "";
-        return Ok($"raised DoubleTapped on '{LabelOf(control, peer)}'{note}; no pointer press was sent; "
+        return Ok($"raised DoubleTapped on '{LabelOf(control, peer)}'{note}{codeNote}; no pointer press was sent; "
                   + "use 'click' with 'double' in 'value' for a running form's DblClick");
     }
 
@@ -1844,6 +1847,7 @@ public static class UiAutomationDriver
     {
         static InteractOutcome Fail(string error) => new(false, "pointer", null, error);
 
+        if (!CodeWindowPointer.Aim(control, ref value, out var aimError)) return Fail(aimError!);
         if (!TryParseClick(value, out var at, out var button, out var keys, out var twice, out var destination, out var hold, out var problem))
             return Fail(problem);
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
@@ -1853,7 +1857,7 @@ public static class UiAutomationDriver
         var local = at ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
         if (control.TranslatePoint(local, topLevel) is not { } inWindow)
             return Fail($"could not translate ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}' into window coordinates");
-        var where = $"({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}', which is ({inWindow.X.ToString("0.#", CultureInfo.InvariantCulture)}, {inWindow.Y.ToString("0.#", CultureInfo.InvariantCulture)}) in the window";
+        var where = $"({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}', which is ({inWindow.X.ToString("0.#", CultureInfo.InvariantCulture)}, {inWindow.Y.ToString("0.#", CultureInfo.InvariantCulture)}) in the window" + CodeWindowPointer.Note(control, local);
         // What a real press there reaches: the topmost element at that point that takes the pointer.
         if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive hit)
             return Fail($"{NothingTakesThePointer}{where}, so nothing was pressed: the point is outside the target, "
@@ -1977,6 +1981,9 @@ public static class UiAutomationDriver
                     ?? topLevel.InputHitTest(releasePoint) as Avalonia.Interactivity.Interactive;
                 if (releasedOn is null)
                     return Fail($"pressed {pressed}; nothing takes the pointer at the release point {releaseWhere}");
+                var releaseCode = topLevel.InputHitTest(releasePoint) is Control releaseTarget
+                    && topLevel.TranslatePoint(releasePoint, releaseTarget) is { } localRelease
+                    ? CodeWindowPointer.Note(releaseTarget, localRelease) : "";
                 var releaseTime = ButtonTimestamp();
                 if (!RawPointer.Button(topLevel, releasePoint, button, down: false, rawKeys, mouse, releaseTime))
                     releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, RawPointer.InSurface(topLevel, releasePoint),
@@ -1988,7 +1995,7 @@ public static class UiAutomationDriver
                 pointer.Capture(null);
                 var docked = placedBefore is null ? "" : DockMoved(placedBefore, DockPlacement(dockLayout!), pressedDockHandle);
                 var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{arrival}{(second ? secondLanding : "")}"
-                    + (destination is null ? "" : $"; released at {releaseWhere}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
+                    + (destination is null ? (releaseCode.Length == 0 ? "" : $"; released{releaseCode}") : $"; released at {releaseWhere}{releaseCode}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
 #if DEBUG
                 return UiSaveFeedback.After(saveWatch, outcome);
@@ -2227,7 +2234,14 @@ public static class UiAutomationDriver
             return await ToggleSettledAsync(control, action, value);
         // A wheel is hit-tested as a press is, against what was drawn (#2576).
         var verb = Normalise(action);
-        if (verb is not ("click" or "wheel"))
+        if (verb is "click" or "doubleclick")
+        {
+            if (HeldButton.Current is not null || Shows(control) is not true || DisabledInteractionRefusal(control, verb) is not null)
+                return Interact(control, action, value);
+            var aimed = value;
+            if (!CodeWindowPointer.Aim(control, ref aimed, out var aimError)) return Err(aimError!);
+        }
+        if (verb is not ("click" or "wheel" or "doubleclick"))
             return Interact(control, action, value);
         var wait = frameWait ?? ClickFrameWait;
         var drawn = await NextFrameDrawnAsync(control, wait);
@@ -3694,7 +3708,7 @@ public static class UiAutomationDriver
     /// <para>Each key goes where the keyboard sends it, to the focused control, with the key bindings on it and its
     /// ancestors tried first, as Avalonia's keyboard device delivers one (<see cref="DeliverKey"/>). So a Tab that
     /// moves focus sends the next key to the control it moved to, and an Enter bound to a command runs it.</para>
-    /// <para>After each key the code window's completion and parameter-info requests are waited for, up to
+    /// <para>After each key the code window's completion, parameter-info and on-type formatting requests are waited for, up to
     /// <see cref="PopupWait"/>, as a person's next key comes after the list a letter opened has appeared; a later key
     /// otherwise overtook the server's answer, and the list opened after the typing was over (#943 review).</para>
     /// <para>The typing stops, and says how far it got, at a key a protected line refuses, where a person's would be
@@ -3776,11 +3790,7 @@ public static class UiAutomationDriver
                 var (key, mods, typed) = keys[i];
                 if (DeliverKey(at, key, mods, typed) is { } handled)
                     (sentText, tookText) = (sentText + 1, tookText + (handled ? 1 : 0));
-                // The next key once what this one set off ahead of input has run, and the list or parameter info it
-                // asked the language server for has come back.
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Input);
-                if (FocusedEditor(top) is { } codeEditor && HexIDE.Forms.Views.CodeEditorView.PendingPopupsOf(codeEditor) is { } pending
-                    && await Task.WhenAny(pending, Task.Delay(PopupWait, ct)) != pending)
+                if (!await WaitForEditorAsync(top, ct))
                     unanswered++;
 
                 if (OpenDialogs.Among(OpenWindows()).FirstOrDefault(d => !dialogsBefore.Contains(Shown(d))) is { } dialog)
@@ -3798,8 +3808,8 @@ public static class UiAutomationDriver
             var caret = AreaOf(at) is { } typedInto ? $"; the caret is at offset {typedInto.Caret.Offset}" : "";
             var moved = ReferenceEquals(at, start) ? "" : $"; focus moved on to {Describe(at)}, where the keys after it went";
             var slow = unanswered == 0 ? ""
-                : $"; the language server had not answered {unanswered} key(s)' completion or parameter-info request "
-                  + $"within {PopupWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms, so a list may still open";
+                : $"; the language server had not answered {unanswered} key(s)' completion, parameter-info or on-type formatting request "
+                  + $"within {PopupWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms, so a popup or formatting edit may still arrive";
             var selectionNote = replacedSelection is not null && AreaOf(start) is { } finalArea
                 ? "; " + replacedSelection.Left + SelectionState(finalArea) : "";
             // Shift's own key around a capital, as DeliverKey sends it (#2422).
@@ -3832,8 +3842,44 @@ public static class UiAutomationDriver
         }
     }
 
-    /// <summary>How long <see cref="TypeKeysAsync"/> waits after a key for the language server's completion answer.</summary>
+    /// <summary>How long typing tools wait after a key for the language server's editor work.</summary>
     internal static TimeSpan PopupWait = TimeSpan.FromSeconds(2);
+
+    private static async Task<bool> WaitForEditorAsync(TopLevel top, CancellationToken ct)
+    {
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Input);
+        if (FocusedEditor(top) is not { } editor || HexIDE.Forms.Views.CodeEditorView.PendingKeyRequestsOf(editor) is not { } pending)
+            return true;
+        if (await Task.WhenAny(pending, Task.Delay(PopupWait, ct)) != pending)
+        {
+            ct.ThrowIfCancellationRequested();
+            return false;
+        }
+        await pending;
+        return true;
+    }
+
+    /// <summary>Presses the key, then waits for the code window's answers before reporting its caret.</summary>
+    public static async Task<InteractOutcome> PressKeyAsync(
+        Control control, string key, string? modifiers, string? controlPath = null, CancellationToken ct = default)
+    {
+        var outcome = PressKey(control, key, modifiers, controlPath);
+        if (!outcome.Success || TopLevel.GetTopLevel(control) is not { } top)
+            return outcome;
+        try
+        {
+            var answered = await WaitForEditorAsync(top, ct);
+            var caret = FocusedEditor(top) is { } editor ? $"; the caret is at offset {editor.CaretOffset}" : "";
+            var slow = answered ? "" : "; the language server had not answered the key's completion, parameter-info or "
+                + $"on-type formatting request within {PopupWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms, "
+                + "so a popup or formatting edit may still arrive";
+            return outcome with { Detail = outcome.Detail + caret + slow };
+        }
+        catch (OperationCanceledException)
+        {
+            return outcome with { Success = false, Error = "press_key was cancelled after delivery; read the text back" };
+        }
+    }
 
     // The code editor whose text area has focus, for the requests its keys make.
     private static TextEditor? FocusedEditor(TopLevel top) =>

@@ -130,6 +130,25 @@ never reaches a network.
 - **WHEN** the configured endpoint is on the local machine over an unencrypted connection
 - **THEN** the request proceeds
 
+### Requirement: A remote endpoint SHALL require a credential before context is read
+Before assembling a request, reading the active file for context, or compacting history, Send SHALL
+require a non-whitespace effective API key unless the configured endpoint URL's host is `localhost`,
+`127.0.0.1`, or `::1`. The exemption SHALL depend only on that host, never the provider, model, or URL
+path. A blocked send SHALL display a localized explanation naming `apiKey` in
+`chat-settings.json`, retain the input, and send no request.
+
+#### Scenario: No key for the default endpoint
+- **WHEN** Send is invoked without a key in settings or any supported environment variable
+- **THEN** no request is made, no active-file context is read, and the chat explains how to set a key
+
+#### Scenario: A keyless local endpoint
+- **WHEN** the configured URL names one of the three loopback hosts
+- **THEN** chat and history compaction may use that endpoint without a key
+
+#### Scenario: A remote URL mentions localhost
+- **WHEN** a remote endpoint has `localhost` only in its path and no effective key
+- **THEN** Send refuses before reading context or making any request
+
 ### Requirement: The credential SHALL be resolvable without storing it in a settings file
 The assistant SHALL accept its credential from the environment in preference to its settings file, and
 where the credential is being read from the settings file it SHALL say so.

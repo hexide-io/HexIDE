@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "حدث",
     "Str.Tool.Outline.Kind.Operator": "عامل",
     "Str.Tool.Outline.Kind.TypeParameter": "معلمة نوع",
+    "Str.Debug.Conditions.EvaluationFailed": "تعذر تقييم شرط نقطة التوقف '{0}' في {1} السطر {2}: {3}",
     "Str.Debug.Conditions.Prompt": "توقف عند هذا السطر فقط عندما يكون هذا التعبير صحيحًا:",
     "Str.Debug.Conditions.Edit": "شرط…",
     "Str.Debug.Conditions.AdapterIgnored": "يتجاهل هذا المحول الشروط ويتوقف كل مرة.",
@@ -1242,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "إرساء",
     "Str.Dock.ToolTabStripItemAutoHide": "إخفاء تلقائي",
     "Str.Dock.ToolTabStripItemDockAsDocument": "إرساء كمستند ذي علامة تبويب",
-    "Str.Dock.ToolTabStripItemClose": "إغلاق"
+    "Str.Dock.ToolTabStripItemClose": "إغلاق",
+    "Str.AIChat.ApiKeyRequired": "مفتاح API مطلوب. عيّن apiKey في chat-settings.json."
   }
 }

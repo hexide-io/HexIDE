@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Esdeveniment",
     "Str.Tool.Outline.Kind.Operator": "Operador",
     "Str.Tool.Outline.Kind.TypeParameter": "Paràmetre de tipus",
+    "Str.Debug.Conditions.EvaluationFailed": "No s'ha pogut avaluar la condició del punt d'interrupció '{0}' a {1}, línia {2}: {3}",
     "Str.Debug.Conditions.Prompt": "Atura en aquesta línia només quan aquesta expressió sigui certa:",
     "Str.Debug.Conditions.Edit": "Condició…",
     "Str.Debug.Conditions.AdapterIgnored": "Aquest adaptador ignora les condicions i s’atura sempre.",
@@ -1242,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Acobla",
     "Str.Dock.ToolTabStripItemAutoHide": "A_maga automàticament",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Acobla com a document amb pestanya",
-    "Str.Dock.ToolTabStripItemClose": "_Tanca"
+    "Str.Dock.ToolTabStripItemClose": "_Tanca",
+    "Str.AIChat.ApiKeyRequired": "Cal una clau API. Establiu apiKey a chat-settings.json."
   }
 }

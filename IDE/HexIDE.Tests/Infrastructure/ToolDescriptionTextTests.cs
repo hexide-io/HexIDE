@@ -76,6 +76,14 @@ public class ToolDescriptionTextTests
             .Should().Contain(@"per character, \n as Enter and \t as Tab");
     }
 
+    [Theory]
+    [InlineData("type_text")]
+    [InlineData("press_key")]
+    public void Typing_names_the_editor_work_it_waits_for(string tool)
+    {
+        ToolSource.Tools.Single(t => t.Name == tool).AllText.Should().Contain("on-type formatting");
+    }
+
     [Fact]
     public void Type_text_explains_descendant_surface_refusals()
     {

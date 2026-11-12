@@ -86,6 +86,57 @@ public class ProgramPrintedStartTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData("x >", false)]
+    [InlineData("missingName", false)]
+    [InlineData("x >", true)]
+    [InlineData("missingName", true)]
+    public async Task Failed_condition_is_reported_in_the_stop_and_not_printed(string expression, bool step)
+    {
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDefinition(project, FormComponentClass.Instance, "Form1");
+        project.AddForm(form);
+        form.UpdateCode(form.Code + "\r\nPrivate Sub Form_Load()\r\nDebug.Print \"before\"\r\nDebug.Print \"after\"\r\nEnd Sub\r\nPrivate Sub Other()\r\nDim missingName As Integer\r\nEnd Sub\r\n");
+        var line = Array.FindIndex(form.Code.ReplaceLineEndings("\n").Split('\n'), l => l.Contains("Debug.Print \"after\"", StringComparison.Ordinal)) + 1;
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([project]);
+        projects.StartupProject.Returns(project);
+        var controller = new DebugController();
+        var marks = new BreakpointService();
+        var document = DocumentIdentity.For(form);
+        marks.SetDocument(document, step ? [line - 1, line] : [line]);
+        marks.SetCondition(document, line, expression);
+        var runner = TestRunners.WithInterpreter(new EventBus(), Substitute.For<IWindowManager>(), projects,
+            composition.LocalizationService, controller, marks, new WatchService(), new RunScope());
+        using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
+            null!, runner, null!, null!, null!, marks, controller, composition.Root, null!, null!, null!, null!,
+            null!, null!, composition.LocalizationService, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+        var tools = new HexIdeTools(context);
+        ProgramPrinted.Shared.FollowRuns(runner);
+        HexIDE.Runtime.VBDebugConsole.Written += ProgramPrinted.Shared.Append;
+        try
+        {
+            var reply = await tools.RunProjectAsync(TestContext.Current.CancellationToken);
+            if (step) reply = await tools.StepIntoAsync(TestContext.Current.CancellationToken);
+            reply.Success.Should().BeTrue(reply.Error);
+            using (new AwesomeAssertions.Execution.AssertionScope())
+            {
+                reply.Note.Should().Contain(expression).And.Contain("couldn't be evaluated").And.Contain(expression == "missingName" ? "Variable not defined" : "Syntax error").And.Contain($"line {line}");
+                reply.Printed.Should().Be("before\n");
+                var state = await tools.GetDebugStateAsync(TestContext.Current.CancellationToken);
+                state.Note.Should().Contain(expression).And.Contain("couldn't be evaluated").And.Contain(expression == "missingName" ? "Variable not defined" : "Syntax error");
+            }
+        }
+        finally
+        {
+            runner.EndProject();
+            HexIDE.Runtime.VBDebugConsole.Written -= ProgramPrinted.Shared.Append;
+            ProgramPrinted.Shared.Reset();
+        }
+    }
+
     // #3229: null makes Load finish inside RunForm; -1 makes every statement yield.
     [AvaloniaTheory]
     [InlineData(null)]

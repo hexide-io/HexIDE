@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Evento",
     "Str.Tool.Outline.Kind.Operator": "Operador",
     "Str.Tool.Outline.Kind.TypeParameter": "Parâmetro de tipo",
+    "Str.Debug.Conditions.EvaluationFailed": "Não foi possível avaliar a condição do ponto de interrupção '{0}' em {1}, linha {2}: {3}",
     "Str.Debug.Conditions.Prompt": "Parar nesta linha apenas quando esta expressão for verdadeira:",
     "Str.Debug.Conditions.Edit": "Condição…",
     "Str.Debug.Conditions.AdapterIgnored": "Este adaptador ignora as condições e interrompe a execução a cada passagem.",
@@ -1242,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "_Acoplar",
     "Str.Dock.ToolTabStripItemAutoHide": "_Ocultar automaticamente",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Acoplar como documento com separador",
-    "Str.Dock.ToolTabStripItemClose": "F_echar"
+    "Str.Dock.ToolTabStripItemClose": "F_echar",
+    "Str.AIChat.ApiKeyRequired": "É necessária uma chave API. Defina apiKey em chat-settings.json."
   }
 }

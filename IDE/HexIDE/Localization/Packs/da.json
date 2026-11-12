@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Hændelse",
     "Str.Tool.Outline.Kind.Operator": "Operator",
     "Str.Tool.Outline.Kind.TypeParameter": "Typeparameter",
+    "Str.Debug.Conditions.EvaluationFailed": "Betingelsen '{0}' for pausepunktet i {1}, linje {2}, kunne ikke evalueres: {3}",
     "Str.Debug.Conditions.Prompt": "Stop kun på denne linje, når dette udtryk er sandt:",
     "Str.Debug.Conditions.Edit": "Betingelse…",
     "Str.Debug.Conditions.AdapterIgnored": "Denne adapter ignorerer betingelser og stopper hver gang.",
@@ -1242,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "F_astgør",
     "Str.Dock.ToolTabStripItemAutoHide": "_Skjul automatisk",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Fastgør som dokument med faneblad",
-    "Str.Dock.ToolTabStripItemClose": "_Luk"
+    "Str.Dock.ToolTabStripItemClose": "_Luk",
+    "Str.AIChat.ApiKeyRequired": "API-nøgle kræves. Angiv apiKey i chat-settings.json."
   }
 }

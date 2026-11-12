@@ -99,9 +99,14 @@ public sealed class CompilerRootSessionTests : SocketTrackingTest
     public async Task Deadline_covers_time_between_decoded_notifications()
     {
         using var peer = await CompilerSessionTestPeer.Create(initialize: false);
-        var pending = peer.Initialize(new(Timeout: TimeSpan.FromMilliseconds(250)));
+        CancellationTokenSource? deadline = null;
+        var pending = peer.Initialize(new(Timeout: TimeSpan.FromMilliseconds(250)),
+            startDeadline: (source, _) => deadline = source);
         await peer.Request();
         await peer.Reply(-1, 123);
+        deadline.Should().NotBeNull();
+        pending.IsCompleted.Should().BeFalse();
+        deadline!.CancelAfter(TimeSpan.FromMilliseconds(250));
         await FluentActions.Awaiting(() => pending).Should().ThrowExactlyAsync<TimeoutException>()
             .WithMessage("Compiler root initialization timed out.");
     }

@@ -52,7 +52,9 @@ public sealed class SplitDocumentTabsTests
         tabs[0].GetProperty("area").GetInt32().Should().Be(0);
         tabs[1].GetProperty("area").GetInt32().Should().Be(1);
         tabs[1].GetProperty("isActive").GetBoolean().Should().BeTrue();
-        (await tools.CloseDocumentTabAsync(title: "Same")).Success.Should().BeFalse("duplicate titles remain ambiguous across areas");
+        var ambiguous = await tools.CloseDocumentTabAsync(title: "Same");
+        ambiguous.Success.Should().BeFalse("duplicate titles remain ambiguous across areas");
+        ambiguous.Error.Should().Contain("dump_visual_tree").And.Contain("interact");
         moved.Title = "Moved";
         var activated = await tools.ActivateDocumentTabAsync(title: "Moved");
         activated.Success.Should().BeTrue();

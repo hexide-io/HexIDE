@@ -558,8 +558,8 @@ public class TypeKeysTests : IDisposable
         {
             var typed = await UiAutomationDriver.TypeKeysAsync(editor, "M");
 
-            typed.Detail.Should().EndWith("; the language server had not answered 1 key(s)' completion or parameter-info "
-                                          + "request within 100 ms, so a list may still open");
+            typed.Detail.Should().EndWith("; the language server had not answered 1 key(s)' completion, parameter-info or on-type formatting "
+                                          + "request within 100 ms, so a popup or formatting edit may still arrive");
         }
         finally
         {

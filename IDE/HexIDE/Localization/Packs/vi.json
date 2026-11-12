@@ -1167,6 +1167,7 @@
     "Str.Tool.Outline.Kind.Event": "Sự kiện",
     "Str.Tool.Outline.Kind.Operator": "Toán tử",
     "Str.Tool.Outline.Kind.TypeParameter": "Tham số kiểu",
+    "Str.Debug.Conditions.EvaluationFailed": "Không thể đánh giá điều kiện điểm ngắt '{0}' tại {1}, dòng {2}: {3}",
     "Str.Debug.Conditions.Prompt": "Chỉ dừng tại dòng này khi biểu thức này là đúng:",
     "Str.Debug.Conditions.Edit": "Điều kiện…",
     "Str.Debug.Conditions.AdapterIgnored": "Bộ điều hợp này bỏ qua điều kiện và luôn dừng.",
@@ -1242,6 +1243,7 @@
     "Str.Dock.ToolTabStripItemDock": "N_eo",
     "Str.Dock.ToolTabStripItemAutoHide": "_Tự động ẩn",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Neo dưới dạng tài liệu có thẻ",
-    "Str.Dock.ToolTabStripItemClose": "_Đóng"
+    "Str.Dock.ToolTabStripItemClose": "_Đóng",
+    "Str.AIChat.ApiKeyRequired": "Cần có khóa API. Đặt apiKey trong chat-settings.json."
   }
 }
