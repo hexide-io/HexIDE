@@ -79,6 +79,26 @@ public interface IProjectFileFormat : IFormFileFormat
     /// </summary>
     (string Header, string Body) SplitModule(string text, ModuleKind kind);
 
+    /// <summary>
+    /// The text the code window puts in front of a form's code. Its whole text is <c>CodePrefix(x) + x.Code</c>;
+    /// the reader reads its regions with this prefix's length.
+    /// </summary>
+    string CodePrefix(FormDefinition form);
+
+    /// <summary>
+    /// The text the code window puts in front of a module's code. Its whole text is <c>CodePrefix(x) + x.Code</c>;
+    /// the reader reads its regions with this prefix's length.
+    /// </summary>
+    string CodePrefix(ModuleDefinition module);
+
+    /// <summary>
+    /// Whether the module's kind carries its name in the prefix. VB6 answers true for every .bas and .cls,
+    /// including an unsplit file whose prefix is empty and whose VB_Name is still in its code.
+    /// The omission note asks whether to leave out the remark; a rename asks whether the name is in the prefix.
+    /// That rename answer is wrong for an unsplit file (#3757).
+    /// </summary>
+    bool PrefixCarriesName(ModuleDefinition module);
+
     /// <summary>The extension of the companion that goes with this designer file.</summary>
     string CompanionExtension(string path);
 

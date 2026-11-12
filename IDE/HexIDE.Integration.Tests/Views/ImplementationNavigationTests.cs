@@ -39,7 +39,7 @@ public class ImplementationNavigationTests
         projects.LoadedProjects.Returns([]);
         documents.OpenDocuments.Returns([]);
         var editors = Substitute.For<IEditorService>();
-        var results = new FindReferencesToolViewModel(client, editors, projects, documents, localization);
+        var results = new FindReferencesToolViewModel(client, editors, projects, documents, localization, format: new Vb6ProjectFileFormat());
         client.SupportsCapability(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
         var answer = Enumerable.Range(0, count).Select(i => new Location("untitled:P/Other.bas",
             new HexIDE.Lsp.Messages.Range(new Position(i + 2, 3), new Position(i + 2, 8)))).ToArray();
@@ -56,7 +56,7 @@ public class ImplementationNavigationTests
             Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
+            Substitute.For<HexIDE.Debugging.IRunScope>(), localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
         module.UpdateCode("Call Greet\r\n");

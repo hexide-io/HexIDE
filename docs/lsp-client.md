@@ -381,7 +381,9 @@ chooses no scratch folder. A pipe server requiring `{workspaceUri}` or `{workspa
 `NotStarted`, retaining the refusal reason in the Language Servers window. The warning is logged once
 per entry; later opens retry, and the first project save starts it without reopening a document.
 Scratch file storage never supplies a workspace or artifact root. Other startup failures remain
-terminal for the session (#1382).
+terminal for automatic startup within the session (#1382). A user can explicitly restart one entry
+from Language & Debug Servers, using its loaded registration and reopening its documents without
+reloading configuration or restarting other entries (#3761).
 
 `workspaceFolders` is **null, never an empty array**, when no project has a chosen folder: the protocol gives those two
 different meanings, and "no folders are open" is the true one.

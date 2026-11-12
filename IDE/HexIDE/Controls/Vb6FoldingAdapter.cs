@@ -68,7 +68,7 @@ public static class Vb6FoldingAdapter
     /// The header's fold: from the top of the file to the end of the header's last line, or null when the
     /// header is shorter than two lines.
     /// </summary>
-    /// <param name="regions">The buffer's read-only regions, header first; see <see cref="ReadOnlyRegions.Of"/>.</param>
+    /// <param name="regions">The buffer's read-only regions, header first, as returned by the reader.</param>
     /// <remarks>
     /// <para>
     /// <b>The fold stops before the header's last line break</b>, so the line after the header, the first line

@@ -43,7 +43,9 @@ public class CodeEditorViewModelTests : IDisposable
     private CodeEditorViewModel CreateSut()
     {
         _sut = new CodeEditorViewModel(
-            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _runScope, _localization, recentEditHistory: recentEdits);
+            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _runScope, _localization,
+                new Vb6ProjectFileFormat(),
+                new Vb6ReadOnlyRegionReader(), recentEditHistory: recentEdits);
         return _sut;
     }
 

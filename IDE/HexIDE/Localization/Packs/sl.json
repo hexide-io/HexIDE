@@ -868,6 +868,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Strežnik se zažene ob prvem dokumentu jezika, ki ga podpira, zato do takrat ni vrstice za označitev. To ne spremeni že zabeleženega.",
     "Str.Tool.LanguageServers.KeepBodies": "Ohrani telesa sporočil",
     "Str.Tool.LanguageServers.ShowAllMessages": "Prikaži vsa zabeležena sporočila",
+    "Str.Tool.LanguageServers.Restart": "_Znova zaženi",
     "Str.Tool.LanguageServers.ShowMessages": "Prikaži njegova sporočila",
     "Str.Tool.LanguageServers.CopyReport": "Kopiraj poročilo",
     "Str.Tool.LanguageServers.ReportRedacted": "Poročilo zamenja poti in naslove z izmišljenimi imeni.",

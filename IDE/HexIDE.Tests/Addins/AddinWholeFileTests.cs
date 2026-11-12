@@ -51,7 +51,9 @@ public class AddinWholeFileTests : IDisposable
             active = match;
             return true;
         });
-        sut = new AddinEditorService(dock, Substitute.For<IEditorService>(), projects);
+        sut = new AddinEditorService(dock, Substitute.For<IEditorService>(), projects,
+            format: new Vb6ProjectFileFormat(),
+            reader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
     }
 
     public void Dispose()
@@ -103,7 +105,9 @@ public class AddinWholeFileTests : IDisposable
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), new LocalizationService(), regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
+            Substitute.For<IRunScope>(), new LocalizationService(),
+                new Vb6ProjectFileFormat(),
+                new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
         made.Add(vm);
         return vm;
     }

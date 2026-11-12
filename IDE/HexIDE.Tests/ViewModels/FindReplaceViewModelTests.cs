@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System.Collections.Generic;
 using AvaloniaEdit.Document;
 using HexIDE.Bookmarks;
@@ -72,7 +73,7 @@ public partial class FindReplaceViewModelTests
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<HexIDE.Debugging.IRunScope>(),
-            Substitute.For<ILocalizationService>(), regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
+            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
         vm.Document.Text = text;
         vm.CaretOffset = 0;
         return vm;

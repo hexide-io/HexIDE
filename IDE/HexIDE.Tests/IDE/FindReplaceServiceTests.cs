@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System.Collections.Generic;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
@@ -23,7 +24,7 @@ public class FindReplaceServiceTests
         windows.When(manager => manager.ShowWindow(Arg.Any<IDialog>()))
             .Do(call => shown.Add(call.Arg<IDialog>()));
         var sut = new FindReplaceService(windows, Substitute.For<IDocumentDockService>(),
-            localization, projects, editors, () => explorer, new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
+            localization, projects, editors, () => explorer, new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), format: new Vb6ProjectFileFormat());
 
         sut.ShowFind();
         var first = (FindReplaceViewModel)shown[0];

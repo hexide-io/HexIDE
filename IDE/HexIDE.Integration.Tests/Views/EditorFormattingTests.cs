@@ -204,7 +204,9 @@ public sealed class EditorFormattingTests
             Substitute.For<IProjectService>(), new EventBus(), Substitute.For<ILspClient>(), settings,
             Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<ILocalizationService>());
+            Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<ILocalizationService>(),
+                new Vb6ProjectFileFormat(),
+                new Vb6ReadOnlyRegionReader());
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
         module.UpdateCode("Sub Main()\r\nEnd Sub\r\n");

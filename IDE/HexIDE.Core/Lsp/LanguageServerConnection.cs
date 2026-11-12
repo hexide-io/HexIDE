@@ -229,6 +229,9 @@ public interface ILanguageConnectionRegistry
     /// </summary>
     IReadOnlyList<LanguageServerConfigProblem> ConfigurationProblems { get; }
 
+    /// <summary>Restarts one entry using its loaded registration and reopens its known documents.</summary>
+    Task RestartAsync(string id, CancellationToken cancellationToken = default);
+
     /// <summary>Raised when any connection's state or advertised capabilities change.</summary>
     event EventHandler? ConnectionsChanged;
 }

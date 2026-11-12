@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System;
 using System.Linq;
 using Avalonia;
@@ -64,7 +65,7 @@ public class ReadOnlyBannerIntegrationTests
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<HexIDE.Debugging.IRunScope>(),
-            localization);
+            localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
     }
 
     private static T Render<T>(T view, int w = 900, int h = 700) where T : Control
@@ -195,7 +196,7 @@ public class ReadOnlyBannerIntegrationTests
         });
         var reloader = new FileReloader(projectService, Substitute.For<IEventBus>(),
             Substitute.For<IStatusBarService>(), Substitute.For<ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>());
+            Substitute.For<IHeaderRefresher>(), format: new Vb6ProjectFileFormat());
         form.UpdateCode(vm.BufferBody);
 
         await reloader.ReloadAsync(new WatchedFileTarget("Form1.frm", form, null, vm, null));

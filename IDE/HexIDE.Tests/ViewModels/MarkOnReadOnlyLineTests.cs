@@ -77,7 +77,7 @@ public class MarkOnReadOnlyLineTests : IDisposable
             Substitute.For<IProjectService>(), eventBus, Substitute.For<ILspClient>(),
             Substitute.For<ISettingsService>(), statusBar, bookmarks, breakpoints,
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), localization, regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
+            Substitute.For<IRunScope>(), localization, new Vb6ProjectFileFormat(), new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
         made.Add(vm);
         return vm;
     }
@@ -220,7 +220,9 @@ public class MarkOnReadOnlyLineTests : IDisposable
         // One numbering whichever side answers: the automation tools ask the open window, the sidecar the model.
         var vm = OpenForm();
 
-        vm.CodeWindowText.Text.Should().Be(CodeWindowText.Of(vm.Identity).Text);
-        vm.CodeWindowText.HeaderLineCount.Should().Be(CodeWindowText.Of(vm.Identity).HeaderLineCount).And.Be(9);
+        vm.CodeWindowText.Text.Should().Be(DocumentContent.TextOf(vm.Identity, null, new Vb6ProjectFileFormat(), new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader()).Text);
+        vm.CodeWindowText.HeaderLineCount.Should().Be(DocumentContent.TextOf(vm.Identity, null,
+            new Vb6ProjectFileFormat(),
+            new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader()).HeaderLineCount).And.Be(9);
     }
 }

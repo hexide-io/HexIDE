@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System;
 using System.IO;
 using System.Linq;
@@ -119,7 +120,9 @@ public class ExternalFormChangeTests : IDisposable
         Substitute.For<IStatusBarService>(), Substitute.For<HexIDE.Bookmarks.IBookmarkService>(),
         Substitute.For<HexIDE.Debugging.IBreakpointService>(),
         Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-        Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<HexIDE.Localization.ILocalizationService>());
+        Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<HexIDE.Localization.ILocalizationService>(),
+            new Vb6ProjectFileFormat(),
+            new Vb6ReadOnlyRegionReader());
 
     // #2862: applying the buffer to the model is not a save.
     [AvaloniaFact]

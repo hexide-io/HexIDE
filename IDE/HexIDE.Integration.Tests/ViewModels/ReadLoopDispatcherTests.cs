@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -158,7 +159,9 @@ public class ReadLoopDispatcherTests
                     Substitute.For<IProjectService>(), Substitute.For<IEventBus>(), client,
                     Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
                     Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
-                    Substitute.For<IDebugController>(), Substitute.For<IRunScope>(), Localization()).Initialize(module);
+                    Substitute.For<IDebugController>(), Substitute.For<IRunScope>(), Localization(),
+                        new Vb6ProjectFileFormat(),
+                        new Vb6ReadOnlyRegionReader()).Initialize(module);
                 cleanup.Add(() => { editor.Dispose(); return ValueTask.CompletedTask; });
                 return () => client.StateChanged += Raise.Event();
             }

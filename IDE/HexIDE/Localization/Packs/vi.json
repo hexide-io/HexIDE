@@ -869,6 +869,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Máy chủ chỉ khởi động khi có tài liệu đầu tiên thuộc ngôn ngữ nó khai báo, nên đến lúc đó mới có dòng để đánh dấu. Điều này không thay đổi những gì đã được ghi lại.",
     "Str.Tool.LanguageServers.KeepBodies": "Giữ nội dung thông điệp",
     "Str.Tool.LanguageServers.ShowAllMessages": "Hiện mọi thông điệp đã ghi",
+    "Str.Tool.LanguageServers.Restart": "_Khởi động lại",
     "Str.Tool.LanguageServers.ShowMessages": "Hiện thông điệp của nó",
     "Str.Tool.LanguageServers.CopyReport": "Sao chép báo cáo",
     "Str.Tool.LanguageServers.ReportRedacted": "Báo cáo thay đường dẫn và địa chỉ bằng tên giả.",
