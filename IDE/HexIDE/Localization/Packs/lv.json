@@ -1244,6 +1244,8 @@
     "Str.Tool.LanguageServers.Editor.FileChanged": "Fails ir mainījies. Pirms saglabāšanas atveriet veidlapu vēlreiz.",
     "Str.Dock.DocumentTabs": "Dokumentu cilnes",
     "Str.Dock.ToolTabs": "Rīku cilnes",
-    "Str.AIChat.ApiKeyRequired": "Nepieciešama API atslēga. Iestatiet apiKey failā chat-settings.json."
+    "Str.AIChat.ApiKeyRequired": "Nepieciešama API atslēga. Iestatiet vides mainīgo HEXIDE_AI_API_KEY vai apiKey failā chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ Privātums: jūsu ziņojumi, aktīvā faila saturs (veidlapai arī izkārtojums un paraksti) un tā diagnostika tiek nosūtīti uz {0} — trešās puses pakalpojumu, ko konfigurējāt MI tērzēšanas iestatījumos.",
+    "Str.AIChat.PrivacyKeyTip": "Padoms: iestatiet vides mainīgo HEXIDE_AI_API_KEY, lai API atslēga nebūtu jāglabā failā."
   }
 }

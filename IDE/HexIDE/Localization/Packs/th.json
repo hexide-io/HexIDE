@@ -1244,6 +1244,8 @@
     "Str.Dock.ToolTabStripItemAutoHide": "ซ่อนอัตโนมัติ",
     "Str.Dock.ToolTabStripItemDockAsDocument": "เทียบชิดเป็นเอกสารแบบแท็บ",
     "Str.Dock.ToolTabStripItemClose": "ปิด",
-    "Str.AIChat.ApiKeyRequired": "ต้องใช้คีย์ API ตั้งค่า apiKey ใน chat-settings.json"
+    "Str.AIChat.ApiKeyRequired": "ต้องใช้คีย์ API ตั้งค่าตัวแปรสภาพแวดล้อม HEXIDE_AI_API_KEY หรือ apiKey ใน chat-settings.json",
+    "Str.AIChat.PrivacyNotice": "ℹ ความเป็นส่วนตัว: ข้อความของคุณ เนื้อหาของไฟล์ที่ใช้งานอยู่ (สำหรับฟอร์ม รวมถึงเค้าโครงและคำบรรยายด้วย) และข้อมูลการวินิจฉัยจะถูกส่งไปยัง {0} ซึ่งเป็นบริการของบุคคลที่สามที่คุณกำหนดค่าไว้ในการตั้งค่าแชต AI",
+    "Str.AIChat.PrivacyKeyTip": "เคล็ดลับ: ตั้งค่าตัวแปรสภาพแวดล้อม HEXIDE_AI_API_KEY เพื่อหลีกเลี่ยงการเก็บคีย์ API ไว้ในไฟล์"
   }
 }

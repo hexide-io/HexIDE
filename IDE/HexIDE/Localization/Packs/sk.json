@@ -1244,6 +1244,8 @@
     "Str.Dock.ToolTabStripItemAutoHide": "_Automaticky skrývať",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Ukotviť ako dokument s kartou",
     "Str.Dock.ToolTabStripItemClose": "_Zavrieť",
-    "Str.AIChat.ApiKeyRequired": "Vyžaduje sa kľúč API. Nastavte apiKey v chat-settings.json."
+    "Str.AIChat.ApiKeyRequired": "Vyžaduje sa kľúč API. Nastavte premennú prostredia HEXIDE_AI_API_KEY alebo apiKey v chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ Súkromie: vaše správy, obsah aktívneho súboru (pri formulári aj rozloženie a popisy) a jeho diagnostika sa odosielajú do {0} — služby tretej strany nakonfigurovanej v nastaveniach chatu AI.",
+    "Str.AIChat.PrivacyKeyTip": "Tip: nastavte premennú prostredia HEXIDE_AI_API_KEY, aby ste nemuseli ukladať kľúč API do súboru."
   }
 }
