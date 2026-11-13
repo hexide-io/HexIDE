@@ -504,6 +504,13 @@ Raw exit and forced-termination details SHALL remain in the log and protocol ins
 - **THEN** Immediate reports the adapter name and wait once in the selected IDE language
 - **AND** the protocol inspector retains the exit code and forced-termination detail
 
+#### Scenario: End cancels startup after stopped inspection becomes available
+- **WHEN** stopped-frame inspection is available while the startup thread request is still pending
+- **AND** End cancels startup and the adapter does not answer disconnect
+- **THEN** startup cleanup SHALL await End's disconnect cleanup before disposing the session
+- **AND** Immediate SHALL show the same single localized notice and separate standard-error block,
+  without a connection-closed diagnostic (#3858)
+
 ### Requirement: IDE breakpoint condition storage
 The IDE breakpoint store SHALL retain an optional condition expression on an existing breakpoint and
 SHALL persist it in the per-user sidecar with the breakpoint's header-relative code line (or file-relative
