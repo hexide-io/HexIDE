@@ -362,8 +362,12 @@ policy is unchanged. `SilentStdioRestartTests` checks receipt of initialize in t
 
 `SilentServerTests.GivingUpIsReportedAtWarning_BecauseSilenceIsTheSymptom` keeps the timeout warning
 assertion strict and includes the last connection attempt and recorded logs (with exceptions) on failure.
-The isolated 6 ms Windows CI failure in #1937 has not yet been explained; these diagnostics distinguish
-an early initialize error from the expected timeout without accepting either as the same outcome.
+Other handshake failures (including an error reply or EOF before the deadline) also log a giving-up
+Warning with the exception and reason, tear down the RPC connection, and retry where the transport
+allows it (#1937). Caller cancellation and direct `StopAsync` teardown remain ordinary shutdown at Debug. The deterministic
+regression checks that the server received initialize before returning an error or closing its stream.
+The historical 6 ms Windows failure remains unreproduced; the early-return audit and repetition
+results are recorded on #1937.
 
 ---
 
