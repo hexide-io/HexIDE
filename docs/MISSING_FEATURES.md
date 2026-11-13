@@ -491,7 +491,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 
 | Panel | Status | Notes |
 |---|---|---|
-| Message / Ready text | Done | "Ready", "Running…", transient messages |
+| Message / Ready text | Done | "Ready", "Running…", transient messages. Temporary feedback retains the bar for its duration while persistent updates wait; ended language-server progress cannot reappear afterwards (#3886). Run/debug state changes remain immediate |
 | Line, Col display | Done | Updates with editor cursor. The line counts from the top of the file, header included (#273) |
 | INS / OVR mode | Done | Insert toggles insert/overtype in the code window; the localized status cell updates immediately without a caret move (#1870) |
 | Caps Lock / Num Lock indicators | Missing | VB6 shows these; not present |
