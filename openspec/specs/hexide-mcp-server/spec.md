@@ -83,6 +83,22 @@ collapsing and the limit.
 - **THEN** the reply returns at most `maxFrames` rows and a note naming the omitted row count and a limit that includes all rows
 
 
+### Requirement: Form inspection reports container z-order
+
+`get_form_controls` SHALL list each container's children bottom first and give each control a
+zero-based `zOrder`, including carried controls. Only rows with the same `container` are comparable;
+an absent `container` means the form. The form itself and menus SHALL omit `zOrder`.
+An open designer SHALL supply its live draw order; a closed designer SHALL use the model's
+corresponding draw order. Inspecting one control SHALL report the same `zOrder` as the full list.
+
+#### Scenario: Inspect after a stacking command
+- **WHEN** Bring to Front or Send to Back reorders overlapping controls in an open designer
+- **THEN** the next inspection reports their new order and positions within their container
+
+#### Scenario: Inspect a loaded form with and without its designer
+- **WHEN** an unchanged loaded form is inspected before and after opening its designer
+- **THEN** each container's controls have the same order and `zOrder`
+
 ### Requirement: Form inspection includes carried controls
 
 `get_form_controls` SHALL include controls carried as preserved blocks alongside modelled controls,

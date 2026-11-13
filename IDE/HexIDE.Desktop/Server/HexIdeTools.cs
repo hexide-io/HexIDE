@@ -486,7 +486,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_form_controls")]
-    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size in that summary are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. The 'properties' rows give Left, Top, Width and Height as the Properties window does instead, in twips or the container's ScaleMode, each naming its unit. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them; visible, enabled, caption and text are left out where the control's class has no such property. Carried controls appear with carried: true, their name, block type, position and size, and a note: HexIDE draws but does not model them, so they cannot be moved, sized or set. controlName also finds these rows, with the same note and no properties.")]
+    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size in that summary are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. The 'properties' rows give Left, Top, Width and Height as the Properties window does instead, in twips or the container's ScaleMode, each naming its unit. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them; visible, enabled, caption and text are left out where the control's class has no such property. Carried controls appear with carried: true, their name, block type, position and size, and a note: HexIDE draws but does not model them, so they cannot be moved, sized or set. controlName also finds these rows, with the same note and no properties. Within each container, rows are in z-order, bottom first; zOrder is 0 at the bottom. Compare zOrder only for rows with the same container (absent means the form). The form itself and menus omit zOrder. An open designer supplies live draw order; otherwise the model supplies it.")]
     public async Task<FormControlsResult> GetFormControlsAsync(
         string formName,
         string? project = null,
@@ -516,26 +516,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 .OfType<HexIDE.VisualDesigner.FormEditViewModel>()
                 .FirstOrDefault(d => d.FormDefinition == form);
             var components = designerVm is not null
-                ? (IEnumerable<ComponentInstance>)designerVm.AllComponents.Select(v => v.Instance).ToList()
-                : form.Components;
+                ? designerVm.Components.Select(v => v.Instance).Prepend(designerVm.Form.Instance).ToList()
+                : form.Components.ToList();
             const string carriedNote = "HexIDE draws this carried control but does not model it; it cannot be moved, sized or set.";
-            var carried = new List<ControlInfo>();
-            foreach (var parent in components)
-            {
-                foreach (var block in parent.PreservedChildSubtrees)
-                {
-                    if (HexIDE.Runtime.Serialization.UnmodelledControl.Read(block.Text) is not { } control)
-                        continue;
-                    var twipsPerPixel = HexIDE.Runtime.BuiltinTypes.VBScaleModeExtensions.PixelToTwips;
-                    carried.Add(new ControlInfo(control.Name, control.TypeName,
-                        control.Left / twipsPerPixel, control.Top / twipsPerPixel,
-                        control.Width / twipsPerPixel, control.Height / twipsPerPixel,
-                        null, null, null, null,
-                        parent.BaseClass is FormComponentClass ? null : parent.GetPropertyOrDefault(VBProperties.NameProperty),
-                        Carried: true, Note: carriedNote));
-                }
-            }
-
             ControlInfo Info(ComponentInstance c)
             {
                 var name    = c.GetPropertyOrDefault(VBProperties.NameProperty) ?? "";
@@ -571,11 +554,73 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     PropertyText.ArrayIndexOf(c));
             }
 
+            var root = components.Single(c => c.BaseClass is FormComponentClass);
+            ComponentInstance Parent(ComponentInstance c) => c.Container ?? root;
+            var summaries = components.ToDictionary(c => c, Info);
+            var rows = new List<ControlInfo> { summaries[root] };
+            var carried = new List<ControlInfo>();
+            var visited = new HashSet<ComponentInstance> { root };
+            void ListChildren(ComponentInstance parent)
+            {
+                var children = components.Where(c => c != root && c.BaseClass is not MenuComponentClass
+                    && ReferenceEquals(Parent(c), parent)).ToList();
+                var blocks = parent.PreservedChildSubtrees;
+                var written = (parent == root
+                    ? HexIDE.Runtime.Serialization.FormSerializer.RootChildren(components, root)
+                    : parent.ContainedControls).ToList();
+                var before = CarriedOrder.ChildrenBefore(written.Count, blocks);
+                var siblings = new List<(ComponentInstance? Instance, ControlInfo Row, int Order)>();
+                for (var i = 0; i < children.Count; i++)
+                {
+                    var child = children[i];
+                    // File order is top first; live Components and DrawIndex are bottom first.
+                    var fileIndex = written.IndexOf(child);
+                    var order = designerVm is null ? -(fileIndex + before.Count(n => n <= fileIndex))
+                        : designerVm.Components.Single(c => ReferenceEquals(c.Instance, child)).DrawIndex;
+                    siblings.Add((child, summaries[child], order));
+                }
+                var boxes = designerVm?.UnmodelledControls
+                    .Where(c => ReferenceEquals(c.Container?.Instance ?? root, parent)).ToList();
+                var boxIndex = 0;
+                for (var i = 0; i < blocks.Count; i++)
+                {
+                    if (HexIDE.Runtime.Serialization.UnmodelledControl.Read(blocks[i].Text) is not { } control)
+                        continue;
+                    var twipsPerPixel = HexIDE.Runtime.BuiltinTypes.VBScaleModeExtensions.PixelToTwips;
+                    var row = new ControlInfo(control.Name, control.TypeName,
+                        control.Left / twipsPerPixel, control.Top / twipsPerPixel,
+                        control.Width / twipsPerPixel, control.Height / twipsPerPixel,
+                        null, null, null, null,
+                        parent == root ? null : parent.GetPropertyOrDefault(VBProperties.NameProperty),
+                        Carried: true, Note: carriedNote);
+                    var order = boxes is null ? -(before[i] + i) : boxes[boxIndex++].DrawIndex;
+                    siblings.Add((null, row, order));
+                }
+                var zOrder = 0;
+                foreach (var sibling in siblings.OrderBy(c => c.Order))
+                {
+                    var row = sibling.Row with { ZOrder = zOrder++ };
+                    rows.Add(row);
+                    if (sibling.Instance is { } child)
+                    {
+                        summaries[child] = row;
+                        if (visited.Add(child))
+                            ListChildren(child);
+                    }
+                    else
+                        carried.Add(row);
+                }
+            }
+            ListChildren(root);
+            // Menus are not drawn. Retain any unplaced model entries rather than silently lose them.
+            rows.AddRange(components.Where(c => !visited.Contains(c)).Select(c => summaries[c]));
+
             // One control, with every row the Properties window shows for it (#923): set_control_property sent
             // callers here for a control's properties, and only eight were listed.
             if (controlName is not null)
             {
-                var all = components.ToList();
+                // Keep a bare control-array name's existing first-element lookup independent of draw order.
+                var all = designerVm?.AllComponents.Select(c => c.Instance).ToList() ?? form.Components.ToList();
                 var matches = PropertyText.Named(all, controlName);
                 if (matches.Count == 0)
                 {
@@ -595,12 +640,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     : $"'{controlName}' names a control array of {matches.Count}; this is its first, Index "
                       + $"{PropertyText.ArrayIndexOf(control)?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown"}. "
                       + $"Name one as {controlName}(n) for another.";
-                return new FormControlsResult(null, [Info(control)], document.Project.Name, document.Name,
+                return new FormControlsResult(null, [summaries[control]], document.Project.Name, document.Name,
                     PropertyText.Rows(control, (property, pixels) => DesignPositions.IsPosition(property)
                         ? (DesignPositions.Shown(form, control, property, pixels), DesignPositions.Unit(form, control, property))
                         : null), note);
             }
-            return new FormControlsResult(null, components.Select(Info).Concat(carried).ToArray(), document.Project.Name, document.Name);
+            return new FormControlsResult(null, rows.ToArray(), document.Project.Name, document.Name);
         });
     }
 
@@ -4255,7 +4300,8 @@ internal record ControlInfo(
     // no element. name(index) addresses it in get_form_controls, set_control_property and move_control (#1252 review).
     int? Index = null,
     bool? Carried = null,
-    string? Note = null);
+    string? Note = null,
+    int? ZOrder = null);
 
 /// <param name="Scale">Image pixels per device-independent unit, the unit inspect_element's boundingRect is in.</param>
 internal record SnapshotResult(
