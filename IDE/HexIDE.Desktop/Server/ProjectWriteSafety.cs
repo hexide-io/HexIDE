@@ -12,7 +12,7 @@ internal static class ProjectWriteSafety
             ? $"Refused '{name}': use a document name from get_project_info, not a rooted or relative path. Nothing was changed."
             : null;
 
-    public static string? Prepare(DocumentIdentity document, IProjectFileFormat format, out string note)
+    public static string? Prepare(DocumentIdentity document, IProjectFileFormat format, out string note, WriteAttempt? attempt = null)
     {
         note = "";
         var path = document.AbsolutePath;
@@ -40,24 +40,75 @@ internal static class ProjectWriteSafety
             {
                 if (!File.Exists(candidate)) continue;
                 var backup = candidate + ".hexide-recovery-" + Guid.NewGuid().ToString("N");
-                using (var input = File.OpenRead(candidate))
-                using (var output = new FileStream(backup, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                var created = false;
+                try
                 {
+                    using var input = File.OpenRead(candidate);
+                    using var output = new FileStream(backup, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                    created = true;
                     input.CopyTo(output);
                     output.Flush(flushToDisk: true);
                 }
+                catch
+                {
+                    if (created) File.Delete(backup);
+                    throw;
+                }
+                attempt?.Copies.Add((candidate, backup));
                 note += $" Preserved the previous bytes of '{candidate}' at '{backup}'. To recover, copy that file back to '{candidate}'.";
-                // An automated session writes constantly, and these sit in the user's project folder.
-                foreach (var old in new DirectoryInfo(Path.GetDirectoryName(candidate)!)
-                             .GetFiles(Path.GetFileName(candidate) + ".hexide-recovery-*")
-                             .OrderByDescending(file => file.LastWriteTimeUtc).Skip(RecoveryFilesKept))
-                    old.Delete();
+                if (attempt is null)
+                    Prune(candidate);
             }
             return null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
-            return Refused($"Refused '{path}': could not protect the write: {ex.Message}. Nothing was changed." + note);
+            return Refused($"Refused '{path}': could not protect the write: {ex.Message}. Nothing was changed." + (attempt is null ? note : attempt.FailureNote));
+        }
+    }
+
+    private static void Prune(string path)
+    {
+        foreach (var old in new DirectoryInfo(Path.GetDirectoryName(path)!)
+                     .GetFiles(Path.GetFileName(path) + ".hexide-recovery-*")
+                     .OrderByDescending(file => file.LastWriteTimeUtc).Skip(RecoveryFilesKept))
+            old.Delete();
+    }
+
+    internal sealed class WriteAttempt : IDisposable
+    {
+        internal List<(string Path, string Backup)> Copies { get; } = [];
+        public bool Written { get; set; }
+
+        public string FailureNote
+        {
+            get
+            {
+                Dispose();
+                return string.Concat(Copies.Where(copy => File.Exists(copy.Backup)).Select(copy =>
+                    $" Preserved the previous bytes of '{copy.Path}' at '{copy.Backup}'. To recover, copy that file back to '{copy.Path}'."));
+            }
+        }
+
+        public void Dispose()
+        {
+            foreach (var (path, backup) in Copies)
+            {
+                // Tidying is best effort. It runs after the write, so a locked or unreadable file must not turn a
+                // finished write into a failed call. A copy that can't be removed is kept, and FailureNote names it.
+                try
+                {
+                    if (!File.Exists(backup)) continue;
+                    // A save may throw after replacing one of the files. Keep that file's previous bytes.
+                    if (!Written && File.Exists(path) && File.ReadAllBytes(path).AsSpan().SequenceEqual(File.ReadAllBytes(backup)))
+                        File.Delete(backup);
+                    else
+                        Prune(path);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                }
+            }
         }
     }
 

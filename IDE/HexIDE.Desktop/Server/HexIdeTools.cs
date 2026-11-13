@@ -254,6 +254,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         if (ProjectWriteSafety.NameRefusal(name) is { } nameRefusal)
             return new MutateResult(false, nameRefusal);
+        using var writeAttempt = new ProjectWriteSafety.WriteAttempt();
         string recoveryNote = "";
         string? restoredHeader = null;
         string? editNote = null;
@@ -273,7 +274,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             target = document;
             if (document.Form is { CanSaveFaithfully: false })
                 return (null, null, CodeEditorViewModel.ReadOnlyWriteRefusal);
-            if (ProjectWriteSafety.Prepare(document, ctx.ProjectFileFormat, out recoveryNote) is { } safetyRefusal)
+            if (ProjectWriteSafety.Prepare(document, ctx.ProjectFileFormat, out recoveryNote, writeAttempt) is { } safetyRefusal)
                 return (null, null, safetyRefusal);
 
             // Refused BEFORE the edit. This used to apply the code and only then find there was no file to
@@ -331,6 +332,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             var (written, refused) = await SaveQuietlyAsync(() => form is not null
                 ? ctx.ProjectService.SaveForm(form, false, interactive: false, rewrites: rewrites)
                 : module is not null ? ctx.ProjectService.SaveModule(module, false, interactive: false, rewrites: rewrites) : Task.FromResult(false));
+            writeAttempt.Written = written;
             if (refused is not null)
                 // Not "the new code was refused": the character can be anywhere in the file. The message quotes its line.
                 return Naming(new MutateResult(false, cancel.After($"The new code is in the IDE, but the file was not written. {refused.Message}"), editNote?.TrimStart()), target);
@@ -354,7 +356,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         catch (Exception ex)
         {
             // The edit is already in the IDE by now; a bare exception message would read as though it were not.
-            return Naming(new MutateResult(false, cancel.After($"The new code is in the IDE but was not written: {ToolFailures.WithoutProfile(ex.Message)}" + recoveryNote)), target);
+            return Naming(new MutateResult(false, cancel.After($"The new code is in the IDE but was not written: {ToolFailures.WithoutProfile(ex.Message)}" + writeAttempt.FailureNote)), target);
         }
     }
 
@@ -688,6 +690,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (ProjectWriteSafety.NameRefusal(formName) is { } nameRefusal)
             return new MutateResult(false, nameRefusal);
         // What the property holds after the set, which is not always what was sent: "0 - Transparent" stores 0. (#655)
+        using var writeAttempt = new ProjectWriteSafety.WriteAttempt();
         string recoveryNote = "";
         string? stored = null;
         DocumentIdentity? target = null;
@@ -728,8 +731,6 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 && property.Equals("Tab", StringComparison.OrdinalIgnoreCase)
                 && pageTabs.DesignerPageSwitchRefusal(control) is { } pageRefusal)
                 return (null, null, pageRefusal);
-            if (ProjectWriteSafety.Prepare(document, ctx.ProjectFileFormat, out recoveryNote) is { } safetyRefusal)
-                return (null, null, safetyRefusal);
 
             if (control.BaseClass is SSTabComponentClass tabs
                 && property.Equals("Tab", StringComparison.OrdinalIgnoreCase))
@@ -740,6 +741,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     return (null, null, $"Tab takes a whole-number page index from 0 to {last}. Nothing was changed.");
                 if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(document.AbsolutePath))
                     return (null, null, $"{document.Display} {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
+                if (ProjectWriteSafety.Prepare(document, ctx.ProjectFileFormat, out recoveryNote, writeAttempt) is { } tabSafetyRefusal)
+                    return (null, null, tabSafetyRefusal);
                 tabs.SelectDesignerPage(control, page,
                     components.Where(c => ReferenceEquals(c.Container, control)).ToList());
                 if (designerVm is not null)
@@ -791,6 +794,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 && HexIDE.VisualDesigner.ComponentNaming.RefusalFor(control, before as string, parsed as string,
                        form.Components, form, control.BaseClass is FormComponentClass, ctx.Localization) is { } refusal)
                 return (null, null, $"'{controlName}' was not renamed: {refusal}");
+            if (ProjectWriteSafety.Prepare(document, ctx.ProjectFileFormat, out recoveryNote, writeAttempt) is { } safetyRefusal)
+                return (null, null, safetyRefusal);
             try
             {
                 control.SetUntypedProperty(propClass, parsed);
@@ -855,12 +860,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             var (written, refused) = await SaveQuietlyAsync(() => ownerModule is not null
                 ? ctx.ProjectService.SaveModule(ownerModule, false, interactive: false, rewrites: rewrites)
                 : ctx.ProjectService.SaveForm(form!, false, interactive: false, rewrites: rewrites));
+            writeAttempt.Written = written;
             if (refused is not null)
                 return Naming(new MutateResult(false, cancel.After($"'{property}' is set in the IDE, but the file was not written. {refused.Message}")), target);
             // See the note on the other write tool: a refusal must not come back as success. (#147)
             return Naming(written
                 ? new MutateResult(true, null, cancel.After(stored + recoveryNote + " " + WriteLocationNote(target!.Project, target.AbsolutePath) + rewrites.Note))
-                : new MutateResult(false, cancel.After("HexIDE cannot reproduce this file faithfully, so it was not "
+                : new MutateResult(false, cancel.After($"'{property}' is set in the IDE. HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.")), target);
         }
         catch (OperationCanceledException) when (cancel.Cancelled || cancel.Refused)
@@ -874,7 +880,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         {
             // The property is already set in the IDE by now; a bare exception message would read as though it
             // were not.
-            return Naming(new MutateResult(false, cancel.After($"'{property}' is set in the IDE but was not written: {ToolFailures.WithoutProfile(ex.Message)}" + recoveryNote)), target);
+            return Naming(new MutateResult(false, cancel.After($"'{property}' is set in the IDE but was not written: {ToolFailures.WithoutProfile(ex.Message)}" + writeAttempt.FailureNote)), target);
         }
     }
 
@@ -1593,6 +1599,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         if (ProjectWriteSafety.NameRefusal(formName) is { } nameRefusal)
             return new AddControlResult(false, null, nameRefusal);
+        using var writeAttempt = new ProjectWriteSafety.WriteAttempt();
         string recoveryNote = "";
         var spawned = await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -1646,7 +1653,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     $"{(owner is not null ? owner.Kind.ToString() : "Form")} '{document.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}",
                     Project: document.Project.Name, Document: document.Name);
 
-            if (ProjectWriteSafety.Prepare(document, ctx.ProjectFileFormat, out recoveryNote) is { } safetyRefusal)
+            if (ProjectWriteSafety.Prepare(document, ctx.ProjectFileFormat, out recoveryNote, writeAttempt) is { } safetyRefusal)
                 return new AddControlResult(false, null, safetyRefusal,
                     Project: document.Project.Name, Document: document.Name);
 
@@ -1691,6 +1698,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     : ctx.ProjectService.SaveForm(spawned.Form, false, interactive: false, rewrites: rewrites));
             // The character is in text written earlier and never saved, since a new control brings none of its
             // own: the message quotes the line that holds it, which no read tool might otherwise show.
+            writeAttempt.Written = written;
             if (refused is not null)
                 return spawned with
                 {
@@ -1727,7 +1735,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return spawned with
             {
                 Success = false, Form = null, Note = null,
-                Error = cancel.After($"'{spawned.ControlName}' was added to the designer but the save failed: {ToolFailures.WithoutProfile(ex.Message)}" + recoveryNote),
+                Error = cancel.After($"'{spawned.ControlName}' was added to the designer but the save failed: {ToolFailures.WithoutProfile(ex.Message)}" + writeAttempt.FailureNote),
             };
         }
     }

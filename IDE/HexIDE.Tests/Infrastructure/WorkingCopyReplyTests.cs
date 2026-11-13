@@ -1,4 +1,5 @@
 using HexIDE.Runtime.Serialization;
+using HexIDE.Runtime.Components;
 using HexIDE.Desktop.Server;
 using HexIDE.IDE;
 using HexIDE.Lsp;
@@ -64,8 +65,12 @@ public class WorkingCopyReplyTests
     [InlineData(false, "property", true)]
     [InlineData(false, "source", true)]
     [InlineData(false, "control", true)]
+    [InlineData(false, "control-refused", true)]
+    [InlineData(false, "source-refused", true)]
     public async Task Write_reply_distinguishes_the_working_copy_from_a_chosen_file(bool scratch, string operation, bool saveFails)
     {
+        var refuses = operation.EndsWith("-refused", StringComparison.Ordinal);
+        if (refuses) operation = operation[..^8];
         var project = TestHelpers.CreateProjectWithForm("Project1");
         project.WorkingDirectory = Path.Combine(Path.GetTempPath(), "hexide-2707-" + Guid.NewGuid().ToString("N"));
         var form = project.Forms[0];
@@ -97,7 +102,7 @@ public class WorkingCopyReplyTests
             {
                 writer = Substitute.For<IProjectService>();
                 writer.SaveForm(form, false, interactive: false, rewrites: Arg.Any<SaveRewriteReport>())
-                    .Returns(Task.FromException<bool>(new IOException("disk unavailable")));
+                    .Returns(refuses ? Task.FromResult(false) : Task.FromException<bool>(new IOException("disk unavailable")));
             }
             using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
                 null!, Substitute.For<IProjectRunnerService>(), writer, events, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
@@ -124,6 +129,14 @@ public class WorkingCopyReplyTests
                 note = saveFails ? result.Error : result.Note;
             }
             success.Should().Be(!saveFails);
+            if (saveFails)
+            {
+                Directory.GetFiles(directory, "*.hexide-recovery-*").Should().BeEmpty();
+                note.Should().Contain(refuses ? "copy on disk is unchanged" : "disk unavailable")
+                    .And.NotContain("Preserved the previous bytes");
+                File.ReadAllBytes(form.AbsolutePath!).Should().Equal(previousBytes);
+                return;
+            }
             var backup = Directory.GetFiles(directory, "Form1.frm.hexide-recovery-*").Should().ContainSingle().Subject;
             File.ReadAllBytes(backup).Should().Equal(previousBytes);
             note.Should().Contain(backup).And.Contain("To recover");
@@ -131,12 +144,6 @@ public class WorkingCopyReplyTests
             File.ReadAllBytes(companionBackup).Should().Equal(new byte[] { 0, 128, 255 });
             note.Should().Contain(companionBackup);
             note.Should().Contain(form.AbsolutePath);
-            if (saveFails)
-            {
-                note.Should().Contain("disk unavailable");
-                File.ReadAllBytes(form.AbsolutePath!).Should().Equal(previousBytes);
-                return;
-            }
             if (scratch)
                 note.Should().Contain("working copy").And.Contain("unsaved changes").And.Contain("Save Project");
             else
@@ -147,6 +154,71 @@ public class WorkingCopyReplyTests
             });
             service.HasUnsavedChanges(form).Should().Be(scratch);
             await windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>());
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("property")]
+    [InlineData("source")]
+    [InlineData("unfaithful")]
+    [InlineData("tab-range")]
+    [InlineData("tab-text")]
+    public async Task Refusals_preserve_only_the_recovery_of_the_real_write(string operation)
+    {
+        var project = TestHelpers.CreateProjectWithForm("Project1");
+        project.WorkingDirectory = Path.Combine(Path.GetTempPath(), "hexide-2707-" + Guid.NewGuid().ToString("N"));
+        var form = project.Forms[0];
+        form.AbsolutePath = Path.Combine(project.WorkingDirectory, "Form1.frm");
+        if (operation.StartsWith("tab-", StringComparison.Ordinal))
+            form.UpdateComponents([.. form.Components,
+                new ComponentInstance(HexIDE.Runtime.Components.InBox.SSTabComponentClass.Instance, "SSTab1")]);
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([project]);
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.OpenDocuments.Returns([]);
+        var events = new EventBus();
+        var windows = Substitute.For<IWindowManager>();
+        var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(), windows, events,
+            projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
+            Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(),
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
+        var directory = Path.GetDirectoryName(form.AbsolutePath)!;
+        await service.SaveProjectToDirectory(project, directory);
+        try
+        {
+            var writer = (IProjectService)service;
+            using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
+                null!, Substitute.For<IProjectRunnerService>(), writer, events, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
+                    new Vb6ProjectFileFormat(),
+                    new Vb6ReadOnlyRegionReader());
+            var tools = new HexIdeTools(context);
+            var companion = Path.ChangeExtension(form.AbsolutePath, ".frx");
+            File.WriteAllBytes(companion, [0, 128, 255]);
+            var initial = await tools.SetControlPropertyAsync("Form1", "Form1", "Caption", "Go");
+            initial.Success.Should().BeTrue();
+            var backups = Directory.GetFiles(directory, "*.hexide-recovery-*");
+            var current = File.ReadAllBytes(form.AbsolutePath!);
+            if (operation == "unfaithful")
+                form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent, "test");
+            for (var i = 0; i < 5; i++)
+            {
+                var result = operation == "source"
+                    ? await tools.SetFileContentAsync("Form1", "VERSION 5.00\r\nBegin VB.Form Changed\r\nEnd")
+                    : operation.StartsWith("tab-", StringComparison.Ordinal)
+                        ? await tools.SetControlPropertyAsync("Form1", "SSTab1", "Tab", operation == "tab-range" ? "3" : "x")
+                        : await tools.SetControlPropertyAsync("Form1", "Form1",
+                            operation == "unfaithful" ? "Caption" : "Height",
+                            operation == "unfaithful" ? "Probe" : "abc");
+                result.Success.Should().BeFalse();
+                if (operation == "unfaithful")
+                {
+                    result.Error.Should().Contain("set in the IDE").And.Contain("copy on disk is unchanged");
+                    form.Components[0].GetPropertyOrDefault(VBProperties.CaptionProperty).Should().Be("Probe");
+                }
+                Directory.GetFiles(directory, "*.hexide-recovery-*").Should().BeEquivalentTo(backups);
+                File.ReadAllBytes(form.AbsolutePath!).Should().Equal(current);
+            }
         }
         finally { Directory.Delete(directory, recursive: true); }
     }

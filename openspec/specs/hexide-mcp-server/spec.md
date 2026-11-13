@@ -542,6 +542,24 @@ unique, exclusively created, flushed recovery files. A successful reply SHALL na
 how to restore them. A save exception SHALL also report available recovery files. Failure to preserve bytes
 SHALL refuse the edit. `add_file` SHALL remain model-only until a later Save.
 
+A call that writes nothing SHALL leave no new recovery files, including on refusal or exception, and
+SHALL NOT prune previous recovery files. A copy that cannot be removed SHALL be kept, and named in the
+reply, rather than fail the call. Successful writes SHALL keep the newest five copies per file.
+A refusal after a property was set in the IDE SHALL say that the property is set there while the copy
+on disk is unchanged.
+
+#### Scenario: Five refused edits follow a successful write
+
+- **WHEN** a successful direct member write is followed by five calls that write nothing
+- **THEN** no new recovery files remain and the successful write's recovery files still exist
+
+#### Scenario: An unsaveable form accepts a property in memory
+
+- **WHEN** `set_control_property` sets a property but the form cannot be saved faithfully
+- **THEN** the refusal says the property is set in the IDE and the copy on disk is unchanged
+- **AND** no new recovery file remains
+
+
 #### Scenario: A loaded member points outside its owning project
 
 - **WHEN** a direct member write resolves a loaded document whose path is outside its project folder
