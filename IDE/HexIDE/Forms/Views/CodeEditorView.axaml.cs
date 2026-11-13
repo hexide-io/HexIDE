@@ -184,7 +184,7 @@ public partial class CodeEditorView : UserControl
             using var input = TrackTypedEdits();
             WidenSelectionForDeletion(wholeLineWhenEmpty: TextEditor.Options.CutCopyWholeLine);
             AskBeforeClipboardEdit(paste: false);
-            TextEditor.Cut();
+            if (!CutAroundReadOnlyText()) TextEditor.Cut();
         }, () => true);
         Delete = new DelegateCommand(() =>
         {
@@ -2574,6 +2574,29 @@ public partial class CodeEditorView : UserControl
             return (area.Caret.Offset, 0);
         var selected = area.Selection.SurroundingSegment;
         return (selected.Offset, selected.Length);
+    }
+
+    private bool CutAroundReadOnlyText()
+    {
+        var area = TextEditor.TextArea;
+        if (area.Selection.IsEmpty) return false;
+        var selected = area.Selection.Segments.ToArray();
+        var text = string.Concat(selected.SelectMany(area.ReadOnlySectionProvider.GetDeletableSegments)
+            .Select(area.Document.GetText));
+        if (text.Length == selected.Sum(segment => segment.Length)) return false;
+
+        // The library copies the whole selection before carving the deletion around protected text (#3892).
+        if (text.Length == 0)
+        {
+            if (DataContext is CodeEditorViewModel vm && area.Selection.SurroundingSegment is { } span)
+                vm.RefusesTyping(span.Offset, span.Length);
+        }
+        else if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            _ = clipboard.SetTextAsync(text);
+            TextEditor.Delete();
+        }
+        return true;
     }
 
     /// <summary>

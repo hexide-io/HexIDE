@@ -291,6 +291,64 @@ public class TypedMemberAttributeTests : IDisposable
         editor.Document.Text.Should().Contain("Attribute Bar.VB_Description = \"e\"");
     }
 
+    // HexIDE's Cut decision: https://github.com/hexide-io/HexIDE/issues/3892.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CutCopiesExactlyTheEditableParts(bool bothSides)
+    {
+        var (_, editor) = Open("Attribute Bar.VB_Description = \"e\"");
+        var start = editor.Document.GetLineByNumber(2).Offset + 16;
+        var end = bothSides ? editor.Document.GetLineByNumber(4).Offset + 7
+            : editor.Document.GetLineByNumber(3).Offset + 16;
+        var bodyStart = editor.Document.GetLineByNumber(4).Offset;
+        var before = editor.Text;
+        var expected = "Bar() As Long" + (bothSides ? "    Bar" : "");
+        editor.Select(start, end - start);
+
+        var gesture = ApplicationCommands.CutCommand.Gestures[0];
+        var result = UiAutomationDriver.PressKey(editor, gesture.Key.ToString(), gesture.KeyModifiers.ToString());
+
+        result.Success.Should().BeTrue(result.Error);
+        var clipboard = TopLevel.GetTopLevel(editor)!.Clipboard!;
+        (await clipboard.TryGetTextAsync()).Should().Be(expected);
+        result.Detail.Should().Contain($"deleted {expected.Length} char(s)").And.Contain("left");
+        var after = bothSides ? before.Remove(bodyStart, 7) : before;
+        editor.Text.Should().Be(after.Remove(start, 13));
+        (before.Length - editor.Text.Length).Should().Be(expected.Length);
+        editor.Text.Should().Contain("Attribute Bar.VB_Description = \"e\"");
+        editor.CaretOffset = editor.Document.TextLength;
+        var cut = editor.Text;
+        await Paste(editor, expected);
+        editor.Text.Should().Be(cut + expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProtectedCutLeavesClipboardAlone(bool selected)
+    {
+        var (_, editor) = Open("Attribute Bar.VB_Description = \"e\"");
+        var line = editor.Document.GetLineByNumber(3);
+        editor.CaretOffset = line.Offset + 4;
+        if (selected) editor.Select(line.Offset + 4, 8);
+        var clipboard = TopLevel.GetTopLevel(editor)!.Clipboard!;
+        await clipboard.SetTextAsync("keep");
+        ((CodeEditorView)windows[0].Content!).Cut.Execute(null);
+        (await clipboard.TryGetTextAsync()).Should().Be("keep");
+    }
+
+    [AvaloniaFact]
+    public async Task CopyStillIncludesProtectedText()
+    {
+        var (_, editor) = Open("Attribute Bar.VB_Description = \"e\"");
+        var start = editor.Document.GetLineByNumber(2).Offset + 16;
+        editor.Select(start, editor.Document.GetLineByNumber(3).Offset + 16 - start);
+        var expected = editor.SelectedText;
+        ((CodeEditorView)windows[0].Content!).Copy.Execute(null);
+        (await TopLevel.GetTopLevel(editor)!.Clipboard!.TryGetTextAsync())!.ReplaceLineEndings().Should().Be(expected.ReplaceLineEndings());
+    }
+
     [AvaloniaFact]
     public async Task UndoAndRedoDoNotRearmTypedLineOwnership()
     {
