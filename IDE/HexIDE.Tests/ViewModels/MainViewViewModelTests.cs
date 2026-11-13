@@ -920,6 +920,15 @@ public class MainViewViewModelTests
     [InlineData("disconnect-held", "")]
     [InlineData("disconnect-held-stderr", "fixture stderr")]
     public async Task End_of_unresponsive_adapter_shows_one_localized_Immediate_notice(string mode, string stderr)
+        => await CheckUnresponsiveAdapterEndNotice(mode, stderr);
+
+    [AvaloniaTheory]
+    [InlineData("disconnect-held-startup", "")]
+    [InlineData("disconnect-held-stderr-startup", "fixture stderr")]
+    public async Task End_during_pending_startup_shows_one_localized_Immediate_notice(string mode, string stderr)
+        => await CheckUnresponsiveAdapterEndNotice(mode, stderr, pendingStartup: true);
+
+    private async Task CheckUnresponsiveAdapterEndNotice(string mode, string stderr, bool pendingStartup = false)
     {
         var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-dap-end-notice-" + System.Guid.NewGuid());
         System.IO.Directory.CreateDirectory(directory);
@@ -930,16 +939,23 @@ public class MainViewViewModelTests
         var run = external.StartAsync(await DebugAdapter.ExternalDebugServiceTests.Configuration(directory, mode));
         try
         {
-            await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate);
+            // Inspection can finish before StartAsync's threads request. Hold that reply until End cancels it.
+            await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate &&
+                (!pendingStartup || sut.Immediate.Document.Text.Contains("startup-pending", StringComparison.Ordinal)));
             var id = external.Connection!.Id;
             var waited = System.Diagnostics.Stopwatch.StartNew();
             await external.StopAsync().WaitAsync(System.TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
             await run.WaitAsync(System.TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
             var lines = sut.Immediate.Document.Text.ReplaceLineEndings("\n").Split('\n');
-            lines[0].Should().Be("disconnect-pending");
+            if (pendingStartup)
+            {
+                lines[0].Should().Be("startup-pending");
+                lines = lines.Skip(1).ToArray();
+            }
+            lines[0].Should().Be("disconnect-pending", "Immediate contains {0}", sut.Immediate.Document.Text);
             var notice = System.Text.RegularExpressions.Regex.Match(lines[1], @"^localized End: fixture; waited ([0-9]+) seconds\.$");
-            notice.Success.Should().BeTrue(lines[1]);
+            notice.Success.Should().BeTrue("Immediate contains {0}", sut.Immediate.Document.Text);
             double.Parse(notice.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture).Should()
                 .BeApproximately(waited.Elapsed.TotalSeconds, 1);
             lines.Skip(2).Should().Equal(stderr.Length == 0 ? [""] : [stderr, ""]);

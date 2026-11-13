@@ -569,6 +569,8 @@ public class MemberRunFollowsItsLineTests : IDisposable
 
         vm.Document.Text.Should().EndWith("Option Explicit\r\n" + closed + opened);
         VerdictsOf(vm).Select(r => r.Member?.Name).Should().Equal("Closed", "Opened");
+        // The last pasted line is still the developer's until the caret leaves it (#3819).
+        PutCaret(editor, LineWith(editor, "Public Event Closed()").Offset);
         vm.HangingRegionsNow.Select(r => r.Name).Should().Equal("Closed", "Opened");
         editor.Undo();
         vm.Document.Text.Should().Be(afterCut);

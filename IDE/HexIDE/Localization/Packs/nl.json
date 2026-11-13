@@ -1244,6 +1244,8 @@
     "Str.Tool.LanguageServers.Editor.FileChanged": "Het bestand is gewijzigd. Open het formulier opnieuw voordat u opslaat.",
     "Str.Dock.DocumentTabs": "Documenttabbladen",
     "Str.Dock.ToolTabs": "Hulptabbladen",
-    "Str.AIChat.ApiKeyRequired": "API-sleutel vereist. Stel apiKey in chat-settings.json in."
+    "Str.AIChat.ApiKeyRequired": "API-sleutel vereist. Stel de omgevingsvariabele HEXIDE_AI_API_KEY in, of apiKey in chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ Privacy: uw berichten, de inhoud van het actieve bestand (bij een formulier ook de indeling en bijschriften) en de bijbehorende diagnostiek worden naar {0} gestuurd — een dienst van derden die u in de AI-chatinstellingen hebt geconfigureerd.",
+    "Str.AIChat.PrivacyKeyTip": "Tip: stel de omgevingsvariabele HEXIDE_AI_API_KEY in om uw API-sleutel niet in een bestand op te slaan."
   }
 }

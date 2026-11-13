@@ -1244,6 +1244,8 @@
     "Str.Tool.LanguageServers.Editor.FileChanged": "Plik się zmienił. Otwórz formularz ponownie przed zapisaniem.",
     "Str.Dock.DocumentTabs": "Karty dokumentów",
     "Str.Dock.ToolTabs": "Karty narzędzi",
-    "Str.AIChat.ApiKeyRequired": "Wymagany jest klucz API. Ustaw apiKey w chat-settings.json."
+    "Str.AIChat.ApiKeyRequired": "Wymagany klucz API. Ustaw zmienną środowiskową HEXIDE_AI_API_KEY lub apiKey w chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ Prywatność: Twoje wiadomości, zawartość aktywnego pliku (w przypadku formularza także jego układ i podpisy) oraz jego diagnostyka są wysyłane do {0} — usługi zewnętrznej skonfigurowanej w ustawieniach czatu AI.",
+    "Str.AIChat.PrivacyKeyTip": "Wskazówka: ustaw zmienną środowiskową HEXIDE_AI_API_KEY, aby uniknąć przechowywania klucza API w pliku."
   }
 }

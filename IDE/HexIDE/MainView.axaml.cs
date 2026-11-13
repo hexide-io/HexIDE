@@ -12,6 +12,9 @@ using HexIDE.Forms.ViewModels;
 using HexIDE.VisualDesigner;
 using HexIDE.Tools;
 using HexIDE.Tools.ObjectBrowser;
+using HexIDE.Tools.LanguageServers;
+using HexIDE.Tools.Diagnostics;
+using HexIDE.Tools.ProtocolInspector;
 using HexIDE.VisualDesigner.Views;
 using Avalonia;
 using Avalonia.Controls;
@@ -88,11 +91,13 @@ public partial class MainView : UserControl
     private IDockable? _pendingFocus;
     private int _focusRequest;
 
-    private void FocusDockable(IDockable dockable)
+    private void FocusDockable(IDockable dockable, bool reactivating)
     {
         var request = ++_focusRequest;
         _pendingFocus = dockable is CodeEditorViewModel or ImmediateToolViewModel or ProjectToolViewModel
-            or PropertiesToolViewModel or ObjectBrowserToolViewModel ? dockable : null;
+            or PropertiesToolViewModel or ObjectBrowserToolViewModel
+            || reactivating && dockable is LanguageServersToolViewModel or DiagnosticsToolViewModel or ProtocolInspectorToolViewModel
+            ? dockable : null;
         // Existing panes need no layout; new content is picked up by LayoutUpdated when Dock creates it.
         Dispatcher.UIThread.Post(() =>
         {
@@ -105,7 +110,8 @@ public partial class MainView : UserControl
         if (_pendingFocus is not { } dockable) return;
         var view = this.GetVisualDescendants().OfType<UserControl>()
             .FirstOrDefault(c => ReferenceEquals(c.DataContext, dockable) && c.IsEffectivelyVisible
-                && c is CodeEditorView or ImmediateToolView or ProjectToolView or PropertiesToolView or ObjectBrowserToolView);
+                && c is CodeEditorView or ImmediateToolView or ProjectToolView or PropertiesToolView or ObjectBrowserToolView
+                    or LanguageServersToolView or DiagnosticsToolView or ProtocolInspectorToolView);
         if (view == null) return;
         var children = view.GetVisualDescendants().OfType<Control>();
         Control? input = view switch
@@ -117,8 +123,11 @@ public partial class MainView : UserControl
             PropertiesToolView => children.OfType<ListBoxItem>().FirstOrDefault(c => c.IsSelected && c.IsEffectivelyVisible)
                 ?? children.OfType<ListBoxItem>().FirstOrDefault(c => c.IsEffectivelyVisible),
             ObjectBrowserToolView => children.OfType<TextBox>().FirstOrDefault(c => c.IsEffectivelyVisible),
+            LanguageServersToolView or DiagnosticsToolView or ProtocolInspectorToolView => view,
             _ => null,
         };
+        // Reactivation focuses the content itself; fresh opens retain their existing focus policy (#3393).
+        if (ReferenceEquals(input, view)) view.Focusable = true;
         if (input?.Focus() == true) _pendingFocus = null;
     }
 

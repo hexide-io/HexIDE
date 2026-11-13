@@ -255,7 +255,7 @@ public class TypeKeysTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void TypedMemberAttributeStillJoinsTheMembersReadOnlyRun()
+    public void TypedMemberAttributeStaysEditableWhileItsLineIsBeingTyped()
     {
         var editor = Show("Public Sub Foo()\r\n\r\nEnd Sub\r\n", header: "");
         editor.CaretOffset = "Public Sub Foo()\r\n".Length;
@@ -264,7 +264,8 @@ public class TypeKeysTests : IDisposable
             {
                 RoutedEvent = InputElement.TextInputEvent, Text = ch.ToString(),
             });
-        editor.Text.Should().Be("Public Sub Foo()\r\nAttribute Foo.\r\nEnd Sub\r\n");
+        // A line a person is typing is theirs until the caret leaves it (#3819), so every key writes.
+        editor.Text.Should().Be("Public Sub Foo()\r\nAttribute Foo.VB_Description = \"description\"\r\nEnd Sub\r\n");
     }
 
     private static void PutCaretAfter(TextEditor editor, string text) =>

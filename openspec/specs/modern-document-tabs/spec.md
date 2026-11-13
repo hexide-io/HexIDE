@@ -24,6 +24,16 @@ this same area selection and activation rule, retaining one tab and one owner af
 - **THEN** its existing tab is activated there without adding a tab to the first area
 - **AND** closing its tab removes it from the area that shows it
 
+### Requirement: Reactivating a tool document transfers keyboard focus
+Reactivating an existing Language & Debug Servers, Diagnostics or Protocol Inspector document from a
+menu or automation SHALL focus its content container, including across document areas. Object Browser
+SHALL continue to focus Search. Fresh opens SHALL retain their existing focus policy (#3393, #3846).
+
+#### Scenario: Reopening a tool from a designer in another area
+- **WHEN** the designer has keyboard focus and an existing tool document in another area is reactivated
+- **THEN** the tool content holds keyboard focus and the designer does not
+- **AND** menu reopening and automation activation have the same focus behaviour
+
 #### Scenario: Opening while using a split area
 - **WHEN** the second document area last held focus and a new document is opened
 - **THEN** the new tab opens in that second area
