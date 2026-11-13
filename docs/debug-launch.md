@@ -159,6 +159,9 @@ no one-shot breakpoint support; set a breakpoint in the editor and continue inst
 If an adapter does not answer **End** and must be killed after cleanup waits, Immediate shows one
 localized notice with its name and elapsed wait in seconds. Any nonempty standard-error tail follows
 separately. Exit codes and forced-termination details remain in the log and Protocol Inspector (#2980).
+This also applies when stopped-frame inspection is available before startup's thread request finishes:
+End's disconnect cleanup completes before startup disposes the session, and cancellation still reports
+the adapter's final process result. Disconnect exceptions during End stay in the log (#3858).
 
 ### Breakpoint conditions (#2914)
 
