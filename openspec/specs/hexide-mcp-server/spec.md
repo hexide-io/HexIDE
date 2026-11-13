@@ -99,6 +99,23 @@ corresponding draw order. Inspecting one control SHALL report the same `zOrder` 
 - **WHEN** an unchanged loaded form is inspected before and after opening its designer
 - **THEN** each container's controls have the same order and `zOrder`
 
+### Requirement: SSTab pages are addressable without pixels
+
+`get_form_controls` SHALL report a zero-based `tab` for children of an SSTab, from its modelled
+page lists, with the designer open or closed, and omit it for other containers. `zOrder` SHALL
+compare children across the whole SSTab, rather than restarting on each tab, matching designer draw order.
+For an SSTab named with `controlName`, inspection SHALL expose its selected `Tab` and `Tabs` count.
+`set_control_property` SHALL accept `Tab` as a whole-number page index, switch the designer preview
+and child positions through the existing page bookkeeping, and refuse indexes outside `0` to `Tabs - 1`
+with the valid range. Unsupported saved child references SHALL be refused with the page and entry named
+before any change. Other properties on a form HexIDE cannot save faithfully SHALL keep their existing
+behaviour: set in the IDE and not written.
+Selected `Tab` and `Tabs` rows SHALL follow alphabetical property order. Page switches SHALL retain the existing absence of a designer undo entry.
+
+#### Scenario: Inspect and switch a saved SSTab
+- **WHEN** a caller inspects an SSTab and sets its `Tab` to a valid index
+- **THEN** the next inspection reports the selected index and each child's page membership, and an open designer shows that page
+
 ### Requirement: Form inspection includes carried controls
 
 `get_form_controls` SHALL include controls carried as preserved blocks alongside modelled controls,
