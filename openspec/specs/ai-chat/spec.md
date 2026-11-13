@@ -15,6 +15,19 @@ disclosure, consent and the handling of credentials.
 
 ## Requirements
 
+### Requirement: Localized chat chrome and feedback
+The chat SHALL use the active IDE language for approval prompts and outcomes, tool-use and tool-failure
+wrappers, apply feedback, error prefixes, buttons, the new-chat tooltip and a language-neutral input hint.
+File names, tool names and exception details SHALL remain as supplied. Tool-result payloads and notes
+sent to the model SHALL remain English (#3861, following #3687). The
+[text audience audit](../../../docs/ai-chat-localization.md) lists the literals and their audiences.
+
+#### Scenario: Approval in a German IDE
+- **WHEN** the IDE language is German and the assistant requests an edit
+- **THEN** the developer sees a German approval prompt with the supplied file name unchanged
+- **AND** rejecting it sends an English tool result to the model
+
+
 ### Requirement: Reading a named file SHALL leave the developer's view in place
 The assistant's `get_file_content` SHALL call the add-in host's `TryGetDocument` member and report its
 content or refusal reason without navigating to the document.

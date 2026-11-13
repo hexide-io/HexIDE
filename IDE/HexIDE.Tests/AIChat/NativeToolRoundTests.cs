@@ -56,6 +56,7 @@ public class NativeToolRoundTests
     [InlineData("http", null, "Select a workspace.")]
     public async Task FailedRepliesAreVisibleAndFinishTheStreamingBubble(string reason, string? explanation, string expected)
     {
+        new HexIDE.Localization.LocalizationService().Apply("en");
         var directory = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(directory);
         var resources = Application.Current!.Resources;

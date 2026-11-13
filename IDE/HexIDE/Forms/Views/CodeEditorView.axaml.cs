@@ -165,6 +165,7 @@ public partial class CodeEditorView : UserControl
             TextEditor?.CanRedo ?? false);
         DeleteLine = new DelegateCommand(() =>
         {
+            if (RefuseProtectedLineDeletion()) return;
             using var input = TrackTypedEdits();
             ArmResetPrompt();
             if (!DeleteLinesWithTheirRuns())
@@ -178,6 +179,8 @@ public partial class CodeEditorView : UserControl
         // widens the selection first (#273 task 4.5a); a cut with nothing selected takes the caret's line.
         Cut = new DelegateCommand(() =>
         {
+            if (TextEditor.TextArea.Selection.IsEmpty && TextEditor.Options.CutCopyWholeLine
+                && RefuseProtectedLineDeletion()) return;
             using var input = TrackTypedEdits();
             WidenSelectionForDeletion(wholeLineWhenEmpty: TextEditor.Options.CutCopyWholeLine);
             AskBeforeClipboardEdit(paste: false);
@@ -356,12 +359,14 @@ public partial class CodeEditorView : UserControl
 
     public void Indent()
     {
+        if (RefuseProtectedIndent()) return;
         ArmResetPrompt();
         ((HexIDE.Controls.TextEditing.TextArea)TextEditor.TextArea).Indent(backwards: false);
     }
 
     public void Outdent()
     {
+        if (RefuseProtectedIndent()) return;
         ArmResetPrompt();
         ((HexIDE.Controls.TextEditing.TextArea)TextEditor.TextArea).Indent(backwards: true);
     }
@@ -2115,6 +2120,12 @@ public partial class CodeEditorView : UserControl
 
     private void OnEditorKeyDown(object? sender, KeyEventArgs e)
     {
+        if ((AvaloniaEditCommands.DeleteLine.Gesture?.Matches(e) == true && RefuseProtectedLineDeletion())
+            || (e.Key == Key.Tab && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift && RefuseProtectedIndent()))
+        {
+            e.Handled = true;
+            return;
+        }
         _selectingTypedLine = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         // Ahead of AvaloniaEdit's own handling, which moves the caret: a step to the right from the end of a
         // declaration whose run is folded goes past the run, where End or a click landing on the same stop do not
@@ -2618,6 +2629,42 @@ public partial class CodeEditorView : UserControl
                 return binding.Command is { } command && SelectionDeletes.Contains(command);
         }
         return false;
+    }
+
+    // Refuse before AvaloniaEdit starts an update: even its optional caret undo action clears Redo (#3880).
+    private bool RefuseProtectedLineDeletion()
+    {
+        if (DataContext is not CodeEditorViewModel vm) return false;
+        var area = TextEditor.TextArea;
+        var (first, last) = SelectedLines();
+        var from = area.Document.GetLineByNumber(first).Offset;
+        var end = area.Document.GetLineByNumber(last);
+        var span = vm.ReadOnlySections.WidenDeletion(from, end.Offset + end.TotalLength - from);
+        return !vm.ReadOnlySections.GetDeletableSegments(new SimpleSegment(span.Offset, span.Length)).Any()
+            && vm.RefusesTyping(from, end.Offset + end.TotalLength - from);
+    }
+
+    private (int First, int Last) SelectedLines()
+    {
+        var area = TextEditor.TextArea;
+        return area.Selection.IsEmpty
+            ? (area.Caret.Line, area.Caret.Line)
+            : (Math.Min(area.Selection.StartPosition.Line, area.Selection.EndPosition.Line),
+               Math.Max(area.Selection.StartPosition.Line, area.Selection.EndPosition.Line));
+    }
+
+    private bool RefuseProtectedIndent()
+    {
+        if (DataContext is not CodeEditorViewModel vm) return false;
+        var area = TextEditor.TextArea;
+        var (first, last) = SelectedLines();
+        if (!area.Selection.IsEmpty && last > first
+            && area.Selection.SurroundingSegment.EndOffset == area.Document.GetLineByNumber(last).Offset)
+            last--;
+        for (var i = first; i <= last; i++)
+            if (vm.ReadOnlySections.CanInsert(area.Document.GetLineByNumber(i).Offset)) return false;
+        var from = area.Document.GetLineByNumber(first).Offset;
+        return vm.RefusesTyping(from, area.Document.GetLineByNumber(last).EndOffset - from);
     }
 
     /// <summary>
@@ -3374,7 +3421,17 @@ internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool>
         var mainText = item.InsertText ?? item.Label;
         if (item.TextEdit is { } main)
         {
-            if (!Resolve(main, out mainOffset, out mainLength))
+            var range = main.Range;
+            if (main.Insert is { } insert && main.Replace is { } replace)
+            {
+                if (range is not null || insert.Start != replace.Start || insert.Start.Line != insert.End.Line
+                    || replace.Start.Line != replace.End.Line || insert.End.Character > replace.End.Character
+                    || !Resolve(new TextEdit(replace, main.NewText), out _, out _))
+                    return;
+                range = insert;
+            }
+            else if (main.Insert is not null || main.Replace is not null) return;
+            if (range is null || !Resolve(new TextEdit(range, main.NewText), out mainOffset, out mainLength))
                 return;
             mainText = main.NewText;
         }
@@ -3382,6 +3439,15 @@ internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool>
         var snippet = item.InsertTextFormat == 2 ? CompletionSnippet.Parse(mainText) : null;
         if (item.InsertTextFormat == 2 && snippet is null)
             return;
+        if (item.InsertTextMode == 2)
+        {
+            var line = document.GetLineByOffset(textArea.Caret.Offset);
+            var beforeCaret = document.GetText(line.Offset, textArea.Caret.Offset - line.Offset);
+            var indentation = new string(beforeCaret.TakeWhile(c => c is ' ' or '\t').ToArray());
+            var adjusted = (snippet ?? new CompletionSnippet(mainText, [])).AdjustIndentation(indentation);
+            if (snippet is not null) snippet = adjusted;
+            mainText = adjusted.Text;
+        }
         mainText = snippet?.Text ?? mainText;
         var edits = new List<(int Offset, int Length, string Text)> { (mainOffset, mainLength, mainText) };
         foreach (var edit in item.AdditionalTextEdits ?? [])

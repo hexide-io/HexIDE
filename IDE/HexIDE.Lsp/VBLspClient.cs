@@ -733,7 +733,9 @@ public sealed class VBLspClient : ILspClient
                     RangeFormatting: EmptyParams.Instance,
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
                         Enum.GetValues<CompletionItemKind>()),
-                        CompletionItem: new CompletionItemClientCapabilities(true, ["plaintext"])),
+                        CompletionItem: new CompletionItemClientCapabilities(true, ["plaintext"],
+                            InsertTextModeSupport: new InsertTextModeClientCapabilities([1, 2])),
+                        CompletionList: new CompletionListClientCapabilities(["insertTextMode"])),
                     SemanticTokens: new SemanticTokensClientCapabilities(new(),
                         ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
                          "parameter", "variable", "property", "enumMember", "event", "function", "method",
@@ -1791,7 +1793,8 @@ public sealed class VBLspClient : ILspClient
                     ? new CompletionList(false, value.Deserialize(LspJsonContext.Default.CompletionItemArray)!)
                     : value.Deserialize(LspJsonContext.Default.CompletionList);
             onAnswer();
-            return result?.Items ?? [];
+            return result?.Items.Select(item => item.InsertTextMode is null && result.ItemDefaults?.InsertTextMode is { } mode
+                ? item with { InsertTextMode = mode } : item).ToArray() ?? [];
         }
         catch (Exception ex)
         {
