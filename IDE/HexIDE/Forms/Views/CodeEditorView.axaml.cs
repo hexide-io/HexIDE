@@ -2676,6 +2676,9 @@ public partial class CodeEditorView : UserControl
         if (EditedSpan() is var (offset, length) && vm.InsertLineBreakPastRun(offset, length, text) is { } placed)
         {
             area.ClearSelection();
+            // The split write ends on the head; ownership belongs to the pasted tail (#3871).
+            vm.AcceptTypedEdit(placed.End);
+            ApplyFolds(vm, null);
             area.Caret.Offset = placed.End;
         }
         else

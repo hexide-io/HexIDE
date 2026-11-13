@@ -21,6 +21,7 @@ public class FlatScrollBarInputTests
     private static (Window Window, VBFlatScrollBar Bar, ContainerRuntimeHarness.RecordingRoot Root, TextBox Text) Host()
     {
         var bar = new VBFlatScrollBar { Width = 160, Height = 17 };
+        RepeatTimerDriver.For(bar);
         VBProps.SetName(bar, "Flat1");
         Set(bar, "Max", 100);
         Set(bar, "LargeChange", 10);
@@ -89,6 +90,7 @@ public class FlatScrollBarInputTests
             bar.Value.Should().Be(50);
             root.Calls.Should().BeEmpty();
             window.MouseDown(At(bar, window, allowed), MouseButton.Left);
+            RepeatTimerDriver.Stall(TimeSpan.FromMilliseconds(200));
             window.MouseUp(At(bar, window, allowed), MouseButton.Left);
             bar.Value.Should().Be(expected);
         }
@@ -123,6 +125,7 @@ public class FlatScrollBarInputTests
             Set(bar, "Orientation", 0);
             window.UpdateLayout();
             window.MouseDown(At(bar, window, 8, 152), MouseButton.Left);
+            RepeatTimerDriver.Stall(TimeSpan.FromMilliseconds(200));
             window.MouseUp(At(bar, window, 8, 152), MouseButton.Left);
             bar.Value.Should().Be(51);
             bar.IsEnabled = false;
@@ -148,6 +151,7 @@ public class FlatScrollBarInputTests
             bar.Value.Should().Be(51);
             // The measured second is the initial step plus ten 100 ms repeats (#1097).
             for (var tick = 0; tick < 10; tick++) RepeatTimerDriver.Tick(repeat);
+            RepeatTimerDriver.Stall(TimeSpan.FromMilliseconds(200));
             bar.Value.Should().Be(61);
             root.Calls.Select(c => c.Name).Should().Equal(Enumerable.Repeat("Flat1_Change", 11));
             window.MouseUp(At(bar, window, 152), MouseButton.Left);
