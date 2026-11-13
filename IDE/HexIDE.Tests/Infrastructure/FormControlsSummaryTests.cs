@@ -86,16 +86,18 @@ public class FormControlsSummaryTests
             var before = form.Components.Select(c => c.GetPropertyOrDefault(VBProperties.LeftProperty)).ToArray();
             var reply = await tools.SetControlPropertyAsync("Form1", "SSTab1", "Tab", "0");
             reply.Success.Should().BeFalse();
-            if (check == "readonly")
-                reply.Error.Should().Be(HexIDE.Forms.ViewModels.CodeEditorViewModel.ReadOnlyWriteRefusal);
-            else
-            {
-                reply.Error.Should().Contain("page 1").And.Contain(check is "array" or "indexedarray" ? "control array" : "ImageCombo1")
-                    .And.Contain("Nothing was changed");
-            }
+            // An unsaveable form gets the same page refusal: the save verdict governs writing, not this tool's other properties.
+            reply.Error.Should().Contain("page 1").And.Contain(check is "array" or "indexedarray" ? "control array" : "ImageCombo1")
+                .And.Contain("Nothing was changed");
             tab.GetPropertyOrDefault(HexIDE.Runtime.Components.InBox.SSTabSavedState.Property)!.Number("Tab", 0).Should().Be(1);
             form.Components.Select(c => c.GetPropertyOrDefault(VBProperties.LeftProperty)).Should().Equal(before);
             await writer.DidNotReceive().SaveForm(form, false, interactive: false, rewrites: Arg.Any<HexIDE.Projects.SaveRewriteReport>());
+            if (check == "readonly")
+            {
+                // Other properties on an unsaveable form are still set in the IDE, as on main and as the Properties window does.
+                var caption = await tools.SetControlPropertyAsync("Form1", "Command1", "Caption", "Go");
+                caption.Error.Should().NotBe(HexIDE.Forms.ViewModels.CodeEditorViewModel.ReadOnlyWriteRefusal);
+            }
         }
         else if (check == "order")
         {
