@@ -454,16 +454,19 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
         var host = Uri.TryCreate(_settings.BaseUrl, UriKind.Absolute, out var u) ? u.Host : _settings.BaseUrl;
         var tip = _settings.ApiKeyIsFromPlaintextFile()
-            ? " Tip: set the HEXIDE_AI_API_KEY environment variable to avoid storing your API key in a file."
+            ? " " + NoticeString("Str.AIChat.PrivacyKeyTip")
             : "";
 
         Messages.Add(new ChatMessageViewModel("assistant",
-            $"ℹ Privacy: your messages, the active file's contents (for a form, its layout and captions too), and its diagnostics are sent to {host} — " +
-            "a third-party service you configured in AI Chat settings." + tip,
+            string.Format(NoticeString("Str.AIChat.PrivacyNotice"), host) + tip,
             isStatusLine: true));
 
         try { File.WriteAllText(ackPath, EgressNoticeVersion); } catch { /* best-effort */ }
     }
+
+    private static string NoticeString(string key) =>
+        Application.Current?.TryGetResource(key, null, out var value) == true
+            ? value as string ?? key : key;
 
     // ── compaction ───────────────────────────────────────────────────────────
 

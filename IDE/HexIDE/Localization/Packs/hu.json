@@ -1244,6 +1244,8 @@
     "Str.Tool.LanguageServers.Editor.FileChanged": "A fájl megváltozott. Mentés előtt nyissa meg újra az űrlapot.",
     "Str.Dock.DocumentTabs": "Dokumentumfülek",
     "Str.Dock.ToolTabs": "Eszközfülek",
-    "Str.AIChat.ApiKeyRequired": "API-kulcs szükséges. Állítsa be az apiKey értékét a chat-settings.json fájlban."
+    "Str.AIChat.ApiKeyRequired": "API-kulcs szükséges. Állítsa be a HEXIDE_AI_API_KEY környezeti változót vagy az apiKey értékét a chat-settings.json fájlban.",
+    "Str.AIChat.PrivacyNotice": "ℹ Adatvédelem: üzeneteit, az aktív fájl tartalmát (űrlap esetén az elrendezést és a feliratokat is) és diagnosztikáját a rendszer ide küldi: {0} — ez egy harmadik fél szolgáltatása, amelyet az AI-csevegés beállításaiban adott meg.",
+    "Str.AIChat.PrivacyKeyTip": "Tipp: állítsa be a HEXIDE_AI_API_KEY környezeti változót, hogy ne kelljen fájlban tárolnia az API-kulcsot."
   }
 }

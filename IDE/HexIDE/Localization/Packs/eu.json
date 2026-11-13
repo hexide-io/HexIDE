@@ -1244,6 +1244,8 @@
     "Str.Dock.ToolTabStripItemAutoHide": "_Ezkutatu automatikoki",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Ainguratu fitxadun dokumentu gisa",
     "Str.Dock.ToolTabStripItemClose": "_Itxi",
-    "Str.AIChat.ApiKeyRequired": "API gakoa behar da. Ezarri apiKey chat-settings.json fitxategian."
+    "Str.AIChat.ApiKeyRequired": "API gakoa behar da. Ezarri HEXIDE_AI_API_KEY ingurune-aldagaia edo apiKey chat-settings.json fitxategian.",
+    "Str.AIChat.PrivacyNotice": "ℹ Pribatutasuna: zure mezuak, fitxategi aktiboaren edukia (inprimakien kasuan, diseinua eta epigrafeak ere bai) eta haren diagnostikoak {0} zerbitzura bidaltzen dira — AA txataren ezarpenetan konfiguratu duzun hirugarren baten zerbitzura.",
+    "Str.AIChat.PrivacyKeyTip": "Aholkua: ezarri HEXIDE_AI_API_KEY ingurune-aldagaia API gakoa fitxategi batean gordetzea saihesteko."
   }
 }

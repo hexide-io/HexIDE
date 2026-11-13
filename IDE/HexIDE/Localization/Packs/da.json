@@ -1244,6 +1244,8 @@
     "Str.Dock.ToolTabStripItemAutoHide": "_Skjul automatisk",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Fastgør som dokument med faneblad",
     "Str.Dock.ToolTabStripItemClose": "_Luk",
-    "Str.AIChat.ApiKeyRequired": "API-nøgle kræves. Angiv apiKey i chat-settings.json."
+    "Str.AIChat.ApiKeyRequired": "API-nøgle påkrævet. Angiv miljøvariablen HEXIDE_AI_API_KEY eller apiKey i chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ Privatliv: dine beskeder, indholdet af den aktive fil (for en formular også layout og tekster) og dens diagnostik sendes til {0} — en tredjepartstjeneste, du har konfigureret i AI-chattens indstillinger.",
+    "Str.AIChat.PrivacyKeyTip": "Tip: angiv miljøvariablen HEXIDE_AI_API_KEY for at undgå at gemme din API-nøgle i en fil."
   }
 }
