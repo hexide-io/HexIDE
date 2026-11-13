@@ -134,8 +134,8 @@ never reaches a network.
 Before assembling a request, reading the active file for context, or compacting history, Send SHALL
 require a non-whitespace effective API key unless the configured endpoint URL's host is `localhost`,
 `127.0.0.1`, or `::1`. The exemption SHALL depend only on that host, never the provider, model, or URL
-path. A blocked send SHALL display a localized explanation naming `apiKey` in
-`chat-settings.json`, retain the input, and send no request.
+path. A blocked send SHALL display a localized explanation naming the `HEXIDE_AI_API_KEY` environment
+variable before `apiKey` in `chat-settings.json`, retain the input, and send no request.
 
 #### Scenario: No key for the default endpoint
 - **WHEN** Send is invoked without a key in settings or any supported environment variable
@@ -169,6 +169,7 @@ than discovering it later.
 ### Requirement: The developer SHALL be told what leaves their machine, before it does
 The assistant SHALL disclose, before its first request of a session, that the conversation, the active
 file's contents and its diagnostics are sent to the configured third-party endpoint, naming that endpoint.
+The disclosure and its conditional file-key tip SHALL use the selected language's resources.
 
 The thing a developer would most want to know is exactly the thing a chat panel makes easiest to forget:
 the code in the editor is part of every request, not just what was typed into the box. Disclosing it once,

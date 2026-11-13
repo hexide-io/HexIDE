@@ -1244,6 +1244,8 @@
     "Str.Tool.LanguageServers.Editor.FileChanged": "Failas pasikeitė. Prieš išsaugodami atverkite formą iš naujo.",
     "Str.Dock.DocumentTabs": "Dokumentų skirtukai",
     "Str.Dock.ToolTabs": "Įrankių skirtukai",
-    "Str.AIChat.ApiKeyRequired": "Reikalingas API raktas. Nustatykite apiKey faile chat-settings.json."
+    "Str.AIChat.ApiKeyRequired": "Reikalingas API raktas. Nustatykite aplinkos kintamąjį HEXIDE_AI_API_KEY arba apiKey faile chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ Privatumas: jūsų pranešimai, aktyvaus failo turinys (formos atveju ir išdėstymas bei antraštės) ir jo diagnostika siunčiami į {0} — trečiosios šalies paslaugą, kurią sukonfigūravote DI pokalbio nuostatose.",
+    "Str.AIChat.PrivacyKeyTip": "Patarimas: nustatykite aplinkos kintamąjį HEXIDE_AI_API_KEY, kad nereikėtų saugoti API rakto faile."
   }
 }

@@ -537,9 +537,10 @@ public class AIChatWholeFileTests : IDisposable
 
     // ── What leaves the machine ─────────────────────────────────────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void TheEgressNoticeSaysTheActiveFilesContentsAreSent()
     {
+        new HexIDE.Localization.LocalizationService().Apply("en");
         var chat = new ChatViewModel(host, settingsDir);
 
         chat.MaybeShowEgressNotice();

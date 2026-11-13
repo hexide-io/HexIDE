@@ -1244,6 +1244,8 @@
     "Str.Tool.LanguageServers.Editor.FileChanged": "Berkas berubah. Buka kembali formulir sebelum menyimpan.",
     "Str.Dock.DocumentTabs": "Tab dokumen",
     "Str.Dock.ToolTabs": "Tab alat",
-    "Str.AIChat.ApiKeyRequired": "Kunci API diperlukan. Atur apiKey di chat-settings.json."
+    "Str.AIChat.ApiKeyRequired": "Kunci API diperlukan. Atur variabel lingkungan HEXIDE_AI_API_KEY, atau apiKey di chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ Privasi: pesan Anda, isi berkas aktif (untuk formulir, termasuk tata letak dan keterangannya), serta diagnostiknya dikirim ke {0} — layanan pihak ketiga yang Anda konfigurasi di pengaturan Obrolan AI.",
+    "Str.AIChat.PrivacyKeyTip": "Tips: atur variabel lingkungan HEXIDE_AI_API_KEY agar kunci API Anda tidak disimpan dalam berkas."
   }
 }
