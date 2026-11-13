@@ -56,7 +56,7 @@ public class TypeKeysTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private TextEditor Show(string code, ModuleKind kind = ModuleKind.StandardModule, string? header = null, bool form = false)
+    private TextEditor Show(string code, ModuleKind kind = ModuleKind.StandardModule, string? header = null, bool form = false, IStatusBarService? statusBar = null)
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
@@ -71,7 +71,7 @@ public class TypeKeysTests : IDisposable
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
-            eventBus, lsp, settings, status, new BookmarkService(), new BreakpointService(),
+            eventBus, lsp, settings, statusBar ?? status, new BookmarkService(), new BreakpointService(),
             Substitute.For<IDebugController>(), new RunScope(), localization,
                 new Vb6ProjectFileFormat(),
                 new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
@@ -158,6 +158,35 @@ public class TypeKeysTests : IDisposable
         result.Error!.Split("Nothing was written").Length.Should().Be(2);
         result.Error.Should().Contain("refused by the code window: \"Str.CodeEditor.Msg.TypingChangesReadOnlyText\"")
             .And.Contain("Nothing was written.").And.Contain($"caret is at offset {caret}");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RefusedKeyQuotesItsMessageWithProgressArrivingDuringTheKey(bool keyboard)
+    {
+        var localization = new LocalizationService();
+        var realStatus = new StatusBarService(localization);
+        using var reporter = new LanguageServerMessageReporter(lsp, realStatus, localization);
+        var editor = Show(WithRun, statusBar: realStatus);
+        editor.CaretOffset = editor.Text.IndexOf("Attribute ", StringComparison.Ordinal) + 12;
+        var sent = false;
+        realStatus.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName != nameof(StatusBarService.Message) || sent) return;
+            sent = true;
+            foreach (var kind in new[] { "begin", "report" })
+                lsp.ProgressReceived += Raise.Event<EventHandler<ProgressParams>>(lsp,
+                    new ProgressParams(System.Text.Json.JsonSerializer.SerializeToElement("one"),
+                        new WorkDoneProgressValue(kind, "indexing")));
+        };
+        var result = keyboard ? await UiAutomationDriver.TypeKeysAsync(editor, "x")
+            : UiAutomationDriver.PressKey(editor, "X", null);
+        sent.Should().BeTrue();
+        result.Success.Should().BeFalse();
+        realStatus.Message.Should().Be("Str.CodeEditor.Msg.TypingChangesReadOnlyText");
+        result.Error.Should().Contain("refused by the code window: \"" + realStatus.Message + "\"");
+        realStatus.ClearMessage();
     }
 
     [AvaloniaFact]

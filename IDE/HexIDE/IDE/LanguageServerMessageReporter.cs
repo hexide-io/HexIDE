@@ -76,11 +76,9 @@ public sealed class LanguageServerMessageReporter : IDisposable
             if (p.Value.Kind == "end")
             {
                 if (!_progress.Remove(key)) return;
-                // Do not erase a later status message from another IDE operation.
-                if (_statusBar.Message != _displayedProgress) return;
                 if (_progress.Count == 0)
                 {
-                    _statusBar.ClearMessage();
+                    if (_displayedProgress is { } ended) _statusBar.TryReplaceMessage(ended, null);
                     _displayedProgress = null;
                     return;
                 }
@@ -105,9 +103,16 @@ public sealed class LanguageServerMessageReporter : IDisposable
                 .Where(part => !string.IsNullOrWhiteSpace(part))));
             var name = Flatten(progress.ServerDisplayName ?? _localization.GetString("Str.StatusBar.LanguageServer"));
             var percentageText = value.Percentage is { } percentage ? $" ({percentage}%)" : "";
+            var previousText = _displayedProgress;
             _displayedProgress = text.Length == 0 ? name + percentageText
                 : string.Format(_localization.GetString("Str.StatusBar.LanguageServerProgress"), name, text, percentageText);
-            _statusBar.SetMessage(_displayedProgress);
+            // End may remove hidden progress, but must not erase a newer IDE operation's text.
+            if (p.Value.Kind == "end")
+            {
+                if (previousText is not null) _statusBar.TryReplaceMessage(previousText, _displayedProgress);
+            }
+            else
+                _statusBar.SetMessage(_displayedProgress);
         }
     }
 
