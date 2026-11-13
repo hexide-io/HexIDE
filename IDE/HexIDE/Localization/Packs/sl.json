@@ -1244,6 +1244,8 @@
     "Str.Dock.ToolTabStripItemAutoHide": "_Samodejno skrij",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Zasidraj kot dokument z zavihkom",
     "Str.Dock.ToolTabStripItemClose": "Z_apri",
-    "Str.AIChat.ApiKeyRequired": "Potreben je ključ API. Nastavite apiKey v chat-settings.json."
+    "Str.AIChat.ApiKeyRequired": "Potreben je ključ API. Nastavite okoljsko spremenljivko HEXIDE_AI_API_KEY ali apiKey v chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ Zasebnost: vaša sporočila, vsebina aktivne datoteke (pri obrazcu tudi postavitev in napisi) ter njena diagnostika se pošiljajo v {0} — storitev tretje osebe, ki ste jo nastavili v nastavitvah klepeta z UI.",
+    "Str.AIChat.PrivacyKeyTip": "Namig: nastavite okoljsko spremenljivko HEXIDE_AI_API_KEY, da se izognete shranjevanju ključa API v datoteko."
   }
 }

@@ -1244,6 +1244,8 @@
     "Str.Dock.ToolTabStripItemAutoHide": "_Masquer automatiquement",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Ancrer comme document à onglet",
     "Str.Dock.ToolTabStripItemClose": "F_ermer",
-    "Str.AIChat.ApiKeyRequired": "Une clé API est requise. Définissez apiKey dans chat-settings.json."
+    "Str.AIChat.ApiKeyRequired": "Clé API requise. Définissez la variable d’environnement HEXIDE_AI_API_KEY, ou apiKey dans chat-settings.json.",
+    "Str.AIChat.PrivacyNotice": "ℹ Confidentialité : vos messages, le contenu du fichier actif (pour un formulaire, sa disposition et ses légendes aussi) et ses diagnostics sont envoyés à {0} — un service tiers configuré dans les paramètres du chat IA.",
+    "Str.AIChat.PrivacyKeyTip": "Conseil : définissez la variable d’environnement HEXIDE_AI_API_KEY pour éviter de stocker votre clé API dans un fichier."
   }
 }

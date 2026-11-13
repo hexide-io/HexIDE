@@ -839,10 +839,9 @@ public class MemberRunFoldTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void ARunTypedInUnderItsDeclarationIsMadeExpandedSoTheLineBeingTypedStaysOnScreen()
+    public async Task ATypedMemberAttributeIsNotFoldedUntilTheCaretLeavesItsLine()
     {
-        // A run typed by hand describes the procedure from its first '.', and is read-only from then on (design.md,
-        // "Settled while building 4.1"). Folded there, the line would vanish into a box under the caret.
+        // The line being typed stays the developer's until they leave it (#3819).
         var vm = Open("Option Explicit\r\n\r\nPublic Sub Halt()\r\n\r\nEnd Sub\r\n");
         var (_, editor) = Show(vm);
         PutCaret(editor, LineWith(editor, "Public Sub Halt()").EndOffset + 2);
@@ -851,10 +850,13 @@ public class MemberRunFoldTests : IDisposable
         RunFold(editor, "Public Sub Halt()").Should().BeNull("the premise: no run yet");
         TypeText(editor, ".");
 
-        var fold = RunFold(editor, "Public Sub Halt()");
-        fold.Should().NotBeNull("the run describes Halt now");
-        fold!.IsFolded.Should().BeFalse();
+        RunFold(editor, "Public Sub Halt()").Should().BeNull("the line is still being typed");
         Caret(editor).Should().Be(LineWith(editor, "Attribute Halt.").EndOffset, "and the caret is where it was typed");
+        PutCaret(editor, LineWith(editor, "End Sub").Offset);
+        await SettleFolding();
+        var fold = RunFold(editor, "Public Sub Halt()");
+        fold.Should().NotBeNull("leaving the line admits it without changing the text");
+        fold!.IsFolded.Should().BeTrue();
     }
 
     // ── The caret at a folded run ──────────────────────────────────────────────────────────────────────────

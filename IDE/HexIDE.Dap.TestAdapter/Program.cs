@@ -12,6 +12,8 @@ public static class Program
         var mode = args[0];
         // Started as an engine's adapter is, with `--dap --workspace <dir>`, the fixture takes its mode from the environment.
         if (mode == "--dap") mode = Environment.GetEnvironmentVariable("HEXIDE_DAP_FIXTURE_MODE") ?? mode;
+        var holdStartupThreads = mode.EndsWith("-startup", StringComparison.Ordinal);
+        if (holdStartupThreads) mode = mode[..^8];
         var vb6Environment = mode == "vb6-environment";
         var erlEnvironment = mode == "erl-environment";
         var engineEnvironment = mode == "engine-environment";
@@ -102,6 +104,11 @@ public static class Program
             {
                 var command = request.RootElement.GetProperty("command").GetString();
                 if (mode == "run-control-delayed" && command == "stepIn") continue;
+                if (holdStartupThreads && command == "threads")
+                {
+                    await Send(new { seq = 27, type = "event", @event = "output", body = new { output = "startup-pending\n" } });
+                    continue;
+                }
                 if (mode is "disconnect-held" or "disconnect-held-stderr" && command == "disconnect")
                 {
                     await Send(new { seq = 26, type = "event", @event = "output", body = new { output = "disconnect-pending\n" } });
