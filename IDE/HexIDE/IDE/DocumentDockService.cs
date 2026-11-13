@@ -97,7 +97,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         var match = AllTabs.FirstOrDefault(predicate);
         if (match?.Owner is not IDocumentDock dock) return false;
 
-        factory.Value!.FocusDockable(dock, match);
+        factory.Value!.FocusDockable(dock, match, reactivating: true);
         dock.ActiveDockable = match;
         return true;
     }

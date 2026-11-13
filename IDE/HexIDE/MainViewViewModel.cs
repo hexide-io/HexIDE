@@ -292,16 +292,16 @@ public partial class MainViewViewModel : ObservableObject
 
     private readonly AddinToolWindowService _addinToolWindowService;
 
-    internal event Action<IDockable>? KeyboardFocusRequested;
+    internal event Action<IDockable, bool>? KeyboardFocusRequested;
 
     public class DockFactory : Factory
     {
-        internal event Action<IDockable>? KeyboardFocusRequested;
+        internal event Action<IDockable, bool>? KeyboardFocusRequested;
 
-        internal void FocusDockable(IDock dock, IDockable dockable)
+        internal void FocusDockable(IDock dock, IDockable dockable, bool reactivating = false)
         {
             base.SetFocusedDockable(dock, dockable);
-            KeyboardFocusRequested?.Invoke(dockable);
+            KeyboardFocusRequested?.Invoke(dockable, reactivating);
         }
 
         internal const double MinimumDocumentHeight = 120;
@@ -1666,7 +1666,7 @@ public partial class MainViewViewModel : ObservableObject
         this.projectService = projectService;
         this.documentDockService = documentDockService;
         this.dockFactory = dockFactory;
-        dockFactory.KeyboardFocusRequested += dockable => KeyboardFocusRequested?.Invoke(dockable);
+        dockFactory.KeyboardFocusRequested += (dockable, reactivating) => KeyboardFocusRequested?.Invoke(dockable, reactivating);
         this.projectRunnerService = projectRunnerService;
         this.eventBus = eventBus;
         this.vb6Toolchain = vb6Toolchain;
@@ -2627,7 +2627,7 @@ public partial class MainViewViewModel : ObservableObject
         var opened = FindDock<IDockable>(x => ReferenceEquals(x, tool));
         if (opened != null)
         {
-            dockFactory.FocusDockable((IDock)opened.Owner!, opened);
+            dockFactory.FocusDockable((IDock)opened.Owner!, opened, reactivating: opened.Owner is IDocumentDock);
             return;
         }
 
