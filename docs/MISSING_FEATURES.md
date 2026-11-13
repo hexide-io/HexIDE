@@ -506,7 +506,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Ctrl+O | Open Project | Done | |
 | Ctrl+S | Save file | Done | |
 | Ctrl+Z | Undo | Done | |
-| Ctrl+Y | Delete Line | Done | Remappable through the keymap; Redo stays on Ctrl+Shift+Z (#513) |
+| Ctrl+Y | Delete Line | Done | Remappable through the keymap; Redo stays on Ctrl+Shift+Z (#513). On protected text, Delete Line refuses with the read-only message and preserves the caret, selection, Undo and Redo (#3880) |
 | Ctrl+Shift+Z | Redo | Done | |
 | Ctrl+X / C / V | Cut / Copy / Paste | Done | |
 | Ctrl+A | Select All | Done | |

@@ -33,6 +33,7 @@ public class TypedMemberAttributeTests : IDisposable
     private readonly List<Window> windows = [];
     private readonly List<CodeEditorViewModel> made = [];
     private readonly IEventBus events = Substitute.For<IEventBus>();
+    private readonly IStatusBarService status = Substitute.For<IStatusBarService>();
     private ModuleDefinition module = null!;
     private Action<DocumentSavedEvent>? saved;
 
@@ -49,11 +50,13 @@ public class TypedMemberAttributeTests : IDisposable
             .Returns(Substitute.For<IDisposable>());
         var settings = Substitute.For<ISettingsService>();
         settings.TabWidth.Returns(4);
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
-            events, Substitute.For<ILspClient>(), settings, Substitute.For<IStatusBarService>(),
+            events, Substitute.For<ILspClient>(), settings, status,
             new BookmarkService(), new BreakpointService(), Substitute.For<IDebugController>(), new RunScope(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         made.Add(vm);
         module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "DName", ModuleKind.StandardModule);
         module.RecordOriginalHeader("Attribute VB_Name = \"DName\"\r\n");
@@ -147,6 +150,59 @@ public class TypedMemberAttributeTests : IDisposable
         var before = editor.Document.Text;
         (await UiAutomationDriver.TypeKeysAsync(editor, "x")).Success.Should().BeFalse();
         editor.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("delete")]
+    [InlineData("library-delete")]
+    [InlineData("indent")]
+    [InlineData("outdent")]
+    [InlineData("menu-indent")]
+    [InlineData("menu-outdent")]
+    [InlineData("cut")]
+    public async Task ProtectedLineCommandsPreserveHistoryAndSelection(string command)
+    {
+        var (_, editor) = Open("Attribute Bar.VB_Description = \"e\"");
+        editor.CaretOffset = editor.Document.GetLineByNumber(4).EndOffset;
+        await Type(editor, "2");
+        editor.Undo();
+        editor.CanRedo.Should().BeTrue();
+        editor.CaretOffset = editor.Document.GetLineByNumber(3).Offset + 4;
+        if (command is "indent" or "outdent" or "menu-indent" or "menu-outdent")
+            editor.Select(editor.Document.GetLineByNumber(3).Offset, editor.Document.GetLineByNumber(3).Length);
+        var before = editor.Text;
+        var caret = editor.CaretOffset;
+        var selection = editor.TextArea.Selection;
+        var undo = editor.CanUndo;
+        var redo = editor.CanRedo;
+        status.ClearReceivedCalls();
+
+        var gesture = command switch
+        {
+            "delete" => ApplicationCommands.DeleteLineCommand.Gestures[0],
+            "library-delete" => AvaloniaEdit.AvaloniaEditCommands.DeleteLine.Gesture!,
+            "cut" => ApplicationCommands.CutCommand.Gestures[0],
+            "menu-indent" => ApplicationCommands.IndentCommand.Gestures[0],
+            "menu-outdent" => ApplicationCommands.OutdentCommand.Gestures[0],
+            _ => new KeyGesture(Key.Tab, command == "outdent" ? KeyModifiers.Shift : KeyModifiers.None)
+        };
+        editor.TextArea.Focus();
+        if (command == "menu-indent") ((CodeEditorView)windows[0].Content!).Indent();
+        else if (command == "menu-outdent") ((CodeEditorView)windows[0].Content!).Outdent();
+        else editor.TextArea.RaiseEvent(new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent, Key = gesture.Key, KeyModifiers = gesture.KeyModifiers,
+        });
+        Dispatcher.UIThread.RunJobs();
+
+        editor.Text.Should().Be(before);
+        editor.CanRedo.Should().Be(redo);
+        editor.CanUndo.Should().Be(undo);
+        editor.CaretOffset.Should().Be(caret);
+        editor.TextArea.Selection.Should().BeSameAs(selection);
+        status.Received().SetTemporaryMessage("Str.CodeEditor.Msg.TypingChangesReadOnlyText", Arg.Any<TimeSpan>());
+        editor.Redo();
+        editor.Document.GetText(editor.Document.GetLineByNumber(4)).Should().EndWith("22");
     }
 
     [AvaloniaFact]

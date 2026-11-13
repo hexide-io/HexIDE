@@ -383,6 +383,14 @@ one visible line, so a mark set there would land on a line the developer cannot 
 - **WHEN** the developer sets a breakpoint on a line of code in such a form
 - **THEN** it is set, because the document being read-only as a whole is not a read-only region
 
+#### Scenario: A line command cannot write protected text
+- **GIVEN** an edit in a procedure body has been undone, leaving Redo available
+- **WHEN** Delete Line or whole-line Cut targets a protected attribute line, or Indent or Outdent targets only protected lines
+- **THEN** the code window SHALL refuse with its existing read-only typing message before changing the selection or starting a document update
+- **AND** the text, caret, selection, Undo and Redo SHALL remain as they were
+- **AND** Redo SHALL still restore the undone body edit
+- **AND** deleting a declaration with its attribute run SHALL retain its existing behaviour
+
 ### Requirement: Writes to an unsaveable form SHALL be refused
 Replace, Replace All, formatting (including on save), Insert File, undo, redo, whole-content replacements and
 add-in range edits SHALL refuse before changing text or undo history when a form cannot be saved faithfully.
