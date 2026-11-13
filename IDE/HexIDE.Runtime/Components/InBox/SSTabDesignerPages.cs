@@ -45,8 +45,14 @@ internal sealed class SSTabDesignerPages
         preview.Arrange(new Rect(size));
         if (preview.DesignerTabAt(point) is not { } next)
             return false;
+        Select(next, children);
+        return true;
+    }
+
+    internal void Select(int next, IReadOnlyList<ComponentInstance> children)
+    {
         if (next == showing)
-            return true;
+            return;
         Synchronize(children);
         foreach (var child in pages[showing].Where(children.Contains))
             child.SetProperty(LeftProperty, child.GetPropertyOrDefault(LeftProperty) - OffPage);
@@ -55,7 +61,6 @@ internal sealed class SSTabDesignerPages
         var previous = showing;
         showing = next;
         Write(children, previous);
-        return true;
     }
 
     internal void Synchronize(IReadOnlyList<ComponentInstance> children)

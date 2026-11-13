@@ -11,6 +11,105 @@ namespace HexIDE.Tests.Infrastructure;
 public class FormControlsSummaryTests
 {
     [AvaloniaTheory]
+    [InlineData(false, "membership")]
+    [InlineData(true, "membership")]
+    [InlineData(false, "switch")]
+    [InlineData(true, "switch")]
+    [InlineData(false, "range")]
+    [InlineData(true, "range")]
+    public async Task SSTab_pages_are_addressable_without_pixels(bool open, string check)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
+        project.WorkingDirectory = Path.GetTempPath();
+        var form = new FormDeserializer().Deserialize(project, """
+            VERSION 5.00
+            Begin VB.Form Form1
+               Begin TabDlg.SSTab SSTab1
+                  Width = 4995
+                  Height = 3195
+                  _ExtentX = 8811
+                  _ExtentY = 5636
+                  Tab = 1
+                  Tab(0).Control(0) = "Command1"
+                  Tab(0).ControlCount = 1
+                  Tab(1).Control(0) = "Text1"
+                  Tab(1).ControlCount = 1
+                  Begin VB.CommandButton Command1
+                     Left = -74670
+                     Width = 1515
+                     Height = 495
+                  End
+                  Begin VB.TextBox Text1
+                     Left = 480
+                     Width = 1215
+                     Height = 390
+                  End
+               End
+            End
+            Attribute VB_Name = "Form1"
+            """, Substitute.For<IDeserializeErrorSink>())!;
+        form.AbsolutePath = Path.Combine(project.WorkingDirectory, "hexide-2694-" + Guid.NewGuid() + ".frm");
+        project.AddForm(form);
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([project]);
+        var dock = Substitute.For<IDocumentDockService>();
+        var events = new EventBus();
+        using var designer = open ? new HexIDE.VisualDesigner.FormEditViewModel(
+            null!, events, null!, null!, null!, Substitute.For<ISettingsService>(),
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form) : null;
+        dock.OpenDocuments.Returns(designer is null ? [] : [designer]);
+        var writer = Substitute.For<IProjectService>();
+        writer.SaveForm(form, false, interactive: false, rewrites: Arg.Any<HexIDE.Projects.SaveRewriteReport>()).Returns(true);
+        using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
+            null!, null!, writer, events, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
+            new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+        var tools = new HexIdeTools(context);
+        if (check == "membership")
+        {
+            foreach (var name in new string?[] { null, "Command1", "Text1", "SSTab1" })
+            {
+                var reply = await tools.GetFormControlsAsync("Form1", controlName: name);
+                foreach (var row in reply.Controls)
+                {
+                    var json = JsonSerializer.SerializeToElement(row, ReplyJson.Options);
+                    if (row.Container == "SSTab1")
+                        json.GetProperty("tab").GetInt32().Should().Be(row.Name == "Command1" ? 0 : 1);
+                    else
+                        json.TryGetProperty("tab", out _).Should().BeFalse();
+                }
+            }
+            var rows = (await tools.GetFormControlsAsync("Form1")).Controls.Where(c => c.Container == "SSTab1").ToArray();
+            rows.Select(c => c.ZOrder).Should().Equal(0, 1);
+        }
+        else if (check == "range")
+        {
+            foreach (var value in new[] { "-1", "3" })
+            {
+                var reply = await tools.SetControlPropertyAsync("Form1", "SSTab1", "Tab", value);
+                reply.Success.Should().BeFalse();
+                reply.Error.Should().Contain("0 to 2");
+            }
+        }
+        else
+        {
+            var before = await tools.GetFormControlsAsync("Form1", controlName: "SSTab1");
+            before.Properties.Should().Contain(p => p.Name == "Tab" && p.Value == "1" && p.Settable);
+            var reply = await tools.SetControlPropertyAsync("Form1", "SSTab1", "Tab", "0");
+            reply.Success.Should().BeTrue(reply.Error);
+            reply.Note.Should().Contain("Tab is now 0");
+            var after = await tools.GetFormControlsAsync("Form1", controlName: "SSTab1");
+            after.Properties.Should().Contain(p => p.Name == "Tab" && p.Value == "0" && p.Settable);
+            var tab = form.Components.Single(c => c.BaseClass is HexIDE.Runtime.Components.InBox.SSTabComponentClass);
+            ((HexIDE.Runtime.BuiltinControls.VBSSTab)HexIDE.Runtime.Components.InBox.SSTabComponentClass.Instance.InstantiateForDesigner(tab)).Tab.Should().Be(0);
+            designer?.CanUndo.Should().BeFalse();
+            form.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "Command1")
+                .GetPropertyOrDefault(VBProperties.LeftProperty).Should().Be(22);
+            form.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "Text1")
+                .GetPropertyOrDefault(VBProperties.LeftProperty).Should().Be(-4968);
+        }
+    }
+
+    [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Z_order_follows_live_reordering_within_each_container(bool nested)

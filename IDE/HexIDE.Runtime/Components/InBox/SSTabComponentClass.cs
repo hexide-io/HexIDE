@@ -46,6 +46,24 @@ public sealed class SSTabComponentClass : InBoxComponentClass
     public void SynchronizeDesignerPages(ComponentInstance instance, IReadOnlyList<ComponentInstance> children) =>
         SSTabDesignerPages.For(instance).Synchronize(children);
 
+    public int DesignerTab(ComponentInstance instance) => instance.GetPropertyOrDefault(SSTabSavedState.Property)?.Number("Tab", 0) ?? 0;
+
+    public int DesignerTabs(ComponentInstance instance) => instance.GetPropertyOrDefault(SSTabSavedState.Property)?.Number("Tabs", 3) ?? 3;
+
+    public int? DesignerTabOf(ComponentInstance instance, string childName)
+    {
+        var saved = instance.GetPropertyOrDefault(SSTabSavedState.Property);
+        for (var page = 0; page < DesignerTabs(instance); page++)
+            for (var index = 0; index < (saved?.Number($"Tab({page}).ControlCount", 0) ?? 0); index++)
+                if (string.Equals(saved?.Value($"Tab({page}).Control({index})") as string, childName,
+                        StringComparison.OrdinalIgnoreCase))
+                    return page;
+        return null;
+    }
+
+    public void SelectDesignerPage(ComponentInstance instance, int page, IReadOnlyList<ComponentInstance> children) =>
+        SSTabDesignerPages.For(instance).Select(page, children);
+
     public override Control InstantiateForDesigner(ComponentInstance instance)
     {
         var tab = new VBSSTab(CreateChildHost());
