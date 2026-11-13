@@ -3852,7 +3852,7 @@ public static class UiAutomationDriver
     public static async Task<InteractOutcome> PressKeyAsync(
         Control control, string key, string? modifiers, string? controlPath = null, CancellationToken ct = default)
     {
-        var outcome = PressKey(control, key, modifiers, controlPath);
+        var outcome = PressKeyCore(control, key, modifiers, controlPath, reportCaret: false);
         if (!outcome.Success || TopLevel.GetTopLevel(control) is not { } top)
             return outcome;
         try
@@ -3862,7 +3862,7 @@ public static class UiAutomationDriver
             var slow = answered ? "" : "; the language server had not answered the key's completion, parameter-info or "
                 + $"on-type formatting request within {PopupWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms, "
                 + "so a popup or formatting edit may still arrive";
-            return outcome with { Detail = outcome.Detail + caret + slow };
+            return outcome with { Detail = outcome.Detail?.TrimEnd('.') + caret + slow };
         }
         catch (OperationCanceledException)
         {
@@ -4060,6 +4060,9 @@ public static class UiAutomationDriver
     /// KeyDown/KeyUp fallback — for navigation/commands (Enter, Tab, Backspace, Escape, Ctrl+S, …) that
     /// `type_text` doesn't cover.</summary>
     public static InteractOutcome PressKey(Control control, string key, string? modifiers, string? controlPath = null)
+        => PressKeyCore(control, key, modifiers, controlPath, reportCaret: true);
+
+    private static InteractOutcome PressKeyCore(Control control, string key, string? modifiers, string? controlPath, bool reportCaret)
     {
         var mechanism = "keyboard"; // No input path has been used yet.
         try
@@ -4124,8 +4127,10 @@ public static class UiAutomationDriver
             var paste = HexIDE.ApplicationCommands.PasteCommand.Gestures.Any(g => g.Matches(probe));
             var indent = (parsedKey == Key.Tab && mods is KeyModifiers.None or KeyModifiers.Shift)
                 || HexIDE.ApplicationCommands.IndentCommand.Gestures.Any(g => g.Matches(probe));
-            var partial = (selectionDelete || cut || paste || indent) && deletionArea is not null
-                ? PartialSelection(deletionArea, deletes: selectionDelete || cut) : null;
+            var deleteLine = IsDeleteLine(probe);
+            var partial = deletionArea is null ? null : indent ? PartialIndentation(deletionArea)
+                : selectionDelete || cut || paste || deleteLine
+                    ? PartialSelection(deletionArea, deletes: selectionDelete || cut || deleteLine, wholeLines: deleteLine) : null;
             var lengthBefore = deletionArea?.Document.TextLength ?? 0;
             // A key that types a character writes it, as a person's does, so it is judged as typing is (#2428).
             var typedText = TypedBy(parsedKey, mods);
@@ -4172,10 +4177,11 @@ public static class UiAutomationDriver
             // Flags print as "Control, Shift", which read as two presses (#2189).
             var chord = mods == KeyModifiers.None ? string.Empty : mods.ToString().Replace(", ", "+") + "+";
             var changed = partial is not null && deletionArea is not null
-                ? (selectionDelete || cut
+                ? (selectionDelete || cut || deleteLine
                     ? $"; deleted {lengthBefore - deletionArea.Document.TextLength} char(s) from the selection; "
-                    : "; ") + partial.Left + SelectionState(deletionArea)
+                    : "; ") + partial.Left + SelectionState(deletionArea, reportCaret)
                 : string.Empty;
+            if (chordRead.Length > 0) changed = changed.TrimEnd('.');
             return new InteractOutcome(true, mechanism,
                 $"{focusMove}pressed {chord}{parsedKey}{where}{HeldNote(parsedKey, mods)}"
                 + (typedText is null ? "" : $"; it typed \"{typedText}\", as the key does") + $"{changed}{chordRead}", null);
@@ -4256,8 +4262,7 @@ public static class UiAutomationDriver
         var probe = new KeyEventArgs { Key = key, KeyModifiers = mods };
         var cut = HexIDE.ApplicationCommands.CutCommand.Gestures.Any(g => g.Matches(probe));
         var paste = HexIDE.ApplicationCommands.PasteCommand.Gestures.Any(g => g.Matches(probe));
-        var deleteLine = HexIDE.ApplicationCommands.DeleteLineCommand.Gestures.Any(g => g.Matches(probe))
-            || AvaloniaEditCommands.DeleteLine.Gesture?.Matches(probe) == true;
+        var deleteLine = IsDeleteLine(probe);
 
         var edits = cut || paste || deleteLine
             || HexIDE.ApplicationCommands.IndentCommand.Gestures.Any(g => g.Matches(probe)) || (key, chord) switch
@@ -4286,16 +4291,49 @@ public static class UiAutomationDriver
         };
     }
 
-    private sealed record PartialEdit(int Deletable, string Left);
+    private static bool IsDeleteLine(KeyEventArgs probe) =>
+        HexIDE.ApplicationCommands.DeleteLineCommand.Gestures.Any(g => g.Matches(probe))
+        || AvaloniaEditCommands.DeleteLine.Gesture?.Matches(probe) == true;
 
-    // This only observes the provider's answer. The actual edit still goes through the key handler
-    // (including the code window's widening) or Selection.ReplaceSelectionWithText for typing.
-    private static PartialEdit? PartialSelection(TextArea area, bool deletes)
+    // Indentation asks at each line's start; deleting a declaration can take its run, indenting it cannot.
+    private static PartialEdit? PartialIndentation(TextArea area)
     {
         if (area.Selection is RectangleSelection || area.Selection.IsEmpty
             || CodeWindowOf(area) is not { IsReadOnly: false } editor)
             return null;
         var selected = area.Selection.SurroundingSegment;
+        var first = area.Document.GetLineByOffset(selected.Offset).LineNumber;
+        var last = area.Document.GetLineByOffset(selected.EndOffset).LineNumber;
+        if (area.Document.GetLineByNumber(last).Offset == selected.EndOffset) last--;
+        var left = new List<string>();
+        for (var number = first; number <= last; number++)
+        {
+            var line = area.Document.GetLineByNumber(number);
+            if (!area.ReadOnlySectionProvider.CanInsert(line.Offset))
+            {
+                var regions = editor.ReadOnlyRegionsNow.Where(r => r.Touches(line.Offset, 0)).ToList();
+                left.Add($"line {number} ({editor.DescribeRegions(regions)})");
+            }
+        }
+        return left.Count == 0 ? null : new PartialEdit(0, $"left {string.Join(", ", left)} unindented.");
+    }
+
+    private sealed record PartialEdit(int Deletable, string Left);
+
+    // This only observes the provider's answer. The actual edit still goes through the key handler
+    // (including the code window's widening) or Selection.ReplaceSelectionWithText for typing.
+    private static PartialEdit? PartialSelection(TextArea area, bool deletes, bool wholeLines = false)
+    {
+        if (area.Selection is RectangleSelection || area.Selection.IsEmpty
+            || CodeWindowOf(area) is not { IsReadOnly: false } editor)
+            return null;
+        var selected = area.Selection.SurroundingSegment;
+        if (wholeLines)
+        {
+            var first = area.Document.GetLineByOffset(selected.Offset);
+            var last = area.Document.GetLineByOffset(selected.EndOffset);
+            selected = new AvaloniaEdit.Document.SimpleSegment(first.Offset, last.Offset + last.TotalLength - first.Offset);
+        }
         var (offset, length) = deletes
             ? editor.ReadOnlySections.WidenDeletion(selected.Offset, selected.Length)
             : (selected.Offset, selected.Length);
@@ -4306,7 +4344,7 @@ public static class UiAutomationDriver
             return null;
         if (deletable == length)
             return !deletes && editor.IsReadOnlyRegion(offset, length)
-                ? new PartialEdit(deletable, "no protected text was left in the replaced span. ") : null;
+                ? new PartialEdit(deletable, "no protected text was left in the replaced span.") : null;
         var affected = editor.ReadOnlyRegionsNow.Where(r =>
         {
             var from = Math.Max(offset, r.EditStart);
@@ -4315,13 +4353,17 @@ public static class UiAutomationDriver
         }).ToList();
         var description = editor.DescribeRegions(affected);
         return new PartialEdit(deletable,
-            $"left {length - deletable} char(s) from the original selection in {description}, which only the IDE changes. ");
+            $"left {length - deletable} char(s) from the original selection in {description}, which only the IDE changes.");
     }
 
-    private static string SelectionState(TextArea area) =>
-        $" The caret is now at offset {area.Caret.Offset}; " + (area.Selection.IsEmpty
-            ? "no selection remains."
-            : $"selection remains from offset {area.Selection.SurroundingSegment.Offset} to {area.Selection.SurroundingSegment.EndOffset}.");
+    private static string SelectionState(TextArea area, bool reportCaret = true) =>
+        reportCaret
+            ? $" The caret is now at offset {area.Caret.Offset}; " + RemainingSelection(area)
+            : " " + (area.Selection.IsEmpty ? "No selection remains." : "The " + RemainingSelection(area));
+
+    private static string RemainingSelection(TextArea area) => area.Selection.IsEmpty
+        ? "no selection remains."
+        : $"selection remains from offset {area.Selection.SurroundingSegment.Offset} to {area.Selection.SurroundingSegment.EndOffset}.";
 
     /// <summary>What a key would change: <see cref="Length"/> characters at <see cref="Offset"/>, deleted or written over.</summary>
     private readonly record struct EditedSpan(int Offset, int Length, bool Deletes);
