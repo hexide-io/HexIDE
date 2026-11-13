@@ -51,7 +51,7 @@
 |---|---|---|---|
 | Undo | Ctrl+Z | Done | AvaloniaEdit undo; in the code window it steps past the writes the IDE makes itself (see Code Editor Window, Undo / Redo; #273) |
 | Redo | Ctrl+Shift+Z | Done | AvaloniaEdit redo |
-| Cut | Ctrl+X | Done | |
+| Cut | Ctrl+X | Done | A selection reaching into protected text copies only what Cut removes, in order; a wholly protected Cut leaves the clipboard unchanged (#3892). |
 | Copy | Ctrl+C | Done | |
 | Paste | Ctrl+V | Done | |
 | Paste as Comment | — | Done | Clipboard lines commented at the paste's indentation, as one undo step; bindable as `PasteAsCommentCommand` (#1993). |

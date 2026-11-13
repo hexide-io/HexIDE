@@ -252,6 +252,12 @@ and Delete do. Undo and Redo SHALL restore text without starting typed-line owne
 half-typed member attribute line after leaving it SHALL keep that line locked. These are HexIDE editing
 decisions, not measured VB6 behaviour (#3871).
 
+A Cut over a selection reaching into read-only text SHALL put only the deletable portions on the
+clipboard, concatenated in selection order exactly as they stood, and SHALL remove those same portions
+(#3892). With no deletable text, Cut SHALL refuse and leave the clipboard unchanged, including a whole-line
+Cut on a protected line. Copy SHALL continue to copy the whole selection, including read-only text.
+This is a HexIDE editing decision, not measured VB6 behaviour.
+
 An attribute line left describing nothing SHALL be preserved, not removed: it is inert text, and the IDE does
 not know what the developer meant by it. A run of attribute lines describes a member when it sits directly
 under that member's declaration, with any lines continued into it, and VB6 reads every line of it as that

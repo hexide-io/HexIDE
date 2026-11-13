@@ -4118,7 +4118,9 @@ public static class UiAutomationDriver
                 return new InteractOutcome(false, "keyboard", null, disabled);
             var deletionArea = AreaOf(target);
             var selectionDelete = parsedKey is Key.Delete or Key.Back
-                && mods is KeyModifiers.None or KeyModifiers.Control;
+                && mods is KeyModifiers.None or KeyModifiers.Control
+                || HexIDE.ApplicationCommands.CutCommand.Gestures.Any(g => g.Matches(
+                    new KeyEventArgs { Key = parsedKey, KeyModifiers = mods }));
             var partial = selectionDelete && deletionArea is not null
                 ? PartialSelection(deletionArea, deletes: true) : null;
             var lengthBefore = deletionArea?.Document.TextLength ?? 0;
