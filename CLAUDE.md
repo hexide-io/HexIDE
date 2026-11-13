@@ -42,9 +42,10 @@ cd LspServer && dotnet build HexIDE.VbLspServer/
 ```
 
 **A test run that could hang carries a hang-dump timeout**, as CI's headless steps do:
-`pwsh scripts/test.ps1 IDE/HexIDE.Integration.Tests/ -- --hangdump --hangdump-timeout 10m`. The timeout counts
-quiet time, minutes in which no test starts or finishes. So it ends a hang and names the tests still running,
-but it doesn't end a slow, healthy run (hexide-gen measured it in #2618). Only the two headless suites,
+`pwsh scripts/test.ps1 IDE/HexIDE.Integration.Tests/ -- --hangdump --hangdump-timeout 20m`. Set it well above
+the suite's length, as a budget for the whole run. The timer is meant to count only quiet time, minutes in
+which no test starts or finishes, and on Windows it does (#2618). But on macOS it fired 10 to 11 minutes into
+healthy runs once the suite outgrew it (#3874). Only the two headless suites,
 `HexIDE.Integration.Tests` and `HexIDE.Runtime.Integration.Tests`, reference
 `Microsoft.Testing.Extensions.HangDump` today. Another project rejects the option until it has the
 package, with its licence line.
@@ -335,13 +336,15 @@ every test of a class that has not yet touched that assembly, before the test st
 `TestApp` does, and judge a new headless project by xunit's report from its first run: it has no earlier total
 to fall short of.
 
-**A hung headless run ends 10 minutes after a test last started or finished, and names what was running**
+**A hung headless run ends with a report naming what was running**
 ([#2530](https://github.com/hexide-io/HexIDE/issues/2530)). Every step of the two headless suites passes
-`--hangdump --hangdump-timeout 10m --hangdump-type Heap` (`Microsoft.Testing.Extensions.HangDump`, kept at the
-Microsoft.Testing.Platform version xunit.v3 brings). The results directory then holds a `*_hang.log` listing each
+`--hangdump --hangdump-type Heap` (`Microsoft.Testing.Extensions.HangDump`, kept at the Microsoft.Testing.Platform
+version xunit.v3 brings) with a timeout well above the suite's length: 20 minutes for `HexIDE.Integration.Tests`,
+which takes 11 to 13 minutes on macOS, and 10 for `HexIDE.Runtime.Integration.Tests`, which takes about one. The
+results directory then holds a `*_hang.log` listing each
 test still running and how long it had run, beside a heap dump with managed stacks
 (`dotnet-dump analyze <file> -c "clrstack -all"`). CI turns the log into an error annotation and uploads both.
-Before this, a hang ran out the 30-minute step limit and left no report at all. Add the same options after the
+Before this, a hang ran out the step limit and left no report at all. Add the same options after the
 `--` to get this locally.
 
 ## MCP Dev Loop

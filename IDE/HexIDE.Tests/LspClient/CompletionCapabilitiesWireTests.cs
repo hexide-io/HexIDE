@@ -56,6 +56,7 @@ public class CompletionCapabilitiesWireTests
         completion.GetProperty("completionList").GetProperty("itemDefaults").EnumerateArray()
             .Select(value => value.GetString()).Should().Equal("insertTextMode");
         var item = completion.GetProperty("completionItem");
+        item.GetProperty("snippetSupport").GetBoolean().Should().BeTrue();
         item.GetProperty("insertReplaceSupport").GetBoolean().Should().BeTrue();
         item.GetProperty("insertTextModeSupport").GetProperty("valueSet").EnumerateArray()
             .Select(value => value.GetInt32()).Should().Equal(1, 2);

@@ -9,61 +9,86 @@ using AvaloniaEdit.Snippets;
 
 namespace HexIDE.Forms.Views;
 
-/// <summary>The numbered tabstops and placeholders in an LSP completion snippet.</summary>
+/// <summary>Tabstops, nested placeholders and variables in an LSP completion snippet.</summary>
 internal sealed record CompletionSnippet(string Text, IReadOnlyList<CompletionSnippet.Stop> Stops)
 {
-    internal sealed record Stop(int Number, int Offset, int Length, string[]? Choices = null);
+    internal sealed record Stop(int Number, int Offset, int Length, string[]? Choices = null, int? Parent = null);
 
-    public static CompletionSnippet? Parse(string source)
+    private sealed record Part(string? Text = null, int? Number = null, string? Variable = null,
+        IReadOnlyList<Part>? Children = null, string[]? Choices = null);
+
+    public static CompletionSnippet? Parse(string source, IReadOnlyDictionary<string, string?>? variables = null, string? indentation = null)
     {
+        var position = 0;
+        var definitions = new Dictionary<int, Part>();
+        var unknowns = new Dictionary<string, int>();
+        var parts = Read(false, 0);
+        if (parts is null) return null;
+        var nextNumber = definitions.Keys.DefaultIfEmpty(0).Max();
         var text = new StringBuilder();
         var stops = new List<Stop>();
-        var defaults = new Dictionary<int, string>();
-        var position = 0;
-        if (!Read(false) || position != source.Length) return null;
-        // A reference can precede the placeholder that supplies its default.
-        position = 0;
-        text.Clear();
-        stops.Clear();
-        if (!Read(false)) return null;
-        var result = text.ToString();
-        if (stops.GroupBy(stop => stop.Number).Any(group => group
-                .Select(stop => result.Substring(stop.Offset, stop.Length)).Distinct().Count() > 1)) return null;
-        return new(result, stops);
+        const int maxRenderedLength = 1024 * 1024;
+        var renderedNumbers = new Dictionary<int, string>();
+        var resolving = new HashSet<int>();
+        if (!Render(parts, text, stops)) return null;
+        return new(text.ToString(), stops);
 
-        bool Read(bool nested)
+        IReadOnlyList<Part>? Read(bool nested, int depth)
         {
+            if (depth > 100) return null;
+            var result = new List<Part>();
+            var literal = new StringBuilder();
             while (position < source.Length)
             {
                 var c = source[position++];
                 if (c == '}' && nested)
-                    return true;
+                {
+                    Flush();
+                    return result;
+                }
                 if (c == '\\' && position < source.Length && source[position] is '$' or '}' or '\\')
                 {
-                    text.Append(source[position++]);
+                    literal.Append(source[position++]);
                     continue;
                 }
                 if (c != '$')
                 {
-                    text.Append(c);
+                    literal.Append(c);
                     continue;
                 }
-                if (nested) return false;
+                Flush();
                 var braced = position < source.Length && source[position] == '{';
                 if (braced) position++;
                 var first = position;
-                while (position < source.Length && char.IsAsciiDigit(source[position])) position++;
-                if (first == position || !int.TryParse(source.AsSpan(first, position - first), out var number))
-                    return false;
-                var start = text.Length;
+                int? number = null;
+                string? variable = null;
+                if (position < source.Length && char.IsAsciiDigit(source[position]))
+                {
+                    while (position < source.Length && char.IsAsciiDigit(source[position])) position++;
+                    if (!int.TryParse(source.AsSpan(first, position - first), out var parsed)) return null;
+                    number = parsed;
+                }
+                else
+                {
+                    if (position >= source.Length || !IsVariableStart(source[position]))
+                    {
+                        if (braced) return null;
+                        literal.Append('$');
+                        continue;
+                    }
+                    position++;
+                    while (position < source.Length && (IsVariableStart(source[position]) || char.IsAsciiDigit(source[position]))) position++;
+                    variable = source[first..position];
+                }
+                IReadOnlyList<Part>? children = null;
                 string[]? choices = null;
                 if (braced && position < source.Length && source[position] == ':')
                 {
                     position++;
-                    if (!Read(true)) return false;
-                    defaults.TryAdd(number, text.ToString(start, text.Length - start));
+                    children = Read(true, depth + 1);
+                    if (children is null) return null;
                 }
-                else if (braced && position < source.Length && source[position] == '|')
+                else if (braced && number is not null && position < source.Length && source[position] == '|')
                 {
                     position++;
                     var values = new List<string>();
@@ -81,27 +106,139 @@ internal sealed record CompletionSnippet(string Text, IReadOnlyList<CompletionSn
                         }
                         else if (character == '|')
                         {
-                            if (position >= source.Length || source[position++] != '}') return false;
+                            if (position >= source.Length || source[position++] != '}') return null;
                             values.Add(value.ToString());
                             closed = true;
                             break;
                         }
                         else value.Append(character);
                     }
-                    if (!closed) return false;
+                    if (!closed) return null;
                     choices = values.ToArray();
-                    text.Append(choices[0]);
-                    defaults.TryAdd(number, choices[0]);
                 }
-                else
+                else if (braced && (position >= source.Length || source[position++] != '}'))
+                    return null; // Transforms are deliberately refused, including inside an unused default.
+                var part = new Part(Number: number, Variable: variable, Children: children, Choices: choices);
+                result.Add(part);
+                if (number is { } index)
                 {
-                    if (braced && (position >= source.Length || source[position++] != '}')) return false;
-                    if (defaults.TryGetValue(number, out var value)) text.Append(value);
+                    if (!definitions.TryGetValue(index, out var existing) || existing.Children is null && existing.Choices is null)
+                        definitions[index] = part;
                 }
-                stops.Add(new(number, start, text.Length - start, choices));
             }
-            return !nested;
+            Flush();
+            return nested ? null : result;
+
+            void Flush()
+            {
+                if (literal.Length == 0) return;
+                result.Add(new(Text: indentation is null ? literal.ToString()
+                    : new CompletionSnippet(literal.ToString(), []).AdjustIndentation(indentation).Text));
+                literal.Clear();
+            }
         }
+
+        bool Render(IReadOnlyList<Part> values, StringBuilder output, List<Stop>? locations, int? parent = null)
+        {
+            foreach (var part in values)
+            {
+                if (part.Text is { } literal)
+                {
+                    if (literal.Length > maxRenderedLength - output.Length) return false;
+                    output.Append(literal);
+                    continue;
+                }
+                var start = output.Length;
+                if (part.Number is { } number)
+                {
+                    var definition = definitions[number];
+                    if (!renderedNumbers.TryGetValue(number, out var rendered))
+                    {
+                        if (resolving.Count > 100 || !resolving.Add(number)) return false;
+                        var buffer = new StringBuilder();
+                        if (definition.Choices is { } choices)
+                        {
+                            if (choices[0].Length > maxRenderedLength) return false;
+                            buffer.Append(choices[0]);
+                        }
+                        else if (definition.Children is { } children && !Render(children, buffer, null)) return false;
+                        resolving.Remove(number);
+                        renderedNumbers[number] = rendered = buffer.ToString();
+                    }
+                    if (rendered.Length > maxRenderedLength - output.Length) return false;
+                    if (locations is not null && ReferenceEquals(part, definition) && definition.Children is { } nestedChildren)
+                    {
+                        if (!Render(nestedChildren, output, locations, number)) return false;
+                    }
+                    else output.Append(rendered);
+                    locations?.Add(new(number, start, output.Length - start, definition.Choices, parent));
+                }
+                else if (part.Variable is { } variable)
+                {
+                    if (variables?.TryGetValue(variable, out var value) == true && !string.IsNullOrEmpty(value))
+                    {
+                        if (value.Length > maxRenderedLength - output.Length) return false;
+                        output.Append(value);
+                    }
+                    else if (part.Children is { } children)
+                    {
+                        if (!Render(children, output, locations, parent)) return false;
+                    }
+                    else if (!KnownVariables.Contains(variable))
+                    {
+                        if (!unknowns.TryGetValue(variable, out var index))
+                        {
+                            if (nextNumber == int.MaxValue) return false;
+                            unknowns[variable] = index = ++nextNumber;
+                        }
+                        if (variable.Length > maxRenderedLength - output.Length) return false;
+                        output.Append(variable);
+                        locations?.Add(new(index, start, variable.Length, Parent: parent));
+                    }
+                }
+            }
+            return true;
+        }
+    }
+
+    private static bool IsVariableStart(char c) => char.IsAsciiLetter(c) || c == '_';
+
+    private static readonly HashSet<string> KnownVariables =
+    [
+        "TM_SELECTED_TEXT", "TM_CURRENT_LINE", "TM_CURRENT_WORD", "TM_LINE_INDEX", "TM_LINE_NUMBER",
+        "TM_FILENAME", "TM_FILENAME_BASE", "TM_DIRECTORY", "TM_FILEPATH"
+    ];
+
+    internal static IReadOnlyDictionary<string, string?> Variables(TextArea area, string? documentUri)
+    {
+        var document = area.Document;
+        var line = document.GetLineByOffset(area.Caret.Offset);
+        var start = area.Caret.Offset;
+        var end = start;
+        while (start > line.Offset && IsWord(document.GetCharAt(start - 1))) start--;
+        while (end < line.EndOffset && IsWord(document.GetCharAt(end))) end++;
+        var path = Uri.TryCreate(documentUri, UriKind.Absolute, out var uri) && uri.IsFile ? uri.LocalPath : null;
+        return new Dictionary<string, string?>
+        {
+            ["TM_SELECTED_TEXT"] = area.Selection.GetText(),
+            ["TM_CURRENT_LINE"] = document.GetText(line),
+            ["TM_CURRENT_WORD"] = document.GetText(start, end - start),
+            ["TM_LINE_INDEX"] = (line.LineNumber - 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["TM_LINE_NUMBER"] = line.LineNumber.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["TM_FILENAME"] = path is null ? null : System.IO.Path.GetFileName(path),
+            ["TM_FILENAME_BASE"] = path is null ? null : FileBase(path),
+            ["TM_DIRECTORY"] = path is null ? null : System.IO.Path.GetDirectoryName(path),
+            ["TM_FILEPATH"] = path
+        };
+
+        static string FileBase(string path)
+        {
+            var name = System.IO.Path.GetFileName(path);
+            var dot = name.LastIndexOf('.');
+            return dot > 0 ? name[..dot] : name;
+        }
+
+        static bool IsWord(char c) => char.IsLetterOrDigit(c) || c == '_';
     }
 
     public CompletionSnippet AdjustIndentation(string indentation)
@@ -135,11 +272,21 @@ internal sealed record CompletionSnippet(string Text, IReadOnlyList<CompletionSn
         var context = new InsertionContext(area, offset) { InsertionPosition = offset + Text.Length };
         var groups = Stops.Where(stop => stop.Number != 0).GroupBy(stop => stop.Number)
             .OrderBy(group => group.Key).ToArray();
-        foreach (var group in groups)
+        NestedLinks? nested = null;
+        if (Stops.Any(stop => stop.Parent is not null))
         {
-            var segments = group.OrderBy(stop => stop.Offset)
-                .Select(stop => (ISegment)new TextSegment { StartOffset = offset + stop.Offset, Length = stop.Length }).ToArray();
-            context.Link(segments[0], segments[1..]);
+            nested = new NestedLinks(context, groups.Select(group => group.ToArray()).ToArray(), offset);
+            foreach (var element in nested.Elements)
+                context.RegisterActiveElement(new SnippetReplaceableTextElement(), element);
+        }
+        else
+        {
+            foreach (var group in groups)
+            {
+                var segments = group.OrderBy(stop => stop.Offset)
+                    .Select(stop => (ISegment)new TextSegment { StartOffset = offset + stop.Offset, Length = stop.Length }).ToArray();
+                context.Link(segments[0], segments[1..]);
+            }
         }
         var finalStop = Stops.FirstOrDefault(stop => stop.Number == 0);
         var final = area.Document.CreateAnchor(offset + (finalStop?.Offset ?? Text.Length));
@@ -154,17 +301,174 @@ internal sealed record CompletionSnippet(string Text, IReadOnlyList<CompletionSn
             return;
         }
         var choices = groups.Select(group => group.FirstOrDefault(stop => stop.Choices is not null)?.Choices).ToArray();
-        area.PushStackedInputHandler(new Navigation(area, context, final, choices));
+        area.PushStackedInputHandler(new Navigation(area, context, final, index => nested is null
+            ? choices[index] : nested.Select(index)));
+    }
+
+    // Flat AvaloniaEdit links end the whole session when any inner anchor is deleted. Nested fields
+    // instead retire just that field, and propagate inner edits before copying their enclosing fields.
+    private sealed class NestedLinks
+    {
+        private readonly TextArea _area;
+        private readonly InsertionContext _context;
+        private bool _attached;
+        private bool _copying;
+        private Element.Occurrence? _copyTarget;
+        public Element[] Elements { get; }
+        private int _selectedNumber;
+
+        public string[]? Select(int index)
+        {
+            var element = Elements.Where(element => element.IsEditable).ElementAt(index);
+            _selectedNumber = element.Number;
+            return element.Choices;
+        }
+
+        public NestedLinks(InsertionContext context, Stop[][] groups, int offset)
+        {
+            _context = context;
+            _area = context.TextArea;
+            Elements = groups.Select(group => new Element(this, group, groups.SelectMany(value => value).ToArray(), offset)).ToArray();
+        }
+
+        private void Attach()
+        {
+            if (_attached) return;
+            _attached = true;
+            TextDocumentWeakEventManager.Changing.AddHandler(_area.Document, Changing);
+            TextDocumentWeakEventManager.TextChanged.AddHandler(_area.Document, TextChanged);
+        }
+
+        private void Detach()
+        {
+            if (!_attached) return;
+            _attached = false;
+            TextDocumentWeakEventManager.Changing.RemoveHandler(_area.Document, Changing);
+            TextDocumentWeakEventManager.TextChanged.RemoveHandler(_area.Document, TextChanged);
+        }
+
+        private void Changing(object? sender, DocumentChangeEventArgs e)
+        {
+            if (!_area.Document.UndoStack.AcceptChanges)
+            {
+                _context.Deactivate(new SnippetEventArgs(DeactivateReason.Deleted));
+                return;
+            }
+            var selectedElement = Elements.First(element => element.Number == _selectedNumber);
+            var selected = selectedElement.Segment;
+            if (!_copying && e.RemovalLength > 0)
+            {
+                foreach (var element in Elements.Where(element => element.IsEditable && element.Number != _selectedNumber))
+                {
+                    foreach (var occurrence in element.Occurrences.ToArray())
+                    {
+                        var segment = occurrence.Segment;
+                        if (segment.Offset < selected.Offset || segment.EndOffset > selected.EndOffset
+                            || e.Offset > segment.Offset || e.Offset + e.RemovalLength < segment.EndOffset
+                            || !DescendsFrom(occurrence.Parent, _selectedNumber)) continue;
+                        // A confined edit keeps the child, even when it shares its parent's extent.
+                        // An adjacent deletion does not consume an empty stop.
+                        if (e.Offset == segment.Offset && e.RemovalLength == segment.Length) continue;
+                        if (segment.Length == 0 && (e.Offset == segment.Offset
+                            || e.Offset + e.RemovalLength == segment.EndOffset)) continue;
+                        if (element.Occurrences.Count == 1) element.IsEditable = false;
+                        else element.Occurrences.Remove(occurrence);
+                    }
+                }
+            }
+            var target = _copyTarget ?? selectedElement.Occurrences[0];
+            foreach (var element in Elements.Where(element => element.IsEditable))
+            {
+                foreach (var occurrence in element.Occurrences)
+                {
+                    var ownsEdit = ReferenceEquals(occurrence, target)
+                        || e.RemovalLength > 0 && e.Offset >= occurrence.Segment.Offset
+                        && e.Offset + e.RemovalLength <= occurrence.Segment.EndOffset
+                        || DescendsFrom(target.Parent, element.Number)
+                        && occurrence.Segment.Offset <= e.Offset && occurrence.Segment.EndOffset >= e.Offset + e.RemovalLength;
+                    occurrence.Start.MovementType = ownsEdit ? AnchorMovementType.BeforeInsertion : AnchorMovementType.AfterInsertion;
+                    occurrence.End.MovementType = ownsEdit || occurrence.Segment.Length == 0
+                        ? AnchorMovementType.AfterInsertion : AnchorMovementType.BeforeInsertion;
+                }
+            }
+        }
+
+        private bool DescendsFrom(int? parent, int number) => parent is { } value &&
+            (value == number || Elements.FirstOrDefault(element => element.Number == value) is { } enclosing
+                && enclosing.Parents.Any(ancestor => DescendsFrom(ancestor, number)));
+
+        private void TextChanged(object? sender, EventArgs e)
+        {
+            if (_copying) return;
+            _copying = true;
+            try
+            {
+                foreach (var element in Elements.Where(element => element.IsEditable).OrderByDescending(element => element.Depth))
+                {
+                    var value = _area.Document.GetText(element.Segment);
+                    foreach (var mirror in element.Occurrences.Skip(1).OrderByDescending(occurrence => occurrence.Segment.Offset))
+                        if (_area.Document.GetText(mirror.Segment) != value)
+                        {
+                            _copyTarget = mirror;
+                            _area.Document.Replace(mirror.Segment.Offset, mirror.Segment.Length, value);
+                        }
+                }
+            }
+            finally { _copyTarget = null; _copying = false; }
+        }
+
+        public sealed class Element : IActiveElement
+        {
+            private readonly NestedLinks _owner;
+            public int Number { get; }
+            public int[] Parents { get; }
+            public int Depth => Parents.Select(parent => _owner.Elements.FirstOrDefault(element => element.Number == parent))
+                .OfType<Element>().Select(enclosing => 1 + enclosing.Depth).DefaultIfEmpty(0).Max();
+            public string[]? Choices { get; }
+            public sealed record Occurrence(TextAnchor Start, TextAnchor End, int? Parent)
+            {
+                public AnchorSegment Segment { get; } = new(Start, End);
+            }
+            public List<Occurrence> Occurrences { get; }
+            public bool IsEditable { get; set; } = true;
+            public ISegment Segment => Occurrences[0].Segment;
+
+            public Element(NestedLinks owner, Stop[] stops, Stop[] allStops, int offset)
+            {
+                _owner = owner;
+                // A field containing children must be the editable source, rather than an earlier $n copy.
+                var primary = stops.FirstOrDefault(HasChildren) ?? stops[0];
+                Number = primary.Number;
+                Parents = stops.Where(stop => stop.Parent is not null).Select(stop => stop.Parent!.Value).Distinct().ToArray();
+                Choices = stops.FirstOrDefault(stop => stop.Choices is not null)?.Choices;
+                Occurrences = stops.OrderBy(stop => ReferenceEquals(stop, primary) ? 0 : 1).Select(stop =>
+                {
+                    var start = owner._area.Document.CreateAnchor(offset + stop.Offset);
+                    start.MovementType = AnchorMovementType.BeforeInsertion;
+                    start.SurviveDeletion = true;
+                    var end = owner._area.Document.CreateAnchor(offset + stop.Offset + stop.Length);
+                    end.MovementType = AnchorMovementType.AfterInsertion;
+                    end.SurviveDeletion = true;
+                    return new Occurrence(start, end, stop.Parent);
+                }).ToList();
+
+                bool HasChildren(Stop stop) => allStops.Any(child => child.Parent == stop.Number
+                    && child.Offset >= stop.Offset && child.Offset + child.Length <= stop.Offset + stop.Length);
+            }
+
+            public void OnInsertionCompleted() => _owner.Attach();
+            public void Deactivate(SnippetEventArgs e) => _owner.Detach();
+        }
     }
 
     // AvaloniaEdit provides linked editing, but its default handler visits buffer order and wraps on Tab.
-    private sealed class Navigation(TextArea area, InsertionContext context, TextAnchor final, string[]?[] choices) : TextAreaStackedInputHandler(area)
+    private sealed class Navigation(TextArea area, InsertionContext context, TextAnchor final, Func<int, string[]?> choices) : TextAreaStackedInputHandler(area)
     {
         private int _index;
+        private IActiveElement? _current;
         private CompletionWindow? _choices;
         public CompletionWindow? ChoiceWindow => _choices;
-        private ISegment[] Segments => context.ActiveElements.Where(element => element.IsEditable)
-            .Select(element => element.Segment).ToArray();
+        private IActiveElement[] Elements => context.ActiveElements.Where(element => element.IsEditable).ToArray();
 
         public override void Attach()
         {
@@ -186,10 +490,11 @@ internal sealed record CompletionSnippet(string Text, IReadOnlyList<CompletionSn
         private void Select()
         {
             _choices?.Close();
-            var segment = Segments[_index];
+            _current = Elements[_index];
+            var segment = _current.Segment;
             TextArea.Selection = Selection.Create(TextArea, segment);
             TextArea.Caret.Offset = segment.EndOffset;
-            if (choices[_index] is { } values && TopLevel.GetTopLevel(TextArea) is not null)
+            if (choices(_index) is { } values && TopLevel.GetTopLevel(TextArea) is not null)
             {
                 _choices = new CompletionWindow(TextArea)
                 {
@@ -224,9 +529,10 @@ internal sealed record CompletionSnippet(string Text, IReadOnlyList<CompletionSn
         {
             if (e.Key == Key.Tab)
             {
+                _index = Array.IndexOf(Elements, _current!);
                 if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) _index = Math.Max(0, _index - 1);
                 else _index++;
-                if (_index < Segments.Length) Select();
+                if (_index < Elements.Length) Select();
                 else Finish(true);
                 e.Handled = true;
             }
