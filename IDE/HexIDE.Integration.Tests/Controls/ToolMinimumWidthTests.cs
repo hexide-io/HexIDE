@@ -14,6 +14,7 @@ using Dock.Model.Mvvm.Controls;
 using HexIDE.Addins;
 using HexIDE.IDE;
 using HexIDE.AIChat.Views;
+using HexIDE.Localization;
 
 namespace HexIDE.Integration.Tests.Controls;
 
@@ -26,6 +27,7 @@ public class ToolMinimumWidthTests
     [InlineData(true, 1100)]
     public void Chat_grows_a_narrow_dock_once_and_keeps_later_resizing(bool stacked, double documentMinimum)
     {
+        new LocalizationService().Apply("en");
         var chat = new ChatView(Substitute.For<IHexIdeHost>(), Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString()));
         var tool = new AddinToolWindowViewModel("chat", "Chat", () => chat);
         var factory = new Factory();

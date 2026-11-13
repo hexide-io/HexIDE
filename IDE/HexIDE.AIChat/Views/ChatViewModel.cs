@@ -174,7 +174,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
                 ? value as string ?? stop.ResourceKey : stop.ResourceKey;
             if (!string.IsNullOrEmpty(stop.Explanation)) message += " " + stop.Explanation;
         }
-        Messages.Add(new ChatMessageViewModel("assistant", ex is ChatStopException ? message : $"Error: {message}", isError: true));
+        Messages.Add(new ChatMessageViewModel("assistant", ex is ChatStopException ? message : ChatStrings.Format("Str.AIChat.Error", message), isError: true));
     }
 
     public void Stop() => _responseCancellation?.Cancel();
@@ -211,15 +211,15 @@ public sealed class ChatViewModel : INotifyPropertyChanged
             if (doc is null)
             {
                 Messages.Add(new ChatMessageViewModel("assistant",
-                    "Not applied: no code window is active. Open the file to apply the code to, then click Apply again.",
+                    ChatStrings.GetString("Str.AIChat.NoActiveCodeWindow"),
                     isError: true));
                 return;
             }
 
             var result = await _host.Editor.TrySetContent(doc.FileName, code, doc.Project);
             Messages.Add(result.Succeeded
-                ? new ChatMessageViewModel("assistant", $"Applied to {doc.FileName}.", isStatusLine: true)
-                : new ChatMessageViewModel("assistant", $"Not applied to {doc.FileName}: {result.Reason}", isError: true));
+                ? new ChatMessageViewModel("assistant", ChatStrings.Format("Str.AIChat.Applied", doc.FileName), isStatusLine: true)
+                : new ChatMessageViewModel("assistant", ChatStrings.Format("Str.AIChat.NotAppliedTo", doc.FileName, result.Reason ?? string.Empty), isError: true));
             TellAssistant(result.Succeeded
                 ? $"The developer applied a code block from this chat to {Describe(doc)}, and the IDE accepted it"
                   + (result.HeaderKept ? ", keeping the file's own header in front of it." : ".")
@@ -228,7 +228,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            Messages.Add(new ChatMessageViewModel("assistant", $"Not applied: {ex.Message}", isError: true));
+            Messages.Add(new ChatMessageViewModel("assistant", ChatStrings.Format("Str.AIChat.NotApplied", ex.Message), isError: true));
             if (doc is not null)
                 TellAssistant($"The developer applied a code block from this chat to {Describe(doc)}, and it failed, "
                               + $"so nothing was written: {ex.Message}");
@@ -360,7 +360,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     internal async Task RunToolCallAsync(ToolCall tc)
     {
         var statusVm = new ChatMessageViewModel("assistant",
-            $"Using tool: `{tc.Name}`", isStatusLine: true);
+            ChatStrings.Format("Str.AIChat.UsingTool", tc.Name), isStatusLine: true);
         Dispatcher.UIThread.Post(() => Messages.Add(statusVm));
 
         var result = await _tools.ExecuteAsync(tc);
@@ -393,14 +393,26 @@ public sealed class ChatViewModel : INotifyPropertyChanged
             reason = result;
         }
 
-        var file = FileNameOf(tc) ?? "the file";
+        var file = FileNameOf(tc);
         if (tc.Name == "apply_edit")
-            return succeeded
-                ? new ChatMessageViewModel("assistant", $"Applied to {file}.", isStatusLine: true)
-                : new ChatMessageViewModel("assistant", $"Not applied to {file}: {reason ?? "no reason was given."}", isError: true);
+        {
+            if (succeeded)
+                return new ChatMessageViewModel("assistant", file is null
+                    ? ChatStrings.GetString("Str.AIChat.AppliedUnnamed")
+                    : ChatStrings.Format("Str.AIChat.Applied", file), isStatusLine: true);
+            return new ChatMessageViewModel("assistant", file is null
+                ? reason is null
+                    ? ChatStrings.GetString("Str.AIChat.NotAppliedToUnnamedNoReason")
+                    : ChatStrings.Format("Str.AIChat.NotAppliedToUnnamed", reason)
+                : reason is null
+                    ? ChatStrings.Format("Str.AIChat.NotAppliedToNoReason", file)
+                    : ChatStrings.Format("Str.AIChat.NotAppliedTo", file, reason), isError: true);
+        }
         return succeeded
             ? null
-            : new ChatMessageViewModel("assistant", $"`{tc.Name}` failed: {reason ?? "no reason was given."}", isError: true);
+            : new ChatMessageViewModel("assistant", reason is null
+                ? ChatStrings.Format("Str.AIChat.ToolFailedNoReason", tc.Name)
+                : ChatStrings.Format("Str.AIChat.ToolFailed", tc.Name, reason), isError: true);
     }
 
     /// <summary>The <c>file_name</c> a tool call names, or null.</summary>
@@ -424,10 +436,12 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
         return tc.Name switch
         {
-            "apply_edit"   => $"Allow the AI to replace the entire contents of {(string.IsNullOrEmpty(file) ? "a file" : $"“{file}”")}?",
-            "run_project"  => "Allow the AI to run the project in the IDE runtime?",
-            "stop_project" => "Allow the AI to stop the running project?",
-            _              => $"Allow the AI to run “{tc.Name}”?",
+            "apply_edit"   => file is null
+                ? ChatStrings.GetString("Str.AIChat.AllowReplaceUnnamed")
+                : ChatStrings.Format("Str.AIChat.AllowReplace", file),
+            "run_project"  => ChatStrings.GetString("Str.AIChat.AllowRunProject"),
+            "stop_project" => ChatStrings.GetString("Str.AIChat.AllowStopProject"),
+            _              => ChatStrings.Format("Str.AIChat.AllowTool", tc.Name),
         };
     }
 
@@ -454,19 +468,15 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
         var host = Uri.TryCreate(_settings.BaseUrl, UriKind.Absolute, out var u) ? u.Host : _settings.BaseUrl;
         var tip = _settings.ApiKeyIsFromPlaintextFile()
-            ? " " + NoticeString("Str.AIChat.PrivacyKeyTip")
+            ? " " + ChatStrings.GetString("Str.AIChat.PrivacyKeyTip")
             : "";
 
         Messages.Add(new ChatMessageViewModel("assistant",
-            string.Format(NoticeString("Str.AIChat.PrivacyNotice"), host) + tip,
+            string.Format(ChatStrings.GetString("Str.AIChat.PrivacyNotice"), host) + tip,
             isStatusLine: true));
 
         try { File.WriteAllText(ackPath, EgressNoticeVersion); } catch { /* best-effort */ }
     }
-
-    private static string NoticeString(string key) =>
-        Application.Current?.TryGetResource(key, null, out var value) == true
-            ? value as string ?? key : key;
 
     // ── compaction ───────────────────────────────────────────────────────────
 
