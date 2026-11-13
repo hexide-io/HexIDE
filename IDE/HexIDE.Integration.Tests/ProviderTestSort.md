@@ -158,6 +158,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/TimerOnTheDesignerTests.cs` | split |
 | `Views/ToolbarDesignerPersistenceTests.cs` | split |
 | `Views/ToolboxFromRegistryTests.cs` | split |
+| `Views/TypedMemberAttributeTests.cs` | split |
 | `Views/UncreatableControlTests.cs` | split |
 | `Views/UnloadTests.cs` | split |
 | `Views/UnmodelledControlPlaceholderTests.cs` | split |
