@@ -557,22 +557,20 @@ public sealed class VBLspClient : ILspClient
     }
 
     /// <summary>
-    /// Gives up on a server that accepted the connection and then said nothing.
+    /// Gives up on a server whose initialize handshake did not complete.
     ///
     /// <para>
-    /// The connection is torn down rather than left alone, because leaving it means a request pending on a
-    /// live channel forever — and because <see cref="DisposeRpc"/> detaches the handler before disposing,
-    /// so nothing else here will notice. The reconnect loop is therefore started explicitly rather than
-    /// waited for.
+    /// Tear down the failed connection. Because <see cref="DisposeRpc"/> detaches the disconnect handler
+    /// before disposing, the reconnect loop is started explicitly.
     /// </para>
     /// </summary>
-    private void AbandonUnansweredHandshake()
+    private void AbandonHandshake(string reason, Exception? exception = null)
     {
-        _logger.LogWarning(
-            "The language server accepted a connection but did not answer initialize within {Timeout}. "
+        _logger.LogWarning(exception,
+            "The language server accepted a connection but {Reason}. "
           + "Abandoning the handshake and tearing the connection down. Language features will be "
           + "unavailable for this server{Recovery}.",
-            _initializeTimeout,
+            reason,
             _transport.CanReconnect ? " until a reconnect succeeds" : ", and this transport cannot reconnect");
 
         DisposeRpc();
@@ -781,7 +779,7 @@ public sealed class VBLspClient : ILspClient
             _initializeAnswered = true;
             await _rpc.NotifyWithParameterObjectAsync("initialized", EmptyParams.Instance);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (Exception) when (_stopping || cancellationToken.IsCancellationRequested)
         {
             // Someone called Stop while we were waiting. Ordinary shutdown, not a fault.
             _logger.LogDebug("Initialize abandoned: the client was stopped during the handshake.");
@@ -816,14 +814,14 @@ public sealed class VBLspClient : ILspClient
                 LanguageConnectionStage.HandshakeSent,
                 $"the server did not answer initialize within {_initializeTimeout:g}"
                 + (_stdioRestarted ? "; tried twice" : ""));
-            AbandonUnansweredHandshake();
+            AbandonHandshake($"did not answer initialize within {_initializeTimeout}");
             RaiseStateChanged();
             return;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to initialize VB6 LSP server");
             _attempt = attempt.StoppedAt(LanguageConnectionStage.HandshakeSent, ex.Message);
+            AbandonHandshake($"initialize failed: {ex.Message}", ex);
             RaiseStateChanged();
             return;
         }

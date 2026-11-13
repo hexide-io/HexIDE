@@ -29,6 +29,22 @@ The client SHALL advertise dynamic registration only for `workspace/didChangeWat
 - **THEN** it produces no further file events
 
 
+### Requirement: Failed initialize handshakes are visible
+
+When an initialize handshake fails, the client SHALL log a giving-up Warning including the reason,
+tear down the RPC connection, and retry if the transport supports reconnecting. Caller cancellation and direct client shutdown
+SHALL remain ordinary shutdown logged at Debug. The one permitted silent stdio restart SHALL
+retain its separate policy below.
+
+#### Scenario: Initialize fails before the deadline
+- **WHEN** a server receives initialize and replies with an error or closes the stream
+- **THEN** the client logs the handshake failure at Warning with its reason
+- **AND** tears down the RPC connection without becoming initialized
+
+#### Scenario: The client stops during initialize
+- **WHEN** the caller cancels startup or the client stops while initialize is pending
+- **THEN** the attempt is recorded as Cancelled and logged at Debug without a failure Warning
+
 ### Requirement: One restart after a silent stdio initialize
 
 The client SHALL restart a live stdio server at most once when initialize times out, only if the channel tap
