@@ -111,3 +111,10 @@ A build/signing/copy failure leaves the old package untouched. This is not a tra
 concurrent process changing directories between the last check and rename, or a power-loss journal.
 The packer row is resolved; the audit still records unmeasured VB6 collision prompts and shared UI-writer
 questions above, so this does not establish the whole beta safety gate.
+
+## Refused direct writes (#3902)
+
+The three direct member writers discard recovery copies when a call writes nothing, on refusal or
+exception alike. Recovery pruning happens only after a write, so five refusals cannot evict a real
+write's previous bytes. An unsaveable-form property reply says the value is set in the IDE while the
+file on disk is unchanged. See [the closed gap](mcp-gaps/closed/3902.md).

@@ -109,4 +109,36 @@ public sealed class ProjectWriteSafetyTests
         }
         finally { Directory.Delete(directory, recursive: true); }
     }
+
+    // Tidying runs after the write, so a recovery copy it can't remove must not fail the call. Windows refuses to
+    // delete a file another handle holds without FileShare.Delete; Linux deletes it anyway, so the lock proves
+    // nothing there.
+    [WindowsOnlyFact]
+    public void A_copy_that_cannot_be_removed_is_kept_and_named()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-3902-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var project = TestHelpers.CreateProjectWithForm("Project1");
+            project.AbsolutePath = Path.Combine(directory, "Project1.vbp");
+            var form = project.Forms[0];
+            form.AbsolutePath = Path.Combine(directory, "Form1.frm");
+            File.WriteAllText(form.AbsolutePath, "unchanged");
+            var attempt = new ProjectWriteSafety.WriteAttempt();
+            ProjectWriteSafety.Prepare(DocumentIdentity.For(form), new Vb6ProjectFileFormat(), out _, attempt).Should().BeNull();
+            var backup = Directory.GetFiles(directory, "Form1.frm.hexide-recovery-*").Should().ContainSingle().Subject;
+            string note;
+            using (new FileStream(backup, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                note = attempt.FailureNote;
+                attempt.Invoking(a => a.Dispose()).Should().NotThrow();
+            }
+            File.Exists(backup).Should().BeTrue();
+            note.Should().Contain(backup);
+            attempt.Dispose();
+            File.Exists(backup).Should().BeFalse("with the lock gone, an unchanged file's copy is removed");
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
 }
