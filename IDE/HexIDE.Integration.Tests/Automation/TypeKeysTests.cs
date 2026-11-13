@@ -359,7 +359,7 @@ public class TypeKeysTests : IDisposable
         result.Success.Should().BeTrue(result.Error);
         editor.Text.Should().Contain("\r\nAttribute Total.VB_UserMemId = 0\r\n");
         editor.Text.Should().Contain(chord == "BackTab" ? "\r\nPublic Function Total()" : "        Public Function Total()");
-        result.Detail.Should().Contain($"left line {protectedLine} (the Attribute lines describing Total) unindented")
+        result.Detail.Should().Contain($"left line {protectedLine} (the Attribute lines describing Total) as it was")
             .And.NotContain("no protected text");
         CleanPartialReply(result.Detail!);
     }

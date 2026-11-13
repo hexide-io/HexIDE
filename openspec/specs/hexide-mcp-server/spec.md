@@ -1883,7 +1883,7 @@ remainder. Document-mode typing SHALL keep its pre-check and existing replies.
 `press_key` SHALL recognise the IDE keymap's Delete Line chord as an edit, and SHALL report
 protected text left by Paste, Cut, Delete Line or indentation over a selection that takes in protected text
 (the header or a member’s Attribute lines), as it does for Delete/Back. Indentation SHALL name protected
-lines left unindented, including when the selection starts at column 1 of their declaration. A partial-edit
+lines it left as they were, including when the selection starts at column 1 of their declaration. A partial-edit
 reply SHALL give the caret once, with single spaces and clean punctuation.
 
 #### Scenario: A character in a protected region
@@ -1911,7 +1911,7 @@ reply SHALL give the caret once, with single spaces and clean punctuation.
 - **WHEN** `press_key` sends the IDE's Delete Line chord on a protected Attribute line and the document stays unchanged
 - **THEN** the reply reports the code window's refusal and the caret, rather than reporting only a successful press
 
-#### Scenario: Whole-line indentation leaves Attribute lines unindented
+#### Scenario: Whole-line indentation leaves Attribute lines as they were
 
 - **WHEN** `press_key` sends Tab, Shift+Tab or the keymap's Indent chord over a selection from column 1 of a declaration through its Attribute lines and a body line
-- **THEN** the code window indents editable lines and the reply names the protected lines left unindented, with the caret reported once
+- **THEN** the code window indents editable lines and the reply names the protected lines it left as they were, with the caret reported once

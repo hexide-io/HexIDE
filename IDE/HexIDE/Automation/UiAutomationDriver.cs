@@ -4315,7 +4315,8 @@ public static class UiAutomationDriver
                 left.Add($"line {number} ({editor.DescribeRegions(regions)})");
             }
         }
-        return left.Count == 0 ? null : new PartialEdit(0, $"left {string.Join(", ", left)} unindented.");
+        return left.Count == 0 ? null
+            : new PartialEdit(0, $"left {string.Join(", ", left)} {(left.Count == 1 ? "as it was" : "as they were")}.");
     }
 
     private sealed record PartialEdit(int Deletable, string Left);
