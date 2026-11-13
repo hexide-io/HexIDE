@@ -110,7 +110,7 @@ public class MainViewViewModelTests
         debug.CurrentStop.Returns(stop);
         debug.Stopped += Raise.Event<Action<HexIDE.Runtime.Debugging.StoppedInfo>>(stop);
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-        _statusBarService.Received().SetMessage("Condition x > at Module1:7 failed: Syntax error");
+        _statusBarService.Received().SetImmediateMessage("Condition x > at Module1:7 failed: Syntax error");
         _statusBarService.ClearReceivedCalls();
         debug.State.Returns(HexIDE.Runtime.Debugging.DebugState.Running);
         debug.CurrentStop.Returns((HexIDE.Runtime.Debugging.StoppedInfo?)null);
@@ -834,7 +834,7 @@ public class MainViewViewModelTests
         var sut = Build(_runnerService, external: external);
         var status = "stale";
         _statusBarService.When(x => x.ClearMessage()).Do(_ => status = "Ready");
-        _statusBarService.When(x => x.SetMessage(Arg.Any<string>())).Do(c => status = c.Arg<string>());
+        _statusBarService.When(x => x.SetImmediateMessage(Arg.Any<string>())).Do(c => status = c.Arg<string>());
         var changed = new List<string?>();
         sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
         var run = external.StartAsync(await DebugAdapter.ExternalDebugServiceTests.Configuration(directory, "evaluate-running"));
@@ -885,7 +885,7 @@ public class MainViewViewModelTests
         var sut = Build(_runnerService, external: external);
         var status = "stale";
         _statusBarService.When(x => x.ClearMessage()).Do(_ => status = "Ready");
-        _statusBarService.When(x => x.SetMessage(Arg.Any<string>())).Do(c => status = c.Arg<string>());
+        _statusBarService.When(x => x.SetImmediateMessage(Arg.Any<string>())).Do(c => status = c.Arg<string>());
         var changed = new List<string?>();
         sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
         var disconnectPending = false;
@@ -1085,7 +1085,7 @@ public class MainViewViewModelTests
         if (paused)
             _statusBarService.Received().ClearMessage();
         else
-            _statusBarService.Received().SetMessage("Running…");
+            _statusBarService.Received().SetImmediateMessage("Running…");
     }
 
     [AvaloniaTheory]

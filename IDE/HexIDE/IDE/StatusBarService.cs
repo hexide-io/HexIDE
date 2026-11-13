@@ -16,7 +16,10 @@ public partial class StatusBarService : ObservableObject, IStatusBarService
     /// <summary>The localized idle message ("Ready"); tracks the active language.</summary>
     private string DefaultMessage => _localization.GetString("Str.StatusBar.Ready");
 
-    private bool _isDefault = true;
+    private readonly object _messageGate = new();
+    private string? _persistentMessage;
+    private bool _temporaryMessageShowing;
+    private long _temporaryGeneration;
     private string _message;
     private int? _line;
     private int? _column;
@@ -30,7 +33,8 @@ public partial class StatusBarService : ObservableObject, IStatusBarService
         // Refresh the idle message live when the language changes, but only if it's currently showing.
         _localization.LanguageChanged += () =>
         {
-            if (_isDefault) Message = DefaultMessage;
+            lock (_messageGate)
+                if (_persistentMessage is null && !_temporaryMessageShowing) Message = DefaultMessage;
         };
     }
 
@@ -67,42 +71,75 @@ public partial class StatusBarService : ObservableObject, IStatusBarService
 
     public void SetMessage(string message)
     {
-        CancelTemporaryTimer();
-        _isDefault = false;
-        Message = message;
+        lock (_messageGate)
+        {
+            _persistentMessage = message;
+            if (!_temporaryMessageShowing) Message = message;
+        }
+    }
+
+    public void SetImmediateMessage(string message)
+    {
+        lock (_messageGate)
+        {
+            CancelTemporaryTimer();
+            _persistentMessage = message;
+            Message = message;
+        }
+    }
+
+    public bool TryReplaceMessage(string expected, string? replacement)
+    {
+        lock (_messageGate)
+        {
+            if (_persistentMessage != expected) return false;
+            _persistentMessage = replacement;
+            if (!_temporaryMessageShowing) Message = replacement ?? DefaultMessage;
+            return true;
+        }
     }
 
     public void SetTemporaryMessage(string message, TimeSpan duration)
     {
-        CancelTemporaryTimer();
-        _isDefault = false;
-        Message = message;
-
-        _temporaryMessageTimer = new Timer(
-            _ => RevertToDefault(),
-            null,
-            duration,
-            Timeout.InfiniteTimeSpan);
+        lock (_messageGate)
+        {
+            CancelTemporaryTimer();
+            var generation = _temporaryGeneration;
+            _temporaryMessageShowing = true;
+            Message = message;
+            _temporaryMessageTimer = new Timer(
+                _ => RestorePersistentMessage(generation),
+                null,
+                duration,
+                Timeout.InfiniteTimeSpan);
+        }
     }
 
     public void ClearMessage()
     {
-        CancelTemporaryTimer();
-        _isDefault = true;
-        Message = DefaultMessage;
+        lock (_messageGate)
+        {
+            CancelTemporaryTimer();
+            _persistentMessage = null;
+            Message = DefaultMessage;
+        }
     }
 
-    private void RevertToDefault()
+    private void RestorePersistentMessage(long generation)
     {
-        // Timer callback runs on a thread-pool thread; ObservableObject's SetProperty handles
-        // cross-thread INPC fine, and the UI dispatcher marshals the binding update.
-        CancelTemporaryTimer();
-        _isDefault = true;
-        Message = DefaultMessage;
+        // Disposal does not stop a callback already queued on the thread pool.
+        lock (_messageGate)
+        {
+            if (generation != _temporaryGeneration) return;
+            CancelTemporaryTimer();
+            Message = _persistentMessage ?? DefaultMessage;
+        }
     }
 
     private void CancelTemporaryTimer()
     {
+        _temporaryGeneration++;
+        _temporaryMessageShowing = false;
         _temporaryMessageTimer?.Dispose();
         _temporaryMessageTimer = null;
     }

@@ -282,10 +282,24 @@ The client declares `window.workDoneProgress: true`, accepts `window/workDonePro
 string or integer tokens and replies with a null result. `$/progress` begin/report/end updates the
 status bar through `LanguageServerMessageReporter`. Begin without create is accepted (measured with
 rumdl 0.2.64 in #360).
-Report retains omitted title, message and percentage; end clears immediately, or restores another active
-task. Tokens are scoped to each server, and disconnect ends its outstanding tasks. An end does not erase
+Report retains omitted title, message and percentage; end removes the task immediately, restoring another
+active task when present. Tokens are scoped to each server, and disconnect ends its outstanding tasks. An end does not erase
 a later status message from another IDE operation. Server text uses the reporter's whitespace flattening
-and 200-character cap. The localized status format names the originating registration’s display name,
+and 200-character cap. Temporary status messages retain the bar for their duration (#3886):
+progress is remembered underneath and only the latest still-active progress appears afterwards.
+A replacement temporary message restarts the duration. With no persistent update, the previous
+persistent text returns (or localized Ready). `MessageVersion` advances when text is displayed,
+including repeated assignments, rather than when a persistent update is deferred, so key replies
+can still quote their refusal during server activity.
+
+`SetMessage` callers were audited for #3886: `LanguageServerMessageReporter.OnProgress` and
+`MainViewViewModel.ReportSkippedPanelWindows` defer behind temporary feedback. The latter's cleanup
+conditionally removes its persistent notice even while hidden. `MainViewViewModel.UpdateRunState`
+uses `SetImmediateMessage` for Running and breakpoint-condition errors; its other states use the
+existing immediate `ClearMessage`. These run/debug transitions need to be visible at once.
+No refused-save path calls `SetMessage`.
+
+The localized status format names the originating registration’s display name,
 separates title and message with a colon, and omits absent parts (including percentage). Cancellation and partial-result progress remain unwired.
 
 StreamJsonRpc 2.24.92 reserves `$/progress` for `IProgress<T>`, but measured dispatch falls back to the
@@ -348,8 +362,12 @@ policy is unchanged. `SilentStdioRestartTests` checks receipt of initialize in t
 
 `SilentServerTests.GivingUpIsReportedAtWarning_BecauseSilenceIsTheSymptom` keeps the timeout warning
 assertion strict and includes the last connection attempt and recorded logs (with exceptions) on failure.
-The isolated 6 ms Windows CI failure in #1937 has not yet been explained; these diagnostics distinguish
-an early initialize error from the expected timeout without accepting either as the same outcome.
+Other handshake failures (including an error reply or EOF before the deadline) also log a giving-up
+Warning with the exception and reason, tear down the RPC connection, and retry where the transport
+allows it (#1937). Caller cancellation and direct `StopAsync` teardown remain ordinary shutdown at Debug. The deterministic
+regression checks that the server received initialize before returning an error or closing its stream.
+The historical 6 ms Windows failure remains unreproduced; the early-return audit and repetition
+results are recorded on #1937.
 
 ---
 

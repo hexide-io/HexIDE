@@ -159,6 +159,61 @@ public class WorkDoneProgressReporterTests
         status.Message.Should().Be("Running");
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TemporaryMessageSurvivesProgressAndOnlyLiveProgressReturns(bool end)
+    {
+        var (client, status, reporter) = Setup();
+        using var _ = reporter;
+        status.SetTemporaryMessage("Refused key", TimeSpan.FromMilliseconds(200));
+        var version = status.MessageVersion;
+        Send(client, client, "one", "begin", "indexing", percentage: 0);
+        Send(client, client, "one", "report", message: "headers", percentage: 50);
+        status.Message.Should().Be("Refused key");
+        status.MessageVersion.Should().Be(version);
+        if (end) Send(client, client, "one", "end");
+        status.Message.Should().Be("Refused key");
+        var expected = end ? "Ready" : "Language server: indexing: headers (50%)";
+        for (var waited = 0; waited < 5000 && status.Message != expected; waited += 20)
+            await Task.Delay(20, TestContext.Current.CancellationToken);
+        status.Message.Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task ProgressEndingUnderTemporaryMessageDoesNotReturn()
+    {
+        var (client, status, reporter) = Setup();
+        using var _ = reporter;
+        Send(client, client, "one", "begin", "indexing");
+        status.SetTemporaryMessage("Refused key", TimeSpan.FromMilliseconds(100));
+        Send(client, client, "one", "end");
+        status.Message.Should().Be("Refused key");
+        for (var waited = 0; waited < 5000 && status.Message != "Ready"; waited += 20)
+            await Task.Delay(20, TestContext.Current.CancellationToken);
+        status.Message.Should().Be("Ready");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EndingHiddenProgressRestoresAnotherTaskButNotOverALaterPersistentMessage(bool laterMessage)
+    {
+        var (client, status, reporter) = Setup();
+        using var _ = reporter;
+        Send(client, client, "one", "begin", "first");
+        Send(client, client, "two", "begin", "second");
+        status.SetTemporaryMessage("Refused key", TimeSpan.FromMilliseconds(100));
+        if (laterMessage) status.SetMessage("Another operation");
+        Send(client, client, "two", "end");
+        status.Message.Should().Be("Refused key");
+        var expected = laterMessage ? "Another operation" : "Language server: first";
+        for (var waited = 0; waited < 5000 && status.Message != expected; waited += 20)
+            await Task.Delay(20, TestContext.Current.CancellationToken);
+        status.Message.Should().Be(expected);
+        status.ClearMessage();
+    }
+
     [Fact]
     public void ProgressDisposalStopsUpdates()
     {

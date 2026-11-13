@@ -83,6 +83,22 @@ collapsing and the limit.
 - **THEN** the reply returns at most `maxFrames` rows and a note naming the omitted row count and a limit that includes all rows
 
 
+### Requirement: Form inspection reports container z-order
+
+`get_form_controls` SHALL list each container's children bottom first and give each control a
+zero-based `zOrder`, including carried controls. Only rows with the same `container` are comparable;
+an absent `container` means the form. The form itself and menus SHALL omit `zOrder`.
+An open designer SHALL supply its live draw order; a closed designer SHALL use the model's
+corresponding draw order. Inspecting one control SHALL report the same `zOrder` as the full list.
+
+#### Scenario: Inspect after a stacking command
+- **WHEN** Bring to Front or Send to Back reorders overlapping controls in an open designer
+- **THEN** the next inspection reports their new order and positions within their container
+
+#### Scenario: Inspect a loaded form with and without its designer
+- **WHEN** an unchanged loaded form is inspected before and after opening its designer
+- **THEN** each container's controls have the same order and `zOrder`
+
 ### Requirement: Form inspection includes carried controls
 
 `get_form_controls` SHALL include controls carried as preserved blocks alongside modelled controls,
@@ -1880,6 +1896,11 @@ reply SHALL say "refused by the code window", quote the status-bar message only 
 the message counter, or say "which gave no message" when it did not, and report the caret offset and
 once that nothing was written. Keyboard typing SHALL stop after that sent key and identify the unsent
 remainder. Document-mode typing SHALL keep its pre-check and existing replies.
+`press_key` SHALL recognise the IDE keymap's Delete Line chord as an edit, and SHALL report
+protected text left by Paste, Cut, Delete Line or indentation over a selection that takes in protected text
+(the header or a member’s Attribute lines), as it does for Delete/Back. Indentation SHALL name protected
+lines it left as they were, including when the selection starts at column 1 of their declaration. A partial-edit
+reply SHALL give the caret once, with single spaces and clean punctuation.
 
 #### Scenario: A character in a protected region
 
@@ -1895,3 +1916,18 @@ remainder. Document-mode typing SHALL keep its pre-check and existing replies.
 
 - **WHEN** a refused key sets a status message and a later refused Backspace sets none before it expires
 - **THEN** the later reply says the code window gave no message, without quoting the earlier reason
+
+#### Scenario: Paste, cut or Delete Line leaves protected text in a selection
+
+- **WHEN** `press_key` sends Paste, Cut or Delete Line over editable and protected text
+- **THEN** the code window performs the edit and the reply names the protected text left from the selection
+
+#### Scenario: The keymap's Delete Line is refused
+
+- **WHEN** `press_key` sends the IDE's Delete Line chord on a protected Attribute line and the document stays unchanged
+- **THEN** the reply reports the code window's refusal and the caret, rather than reporting only a successful press
+
+#### Scenario: Whole-line indentation leaves Attribute lines as they were
+
+- **WHEN** `press_key` sends Tab, Shift+Tab or the keymap's Indent chord over a selection from column 1 of a declaration through its Attribute lines and a body line
+- **THEN** the code window indents editable lines and the reply names the protected lines it left as they were, with the caret reported once
