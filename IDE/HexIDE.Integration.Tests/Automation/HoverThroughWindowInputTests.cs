@@ -31,6 +31,9 @@ namespace HexIDE.Integration.Tests.Automation;
 /// </summary>
 public class HoverThroughWindowInputTests
 {
+    // Adapter startup, the DAP handshake and stopped-frame inspection need more than the tooltip default.
+    private const int AdapterStartupTimeoutMs = 20_000;
+
     // Drawn, as the tool waits for: the move is hit-tested against the frame the window last drew.
     private static Window Show(Control content)
     {
@@ -515,7 +518,7 @@ public class HoverThroughWindowInputTests
         try
         {
             await WaitForTip(view.FindControl<TextEditor>("TextEditor")!, () => external.Variables.Count == 1 || immediate.Document.TextLength > 0,
-                "the stopped frame inspection to finish after re-docking");
+                "the stopped frame inspection to finish after re-docking", timeoutMs: AdapterStartupTimeoutMs);
             redocked.Should().BeTrue();
             immediate.Document.Text.Should().BeEmpty();
             staleCallbackCancelledHover.Should().BeFalse("an obsolete callback must not touch the new attachment's hover");
@@ -559,7 +562,7 @@ public class HoverThroughWindowInputTests
         {
             // The variables response raises Changed and cancels pending hovers; wait for that inspection too.
             await WaitForTip(editor, () => external.CanEvaluateHover && external.Variables.Count > 0,
-                "the stopped frame and its variables to finish loading");
+                "the stopped frame and its variables to finish loading", timeoutMs: AdapterStartupTimeoutMs);
             external.CanEvaluateHover.Should().BeTrue();
             editor.Text = "answer";
             for (var i = 0; i < 5; i++) { Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }

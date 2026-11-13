@@ -166,6 +166,7 @@ public class UpDownRuntimeTests
         try
         {
             var spin = (VBUpDown)ContainerRuntimeHarness.Child(canvas, "UpDown1");
+            RepeatTimerDriver.For(spin);
             spin.TrySetProperty("Min", new Vb6Value(-10L));
             spin.TrySetProperty("Max", new Vb6Value(20L));
             spin.TrySetProperty("Increment", new Vb6Value((long)increment));
@@ -193,6 +194,7 @@ public class UpDownRuntimeTests
         try
         {
             var spin = (VBUpDown)ContainerRuntimeHarness.Child(canvas, "UpDown1");
+            RepeatTimerDriver.For(spin);
             spin.TrySetProperty("Min", new Vb6Value((long)min));
             spin.TrySetProperty("BuddyControl", new Vb6Value("Text1"));
             spin.TrySetProperty("SyncBuddy", new Vb6Value(true));
@@ -216,6 +218,7 @@ public class UpDownRuntimeTests
         try
         {
             var spin = (VBUpDown)ContainerRuntimeHarness.Child(canvas, "UpDown1");
+            RepeatTimerDriver.For(spin);
             spin.TrySetProperty("Value", new Vb6Value(4L));
             spin.TrySetProperty("Increment", new Vb6Value(0L));
             recorder.Calls.Clear();
@@ -240,6 +243,7 @@ public class UpDownRuntimeTests
         try
         {
             var spin = (VBUpDown)ContainerRuntimeHarness.Child(canvas, "UpDown1");
+            RepeatTimerDriver.For(spin);
             spin.TrySetProperty("Max", new Vb6Value(10000L));
             spin.TrySetProperty("Acceleration", new Vb6Value((long)acceleration));
             recorder.Calls.Clear();
@@ -286,6 +290,7 @@ public class UpDownRuntimeTests
                 """);
             recorder.Calls.Clear();
             var spin = (VBUpDown)ContainerRuntimeHarness.Child(canvas, "UpDown1");
+            RepeatTimerDriver.For(spin);
             window.UpdateLayout();
             var point = spin.TranslatePoint(new Point(5, up ? 3 : spin.Bounds.Height - 3), window)!.Value;
             window.MouseDown(point, MouseButton.Left);
@@ -312,6 +317,7 @@ public class UpDownRuntimeTests
         try
         {
             var spin = (VBUpDown)ContainerRuntimeHarness.Child(canvas, "UpDown1");
+            RepeatTimerDriver.For(spin);
             spin.TrySetProperty("Max", new Vb6Value((long)max));
             spin.TrySetProperty("Min", new Vb6Value((long)min));
             spin.TrySetProperty("Value", new Vb6Value((long)value));
@@ -337,6 +343,7 @@ public class UpDownRuntimeTests
         try
         {
             var spin = (VBUpDown)ContainerRuntimeHarness.Child(canvas, "UpDown1");
+            RepeatTimerDriver.For(spin);
             var point = spin.TranslatePoint(new Point(spin.Bounds.Width - 3, 5), window)!.Value;
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
@@ -384,12 +391,14 @@ public class UpDownRuntimeTests
         try
         {
             var spin = (VBUpDown)ContainerRuntimeHarness.Child(canvas, "UpDown1");
+            RepeatTimerDriver.For(spin);
             var point = spin.TranslatePoint(new Point(5, 3), window)!.Value;
             window.MouseDown(point, MouseButton.Left);
             recorder.Calls.Clear();
             var repeat = RepeatTimerDriver.For(spin);
             repeat.IsEnabled.Should().BeTrue();
             repeat.Interval.Should().Be(TimeSpan.FromMilliseconds(530));
+            RepeatTimerDriver.Stall(TimeSpan.FromMilliseconds(650));
             for (var tick = 0; tick < 3; tick++) RepeatTimerDriver.Tick(repeat);
             repeat.Interval.Should().Be(TimeSpan.FromMilliseconds(110));
             recorder.Calls.Count(c => c.Name == "UpDown1_Change").Should().Be(3);
@@ -414,6 +423,7 @@ public class UpDownRuntimeTests
         try
         {
             var spin = (VBUpDown)ContainerRuntimeHarness.Child(canvas, "UpDown1");
+            RepeatTimerDriver.For(spin);
             var point = spin.TranslatePoint(new Point(5, 3), window)!.Value;
             recorder.Calls.Clear();
             window.MouseDown(point, MouseButton.Right);

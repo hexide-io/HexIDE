@@ -664,7 +664,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal int BufferPrefixLength => bufferPrefix.Length;
 
     /// <summary>The buffer as every line number for this window counts it: from the top of the file.</summary>
-    public CodeWindowText CodeWindowText => new(Document.Text, bufferPrefix.Length, ReadOnlyRegionsNow);
+    // Mark admission must still see a member attribute line while typing owns it (#3871).
+    public CodeWindowText CodeWindowText => new(Document.Text, bufferPrefix.Length,
+        typedLine is null ? ReadOnlyRegionsNow
+            : regionReader.Regions(Document.Text, bufferPrefix.Length, PrefixIsEntireHeader));
 
     /// <summary>
     /// True once the developer has expanded the header's fold in this window, and false again once they fold
@@ -777,7 +780,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     private bool RefuseMarkOn(int line)
     {
-        if (!ReadOnlyRegions.IsReadOnlyLine(Document.Text, ReadOnlyRegionsNow, line))
+        if (!CodeWindowText.IsReadOnlyLine(line))
             return false;
         statusBarService.SetTemporaryMessage(
             string.Format(localization.GetString("Str.CodeEditor.Msg.NoMarkOnReadOnlyText"), line),
