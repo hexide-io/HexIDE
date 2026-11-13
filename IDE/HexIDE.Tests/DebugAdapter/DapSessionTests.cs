@@ -494,6 +494,27 @@ public class DapSessionTests
     }
 
     [Fact]
+    public async Task Terminated_during_disconnect_keeps_stdin_open_until_the_response()
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        await Launch(peer, session);
+        var disconnect = session.DisconnectAsync(Token);
+        var request = await peer.Receive();
+        request.GetProperty("command").GetString().Should().Be("disconnect");
+        await peer.Send("""{"seq":12,"type":"event","event":"terminated"}""");
+        await Until(session, update => update.Event?.Event == "terminated");
+        var eof = peer.Input.ReadAsync(new byte[1], Token).AsTask();
+        // The adapter has consumed disconnect but deliberately has not answered it yet.
+        disconnect.IsCompleted.Should().BeFalse();
+        peer.Client.Completion.IsCompleted.Should().BeFalse();
+        eof.IsCompleted.Should().BeFalse();
+        await peer.Reply(request);
+        await disconnect.WaitAsync(Patience, Token);
+        (await eof.WaitAsync(Patience, Token)).Should().Be(0);
+    }
+
+    [Fact]
     public async Task Pause_waits_for_event_and_refused_disconnect_still_releases_ownership()
     {
         await using var peer = new Peer();
