@@ -110,17 +110,43 @@ public class StatusBarServiceTests
         for (var waited = 0; waited < timeoutMs; waited += 20)
         {
             if (condition()) return true;
-            await Task.Delay(20);
+            await Task.Delay(20, TestContext.Current.CancellationToken);
         }
         return condition();
     }
 
     [Fact]
-    public void SetTemporaryMessage_CanBeCancelledBySetMessage()
+    public async Task SetMessage_DuringTemporaryMessageDefersLatestTextAndVersion()
     {
-        _sut.SetTemporaryMessage("Temp", TimeSpan.FromSeconds(10));
-        _sut.SetMessage("Permanent");
-        _sut.Message.Should().Be("Permanent");
+        _sut.SetTemporaryMessage("Refused", TimeSpan.FromMilliseconds(100));
+        var version = _sut.MessageVersion;
+        _sut.SetMessage("Progress 0%");
+        _sut.SetMessage("Progress 50%");
+        _sut.Message.Should().Be("Refused");
+        _sut.MessageVersion.Should().Be(version);
+        (await WaitForAsync(() => _sut.Message == "Progress 50%")).Should().BeTrue();
+        _sut.MessageVersion.Should().Be(version + 1);
+    }
+
+    [Fact]
+    public async Task TemporaryMessageRestoresPreviousPersistentText()
+    {
+        _sut.SetMessage("Running");
+        _sut.SetTemporaryMessage("First", TimeSpan.FromMilliseconds(100));
+        _sut.SetTemporaryMessage("Second", TimeSpan.FromMilliseconds(200));
+        _sut.Message.Should().Be("Second");
+        (await WaitForAsync(() => _sut.Message == "Running")).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ImmediateMessageCancelsTemporaryFeedbackAndItsDeferredText()
+    {
+        _sut.SetTemporaryMessage("Refused", TimeSpan.FromMilliseconds(100));
+        _sut.SetMessage("Progress");
+        _sut.SetImmediateMessage("Running");
+        _sut.Message.Should().Be("Running");
+        await Task.Delay(200, TestContext.Current.CancellationToken);
+        _sut.Message.Should().Be("Running");
     }
 
     [Fact]

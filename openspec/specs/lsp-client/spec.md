@@ -29,6 +29,22 @@ The client SHALL advertise dynamic registration only for `workspace/didChangeWat
 - **THEN** it produces no further file events
 
 
+### Requirement: Failed initialize handshakes are visible
+
+When an initialize handshake fails, the client SHALL log a giving-up Warning including the reason,
+tear down the RPC connection, and retry if the transport supports reconnecting. Caller cancellation and direct client shutdown
+SHALL remain ordinary shutdown logged at Debug. The one permitted silent stdio restart SHALL
+retain its separate policy below.
+
+#### Scenario: Initialize fails before the deadline
+- **WHEN** a server receives initialize and replies with an error or closes the stream
+- **THEN** the client logs the handshake failure at Warning with its reason
+- **AND** tears down the RPC connection without becoming initialized
+
+#### Scenario: The client stops during initialize
+- **WHEN** the caller cancels startup or the client stops while initialize is pending
+- **THEN** the attempt is recorded as Cancelled and logged at Debug without a failure Warning
+
 ### Requirement: One restart after a silent stdio initialize
 
 The client SHALL restart a live stdio server at most once when initialize times out, only if the channel tap
@@ -1789,7 +1805,10 @@ The client SHALL advertise `window.workDoneProgress`, accept string and integer 
 in the status bar. Progress SHALL name the originating registration’s display name and separate title
 and message with a colon, omitting absent parts. Server titles and messages SHALL be flattened and capped at 200 characters together.
 Tokens SHALL be scoped to their connection. End and disconnect SHALL finish progress immediately without
-erasing a later status message from another operation. Cancellation and partial-result progress are not supported.
+erasing a later status message from another operation. Temporary feedback SHALL retain the bar for its
+duration, with the latest persistent text deferred underneath; an ended progress line SHALL NOT return
+afterwards. Recording deferred text SHALL NOT advance `MessageVersion`; displaying it SHALL advance it.
+Cancellation and partial-result progress are not supported.
 
 #### Scenario: An attached server indexes a workspace
 - **WHEN** a server creates a token and sends begin followed by report
@@ -1797,6 +1816,15 @@ erasing a later status message from another operation. Cancellation and partial-
 - **AND** omitted report fields retain their prior values
 - **WHEN** the server sends end or disconnects
 - **THEN** its progress is removed immediately and any remaining task can be shown
+
+#### Scenario: Progress arrives while temporary feedback is visible
+- **WHEN** begin or report arrives during a temporary status message
+- **THEN** the temporary message SHALL remain for its duration and the latest persistent text SHALL be remembered
+- **AND** recording deferred text SHALL NOT advance the displayed message's `MessageVersion`
+- **WHEN** the duration ends
+- **THEN** the latest persistent text SHALL appear, or the previous persistent text if no update arrived
+- **AND** progress that ended meanwhile SHALL NOT reappear
+- **AND** a further temporary message SHALL replace the current one immediately and restart its duration
 
 #### Scenario: A server begins without creating a token
 - **WHEN** a server sends work-done begin without a prior create request

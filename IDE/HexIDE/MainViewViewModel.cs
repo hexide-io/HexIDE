@@ -179,9 +179,9 @@ public partial class MainViewViewModel : ObservableObject
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(WindowTitle));
         if (IsProgramRunning && !IsInBreakMode)
-            StatusBar.SetMessage(localization.GetString("Str.StatusBar.Running"));
+            StatusBar.SetImmediateMessage(localization.GetString("Str.StatusBar.Running"));
         else if (IsInBreakMode && debugController.CurrentStop is { ConditionError: { } error } stop)
-            StatusBar.SetMessage(string.Format(localization.GetString("Str.Debug.Conditions.EvaluationFailed"),
+            StatusBar.SetImmediateMessage(string.Format(localization.GetString("Str.Debug.Conditions.EvaluationFailed"),
                 stop.ConditionExpression, stop.Module, stop.Line, error));
         else
             StatusBar.ClearMessage();
@@ -2750,7 +2750,7 @@ public partial class MainViewViewModel : ObservableObject
         }
         else if (_panelLayoutNotice is not null)
         {
-            if (StatusBar.Message == _panelLayoutNotice) StatusBar.ClearMessage();
+            StatusBar.TryReplaceMessage(_panelLayoutNotice, null);
             _panelLayoutNotice = null;
         }
     }
