@@ -161,12 +161,11 @@ public class TypeKeysTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task RefusedBackspaceWithoutAMessageDoesNotQuoteReady()
+    public void RefusedBackspaceWithoutAMessageDoesNotQuoteReady()
     {
         status.Message.Returns("Ready");
-        var editor = Show("Public Sub Foo()\r\n\r\nEnd Sub\r\n", header: "");
-        editor.CaretOffset = "Public Sub Foo()\r\n".Length;
-        await UiAutomationDriver.TypeKeysAsync(editor, "Attribute Foo.VB_Description");
+        var editor = Show(WithRun);
+        PutCaretAfter(editor, "Attribute Total.VB_UserMemId = 0\r\n");
         status.ClearReceivedCalls();
         var before = editor.Text;
 
@@ -182,7 +181,7 @@ public class TypeKeysTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task SilentRefusalDoesNotQuoteThePreviousKeysMessage()
+    public void SilentRefusalDoesNotQuoteThePreviousKeysMessage()
     {
         var message = "Ready";
         long version = 0;
@@ -190,14 +189,14 @@ public class TypeKeysTests : IDisposable
         status.Message.Returns(_ => message);
         status.When(s => s.SetTemporaryMessage(Arg.Any<string>(), Arg.Any<TimeSpan>()))
             .Do(call => { message = call.Arg<string>(); version++; });
-        var editor = Show("Public Sub Foo()\r\n\r\nEnd Sub\r\n", header: "");
-        editor.CaretOffset = "Public Sub Foo()\r\n".Length;
-        await UiAutomationDriver.TypeKeysAsync(editor, "Attribute Foo.VB_Description");
+        var editor = Show(WithRun);
+        PutCaretAfter(editor, "Attribute Total.VB_");
         var before = editor.Text;
 
         var first = UiAutomationDriver.PressKey(editor, "X", null);
         first.Error.Should().Contain("refused by the code window: \"Str.CodeEditor.Msg.TypingChangesReadOnlyText\"");
         status.ClearReceivedCalls();
+        PutCaretAfter(editor, "Attribute Total.VB_UserMemId = 0\r\n");
         var second = UiAutomationDriver.PressKey(editor, "Back", null);
 
         editor.Text.Should().Be(before);
@@ -215,12 +214,16 @@ public class TypeKeysTests : IDisposable
         status.Message.Returns(_ => message);
         status.When(s => s.SetTemporaryMessage(Arg.Any<string>(), Arg.Any<TimeSpan>()))
             .Do(call => { message = call.Arg<string>(); version++; });
-        var editor = Show("Public Sub Foo()\r\n\r\nEnd Sub\r\n", header: "");
-        editor.CaretOffset = "Public Sub Foo()\r\n".Length;
+        var editor = Show(WithRun);
+        PutCaretAfter(editor, "    Total = 1");
+        (await UiAutomationDriver.TypeKeysAsync(editor, " + 2")).Success.Should().BeTrue();
+        var before = editor.Text;
+        PutCaretAfter(editor, "Attribute Total.VB_");
 
-        var result = await UiAutomationDriver.TypeKeysAsync(editor, "Attribute Foo.VB_Description = \"description\"");
+        var result = await UiAutomationDriver.TypeKeysAsync(editor, "Description");
 
-        editor.Text.Should().Be("Public Sub Foo()\r\nAttribute Foo.\r\nEnd Sub\r\n");
+        editor.Text.Should().Be(before);
+        editor.Text.Should().Contain("    Total = 1 + 2");
         result.Success.Should().BeFalse();
         result.Error.Should().Contain("refused by the code window: \"Str.CodeEditor.Msg.TypingChangesReadOnlyText\"")
             .And.Contain("was sent;").And.Contain("nothing after it was sent")
