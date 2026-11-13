@@ -1952,14 +1952,15 @@ anyway, so it is recorded rather than defended.
 
 ### Requirement: Completion capabilities describe current insertion support
 The client SHALL declare `textDocument.completion` in initialize with default `insertTextMode: 1`
-(asIs), all 25 completion kinds, preselect support and plaintext documentation support.
-It SHALL omit optional completion capabilities it does not implement, including snippet support and
-insert/replace support.
+(asIs), all 25 completion kinds, preselect support, plaintext documentation support, insert/replace
+support, both insert text modes and the `insertTextMode` list item default.
+It SHALL omit optional completion capabilities it does not implement, including snippet support.
 
 #### Scenario: A server inspects completion capabilities
 - **WHEN** the client sends initialize
 - **THEN** completion declares kind values 1 through 25, preselect support, plaintext documentation and default insertion mode `1`
-- **AND** snippet, insert/replace, resolve, context and list item default support are absent
+- **AND** insert/replace and both indentation modes are supported, with only `insertTextMode` advertised as a list item default
+- **AND** snippet, resolve and context support are absent
 
 ### Requirement: Completion text edits commit together
 The editor SHALL apply a completion's TextEdit instead of its insertText or label when provided,
@@ -1977,10 +1978,27 @@ or touches protected text.
 - **WHEN** any additional completion edit touches a protected region
 - **THEN** neither the main edit nor the additional edits are applied
 
+### Requirement: Completion insert ranges and indentation modes
+The editor SHALL apply an InsertReplaceEdit's insert range, preserving text after that range.
+It SHALL preserve supplied whitespace under mode 1 (`asIs`), including when no mode is supplied.
+Under mode 2 (`adjustIndentation`), it SHALL prefix each later line with the
+caret line's leading whitespace up to the caret, preserving that line's own indentation and valid
+snippet stops. It SHALL preserve tabs and spaces exactly, without converting either. The item's mode
+SHALL override the list's `itemDefaults.insertTextMode`. Additional edits SHALL remain literal.
+
+#### Scenario: Insert completion in the middle of a word
+- **WHEN** a completion supplies insert and replace ranges with different ends
+- **THEN** the insert range is replaced and the remaining suffix is kept
+
+#### Scenario: A list supplies indentation mode
+- **WHEN** a list defaults to mode 2 and an item has no explicit mode
+- **THEN** later inserted lines retain their own indentation after the caret line's leading whitespace
+- **AND** an item explicitly requesting mode 1 preserves its supplied whitespace
+
 ### Requirement: Numbered completion snippet placeholders
 The editor SHALL expand numbered tabstops, placeholder defaults, repeated linked placeholders,
-backslash escapes and the final `$0` in completion items with insertTextFormat 2, preserving
-multiline whitespace. It SHALL visit positive tabstops in numeric order, finish at `$0` or the
+backslash escapes and the final `$0` in completion items with insertTextFormat 2, applying the
+item’s indentation mode. It SHALL visit positive tabstops in numeric order, finish at `$0` or the
 insertion end, and end linking on Escape. It SHALL refuse unsupported or malformed snippet syntax
 before changing the document. Snippet support SHALL remain undeclared while nested placeholders
 and variables are unfinished.

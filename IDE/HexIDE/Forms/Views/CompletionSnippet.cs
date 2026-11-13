@@ -104,6 +104,28 @@ internal sealed record CompletionSnippet(string Text, IReadOnlyList<CompletionSn
         }
     }
 
+    public CompletionSnippet AdjustIndentation(string indentation)
+    {
+        var text = new StringBuilder();
+        var offsets = new int[Text.Length + 1];
+        var position = 0;
+        while (position < Text.Length)
+        {
+            offsets[position] = text.Length;
+            var character = Text[position++];
+            text.Append(character);
+            if (character != '\n' && (character != '\r' || position < Text.Length && Text[position] == '\n'))
+                continue;
+            text.Append(indentation);
+        }
+        offsets[position] = text.Length;
+        return new(text.ToString(), Stops.Select(stop => stop with
+        {
+            Offset = offsets[stop.Offset],
+            Length = offsets[stop.Offset + stop.Length] - offsets[stop.Offset]
+        }).ToArray());
+    }
+
     internal static IEnumerable<CompletionWindow> OpenChoiceWindows(TextArea area) =>
         area.StackedInputHandlers.OfType<Navigation>().Select(handler => handler.ChoiceWindow)
             .OfType<CompletionWindow>().Where(window => window.IsOpen);

@@ -825,3 +825,13 @@ visible lenses, and advertised code-lens refresh requests SHALL invalidate lense
 - **THEN** the view reuses the document's answers without requesting tokens, folds, hints or lenses again
 - **AND WHEN** the developer edits the code after the re-dock
 - **THEN** the document sends didChange and requests fresh analysis after debounce
+
+### Requirement: Completion indentation retains relative nesting
+For a completion requesting `adjustIndentation`, the editor SHALL prefix every later inserted line
+with the caret line's leading whitespace up to the caret, retaining the inserted line's own indentation.
+It SHALL preserve tabs and spaces exactly without conversion, and keep snippet stops on their text.
+
+#### Scenario: A completion inserts a nested block
+- **WHEN** a multiline completion with two nested indentation levels is accepted at an indented caret
+- **THEN** each later line retains its indentation after the caret line's prefix
+- **AND** the innermost placeholder remains selected and editable

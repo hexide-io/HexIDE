@@ -71,6 +71,15 @@ public class CompletionReplyShapeTests : IAsyncDisposable
         return result;
     }
 
+    [Fact]
+    public async Task ListIndentationDefaultIsInheritedButItemModeWins()
+    {
+        var items = await Read("""{"isIncomplete":false,"itemDefaults":{"insertTextMode":2},"items":[{"label":"inherited","kind":1},{"label":"explicit","kind":1,"insertTextMode":1}]}""");
+        var json = JsonSerializer.SerializeToElement(items, LspJsonContext.Default.Options);
+        json[0].GetProperty("insertTextMode").GetInt32().Should().Be(2);
+        json[1].GetProperty("insertTextMode").GetInt32().Should().Be(1);
+    }
+
     [Theory]
     [InlineData("[{\"label\":\"Calc\",\"kind\":3,\"detail\":\"Function\",\"insertText\":\"Calc()\"}]")]
     [InlineData("{\"isIncomplete\":true,\"items\":[{\"label\":\"Calc\",\"kind\":3,\"detail\":\"Function\",\"insertText\":\"Calc()\"}]}")]
