@@ -61,6 +61,30 @@ public sealed class SSTabComponentClass : InBoxComponentClass
         return null;
     }
 
+    public string? DesignerPageSwitchRefusal(ComponentInstance instance)
+    {
+        var saved = instance.GetPropertyOrDefault(SSTabSavedState.Property);
+        for (var page = 0; page < DesignerTabs(instance); page++)
+            for (var index = 0; index < (saved?.Number($"Tab({page}).ControlCount", 0) ?? 0); index++)
+            {
+                var name = saved?.Value($"Tab({page}).Control({index})") as string;
+                var matches = instance.ContainedControls.Where(c => string.Equals(c.GetPropertyOrDefault(NameProperty),
+                    name, StringComparison.OrdinalIgnoreCase)).ToArray();
+                string? reason = PropertyText.Named(instance.ContainedControls, name ?? "")
+                    .Any(c => PropertyText.ArrayIndexOf(c) is not null)
+                    ? "a control array reference whose page membership HexIDE does not model"
+                    : matches.Length != 1
+                        ? instance.PreservedChildSubtrees.Any(b => string.Equals(
+                            HexIDE.Runtime.Serialization.UnmodelledControl.Read(b.Text)?.Name, name, StringComparison.OrdinalIgnoreCase))
+                            ? "a carried control HexIDE does not model"
+                            : "a saved control reference HexIDE cannot resolve to one modelled child"
+                        : null;
+                if (reason is not null)
+                    return $"{instance.GetPropertyOrDefault(NameProperty)}'s page {page} names {name ?? "(unnamed entry)"}, {reason}, so its pages can't be switched here. Nothing was changed.";
+            }
+        return null;
+    }
+
     public void SelectDesignerPage(ComponentInstance instance, int page, IReadOnlyList<ComponentInstance> children) =>
         SSTabDesignerPages.For(instance).Select(page, children);
 

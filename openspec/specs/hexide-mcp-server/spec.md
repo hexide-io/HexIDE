@@ -107,7 +107,9 @@ compare children across the whole SSTab, rather than restarting on each tab, mat
 For an SSTab named with `controlName`, inspection SHALL expose its selected `Tab` and `Tabs` count.
 `set_control_property` SHALL accept `Tab` as a whole-number page index, switch the designer preview
 and child positions through the existing page bookkeeping, and refuse indexes outside `0` to `Tabs - 1`
-with the valid range. Page switches SHALL retain the existing absence of a designer undo entry.
+with the valid range. The whole-form save-fidelity refusal SHALL precede page selection. On saveable forms,
+unsupported saved child references SHALL be refused with the page and entry named before any change.
+Selected `Tab` and `Tabs` rows SHALL follow alphabetical property order. Page switches SHALL retain the existing absence of a designer undo entry.
 
 #### Scenario: Inspect and switch a saved SSTab
 - **WHEN** a caller inspects an SSTab and sets its `Tab` to a valid index

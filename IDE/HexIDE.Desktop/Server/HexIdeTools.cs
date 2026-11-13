@@ -487,7 +487,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_form_controls")]
-    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size in that summary are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. The 'properties' rows give Left, Top, Width and Height as the Properties window does instead, in twips or the container's ScaleMode, each naming its unit. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them; visible, enabled, caption and text are left out where the control's class has no such property. Carried controls appear with carried: true, their name, block type, position and size, and a note: HexIDE draws but does not model them, so they cannot be moved, sized or set. controlName also finds these rows, with the same note and no properties. Within each container, rows are in z-order, bottom first; zOrder is 0 at the bottom. A container's rows come right after its own row. Compare zOrder only for rows with the same container (absent means the form). The form itself and menus omit zOrder. An open designer supplies live draw order; otherwise the model supplies it. SSTab children also give tab, their page (0 to Tabs - 1); zOrder spans the whole SSTab. With controlName an SSTab gives its selected Tab and Tabs count; set_control_property with Tab switches pages.")]
+    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size in that summary are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. The 'properties' rows give Left, Top, Width and Height as the Properties window does instead, in twips or the container's ScaleMode, each naming its unit. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them; visible, enabled, caption and text are left out where the control's class has no such property. Carried controls appear with carried: true, their name, block type, position and size, and a note: HexIDE draws but does not model them, so they cannot be moved, sized or set. controlName also finds these rows, with the same note and no properties. Within each container, rows are in z-order, bottom first; zOrder is 0 at the bottom. A container's rows come right after its own row. Compare zOrder only for rows with the same container (absent means the form). The form itself and menus omit zOrder. An open designer supplies live draw order; otherwise the model supplies it. SSTab children give tab (0 to Tabs - 1); zOrder spans the whole SSTab. Off-page children are shifted left by 75,000 twips (5,000 summary pixels). With controlName an SSTab gives its selected Tab and Tabs count; set_control_property with Tab switches pages.")]
     public async Task<FormControlsResult> GetFormControlsAsync(
         string formName,
         string? project = null,
@@ -649,10 +649,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     ? (DesignPositions.Shown(form, control, property, pixels), DesignPositions.Unit(form, control, property))
                     : null);
                 if (control.BaseClass is SSTabComponentClass tabs)
+                {
                     properties = [.. properties.Where(p => p.Name is not ("Tab" or "Tabs")),
                         new("Tab", PropertyText.Display(tabs.DesignerTab(control)), true,
                             "Selected designer page; set_control_property switches it without an undo entry."),
                         new("Tabs", PropertyText.Display(tabs.DesignerTabs(control)), false, "Saved page count.")];
+                    properties = [.. properties.OrderBy(p => p.Name)];
+                }
                 return new FormControlsResult(null, [summaries[control]], document.Project.Name, document.Name,
                     properties, note);
             }
@@ -661,7 +664,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a form or UserControl control property and saves it. SSTab Tab switches the designer page (0 to Tabs - 1), without undo. Searches loaded projects without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. 'value' is written as the Properties window shows it; its own description gives the forms, and a refused value's reply says what that property takes. get_form_controls lists the controls, and with 'controlName' every property of one, its value as this tool takes it. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A project started with --newproject has a form working copy in the temp folder, written without a picker. A pathless document is refused before changes unless answer_next_file_dialog is armed. The reply's note gives the stored value; project and document name the form as the IDE spells them. Refuses writes outside the project's folder or through links, including armed destinations. Before replacing source or companion bytes, preserves a recovery file; the reply names it and how to restore it.")]
+    [Description("Sets a form or UserControl control property and saves it. SSTab Tab selects a page (0 to Tabs - 1) without undo; refuses read-only forms and unsupported page entries unchanged. Searches loaded projects without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. 'value' is written as the Properties window shows it; its own description gives the forms, and a refused value's reply says what that property takes. get_form_controls lists the controls, and with 'controlName' every property of one, its value as this tool takes it. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A project started with --newproject has a form working copy in the temp folder, written without a picker. A pathless document is refused before changes unless answer_next_file_dialog is armed. The reply's note gives the stored value; project and document name the form as the IDE spells them. Refuses writes outside the project's folder or through links, including armed destinations. Before replacing source or companion bytes, preserves a recovery file; the reply names it and how to restore it.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName,
         [Description("The control: its name, or for an element of a control array name(index), such as lblTitle(1), "
@@ -697,8 +700,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (named is not { Form: { } form, Document: { } document })
                 return (null, null, named.Error);
             target = document;
-            if (ProjectWriteSafety.Prepare(document, ctx.ProjectFileFormat, out recoveryNote) is { } safetyRefusal)
-                return (null, null, safetyRefusal);
+            if (!form.CanSaveFaithfully)
+                return (null, null, CodeEditorViewModel.ReadOnlyWriteRefusal);
 
             // A UserControl's or PropertyPage's identity is its module, which holds the file the save writes.
             var ownerModule = document.Module;
@@ -722,6 +725,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                         : ""));
             if (control is null)
                 return (null, null, $"No control named '{controlName}' on {document.Display}");
+
+            if (control.BaseClass is SSTabComponentClass pageTabs
+                && property.Equals("Tab", StringComparison.OrdinalIgnoreCase)
+                && pageTabs.DesignerPageSwitchRefusal(control) is { } pageRefusal)
+                return (null, null, pageRefusal);
+            if (ProjectWriteSafety.Prepare(document, ctx.ProjectFileFormat, out recoveryNote) is { } safetyRefusal)
+                return (null, null, safetyRefusal);
 
             if (control.BaseClass is SSTabComponentClass tabs
                 && property.Equals("Tab", StringComparison.OrdinalIgnoreCase))

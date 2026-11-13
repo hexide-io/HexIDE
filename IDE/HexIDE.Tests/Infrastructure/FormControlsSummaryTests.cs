@@ -11,6 +11,11 @@ namespace HexIDE.Tests.Infrastructure;
 public class FormControlsSummaryTests
 {
     [AvaloniaTheory]
+    [InlineData(false, "carried")]
+    [InlineData(false, "array")]
+    [InlineData(false, "indexedarray")]
+    [InlineData(false, "readonly")]
+    [InlineData(false, "order")]
     [InlineData(false, "membership")]
     [InlineData(true, "membership")]
     [InlineData(false, "switch")]
@@ -64,7 +69,40 @@ public class FormControlsSummaryTests
             null!, null!, writer, events, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
             new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         var tools = new HexIdeTools(context);
-        if (check == "membership")
+        if (check is "carried" or "array" or "indexedarray" or "readonly")
+        {
+            var tab = form.Components.Single(c => c.BaseClass is HexIDE.Runtime.Components.InBox.SSTabComponentClass);
+            var saved = tab.GetPropertyOrDefault(HexIDE.Runtime.Components.InBox.SSTabSavedState.Property)!.CopyProperties();
+            saved["Tab(1).Control(0)"] = check == "indexedarray" ? "Text1(0)" : check == "array" ? "Text1" : "ImageCombo1";
+            tab.SetProperty(HexIDE.Runtime.Components.InBox.SSTabSavedState.Property,
+                new HexIDE.Runtime.Components.InBox.SSTabSavedState(saved));
+            if (check is not ("array" or "indexedarray"))
+                tab.AddPreservedChildSubtree(1, 0, "Begin MSComctlLib.ImageCombo ImageCombo1\nEnd");
+            if (check is "array" or "indexedarray")
+                form.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "Text1")
+                    .UnknownRawProperties.Add(new("Index", ["Index = 0"]));
+            if (check == "readonly")
+                form.MarkUnfaithfulToSave(UnfaithfulSaveCause.SSTabPageMetadata, "Test page reference");
+            var before = form.Components.Select(c => c.GetPropertyOrDefault(VBProperties.LeftProperty)).ToArray();
+            var reply = await tools.SetControlPropertyAsync("Form1", "SSTab1", "Tab", "0");
+            reply.Success.Should().BeFalse();
+            if (check == "readonly")
+                reply.Error.Should().Be(HexIDE.Forms.ViewModels.CodeEditorViewModel.ReadOnlyWriteRefusal);
+            else
+            {
+                reply.Error.Should().Contain("page 1").And.Contain(check is "array" or "indexedarray" ? "control array" : "ImageCombo1")
+                    .And.Contain("Nothing was changed");
+            }
+            tab.GetPropertyOrDefault(HexIDE.Runtime.Components.InBox.SSTabSavedState.Property)!.Number("Tab", 0).Should().Be(1);
+            form.Components.Select(c => c.GetPropertyOrDefault(VBProperties.LeftProperty)).Should().Equal(before);
+            await writer.DidNotReceive().SaveForm(form, false, interactive: false, rewrites: Arg.Any<HexIDE.Projects.SaveRewriteReport>());
+        }
+        else if (check == "order")
+        {
+            var reply = await tools.GetFormControlsAsync("Form1", controlName: "SSTab1");
+            reply.Properties!.Select(p => p.Name).Should().BeInAscendingOrder(Comparer<string>.Default);
+        }
+        else if (check == "membership")
         {
             foreach (var name in new string?[] { null, "Command1", "Text1", "SSTab1" })
             {
