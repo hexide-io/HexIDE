@@ -4119,8 +4119,13 @@ public static class UiAutomationDriver
             var deletionArea = AreaOf(target);
             var selectionDelete = parsedKey is Key.Delete or Key.Back
                 && mods is KeyModifiers.None or KeyModifiers.Control;
-            var partial = selectionDelete && deletionArea is not null
-                ? PartialSelection(deletionArea, deletes: true) : null;
+            var probe = new KeyEventArgs { Key = parsedKey, KeyModifiers = mods };
+            var cut = HexIDE.ApplicationCommands.CutCommand.Gestures.Any(g => g.Matches(probe));
+            var paste = HexIDE.ApplicationCommands.PasteCommand.Gestures.Any(g => g.Matches(probe));
+            var indent = (parsedKey == Key.Tab && mods is KeyModifiers.None or KeyModifiers.Shift)
+                || HexIDE.ApplicationCommands.IndentCommand.Gestures.Any(g => g.Matches(probe));
+            var partial = (selectionDelete || cut || paste || indent) && deletionArea is not null
+                ? PartialSelection(deletionArea, deletes: selectionDelete || cut) : null;
             var lengthBefore = deletionArea?.Document.TextLength ?? 0;
             // A key that types a character writes it, as a person's does, so it is judged as typing is (#2428).
             var typedText = TypedBy(parsedKey, mods);
@@ -4167,8 +4172,9 @@ public static class UiAutomationDriver
             // Flags print as "Control, Shift", which read as two presses (#2189).
             var chord = mods == KeyModifiers.None ? string.Empty : mods.ToString().Replace(", ", "+") + "+";
             var changed = partial is not null && deletionArea is not null
-                ? $"; deleted {lengthBefore - deletionArea.Document.TextLength} char(s) from the selection; "
-                  + partial.Left + SelectionState(deletionArea)
+                ? (selectionDelete || cut
+                    ? $"; deleted {lengthBefore - deletionArea.Document.TextLength} char(s) from the selection; "
+                    : "; ") + partial.Left + SelectionState(deletionArea)
                 : string.Empty;
             return new InteractOutcome(true, mechanism,
                 $"{focusMove}pressed {chord}{parsedKey}{where}{HeldNote(parsedKey, mods)}"
@@ -4234,7 +4240,7 @@ public static class UiAutomationDriver
     /// <remarks>
     /// <see cref="EditedSpan.Deletes"/> says the key deletes the span rather than writing over it: Backspace and
     /// Delete, a cut, and Ctrl+D. A cut and a paste are the keys the IDE binds to its Cut and Paste commands, Ctrl+X
-    /// and Ctrl+V on Windows and Linux and Cmd on macOS, and Delete Line is the library's; matching Ctrl alone let a
+    /// and Ctrl+V on Windows and Linux and Cmd on macOS; Delete Line also follows the IDE keymap; matching Ctrl alone let a
     /// Cmd+X on macOS through unjudged (#273, found by CI's macOS run). A deletion is judged as the code window's keys
     /// delete (#273 task 4.5a): one that
     /// takes a described line takes its Attribute lines with it, which is allowed, where writing over the span would
@@ -4250,9 +4256,11 @@ public static class UiAutomationDriver
         var probe = new KeyEventArgs { Key = key, KeyModifiers = mods };
         var cut = HexIDE.ApplicationCommands.CutCommand.Gestures.Any(g => g.Matches(probe));
         var paste = HexIDE.ApplicationCommands.PasteCommand.Gestures.Any(g => g.Matches(probe));
-        var deleteLine = AvaloniaEditCommands.DeleteLine.Gesture?.Matches(probe) == true;
+        var deleteLine = HexIDE.ApplicationCommands.DeleteLineCommand.Gestures.Any(g => g.Matches(probe))
+            || AvaloniaEditCommands.DeleteLine.Gesture?.Matches(probe) == true;
 
-        var edits = cut || paste || deleteLine || (key, chord) switch
+        var edits = cut || paste || deleteLine
+            || HexIDE.ApplicationCommands.IndentCommand.Gestures.Any(g => g.Matches(probe)) || (key, chord) switch
         {
             (Key.Enter or Key.Return or Key.Tab, KeyModifiers.None) => true,
             (Key.Back or Key.Delete, KeyModifiers.None or KeyModifiers.Control) => true,
