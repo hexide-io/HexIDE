@@ -67,6 +67,26 @@ vscode-json-language-server 4.10.0 returned `result:null` for all four spellings
 relying on a permissive server. StreamJsonRpc's null argument object in its parameter-object overload
 omits the member; it does not serialize `"params":null`.
 
+## Snippet completion negotiation (2026-11-13, #3483)
+
+A paired stdio probe toggled only `completionItem.snippetSupport`, keeping insert/replace support,
+both insertion modes, `asIs` as default, and the indentation list default enabled. These are sampled
+sites, not a survey of every completion a server can produce:
+
+| Server | Site | Without snippets | With snippets |
+|---|---|---|---|
+| clangd 22.1.6 | `tw` in `int main() { tw }`, after declaring `int twice(int n);` and waiting for parsing | 12 plain items | 12 snippet items; `twice(${1:int n})` replaces `tw` |
+| vscode-json-language-server 4.10.0 | Property in a document using the package.json schema | No completion provider advertised | 65 snippet-formatted items; the sampled `name` edit contains literal quoted text |
+| texlab 5.26.0 | `\sec` inside an article document | 50 plain items | 50 plain items |
+| rumdl 0.2.79 | Link target in Markdown | Empty list | Empty list |
+| ruff 0.16.7 | `os.pa` after `import os` | No completion provider | No completion provider |
+
+No sampled reply supplied insert/replace edits, insertion modes or list defaults. clangd can answer
+with lexical fallback items while parsing is pending; those were plain even with snippets enabled.
+`CompletionForeignTests` therefore waits for the opened document's diagnostics, then requests clangd's
+function completion through the shipping client, inserts it in the editor, edits its argument stop,
+and checks Tab's final caret. This test uses headless Avalonia and runs on Linux too.
+
 ## Normal teardown and document close (2026-11-04, #491)
 
 `RealServerShutdownTests` drives the normal HexIDE client over stdio on Linux, with the pinned

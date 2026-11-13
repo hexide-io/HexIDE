@@ -847,6 +847,7 @@ visible lenses, and advertised code-lens refresh requests SHALL invalidate lense
 For a completion requesting `adjustIndentation`, the editor SHALL prefix every later inserted line
 with the caret line's leading whitespace up to the caret, retaining the inserted line's own indentation.
 It SHALL preserve tabs and spaces exactly without conversion, and keep snippet stops on their text.
+For snippets, adjustment SHALL precede variable resolution so multiline variable values retain their original whitespace.
 
 #### Scenario: A completion inserts a nested block
 - **WHEN** a multiline completion with two nested indentation levels is accepted at an indented caret

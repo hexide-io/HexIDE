@@ -337,6 +337,7 @@ public record CompletionItemClientCapabilities(
     [property: JsonPropertyName("preselectSupport")] bool PreselectSupport,
     [property: JsonPropertyName("documentationFormat")] string[] DocumentationFormat,
     [property: JsonPropertyName("insertReplaceSupport")] bool InsertReplaceSupport = true,
+    [property: JsonPropertyName("snippetSupport")] bool SnippetSupport = true,
     [property: JsonPropertyName("insertTextModeSupport")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InsertTextModeClientCapabilities? InsertTextModeSupport = null);
 
