@@ -59,7 +59,8 @@ public class LocalizationCoverageTests
         var pattern = new Regex(@"\{DynamicResource\s+(Str\.[A-Za-z0-9_.]+)\}", RegexOptions.Compiled);
         var missing = new SortedSet<string>();
 
-        foreach (var file in Directory.EnumerateFiles(hexIdeDir, "*.axaml", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(hexIdeDir, "*.axaml", SearchOption.AllDirectories)
+                     .Concat(Directory.EnumerateFiles(Path.Combine(hexIdeDir, "..", "HexIDE.AIChat"), "*.axaml", SearchOption.AllDirectories)))
         {
             foreach (Match m in pattern.Matches(File.ReadAllText(file)))
             {

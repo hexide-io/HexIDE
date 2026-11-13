@@ -80,7 +80,7 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
     {
         if (_isDecided || _approvalTcs is null) return;
         _isDecided = true;
-        ApprovalOutcome = approved ? "✔ Approved" : "✗ Rejected";
+        ApprovalOutcome = ChatStrings.GetString(approved ? "Str.AIChat.Approved" : "Str.AIChat.Rejected");
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAwaitingDecision)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ApprovalOutcome)));
         _approvalTcs.TrySetResult(approved);

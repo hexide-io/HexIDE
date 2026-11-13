@@ -100,6 +100,7 @@ public class AIChatWholeFileTests : IDisposable
     [AvaloniaFact]
     public async Task TheAssistantsEditIsRefused()
     {
+        new HexIDE.Localization.LocalizationService().Apply("en");
         // Both halves of the requirement: the assistant is told, through the tool result, and so is the developer
         // who approved the edit, in the transcript. The transcript said only "Using tool" until the 3.19 review.
         editor.TrySetContent("Form1", Arg.Any<string>(), Arg.Is<string?>(p => p == null)).Returns(new AddinEditResult(false, HeaderRefusal));
@@ -143,9 +144,10 @@ public class AIChatWholeFileTests : IDisposable
         _ = editor.Received(1).TrySetContent("Form1", code, "Orders");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ApplyingABlockTheIdeRefuses()
     {
+        new HexIDE.Localization.LocalizationService().Apply("en");
         // Both halves again: the developer sees it, and the assistant is told, where before only the transcript said
         // and the assistant's next turn went on as though its code were in the file.
         editor.TrySetContent("Form1", Arg.Any<string>(), "Orders").Returns(new AddinEditResult(false, HeaderRefusal));
@@ -180,6 +182,7 @@ public class AIChatWholeFileTests : IDisposable
     [AvaloniaFact]
     public async Task AnApprovedEditTheIdeAcceptsSaysSoInTheTranscript()
     {
+        new HexIDE.Localization.LocalizationService().Apply("en");
         editor.TrySetContent("Form1", "Option Explicit\r\n", null).Returns(new AddinEditResult(true, HeaderKept: true));
         var chat = new ChatViewModel(host, settingsDir);
 
@@ -193,6 +196,7 @@ public class AIChatWholeFileTests : IDisposable
     [AvaloniaFact]
     public async Task AReadToolAddsNothingToTheTranscriptButItsStatusLine()
     {
+        new HexIDE.Localization.LocalizationService().Apply("en");
         var chat = new ChatViewModel(host, settingsDir);
 
         await chat.RunToolCallAsync(Call("get_active_file", new { }));
@@ -246,9 +250,10 @@ public class AIChatWholeFileTests : IDisposable
         reply["error"]!.GetValue<string>().Should().Be(ambiguous);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ABlockTheIdeAcceptsIsReportedInTheTranscriptAndToTheAssistant()
     {
+        new HexIDE.Localization.LocalizationService().Apply("en");
         editor.TrySetContent("Form1", "Option Explicit", "Orders").Returns(new AddinEditResult(true, HeaderKept: true));
         var chat = new ChatViewModel(host, settingsDir);
 
@@ -260,9 +265,10 @@ public class AIChatWholeFileTests : IDisposable
         chat.SessionLog.Last().Content.Should().Contain("accepted").And.Contain("keeping the file's own header");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ABlockAppliedWithNoCodeWindowActiveSaysSo()
     {
+        new HexIDE.Localization.LocalizationService().Apply("en");
         editor.GetActiveDocument().Returns((AddinDocument?)null);
         var chat = new ChatViewModel(host, settingsDir);
 
@@ -303,9 +309,10 @@ public class AIChatWholeFileTests : IDisposable
         shown.RawContent.Should().Contain(HeaderRefusal);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ABlockWhoseWriteThrowsSaysSoRatherThanVanishing()
     {
+        new HexIDE.Localization.LocalizationService().Apply("en");
         // The Apply button discards the task this returns, so an exception escaping it would be seen by nobody.
         editor.TrySetContent(default!, default!, default).ReturnsForAnyArgs(Task.FromException<AddinEditResult>(new InvalidOperationException("boom")));
         var chat = new ChatViewModel(host, settingsDir);

@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.VisualTree;
 using HexIDE.Addins;
 using HexIDE.AIChat.Views;
+using HexIDE.Localization;
 
 namespace HexIDE.Integration.Tests.Controls;
 
@@ -17,6 +18,7 @@ public class ChatViewLayoutTests
     [InlineData(280)]
     public void Input_row_fits_the_pane(double width)
     {
+        new LocalizationService().Apply("en");
         var settingsDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         var view = new ChatView(Substitute.For<IHexIdeHost>(), settingsDir);
         var window = new Window { Width = width, Height = 600, Content = view };
