@@ -3421,7 +3421,17 @@ internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool>
         var mainText = item.InsertText ?? item.Label;
         if (item.TextEdit is { } main)
         {
-            if (!Resolve(main, out mainOffset, out mainLength))
+            var range = main.Range;
+            if (main.Insert is { } insert && main.Replace is { } replace)
+            {
+                if (range is not null || insert.Start != replace.Start || insert.Start.Line != insert.End.Line
+                    || replace.Start.Line != replace.End.Line || insert.End.Character > replace.End.Character
+                    || !Resolve(new TextEdit(replace, main.NewText), out _, out _))
+                    return;
+                range = insert;
+            }
+            else if (main.Insert is not null || main.Replace is not null) return;
+            if (range is null || !Resolve(new TextEdit(range, main.NewText), out mainOffset, out mainLength))
                 return;
             mainText = main.NewText;
         }
@@ -3429,6 +3439,15 @@ internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool>
         var snippet = item.InsertTextFormat == 2 ? CompletionSnippet.Parse(mainText) : null;
         if (item.InsertTextFormat == 2 && snippet is null)
             return;
+        if (item.InsertTextMode == 2)
+        {
+            var line = document.GetLineByOffset(textArea.Caret.Offset);
+            var beforeCaret = document.GetText(line.Offset, textArea.Caret.Offset - line.Offset);
+            var indentation = new string(beforeCaret.TakeWhile(c => c is ' ' or '\t').ToArray());
+            var adjusted = (snippet ?? new CompletionSnippet(mainText, [])).AdjustIndentation(indentation);
+            if (snippet is not null) snippet = adjusted;
+            mainText = adjusted.Text;
+        }
         mainText = snippet?.Text ?? mainText;
         var edits = new List<(int Offset, int Length, string Text)> { (mainOffset, mainLength, mainText) };
         foreach (var edit in item.AdditionalTextEdits ?? [])

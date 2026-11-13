@@ -79,8 +79,9 @@ the production formatter and source-generated context to guard absence and prese
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
 Initialize declares `textDocument.completion` with all 25 LSP completion kinds, `preselectSupport: true`,
-`documentationFormat: ["plaintext"]`, and default `insertTextMode: 1` (`asIs`). Snippets and insert/replace
-edits (#3483), resolve, commit characters, context and list item defaults are not advertised.
+`documentationFormat: ["plaintext"]`, `insertReplaceSupport: true`, `insertTextModeSupport` with modes
+1 and 2, and default `insertTextMode: 1` (`asIs`). List item defaults advertise only `insertTextMode`.
+Snippets (#3483), resolve, commit characters, context and other list item defaults are not advertised.
 This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
 Items from all servers are ordered by `sortText ?? label`, ordinal. Matching uses `filterText ?? label`,
 while the displayed label and insertion fallback remain the label. The full list stays visible. The first
@@ -98,14 +99,20 @@ the current caret context. A caret immediately after `Rem` remains in code until
 has been typed; a member such as `x.Rem` is not a comment. Space in ordinary code keeps its completion behaviour.
 
 The editor applies a completion's `textEdit` in preference to `insertText` or `label`; without
-a `textEdit`, it replaces the completion segment. `additionalTextEdits` use the same original
+a `textEdit`, it replaces the completion segment. An insert/replace edit applies its `insert` range,
+keeping the suffix after that range. `additionalTextEdits` use the same original
 document coordinates and commit with the main edit as one undo step. The caret follows the main
 insertion, including shifts from earlier edits. Invalid, overlapping or protected edit sets are
 refused in full. The editor expands numbered snippet tabstops (`$1`, `${1}`), defaults
 (`${1:Item}`), repeated linked placeholders, choices (`${1|one,two|}`), escaped `$`, `}` and
 backslashes, and final `$0`.
 Tab visits positive stops in numeric order, Shift+Tab goes back, and Tab after the last stop
-finishes at `$0` (or the insertion end); Escape ends linking. Multiline whitespace remains as sent.
+finishes at `$0` (or the insertion end); Escape ends linking. Multiline whitespace remains as sent
+under `asIs` (the default). An item requesting `adjustIndentation` (mode 2), directly or through
+`CompletionList.itemDefaults`, prefixes each later line with the caret line’s leading whitespace up to the caret,
+keeping that line’s own indentation. Tabs and spaces in both prefixes are preserved exactly.
+An explicit item mode overrides the list default. Snippet stops follow the adjusted text; additional
+edits remain literal.
 Unsupported or malformed snippet syntax refuses the whole completion before applying additional edits.
 Choice placeholders offer their values in the completion picker; selecting a value updates linked
 occurrences. Choice pickers also appear under their editor in automation dumps and snapshots,
@@ -114,7 +121,7 @@ After typing in a placeholder, Tab advances when no completion list is open. Wit
 list open, Tab accepts its selected item, following the editor's ordinary completion rule;
 close that list before using Tab to navigate the snippet.
 What's left is #3483: nested placeholders and variables still need support
-before `snippetSupport` can be advertised. Insert/replace edits and indentation adjustment also remain.
+before `snippetSupport` can be advertised. The clangd snippet insertion proof remains with that slice.
 
 Completion replies accept `CompletionItem[]`, `CompletionList`, or `null` (#2204). Bare arrays
 are normalized to a complete list (`isIncomplete: false`); list objects retain their supplied flag.

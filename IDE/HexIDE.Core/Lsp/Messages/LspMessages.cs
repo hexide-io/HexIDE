@@ -329,11 +329,19 @@ public record CompletionClientCapabilities(
     [property: JsonPropertyName("completionItemKind")] CompletionItemKindClientCapabilities CompletionItemKind,
     [property: JsonPropertyName("insertTextMode")] int InsertTextMode = 1,
     [property: JsonPropertyName("completionItem")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionItemClientCapabilities? CompletionItem = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionItemClientCapabilities? CompletionItem = null,
+    [property: JsonPropertyName("completionList")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionListClientCapabilities? CompletionList = null);
 
 public record CompletionItemClientCapabilities(
     [property: JsonPropertyName("preselectSupport")] bool PreselectSupport,
-    [property: JsonPropertyName("documentationFormat")] string[] DocumentationFormat);
+    [property: JsonPropertyName("documentationFormat")] string[] DocumentationFormat,
+    [property: JsonPropertyName("insertReplaceSupport")] bool InsertReplaceSupport = true,
+    [property: JsonPropertyName("insertTextModeSupport")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InsertTextModeClientCapabilities? InsertTextModeSupport = null);
+
+public record InsertTextModeClientCapabilities([property: JsonPropertyName("valueSet")] int[] ValueSet);
+public record CompletionListClientCapabilities([property: JsonPropertyName("itemDefaults")] string[] ItemDefaults);
 
 public record CompletionItemKindClientCapabilities(
     [property: JsonPropertyName("valueSet")] CompletionItemKind[] ValueSet);
@@ -893,7 +901,7 @@ public record CompletionItem(
     [property: JsonPropertyName("insertText")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? InsertText = null,
     [property: JsonPropertyName("textEdit")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TextEdit? TextEdit = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionTextEdit? TextEdit = null,
     [property: JsonPropertyName("additionalTextEdits")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TextEdit[]? AdditionalTextEdits = null,
     [property: JsonPropertyName("insertTextFormat")]
@@ -905,7 +913,21 @@ public record CompletionItem(
     [property: JsonPropertyName("preselect")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Preselect = null,
     [property: JsonPropertyName("documentation"), JsonConverter(typeof(CompletionDocumentationConverter))]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] MarkupContent? Documentation = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] MarkupContent? Documentation = null,
+    [property: JsonPropertyName("insertTextMode")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? InsertTextMode = null);
+
+public record CompletionTextEdit(
+    [property: JsonPropertyName("newText")] string NewText,
+    [property: JsonPropertyName("range")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Range? Range = null,
+    [property: JsonPropertyName("insert")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Range? Insert = null,
+    [property: JsonPropertyName("replace")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Range? Replace = null)
+{
+    public static implicit operator CompletionTextEdit(TextEdit edit) => new(edit.NewText, edit.Range);
+}
 
 public sealed class CompletionDocumentationConverter : JsonConverter<MarkupContent>
 {
@@ -920,7 +942,13 @@ public sealed class CompletionDocumentationConverter : JsonConverter<MarkupConte
 
 public record CompletionList(
     [property: JsonPropertyName("isIncomplete")] bool IsIncomplete,
-    [property: JsonPropertyName("items")]        CompletionItem[] Items);
+    [property: JsonPropertyName("items")]        CompletionItem[] Items,
+    [property: JsonPropertyName("itemDefaults")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionItemDefaults? ItemDefaults = null);
+
+public record CompletionItemDefaults(
+    [property: JsonPropertyName("insertTextMode")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? InsertTextMode = null);
 
 public record DocumentSymbolParams(
     [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument);
