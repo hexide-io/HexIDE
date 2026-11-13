@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using AvaloniaEdit;
@@ -323,6 +324,134 @@ public class TypeKeysTests : IDisposable
         result.Success.Should().BeFalse();
         result.Error.Should().Contain("the Attribute lines describing A and B, which only the IDE changes");
         editor.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public async Task PasteReportsTheProtectedPartOfASelection()
+    {
+        var editor = Show(WithRun);
+        var start = editor.Text.IndexOf("Total()", StringComparison.Ordinal);
+        var end = editor.Text.IndexOf("VB_UserMemId", StringComparison.Ordinal);
+        var before = editor.Text;
+        var removed = editor.Document.GetLineByOffset(start).EndOffset - start;
+        editor.Select(start, end - start);
+        await TopLevel.GetTopLevel(editor)!.Clipboard!.SetTextAsync("Other()");
+
+        var result = UiAutomationDriver.PressKey(editor, "V", ApplicationCommands.PasteCommand.Gestures[0].KeyModifiers.ToString());
+
+        editor.Text.Should().Be(before.Remove(start, removed).Insert(start, "Other()"));
+        result.Success.Should().BeTrue(result.Error);
+        result.Detail.Should().Contain("left").And.Contain("the Attribute lines describing Total")
+            .And.Contain("caret is now at offset");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("X", true)]
+    [InlineData("Tab", false)]
+    [InlineData("Tab", true)]
+    [InlineData("Indent", true)]
+    public void OtherEditingChordsReportTheProtectedPart(string key, bool command)
+    {
+        var editor = Show(WithRun.Replace("Public Function", "    Public Function", StringComparison.Ordinal));
+        var start = editor.Text.IndexOf("Total()", StringComparison.Ordinal);
+        var end = editor.Text.IndexOf("VB_UserMemId", StringComparison.Ordinal);
+        editor.Select(start, end - start);
+        var modifiers = key == "X" ? ApplicationCommands.CutCommand.Gestures[0].KeyModifiers.ToString()
+            : key == "Indent" ? ApplicationCommands.IndentCommand.Gestures[0].KeyModifiers.ToString()
+            : command ? "Shift" : null;
+        if (key == "Indent") key = "Tab";
+
+        var result = UiAutomationDriver.PressKey(editor, key, modifiers);
+
+        result.Success.Should().BeTrue(result.Error);
+        editor.Text.Should().Contain("Attribute Total.VB_UserMemId = 0");
+        result.Detail.Should().Contain("left").And.Contain("the Attribute lines describing Total");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Tab")]
+    [InlineData("BackTab")]
+    [InlineData("Indent")]
+    public async Task WholeLineIndentationReportsProtectedLines(string chord)
+    {
+        var editor = Show(WithRun.Replace("Public Function", "    Public Function", StringComparison.Ordinal));
+        var start = editor.Text.IndexOf("    Public Function", StringComparison.Ordinal);
+        var end = editor.Text.IndexOf("End Function", StringComparison.Ordinal);
+        var protectedLine = editor.Document.GetLineByOffset(editor.Text.IndexOf("Attribute Total", StringComparison.Ordinal)).LineNumber;
+        editor.Select(start, end - start);
+        var gesture = ApplicationCommands.IndentCommand.Gestures[0];
+        var key = chord == "Indent" ? gesture.Key.ToString() : "Tab";
+        var modifiers = chord == "Indent" ? gesture.KeyModifiers.ToString() : chord == "BackTab" ? "Shift" : null;
+
+        var result = await UiAutomationDriver.PressKeyAsync(editor, key, modifiers);
+
+        result.Success.Should().BeTrue(result.Error);
+        editor.Text.Should().Contain("\r\nAttribute Total.VB_UserMemId = 0\r\n");
+        editor.Text.Should().Contain(chord == "BackTab" ? "\r\nPublic Function Total()" : "        Public Function Total()");
+        result.Detail.Should().Contain($"left line {protectedLine} (the Attribute lines describing Total) as it was")
+            .And.NotContain("no protected text");
+        CleanPartialReply(result.Detail!);
+    }
+
+    [AvaloniaFact]
+    public async Task DeleteLineReportsTheProtectedPartOfASelection()
+    {
+        var editor = Show(WithRun);
+        var start = editor.Text.IndexOf("Attribute Total", StringComparison.Ordinal);
+        var end = editor.Text.IndexOf("End Function", StringComparison.Ordinal) - 2;
+        var before = editor.Text;
+        editor.Select(start, end - start);
+        var removed = "    Total = 1\r\n";
+        var gesture = ApplicationCommands.DeleteLineCommand.Gestures[0];
+
+        var result = await UiAutomationDriver.PressKeyAsync(editor, gesture.Key.ToString(), gesture.KeyModifiers.ToString());
+
+        result.Success.Should().BeTrue(result.Error);
+        editor.Text.Should().Be(before.Replace(removed, "", StringComparison.Ordinal));
+        result.Detail.Should().Contain($"deleted {removed.Length} char(s) from the selection")
+            .And.Contain("left").And.Contain("the Attribute lines describing Total");
+        CleanPartialReply(result.Detail!);
+    }
+
+    [AvaloniaFact]
+    public async Task PastePartialReplyGivesTheCaretOnceWithCleanPunctuation()
+    {
+        foreach (var writtenChord in new[] { false, true })
+        {
+            var editor = Show(WithRun);
+            var start = editor.Text.IndexOf("Total()", StringComparison.Ordinal);
+            var end = editor.Text.IndexOf("VB_UserMemId", StringComparison.Ordinal);
+            editor.Select(start, end - start);
+            await TopLevel.GetTopLevel(editor)!.Clipboard!.SetTextAsync("Other()");
+            var gesture = ApplicationCommands.PasteCommand.Gestures[0];
+
+            var result = await UiAutomationDriver.PressKeyAsync(editor,
+                writtenChord ? $"{gesture.KeyModifiers}+{gesture.Key}" : gesture.Key.ToString(),
+                writtenChord ? null : gesture.KeyModifiers.ToString());
+
+            result.Success.Should().BeTrue(result.Error);
+            CleanPartialReply(result.Detail!);
+        }
+    }
+
+    private static void CleanPartialReply(string detail)
+    {
+        detail.Should().NotContain("  ").And.NotContain(".;");
+        detail.Split("caret", StringSplitOptions.None).Length.Should().Be(2);
+    }
+
+    [AvaloniaFact]
+    public void KeymapDeleteLineReportsAProtectedLineRefusal()
+    {
+        var editor = Show(WithRun);
+        PutCaretAfter(editor, "Attribute Total.VB_");
+        var before = editor.Text;
+
+        var result = UiAutomationDriver.PressKey(editor, "Y", ApplicationCommands.PasteCommand.Gestures[0].KeyModifiers.ToString());
+
+        editor.Text.Should().Be(before);
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain("refused by the code window").And.Contain("Nothing was written");
     }
 
     [AvaloniaFact]
