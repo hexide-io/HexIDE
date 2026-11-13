@@ -2909,13 +2909,13 @@ public partial class CodeEditorView : UserControl
                         .StartsWith(word, StringComparison.OrdinalIgnoreCase)).ToArray();
                     if (word.Length > 0 && matches.Length == 1)
                     {
-                        new VbCompletionData(matches[0], vm.RefusesTyping).Complete(TextEditor.TextArea,
+                        new VbCompletionData(matches[0], vm.RefusesTyping, () => vm.LiveDocumentUri).Complete(TextEditor.TextArea,
                             new TextSegment { StartOffset = start, Length = end - start }, EventArgs.Empty);
                         return;
                     }
                 }
                 _completionWindow = new CompletionWindow(TextEditor.TextArea);
-                FillCompletionList(_completionWindow, items, vm.RefusesTyping);
+                FillCompletionList(_completionWindow, items, vm.RefusesTyping, () => vm.LiveDocumentUri);
 
                 _completionWindow.Closed += (_, _) => _completionWindow = null;
                 _completionWindow.Show();
@@ -2929,7 +2929,7 @@ public partial class CodeEditorView : UserControl
     }
 
     internal static void FillCompletionList(CompletionWindow window, CompletionItem[] items,
-        Func<int, int, bool> refusesTyping)
+        Func<int, int, bool> refusesTyping, Func<string?>? documentUri = null)
     {
         var area = window.TextArea;
         var (start, end) = CompletionWord(area);
@@ -2938,7 +2938,7 @@ public partial class CodeEditorView : UserControl
         window.CloseWhenCaretAtBeginning = false;
         window.CompletionList.IsFiltering = false;
         foreach (var item in items.OrderBy(item => item.SortText ?? item.Label, StringComparer.Ordinal))
-            window.CompletionList.CompletionData.Add(new VbCompletionData(item, refusesTyping));
+            window.CompletionList.CompletionData.Add(new VbCompletionData(item, refusesTyping, documentUri));
 
         void SelectWord(object? sender, EventArgs e)
         {
@@ -3376,7 +3376,8 @@ public partial class CodeEditorView : UserControl
 /// Whether a span of the buffer is one only the IDE may write. A completion commit writes the document
 /// directly, so the read-only section provider never sees it (#273 task 3.9).
 /// </param>
-internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool> isReadOnlyRegion) : ICompletionData
+internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool> isReadOnlyRegion,
+    Func<string?>? documentUri = null) : ICompletionData
 {
     public string Text => item.FilterText ?? item.Label;
     public object Content => KindGlyph is { } glyph
@@ -3436,18 +3437,19 @@ internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool>
             mainText = main.NewText;
         }
 
-        var snippet = item.InsertTextFormat == 2 ? CompletionSnippet.Parse(mainText) : null;
-        if (item.InsertTextFormat == 2 && snippet is null)
-            return;
+        string? indentation = null;
         if (item.InsertTextMode == 2)
         {
             var line = document.GetLineByOffset(textArea.Caret.Offset);
             var beforeCaret = document.GetText(line.Offset, textArea.Caret.Offset - line.Offset);
-            var indentation = new string(beforeCaret.TakeWhile(c => c is ' ' or '\t').ToArray());
-            var adjusted = (snippet ?? new CompletionSnippet(mainText, [])).AdjustIndentation(indentation);
-            if (snippet is not null) snippet = adjusted;
-            mainText = adjusted.Text;
+            indentation = new string(beforeCaret.TakeWhile(c => c is ' ' or '\t').ToArray());
         }
+        var snippet = item.InsertTextFormat == 2
+            ? CompletionSnippet.Parse(mainText, CompletionSnippet.Variables(textArea, documentUri?.Invoke()), indentation) : null;
+        if (item.InsertTextFormat == 2 && snippet is null)
+            return;
+        if (snippet is null && indentation is not null)
+            mainText = new CompletionSnippet(mainText, []).AdjustIndentation(indentation).Text;
         mainText = snippet?.Text ?? mainText;
         var edits = new List<(int Offset, int Length, string Text)> { (mainOffset, mainLength, mainText) };
         foreach (var edit in item.AdditionalTextEdits ?? [])

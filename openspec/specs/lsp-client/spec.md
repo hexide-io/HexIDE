@@ -1981,14 +1981,15 @@ anyway, so it is recorded rather than defended.
 ### Requirement: Completion capabilities describe current insertion support
 The client SHALL declare `textDocument.completion` in initialize with default `insertTextMode: 1`
 (asIs), all 25 completion kinds, preselect support, plaintext documentation support, insert/replace
-support, both insert text modes and the `insertTextMode` list item default.
-It SHALL omit optional completion capabilities it does not implement, including snippet support.
+support, snippet support, both insert text modes and the `insertTextMode` list item default.
+It SHALL omit optional completion capabilities it does not implement, including completion resolve
+and context support.
 
 #### Scenario: A server inspects completion capabilities
 - **WHEN** the client sends initialize
 - **THEN** completion declares kind values 1 through 25, preselect support, plaintext documentation and default insertion mode `1`
 - **AND** insert/replace and both indentation modes are supported, with only `insertTextMode` advertised as a list item default
-- **AND** snippet, resolve and context support are absent
+- **AND** snippet support is declared; resolve and context support are absent
 
 ### Requirement: Completion text edits commit together
 The editor SHALL apply a completion's TextEdit instead of its insertText or label when provided,
@@ -2028,13 +2029,40 @@ The editor SHALL expand numbered tabstops, placeholder defaults, repeated linked
 backslash escapes and the final `$0` in completion items with insertTextFormat 2, applying the
 item’s indentation mode. It SHALL visit positive tabstops in numeric order, finish at `$0` or the
 insertion end, and end linking on Escape. It SHALL refuse unsupported or malformed snippet syntax
-before changing the document. Snippet support SHALL remain undeclared while nested placeholders
-and variables are unfinished.
+before changing the document, including variable transforms. It SHALL expand nested placeholders
+and retain their stops through indentation adjustment. Inner edits SHALL update enclosing linked copies;
+replacing an outer field SHALL retire its inner stops and copies while retaining other fields.
+It SHALL resolve the nine LSP 3.17 `TM_*` variables from the original editor selection, caret and file URI. Unset variables SHALL use their
+default or empty text; unknown names without defaults SHALL become editable placeholders after
+numbered stops. Unsaved documents SHALL leave file variables unset.
+A surviving linked occurrence SHALL become editable when its primary occurrence is retired.
+An edit confined to a child or a deletion adjacent to an empty child SHALL preserve that child.
+Touching stops SHALL retain independent boundaries, and touching empty copies SHALL mirror once each.
+Indentation adjustment SHALL apply to snippet text before resolving variables, preserving multiline
+variable values verbatim. `TM_FILENAME_BASE` SHALL retain a leading dot when there is no later extension.
+A dollar sign that begins no tabstop or variable SHALL be literal text; an unterminated braced expression
+SHALL still refuse the completion.
+The editor SHALL cache each numbered field’s rendered value and refuse a snippet exceeding
+1,048,576 UTF-16 code units before changing the document.
+
+#### Scenario: Repeated defaults exceed the expansion limit
+- **WHEN** nested linked defaults would expand beyond 1,048,576 UTF-16 code units
+- **THEN** the completion is refused without changing the document
 
 #### Scenario: A completion repeats a loop variable
 - **WHEN** a snippet contains `${1:Item}` followed by `$1` and `${2:c}`
 - **THEN** the default Item is selected and editing it changes both occurrences
 - **AND** Tab selects c and a further Tab finishes at the final stop
+
+#### Scenario: Nested multiline placeholder
+- **WHEN** a snippet contains `${1:If x Then\n  ${2:Foo}}` and requests indentation adjustment
+- **THEN** the outer stop spans both lines including the added indentation
+- **AND** Tab selects the inner Foo stop
+
+#### Scenario: Variables and unknown names
+- **WHEN** a snippet contains `$TM_SELECTED_TEXT`, `${TM_FILENAME:default}` and `$UNKNOWN`
+- **THEN** it inserts the original selection, the filename (or default for an unsaved document), and UNKNOWN
+- **AND** UNKNOWN is an editable stop
 
 ### Requirement: Completion presentation honours server metadata
 The editor SHALL request completion at the start of the identifier around the caret, including for
