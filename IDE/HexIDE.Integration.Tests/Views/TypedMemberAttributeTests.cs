@@ -197,6 +197,80 @@ public class TypedMemberAttributeTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task PastePastADescribedDeclarationKeepsTheLastLineEditable()
+    {
+        var (vm, editor) = Open("Attribute Bar.VB_Description = \"e\"");
+        editor.CaretOffset = editor.Document.GetLineByNumber(2).EndOffset;
+        await Paste(editor, "x\r\nPublic Function Baz() As Long\r\nAttribute Baz.");
+        vm.IsReadOnlyRegion(editor.CaretOffset, 0).Should().BeFalse();
+        await Type(editor, "VB_Description = \"e\"");
+        editor.Document.Text.Should().Contain("Attribute Baz.VB_Description = \"e\"");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("automation")]
+    [InlineData("breakpoint")]
+    [InlineData("bookmark")]
+    public async Task TrackedAttributesRefuseNewMarks(string mark)
+    {
+        var (vm, editor) = Open();
+        await Type(editor, "Attribute Bar.");
+        if (mark == "automation")
+            MarkLineRules.Refusal(vm.CodeWindowText, vm.Identity.Display, [3], [],
+                first: 1, "breakpoint").Should().NotBeNull();
+        else if (mark == "bookmark")
+            vm.ToggleBookmark(3).Should().BeFalse();
+        else
+            vm.ToggleBreakpoint(3).Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task PasteReplacesOnlyTheEditablePartOfAProtectedSelection()
+    {
+        var (_, editor) = Open("Attribute Bar.VB_Description = \"e\"");
+        var declaration = editor.Document.GetLineByNumber(2);
+        editor.Select(declaration.Offset + 7, editor.Document.GetLineByNumber(3).Offset + 5 - declaration.Offset - 7);
+        await Paste(editor, "replacement");
+        editor.Document.Text.Should().Contain("Public replacement");
+        editor.Document.Text.Should().Contain("Attribute Bar.VB_Description = \"e\"");
+    }
+
+    [AvaloniaFact]
+    public async Task UndoAndRedoDoNotRearmTypedLineOwnership()
+    {
+        var (vm, editor) = Open();
+        await Type(editor, "Attribute Bar.");
+        editor.Document.UndoStack.ClearAll();
+        editor.Document.UndoStack.StartUndoGroup();
+        await Type(editor, "VB_Description");
+        editor.Document.UndoStack.EndUndoGroup();
+        editor.CaretOffset = editor.Document.GetLineByNumber(4).Offset;
+        Dispatcher.UIThread.RunJobs();
+        editor.Document.UndoStack.Undo();
+        editor.Document.GetText(editor.Document.GetLineByNumber(3)).Should().Be("Attribute Bar.");
+        vm.IsReadOnlyRegion(editor.Document.GetLineByNumber(3).Offset, 0).Should().BeTrue();
+        editor.Document.UndoStack.Redo();
+        vm.IsReadOnlyRegion(editor.Document.GetLineByNumber(3).Offset, 0).Should().BeTrue();
+    }
+
+    private static async Task Paste(TextEditor editor, string text)
+    {
+        await TopLevel.GetTopLevel(editor)!.Clipboard!.SetTextAsync(text);
+        var before = editor.Document.Text;
+        var gesture = HexIDE.ApplicationCommands.PasteCommand.Gestures[0];
+        editor.TextArea.RaiseEvent(new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent, Key = gesture.Key, KeyModifiers = gesture.KeyModifiers,
+        });
+        for (var i = 0; i < 50 && editor.Document.Text == before; i++)
+        {
+            await Task.Delay(10, CancellationToken.None);
+            Dispatcher.UIThread.RunJobs();
+        }
+        editor.Document.Text.Should().NotBe(before);
+    }
+
+    [AvaloniaFact]
     public async Task FormattingTheTypedLineDoesNotEndOwnership()
     {
         var (vm, editor) = Open();

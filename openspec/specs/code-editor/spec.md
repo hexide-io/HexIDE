@@ -243,6 +243,15 @@ runs, including the runs used to place Enter and Shift+Enter. Leaving the line S
 regions even when the text has not changed. An IDE write SHALL NOT start this tracking, and moving onto an
 already read-only attribute line SHALL NOT make it editable. The file's leading run SHALL keep its existing rules.
 
+A multi-line paste at a described declaration's end SHALL keep the final pasted line editable under the
+same ownership rule. Breakpoint and bookmark admission SHALL inspect the unblanked member regions, so a
+tracked attribute line SHALL refuse a new mark, including through `set_breakpoints` (#3871).
+
+A paste over a selection reaching into read-only text SHALL replace only its editable portions, as typing
+and Delete do. Undo and Redo SHALL restore text without starting typed-line ownership; restoring a
+half-typed member attribute line after leaving it SHALL keep that line locked. These are HexIDE editing
+decisions, not measured VB6 behaviour (#3871).
+
 An attribute line left describing nothing SHALL be preserved, not removed: it is inert text, and the IDE does
 not know what the developer meant by it. A run of attribute lines describes a member when it sits directly
 under that member's declaration, with any lines continued into it, and VB6 reads every line of it as that
