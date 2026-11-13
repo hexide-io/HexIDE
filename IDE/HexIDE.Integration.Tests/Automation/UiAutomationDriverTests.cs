@@ -1407,7 +1407,7 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Skip = "Needs Avalonia 12.1.5; pinned back to 12.1.4 for #3869")]
     public void Inspect_TreeNode_ReportsExpandCollapseState()
     {
         var (window, tree, environment, _) = BuildCollapsibleTreeWindow();
@@ -1450,7 +1450,7 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Skip = "Needs Avalonia 12.1.5; pinned back to 12.1.4 for #3869")]
     public void Interact_Expand_LeafNode_RefusesClearly()
     {
         var (window, tree, environment, _) = BuildCollapsibleTreeWindow();
@@ -1469,7 +1469,7 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
+    [AvaloniaFact(Skip = "Needs Avalonia 12.1.5; pinned back to 12.1.4 for #3869")]
     public void Interact_Collapse_LeafNode_RefusesClearly()
     {
         var (window, tree, environment, _) = BuildCollapsibleTreeWindow();

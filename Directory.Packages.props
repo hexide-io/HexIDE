@@ -2,29 +2,29 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
-  <!-- Avalonia-repository packages move together at 12.1.5, including Headless and Browser (#868).
-       12.1.5 fixes pointer popup resizing after the first measure (#3809; AvaloniaUI/Avalonia#22573).
+  <!-- Avalonia-repository packages move together at 12.1.4, including Headless and Browser (#868).
+       Pinned back from 12.1.5 while macOS Integration instability is investigated (#3869).
        Controls.DataGrid, AvaloniaEdit, Classic.Avalonia and Dock have separate version streams.
        Avalonia 12.1.1 relaxed typed method bindings (AvaloniaUI/Avalonia#21867), but prefers a
        single-parameter overload: keep parameterless command entry points unambiguous. -->
   <ItemGroup>
-    <PackageVersion Include="Avalonia" Version="12.1.5" />
+    <PackageVersion Include="Avalonia" Version="12.1.4" />
     <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
-    <PackageVersion Include="Avalonia.Browser" Version="12.1.5" />
-    <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Browser" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="12.1.4" />
     <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
     <!-- NB: Avalonia.Controls.TreeDataGrid 12.x is a COMMERCIAL "Avalonia Accelerate" product (MIT only through
          11.2.x) — building against it fails with AVLIC0001 (no licence key). Deliberately NOT used; the debugger
          Locals pane uses a native Avalonia TreeView + a columnar row template instead. Do not re-add it. -->
-    <PackageVersion Include="Avalonia.Desktop" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.4" />
     <!-- Keep the two headless packages at Avalonia's version. 12.0.2's session started each test on whatever context its
          thread was left holding, so a run could lose hundreds of tests to errors MTP does not count and still pass
          (#2486, fixed in 12.0.4 by AvaloniaUI/Avalonia#21357). HeadlessTestContextTests checks it. -->
-    <PackageVersion Include="Avalonia.Headless" Version="12.1.5" />
-    <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.1.5" />
-    <PackageVersion Include="Avalonia.Skia" Version="12.1.5" />
-    <PackageVersion Include="Avalonia.Themes.Simple" Version="12.1.5" />
-    <PackageVersion Include="Avalonia.Wayland" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Skia" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Themes.Simple" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Wayland" Version="12.1.4" />
     <!-- 12.0.1-beta1 is the Avalonia-12 build. The 11.3.0.3 assembly was compiled against Avalonia 11,
          and its ClassicBorderDecorator.DrawRadioButtonBorder called
          StreamGeometryContext.ArcTo(Point, Size, double, bool, SweepDirection) — an overload Avalonia 12

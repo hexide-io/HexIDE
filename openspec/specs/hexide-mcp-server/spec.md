@@ -12,6 +12,11 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 > opens no port. Making it a supported opt-in feature for end users is a decided direction rather than
 > current behaviour, and the requirements below describe what ships today.
 
+> **Temporary leaf-node divergence (#3869).** Avalonia is pinned back to 12.1.4 while macOS Integration
+> instability is investigated. It supplies no native `LeafNode` provider, so expanding or collapsing a leaf
+> reports that the element does not support the action, rather than the explanation below. The 12.1.5
+> provider guards remain in place for when the pin is lifted.
+
 ## Requirements
 
 ### Requirement: Breakpoint conditions through automation
