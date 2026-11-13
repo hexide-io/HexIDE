@@ -14,6 +14,23 @@ public class StatusBarServiceTests
 
     private readonly StatusBarService _sut = new(MakeLoc());
 
+    [Fact]
+    public void EveryMessageAssignmentAdvancesTheCounterEvenWhenTextRepeats()
+    {
+        long Version() => ((IStatusBarService)_sut).MessageVersion;
+        var before = Version();
+        _sut.SetMessage("same");
+        Version().Should().Be(before + 1);
+        _sut.SetMessage("same");
+        Version().Should().Be(before + 2);
+        _sut.SetTemporaryMessage("same", TimeSpan.FromMinutes(1));
+        Version().Should().Be(before + 3);
+        _sut.ClearMessage();
+        Version().Should().Be(before + 4);
+        _sut.ClearMessage();
+        Version().Should().Be(before + 5);
+    }
+
     // ── Default state ────────────────────────────────────────────
 
     [Fact]
