@@ -92,17 +92,17 @@ public class HoverStayTests
         var real = RealMouse();
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var sent = false;
+        // Cancel as the move lands, before the dwell's cancellable delay. A posted cancellation after the tip
+        // opens can lose to the final poll, which may finish normally without another cancellable await.
+        if (cancelled) button.PointerEntered += (_, _) => cancellation.Cancel();
         button.PropertyChanged += (_, e) =>
         {
             if (e.Property == ToolTip.IsOpenProperty && ToolTip.GetIsOpen(button) && !sent)
             {
                 sent = true;
                 // Run after the popup opens, before the tool's next 50 ms poll can observe it.
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (cancelled) cancellation.Cancel();
-                    else real(window, new Point(moved ? 210 : 200, 60));
-                }, DispatcherPriority.Send);
+                Dispatcher.UIThread.Post(() => real(window, new Point(moved ? 210 : 200, 60)),
+                    DispatcherPriority.Send);
             }
         };
         try
@@ -114,7 +114,7 @@ public class HoverStayTests
             if (cancelled)
             {
                 await ((Func<Task>)(async () => await pending)).Should().ThrowAsync<OperationCanceledException>();
-                sent.Should().BeTrue();
+                cancellation.IsCancellationRequested.Should().BeTrue();
                 button.IsPointerOver.Should().BeFalse();
                 ToolTip.GetIsOpen(button).Should().BeFalse();
                 using var watch = new UiAutomationDriver.ForeignPointerWatch(window, new Point(200, 150));
