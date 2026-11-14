@@ -132,9 +132,53 @@ Every answer below is a Long.
 - **Windows' own style 6 is not honoured.** Windows defines 6 as Cancel, Try Again and Continue (`MB_CANCELTRYCONTINUE`). VB6 shows OK
   alone, so VB6 does not pass the style straight through.
 - **The flags above the default button leave the box alone** where measured: 4096, 65536 and 524288.
+  - **Corrected 2026-11-14 (#3014):** 524288 right-aligns the text. These rows read the buttons and the answer, not
+    the layout, which is in the section on the two flags below.
 - **An OK-only box's single button has control ID 2, not 1.** Windows gives it IDCANCEL's ID, so Escape closes
   it. Pressing it still returns 1, vbOK. Only the ID differs, and it is recorded so nobody mistakes it for a
   Cancel button.
+
+### vbMsgBoxRight and vbMsgBoxRtlReading: the box's layout (2026-11-14, #3014)
+
+**The question.** What do 524288 (`vbMsgBoxRight`) and 1048576 (`vbMsgBoxRtlReading`) do to the box, and does VB6 pass
+them to Windows as they are?
+
+**The probe.** A Sub Main program, built native and p-code, run in the guest's interactive console at 96 DPI. It showed
+each style with `MsgBox` and then with `MessageBoxA`, with no owner and the same text and title. A watcher read each box:
+- the dialog's class, style and extended style, and the same for every child, with its control ID and screen rectangle;
+- a screenshot.
+
+Then it closed the box with IDCANCEL. Every box returned 2. Native code and p-code, `MsgBox` and `MessageBoxA` all gave
+the same lines, row for row.
+
+| Style | Dialog extended style | The text's static | Laid out | Buttons, left to right | Title |
+|---|---|---|---|---|---|
+| 35, vbYesNoCancel + vbQuestion | `0x00010101` | `SS_LEFT`, style `0x50022080` | icon left, text beside it | Yes, No, Cancel | left |
+| 35 + 524288 | `0x00011101`, adding `WS_EX_RIGHT` | **`SS_RIGHT`**, style `0x50022082`, with `WS_EX_RIGHT` | icon left, **text right-aligned** | Yes, No, Cancel | left |
+| 35 + 1048576 | `0x00410101`, adding **`WS_EX_LAYOUTRTL`**, which every child carries too | `SS_RIGHT` | **mirrored:** icon right, text at the left | **Cancel, No, Yes** | **right**, close box left |
+| 35 + 1572864, both | `0x00410101`: `WS_EX_LAYOUTRTL`, no `WS_EX_RIGHT` | `SS_LEFT` | mirrored: icon right, text beside it | Cancel, No, Yes | right |
+
+The rectangles, in screen pixels across the 290-pixel box (371 to 661):
+
+| | icon | text | Yes | No | Cancel |
+|---|---|---|---|---|---|
+| 35 | 395–427 | 436–628 | 401–476 | 484–559 | 568–643 |
+| 35 + 524288 | 395–427 | 451–643 | 401–476 | 484–559 | 568–643 |
+| 35 + 1048576 | 605–637 | 389–581 | 556–631 | 473–548 | 389–464 |
+| 35 + 1572864 | 605–637 | 404–596 | 556–631 | 473–548 | 389–464 |
+
+**Readings:**
+- **VB6 passes both flags straight to Windows.** `MessageBoxA` with the same style gave identical styles and rectangles.
+- **`vbMsgBoxRight` right-aligns the text and nothing else.** The icon, buttons and title stay where they were.
+- **`vbMsgBoxRtlReading` mirrors the whole box,** with `WS_EX_LAYOUTRTL`, rather than only setting the reading order:
+  `WS_EX_RTLREADING` appears on no window. The title moves right, the close box left, the icon to the right of the
+  text, and the buttons reverse.
+- **With both, the two cancel out for the text alone.** In a mirrored box, the static is `SS_LEFT`, so the text sits
+  beside the icon on the right.
+- **This corrects a reading above.** "The flags above the default button leave the box alone where measured" covered
+  the buttons and the answer, not the layout. 524288 right-aligns the text.
+
+**Not measured:** a Windows whose UI language reads right to left; a text of several lines; the box with an owner form.
 
 ### Closing a message box without pressing a button
 

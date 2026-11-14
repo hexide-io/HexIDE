@@ -75,6 +75,86 @@ public class ImplicitDocumentNamingTests
 
     private static JsonElement Json(object value) => JsonSerializer.SerializeToElement(value, ReplyJson.Options);
 
+    private static HexIDE.Forms.ViewModels.RelatedDocumentEditorViewModel Carried(ProjectDefinition project)
+    {
+        var file = new RelatedDocumentDefinition(project, "snipmod", null);
+        project.AddRelatedDocument(file);
+        return new HexIDE.Forms.ViewModels.RelatedDocumentEditorViewModel(Substitute.For<ILspClient>(),
+            Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>()).Initialize(file);
+    }
+
+    [AvaloniaFact]
+    public async Task A_carried_tab_is_activated_by_name_and_project()
+    {
+        using var f = new Fixture();
+        using var first = Carried(f.First);
+        using var second = Carried(f.Second);
+        f.Tabs(first, second);
+        f.Dock.TryActivateAny(Arg.Any<Func<IDockable, bool>>()).Returns(call =>
+        {
+            f.Dock.AllTabs.Single(call.Arg<Func<IDockable, bool>>()).Should().BeSameAs(second);
+            return true;
+        });
+
+        var result = await TabCall(f.Tools, false, name: "SNIPMOD", project: "second");
+
+        result.Success.Should().BeTrue();
+        result.Project.Should().Be("Second");
+        result.Document.Should().Be("snipmod");
+        f.Dock.Received(1).TryActivateAny(Arg.Any<Func<IDockable, bool>>());
+    }
+
+    [AvaloniaFact]
+    public async Task A_carried_file_without_an_open_tab_is_refused_like_a_module()
+    {
+        using var f = new Fixture();
+        using var carried = Carried(f.First);
+        f.Tabs();
+
+        var result = await TabCall(f.Tools, false, name: "snipmod");
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Be("No open tab for First/snipmod.");
+        f.Dock.DidNotReceive().TryActivateAny(Arg.Any<Func<IDockable, bool>>());
+    }
+
+    [AvaloniaFact]
+    public async Task Ambiguous_carried_names_use_open_files_refusal()
+    {
+        using var f = new Fixture();
+        using var first = Carried(f.First);
+        using var second = Carried(f.Second);
+        f.Tabs(first, second);
+
+        var result = await TabCall(f.Tools, false, name: "snipmod");
+
+        result.Error.Should().Be(NamedDocuments.Find([f.First, f.Second], "snipmod", null, carried: true).Error)
+            .And.Contain("First/snipmod").And.Contain("Second/snipmod").And.Contain("project");
+        f.Dock.DidNotReceive().TryActivateAny(Arg.Any<Func<IDockable, bool>>());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(" *")]
+    [InlineData("*")]
+    public async Task A_caption_with_the_unsaved_marker_activates_its_tab(string marker)
+    {
+        using var f = new Fixture();
+        using var tab = Carried(f.First);
+        tab.Document.Text = "edited";
+        tab.IsModified.Should().BeTrue();
+        f.Tabs(tab);
+        f.Dock.TryActivateAny(Arg.Any<Func<IDockable, bool>>()).Returns(call =>
+        {
+            f.Dock.AllTabs.Single(call.Arg<Func<IDockable, bool>>()).Should().BeSameAs(tab);
+            return true;
+        });
+
+        var result = await TabCall(f.Tools, false, title: tab.Title + marker);
+
+        result.Success.Should().BeTrue();
+        result.Note.Should().Contain("title leaves the unsaved marker out");
+    }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
