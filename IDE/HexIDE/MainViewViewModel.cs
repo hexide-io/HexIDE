@@ -238,10 +238,10 @@ public partial class MainViewViewModel : ObservableObject
     public DelegateCommand OpenLogFolderCommand { get; }
 
     private static async Task OpenLogFolderAsync(IWindowManager windows, ILocalizationService strings,
-        Func<DirectoryInfo, Task<bool>> openDirectory)
+        ILogFolderOpener opener)
     {
         var directory = new DirectoryInfo(Distribution.LogsDirectory);
-        if (!await openDirectory(directory))
+        if (!await opener.OpenAsync(directory))
             await windows.MessageBox(string.Format(strings.GetString("Str.Help.LogFolder.OpenFailed"), directory.FullName),
                 icon: MessageBoxIcon.Information);
     }
@@ -1638,10 +1638,10 @@ public partial class MainViewViewModel : ObservableObject
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
         HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
         RunWithMenuViewModel? runWith = null,
-        Func<DirectoryInfo, Task<bool>>? openDirectory = null)
+        ILogFolderOpener? logFolderOpener = null)
     {
-        OpenLogFolderCommand = new DelegateCommand(() => OpenLogFolderAsync(windowManager, localization,
-            openDirectory ?? (directory => TopLevel.GetTopLevel(Static.MainView)!.Launcher.LaunchDirectoryInfoAsync(directory))).ListenErrors());
+        logFolderOpener ??= new PlatformLogFolderOpener();
+        OpenLogFolderCommand = new DelegateCommand(() => OpenLogFolderAsync(windowManager, localization, logFolderOpener).ListenErrors());
         RunWith = runWith;
         if (findReferences is not null)
         {
