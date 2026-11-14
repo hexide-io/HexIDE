@@ -1532,9 +1532,9 @@ SHALL follow Form_Activate (#2436, measured on vb6.exe, native and p-code agreei
 - **WHEN** Form_Load instead calls Me.Show then Text2.SetFocus
 - **THEN** Form_Activate, the first control's GotFocus and Text2_GotFocus occur inside Form_Load in that order
 
-### Requirement: Project library order determines bare ProgressBar binding
-The runtime SHALL resolve a bare ProgressBar type using the first matching library in the combined
-`Reference=` and `Object=` read order of the project. Form-header libraries SHALL be fallbacks after
+### Requirement: Project library order determines measured bare common-control class binding
+The runtime SHALL resolve the measured MSComctlLib and ComctlLib class names using the first library declaring
+the name in the combined `Reference=` and `Object=` read order of the project. Form-header libraries SHALL be fallbacks after
 project libraries. Qualified types SHALL select their named library. This follows the measured
 [bare-name binding](../../../docs/vb6-fidelity-oracle/in-box-classes-a-bare-name-binds-to-the-first-library.md).
 
@@ -1544,6 +1544,18 @@ project libraries. Qualified types SHALL select their named library. This follow
 - **THEN** it holds Nothing until assigned and accepts an MSComctlLib ProgressBar
 - **AND** assigning a ComctlLib ProgressBar raises 13 and `TypeOf` follows the same binding
 - **AND** reversing the lines reverses the binding, regardless of form-header order
+
+#### Scenario: A control object retains its declared class
+- **GIVEN** MSCOMCTL.OCX referenced and a Node obtained from its TreeView
+- **WHEN** code assigns it to a bare Node or qualified MSComctlLib.Node variable
+- **THEN** TypeName returns INode and TypeOf matches either name
+- **AND** assigning another class raises 13 without replacing the previous object
+
+#### Scenario: Only a library declaring the name can bind it
+- **GIVEN** ComctlLib before MSComctlLib in project read order
+- **WHEN** code declares a bare ButtonMenu
+- **THEN** it binds to MSComctlLib, since ComctlLib does not declare that class
+- **AND** Tab remains qualified only, while project classes retain their existing precedence
 
 ### Requirement: CommonDialog uses the shared control library
 The runtime SHALL resolve CommonDialog constants through the referenced MSComDlg library record and take its
