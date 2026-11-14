@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**HexIDE** — a cross-platform recreation of the Visual Basic 6 IDE in C#/Avalonia UI. Originally derived from [AvaloniaVisualBasic6](https://github.com/BAndysc/AvaloniaVisualBasic6) (MIT). Monorepo with two halves — `IDE/` and `LspServer/` — both **MIT**. The LSP server runs as a separate process (stdio) for crash isolation and a replaceable backend, not for any licensing reason.
+**HexIDE** — a cross-platform, customisable IDE in C#/Avalonia UI. The VB family (VB6, VBA and twinBASIC) is its first and deepest language support, and for VB6 it recreates the classic IDE faithfully. Other languages attach through language servers and providers. Its own interpreter and forms runtime sit behind the same seams as any other engine, as a peer rather than a fallback. Originally derived from [AvaloniaVisualBasic6](https://github.com/BAndysc/AvaloniaVisualBasic6) (MIT). Monorepo with two halves — `IDE/` and `LspServer/` — both **MIT**. The LSP server runs as a separate process (stdio) for crash isolation and a replaceable backend, not for any licensing reason.
 
 ## Build & Test
 
@@ -717,7 +717,11 @@ VB6's actual runtime semantics that exists anywhere. Treat it accordingly:
 
 **Secondary reference (subordinate to the oracle): the VBA documentation** — a local clone of `MicrosoftDocs/VBA-Docs` (the VBA language + object-model reference), located via `$VBA_DOCS`. Licence-vetted MIT-clean: docs are **CC BY 4.0** (attribution-only, *no* copyleft — cannot infect HexIDE's MIT), code samples are **MIT** (© Microsoft). Use it as a **reference for the object model, intrinsic surface, and general semantics** — never as the fidelity authority: it describes *VBA* (VBA7), which diverges from *VB6* at the edges, so `vb6.exe` **always wins** on any behavioural conflict, and every pinned test expectation still comes from the oracle, not the docs. **Two rules to keep clean-room status: (1) never copy the doc prose verbatim** into HexIDE code/comments/docs (facts/APIs/semantics aren't copyrightable, so learning-then-implementing is fine; copying *expression* is not — if you ever quote prose, attribute per CC BY; copied code samples are MIT, keep the notice); **(2) fidelity stays oracle-driven** — this is a lookup aid, not a spec to implement from (that spec-driven lane belongs to a real language engine; HexIDE stays independent). NB this is the docs repo, *not* the formal `[MS-VBAL]` Open Specification (a separate artifact under Microsoft's Open Specifications programme).
 
-## Language-Analysis Boundary — CST, not AST (HARD LIMIT)
+## Language-Analysis Boundary — CST, not AST (HARD LIMIT for the VB family)
+
+**This limit covers the VB family: VB6, VBA and twinBASIC.** Their semantic engines belong to their own projects,
+RDCore and twinBASIC, and HexIDE stays off that ground. It doesn't apply to a language with no open semantic engine,
+but ask the maintainer before building one.
 
 HexIDE's own in-process language tooling operates at the **syntactic (CST) level only**. It parses VB6/VBA
 to a concrete syntax tree and ships CST-level services — syntax diagnostics, structural document symbols,
