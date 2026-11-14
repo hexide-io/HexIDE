@@ -124,6 +124,7 @@ and the JSON path. Non-ASCII text before the fault counts as characters, rather 
 | `priority` | no | Breaks ties for features that cannot merge two answers, such as formatting and rename. Higher wins. The bundled server sits *below* the default, so your own server wins without you having to know this field exists. |
 | `enabled` | no | `false` switches an entry off entirely — no process, no registration. |
 | `capture` | no | How much of this server's conversation the protocol capture may hold. See *Giving one server a bigger record* below. |
+| `restartOnProjectChange` | no | `true` restarts this connection when projects join or leave the group, reopening its documents. Off by default; use for servers that ignore workspace-folder notifications. |
 | `workspaceArtifact` | no | A workspace-relative `path`, registered `provider` id and provider-owned `settings`. Generation requires consent; see [Generated workspace files](#generated-workspace-files). |
 
 Use the array form when quoting matters: `"arguments": ["host", "server --stdio"]` passes two arguments
@@ -581,12 +582,21 @@ imports the project with `rdcore.importProject`:
   "command": "path/to/RDCore.LanguageServer.exe",
   "arguments": "--pipe-name {pipe} --workspace {workspaceUri}",
   "priority": 10,
+  "restartOnProjectChange": true,
   "projectImport": {
     "command": "rdcore.importProject",
     "arguments": [{ "uri": "{uri}", "text": "{text}", "overwrite": true }]
   }
 }
 ```
+
+`restartOnProjectChange` is enabled here because RDCore advertised folder-change notifications but did
+not load a folder added after startup in the [#261 measurement](https://github.com/hexide-io/HexIDE/issues/261)
+(main `90334dd6`, 2026-11-14). HexIDE keeps one connection for the group and restarts it after the project-change
+debounce when membership changes. This setting is separate from `workspaceArtifact.restartOnChange`,
+which responds to changed generated file bytes; adding an outside source folder alone does not trigger it.
+Membership here uses the workspace's project snapshots: a project without a chosen folder gives a server no
+folder to load, so it counts from when its folder is chosen.
 
 Give `command` the absolute path of your build. The import needs a saved project: an unsaved one is reported
 in Tools → Language Servers rather than given an invented URI. If your build doesn't advertise

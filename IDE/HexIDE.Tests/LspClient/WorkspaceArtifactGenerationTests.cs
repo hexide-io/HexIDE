@@ -367,6 +367,88 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         await other[0].DidNotReceive().StopAsync();
     }
 
+    [Theory]
+    [InlineData(true, "add")]
+    [InlineData(true, "remove")]
+    [InlineData(true, "same folder")]
+    [InlineData(false, "add")]
+    [InlineData(false, "remove")]
+    [InlineData(true, "source")]
+    public async Task ProjectMembershipRestartsOnlyOptedInConnections(bool enabled, string change)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var first = new WorkspaceArtifactContext(_root, new("First", Path.Combine(_root, "First.vbp"), [], []));
+        var secondRoot = change == "same folder" ? _root : Path.Combine(_root, "second");
+        var second = new WorkspaceArtifactContext(secondRoot,
+            new("Second", Path.Combine(secondRoot, "Second.vbp"), [], []));
+        _workspace.Projects = [first, second];
+        var clients = new List<ILspClient>();
+        var other = new List<ILspClient>();
+        // Exercise the JSON entry through registration, not just a hand-built registration's flag.
+        var entry = JsonSerializer.Deserialize<LanguageServerEntry>(
+            $$"""
+            { "id": "probe", "extensions": [".c"], "languageId": "c", "transport": "stdio", "command": "probe",
+              "restartOnProjectChange": {{(enabled ? "true" : "null")}} }
+            """)!;
+        var registration = new LanguageServerRegistrationFactory(NullLoggerFactory.Instance).Create([entry]).Single()
+            with { CreateClient = () => Track(clients) };
+        await using var registry = new LspClientRegistry(
+            [registration, Server() with { Id = "other", WorkspaceArtifact = null, CreateClient = () => Track(other) }],
+            NullLogger<LspClientRegistry>.Instance, _workspace, artifacts: _service);
+        var uri = new Uri(Path.Combine(_root, "probe.c")).AbsoluteUri;
+        await registry.OpenDocumentAsync(uri, "int x;", ct);
+        if (change == "remove") _workspace.Projects = [first];
+        else if (change == "source")
+            _workspace.Projects = [first with { Project = first.Project with
+                { Files = [new("outside.c", Path.Combine(_root, "outside.c"), WorkspaceProjectFileKind.Carried)] } }, second];
+        else _workspace.Projects = [first, second,
+            new(secondRoot, new("Third", Path.Combine(secondRoot, "Third.vbp"), [], []))];
+        _workspace.Change();
+        _workspace.Change();
+        await Debounce();
+        var shouldRestart = enabled && change != "source";
+        if (shouldRestart)
+        {
+            for (var waited = 0; clients.Count < 2 && waited < 5000; waited += 25)
+                await Task.Delay(25, ct);
+            clients.Should().HaveCount(2);
+            await clients[0].Received(1).StopAsync();
+            await clients[1].Received(1).OpenDocumentAsync(uri, "int x;", Arg.Any<CancellationToken>());
+        }
+        else
+        {
+            clients.Should().ContainSingle();
+            await clients[0].DidNotReceive().StopAsync();
+            await clients[0].Received(1).UpdateWorkspaceFoldersAsync(Arg.Any<CancellationToken>());
+        }
+        other.Should().ContainSingle();
+        await other[0].DidNotReceive().StopAsync();
+        await other[0].Received(1).UpdateWorkspaceFoldersAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ProjectMembershipRestartsAManuallyStartedConnectionWithoutDocuments()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clients = new List<ILspClient>();
+        await using var registry = new LspClientRegistry(
+            [Server() with { WorkspaceArtifact = null, RestartOnProjectChange = true,
+                CreateClient = () => Track(clients) }],
+            NullLogger<LspClientRegistry>.Instance, _workspace, artifacts: _service);
+        await registry.RestartAsync("probe", ct);
+        clients.Should().ContainSingle();
+        _workspace.Projects = [.. _workspace.Projects,
+            new(Path.Combine(_root, "second"), new("Second", Path.Combine(_root, "Second.vbp"), [], []))];
+        _workspace.Change();
+        await Debounce();
+        for (var waited = 0; clients.Count < 2 && waited < 5000; waited += 25)
+            await Task.Delay(25, ct);
+        clients.Should().HaveCount(2);
+        await clients[0].Received(1).StopAsync();
+        await clients[1].Received(1).StartAsync(Arg.Any<CancellationToken>());
+        await clients[1].DidNotReceiveWithAnyArgs().OpenDocumentAsync(default!, default!, Arg.Any<CancellationToken>());
+    }
+
     private LanguageServerRegistration Importing(ILspClient client) => Server() with
     {
         CreateClient = () => client,
