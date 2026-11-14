@@ -284,6 +284,8 @@
     "Str.Menu.Help.BrandHome": "Начална страница на {0}",
     "Str.Menu.Help.BrandSupport": "Поддръжка за {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE в интернет",
+    "Str.Menu.Help.LogFolder": "Отваряне на папката с журнали на HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Папката с журнали не може да бъде отворена. Можете да я отворите ръчно: {0}",
     "Str.Menu.Help.About": "Относно HexIDE...",
     "Str.Menu.GoToGithubRepo": "Към хранилището в GitHub",
     "Str.ProjectType.StandardEXE": "Стандартен EXE",
@@ -1274,6 +1276,7 @@
     "Str.Dock.ToolTabStripItemClose": "Затваряне",
     "Str.AIChat.ApiKeyRequired": "Необходим е API ключ. Задайте променливата на средата HEXIDE_AI_API_KEY или apiKey в chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Поверителност: вашите съобщения, съдържанието на активния файл (за формуляр — и оформлението и надписите) и диагностиката му се изпращат до {0} — услуга на трета страна, конфигурирана в настройките на AI чата.",
-    "Str.AIChat.PrivacyKeyTip": "Съвет: задайте променливата на средата HEXIDE_AI_API_KEY, за да избегнете съхраняването на API ключа във файл."
+    "Str.AIChat.PrivacyKeyTip": "Съвет: задайте променливата на средата HEXIDE_AI_API_KEY, за да избегнете съхраняването на API ключа във файл.",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Проектите {0} споделят папка {1}; записва се или се импортира само {2}."
   }
 }

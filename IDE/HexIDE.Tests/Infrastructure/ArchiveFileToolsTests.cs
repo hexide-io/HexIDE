@@ -26,6 +26,7 @@ public sealed class ArchiveFileToolsTests : IDisposable
         Directory.CreateDirectory(directory);
         projects.LoadedProjects.Returns(Array.Empty<ProjectDefinition>());
         dock.OpenDocuments.Returns(tabs);
+        dock.AllTabs.Returns(_ => tabs.ToArray());
         dock.When(d => d.OpenDocument(Arg.Any<BaseEditorWindowViewModel>(), Arg.Any<bool>()))
             .Do(call => tabs.Add(call.Arg<BaseEditorWindowViewModel>()));
         var localization = Substitute.For<ILocalizationService>();
@@ -188,6 +189,60 @@ public sealed class ArchiveFileToolsTests : IDisposable
         var opened = await tools.OpenFileAsync("/form.tbform");
         opened.Success.Should().BeTrue(opened.Error);
         tabs.Should().ContainSingle().Which.Should().BeOfType<ArchiveDocumentViewModel>().Which.Notice.Should().Contain("UnsupportedType");
+    }
+
+    [AvaloniaFact]
+    public async Task Archive_tab_info_uses_the_same_identity_as_open_file()
+    {
+        await archives.Open(Write("one.twinproj", "a/b%.twin"));
+        var opened = await tools.OpenFileAsync("/a%2Fb%25.twin");
+
+        var reply = JsonSerializer.SerializeToElement(
+            await tools.GetDocumentTabsAsync(TestContext.Current.CancellationToken), ReplyJson.Options);
+        var tab = reply.GetProperty("tabs")[0];
+        tab.GetProperty("project").GetString().Should().Be(opened.Project);
+        tab.GetProperty("document").GetString().Should().Be(opened.Document);
+        tab.GetProperty("type").GetString().Should().Be("archive");
+        tab.TryGetProperty("isModified", out _).Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task Equal_entry_paths_in_two_archives_keep_distinct_tab_projects()
+    {
+        var one = Write("one.twinproj", "main.twin");
+        var two = Write("two.twinproj", "main.twin");
+        await archives.Open(one);
+        await archives.Open(two);
+        await tools.OpenFileAsync("/main.twin", project: one);
+        await tools.OpenFileAsync("/main.twin", project: two);
+
+        var reply = await tools.GetDocumentTabsAsync(TestContext.Current.CancellationToken);
+        reply.Tabs.Select(tab => tab.Project).Should().Equal(one, two);
+        reply.Tabs.Select(tab => tab.Document).Should().Equal("/main.twin", "/main.twin");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Archive_type_is_accepted_by_tab_actions(bool close)
+    {
+        await archives.Open(Write("one.twinproj", "main.twin"));
+        await tools.OpenFileAsync("/main.twin");
+        var tab = tabs.Should().ContainSingle().Which;
+        dock.TryActivateAny(Arg.Any<Func<Dock.Model.Core.IDockable, bool>>())
+            .Returns(call => call.Arg<Func<Dock.Model.Core.IDockable, bool>>()(tab));
+        dock.TryCloseAny(Arg.Any<Func<Dock.Model.Core.IDockable, bool>>())
+            .Returns(call => call.Arg<Func<Dock.Model.Core.IDockable, bool>>()(tab));
+
+        var reply = close
+            ? await tools.CloseDocumentTabAsync(title: tab.Title, type: "archive")
+            : await tools.ActivateDocumentTabAsync(title: tab.Title, type: "archive");
+
+        reply.Success.Should().BeTrue(reply.Error);
+        if (close)
+            dock.Received(1).TryCloseAny(Arg.Any<Func<Dock.Model.Core.IDockable, bool>>());
+        else
+            dock.Received(1).TryActivateAny(Arg.Any<Func<Dock.Model.Core.IDockable, bool>>());
     }
 
     private string Write(string file, string entry)

@@ -330,6 +330,8 @@
     "Str.Menu.Help.BrandHome": "_Beranda {0}",
     "Str.Menu.Help.BrandSupport": "_Dukungan {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE di _Web",
+    "Str.Menu.Help.LogFolder": "Buka Folder _Log HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Tidak dapat membuka folder log. Anda dapat membukanya secara manual: {0}",
     "Str.Menu.Help.About": "_Tentang HexIDE...",
     "Str.Menu.GoToGithubRepo": "Buka repo github",
     "Str.NewProject.NoTemplates": "Profil ini tidak menyediakan templat proyek baru. Buka proyek yang sudah ada.",
@@ -1274,6 +1276,7 @@
     "Str.AIChat.Send": "Kirim",
     "Str.AIChat.New": "Baru",
     "Str.AIChat.InputPlaceholder": "Tanyakan tentang kode Anda…",
-    "Str.AIChat.NewTip": "Obrolan baru (riwayat tetap disimpan)"
+    "Str.AIChat.NewTip": "Obrolan baru (riwayat tetap disimpan)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Proyek {0} berbagi folder {1}; hanya {2} yang ditulis atau diimpor."
   }
 }

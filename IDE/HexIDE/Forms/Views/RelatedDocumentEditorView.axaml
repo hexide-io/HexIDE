@@ -10,12 +10,17 @@
              xmlns:classic="clr-namespace:Classic.Avalonia.Theme;assembly=Classic.Avalonia.Theme"
              mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="400"
              x:DataType="viewModels:RelatedDocumentEditorViewModel"
+             x:Name="Root"
              x:Class="HexIDE.Forms.Views.RelatedDocumentEditorView">
     <input:CommandManager.CommandBindings>
         <!-- Bound to this editor's OWN save. The VB6 code editor binds Save to the form path for every
              document it hosts, which is why Ctrl+S does nothing in a .bas today (#244). -->
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveCommand}"
                               ExecutingCommand="{CompiledBinding Save}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CompleteWordCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.TriggerCompletion}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ParameterInfoCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.TriggerSignatureHelp}" />
     </input:CommandManager.CommandBindings>
 
     <DockPanel>

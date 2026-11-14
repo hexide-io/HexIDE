@@ -356,6 +356,8 @@
     "Str.Menu.Help.BrandHome": "{0} ホームページ(_H)",
     "Str.Menu.Help.BrandSupport": "{0} サポート(_S)",
     "Str.Menu.Help.ProductOnWeb": "Web 上の HexIDE(_W)",
+    "Str.Menu.Help.LogFolder": "HexIDE のログフォルダーを開く(_L)",
+    "Str.Help.LogFolder.OpenFailed": "ログフォルダーを開けませんでした。手動で開くことができます: {0}",
     "Str.Menu.Help.About": "HexIDE のバージョン情報(_A)...",
     "Str.Menu.GoToGithubRepo": "github リポジトリへ移動",
     "Str.NewProject.NoTemplates": "このプロファイルには新規プロジェクトのテンプレートがありません。既存のプロジェクトを開いてください。",
@@ -1274,6 +1276,7 @@
     "Str.Dock.ToolTabs": "ツールのタブ",
     "Str.AIChat.ApiKeyRequired": "API キーが必要です。環境変数 HEXIDE_AI_API_KEY、または chat-settings.json の apiKey を設定してください。",
     "Str.AIChat.PrivacyNotice": "ℹ プライバシー: メッセージ、アクティブなファイルの内容（フォームの場合はレイアウトとキャプションも）、およびその診断情報は、AI チャット設定で構成したサードパーティのサービス {0} に送信されます。",
-    "Str.AIChat.PrivacyKeyTip": "ヒント: API キーをファイルに保存しないように、環境変数 HEXIDE_AI_API_KEY を設定してください。"
+    "Str.AIChat.PrivacyKeyTip": "ヒント: API キーをファイルに保存しないように、環境変数 HEXIDE_AI_API_KEY を設定してください。",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "プロジェクト {0} はフォルダー {1} を共有しています。{2} のみが書き込みまたはインポートされます。"
   }
 }

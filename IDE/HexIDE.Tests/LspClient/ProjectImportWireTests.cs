@@ -405,7 +405,7 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
         // An add-in's project, beside a .vbp: only the .vbp is imported.
         _workspace.Projects =
         [
-            new(_root, new("Ledger", Path.Combine(_root, ".rdproj"), [], [])),
+            new(Path.Combine(_root, "addin"), new("Ledger", Path.Combine(_root, "addin", ".rdproj"), [], [])),
             _workspace.Projects[0] with { ProjectText = _ => Task.FromResult("Name=\"Changed\"\r\n") },
         ];
         _workspace.Change();
@@ -415,6 +415,30 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
 
         Frames("workspace/executeCommand").Select(frame => frame.GetRawText()).Should().NotContain(text => text.Contains("rdproj"));
         _registry!.ConfigurationProblems.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SharedFolderImportsOnlyTheFirstProjectOnTheWire()
+    {
+        await StartAsync();
+        var first = _workspace.Projects[0] with { ProjectText = _ => Task.FromResult("Name=\"Changed\"\r\n") };
+        _workspace.Projects =
+        [
+            first,
+            new(_root, new("Other", Path.Combine(_root, "Other.vbp"), [], []),
+                ProjectText: _ => Task.FromResult("Name=\"Other\"\r\n")),
+        ];
+        _workspace.Change();
+        await _artifacts!.PendingRegeneration;
+        var imports = Frames("workspace/executeCommand");
+        imports.Should().HaveCount(2, "the initial import and one update for the first project");
+        imports[1].GetRawText().Should().Contain("Changed").And.NotContain("Other");
+        _registry!.ConfigurationProblems.Should().ContainSingle().Which.Message.Should().Contain("Probe").And.Contain("Other");
+        _workspace.Projects = [first];
+        _workspace.Change();
+        await _artifacts.PendingRegeneration;
+        Frames("workspace/executeCommand").Should().HaveCount(3);
+        _registry.ConfigurationProblems.Should().BeEmpty();
     }
 
     [Fact]

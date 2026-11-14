@@ -1198,6 +1198,12 @@
         "command": "application.ProductOnWebCommand"
       },
       {
+        "kind": "Command",
+        "id": "help.logfolder",
+        "labelKey": "Str.Menu.Help.LogFolder",
+        "command": "shell.OpenLogFolderCommand"
+      },
+      {
         "kind": "Separator",
         "id": "help.separator1"
       },

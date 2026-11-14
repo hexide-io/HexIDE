@@ -292,6 +292,8 @@
     "Str.Menu.Help.BrandHome": "{0} _sākumlapa",
     "Str.Menu.Help.BrandSupport": "{0} _atbalsts",
     "Str.Menu.Help.ProductOnWeb": "HexIDE _tīmeklī",
+    "Str.Menu.Help.LogFolder": "Atvērt HexIDE žurnā_lu mapi",
+    "Str.Help.LogFolder.OpenFailed": "Neizdevās atvērt žurnālu mapi. Varat to atvērt manuāli: {0}",
     "Str.Menu.Help.About": "_Par HexIDE...",
     "Str.Menu.GoToGithubRepo": "Atvērt GitHub repozitoriju",
     "Str.ProjectType.StandardEXE": "Standarta EXE",
@@ -1274,6 +1276,7 @@
     "Str.AIChat.Send": "Sūtīt",
     "Str.AIChat.New": "Jauna",
     "Str.AIChat.InputPlaceholder": "Jautājiet par savu kodu…",
-    "Str.AIChat.NewTip": "Jauna saruna (vēsture tiek saglabāta)"
+    "Str.AIChat.NewTip": "Jauna saruna (vēsture tiek saglabāta)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} koplieto mapi {1}; tiek ierakstīts vai importēts tikai {2}."
   }
 }

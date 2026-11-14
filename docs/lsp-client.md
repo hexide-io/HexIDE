@@ -441,6 +441,12 @@ folders and the same startup-project root. See [the RDCore entry](language-serve
 
 ---
 
+Entries declaring a workspace artefact or project import process only the first loaded project in each
+resolved folder. A shared folder produces a configuration problem naming its projects in Tools → Language
+Servers, refreshed on the workspace debounce and cleared when the collision ends. Folder deduplication in
+the handshake remains unchanged; this protection prevents one project's descriptor/import from replacing
+another's (#261).
+
 ## Asking a server to describe its own work
 
 A wire capture shows what a server said. It cannot show *why*. That a request took two seconds is on the
@@ -468,6 +474,25 @@ That distinction is not pedantic, because silence is the normal case. Five serve
 `trace: "verbose"` **and** an explicit `$/setTrace`: not one emitted a single `$/logTrace`, and three of the
 binaries contain no trace machinery at all. A fourth's framework implements the types and its server never
 calls them. So a trace pane that is empty against most servers is correct, and has to say why.
+
+## Carried-file completion and signature help (#266)
+
+The code window and carried-file editor attach the same text-area component for completion,
+snippets and signature help. It flushes pending edits before querying the document and cancels
+requests, closes popups and ends snippet navigation when detached, including a dock move.
+
+A carried file asks its claiming servers only for advertised capabilities. Completion opens on a
+letter, an advertised completion trigger or the Complete Word command (the platform command key
+plus Space), with Auto List Members enabled. Requests use the caret position. Enter accepts without
+a line break, and Tab also accepts. With nothing selected, Enter closes the list and starts a new
+line, while Tab accepts the first item. Space and other non-word input close the list without accepting.
+Snippets select their first stop whether accepted with Enter or Tab, and Tab advances through them.
+Signature help opens on the server's advertised signature triggers.
+The code window keeps its word-start position, VB6 free-text/read-only rules, Space commit and fixed
+`(` / `,` signature triggers. Each split pane owns its own component.
+
+Hover, formatting, definition navigation, highlights and rename in carried files remain later stages
+of #266. Headless coverage is in `CarriedFileCompletionTests`; live IDE verification remains pending.
 
 ## Capability negotiation
 
@@ -1821,7 +1846,8 @@ no unconsented write, and no write outside the workspace. See [configuration](la
 The loader recognises a server-neutral `projectImport` command and JSON argument array (#2363).
 Exact `{uri}` and `{text}` string values expand recursively, preserving JSON types and property names.
 After initialization and on the artefact service's 300 ms project-change debounce, the registry calls
-that command with each project's saved URI and in-memory `.vbp` serialization. Importing entries skip
+that command with the first loaded project's saved URI and in-memory `.vbp` serialization in each
+resolved folder. Shared folders are configuration problems, as described above. Importing entries skip
 artefact generation. The server must advertise the command; errors become configuration problems and
 reply notes reach the same server log as `window/logMessage` (object notes use their `message` text).
 Successful imports invalidate and re-pull open-document diagnostics until

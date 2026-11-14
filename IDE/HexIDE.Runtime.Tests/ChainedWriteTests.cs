@@ -19,6 +19,36 @@ public class ChainedWriteTests : BaseVBTestFixture
         AssertDebugLog([expected]);
     }
 
+    // vb6.exe SP6 native and p-code, #3941; see the oracle's chained-writes page.
+    [Theory]
+    [InlineData("o.H.Value = 4", "o.H.Value", "4")]
+    [InlineData("Module1.o.H.Value = 5", "o.H.Value", "5")]
+    [InlineData("Module1.OP.Value = 6", "hh.Value", "6")]
+    [InlineData("OP.Value = 7", "hh.Value", "7")]
+    public async Task ObjectRootWriteStoresThroughTheReference(string store, string read, string expected)
+    {
+        await RunClasses("Dim o As Outer2\r\nDim hh As Holder\r\n" +
+            "Property Get OP() As Holder\r\nSet OP = hh\r\nEnd Property\r\n" +
+            "Set o = New Outer2\r\nSet o.H = New Holder\r\nSet hh = New Holder\r\n" + store +
+            "\r\nDebug.Print CStr(" + read + ")", ("Outer2", "Public H As Holder\r\n"),
+            ("Holder", "Public Value As Long\r\n"));
+        AssertDebugLog([expected]);
+    }
+
+    [Theory]
+    [InlineData("PT2.Z = 5")]
+    [InlineData("Module2.PT2.Z = 6")]
+    public async Task ForeignModuleUdtPropertyWriteDiscardsTheCopy(string store)
+    {
+        await RunModules("Module2.SetZ 3\r\nModule2.gets = 0\r\n" + store +
+            "\r\nDebug.Print CStr(Module2.MZ())\r\nDebug.Print CStr(Module2.gets)",
+            ("Module2", Record + "Dim mt As TU\r\nPublic gets As Long\r\n" +
+                "Public Property Get PT2() As TU\r\ngets = gets + 1\r\nPT2 = mt\r\nEnd Property\r\n" +
+                "Public Sub SetZ(ByVal n As Long)\r\nmt.Z = n\r\nEnd Sub\r\n" +
+                "Public Function MZ() As Long\r\nMZ = mt.Z\r\nEnd Function\r\n"));
+        AssertDebugLog(["3", "1"]);
+    }
+
     private const string Record = "Public Type TU\r\nZ As Long\r\nEnd Type\r\n";
     private const string Box = "Private m As TU\r\nPublic Gets As Long\r\nPublic Lets As Long\r\n" +
         "Friend Property Get U() As TU\r\nGets = Gets + 1\r\nU = m\r\nEnd Property\r\n" +

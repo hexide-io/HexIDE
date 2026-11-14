@@ -1349,7 +1349,7 @@ A form's `ActiveControl` SHALL return its last focused control while active, ina
 and Nothing when loaded but never shown or when no control has taken focus. Reading an unloaded
 form's member SHALL load it again with no remembered control. Measured in
 [#2437](https://github.com/hexide-io/HexIDE/issues/2437), oracle measurement #2279.
-This first slice does not restore focus or raise GotFocus on reactivation. A form's initial focus is specified below.
+Reactivation raises GotFocus for the remembered control after Activate, as specified below.
 
 #### Scenario: A hidden form remembers focus
 - **WHEN** a control takes focus and its form is hidden
@@ -1403,7 +1403,16 @@ NamedFormat SHALL convert as CInt does and reject formats outside 0–4 with err
 A shown form with no focusable control SHALL raise Form_GotFocus after Form_Activate.
 When another form in the program becomes active, the form losing focus SHALL raise Form_LostFocus before
 Form_Deactivate (#2579; [measured activation rows](../../../docs/vb6-fidelity-oracle/a-forms-resize-activate-and-deactivate.md)).
-Forms with focusable controls SHALL retain their existing event order.
+Switching between forms by Show, SetFocus, Hide of the active form or a window-system activation SHALL
+raise the old control's LostFocus, the old form's Deactivate, the new form's Activate, then the new
+control's GotFocus (#3932, the same measured rows). These events SHALL wait until the running handler
+returns, except for Show inside Form_Load's measured inline activation and initial focus (#2436).
+
+#### Scenario: Show another form and return by Hide
+- **WHEN** Form1's handler shows Form2 and prints a line after Show
+- **THEN** the line precedes Form1's control LostFocus, Form1 Deactivate, Form2 Activate and Form2's control GotFocus
+- **WHEN** Form2 is hidden while active
+- **THEN** the reverse switch raises those four events in the same order
 
 #### Scenario: Show an empty form and switch back
 - **WHEN** an empty form is shown and then another of the program's forms is activated
@@ -1532,9 +1541,9 @@ SHALL follow Form_Activate (#2436, measured on vb6.exe, native and p-code agreei
 - **WHEN** Form_Load instead calls Me.Show then Text2.SetFocus
 - **THEN** Form_Activate, the first control's GotFocus and Text2_GotFocus occur inside Form_Load in that order
 
-### Requirement: Project library order determines bare ProgressBar binding
-The runtime SHALL resolve a bare ProgressBar type using the first matching library in the combined
-`Reference=` and `Object=` read order of the project. Form-header libraries SHALL be fallbacks after
+### Requirement: Project library order determines measured bare common-control class binding
+The runtime SHALL resolve the measured MSComctlLib and ComctlLib class names using the first library declaring
+the name in the combined `Reference=` and `Object=` read order of the project. Form-header libraries SHALL be fallbacks after
 project libraries. Qualified types SHALL select their named library. This follows the measured
 [bare-name binding](../../../docs/vb6-fidelity-oracle/in-box-classes-a-bare-name-binds-to-the-first-library.md).
 
@@ -1544,6 +1553,18 @@ project libraries. Qualified types SHALL select their named library. This follow
 - **THEN** it holds Nothing until assigned and accepts an MSComctlLib ProgressBar
 - **AND** assigning a ComctlLib ProgressBar raises 13 and `TypeOf` follows the same binding
 - **AND** reversing the lines reverses the binding, regardless of form-header order
+
+#### Scenario: A control object retains its declared class
+- **GIVEN** MSCOMCTL.OCX referenced and a Node obtained from its TreeView
+- **WHEN** code assigns it to a bare Node or qualified MSComctlLib.Node variable
+- **THEN** TypeName returns INode and TypeOf matches either name
+- **AND** assigning another class raises 13 without replacing the previous object
+
+#### Scenario: Only a library declaring the name can bind it
+- **GIVEN** ComctlLib before MSComctlLib in project read order
+- **WHEN** code declares a bare ButtonMenu
+- **THEN** it binds to MSComctlLib, since ComctlLib does not declare that class
+- **AND** Tab remains qualified only, while project classes retain their existing precedence
 
 ### Requirement: CommonDialog uses the shared control library
 The runtime SHALL resolve CommonDialog constants through the referenced MSComDlg library record and take its

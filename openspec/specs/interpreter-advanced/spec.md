@@ -4,8 +4,6 @@
 Define the interpreter's object model — multiple modules, user-defined types, classes, properties and events —
 and, more importantly, define where it stops and why stopping there is deliberate.
 
-**Known divergence:** the refusal naming another implementation, specified below, was never built (#3434).
-
 These constructs are what separates a program from a script. A large share of real VB6 is built on a
 collection of objects with properties and events, so an engine without them can run examples but not
 anything a developer recognises as their own code.
@@ -74,8 +72,13 @@ surface is not advertised as compatible, and no part of it appears as planned wo
 
 #### Scenario: A construct from another implementation's extended surface
 - **WHEN** a program uses a language construct that no Microsoft-era release shipped
-- **THEN** the engine stops with an error identifying it as belonging to another implementation
-- **AND** it names that implementation as the place to run the program
+- **THEN** the engine stops before any statement runs with one compile error identifying the construct as outside VB6, VBA and VBScript
+- **AND** the error names no other implementation and does not describe the construct as planned work
+
+#### Scenario: Compound assignment is outside the classic dialects
+- **WHEN** a program uses `+=`, `-=`, `*=`, `/=`, `\=`, `^=` or `&=`
+- **THEN** the engine SHALL refuse it at load with the construct as typed and its line
+- **AND** the message reads `<construct> isn't part of VB6, VBA or VBScript, so this interpreter doesn't run it.`
 
 #### Scenario: Describing what the interpreter supports
 - **WHEN** the interpreter's language support is described

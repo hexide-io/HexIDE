@@ -267,6 +267,12 @@ internal sealed record CompletionSnippet(string Text, IReadOnlyList<CompletionSn
         area.StackedInputHandlers.OfType<Navigation>().Select(handler => handler.ChoiceWindow)
             .OfType<CompletionWindow>().Where(window => window.IsOpen);
 
+    internal static void Deactivate(TextArea area)
+    {
+        foreach (var handler in area.StackedInputHandlers.OfType<Navigation>().ToArray())
+            area.PopStackedInputHandler(handler);
+    }
+
     public void Activate(TextArea area, int offset)
     {
         var context = new InsertionContext(area, offset) { InsertionPosition = offset + Text.Length };

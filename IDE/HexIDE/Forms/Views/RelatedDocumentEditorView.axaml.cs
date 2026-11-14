@@ -19,6 +19,23 @@ namespace HexIDE.Forms.Views;
 
 public partial class RelatedDocumentEditorView : UserControl
 {
+    private EditorLanguageFeatures? _languageFeatures;
+    internal Task? PendingLanguageRequests => _languageFeatures?.PendingRequests is { IsCompleted: false } pending
+        ? pending : null;
+    internal IReadOnlyList<Avalonia.Controls.Primitives.Popup> OpenLanguagePopups => _languageFeatures?.OpenPopups ?? [];
+    public void TriggerCompletion() => _languageFeatures?.TriggerCompletion();
+    public void TriggerSignatureHelp() => _languageFeatures?.TriggerSignatureHelp();
+
+    private sealed class CarriedFileCompletionRules(RelatedDocumentEditorViewModel vm) : IEditorCompletionRules
+    {
+        public bool MayOpenCompletion() => vm.Settings.AutoListMembers && vm.LoadError is null;
+        public bool RefusesTyping(int offset, int length) => vm.LoadError is not null;
+        public bool Commits(Avalonia.Input.Key key) => key is Avalonia.Input.Key.Return or Avalonia.Input.Key.Tab;
+        public bool HandlesReturn => true;
+        public bool CompletionAtWordStart => false;
+        public IReadOnlyList<string>? FixedSignatureTriggers => null;
+    }
+
     private Action? _onPaletteChanged;
     private LspTextMarkerService? _markerService;
     private FoldingManager? _foldingManager;
@@ -83,6 +100,7 @@ public partial class RelatedDocumentEditorView : UserControl
         OnMarkersChanged(vm.Markers);
 
         AttachCaretSync(editor, vm);
+        _languageFeatures = new EditorLanguageFeatures(editor.TextArea, vm, new CarriedFileCompletionRules(vm));
 
         // Folding, on the same terms as the VB6 editor. A carried file's URI is a real file: one, so an
         // attached server can answer for it; the registry decides whether any server may.
@@ -262,6 +280,8 @@ public partial class RelatedDocumentEditorView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        _languageFeatures?.Dispose();
+        _languageFeatures = null;
         _foldCts?.Cancel();
         _foldCts?.Dispose();
         _foldCts = null;

@@ -296,6 +296,8 @@
     "Str.Menu.Help.BrandHome": "{0}:n _kotisivu",
     "Str.Menu.Help.BrandSupport": "{0}-_tuki",
     "Str.Menu.Help.ProductOnWeb": "HexIDE _verkossa",
+    "Str.Menu.Help.LogFolder": "Avaa HexIDE-_lokikansio",
+    "Str.Help.LogFolder.OpenFailed": "Lokikansiota ei voitu avata. Voit avata sen käsin: {0}",
     "Str.Menu.Help.About": "_Tietoja: HexIDE...",
     "Str.Menu.GoToGithubRepo": "Siirry GitHub-säilöön",
     "Str.NewProject.NoTemplates": "Tämä profiili ei tarjoa uusien projektien malleja. Avaa sen sijaan olemassa oleva projekti.",
@@ -1274,6 +1276,7 @@
     "Str.AIChat.Send": "Lähetä",
     "Str.AIChat.New": "Uusi",
     "Str.AIChat.InputPlaceholder": "Kysy koodistasi…",
-    "Str.AIChat.NewTip": "Uusi keskustelu (historia säilytetään)"
+    "Str.AIChat.NewTip": "Uusi keskustelu (historia säilytetään)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektit {0} jakavat kansion {1}; vain {2} kirjoitetaan tai tuodaan."
   }
 }

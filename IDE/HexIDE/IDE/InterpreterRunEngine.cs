@@ -487,9 +487,12 @@ public sealed class InterpreterRunEngine : IRunEngine
             this.windowManager = windowManager;
         }
 
-        public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+        public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+            => MsgBox(text, caption, buttons, icon, MessageBoxLayout.None);
+
+        public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxLayout layout)
         {
-            return await windowManager.MessageBox(text, caption, buttons, icon, isProgramDialog: true);
+            return await windowManager.MessageBox(text, caption, buttons, icon, isProgramDialog: true, layout: layout);
         }
 
         public async Task<string?> InputBox(string prompt, string? title, string defaultText)

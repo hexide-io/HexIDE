@@ -33,6 +33,55 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         "probe", "Probe server", [".c"], "c", () => Substitute.For<ILspClient>(),
         WorkspaceArtifact: new(path, "probe"));
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SharedFolderKeepsFirstProjectAndReportsBothUntilSeparated(bool importing)
+    {
+        var first = new WorkspaceArtifactContext(_root, new("First", "First.vbp", [], []));
+        var second = new WorkspaceArtifactContext(Path.Combine(_root, "."), new("Second", "Second.vbp", [], []));
+        _workspace.Projects = [first, second];
+        _provider.UseProjectName = true;
+        var server = importing ? Server() with
+        {
+            ProjectImport = new("probe.import", JsonDocument.Parse("[]").RootElement.Clone()),
+        } : Server();
+        await using var registry = new LspClientRegistry(
+            [server, Server() with { Id = "plain", WorkspaceArtifact = null }],
+            NullLogger<LspClientRegistry>.Instance, _workspace, artifacts: _service);
+        registry.ConfigurationProblems.Should().ContainSingle().Which.Message.Should().Contain("First").And.Contain("Second");
+        var notifications = 0;
+        registry.ConnectionsChanged += (_, _) => notifications++;
+        var imported = new List<string>();
+        if (importing)
+            await _service.ImportAsync(server, (project, _) =>
+            {
+                imported.Add(project.Project.Name);
+                return Task.CompletedTask;
+            }, TestContext.Current.CancellationToken);
+        else
+            await _service.PrepareAsync(server, TestContext.Current.CancellationToken);
+
+        if (importing) imported.Should().Equal("First");
+        else
+        {
+            _provider.Calls.Should().Be(1);
+            File.ReadAllText(Path.Combine(_root, "generated.json")).Should().Be("First");
+        }
+        var problem = registry.ConfigurationProblems.Should().ContainSingle().Subject;
+        problem.EntryId.Should().Be(server.Id);
+        problem.Message.Should().Contain("First").And.Contain("Second");
+        problem.EntryRejected.Should().BeFalse();
+        notifications.Should().Be(0);
+        _workspace.Projects = [first, second with { WorkspaceRoot = Path.Combine(_root, "separate") }];
+        _workspace.Change();
+        await Debounce();
+        registry.ConfigurationProblems.Should().BeEmpty();
+        notifications.Should().Be(1);
+        if (importing) imported.Should().Equal("First", "First", "Second");
+        else File.ReadAllText(Path.Combine(_root, "separate", "generated.json")).Should().Be("Second");
+    }
+
     [Fact]
     public async Task ArtefactWritesReportOnlyCompletedMaterialChangesDirectly()
     {
@@ -1001,6 +1050,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
     private sealed class Provider : IWorkspaceArtifactProvider
     {
         public string Name => "probe";
+        public bool UseProjectName { get; set; }
         public string? Content { get; set; } = "first";
         public int Calls { get; private set; }
         public Exception? Failure { get; set; }
@@ -1010,6 +1060,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
             Calls++;
             OnProduce?.Invoke();
             if (Failure is not null) throw Failure;
+            if (UseProjectName) return context.Project.Name;
             return Content is null || context.LibraryNames is not { } names ? Content
                 : Content + " " + names.NameOf(new WorkspaceProjectReference("library"));
         }

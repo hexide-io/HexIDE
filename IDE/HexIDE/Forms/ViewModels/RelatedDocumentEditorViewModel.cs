@@ -34,9 +34,29 @@ namespace HexIDE.Forms.ViewModels;
 /// </para>
 /// </summary>
 public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindowManager windowManager,
-    ILocalizationService localization)
-    : BaseEditorWindowViewModel, ISearchableDocument, IOutlineDocument
+    ILocalizationService localization, ISettingsService settings)
+    : BaseEditorWindowViewModel, ISearchableDocument, IOutlineDocument, HexIDE.Forms.Views.IEditorDocumentQueries
 {
+    internal ISettingsService Settings => settings;
+    public string? DocumentUri => session is { IsOpen: true } open ? open.Uri : null;
+    public Task FlushDocumentAsync(CancellationToken ct = default) =>
+        session is { IsOpen: true } open ? open.FlushAsync(ct) : Task.CompletedTask;
+    public IReadOnlyList<string> CompletionTriggerCharacters => DocumentUri is { } uri
+        ? lspClient.CompletionTriggerCharacters(uri) : [];
+    public IReadOnlyList<string> SignatureHelpTriggerCharacters => DocumentUri is { } uri
+        ? lspClient.SignatureHelpTriggerCharacters(uri) : [];
+    public Task<CompletionItem[]> RequestCompletionAsync(Position position, CancellationToken ct = default) =>
+        DocumentUri is { } uri && lspClient.SupportsCapability(uri, "completionProvider")
+            ? lspClient.RequestCompletionAsync(uri, position, ct) : Task.FromResult<CompletionItem[]>([]);
+    public Task<CompletionItem[]> RequestCompletionForTriggerAsync(Position position, string triggerCharacter,
+        CancellationToken ct = default) =>
+        DocumentUri is { } uri && lspClient.SupportsCapability(uri, "completionProvider")
+            ? lspClient.RequestCompletionForTriggerAsync(uri, position, triggerCharacter, ct) : Task.FromResult<CompletionItem[]>([]);
+    public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default,
+        string? triggerCharacter = null) =>
+        DocumentUri is { } uri && lspClient.SupportsCapability(uri, "signatureHelpProvider")
+            ? lspClient.RequestSignatureHelpAsync(uri, position, ct, triggerCharacter) : Task.FromResult<SignatureHelp?>(null);
+
     public IReadOnlyList<DocumentSymbol> OutlineSymbols { get; private set; } = [];
     public event Action? LanguageServerStateChanged;
     private int symbolRefreshVersion;

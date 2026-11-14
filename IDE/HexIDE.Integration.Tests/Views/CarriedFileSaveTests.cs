@@ -33,7 +33,7 @@ public class CarriedFileSaveTests : IDisposable
     {
         var path = Path.Combine(_dir, "carried.dsr");
         File.WriteAllBytes(path, bytes);
-        return new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>(), _windowManager, _localization)
+        return new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>(), _windowManager, _localization, Substitute.For<HexIDE.IDE.ISettingsService>())
             .Initialize(new RelatedDocumentDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "carried.dsr", path));
     }
 

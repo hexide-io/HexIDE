@@ -21,6 +21,8 @@ public interface IBasicStandardLibrary
     /// <summary>The screen the <c>Screen</c> object describes (#2431): see <see cref="IVbDisplay"/>.</summary>
     IVbDisplay Display => throw new NotImplementedException("This host has no screen for the Screen object to describe (#2431)");
     Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon);
+    Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxLayout layout)
+        => MsgBox(text, caption, buttons, icon);
     Task<string?> InputBox(string prompt, string? title, string defaultText);
 
     /// <summary>
@@ -801,12 +803,22 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         parsingModule = moduleName;
         try
         {
-            var parser = new VB6Parser(NextCounterList.Tokens(lexer));
+            var tokens = NextCounterList.Tokens(lexer);
+            OtherDialectRefusal.Check(tokens, source);
+            var parser = new VB6Parser(tokens);
             parser.RemoveErrorListeners();
             parser.AddErrorListener(this);
-            var tree = ParseWithFallback(parser, p => p.startRule(), moduleName: moduleName);
-            ModuleParsePredictionMode = parser.Interpreter.PredictionMode;
-            return tree;
+            try
+            {
+                var tree = ParseWithFallback(parser, p => p.startRule(), moduleName: moduleName);
+                ModuleParsePredictionMode = parser.Interpreter.PredictionMode;
+                return tree;
+            }
+            catch (VBCompileErrorException)
+            {
+                OtherDialectRefusal.Check(tokens, source, wordOperators: true);
+                throw;
+            }
         }
         finally
         {

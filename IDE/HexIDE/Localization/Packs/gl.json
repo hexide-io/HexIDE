@@ -284,6 +284,8 @@
     "Str.Menu.Help.BrandHome": "Páxina de _inicio de {0}",
     "Str.Menu.Help.BrandSupport": "_Asistencia de {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE na _web",
+    "Str.Menu.Help.LogFolder": "Abrir o cartafol de _rexistros de HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Non se puido abrir o cartafol de rexistros. Pode abrilo manualmente: {0}",
     "Str.Menu.Help.About": "_Sobre HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ir ao repositorio de GitHub",
     "Str.ProjectType.StandardEXE": "EXE estándar",
@@ -1274,6 +1276,7 @@
     "Str.Dock.ToolTabStripItemClose": "_Pechar",
     "Str.AIChat.ApiKeyRequired": "Cómpre unha clave API. Estableza a variable de contorno HEXIDE_AI_API_KEY ou apiKey en chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Privacidade: as súas mensaxes, o contido do ficheiro activo (nun formulario, tamén a disposición e os títulos) e os seus diagnósticos envíanse a {0}, un servizo de terceiros configurado nos axustes do chat de IA.",
-    "Str.AIChat.PrivacyKeyTip": "Consello: estableza a variable de contorno HEXIDE_AI_API_KEY para evitar gardar a clave API nun ficheiro."
+    "Str.AIChat.PrivacyKeyTip": "Consello: estableza a variable de contorno HEXIDE_AI_API_KEY para evitar gardar a clave API nun ficheiro.",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Os proxectos {0} comparten o cartafol {1}; só se escribe ou importa {2}."
   }
 }

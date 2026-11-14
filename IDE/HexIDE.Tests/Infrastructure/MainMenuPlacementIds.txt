@@ -196,6 +196,7 @@ help
 help.brandhome
 help.brandsupport
 help.productonweb
+help.logfolder
 help.separator1
 help.about
 gotogithubrepo

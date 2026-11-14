@@ -258,6 +258,8 @@
     "Str.Menu.Help.BrandHome": "หน้าแรกของ {0}",
     "Str.Menu.Help.BrandSupport": "การสนับสนุน {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE บนเว็บ",
+    "Str.Menu.Help.LogFolder": "เปิดโฟลเดอร์บันทึกของ HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "ไม่สามารถเปิดโฟลเดอร์บันทึกได้ คุณสามารถเปิดด้วยตนเอง: {0}",
     "Str.Menu.Help.About": "เกี่ยวกับ HexIDE...",
     "Str.Menu.GoToGithubRepo": "ไปที่คลัง GitHub",
     "Str.ProjectType.StandardEXE": "EXE มาตรฐาน",
@@ -1274,6 +1276,7 @@
     "Str.AIChat.Send": "ส่ง",
     "Str.AIChat.New": "ใหม่",
     "Str.AIChat.InputPlaceholder": "ถามเกี่ยวกับโค้ดของคุณ…",
-    "Str.AIChat.NewTip": "แชตใหม่ (ประวัติจะถูกเก็บไว้)"
+    "Str.AIChat.NewTip": "แชตใหม่ (ประวัติจะถูกเก็บไว้)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "โครงการ {0} ใช้โฟลเดอร์ {1} ร่วมกัน จะเขียนหรือนำเข้าเฉพาะ {2} เท่านั้น"
   }
 }

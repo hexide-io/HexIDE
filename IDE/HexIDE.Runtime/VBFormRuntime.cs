@@ -24,6 +24,35 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
     // Kept beyond window focus: inactive and hidden forms answer their last control (#2437, measured).
     internal Control? ActiveControl { get; private set; }
 
+    // The control whose VB GotFocus was raised, independent of native focus arriving around activation (#3932).
+    private Control? focusedControl;
+    private Control? nativeFocusControl;
+
+    internal void ControlFocused(Control control)
+    {
+        ActiveControl = control;
+        nativeFocusControl = control;
+        if (!ReferenceEquals(windowContext.Program?.ActiveForm, windowContext.FormInstance)
+            || ReferenceEquals(focusedControl, control))
+            return;
+        BlurControl();
+        focusedControl = control;
+        control.ExecuteSub(ComponentBaseClass.GotFocusEvent);
+    }
+
+    internal void BlurControl()
+    {
+        var previous = focusedControl;
+        focusedControl = null;
+        previous?.ExecuteSub(ComponentBaseClass.LostFocusEvent);
+    }
+
+    internal void RestoreControlFocus()
+    {
+        if (ActiveControl is { } control && ReferenceEquals(control, nativeFocusControl))
+            ControlFocused(control);
+    }
+
     internal static Control? FindControl(Control window, ILogical? focused)
     {
         Control? found = null;

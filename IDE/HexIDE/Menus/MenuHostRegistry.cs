@@ -130,6 +130,7 @@ internal static class MenuHostRegistry
             ["shell.EndProjectCommand"] = new("{CompiledBinding EndProjectCommand}", null, nameof(MainViewViewModel.EndProjectCommand)),
             ["shell.OpenAddInManager"] = new("{CompiledBinding OpenAddInManager}", null, nameof(MainViewViewModel.OpenAddInManager)),
             ["shell.OpenDiagnosticsCommand"] = new("{CompiledBinding OpenDiagnosticsCommand}", null, nameof(MainViewViewModel.OpenDiagnosticsCommand)),
+            ["shell.OpenLogFolderCommand"] = new("{CompiledBinding OpenLogFolderCommand}", null, nameof(MainViewViewModel.OpenLogFolderCommand)),
             ["shell.OpenBrandHomeCommand"] = new("{CompiledBinding OpenBrandHomeCommand}", null, nameof(MainViewViewModel.OpenBrandHomeCommand)),
             ["shell.OpenBrandSupportCommand"] = new("{CompiledBinding OpenBrandSupportCommand}", null, nameof(MainViewViewModel.OpenBrandSupportCommand)),
             ["shell.OpenGithubRepo"] = new("{CompiledBinding OpenGithubRepo}", null, nameof(MainViewViewModel.OpenGithubRepo)),

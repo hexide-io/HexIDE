@@ -322,6 +322,8 @@
     "Str.Menu.Help.BrandHome": "{0}-_Startseite",
     "Str.Menu.Help.BrandSupport": "{0}-_Support",
     "Str.Menu.Help.ProductOnWeb": "HexIDE im _Web",
+    "Str.Menu.Help.LogFolder": "HexIDE-_Logordner öffnen",
+    "Str.Help.LogFolder.OpenFailed": "Der Logordner konnte nicht geöffnet werden. Sie können ihn manuell öffnen: {0}",
     "Str.Menu.Help.About": "Ü_ber HexIDE...",
     "Str.Menu.GoToGithubRepo": "Zum GitHub-Repository wechseln",
     "Str.NewProject.NoTemplates": "Dieses Profil bietet keine Vorlagen für neue Projekte. Öffnen Sie stattdessen ein vorhandenes Projekt.",
@@ -1274,6 +1276,7 @@
     "Str.Dock.ToolTabStripItemClose": "S_chließen",
     "Str.AIChat.ApiKeyRequired": "API-Schlüssel erforderlich. Setzen Sie die Umgebungsvariable HEXIDE_AI_API_KEY oder apiKey in chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Datenschutz: Ihre Nachrichten, der Inhalt der aktiven Datei (bei einem Formular auch Layout und Beschriftungen) und deren Diagnosen werden an {0} gesendet — einen Drittanbieterdienst, den Sie in den KI-Chat-Einstellungen konfiguriert haben.",
-    "Str.AIChat.PrivacyKeyTip": "Tipp: Setzen Sie die Umgebungsvariable HEXIDE_AI_API_KEY, um Ihren API-Schlüssel nicht in einer Datei zu speichern."
+    "Str.AIChat.PrivacyKeyTip": "Tipp: Setzen Sie die Umgebungsvariable HEXIDE_AI_API_KEY, um Ihren API-Schlüssel nicht in einer Datei zu speichern.",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Die Projekte {0} teilen den Ordner {1}; nur {2} wird geschrieben oder importiert."
   }
 }
