@@ -431,6 +431,13 @@ different meanings, and "no folders are open" is the true one.
 `workspace/didChangeWorkspaceFolders` is sent on that trigger only when the server declares
 `workspace.workspaceFolders.changeNotifications` as true or a registration string.
 Unchanged folders produce no notification. Folder updates also reach connections without project import.
+An entry can opt into `restartOnProjectChange` (off by default) for a server that ignores these notifications.
+The same debounce detects projects joining or leaving, restarts only that running connection through the
+registry's restart path, and reopens its documents. Two projects sharing a folder still count separately;
+a source-list edit alone does not change membership. A project without a chosen folder gives a server no
+folder to load, so it counts from when its folder is chosen. The replacement initializes with the current
+folders and the same startup-project root. See [the RDCore entry](language-servers.md#rdcore) and
+[#261](https://github.com/hexide-io/HexIDE/issues/261).
 
 ---
 
