@@ -22,12 +22,12 @@ concurrency:
 # 2026-10-26 (#883). Theory rows are counted by execution, not discovery. Raise floors as suites grow.
 # The async test-context lifetime fix is separate: https://github.com/hexide-io/HexIDE/issues/2194.
 env:
-  MIN_TESTS_RUNTIME: 7757       # 8166 measured (WSL, #3213); catches short runs; raise to 95% of a new full total.
-  MIN_TESTS_TWINBASIC: 200      # 226
-  MIN_TESTS_IDE: 6166           # 6491 measured (WSL, #3213); catches short runs; raise to 95% of a new full total.
-  MIN_TESTS_INTEGRATION: 2930   # 3085 measured (WSL, #3663); catches short runs; raise to 95% of a new full total.
-  MIN_TESTS_RUNTIME_INTEGRATION: 2611    # 2749 measured (WSL, #3663); raise to 95% of a new full total as tests move in.
-  MIN_TESTS_LSP_SERVER: 624     # 657 measured (WSL, #3213); catches short runs; raise to 95% of a new full total.
+  MIN_TESTS_RUNTIME: 8191  # 8623 measured (CI Linux at e6fb3b859, 2026-11-14); raise to 95% of a new full total.
+  MIN_TESTS_TWINBASIC: 332  # 350 measured (CI Linux at e6fb3b859, 2026-11-14); raise to 95% of a new full total.
+  MIN_TESTS_IDE: 7684  # 8089 measured (CI Linux at e6fb3b859, 2026-11-14); raise to 95% of a new full total.
+  MIN_TESTS_INTEGRATION: 3408  # 3588 measured (CI Linux at e6fb3b859, 2026-11-14); raise to 95% of a new full total.
+  MIN_TESTS_RUNTIME_INTEGRATION: 2612  # 2750 measured (CI Linux at e6fb3b859, 2026-11-14); raise to 95% of a new full total.
+  MIN_TESTS_LSP_SERVER: 704  # 742 measured (CI Linux at e6fb3b859, 2026-11-14); raise to 95% of a new full total.
 
 jobs:
   # ── May the build jobs be skipped for this pull request? ──────────────────────────────────────────
