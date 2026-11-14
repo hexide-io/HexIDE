@@ -7,6 +7,15 @@ the add-in's program's to write, and its membership the program's to change.
 
 ## Requirements
 
+### Requirement: The file name SHALL choose a project's format
+The IDE SHALL choose a project format by the file name or extension, never by sniffing the content.
+The chosen format SHALL check the content and refuse content it cannot read, giving its reason;
+it SHALL NOT fall through to a different format based on those bytes.
+
+#### Scenario: Content does not match the selected file's format
+- **WHEN** the chosen format cannot read the file's content
+- **THEN** opening is refused with that format's reason rather than trying another format
+
 ### Requirement: An add-in SHALL be able to contribute a project type
 The host surface SHALL let an add-in register a project type: a title, the file names or `*.ext` patterns it reads, and
 what reads a file of it. The names SHALL be copied at registration. A type SHALL NOT read a file HexIDE's own project

@@ -9,6 +9,7 @@ namespace HexIDE.Desktop.Server;
 
 internal sealed class IdeContext : IDisposable
 {
+    public ArchiveProjectService? Archives { get; }
     public IProjectManager ProjectManager { get; }
     public IDocumentDockService DocumentDockService { get; }
     public ILspClient LspClient { get; }
@@ -67,8 +68,10 @@ internal sealed class IdeContext : IDisposable
         ISettingsService settings,
         IProjectFileFormat projectFileFormat,
         HexIDE.Language.IReadOnlyRegionReader readOnlyRegionReader,
-        HexIDE.Language.IReadOnlyRegionRules? readOnlyRegionRules = null)
+        HexIDE.Language.IReadOnlyRegionRules? readOnlyRegionRules = null,
+        ArchiveProjectService? archives = null)
     {
+        Archives = archives;
         ProjectManager = projectManager;
         DocumentDockService = documentDockService;
         LspClient = lspClient;

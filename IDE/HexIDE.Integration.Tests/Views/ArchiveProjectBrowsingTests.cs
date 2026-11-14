@@ -130,6 +130,26 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task A_caret_prepared_before_the_archive_view_exists_is_shown_at_that_place()
+    {
+        await archives.Open(Write("one.twinproj", "first\nsecond"));
+        archives.OpenDocument(archives.Projects[0].Root.Children[0]);
+        var tab = tabs.Should().ContainSingle().Which.Should().BeOfType<ArchiveDocumentViewModel>().Which;
+        HexIDE.Automation.CaretPlacement.Place(tab, 2, 3).Should().BeTrue();
+        var view = new ArchiveDocumentView { DataContext = tab };
+        var window = new Window { Content = view, Width = 600, Height = 400 };
+        window.Show();
+        try
+        {
+            var editor = view.FindControl<TextEditor>("Editor")!;
+            editor.CaretOffset.Should().Be(8);
+            editor.TextArea.Caret.Line.Should().Be(2);
+            editor.TextArea.Caret.Column.Should().Be(3);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task Text_is_searchable_but_editor_replace_and_direct_mutation_are_read_only()
     {
         await archives.Open(Write("one.twinproj", "hello world hello"));

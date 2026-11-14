@@ -56,7 +56,12 @@ public partial class ArchiveDocumentView : UserControl
     {
         if (model != null) model.PropertyChanged -= SyncSelection;
         model = DataContext as ArchiveDocumentViewModel;
-        if (model != null) model.PropertyChanged += SyncSelection;
+        if (model != null)
+        {
+            model.PropertyChanged += SyncSelection;
+            SyncSelection(model, new PropertyChangedEventArgs(model.SelectionLength > 0
+                ? nameof(model.SelectionStart) : nameof(model.CaretOffset)));
+        }
     }
 
     private void SyncSelection(object? sender, PropertyChangedEventArgs e)

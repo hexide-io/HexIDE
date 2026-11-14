@@ -22,7 +22,8 @@ namespace HexIDE.Tests.Infrastructure;
 /// </remarks>
 public class ToolDocumentNamingTests
 {
-    private static readonly Regex Lookup = new(@"(?<![\w.])(?:Find|FindDesigner|ResolveDocument)\s*\(\s*(?<name>\w+)\s*,");
+    // Archive paths resolve through their own container identity and read-only inspector (#1118).
+    private static readonly Regex Lookup = new(@"(?<![\w.])(?:Find|FindDesigner|ResolveDocument|OpenArchive)\s*\(\s*(?<name>\w+)\s*,");
     private static readonly Regex NamingCall = new(@"(?<![\w.])Naming\s*\(");
 
     /// <summary>The tools that look a document up, each with the parameter it looks up and where it first does.</summary>
