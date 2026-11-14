@@ -89,6 +89,7 @@ public class Win32ResourcesTests : BaseVBTestFixture
     [Fact]
     public void MultipleLanguagesAreRefusedOnlyForMatchingLookup()
     {
+        using var locale = VbLocale.Use(System.Globalization.CultureInfo.GetCultureInfo("fr-FR"));
         var resources = Win32Resources.Read(FileBytes(Entry((ushort)10, (ushort)201, [1]),
             Entry((ushort)10, (ushort)201, [2], 0x407), Entry((ushort)10, (ushort)202, [3])));
         var lookup = () => resources.Find((ushort)10, (ushort)201);
