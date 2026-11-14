@@ -1142,6 +1142,7 @@
     "Str.Tool.Diagnostics.Information": "Thông tin",
     "Str.Tool.Diagnostics.Hints": "Gợi ý",
     "Str.Tool.Diagnostics.CurrentDocument": "Tài liệu hiện tại",
+    "Str.Tool.Diagnostics.Project": "Dự án",
     "Str.Tool.Diagnostics.Server": "Máy chủ",
     "Str.Tool.Diagnostics.Source": "Nguồn",
     "Str.Tool.Diagnostics.Document": "Tài liệu",

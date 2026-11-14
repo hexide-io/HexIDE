@@ -52,6 +52,32 @@ The module-name collection and save order follows [measurement #3777](../../../d
 
 ## Requirements
 
+### Requirement: Project groups retain membership and order
+The reader SHALL treat `StartupProject=` as a member in file order and select it as startup.
+It SHALL consume both `VBGROUP 5.0` and `VBGROUP 5.00` as headers and retain other unknown lines as before.
+See the [VB6 measurements](../../../docs/vb6-fidelity-oracle/a-project-groups-file-as-vb6-writes-it.md).
+
+#### Scenario: Startup is the second member
+- **GIVEN** `Project=A\A.vbp` followed by `StartupProject=B\B.vbp`
+- **WHEN** the group is opened
+- **THEN** it contains A followed by B, with B as startup
+
+#### Scenario: An older HexIDE group lists startup twice
+- **GIVEN** `StartupProject=B\B.vbp`, `Project=A\A.vbp`, and `Project=B\B.vbp`
+- **WHEN** the group is opened
+- **THEN** it loads A followed by B once each, with B as startup, retaining the `Project=` positions
+
+### Requirement: Project groups write the measured VB6 format
+With a startup project, the writer SHALL emit `VBGROUP 5.0` and each project in group order, using
+`StartupProject=` for startup and `Project=` for every other member, with CR LF line endings.
+Groups without startup SHALL retain their prior output pending measurement.
+
+#### Scenario: Saving a group whose startup is second
+- **GIVEN** projects A and B in order, with B as startup
+- **WHEN** the group is saved
+- **THEN** it writes only `Project=A\A.vbp` followed by `StartupProject=B\B.vbp` after the header
+- **AND** any unknown lines follow as before
+
 ### Requirement: A loaded module takes its name from its file
 A loaded `.bas` or `.cls` SHALL take its name from its header's `Attribute VB_Name`, falling back to
 its `.vbp` line when no name is present. Loading SHALL show no warning or dialog for a mismatch.

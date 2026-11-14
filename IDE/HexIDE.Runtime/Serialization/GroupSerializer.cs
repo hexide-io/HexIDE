@@ -19,12 +19,14 @@ public class GroupSerializer
 
         var dir = Path.GetDirectoryName(groupPath)!;
         var w = new StringWriter { NewLine = "\r\n" };
-        w.WriteLine("VBGROUP 5.00");
-        if (startupProject is not null && PathOf(startupProject) is { } startupPath)
-            w.WriteLine($"StartupProject={SerializedProject.ToProjectFilePath(Path.GetRelativePath(dir, startupPath))}");
+        // No-startup output is unmeasured; retain its existing header until it is (#579).
+        w.WriteLine(startupProject is null ? "VBGROUP 5.00" : "VBGROUP 5.0");
         foreach (var p in projects)
             if (PathOf(p) is { } projectPath)
-                w.WriteLine($"Project={SerializedProject.ToProjectFilePath(Path.GetRelativePath(dir, projectPath))}");
+            {
+                var key = ReferenceEquals(p, startupProject) ? "StartupProject" : "Project";
+                w.WriteLine($"{key}={SerializedProject.ToProjectFilePath(Path.GetRelativePath(dir, projectPath))}");
+            }
         if (unknownLines != null)
             foreach (var line in unknownLines)
                 w.WriteLine(line);

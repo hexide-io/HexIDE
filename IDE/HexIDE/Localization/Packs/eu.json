@@ -1142,6 +1142,7 @@
     "Str.Tool.Diagnostics.Information": "Informazioa",
     "Str.Tool.Diagnostics.Hints": "Iradokizunak",
     "Str.Tool.Diagnostics.CurrentDocument": "Uneko dokumentua",
+    "Str.Tool.Diagnostics.Project": "Proiektua",
     "Str.Tool.Diagnostics.Server": "Zerbitzaria",
     "Str.Tool.Diagnostics.Source": "Iturburua",
     "Str.Tool.Diagnostics.Document": "Dokumentua",

@@ -206,6 +206,23 @@ public static class NamedDocuments
         }
     }
 
+    /// <summary>Diagnostic attribution in a group: startup project first, then loaded order (#261).</summary>
+    public static NamedDocument ForDiagnostic(IEnumerable<ProjectDefinition> loaded, ProjectDefinition? startup, string uri)
+    {
+        var projects = loaded.ToList();
+        if (startup is not null && projects.Contains(startup))
+        {
+            var preferred = ForUri([startup], uri);
+            if (preferred.Name is not null) return preferred;
+        }
+        foreach (var project in projects)
+        {
+            var found = ForUri([project], uri);
+            if (found.Name is not null) return found;
+        }
+        return new NamedDocument(null, null, null, Missing: true);
+    }
+
     /// <summary>
     /// Carried files by name, and only when none has that name, by filename. The two differ for a file VB6
     /// carried on a code line: <c>Module=Notes; Notes.md</c> is named Notes (#548). AbsolutePath is a host

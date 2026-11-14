@@ -12,6 +12,34 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Diagnostic project attribution in groups
+
+With multiple loaded projects, the Diagnostics tool window SHALL show each diagnostic's
+owning project and `get_diagnostics` SHALL return it in `project`. The owner SHALL be the
+startup project if it lists the document, otherwise the first loaded project that lists it.
+A shared document SHALL appear under that owner only. Switching the startup project SHALL
+recompute attribution. Attribution SHALL NOT change server routing or editor diagnostics.
+
+#### Scenario: Distinct and shared modules
+
+- **GIVEN** two loaded projects listing their own modules and a shared module
+- **WHEN** diagnostics arrive for those modules
+- **THEN** each exclusive module names its own project and the shared module names the startup project
+- **AND** both the Diagnostics window and `get_diagnostics` use that rule
+
+#### Scenario: Startup changes
+
+- **WHEN** the startup project switches to another project listing the shared module
+- **THEN** existing diagnostics for that module name the new startup project
+- **AND** if the startup project does not list a document, its first loaded owner is used
+
+#### Scenario: Unknown document and single project
+
+- **WHEN** a diagnostic names a document no loaded project lists
+- **THEN** it has no project owner
+- **WHEN** only one project is loaded
+- **THEN** the Project column is hidden and automation reply field values are unchanged
+
 ### Requirement: Projects sharing a workspace artefact or import folder
 
 For an entry declaring `workspaceArtifact` or `projectImport`, HexIDE SHALL write or import only the first

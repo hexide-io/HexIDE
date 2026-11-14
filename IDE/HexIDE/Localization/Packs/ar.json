@@ -1167,6 +1167,7 @@
     "Str.Tool.Diagnostics.Information": "المعلومات",
     "Str.Tool.Diagnostics.Hints": "التلميحات",
     "Str.Tool.Diagnostics.CurrentDocument": "المستند الحالي",
+    "Str.Tool.Diagnostics.Project": "مشروع",
     "Str.Tool.Diagnostics.Server": "الخادم",
     "Str.Tool.Diagnostics.Source": "المصدر",
     "Str.Tool.Diagnostics.Document": "المستند",

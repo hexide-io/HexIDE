@@ -1176,6 +1176,7 @@
     "Str.Tool.Diagnostics.Information": "Informācija",
     "Str.Tool.Diagnostics.Hints": "Padomi",
     "Str.Tool.Diagnostics.CurrentDocument": "Pašreizējais dokuments",
+    "Str.Tool.Diagnostics.Project": "Projekts",
     "Str.Tool.Diagnostics.Server": "Serveris",
     "Str.Tool.Diagnostics.Source": "Avots",
     "Str.Tool.Diagnostics.Document": "Dokuments",

@@ -1142,6 +1142,7 @@
     "Str.Tool.Diagnostics.Information": "Information",
     "Str.Tool.Diagnostics.Hints": "Tips",
     "Str.Tool.Diagnostics.CurrentDocument": "Aktuellt dokument",
+    "Str.Tool.Diagnostics.Project": "Projekt",
     "Str.Tool.Diagnostics.Server": "Server",
     "Str.Tool.Diagnostics.Source": "Källa",
     "Str.Tool.Diagnostics.Document": "Dokument",

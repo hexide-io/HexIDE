@@ -15,6 +15,44 @@ namespace HexIDE.Integration.Tests.Views;
 public class DiagnosticsPresentationTests
 {
     [AvaloniaFact]
+    public void ProjectColumnAppearsForAGroupAndDisappearsWhenOneProjectRemains()
+    {
+        var localization = new LocalizationService();
+        localization.Apply("en");
+        var first = new HexIDE.Runtime.ProjectElements.ProjectDefinition(HexIDE.Runtime.ProjectElements.VBProjectType.EXE, "First");
+        var second = new HexIDE.Runtime.ProjectElements.ProjectDefinition(HexIDE.Runtime.ProjectElements.VBProjectType.EXE, "Second");
+        var module = new HexIDE.Runtime.ProjectElements.ModuleDefinition(second, "Module1",
+            HexIDE.Runtime.ProjectElements.ModuleKind.StandardModule);
+        second.AddModule(module);
+        var projects = new ProjectManager(Substitute.For<IEditorService>(), Substitute.For<IEventBus>());
+        projects.AddProject(first);
+        projects.AddProject(second);
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Diagnostics.Returns(new[] { new OwnedDiagnostic(DocumentWireName.For(module), "server",
+            new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(0, 1)), "problem")) });
+        var view = new DiagnosticsToolView
+        {
+            DataContext = new DiagnosticsToolViewModel(registry, Substitute.For<ILspClient>(),
+                Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), localization, projects)
+        };
+        var window = new Window { Content = view, Width = 1000, Height = 400 };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var grid = (DataGrid)((Grid)view.Content!).Children[1];
+            var column = grid.Columns.Single(c => Equals(c.Header, "Project"));
+            column.IsVisible.Should().BeTrue();
+            view.GetVisualDescendants().OfType<TextBlock>().Should().Contain(t => t.Text == "Second");
+            projects.UnloadProject(first);
+            Dispatcher.UIThread.RunJobs();
+            column.IsVisible.Should().BeFalse();
+            view.GetVisualDescendants().OfType<TextBlock>().Should().NotContain(t => t.Text == "Second");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void ListShowsTheDiagnosticSourceSeparatelyFromItsServer()
     {
         var view = new DiagnosticsToolView();
@@ -172,7 +210,7 @@ public class DiagnosticsPresentationTests
                 localization.Apply(language.Id);
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
-                var headers = view.GetVisualDescendants().OfType<DataGridColumnHeader>().Where(h => h.Content is string).ToArray();
+                var headers = view.GetVisualDescendants().OfType<DataGridColumnHeader>().Where(h => h.Content is string && h.IsVisible).ToArray();
                 headers.Should().HaveCount(6);
                 foreach (var header in headers)
                 {

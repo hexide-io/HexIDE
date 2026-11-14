@@ -1176,6 +1176,7 @@
     "Str.Tool.Diagnostics.Information": "Informasi",
     "Str.Tool.Diagnostics.Hints": "Petunjuk",
     "Str.Tool.Diagnostics.CurrentDocument": "Dokumen saat ini",
+    "Str.Tool.Diagnostics.Project": "Proyek",
     "Str.Tool.Diagnostics.Server": "Server",
     "Str.Tool.Diagnostics.Source": "Sumber",
     "Str.Tool.Diagnostics.Document": "Dokumen",

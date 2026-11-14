@@ -1142,6 +1142,7 @@
     "Str.Tool.Diagnostics.Information": "ข้อมูล",
     "Str.Tool.Diagnostics.Hints": "คำแนะนำ",
     "Str.Tool.Diagnostics.CurrentDocument": "เอกสารปัจจุบัน",
+    "Str.Tool.Diagnostics.Project": "โครงการ",
     "Str.Tool.Diagnostics.Server": "เซิร์ฟเวอร์",
     "Str.Tool.Diagnostics.Source": "แหล่งที่มา",
     "Str.Tool.Diagnostics.Document": "เอกสาร",

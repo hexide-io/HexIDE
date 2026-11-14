@@ -1176,6 +1176,7 @@
     "Str.Tool.Diagnostics.Information": "Informasjon",
     "Str.Tool.Diagnostics.Hints": "Hint",
     "Str.Tool.Diagnostics.CurrentDocument": "Gjeldende dokument",
+    "Str.Tool.Diagnostics.Project": "Prosjekt",
     "Str.Tool.Diagnostics.Server": "Server",
     "Str.Tool.Diagnostics.Source": "Kilde",
     "Str.Tool.Diagnostics.Document": "Dokument",

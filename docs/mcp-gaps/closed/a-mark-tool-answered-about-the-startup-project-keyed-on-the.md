@@ -48,8 +48,9 @@ the #575 entry for what that did). Of the replies, only `get_bookmarks` and `get
 Now every tool that takes a form, module or class by name resolves it through one rule, and its reply carries
 `project` and `document` as the IDE spells them whenever the name found one: the content, designer and mark
 tools, `run_to_cursor` and `set_next_statement`. So do `add_file`'s reply and each `get_diagnostics` item. On a
-diagnostic they sit beside the server's `uri`, and are absent when that names nothing loaded or a file two
-loaded projects share. `get_debug_state` and `get_call_stack` carry the running `project` beside their bare
+diagnostic they sit beside the server's `uri`, and are absent when that names nothing loaded. For a shared file, `get_diagnostics` now
+names the startup project if it lists the file, otherwise the first loaded project that does
+([#261](https://github.com/hexide-io/HexIDE/issues/261)); switching startup recomputes that owner. `get_debug_state` and `get_call_stack` carry the running `project` beside their bare
 module names. **Still not every reply:** a tool that reports or acts on a document without taking its name does
 not name its project yet. That is the run-control replies' "Paused at" note, `get_locals`' and the watches'
 `context`, the designer undo, redo and format tools, which act on the active designer, and the tab tools, which
