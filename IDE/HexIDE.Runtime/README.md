@@ -66,9 +66,13 @@ For contrast, this is ordinary language surface that isn't implemented yet, or n
 
 - **Legacy branching:** `GoSub`/`Return` and computed `On … GoTo` or `On … GoSub` stop the run with a clear error.
   They need a position in a linear statement sequence, which a tree-walk doesn't have.
-- **Default members:** #174 for a class, #790 for a control. A class's default member used as a value is refused,
-  untrappably, naming #174, and a class with none raises 438, as in VB6. A control is refused in a Let and in a numeric
-  conversion, and still gives its .NET type name in a concatenation.
+- **Default members:** source classes read their marked Function, Property Get or variable at async value
+  boundaries (#174): scalar operators and built-ins, Let, ByVal scalar arguments, conditions, statements,
+  Print and array subscripts. The measured Function/Variant 450 cases are preserved; `CVar`, `TypeName`,
+  `IsObject` and ByVal Variant keep the object. See [measurements](../../docs/vb6-fidelity-oracle/an-object-used-as-a-value.md)
+  and [CVar](../../docs/vb6-fidelity-oracle/cvar.md). A Sub, required arguments, nested defaults, typed
+  Function `Format`/`Abs`, writes into defaults and synchronous helper reads remain refused naming #174.
+  Array bounds and control-array indexes remain unmeasured and refused. Control defaults are #790's.
 - **Forms that run only in part:** fixed-length strings, `LSet` and `RSet` beyond named Strings and Variants, bang
   access on anything but a `Collection`, indexed `Property Let` and `Set` on a class instance, and type-declaration
   characters (#742).
