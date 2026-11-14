@@ -1453,12 +1453,15 @@ public partial class ProjectService : IProjectService
                 return true;
             case ProjectDefinition project:
                 SerializeOnlyProjectToFile(project, destination.Path);
+                if (project.Offers.WritesProjectFile && announceSave)
+                    eventBus.Publish(new ProjectFileSavedEvent(project));
                 return true;
             case ProjectGroupDefinition group:
                 var content = RenderGroup(group, destination.Path, pathOf: null);
                 AtomicWriteText(destination.Path, content, Vb6TextFile.EncodeDocument(group.Name, content, group.TextEncoding));
                 group.AbsolutePath = destination.Path;
                 if (destination.Chosen) group.Name = Path.GetFileNameWithoutExtension(destination.Path);
+                if (announceSave) eventBus.Publish(new ProjectFileSavedEvent(group));
                 Log.Information("ProjectService: Saved group {Path}", group.AbsolutePath);
                 return true;
             default:

@@ -35,6 +35,7 @@ public class ViewLocator : IDataTemplate
         Register<RelatedDocumentEditorViewModel, RelatedDocumentEditorView>();
         Register<ArchiveDocumentViewModel, ArchiveDocumentView>();
         Register<ProjectDocumentViewModel, ProjectDocumentView>();
+        Register<ProjectFileDocumentViewModel, ProjectFileDocumentView>();
         Register<FormEditViewModel, FormEditView>();
         Register<MenuEditorViewModel, MenuEditorView>();
         Register<ToolBoxToolViewModel, ToolBoxToolView>();

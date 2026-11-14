@@ -14,6 +14,7 @@ public interface IEditorService
     /// <summary>Opens a file the project carries but does not compile, in the plain-text editor.</summary>
     void EditRelatedDocument(RelatedDocumentDefinition? relatedDocument);
     void EditProject(ProjectDefinition? project);
+    void EditProjectFile(ProjectFileSource source);
 
     /// <summary>The loaded member name for a URI, or null when nothing loaded answers.</summary>
     string? DocumentNameForUri(string uri);

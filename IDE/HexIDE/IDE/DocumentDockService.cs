@@ -129,7 +129,8 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
             RecentlyClosed.Unload(e.Project);
             foreach (var document in openDocuments.Where(d => d.OpenDocument?.Project == e.Project
                          || d is RelatedDocumentEditorViewModel r && r.RelatedDocument?.Owner == e.Project
-                         || d is ProjectDocumentViewModel p && p.Project == e.Project).ToArray())
+                         || d is ProjectDocumentViewModel p && p.Project == e.Project
+                         || d is ProjectFileDocumentViewModel f && f.Source.Owner == e.Project).ToArray())
                 CloseDocument(document);
         });
     }

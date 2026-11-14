@@ -20,6 +20,7 @@ public sealed class ArchiveFileToolsTests : IDisposable
     private readonly ArchiveProjectService archives;
     private readonly IdeContext context;
     private readonly HexIdeTools tools;
+    private readonly EditorService editors;
 
     public ArchiveFileToolsTests()
     {
@@ -28,14 +29,76 @@ public sealed class ArchiveFileToolsTests : IDisposable
         dock.OpenDocuments.Returns(tabs);
         dock.When(d => d.OpenDocument(Arg.Any<BaseEditorWindowViewModel>(), Arg.Any<bool>()))
             .Do(call => tabs.Add(call.Arg<BaseEditorWindowViewModel>()));
+        dock.TryActivate(Arg.Any<Func<ProjectFileDocumentViewModel, bool>>(), Arg.Any<bool>())
+            .Returns(call => tabs.OfType<ProjectFileDocumentViewModel>().Any(call.Arg<Func<ProjectFileDocumentViewModel, bool>>()));
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         archives = new ArchiveProjectService(dock, Substitute.For<IRecentProjectsService>(), localization,
             Substitute.For<IWindowManager>(), new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode());
-        context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), null!, null!, null!, null!, null!,
+        editors = new EditorService(dock, () => throw new InvalidOperationException(),
+            () => throw new InvalidOperationException(), () => new ProjectDocumentViewModel(localization),
+            () => throw new InvalidOperationException(), () => projects, localization);
+        context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), editors, null!, null!, null!, null!,
             null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
             new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader(), archives: archives);
         tools = new HexIdeTools(context);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Example.vbp", false)]
+    [InlineData("Group.vbg", true)]
+    [InlineData("Example.rdproj", false)]
+    public async Task Open_file_opens_the_project_or_group_file_read_only(string filename, bool groupFile)
+    {
+        var path = Path.Combine(directory, filename);
+        var contributed = filename.EndsWith(".rdproj", StringComparison.Ordinal);
+        var text = contributed ? "own file text: café" : "own file text";
+        File.WriteAllText(path, text);
+        if (groupFile)
+            projects.CurrentGroup.Returns(new ProjectGroupDefinition("Group") { AbsolutePath = path });
+        else
+            projects.LoadedProjects.Returns([new ProjectDefinition(VBProjectType.EXE, "Example")
+            {
+                AbsolutePath = path,
+                ContributedBy = contributed ? "test.project-type" : null,
+                Offers = contributed ? ProjectOffers.Nothing : ProjectOffers.Everything,
+            }]);
+        var reply = await tools.OpenFileAsync(Path.GetFileName(path));
+        reply.Success.Should().BeTrue(reply.Error);
+        reply.Document.Should().Be(Path.GetFileName(path));
+        reply.Note.Should().Contain("read-only");
+        var tab = tabs.Should().ContainSingle().Which.Should().BeOfType<ProjectFileDocumentViewModel>().Which;
+        tab.Document.Text.Should().Be(text);
+        tab.IsReadOnlyDocument.Should().BeTrue();
+        var again = await tools.OpenFileAsync(Path.GetFileName(path), line: 1, column: 3);
+        again.Success.Should().BeTrue(again.Error);
+        again.Note.Should().Contain("line 1, column 3");
+        tab.CaretOffset.Should().Be(2);
+        tabs.Should().ContainSingle();
+    }
+
+    [AvaloniaFact]
+    public async Task Duplicate_project_filenames_need_an_owner_and_misses_list_files()
+    {
+        var first = Path.Combine(directory, "first", "Example.vbp");
+        var second = Path.Combine(directory, "second", "Example.vbp");
+        Directory.CreateDirectory(Path.GetDirectoryName(first)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(second)!);
+        File.WriteAllText(first, "first");
+        File.WriteAllText(second, "second");
+        projects.LoadedProjects.Returns([
+            new ProjectDefinition(VBProjectType.EXE, "First") { AbsolutePath = first },
+            new ProjectDefinition(VBProjectType.EXE, "Second") { AbsolutePath = second }]);
+        var ambiguous = await tools.OpenFileAsync("Example.vbp");
+        ambiguous.Success.Should().BeFalse();
+        ambiguous.Error.Should().Contain(first).And.Contain(second);
+        tabs.Should().BeEmpty();
+        var miss = await tools.OpenFileAsync("missing");
+        miss.Error.Should().Contain(first).And.Contain(second);
+        var chosen = await tools.OpenFileAsync("Example.vbp", project: "Second");
+        chosen.Success.Should().BeTrue(chosen.Error);
+        chosen.Project.Should().Be("Second");
+        tabs.OfType<ProjectFileDocumentViewModel>().Single().Document.Text.Should().Be("second");
     }
 
     [AvaloniaFact]
@@ -72,6 +135,9 @@ public sealed class ArchiveFileToolsTests : IDisposable
         var listed = json.GetProperty("Projects").EnumerateArray().ToArray();
         listed.Should().HaveCount(2);
         listed.Select(p => p.GetProperty("ProjectFile").ValueKind).Should().AllBeEquivalentTo(JsonValueKind.Null);
+        var open = await tools.OpenFileAsync("Working.vbp");
+        open.Success.Should().BeFalse();
+        tabs.Should().BeEmpty();
     }
 
     [AvaloniaFact]

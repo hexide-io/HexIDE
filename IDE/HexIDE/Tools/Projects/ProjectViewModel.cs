@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.IDE;
 using CommunityToolkit.Mvvm.ComponentModel;
 using PropertyChanged.SourceGenerator;
 
@@ -68,7 +69,7 @@ public partial class ProjectViewModel : ObservableObject, IDisposable, IProjectT
         OnPropertyChanged(nameof(Name));
         OnPropertyChanged(nameof(AccessibleName));
         // Save Project As re-anchors every member's tree placement.
-        if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(ProjectDefinition.AbsolutePath))
+        if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName is nameof(ProjectDefinition.AbsolutePath) or nameof(ProjectDefinition.WorkingDirectory))
             Rebuild();
     }
 
@@ -158,6 +159,8 @@ public partial class ProjectViewModel : ObservableObject, IDisposable, IProjectT
             projectDefinition.ListedFolders);
 
         Elements.Clear();
+        if (ProjectFileSource.ChosenPath(projectDefinition) != null)
+            Elements.Add(new ProjectFileViewModel(new ProjectFileSource(projectDefinition)));
         foreach (var child in children)
             Elements.Add(child);
 
