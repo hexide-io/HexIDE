@@ -2,7 +2,9 @@
 
 > Converted from the `language-packs-europe` design record (2026-08-16). Romanian, Hungarian,
 > Bulgarian, Croatian, Slovak, Slovenian, Lithuanian, Latvian and Estonian ship (#2857).
-> Irish, Maltese and the EU-wide requirement remain in flight.
+> Irish and Maltese left the plan on 2026-10-30, when the shipped set began to follow the Windows 11 tiers
+> (#2817). Both are tier 2, so they are drafted for HexIDE.Localisation (#2770, #2771) rather than shipped in
+> the box. The same rule superseded the EU-wide requirement, which was never added.
 
 ## Why
 

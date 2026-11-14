@@ -132,9 +132,9 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 0 | 17 | 0 | 33 | 50 |
 | Compiler directives and options | 0 | 0 | 0 | 14 | 19 | 14 | 47 |
-| In-box objects | 0 | 0 | 58 | 28 | 0 | 38 | 124 |
+| In-box objects | 0 | 0 | 58 | 29 | 0 | 37 | 124 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **0** | **0** | **76** | **483** | **20** | **606** | **1185** |
+| **Total** | **0** | **0** | **76** | **484** | **20** | **605** | **1185** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -877,7 +877,7 @@ missing.
 | `Option Base` | Supported | Collected by PrePass ('ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());', PrePass.cs) and applied on both declaration paths: module-level Dim arrays (PrePass.cs) and… | PrePass.cs |
 | `Version` | Supported | Handled on three independent paths. Form/control files: the deserializer skips the line ('if (line.StartsWith("VERSION")) { continue; }', VbFrmFormatDeserializer.cs) and the serializer… | VbFrmFormatDeserializer.cs |
 
-### In-box objects — 124 names (58 absent, 28 partial, 38 supported)
+### In-box objects — 124 names (58 absent, 29 partial, 37 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -970,8 +970,8 @@ missing.
 | `Scale` | **Dies** | throws `"Only single element supported"` — fails at run time. VB6.g4 has no SCALE token and no scaleStmt rule. `Scale (0, 0)-(100, 100)` parses as a bare procedure call with one argument - a… | ExpressionExecutor.cs |
 | `Screen` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** reached wherever nothing the program declares is named Screen, as `Clipboard` is, with or without Option Explicit: `TypeName` is "Screen", and `Dim s As Screen` holds it (measured, oracle "The Screen object"). Each member's row says what runs. `MouseIcon` is refused rather than guessed. A write to a member a program cannot write is 382, or 383 for TwipsPerPixelX and Y, naming it, as through an Object; early-bound, VB6 refuses it at compile time instead, and here it is refused as the statement runs. | VbScreen.cs |
 | `Form.ActiveControl` | Partial | **[#2437](https://github.com/hexide-io/HexIDE/issues/2437), first slice:** remembers the last control focused on each form, including inactive and hidden forms. Nothing before showing, on a Label-only form, and after an unloaded form loads again on read (measured in #2437, oracle [#2279](https://github.com/hexide-io/HexIDE/issues/2279)). A shown form gives its first tab stop the focus (#2436, `VBWindowContext.FocusFirstControl`); restoring focus with GotFocus on reactivation remains outstanding. | FormMembers.cs, VBFormRuntime.cs |
-| `Screen.ActiveControl` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** the active form's control with the focus. Nothing, with no error, when no form is active or the form has nothing that can take the focus (measured, oracle "The Screen object"). A shown form now gives the first control in tab order the focus, as VB6 does ([#2436](https://github.com/hexide-io/HexIDE/issues/2436), `VBWindowContext.FocusFirstControl`), so this reads that control there. | VBProgram.cs |
-| `Screen.ActiveForm` | Supported | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** the form last activated. Nothing, with no error, before a form is shown, after `Load` alone, and after it unloads (measured, oracle "The Screen object"). | VBProgram.cs |
+| `Screen.ActiveControl` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** the active form's control with the focus. Nothing, with no error, when no form is active or the form has nothing that can take the focus (measured, oracle "The Screen object"). A shown form now gives the first control in tab order the focus, as VB6 does ([#2436](https://github.com/hexide-io/HexIDE/issues/2436), `VBWindowContext.FocusFirstControl`), so this reads that control there. **Not after the active form hides ([#3920](https://github.com/hexide-io/HexIDE/issues/3920)):** it is then Nothing, where VB6 still reads that form's control, or the control of the form Windows makes active (measured, oracle "A form's own ActiveControl"). | VBProgram.cs |
+| `Screen.ActiveForm` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** the form last activated. Nothing, with no error, before a form is shown, after `Load` alone, and after it unloads (measured, oracle "The Screen object"). **When the active form hides while another is shown ([#3920](https://github.com/hexide-io/HexIDE/issues/3920)),** it goes on naming the hidden form, where Windows activates the other and VB6 names that one (measured, oracle "A form's own ActiveControl"). | VBProgram.cs |
 | `Screen.FontCount` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** an Integer, as measured: the number of font families the platform lists, which is not the count Windows gives VB6. | VbScreen.cs, AvaloniaDisplay.cs |
 | `Screen.Fonts` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** a String. An index past either end is "", with no error, and the index converts as an Integer: rounded to even, 40000 is 6, "abc" 13 and Null 94 (measured, oracle "The Screen object"). The names and their order are the platform's font families, not Windows'. | VbScreen.cs, AvaloniaDisplay.cs |
 | `Screen.Height` | Supported | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** a Single, the primary screen's height in twips: its device-independent pixels, whole, times 15 (measured: 11520 at 768). A scaled display was not measured on VB6. | VbScreen.cs, AvaloniaDisplay.cs |

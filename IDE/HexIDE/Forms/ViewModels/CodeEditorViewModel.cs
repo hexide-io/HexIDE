@@ -1646,11 +1646,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         if (!IsReadOnly && !IsReadOnlyRegion(offset, length))
             return false;
-        statusBarService.SetTemporaryMessage(localization.GetString(IsReadOnly
-            ? "Str.CodeEditor.FileNotSaved.Banner"
-            : "Str.CodeEditor.Msg.TypingChangesReadOnlyText"), TimeSpan.FromSeconds(6));
+        statusBarService.SetTemporaryMessage(ReadOnlyEditMessage, TimeSpan.FromSeconds(6));
         return true;
     }
+
+    internal string ReadOnlyEditMessage => localization.GetString(IsReadOnly
+        ? "Str.CodeEditor.FileNotSaved.Banner"
+        : "Str.CodeEditor.Msg.TypingChangesReadOnlyText");
 
     /// <inheritdoc/>
     public (int Offset, int Length) WidenDeletion(int offset, int length) =>

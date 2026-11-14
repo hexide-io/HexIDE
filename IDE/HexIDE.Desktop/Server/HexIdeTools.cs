@@ -4062,10 +4062,27 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     public Task<FileDialogAnsweredResult> AnswerNextFileDialogAsync(
         string? path = null, string[]? paths = null, CancellationToken ct = default)
     {
-        // A refusal reached outside a save tool has no reply of its own, and the caller arms again next (#2408).
+        // A refusal reached outside a save tool has no reply of its own, and the caller arms again next (#2408). A picker
+        // already open can't take the answer, which the other tools that meet one also say (#3913).
         var earlier = HexIDE.IDE.ScriptedFileDialogs.TakeUnreportedRefusal();
+        string Told(string note) => HexIDE.IDE.ScriptedFileDialogs.WithNativePickerNote(note + earlier)!;
         FileDialogAnsweredResult Refuse(string error) => new(false, null, HexIDE.IDE.ScriptedFileDialogs.Pending,
-            "Nothing was armed." + earlier, Error: error);
+            Told("Nothing was armed."), Error: error);
+        // An answer armed behind others goes to a later picker, so "the next file dialog" would misdirect it (#3913).
+        static string Which(int place) => place <= 1 ? "The next file dialog" : $"The {Ordinal(place)} file dialog to open from now";
+        static string Before(int place) => place switch
+        {
+            <= 1 => "",
+            2 => " The answer armed before it is spent first.",
+            _ => $" The {place - 1} answers armed before it are spent first.",
+        };
+        static string Ordinal(int n) => n + (n % 100 is 11 or 12 or 13 ? "th" : (n % 10) switch
+        {
+            1 => "st",
+            2 => "nd",
+            3 => "rd",
+            _ => "th",
+        });
 
         if (paths is not null)
         {
@@ -4074,28 +4091,28 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (paths.Length == 0 || paths.Any(string.IsNullOrWhiteSpace))
                 return Task.FromResult(Refuse("paths must name at least one file, and none of them blank. To answer "
                                               + "as cancelled, omit both path and paths."));
-            HexIDE.IDE.ScriptedFileDialogs.AnswerNextWithMany(paths);
+            var many = HexIDE.IDE.ScriptedFileDialogs.AnswerNextWithMany(paths);
             return Task.FromResult(new FileDialogAnsweredResult(
                 true, paths.Length == 1 ? paths[0] : null, HexIDE.IDE.ScriptedFileDialogs.Pending,
-                (paths.Length == 1
-                    ? $"The next file dialog will return '{paths[0]}'."
-                    : $"The next file dialog will return these {paths.Length} files, in this order, as a person selecting "
+                Told((paths.Length == 1
+                    ? $"{Which(many)} will return '{paths[0]}'."
+                    : $"{Which(many)} will return these {paths.Length} files, in this order, as a person selecting "
                       + "them in an Open that allows several would. A save, or an Open that takes one file, cannot take "
                       + "them: it answers as cancelled, and a reply says so.")
-                + " Nothing has been created there." + earlier,
+                + Before(many) + " Nothing has been created there."),
                 Paths: paths));
         }
 
-        HexIDE.IDE.ScriptedFileDialogs.AnswerNextWith(path);
+        var place = HexIDE.IDE.ScriptedFileDialogs.AnswerNextWith(path);
 
         var cancels = string.IsNullOrWhiteSpace(path);
         return Task.FromResult(new FileDialogAnsweredResult(
             true,
             cancels ? null : path,
             HexIDE.IDE.ScriptedFileDialogs.Pending,
-            (cancels
-                ? "The next file dialog will answer as cancelled."
-                : $"The next file dialog will return '{path}'. Nothing has been created there.") + earlier,
+            Told(cancels
+                ? $"{Which(place)} will answer as cancelled.{Before(place)}"
+                : $"{Which(place)} will return '{path}'.{Before(place)} Nothing has been created there."),
             Paths: cancels ? null : [path!]));
     }
 
