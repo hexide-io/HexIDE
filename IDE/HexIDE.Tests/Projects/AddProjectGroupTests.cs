@@ -93,5 +93,22 @@ public sealed class AddProjectGroupTests : IDisposable
         explorer.Title.Should().Be("Project Group - OuterGroup");
     }
 
+    [Theory]
+    [InlineData("StartupProject=First.vbp\r\nProject=Second.vbp\r\n", "First")]
+    [InlineData("Project=First.vbp\r\nStartupProject=Second.vbp\r\n", "Second")]
+    public async Task OpeningVb6Group_LoadsStartupMemberInFileOrder(string members, string startup)
+    {
+        WriteProject("First");
+        WriteProject("Second");
+        var path = Path.Join(directory, "Oracle.vbg");
+        File.WriteAllText(path, "VBGROUP 5.0\r\n" + members);
+
+        await service.OpenProject(path);
+
+        manager.LoadedProjects.Select(p => p.Name).Should().Equal("First", "Second");
+        manager.StartupProject!.Name.Should().Be(startup);
+        manager.CurrentGroup!.UnknownLines.Should().BeEmpty();
+    }
+
     public void Dispose() => Directory.Delete(directory, recursive: true);
 }
