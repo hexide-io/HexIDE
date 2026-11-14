@@ -69,7 +69,7 @@ unsaved relative path is refused rather than written into the IDE's own working 
 ---
 # HexIDE VB6 Interpreter — Categorised Gap Report
 
-The audit verified 55 interpreter gaps, every one a real divergence from VB6/VBA, and **44** are still open. **Missed** *(originally 15 — now **0**, cleared
+The audit verified 55 interpreter gaps, every one a real divergence from VB6/VBA, and **43** are still open. **Missed** *(originally 15 — now **0**, cleared
 in the 2026-08-10 doc-debt sweep)* were silent, undocumented omissions — statements/operators/intrinsics that threw
 `NotImplementedException` (or misrouted) with no wall/deferral note. The spec's "every wall is documented" rule now
 holds. **Deferred** are acknowledged backlog items on the post-launch fidelity roadmap — intended eventually, not
@@ -78,7 +78,7 @@ symbols without executing them*, which is binding, which is the AST. **Platform 
 are NOT that boundary — COM/OLE is in scope and Windows-gated, per CLAUDE.md. **Partial** work for a real subset but fail on specific
 paths. **Other** is what fits none of these.
 
-Counts of open entries — Missed: **0** (was 15; cleared 2026-08-10) · Deferred: 15 **+ 7 reclassified** · Walled: **5** (was 13) ·
+Counts of open entries — Missed: **0** (was 15; cleared 2026-08-10) · Deferred: 15 **+ 6 reclassified** · Walled: **5** (was 13) ·
 Platform: 5 · Partial: 11 · Other: 1. An entry fixed since the audit is not counted: it moves to
 [*Fixed since the audit*](#fixed-since-the-audit) at the end of this file.
 
@@ -242,7 +242,6 @@ made them look permanent in a way they are not.
 
 Now **Deferred**, with the real work named. None needs a bound AST; each is unimplemented, awkward or costly.
 
-- ~~**Multi-level qualified member access**~~ — **READS FIXED 2026-09-02 (#173)**. A module qualifier is simply the first step of an ordinary chain; measured to four levels (`Module1.p.In1.Z`). Folded through the same `ResolveMemberChain` as unqualified chains — they were only ever different in the KIND of the first step. **Chained assignment (`a.b.c = 5`) is still refused**: the prefix may resolve to a UDT, which is a value type, so whether the write reaches its owner is an aliasing question with its own tests to write.
 - **Parameterized `Property Let`/`Set`** remain refused on class instances. Standard-module indexed Let
   dispatches through the procedure binder (#977); indexed Set remains unmeasured and refused. A class's parameterized `Property Get` now
   passes its index arguments through the ordinary procedure binder (#741), including the surplus-argument
@@ -422,3 +421,9 @@ moves it here (#3364). The *Missed* section keeps its own fixed entries, as the 
   - ~~**`IsMissing` is still not implemented**~~ — **implemented (2026-09-01)**, on top of `Vb6Value.Missing`. True for exactly one case: an `Optional` Variant without a default that the caller left out (or left blank mid-list), including explicit `As Variant` (**#866**). A default supplies its value; `As Integer` supplies zero. The original claim about every declared type overgeneralised that Integer measurement. An omitted argument now reports as VB6 does: `TypeName` `"Error"`, `VarType` 10 (`vbError`), `IsEmpty`/`IsNull` False, `IsError` **True**. Oracle-pinned; see *IsMissing, and the shape of an omitted argument* in [`vb6-fidelity-oracle/ismissing-and-the-shape-of-an-omitted-argument.md`](vb6-fidelity-oracle/ismissing-and-the-shape-of-an-omitted-argument.md).
     - **`CVErr` implemented (#2520):** a separate Error subtype holds 0–65535; `IsError` covers it and Missing. The [issue’s native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/2520) pin its construction, explicit CStr/CInt/CLng/CDbl conversions, predicates, equality, and implicit-use error 13. Missing remains a separate binding sentinel with its existing measured 448 conversions. The [#2613 follow-up measurements](https://github.com/hexide-io/HexIDE/pull/2613) add ordered comparisons, CBool/CByte/CSng/CCur, CDec/CDate error 13, Select Case error/resumption, and Print/Write/Debug.Print/MsgBox display. CVDate and declared stores other than Long/String remain unmeasured and are refused; Error-Variant record I/O and Input # remain unimplemented.
     - **Using a missing value raises nothing yet.** VB6 gives Error 13 (Type mismatch) on e.g. concatenating one — measured, not implemented.
+- *Deferred, reclassified from Walled:* ~~**Multi-level qualified member access**~~ — **FIXED (#173)**. Reads fold
+  through `ResolveMemberChain` (since 2026-09-02); module-qualified UDT field stores reach the owning module, array
+  elements and another module's Public UDT included, and a chained `Set` stores the final object reference. A field
+  store through a UDT-returning property or function writes only the returned copy, calls the getter once, and never
+  calls its Let, as [measured](vb6-fidelity-oracle/chained-writes-qualified-set-and-udt-returning-members.md) natively
+  and as p-code. `Set` through a class-typed UDT field remains #3924.

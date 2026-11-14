@@ -19,6 +19,28 @@ semantics are verified against the original product rather than guessed, are spe
 and apply here unchanged.
 
 ## Requirements
+
+### Requirement: Chained named-member writes preserve their owner's semantics
+The interpreter SHALL resolve module-qualified UDT field writes against the module-owned record,
+including an indexed record, and SHALL resolve a chained `Set` prefix before storing the final reference.
+A field write through a UDT-returning property or function SHALL modify only the returned copy,
+evaluate the member once and never invoke a corresponding `Property Let`.
+
+#### Scenario: Qualified record store
+- **WHEN** `Module1.p.In1.Z = 42` executes against the module's nested UDT variable
+- **THEN** `p.In1.Z` reads 42
+
+#### Scenario: Chained object reference store
+- **WHEN** `Set Module1.o.H.Child = l` executes through class-instance fields
+- **THEN** `o.H.Child Is l` is True
+
+#### Scenario: Store into a returned record
+- **WHEN** `b.U.Z = 5` executes with `b.U` returning a copy of a record whose Z is 3
+- **THEN** the backing record's Z stays 3, the getter runs once and its Let accessor never runs
+
+Measurements: [#173](https://github.com/hexide-io/HexIDE/issues/173), vb6.exe SP6 native and p-code,
+2026-11-14. Class-typed UDT fields remain outside this change (#3924).
+
 ### Requirement: The interpreter SHALL remain an approximation by design
 The interpreter SHALL be maintained as an out-of-the-box demonstrator rather than developed toward parity
 with a production VB6 runtime, and changes that increase completeness at the cost of that character SHALL be
