@@ -105,6 +105,9 @@ public partial class ObjectBrowserToolViewModel : Document
     // has it cleared, Dispatcher.UIThread makes that thread the UI thread, and CheckAccess then says yes there (#2530).
     private readonly Dispatcher uiThread = Dispatcher.UIThread;
 
+    // The control libraries' classes come from the registry, as they do for the toolbox (#3601).
+    private readonly IComponentRegistry componentRegistry;
+
     public ObjectBrowserToolViewModel(IProjectManager projectManager, ILspClient lspClient,
         IEditorService editorService, IComponentRegistry componentRegistry,
         ITypeLibraryService typeLibraryService, IFocusedProjectUtil focusedProjectUtil,
@@ -117,6 +120,7 @@ public partial class ObjectBrowserToolViewModel : Document
         this.projectManager = projectManager;
         this.lspClient = lspClient;
         this.editorService = editorService;
+        this.componentRegistry = componentRegistry;
         this.typeLibraryService = typeLibraryService;
         this.focusedProjectUtil = focusedProjectUtil;
         this.connections = connections;
@@ -605,9 +609,9 @@ public partial class ObjectBrowserToolViewModel : Document
                         classVm.Members.Add(new OBMemberViewModel(
                             member.Name, MapMemberKind(member.Kind),
                             member.Signature, member.Documentation));
-                    var component = InBox.InBoxComponentClass.Implemented.FirstOrDefault(c =>
-                        c.ControlClassName.Equals(type.Name, StringComparison.OrdinalIgnoreCase)
-                        && c.Libraries.Any(l => l.IsNamedBy(lib.Reference)));
+                    var component = componentRegistry.LibraryControls.FirstOrDefault(c =>
+                        c.ControlName.Equals(type.Name, StringComparison.OrdinalIgnoreCase)
+                        && c.Library.IsNamedBy(lib.Reference))?.Class as InBox.InBoxComponentClass;
                     if (component != null)
                     {
                         foreach (var member in component.Members.Where(m => m.Origin.HasFlag(InBox.MemberOrigin.HexIde)))
