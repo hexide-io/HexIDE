@@ -3664,6 +3664,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     private static string TabType(object tab) => tab switch
     {
         HexIDE.VisualDesigner.FormEditViewModel => "designer",
+        ArchiveDocumentViewModel => "archive",
         BaseEditorWindowViewModel => "code",
         _ => "tool",
     };
@@ -3672,10 +3673,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         var editor = tab as BaseEditorWindowViewModel;
         var document = editor?.OpenDocument;
+        var entry = (tab as ArchiveDocumentViewModel)?.Entry;
         // IsModified is what the tab's `*` is drawn from (#1797), and the title leaves the `*` out (#1945). A tool tab
         // or a read-only view holds nothing to save, so it reports nothing rather than a false that reads as "saved".
         return new DocumentTabInfo(tab.Title ?? "", TabType(tab),
-            ReferenceEquals(tab, ctx.DocumentDockService.ActiveTab), document?.Project.Name, document?.Name,
+            ReferenceEquals(tab, ctx.DocumentDockService.ActiveTab),
+            entry?.Identity.ContainerPath ?? document?.Project.Name,
+            entry is not null ? ArchiveToolPaths.PathOf(entry) : document?.Name,
             editor is { CanHoldUnsavedChanges: true } ? editor.IsModified : null, ctx.DocumentDockService.AreaOf(tab));
     }
 
@@ -3695,7 +3699,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_document_tabs")]
-    [Description("Returns EVERY tab across all document areas, including splits, with area (0 for the first area, 1 for the next, in layout order; distinguishes equal titles), title, type, project, document, whether it is the active one, and isModified: whether the tab has unsaved changes. The tab marks those with a `*` that the title leaves out, so the title stays the one activate_document_tab and close_document_tab match. Project and document name a form or module's source, and only such a tab has them. isModified is absent where nothing can be saved: a tool tab, and the read-only project and archive views. It is per tab: a form's designer and code tabs each have one, and they can differ, so the form is unsaved if either is true. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the document region and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist. get_open_editors answers the narrower question: the editors only, and which of them is active.")]
+    [Description("Returns EVERY tab across all document areas, including splits, with area (0 for the first area, 1 for the next, in layout order; distinguishes equal titles), title, type, project, document, whether it is the active one, and isModified: whether the tab has unsaved changes. The tab marks those with a `*` that the title leaves out, so the title stays the one activate_document_tab and close_document_tab match. Project and document name a form or module's source; for an archive entry they are the container path and percent-escaped entry path returned by open_file. isModified is absent where nothing can be saved: a tool tab, and the read-only project and archive views. It is per tab: a form's designer and code tabs each have one, and they can differ, so the form is unsaved if either is true. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, 'archive' for a read-only archive entry, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the document region and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist. get_open_editors answers the narrower question: the editors only, and which of them is active.")]
     public async Task<DocumentTabsResult> GetDocumentTabsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -3711,7 +3715,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "activate_document_tab")]
-    [Description("Brings a tab to the front, giving an editor keyboard focus. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool); a duplicate title is refused, and a title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
+    [Description("Brings a tab to the front, giving an editor keyboard focus. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool) and read-only archive entries (type 'archive'); a duplicate title is refused, and a title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
     public async Task<MutateResult> ActivateDocumentTabAsync(string? title = null, string? name = null,
         string? project = null, string? type = null, CancellationToken ct = default)
     {
@@ -3740,8 +3744,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return (null, lookup.Error, null);
         if (title is null && lookup.Document is null)
             return (null, "Pass `name` with optional `project` for a document, or `title` for a tool tab. get_document_tabs lists both.", null);
-        if (type is not null && type is not ("code" or "designer" or "tool"))
-            return (null, "Use `type`: code, designer or tool, as get_document_tabs reports it.", null);
+        if (type is not null && type is not ("code" or "designer" or "archive" or "tool"))
+            return (null, "Use `type`: code, designer, archive or tool, as get_document_tabs reports it.", null);
         var matches = ctx.DocumentDockService.AllTabs.Where(d =>
             (lookup.Document is { } document
                 ? (d as BaseEditorWindowViewModel)?.OpenDocument == document
@@ -3810,7 +3814,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "close_document_tab")]
-    [Description("Closes a tab; a save prompt can leave it open, which the note reports. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool); a duplicate title is refused, and a title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
+    [Description("Closes a tab; a save prompt can leave it open, which the note reports. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool) and read-only archive entries (type 'archive'); a duplicate title is refused, and a title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
     public async Task<MutateResult> CloseDocumentTabAsync(string? title = null, string? name = null,
         string? project = null, string? type = null, CancellationToken ct = default)
     {
