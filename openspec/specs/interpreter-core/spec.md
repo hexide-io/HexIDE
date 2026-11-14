@@ -1738,6 +1738,16 @@ It SHALL permit user overrides only when the culture's UseUserOverride is true a
 matches the Windows user's locale, and request no user overrides otherwise. Other hosts, non-Gregorian default calendars and time formats SHALL retain
 their existing behaviour (#2041; portable Windows date data is deferred to #3928).
 
+For an unquoted era token in these NLS patterns, the interpreter SHALL write Windows' era
+text as a literal. This deliberately diverges from vb6.exe, which writes literal `gg`:
+HexIDE honours the locale rather than reproducing an unexpanded token (#3946;
+[measurement in #3979](https://github.com/hexide-io/HexIDE/pull/3979), oracle page
+`docs/vb6-fidelity-oracle/a-long-date-pattern-with-an-era.md`).
+
+#### Scenario: Windows long date with an era
+- **WHEN** a Windows program in byn-ER formats 31 December 2000 as Long Date
+- **THEN** the era is the text returned by GetDateFormatEx for `gg`, rather than .NET's era name or VB6's literal `gg`
+
 #### Scenario: Measured en-GB long date
 - **WHEN** a Windows program in en-GB formats 1 January 2000 as Long Date
 - **THEN** it writes `01 January 2000`, as measured on vb6.exe native and p-code in #783
