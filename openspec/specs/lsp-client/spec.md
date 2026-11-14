@@ -12,6 +12,28 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Projects sharing a workspace artefact or import folder
+
+For an entry declaring `workspaceArtifact` or `projectImport`, HexIDE SHALL write or import only the first
+loaded project in each resolved host folder. It SHALL report a configuration problem in Tools > Language
+Servers naming all projects sharing that folder, without rejecting the server entry. The problem SHALL
+clear on the project-change debounce when the projects no longer share a folder.
+
+#### Scenario: Two projects would replace the same descriptor
+
+- **GIVEN** First and Second are loaded in that order from the same folder
+- **WHEN** an entry generates a workspace artefact or imports projects
+- **THEN** only First is written or imported for that folder
+- **AND** a configuration problem names First and Second
+
+#### Scenario: Projects move to separate folders
+
+- **GIVEN** a shared-folder configuration problem is shown
+- **WHEN** the projects acquire distinct folders and the project-change debounce completes
+- **THEN** both projects are written or imported in their respective folders
+- **AND** the shared-folder problem disappears
+
+
 ### Requirement: Opt-in restart on project membership changes
 A server entry SHALL accept `restartOnProjectChange`, off by default. At the workspace-folder debounce,
 projects with chosen workspace roots joining or leaving SHALL restart only an opted-in running connection through the registry's
@@ -2439,8 +2461,8 @@ Substituted values SHALL be JSON-escaped and SHALL NOT be interpreted as templat
 ### Requirement: Declared project imports SHALL replace generated artefacts
 
 On a registry-started connection after initialization, and on the workspace artefact service's
-debounced project-change trigger, the client SHALL call each declared import command with each loaded project's saved URI and in-memory
-project text. The command MUST be advertised by the server. An importing entry SHALL skip workspace
+debounced project-change trigger, the client SHALL call each declared import command with the first loaded
+project's saved URI and in-memory project text in each resolved folder. The command MUST be advertised by the server. An importing entry SHALL skip workspace
 artefact generation. Reply notes SHALL reach the server log used for `window/logMessage`; object
 notes SHALL use their `message` text. Failures or unavailable saved paths
 SHALL be reported as configuration problems without disabling the connection.

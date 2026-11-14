@@ -5,6 +5,10 @@ public interface IWorkspaceArtifactService
     /// <summary>Runs folder updates on the project-change debounce, before any imports.</summary>
     Task TrackFoldersAsync(LanguageServerRegistration server, Func<CancellationToken, Task> update,
         CancellationToken cancellationToken) => Task.CompletedTask;
+    /// <summary>Workspace configuration problems, including entries that have not started yet.</summary>
+    IReadOnlyList<LanguageServerConfigProblem> GetConfigurationProblems(LanguageServerRegistration server) => [];
+    event Action? ConfigurationProblemsChanged { add { } remove { } }
+
     Task ImportAsync(LanguageServerRegistration server, Func<WorkspaceArtifactContext, CancellationToken, Task> import,
         CancellationToken cancellationToken);
     Task PrepareAsync(LanguageServerRegistration server, CancellationToken cancellationToken);

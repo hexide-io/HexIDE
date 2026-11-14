@@ -1272,6 +1272,7 @@
     "Str.AIChat.Send": "Siųsti",
     "Str.AIChat.New": "Naujas",
     "Str.AIChat.InputPlaceholder": "Klauskite apie savo kodą…",
-    "Str.AIChat.NewTip": "Naujas pokalbis (istorija išsaugoma)"
+    "Str.AIChat.NewTip": "Naujas pokalbis (istorija išsaugoma)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektai {0} bendrina aplanką {1}; įrašomas arba importuojamas tik {2}."
   }
 }

@@ -1272,6 +1272,7 @@
     "Str.AIChat.Send": "Kirim",
     "Str.AIChat.New": "Baru",
     "Str.AIChat.InputPlaceholder": "Tanyakan tentang kode Anda…",
-    "Str.AIChat.NewTip": "Obrolan baru (riwayat tetap disimpan)"
+    "Str.AIChat.NewTip": "Obrolan baru (riwayat tetap disimpan)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Proyek {0} berbagi folder {1}; hanya {2} yang ditulis atau diimpor."
   }
 }

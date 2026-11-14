@@ -1272,6 +1272,7 @@
     "Str.AIChat.Send": "Pošalji",
     "Str.AIChat.New": "Novo",
     "Str.AIChat.InputPlaceholder": "Pitajte o svom kodu…",
-    "Str.AIChat.NewTip": "Novo ćaskanje (istorija se čuva)"
+    "Str.AIChat.NewTip": "Novo ćaskanje (istorija se čuva)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} dele fasciklu {1}; zapisuje se ili uvozi samo {2}."
   }
 }

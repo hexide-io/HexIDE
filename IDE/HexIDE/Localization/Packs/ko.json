@@ -1272,6 +1272,7 @@
     "Str.AIChat.Send": "보내기",
     "Str.AIChat.New": "새 채팅",
     "Str.AIChat.InputPlaceholder": "코드에 대해 질문하세요…",
-    "Str.AIChat.NewTip": "새 채팅(기록은 보존됨)"
+    "Str.AIChat.NewTip": "새 채팅(기록은 보존됨)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "프로젝트 {0}이(가) 폴더 {1}을(를) 공유합니다. {2}만 쓰거나 가져옵니다."
   }
 }

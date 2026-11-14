@@ -1272,6 +1272,7 @@
     "Str.AIChat.Send": "Trimite",
     "Str.AIChat.New": "Nou",
     "Str.AIChat.InputPlaceholder": "Întrebați despre codul dvs.…",
-    "Str.AIChat.NewTip": "Conversație nouă (istoricul este păstrat)"
+    "Str.AIChat.NewTip": "Conversație nouă (istoricul este păstrat)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Proiectele {0} partajează dosarul {1}; doar {2} este scris sau importat."
   }
 }

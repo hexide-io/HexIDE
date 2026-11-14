@@ -1272,6 +1272,7 @@
     "Str.AIChat.Send": "Надіслати",
     "Str.AIChat.New": "Новий",
     "Str.AIChat.InputPlaceholder": "Запитайте про свій код…",
-    "Str.AIChat.NewTip": "Новий чат (історія зберігається)"
+    "Str.AIChat.NewTip": "Новий чат (історія зберігається)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Проєкти {0} використовують спільну папку {1}; записується або імпортується лише {2}."
   }
 }

@@ -1272,6 +1272,7 @@
     "Str.AIChat.Send": "Skicka",
     "Str.AIChat.New": "Ny",
     "Str.AIChat.InputPlaceholder": "Fråga om din kod…",
-    "Str.AIChat.NewTip": "Ny chatt (historiken bevaras)"
+    "Str.AIChat.NewTip": "Ny chatt (historiken bevaras)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekten {0} delar mappen {1}; endast {2} skrivs eller importeras."
   }
 }

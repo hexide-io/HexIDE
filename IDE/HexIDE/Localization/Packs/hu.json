@@ -1272,6 +1272,7 @@
     "Str.AIChat.Send": "Küldés",
     "Str.AIChat.New": "Új",
     "Str.AIChat.InputPlaceholder": "Kérdezzen a kódjáról…",
-    "Str.AIChat.NewTip": "Új csevegés (az előzmények megmaradnak)"
+    "Str.AIChat.NewTip": "Új csevegés (az előzmények megmaradnak)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "A(z) {0} projektek közös mappája {1}; csak a(z) {2} lesz kiírva vagy importálva."
   }
 }

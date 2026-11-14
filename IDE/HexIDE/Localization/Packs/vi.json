@@ -1272,6 +1272,7 @@
     "Str.AIChat.Send": "Gửi",
     "Str.AIChat.New": "Mới",
     "Str.AIChat.InputPlaceholder": "Hỏi về mã của bạn…",
-    "Str.AIChat.NewTip": "Cuộc trò chuyện mới (lịch sử được giữ lại)"
+    "Str.AIChat.NewTip": "Cuộc trò chuyện mới (lịch sử được giữ lại)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Các dự án {0} dùng chung thư mục {1}; chỉ {2} được ghi hoặc nhập."
   }
 }

@@ -1272,6 +1272,7 @@
     "Str.AIChat.Send": "Αποστολή",
     "Str.AIChat.New": "Νέα",
     "Str.AIChat.InputPlaceholder": "Ρωτήστε για τον κώδικά σας…",
-    "Str.AIChat.NewTip": "Νέα συνομιλία (το ιστορικό διατηρείται)"
+    "Str.AIChat.NewTip": "Νέα συνομιλία (το ιστορικό διατηρείται)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Τα έργα {0} μοιράζονται τον φάκελο {1}· μόνο το {2} γράφεται ή εισάγεται."
   }
 }
