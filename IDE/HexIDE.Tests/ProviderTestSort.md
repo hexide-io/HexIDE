@@ -55,6 +55,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Infrastructure/ExternalRunControlTests.cs` | split |
 | `Infrastructure/FormControlsSummaryTests.cs` | split |
 | `Infrastructure/FormatSelectionTests.cs` | split |
+| `Infrastructure/GroupDiagnosticProjectTests.cs` | split |
 | `Infrastructure/ImplicitDocumentNamingTests.cs` | split |
 | `Infrastructure/LspRowsNoteTests.cs` | split |
 | `Infrastructure/NoRunEngineReplyTests.cs` | split |

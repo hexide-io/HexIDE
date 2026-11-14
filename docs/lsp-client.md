@@ -1912,3 +1912,17 @@ An edit or an outside caret/selection move clears the chain, and stale replies a
 
 The separate [DAP client coverage table](dap-client.md#protocol-coverage) uses DAP’s own pinned JSON schema
 and reads command/event support from the debug client code (#3302).
+
+### Diagnostic project attribution in groups
+
+Tools > Diagnostics shows a **Project** column when more than one project is loaded.
+A diagnostic belongs to the startup project if it lists the document, otherwise to the
+first loaded project that lists it. A shared module has one owner; switching the startup
+project recomputes it. A document no loaded project lists has no owner. The column is hidden
+for a single project. This attribution does not change editor diagnostics, server routing,
+`rootUri` or workspace folders ([#261](https://github.com/hexide-io/HexIDE/issues/261)).
+
+The automation tool `get_diagnostics` uses the same rule for its existing `project` and
+`document` fields, including shared files. Unknown documents leave those fields empty;
+single-project replies retain their existing values. Separate results for each project
+that lists a shared module remain outside this change (#2756).

@@ -1168,6 +1168,7 @@
     "Str.Tool.Diagnostics.Information": "Information",
     "Str.Tool.Diagnostics.Hints": "Hints",
     "Str.Tool.Diagnostics.CurrentDocument": "Current document",
+    "Str.Tool.Diagnostics.Project": "Project",
     "Str.Tool.Diagnostics.Server": "Server",
     "Str.Tool.Diagnostics.Source": "Source",
     "Str.Tool.Diagnostics.Document": "Document",

@@ -53,6 +53,8 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="{DynamicResource Str.Tool.Diagnostics.Source}" Binding="{CompiledBinding Source, x:DataType=vm:DiagnosticRow}" Width="Auto" />
+                <DataGridTextColumn Header="{DynamicResource Str.Tool.Diagnostics.Project}" Binding="{CompiledBinding Project, x:DataType=vm:DiagnosticRow}"
+                                    IsVisible="{CompiledBinding ShowProjects, FallbackValue=False}" Width="Auto" />
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

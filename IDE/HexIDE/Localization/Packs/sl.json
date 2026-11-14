@@ -1142,6 +1142,7 @@
     "Str.Tool.Diagnostics.Information": "Informacije",
     "Str.Tool.Diagnostics.Hints": "Namigi",
     "Str.Tool.Diagnostics.CurrentDocument": "Trenutni dokument",
+    "Str.Tool.Diagnostics.Project": "Projekt",
     "Str.Tool.Diagnostics.Server": "Strežnik",
     "Str.Tool.Diagnostics.Source": "Vir",
     "Str.Tool.Diagnostics.Document": "Dokument",

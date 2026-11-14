@@ -1167,6 +1167,7 @@
     "Str.Tool.Diagnostics.Information": "信息",
     "Str.Tool.Diagnostics.Hints": "提示",
     "Str.Tool.Diagnostics.CurrentDocument": "当前文档",
+    "Str.Tool.Diagnostics.Project": "工程",
     "Str.Tool.Diagnostics.Server": "服务器",
     "Str.Tool.Diagnostics.Source": "来源",
     "Str.Tool.Diagnostics.Document": "文档",

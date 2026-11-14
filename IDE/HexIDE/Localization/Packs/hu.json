@@ -1176,6 +1176,7 @@
     "Str.Tool.Diagnostics.Information": "Információ",
     "Str.Tool.Diagnostics.Hints": "Tippek",
     "Str.Tool.Diagnostics.CurrentDocument": "Aktuális dokumentum",
+    "Str.Tool.Diagnostics.Project": "Projekt",
     "Str.Tool.Diagnostics.Server": "Kiszolgáló",
     "Str.Tool.Diagnostics.Source": "Forrás",
     "Str.Tool.Diagnostics.Document": "Dokumentum",

@@ -10,7 +10,7 @@ using PropertyChanged.SourceGenerator;
 
 namespace HexIDE.Tools.Diagnostics;
 
-public sealed record DiagnosticRow(string Uri, string Server, Diagnostic Diagnostic, string SeverityText, string? DocumentName = null)
+public sealed record DiagnosticRow(string Uri, string Server, Diagnostic Diagnostic, string SeverityText, string? DocumentName = null, string? Project = null)
 {
     public string FullPath => System.Uri.TryCreate(Uri, UriKind.Absolute, out var uri) && uri.IsFile
         ? uri.LocalPath : System.Uri.UnescapeDataString(Uri);
@@ -29,6 +29,8 @@ public partial class DiagnosticsToolViewModel : Tool
     private readonly ILanguageConnectionRegistry registry;
     private readonly IDocumentDockService documents;
     private readonly IEditorService editors;
+    private readonly IProjectManager? projects;
+    public bool ShowProjects => projects?.LoadedProjects.Count > 1;
     private string? currentUri;
     private readonly ILocalizationService localization;
 
@@ -45,9 +47,10 @@ public partial class DiagnosticsToolViewModel : Tool
     [Notify] private DiagnosticRow? selectedRow;
 
     public DiagnosticsToolViewModel(ILanguageConnectionRegistry registry, ILspClient client,
-        IDocumentDockService documents, IEditorService editors, ILocalizationService localization)
+        IDocumentDockService documents, IEditorService editors, ILocalizationService localization, IProjectManager? projects = null)
     {
         this.registry = registry;
+        this.projects = projects;
         this.localization = localization;
         this.documents = documents;
         this.editors = editors;
@@ -60,6 +63,12 @@ public partial class DiagnosticsToolViewModel : Tool
         var uiThread = Dispatcher.UIThread;
         client.DiagnosticsPublished += (_, _) => uiThread.Post(Refresh);
         documents.PropertyChanged += (_, _) => Refresh();
+        if (projects is not null)
+        {
+            projects.PropertyChanged += (_, _) => Refresh();
+            projects.ProjectLoaded += _ => Refresh();
+            projects.ProjectUnloaded += _ => Refresh();
+        }
         Refresh();
     }
 
@@ -72,6 +81,7 @@ public partial class DiagnosticsToolViewModel : Tool
             currentUri = LspDocumentUri.ForFile(path);
         else if (active?.OpenDocument is { } identity) currentUri = DocumentWireName.For(identity);
 
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(ShowProjects)));
         var selected = SelectedRow;
         Rows.Clear();
         int errorsTotal = 0, warningsTotal = 0, informationTotal = 0, hintsTotal = 0;
@@ -102,7 +112,9 @@ public partial class DiagnosticsToolViewModel : Tool
                     DiagnosticSeverity.Information => "Information",
                     DiagnosticSeverity.Hint => "Hint",
                     _ => "Error"
-                })), editors.DocumentNameForUri(item.Uri)));
+                })), editors.DocumentNameForUri(item.Uri), ShowProjects
+                    ? NamedDocuments.ForDiagnostic(projects!.LoadedProjects, projects.StartupProject, item.Uri).Project
+                    : null));
         }
         ErrorCount = errorsTotal;
         WarningCount = warningsTotal;

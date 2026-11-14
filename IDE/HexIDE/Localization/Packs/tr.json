@@ -1142,6 +1142,7 @@
     "Str.Tool.Diagnostics.Information": "Bilgi",
     "Str.Tool.Diagnostics.Hints": "İpuçları",
     "Str.Tool.Diagnostics.CurrentDocument": "Geçerli belge",
+    "Str.Tool.Diagnostics.Project": "Proje",
     "Str.Tool.Diagnostics.Server": "Sunucu",
     "Str.Tool.Diagnostics.Source": "Kaynak",
     "Str.Tool.Diagnostics.Document": "Belge",
