@@ -73,6 +73,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Angi betingelser med Betingelse… i menyen i stoppunktmargen. Fil '{0}', stoppunktoppføring {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Stoppunktalternativet '{0}' støttes ikke for eksterne økter ennå. Fil '{1}', stoppunktoppføring {2}. Angi betingelser med Betingelse… i menyen i stoppunktmargen.",
     "Str.Debug.RunWith.Unavailable": "F5 er satt til å kjøre dette prosjektet med {0}, som ikke er tilgjengelig nå, så det kjøres i IDE-en. Velg I IDE-en under Kjør > F5 kjører for å kjøre det i IDE-en fra nå av.",
+    "Str.MainWindow.DeveloperModeNotice": "UTVIKLERMODUS",
+    "Str.MainWindow.UnsignedAddinsNotice": "UTVIKLERMODUS, usignerte tillegg kan lastes inn",
     "Str.MainWindow.RecoveryNotice": "Gjenopprettingsøkt — endringer i innstillinger blir ikke lagret",
     "Str.Profiles.LoadError": "Kan ikke laste profilen '{0}', filen '{1}'. Kontroller pakkeformatet og filbanene.",
     "Str.Profiles.HelpSummary": "Basisprofil: navn, mappebane eller none (sikkermodus).",

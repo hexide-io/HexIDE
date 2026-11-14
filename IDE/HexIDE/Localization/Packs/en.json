@@ -65,6 +65,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Set conditions with Condition… in the breakpoint gutter menu. File '{0}', breakpoint entry {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Breakpoint option '{0}' isn't supported for external sessions yet. File '{1}', breakpoint entry {2}. Set conditions with Condition… in the breakpoint gutter menu.",
     "Str.Debug.RunWith.Unavailable": "F5 is set to run this project with {0}, which isn't available now, so it runs in the IDE. To run it in the IDE from now on, choose In the IDE under Run > F5 Runs.",
+    "Str.MainWindow.DeveloperModeNotice": "DEVELOPER MODE",
+    "Str.MainWindow.UnsignedAddinsNotice": "DEVELOPER MODE, unsigned add-ins can load",
     "Str.MainWindow.RecoveryNotice": "Recovery session — settings changes won't be saved",
     "Str.Profiles.LoadError": "Cannot load profile '{0}', file '{1}'. Check the bundle format and file paths.",
     "Str.Profiles.HelpSummary": "Base profile: name, directory path, or none (safe mode).",

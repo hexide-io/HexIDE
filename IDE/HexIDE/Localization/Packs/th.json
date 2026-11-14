@@ -39,6 +39,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "ตั้งเงื่อนไขผ่าน เงื่อนไข… ในเมนูขอบจุดหยุด ไฟล์ '{0}' รายการจุดพัก {1}",
     "Str.Debug.External.BreakpointOptionUnsupported": "ยังไม่รองรับตัวเลือกจุดพัก '{0}' สำหรับเซสชันภายนอก ไฟล์ '{1}' รายการจุดพัก {2} ตั้งเงื่อนไขผ่าน เงื่อนไข… ในเมนูขอบจุดหยุด",
     "Str.Debug.RunWith.Unavailable": "F5 ถูกตั้งให้เรียกใช้โปรเจกต์นี้ด้วย {0} ซึ่งขณะนี้ไม่พร้อมใช้งาน จึงเรียกใช้ใน IDE หากต้องการเรียกใช้ใน IDE ต่อจากนี้ ให้เลือก ใน IDE ที่ เรียกใช้ > F5 เรียกใช้",
+    "Str.MainWindow.DeveloperModeNotice": "โหมดนักพัฒนา",
+    "Str.MainWindow.UnsignedAddinsNotice": "โหมดนักพัฒนา, สามารถโหลด Add-in ที่ไม่ได้ลงชื่อได้",
     "Str.MainWindow.RecoveryNotice": "เซสชันการกู้คืน — การเปลี่ยนแปลงการตั้งค่าจะไม่ถูกบันทึก",
     "Str.Profiles.LoadError": "ไม่สามารถโหลดโปรไฟล์ '{0}' ไฟล์ '{1}' ได้ ตรวจสอบรูปแบบชุดและเส้นทางไฟล์",
     "Str.Profiles.HelpSummary": "โปรไฟล์พื้นฐาน: ชื่อ เส้นทางไดเรกทอรี หรือ none (โหมดปลอดภัย)",

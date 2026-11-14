@@ -65,6 +65,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Podmínky nastavte příkazem Podmínka… v nabídce okraje zarážek. Soubor '{0}', položka bodu přerušení {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Možnost zarážky '{0}' zatím není podporována pro externí relace. Soubor '{1}', položka zarážky {2}. Podmínky nastavte příkazem Podmínka… v nabídce okraje zarážek.",
     "Str.Debug.RunWith.Unavailable": "F5 je nastaveno spouštět tento projekt pomocí {0}, které teď není k dispozici, takže se spustí v IDE. Chcete-li ho od teď spouštět v IDE, zvolte V IDE v nabídce Spustit > F5 spouští.",
+    "Str.MainWindow.DeveloperModeNotice": "REŽIM VÝVOJÁŘE",
+    "Str.MainWindow.UnsignedAddinsNotice": "REŽIM VÝVOJÁŘE, lze načítat nepodepsané doplňky",
     "Str.MainWindow.RecoveryNotice": "Relace obnovení — změny nastavení nebudou uloženy",
     "Str.Profiles.LoadError": "Nelze načíst profil '{0}', soubor '{1}'. Zkontrolujte formát balíčku a cesty k souborům.",
     "Str.Profiles.HelpSummary": "Základní profil: název, cesta k adresáři nebo none (nouzový režim).",

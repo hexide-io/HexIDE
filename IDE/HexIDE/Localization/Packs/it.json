@@ -73,6 +73,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Impostare le condizioni con Condizione… nel menu del margine dei punti di interruzione. File '{0}', voce del punto di interruzione {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "L'opzione del punto di interruzione '{0}' non è ancora supportata per le sessioni esterne. File '{1}', voce {2}. Impostare le condizioni con Condizione… nel menu del margine dei punti di interruzione.",
     "Str.Debug.RunWith.Unavailable": "F5 è impostato per eseguire questo progetto con {0}, che ora non è disponibile, quindi viene eseguito nell'IDE. Per eseguirlo nell'IDE d'ora in poi, scegli Nell'IDE in Esegui > F5 esegue.",
+    "Str.MainWindow.DeveloperModeNotice": "MODALITÀ SVILUPPATORE",
+    "Str.MainWindow.UnsignedAddinsNotice": "MODALITÀ SVILUPPATORE, è possibile caricare componenti aggiuntivi non firmati",
     "Str.MainWindow.RecoveryNotice": "Sessione di ripristino — le modifiche alle impostazioni non verranno salvate",
     "Str.Profiles.LoadError": "Impossibile caricare il profilo '{0}', file '{1}'. Controllare il formato del pacchetto e i percorsi dei file.",
     "Str.Profiles.HelpSummary": "Profilo di base: nome, percorso di cartella o none (modalità provvisoria).",

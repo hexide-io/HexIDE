@@ -73,6 +73,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Iestatiet nosacījumus pārtraukumpunktu piemales izvēlnē ar Nosacījums…. Fails '{0}', pārtraukumpunkta ieraksts {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Pārtraukumpunkta opcija '{0}' ārējām sesijām vēl netiek atbalstīta. Fails '{1}', pārtraukumpunkta ieraksts {2}. Iestatiet nosacījumus pārtraukumpunktu piemales izvēlnē ar Nosacījums….",
     "Str.Debug.RunWith.Unavailable": "F5 ir iestatīts izpildīt šo projektu ar {0}, kas tagad nav pieejams, tāpēc tas tiek izpildīts IDE vidē. Lai turpmāk to izpildītu IDE vidē, izvēlieties Izpilde > F5 izpilda > IDE vidē.",
+    "Str.MainWindow.DeveloperModeNotice": "IZSTRĀDĀTĀJA REŽĪMS",
+    "Str.MainWindow.UnsignedAddinsNotice": "IZSTRĀDĀTĀJA REŽĪMS, var ielādēt neparakstītas pievienojumprogrammas",
     "Str.MainWindow.RecoveryNotice": "Atkopšanas sesija — iestatījumu izmaiņas netiks saglabātas",
     "Str.Profiles.LoadError": "Nevar ielādēt profilu “{0}”, failu “{1}”. Pārbaudiet pakotnes formātu un failu ceļus.",
     "Str.Profiles.HelpSummary": "Pamatprofils: nosaukums, direktorija ceļš vai none (drošais režīms).",

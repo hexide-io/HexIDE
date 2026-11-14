@@ -99,6 +99,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "ブレークポイントの余白メニューの「条件…」で条件を設定してください。 ファイル '{0}'、ブレークポイント項目 {1}。",
     "Str.Debug.External.BreakpointOptionUnsupported": "ブレークポイントのオプション '{0}' は外部セッションではまだサポートされていません。ファイル '{1}'、ブレークポイント項目 {2}。 ブレークポイントの余白メニューの「条件…」で条件を設定してください。",
     "Str.Debug.RunWith.Unavailable": "F5 はこのプロジェクトを {0} で実行するよう設定されていますが、現在使用できないため IDE 内で実行します。今後 IDE 内で実行するには、[実行] > [F5 の実行先] > [IDE 内] を選択してください。",
+    "Str.MainWindow.DeveloperModeNotice": "開発者モード",
+    "Str.MainWindow.UnsignedAddinsNotice": "開発者モード、署名のないアドインを読み込めます",
     "Str.MainWindow.RecoveryNotice": "回復セッション — 設定の変更は保存されません",
     "Str.Profiles.LoadError": "プロファイル '{0}' のファイル '{1}' を読み込めません。バンドルの形式とファイルのパスを確認してください。",
     "Str.Profiles.HelpSummary": "基本プロファイル：名前、ディレクトリパス、または none（セーフモード）。",

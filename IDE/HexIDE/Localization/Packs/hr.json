@@ -99,6 +99,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Postavite uvjete naredbom Uvjet… u izborniku margine prekidnih točaka. Datoteka '{0}', unos prijelomne točke {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Mogućnost prekidne točke '{0}' još nije podržana za vanjske sesije. Datoteka '{1}', stavka {2}. Postavite uvjete naredbom Uvjet… u izborniku margine prekidnih točaka.",
     "Str.Debug.RunWith.Unavailable": "F5 je postavljen da ovaj projekt pokreće s {0}, koji sada nije dostupan, pa se pokreće u IDE-u. Da biste ga odsad pokretali u IDE-u, odaberite U IDE-u pod Pokretanje > F5 pokreće.",
+    "Str.MainWindow.DeveloperModeNotice": "NAČIN RADA ZA RAZVOJNE INŽENJERE",
+    "Str.MainWindow.UnsignedAddinsNotice": "NAČIN RADA ZA RAZVOJNE INŽENJERE, mogu se učitati nepotpisani dodaci",
     "Str.MainWindow.RecoveryNotice": "Sesija oporavka — promjene postavki neće se spremiti",
     "Str.Profiles.LoadError": "Nije moguće učitati profil „{0}”, datoteku „{1}”. Provjerite format paketa i putanje datoteka.",
     "Str.Profiles.HelpSummary": "Osnovni profil: naziv, putanja direktorija ili none (sigurni način rada).",

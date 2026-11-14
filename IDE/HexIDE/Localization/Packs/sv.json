@@ -39,6 +39,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Ange villkor med Villkor… i brytpunktsmarginalens meny. Fil '{0}', brytpunktspost {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Brytpunktsalternativet '{0}' stöds ännu inte för externa sessioner. Fil '{1}', brytpunktspost {2}. Ange villkor med Villkor… i brytpunktsmarginalens meny.",
     "Str.Debug.RunWith.Unavailable": "F5 är inställd på att köra projektet med {0}, som inte är tillgänglig nu, så det körs i IDE:n. Välj I IDE:n under Kör > F5 kör för att köra det i IDE:n från och med nu.",
+    "Str.MainWindow.DeveloperModeNotice": "UTVECKLARLÄGE",
+    "Str.MainWindow.UnsignedAddinsNotice": "UTVECKLARLÄGE, osignerade tillägg kan läsas in",
     "Str.MainWindow.RecoveryNotice": "Återställningssession — inställningsändringar sparas inte",
     "Str.Profiles.LoadError": "Kan inte läsa in profilen '{0}', filen '{1}'. Kontrollera paketformatet och filsökvägarna.",
     "Str.Profiles.HelpSummary": "Basprofil: namn, katalogsökväg eller none (felsäkert läge).",
