@@ -411,7 +411,9 @@ are not using cannot spoil startup for you.
 
 In order of likelihood:
 
-1. **Check the log** — `%LocalAppData%/HexIDE/logs/ide/`. A malformed entry is reported there with the
+1. **Check the log** — Help → Open HexIDE Log Folder opens the build’s log folder (the name follows its
+   brand). IDE logs are in `ide/`, and bundled language-server logs are in `lsp/`. For the stock build,
+   the IDE logs are under `%LocalAppData%/HexIDE/logs/ide/`. A malformed entry is reported there with the
    reason, the field, and the line and column. A rejected entry does not stop the others from working.
 2. **Use forward slashes for Windows paths**, or double each backslash in JSON. An invalid escape
    names the offending field, such as `$.servers[0].command`, with the line and position and the two

@@ -44,7 +44,7 @@ public class MainMenuDeclarationTests
         var ids = Walk(MainMenuDeclaration.Load()).Select(i => i.Id).ToArray();
         ids.Should().OnlyHaveUniqueItems();
         ids.Should().Equal(File.ReadAllLines(Path.Combine(Root, "IDE/HexIDE.Tests/Infrastructure/MainMenuPlacementIds.txt")));
-        ids.Should().Contain(["project.references", "tools.references"]);
+        ids.Should().Contain(["project.references", "tools.references", "help.logfolder"]);
     }
 
     [Fact]

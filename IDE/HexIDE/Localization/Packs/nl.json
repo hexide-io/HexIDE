@@ -330,6 +330,8 @@
     "Str.Menu.Help.BrandHome": "{0}-_startpagina",
     "Str.Menu.Help.BrandSupport": "{0}-_ondersteuning",
     "Str.Menu.Help.ProductOnWeb": "HexIDE op het _web",
+    "Str.Menu.Help.LogFolder": "HexIDE-_logboekmap openen",
+    "Str.Help.LogFolder.OpenFailed": "De logboekmap kon niet worden geopend. U kunt deze handmatig openen: {0}",
     "Str.Menu.Help.About": "_Over HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ga naar github-repo",
     "Str.NewProject.NoTemplates": "Dit profiel biedt geen sjablonen voor nieuwe projecten. Open een bestaand project.",

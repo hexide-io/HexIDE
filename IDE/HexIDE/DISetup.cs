@@ -42,6 +42,7 @@ public partial class DISetup
     [Conditional("DI")]
     static void Setup() =>
         DI.Setup()
+            .Bind<ILogFolderOpener>().As(Singleton).To<PlatformLogFolderOpener>()
             .Bind().As(Singleton).To<ToolBoxToolViewModel>()
             .Bind().As(Singleton).To<PropertiesToolViewModel>()
             .Bind().As(Singleton).To(ctx =>

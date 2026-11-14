@@ -296,6 +296,8 @@
     "Str.Menu.Help.BrandHome": "{0} _Ana Sayfası",
     "Str.Menu.Help.BrandSupport": "{0} _Desteği",
     "Str.Menu.Help.ProductOnWeb": "_Web'de HexIDE",
+    "Str.Menu.Help.LogFolder": "HexIDE _Günlük Klasörünü Aç",
+    "Str.Help.LogFolder.OpenFailed": "Günlük klasörü açılamadı. Elle açabilirsiniz: {0}",
     "Str.Menu.Help.About": "HexIDE _Hakkında...",
     "Str.Menu.GoToGithubRepo": "github deposuna git",
     "Str.NewProject.NoTemplates": "Bu profil yeni proje şablonu sunmuyor. Bunun yerine mevcut bir projeyi açın.",
