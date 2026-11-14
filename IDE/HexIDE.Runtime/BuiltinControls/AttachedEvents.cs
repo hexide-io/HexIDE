@@ -224,6 +224,9 @@ public static class AttachedEvents
 
     internal static void RaiseMouse(Control control, PointerEventArgs e, EventClass eventClass, object? source = null, Func<bool>? when = null)
     {
+        if (control is VBListBox list && !list.IsMultiSelect && list.IsScrollBarSource(source ?? e.Source)
+            && (eventClass == ComponentBaseClass.MouseDownEvent || eventClass == ComponentBaseClass.MouseUpEvent))
+            return;
         if (!OwnsThePointerEvent(control, source ?? e.Source) || VBProps.GetName(control) is null)
             return;
         // A PictureBox counts from inside its border, in its own ScaleMode, as its child host does. Every other control
