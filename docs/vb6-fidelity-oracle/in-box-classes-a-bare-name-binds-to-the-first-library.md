@@ -94,7 +94,12 @@ Four more projects, native and p-code alike:
 
 ### In HexIDE
 
-The first #2265 slice implements bare ProgressBar declarations, library-sensitive Set (13 on the other library) and
-`TypeOf`, using the project's referenced control-library order. The other measured classes and their interface
-`TypeName` results await their control/object implementations on this base. Ranking a `Reference=` type library
-against an `Object=` library remains unchanged and unmeasured.
+A bare declaration of any class measured here binds as VB6 binds it (#2265): the 24 MSComctlLib names and the 20 that
+ComctlLib also declares. The first library declaring the name wins, in the project's combined `Reference=`/`Object=`
+order (#3524). `Tab` binds only qualified. A typed slot keeps its class, bare or qualified: a Set of another class raises
+13 and leaves the earlier object in place, and `TypeOf` follows the same binding for a control and for its objects.
+`TypeName` returns the measured interface names.
+
+With both libraries referenced, VB6 was measured for ListView, ListItem and ProgressBar only. HexIDE applies the same
+rule to the other names. A class of the project keeps the precedence it already had over a library's, which is
+unmeasured. Slider, ImageCombo and ComboItem(s), and the other in-box libraries' classes, are still not bound bare.
