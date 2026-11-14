@@ -1,4 +1,16 @@
+using BindingFlags = System.Reflection.BindingFlags;
+using Avalonia.Controls.ApplicationLifetimes;
+using HexIDE.Desktop.Server;
+using HexIDE.IDE;
+using HexIDE.Lsp;
+using HexIDE.Runtime.Debugging;
+using HexIDE.Runtime.Serialization;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Input.Raw;
+using Avalonia.VisualTree;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using HexIDE.Automation;
@@ -37,6 +49,184 @@ public class HoverStayTests
         while (Environment.TickCount64 < end) { await Task.Delay(20); Dispatcher.UIThread.RunJobs(); }
     }
 
+    // Send through the platform callback, before pointer-over preprocessing, without touching the OS cursor (#2666).
+    private static Action<TopLevel, Point> RealMouse()
+    {
+        var device = typeof(MouseDevice).GetConstructors().Single().Invoke(
+            [new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, true)]);
+        return (window, point) =>
+        {
+            var root = typeof(TopLevel).GetProperty("InputRoot",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window);
+            var input = (Action<RawInputEventArgs>)typeof(Avalonia.Platform.ITopLevelImpl).GetProperty("Input")!
+                .GetValue(window.PlatformImpl)!;
+            var constructor = typeof(RawPointerEventArgs).GetConstructors().Single(c =>
+                c.GetParameters() is [_, _, _, _, { ParameterType: var p }, _] && p == typeof(Point));
+            input((RawInputEventArgs)constructor.Invoke(
+                [device, (ulong)Environment.TickCount64, root, RawPointerEventType.Move, point, RawInputModifiers.None]));
+        };
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true, false, false)]
+    [InlineData(false, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(true, false, true)]
+    public async Task Tool_hover_protects_the_dwell_only_when_staying_and_the_real_position_is_unchanged(bool stay, bool moved, bool cancelled)
+    {
+        await using var owned = new RealComposition();
+        using var context = new IdeContext(null!, null!, Substitute.For<ILspClient>(),
+            null!, null!, null!, null!, null!, null!, Substitute.For<IDebugController>(), null!, null!, null!, null!,
+            null!, owned.Composition.Capture, null!, null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+        var tools = new HexIdeTools(context);
+        var button = TippedButton("Add", "Add Form");
+        ToolTip.SetShowDelay(button, 100);
+        var window = Show(button);
+        var desktop = Substitute.For<IClassicDesktopStyleApplicationLifetime>();
+        desktop.MainWindow.Returns(window);
+        desktop.Windows.Returns(new[] { window });
+        // Lend the headless host a desktop lifetime for the tool's window lookup, as ProgramPrintedStartTests does.
+        var lifetime = typeof(Application).GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(field => field.FieldType == typeof(IApplicationLifetime));
+        var previous = lifetime.GetValue(Application.Current!);
+        var real = RealMouse();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var sent = false;
+        button.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == ToolTip.IsOpenProperty && ToolTip.GetIsOpen(button) && !sent)
+            {
+                sent = true;
+                // Run after the popup opens, before the tool's next 50 ms poll can observe it.
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (cancelled) cancellation.Cancel();
+                    else real(window, new Point(moved ? 210 : 200, 60));
+                }, DispatcherPriority.Send);
+            }
+        };
+        try
+        {
+            lifetime.SetValue(Application.Current!, desktop);
+            real(window, new Point(200, 60));
+            var pending = tools.HoverAsync("Window/Button", dwellMs: 400, window: "ide", stay: stay,
+                ct: cancellation.Token);
+            if (cancelled)
+            {
+                await ((Func<Task>)(async () => await pending)).Should().ThrowAsync<OperationCanceledException>();
+                sent.Should().BeTrue();
+                button.IsPointerOver.Should().BeFalse();
+                ToolTip.GetIsOpen(button).Should().BeFalse();
+                using var watch = new UiAutomationDriver.ForeignPointerWatch(window, new Point(200, 150));
+                real(window, new Point(200, 60));
+                watch.Moved.Should().NotBeNull("cancellation must remove the stay's input protection");
+                return;
+            }
+            var reply = await pending;
+            sent.Should().BeTrue("the real move must arrive after the delayed tip opens");
+            reply.Success.Should().BeTrue(reply.Error);
+            if (stay && !moved)
+            {
+                reply.Detail.Should().Contain("reads as under it (isPointerOver)").And.Contain("; tip: Add Form");
+                button.IsPointerOver.Should().BeTrue();
+                ToolTip.GetIsOpen(button).Should().BeTrue();
+            }
+            else
+            {
+                reply.Detail.Should().Contain($"the real mouse moved the pointer to ({(moved ? 210 : 200)}, 60) in the window")
+                    .And.Contain("during the watch");
+                button.IsPointerOver.Should().BeFalse();
+                ToolTip.GetIsOpen(button).Should().BeFalse();
+            }
+        }
+        finally
+        {
+            UiAutomationDriver.EndStayingHover(window);
+            window.Close();
+            lifetime.SetValue(Application.Current!, previous);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true, false, 1.0, false)]
+    [InlineData(true, false, 1.5, false)]
+    [InlineData(true, true, 1.5, false)]
+    [InlineData(false, false, 1.5, false)]
+    [InlineData(true, false, 1.5, true)]
+    public async Task Real_mouse_restatements_preserve_stay_only_at_a_known_unchanged_position(bool known, bool moved, double scaling, bool nativeWayland)
+    {
+        NativeWayland.ForTest = _ => nativeWayland;
+        var button = TippedButton("Add", "Add Form");
+        var other = TippedButton("Other", "Other tip");
+        other.Name = "Other";
+        var window = Show(new StackPanel { Children = { button, other } });
+        window.SetRenderScaling(scaling);
+        var real = RealMouse();
+        try
+        {
+            if (known) real(window, new Point(200, 60));
+            UiAutomationDriver.Hover(button, null, null, null, out var landing).Success.Should().BeTrue();
+            await Settle(100);
+            UiAutomationDriver.StayHover(button);
+            var point = button.TranslatePoint(landing!.Value.Point, window)!.Value;
+            using var watch = new UiAutomationDriver.ForeignPointerWatch(window, point);
+            real(window, new Point(moved ? 210 : 200, 60));
+            using var restatement = new UiAutomationDriver.ForeignPointerWatch(window, point);
+            real(window, new Point(moved ? 210 : 200, 60));
+            await Settle(100);
+
+            var preserved = known && !moved && !nativeWayland;
+            restatement.Moved.Should().Be(watch.Moved,
+                "a genuine move ends the stay, so its next restatement must reach the input manager too");
+            button.IsPointerOver.Should().Be(preserved);
+            if (preserved)
+            {
+                ToolTip.GetIsOpen(button).Should().BeTrue();
+                watch.Moved.Should().BeNull();
+            }
+            else watch.Moved.Should().StartWith($"the real mouse moved the pointer to ({(moved ? 210 : 200)}, 60) in the window")
+                .And.EndWith("during the watch, and the tip went with it, as it would for a person: one resting over the window is "
+                    + "sent such moves as windows change around it. Move it off the window and hover again");
+        }
+        finally { UiAutomationDriver.EndStayingHover(window); window.Close(); NativeWayland.ForTest = null; }
+    }
+
+    [AvaloniaFact]
+    public async Task A_restatement_in_a_new_popup_uses_the_same_screen_position()
+    {
+        var button = TippedButton("Add", "Add Form");
+        var popup = new Avalonia.Controls.Primitives.Popup
+        {
+            PlacementTarget = button, Child = new Border { Width = 80, Height = 40 },
+        };
+        var window = PopupBoundsTests.NativePopupWindow(1.5);
+        window.Width = 400;
+        window.Height = 300;
+        window.Content = new StackPanel { Children = { button, popup } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+        var real = RealMouse();
+        try
+        {
+            real(window, new Point(10, 10));
+            var screen = window.PointToScreen(new Point(10, 10));
+            UiAutomationDriver.Hover(button, null, null, null, out _).Success.Should().BeTrue();
+            await Settle(100);
+            UiAutomationDriver.StayHover(button);
+            popup.IsOpen = true;
+            await Settle(50);
+            var root = TopLevel.GetTopLevel(popup.Child!)!;
+            root.Should().BeOfType<Avalonia.Controls.Primitives.PopupRoot>();
+            real(root, root.PointToClient(screen));
+            await Settle(100);
+            button.IsPointerOver.Should().BeTrue();
+            ToolTip.GetIsOpen(button).Should().BeTrue();
+        }
+        finally { popup.IsOpen = false; UiAutomationDriver.EndStayingHover(window); window.Close(); }
+    }
+
     [AvaloniaFact]
     public async Task A_hover_left_by_stay_keeps_the_control_under_the_pointer_with_its_tip_open()
     {
@@ -53,7 +243,7 @@ public class HoverStayTests
 
             said.Should().Be("; the pointer stays there and 'Button' reads as under it (isPointerOver), so take_snapshot "
                              + "shows its pointer-over look and any tip, until the next click, drag or hover, in this window "
-                             + "or another, or the real mouse's next move over it");
+                             + "or another, or the real mouse's next move to a new position over it");
             button.IsPointerOver.Should().BeTrue();
             ToolTip.GetIsOpen(button).Should().BeTrue("the tip a staying hover opened stays open for a snapshot");
             UiAutomationDriver.Inspect(button, "Window/Button").IsPointerOver.Should().BeTrue(
