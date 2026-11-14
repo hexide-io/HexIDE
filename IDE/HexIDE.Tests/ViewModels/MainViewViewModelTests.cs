@@ -36,6 +36,7 @@ public class MainViewViewModelTests
     private readonly IStatusBarService _statusBarService = Substitute.For<IStatusBarService>();
     private readonly HexIDE.Runtime.Debugging.IDebugController _debugController = Substitute.For<HexIDE.Runtime.Debugging.IDebugController>();
     private readonly ILocalizationService _localization = Substitute.For<ILocalizationService>();
+    private readonly IDeveloperModeService _developerMode = Substitute.For<IDeveloperModeService>();
     private readonly MainViewViewModel _sut;
 
     public MainViewViewModelTests()
@@ -390,7 +391,7 @@ public class MainViewViewModelTests
             loc,
             Substitute.For<IAddinRegistry>(),
             new AddinOptionsService(),
-            Substitute.For<IDeveloperModeService>(),
+            _developerMode,
             _statusBarService,
             Substitute.For<IProfileService>(),
             new AddinMenuService(),
@@ -1135,6 +1136,65 @@ public class MainViewViewModelTests
             changed.Should().Contain(nameof(_sut.WindowTitle));
             Static.IsRecoveryMode = false;
             _sut.WindowTitle.Should().Be(_sut.Title);
+        }
+        finally
+        {
+            Static.IsRecoveryMode = previous;
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void Developer_window_title_uses_localized_prefix(bool enabled, bool unsigned)
+    {
+        _developerMode.IsEnabled.Returns(enabled);
+        _settingsService.LoadUnsignedAddins.Returns(unsigned);
+        _localization.GetString("Str.MainWindow.DeveloperModeNotice").Returns("Translated developer mode");
+        _localization.GetString("Str.MainWindow.UnsignedAddinsNotice").Returns("Translated unsigned add-ins");
+
+        var notice = unsigned ? "Translated unsigned add-ins" : "Translated developer mode";
+        _sut.WindowTitle.Should().Be(enabled ? notice + " — " + _sut.Title : _sut.Title);
+    }
+
+    [AvaloniaFact]
+    public void Developer_window_title_updates_when_unsigned_setting_or_language_changes()
+    {
+        _developerMode.IsEnabled.Returns(true);
+        _localization.GetString("Str.MainWindow.DeveloperModeNotice").Returns("DEVELOPER MODE");
+        _localization.GetString("Str.MainWindow.UnsignedAddinsNotice").Returns("DEVELOPER MODE, unsigned add-ins can load");
+        var changed = new List<string?>();
+        _sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        foreach (var unsigned in new[] { true, false })
+        {
+            changed.Clear();
+            _settingsService.LoadUnsignedAddins.Returns(unsigned);
+            _settingsService.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(
+                _settingsService, new PropertyChangedEventArgs(nameof(ISettingsService.LoadUnsignedAddins)));
+            changed.Should().Contain(nameof(_sut.WindowTitle));
+            _sut.WindowTitle.Should().Be((unsigned ? "DEVELOPER MODE, unsigned add-ins can load" : "DEVELOPER MODE") + " — " + _sut.Title);
+        }
+        changed.Clear();
+        _localization.GetString("Str.MainWindow.DeveloperModeNotice").Returns("Translated notice");
+        _localization.LanguageChanged += Raise.Event<Action>();
+        changed.Should().Contain(nameof(_sut.WindowTitle));
+        _sut.WindowTitle.Should().Be("Translated notice — " + _sut.Title);
+    }
+
+    [AvaloniaFact]
+    public void Developer_window_title_keeps_recovery_notice_as_suffix()
+    {
+        var previous = Static.IsRecoveryMode;
+        try
+        {
+            Static.IsRecoveryMode = true;
+            _developerMode.IsEnabled.Returns(true);
+            _localization.GetString("Str.MainWindow.DeveloperModeNotice").Returns("DEVELOPER MODE");
+            _localization.GetString("Str.MainWindow.RecoveryNotice").Returns("Recovery notice");
+            _sut.WindowTitle.Should().Be("DEVELOPER MODE — " + _sut.Title + " — Recovery notice");
         }
         finally
         {

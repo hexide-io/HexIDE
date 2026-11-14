@@ -870,7 +870,13 @@ public class DateFractionOfASecondTests : BaseVBTestFixture
     }
 
     // Left out: Format$(d, "hh:nn:ss AMPM") -> 12:00:01 PM | err 0, #2040, the AMPM token.
-    // Left out: Format$(e, "Long Date") -> 01 January 2000 | err 0, #2041, .NET's ICU pattern for en-GB.
+    [WindowsOnlyFact]
+    public async Task Long_date_uses_the_measured_Windows_pattern()
+    {
+        await RunInEnGb(Prelude + "\nDebug.Print Format$(e, \"Long Date\")");
+        Printed().Should().Equal("01 January 2000");
+    }
+
     // As measured, the expression vb6.exe ran; as run here, with each serial vb6.exe logged compared as the Double it names.
     public static TheoryData<string, string, string> Cases => new()
     {

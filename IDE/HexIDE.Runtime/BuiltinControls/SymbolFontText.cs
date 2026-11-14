@@ -2,6 +2,7 @@ using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Media;
 using HexIDE.IDE;
 using HexIDE.Runtime.BuiltinTypes;
 
@@ -16,9 +17,7 @@ namespace HexIDE.Runtime.BuiltinControls;
 /// Only the text drawn is mapped. Caption and Text still read back the letters the program wrote.
 /// </para>
 /// <para>
-/// Only where the font is installed. On a machine without it, which is any Linux or macOS machine for Wingdings, the
-/// private-use characters would draw as empty boxes, so the letters are drawn as before. What to draw there instead is the
-/// other half of #1133.
+/// Where the font is missing, the five families covered by #1133 use Unicode equivalents drawable by the host.
 /// </para>
 /// </summary>
 public static class SymbolFontText
@@ -35,6 +34,39 @@ public static class SymbolFontText
 
     public static bool GetSymbolGlyphs(AvaloniaObject element) => element.GetValue(SymbolGlyphsProperty);
     public static void SetSymbolGlyphs(AvaloniaObject element, bool value) => element.SetValue(SymbolGlyphsProperty, value);
+
+    internal static readonly AttachedProperty<Func<string, string>?> UnicodeMappingProperty =
+        AvaloniaProperty.RegisterAttached<VBProps, Control, Func<string, string>?>("UnicodeMapping", inherits: true);
+
+    // The predicates let headless tests choose font availability without relying on the host's installed fonts.
+    internal static void Apply(Control control, VBFont font, Func<string, bool>? isInstalled = null,
+        Func<int, bool>? canDraw = null)
+    {
+        var installed = (isInstalled ?? VBFontExtensions.IsInstalled)(font.FontFamilyName);
+        SetSymbolGlyphs(control, font.Charset == SymbolCharset && installed);
+        control.SetValue(UnicodeMappingProperty, font.Charset == SymbolCharset && !installed
+            ? text => ToUnicodeGlyphs(text, font.FontFamilyName, canDraw)
+            : null);
+    }
+
+    internal static Func<string, string> Mapping(Control control) => GetSymbolGlyphs(control)
+        ? ToSymbolGlyphs
+        : control.GetValue(UnicodeMappingProperty) ?? (text => text);
+
+    internal static string ToUnicodeGlyphs(string text, string family, Func<int, bool>? canDraw = null)
+    {
+        canDraw ??= scalar => FontManager.Current.TryMatchCharacter(scalar, FontStyle.Normal, FontWeight.Normal,
+            FontStretch.Normal, null, null, out _);
+        var bytes = ToSymbolGlyphs(text);
+        var result = new StringBuilder(text.Length);
+        for (var i = 0; i < text.Length; i++)
+        {
+            var value = bytes[i] is >= (char)0xF020 and <= (char)0xF0FF ? bytes[i] - 0xF000 : -1;
+            var scalar = SymbolFontUnicode.Lookup(family, value);
+            result.Append(scalar != 0 && canDraw(scalar) ? char.ConvertFromUtf32(scalar) : text[i].ToString());
+        }
+        return result.ToString();
+    }
 
     /// <summary>Whether <paramref name="font"/> draws as a symbol font here: its Charset is 2 and the family is installed.</summary>
     public static bool UsesSymbolGlyphs(VBFont font) => font.Charset == SymbolCharset && VBFontExtensions.IsInstalled(font.FontFamilyName);
@@ -115,10 +147,11 @@ public class VBAccessText : AccessText
     {
         SourceProperty.Changed.AddClassHandler<VBAccessText>((text, _) => text.Update());
         SymbolFontText.SymbolGlyphsProperty.Changed.AddClassHandler<VBAccessText>((text, _) => text.Update());
+        SymbolFontText.UnicodeMappingProperty.Changed.AddClassHandler<VBAccessText>((text, _) => text.Update());
     }
 
     private void Update() =>
-        Text = VBCaption.Parse(Source ?? "", Choice).ForAccessText(SymbolFontText.GetSymbolGlyphs(this));
+        Text = VBCaption.Parse(Source ?? "", Choice).ForAccessText(SymbolFontText.Mapping(this));
 }
 
 /// <summary>
@@ -143,7 +176,8 @@ public class VBCaptionText : TextBlock
     {
         SourceProperty.Changed.AddClassHandler<VBCaptionText>((text, _) => text.Update());
         SymbolFontText.SymbolGlyphsProperty.Changed.AddClassHandler<VBCaptionText>((text, _) => text.Update());
+        SymbolFontText.UnicodeMappingProperty.Changed.AddClassHandler<VBCaptionText>((text, _) => text.Update());
     }
 
-    private void Update() => Text = VBCaption.Parse(Source ?? "").Drawn(SymbolFontText.GetSymbolGlyphs(this));
+    private void Update() => Text = VBCaption.Parse(Source ?? "").Drawn(SymbolFontText.Mapping(this));
 }

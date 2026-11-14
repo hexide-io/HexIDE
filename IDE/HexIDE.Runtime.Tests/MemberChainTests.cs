@@ -12,9 +12,7 @@ namespace HexIDE.Runtime.Tests;
 /// on a value that exists by the time it is needed, which is execution rather than analysis, and the parser
 /// already hands over the whole chain as an array. (#173)
 ///
-/// READS only. Chained ASSIGNMENT (`a.b.c = 5`) is a separate leg — the prefix may resolve to a UDT, which
-/// is a value type, so whether the write lands back in its owner is an aliasing question that deserves its
-/// own tests rather than a rushed one.
+/// Qualified writes also reach the module-owned record; measured in #173 on 2026-11-14.
 /// </summary>
 public class MemberChainTests : BaseVBTestFixture
 {
@@ -76,5 +74,32 @@ public class MemberChainTests : BaseVBTestFixture
             ("Holder", "Public Child As Leaf\r\nPublic Function GetChild() As Leaf\r\n  Set GetChild = Child\r\nEnd Function\r\n"),
             ("Leaf", "Public Value As Long\r\n"));
         AssertDebugLog(["8"]);
+    }
+    // vb6.exe SP6, native and p-code, 2026-11-14: #173's latest measurement comment.
+    [Theory]
+    [InlineData("Module1.p.X = 7", "p.X", "7")]
+    [InlineData("Module1.p.In1.Z = 42", "p.In1.Z", "42")]
+    [InlineData("Module1.a(1).In1.Z = 9", "a(1).In1.Z", "9")]
+    [InlineData("Module1.p.In1.Z = 42\r\nModule1.p.In1.Z = Module1.p.In1.Z + 1", "p.In1.Z", "43")]
+    public async Task AModuleQualifiedUdtWriteReachesItsOwner(string store, string read, string expected)
+    {
+        await Run(Types + "Dim p As Outer\r\nDim a(1) As Outer\r\n" + store + "\r\nDebug.Print CStr(" + read + ")");
+        AssertDebugLog([expected]);
+    }
+
+    [Fact]
+    public async Task AModuleQualifiedUdtWriteInsideASubReachesItsOwner()
+    {
+        await Run(Types + "Dim p As Outer\r\nSub WriteP()\r\nModule1.p.In1.Z = 42\r\nEnd Sub\r\nWriteP\r\nDebug.Print CStr(p.In1.Z)");
+        AssertDebugLog(["42"]);
+    }
+
+    [Fact]
+    public async Task AForeignModuleQualifiedUdtWriteReachesItsOwner()
+    {
+        await RunModules("Module2.q.In1.Z = 5\r\nDebug.Print CStr(Module2.ReadQ())\r\nModule2.q.In1.Z = 6\r\nDebug.Print CStr(q.In1.Z)",
+            ("Module2", Types.Replace("Private Type", "Public Type") +
+                "Public q As Outer\r\nPublic Function ReadQ() As Long\r\nReadQ = q.In1.Z\r\nEnd Function\r\n"));
+        AssertDebugLog(["5", "6"]);
     }
 }

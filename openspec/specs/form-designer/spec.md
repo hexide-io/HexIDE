@@ -473,3 +473,23 @@ replacement, staged and flushed through the atomic writer. A new destination SHA
 #### Scenario: Accept replacement
 - **WHEN** the replacement question is answered Yes
 - **THEN** the destination contains the exported picture payload
+
+### Requirement: Missing symbol fonts use drawable Unicode equivalents
+Label, CommandButton, CheckBox and OptionButton captions SHALL use the same symbol-font mapping in the designer
+and at run time. Missing Charset 2 fonts SHALL use the equivalents chosen in
+[#1133](https://github.com/hexide-io/HexIDE/issues/1133), keeping original text for unmapped or undrawable glyphs.
+This rendering substitution SHALL NOT change Caption/Text readback or permit setting a missing font at run time.
+
+#### Scenario: A form names a symbol font
+- **WHEN** a Charset 2 font is installed
+- **THEN** its caption retains its GDI private-use mapping
+- **WHEN** Wingdings, Wingdings 2, Wingdings 3 or Webdings is missing (family names compared without regard to case)
+- **THEN** its caption uses the byte-to-scalar facts in WG2 N4384 (UTC L2/12-368), section 7
+- **WHEN** Marlett is missing
+- **THEN** its caption uses the short table chosen in #1133
+
+#### Scenario: A symbol precedes an access key
+- **WHEN** a missing Wingdings caption is `M&J` and the host can draw both equivalents
+- **THEN** the displayed text contains U+1F4A3 followed by U+263A
+- **AND** the access-key underline follows the two-unit U+1F4A3 and marks U+263A
+- **AND** Caption still reads `M&J`

@@ -3715,48 +3715,60 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "activate_document_tab")]
-    [Description("Brings a tab to the front, giving an editor keyboard focus. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool) and read-only archive entries (type 'archive'); a duplicate title is refused, and a title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
+    [Description("Brings a tab to the front, giving an editor keyboard focus. Pass `name` (a form, module or carried file's name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. The document must already have an open tab. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool) and read-only archive entries (type 'archive'); a duplicate title is refused. A trailing unsaved `*` is accepted when no exact title matches; the note explains that the title omits it. A title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
     public async Task<MutateResult> ActivateDocumentTabAsync(string? title = null, string? name = null,
         string? project = null, string? type = null, CancellationToken ct = default)
     {
         return await FocusingTheActiveTabAsync(await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var lookup = name is null ? default : ResolveDocument(name, project);
-            var (tab, error, matched) = FindTab(title, lookup, type, project);
+            var lookup = name is null ? default : Find(name, project, carried: true);
+            var (tab, error, matched) = FindTab(title, lookup, type, project, caption: true);
             if (tab is null)
                 return Naming(new MutateResult(false, error), lookup);
             var found = ctx.DocumentDockService.TryActivateAny(d => ReferenceEquals(d, tab));
-            return Naming(new MutateResult(found, null, matched + TabStateNote()),
+            return Naming(Naming(new MutateResult(found, null, matched + TabStateNote()), lookup),
                 (tab as BaseEditorWindowViewModel)?.OpenDocument);
         }));
     }
 
     /// <summary>
-    /// The tab a call names, or why it names none. <c>Matched</c> is the note's opening sentence when a title that
-    /// is no tab's was taken as the name of the one document it fits, and null otherwise.
+    /// The tab a call names, or why it names none. <c>Matched</c> explains a title accepted as a document name
+    /// or with its unsaved marker removed, and is null for an exact match.
     /// </summary>
     private (Dock.Model.Core.IDockable? Tab, string? Error, string? Matched) FindTab(
-        string? title, NamedDocument lookup, string? type, string? project)
+        string? title, NamedDocument lookup, string? type, string? project, bool caption = false)
     {
-        if (title is not null && (lookup.Document is not null || lookup.Error is not null || project is not null))
+        if (title is not null && (lookup.Document is not null || lookup.Carried is not null || lookup.Error is not null || project is not null))
             return (null, "Pass either `title` or `name` with optional `project`, not both.", null);
         if (lookup.Error is not null)
             return (null, lookup.Error, null);
-        if (title is null && lookup.Document is null)
+        if (title is null && lookup.Document is null && lookup.Carried is null)
             return (null, "Pass `name` with optional `project` for a document, or `title` for a tool tab. get_document_tabs lists both.", null);
         if (type is not null && type is not ("code" or "designer" or "archive" or "tool"))
             return (null, "Use `type`: code, designer, archive or tool, as get_document_tabs reports it.", null);
         var matches = ctx.DocumentDockService.AllTabs.Where(d =>
             (lookup.Document is { } document
                 ? (d as BaseEditorWindowViewModel)?.OpenDocument == document
-                : string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase))
+                : lookup.Carried is { } carried
+                    ? (d as RelatedDocumentEditorViewModel)?.RelatedDocument == carried
+                    : string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase))
             && (type is null || TabType(d) == type)).ToArray();
-        if (matches.Length == 0 && lookup.Document is null)
+        string? matched = null;
+        if (matches.Length == 0 && caption && title is not null && title.EndsWith('*'))
+        {
+            // Dock's ModifiedTemplate draws a separate "*" with spacing, rather than changing Title (#3930).
+            var clean = title[..^1].TrimEnd();
+            matches = ctx.DocumentDockService.AllTabs.Where(d =>
+                string.Equals(d.Title, clean, StringComparison.OrdinalIgnoreCase)
+                && (type is null || TabType(d) == type)).ToArray();
+            matched = "The title leaves the unsaved marker out. ";
+        }
+        if (matches.Length == 0 && lookup.Document is null && lookup.Carried is null)
             return ByDocumentName(title!, type);
         return matches.Length switch
         {
-            1 => (matches[0], null, null),
-            0 => (null, $"No open tab for {lookup.Document!.Display}" + (type is null ? "." : $" of type '{type}'."), null),
+            1 => (matches[0], null, matched),
+            0 => (null, $"No open tab for {lookup.Document?.Display ?? $"{lookup.Project}/{lookup.Name}"}" + (type is null ? "." : $" of type '{type}'."), null),
             _ when matches.All(tab => TabType(tab) == "tool") => (null, "More than one tab matches. These are tool tabs. Use dump_visual_tree to locate the intended tab’s close button, then interact to invoke it. Tool tabs have no document name or project to distinguish them.", null),
             _ => (null, "More than one tab matches. Pass `name` and `project` to identify the document, and `type` (code or designer) to choose its tab. get_document_tabs lists them.", null),
         };
