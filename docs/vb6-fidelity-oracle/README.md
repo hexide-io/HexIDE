@@ -622,6 +622,7 @@ added afterwards.
 - [A form's window styles: BorderStyle, ControlBox, MinButton and MaxButton (2026-10-23, #1575)](a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton.md#a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton-2026-10-23-1575)
 - [A form's window icon: no Icon line, (None), and an icon of its own (2026-10-24, #1594, SP6)](a-forms-window-icon-no-icon-line.md#a-forms-window-icon-no-icon-line-none-and-an-icon-of-its-own-2026-10-24-1594-sp6)
 - [A form's Resize, Activate and Deactivate (2026-10-23, #994)](a-forms-resize-activate-and-deactivate.md#a-forms-resize-activate-and-deactivate-2026-10-23-994)
+- [The active form hidden by `Visible`, and the last visible form hidden and shown (2026-11-14, #3936)](a-forms-resize-activate-and-deactivate.md#the-active-form-hidden-by-visible-and-the-last-visible-form-hidden-and-shown-2026-11-14-3936)
 - [Like (2026-10-23, #1547)](like.md#like-2026-10-23-1547)
 - [InStr and InStrRev at the ends (2026-10-23, #1567)](instr-and-instrrev-at-the-ends.md#instr-and-instrrev-at-the-ends-2026-10-23-1567)
 - [Option Compare Text, and VB6's text compare (2026-10-23, #1567)](option-compare-text-and-vb6s-text-compare.md#option-compare-text-and-vb6s-text-compare-2026-10-23-1567)
