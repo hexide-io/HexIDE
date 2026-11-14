@@ -61,7 +61,9 @@ public sealed class PackageLoadVerificationTests
             verifier.Received(2).Verify(first);
             registry.GetStatus(duplicate).Should().Be(AddinStatus.Error);
             var duplicateInfo = registry.GetAll().Single(info => info.AssemblyPath == duplicate);
-            duplicateInfo.LoadError.Should().Contain("com.example.probe").And.Contain(first);
+            duplicateInfo.LoadError.Should().NotBeNull();
+            duplicateInfo.LoadError!.Key.Should().Be("Str.Addins.DuplicateId");
+            duplicateInfo.LoadError.Arguments.Should().Equal("com.example.probe", first);
             if (change == "unchanged")
             {
                 registry.GetStatus(first).Should().Be(AddinStatus.Loaded);
@@ -74,7 +76,7 @@ public sealed class PackageLoadVerificationTests
                 registry.GetStatus(first).Should().Be(AddinStatus.Error);
                 var info = registry.GetAll().Single(info => info.AssemblyPath == first);
                 var message = localization.GetString("Str.Addins.ChangedAfterVerification");
-                info.LoadError.Should().Be(message);
+                info.LoadError.Should().BeEquivalentTo(new AddinMessage("Str.Addins.ChangedAfterVerification"));
                 message.Should().NotBe("Str.Addins.ChangedAfterVerification");
                 new AddinOptionsPageViewModel(registry, info).StatusText.Should().Contain(message);
                 host.DidNotReceive().RegisterCommand(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Action>(), Arg.Any<string?>(), Arg.Any<Func<bool>?>());

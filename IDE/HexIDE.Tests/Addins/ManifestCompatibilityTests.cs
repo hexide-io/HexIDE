@@ -46,7 +46,7 @@ public sealed class ManifestCompatibilityTests : IDisposable
 
         registry.GetStatus(package).Should().Be(AddinStatus.Incompatible);
         var info = registry.GetAll().Should().ContainSingle().Which;
-        var page = new AddinOptionsPageViewModel(registry, info);
+        var page = new AddinOptionsPageViewModel(registry, info, localization: localization);
         page.StatusText.Should().Be($"Required schema 3, HexIDE 999.0; supported schema 2, HexIDE {PackageVerification.RunningVersion.ToString(3)}");
         page.CanRevokeConsent.Should().BeFalse();
         page.ToggleEnabledCommand.Execute(null);

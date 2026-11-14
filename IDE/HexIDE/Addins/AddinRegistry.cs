@@ -155,10 +155,11 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
         if (result.Verdict == PackageVerdict.Incompatible)
         {
-            var message = string.Format(_localization.GetString("Str.Addins.Incompatible"),
-                result.Manifest!.Schema, result.Manifest.MinHexideVersion ?? "—",
-                AddinManifest.CurrentSchema, PackageVerification.RunningVersion.ToString(3));
-            info = info with { CompatibilityError = message };
+            var details = new AddinMessage("Str.Addins.Incompatible", result.Manifest!.Schema,
+                result.Manifest.MinHexideVersion ?? "—", AddinManifest.CurrentSchema,
+                PackageVerification.RunningVersion.ToString(3));
+            var message = string.Format(_localization.GetString(details.Key), details.Arguments);
+            info = info with { CompatibilityError = message, CompatibilityMessage = details };
             _contexts.Add(new AddinContext(info) { Status = AddinStatus.Incompatible, ErrorMessage = message, PackageDirectory = packageDir });
             Log.Warning("AddinRegistry: {Dir} is incompatible ({Reason}) — not loaded", packageDir, result.Error);
             return;
@@ -167,7 +168,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         if (result.Manifest is { } duplicateManifest && owners.TryGetValue(duplicateManifest.Id, out var ownerDirectory))
         {
             var message = string.Format(_localization.GetString("Str.Addins.DuplicateId"), duplicateManifest.Id, ownerDirectory);
-            info = info with { LoadError = message };
+            info = info with { LoadError = new AddinMessage("Str.Addins.DuplicateId", duplicateManifest.Id, ownerDirectory) };
             _contexts.Add(new AddinContext(info) { Status = AddinStatus.Error, ErrorMessage = message, PackageDirectory = packageDir });
             Log.Warning("AddinRegistry: {Message}", message);
             return;
@@ -253,7 +254,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                 var message = _localization.GetString("Str.Addins.ChangedAfterVerification");
                 ctx.Status = AddinStatus.Error;
                 ctx.ErrorMessage = message;
-                ctx.Info = ctx.Info with { LoadError = message };
+                ctx.Info = ctx.Info with { LoadError = new AddinMessage("Str.Addins.ChangedAfterVerification") };
                 Log.Warning("AddinRegistry: {Title}: {Message}", ctx.Info.Title, message);
                 return;
             }
