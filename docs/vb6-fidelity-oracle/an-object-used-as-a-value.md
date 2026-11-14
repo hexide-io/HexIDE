@@ -528,3 +528,37 @@ Clipboard, Printer or Forms yet. Round three, on a form with a control array `Cm
 A class with a default member is refused, untrappably, naming #174. One with none raises 438. Err stands for its
 Number, App raises 438, and `Debug` and a control array used as values are the compile errors VB6 gives.
 
+### A default member's value compared with a String (2026-11-14, #174's review)
+
+**The question.** `w = "42"`, above, is True. Is that a numeric comparison or a text one, and does it depend on the
+default member's declared type, or on whether the object sits in a typed variable or a Variant? A comparison with `"5"`
+tells the two apart: 42 is greater than 5 as a number, and "42" is less than "5" as text.
+
+**The probe.** VB6 SP6, `/make`, native code and p-code, which logged the same lines. Each class's `Value` carries
+`Attribute Value.VB_UserMemId = 0` and returns 42, or "42" for the String one. Each object variable is declared
+`As New` of its class. `ov` is a Variant holding a new instance of the Long one. `x` is a plain `Dim x As Long` holding 42.
+
+| Default member | Variable | Comparison | VB6 |
+|---|---|---|---|
+| Function `As Long` | typed | `= "42"`, `> "5"`, `= "42.0"`, `"5" <` it | True, True, True, True |
+| Function `As Long` | typed | `= "abc"` | 13 |
+| Function `As Long` | **a Variant** (`ov`) | `> "5"`; `= "abc"` | **False**; **False** |
+| Function `As Integer` | typed | `= "42"`, `> "5"`; `= "abc"` | True, True; 13 |
+| Function `As Double` | typed | `> "5"` | True |
+| Property Get `As Long` | typed | `> "5"`; `= "abc"` | True; 13 |
+| Function `As Variant` | typed | `> "5"`; `= "abc"` | **False**; **False** |
+| Function `As String` | typed | `= 42`; `> 5`; `> "5"` | True; True; False |
+| none: `x`, a Long | | `> "5"`; `= "abc"` | True; 13 |
+
+**Readings:**
+- **A typed variable's default member compares as a value of the member's declared type,** exactly as a variable of
+  that type does: a Long, Integer, Double or Property Get Long against a String compares numerically, and against
+  `"abc"` raises 13, as `x` does. A String member against a number compares numerically too, and against a String as
+  text.
+- **Through a Variant, or from a member returning a Variant, it compares as a Variant does:** a number against a
+  String is False, with no 13, both for `> "5"` and `= "abc"`.
+- So the early-bound call keeps the member's type, and the late-bound one gives a Variant.
+
+**In HexIDE.** A typed number against a String raises 13 in HexIDE today, whether or not a default member is involved
+(#211). Until that is fixed, #174 refuses a default member's value compared with a String, untrappably, so that no
+program runs on with an answer VB6 would not give.
