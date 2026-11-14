@@ -620,6 +620,7 @@ added afterwards.
 - [Tab and the arrow keys among option buttons (2026-10-23, #1583)](tab-and-the-arrow-keys-among-option-buttons.md#tab-and-the-arrow-keys-among-option-buttons-2026-10-23-1583)
 - [Where the arrow keys go from a button (2026-10-23, #1625)](where-the-arrow-keys-go-from-a-button.md#where-the-arrow-keys-go-from-a-button-2026-10-23-1625)
 - [Conditional compilation (2026-10-23, #1112)](conditional-compilation.md#conditional-compilation-2026-10-23-1112)
+- [LongLong and LongPtr in 64-bit VBA7 (2026-11-14, #1548)](longlong-and-longptr-in-64-bit-vba7.md#longlong-and-longptr-in-64-bit-vba7-2026-11-14-1548), measured in Excel's VBA7, not vb6.exe
 - [A form's Width and Height: the frame round its client area (2026-10-23, #1072)](a-forms-width-and-height-the-frame-round-its-client-area.md#a-forms-width-and-height-the-frame-round-its-client-area-2026-10-23-1072)
 - [A form's window styles: BorderStyle, ControlBox, MinButton and MaxButton (2026-10-23, #1575)](a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton.md#a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton-2026-10-23-1575)
 - [A form's window icon: no Icon line, (None), and an icon of its own (2026-10-24, #1594, SP6)](a-forms-window-icon-no-icon-line.md#a-forms-window-icon-no-icon-line-none-and-an-icon-of-its-own-2026-10-24-1594-sp6)
