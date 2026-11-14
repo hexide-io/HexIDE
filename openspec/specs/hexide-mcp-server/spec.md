@@ -52,6 +52,20 @@ before opening anything.
 - **AND WHEN** the caller repeats the request with one container path as `project`
 - **THEN** that archive's entry opens read-only and the reply names it
 
+### Requirement: Archive tab identities and type
+`get_document_tabs` SHALL report an archive entry tab with `type: archive`, `project` equal to its
+container path and `document` equal to the entry path returned by `open_file`. It SHALL omit
+`isModified` for these read-only previews. The tab activation and closing tools SHALL accept
+`archive` as a type filter.
+
+#### Scenario: Two archive tabs show the same entry path
+- **WHEN** two open archives have tabs showing the same entry path
+- **THEN** both tabs report that path and their distinct container paths with type `archive`
+
+#### Scenario: Activate an archive preview
+- **WHEN** `activate_document_tab` names an archive tab's unique title with `type: archive`
+- **THEN** the tab is brought to the front
+
 ### Requirement: Refuse invalid archive caret locations before opening
 A supplied archive caret location SHALL be validated before opening and shown when the inspector
 attaches. Entries without a text preview SHALL refuse a caret location with the preview's reason.
