@@ -1942,6 +1942,24 @@ Cursor SHALL refuse with an explanation that the route lacks one-shot breakpoint
 - **WHEN** `set_next_statement` names that module and a valid source line
 - **THEN** gotoTargets receives the document's file path and line, followed by goto for the returned target
 
+### Requirement: Activation accepts carried names and unsaved captions
+
+`activate_document_tab` SHALL resolve `name` through the same lookup as `open_file`, including carried files,
+module precedence and ambiguity refusals with candidates and `project`. It SHALL activate an existing tab,
+and SHALL refuse a document without an open tab. When `title` has no exact match, it SHALL also try removing
+a trailing unsaved `*` marker and the spacing before it. This match SHALL retain duplicate-tab refusals,
+and a successful reply SHALL explain that the title leaves the unsaved marker out.
+
+#### Scenario: Activate a carried file
+
+- **WHEN** `name` identifies a carried file with an open tab
+- **THEN** that tab is activated
+
+#### Scenario: Activate using an unsaved caption
+
+- **WHEN** no exact title matches the caption but removing its trailing unsaved marker matches one tab
+- **THEN** that tab is activated and the note explains that the title omits the marker
+
 ### Requirement: A tab tool SHALL take a document's name passed as its title
 `activate_document_tab` and `close_document_tab` SHALL, when `title` matches no tab, try it as a document name among the
 open tabs. When exactly one tab shows that document, the tool SHALL act on it and its note SHALL say the title was taken
