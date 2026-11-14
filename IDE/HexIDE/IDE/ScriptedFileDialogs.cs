@@ -49,7 +49,11 @@ public static class ScriptedFileDialogs
     {
         var token = new object();
         lock (Lock)
-            NativePickers.Add(token, $"title '{title ?? "(not specified)"}', suggested file name '{suggestedFileName ?? "(none)"}'");
+            // A picker HexIDE gives no title shows the system's own, so "title '(not specified)'" sent a caller looking for
+            // a window of that name (#3913).
+            NativePickers.Add(token, (title is null
+                ? "no title from HexIDE (the operating system shows its own, such as 'Save As' or 'Open')"
+                : $"title '{title}'") + $", suggested file name '{suggestedFileName ?? "(none)"}'");
         return token;
     }
 
@@ -88,21 +92,27 @@ public static class ScriptedFileDialogs
     public static int Pending { get { lock (Lock) return Answers.Count; } }
 
     /// <summary>
-    /// Arms one answer. A null or empty path answers as a cancelled dialog.
+    /// Arms one answer. A null or empty path answers as a cancelled dialog. Returns its place in the queue, 1 for the
+    /// next dialog to open, so a reply can say which picker it answers (#3913).
     /// </summary>
     /// <remarks>
     /// Cancel is offered deliberately: "the reader changed their mind" is a distinct path through every
     /// one of these flows and is the one most likely to be written wrong, because it is the one nobody
     /// exercises by hand.
     /// </remarks>
-    public static void AnswerNextWith(string? path)
+    public static int AnswerNextWith(string? path)
     {
-        lock (Lock) Answers.Enqueue((++_armed, string.IsNullOrWhiteSpace(path) ? null : [path]));
+        lock (Lock)
+        {
+            Answers.Enqueue((++_armed, string.IsNullOrWhiteSpace(path) ? null : [path]));
+            return Answers.Count;
+        }
     }
 
     /// <summary>
     /// Arms one answer of several files, as a person selects them in a multi-select Open picker (#2408). Every path
-    /// must be non-blank; one path is the same answer as <see cref="AnswerNextWith"/>.
+    /// must be non-blank; one path is the same answer as <see cref="AnswerNextWith"/>. Returns its place in the queue,
+    /// as that does.
     /// </summary>
     /// <remarks>
     /// It is still one answer, spent by the next dialog to open. A picker that takes one file, a save or an Open
@@ -110,11 +120,15 @@ public static class ScriptedFileDialogs
     /// cancelled rather than taking the first path, which would be a wrong answer that runs, and the refusal is told
     /// to the caller by <see cref="CancelWatch.After"/> or by <see cref="TakeUnreportedRefusal"/>.
     /// </remarks>
-    public static void AnswerNextWithMany(IReadOnlyList<string> paths)
+    public static int AnswerNextWithMany(IReadOnlyList<string> paths)
     {
         if (paths.Count == 0 || paths.Any(string.IsNullOrWhiteSpace))
             throw new ArgumentException("Every path must be non-blank, and there must be at least one.", nameof(paths));
-        lock (Lock) Answers.Enqueue((++_armed, [.. paths]));
+        lock (Lock)
+        {
+            Answers.Enqueue((++_armed, [.. paths]));
+            return Answers.Count;
+        }
     }
 
     /// <summary>Discards every armed answer, so a failed script cannot affect the next one.</summary>

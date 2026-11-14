@@ -663,7 +663,9 @@ in a Release build, which is why CI compiles that configuration and a test guard
 The server SHALL let a client pre-answer the next file dialog the application opens, with a path or with a
 cancellation, and SHALL let armed answers be discarded. An armed answer SHALL be consumed by exactly one
 dialog. Nothing about the flow below the dialog SHALL be bypassed, and no file SHALL be created by arming
-an answer. The facility SHALL be absent from builds the automation server is absent from.
+an answer. The reply that arms an answer SHALL say which dialog will take it: the next one, or, with answers already
+armed, its place from now and how many are spent before it (#3913). The facility SHALL be absent from builds the
+automation server is absent from.
 
 A file picker is a native operating-system dialog. It is outside the control tree, so the tree cannot see
 it and no path addresses it. The server can keep answering while one is open (#2870). Every feature
@@ -685,13 +687,19 @@ unrelated save, and that damage surfaces somewhere other than where it was cause
 - **WHEN** a client arms an answer and the expected dialog does not open
 - **THEN** the answer remains armed and is reported as such, and discarding it is possible
 
+#### Scenario: Arming behind another answer
+- **WHEN** a client arms a form's path and then a project's path for Save Project As
+- **THEN** the second reply says the 2nd file dialog to open from now returns the project's path, and that the
+  answer armed before it is spent first
+
 #### Scenario: A distributed build
 - **WHEN** a build excludes the automation server
 - **THEN** it contains no way to bypass a file dialog
 
 ### Requirement: An uncovered native picker is reported and blocks further actions
-The server SHALL track native file pickers until they complete or fail, recording their title and suggested file
-name. `invoke_menu_item`, `interact`, `clear_file_dialog_answers` and `dump_visual_tree` SHALL report an open picker.
+The server SHALL track native file pickers until they complete or fail, recording their title, or that HexIDE gave
+none, and suggested file name. `invoke_menu_item`, `interact`, `answer_next_file_dialog`, `clear_file_dialog_answers`
+and `dump_visual_tree` SHALL report an open picker.
 Menu and control actions SHALL refuse while one is open, leaving armed answers untouched. The note SHALL explain
 that the picker is outside the control tree, must be closed or cancelled in the operating system, and cannot be
 answered after opening by arming an answer. Clearing answers SHALL NOT close the picker.
@@ -700,6 +708,11 @@ answered after opening by arming an answer. Clearing answers SHALL NOT close the
 - **WHEN** a save consumes the last armed answer and opens another native picker
 - **THEN** its action reply and subsequent tree and clear replies name the open picker
 - **AND** another menu or control action is refused without consuming any newly armed answer
+
+#### Scenario: Arming under an open picker
+- **WHEN** a client arms an answer while a native picker no answer covered is open
+- **THEN** the answer is armed for a later picker, and the reply names the open picker and says an armed answer
+  cannot answer it
 
 #### Scenario: Arming a project save
 - **WHEN** a caller reads `answer_next_file_dialog`'s description
