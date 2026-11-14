@@ -173,7 +173,7 @@ public class ToolDocumentNamingTests
         tool.Parameters.Should().Contain(p => p.Name == "name" && p.Optional);
         tool.Parameters.Should().Contain(p => p.Name == "project" && p.Optional);
         tool.Parameters.Should().Contain(p => p.Name == "title" && p.Optional);
-        tool.Body.Should().Contain("ResolveDocument(");
+        tool.Body.Should().Contain(name == "activate_document_tab" ? "Find(name, project, carried: true)" : "ResolveDocument(");
     }
 
     [Theory]
