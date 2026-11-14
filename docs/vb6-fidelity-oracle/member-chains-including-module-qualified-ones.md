@@ -15,3 +15,6 @@ Worth stating because HexIDE refused the qualified form with *"Multi-level quali
 supported"* while already folding the unqualified `p.In1.Z` correctly — the two were treated as different
 problems when only the first step differs in kind (a namespace rather than a value).
 
+
+The writes, including chained `Set` and a write through a member that returns a UDT, are measured in
+[chained writes](chained-writes-qualified-set-and-udt-returning-members.md) (2026-11-14).
