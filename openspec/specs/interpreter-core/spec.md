@@ -1120,8 +1120,20 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-obj
 - **THEN** the form and every control on it SHALL show the hourglass, until the program sets it to 0
 
 #### Scenario: No form active
-- **WHEN** a program with no form shown reads `Screen.ActiveForm` or `Screen.ActiveControl`
+- **WHEN** a program that has not activated any form reads `Screen.ActiveForm` or `Screen.ActiveControl`
 - **THEN** it SHALL read Nothing, and raise no error
+
+#### Scenario: The active form hides
+- **WHEN** the active form hides while another previously active form is still shown
+- **THEN** Screen.ActiveForm SHALL name the most recently active form still shown
+- **AND** Screen.ActiveControl SHALL return that form's remembered ActiveControl
+
+#### Scenario: The last visible form hides
+- **WHEN** the last visible form hides
+- **THEN** Screen.ActiveForm SHALL retain that form and Screen.ActiveControl SHALL retain its remembered control
+
+Measured in [a form's own ActiveControl](../../../docs/vb6-fidelity-oracle/a-forms-own-activecontrol.md)
+(#2437); the choice among several shown forms follows [#3920](https://github.com/hexide-io/HexIDE/issues/3920).
 
 #### Scenario: A write to a member a program cannot write
 - **WHEN** a program writes `s.Width = 100` through `Set s = Screen`

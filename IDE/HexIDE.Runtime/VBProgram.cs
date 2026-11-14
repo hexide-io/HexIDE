@@ -69,6 +69,8 @@ public sealed class VBProgram : IFormProgram
     private readonly List<VbObject> loaded = [];
     // The modal forms displayed, innermost last.
     private readonly List<VBWindowContext> modals = [];
+    // Most recently activated last, for choosing the next shown form when the active one hides (#3920).
+    private readonly List<VBWindowContext> activationOrder = [];
     // The form Activate was last raised for, until another is activated or it unloads.
     private VBWindowContext? active;
     private readonly TaskCompletionSource ended = new();
@@ -230,13 +232,21 @@ public sealed class VBProgram : IFormProgram
     /// The control that has the focus in the active form's window: the first of the form's controls at or above the focused
     /// element, so a part of a control, a ComboBox's text box, is the ComboBox. Null when the focus is on none of them, as on a
     /// form with nothing that can take it (measured: Nothing, as the form's own ActiveControl is), and when no form is active.
+    /// A hidden active form, which the last visible form hiding leaves, answers with the control it last had (#2437, #3920).
     /// </summary>
+    /// <remarks>
+    /// The live focus is read while the form is shown, as before #3920: an MDIForm keeps no remembered control, and a
+    /// remembered control goes stale when the focused control unloads.
+    /// </remarks>
     public Avalonia.Controls.Control? ActiveControl
     {
         get
         {
-            if (active?.Window is not { } window
-                || Avalonia.Controls.TopLevel.GetTopLevel(window)?.FocusManager?.GetFocusedElement() is not Avalonia.LogicalTree.ILogical focused)
+            if (active?.Window is not { } window)
+                return null;
+            if (window is IFormView { IsShown: false })
+                return (window as VBFormRuntime)?.ActiveControl;
+            if (Avalonia.Controls.TopLevel.GetTopLevel(window)?.FocusManager?.GetFocusedElement() is not Avalonia.LogicalTree.ILogical focused)
                 return null;
             return VBFormRuntime.FindControl(window, focused);
         }
@@ -325,7 +335,19 @@ public sealed class VBProgram : IFormProgram
     {
         if (modals.Count > 0 && !ReferenceEquals(modals[^1], view.Context))
             throw new VBRunTimeException(VBStandardError.CodeMustCloseTopmostModalFormFirst);
+        var wasActive = ReferenceEquals(active, view.Context);
+        var next = wasActive
+            ? activationOrder.LastOrDefault(context => !ReferenceEquals(context, view.Context)
+                && context.FormInstance is { FormLoaded: true } && context.Window is IFormView { IsShown: true })
+            : null;
         view.HideForm();
+        if (next is not null)
+        {
+            // Own the transition even without a window manager; its activation notification is then harmless.
+            Activated(next);
+            if (next.Window is IFormView { HeldBy: null } nextView)
+                nextView.ActivateForm();
+        }
     }
 
     /// <summary>
@@ -394,6 +416,8 @@ public sealed class VBProgram : IFormProgram
             return;
         var previous = active;
         active = context;
+        activationOrder.Remove(context);
+        activationOrder.Add(context);
         // Posted: they wait for the handler that is running. Win32 activates the window inside Show, and without this the
         // pair ran there, before the statement after the Show; headless, the activation comes after the handler anyway.
         // Show inside Load is the measured exception: Activate and initial focus run inside Load (#2436). A window is
@@ -429,6 +453,7 @@ public sealed class VBProgram : IFormProgram
         // The active form unloaded is given no Deactivate, and the form Windows activates next its Activate (measured, #994).
         if (ReferenceEquals(active, context))
             active = null;
+        activationOrder.Remove(context);
         var instance = context.FormInstance!;
         var at = loaded.FindIndex(form => ReferenceEquals(form, instance));
         if (at < 0)
