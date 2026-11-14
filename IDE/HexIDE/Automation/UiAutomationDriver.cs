@@ -4263,9 +4263,13 @@ public static class UiAutomationDriver
         var cut = HexIDE.ApplicationCommands.CutCommand.Gestures.Any(g => g.Matches(probe));
         var paste = HexIDE.ApplicationCommands.PasteCommand.Gestures.Any(g => g.Matches(probe));
         var deleteLine = IsDeleteLine(probe);
+        var indent = key == Key.Tab && mods is KeyModifiers.None or KeyModifiers.Shift
+            || HexIDE.ApplicationCommands.IndentCommand.Gestures.Any(g => g.Matches(probe));
+        var command = cut ? EditCommand.Cut : deleteLine ? EditCommand.DeleteLine
+            : indent ? EditCommand.Indent : key == Key.Back ? EditCommand.Backspace
+            : key == Key.Delete ? EditCommand.Delete : EditCommand.Typing;
 
-        var edits = cut || paste || deleteLine
-            || HexIDE.ApplicationCommands.IndentCommand.Gestures.Any(g => g.Matches(probe)) || (key, chord) switch
+        var edits = cut || paste || deleteLine || indent || (key, chord) switch
         {
             (Key.Enter or Key.Return or Key.Tab, KeyModifiers.None) => true,
             (Key.Back or Key.Delete, KeyModifiers.None or KeyModifiers.Control) => true,
@@ -4279,15 +4283,15 @@ public static class UiAutomationDriver
         {
             var first = area.Document.GetLineByOffset(selection is { Length: > 0 } ? selection.Offset : caret);
             var last = area.Document.GetLineByOffset(selection is { Length: > 0 } ? selection.EndOffset : caret);
-            return new EditedSpan(first.Offset, Math.Max(last.Offset + last.TotalLength - first.Offset, 1), deletes);
+            return new EditedSpan(first.Offset, Math.Max(last.Offset + last.TotalLength - first.Offset, 1), deletes, command);
         }
         if (selection is { Length: > 0 })
-            return new EditedSpan(selection.Offset, selection.Length, deletes);
+            return new EditedSpan(selection.Offset, selection.Length, deletes, command);
         return key switch
         {
-            Key.Back => caret > 0 ? new EditedSpan(caret - 1, 1, deletes) : null,
-            Key.Delete => caret < area.Document.TextLength ? new EditedSpan(caret, 1, deletes) : null,
-            _ => new EditedSpan(caret, 0, deletes),
+            Key.Back => caret > 0 ? new EditedSpan(caret - 1, 1, deletes, command) : null,
+            Key.Delete => caret < area.Document.TextLength ? new EditedSpan(caret, 1, deletes, command) : null,
+            _ => new EditedSpan(caret, 0, deletes, command),
         };
     }
 
@@ -4366,8 +4370,10 @@ public static class UiAutomationDriver
         ? "no selection remains."
         : $"selection remains from offset {area.Selection.SurroundingSegment.Offset} to {area.Selection.SurroundingSegment.EndOffset}.";
 
+    private enum EditCommand { Typing, Backspace, Delete, Cut, DeleteLine, Indent }
+
     /// <summary>What a key would change: <see cref="Length"/> characters at <see cref="Offset"/>, deleted or written over.</summary>
-    private readonly record struct EditedSpan(int Offset, int Length, bool Deletes);
+    private readonly record struct EditedSpan(int Offset, int Length, bool Deletes, EditCommand Command = EditCommand.Typing);
 
     /// <summary>
     /// The code window whose buffer <paramref name="area"/> shows, when it shows one: the view model it
@@ -4387,7 +4393,7 @@ public static class UiAutomationDriver
             || CodeWindowOf(area) is not { } editor)
             return null;
         var reason = editor.StatusBar.MessageVersion == messageBefore
-            ? ", which gave no message"
+            ? (refused.Error == string.Empty ? $": \"{editor.ReadOnlyEditMessage}\"" : ", which gave no message")
             : $": \"{editor.StatusBar.Message}\"";
         return refused with { Error = $"{tool} refused by the code window{reason}. "
             + $"Nothing was written. The caret is at offset {area.Caret.Offset}. " + refused.Error };
@@ -4430,13 +4436,17 @@ public static class UiAutomationDriver
         if (!changes)
             return null;
 
+        // These commands have no useful caret-movement advice. The status-bar sentence is enough (#3899).
+        if (span.Command is EditCommand.Cut or EditCommand.DeleteLine or EditCommand.Indent)
+            return new InteractOutcome(false, mechanism, null, string.Empty);
+
         var affected = editor.ReadOnlyRegionsNow.Where(r => r.Changes(span.Offset, span.Length)).ToList();
         var region = editor.DescribeRegions(affected);
         var unchanged = written ?? "Nothing was written.";
         var prefix = $"{tool} refused: ";
         var ownership = ", which only the IDE changes." + (written == "" ? "" : " ");
         const string offsets = " Offsets count from the start of the file, in the text get_file_content returns.";
-        if (span.Deletes && span.Length > 0 && span.Offset + span.Length == area.Caret.Offset)
+        if (span.Command == EditCommand.Backspace && span.Length > 0 && span.Offset + span.Length == area.Caret.Offset)
             return new InteractOutcome(false, mechanism, null,
                 prefix + "the text before the caret belongs to " + region + ownership + unchanged
               + (affected.Any(r => r.Anchor is null)
