@@ -2,6 +2,8 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Title": "KI-Chat",
+    "Str.AIChat.Menu": "KI-_Chat",
     "Str.AIChat.Approved": "✔ Genehmigt",
     "Str.AIChat.Rejected": "✗ Abgelehnt",
     "Str.AIChat.Error": "Fehler: {0}",
@@ -1113,6 +1115,8 @@
     "Str.Addins.ServerLaunchRefused": "Der Start des Sprachservers für das Add-in „{0}“ wurde verweigert.",
     "Str.Addins.DebugLaunchRefused": "Der Start des Debugadapters für das Add-in „{0}“ wurde verweigert.",
     "Str.Addins.Incompatible": "Add-In kann nicht geladen werden: erforderliches Schema {0}, mindestens HexIDE {1}; dieser Build unterstützt Schema {2}, HexIDE {3}. Die Schema- oder Versionsanforderung wird nicht unterstützt oder ist ungültig.",
+    "Str.Addins.DuplicateId": "Add-In kann nicht geladen werden: Die ID „{0}“ wird bereits vom Paketordner „{1}“ verwendet.",
+    "Str.Addins.ChangedAfterVerification": "Das Add-In kann nicht geladen werden: Das Paket wurde nach der Überprüfung auf dem Datenträger geändert.",
     "Str.MakeProject.NoStartup": "Kein Startprojekt gefunden.",
     "Str.MakeProject.Browser": "Das Erstellen eines Programms ist im Browser nicht verfügbar. Verwenden Sie die Desktopversion von HexIDE.",
     "Str.MakeProject.UnsupportedPlatform": "Das Erstellen eines Programms wird auf diesem Betriebssystem nicht unterstützt. Verwenden Sie HexIDE unter Windows, macOS oder Linux.",

@@ -1,12 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using HexIDE.Utils;
+using PropertyChanged.SourceGenerator;
 
 namespace HexIDE.Addins;
 
-public sealed class AddinMenuItemViewModel
+public sealed partial class AddinMenuItemViewModel : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
-    public string Header { get; }
+    [Notify] private string header = "";
     public ICommand? Command { get; }
     public ObservableCollection<AddinMenuItemViewModel> SubItems { get; } = [];
 

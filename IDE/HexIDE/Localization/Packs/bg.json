@@ -2,6 +2,8 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Title": "AI чат",
+    "Str.AIChat.Menu": "AI чат",
     "Str.AIChat.Approved": "✔ Одобрено",
     "Str.AIChat.Rejected": "✗ Отхвърлено",
     "Str.AIChat.Error": "Грешка: {0}",
@@ -1114,6 +1116,8 @@
     "Str.Addins.ServerLaunchRefused": "Стартирането на езиковия сървър за добавката „{0}“ е отказано.",
     "Str.Addins.DebugLaunchRefused": "Стартирането на адаптера за отстраняване на грешки за добавката „{0}“ е отказано.",
     "Str.Addins.Incompatible": "Добавката не може да се зареди: изисква се схема {0}, минимална версия на HexIDE {1}; тази компилация поддържа схема {2}, HexIDE {3}. Изискването за схема или версия е неподдържано или невалидно.",
+    "Str.Addins.DuplicateId": "Добавката не може да се зареди: идентификаторът „{0}“ вече се използва от папката на пакета „{1}“.",
+    "Str.Addins.ChangedAfterVerification": "Добавката не може да се зареди: пакетът е променен на диска след проверката.",
     "Str.MakeProject.NoStartup": "Не е намерен начален проект.",
     "Str.MakeProject.Browser": "Създаването на програма е недостъпно в браузър. Използвайте настолната версия на HexIDE.",
     "Str.MakeProject.UnsupportedPlatform": "Създаването на програма не се поддържа на тази операционна система. Използвайте HexIDE на Windows, macOS или Linux.",

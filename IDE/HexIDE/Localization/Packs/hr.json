@@ -2,6 +2,8 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Title": "AI chat",
+    "Str.AIChat.Menu": "AI _chat",
     "Str.AIChat.Approved": "✔ Odobreno",
     "Str.AIChat.Rejected": "✗ Odbijeno",
     "Str.AIChat.Error": "Pogreška: {0}",
@@ -1148,6 +1150,8 @@
     "Str.Addins.ServerLaunchRefused": "Pokretanje jezičnog poslužitelja za dodatak „{0}” odbijeno je.",
     "Str.Addins.DebugLaunchRefused": "Pokretanje prilagodnika za otklanjanje pogrešaka za dodatak „{0}” odbijeno je.",
     "Str.Addins.Incompatible": "Nije moguće učitati dodatak: potrebna shema {0}, najmanja verzija HexIDE-a {1}; ova izgradnja podržava shemu {2}, HexIDE {3}. Zahtjev za shemom ili verzijom nije podržan ili nije valjan.",
+    "Str.Addins.DuplicateId": "Dodatak nije moguće učitati: identifikator „{0}” već koristi mapa paketa „{1}”.",
+    "Str.Addins.ChangedAfterVerification": "Dodatak nije moguće učitati: paket je promijenjen na disku nakon provjere.",
     "Str.MakeProject.NoStartup": "Početni projekt nije pronađen.",
     "Str.MakeProject.Browser": "Izgradnja programa nije dostupna u pregledniku. Koristite stolnu verziju HexIDE-a.",
     "Str.MakeProject.UnsupportedPlatform": "Izgradnja programa nije podržana na ovom operacijskom sustavu. Koristite HexIDE na sustavu Windows, macOS ili Linux.",

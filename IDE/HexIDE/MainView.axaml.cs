@@ -19,6 +19,7 @@ using HexIDE.VisualDesigner.Views;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Labs.Input;
@@ -241,7 +242,10 @@ public partial class MainView : UserControl
 
     internal static MenuItem BuildMenuItem(AddinMenuItemViewModel vm)
     {
-        var mi = new MenuItem { Header = vm.Header };
+        var mi = new MenuItem();
+        var header = CompiledBinding.Create((AddinMenuItemViewModel model) => model.Header);
+        header.Source = vm;
+        mi.Bind(MenuItem.HeaderProperty, header);
         if (vm.Command is not null)
             mi.Command = vm.Command;
         foreach (var sub in vm.SubItems)

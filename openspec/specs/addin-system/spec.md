@@ -337,3 +337,61 @@ represent declarations, not capability grants or observed host use.
 #### Scenario: Verification fails
 - **WHEN** a package is untrusted or incompatible
 - **THEN** it has no verified declaration snapshot
+
+### Requirement: Add-in chrome titles follow the IDE language without callbacks
+Tool window, menu item and command registration SHALL accept `AddinTitle` alongside every existing string
+signature. Labels SHALL follow live IDE language changes using only data copied at registration, without
+add-in callbacks or dictionary rereads. Plain text and translations SHALL share one display boundary and
+retain existing access-key treatment. The title API SHALL expose only inert data.
+
+#### Scenario: Owned IDE key and Pseudo
+- **WHEN** first-party `com.hexide.aichat` registers its pane and Tools item with `Str.AIChat.*` keys
+- **THEN** their text comes from the active pack, changes on a language switch, and is bracketed in Pseudo
+
+#### Scenario: Translated package text
+- **WHEN** a title contains plain text and translations in the brand `text`/`translations` shape
+- **THEN** it resolves through `BrandText.LanguageChain` and `DistributionText.Resolve`: resolved IDE language,
+  its neutral, `en`, then the plain text
+- **WHEN** a title supplies `fr-CA`, `fr` and `en` translations
+- **THEN** `fr-CA` selects the regional text, its absence selects `fr`, then `en`, then the plain text
+- **AND** changing the IDE language re-resolves the title
+
+#### Scenario: Registration refuses invalid data before contributing anything
+- **WHEN** a key is absent from the canonical pack, outside the add-in's owned area, a translation language
+  is malformed, or a translation is empty
+- **THEN** registration throws `ArgumentException` identifying the invalid data and contributes nothing
+- **AND** no tool content factory runs
+
+#### Scenario: Key ownership is closed by default
+- **WHEN** any add-in requests an IDE key
+- **THEN** the only allowed area is `Str.AIChat.`, owned by the id `com.hexide.aichat` with either verified
+  `IsFirstParty` status or `DeveloperUnsigned` status; every other area, including consent and signing, is refused
+- **AND** a signed third-party package claiming that id gains no key access
+- **AND** an unsigned AI Chat loaded under `com.hexide.aichat` in Debug developer mode with unsigned loading enabled
+  owns that area; an unsigned package with any other id gains no key access
+
+#### Scenario: Two packages declare one id
+- **WHEN** multiple package folders declare the same add-in id
+- **THEN** the IDE SHALL select one before initializing any of them: a verified package wins over an unsigned
+  package regardless of folder order; between packages of the same kind, the first in folder order wins
+- **AND** the other packages are never initialized and contribute nothing
+- **AND** Options → Add-Ins lists each loser with status `Error` and a message naming the id and winning folder
+- **AND** the key-area owner allow-list is pinned by a test, with an owner for every area and no overlapping areas
+
+#### Scenario: Add-in data changes after registration
+- **WHEN** an add-in mutates its translations dictionary and the IDE switches languages several times
+- **THEN** only the registration-time copy is read, with no subsequent dictionary member access
+- **AND** no add-in factory, invocation or predicate delegate runs to obtain text
+
+#### Scenario: The public title API remains inert
+- **WHEN** the title type and its registration overloads are inspected
+- **THEN** they expose no text callback, event, or add-in-implemented interface for later invocation
+- **AND** the translations dictionary is accepted solely for copying during registration
+
+#### Scenario: Existing string calls
+- **WHEN** an add-in uses an existing string registration signature
+- **THEN** its label remains literal through language switches and its handle removes the contribution as before
+
+#### Scenario: Other titles and menu paths
+- **WHEN** an add-in contributes a debug launch, project type, or menu parent path such as `Tools` or `AddIns/name`
+- **THEN** these retain their existing plain titles or path identifiers without translation

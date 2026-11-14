@@ -21,13 +21,13 @@ public sealed class AIChatAddin : IAddin
 
         _toolWindow = host.ToolWindows.Register(
             "aiChat",
-            "AI Chat",
+            AddinTitle.FromKey("Str.AIChat.Title"),
             null,
             () => new ChatView(host, settingsDir));
 
         _menuItem = host.Menus.Add(
             "Tools",
-            "AI Chat",
+            AddinTitle.FromKey("Str.AIChat.Menu"),
             null,
             () => _toolWindow?.Show());
     }

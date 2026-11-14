@@ -4,7 +4,7 @@ using System.Runtime.Loader;
 namespace HexIDE.Addins;
 
 /// <summary>The add-in a contribution came from: its manifest id, which stays the same, and its title, for display.</summary>
-internal readonly record struct AddinOrigin(string Id, string Title)
+internal readonly record struct AddinOrigin(string Id, string Title, bool IsFirstParty = false, bool IsDeveloperUnsigned = false)
 {
     /// <summary>
     /// The add-in an assembly belongs to, by the load context the registry loaded it into, whose manifest names it. An

@@ -2,6 +2,8 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Title": "Chat AI",
+    "Str.AIChat.Menu": "_Chat AI",
     "Str.AIChat.Approved": "✔ Schváleno",
     "Str.AIChat.Rejected": "✗ Odmítnuto",
     "Str.AIChat.Error": "Chyba: {0}",
@@ -1113,6 +1115,8 @@
     "Str.Addins.ServerLaunchRefused": "Spuštění jazykového serveru doplňku „{0}“ bylo odmítnuto.",
     "Str.Addins.DebugLaunchRefused": "Spuštění ladicího adaptéru doplňku „{0}“ bylo odmítnuto.",
     "Str.Addins.Incompatible": "Doplněk nelze načíst: požadované schéma {0}, minimálně HexIDE {1}; toto sestavení podporuje schéma {2}, HexIDE {3}. Požadavek na schéma nebo verzi není podporován nebo je neplatný.",
+    "Str.Addins.DuplicateId": "Doplněk nelze načíst: identifikátor „{0}“ již používá složka balíčku „{1}“.",
+    "Str.Addins.ChangedAfterVerification": "Doplněk nelze načíst: balíček se na disku po ověření změnil.",
     "Str.MakeProject.NoStartup": "Nebyl nalezen žádný spouštěcí projekt.",
     "Str.MakeProject.Browser": "V prohlížeči nelze vytvořit program. Použijte desktopovou verzi HexIDE.",
     "Str.MakeProject.UnsupportedPlatform": "Vytváření programu není v tomto operačním systému podporováno. Použijte HexIDE ve Windows, macOS nebo Linuxu.",
