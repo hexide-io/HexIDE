@@ -258,6 +258,8 @@
     "Str.Menu.Help.BrandHome": "{0} _avaleht",
     "Str.Menu.Help.BrandSupport": "{0} _tugi",
     "Str.Menu.Help.ProductOnWeb": "HexIDE _veebis",
+    "Str.Menu.Help.LogFolder": "Ava HexIDE _logikaust",
+    "Str.Help.LogFolder.OpenFailed": "Logikausta ei saanud avada. Saate selle käsitsi avada: {0}",
     "Str.Menu.Help.About": "_Teave HexIDE kohta...",
     "Str.Menu.GoToGithubRepo": "Ava GitHubi hoidla",
     "Str.ProjectType.StandardEXE": "Standardne EXE",

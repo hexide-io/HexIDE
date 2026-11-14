@@ -258,6 +258,8 @@
     "Str.Menu.Help.BrandHome": "{0}(r)en _hasierako orria",
     "Str.Menu.Help.BrandSupport": "{0} _laguntza",
     "Str.Menu.Help.ProductOnWeb": "HexIDE _webean",
+    "Str.Menu.Help.LogFolder": "Ireki HexIDEren _egunkari-karpeta",
+    "Str.Help.LogFolder.OpenFailed": "Ezin izan da egunkari-karpeta ireki. Eskuz ireki dezakezu: {0}",
     "Str.Menu.Help.About": "HexIDEri _buruz...",
     "Str.Menu.GoToGithubRepo": "Joan GitHub biltegira",
     "Str.ProjectType.StandardEXE": "EXE estandarra",

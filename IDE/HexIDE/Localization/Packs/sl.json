@@ -258,6 +258,8 @@
     "Str.Menu.Help.BrandHome": "_Domača stran za {0}",
     "Str.Menu.Help.BrandSupport": "_Podpora za {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE na _spletu",
+    "Str.Menu.Help.LogFolder": "Odpri mapo dnevni_kov HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Mape dnevnikov ni bilo mogoče odpreti. Odprete jo lahko ročno: {0}",
     "Str.Menu.Help.About": "_O programu HexIDE...",
     "Str.Menu.GoToGithubRepo": "Pojdi v repozitorij GitHub",
     "Str.ProjectType.StandardEXE": "Standardni EXE",

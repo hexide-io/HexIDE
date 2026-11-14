@@ -322,6 +322,8 @@
     "Str.Menu.Help.BrandHome": "{0}-_Startseite",
     "Str.Menu.Help.BrandSupport": "{0}-_Support",
     "Str.Menu.Help.ProductOnWeb": "HexIDE im _Web",
+    "Str.Menu.Help.LogFolder": "HexIDE-_Logordner öffnen",
+    "Str.Help.LogFolder.OpenFailed": "Der Logordner konnte nicht geöffnet werden. Sie können ihn manuell öffnen: {0}",
     "Str.Menu.Help.About": "Ü_ber HexIDE...",
     "Str.Menu.GoToGithubRepo": "Zum GitHub-Repository wechseln",
     "Str.NewProject.NoTemplates": "Dieses Profil bietet keine Vorlagen für neue Projekte. Öffnen Sie stattdessen ein vorhandenes Projekt.",

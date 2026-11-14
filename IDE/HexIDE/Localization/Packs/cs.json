@@ -322,6 +322,8 @@
     "Str.Menu.Help.BrandHome": "_Domovská stránka {0}",
     "Str.Menu.Help.BrandSupport": "_Podpora {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE na _webu",
+    "Str.Menu.Help.LogFolder": "Otevřít složku protoko_lů HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Složku protokolů se nepodařilo otevřít. Můžete ji otevřít ručně: {0}",
     "Str.Menu.Help.About": "_O aplikaci HexIDE...",
     "Str.Menu.GoToGithubRepo": "Přejít na úložiště github",
     "Str.NewProject.NoTemplates": "Tento profil nenabízí žádné šablony nových projektů. Otevřete existující projekt.",

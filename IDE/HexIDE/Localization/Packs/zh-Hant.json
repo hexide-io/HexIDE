@@ -322,6 +322,8 @@
     "Str.Menu.Help.BrandHome": "{0} 首頁(_H)",
     "Str.Menu.Help.BrandSupport": "{0} 支援(_S)",
     "Str.Menu.Help.ProductOnWeb": "HexIDE 網站(_W)",
+    "Str.Menu.Help.LogFolder": "開啟 HexIDE 記錄資料夾(_L)",
+    "Str.Help.LogFolder.OpenFailed": "無法開啟記錄資料夾。您可以手動開啟：{0}",
     "Str.Menu.Help.About": "關於 HexIDE(_A)...",
     "Str.Menu.GoToGithubRepo": "前往 github 儲存庫",
     "Str.NewProject.NoTemplates": "此設定檔未提供新專案範本。請開啟現有專案。",

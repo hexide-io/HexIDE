@@ -330,6 +330,8 @@
     "Str.Menu.Help.BrandHome": "{0} _hjemmeside",
     "Str.Menu.Help.BrandSupport": "{0}-_støtte",
     "Str.Menu.Help.ProductOnWeb": "HexIDE på _nettet",
+    "Str.Menu.Help.LogFolder": "Åpne HexIDE-_loggmappen",
+    "Str.Help.LogFolder.OpenFailed": "Kunne ikke åpne loggmappen. Du kan åpne den manuelt: {0}",
     "Str.Menu.Help.About": "_Om HexIDE...",
     "Str.Menu.GoToGithubRepo": "Gå til GitHub-repo",
     "Str.NewProject.NoTemplates": "Denne profilen tilbyr ingen maler for nye prosjekter. Åpne et eksisterende prosjekt i stedet.",

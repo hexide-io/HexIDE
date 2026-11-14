@@ -318,6 +318,8 @@
     "Str.Menu.Help.BrandHome": "_Početna stranica za {0}",
     "Str.Menu.Help.BrandSupport": "_Podrška za {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE na _webu",
+    "Str.Menu.Help.LogFolder": "Otvori mapu _zapisnika za HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Nije moguće otvoriti mapu zapisnika. Možete je otvoriti ručno: {0}",
     "Str.Menu.Help.About": "_O programu HexIDE...",
     "Str.Menu.GoToGithubRepo": "Otvori repozitorij na GitHubu",
     "Str.ProjectType.StandardEXE": "Standardni EXE",

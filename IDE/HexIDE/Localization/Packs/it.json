@@ -330,6 +330,8 @@
     "Str.Menu.Help.BrandHome": "Pagina _iniziale di {0}",
     "Str.Menu.Help.BrandSupport": "_Supporto {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE sul _Web",
+    "Str.Menu.Help.LogFolder": "Apri la cartella dei _log di HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Impossibile aprire la cartella dei log. Puoi aprirla manualmente: {0}",
     "Str.Menu.Help.About": "_Informazioni su HexIDE...",
     "Str.Menu.GoToGithubRepo": "Vai al repository github",
     "Str.NewProject.NoTemplates": "Questo profilo non offre modelli per nuovi progetti. Aprire un progetto esistente.",
