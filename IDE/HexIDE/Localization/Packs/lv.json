@@ -2,6 +2,7 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE paplašinājums; nav pieejams VB6.",
     "Str.Dock.Host": "Dokošanas resursdators",
     "Str.Dock.Root": "Saknes doks",
     "Str.Dock.PinnedHost": "Piespraustas dokošanas resursdators",

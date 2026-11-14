@@ -13,12 +13,6 @@ That is a deliberate divergence from VB6, and it follows the project's fidelity 
 departing from it: what VB6 intended was that the developer not edit these lines, and that is reproduced;
 that the developer could not see them was a limitation of its code window, and that is not.
 
-> **Known divergence.** The requirements below state intended behaviour. One sentence is not met: "A document
-> with no file yet SHALL hold the header its first save will write." A form the IDE has just created and not yet
-> saved, such as a new project's `Form1`, shows no header in its code window until its first committed designer
-> change, save or reload. Tracked in [#885](https://github.com/hexide-io/HexIDE/issues/885). The sentence is
-> stated as intended rather than removed, because the code is incomplete here, not the intent.
-
 ## Requirements
 
 ### Requirement: Split code window

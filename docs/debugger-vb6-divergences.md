@@ -438,7 +438,9 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   dialog. End is enabled; Continue, Debug and Help are not. End ends the run. Closed any other way, the dialog
   leaves the run going, with the event procedure that met the error abandoned, as after a run-time error in an
   event procedure. A syntax error found before the run begins is a start that never became a run: it is reported in
-  the same dialog, with the module it is in named, and nothing runs.
+  the same dialog, and nothing runs. Parse-time compile errors with a line also carry their module and
+  whole-file line through `get_last_runtime_error` ([#3960](https://github.com/hexide-io/HexIDE/issues/3960));
+  errors without a line remain unlocated. The dialog text and buttons are unchanged.
 - **Why:** one route for every error a run meets. Sub Main's compile errors already went through that dialog
   (#754), and a separate compile-error box would answer the same error two ways. A tree-walker meets a compile error
   only when it reaches the statement, so stopping before the run began is not possible for it.
@@ -591,10 +593,10 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   first line of code, and is migrated as its project opens, each mark moved down onto the statement it was set
   on (task 3.17). Sidecar version 3 anchors code marks after the full header, so a conflicted external header
   change that never reaches the stores no longer moves those marks on reopen (#884). Its stored offsets are
-  converted at the persistence boundary; the stores and every public surface still use file lines. A newly
-  created form's header still first appears at its first designer change, save or reload
-  ([#885](https://github.com/hexide-io/HexIDE/issues/885)); version 3 can now distinguish its code marks from
-  marks already in a header.
+  converted at the persistence boundary; the stores and every public surface still use file lines. New forms,
+  including a project template's `Form1`, hold their header from creation
+  ([#885](https://github.com/hexide-io/HexIDE/issues/885)). Breakpoints and bookmarks set before the first save
+  reopen on the same statements; version 3 needs no additional numbering record.
 - **Numbered D23 when task 3.16 recorded it**, and renumbered in #273's documentation pass: merging main brought
   in main's own D23 (#1011, cited from `VBWindowContext`), which came first.
 

@@ -205,16 +205,7 @@ public class ConditionTests : BaseVBTestFixture
         (await run.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(91);
     }
 
-    [Theory]
-    [MemberData(nameof(EveryForm))]
-    public async Task A_class_with_a_default_member_is_refused(string form)
-    {
-        // VB6 reads the member: `If w Then` holds and `Do While w` loops for a member returning 42 (measured, native and
-        // in the IDE). HexIDE does not call it yet (#174), so it refuses, untrappably.
-        var run = () => RunClasses($"Dim v, c\nSet v = New Widget\nOn Error Resume Next\n{form}\n", ("Widget", Widget));
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
-    }
 
     [Theory]
     [InlineData("If v Then c = 1", 3)]

@@ -69,9 +69,10 @@ public partial class ProjectManager : IProjectManager
             CurrentGroup = null;
     }
 
-    public ProjectDefinition NewProject(IAddinProjectTemplate projectTemplate, string name)
+    public ProjectDefinition NewProject(IAddinProjectTemplate projectTemplate, string name, Action<ProjectDefinition>? beforeAdd = null)
     {
         var definition = projectTemplate.Create(name);
+        beforeAdd?.Invoke(definition);
         AddProject(definition);
         if (definition.Forms.Count > 0)
             editorService.EditForm(definition.Forms[0]);

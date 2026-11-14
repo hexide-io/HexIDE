@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Расширение HexIDE; недоступно в VB6.",
     "Str.Dock.Host": "Контейнер закрепления",
     "Str.Dock.Root": "Корневая область закрепления",
     "Str.Dock.PinnedHost": "Контейнер прикреплённых окон",

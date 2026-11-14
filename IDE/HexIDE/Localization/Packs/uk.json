@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Розширення HexIDE; недоступне у VB6.",
     "Str.Dock.Host": "Контейнер закріплення",
     "Str.Dock.Root": "Коренева область закріплення",
     "Str.Dock.PinnedHost": "Контейнер прикріплених вікон",

@@ -1281,6 +1281,7 @@
     "Str.AIChat.ApiKeyRequired": "需要 API 金鑰。請設定 HEXIDE_AI_API_KEY 環境變數，或 chat-settings.json 中的 apiKey。",
     "Str.AIChat.PrivacyNotice": "ℹ 隱私權：您的訊息、作用中文件的內容（對於表單，還包括配置和標題）及其診斷資訊會傳送至 {0}，即您在 AI 聊天設定中設定的第三方服務。",
     "Str.AIChat.PrivacyKeyTip": "提示：請設定 HEXIDE_AI_API_KEY 環境變數，以避免將 API 金鑰儲存在檔案中。",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "專案 {0} 共用資料夾 {1}；僅寫入或匯入 {2}。"
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "專案 {0} 共用資料夾 {1}；僅寫入或匯入 {2}。",
+    "Str.MemberOrigin.HexIde": "HexIDE 擴充功能；VB6 中無法使用。"
   }
 }

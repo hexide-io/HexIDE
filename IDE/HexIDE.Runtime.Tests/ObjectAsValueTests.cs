@@ -9,15 +9,25 @@ namespace HexIDE.Runtime.Tests;
 /// gives 450 through a Variant (the oracle's 450 rows). Some tests here are about the places that are not like that,
 /// and each says so: <c>TypeName</c>, <c>IsObject</c> and a ByVal Variant parameter take the object itself, <c>VarType</c>
 /// and the Is functions answer about a Plain with no 438, and the array that LBound, UBound, Join and Filter take first
-/// is 13 for any object. A few rows are inferred rather than measured, and say so. HexIDE does not call a class's
-/// default member yet, so a Widget is refused untrappably, where it raised a trappable 438 or 13, or read 0, the CLR
-/// type name, or no match at all. A Plain raises VB6's 438, where several of these raised 13 or gave the type name
+/// is 13 for any object. Async default-member execution is pinned by DefaultMemberExecutionTests; synchronous
+/// Join/Filter element and argument reads retain their #174 refusal. A Plain raises VB6's 438, where several of these raised 13 or gave the type name
 /// (#436). The probe is in docs/vb6-fidelity-oracle/an-object-used-as-a-value.md, "An object used as a value".
 /// </summary>
 public class ObjectAsValueTests : BaseVBTestFixture
 {
     private const string Widget = "Public Function Value() As Long\nAttribute Value.VB_UserMemId = 0\n    Value = 42\nEnd Function\n";
     private const string Plain = "Public Tag As Long\n";
+
+    [Theory]
+    [InlineData("c = Join(Array(\"ab\", o), \"-\")")]
+    [InlineData("c = Filter(Array(\"ab\", o), \"zz\", False)")]
+    [InlineData("Dim a(1) As String\nc = Join(a, o)")]
+    [InlineData("Dim a(1) As String\nc = Filter(a, \"a\", o)")]
+    public async Task Synchronous_array_helpers_keep_refusing_default_members(string use)
+    {
+        var run = () => RunWith("Widget", use);
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
+    }
 
     private const string Helpers =
         "Function ByValLong(ByVal n As Long)\n    ByValLong = n\nEnd Function\n"
@@ -56,15 +66,7 @@ public class ObjectAsValueTests : BaseVBTestFixture
         "c = Filter(Array(\"ab\", o), \"zz\", False)",
     };
 
-    [Theory]
-    [MemberData(nameof(MeasuredUses))]
-    public async Task A_class_with_a_default_member_used_as_a_value_is_refused_until_default_members_exist(string use)
-    {
-        // VB6 gives 42 for every one. A trappable error would let On Error Resume Next carry on without it.
-        var run = () => RunWith("Widget", use);
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*Widget*#174*");
-    }
 
     [Theory]
     [MemberData(nameof(MeasuredUses))]
@@ -75,24 +77,7 @@ public class ObjectAsValueTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(438L), new Vb6Value(true)]);
     }
 
-    [Theory]
-    [InlineData("If o Then c = 1")]
-    [InlineData("If o Then\nc = 1\nEnd If")]
-    [InlineData("While o\nc = 1\nWend")]
-    [InlineData("Do While o\nc = 1\nLoop")]
-    [InlineData("c = Not o")]
-    [InlineData("c = CDate(o)")]
-    [InlineData("Select Case 42\nCase o\nc = 1\nEnd Select")]   // a Case value is stored into the selector's type
-    [InlineData("Dim a(1) As Long\na(0) = o")]
-    public async Task A_condition_or_a_conversion_of_a_class_with_a_default_member_is_refused(string use)
-    {
-        // The same rule: VB6 reads the default member. Measured for If, a Case value, CDate and a Let into a Long; While,
-        // Do While and an array element are inferred from them. On this typed `o`, `Not o` is -43 and `CDate(o)` a Date
-        // (measured); through a Variant, `Not o` raises 450 for a Function default member. The refusal covers both.
-        var run = () => RunWith("Widget", use);
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
-    }
 
     // Through a Variant holding the object, so Len compiles. Measured: with a default member, Left, InStr, Chr, Len,
     // UCase, CDate and a ByVal Double argument see 42, and Format, Abs and Not raise 450; with none, every one is 438.
@@ -116,14 +101,7 @@ public class ObjectAsValueTests : BaseVBTestFixture
         + "Function ByValDouble(ByVal d As Double)\n    ByValDouble = d\nEnd Function\n",
         ("Widget", Widget), ("Plain", Plain));
 
-    [Theory]
-    [MemberData(nameof(MeasuredThroughAVariant))]
-    public async Task A_built_in_given_a_class_with_a_default_member_refuses(string use)
-    {
-        var run = () => RunThroughAVariant("Widget", use);
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
-    }
 
     [Theory]
     [MemberData(nameof(MeasuredThroughAVariant))]
@@ -207,14 +185,7 @@ public class ObjectAsValueTests : BaseVBTestFixture
         "c = MsgBox(o)",
     };
 
-    [Theory]
-    [MemberData(nameof(FoundInReview))]
-    public async Task A_class_with_a_default_member_is_refused_here_too(string use)
-    {
-        var run = () => RunPrinting("Widget", use);
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*Widget*#174*");
-    }
 
     [Theory]
     [MemberData(nameof(FoundInReview))]
@@ -236,21 +207,7 @@ public class ObjectAsValueTests : BaseVBTestFixture
         await run.Should().ThrowAsync<VBCompileErrorException>();
     }
 
-    [Theory]
-    [InlineData("VarType")]
-    [InlineData("IsNumeric")]
-    [InlineData("IsEmpty")]
-    [InlineData("IsNull")]
-    [InlineData("IsDate")]
-    [InlineData("IsError")]
-    [InlineData("IsArray")]
-    public async Task VarType_and_the_Is_functions_read_a_default_member(string function)
-    {
-        // Measured: VarType(w) is 3, IsNumeric(w) True, and IsEmpty of a class whose member returns Empty is True.
-        var run = () => RunPrinting("Widget", $"c = {function}(o)");
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
-    }
 
     [Theory]
     [InlineData("VarType", "9")]

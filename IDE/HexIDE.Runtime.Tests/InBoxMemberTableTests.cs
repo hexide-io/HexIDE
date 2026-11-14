@@ -62,7 +62,7 @@ public class InBoxMemberTableTests
                 : g.Any(r => r.GetProperty("invoke").GetString() == "method") ? MemberKind.Method : MemberKind.Property));
 
         var library = Library(name);
-        ProgressBarComponentClass.Instance.Members.Where(m => m.IsIn(library)).Select(m => (m.Name, m.Kind))
+        ProgressBarComponentClass.Instance.Members.Where(m => m.IsIn(library) && !m.Origin.HasFlag(MemberOrigin.HexIde)).Select(m => (m.Name, m.Kind))
             .Should().BeEquivalentTo(declared);
     }
 

@@ -15,8 +15,8 @@ public enum AddinDiagnosticSeverity { Error = 1, Warning = 2, Information = 3, H
 /// An empty range edit deleting a declaration's text also removes its Attribute run.
 /// <c>TrySetContent</c> refuses a replacement that changes, adds or drops them, other than by moving or renaming them with their member or deleting them with its declaration,
 /// and names the member (hexide-io/HexIDE#273 task 4.5b). Before hexide-io/HexIDE#273 this was the code alone,
-/// starting at the form's <c>Attribute</c> lines or after the class's header. A form created in this session and
-/// not yet saved or changed in the designer has no header yet, so for it this is still the code alone.
+/// starting at the form's <c>Attribute</c> lines or after the class's header. New forms hold their header from
+/// creation, before their first save (#885).
 /// </param>
 /// <param name="Project">
 /// The project holding this document, by name. Trailing and optional so an add-in built against an earlier

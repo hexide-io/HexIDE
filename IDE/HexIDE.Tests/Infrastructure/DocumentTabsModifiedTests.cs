@@ -114,8 +114,7 @@ public sealed class DocumentTabsModifiedTests : IDisposable
             "the title names the tab, and activate_document_tab matches it; the state is its own field");
         Modified(tabs[1]).Should().BeFalse("nothing has been typed into the code window");
         Modified(tabs[2]).Should().BeTrue("the carried file was edited");
-        tabs[2].TryGetProperty("document", out _).Should().BeFalse(
-            "a carried file is no form or module, and has isModified without document, as the description says");
+        tabs[2].GetProperty("document").GetString().Should().Be("notes.txt");
     }
 
     [AvaloniaFact]

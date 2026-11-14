@@ -30,6 +30,32 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Source-class default members SHALL resolve at async value boundaries
+
+The engine SHALL collect the name and kind of a source class's default member and read its Function,
+Property Get or module-level variable without arguments where async execution needs a value (#174).
+This includes scalar expressions, builtin value arguments, Let, ByVal scalar parameters, conditions,
+Select Case, For bounds, Print and async array subscripts. CVar, TypeName, IsObject and ByVal Variant
+SHALL keep the object itself. Measurements are recorded in
+`docs/vb6-fidelity-oracle/an-object-used-as-a-value.md`, `cvar.md`,
+`attribute-lines-inside-a-procedure.md` and `subscripts-bounds-and-a-method-called-from-class_initialize.md`.
+
+#### Scenario: Function versus Property Get through a Variant
+- **WHEN** a Variant holds a class whose Function default returns Long 42
+- **THEN** Format, Abs and Not raise 450
+- **AND** the same uses with a Property Get default return "42", Long 42 and Long -43 respectively
+- **AND** typed Not of the Function-default class returns Long -43
+
+#### Scenario: Default value and object identity
+- **WHEN** a Widget default returns Long 42
+- **THEN** Let into a scalar or Variant reads 42 and a ByVal Variant retains the Widget object
+- **AND** a Function Case value against Empty or Null raises the IDE's 450
+
+#### Scenario: Unmeasured default-member uses
+- **WHEN** a default is a Sub, requires arguments, returns an object, a typed Function default reaches Format or Abs, or a default reaches a later Format argument
+- **THEN** execution refuses untrappably naming #174
+- **AND** default writes, array bounds, control-array indexes and synchronous helper reads retain their refusals
+
 ### Requirement: Trailing argument and declared array type refusals
 
 The interpreter SHALL raise `VBCompileErrorException` with "Syntax error" when executing a call
@@ -509,6 +535,17 @@ program that never fails.
 - **WHEN** an interpreter diagnostic formats a value's type
 - **THEN** it SHALL print the inner type name and array suffixes without an internal `Left` or `Right` wrapper
 - **AND** member-not-found diagnostics SHALL omit the receiver type, retaining the member and, for assignment, variable name
+
+### Requirement: Parse-time compile errors carry their file location
+A compile error leaving `BasicInterpreter.Parse` with a `Line` SHALL carry an `ErrorLocation` with the module
+being parsed and that line, counted from the top of the whole file as the code window numbers it (#3960).
+The exception type and message SHALL remain unchanged. A compile error without a line SHALL remain unlocated.
+
+#### Scenario: A project fails to start while parsing
+- **WHEN** a syntax error or classic-dialect refusal is found while parsing a standard module, class or form
+- **THEN** the failed start exposes that module and whole-file line through `FailureLocation` while reporting
+- **AND** `get_last_runtime_error` returns them in its `module` and `line` fields
+- **AND** the compile-error dialog still offers only End
 
 ### Requirement: Unimplemented language surface SHALL fail clearly
 Where the engine does not implement part of the language, it SHALL fail in a way that identifies what is
@@ -1798,3 +1835,21 @@ HexIDE honours the locale rather than reproducing an unexpanded token (#3946;
 #### Scenario: Measured en-GB long date
 - **WHEN** a Windows program in en-GB formats 1 January 2000 as Long Date
 - **THEN** it writes `01 January 2000`, as measured on vb6.exe native and p-code in #783
+
+### Requirement: ProgressBar code-only Increment extension
+The runtime SHALL expose `Increment` on both ProgressBar libraries with one required argument,
+`MemberOrigin.HexIde` and `IsFrmProperty` false. It SHALL convert through Value's assignment path and
+clamp the sum to Min/Max. The Object Browser SHALL list it with a localized HexIDE extension description.
+Strict-mode filtering remains deferred.
+
+#### Scenario: Increment clamps and accepts either library
+Contract: [#1116](https://github.com/hexide-io/HexIDE/issues/1116); Value conversions:
+[ProgressBar oracle](../../../docs/vb6-fidelity-oracle/in-box-controls-the-progressbar.md).
+
+- **WHEN** either library's ProgressBar receives `Increment n`
+- **THEN** Value becomes Value plus the converted Single argument, clamped to Min and Max
+- **AND** a failed conversion leaves Value unchanged with the existing Value conversion error
+
+#### Scenario: Required argument is missing
+- **WHEN** code calls `ProgressBar1.Increment` without an argument
+- **THEN** the runtime raises Argument not optional and leaves Value unchanged

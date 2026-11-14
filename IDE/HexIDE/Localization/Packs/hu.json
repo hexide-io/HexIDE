@@ -2,6 +2,7 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE-bővítmény; a VB6-ban nem érhető el.",
     "Str.Dock.Host": "Dokkolási gazda",
     "Str.Dock.Root": "Gyökérdokk",
     "Str.Dock.PinnedHost": "Rögzített dokkolási gazda",

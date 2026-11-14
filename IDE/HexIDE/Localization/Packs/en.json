@@ -2,6 +2,7 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE extension; not available in VB6.",
     "Str.Dock.Host": "Dock host",
     "Str.Dock.Root": "Root dock",
     "Str.Dock.PinnedHost": "Pinned dock host",

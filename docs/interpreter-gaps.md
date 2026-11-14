@@ -218,7 +218,9 @@ translation: raise VB6's error number at run time instead of before it.
 - **`LSet` between UDTs containing strings, objects or Variants** — VB6 refuses at compile time. The
   layout-compatibility judgement is static; `LSet` itself is a deferral.
 - **Default members of third-party COM types** — see Platform limits; the marker lives in a type library, not
-  in any source HexIDE parsed. (For a `.cls` HexIDE *did* parse, collecting it is permitted — #174.)
+  in any source HexIDE parsed. (For a `.cls` HexIDE *did* parse, collecting it is permitted — #174. The pre-pass retains its name and kind, including a property
+  marked in its Let or Set and a variable marked with VB_VarUserMemId; async value reads now execute it. See
+  [the attribute measurements](vb6-fidelity-oracle/attribute-lines-inside-a-procedure.md).)
 
 ## Platform limits (COM / OS / type libraries)
 
@@ -286,6 +288,17 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
 
 ## Partial
 
+- **Source-class default members (#174):** async scalar reads execute the collected Function, Property Get or
+  variable, including Let, ByVal scalar arguments, operators, builtin value arguments, conditions, Select Case,
+  For bounds, Print and array subscripts. Measured Function/Variant `Format`, `Abs` and `Not`, and Function
+  Case values against Empty/Null, raise 450. `CVar`, TypeName, IsObject and ByVal Variant keep the object.
+  [Value measurements](vb6-fidelity-oracle/an-object-used-as-a-value.md),
+  [CVar](vb6-fidelity-oracle/cvar.md), [subscripts](vb6-fidelity-oracle/subscripts-bounds-and-a-method-called-from-class_initialize.md).
+  Still refused naming #174: a Sub default, a member requiring arguments, nested defaults, typed Function
+  Format/Abs and later Format arguments (unmeasured), default-member writes and parameterized access. Synchronous Join/Filter reads,
+  `IndexResult` and `FieldElement` subscript conversion retain their refusals; the Immediate window still
+  refuses calls into the program. Array bounds and control-array indexes remain unmeasured with defaults.
+
 - **RichTextBox document members (#1100)** — a minimal form runs with code-driven text, RTF, selection,
   character formatting and paragraph alignment. Non-Null SelColor reads refuse because the measured unsigned
   Long Variant subtype (19) has no Vb6Value representation; mixed colours read Null and colour assignments
@@ -324,7 +337,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
     slice. Menu Container was not measured here.
   - **Assigning to a control property converts** to the property's type, with VB6's range checks (#768, #774). Refused as
     not implemented rather than answered wrong: a palette colour (#786); and a control or an array on the right, where VB6 reads a control's default property (#790). A class
-    instance on the right raises 438, or is refused naming #174, and Err stands for its Number (#840). Still
+    instance on the right reads its default at the async Let boundary (#174), or raises 438 if it has none;
+    synchronous coercion still refuses defaults, and Err stands for its Number (#840). Still
     different: `Tag` holds what it is given until #211. Hex/octal String widths and
     a trailing `&` now follow the measured conversions (#788). Positions are whole twips, in the container's ScaleMode, since #933 (#791). A colour read in code is the Long, since #789. Detail
     and measurements: `vb6-fidelity-oracle/assigning-to-a-control-property.md`, "HexIDE, after #774". Reversed scroll bars now preserve their loaded Value and map thumb positions in reverse (#787).
