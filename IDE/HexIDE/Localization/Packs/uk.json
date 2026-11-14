@@ -1137,6 +1137,7 @@
     "Str.Tool.Diagnostics.Information": "Інформація",
     "Str.Tool.Diagnostics.Hints": "Підказки",
     "Str.Tool.Diagnostics.CurrentDocument": "Поточний документ",
+    "Str.Tool.Diagnostics.Project": "Проєкт",
     "Str.Tool.Diagnostics.Server": "Сервер",
     "Str.Tool.Diagnostics.Source": "Джерело",
     "Str.Tool.Diagnostics.Document": "Документ",

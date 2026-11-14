@@ -1137,6 +1137,7 @@
     "Str.Tool.Diagnostics.Information": "Tiedot",
     "Str.Tool.Diagnostics.Hints": "Vihjeet",
     "Str.Tool.Diagnostics.CurrentDocument": "Nykyinen asiakirja",
+    "Str.Tool.Diagnostics.Project": "Projekti",
     "Str.Tool.Diagnostics.Server": "Palvelin",
     "Str.Tool.Diagnostics.Source": "Lähde",
     "Str.Tool.Diagnostics.Document": "Asiakirja",

@@ -1137,6 +1137,7 @@
     "Str.Tool.Diagnostics.Information": "Teave",
     "Str.Tool.Diagnostics.Hints": "Vihjed",
     "Str.Tool.Diagnostics.CurrentDocument": "Praegune dokument",
+    "Str.Tool.Diagnostics.Project": "Projekt",
     "Str.Tool.Diagnostics.Server": "Server",
     "Str.Tool.Diagnostics.Source": "Allikas",
     "Str.Tool.Diagnostics.Document": "Dokument",

@@ -1137,6 +1137,7 @@
     "Str.Tool.Diagnostics.Information": "Informații",
     "Str.Tool.Diagnostics.Hints": "Sugestii",
     "Str.Tool.Diagnostics.CurrentDocument": "Documentul curent",
+    "Str.Tool.Diagnostics.Project": "Proiect",
     "Str.Tool.Diagnostics.Server": "Server",
     "Str.Tool.Diagnostics.Source": "Sursă",
     "Str.Tool.Diagnostics.Document": "Document",

@@ -1163,6 +1163,7 @@
     "Str.Tool.Diagnostics.Information": "Informació",
     "Str.Tool.Diagnostics.Hints": "Suggeriments",
     "Str.Tool.Diagnostics.CurrentDocument": "Document actual",
+    "Str.Tool.Diagnostics.Project": "Projecte",
     "Str.Tool.Diagnostics.Server": "Servidor",
     "Str.Tool.Diagnostics.Source": "Origen",
     "Str.Tool.Diagnostics.Document": "Document",

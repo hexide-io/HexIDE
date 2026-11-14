@@ -1137,6 +1137,7 @@
     "Str.Tool.Diagnostics.Information": "Πληροφορίες",
     "Str.Tool.Diagnostics.Hints": "Υποδείξεις",
     "Str.Tool.Diagnostics.CurrentDocument": "Τρέχον έγγραφο",
+    "Str.Tool.Diagnostics.Project": "Έργο",
     "Str.Tool.Diagnostics.Server": "Διακομιστής",
     "Str.Tool.Diagnostics.Source": "Πηγή",
     "Str.Tool.Diagnostics.Document": "Έγγραφο",

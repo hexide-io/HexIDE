@@ -1171,6 +1171,7 @@
     "Str.Tool.Diagnostics.Information": "Informatie",
     "Str.Tool.Diagnostics.Hints": "Hints",
     "Str.Tool.Diagnostics.CurrentDocument": "Huidig document",
+    "Str.Tool.Diagnostics.Project": "Project",
     "Str.Tool.Diagnostics.Server": "Server",
     "Str.Tool.Diagnostics.Source": "Bron",
     "Str.Tool.Diagnostics.Document": "Document",

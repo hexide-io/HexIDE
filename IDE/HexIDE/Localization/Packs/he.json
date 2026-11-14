@@ -1197,6 +1197,7 @@
     "Str.Tool.Diagnostics.Information": "מידע",
     "Str.Tool.Diagnostics.Hints": "רמזים",
     "Str.Tool.Diagnostics.CurrentDocument": "המסמך הנוכחי",
+    "Str.Tool.Diagnostics.Project": "פרויקט",
     "Str.Tool.Diagnostics.Server": "שרת",
     "Str.Tool.Diagnostics.Source": "מקור",
     "Str.Tool.Diagnostics.Document": "מסמך",
