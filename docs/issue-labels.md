@@ -392,6 +392,13 @@ alpha.
 `duplicate`, `invalid`, `wontfix`, `question` — closing verdicts and triage hygiene, not
 classifications. Leave them alone.
 
+### `translation`: applied by the Translation problem form
+
+The *Translation problem* issue form (`.github/ISSUE_TEMPLATE/translation.yml`, #2818) applies `translation` to every
+report filed through it, so those reports are easy to find. It says where a report came from, not what kind of issue
+it is: a triager adds the type and area as usual, normally `bug` and `localization`. Kept for the form by decision in
+#3364.
+
 ### `good first issue` and `help wanted`: retired
 
 Both were taken off every issue on 2026-11-07, when HexIDE was judged not to be a community repository yet, and
