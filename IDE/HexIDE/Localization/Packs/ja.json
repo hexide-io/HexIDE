@@ -518,7 +518,7 @@
     "Str.Designer.Context.AlignToGrid": "グリッドに合わせる",
     "Str.Designer.Context.Properties": "プロパティ",
     "Str.CodeEditor.FileNotSaved.Banner": "このファイルは保存されません — HexIDE はまだこのファイルを忠実に再現できないため、保存するとファイルが変化してしまいます。コードもファイルの一部であるため、このウィンドウでの入力は拒否されます。",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "このテキストは読み取り専用で、IDE のみが変更できるため、入力は拒否されました。",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "このテキストは読み取り専用です。変更できるのは IDE のみです。",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "名前の変更は行われませんでした。このファイル内の読み取り専用テキストが変更されるためです。このテキストは IDE のみが変更します。",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "他のドキュメントも編集するため、名前の変更は行われませんでした: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "{0} に名前の変更を適用できません。",

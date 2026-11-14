@@ -445,7 +445,7 @@
     "Str.Designer.Context.AlignToGrid": "Alinea a la quadrícula",
     "Str.Designer.Context.Properties": "Propietats",
     "Str.CodeEditor.FileNotSaved.Banner": "Aquest fitxer no es desarà: HexIDE encara no el pot reproduir fidelment i desar-lo el canviaria. El codi forma part del fitxer; per això no es permet escriure en aquesta finestra.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "S’ha rebutjat l’escriptura perquè aquest text és de només lectura i només el modifica l’IDE.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Aquest text és de només lectura: només el modifica l’IDE.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "No s'ha canviat el nom perquè es modificaria text de només lectura d'aquest fitxer, que només modifica l'IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "No s'ha canviat el nom perquè també modificaria altres documents: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "No es pot aplicar el canvi de nom a {0}.",

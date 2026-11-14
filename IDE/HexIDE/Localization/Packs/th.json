@@ -419,7 +419,7 @@
     "Str.Designer.Context.AlignToGrid": "จัดแนวให้ตรงตาราง",
     "Str.Designer.Context.Properties": "คุณสมบัติ",
     "Str.CodeEditor.FileNotSaved.Banner": "ไฟล์นี้จะไม่ถูกบันทึก — HexIDE ยังไม่สามารถสร้างซ้ำได้อย่างถูกต้องครบถ้วน การบันทึกจึงจะเปลี่ยนไฟล์ โค้ดเป็นส่วนหนึ่งของไฟล์นี้ จึงไม่อนุญาตให้พิมพ์ในหน้าต่างนี้",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "ปฏิเสธการพิมพ์เนื่องจากข้อความนี้เป็นแบบอ่านอย่างเดียวและมีเพียง IDE เท่านั้นที่เปลี่ยนแปลงได้",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "ข้อความนี้เป็นแบบอ่านอย่างเดียว: มีเพียง IDE เท่านั้นที่เปลี่ยนแปลงได้",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "ไม่ได้เปลี่ยนชื่อเพราะจะทำให้ข้อความอ่านอย่างเดียวในไฟล์นี้เปลี่ยนไป ซึ่งมีเพียง IDE ที่แก้ไขได้",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "ไม่ได้เปลี่ยนชื่อ เนื่องจากจะต้องแก้ไขเอกสารอื่นด้วย: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "ไม่สามารถใช้การเปลี่ยนชื่อกับ {0} ได้",

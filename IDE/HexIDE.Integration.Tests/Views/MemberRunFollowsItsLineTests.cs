@@ -827,7 +827,7 @@ public class MemberRunFollowsItsLineTests : IDisposable
         outcome.Error.Should().NotContain("text before the caret")
             .And.NotContain("line above that read-only text");
         if (command != "Delete")
-            outcome.Error.Should().Contain("Typing was refused because this text is read-only and only the IDE changes it.")
+            outcome.Error.Should().Contain("This text is read-only: only the IDE changes it.")
                 .And.NotContain("Select less");
     }
 

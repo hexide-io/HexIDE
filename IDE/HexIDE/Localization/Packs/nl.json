@@ -492,7 +492,7 @@
     "Str.Designer.Context.AlignToGrid": "Uitlijnen op raster",
     "Str.Designer.Context.Properties": "Eigenschappen",
     "Str.CodeEditor.FileNotSaved.Banner": "Dit bestand wordt niet opgeslagen — HexIDE kan het nog niet getrouw reproduceren, dus opslaan zou het wijzigen. De code maakt deel uit van het bestand, daarom wordt typen in dit venster geweigerd.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Invoer is geweigerd omdat deze tekst alleen-lezen is en alleen door de IDE wordt gewijzigd.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Deze tekst is alleen-lezen: alleen de IDE wijzigt deze.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "De naam is niet gewijzigd, omdat dit alleen-lezen tekst in dit bestand zou wijzigen die alleen door de IDE wordt gewijzigd.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "De naam is niet gewijzigd omdat dit ook andere documenten wijzigt: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Kan de naamswijziging niet toepassen op {0}.",

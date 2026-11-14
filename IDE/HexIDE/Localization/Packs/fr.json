@@ -484,7 +484,7 @@
     "Str.Designer.Context.AlignToGrid": "Aligner sur la grille",
     "Str.Designer.Context.Properties": "Propriétés",
     "Str.CodeEditor.FileNotSaved.Banner": "Ce fichier ne sera pas enregistré — HexIDE ne sait pas encore le reproduire fidèlement ; l'enregistrer le modifierait. Son code fait partie du fichier : la saisie dans cette fenêtre est donc refusée.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "La saisie a été refusée car ce texte est en lecture seule et seul l’IDE le modifie.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Ce texte est en lecture seule : seul l’IDE le modifie.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Le renommage n'a pas été effectué car il modifierait du texte en lecture seule dans ce fichier, que seul l'IDE modifie.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Le renommage n’a pas été effectué car il modifie aussi d’autres documents : {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Impossible d’appliquer le renommage à {0}.",

@@ -492,7 +492,7 @@
     "Str.Designer.Context.AlignToGrid": "Wyrównaj do siatki",
     "Str.Designer.Context.Properties": "Właściwości",
     "Str.CodeEditor.FileNotSaved.Banner": "Ten plik nie zostanie zapisany — HexIDE nie potrafi go jeszcze wiernie odtworzyć, więc zapisanie go wprowadziłoby w nim zmiany. Jego kod jest częścią pliku, dlatego pisanie w tym oknie jest odrzucane.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Odrzucono wpisywanie, ponieważ ten tekst jest tylko do odczytu i zmienia go wyłącznie IDE.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Ten tekst jest tylko do odczytu: zmienia go wyłącznie IDE.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Nie zmieniono nazwy, ponieważ spowodowałoby to zmianę tekstu tylko do odczytu w tym pliku, który zmienia tylko IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Nie zmieniono nazwy, ponieważ zmiana edytuje także inne dokumenty: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Nie można zastosować zmiany nazwy do {0}.",

@@ -458,7 +458,7 @@
     "Str.Designer.Context.AlignToGrid": "Izgaraya Hizala",
     "Str.Designer.Context.Properties": "Özellikler",
     "Str.CodeEditor.FileNotSaved.Banner": "Bu dosya kaydedilmeyecek — HexIDE bu dosyayı henüz aslına sadık biçimde yeniden üretemiyor, dolayısıyla kaydedilmesi onu değiştirirdi. Kodu da dosyanın bir parçası olduğundan bu pencerede yazma reddedilir.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Bu metin salt okunur olduğu ve yalnızca IDE tarafından değiştirildiği için yazma reddedildi.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Bu metin salt okunurdur: yalnızca IDE tarafından değiştirilir.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Yeniden adlandırma yapılmadı çünkü bu dosyada yalnızca IDE'nin değiştirdiği salt okunur metni değiştirirdi.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Yeniden adlandırma diğer belgeleri de düzenlediği için yapılmadı: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "{0} için yeniden adlandırma uygulanamıyor.",

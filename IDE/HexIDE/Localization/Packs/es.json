@@ -484,7 +484,7 @@
     "Str.Designer.Context.AlignToGrid": "Alinear a la cuadrícula",
     "Str.Designer.Context.Properties": "Propiedades",
     "Str.CodeEditor.FileNotSaved.Banner": "Este archivo no se guardará — HexIDE todavía no puede reproducirlo con fidelidad, así que guardarlo lo alteraría. Su código forma parte del archivo, por eso se rechaza la escritura en esta ventana.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Se rechazó la escritura porque este texto es de solo lectura y solo lo modifica el IDE.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Este texto es de solo lectura: solo lo modifica el IDE.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "No se cambió el nombre porque se modificaría texto de solo lectura de este archivo, que solo modifica el IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "No se realizó el cambio de nombre porque también modifica otros documentos: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "No se puede aplicar el cambio de nombre a {0}.",
