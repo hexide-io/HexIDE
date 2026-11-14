@@ -65,6 +65,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Legen Sie Bedingungen über Bedingung… im Kontextmenü der Haltepunktleiste fest. Datei '{0}', Haltepunkteintrag {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Die Haltepunktoption '{0}' wird für externe Sitzungen noch nicht unterstützt. Datei '{1}', Haltepunkteintrag {2}. Legen Sie Bedingungen über Bedingung… im Kontextmenü der Haltepunktleiste fest.",
     "Str.Debug.RunWith.Unavailable": "F5 ist so eingestellt, dass dieses Projekt mit {0} ausgeführt wird, das gerade nicht verfügbar ist; daher läuft es in der IDE. Um es künftig in der IDE auszuführen, wählen Sie In der IDE unter Ausführen > F5 führt aus.",
+    "Str.MainWindow.DeveloperModeNotice": "ENTWICKLERMODUS",
+    "Str.MainWindow.UnsignedAddinsNotice": "ENTWICKLERMODUS, nicht signierte Add-Ins können geladen werden",
     "Str.MainWindow.RecoveryNotice": "Wiederherstellungssitzung — Einstellungsänderungen werden nicht gespeichert",
     "Str.Profiles.LoadError": "Profil '{0}', Datei '{1}' kann nicht geladen werden. Prüfen Sie das Paketformat und die Dateipfade.",
     "Str.Profiles.HelpSummary": "Basisprofil: Name, Verzeichnispfad oder none (abgesicherter Modus).",

@@ -39,6 +39,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Aseta ehdot keskeytyskohtamarginaalin valikon Ehto…-komennolla. Tiedosto '{0}', keskeytyskohtamerkintä {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Keskeytyskohdan asetusta '{0}' ei vielä tueta ulkoisissa istunnoissa. Tiedosto '{1}', keskeytyskohtamerkintä {2}. Aseta ehdot keskeytyskohtamarginaalin valikon Ehto…-komennolla.",
     "Str.Debug.RunWith.Unavailable": "F5 on asetettu suorittamaan tämä projekti kohteella {0}, joka ei ole nyt käytettävissä, joten se suoritetaan IDE:ssä. Jos haluat suorittaa sen jatkossa IDE:ssä, valitse Suorita > F5 suorittaa > IDE:ssä.",
+    "Str.MainWindow.DeveloperModeNotice": "KEHITTÄJÄTILA",
+    "Str.MainWindow.UnsignedAddinsNotice": "KEHITTÄJÄTILA, allekirjoittamattomia apuohjelmia voidaan ladata",
     "Str.MainWindow.RecoveryNotice": "Palautusistunto — asetusten muutoksia ei tallenneta",
     "Str.Profiles.LoadError": "Profiilia '{0}', tiedostoa '{1}' ei voi ladata. Tarkista paketin muoto ja tiedostopolut.",
     "Str.Profiles.HelpSummary": "Perusprofiili: nimi, hakemistopolku tai none (vikasietotila).",

@@ -39,6 +39,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Angiv betingelser med Betingelse… i menuen i margen for stoppunkter. Fil '{0}', breakpointpost {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Pausepunktsindstillingen '{0}' understøttes endnu ikke for eksterne sessioner. Fil '{1}', pausepunktspost {2}. Angiv betingelser med Betingelse… i menuen i margen for stoppunkter.",
     "Str.Debug.RunWith.Unavailable": "F5 er sat til at køre dette projekt med {0}, som ikke er tilgængelig nu, så det kører i IDE'en. Vælg I IDE'en under Kør > F5 kører for fremover at køre det i IDE'en.",
+    "Str.MainWindow.DeveloperModeNotice": "UDVIKLERTILSTAND",
+    "Str.MainWindow.UnsignedAddinsNotice": "UDVIKLERTILSTAND, usignerede tilføjelsesprogrammer kan indlæses",
     "Str.MainWindow.RecoveryNotice": "Gendannelsessession — ændringer af indstillinger gemmes ikke",
     "Str.Profiles.LoadError": "Kan ikke indlæse profilen '{0}', filen '{1}'. Kontrollér pakkens format og filstier.",
     "Str.Profiles.HelpSummary": "Basisprofil: navn, mappesti eller none (sikker tilstand).",

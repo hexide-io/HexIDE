@@ -99,6 +99,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "הגדר תנאים דרך תנאי… בתפריט שולי נקודות העצירה. קובץ '{0}', רשומת נקודת עצירה {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "אפשרות נקודת העצירה '{0}' עדיין אינה נתמכת בהפעלות חיצוניות. קובץ '{1}', רשומה {2}. הגדר תנאים דרך תנאי… בתפריט שולי נקודות העצירה.",
     "Str.Debug.RunWith.Unavailable": "F5 מוגדר להריץ את הפרויקט הזה עם {0}, שאינו זמין כעת, ולכן הוא רץ בסביבת הפיתוח. כדי להריץ אותו בסביבת הפיתוח מעכשיו, בחר בסביבת הפיתוח תחת הרצה > F5 מריץ.",
+    "Str.MainWindow.DeveloperModeNotice": "מצב מפתח",
+    "Str.MainWindow.UnsignedAddinsNotice": "מצב מפתח, ניתן לטעון תוספים לא חתומים",
     "Str.MainWindow.RecoveryNotice": "הפעלת שחזור — שינויים בהגדרות לא יישמרו",
     "Str.Profiles.LoadError": "לא ניתן לטעון את הפרופיל '{0}', קובץ '{1}'. יש לבדוק את מבנה החבילה ואת נתיבי הקבצים.",
     "Str.Profiles.HelpSummary": "פרופיל בסיס: שם, נתיב תיקייה או none (מצב בטוח).",

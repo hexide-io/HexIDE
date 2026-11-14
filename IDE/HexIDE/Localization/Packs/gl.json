@@ -65,6 +65,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Defina condicións con Condición… no menú da marxe dos puntos de interrupción. Ficheiro '{0}', entrada de punto de interrupción {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "A opción de punto de interrupción '{0}' aínda non se admite nas sesións externas. Ficheiro '{1}', entrada {2}. Defina condicións con Condición… no menú da marxe dos puntos de interrupción.",
     "Str.Debug.RunWith.Unavailable": "F5 está configurado para executar este proxecto con {0}, que agora non está dispoñible, así que se executa no IDE. Para executalo no IDE de agora en diante, escolla No IDE en Executar > F5 executa.",
+    "Str.MainWindow.DeveloperModeNotice": "MODO DE DESENVOLVEDOR",
+    "Str.MainWindow.UnsignedAddinsNotice": "MODO DE DESENVOLVEDOR, pódense cargar complementos sen asinar",
     "Str.MainWindow.RecoveryNotice": "Sesión de recuperación — os cambios de configuración non se gardarán",
     "Str.Profiles.LoadError": "Non se pode cargar o perfil «{0}», ficheiro «{1}». Comprobe o formato do paquete e as rutas dos ficheiros.",
     "Str.Profiles.HelpSummary": "Perfil base: nome, ruta de directorio ou none (modo seguro).",

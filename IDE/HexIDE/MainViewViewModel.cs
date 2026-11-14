@@ -210,7 +210,12 @@ public partial class MainViewViewModel : ObservableObject
             var title = Static.IsRecoveryMode
                 ? $"{Title} — {localization.GetString("Str.MainWindow.RecoveryNotice")}"
                 : Title;
-            return developerModeService.IsEnabled ? $"{title}  *** DEVELOPER MODE ***" : title;
+            if (!developerModeService.IsEnabled)
+                return title;
+            var notice = localization.GetString(settingsService.LoadUnsignedAddins
+                ? "Str.MainWindow.UnsignedAddinsNotice"
+                : "Str.MainWindow.DeveloperModeNotice");
+            return $"{notice} — {title}";
         }
     }
 
@@ -2054,6 +2059,12 @@ public partial class MainViewViewModel : ObservableObject
                 SaveFormAsCommand.RaiseCanExecutedChanged();
                 CommandManager.InvalidateRequerySuggested();
             });
+
+        settingsService.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ISettingsService.LoadUnsignedAddins))
+                OnPropertyChanged(nameof(WindowTitle));
+        };
 
         // Re-localize every code-built header live when the language changes.
         localization.LanguageChanged += () =>

@@ -52,7 +52,12 @@ around every other layer.
 
 ### Requirement: Active developer mode SHALL be impossible to miss
 While developer mode is active the IDE SHALL indicate it prominently and persistently, and the settings it
-unlocks SHALL be presented behind an explicit warning.
+unlocks SHALL be presented behind an explicit warning. The main window's OS title SHALL start with a
+localised developer-mode notice followed by ` — ` and the normal title. When developer mode and
+`LoadUnsignedAddins` are both on, the notice SHALL name that unsigned add-ins can load. Changes to that
+setting or the active language SHALL update the title immediately. A recovery notice SHALL remain a
+suffix. The marker SHALL appear only on the main window, SHALL NOT be configurable by branding, and
+SHALL NOT appear in Release builds.
 
 The state is dangerous while it lasts, so the user should never be in it without knowing. A prominent,
 permanent marker also protects against the case where someone else set it up — a machine handed over with
@@ -61,6 +66,23 @@ the flag in a shortcut announces itself rather than looking like an ordinary IDE
 #### Scenario: Working in developer mode
 - **WHEN** developer mode is active
 - **THEN** the IDE shows it prominently for the whole session
+
+#### Scenario: Developer mode without unsigned add-ins
+- **WHEN** developer mode is active and Load unsigned add-ins is off
+- **THEN** the main window title starts with the localised `DEVELOPER MODE` notice and ` — `
+
+#### Scenario: Unsigned add-ins can load
+- **WHEN** developer mode is active and Load unsigned add-ins is on
+- **THEN** the title starts with the localised `DEVELOPER MODE, unsigned add-ins can load` notice and ` — `
+- **AND** applying a change to the setting updates the notice immediately
+
+#### Scenario: A normal session
+- **WHEN** developer mode is off, even if Load unsigned add-ins is persisted as on
+- **THEN** the title has no developer-mode notice
+
+#### Scenario: A recovery session in developer mode
+- **WHEN** developer mode is active in a recovery session
+- **THEN** the developer-mode notice is a prefix and the recovery notice remains a suffix
 
 #### Scenario: Reaching the developer settings
 - **WHEN** the developer opens the settings that developer mode unlocks

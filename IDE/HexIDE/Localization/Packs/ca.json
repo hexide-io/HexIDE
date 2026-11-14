@@ -65,6 +65,8 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Definiu condicions amb Condició… al menú del marge dels punts d’interrupció. Fitxer '{0}', entrada de punt d’interrupció {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "L'opció de punt d'interrupció '{0}' encara no s'admet en sessions externes. Fitxer '{1}', entrada {2}. Definiu condicions amb Condició… al menú del marge dels punts d’interrupció.",
     "Str.Debug.RunWith.Unavailable": "F5 està configurat per executar aquest projecte amb {0}, que ara no està disponible, de manera que s'executa a l'IDE. Per executar-lo a l'IDE d'ara endavant, trieu A l'IDE a Executa > F5 executa.",
+    "Str.MainWindow.DeveloperModeNotice": "MODE DE DESENVOLUPADOR",
+    "Str.MainWindow.UnsignedAddinsNotice": "MODE DE DESENVOLUPADOR, es poden carregar complements sense signar",
     "Str.MainWindow.RecoveryNotice": "Sessió de recuperació — els canvis de configuració no es desaran",
     "Str.Profiles.LoadError": "No es pot carregar el perfil «{0}», fitxer «{1}». Comproveu el format del paquet i els camins dels fitxers.",
     "Str.Profiles.HelpSummary": "Perfil base: nom, camí de directori o none (mode segur).",
