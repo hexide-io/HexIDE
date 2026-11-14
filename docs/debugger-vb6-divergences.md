@@ -438,7 +438,9 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   dialog. End is enabled; Continue, Debug and Help are not. End ends the run. Closed any other way, the dialog
   leaves the run going, with the event procedure that met the error abandoned, as after a run-time error in an
   event procedure. A syntax error found before the run begins is a start that never became a run: it is reported in
-  the same dialog, with the module it is in named, and nothing runs.
+  the same dialog, and nothing runs. Parse-time compile errors with a line also carry their module and
+  whole-file line through `get_last_runtime_error` ([#3960](https://github.com/hexide-io/HexIDE/issues/3960));
+  errors without a line remain unlocated. The dialog text and buttons are unchanged.
 - **Why:** one route for every error a run meets. Sub Main's compile errors already went through that dialog
   (#754), and a separate compile-error box would answer the same error two ways. A tree-walker meets a compile error
   only when it reaches the statement, so stopping before the run began is not possible for it.

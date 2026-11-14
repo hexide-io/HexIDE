@@ -111,4 +111,27 @@ public class ErrorLocationTests : BaseVBTestFixture
 
         at.Should().Be(new ErrorLocation("Module1", 2));
     }
+
+    // Location metadata requested by https://github.com/hexide-io/HexIDE/issues/3960;
+    // these are HexIDE diagnostics, not new VB6 measurements.
+    [Theory]
+    [InlineData("x = = 1")]
+    [InlineData("x += 2")]
+    [InlineData("x = True AndAlso False")]
+    [InlineData("x = `")]
+    public async Task A_load_time_compile_error_carries_its_module_and_preprocessed_file_line(string statement)
+    {
+        var at = await RaisedAt(() => RunModules("Debug.Print 1\n",
+            ("Broken", "Attribute VB_Name = \"Broken\"\n#If False Then\nignored += 1\n#End If\nSub Work()\n    "
+                + statement + "\nEnd Sub\n")));
+
+        at.Should().Be(new ErrorLocation("Broken", 6));
+    }
+
+    [Fact]
+    public void A_compile_error_without_a_line_stays_unlocated()
+    {
+        ErrorLocation.Of(new VBCompileErrorException("Must have startup form or Sub Main()"))
+            .Should().BeNull();
+    }
 }

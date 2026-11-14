@@ -925,6 +925,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 throw;
             }
         }
+        catch (VBCompileErrorException e) when (e.Line is { } line && ErrorLocation.Note(e, moduleName, line))
+        {
+            throw;
+        }
         finally
         {
             parsingModule = null;

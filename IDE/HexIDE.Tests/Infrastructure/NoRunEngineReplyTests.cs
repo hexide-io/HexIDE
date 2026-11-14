@@ -33,6 +33,28 @@ public class NoRunEngineReplyTests : CompositionTestBase
         return project;
     }
 
+    // https://github.com/hexide-io/HexIDE/issues/3960: metadata survives F5 and the dialog.
+    [AvaloniaTheory]
+    [InlineData("x += 2")]
+    [InlineData("x = = 1")]
+    public async Task A_parse_failure_reaches_the_last_runtime_error_reply(string statement)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Broken") { StartsAtSubMain = true };
+        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+        module.UpdateCode("Sub Main()\r\n    " + statement + "\r\nEnd Sub\r\n");
+        project.AddModule(module);
+        Composition.ProjectManager.AddProject(project);
+        Composition.ProjectManager.StartupProject = project;
+
+        var tools = Tools();
+        Composition.ProjectRunnerService.RunProject(project);
+        var reply = await tools.GetLastRuntimeErrorAsync(Ct);
+
+        reply.Raised.Should().BeTrue();
+        reply.Module.Should().Be("Module1");
+        reply.Line.Should().Be(3);
+    }
+
     private static AddinDebugLaunch Launch(string title) => new(title)
     {
         Claims = _ => true,
