@@ -32,3 +32,11 @@ public enum MessageBoxIcon
     Question,
     Information
 }
+
+[System.Flags]
+public enum MessageBoxLayout
+{
+    None = 0,
+    Right = 1,
+    RtlReading = 2
+}

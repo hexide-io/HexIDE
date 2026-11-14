@@ -246,7 +246,7 @@ controls to the other side of a form whose layout they did not change.
 - **WHEN** Arabic or Hebrew is active and the IDE opens About, InputBox, MessageBox, Font, Color or Print
 - **THEN** the shared dialog window SHALL take the active language pack's flow direction
 - **AND** its content SHALL inherit that right-to-left direction (#2874)
-- **AND** program MessageBox and InputBox windows and their content SHALL remain left-to-right: their prompts belong to the program, and Windows lays out MessageBox left-to-right unless the program requests RTL reading (#3014)
+- **AND** program MessageBox and InputBox windows and their content SHALL remain left-to-right by default, independently of the IDE language. A program MessageBox SHALL honour `vbMsgBoxRight` by right-aligning the prompt and `vbMsgBoxRtlReading` by mirroring the icon and button order; both together place the prompt beside the icon on the right (#3014, measured in #3958). Native title-bar placement remains platform-owned, and on Windows the title bar does not yet mirror (#3973)
 - **AND** Font, Color and Print SHALL stay mirrored even when opened by a running program’s CommonDialog: they stand in for system dialogs, follow the interface language, and use IDE language-pack text
 - **NOTE** this is the chosen scope, not a measurement on Hebrew Windows; neither dialog distinction has been measured there
 
