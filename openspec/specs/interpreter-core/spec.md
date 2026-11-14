@@ -1349,7 +1349,7 @@ A form's `ActiveControl` SHALL return its last focused control while active, ina
 and Nothing when loaded but never shown or when no control has taken focus. Reading an unloaded
 form's member SHALL load it again with no remembered control. Measured in
 [#2437](https://github.com/hexide-io/HexIDE/issues/2437), oracle measurement #2279.
-This first slice does not restore focus or raise GotFocus on reactivation. A form's initial focus is specified below.
+Reactivation raises GotFocus for the remembered control after Activate, as specified below.
 
 #### Scenario: A hidden form remembers focus
 - **WHEN** a control takes focus and its form is hidden
@@ -1403,7 +1403,16 @@ NamedFormat SHALL convert as CInt does and reject formats outside 0–4 with err
 A shown form with no focusable control SHALL raise Form_GotFocus after Form_Activate.
 When another form in the program becomes active, the form losing focus SHALL raise Form_LostFocus before
 Form_Deactivate (#2579; [measured activation rows](../../../docs/vb6-fidelity-oracle/a-forms-resize-activate-and-deactivate.md)).
-Forms with focusable controls SHALL retain their existing event order.
+Switching between forms by Show, SetFocus, Hide of the active form or a window-system activation SHALL
+raise the old control's LostFocus, the old form's Deactivate, the new form's Activate, then the new
+control's GotFocus (#3932, the same measured rows). These events SHALL wait until the running handler
+returns, except for Show inside Form_Load's measured inline activation and initial focus (#2436).
+
+#### Scenario: Show another form and return by Hide
+- **WHEN** Form1's handler shows Form2 and prints a line after Show
+- **THEN** the line precedes Form1's control LostFocus, Form1 Deactivate, Form2 Activate and Form2's control GotFocus
+- **WHEN** Form2 is hidden while active
+- **THEN** the reverse switch raises those four events in the same order
 
 #### Scenario: Show an empty form and switch back
 - **WHEN** an empty form is shown and then another of the program's forms is activated
