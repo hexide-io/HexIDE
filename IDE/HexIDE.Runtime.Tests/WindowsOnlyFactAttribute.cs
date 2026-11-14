@@ -31,6 +31,6 @@ public sealed class WindowsOnlyFactAttribute : FactAttribute
             : base(sourceFilePath, sourceLineNumber)
     {
         if (!OperatingSystem.IsWindows())
-            Skip = "Windows-only: this pins behaviour the product deliberately varies by host filesystem.";
+            Skip = "Windows-only: this pins behaviour the product deliberately varies by host.";
     }
 }

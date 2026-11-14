@@ -23,6 +23,7 @@ public class NativeInteropTests
     [InlineData("HexIDE.Desktop", "ConsoleOutput.cs", 5)]
     [InlineData("HexIDE.Desktop", "Server/ToolFailures.cs", 1)]
     [InlineData("HexIDE.Desktop", "Server/X11WindowManager.cs", 6)]
+    [InlineData("HexIDE.Runtime", "Interpreter/WindowsDateLocale.cs", 2)]
     [InlineData("HexIDE.Runtime", "TypeLibrary/TypeLibReader.cs", 2)]
     [InlineData("HexIDE.Runtime", "BuiltinControls/ToolbarCaptionMetrics.cs", 6)]
     [InlineData("HexIDE.Lsp", "Transports/LaunchedServerGuard.cs", 2)]
@@ -49,6 +50,7 @@ public class NativeInteropTests
     [InlineData("HexIDE")]
     [InlineData("HexIDE.Desktop")]
     [InlineData("HexIDE.Runtime")]
+    [InlineData("HexIDE.Runtime.Tests")]
     [InlineData("HexIDE.Lsp")]
     [InlineData("HexIDE.LspGuard")]
     public void UnsafeCompilationIsForGeneratedCodeOnly(string project)

@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+        <!-- LibraryImport-generated marshalling for the independent NLS date oracle. -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
         <Nullable>enable</Nullable>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
