@@ -69,7 +69,7 @@ public class CarriedFileDiagnosticsIntegrationTests : IDisposable
         var path = Path.Combine(_dir, fileName);
         File.WriteAllText(path, content);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        return Owned(new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>())
+        return Owned(new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>(), Substitute.For<HexIDE.IDE.ISettingsService>())
             .Initialize(new RelatedDocumentDefinition(project, fileName, path)));
     }
 
@@ -197,7 +197,7 @@ public class CarriedFileDiagnosticsIntegrationTests : IDisposable
         var path = Path.Combine(_dir, "README.md");
         File.WriteAllText(path, "# hello");
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        var vm = Owned(new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>())
+        var vm = Owned(new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>(), Substitute.For<HexIDE.IDE.ISettingsService>())
             .Initialize(new RelatedDocumentDefinition(project, "README.md", path)));
         Show(vm);
         vm.Document.Text = "# edited";
@@ -216,7 +216,7 @@ public class CarriedFileDiagnosticsIntegrationTests : IDisposable
     {
         // Still a working text editor; it simply has no session to announce through.
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        var vm = new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>())
+        var vm = new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>(), Substitute.For<HexIDE.IDE.ISettingsService>())
             .Initialize(new RelatedDocumentDefinition(project, "gone.md", Path.Combine(_dir, "gone.md")));
         Show(vm);
 

@@ -526,11 +526,18 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public IReadOnlyList<string> CompletionTriggerCharacters(string uri) =>
         StartedClaimantsFor(uri).SelectMany(CompletionTriggers).Distinct(StringComparer.Ordinal).ToArray();
 
+    public IReadOnlyList<string> SignatureHelpTriggerCharacters(string uri) =>
+        StartedClaimantsFor(uri).SelectMany(client => ProviderTriggers(client, "signatureHelpProvider"))
+            .Distinct(StringComparer.Ordinal).ToArray();
+
     private static IEnumerable<string> CompletionTriggers(ILspClient client)
+        => ProviderTriggers(client, "completionProvider");
+
+    private static IEnumerable<string> ProviderTriggers(ILspClient client, string capability)
     {
         if (client.AdvertisedCapabilities is not { } caps
-            || !ServerCapabilities.Supports(caps, "completionProvider")) yield break;
-        var provider = caps.GetProperty("completionProvider");
+            || !ServerCapabilities.Supports(caps, capability)) yield break;
+        var provider = caps.GetProperty(capability);
         if (provider.ValueKind != JsonValueKind.Object
             || !provider.TryGetProperty("triggerCharacters", out var triggers)
             || triggers.ValueKind != JsonValueKind.Array) yield break;
