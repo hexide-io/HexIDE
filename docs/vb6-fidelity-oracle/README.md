@@ -482,6 +482,7 @@ added afterwards.
 - [DefType — default typing by first letter (2026-09-02, #169)](deftype--default-typing-by-first-letter.md#deftype--default-typing-by-first-letter-2026-09-02-169)
 - [Variant arithmetic promotes; a declared type is a ceiling (2026-09-02, #122)](variant-arithmetic-promotes-a-declared-type-is-a-ceiling.md#variant-arithmetic-promotes-a-declared-type-is-a-ceiling-2026-09-02-122)
 - [Member chains, including module-qualified ones (2026-09-02, #173)](member-chains-including-module-qualified-ones.md#member-chains-including-module-qualified-ones-2026-09-02-173)
+- [Chained writes: through a module qualifier, with Set, and through a member that returns a UDT (2026-11-14, #173)](chained-writes-qualified-set-and-udt-returning-members.md#chained-writes-through-a-module-qualifier-with-set-and-through-a-member-that-returns-a-udt-2026-11-14-173)
 - [Implements, and interface-typed variables (2026-09-02, #186)](implements-and-interface-typed-variables.md#implements-and-interface-typed-variables-2026-09-02-186)
 - [Static locals (2026-09-02)](static-locals.md#static-locals-2026-09-02)
 - [Omitted optional arguments, and string operands to numeric intrinsics (2026-09-02)](omitted-optional-arguments-and-string-operands-to-numeric-intrinsics.md#omitted-optional-arguments-and-string-operands-to-numeric-intrinsics-2026-09-02)
