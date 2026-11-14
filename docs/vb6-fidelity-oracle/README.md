@@ -730,6 +730,7 @@ added afterwards.
 - [App.HelpFile, App.StartMode, App.TaskVisible and IMEStatus (2026-10-28, #2551)](app-helpfile-app-startmode-app-taskvisible-and-imestatus.md#apphelpfile-appstartmode-apptaskvisible-and-imestatus-2026-10-28-2551)
 - [App's logging: StartLogging, LogEvent, LogMode and LogPath (2026-10-28, #2552)](app-s-logging-startlogging-logevent-logmode-and-logpath.md#apps-logging-startlogging-logevent-logmode-and-logpath-2026-10-28-2552)
 - [LoadResString, LoadResData and LoadResPicture (2026-10-28, #2626)](loadresstring-loadresdata-and-loadrespicture.md#loadresstring-loadresdata-and-loadrespicture-2026-10-28-2626)
+- [Icons, cursors, named arguments and languages (2026-11-14, #2626)](loadresstring-loadresdata-and-loadrespicture.md#icons-cursors-named-arguments-and-languages-2026-11-14-2626)
 - [ErrObject as a declared type (2026-10-28, #2627)](errobject-as-a-declared-type.md#errobject-as-a-declared-type-2026-10-28-2627)
 - [An Error value in Select Case, against every other kind (2026-10-28, #2520)](an-error-value-in-select-case-against-every-other-kind.md#an-error-value-in-select-case-against-every-other-kind-2026-10-28-2520)
 - [Lock and Unlock (2026-10-28, #2553)](lock-and-unlock.md#lock-and-unlock-2026-10-28-2553)
