@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.Globalization;
+using System.Text;
 using HexIDE.IDE;
 using HexIDE.Localization;
 
@@ -35,11 +37,9 @@ internal sealed class RegisteredAddinTitle
             {
                 if (string.IsNullOrEmpty(language) || !IsCulture(language))
                     throw new ArgumentException($"Malformed translation language '{language}'.", nameof(title));
-                if (string.IsNullOrWhiteSpace(text))
-                    throw new ArgumentException($"Empty translation for '{language}'.", nameof(title));
-                translations.Add(language, PrepareText(text));
+                translations.Add(language, PrepareText(text, language));
             }
-        _text = new DistributionText(PrepareText(title.Text), translations);
+        _text = new DistributionText(_key is null ? PrepareText(title.Text) : title.Text, translations);
     }
 
     private static bool IsCulture(string language)
@@ -51,7 +51,27 @@ internal sealed class RegisteredAddinTitle
     }
 
     // Plain text and translations share this display boundary (#3925).
-    private static string PrepareText(string text) => text;
+    private static string PrepareText(string text, string? language = null)
+    {
+        var subject = language is null ? "Invalid add-in title" : $"Invalid translation for '{language}'";
+        if (string.IsNullOrWhiteSpace(text))
+            throw new ArgumentException($"{subject}: empty or only whitespace.", nameof(text));
+        if (text != text.Trim())
+            throw new ArgumentException($"{subject}: leading or trailing whitespace.", nameof(text));
+        if (text.Length > 128)
+            throw new ArgumentException($"{subject}: length {text.Length} exceeds the limit of 128.", nameof(text));
+        for (var index = 0; index < text.Length;)
+        {
+            if (Rune.DecodeFromUtf16(text.AsSpan(index), out var rune, out var consumed) != OperationStatus.Done)
+                throw new ArgumentException($"{subject}: invalid UTF-16 at index {index}.", nameof(text));
+            if (Rune.IsControl(rune) || (rune.Value is not 0x200c and not 0x200d
+                && Rune.GetUnicodeCategory(rune) is UnicodeCategory.Format
+                    or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator))
+                throw new ArgumentException($"{subject}: refused character U+{rune.Value:X4} at UTF-16 index {index}.", nameof(text));
+            index += consumed;
+        }
+        return text;
+    }
 
     internal string Resolve(ILocalizationService localization) => _key is null
         ? _text.Resolve(BrandText.LanguageChain(localization)) : localization.GetString(_key);
