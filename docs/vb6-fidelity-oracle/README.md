@@ -484,6 +484,7 @@ added afterwards.
 - [Member chains, including module-qualified ones (2026-09-02, #173)](member-chains-including-module-qualified-ones.md#member-chains-including-module-qualified-ones-2026-09-02-173)
 - [Chained writes: through a module qualifier, with Set, and through a member that returns a UDT (2026-11-14, #173)](chained-writes-qualified-set-and-udt-returning-members.md#chained-writes-through-a-module-qualifier-with-set-and-through-a-member-that-returns-a-udt-2026-11-14-173)
 - [A qualified write through an object, and through another module's UDT property (2026-11-14, #3941)](chained-writes-qualified-set-and-udt-returning-members.md#a-qualified-write-through-an-object-and-through-another-modules-udt-property-2026-11-14-3941)
+- [A Type field that holds an object (2026-11-14, #3924)](a-type-field-that-holds-an-object.md#a-type-field-that-holds-an-object-2026-11-14-3924)
 - [Implements, and interface-typed variables (2026-09-02, #186)](implements-and-interface-typed-variables.md#implements-and-interface-typed-variables-2026-09-02-186)
 - [Static locals (2026-09-02)](static-locals.md#static-locals-2026-09-02)
 - [Omitted optional arguments, and string operands to numeric intrinsics (2026-09-02)](omitted-optional-arguments-and-string-operands-to-numeric-intrinsics.md#omitted-optional-arguments-and-string-operands-to-numeric-intrinsics-2026-09-02)
