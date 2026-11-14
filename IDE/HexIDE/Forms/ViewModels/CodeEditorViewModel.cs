@@ -29,7 +29,7 @@ using Serilog;
 
 namespace HexIDE.Forms.ViewModels;
 
-public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchableDocument, IOutlineDocument
+public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchableDocument, IOutlineDocument, HexIDE.Forms.Views.IEditorDocumentQueries
 {
     private readonly IWindowManager windowManager;
     private readonly HexIDE.Debugging.IRunScope runScope;
@@ -2167,6 +2167,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public Task<FoldingRange[]> RequestFoldingRangesAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestFoldingRangesAsync(uri, ct) : Task.FromResult<FoldingRange[]>([]);
+
+    Task HexIDE.Forms.Views.IEditorDocumentQueries.FlushDocumentAsync(CancellationToken ct) => FlushDocumentAsync(ct);
+    string? HexIDE.Forms.Views.IEditorDocumentQueries.DocumentUri => LiveDocumentUri;
+    public IReadOnlyList<string> SignatureHelpTriggerCharacters => LiveDocumentUri is { } uri
+        ? lspClient.SignatureHelpTriggerCharacters(uri) : [];
 
     public IReadOnlyList<string> CompletionTriggerCharacters => LiveDocumentUri is { } uri
         ? lspClient.CompletionTriggerCharacters(uri) : [];

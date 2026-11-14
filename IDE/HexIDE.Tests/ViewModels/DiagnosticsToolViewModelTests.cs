@@ -149,7 +149,7 @@ public class DiagnosticsToolViewModelTests
     public async Task CurrentDocumentFilterFollowsEditorChangesAndSurvivesPanelFocus()
     {
         await using var registry = Registry();
-        using var first = new RelatedDocumentEditorViewModel(registry, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>());
+        using var first = new RelatedDocumentEditorViewModel(registry, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>(), Substitute.For<HexIDE.IDE.ISettingsService>());
         // The filter also covers carried files, whose URI is independent of a VB6 document identity.
         var path = Path.GetFullPath("diagnostics-1991.md");
         var related = new HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition(TestHelpers.CreateProject("P"), "diagnostics-1991.md", path);
@@ -166,7 +166,7 @@ public class DiagnosticsToolViewModelTests
         dock.ActiveDocument.Returns((BaseEditorWindowViewModel?)null);
         vm.Refresh();
         vm.Rows.Should().ContainSingle();
-        using var other = new RelatedDocumentEditorViewModel(registry, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>());
+        using var other = new RelatedDocumentEditorViewModel(registry, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>(), Substitute.For<HexIDE.IDE.ISettingsService>());
         other.Initialize(new HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition(related.Owner, "other.md", otherPath));
         dock.ActiveDocument.Returns(other);
         dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock, new PropertyChangedEventArgs(nameof(IDocumentDockService.ActiveDocument)));

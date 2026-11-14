@@ -172,7 +172,7 @@ public class ReadLoopDispatcherTests
                 var path = Path.Combine(directory, "notes.md");
                 File.WriteAllText(path, "# notes\n");
                 var client = Substitute.For<ILspClient>();
-                var editor = new RelatedDocumentEditorViewModel(client, Substitute.For<IWindowManager>(), Localization())
+                var editor = new RelatedDocumentEditorViewModel(client, Substitute.For<IWindowManager>(), Localization(), Substitute.For<HexIDE.IDE.ISettingsService>())
                     .Initialize(new RelatedDocumentDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "notes.md", path));
                 cleanup.Add(() =>
                 {

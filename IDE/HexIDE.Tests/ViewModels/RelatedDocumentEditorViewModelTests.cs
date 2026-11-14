@@ -54,7 +54,7 @@ public class RelatedDocumentEditorViewModelTests : IDisposable
 
     private RelatedDocumentEditorViewModel Open(RelatedDocumentDefinition document)
     {
-        var vm = new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>()).Initialize(document);
+        var vm = new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>(), Substitute.For<HexIDE.IDE.ISettingsService>()).Initialize(document);
         _created.Add(vm);
         return vm;
     }
