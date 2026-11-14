@@ -44,7 +44,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     p.Forms.Select(f => f.Name).ToArray(),
                     p.Modules.Select(m => m.Name).ToArray(),
                     p.RelatedDocuments.Select(d => d.Name).ToArray(),
-                    p.AbsolutePath))
+                    // The project's own file only once it has a chosen home: a working copy is not its file.
+                    p.AbsolutePath is { } file && !IsWorkingCopy(p, file) ? file : null))
                 .Concat((ctx.Archives?.Projects ?? []).Select(p => new ProjectSummary(
                     p.Name, p.ContainerPath, false, [], [], [], p.ContainerPath,
                     ArchiveToolPaths.Entries(p.Root).Select(ArchiveToolPaths.PathOf).ToArray())))
@@ -963,9 +964,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 placedInCarried = carried;
                 return Naming(new MutateResult(true, null, TabStateNote(), Area: ctx.DocumentDockService.ActiveTab is { } tab ? ctx.DocumentDockService.AreaOf(tab) : null), found);
             }
-            var inventory = archives.Count == 0 ? "" : " Open archives: "
-                + string.Join("; ", archives.Select(p => $"{p.ContainerPath}: "
-                    + string.Join(", ", ArchiveToolPaths.Entries(p.Root).Select(ArchiveToolPaths.PathOf)))) + ".";
+            var inventory = ArchiveToolPaths.MissInventory(archives);
             var archiveOnly = archives.Count > 0 && (ctx.ProjectManager.LoadedProjects.Count == 0
                 || (project != null && archives.Any(p => ArchiveToolPaths.ProjectMatches(p, project))
                     && !ctx.ProjectManager.LoadedProjects.Any(p => string.Equals(p.Name, project, StringComparison.OrdinalIgnoreCase))));

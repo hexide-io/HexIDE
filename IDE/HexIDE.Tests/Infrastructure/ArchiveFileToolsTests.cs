@@ -57,6 +57,35 @@ public sealed class ArchiveFileToolsTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task A_project_with_no_chosen_home_reports_no_project_file()
+    {
+        // Never saved, and held only as a working copy: neither file is the project's own.
+        var unsaved = new ProjectDefinition(VBProjectType.EXE, "Unsaved");
+        var scratch = Path.Combine(directory, "scratch");
+        var working = new ProjectDefinition(VBProjectType.EXE, "Working")
+        {
+            WorkingDirectory = scratch,
+            AbsolutePath = Path.Combine(scratch, "Working.vbp"),
+        };
+        projects.LoadedProjects.Returns([unsaved, working]);
+        var json = JsonSerializer.SerializeToElement(await tools.GetProjectInfoAsync(TestContext.Current.CancellationToken));
+        var listed = json.GetProperty("Projects").EnumerateArray().ToArray();
+        listed.Should().HaveCount(2);
+        listed.Select(p => p.GetProperty("ProjectFile").ValueKind).Should().AllBeEquivalentTo(JsonValueKind.Null);
+    }
+
+    [AvaloniaFact]
+    public async Task A_miss_names_at_most_twenty_archive_entries_and_counts_the_rest()
+    {
+        var path = WriteMany("many.twinproj", 25);
+        await archives.Open(path);
+        var reply = await tools.OpenFileAsync("missing");
+        reply.Success.Should().BeFalse();
+        reply.Error.Should().Contain("/e20.twin").And.NotContain("/e21.twin")
+            .And.Contain("5 more entries, which get_project_info lists");
+    }
+
+    [AvaloniaFact]
     public async Task An_entry_opens_read_only_and_the_reply_names_its_container_and_entry()
     {
         var path = Write("one.twinproj", "main.twin");
@@ -173,6 +202,36 @@ public sealed class ArchiveFileToolsTests : IDisposable
         writer.Write((uint)bytes.Length);
         writer.Write(bytes);
         writer.Write(0u);
+        return path;
+
+        void Header(string name)
+        {
+            writer.Write((short)1);
+            var bytes = Encoding.UTF8.GetBytes(name);
+            writer.Write((uint)bytes.Length);
+            writer.Write(bytes);
+            writer.Write(1ul);
+            writer.Write(0u);
+            writer.Write((byte)0);
+        }
+    }
+
+    // An archive of entries e01.twin to eNN.twin, in that order, laid out as Write lays out one.
+    private string WriteMany(string file, int count)
+    {
+        var path = Path.Combine(directory, file);
+        using var writer = new BinaryWriter(File.Create(path), Encoding.UTF8);
+        writer.Write(0xEA0BA51Cu);
+        Header("Project");
+        writer.Write((uint)count);
+        for (var i = 1; i <= count; i++)
+        {
+            Header($"e{i:D2}.twin");
+            var bytes = Encoding.UTF8.GetBytes("text");
+            writer.Write((uint)bytes.Length);
+            writer.Write(bytes);
+            writer.Write(0u);
+        }
         return path;
 
         void Header(string name)

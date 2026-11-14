@@ -22,7 +22,8 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 ### Requirement: Discover archive projects and each project's own file
 `get_project_info` SHALL include open archive projects in `projects`, with their container path, their
 own `projectFile`, and `entries` listing stored entry paths, including folders and hidden entries.
-Each ordinary project SHALL also report its own `projectFile`, null when unsaved.
+Each ordinary project SHALL also report its own `projectFile`, which SHALL be null while the project has no
+chosen home: never saved, or held only as a working copy.
 
 #### Scenario: Discover archive entries with no VB6 project loaded
 - **WHEN** only an archive project is open and the caller requests `get_project_info`
@@ -61,11 +62,16 @@ attaches. Entries without a text preview SHALL refuse a caret location with the 
 
 ### Requirement: Missing open-file names explain what can be opened
 An `open_file` miss SHALL describe available ordinary documents and archive entries and point to
-`get_project_info`.
+`get_project_info`. It SHALL name every open archive but at most 20 archive entries across them, and
+SHALL count the entries it leaves out.
 
 #### Scenario: An unknown entry in an open archive
 - **WHEN** the caller requests a name matching nothing
 - **THEN** the refusal lists the open archives and their available entry paths
+
+#### Scenario: An archive with more entries than a miss names
+- **WHEN** the caller requests a name matching nothing while the open archives hold 25 entries
+- **THEN** the refusal names the first 20, says 5 more exist, and points to `get_project_info`
 
 ### Requirement: Breakpoint conditions through automation
 
