@@ -28,8 +28,10 @@ character of a SYMBOL_CHARSET font into the font's private-use range: `P` is U+F
   so Wingdings came back as `\0W\0i\0n...` and never matched the name asked for. And Marlett, named with the fallback
   families after it, was passed over for the platform's default face, which has none of its glyphs, and drew boxes;
   named alone it resolves. So an installed family is now named alone.
-- **On a machine without the font**, as Linux and macOS are for Wingdings and Marlett, the letters are drawn as before:
-  the mapped characters would draw as empty boxes. What to draw there is the open half of #1133.
+- **On a machine without the font**, Charset 2 captions in Wingdings, Wingdings 2, Wingdings 3, Webdings and Marlett
+  draw Unicode equivalents in the machine's fonts (#1133, decision recorded on 2026-11-14). The four Wingdings/Webdings
+  tables use WG2 N4384 (UTC L2/12-368); Marlett uses the short table chosen in the issue. An unmapped byte, or an
+  equivalent no installed font can draw, keeps the original letter. Caption/Text still read back the original text.
 
 **Setting the font at run time.** A second probe, native and p-code agreeing: 18-point Labels changed in `Form_Load`,
 read back, then shown and screenshotted.
