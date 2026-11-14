@@ -46,7 +46,7 @@ public class ImplicitDocumentNamingTests
             projects.LoadedProjects.Returns([First, Second]);
             var runner = Substitute.For<IProjectRunnerService>();
             runner.RunningProject.Returns(Second);
-            Context = new IdeContext(projects, Dock, Substitute.For<ILspClient>(), null!, runner,
+            Context = new IdeContext(projects, Dock, Substitute.For<ILspClient>(), Substitute.For<IEditorService>(), runner,
                 null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
                     new Vb6ProjectFileFormat(),
                     new Vb6ReadOnlyRegionReader());
@@ -81,6 +81,26 @@ public class ImplicitDocumentNamingTests
         project.AddRelatedDocument(file);
         return new HexIDE.Forms.ViewModels.RelatedDocumentEditorViewModel(Substitute.For<ILspClient>(),
             Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>(), Substitute.For<HexIDE.IDE.ISettingsService>()).Initialize(file);
+    }
+
+    [AvaloniaFact]
+    public async Task Carried_tab_identities_match_open_file_across_projects()
+    {
+        using var f = new Fixture();
+        using var first = Carried(f.First);
+        using var second = Carried(f.Second);
+        f.Tabs(first, second);
+        var openedFirst = await f.Tools.OpenFileAsync("snipmod", project: "First");
+        var openedSecond = await f.Tools.OpenFileAsync("snipmod", project: "Second");
+        openedFirst.Success.Should().BeTrue();
+        openedSecond.Success.Should().BeTrue();
+
+        var tabs = Json(await f.Tools.GetDocumentTabsAsync(TestContext.Current.CancellationToken)).GetProperty("tabs");
+
+        tabs[0].GetProperty("project").GetString().Should().Be(openedFirst.Project).And.Be("First");
+        tabs[0].GetProperty("document").GetString().Should().Be(openedFirst.Document).And.Be("snipmod");
+        tabs[1].GetProperty("project").GetString().Should().Be(openedSecond.Project).And.Be("Second");
+        tabs[1].GetProperty("document").GetString().Should().Be(openedSecond.Document).And.Be("snipmod");
     }
 
     [AvaloniaFact]
