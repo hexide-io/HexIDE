@@ -1260,8 +1260,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private void OnArtifactRestartRequested(LanguageServerRegistration server) => _ = RestartForArtifactAsync(server);
 
     /// <summary>
-    /// Restarts the one server whose workspace artefact a regeneration changed, for a server that reads it only when it
-    /// starts and asked for this (#2072), then re-opens the documents it held.
+    /// Restarts the one server that opted into restarts for workspace artefacts or project membership changes,
+    /// then re-opens the documents it held.
     /// </summary>
     /// <remarks>
     /// Only that server: the others neither read its file nor should lose their state. One that isn't running is left
@@ -1279,8 +1279,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                 // By registration: one added again under the id since is another server, whose file did not change.
                 if (_entries.FirstOrDefault(x => ReferenceEquals(x.Registration, server)) is not
                     { Client: not null, State: LanguageConnectionState.Running } e) return;
-                _logger.LogInformation("Restarting {Server}: its workspace artefact changed.", serverId);
-                await RestartEntryAsync(e, CancellationToken.None);
+                _logger.LogInformation("Restarting {Server}: a workspace update requested a restart.", serverId);
+                await RestartEntryAsync(e, CancellationToken.None, startWithoutDocuments: server.RestartOnProjectChange);
             }
             finally { _restartGate.Release(); }
         }

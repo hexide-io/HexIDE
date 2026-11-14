@@ -264,6 +264,10 @@ public sealed class LanguageServerEntry
     [JsonPropertyName("capture")]
     public CaptureLimitsEntry? Capture { get; set; }
 
+    /// <summary>Restart on project membership changes for servers that ignore folder notifications.</summary>
+    [JsonPropertyName("restartOnProjectChange")]
+    public bool? RestartOnProjectChange { get; set; }
+
     /// <summary>A command and argument template for importing the in-memory project.</summary>
     [JsonPropertyName("projectImport")]
     public ProjectImportEntry? ProjectImport { get; set; }

@@ -86,7 +86,9 @@ public sealed record LanguageServerRegistration(
     /// Who contributed this server, for the Language Servers window: an add-in's title. Null for the configuration file
     /// and the bundled server.
     /// </summary>
-    string? Origin = null)
+    string? Origin = null,
+    /// <summary>Restart when projects join or leave the workspace, rather than relying on folder notifications.</summary>
+    bool RestartOnProjectChange = false)
 {
     /// <summary>
     /// The priority the entries HexIDE contributes itself are given — deliberately below the value an

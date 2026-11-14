@@ -12,6 +12,40 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Opt-in restart on project membership changes
+A server entry SHALL accept `restartOnProjectChange`, off by default. At the workspace-folder debounce,
+projects with chosen workspace roots joining or leaving SHALL restart only an opted-in running connection through the registry's
+restart path and reopen its known documents. Project membership SHALL be compared independently of
+deduplicated workspace folders and source lists.
+
+#### Scenario: A project joins or leaves a group
+- **GIVEN** two loaded projects and a running server with `restartOnProjectChange: true`
+- **WHEN** a project joins or leaves the group
+- **THEN** that server restarts once after the debounce and its open documents are reopened
+- **AND** other connections are not restarted
+- **AND** the replacement initializes with the startup project’s `rootUri` and current `workspaceFolders`
+
+#### Scenario: A connection was started without documents
+- **GIVEN** an opted-in connection was started manually and has no open documents
+- **WHEN** a project joins the group
+- **THEN** its replacement starts even though there are no documents to reopen
+
+#### Scenario: Two projects occupy one folder
+- **GIVEN** an opted-in running server
+- **WHEN** another project joins in a folder already represented in `workspaceFolders`
+- **THEN** the membership change still restarts the connection
+
+#### Scenario: The entry keeps the default
+- **GIVEN** an entry without `restartOnProjectChange`
+- **WHEN** group membership changes
+- **THEN** its existing connection receives the normal capability-gated folder update without restarting
+
+#### Scenario: A source list changes
+- **GIVEN** an opted-in running server
+- **WHEN** a source is added without changing the loaded projects
+- **THEN** this setting does not restart the server
+
+
 ### Requirement: Registered watched-file notifications
 The client SHALL advertise dynamic registration only for `workspace/didChangeWatchedFiles`, including relative-pattern support. It SHALL honour registration and unregistration per connection, discard registrations on disconnect, and log and refuse unsupported methods. String globs and relative patterns with URI or WorkspaceFolder bases SHALL honour create/change/delete masks. Workspace-relative string globs SHALL follow additions and removals of workspace folders; relative patterns SHALL retain their own base. A registration that would recursively watch a filesystem root, including through the existing ancestor of a missing base, SHALL be logged and refused with `InvalidParams` without installing any part of the request. Matching disk changes and completed IDE writes SHALL be coalesced before notification, and SHALL reach only connections with matching registrations.
 

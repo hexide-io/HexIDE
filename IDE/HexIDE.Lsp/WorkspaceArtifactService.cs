@@ -26,6 +26,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
     private bool _disposed;
     private readonly Dictionary<string, Func<WorkspaceArtifactContext, CancellationToken, Task>> _imports = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Func<CancellationToken, Task>> _folderUpdates = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string[]> _projectMembership = new(StringComparer.Ordinal);
     private readonly string? _stateFile;
     private readonly ConversationLog? _capture;
     private readonly IWorkspaceLibraryNames? _libraryNames;
@@ -67,7 +68,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
             if (_disposed) return;
             _active[server.Id] = server;
             _folderUpdates[server.Id] = update;
-            _ = _workspace.Projects; // Begin observing membership even without artefacts or imports.
+            _projectMembership[server.Id] = ProjectMembership(); // Also begins observing projects without artefacts or imports.
         }
         finally { _gate.Release(); }
     }
@@ -83,6 +84,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
             _active.Remove(server.Id);
             _imports.Remove(server.Id);
             _folderUpdates.Remove(server.Id);
+            _projectMembership.Remove(server.Id);
             _lastNote.Remove(server.Id);
         }
         finally { _gate.Release(); }
@@ -381,11 +383,24 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         (LanguageServerRegistration Server, Func<WorkspaceArtifactContext, CancellationToken, Task>? Import,
             Func<CancellationToken, Task>? Folders)[] servers = [];
         var changed = new HashSet<string>(StringComparer.Ordinal);
+        var membershipChanged = new HashSet<string>(StringComparer.Ordinal);
         try
         {
             await Task.Delay(TimeSpan.FromMilliseconds(300), _timeProvider, token);
             await _gate.WaitAsync(token);
-            try { servers = _active.Values.Select(server => (server, _imports.GetValueOrDefault(server.Id), _folderUpdates.GetValueOrDefault(server.Id))).ToArray(); }
+            try
+            {
+                servers = _active.Values.Select(server => (server, _imports.GetValueOrDefault(server.Id),
+                    _folderUpdates.GetValueOrDefault(server.Id))).ToArray();
+                var membership = ProjectMembership();
+                foreach (var (server, _, _) in servers)
+                {
+                    if (_projectMembership.TryGetValue(server.Id, out var previous)
+                        && !previous.SequenceEqual(membership) && server.RestartOnProjectChange)
+                        membershipChanged.Add(server.Id);
+                    _projectMembership[server.Id] = membership;
+                }
+            }
             finally { _gate.Release(); }
             foreach (var (server, import, folders) in servers)
             {
@@ -399,9 +414,23 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         catch (Exception ex) { _log.LogWarning(ex, "Workspace artefact regeneration failed."); }
         finally
         {
-            foreach (var server in servers.Select(s => s.Server).Where(s => changed.Contains(s.Id))) RequestRestart(server);
+            foreach (var server in servers.Select(s => s.Server))
+            {
+                if (!_disposed && membershipChanged.Contains(server.Id))
+                {
+                    Note(server, "Project membership changed; restarting the server to load the group.", fault: false);
+                    RestartRequested?.Invoke(server);
+                }
+                else if (changed.Contains(server.Id)) RequestRestart(server);
+            }
         }
     }
+
+    // A project's file identifies membership independently of deduplicated folders and source-list edits.
+    // An unsaved project contributes its chosen root; repeated roots still count as separate projects.
+    private string[] ProjectMembership() => _workspace.Projects
+        .Select(project => project.Project.DefinitionPath ?? project.WorkspaceRoot)
+        .Order(StringComparer.Ordinal).ToArray();
 
     /// <summary>
     /// Asks for a restart of a server that reads its artefact only when it starts and said so (#2072): it would otherwise
