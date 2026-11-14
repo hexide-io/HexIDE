@@ -1800,6 +1800,22 @@ public class MainViewViewModelTests
     }
 
     [AvaloniaFact]
+    public void A_compile_error_at_start_with_a_location_still_offers_only_End()
+    {
+        // #3960 adds metadata, not a debugger halt; #833 owns the unmeasured dialog decision.
+        const string text = "Compile error:\n\n+= isn't part of VB6, VBA or VBScript, so this interpreter doesn't run it.";
+        var at = new ErrorLocation("Module1", 3);
+        _runnerService.FailureLocation.Returns(at);
+
+        _runnerService.StartFailed += Raise.Event<System.Action<string>>(text);
+
+        _sut.RuntimeErrors.Last!.Value.Where.Should().Be(at);
+        _windowManager.Received(1).ShowDialog(
+            Arg.Is<HexIDE.Forms.ViewModels.RuntimeErrorViewModel>(vm => vm.ErrorText == text
+                && vm.CanEnd(null) && !vm.CanContinue(null) && !vm.CanDebug(null) && !vm.CanHelp(null)));
+    }
+
+    [AvaloniaFact]
     public void F5_on_a_Sub_Main_that_reaches_something_unimplemented_shows_the_person_why()
     {
         // From the start call to what the person is shown, with a real runner between them. Before #754 this

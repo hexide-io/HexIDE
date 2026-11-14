@@ -494,6 +494,17 @@ program that never fails.
 - **THEN** it SHALL print the inner type name and array suffixes without an internal `Left` or `Right` wrapper
 - **AND** member-not-found diagnostics SHALL omit the receiver type, retaining the member and, for assignment, variable name
 
+### Requirement: Parse-time compile errors carry their file location
+A compile error leaving `BasicInterpreter.Parse` with a `Line` SHALL carry an `ErrorLocation` with the module
+being parsed and that line, counted from the top of the whole file as the code window numbers it (#3960).
+The exception type and message SHALL remain unchanged. A compile error without a line SHALL remain unlocated.
+
+#### Scenario: A project fails to start while parsing
+- **WHEN** a syntax error or classic-dialect refusal is found while parsing a standard module, class or form
+- **THEN** the failed start exposes that module and whole-file line through `FailureLocation` while reporting
+- **AND** `get_last_runtime_error` returns them in its `module` and `line` fields
+- **AND** the compile-error dialog still offers only End
+
 ### Requirement: Unimplemented language surface SHALL fail clearly
 Where the engine does not implement part of the language, it SHALL fail in a way that identifies what is
 missing, and SHALL NOT silently substitute different behaviour. The failure SHALL reach the developer, and an
