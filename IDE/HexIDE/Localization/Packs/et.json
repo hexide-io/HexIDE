@@ -1274,6 +1274,7 @@
     "Str.AIChat.Send": "Saada",
     "Str.AIChat.New": "Uus",
     "Str.AIChat.InputPlaceholder": "Küsi oma koodi kohta…",
-    "Str.AIChat.NewTip": "Uus vestlus (ajalugu säilitatakse)"
+    "Str.AIChat.NewTip": "Uus vestlus (ajalugu säilitatakse)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektid {0} jagavad kausta {1}; kirjutatakse või imporditakse ainult {2}."
   }
 }

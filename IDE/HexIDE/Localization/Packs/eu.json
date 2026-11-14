@@ -1274,6 +1274,7 @@
     "Str.AIChat.Send": "Bidali",
     "Str.AIChat.New": "Berria",
     "Str.AIChat.InputPlaceholder": "Galdetu zure kodeari buruz…",
-    "Str.AIChat.NewTip": "Txat berria (historia gordetzen da)"
+    "Str.AIChat.NewTip": "Txat berria (historia gordetzen da)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "{0} proiektuek {1} karpeta partekatzen dute; {2} soilik idazten edo inportatzen da."
   }
 }

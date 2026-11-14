@@ -1274,6 +1274,7 @@
     "Str.AIChat.Send": "Sūtīt",
     "Str.AIChat.New": "Jauna",
     "Str.AIChat.InputPlaceholder": "Jautājiet par savu kodu…",
-    "Str.AIChat.NewTip": "Jauna saruna (vēsture tiek saglabāta)"
+    "Str.AIChat.NewTip": "Jauna saruna (vēsture tiek saglabāta)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} koplieto mapi {1}; tiek ierakstīts vai importēts tikai {2}."
   }
 }

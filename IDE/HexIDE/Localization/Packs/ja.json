@@ -1274,6 +1274,7 @@
     "Str.Dock.ToolTabs": "ツールのタブ",
     "Str.AIChat.ApiKeyRequired": "API キーが必要です。環境変数 HEXIDE_AI_API_KEY、または chat-settings.json の apiKey を設定してください。",
     "Str.AIChat.PrivacyNotice": "ℹ プライバシー: メッセージ、アクティブなファイルの内容（フォームの場合はレイアウトとキャプションも）、およびその診断情報は、AI チャット設定で構成したサードパーティのサービス {0} に送信されます。",
-    "Str.AIChat.PrivacyKeyTip": "ヒント: API キーをファイルに保存しないように、環境変数 HEXIDE_AI_API_KEY を設定してください。"
+    "Str.AIChat.PrivacyKeyTip": "ヒント: API キーをファイルに保存しないように、環境変数 HEXIDE_AI_API_KEY を設定してください。",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "プロジェクト {0} はフォルダー {1} を共有しています。{2} のみが書き込みまたはインポートされます。"
   }
 }

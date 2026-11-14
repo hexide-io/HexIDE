@@ -1274,6 +1274,7 @@
     "Str.AIChat.Send": "Lähetä",
     "Str.AIChat.New": "Uusi",
     "Str.AIChat.InputPlaceholder": "Kysy koodistasi…",
-    "Str.AIChat.NewTip": "Uusi keskustelu (historia säilytetään)"
+    "Str.AIChat.NewTip": "Uusi keskustelu (historia säilytetään)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektit {0} jakavat kansion {1}; vain {2} kirjoitetaan tai tuodaan."
   }
 }

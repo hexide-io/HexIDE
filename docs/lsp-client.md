@@ -441,6 +441,12 @@ folders and the same startup-project root. See [the RDCore entry](language-serve
 
 ---
 
+Entries declaring a workspace artefact or project import process only the first loaded project in each
+resolved folder. A shared folder produces a configuration problem naming its projects in Tools → Language
+Servers, refreshed on the workspace debounce and cleared when the collision ends. Folder deduplication in
+the handshake remains unchanged; this protection prevents one project's descriptor/import from replacing
+another's (#261).
+
 ## Asking a server to describe its own work
 
 A wire capture shows what a server said. It cannot show *why*. That a request took two seconds is on the
@@ -1821,7 +1827,8 @@ no unconsented write, and no write outside the workspace. See [configuration](la
 The loader recognises a server-neutral `projectImport` command and JSON argument array (#2363).
 Exact `{uri}` and `{text}` string values expand recursively, preserving JSON types and property names.
 After initialization and on the artefact service's 300 ms project-change debounce, the registry calls
-that command with each project's saved URI and in-memory `.vbp` serialization. Importing entries skip
+that command with the first loaded project's saved URI and in-memory `.vbp` serialization in each
+resolved folder. Shared folders are configuration problems, as described above. Importing entries skip
 artefact generation. The server must advertise the command; errors become configuration problems and
 reply notes reach the same server log as `window/logMessage` (object notes use their `message` text).
 Successful imports invalidate and re-pull open-document diagnostics until

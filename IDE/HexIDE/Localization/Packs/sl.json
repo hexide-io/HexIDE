@@ -1274,6 +1274,7 @@
     "Str.AIChat.Send": "Pošlji",
     "Str.AIChat.New": "Nov",
     "Str.AIChat.InputPlaceholder": "Vprašajte o svoji kodi…",
-    "Str.AIChat.NewTip": "Nov klepet (zgodovina se ohrani)"
+    "Str.AIChat.NewTip": "Nov klepet (zgodovina se ohrani)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} si delijo mapo {1}; zapiše ali uvozi se samo {2}."
   }
 }

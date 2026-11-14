@@ -1274,6 +1274,7 @@
     "Str.Dock.ToolTabStripItemClose": "_Pechar",
     "Str.AIChat.ApiKeyRequired": "Cómpre unha clave API. Estableza a variable de contorno HEXIDE_AI_API_KEY ou apiKey en chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Privacidade: as súas mensaxes, o contido do ficheiro activo (nun formulario, tamén a disposición e os títulos) e os seus diagnósticos envíanse a {0}, un servizo de terceiros configurado nos axustes do chat de IA.",
-    "Str.AIChat.PrivacyKeyTip": "Consello: estableza a variable de contorno HEXIDE_AI_API_KEY para evitar gardar a clave API nun ficheiro."
+    "Str.AIChat.PrivacyKeyTip": "Consello: estableza a variable de contorno HEXIDE_AI_API_KEY para evitar gardar a clave API nun ficheiro.",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Os proxectos {0} comparten o cartafol {1}; só se escribe ou importa {2}."
   }
 }

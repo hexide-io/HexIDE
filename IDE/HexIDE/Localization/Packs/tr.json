@@ -1274,6 +1274,7 @@
     "Str.AIChat.Send": "Gönder",
     "Str.AIChat.New": "Yeni",
     "Str.AIChat.InputPlaceholder": "Kodunuz hakkında soru sorun…",
-    "Str.AIChat.NewTip": "Yeni sohbet (geçmiş korunur)"
+    "Str.AIChat.NewTip": "Yeni sohbet (geçmiş korunur)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "{0} projeleri {1} klasörünü paylaşıyor; yalnızca {2} yazılır veya içe aktarılır."
   }
 }

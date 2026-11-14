@@ -1274,6 +1274,7 @@
     "Str.Dock.ToolTabStripItemClose": "_Zavřít",
     "Str.AIChat.ApiKeyRequired": "Je vyžadován klíč API. Nastavte proměnnou prostředí HEXIDE_AI_API_KEY nebo apiKey v chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Soukromí: vaše zprávy, obsah aktivního souboru (u formuláře také rozvržení a popisky) a jeho diagnostika se odesílají do {0} — služby třetí strany nastavené v nastavení chatu AI.",
-    "Str.AIChat.PrivacyKeyTip": "Tip: nastavte proměnnou prostředí HEXIDE_AI_API_KEY, abyste nemuseli ukládat klíč API do souboru."
+    "Str.AIChat.PrivacyKeyTip": "Tip: nastavte proměnnou prostředí HEXIDE_AI_API_KEY, abyste nemuseli ukládat klíč API do souboru.",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekty {0} sdílejí složku {1}; zapisuje nebo importuje se pouze {2}."
   }
 }

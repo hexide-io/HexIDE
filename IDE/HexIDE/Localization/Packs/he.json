@@ -1274,6 +1274,7 @@
     "Str.Dock.ToolTabs": "כרטיסיות כלים",
     "Str.AIChat.ApiKeyRequired": "נדרש מפתח API. יש להגדיר את משתנה הסביבה HEXIDE_AI_API_KEY, או את apiKey בקובץ chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ פרטיות: ההודעות שלך, תוכן הקובץ הפעיל (בטופס, גם הפריסה והכיתובים) והאבחונים שלו נשלחים אל {0} — שירות של צד שלישי שהגדרת בהגדרות צ׳אט הבינה המלאכותית.",
-    "Str.AIChat.PrivacyKeyTip": "טיפ: יש להגדיר את משתנה הסביבה HEXIDE_AI_API_KEY כדי להימנע משמירת מפתח ה־API בקובץ."
+    "Str.AIChat.PrivacyKeyTip": "טיפ: יש להגדיר את משתנה הסביבה HEXIDE_AI_API_KEY כדי להימנע משמירת מפתח ה־API בקובץ.",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "הפרויקטים {0} חולקים את התיקייה {1}; רק {2} נכתב או מיובא."
   }
 }

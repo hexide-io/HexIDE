@@ -549,7 +549,7 @@ The template model replaces string values equal to `{uri}` or `{text}`, includin
 and arrays. Other values and property names remain literal; `overwrite` above is a JSON boolean,
 not a placeholder. Inserted text is JSON-escaped and is never substituted a second time.
 
-After initialization, HexIDE calls the declared command for each loaded project, using its saved `.vbp`
+After initialization, HexIDE calls the declared command for the first loaded project in each folder, using its saved `.vbp`
 URI and the current in-memory project serialization. Membership, reference and modeled project-setting
 changes repeat the import after the same 300 ms debounce used for generated workspace files. The command
 must also appear in the server's advertised `executeCommandProvider.commands`. A declared import replaces
@@ -564,6 +564,12 @@ cover registry startup and workspace-root replacement. Workspace-folder changes 
 the same debounce (#2364). Importing does not make HexIDE an artefact writer, so an entry that declares
 `projectImport` also receives the file-operation notifications its server asks for (#2248), whether or not it
 also declares `workspaceArtifact` (#2915).
+
+If two loaded projects share a folder, an entry declaring `workspaceArtifact` or `projectImport`
+reports a configuration problem in Tools → Language Servers naming both projects and the folder.
+Only the first project in load order is written or imported for that folder; the second never
+replaces it. The problem clears on the project-change debounce when the folders no longer collide.
+This also applies to RDCore, which uses one `.rdproj` per folder (#261).
 
 #### RDCore
 

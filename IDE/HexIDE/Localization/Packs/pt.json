@@ -1274,6 +1274,7 @@
     "Str.AIChat.Send": "Enviar",
     "Str.AIChat.New": "Nova",
     "Str.AIChat.InputPlaceholder": "Pergunte sobre o seu código…",
-    "Str.AIChat.NewTip": "Nova conversa (o histórico é preservado)"
+    "Str.AIChat.NewTip": "Nova conversa (o histórico é preservado)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Os projetos {0} partilham a pasta {1}; apenas {2} é escrito ou importado."
   }
 }

@@ -1274,6 +1274,7 @@
     "Str.AIChat.Send": "Invia",
     "Str.AIChat.New": "Nuova",
     "Str.AIChat.InputPlaceholder": "Chiedi informazioni sul codice…",
-    "Str.AIChat.NewTip": "Nuova chat (la cronologia viene conservata)"
+    "Str.AIChat.NewTip": "Nuova chat (la cronologia viene conservata)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "I progetti {0} condividono la cartella {1}; viene scritto o importato solo {2}."
   }
 }

@@ -106,6 +106,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         {
             artifacts.RestartRequested += OnArtifactRestartRequested;
             artifacts.FileChanged += NotifyWatchedFile;
+            artifacts.ConfigurationProblemsChanged += OnArtifactProblemsChanged;
         }
         _configurationProblems = configurationProblems ?? [];
         // Ordered once. OrderByDescending is stable, so equal priorities keep registration order — which is
@@ -165,6 +166,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// when one server declined it and another served it.</summary>
     public IReadOnlyList<string> DeclinedCapabilities => [];
 
+    private void OnArtifactProblemsChanged() => ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+
     private readonly ConcurrentDictionary<string, LanguageServerConfigProblem> _importProblems = new();
     private readonly IReadOnlyList<LanguageServerConfigProblem> _configurationProblems;
     public IReadOnlyList<LanguageServerConfigProblem> ConfigurationProblems
@@ -173,7 +176,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         {
             LanguageServerConfigProblem[] contributed;
             lock (_contributionProblems) contributed = _contributionProblems.SelectMany(p => p.Problems).ToArray();
-            return _configurationProblems.Concat(contributed).Concat(_importProblems.Values).ToArray();
+            LanguageServerRegistration[] registrations;
+            lock (_entriesGate) registrations = _entries.Select(entry => entry.Registration).ToArray();
+            return _configurationProblems.Concat(contributed).Concat(_importProblems.Values)
+                .Concat(registrations.SelectMany(registration =>
+                    _artifacts?.GetConfigurationProblems(registration) ?? [])).ToArray();
         }
     }
 
@@ -964,6 +971,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         {
             _artifacts.RestartRequested -= OnArtifactRestartRequested;
             _artifacts.FileChanged -= NotifyWatchedFile;
+            _artifacts.ConfigurationProblemsChanged -= OnArtifactProblemsChanged;
         }
         if (_artifacts is IDisposable disposable) disposable.Dispose();
         foreach (var e in _entries) await e.Lifetime.CancelAsync();

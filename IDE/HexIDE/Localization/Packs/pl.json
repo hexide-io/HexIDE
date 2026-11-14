@@ -1274,6 +1274,7 @@
     "Str.AIChat.Send": "Wyślij",
     "Str.AIChat.New": "Nowy",
     "Str.AIChat.InputPlaceholder": "Zapytaj o swój kod…",
-    "Str.AIChat.NewTip": "Nowy czat (historia zostaje zachowana)"
+    "Str.AIChat.NewTip": "Nowy czat (historia zostaje zachowana)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekty {0} współdzielą folder {1}; zapisywany lub importowany jest tylko {2}."
   }
 }
