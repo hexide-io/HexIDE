@@ -2280,6 +2280,35 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return true;
     }
 
+    // Qualified Let chains share the object/UDT assignment path after reading their root once (#3941).
+    private async Task<Vb6Value?> ReadModuleChainRoot(BasicInterpreter.QualifierTarget qualifier,
+        VB6Parser.ICS_S_MemberCallContext member, VB6Parser.LetStmtContext context)
+    {
+        var module = qualifier.Module!;
+        var name = UdtFieldName(member);
+        if (module.PrePass.Properties.TryGetValue(name, out var property) && property.Get is not null
+            && (ReferenceEquals(module, currentModule) || BasicInterpreter.IsVisibleOutside(property)))
+            return (Vb6Value)(await expressionExecutor.ResolveQualifiedMemberValue(qualifier, [member], context))!;
+        if (!(ReferenceEquals(module, currentModule) || module.PrePass.PublicVariables.Contains(name))
+            || !module.ModuleEnv.TryGetOwnVariableLocation(name, out _))
+            return null;
+        var (found, root) = await interpreter.ReadVariable(module.ModuleEnv, name);
+        if (!found) return null;
+        if (MemberHasArgs(member))
+        {
+            if (root.Value is not VBArray array
+                || member.iCS_S_ProcedureOrArrayCall() is not { } call || call.argsCall().Length != 1)
+                return null;
+            var indices = Subscripts(await expressionExecutor.EvaluateCallArgs(call.argsCall(0)));
+            try { root = array.GetValue(indices); }
+            catch (IndexOutOfRangeException)
+            {
+                throw new VBRunTimeException(context, VBStandardError.SubscriptOutOfRange);
+            }
+        }
+        return root;
+    }
+
     // Resolve only the measured standard-module targets (#1006, #965, #173), at the statement's point of use.
     // Keep the existing variable-first precedence; other qualifiers and unmeasured targets use the old path.
     private async Task<bool> TryStoreModuleMember(VB6Parser.ICS_S_MembersCallContext target, Vb6Value value,
@@ -2297,41 +2326,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var member = members[0];
         var name = UdtFieldName(member);
         if (members.Length > 1)
-        {
-            // A qualified UDT variable owns the bag, just as an unqualified one does (#173).
-            if (!reference && module.PrePass.Properties.TryGetValue(name, out var returnedProperty)
-                && returnedProperty.Get is not null
-                && (ReferenceEquals(module, currentModule) || BasicInterpreter.IsVisibleOutside(returnedProperty)))
-            {
-                var copy = (Vb6Value)(await expressionExecutor.ResolveQualifiedMemberValue(qualifier, members[..1], context))!;
-                if (copy.Value is not VbUdt || context is not VB6Parser.LetStmtContext propertyLet)
-                    return false;
-                await SetUdtField(copy, members[1..], value, propertyLet);
-                return true;
-            }
-            if (reference || propertiesOnly
-                || !(ReferenceEquals(module, currentModule) || module.PrePass.PublicVariables.Contains(name))
-                || !module.ModuleEnv.TryGetOwnVariableLocation(name, out _))
-                return false;
-            var (found, root) = await interpreter.ReadVariable(module.ModuleEnv, name);
-            if (!found) return false;
-            if (MemberHasArgs(member))
-            {
-                if (root.Value is not VBArray array
-                    || member.iCS_S_ProcedureOrArrayCall() is not { } call || call.argsCall().Length != 1)
-                    return false;
-                var indices = Subscripts(await expressionExecutor.EvaluateCallArgs(call.argsCall(0)));
-                try { root = array.GetValue(indices); }
-                catch (IndexOutOfRangeException)
-                {
-                    throw new VBRunTimeException(context, VBStandardError.SubscriptOutOfRange);
-                }
-            }
-            if (root.Value is not VbUdt || context is not VB6Parser.LetStmtContext let)
-                return false;
-            await SetUdtField(root, members[1..], value, let);
-            return true;
-        }
+            return false;
         if (module.PrePass.Properties.TryGetValue(name, out var property)
             && (ReferenceEquals(module, currentModule) || BasicInterpreter.IsVisibleOutside(property)))
         {
@@ -2522,18 +2517,29 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
 
             // A leading dot (`.Member = value`) has no leading part — resolve against the innermost With target.
+            var members = membersCall.iCS_S_MemberCall();
             Vb6Value variable;
             string identifier;
             if (membersCall.iCS_S_VariableOrProcedureCall() is { } leadPart)
             {
                 identifier = leadPart.GetText();
                 bool leadFound;
-                if (!interpreter.TryReadNow(currentEnv, identifier, out leadFound, out variable, out var leadNeed))
+                if (members.Length > 1
+                    && !interpreter.ExecutionContext.TryInspectVariable(currentEnv, identifier, out _)
+                    && interpreter.TryResolveQualifier(identifier, out var qualifier)
+                    && qualifier.Kind == BasicInterpreter.QualifierKind.Module
+                    && await ReadModuleChainRoot(qualifier, members[0], context) is { } root)
+                {
+                    variable = root;
+                    members = members[1..];
+                    leadFound = true;
+                }
+                else if (!interpreter.TryReadNow(currentEnv, identifier, out leadFound, out variable, out var leadNeed))
                     (leadFound, variable) = await interpreter.ReadVariableAfter(currentEnv, identifier, leadNeed!);
                 // `Screen.MousePointer = x`, where nothing the program declares is named Screen (#2431).
                 if (!leadFound && interpreter.UnclaimedLibraryObject(identifier) is { } libraryObject)
                     (leadFound, variable) = (true, libraryObject);
-                if (!leadFound && currentModule.PrePass.Properties.TryGetValue(identifier, out var leadProperty)
+                if (!leadFound && interpreter.TryResolveProperty(identifier, currentModule, out _, out var leadProperty)
                     && leadProperty.Get is not null)
                     (leadFound, variable) = (true, await expressionExecutor.EvaluateValue(leadPart));
                 if (!leadFound)
@@ -2557,14 +2563,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // The owned bag is shared with its slot; a returned UDT instead owns a disposable copy.
             if (variable.Value is VbUdt)
             {
-                await SetUdtField(variable, membersCall.iCS_S_MemberCall(), value, context);
+                await SetUdtField(variable, members, value, context);
                 return default;
             }
 
             // A chain of objects, `Form2.Text1.Text = x` or `obj.Child.Name = x`: every member but the last is read as an
             // expression reads it, which loads Form2 as a read of its control does, and the last is the one assigned
             // (#822). A returned UDT is a copy: its field store is discarded (#173).
-            var members = membersCall.iCS_S_MemberCall();
             // Me.mN = value cannot reach a Private class field (vb6.exe SP6, #2121).
             if (members.Length == 1 && !MemberHasArgs(members[0])
                 && identifier.Equals("Me", StringComparison.OrdinalIgnoreCase)
