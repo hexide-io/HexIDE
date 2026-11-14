@@ -59,6 +59,8 @@ public partial class VB6BuiltIns
     /// <summary>The program's open files (#1145), which FreeFile and EOF read and the file statements use.</summary>
     internal VbFiles Files { get; } = new();
 
+    internal Func<Vb6Value, string, Task<Vb6Value>>? ResolveDefaultForUse { get; set; }
+
     public async Task<Vb6Value?> EvaluateBuiltInFunction(string name, List<Vb6Value> args, bool compareText = false)
     {
         CheckIntrinsicArgumentCount(name, args);
@@ -73,7 +75,15 @@ public partial class VB6BuiltIns
 
         CheckValueBeforeObject(name, args);
         for (var i = 0; i < args.Count; i++)
-            args[i] = ArgumentAsUsed(name, i, args[i]);
+        {
+            var arg = args[i];
+            if (ReadsArgumentValue(name, i)
+                && !(i > 0 && name.Equals("Format", StringComparison.OrdinalIgnoreCase))
+                && ResolveDefaultForUse is { } resolve)
+                arg = await resolve(arg, name.Equals("Format", StringComparison.OrdinalIgnoreCase) ? "Format"
+                    : name.Equals("Abs", StringComparison.OrdinalIgnoreCase) ? "Abs" : name);
+            args[i] = ArgumentAsUsed(name, i, arg);
+        }
 
         // The two async builtins await the standard library; every other builtin is in the sync registry.
         if (string.Equals(name, "msgbox", StringComparison.OrdinalIgnoreCase))
@@ -122,7 +132,7 @@ public partial class VB6BuiltIns
     /// before every value. <c>Filter</c> reads them itself.</item>
     /// </list>
     /// </summary>
-    private static Vb6Value ArgumentAsUsed(string name, int index, Vb6Value arg)
+    private static bool ReadsArgumentValue(string name, int index)
     {
         // Picture/resource functions and the financials accept only measured argument shapes; other conversions refuse there.
         if (name.StartsWith("LoadRes", StringComparison.OrdinalIgnoreCase)
@@ -136,14 +146,20 @@ public partial class VB6BuiltIns
             || string.Equals(name, "Rate", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "NPV", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "IRR", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(name, "MIRR", StringComparison.OrdinalIgnoreCase)) return arg;
+            || string.Equals(name, "MIRR", StringComparison.OrdinalIgnoreCase)) return false;
         if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name))
             || (index >= 1 && TakesItsChoicesThemselves.Contains(name))
             || (index == 1 && string.Equals(name, "Join", StringComparison.OrdinalIgnoreCase))
             || string.Equals(name, "Filter", StringComparison.OrdinalIgnoreCase)
             // GetSetting reads its default only when it is the answer (measured, #1562).
             || (index == 3 && string.Equals(name, "GetSetting", StringComparison.OrdinalIgnoreCase)))
-            return arg;
+            return false;
+        return true;
+    }
+
+    private static Vb6Value ArgumentAsUsed(string name, int index, Vb6Value arg)
+    {
+        if (!ReadsArgumentValue(name, index)) return arg;
         if (ReadsADefaultMemberIfAny.Contains(name))
             return ObjectAsValue.DefaultMemberIfAny(arg);
         return ObjectAsValue.Scalar(arg, null);

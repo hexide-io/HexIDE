@@ -30,6 +30,32 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Source-class default members SHALL resolve at async value boundaries
+
+The engine SHALL collect the name and kind of a source class's default member and read its Function,
+Property Get or module-level variable without arguments where async execution needs a value (#174).
+This includes scalar expressions, builtin value arguments, Let, ByVal scalar parameters, conditions,
+Select Case, For bounds, Print and async array subscripts. CVar, TypeName, IsObject and ByVal Variant
+SHALL keep the object itself. Measurements are recorded in
+`docs/vb6-fidelity-oracle/an-object-used-as-a-value.md`, `cvar.md`,
+`attribute-lines-inside-a-procedure.md` and `subscripts-bounds-and-a-method-called-from-class_initialize.md`.
+
+#### Scenario: Function versus Property Get through a Variant
+- **WHEN** a Variant holds a class whose Function default returns Long 42
+- **THEN** Format, Abs and Not raise 450
+- **AND** the same uses with a Property Get default return "42", Long 42 and Long -43 respectively
+- **AND** typed Not of the Function-default class returns Long -43
+
+#### Scenario: Default value and object identity
+- **WHEN** a Widget default returns Long 42
+- **THEN** Let into a scalar or Variant reads 42 and a ByVal Variant retains the Widget object
+- **AND** a Function Case value against Empty or Null raises the IDE's 450
+
+#### Scenario: Unmeasured default-member uses
+- **WHEN** a default is a Sub, requires arguments, returns an object, a typed Function default reaches Format or Abs, or a default reaches a later Format argument
+- **THEN** execution refuses untrappably naming #174
+- **AND** default writes, array bounds, control-array indexes and synchronous helper reads retain their refusals
+
 ### Requirement: Trailing argument and declared array type refusals
 
 The interpreter SHALL raise `VBCompileErrorException` with "Syntax error" when executing a call

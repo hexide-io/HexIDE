@@ -110,6 +110,49 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </summary>
     public EventPump? Events { get; set; }
 
+    // Measured uses: docs/vb6-fidelity-oracle/an-object-used-as-a-value.md (#174).
+    internal async Task<Vb6Value> ResolveDefaultMember(Vb6Value value, string? use = null,
+        Stack<List<Vb6Value>>? callerFrames = null)
+    {
+        if (value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is not { } member)
+            return value;
+        if (member.Kind == PrePass.DefaultMemberKind.Sub)
+            throw new NotImplementedException("A Sub default member used as a value is unmeasured (#174)");
+        if (member.Kind == PrePass.DefaultMemberKind.Function)
+        {
+            if (use is "Format" or "Abs")
+            {
+                if (!value.HeldAsVariant)
+                    throw new NotImplementedException("Typed Format/Abs of a Function default member is unmeasured (#174)");
+                throw new VBRunTimeException(VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
+            }
+            if (use == "Case" || use == "Not" && value.HeldAsVariant)
+                throw new VBRunTimeException(VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
+        }
+        Vb6Value result;
+        if (member.Kind == PrePass.DefaultMemberKind.Variable)
+        {
+            var (found, field) = await ReadVariable(obj.InstanceEnv, member.Name);
+            if (!found)
+                throw new NotImplementedException("Default member storage is unavailable (#174)");
+            result = field;
+        }
+        else
+        {
+            var proc = member.Kind == PrePass.DefaultMemberKind.Function
+                ? obj.ClassDef.PrePass.Procedures.GetValueOrDefault(member.Name)
+                : obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Get;
+            if (proc is null || proc.Parameters.Any(p => !p.Optional && !p.ParamArray))
+                throw new NotImplementedException("A default member requiring arguments is not implemented (#174)");
+            result = await RunProcedure(obj.ClassDef, proc, [], obj.InstanceEnv, value, callerFrames)
+                ?? throw new NotImplementedException("A default member without a value is not implemented (#174)");
+        }
+        if (result.Type == Vb6Value.ValueType.Object || result.Type == Vb6Value.ValueType.Control
+            || result.Type == Vb6Value.ValueType.CSharpProxyObject || result.Type == Vb6Value.ValueType.Nothing)
+            throw new NotImplementedException("Nested default members are unmeasured (#174)");
+        return result;
+    }
+
     /// <summary>
     /// A built-in call. With a pump, a built-in that waits (MsgBox, InputBox) is a suspension the pump is told of, and
     /// <c>DoEvents</c> runs what is waiting, as VB6's does (#766). Without one, DoEvents does nothing, as before.
@@ -131,6 +174,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     internal async Task<Vb6Value?> CallProxy(ICSharpProxy proxy, string name, List<Vb6Value> args)
     {
+        if (proxy is VbErr && name.Equals("Raise", StringComparison.OrdinalIgnoreCase))
+            for (var i = 0; i < Math.Min(3, args.Count); i++)
+                args[i] = await ResolveDefaultMember(args[i]);
         if (proxy is not ICSharpAsyncProxy asyncProxy)
         {
             proxy.Call(name, args);
@@ -634,6 +680,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         this.compilationConstants = compilationConstants ?? CompilationConstants.Vb6;
         BuiltIns = new VB6BuiltIns(stdLib)
         {
+            ResolveDefaultForUse = (value, use) => ResolveDefaultMember(value, use),
             AppTitle = () => App.TitleOrNull,
             ProjectResources = () => Resources,
             ErrObject = () => Err,
@@ -1974,7 +2021,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     // passed to a declared scalar parameter stands for its default member (ObjectAsValue); a Variant
                     // or object parameter takes the object itself (measured).
                     var passed = p.DeclaredType is { } declared && VbNumeric.IsDeclarableScalar(declared)
-                        ? ObjectAsValue.Scalar(arg.Value, proc.Body as Antlr4.Runtime.ParserRuleContext)
+                        ? ObjectAsValue.Scalar(await ResolveDefaultMember(arg.Value), proc.Body as Antlr4.Runtime.ParserRuleContext)
                         : arg.Value;
                     // Converted as a store into a variable of the type converts, before the procedure runs, so a value
                     // that will not convert raises in the caller (measured, #874: `B "abc"` with `ByVal x As Boolean` is

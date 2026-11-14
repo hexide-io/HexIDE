@@ -5,6 +5,10 @@ namespace HexIDE.Runtime.Interpreter;
 
 public class PrePass : VB6BaseVisitor<object?>
 {
+    public enum DefaultMemberKind { Function, Property, Variable, Sub }
+    public sealed record DefaultMemberInfo(string Name, DefaultMemberKind Kind);
+    public DefaultMemberInfo? DefaultMember { get; private set; }
+
     private readonly ExecutionEnvironment rootEnv;
     private readonly ExecutionState state;
     private readonly bool allowIndexedLet;
@@ -191,12 +195,12 @@ public class PrePass : VB6BaseVisitor<object?>
     /// Whether a procedure here carries <c>Attribute Name.VB_UserMemId = 0</c>, or a module-level variable
     /// <c>Attribute Name.VB_VarUserMemId = 0</c>, which makes it the class's default member. VB6 writes the attribute
     /// into whichever of a property's procedures comes first, the Let or Set as readily as the Get. Collected only:
-    /// HexIDE does not call a default member yet (#174), and refuses to read one as a value rather than read 0 or raise
-    /// a trappable 438.
+    /// the name and kind are retained for the async resolver (#174). Execution still refuses a value read rather than
+    /// read 0 or raise a trappable 438.
     /// </summary>
-    public bool DeclaresDefaultMember { get; private set; }
+    public bool DeclaresDefaultMember => DefaultMember is not null;
 
-    private void NoteDefaultMember(Antlr4.Runtime.Tree.IParseTree? body)
+    private void NoteDefaultMember(Antlr4.Runtime.Tree.IParseTree? body, DefaultMemberKind kind)
     {
         if (body is null || body is VB6Parser.ValueStmtContext || DeclaresDefaultMember)
             return;
@@ -206,11 +210,11 @@ public class PrePass : VB6BaseVisitor<object?>
                 || name.EndsWith(".VB_VarUserMemId", StringComparison.OrdinalIgnoreCase))
             && attribute.signedLiteral().Length == 1 && attribute.signedLiteral(0).GetText() == "0")
         {
-            DeclaresDefaultMember = true;
+            DefaultMember = new DefaultMemberInfo(name[..name.LastIndexOf('.')], kind);
             return;
         }
         for (var i = 0; i < body.ChildCount; i++)
-            NoteDefaultMember(body.GetChild(i));
+            NoteDefaultMember(body.GetChild(i), kind);
     }
 
     public PrePass(ExecutionEnvironment rootEnv, ExecutionState state, bool allowIndexedLet = false)
@@ -240,7 +244,7 @@ public class PrePass : VB6BaseVisitor<object?>
     {
         topLevelBlocks.Add(context.block());
         Visit(context.block());
-        NoteDefaultMember(context.block());   // a Public variable's VB_VarUserMemId follows it here
+        NoteDefaultMember(context.block(), DefaultMemberKind.Variable);   // a Public variable's VB_VarUserMemId follows it here
         return default;
     }
 
@@ -732,7 +736,7 @@ public class PrePass : VB6BaseVisitor<object?>
             returnUdt != null && !returnType.IsArray ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
             returnsVariant, returnsObject) { Declaration = context });
-        NoteDefaultMember(context.block());
+        NoteDefaultMember(context.block(), DefaultMemberKind.Property);
         return default;
     }
 
@@ -741,7 +745,7 @@ public class PrePass : VB6BaseVisitor<object?>
         var name = context.ambiguousIdentifier().GetText();
         DeclareModuleName(name, accessor: "Let");
         GetOrAddProperty(name).Let = ParsePropertyMutator("Let", name, context.argList(), context.block(), context.visibility());
-        NoteDefaultMember(context.block());
+        NoteDefaultMember(context.block(), DefaultMemberKind.Property);
         return default;
     }
 
@@ -750,7 +754,7 @@ public class PrePass : VB6BaseVisitor<object?>
         var name = context.ambiguousIdentifier().GetText();
         DeclareModuleName(name, accessor: "Set");
         GetOrAddProperty(name).Set = ParsePropertyMutator("Set", name, context.argList(), context.block(), context.visibility());
-        NoteDefaultMember(context.block());
+        NoteDefaultMember(context.block(), DefaultMemberKind.Property);
         return default;
     }
 
@@ -851,7 +855,7 @@ public class PrePass : VB6BaseVisitor<object?>
             returnUdt != null && !returnType.IsArray ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
             returnsVariant, returnsObject) { Declaration = context });
-        NoteDefaultMember(context.block());
+        NoteDefaultMember(context.block(), DefaultMemberKind.Function);
         return default;
     }
 
@@ -861,7 +865,7 @@ public class PrePass : VB6BaseVisitor<object?>
         DeclareModuleName(name);
         Procedures[name] = CheckedLocals(new ProcedureInfo(name, false, ParseParams(context.argList()),
             Vb6Value.ValueType.EmptyVariant, context.block(), IsPrivate(context.visibility())) { Declaration = context });
-        NoteDefaultMember(context.block());
+        NoteDefaultMember(context.block(), DefaultMemberKind.Sub);
         return default;
     }
 

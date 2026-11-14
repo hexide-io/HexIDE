@@ -260,15 +260,13 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
                 + "    mV = v\nEnd Property\nPublic Property Get Value() As Long\n    Value = 42 + mV\nEnd Property\n")]
     // A Public variable carries VB_VarUserMemId, on an Attribute line among the declarations that runs as nothing (#832).
     [InlineData("Public Value As Long\nAttribute Value.VB_VarUserMemId = 0\n")]
-    public async Task A_class_with_a_default_member_is_refused_until_class_default_members_exist(string answer)
+    public async Task A_class_default_member_is_read_by_CInt(string answer)
     {
-        // Measured: CInt(k) is 42 where the member returns 42, whether the Function, the Property Let or a Public
-        // variable carries the attribute (7 for a variable holding 7). HexIDE does not call it yet (#174), and a
-        // trappable 438 would let On Error Resume Next carry on without VB6's value.
-        var run = () => RunClasses("Dim k As Answer\nSet k = New Answer\nOn Error Resume Next\nDim c\nc = CInt(k)\n",
-            ("Answer", answer));
-
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
+        // Measured: #820's k5 and attribute-lines-inside-a-procedure.md (#174).
+        var variable = answer.StartsWith("Public Value", StringComparison.Ordinal);
+        await RunClasses("Dim k As Answer\nSet k = New Answer\n" + (variable ? "k.Value = 7\n" : "")
+            + "Dim c\nc = CInt(k)\nDebug.Print c\n", ("Answer", answer));
+        AssertDebugLog([new Vb6Value((short)(variable ? 7 : 42))]);
     }
 
     [Theory]

@@ -1756,7 +1756,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             // An object is read here rather than by EvaluateScalar, so that its 438 names the statement as the 13 and
             // 91 below do, not the operand.
-            var value = ObjectAsValue.Scalar(operand, null);
+            var value = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(operand, callerFrames: stmtFrames), null);
             // Null is False, where CBool raises 94 (measured). Empty is False to CBool already; it is named here because
             // it is half of the measured rule.
             if (value.IsNull || value.Type == Vb6Value.ValueType.EmptyVariant)
@@ -2152,7 +2152,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // default-value read. Keep the original exception, including its number and message.
         try
         {
-            value = ObjectAsValue.Scalar(value, context);
+            value = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(value, callerFrames: stmtFrames), context);
             if (value.Type == Vb6Value.ValueType.Object)
                 throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         }
@@ -2231,7 +2231,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                  && array.Value is VBArray elements
                  && (elements.ElementType is null || elements.ElementType == Vb6Value.ValueType.EmptyVariant))
         {
-            var indexes = Subscripts(await expressionExecutor.EvaluateCallArgs(indexed.argsCall(0)));
+            var indexes = await expressionExecutor.ResolveSubscripts(await expressionExecutor.EvaluateCallArgs(indexed.argsCall(0)));
             var old = elements.GetValue(indexes);
             elements.SetValue(indexes, Vb6Value.Variant);
             await interpreter.ReleaseRef(old);
@@ -2320,7 +2320,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (root.Value is not VBArray array
                     || member.iCS_S_ProcedureOrArrayCall() is not { } call || call.argsCall().Length != 1)
                     return false;
-                var indices = Subscripts(await expressionExecutor.EvaluateCallArgs(call.argsCall(0)));
+                var indices = await expressionExecutor.ResolveSubscripts(await expressionExecutor.EvaluateCallArgs(call.argsCall(0)));
                 try { root = array.GetValue(indices); }
                 catch (IndexOutOfRangeException)
                 {
@@ -2366,7 +2366,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (reference || old.Value is not VBArray array
                 || member.iCS_S_ProcedureOrArrayCall() is not { } call || call.argsCall().Length != 1)
                 return false;
-            var indices = Subscripts(await expressionExecutor.EvaluateCallArgs(call.argsCall(0)));
+            var indices = await expressionExecutor.ResolveSubscripts(await expressionExecutor.EvaluateCallArgs(call.argsCall(0)));
             try
             {
                 var previous = array.GetValue(indices);
@@ -2607,7 +2607,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         {
                             try
                             {
-                                array.GetValue(Subscripts(indices));
+                                array.GetValue(await expressionExecutor.ResolveSubscripts(indices));
                                 return default;
                             }
                             catch (IndexOutOfRangeException) { }
@@ -2863,7 +2863,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 panels.Item(indexes).SetText(value);
                 return default;
             }
-            var indexesAsInt = Subscripts(indexes);
+            var indexesAsInt = await expressionExecutor.ResolveSubscripts(indexes);
 
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var array))
                 throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + identifier + " is not declared");
@@ -2927,7 +2927,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBCompileErrorException("Type mismatch");
             throw new VBRunTimeException(call, VBStandardError.TypeMismatch);
         }
-        var at = Subscripts(last);
+        var at = await expressionExecutor.ResolveSubscripts(last);
         Vb6Value oldElement;
         try
         {
@@ -3229,7 +3229,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         async Task PrintItem(VB6Parser.ValueStmtContext expression)
         {
-            var value = await expressionExecutor.EvaluateValue(expression);
+            var value = await expressionExecutor.EvaluateScalar(expression);
             if (printed is not null)
             {
                 // An object prints its default member, and one with none is 438 (ObjectAsValue).
@@ -3477,7 +3477,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         if (subCond is VB6Parser.CaseCondExprValueContext caseCondExpr)
         {
-            var val = await expressionExecutor.EvaluateScalar(caseCondExpr.valueStmt());
+            var raw = await expressionExecutor.EvaluateValue(caseCondExpr.valueStmt());
+            var val = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(raw,
+                value.IsNull || value.Type == Vb6Value.ValueType.EmptyVariant ? "Case" : null, stmtFrames), caseCondExpr);
             RefuseErrorAgainstOther(value, val);
             return CaseMatches(value, val, caseCondExpr, text);
         }
@@ -3944,7 +3946,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // `Set c(1) = x`, a Collection's item, is 424 once the index is found (measured, #1471, #1492).
             if (await interpreter.ReadVariable(currentEnv, identifier) is (true, { Value: VbCollection heldItems } held))
                 throw heldItems.ItemAssigned(held, setIndexes, VbCollection.ItemAssignment.SetIndex);
-            var indexes = Subscripts(setIndexes);
+            var indexes = await expressionExecutor.ResolveSubscripts(setIndexes);
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var arrayVal))
                 throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + identifier + " is not declared");
             if (!arrayVal.Type.IsArray || arrayVal.Value is not VBArray arr)
@@ -4751,7 +4753,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 if (field.Value is not VBArray array || member.iCS_S_ProcedureOrArrayCall().argsCall().Length != 1)
                     throw new NotImplementedException("Only a single array index group on a UDT field is implemented (#178)");
-                var indices = Subscripts(await expressionExecutor.EvaluateCallArgs(member.iCS_S_ProcedureOrArrayCall().argsCall(0)));
+                var indices = await expressionExecutor.ResolveSubscripts(await expressionExecutor.EvaluateCallArgs(member.iCS_S_ProcedureOrArrayCall().argsCall(0)));
                 try
                 {
                     current = array.GetValue(indices);

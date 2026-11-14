@@ -392,15 +392,13 @@ public class SubscriptCoercionTests : BaseVBTestFixture
     [Theory]
     [InlineData("x = a(w)")]
     [InlineData("a(w) = 5")]
-    public async Task An_object_with_a_default_member_as_a_subscript_is_refused_until_174(string use)
+    public async Task An_object_with_a_default_member_as_a_subscript_reads_or_writes_the_element(string use)
     {
-        // Measured, native: VB6 reads Widget's default member, 2, so a(w) is 7 and a(w) = 5 writes a(2). HexIDE cannot read
-        // a class's default member yet, so it refuses, untrappably: under On Error Resume Next a trappable error would
-        // leave x, or a(2), as it was.
-        var run = () => RunClasses("Dim a(5) As Long, x As Long\na(2) = 7\nDim w As Widget\nSet w = New Widget\n" +
-                                   $"On Error Resume Next\n{use}\n", ("Widget", Widget));
-
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
+        // docs/vb6-fidelity-oracle/subscripts-bounds-and-a-method-called-from-class_initialize.md (#174).
+        await RunClasses("Dim a(5) As Long, x As Long\na(2) = 7\nDim w As Widget\nSet w = New Widget\n" +
+                         $"{use}\nDebug.Print x\nDebug.Print a(2)\n", ("Widget", Widget));
+        AssertDebugLog([new Vb6Value(use.StartsWith("x", StringComparison.Ordinal) ? 7L : 0L),
+            new Vb6Value(use.StartsWith("x", StringComparison.Ordinal) ? 7L : 5L)]);
     }
 
     [Fact]
