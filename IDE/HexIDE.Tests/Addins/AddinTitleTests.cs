@@ -175,26 +175,115 @@ public sealed class AddinTitleTests
         }
     }
 
-    [AvaloniaFact]
-    public void StringCalls_RetainLiteralTextAndDisposeNormally()
+    public static IEnumerable<object[]> UnsafeTextCases()
     {
+        var values = new[] { "", " ", " leading", "trailing ", new string('a', 129),
+            "a\tb", "a\u202eb", "a\u2066b", "a\u200bb", "a\ufeffb", "a\u2028b", "a\u2029b",
+            "_Literal\u202e\t", "a\u202ab", "a\u202bb", "a\u202cb", "a\u202db",
+            "a\ud800b", "a\udc00b", "a\u2067b", "a\u2068b", "a\u2069b", "a\0b", "a\U000e0001b" };
+        foreach (var text in values)
+            foreach (var form in new[] { "string", "title", "translation" })
+                foreach (var surface in new[] { "tool", "menu", "command" })
+                    yield return [text, form, surface];
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(UnsafeTextCases))]
+    public void UnsafeText_RefusesAllSurfacesBeforeRegistration(string text, string form, string surface)
+    {
+        var tools = new AddinToolWindowService();
+        var menus = new AddinMenuService();
+        var commands = new AddinCommandService();
+        IHexIdeHost host = new HexIdeHost(menus, tools, null!, null!, null!, null!, null!, commands,
+            null!, null!, null!, null!, null!, null!, null!);
+        var called = false;
+        var title = form == "translation"
+            ? new AddinTitle("Fallback", new Dictionary<string, string> { ["fr"] = text })
+            : new AddinTitle(text);
+        Action tool = () => { if (form == "string") tools.Register("one", text, null, () => { called = true; return new object(); });
+            else tools.Register("one", title, null, () => { called = true; return new object(); }); };
+        Action menu = () => { if (form == "string") menus.Add("AddIns/Identifier", text, null, () => called = true);
+            else menus.Add("AddIns/Identifier", title, null, () => called = true); };
+        Action command = () => { if (form == "string") host.RegisterCommand("one", text, () => called = true);
+            else host.RegisterCommand("one", title, () => called = true); };
+        var register = surface == "tool" ? tool : surface == "menu" ? menu : command;
+        register.Should().Throw<ArgumentException>().Which.Message.Should().NotBeNullOrWhiteSpace();
+        tools.Tools.Should().BeEmpty();
+        menus.AddInsItems.Should().BeEmpty();
+        commands.Commands.Should().BeEmpty();
+        called.Should().BeFalse();
+        using var retry = tools.Register("one", "Valid", null, () => new object());
+        tools.Tools.Should().ContainSingle();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("", "empty or only whitespace")]
+    [InlineData(" ", "empty or only whitespace")]
+    [InlineData(" leading", "leading or trailing whitespace")]
+    [InlineData("trailing ", "leading or trailing whitespace")]
+    [InlineData("limit", "length 129 exceeds the limit of 128")]
+    [InlineData("a\u202eb", "refused character U+202E at UTF-16 index 1")]
+    [InlineData("😀\U000e0001", "refused character U+E0001 at UTF-16 index 2")]
+    [InlineData("high-surrogate", "invalid UTF-16 at index 1")]
+    [InlineData("low-surrogate", "invalid UTF-16 at index 1")]
+    public void Refusal_IdentifiesTheProblemInEnglishEvenInGerman(string text, string problem)
+    {
+        if (text == "limit") text = new string('a', 129);
+        if (text == "high-surrogate") text = "a\ud800b";
+        if (text == "low-surrogate") text = "a\udc00b";
+        var localization = new LocalizationService();
+        localization.Apply("de");
+        var tools = new AddinToolWindowService(localization);
+        Action literal = () => tools.Register("one", text, null, () => new object());
+        Action translation = () => tools.Register("one", new AddinTitle("Fallback",
+            new Dictionary<string, string> { ["fr"] = text }), null, () => new object());
+        literal.Should().Throw<ArgumentException>().Which.Message.Should()
+            .StartWith($"Invalid add-in title: {problem}.");
+        translation.Should().Throw<ArgumentException>().Which.Message.Should()
+            .StartWith($"Invalid translation for 'fr': {problem}.");
+        tools.Tools.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Refusal_HasNoLocalizationKeyInAnyPack()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !Directory.Exists(Path.Combine(directory.FullName, "IDE", "HexIDE", "Localization", "Packs")))
+            directory = directory.Parent;
+        directory.Should().NotBeNull();
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(directory!.FullName, "IDE", "HexIDE", "Localization", "Packs"), "*.json"))
+            File.ReadAllText(file).Should().NotContain("Str.Addins.InvalidTitle", file);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Arabic العربية")]
+    [InlineData("עברית")]
+    [InlineData("می\u200cروم")]
+    [InlineData("👩\u200d💻")]
+    [InlineData("_Access key")]
+    [InlineData("limit")]
+    [InlineData("surrogate-limit")]
+    public void SafeText_RetainsTextAndDisposesNormally(string text)
+    {
+        if (text == "limit") text = new string('a', 128);
+        if (text == "surrogate-limit") text = string.Concat(Enumerable.Repeat("😀", 64));
         var localization = new LocalizationService();
         var tools = new AddinToolWindowService(localization);
         var menus = new AddinMenuService(localization);
         var commands = new AddinCommandService(localization);
-        const string literal = "_Literal\u202e\t";
-        var tool = tools.Register("one", literal, null, () => new object());
-        var menu = menus.Add("Tools", literal, null, () => { });
-        var command = commands.Register("one", literal, () => { }, null, null);
-        localization.Apply("pseudo");
-        using var translated = tools.Register("translated", new AddinTitle("fallback",
-            new Dictionary<string, string> { ["fr"] = literal }), null, () => new object());
+        var title = new AddinTitle(text, new Dictionary<string, string> { ["fr"] = text });
+        using var tool = tools.Register("one", text, null, () => new object());
+        using var menu = menus.Add("Tools", text, null, () => { });
+        using var command = commands.Register("one", text, () => { }, null, null);
+        using var translatedTool = tools.Register("translated", title, null, () => new object());
+        using var translatedMenu = menus.Add("Tools", title, null, () => { });
+        using var translatedCommand = commands.Register("translated", title, () => { }, null, null);
         localization.Apply("fr");
-        tools.Tools.Single(t => t.WindowId == "translated").Title.Should().Be(literal);
-        tools.Tools.Single(t => t.WindowId == "one").Title.Should().Be(literal);
-        menus.ToolsItems.Single().Header.Should().Be(literal);
-        commands.Commands.Single().Label.Should().Be(literal);
-        translated.Dispose(); tool.Dispose(); menu.Dispose(); command.Dispose();
+        tools.Tools.Should().OnlyContain(t => t.Title == text);
+        menus.ToolsItems.Should().OnlyContain(m => m.Header == text);
+        commands.Commands.Should().OnlyContain(c => c.Label == text);
+        tool.Dispose(); menu.Dispose(); command.Dispose();
+        translatedTool.Dispose(); translatedMenu.Dispose(); translatedCommand.Dispose();
         localization.Apply("de");
         tools.Tools.Should().BeEmpty(); menus.ToolsItems.Should().BeEmpty(); commands.Commands.Should().BeEmpty();
     }
