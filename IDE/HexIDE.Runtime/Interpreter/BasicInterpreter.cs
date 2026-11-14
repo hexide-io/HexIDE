@@ -282,6 +282,40 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     public VbUdt NewUdt(string typeName) => NewUdt(typeName, 0);
 
+    internal ModuleInfo? ProjectClassFor(string typeName) =>
+        Modules.TryGet(typeName, out var module) && module.Kind == InterpreterModuleKind.Class ? module : null;
+
+    /// <summary>
+    /// Whether a type name the interpreter has no class, UDT or enum for is still a type a declaration may name (#822
+    /// review). It is when it is:
+    /// <list type="bullet">
+    /// <item>one of VB's own, read out of the in-box type libraries (<see cref="VB6InBoxTypes"/>);</item>
+    /// <item>a form, this one or another of the project's, none of which is a class;</item>
+    /// <item>qualified by a library the interpreter can't read, such as <c>ADODB.Connection</c>;</item>
+    /// <item>or unqualified, in a project that references such a library, which may well declare it.</item>
+    /// </list>
+    /// The last two are a missing input, not a missing name: without the library there is no telling, and the slot is
+    /// Nothing either way. A typo then runs on until the variable is used. With nothing referenced, a name nobody
+    /// declares stays VB6's "User-defined type not defined".
+    /// </summary>
+    internal bool IsObjectTypeWithoutClass(string? qualifier, string typeName, out Vb6Value.ValueType? aliasScalar)
+    {
+        aliasScalar = null;
+        if (LibraryClassFor(qualifier is null ? typeName : qualifier + "." + typeName) is not null)
+            return true;
+        if (VB6InBoxTypes.TryResolve(qualifier, typeName, out var inbox))
+        {
+            aliasScalar = inbox.Scalar;
+            return true;
+        }
+        if (qualifier is null && (ProjectFormNames.Contains(typeName)
+                                  || Modules.TryGet(typeName, out var m) && m.Kind == InterpreterModuleKind.Form))
+            return true;
+        if (qualifier is not null)
+            return !Modules.Contains(qualifier) && !VB6InBoxLibraries.IsLibrary(qualifier);
+        return ReferencesOtherLibraries;
+    }
+
     /// <summary>Instantiate a UDT resolved from a specific module's point of view — so `Module2.Point`
     /// gets Module2's Point rather than whichever one loaded last into the program-wide table.</summary>
     public VbUdt NewUdt(string typeName, string? qualifier, ModuleInfo? from)
@@ -320,6 +354,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var typedFields = new Dictionary<string, Vb6Value.ValueType>(StringComparer.OrdinalIgnoreCase);
         var variantFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var autoNewFields = new Dictionary<string, AutoNew>(StringComparer.OrdinalIgnoreCase);
+        var objectFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
             if (f.IsArray)
@@ -344,6 +379,29 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 autoNewFields[f.Name] = new AutoNew(made, f.Name);
                 continue;
             }
+            if (f.UdtTypeName is { } className && !Types.ContainsKey(className) && !Enums.ContainsKey(className)
+                && ProjectClassFor(className) is { } projectClass)
+            {
+                fields[f.Name] = Vb6Value.Nothing;
+                objectFields[f.Name] = projectClass.Name;
+                continue;
+            }
+            if (f.UdtTypeName is { } slotType
+                && (slotType.Equals("Object", StringComparison.OrdinalIgnoreCase) || ExpressionExecutor.IsCollectionType(slotType)))
+            {
+                fields[f.Name] = Vb6Value.Nothing;
+                objectFields[f.Name] = ExpressionExecutor.IsCollectionType(slotType) ? "Collection" : "Object";
+                continue;
+            }
+            if (f.UdtTypeName is { } objectName && !Types.ContainsKey(objectName) && !Enums.ContainsKey(objectName))
+            {
+                var dot = objectName.LastIndexOf('.');
+                var qualifier = dot < 0 ? null : objectName[..dot];
+                var name = objectName[(dot + 1)..];
+                if (ExpressionExecutor.IsCollectionType(objectName)
+                    || IsObjectTypeWithoutClass(qualifier, name, out var aliasScalar) && aliasScalar is null)
+                    throw new NotImplementedException($"Object field '{f.Name}' inside Type '{typeName}' is not implemented (#3924): its VB6 behaviour is unmeasured");
+            }
             // An Enum field is a typed Long, as an Enum variable is (measured, #1005).
             if (f.ScalarType is { } declared && VbNumeric.IsDeclarableScalar(declared))
                 typedFields[f.Name] = declared;
@@ -360,7 +418,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             else
                 fields[f.Name] = Vb6Value.Variant;
         }
-        return new VbUdt(typeName, fields, typedFields, variantFields, autoNewFields);
+        return new VbUdt(typeName, fields, typedFields, variantFields, autoNewFields, objectFields);
     }
 
     /// <summary>

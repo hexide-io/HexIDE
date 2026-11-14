@@ -2144,6 +2144,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var current = root;
         foreach (var m in members)
         {
+            if (current.Value is not VbUdt && (current.Type == Vb6Value.ValueType.Object || current.Value is VbCollection))
+            {
+                current = await ResolveMemberIndexed(current, m, ctx);
+                continue;
+            }
             if (current.Value is not VbUdt bag)
                 throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch, "Member access on a non-UDT value");
             var fieldName = MemberName(m);
