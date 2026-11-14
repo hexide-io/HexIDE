@@ -2611,6 +2611,10 @@ public static class UiAutomationDriver
     private static HashSet<Window> Track()
     {
         var opened = new HashSet<Window>();
+        TopLevel.IsVisibleProperty.Changed.AddClassHandler<TopLevel>((top, _) =>
+        {
+            if (top.IsVisible) RawPointer.FilterRestatements(top);
+        });
         Window.WindowOpenedEvent.AddClassHandler<Window>((w, _) => opened.Add(w));
         Window.WindowClosedEvent.AddClassHandler<Window>((w, _) => opened.Remove(w));
         return opened;
@@ -4538,6 +4542,7 @@ public static class UiAutomationDriver
                 return new InteractOutcome(false, "pointer", null,
                     "the control is not attached to a window, so it has no coordinates to hover at");
 
+            RawPointer.FilterRestatements(topLevel);
             var target = FindHoverTarget(control);
             if (Shows(target) is not true and var shows)
                 return new InteractOutcome(false, "pointer", null, NotShowingRefusal(target, "hover", shows));
@@ -4642,7 +4647,7 @@ public static class UiAutomationDriver
     /// <summary>
     /// Leaves a hover's pointer where it went, for 'stay' (#2562): what it landed on keeps its pointer-over look and any
     /// tip it opened, so a snapshot shows them. The next click, drag or hover in the window ends it first, as
-    /// <see cref="EndHover"/> would have, and the real mouse's next move over the window takes it back.
+    /// <see cref="EndHover"/> would have, and the real mouse's next move to a new position over the window takes it back.
     /// </summary>
     public static void StayHover(Control hovered)
     {
@@ -4669,7 +4674,7 @@ public static class UiAutomationDriver
         if (hovered.IsPointerOver)
             return $"; the pointer stays there and '{Describe(hovered)}' reads as under it (isPointerOver), so take_snapshot "
                    + "shows its pointer-over look and any tip, until the next click, drag or hover, in this window or another, or the real "
-                   + "mouse's next move over it";
+                   + "mouse's next move to a new position over it";
         var why = moved is null ? "input the hover did not send has moved it"
             : saidAlready ? "what moved the pointer, above, took it" : moved;
         return $"; the pointer was left there, but '{Describe(hovered)}' does not read as under it (isPointerOver is false): "
@@ -4903,6 +4908,42 @@ public static class UiAutomationDriver
                     && t == typeof(ulong) && p == typeof(Point) && d == typeof(Vector));
 
             static Members() { }
+        }
+
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TopLevel,
+            Action<Avalonia.Input.Raw.RawInputEventArgs>> Filtered = new();
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IInputDevice,
+            System.Runtime.CompilerServices.StrongBox<PixelPoint>> RealPositions = new();
+
+        // Before PresentationSource's input preprocessing: a later input-manager subscriber cannot undo pointer-over.
+        // Visibility covers PopupRoot too; keep the wrapper for the top level's lifetime to learn positions before stay.
+        public static void FilterRestatements(TopLevel topLevel)
+        {
+            if (NativeWayland.Hosts(topLevel) || topLevel.PlatformImpl is not { } impl || Members.PlatformInput is not { } property
+                || property.GetValue(impl) is not Action<Avalonia.Input.Raw.RawInputEventArgs> input)
+                return;
+            if (Filtered.TryGetValue(topLevel, out var existing) && ReferenceEquals(existing, input))
+                return;
+            Action<Avalonia.Input.Raw.RawInputEventArgs> filtered = e =>
+            {
+                if (Read(e) is { Type: Avalonia.Input.Raw.RawPointerEventType.Move, Device: IMouseDevice } raw
+                    && !Sent(raw.Device))
+                {
+                    var screen = topLevel.PointToScreen(InWindow(topLevel, raw.Position));
+                    var same = RealPositions.TryGetValue(raw.Device, out var last)
+                               && Math.Abs((double)last.Value.X - screen.X) <= 1
+                               && Math.Abs((double)last.Value.Y - screen.Y) <= 1;
+                    RealPositions.AddOrUpdate(raw.Device, new System.Runtime.CompilerServices.StrongBox<PixelPoint>(screen));
+                    if (same && Stayed.Any(stay => stay.Key.IsVisible))
+                        return;
+                    // A real move takes ownership back; its next restatement is no longer a staying hover's input.
+                    foreach (var stay in Stayed.ToArray())
+                        Stayed.Remove(stay.Key);
+                }
+                input(e);
+            };
+            property.SetValue(impl, filtered);
+            Filtered.AddOrUpdate(topLevel, filtered);
         }
 
         // One device for every hover. A new device is a different pointer, and the window tells whatever the last one was
