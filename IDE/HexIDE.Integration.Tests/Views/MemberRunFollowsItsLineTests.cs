@@ -796,6 +796,41 @@ public class MemberRunFollowsItsLineTests : IDisposable
         outcome.Detail.Should().Contain("The edit ended on the line above the Attribute lines describing Go");
     }
 
+    [AvaloniaTheory]
+    [InlineData("Cut")]
+    [InlineData("DeleteLine")]
+    [InlineData("Indent")]
+    [InlineData("Outdent")]
+    [InlineData("Delete")]
+    public void ARefusedCommandInsideAnAttributeLineGivesNoBackspaceAdvice(string command)
+    {
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        var line = LineWith(editor, "Attribute Go.VB_UserMemId");
+        RunFold(editor, "Public Sub Go()")!.IsFolded = false;
+        editor.Select(line.Offset + 4, line.Length - 4);
+        var gesture = command switch
+        {
+            "Cut" => HexIDE.ApplicationCommands.CutCommand.Gestures.First(),
+            "DeleteLine" => AvaloniaEditCommands.DeleteLine.Gesture!,
+            "Indent" => new KeyGesture(Key.Tab),
+            "Outdent" => new KeyGesture(Key.Tab, KeyModifiers.Shift),
+            _ => new KeyGesture(Key.Delete),
+        };
+
+        var outcome = UiAutomationDriver.PressKey(editor, gesture.Key.ToString(),
+            gesture.KeyModifiers == KeyModifiers.None ? null : gesture.KeyModifiers.ToString());
+
+        outcome.Success.Should().BeFalse();
+        vm.Document.Text.Should().Be(before);
+        outcome.Error.Should().NotContain("text before the caret")
+            .And.NotContain("line above that read-only text");
+        if (command != "Delete")
+            outcome.Error.Should().Contain("Typing was refused because this text is read-only and only the IDE changes it.")
+                .And.NotContain("Select less");
+    }
+
     [AvaloniaFact]
     public void BackspaceAfterARunOffersTheAnchoredLineHint()
     {

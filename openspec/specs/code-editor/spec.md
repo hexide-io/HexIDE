@@ -258,6 +258,11 @@ clipboard, concatenated in selection order exactly as they stood, and SHALL remo
 Cut on a protected line. Copy SHALL continue to copy the whole selection, including read-only text.
 This is a HexIDE editing decision, not measured VB6 behaviour.
 
+A refused Cut, Delete Line, Indent or Outdent over protected text SHALL give the read-only
+sentence without Backspace or typing advice (#3899). Automation SHALL still quote the code window's
+status-bar message when one was posted. Typing and Backspace SHALL retain their existing advice, with
+Backspace's advice limited to Backspace rather than inferred from a selection ending at the caret.
+
 An attribute line left describing nothing SHALL be preserved, not removed: it is inert text, and the IDE does
 not know what the developer meant by it. A run of attribute lines describes a member when it sits directly
 under that member's declaration, with any lines continued into it, and VB6 reads every line of it as that
@@ -321,6 +326,11 @@ after it remain unmeasured; this is the editor's placement contract.
 - **WHEN** a run of `Attribute` lines sits where VB6 gives it to no member: under a blank line, a comment or a
   statement, or under a declaration its lines do not belong to
 - **THEN** it is shown and edited as ordinary text, and the file keeps it
+
+#### Scenario: Cut refused inside an attribute line
+- **WHEN** the developer cuts a selection wholly inside a protected member attribute line
+- **THEN** the document and clipboard SHALL remain unchanged
+- **AND** the refusal SHALL NOT advise deleting text before the caret or the line above the read-only text
 
 ### Requirement: Only the IDE SHALL change a read-only region
 A read-only region is the file's header, or a run of attribute lines describing a member. A document the IDE
