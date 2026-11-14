@@ -469,6 +469,25 @@ That distinction is not pedantic, because silence is the normal case. Five serve
 binaries contain no trace machinery at all. A fourth's framework implements the types and its server never
 calls them. So a trace pane that is empty against most servers is correct, and has to say why.
 
+## Carried-file completion and signature help (#266)
+
+The code window and carried-file editor attach the same text-area component for completion,
+snippets and signature help. It flushes pending edits before querying the document and cancels
+requests, closes popups and ends snippet navigation when detached, including a dock move.
+
+A carried file asks its claiming servers only for advertised capabilities. Completion opens on a
+letter, an advertised completion trigger or the Complete Word command (the platform command key
+plus Space), with Auto List Members enabled. Requests use the caret position. Enter accepts without
+a line break, and Tab also accepts. With nothing selected, Enter closes the list and starts a new
+line, while Tab accepts the first item. Space and other non-word input close the list without accepting.
+Snippets select their first stop whether accepted with Enter or Tab, and Tab advances through them.
+Signature help opens on the server's advertised signature triggers.
+The code window keeps its word-start position, VB6 free-text/read-only rules, Space commit and fixed
+`(` / `,` signature triggers. Each split pane owns its own component.
+
+Hover, formatting, definition navigation, highlights and rename in carried files remain later stages
+of #266. Headless coverage is in `CarriedFileCompletionTests`; live IDE verification remains pending.
+
 ## Capability negotiation
 
 The client reads the server's `initialize` result and gates on it. Nothing is called unconditionally.

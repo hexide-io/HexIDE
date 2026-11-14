@@ -48,7 +48,7 @@ public sealed class DocumentSessionTests : IDisposable
             active = found;
             return true;
         });
-        editors = new EditorService(dock, NewCode, () => new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>(), Substitute.For<IWindowManager>(), localization),
+        editors = new EditorService(dock, NewCode, () => new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>(), Substitute.For<IWindowManager>(), localization, Substitute.For<HexIDE.IDE.ISettingsService>()),
             () => new ProjectDocumentViewModel(localization), NewDesigner, () => manager!, localization) { DocumentSessions = store };
         manager = new ProjectManager(editors, bus);
         bus.Subscribe<ProjectUnloadedEvent>(_ => { tabs.Clear(); active = null; });

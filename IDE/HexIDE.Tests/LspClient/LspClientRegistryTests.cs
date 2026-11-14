@@ -756,6 +756,19 @@ public class LspClientRegistryTests
     }
 
     [Fact]
+    public async Task SignatureTriggersComeOnlyFromStartedClaimantsAndAreDistinct()
+    {
+        var first = FakeServer(capabilitiesJson: """{"signatureHelpProvider":{"triggerCharacters":[":","("]}}""");
+        var second = FakeServer(capabilitiesJson: """{"signatureHelpProvider":{"triggerCharacters":[":",","]}}""");
+        var unrelated = FakeServer(capabilitiesJson: """{"signatureHelpProvider":{"triggerCharacters":["!"]}}""");
+        await using var sut = Registry(Registration("first", first), Registration("second", second),
+            Registration("unrelated", unrelated, language: "markdown"));
+        ((ILspClient)sut).SignatureHelpTriggerCharacters(Vb6Doc).Should().BeEmpty();
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        ((ILspClient)sut).SignatureHelpTriggerCharacters(Vb6Doc).Should().Equal(":", "(", ",");
+    }
+
+    [Fact]
     public async Task CompletionTriggersAreUnionedAndRouteOnlyToAdvertisers()
     {
         var dot = FakeServer(capabilitiesJson: """{"completionProvider":{"triggerCharacters":["."]}}""");

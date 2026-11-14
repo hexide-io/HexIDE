@@ -12,6 +12,30 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Carried-file completion and signature help
+
+A carried-file editor SHALL offer completion and signature help from its claiming language servers,
+only for capabilities each server advertises. It SHALL flush pending document edits before each
+request, use the caret position, and detach its completion, snippet and signature-help handlers
+without stacking them when the view is reattached. The code window SHALL share that component while
+retaining its own completion position, commit keys and editing rules.
+
+#### Scenario: Completion in a carried file
+- **WHEN** Auto List Members is enabled and the developer types a letter, types an advertised completion trigger, or invokes Complete Word
+- **THEN** an advertising server's completion items appear
+- **AND** Enter accepts an item without a line break, Tab also accepts, and Space closes the list without accepting
+- **AND** with nothing selected, Enter closes the list and starts a new line, while Tab accepts the first item
+- **AND** accepting a snippet selects its first stop and Tab advances through its stops
+
+#### Scenario: Signature help in a carried file
+- **WHEN** the developer types a claiming server's advertised signature-help trigger
+- **THEN** the editor displays that server's signature help
+
+#### Scenario: Neither capability advertised
+- **WHEN** the claiming server advertises neither completion nor signature help
+- **THEN** the editor sends neither request and opens neither popup
+
+
 ### Requirement: Opt-in restart on project membership changes
 A server entry SHALL accept `restartOnProjectChange`, off by default. At the workspace-folder debounce,
 projects with chosen workspace roots joining or leaving SHALL restart only an opted-in running connection through the registry's
