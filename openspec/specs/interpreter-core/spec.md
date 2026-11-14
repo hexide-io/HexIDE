@@ -73,8 +73,8 @@ The interpreter SHALL load the project's `ResFile32` file read-only when configu
 resolving its Windows-format path against the project folder. Its resource reader SHALL support
 ordinal and case-insensitive string type/name identifiers, DWORD-aligned headers and payloads,
 raw resource bytes and sixteen-slot counted UTF-16 string blocks. Missing, unreadable or malformed
-files SHALL supply no lookup results. A lookup matching more than one language SHALL refuse with
-not-implemented rather than select an unmeasured locale-dependent value (#2625).
+files SHALL supply no lookup results. Language selection SHALL follow the resource intrinsic
+lookup rules below; ambiguous unmatched languages SHALL refuse as not implemented (#2626).
 
 #### Scenario: A run reads the project's resource file
 
@@ -93,9 +93,18 @@ not-implemented rather than select an unmeasured locale-dependent value (#2625).
 from the resource snapshot, following the [#2626 measurements](../../../docs/vb6-fidelity-oracle/loadresstring-loadresdata-and-loadrespicture.md).
 Empty strings, absent resources and string tables requested as raw data SHALL raise 326.
 `LoadResPicture` SHALL load the measured 24-bit bitmap layout into the shared Picture object, report
-326 for absent/wrong-kind resources and 485 for invalid kinds. Present icon/cursor groups, other bitmap
-layouts, named arguments and multi-language selection SHALL refuse as not implemented. Picture properties without measured
-return subtypes and native/default handles SHALL remain explicitly unimplemented.
+326 for absent/wrong-kind resources and 485 for invalid kinds. Per [the later #2626 measurements](https://github.com/hexide-io/HexIDE/issues/2626),
+icon/cursor groups SHALL return 32×32 Pictures, Type Integer 3 and Width/Height Long 847 HiMetric;
+the measured 2×2 bitmap SHALL return Type Integer 1 and Width/Height Long 53. These property types
+SHALL also apply to LoadPicture objects. Per [the icon-size measurements](https://github.com/hexide-io/HexIDE/pull/3969),
+a 16/32 resource icon group SHALL select its 32-pixel image; a 16-only group SHALL stretch to 32.
+LoadPicture SHALL preserve a 16-only icon at 423 HiMetric and select the 32-pixel image from a
+16/32 file at 847 HiMetric. Selection without a 32-pixel image but with a larger one remains unmeasured.
+Native/default handles and other bitmap layouts SHALL refuse.
+The intrinsics SHALL accept required named parameters id, id/type and id/restype respectively.
+Resource lookup SHALL prefer the program locale's exact language, then primary language, then a
+sole other language; ambiguous unmatched languages SHALL refuse as not implemented. An empty
+string slot in the selected block SHALL raise 326 without trying another language.
 
 #### Scenario: Resource text and data
 
@@ -107,6 +116,13 @@ return subtypes and native/default handles SHALL remain explicitly unimplemented
 - **WHEN** the program uses Set with `LoadResPicture(301, vbResBitmap)`
 - **THEN** it receives the shared picture object whose TypeName is `Picture`
 - **AND** native Handle access refuses rather than inventing a handle
+
+#### Scenario: Resource language block selection
+
+- **WHEN** an en-GB program reads string 101 from en-US and de-DE versions of block 7
+- **THEN** it receives the en-US value, regardless of resource order
+- **AND** an empty en-US slot raises 326 even if de-DE fills it
+- **AND** a block available only in de-DE is read
 
 ### Requirement: ObjPtr SHALL preserve object identity
 `ObjPtr` SHALL return Long identities satisfying the relations measured in
