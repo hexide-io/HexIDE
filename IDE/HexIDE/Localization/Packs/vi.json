@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Phần mở rộng HexIDE; không có trong VB6.",
     "Str.Dock.Host": "Vùng chứa neo",
     "Str.Dock.Root": "Vùng neo gốc",
     "Str.Dock.PinnedHost": "Vùng chứa neo đã ghim",

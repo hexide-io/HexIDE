@@ -42,7 +42,7 @@ public sealed class ProgressBarComponentClass : InBoxComponentClass
     /// <summary>
     /// The ProgressBar's own members, as MSCOMCTL.OCX's and COMCTL32.OCX's type libraries declare them (the oracle's "In-box
     /// controls: the ProgressBar"). 6.0 added Orientation, Scrolling and Refresh. Not implemented: MouseIcon and hWnd, OLEDrag,
-    /// and the OLE drag-and-drop events, which HexIDE never raises.
+    /// and the OLE drag-and-drop events, which HexIDE never raises. Increment is a code-only HexIDE extension (#1116).
     /// </summary>
     public override IReadOnlyList<InBoxMember> Members { get; } =
     [
@@ -59,6 +59,7 @@ public sealed class ProgressBarComponentClass : InBoxComponentClass
         new("OLEDrag", MemberKind.Method, Both, IsFrmProperty: false, Implemented: false),
         new("Orientation", MemberKind.Property, MemberOrigin.Version6, IsFrmProperty: true, Implemented: true),
         new("Scrolling", MemberKind.Property, MemberOrigin.Version6, IsFrmProperty: true, Implemented: true),
+        new("Increment", MemberKind.Method, MemberOrigin.HexIde, IsFrmProperty: false, Implemented: true),
         new("Refresh", MemberKind.Method, MemberOrigin.Version6, IsFrmProperty: false, Implemented: true),
         new("MouseDown", MemberKind.Event, Both, IsFrmProperty: false, Implemented: true),
         new("MouseMove", MemberKind.Event, Both, IsFrmProperty: false, Implemented: true),

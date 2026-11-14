@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Ekstensi HexIDE; tidak tersedia di VB6.",
     "Str.Dock.Host": "Host penambatan",
     "Str.Dock.Root": "Tambatan akar",
     "Str.Dock.PinnedHost": "Host tambatan tersemat",

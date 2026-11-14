@@ -2,6 +2,7 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE plėtinys; VB6 nepasiekiamas.",
     "Str.Dock.Host": "Prijungimo pagrindinis elementas",
     "Str.Dock.Root": "Šakninis prijungimas",
     "Str.Dock.PinnedHost": "Prisegto prijungimo pagrindinis elementas",

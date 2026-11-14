@@ -1281,6 +1281,7 @@
     "Str.AIChat.ApiKeyRequired": "Cal una clau API. Establiu la variable d’entorn HEXIDE_AI_API_KEY, o apiKey a chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Privadesa: els vostres missatges, el contingut del fitxer actiu (en un formulari, també la disposició i els títols) i els seus diagnòstics s’envien a {0}, un servei de tercers configurat als paràmetres del xat d’IA.",
     "Str.AIChat.PrivacyKeyTip": "Consell: establiu la variable d’entorn HEXIDE_AI_API_KEY per evitar desar la clau API en un fitxer.",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Els projectes {0} comparteixen la carpeta {1}; només s’escriu o s’importa {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Els projectes {0} comparteixen la carpeta {1}; només s’escriu o s’importa {2}.",
+    "Str.MemberOrigin.HexIde": "Extensió de HexIDE; no disponible al VB6."
   }
 }

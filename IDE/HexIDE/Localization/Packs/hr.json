@@ -1281,6 +1281,7 @@
     "Str.AIChat.ApiKeyRequired": "Potreban je API ključ. Postavite varijablu okruženja HEXIDE_AI_API_KEY ili apiKey u chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Privatnost: vaše poruke, sadržaj aktivne datoteke (za obrazac i raspored i natpisi) te njezina dijagnostika šalju se na {0} — uslugu treće strane koju ste konfigurirali u postavkama AI chata.",
     "Str.AIChat.PrivacyKeyTip": "Savjet: postavite varijablu okruženja HEXIDE_AI_API_KEY kako biste izbjegli pohranu API ključa u datoteku.",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} dijele mapu {1}; zapisuje se ili uvozi samo {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} dijele mapu {1}; zapisuje se ili uvozi samo {2}.",
+    "Str.MemberOrigin.HexIde": "Proširenje HexIDE-a; nije dostupno u VB6."
   }
 }

@@ -2,6 +2,7 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE proširenje; nije dostupno u VB6.",
     "Str.Dock.Host": "Domaćin usidravanja",
     "Str.Dock.Root": "Korensko sidrište",
     "Str.Dock.PinnedHost": "Domaćin zakačenog usidravanja",

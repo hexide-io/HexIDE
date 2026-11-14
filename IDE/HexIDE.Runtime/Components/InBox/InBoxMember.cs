@@ -35,5 +35,6 @@ public sealed record InBoxMember(string Name, MemberKind Kind, MemberOrigin Orig
 {
     /// <summary>Whether a control of <paramref name="library"/> has the member.</summary>
     public bool IsIn(RuntimeLibrary library) =>
+        (Origin & MemberOrigin.HexIde) != 0 ||
         (Origin & (library == ControlLibraries.ComctlLib ? MemberOrigin.Version5 : MemberOrigin.Version6)) != 0;
 }

@@ -1798,3 +1798,21 @@ HexIDE honours the locale rather than reproducing an unexpanded token (#3946;
 #### Scenario: Measured en-GB long date
 - **WHEN** a Windows program in en-GB formats 1 January 2000 as Long Date
 - **THEN** it writes `01 January 2000`, as measured on vb6.exe native and p-code in #783
+
+### Requirement: ProgressBar code-only Increment extension
+The runtime SHALL expose `Increment` on both ProgressBar libraries with one required argument,
+`MemberOrigin.HexIde` and `IsFrmProperty` false. It SHALL convert through Value's assignment path and
+clamp the sum to Min/Max. The Object Browser SHALL list it with a localized HexIDE extension description.
+Strict-mode filtering remains deferred.
+
+#### Scenario: Increment clamps and accepts either library
+Contract: [#1116](https://github.com/hexide-io/HexIDE/issues/1116); Value conversions:
+[ProgressBar oracle](../../../docs/vb6-fidelity-oracle/in-box-controls-the-progressbar.md).
+
+- **WHEN** either library's ProgressBar receives `Increment n`
+- **THEN** Value becomes Value plus the converted Single argument, clamped to Min and Max
+- **AND** a failed conversion leaves Value unchanged with the existing Value conversion error
+
+#### Scenario: Required argument is missing
+- **WHEN** code calls `ProgressBar1.Increment` without an argument
+- **THEN** the runtime raises Argument not optional and leaves Value unchanged

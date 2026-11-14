@@ -2,6 +2,7 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE hedapena; ez dago erabilgarri VB6n.",
     "Str.Dock.Host": "Atrakatzeko ostalaria",
     "Str.Dock.Root": "Erroko atrakalekua",
     "Str.Dock.PinnedHost": "Ainguratutako atrakalekuaren ostalaria",

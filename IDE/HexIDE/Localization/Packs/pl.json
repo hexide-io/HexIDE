@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Rozszerzenie HexIDE; niedostępne w VB6.",
     "Str.Dock.Host": "Host dokowania",
     "Str.Dock.Root": "Główny obszar dokowania",
     "Str.Dock.PinnedHost": "Host przypiętego dokowania",

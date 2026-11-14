@@ -2,6 +2,7 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "ส่วนขยายของ HexIDE; ไม่มีใน VB6",
     "Str.Dock.Host": "โฮสต์การเทียบชิด",
     "Str.Dock.Root": "พื้นที่เทียบชิดราก",
     "Str.Dock.PinnedHost": "โฮสต์การเทียบชิดที่ปักหมุด",

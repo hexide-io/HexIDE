@@ -2,6 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE-laajennus; ei käytettävissä VB6:ssa.",
     "Str.Dock.Host": "Telakointi-isäntä",
     "Str.Dock.Root": "Juuritelakka",
     "Str.Dock.PinnedHost": "Kiinnitetyn telakoinnin isäntä",
