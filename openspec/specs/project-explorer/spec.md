@@ -10,6 +10,24 @@ that arrangement leaves the developer unable to see the shape of their own proje
 
 ## Requirements
 
+### Requirement: A project with a chosen home shows its own file
+Every loaded project with a chosen home SHALL show its own file as its first child, named by filename,
+including contributed types and a group's `.vbg`. Activating it SHALL read the file directly, without
+an add-in reader, into a read-only text tab that refreshes after saves. Editing remains in #3915.
+
+#### Scenario: Reading a saved project file
+- **WHEN** the developer activates `Example.vbp` under its project
+- **THEN** a read-only tab shows the file's text
+- **AND** saving changed project settings refreshes that tab with what was written
+
+#### Scenario: A working copy has no chosen home
+- **WHEN** a project has never been saved or its path is still within its working directory
+- **THEN** it has no project-file node
+
+#### Scenario: Archive projects keep their existing tree
+- **WHEN** an archive project is open
+- **THEN** its existing archive tree remains unchanged
+
 ### Requirement: Explorer names SHALL follow the loaded group or project
 The group root SHALL notify its display name when the group's name changes. The pane title SHALL use
 localized `Project Group - {0}` for a loaded group and `Project - {0}` for a lone project without a group.

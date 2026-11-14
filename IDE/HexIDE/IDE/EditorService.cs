@@ -19,6 +19,7 @@ public partial class EditorService : IEditorService
     private readonly Func<FormEditViewModel> formEditViewModelFactory;
     private readonly Func<IProjectManager> projectManager;
     private readonly ILocalizationService localization;
+    private readonly IEventBus? events;
 
     /// <param name="projectManager">
     /// Resolved lazily, and that is load-bearing rather than stylistic: <c>ProjectManager</c> takes an
@@ -31,7 +32,7 @@ public partial class EditorService : IEditorService
         Func<RelatedDocumentEditorViewModel> relatedDocumentEditorViewModelFactory,
         Func<ProjectDocumentViewModel> projectDocumentViewModelFactory,
         Func<FormEditViewModel> formEditViewModelFactory,
-        Func<IProjectManager> projectManager, ILocalizationService localization)
+        Func<IProjectManager> projectManager, ILocalizationService localization, IEventBus? events = null)
     {
         this.documentDockService = documentDockService;
         this.codeEditorViewModelFactory = codeEditorViewModelFactory;
@@ -40,6 +41,7 @@ public partial class EditorService : IEditorService
         this.formEditViewModelFactory = formEditViewModelFactory;
         this.projectManager = projectManager;
         this.localization = localization;
+        this.events = events;
     }
 
     public string? DocumentNameForUri(string uri)
@@ -305,6 +307,14 @@ public partial class EditorService : IEditorService
             return;
 
         documentDockService.OpenDocument(projectDocumentViewModelFactory().Initialize(project));
+    }
+
+    public void EditProjectFile(ProjectFileSource source)
+    {
+        if (source.Path == null) return;
+        if (documentDockService.TryActivate<ProjectFileDocumentViewModel>(vm => vm.Source.Owner == source.Owner))
+            return;
+        documentDockService.OpenDocument(new ProjectFileDocumentViewModel(source, events));
     }
 
     public void EditCode(FormDefinition? form) => EditCode(form, true);

@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
+             xmlns:edit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+             x:Class="HexIDE.Forms.Views.ProjectFileDocumentView"
+             x:DataType="vm:ProjectFileDocumentViewModel">
+    <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="{CompiledBinding LoadError}"
+                   IsVisible="{CompiledBinding !!LoadError}" TextWrapping="Wrap" Margin="8" />
+        <edit:TextEditor Name="Editor" Document="{CompiledBinding Document}" IsReadOnly="True"
+                         FontFamily="Consolas,Courier New,Monospace" FontSize="13"
+                         ShowLineNumbers="True" HorizontalScrollBarVisibility="Auto"
+                         VerticalScrollBarVisibility="Auto" />
+    </DockPanel>
+</UserControl>

@@ -66,6 +66,17 @@ container path and `document` equal to the entry path returned by `open_file`. I
 - **WHEN** `activate_document_tab` names an archive tab's unique title with `type: archive`
 - **THEN** the tab is brought to the front
 
+### Requirement: open_file opens a project's own file
+`open_file` SHALL open a project file by filename, including a group's `.vbg`, in the same read-only
+text tab as Project Explorer. `project` SHALL disambiguate owners by name or project-file path.
+A project with no chosen home SHALL offer no project file. A name matching nothing SHALL list available
+project files alongside the existing member and archive guidance.
+
+#### Scenario: Two project files share a name
+- **WHEN** two loaded projects have files called `Example.vbp` and `open_file` names that file
+- **THEN** the reply refuses the ambiguity and names the paths
+- **AND** passing one path as `project` opens that owner's file read-only
+
 ### Requirement: Refuse invalid archive caret locations before opening
 A supplied archive caret location SHALL be validated before opening and shown when the inspector
 attaches. Entries without a text preview SHALL refuse a caret location with the preview's reason.

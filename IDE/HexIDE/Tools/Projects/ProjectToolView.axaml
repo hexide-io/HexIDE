@@ -86,6 +86,13 @@ xmlns:HexIDE="clr-namespace:HexIDE"
                                    Opacity="0.6" Margin="6,0,0,0" />
                     </StackPanel>
                 </TreeDataTemplate>
+                <!-- The project's own file (#1118): not source either, so the same generic icon. -->
+                <TreeDataTemplate x:DataType="tools:ProjectFileViewModel">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource Geo.Generic}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />
+                        <TextBlock Text="{CompiledBinding Name}" />
+                    </StackPanel>
+                </TreeDataTemplate>
                 <!-- A file the project carries but does not compile. A generic icon rather than a code
                      one, because presenting a README as source is the confusion this whole shape exists
                      to prevent. -->
