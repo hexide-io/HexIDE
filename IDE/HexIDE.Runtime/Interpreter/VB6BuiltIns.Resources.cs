@@ -31,8 +31,9 @@ public partial class VB6BuiltIns
             if (kind is < 0 or > 2) throw new VBRunTimeException(VBStandardError.InvalidPictureType);
             var bytes = self.ProjectResources().Find((ushort)(kind == 0 ? 2 : kind == 1 ? 14 : 12), id);
             if (bytes is null) throw ResourceMissing(id);
-            if (kind != 0) throw new NotImplementedException("Resource icons and cursors are unmeasured (#2626)");
-            return new Vb6Value(PanelPicture.FromResourceBitmap(bytes));
+            var resources = self.ProjectResources();
+            return new Vb6Value(kind == 0 ? PanelPicture.FromResourceBitmap(bytes)
+                : PanelPicture.FromResourceGroup(bytes, kind == 2, image => resources.Find((ushort)(kind == 1 ? 3 : 1), image)));
         };
     }
 
