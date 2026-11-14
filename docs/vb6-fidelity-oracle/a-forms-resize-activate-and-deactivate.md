@@ -142,6 +142,15 @@ doesn't activate a disabled one. Posting matters on the desktop only: Win32 acti
 with the posting removed the pair ran there, before the statement after the Show. Headless, the activation comes after
 the handler either way, so no headless test can tell.
 
+**GotFocus and LostFocus around them (#3932).** A switch raises the old form's control's LostFocus before its
+Deactivate, and the new form's control's GotFocus after its Activate, all four posted with the pair, as measured above.
+A control's GotFocus that the window system reports before the activation waits for it. Focus moving between the
+controls of one form raises the two events where it moves, and so does hiding or disabling the focused control. Hiding
+the active form activates the form active before it, without waiting for the window system (#3920). Live on Windows,
+a three-form program logged the measured order after the statement for `Show`, a form shown again, and `Hide` with
+one form left and with two; a `SetFocus` to another form is pinned headless (`FormSwitchOrderTests`). Hiding the last
+visible form and showing it again raised nothing, as measured.
+
 **Live, on the desktop at 150% scaling.** A two-form program logged, in order:
 - `f1 initialize`, `f1 load`, `f1 resize 5400x4200 ws0`, `f1 activate`;
 - Show2: `f2 initialize`, `f2 load`, `f2 resize 3000x1500 ws0`, the line after the Show, `f1 deactivate`, `f2 activate`;
@@ -153,7 +162,8 @@ the handler either way, so no headless test can tell.
 **A form's `Move`** stopped the program, refused as not implemented. It runs since #1569, which measured it: [A form's
 Move](a-forms-move.md#a-forms-move-2026-10-26-1569).
 
-**Recorded here and left to their own issues:** GotFocus and LostFocus around Activate and Deactivate (#1101), and
+**Recorded here and left to their own issues:** `Visible = False` and `Unload` of the active form, which don't hand
+activation on as `Hide` does, and the control `Screen` reads after the last visible form is shown again (#3936); and
 Paint (#991).
 
 **Not measured:** a form whose `.frm` starts it maximized or minimized. HexIDE raises the show's Resize at the size
