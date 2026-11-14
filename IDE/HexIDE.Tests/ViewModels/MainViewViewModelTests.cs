@@ -170,12 +170,12 @@ public class MainViewViewModelTests
             loaded.Should().ContainSingle().Which.Should().BeSameAs(project);
             module.Should().BeSameAs(project.Modules.Single());
             module.Code.Should().Contain("Edited");
-            _projectManager.DidNotReceive().NewProject(Arg.Any<HexIDE.Addins.IAddinProjectTemplate>(), Arg.Any<string>());
+            _projectManager.DidNotReceive().NewProject(Arg.Any<HexIDE.Addins.IAddinProjectTemplate>(), Arg.Any<string>(), Arg.Any<Action<ProjectDefinition>>());
         }
         else
         {
             loaded.Should().BeEmpty();
-            _projectManager.Received(1).NewProject(IProjectTemplate.StandardEXE, "Project1");
+            _projectManager.Received(1).NewProject(IProjectTemplate.StandardEXE, "Project1", Arg.Any<Action<ProjectDefinition>>());
         }
     }
 

@@ -196,7 +196,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_file_content")]
-    [Description("Returns the current text of a named form, module or carried file: the open editor's text if it is open, otherwise the IDE's copy (for a carried file, the file on disk). For a form, module or class that is its WHOLE FILE, open or not: a form's VERSION line and designer block, a class's header and the leading Attribute lines come first, then the code. So line 1 is the file's first line, as set_breakpoints, set_bookmarks, get_diagnostics and the debugger tools count it, and an editor offset (interact set_property CaretOffset, or the offset a type_text or press_key refusal gives) indexes this text. set_file_content takes it back as it is, or the code alone. A form created in this session and not yet saved or changed in the designer has no header yet, so its text is its code alone. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was read, as the IDE spells them. hasUnsavedChanges means the document has edits not yet saved, including code and designer changes. A save can still normalise a file the IDE did not write, for example by adding a missing module name line. A document with no file yet always has unsaved changes.")]
+    [Description("Returns the current text of a named form, module or carried file: the open editor's text if it is open, otherwise the IDE's copy (for a carried file, the file on disk). For a form, module or class that is its WHOLE FILE, open or not: a form's VERSION line and designer block, a class's header and the leading Attribute lines come first, then the code. So line 1 is the file's first line, as set_breakpoints, set_bookmarks, get_diagnostics and the debugger tools count it, and an editor offset (interact set_property CaretOffset, or the offset a type_text or press_key refusal gives) indexes this text. set_file_content takes it back as it is, or the code alone. New forms hold their header from creation, before their first save. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was read, as the IDE spells them. hasUnsavedChanges means the document has edits not yet saved, including code and designer changes. A save can still normalise a file the IDE did not write, for example by adding a missing module name line. A document with no file yet always has unsaved changes.")]
     public async Task<FileContentResult> GetFileContentAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -393,9 +393,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     /// </para>
     /// <para>
     /// Read AFTER the save, and the order matters. A form's save re-renders its designer block and adopts the
-    /// result as the header: a form that had no header yet gains one there, and one VB6 wrote can change
-    /// height. A range taken before the save would disagree with the next get_file_content in exactly the case
-    /// a caller cannot predict. The path is read afterwards for the same reason: a first save through an armed
+    /// result as the header, which can change height for a file VB6 wrote. A range taken before the save would
+    /// disagree with the next get_file_content in exactly the case a caller cannot predict. The path is read afterwards for the same reason: a first save through an armed
     /// file dialog is where a document gets one.
     /// </para>
     /// </remarks>

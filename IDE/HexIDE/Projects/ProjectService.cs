@@ -197,7 +197,7 @@ public partial class ProjectService : IProjectService
 
         var name = ProjectNaming.NextFreeProjectName(projectManager.LoadedProjects);
         Log.Debug("ProjectService: Creating project '{ProjectName}' from template {Template}", name, template.Name);
-        projectManager.NewProject(template, name);
+        projectManager.NewProject(template, name, RecordTemplateHeaders);
         EnsureGroupIfMultiple();
     }
 
@@ -211,8 +211,22 @@ public partial class ProjectService : IProjectService
 
         var name = ProjectNaming.NextFreeProjectName(projectManager.LoadedProjects);
 
-        projectManager.NewProject(template, name);
+        projectManager.NewProject(template, name, RecordTemplateHeaders);
         EnsureGroupIfMultiple();
+    }
+
+    private void RecordTemplateHeaders(ProjectDefinition project)
+    {
+        // Only through HexIDE's own format. A project whose forms an add-in renders keeps its header for the first save,
+        // so creating the project never runs the add-in's code at a new time (#885, #3666).
+        if (project.FormFormat is not null)
+            return;
+        foreach (var form in project.Forms)
+            form.RecordDesignerText(FormCodeText.DesignerHalfOf(
+                RenderForm(form, form.Name + ".frm").Text, form.Code));
+        foreach (var module in project.Modules)
+            DesignerPartOf(module)?.RecordDesignerText(FormCodeText.DesignerHalfOf(
+                RenderModule(module, module.Name + "." + ModuleExtension(module.Kind)).Text, module.Code));
     }
 
     private void EnsureGroupIfMultiple()
@@ -2040,7 +2054,7 @@ public partial class ProjectService : IProjectService
             EnsureNewMemberEncodable(project, form, name + ".frm");
             // No file until the project is saved, as in VB6 (#489, #500). The header its first save will write is
             // rendered now and held, so the code window shows what the file will say, and the next refresh has the
-            // header it replaces to compare against (#885).
+            // header it replaces to compare against, as the project template does (#885).
             form.RecordDesignerText(FormCodeText.DesignerHalfOf(RenderForm(form, name + ".frm").Text, form.Code));
             project.AddForm(form);
             return Task.FromResult(form);
@@ -2087,7 +2101,8 @@ public partial class ProjectService : IProjectService
         var fileName = module.Name + "." + ModuleExtension(module.Kind);
         EnsureNewMemberEncodable(project, module, fileName);
         // The header the code window will show, rendered as the first save will write it and held from now, as a
-        // new form's is (#885). Without it a brand-new UserControl or PropertyPage opens with no designer block.
+        // new form's and a template member's are (#885). Without it a brand-new UserControl or PropertyPage opens
+        // with no designer block.
         DesignerPartOf(module)?.RecordDesignerText(
             FormCodeText.DesignerHalfOf(RenderModule(module, fileName).Text, module.Code));
         project.AddModule(module);

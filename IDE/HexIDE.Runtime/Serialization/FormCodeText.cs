@@ -174,14 +174,10 @@ public static class FormCodeText
     /// included. Both halves are slices of the text that was read.
     ///
     /// <para>
-    /// A form HexIDE created has no designer text <b>until something renders one</b>, so until then this is
-    /// its code alone. That is right rather than a gap while it lasts: nothing has decided what the file will
-    /// say. A form created with a file (<c>ProjectService.AddNewForm</c>) is rendered by the write that creates
-    /// it. One created with none, the Standard EXE template's <c>Form1</c> or the Project Explorer's Add Form,
-    /// is rendered by its first committed designer change, under the name its first save will use, or by that
-    /// save (task 3.4), after which this composes both halves like any other form. What still has no answer is
-    /// the window in between — such a form opened and never touched shows no header, and what ought to appear
-    /// there, with how the sidecar would tell whether its marks already count it, is hexide-io/HexIDE#885.
+    /// ProjectService holds a template's or Add Form's first-save designer text from creation
+    /// (#885), before a code window can open or marks can be set. Later designer changes and saves compare
+    /// against that stored header when moving marks. Sidecar version 3 anchors code marks after the header,
+    /// so saving and reopening preserves their statements without another numbering record.
     /// </para>
     ///
     /// <para>

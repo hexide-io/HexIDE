@@ -2,6 +2,10 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Headless.XUnit;
+using HexIDE.Bookmarks;
+using HexIDE.Debugging;
+using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
@@ -37,10 +41,11 @@ public class WriteAtSaveTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private ProjectService MakeService()
+    private ProjectService MakeService(IUserSidecarService? realSidecar = null, IHeaderRefresher? refresher = null, IProjectManager? manager = null)
     {
-        var projectManager = Substitute.For<IProjectManager>();
-        projectManager.LoadedProjects.Returns(_ => loaded);
+        var projectManager = manager ?? Substitute.For<IProjectManager>();
+        if (manager is null)
+            projectManager.LoadedProjects.Returns(_ => loaded);
         // Every picker is answered with the chosen folder and the name it suggests, as a developer accepting
         // each suggestion there would.
         windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
@@ -57,10 +62,10 @@ public class WriteAtSaveTests : IDisposable
             projectManager,
             Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(),
-            sidecar,
+            realSidecar ?? sidecar,
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>(),
+            refresher ?? Substitute.For<IHeaderRefresher>(),
             new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 
@@ -272,6 +277,107 @@ public class WriteAtSaveTests : IDisposable
 
         File.ReadAllText(form.AbsolutePath!).Should().StartWith(header!);
     }
+
+    [AvaloniaFact]
+    public async Task A_template_form_opens_with_the_header_its_first_save_writes()
+    {
+        var manager = new ProjectManager(Substitute.For<IEditorService>(), new EventBus());
+        var service = MakeService(manager: manager);
+        await service.CreateNewProject(IProjectTemplate.StandardEXE);
+        var project = manager.LoadedProjects.Single();
+        var form = project.Forms.Single();
+        using var editor = TemplateEditor(form, new BookmarkService(), new BreakpointService());
+        var header = form.DesignerText;
+
+        header.Should().NotBeNullOrEmpty();
+        editor.Document.Text.Should().StartWith(header!);
+        editor.Document.Text.Should().StartWith("VERSION 5.00");
+        await service.SaveProject(project, saveAs: false);
+
+        File.ReadAllBytes(form.AbsolutePath!).Take(Vb6TextFile.Encode(header!, form.TextEncoding).Length)
+            .Should().Equal(Vb6TextFile.Encode(header!, form.TextEncoding));
+    }
+
+    [AvaloniaFact]
+    public async Task Template_marks_set_before_first_save_reopen_on_the_same_statement()
+    {
+        var projects = new ProjectManager(Substitute.For<IEditorService>(), new EventBus());
+        await MakeService(manager: projects).CreateNewProject(IProjectTemplate.StandardEXE);
+        var project = projects.LoadedProjects.Single();
+        var form = project.Forms.Single();
+        form.UpdateCode("Private Sub Form_Load()\r\n    Debug.Print 885\r\nEnd Sub\r\n");
+        var bookmarks = new BookmarkService();
+        var breakpoints = new BreakpointService();
+        var manager = Substitute.For<IProjectManager>();
+        var sidecar = new UserSidecarService(bookmarks, breakpoints, manager,
+            new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader())
+        {
+            Debounce = token => Task.Delay(System.Threading.Timeout.Infinite, token),
+        };
+        await sidecar.LoadAsync(project);
+        using var editor = TemplateEditor(form, bookmarks, breakpoints);
+        var line = editor.Document.GetLineByOffset(editor.Document.Text.IndexOf("    Debug.Print", StringComparison.Ordinal)).LineNumber;
+        var document = DocumentIdentity.For(form);
+        breakpoints.SetDocument(document, [line]);
+        bookmarks.SetBookmarks(document, [line]);
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
+        using var refresher = new HeaderRefresher(new Vb6ReadOnlyRegionWriter(), new EventBus(), dock,
+            breakpoints, bookmarks, new Vb6ProjectFileFormat());
+
+        await MakeService(sidecar, refresher).SaveProject(project, saveAs: false);
+        await sidecar.SaveAsync(project);
+        manager.ProjectUnloaded += Raise.Event<Action<ProjectDefinition>>(project);
+        var reopened = (await new ProjectLoader().LoadAsync(project.AbsolutePath!, new ThrowingSink())).Project;
+        await sidecar.LoadAsync(reopened);
+        using var reopenedEditor = TemplateEditor(reopened.Forms.Single(), bookmarks, breakpoints);
+        var reopenedDocument = DocumentIdentity.For(reopened.Forms.Single());
+
+        breakpoints.GetBreakpoints(reopenedDocument).Should().Equal(line);
+        bookmarks.GetBookmarks(reopenedDocument).Should().Equal(line);
+        var statement = reopenedEditor.Document.GetLineByNumber(line);
+        reopenedEditor.Document.GetText(statement).Should().Be("    Debug.Print 885");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(ModuleKind.UserControl)]
+    [InlineData(ModuleKind.PropertyPage)]
+    public async Task Template_designer_modules_hold_their_header_before_the_project_is_added(ModuleKind kind)
+    {
+        var manager = new ProjectManager(Substitute.For<IEditorService>(), new EventBus());
+        var template = new ProjectTemplate("Designer", "generic", true, name =>
+        {
+            var project = new ProjectDefinition(VBProjectType.EXE, name);
+            project.AddModule(ModuleDefinition.NewDesigner(project, "Designer1", kind,
+                HexIDE.Runtime.Components.FormComponentClass.ForRoot(
+                    kind == ModuleKind.UserControl ? "VB.UserControl" : "VB.PropertyPage")));
+            return project;
+        });
+        string? headerAtAdd = null;
+        manager.ProjectLoaded += project => headerAtAdd = project.Modules.Single().FormPart!.DesignerText;
+        var service = MakeService(manager: manager);
+
+        await service.CreateNewProject(template);
+
+        headerAtAdd.Should().NotBeNullOrEmpty();
+        var module = manager.LoadedProjects.Single().Modules.Single();
+        module.FormPart!.DesignerText.Should().Be(headerAtAdd);
+    }
+
+    private static CodeEditorViewModel TemplateEditor(FormDefinition form,
+        BookmarkService bookmarks, BreakpointService breakpoints) =>
+        new CodeEditorViewModel(Substitute.For<IWindowManager>(),
+            Substitute.For<IEditorService>(), Substitute.For<IProjectService>(), new EventBus(),
+            Substitute.For<HexIDE.Lsp.ILspClient>(), Substitute.For<ISettingsService>(),
+            Substitute.For<IStatusBarService>(), bookmarks, breakpoints,
+            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<IRunScope>(),
+            new HexIDE.Localization.LocalizationService(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).Initialize(form);
+
+    private sealed class ThrowingSink : IDeserializeErrorSink
+    {
+        public void LogError(string message) => throw new InvalidOperationException(message);
+    }
+
     // #2678: --newproject writes the initial project into its recorded scratch folder.
     [Theory]
     [InlineData(false)]
