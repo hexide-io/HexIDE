@@ -36,6 +36,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
     private readonly string _originalTheme;
     private readonly string _originalLanguage;
     private readonly List<IOptionsPage> _pages = [];
+    private readonly List<AddinOptionsPageViewModel> _addinPages = [];
     private readonly List<OptionsNodeViewModel> _keyedNodes = [];
 
     public string Title => _localization.GetString("Str.Options.Title");
@@ -146,9 +147,12 @@ public partial class OptionsViewModel : ObservableObject, IDialog
             group.Add(Group("Str.Options.Node.NoAddins", overview));
         foreach (var info in addins)
         {
-            var page = new AddinOptionsPageViewModel(_addinRegistry, info, _addinOptions.GetFactoryFor(info.AssemblyPath), _confirmAddinWithdrawal);
+            var page = new AddinOptionsPageViewModel(_addinRegistry, info, _addinOptions.GetFactoryFor(info.AssemblyPath), _confirmAddinWithdrawal, _localization);
+            _addinPages.Add(page);
             // Add-in node label is the add-in's own name — not localized (no key).
-            group.Add(new OptionsNodeViewModel(page.Title, page));
+            group.Add(string.IsNullOrWhiteSpace(info.Title)
+                ? Group("Str.Options.Addin.Unnamed", page)
+                : new OptionsNodeViewModel(page.Title, page));
         }
         RootNodes.Add(group);
     }
@@ -190,6 +194,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
         foreach (var page in _pages) page.SaveToSettings();
         _settings.Save();
         foreach (var page in _pages.OfType<IDisposable>()) page.Dispose();
+        foreach (var page in _addinPages) page.Dispose();
         Log.Debug("OptionsViewModel: OK — settings saved");
         _localization.LanguageChanged -= OnLanguageChanged;
         CloseRequested?.Invoke(true);
@@ -202,6 +207,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
         // The language revert is silent (no gate) — Cancel is itself the confirmation.
         _localization.LanguageChanged -= OnLanguageChanged;
         foreach (var page in _pages.OfType<IDisposable>()) page.Dispose();
+        foreach (var page in _addinPages) page.Dispose();
         _themeService.Apply(_originalTheme);
         _languageSwitch.Apply(_originalLanguage);
         Log.Debug("OptionsViewModel: Cancel — changes discarded");

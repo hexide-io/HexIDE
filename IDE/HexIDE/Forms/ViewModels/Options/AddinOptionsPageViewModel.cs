@@ -4,6 +4,7 @@ using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HexIDE.Addins;
+using HexIDE.Localization;
 using HexIDE.Runtime.Serialization;
 using Serilog;
 
@@ -15,13 +16,15 @@ namespace HexIDE.Forms.ViewModels.Options;
 /// persisted immediately via <see cref="IAddinRegistry"/> (independent of the dialog's OK/Cancel)
 /// and takes effect on the next IDE restart.
 /// </summary>
-public partial class AddinOptionsPageViewModel : ObservableObject
+public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
 {
+    private readonly ILocalizationService _localization;
+    private readonly AddinInfo _info;
+    private readonly AddinStatus _trustStatus;
+
     private readonly IAddinRegistry _registry;
     private readonly string _assemblyPath;
     private readonly string _manifestHash;
-    private readonly string? _compatibilityError;
-    private readonly string? _loadError;
     private readonly string _addinId;
     private readonly Func<string, Task<bool>>? _confirmWithdrawal;
 
@@ -30,33 +33,46 @@ public partial class AddinOptionsPageViewModel : ObservableObject
     /// add-in writes are saved, or let go, while it can still write them.
     /// </param>
     public AddinOptionsPageViewModel(IAddinRegistry registry, AddinInfo info, Func<object>? contributedFactory = null,
-        Func<string, Task<bool>>? confirmWithdrawal = null)
+        Func<string, Task<bool>>? confirmWithdrawal = null, ILocalizationService? localization = null)
     {
         _registry = registry;
+        _info = info;
+        _localization = localization ?? new LocalizationService();
         _addinId = info.Id;
         _confirmWithdrawal = confirmWithdrawal;
         _assemblyPath = info.AssemblyPath;
         _manifestHash = info.ManifestHash;
-        _compatibilityError = info.CompatibilityError;
-        _loadError = info.LoadError;
-        Title = string.IsNullOrWhiteSpace(info.Title) ? "(unnamed add-in)" : info.Title;
-        Description = string.IsNullOrWhiteSpace(info.Description) ? "(no description provided)" : info.Description;
         Version = string.IsNullOrWhiteSpace(info.Version) ? "—" : info.Version;
         Author = string.IsNullOrWhiteSpace(info.Author) ? "—" : info.Author;
-        Publisher = string.IsNullOrWhiteSpace(info.Publisher)
-            ? "Unsigned (developer build)"
-            : $"Verified: {info.Publisher}";
-        _status = registry.GetStatus(_assemblyPath);
+        _status = _trustStatus = registry.GetStatus(_assemblyPath);
         ContributedContent = BuildContributedContent(contributedFactory);
         Logo = DecodeLogo(info);
-        TrustChain = BuildTrustChain(info, _status);
+        _localization.LanguageChanged += OnLanguageChanged;
     }
 
-    public string Title { get; }
-    public string Description { get; }
+    public void Dispose() => _localization.LanguageChanged -= OnLanguageChanged;
+
+    private void OnLanguageChanged()
+    {
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(Description));
+        OnPropertyChanged(nameof(Publisher));
+        OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(ToggleLabel));
+        OnPropertyChanged(nameof(ConsentText));
+        OnPropertyChanged(nameof(TrustChain));
+    }
+
+    public string Title => string.IsNullOrWhiteSpace(_info.Title) ? Text("Unnamed") : _info.Title;
+    public string Description => string.IsNullOrWhiteSpace(_info.Description) ? Text("NoDescription") : _info.Description;
     public string Version { get; }
     public string Author { get; }
-    public string Publisher { get; }
+    public string Publisher => string.IsNullOrWhiteSpace(_info.Publisher)
+        ? Text("PublisherUnsigned")
+        : string.Format(Text("PublisherVerified"), _info.Publisher);
+
+    private string Text(string name) => _localization.GetString("Str.Options.Addin." + name);
+    private string Format(AddinMessage message) => string.Format(_localization.GetString(message.Key), message.Arguments);
 
     /// <summary>The publisher's logo, or null if the add-in shipped none / it failed the safety gate.
     /// Sourced from the verifier-sanitized <see cref="AddinInfo.LogoPath"/>, so the file is always a
@@ -70,7 +86,7 @@ public partial class AddinOptionsPageViewModel : ObservableObject
     public bool HasContributedContent => ContributedContent is not null;
 
     /// <summary>The read-only trust-chain inspector for this add-in, embedded behind the "Trust" expander.</summary>
-    public TrustChainViewModel TrustChain { get; }
+    public TrustChainViewModel TrustChain => BuildTrustChain(_info, _trustStatus);
 
     [ObservableProperty] private AddinStatus _status;
     [ObservableProperty] private bool _restartNoteVisible;
@@ -80,18 +96,18 @@ public partial class AddinOptionsPageViewModel : ObservableObject
     public bool IsAddinEnabled => Status != AddinStatus.Disabled;
     public string StatusText => Status switch
     {
-        AddinStatus.Incompatible => _compatibilityError ?? Status.ToString(),
-        AddinStatus.Error => _loadError ?? Status.ToString(),
-        _ => Status.ToString(),
+        AddinStatus.Incompatible => _info.CompatibilityMessage is { } message ? Format(message) : _info.CompatibilityError ?? Text("Status.Incompatible"),
+        AddinStatus.Error => _info.LoadError is { } message ? Format(message) : Text("Status.Error"),
+        _ => Text("Status." + Status),
     };
-    public string ToggleLabel => IsAddinEnabled ? "Deactivate" : "Activate";
+    public string ToggleLabel => Text(IsAddinEnabled ? "Deactivate" : "Activate");
 
     /// <summary>The first-load consent state, derived from the load status.</summary>
     public string ConsentText => Status switch
     {
-        AddinStatus.Loaded or AddinStatus.DeveloperUnsigned => "Allowed",
-        AddinStatus.ConsentDenied => "Blocked",
-        AddinStatus.AwaitingConsent => "Awaiting first-load consent",
+        AddinStatus.Loaded or AddinStatus.DeveloperUnsigned => Text("ConsentAllowed"),
+        AddinStatus.ConsentDenied => Text("ConsentBlocked"),
+        AddinStatus.AwaitingConsent => Text("ConsentAwaiting"),
         _ => "—",
     };
 
@@ -137,13 +153,13 @@ public partial class AddinOptionsPageViewModel : ObservableObject
 
     // The trust chain for the "Trust" expander. A verified add-in carries its chain; an unsigned/untrusted
     // one carries none, so we show why; a revoked one keeps its (still-valid) chain plus a revoked banner.
-    private static TrustChainViewModel BuildTrustChain(AddinInfo info, AddinStatus status)
+    private TrustChainViewModel BuildTrustChain(AddinInfo info, AddinStatus status)
     {
         var unavailable = info.Chain is null
             ? status switch
             {
-                AddinStatus.DeveloperUnsigned => "No verifiable identity — unsigned developer build.",
-                AddinStatus.Untrusted => "Not verified — signature missing or invalid.",
+                AddinStatus.DeveloperUnsigned => Text("TrustUnsigned"),
+                AddinStatus.Untrusted => Text("TrustUnverified"),
                 _ => null,
             }
             : null;

@@ -501,6 +501,7 @@ public class ShippedPackParityTests
             .Select(pair => pair.Key).Should().BeEquivalentTo(new[]
             {
                 "Str.Tool.FindReferences.Error",
+                "Str.Options.Addin.Status.Incompatible",
                 "Str.CodeEditor.ViewAs.Vb6", "Str.Tool.Locals.Ellipsis",
                 "Str.Dialog.AddProcedure.Type.Sub", "Str.Dialog.MenuEditor.Visible",
                 "Str.Tool.ProtocolInspector.DetailHeader", "Str.StatusBar.Insert",
