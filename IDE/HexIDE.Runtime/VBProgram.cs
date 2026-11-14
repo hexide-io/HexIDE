@@ -423,11 +423,14 @@ public sealed class VBProgram : IFormProgram
         // Show inside Load is the measured exception: Activate and initial focus run inside Load (#2436). A window is
         // shown before it is activated, so a Show's Resize has run by then.
         using var posting = context.Loading ? null : Events.Posting();
+        // Own both ends of the control focus switch: native focus can arrive before or after activation (#3932).
+        (previous?.Window as VBFormRuntime)?.BlurControl();
         previous?.BlurForm();
         previous?.ExecuteSub("Form_Deactivate");
         context.ShowControls();
         context.ExecuteSub("Form_Activate");
         context.FocusFirstControl();
+        (context.Window as VBFormRuntime)?.RestoreControlFocus();
         context.FocusFormWithoutControl();
     }
 

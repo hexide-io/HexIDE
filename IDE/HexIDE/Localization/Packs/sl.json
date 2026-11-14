@@ -258,6 +258,8 @@
     "Str.Menu.Help.BrandHome": "_Domača stran za {0}",
     "Str.Menu.Help.BrandSupport": "_Podpora za {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE na _spletu",
+    "Str.Menu.Help.LogFolder": "Odpri mapo dnevni_kov HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Mape dnevnikov ni bilo mogoče odpreti. Odprete jo lahko ročno: {0}",
     "Str.Menu.Help.About": "_O programu HexIDE...",
     "Str.Menu.GoToGithubRepo": "Pojdi v repozitorij GitHub",
     "Str.ProjectType.StandardEXE": "Standardni EXE",
@@ -1274,6 +1276,7 @@
     "Str.AIChat.Send": "Pošlji",
     "Str.AIChat.New": "Nov",
     "Str.AIChat.InputPlaceholder": "Vprašajte o svoji kodi…",
-    "Str.AIChat.NewTip": "Nov klepet (zgodovina se ohrani)"
+    "Str.AIChat.NewTip": "Nov klepet (zgodovina se ohrani)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} si delijo mapo {1}; zapiše ali uvozi se samo {2}."
   }
 }

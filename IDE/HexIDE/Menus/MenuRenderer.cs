@@ -252,6 +252,7 @@ internal sealed class MenuRenderer : IDisposable
             case nameof(MainViewViewModel.AddUserControlCommand): item.Bind(MenuItem.CommandProperty, Bind(v => v.AddUserControlCommand)); break;
             case nameof(MainViewViewModel.OpenAddInManager): item.Bind(MenuItem.CommandProperty, Method(member, vm => vm.OpenAddInManager())); break;
             case nameof(MainViewViewModel.OpenDiagnosticsCommand): item.Bind(MenuItem.CommandProperty, Bind(v => v.OpenDiagnosticsCommand)); break;
+            case nameof(MainViewViewModel.OpenLogFolderCommand): item.Bind(MenuItem.CommandProperty, Bind(v => v.OpenLogFolderCommand)); break;
             case nameof(MainViewViewModel.OpenBrandHomeCommand): item.Bind(MenuItem.CommandProperty, Bind(v => v.OpenBrandHomeCommand)); break;
             case nameof(MainViewViewModel.OpenBrandSupportCommand): item.Bind(MenuItem.CommandProperty, Bind(v => v.OpenBrandSupportCommand)); break;
             case nameof(MainViewViewModel.OpenGithubRepo): item.Bind(MenuItem.CommandProperty, Method(member, vm => vm.OpenGithubRepo().ListenErrors())); break;

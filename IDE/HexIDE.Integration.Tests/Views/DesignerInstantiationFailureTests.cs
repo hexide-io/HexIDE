@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Text;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -79,6 +80,115 @@ public class DesignerInstantiationFailureTests
             throw (notImplemented ? new NotImplementedException("Preview refused") : new InvalidOperationException("Preview refused"));
     }
 
+    private sealed class PairedPreviewComponent(bool fails) : FrameComponentClass
+    {
+        public override string VBTypeName => "Test.Paired";
+        protected override Control InstantiateInternal(ComponentInstance instance) =>
+            fails ? throw new NotImplementedException("Preview refused") : base.InstantiateInternal(instance);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("plain")]
+    [InlineData("children")]
+    [InlineData("companion")]
+    [InlineData("unknown")]
+    public void Editing_elsewhere_keeps_the_same_block_with_and_without_preview_failure(string scenario)
+    {
+        var source = "VERSION 5.00\r\nBegin VB.Form Form1\r\n" +
+            "   ClientHeight = 4500\r\n   ClientWidth = 6000\r\n" +
+            "   Begin Test.Paired Broken1\r\n" +
+            "      Left = 300\r\n      Top = 600\r\n      Width = 1500\r\n      Height = 900\r\n" +
+            (scenario == "children" ? "      Begin VB.CommandButton Child1\r\n         Caption = \"Child\"\r\n         Width = 600\r\n         Height = 300\r\n      End\r\n" : "") +
+            (scenario == "companion" ? "      UnmodelledPicture = \"Form1.frx\":0000\r\n" : "") +
+            (scenario == "unknown" ? "      UnmodelledValue = \"kept\"\r\n      BeginProperty UnmodelledGroup\r\n         Value = 7\r\n      EndProperty\r\n" : "") +
+            "   End\r\n   Begin VB.CommandButton Command1\r\n" +
+            "      Left = 300\r\n      Top = 1800\r\n      Width = 1500\r\n      Height = 450\r\n   End\r\nEnd\r\n";
+        string? workingBlock = null;
+        foreach (var fails in new[] { false, true })
+        {
+            var component = new PairedPreviewComponent(fails);
+            byte[]? companion = scenario == "companion" ? [4, 0, 0, 0, 1, 2, 3, 4] : null;
+            var (form, input, view, window) = Open(source,
+                new Dictionary<string, ComponentBaseClass> { [component.VBTypeName] = component }, companion);
+            try
+            {
+                var broken = form.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "Broken1");
+                view.GetVisualDescendants().OfType<ControlRenderer>().Single(r => r.Component!.Name == "Broken1")
+                    .Component!.HasDesignerPreview.Should().Be(!fails);
+                if (scenario == "children")
+                    broken.ContainedControls.Should().ContainSingle(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "Child1");
+                var command = form.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "Command1");
+                var left = command.GetPropertyOrDefault(VBProperties.LeftProperty);
+                command.SetProperty(VBProperties.LeftProperty, left + 120);
+                form.Components.Single(c => c.BaseClass is FormComponentClass)
+                    .SetProperty(VBProperties.CaptionProperty, "Edited elsewhere");
+                var output = new FormSerializer().Serialize(form, "Form1.frm");
+                output.frmText.Should().NotBe(input);
+                var reread = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
+                    output.frmText, new NullSink(), extraComponents:
+                    new Dictionary<string, ComponentBaseClass> { [component.VBTypeName] = component })!;
+                reread.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "Command1").GetPropertyOrDefault(VBProperties.LeftProperty)
+                    .Should().Be(left + 120, "the edited save must go through the full writer");
+                reread.Components.Single(c => c.BaseClass is FormComponentClass).GetPropertyOrDefault(VBProperties.CaptionProperty)
+                    .Should().Be("Edited elsewhere");
+                var block = PairedBlock(output.frmText);
+                Encoding.UTF8.GetBytes(block).Should().Equal(Encoding.UTF8.GetBytes(PairedBlock(input)));
+                if (workingBlock is not null)
+                    block.Should().Be(workingBlock);
+                workingBlock = block;
+                if (companion is not null)
+                    output.frxContent.Should().Equal(companion);
+                window.IsVisible.Should().BeTrue();
+            }
+            finally { window.Close(); }
+        }
+    }
+
+    [AvaloniaFact]
+    public void Corpus_TabStrip_block_survives_a_form_edit_after_its_preview_refuses()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "corpus")))
+            root = root.Parent;
+        var source = File.ReadAllText(Path.Combine(root!.FullName, "corpus", "inbox-controls", "saved", "tabstrip", "Form1.frm"));
+        string? withoutPreview = null;
+        foreach (var showPreview in new[] { false, true })
+        {
+            var companion = File.ReadAllBytes(Path.Combine(root.FullName, "corpus", "inbox-controls", "saved", "tabstrip", "Form1.frx"));
+            var (form, input, view, window) = Open(source, companion: companion, showPreview: showPreview);
+            try
+            {
+                if (showPreview)
+                    view.GetVisualDescendants().OfType<ControlRenderer>().Single(r => r.Component!.Name == "TabStrip1")
+                        .Component!.HasDesignerPreview.Should().BeFalse();
+                form.Components.Single(c => c.BaseClass is FormComponentClass)
+                    .SetProperty(VBProperties.CaptionProperty, "Edited elsewhere");
+                var output = new FormSerializer().Serialize(form, "Form1.frm").frmText;
+                output.Should().NotBe(input).And.Contain("Edited elsewhere");
+                string Block(string text)
+                {
+                    var start = text.IndexOf("   Begin MSComctlLib.TabStrip TabStrip1", StringComparison.Ordinal);
+                    var end = text.IndexOf("\r\n   End", start, StringComparison.Ordinal) + "\r\n   End".Length;
+                    return text[start..end];
+                }
+                Encoding.UTF8.GetBytes(Block(output)).Should().Equal(Encoding.UTF8.GetBytes(Block(input)));
+                // VB6's own save of this form round-trips, so the block is also VB6's bytes, not only the writer's.
+                Block(input).Should().Be(Block(source));
+                if (withoutPreview is not null)
+                    Block(output).Should().Be(withoutPreview);
+                withoutPreview = Block(output);
+            }
+            finally { window.Close(); }
+        }
+    }
+
+    private static string PairedBlock(string source)
+    {
+        var start = source.IndexOf("   Begin Test.Paired Broken1", StringComparison.Ordinal);
+        var end = source.IndexOf("\r\n   End", start, StringComparison.Ordinal) + "\r\n   End".Length;
+        return source[start..end];
+    }
+
     private sealed class CapturedLog : ILogEventSink, IDisposable
     {
         private readonly ILogger previous = Log.Logger;
@@ -91,13 +201,17 @@ public class DesignerInstantiationFailureTests
     private sealed class NullSink : IDeserializeErrorSink { public void LogError(string _) { } }
 
     private static (FormDefinition Form, string Original, FormEditView View, Window Window) Open(string source,
-        IReadOnlyDictionary<string, ComponentBaseClass>? registrations = null)
+        IReadOnlyDictionary<string, ComponentBaseClass>? registrations = null,
+        byte[]? companion = null, bool showPreview = true)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        var form = new FormDeserializer().Deserialize(project, source, new NullSink(), extraComponents: registrations)!;
+        var form = new FormDeserializer().Deserialize(project, source, new NullSink(),
+            frxBlobs: companion is null ? null : FrxDeserializer.Read(companion, source), extraComponents: registrations)!;
         // Start with the writer's format; this test isolates preview changes from format normalisation.
-        var original = new FormSerializer().Serialize(form, "Form1.frm").frmText;
-        form = new FormDeserializer().Deserialize(project, original, new NullSink(), extraComponents: registrations)!;
+        var input = new FormSerializer().Serialize(form, "Form1.frm");
+        var original = input.frmText;
+        form = new FormDeserializer().Deserialize(project, original, new NullSink(),
+            frxBlobs: input.frxContent is null ? null : FrxDeserializer.Read(input.frxContent, original), extraComponents: registrations)!;
         project.AddForm(form);
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString("Str.Designer.Unmodelled.ViewOnly").Returns("View-only in the designer");
@@ -105,8 +219,11 @@ public class DesignerInstantiationFailureTests
             Substitute.For<ISettingsService>(), localization, new Vb6ProjectFileFormat()).Initialize(form);
         var view = new FormEditView { DataContext = vm };
         var window = new Window { Width = 800, Height = 600, Content = view };
-        window.Show();
-        window.UpdateLayout();
+        if (showPreview)
+        {
+            window.Show();
+            window.UpdateLayout();
+        }
         return (form, original, view, window);
     }
 

@@ -52,6 +52,20 @@ before opening anything.
 - **AND WHEN** the caller repeats the request with one container path as `project`
 - **THEN** that archive's entry opens read-only and the reply names it
 
+### Requirement: Archive tab identities and type
+`get_document_tabs` SHALL report an archive entry tab with `type: archive`, `project` equal to its
+container path and `document` equal to the entry path returned by `open_file`. It SHALL omit
+`isModified` for these read-only previews. The tab activation and closing tools SHALL accept
+`archive` as a type filter.
+
+#### Scenario: Two archive tabs show the same entry path
+- **WHEN** two open archives have tabs showing the same entry path
+- **THEN** both tabs report that path and their distinct container paths with type `archive`
+
+#### Scenario: Activate an archive preview
+- **WHEN** `activate_document_tab` names an archive tab's unique title with `type: archive`
+- **THEN** the tab is brought to the front
+
 ### Requirement: Refuse invalid archive caret locations before opening
 A supplied archive caret location SHALL be validated before opening and shown when the inspector
 attaches. Entries without a text preview SHALL refuse a caret location with the preview's reason.
@@ -1451,11 +1465,21 @@ the pointer and a tip it opened stays open, and `take_snapshot` SHALL draw that 
 whether the control reads as under the pointer once the move has settled, and what took it when it does not. The next
 click, drag or hover in that window SHALL end a staying hover before it acts. A click, drag or hover in another window
 SHALL end it too, and its reply SHALL name the window the pointer left. `inspect_element` SHALL report `isPointerOver`.
+From a staying hover's move through its tooltip dwell and stay, real-device moves within 1 screen pixel of that
+device's last recorded screen position SHALL be ignored before pointer-over preprocessing, including in popup
+windows. Where screen coordinates are available, real positions SHALL be recorded before a stay too. Native Wayland input SHALL pass unchanged because its screen position
+is unavailable. With no recorded position, the first move SHALL pass through; a move to a new position SHALL still take the
+pointer back with the existing foreign-pointer reply. Other input and automation's own moves SHALL pass unchanged.
 
 #### Scenario: A toolbar button's hover look
 - **WHEN** `hover` with `stay` lands on a toolbar button that has a tip, with the real mouse off the window
 - **THEN** the reply says the button reads as under the pointer, `inspect_element` reports `isPointerOver` true, and a
   snapshot draws its tip
+
+#### Scenario: A resting real mouse restates its position
+- **WHEN** a real mouse position was recorded before a staying hover, and the platform restates that screen position
+- **THEN** the hovered control remains pointer-over and its tip stays open, including when the restatement arrives
+  just after the tip opens during the dwell
 
 #### Scenario: The next click ends it
 - **WHEN** a click lands elsewhere in that window

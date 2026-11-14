@@ -2,6 +2,8 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Help.LogFolder": "Abrir pasta de _registros do HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Não foi possível abrir a pasta de registros. Você pode abri-la manualmente: {0}",
     "Str.Dock.Host": "Host de encaixe",
     "Str.Dock.Root": "Encaixe raiz",
     "Str.Dock.PinnedHost": "Host de encaixe fixado",
@@ -178,6 +180,7 @@
     "Str.Dock.ToolChromeControlDockAsDocument": "Acoplar como documento em aba",
     "Str.Dock.ToolTabStripItemDockAsDocument": "Acoplar como documento em aba",
     "Str.AIChat.PrivacyNotice": "ℹ Privacidade: suas mensagens, o conteúdo do arquivo ativo (em um formulário, também o layout e as legendas) e seus diagnósticos são enviados para {0}, um serviço de terceiros configurado nas definições do chat de IA.",
-    "Str.AIChat.PrivacyKeyTip": "Dica: defina a variável de ambiente HEXIDE_AI_API_KEY para evitar salvar sua chave API em um arquivo."
+    "Str.AIChat.PrivacyKeyTip": "Dica: defina a variável de ambiente HEXIDE_AI_API_KEY para evitar salvar sua chave API em um arquivo.",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Os projetos {0} compartilham a pasta {1}; apenas {2} é gravado ou importado."
   }
 }

@@ -12,6 +12,52 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Projects sharing a workspace artefact or import folder
+
+For an entry declaring `workspaceArtifact` or `projectImport`, HexIDE SHALL write or import only the first
+loaded project in each resolved host folder. It SHALL report a configuration problem in Tools > Language
+Servers naming all projects sharing that folder, without rejecting the server entry. The problem SHALL
+clear on the project-change debounce when the projects no longer share a folder.
+
+#### Scenario: Two projects would replace the same descriptor
+
+- **GIVEN** First and Second are loaded in that order from the same folder
+- **WHEN** an entry generates a workspace artefact or imports projects
+- **THEN** only First is written or imported for that folder
+- **AND** a configuration problem names First and Second
+
+#### Scenario: Projects move to separate folders
+
+- **GIVEN** a shared-folder configuration problem is shown
+- **WHEN** the projects acquire distinct folders and the project-change debounce completes
+- **THEN** both projects are written or imported in their respective folders
+- **AND** the shared-folder problem disappears
+
+
+### Requirement: Carried-file completion and signature help
+
+A carried-file editor SHALL offer completion and signature help from its claiming language servers,
+only for capabilities each server advertises. It SHALL flush pending document edits before each
+request, use the caret position, and detach its completion, snippet and signature-help handlers
+without stacking them when the view is reattached. The code window SHALL share that component while
+retaining its own completion position, commit keys and editing rules.
+
+#### Scenario: Completion in a carried file
+- **WHEN** Auto List Members is enabled and the developer types a letter, types an advertised completion trigger, or invokes Complete Word
+- **THEN** an advertising server's completion items appear
+- **AND** Enter accepts an item without a line break, Tab also accepts, and Space closes the list without accepting
+- **AND** with nothing selected, Enter closes the list and starts a new line, while Tab accepts the first item
+- **AND** accepting a snippet selects its first stop and Tab advances through its stops
+
+#### Scenario: Signature help in a carried file
+- **WHEN** the developer types a claiming server's advertised signature-help trigger
+- **THEN** the editor displays that server's signature help
+
+#### Scenario: Neither capability advertised
+- **WHEN** the claiming server advertises neither completion nor signature help
+- **THEN** the editor sends neither request and opens neither popup
+
+
 ### Requirement: Opt-in restart on project membership changes
 A server entry SHALL accept `restartOnProjectChange`, off by default. At the workspace-folder debounce,
 projects with chosen workspace roots joining or leaving SHALL restart only an opted-in running connection through the registry's
@@ -2439,8 +2485,8 @@ Substituted values SHALL be JSON-escaped and SHALL NOT be interpreted as templat
 ### Requirement: Declared project imports SHALL replace generated artefacts
 
 On a registry-started connection after initialization, and on the workspace artefact service's
-debounced project-change trigger, the client SHALL call each declared import command with each loaded project's saved URI and in-memory
-project text. The command MUST be advertised by the server. An importing entry SHALL skip workspace
+debounced project-change trigger, the client SHALL call each declared import command with the first loaded
+project's saved URI and in-memory project text in each resolved folder. The command MUST be advertised by the server. An importing entry SHALL skip workspace
 artefact generation. Reply notes SHALL reach the server log used for `window/logMessage`; object
 notes SHALL use their `message` text. Failures or unavailable saved paths
 SHALL be reported as configuration problems without disabling the connection.

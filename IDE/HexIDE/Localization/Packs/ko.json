@@ -330,6 +330,8 @@
     "Str.Menu.Help.BrandHome": "{0} 홈페이지",
     "Str.Menu.Help.BrandSupport": "{0} 지원",
     "Str.Menu.Help.ProductOnWeb": "웹의 HexIDE",
+    "Str.Menu.Help.LogFolder": "HexIDE 로그 폴더 열기",
+    "Str.Help.LogFolder.OpenFailed": "로그 폴더를 열 수 없습니다. 직접 열 수 있습니다: {0}",
     "Str.Menu.Help.About": "HexIDE 정보...",
     "Str.Menu.GoToGithubRepo": "github 저장소로 이동",
     "Str.NewProject.NoTemplates": "이 프로필에는 새 프로젝트 템플릿이 없습니다. 기존 프로젝트를 여세요.",
@@ -1274,6 +1276,7 @@
     "Str.AIChat.Send": "보내기",
     "Str.AIChat.New": "새 채팅",
     "Str.AIChat.InputPlaceholder": "코드에 대해 질문하세요…",
-    "Str.AIChat.NewTip": "새 채팅(기록은 보존됨)"
+    "Str.AIChat.NewTip": "새 채팅(기록은 보존됨)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "프로젝트 {0}이(가) 폴더 {1}을(를) 공유합니다. {2}만 쓰거나 가져옵니다."
   }
 }

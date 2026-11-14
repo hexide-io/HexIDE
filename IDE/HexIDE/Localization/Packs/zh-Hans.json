@@ -322,6 +322,8 @@
     "Str.Menu.Help.BrandHome": "{0} 主页(_H)",
     "Str.Menu.Help.BrandSupport": "{0} 支持(_S)",
     "Str.Menu.Help.ProductOnWeb": "HexIDE 网站(_W)",
+    "Str.Menu.Help.LogFolder": "打开 HexIDE 日志文件夹(_L)",
+    "Str.Help.LogFolder.OpenFailed": "无法打开日志文件夹。您可以手动打开：{0}",
     "Str.Menu.Help.About": "关于 HexIDE(_A)...",
     "Str.Menu.GoToGithubRepo": "前往 github 仓库",
     "Str.NewProject.NoTemplates": "此配置不提供新建项目模板。请打开现有项目。",
@@ -1274,6 +1276,7 @@
     "Str.Dock.ToolTabStripItemClose": "关闭",
     "Str.AIChat.ApiKeyRequired": "需要 API 密钥。请设置 HEXIDE_AI_API_KEY 环境变量，或 chat-settings.json 中的 apiKey。",
     "Str.AIChat.PrivacyNotice": "ℹ 隐私：您的消息、活动文件的内容（对于窗体，还包括布局和标题）及其诊断信息会发送到 {0}，即您在 AI 聊天设置中配置的第三方服务。",
-    "Str.AIChat.PrivacyKeyTip": "提示：请设置 HEXIDE_AI_API_KEY 环境变量，以避免将 API 密钥存储在文件中。"
+    "Str.AIChat.PrivacyKeyTip": "提示：请设置 HEXIDE_AI_API_KEY 环境变量，以避免将 API 密钥存储在文件中。",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "项目 {0} 共用文件夹 {1}；仅写入或导入 {2}。"
   }
 }

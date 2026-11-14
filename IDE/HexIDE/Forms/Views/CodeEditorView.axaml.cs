@@ -54,15 +54,11 @@ public partial class CodeEditorView : UserControl
     private CancellationTokenSource? _foldCts;
     private SemanticTokensColorizer? _semanticColorizer;
     private int _semanticVersion;
+    // Retained as an observation point for the existing completion tests. The component owns the window.
     private CompletionWindow? _completionWindow;
-    private CancellationTokenSource? _completionCts;
-    private OverloadInsightWindow? _insightWindow;
-    private CancellationTokenSource? _signatureCts;
     private int _onTypeGeneration;
     internal Task PendingOnTypeFormatting { get; private set; } = Task.CompletedTask;
-    // The last completion and parameter-info requests, as far as showing what came back.
-    private Task _completionShown = Task.CompletedTask;
-    private Task _signatureShown = Task.CompletedTask;
+    private EditorLanguageFeatures? _languageFeatures;
 
     /// <summary>
     /// The editor's pending completion, parameter-info and on-type formatting work, through showing or applying the
@@ -71,9 +67,9 @@ public partial class CodeEditorView : UserControl
     internal static Task? PendingKeyRequestsOf(TextEditor editor) =>
         Avalonia.LogicalTree.LogicalExtensions.FindLogicalAncestorOfType<CodeEditorView>(editor) is { } view
         && ReferenceEquals(view.TextEditor, editor)
-        && !(view._completionShown.IsCompleted && view._signatureShown.IsCompleted && view.PendingOnTypeFormatting.IsCompleted)
-            ? Task.WhenAll(view._completionShown, view._signatureShown, view.PendingOnTypeFormatting)
-            : null;
+        && !((view._languageFeatures?.PendingRequests.IsCompleted ?? true) && view.PendingOnTypeFormatting.IsCompleted)
+            ? Task.WhenAll(view._languageFeatures?.PendingRequests ?? Task.CompletedTask, view.PendingOnTypeFormatting)
+            : Avalonia.LogicalTree.LogicalExtensions.FindLogicalAncestorOfType<RelatedDocumentEditorView>(editor)?.PendingLanguageRequests;
 
     /// <summary>
     /// The completion list and parameter info open over <paramref name="editor"/>, the list first, for the automation
@@ -84,10 +80,8 @@ public partial class CodeEditorView : UserControl
     /// </summary>
     internal static IReadOnlyList<Avalonia.Controls.Primitives.Popup> OpenPopupsOf(TextEditor editor) =>
         Avalonia.LogicalTree.LogicalExtensions.FindLogicalAncestorOfType<CodeEditorView>(editor) is { } view && ReferenceEquals(view.TextEditor, editor)
-            ? new Avalonia.Controls.Primitives.Popup?[] { view._completionWindow, view._insightWindow }
-                .Concat(CompletionSnippet.OpenChoiceWindows(editor.TextArea))
-                .Where(p => p is { IsOpen: true }).Select(p => p!).ToList()
-            : [];
+            ? view._languageFeatures?.OpenPopups ?? []
+            : Avalonia.LogicalTree.LogicalExtensions.FindLogicalAncestorOfType<RelatedDocumentEditorView>(editor)?.OpenLanguagePopups ?? [];
     private DocumentHighlightRenderer? _highlightRenderer;
     private CancellationTokenSource? _highlightCts;
     private HexIDE.Debugging.BreakpointMargin? _breakpointMargin;
@@ -371,11 +365,11 @@ public partial class CodeEditorView : UserControl
         ((HexIDE.Controls.TextEditing.TextArea)TextEditor.TextArea).Indent(backwards: true);
     }
 
-    public void TriggerCompletion() => TriggerCompletionAsync();
+    public void TriggerCompletion() => _languageFeatures?.TriggerCompletion();
 
-    public void CompleteWord() => TriggerCompletionAsync(completeWord: true);
+    public void CompleteWord() => _languageFeatures?.TriggerCompletion(completeWord: true);
 
-    public void TriggerSignatureHelp() => TriggerSignatureHelpAsync();
+    public void TriggerSignatureHelp() => _languageFeatures?.TriggerSignatureHelp();
 
     public async Task InsertFile()
     {
@@ -650,6 +644,9 @@ public partial class CodeEditorView : UserControl
             TextEditor.PointerMoved += OnPointerMoved;
             TextEditor.PointerExited += OnPointerExited;
 
+            _languageFeatures = new EditorLanguageFeatures(TextEditor.TextArea, vm,
+                new CodeWindowCompletionRules(this, vm), DismissHover, window => _completionWindow = window, handleInput: false);
+
             // IntelliSense completion
             TextEditor.TextArea.TextEntered  += OnTextEntered;
             TextEditor.TextArea.TextEntering += OnTextEntering;
@@ -918,7 +915,7 @@ public partial class CodeEditorView : UserControl
         TextEditor.PointerExited -= OnPointerExited;
         TextEditor.TextArea.TextEntered  -= OnTextEntered;
         TextEditor.TextArea.TextEntering -= OnTextEntering;
-        TextEditor.TextArea.KeyDown      -= OnEditorKeyDown;
+        TextEditor.TextArea.RemoveHandler(KeyDownEvent, OnEditorKeyDown);
         TextEditor.RemoveHandler(KeyDownEvent, OnEditorKeyHandled);
         _stepRightFrom = -1;
         _onTypeGeneration++;
@@ -927,13 +924,8 @@ public partial class CodeEditorView : UserControl
         _hoverCts = null;
         CloseTip();
 
-        _completionCts?.Cancel();
-        _completionCts?.Dispose();
-        _completionCts = null;
-
-        _signatureCts?.Cancel();
-        _signatureCts?.Dispose();
-        _signatureCts = null;
+        _languageFeatures?.Dispose();
+        _languageFeatures = null;
 
         if (_highlightRenderer is not null)
         {
@@ -1884,12 +1876,7 @@ public partial class CodeEditorView : UserControl
             _completionWindow?.Close();
             return;
         }
-        // If a completion window is open and the user types a character that can't
-        // be part of an identifier, close the window (AvaloniaEdit will then insert the char).
-        if (_completionWindow is null || e.Text is not { Length: > 0 }) return;
-        var ch = e.Text[0];
-        if (!char.IsLetterOrDigit(ch) && ch != '_')
-            _completionWindow.Close();
+        _languageFeatures?.OnTextEntering(sender, e);
     }
 
     /// <summary>
@@ -2104,18 +2091,7 @@ public partial class CodeEditorView : UserControl
         if (e.Text is not { Length: > 0 }) return;
         if (DataContext is CodeEditorViewModel owner && owner.SupportsOnTypeFormatting(e.Text))
             PendingOnTypeFormatting = FormatTypedCharacterAsync(owner, e.Text);
-        var ch = e.Text[0];
-        // Trigger completion on any letter (start/continuation of a word)
-        if (char.IsLetter(ch))
-            TriggerCompletionAsync();
-        else if (DataContext is CodeEditorViewModel vm && vm.CompletionTriggerCharacters.Contains(e.Text))
-            TriggerCompletionAsync(e.Text);
-        // Trigger signature help on ( or ,
-        if (ch == '(' || ch == ',')
-            TriggerSignatureHelpAsync(ch.ToString());
-        // Close signature help when all parens are closed
-        if (ch == ')')
-            CloseInsightWindowIfBalanced();
+        _languageFeatures?.OnTextEntered(sender, e);
     }
 
     private void OnEditorKeyDown(object? sender, KeyEventArgs e)
@@ -2153,31 +2129,8 @@ public partial class CodeEditorView : UserControl
             e.Handled = true;
             return;
         }
-        if (CaretIsInFreeText())
-            _completionWindow?.Close();
-        if (e.KeyModifiers == KeyModifiers.None)
-        {
-            if (e.Key == Key.Return && CompletionSnippet.OpenChoiceWindows(TextEditor.TextArea).FirstOrDefault() is { } choice)
-            {
-                choice.CompletionList.RequestInsertion(e);
-                e.Handled = true;
-                return;
-            }
-            if (_completionWindow is { } completion && e.Key is Key.Return or Key.Tab or Key.Space)
-            {
-                if (e.Key == Key.Tab && completion.CompletionList.SelectedItem is null)
-                    completion.CompletionList.SelectedItem = completion.CompletionList.CompletionData.FirstOrDefault();
-                if (completion.CompletionList.SelectedItem is not null)
-                    completion.CompletionList.RequestInsertion(e);
-                else
-                    completion.Close();
-                if (e.Key == Key.Tab)
-                {
-                    e.Handled = true;
-                    return;
-                }
-            }
-        }
+        _languageFeatures?.OnKeyDown(sender, e);
+        if (e.Handled) return;
         if (e.Key == Key.Return && e.KeyModifiers == KeyModifiers.None
             && DataContext is CodeEditorViewModel owner && owner.SupportsOnTypeFormatting("\n"))
         {
@@ -2874,199 +2827,24 @@ public partial class CodeEditorView : UserControl
         return true;
     }
 
+    private sealed class CodeWindowCompletionRules(CodeEditorView view, CodeEditorViewModel vm) : IEditorCompletionRules
+    {
+        public bool MayOpenCompletion() => vm.Settings.AutoListMembers && !view.CaretIsInFreeText();
+        public bool RefusesTyping(int offset, int length) => vm.RefusesTyping(offset, length);
+        public bool Commits(Key key) => key is Key.Return or Key.Tab or Key.Space;
+        public bool HandlesReturn => false;
+        public bool CompletionAtWordStart => true;
+        public IReadOnlyList<string>? FixedSignatureTriggers => ["(", ","];
+    }
+
     private bool CaretIsInFreeText()
     {
         return HexIDE.Language.VbFreeText.ContainsCaret(TextEditor.Document.Text, TextEditor.CaretOffset);
     }
 
-    private void TriggerCompletionAsync(string? triggerCharacter = null, bool completeWord = false)
-    {
-        if (DataContext is not CodeEditorViewModel vm) return;
-        if (!vm.Settings.AutoListMembers) return;
-        if (CaretIsInFreeText())
-        {
-            _completionCts?.Cancel();
-            _completionWindow?.Close();
-            return;
-        }
-
-        _completionCts?.Cancel();
-        _completionCts?.Dispose();
-        _completionCts = new CancellationTokenSource();
-        var token = _completionCts.Token;
-
-        var (start, _) = CompletionWord(TextEditor.TextArea);
-        var location = TextEditor.Document.GetLocation(start);
-        var lspPos = new Position(location.Line - 1, location.Column - 1);
-        _completionShown = ShowCompletionAsync(vm, lspPos, token, triggerCharacter, completeWord);
-    }
-
-    private async Task ShowCompletionAsync(CodeEditorViewModel vm, Position position, CancellationToken token,
-        string? triggerCharacter, bool completeWord)
-    {
-        try
-        {
-            // The document change is debounced 300ms, but completion needs the current source.
-            await vm.FlushDocumentAsync(token);
-            if (token.IsCancellationRequested) return;
-
-            var items = triggerCharacter is null
-                ? await vm.RequestCompletionAsync(position, token)
-                : await vm.RequestCompletionForTriggerAsync(position, triggerCharacter, token);
-            if (token.IsCancellationRequested || items.Length == 0) return;
-
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (token.IsCancellationRequested || CaretIsInFreeText()) return;
-
-                DismissHover();
-
-                // If a window is already open, close it first
-                _completionWindow?.Close();
-
-                if (completeWord)
-                {
-                    var (start, end) = CompletionWord(TextEditor.TextArea);
-                    var word = TextEditor.Document.GetText(start, end - start);
-                    var matches = items.Where(item => (item.FilterText ?? item.Label)
-                        .StartsWith(word, StringComparison.OrdinalIgnoreCase)).ToArray();
-                    if (word.Length > 0 && matches.Length == 1)
-                    {
-                        new VbCompletionData(matches[0], vm.RefusesTyping, () => vm.LiveDocumentUri).Complete(TextEditor.TextArea,
-                            new TextSegment { StartOffset = start, Length = end - start }, EventArgs.Empty);
-                        return;
-                    }
-                }
-                _completionWindow = new CompletionWindow(TextEditor.TextArea);
-                FillCompletionList(_completionWindow, items, vm.RefusesTyping, () => vm.LiveDocumentUri);
-
-                _completionWindow.Closed += (_, _) => _completionWindow = null;
-                _completionWindow.Show();
-            });
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            Log.Debug("[completion] {ErrorMessage}", ex.Message);
-        }
-    }
-
     internal static void FillCompletionList(CompletionWindow window, CompletionItem[] items,
-        Func<int, int, bool> refusesTyping, Func<string?>? documentUri = null)
-    {
-        var area = window.TextArea;
-        var (start, end) = CompletionWord(area);
-        window.StartOffset = start;
-        window.EndOffset = end;
-        window.CloseWhenCaretAtBeginning = false;
-        window.CompletionList.IsFiltering = false;
-        foreach (var item in items.OrderBy(item => item.SortText ?? item.Label, StringComparer.Ordinal))
-            window.CompletionList.CompletionData.Add(new VbCompletionData(item, refusesTyping, documentUri));
-
-        void SelectWord(object? sender, EventArgs e)
-        {
-            var (wordStart, wordEnd) = CompletionWord(area);
-            var word = area.Document.GetText(wordStart, wordEnd - wordStart);
-            var matches = window.CompletionList.CompletionData
-                .Where(data => word.Length > 0 && data.Text.StartsWith(word, StringComparison.OrdinalIgnoreCase));
-            window.CompletionList.SelectedItem = matches.FirstOrDefault(data =>
-                items.Any(item => item.Preselect == true && (item.FilterText ?? item.Label) == data.Text))
-                ?? matches.FirstOrDefault();
-            if (window.CompletionList.SelectedItem is { } selected)
-                window.CompletionList.ScrollIntoView(selected);
-        }
-        // Run after the popup's caret handler, which matches only the text before the caret.
-        window.Opened += (_, _) =>
-        {
-            area.Caret.PositionChanged += SelectWord;
-            SelectWord(null, EventArgs.Empty);
-        };
-        window.Closed += (_, _) => area.Caret.PositionChanged -= SelectWord;
-    }
-
-    private static (int Start, int End) CompletionWord(AvaloniaEdit.Editing.TextArea area)
-    {
-        var start = area.Caret.Offset;
-        var end = start;
-        while (start > 0 && IsWord(area.Document.GetCharAt(start - 1))) start--;
-        while (end < area.Document.TextLength && IsWord(area.Document.GetCharAt(end))) end++;
-        return (start, end);
-
-        static bool IsWord(char ch) => char.IsLetterOrDigit(ch) || ch == '_';
-    }
-
-    // ── Signature help ───────────────────────────────────────────────────────
-
-    private void TriggerSignatureHelpAsync(string? triggerCharacter = null)
-    {
-        if (DataContext is not CodeEditorViewModel vm) return;
-
-        _signatureCts?.Cancel();
-        _signatureCts?.Dispose();
-        _signatureCts = new CancellationTokenSource();
-        var token = _signatureCts.Token;
-
-        var caret = TextEditor.TextArea.Caret.Position;
-        var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _signatureShown = ShowSignatureHelpAsync(vm, lspPos, token, triggerCharacter);
-    }
-
-    private void CloseInsightWindowIfBalanced()
-    {
-        // Count parens from start of current line to caret; if depth == 0, no open call
-        var doc = TextEditor.Document;
-        var caret = TextEditor.TextArea.Caret;
-        var lineObj = doc.GetLineByNumber(caret.Line);
-        var lineText = doc.GetText(lineObj.Offset, caret.Offset - lineObj.Offset);
-        int depth = 0;
-        foreach (var c in lineText)
-        {
-            if (c == '(') depth++;
-            else if (c == ')') depth--;
-        }
-        if (depth <= 0)
-            _insightWindow?.Close();
-    }
-
-    private async Task ShowSignatureHelpAsync(CodeEditorViewModel vm, Position position, CancellationToken token, string? triggerCharacter)
-    {
-        try
-        {
-            // The document change is debounced 300ms, but the server needs the current source
-            // to scan for the call context. Flush immediately before the signatureHelp request.
-            await vm.FlushDocumentAsync(token);
-            if (token.IsCancellationRequested) return;
-
-            var help = await vm.RequestSignatureHelpAsync(position, token, triggerCharacter);
-            if (token.IsCancellationRequested) return;
-
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (token.IsCancellationRequested) return;
-
-                if (help is null || help.Signatures.Length == 0)
-                {
-                    _insightWindow?.Close();
-                    return;
-                }
-
-                DismissHover();
-                _insightWindow?.Close();
-                var provider = new VbSignatureProvider(help);
-                _insightWindow = new OverloadInsightWindow(TextEditor.TextArea)
-                {
-                    Provider = provider
-                };
-                _insightWindow.Closed += (_, _) => _insightWindow = null;
-                _insightWindow.Show();
-            });
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            Log.Debug("[signatureHelp] {ErrorMessage}", ex.Message);
-        }
-    }
+        Func<int, int, bool> refusesTyping, Func<string?>? documentUri = null) =>
+        EditorLanguageFeatures.FillCompletionList(window, items, refusesTyping, documentUri);
 
     // ── Document highlights ───────────────────────────────────────────────────
 
@@ -3391,212 +3169,4 @@ public partial class CodeEditorView : UserControl
             Log.Debug("[formatting] {ErrorMessage}", ex.Message);
         }
     }
-}
-
-/// <summary>Wraps an LSP <see cref="CompletionItem"/> as AvaloniaEdit <see cref="ICompletionData"/>.</summary>
-/// <param name="item">The server's completion item.</param>
-/// <param name="isReadOnlyRegion">
-/// Whether a span of the buffer is one only the IDE may write. A completion commit writes the document
-/// directly, so the read-only section provider never sees it (#273 task 3.9).
-/// </param>
-internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool> isReadOnlyRegion,
-    Func<string?>? documentUri = null) : ICompletionData
-{
-    public string Text => item.FilterText ?? item.Label;
-    public object Content => KindGlyph is { } glyph
-        ? new StackPanel
-        {
-            Orientation = Avalonia.Layout.Orientation.Horizontal,
-            Spacing = 6,
-            Children = { new TextBlock { Text = glyph }, new TextBlock { Text = item.Label } }
-        }
-        : item.Label;
-
-    private string? KindGlyph => item.Kind switch
-    {
-        CompletionItemKind.Method or CompletionItemKind.Function or CompletionItemKind.Constructor
-            or CompletionItemKind.Operator => OBMemberViewModel.GlyphFor(OBMemberKind.Method),
-        CompletionItemKind.Field or CompletionItemKind.Variable or CompletionItemKind.Property
-            => OBMemberViewModel.GlyphFor(OBMemberKind.Property),
-        CompletionItemKind.Constant or CompletionItemKind.Value => OBMemberViewModel.GlyphFor(OBMemberKind.Constant),
-        CompletionItemKind.EnumMember => OBMemberViewModel.GlyphFor(OBMemberKind.EnumMember),
-        CompletionItemKind.Event => OBMemberViewModel.GlyphFor(OBMemberKind.Event),
-        CompletionItemKind.Module => OBClassViewModel.GlyphFor(OBClassKind.Module),
-        CompletionItemKind.Class or CompletionItemKind.Interface or CompletionItemKind.Struct
-            => OBClassViewModel.GlyphFor(OBClassKind.ClassModule),
-        CompletionItemKind.Enum => OBClassViewModel.GlyphFor(OBClassKind.Enum),
-        _ => null
-    };
-
-    // What an item reads as to the automation surface, whose ListBoxItem holds this object rather than the text: an item
-    // was named by its position alone, and selecting one by its text found none (#942 review).
-    public override string ToString() => item.Label;
-    public object? Description => item.Documentation is { } documentation
-        ? string.IsNullOrEmpty(item.Detail) ? documentation.Value : item.Detail + "\n\n" + documentation.Value
-        : item.Detail;
-    public double Priority => 0;
-    public IImage? Image => null;
-
-    public void Complete(AvaloniaEdit.Editing.TextArea textArea, ISegment completionSegment, EventArgs e)
-    {
-        var document = textArea.Document;
-        var mainOffset = completionSegment.Offset;
-        var mainLength = completionSegment.Length;
-        var mainText = item.InsertText ?? item.Label;
-        if (item.TextEdit is { } main)
-        {
-            var range = main.Range;
-            if (main.Insert is { } insert && main.Replace is { } replace)
-            {
-                if (range is not null || insert.Start != replace.Start || insert.Start.Line != insert.End.Line
-                    || replace.Start.Line != replace.End.Line || insert.End.Character > replace.End.Character
-                    || !Resolve(new TextEdit(replace, main.NewText), out _, out _))
-                    return;
-                range = insert;
-            }
-            else if (main.Insert is not null || main.Replace is not null) return;
-            if (range is null || !Resolve(new TextEdit(range, main.NewText), out mainOffset, out mainLength))
-                return;
-            mainText = main.NewText;
-        }
-
-        string? indentation = null;
-        if (item.InsertTextMode == 2)
-        {
-            var line = document.GetLineByOffset(textArea.Caret.Offset);
-            var beforeCaret = document.GetText(line.Offset, textArea.Caret.Offset - line.Offset);
-            indentation = new string(beforeCaret.TakeWhile(c => c is ' ' or '\t').ToArray());
-        }
-        var snippet = item.InsertTextFormat == 2
-            ? CompletionSnippet.Parse(mainText, CompletionSnippet.Variables(textArea, documentUri?.Invoke()), indentation) : null;
-        if (item.InsertTextFormat == 2 && snippet is null)
-            return;
-        if (snippet is null && indentation is not null)
-            mainText = new CompletionSnippet(mainText, []).AdjustIndentation(indentation).Text;
-        mainText = snippet?.Text ?? mainText;
-        var edits = new List<(int Offset, int Length, string Text)> { (mainOffset, mainLength, mainText) };
-        foreach (var edit in item.AdditionalTextEdits ?? [])
-        {
-            if (!Resolve(edit, out var offset, out var length))
-                return;
-            edits.Add((offset, length, edit.NewText));
-        }
-
-        // All ranges refer to the original buffer. Refuse the whole item before writing any part of it.
-        edits.Sort((left, right) => left.Offset.CompareTo(right.Offset));
-        for (var i = 0; i < edits.Count; i++)
-        {
-            var edit = edits[i];
-            if (isReadOnlyRegion(edit.Offset, edit.Length)
-                || (i > 0 && (edits[i - 1].Offset + edits[i - 1].Length > edit.Offset
-                              || edits[i - 1].Offset == edit.Offset)))
-                return;
-        }
-
-        var caret = mainOffset + mainText.Length;
-        using (document.RunUpdate())
-        {
-            foreach (var edit in edits.AsEnumerable().Reverse())
-            {
-                document.Replace(edit.Offset, edit.Length, edit.Text);
-                if (edit.Offset < mainOffset)
-                    caret += edit.Text.Length - edit.Length;
-            }
-        }
-        textArea.ClearSelection();
-        textArea.Caret.Offset = caret;
-        snippet?.Activate(textArea, caret - mainText.Length);
-
-        bool Resolve(TextEdit edit, out int offset, out int length)
-        {
-            offset = length = 0;
-            if (edit.Range is not { Start: { } start, End: { } end }
-                || start.Line < 0 || end.Line < start.Line || end.Line >= document.LineCount
-                || start.Character < 0 || end.Character < 0)
-                return false;
-            var first = document.GetLineByNumber(start.Line + 1);
-            var last = document.GetLineByNumber(end.Line + 1);
-            if (start.Character > first.Length || end.Character > last.Length)
-                return false;
-            offset = first.Offset + start.Character;
-            length = last.Offset + end.Character - offset;
-            return length >= 0;
-        }
-    }
-}
-
-/// <summary>
-/// Implements <see cref="IOverloadProvider"/> over an LSP <see cref="SignatureHelp"/> response
-/// for display in AvaloniaEdit's <see cref="OverloadInsightWindow"/>.
-/// </summary>
-internal sealed class VbSignatureProvider : IOverloadProvider
-{
-    private readonly SignatureHelp _help;
-    private int _selectedIndex;
-
-    public VbSignatureProvider(SignatureHelp help)
-    {
-        _help = help;
-        _selectedIndex = help.ActiveSignature ?? 0;
-    }
-
-    public int SelectedIndex
-    {
-        get => _selectedIndex;
-        set
-        {
-            _selectedIndex = Math.Clamp(value, 0, _help.Signatures.Length - 1);
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(SelectedIndex)));
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CurrentHeader)));
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CurrentContent)));
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CurrentIndexText)));
-        }
-    }
-
-    public int Count => _help.Signatures.Length;
-
-    public string CurrentIndexText => $"{_selectedIndex + 1} of {_help.Signatures.Length}";
-
-    public object? CurrentHeader
-    {
-        get
-        {
-            var sig = _help.Signatures[_selectedIndex];
-            var activeParam = _help.ActiveParameter ?? 0;
-
-            if (sig.Parameters is null || sig.Parameters.Length == 0 || activeParam >= sig.Parameters.Length)
-                return sig.Label;
-
-            var label = sig.Label;
-            if (sig.Parameters[activeParam].Label.RangeIn(label) is not { } range) return label;
-            return new TextBlock
-            {
-                Inlines =
-                [
-                    new Run(label[..range.Start]),
-                    new Run(label.Substring(range.Start, range.Length)) { FontWeight = FontWeight.Bold },
-                    new Run(label[(range.Start + range.Length)..])
-                ]
-            };
-        }
-    }
-
-    public object? CurrentContent
-    {
-        get
-        {
-            var sig = _help.Signatures[_selectedIndex];
-            var activeParam = _help.ActiveParameter ?? 0;
-            if (sig.Parameters is not null && activeParam < sig.Parameters.Length)
-            {
-                var p = sig.Parameters[activeParam];
-                if (p.Documentation is not null)
-                    return $"{p.Label.TextIn(sig.Label)}: {p.Documentation}";
-                return p.Label.TextIn(sig.Label);
-            }
-            return sig.Documentation;
-        }
-    }
-
-    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 }

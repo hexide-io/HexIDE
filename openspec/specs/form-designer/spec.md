@@ -427,7 +427,14 @@ The designer SHALL catch an exception from a control's designer instantiation, l
 - **THEN** Properties shows the form and its object selector excludes the failed control
 - **AND** multi-selection excludes the failed control, including subsequent attempts to select it
 
-Conversion to an inert carried block and verbatim carry-over after edits elsewhere on the form remain outstanding under #2405.
+#### Scenario: Save edits elsewhere after a preview fails
+
+- **GIVEN** a form read from writer-normalized text containing a control whose preview fails
+- **WHEN** another control is moved and the form's caption is changed, and the full writer saves the form
+- **THEN** the edits appear in the output and the untouched control's block is byte-identical to its input block
+- **AND** that block is identical to the output with a working preview, including modelled children, companion citations and unmodelled properties
+
+`DesignerInstantiationFailureTests` also opens VB6's own save of a TabStrip form (`corpus/inbox-controls/saved/tabstrip`), whose preview refuses. After the form's caption is edited, the TabStrip's block is saved as VB6's bytes, identical to a save that never built the preview (#2405). A failed preview therefore changes nothing in what is written. Whether every control's block matches VB6's bytes after an edit is the writer's round-trip fidelity, not a property of the preview.
 
 ### Requirement: ImageList designer icon
 The designer SHALL show a modelled MSComctlLib.ImageList as a 38 × 38 box with a two-pixel raised edge.

@@ -224,7 +224,7 @@ public class CodeEditorSelectionTests : IDisposable
     {
         using BaseEditorWindowViewModel vm = carried
             ? new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(),
-                Substitute.For<ILocalizationService>())
+                Substitute.For<ILocalizationService>(), Substitute.For<HexIDE.IDE.ISettingsService>())
             : MakeViewModel().Initialize(AModule());
         var searchable = (ISearchableDocument)vm;
         searchable.Document.Text = "first line\nsecond line\n";

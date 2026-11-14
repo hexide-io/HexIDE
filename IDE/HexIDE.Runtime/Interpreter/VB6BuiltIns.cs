@@ -383,7 +383,12 @@ public partial class VB6BuiltIns
         title ??= AppTitle?.Invoke();
 
         var runEnded = WatchRunEnd?.Invoke();
-        var result = await stdLib.MsgBox(text ?? "", title, buttons, icon);
+        var layout = MessageBoxLayout.None;
+        if ((style & VBMsgBoxStyle.vbMsgBoxRight) != 0)
+            layout |= MessageBoxLayout.Right;
+        if ((style & VBMsgBoxStyle.vbMsgBoxRtlReading) != 0)
+            layout |= MessageBoxLayout.RtlReading;
+        var result = await stdLib.MsgBox(text ?? "", title, buttons, icon, layout);
         // None is a box that went away without an answer. The hosts answer a person's close themselves, as Windows does
         // (measured: OK alone answers vbOK, a box with Cancel answers vbCancel, and Yes/No and Abort/Retry/Ignore
         // have no close), and keep a box waiting when its owner hides. So None means HexIDE closed the box:

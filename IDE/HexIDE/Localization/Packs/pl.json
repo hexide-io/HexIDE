@@ -330,6 +330,8 @@
     "Str.Menu.Help.BrandHome": "Strona _główna {0}",
     "Str.Menu.Help.BrandSupport": "_Wsparcie {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE w _sieci",
+    "Str.Menu.Help.LogFolder": "Otwórz folder _dzienników HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Nie można otworzyć folderu dzienników. Możesz otworzyć go ręcznie: {0}",
     "Str.Menu.Help.About": "_O programie HexIDE...",
     "Str.Menu.GoToGithubRepo": "Przejdź do repozytorium github",
     "Str.NewProject.NoTemplates": "Ten profil nie oferuje szablonów nowych projektów. Otwórz istniejący projekt.",
@@ -1274,6 +1276,7 @@
     "Str.AIChat.Send": "Wyślij",
     "Str.AIChat.New": "Nowy",
     "Str.AIChat.InputPlaceholder": "Zapytaj o swój kod…",
-    "Str.AIChat.NewTip": "Nowy czat (historia zostaje zachowana)"
+    "Str.AIChat.NewTip": "Nowy czat (historia zostaje zachowana)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekty {0} współdzielą folder {1}; zapisywany lub importowany jest tylko {2}."
   }
 }

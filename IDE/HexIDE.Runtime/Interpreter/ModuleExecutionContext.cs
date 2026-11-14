@@ -54,11 +54,9 @@ public class ModuleExecutionContext
     // Scalar slots and array elements enforce the same object type (measured, #1482).
     internal static void CheckObjectStore(Vb6Value value, string? declaredClass, ParserRuleContext? ctx = null)
     {
-        if (declaredClass is not null
-            && Components.InBox.ControlLibraries.ForTypeName(declaredClass) is { } library
-            && declaredClass.Equals(library.TypeName("ProgressBar"), StringComparison.OrdinalIgnoreCase)
+        if (declaredClass is not null && ControlObjectType.IsDeclared(declaredClass)
             && value.Value is not null
-            && (value.Value is not BuiltinControls.VBProgressBar bar || !ReferenceEquals(bar.Library, library)))
+            && !declaredClass.Equals(ControlObjectType.Of(value.Value), StringComparison.OrdinalIgnoreCase))
             throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
         if (declaredClass is not null
             && value.Value is VbObject incoming

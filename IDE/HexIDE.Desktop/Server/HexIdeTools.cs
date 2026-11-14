@@ -3307,7 +3307,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "hover")]
-    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) through the window's input, watches for a tip, and reports its text: a declared ToolTip.Tip, such as a toolbar button's, and a tip a control raises from its own pointer handler, such as LSP quick-info and the debugger's Auto Data Tips in the code editor. A tip that is a control reads as its visible text blocks, joined with ' / '. The move is hit-tested as a real one is: when something else is drawn at the point the reply says what it landed on, and reports its tip; a disabled target shows a tip only with ToolTip.ShowOnDisabled, and the reply says it is disabled. When nothing is drawn at the point, or Avalonia's input cannot be reached, the move is raised on the control instead, which opens only the second kind, and the reply says so. Without 'x' and 'y' a code editor is hovered at its CARET, to hover an identifier; see 'x'. 'dwellMs' is how long to watch, and 'window' picks the window. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, as a person would see there. The pointer then leaves the window, closing the tip, unless 'stay' keeps it there for a snapshot: 'tipBounds' places an opened tip in the window as inspect_element's boundingRect does, and 'detail' gives its offset from the point hovered. The cursor and pointer-over stay the hover's until the real mouse next moves. " + ProgramWaitNote + " The reply reports Debug.Print output in 'printed', since the run began or the last reply that reported it, or says nothing was printed.")]
+    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) through the window's input, watches for a tip, and reports its text: a declared ToolTip.Tip, such as a toolbar button's, and a tip a control raises from its own pointer handler, such as LSP quick-info and the debugger's Auto Data Tips in the code editor. A tip that is a control reads as its visible text blocks, joined with ' / '. The move is hit-tested as a real one is: when something else is drawn at the point the reply says what it landed on, and reports its tip; a disabled target shows a tip only with ToolTip.ShowOnDisabled, and the reply says it is disabled. When nothing is drawn at the point, or Avalonia's input cannot be reached, the move is raised on the control instead, which opens only the second kind, and the reply says so. Without 'x' and 'y' a code editor is hovered at its CARET, to hover an identifier; see 'x'. 'dwellMs' is how long to watch, and 'window' picks the window. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, as a person would see there. The pointer then leaves the window, closing the tip, unless 'stay' keeps it there for a snapshot: 'tipBounds' places an opened tip in the window as inspect_element's boundingRect does, and 'detail' gives its offset from the point hovered. The cursor and pointer-over stay the hover's until the real mouse changes position; stay ignores known same-position restatements. " + ProgramWaitNote + " The reply reports Debug.Print output in 'printed', since the run began or the last reply that reported it, or says nothing was printed.")]
     public async Task<InteractOutcome> HoverAsync(
         [Description("A path from dump_visual_tree. A target that is not a code editor but contains one is hovered at "
                      + "that editor, the first showing under it, and the reply then names the editor and gives its path, "
@@ -3360,6 +3360,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             program = UiAutomationDriver.WatchProgram(TopLevel.GetTopLevel(found) as Window, () => ctx.DebugController.CurrentStop);
             var outcome = UiAutomationDriver.Hover(found, x, y, target, out var landed);
             landing = landed;
+            // Protect the tooltip dwell too: opening its popup can restate the resting real mouse (#2666).
+            if (stay && outcome.Success && landed is { ThroughWindowInput: true } protectedAt)
+                UiAutomationDriver.StayHover(protectedAt.Receiver);
             return outcome;
         });
 
@@ -3444,10 +3447,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // state is read a moment later, with the watch still running, so the reply says what settled and what took it.
             var staying = stay && at.ThroughWindowInput && !ct.IsCancellationRequested;
             if (staying)
-            {
-                await Dispatcher.UIThread.InvokeAsync(() => UiAutomationDriver.StayHover(hovered));
                 await Task.Delay(UiAutomationDriver.StaySettle, CancellationToken.None);
-            }
             var settled = watch is null ? null : await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 var what = watch.Moved;
@@ -3459,7 +3459,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 stayed = await Dispatcher.UIThread.InvokeAsync(() =>
                     UiAutomationDriver.StayedNote(hovered, settled, saidAlready: tip is null && enabled && settled == moved));
             else if (at.ThroughWindowInput)
-                await Dispatcher.UIThread.InvokeAsync(() => UiAutomationDriver.EndHover(hovered));
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (stay && TopLevel.GetTopLevel(hovered) is { } top)
+                        UiAutomationDriver.EndStayingHover(top);
+                    UiAutomationDriver.EndHover(hovered);
+                });
             else if (stay)
                 stayed = "; 'stay' left nothing under the pointer: the move was raised on the control, which sets nothing "
                          + "as under it";
@@ -3664,6 +3669,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     private static string TabType(object tab) => tab switch
     {
         HexIDE.VisualDesigner.FormEditViewModel => "designer",
+        ArchiveDocumentViewModel => "archive",
         BaseEditorWindowViewModel => "code",
         _ => "tool",
     };
@@ -3672,10 +3678,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         var editor = tab as BaseEditorWindowViewModel;
         var document = editor?.OpenDocument;
+        var entry = (tab as ArchiveDocumentViewModel)?.Entry;
         // IsModified is what the tab's `*` is drawn from (#1797), and the title leaves the `*` out (#1945). A tool tab
         // or a read-only view holds nothing to save, so it reports nothing rather than a false that reads as "saved".
         return new DocumentTabInfo(tab.Title ?? "", TabType(tab),
-            ReferenceEquals(tab, ctx.DocumentDockService.ActiveTab), document?.Project.Name, document?.Name,
+            ReferenceEquals(tab, ctx.DocumentDockService.ActiveTab),
+            entry?.Identity.ContainerPath ?? document?.Project.Name,
+            entry is not null ? ArchiveToolPaths.PathOf(entry) : document?.Name,
             editor is { CanHoldUnsavedChanges: true } ? editor.IsModified : null, ctx.DocumentDockService.AreaOf(tab));
     }
 
@@ -3695,7 +3704,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_document_tabs")]
-    [Description("Returns EVERY tab across all document areas, including splits, with area (0 for the first area, 1 for the next, in layout order; distinguishes equal titles), title, type, project, document, whether it is the active one, and isModified: whether the tab has unsaved changes. The tab marks those with a `*` that the title leaves out, so the title stays the one activate_document_tab and close_document_tab match. Project and document name a form or module's source, and only such a tab has them. isModified is absent where nothing can be saved: a tool tab, and the read-only project and archive views. It is per tab: a form's designer and code tabs each have one, and they can differ, so the form is unsaved if either is true. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the document region and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist. get_open_editors answers the narrower question: the editors only, and which of them is active.")]
+    [Description("Returns EVERY tab across all document areas, including splits, with area (0 for the first area, 1 for the next, in layout order; distinguishes equal titles), title, type, project, document, whether it is the active one, and isModified: whether the tab has unsaved changes. The tab marks those with a `*` that the title leaves out, so the title stays the one activate_document_tab and close_document_tab match. Project and document name a form or module's source; for an archive entry they are the container path and percent-escaped entry path returned by open_file. isModified is absent where nothing can be saved: a tool tab, and the read-only project and archive views. It is per tab: a form's designer and code tabs each have one, and they can differ, so the form is unsaved if either is true. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, 'archive' for a read-only archive entry, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the document region and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist. get_open_editors answers the narrower question: the editors only, and which of them is active.")]
     public async Task<DocumentTabsResult> GetDocumentTabsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -3711,7 +3720,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "activate_document_tab")]
-    [Description("Brings a tab to the front, giving an editor keyboard focus. Pass `name` (a form, module or carried file's name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. The document must already have an open tab. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool); a duplicate title is refused. A trailing unsaved `*` is accepted when no exact title matches; the note explains that the title omits it. A title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
+    [Description("Brings a tab to the front, giving an editor keyboard focus. Pass `name` (a form, module or carried file's name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. The document must already have an open tab. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool) and read-only archive entries (type 'archive'); a duplicate title is refused. A trailing unsaved `*` is accepted when no exact title matches; the note explains that the title omits it. A title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
     public async Task<MutateResult> ActivateDocumentTabAsync(string? title = null, string? name = null,
         string? project = null, string? type = null, CancellationToken ct = default)
     {
@@ -3740,8 +3749,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return (null, lookup.Error, null);
         if (title is null && lookup.Document is null && lookup.Carried is null)
             return (null, "Pass `name` with optional `project` for a document, or `title` for a tool tab. get_document_tabs lists both.", null);
-        if (type is not null && type is not ("code" or "designer" or "tool"))
-            return (null, "Use `type`: code, designer or tool, as get_document_tabs reports it.", null);
+        if (type is not null && type is not ("code" or "designer" or "archive" or "tool"))
+            return (null, "Use `type`: code, designer, archive or tool, as get_document_tabs reports it.", null);
         var matches = ctx.DocumentDockService.AllTabs.Where(d =>
             (lookup.Document is { } document
                 ? (d as BaseEditorWindowViewModel)?.OpenDocument == document
@@ -3822,7 +3831,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "close_document_tab")]
-    [Description("Closes a tab; a save prompt can leave it open, which the note reports. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool); a duplicate title is refused, and a title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
+    [Description("Closes a tab; a save prompt can leave it open, which the note reports. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool) and read-only archive entries (type 'archive'); a duplicate title is refused, and a title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
     public async Task<MutateResult> CloseDocumentTabAsync(string? title = null, string? name = null,
         string? project = null, string? type = null, CancellationToken ct = default)
     {

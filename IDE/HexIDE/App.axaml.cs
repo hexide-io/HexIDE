@@ -46,6 +46,7 @@ public partial class App : Application
         LoggingSetup.ObserveCrashes();
 #if DEBUG
         DebugCrashHook.ArmFromEnvironment();
+        HexIDE.Automation.UiAutomationDriver.TrackWindows();
 #endif
 
         var envLevel = Environment.GetEnvironmentVariable("HEXIDE_LOG_LEVEL") ?? "Information";

@@ -54,7 +54,7 @@ public partial class FindReplaceViewModelTests
     /// </remarks>
     private static RelatedDocumentEditorViewModel CreateCarriedFileEditor(string text)
     {
-        var vm = new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>(), Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>());
+        var vm = new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>(), Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>(), Substitute.For<HexIDE.IDE.ISettingsService>());
         vm.Document.Text = text;
         return vm;
     }

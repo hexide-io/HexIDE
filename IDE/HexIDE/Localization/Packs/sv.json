@@ -296,6 +296,8 @@
     "Str.Menu.Help.BrandHome": "{0} _hemsida",
     "Str.Menu.Help.BrandSupport": "{0}-_support",
     "Str.Menu.Help.ProductOnWeb": "HexIDE på _webben",
+    "Str.Menu.Help.LogFolder": "Öppna HexIDE-_loggmappen",
+    "Str.Help.LogFolder.OpenFailed": "Det gick inte att öppna loggmappen. Du kan öppna den manuellt: {0}",
     "Str.Menu.Help.About": "_Om HexIDE...",
     "Str.Menu.GoToGithubRepo": "Gå till github-lagringsplats",
     "Str.NewProject.NoTemplates": "Den här profilen erbjuder inga mallar för nya projekt. Öppna ett befintligt projekt i stället.",
@@ -1274,6 +1276,7 @@
     "Str.AIChat.Send": "Skicka",
     "Str.AIChat.New": "Ny",
     "Str.AIChat.InputPlaceholder": "Fråga om din kod…",
-    "Str.AIChat.NewTip": "Ny chatt (historiken bevaras)"
+    "Str.AIChat.NewTip": "Ny chatt (historiken bevaras)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekten {0} delar mappen {1}; endast {2} skrivs eller importeras."
   }
 }

@@ -2572,14 +2572,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // A Collection is a Collection, a VBA.Collection and an Object (measured, #1471).
         if (operand.Value is VbCollection)
             return new Vb6Value(IsCollectionType(targetName) || string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase));
+        if (interpreter.ControlClassFor(targetName) is { } controlClass)
+            return new Vb6Value(controlClass.Equals(ControlObjectType.Of(operand.Value), StringComparison.OrdinalIgnoreCase));
         // A control is its class, with its library or without, a Control and an Object: a TextBox is TextBox, VB.TextBox,
         // Control and Object, and a CommonDialog MSComDlg.CommonDialog (measured, #1060). A control array and a form's
         // Controls are an Object, and Controls is not a Collection.
         if (operand.Value is Avalonia.Controls.Control control)
         {
-            if (interpreter.ControlClassFor(targetName) is { } controlClass)
-                return new Vb6Value(control is VBProgressBar progress
-                    && controlClass.Equals(progress.Library.TypeName("ProgressBar"), StringComparison.OrdinalIgnoreCase));
             var className = VB6BuiltIns.ControlTypeName(control);
             // An in-box control's library is the one it was read under: MSComctlLib's ProgressBar or ComctlLib's (#1082).
             var library = control switch

@@ -143,8 +143,8 @@ them is a real language engine over the replaceable backend seam — not this in
 family (VB6 / VBA / VBScript) and will **never** interpret the *extended* language surface that
 [twinBASIC](https://twinbasic.com/) adds beyond classic VB/VBA. Those extensions are someone else's work and
 their reason to exist; we won't even *appear* to compete with them. The test: *does this construct ship in a
-Microsoft-era VB6/VBA/VBScript?* If no, it's an extension — and such a construct should fail cleanly and point
-you **to twinBASIC**, not get implemented here.
+Microsoft-era VB6/VBA/VBScript?* If no, it's an extension — and such a construct should fail cleanly as
+outside VB6, VBA and VBScript, without naming another product, not get implemented here.
 
 If a change would make the interpreter *more correct* but *less obviously a demonstrator*, open an issue to
 discuss the boundary before writing code.

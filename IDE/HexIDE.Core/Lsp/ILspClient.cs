@@ -258,6 +258,9 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>The completion triggers advertised for this document.</summary>
     IReadOnlyList<string> CompletionTriggerCharacters(string uri) => [];
 
+    /// <summary>The signature-help triggers advertised for this document.</summary>
+    IReadOnlyList<string> SignatureHelpTriggerCharacters(string uri) => [];
+
     /// <summary>Requests completion only from claimants advertising this trigger.</summary>
     Task<CompletionItem[]> RequestCompletionForTriggerAsync(string uri, Position position,
         string triggerCharacter, CancellationToken cancellationToken = default) =>

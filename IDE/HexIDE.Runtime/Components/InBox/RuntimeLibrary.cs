@@ -59,6 +59,9 @@ public sealed class RuntimeLibrary
 
     public IReadOnlyList<LibraryClass> Classes { get; } = [];
 
+    // #2265 and oracle PR #3956: measured names; Tab is qualified only.
+    internal IReadOnlyList<string> ControlClasses { get; init; } = [];
+
     public bool IsNamedBy(VbReference reference) =>
         Guid.Equals(reference.Guid, StringComparison.OrdinalIgnoreCase) && Version == reference.Version;
 
@@ -163,7 +166,13 @@ public static class ControlLibraries
             ["TabStrip"] = 1089, ["Toolbar"] = 1088, ["StatusBar"] = 1087, ["ProgressBar"] = 1082, ["TreeView"] = 1086,
             ["ListView"] = 1085, ["ImageList"] = 1083, ["Slider"] = 1091, ["ImageCombo"] = 1092,
         },
-        "mscomctl-constants.json");
+        "mscomctl-constants.json")
+    {
+        ControlClasses = ["ImageList", "ListImages", "ListImage", "ListView", "ListItems", "ListItem",
+            "ColumnHeaders", "ColumnHeader", "TreeView", "Nodes", "Node", "ProgressBar",
+            "StatusBar", "Panels", "Panel", "Toolbar", "Buttons", "Button", "TabStrip", "Tabs", "Tab",
+            "ListSubItems", "ListSubItem", "ButtonMenus", "ButtonMenu"],
+    };
 
     /// <summary>COMCTL32.OCX, Microsoft Windows Common Controls 5.0: the same controls but ImageCombo, which 6.0 added.</summary>
     public static readonly RuntimeLibrary ComctlLib = new("ComctlLib", "Microsoft Windows Common Controls 5.0 (SP2)",
@@ -174,7 +183,12 @@ public static class ControlLibraries
             ["TabStrip"] = 1089, ["Toolbar"] = 1088, ["StatusBar"] = 1087, ["ProgressBar"] = 1082, ["TreeView"] = 1086,
             ["ListView"] = 1085, ["ImageList"] = 1083, ["Slider"] = 1091,
         },
-        "comctl32-constants.json");
+        "comctl32-constants.json")
+    {
+        ControlClasses = ["ImageList", "ListImages", "ListImage", "ListView", "ListItems", "ListItem",
+            "ColumnHeaders", "ColumnHeader", "TreeView", "Nodes", "Node", "ProgressBar",
+            "StatusBar", "Panels", "Panel", "Toolbar", "Buttons", "Button", "TabStrip", "Tabs", "Tab"],
+    };
 
     public static readonly RuntimeLibrary TabDlg = new("TabDlg", "TabDlg",
         "{BDC217C8-ED16-11CD-956C-0000C04E4C0A}", "1.1", "TABCTL32.OCX", 393216,

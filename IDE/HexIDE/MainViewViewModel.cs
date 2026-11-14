@@ -240,6 +240,17 @@ public partial class MainViewViewModel : ObservableObject
     public bool HasBrandSupport => Distribution.Current.SupportUrl is not null;
     public string BrandHomeMenuHeader => string.Format(localization.GetString("Str.Menu.Help.BrandHome"), Distribution.DisplayName);
     public string BrandSupportMenuHeader => string.Format(localization.GetString("Str.Menu.Help.BrandSupport"), Distribution.DisplayName);
+    public DelegateCommand OpenLogFolderCommand { get; }
+
+    private static async Task OpenLogFolderAsync(IWindowManager windows, ILocalizationService strings,
+        ILogFolderOpener opener)
+    {
+        var directory = new DirectoryInfo(Distribution.LogsDirectory);
+        if (!await opener.OpenAsync(directory))
+            await windows.MessageBox(string.Format(strings.GetString("Str.Help.LogFolder.OpenFailed"), directory.FullName),
+                icon: MessageBoxIcon.Information);
+    }
+
     public DelegateCommand OpenBrandHomeCommand { get; }
     public DelegateCommand OpenBrandSupportCommand { get; }
 
@@ -1631,8 +1642,11 @@ public partial class MainViewViewModel : ObservableObject
         CallHierarchyToolViewModel? callHierarchy,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
         HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
-        RunWithMenuViewModel? runWith = null)
+        RunWithMenuViewModel? runWith = null,
+        ILogFolderOpener? logFolderOpener = null)
     {
+        logFolderOpener ??= new PlatformLogFolderOpener();
+        OpenLogFolderCommand = new DelegateCommand(() => OpenLogFolderAsync(windowManager, localization, logFolderOpener).ListenErrors());
         RunWith = runWith;
         if (findReferences is not null)
         {

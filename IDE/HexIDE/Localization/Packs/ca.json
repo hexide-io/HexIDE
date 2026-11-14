@@ -284,6 +284,8 @@
     "Str.Menu.Help.BrandHome": "Pàgina d’_inici de {0}",
     "Str.Menu.Help.BrandSupport": "_Suport de {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE al _web",
+    "Str.Menu.Help.LogFolder": "Obre la carpeta de _registres del HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "No s’ha pogut obrir la carpeta de registres. La podeu obrir manualment: {0}",
     "Str.Menu.Help.About": "_Quant a HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ves al repositori de GitHub",
     "Str.ProjectType.StandardEXE": "EXE estàndard",
@@ -1274,6 +1276,7 @@
     "Str.Dock.ToolTabStripItemClose": "_Tanca",
     "Str.AIChat.ApiKeyRequired": "Cal una clau API. Establiu la variable d’entorn HEXIDE_AI_API_KEY, o apiKey a chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Privadesa: els vostres missatges, el contingut del fitxer actiu (en un formulari, també la disposició i els títols) i els seus diagnòstics s’envien a {0}, un servei de tercers configurat als paràmetres del xat d’IA.",
-    "Str.AIChat.PrivacyKeyTip": "Consell: establiu la variable d’entorn HEXIDE_AI_API_KEY per evitar desar la clau API en un fitxer."
+    "Str.AIChat.PrivacyKeyTip": "Consell: establiu la variable d’entorn HEXIDE_AI_API_KEY per evitar desar la clau API en un fitxer.",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Els projectes {0} comparteixen la carpeta {1}; només s’escriu o s’importa {2}."
   }
 }

@@ -258,6 +258,8 @@
     "Str.Menu.Help.BrandHome": "Pagina _principală {0}",
     "Str.Menu.Help.BrandSupport": "_Asistență {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE pe _web",
+    "Str.Menu.Help.LogFolder": "Deschide dosarul de _jurnale HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Dosarul de jurnale nu a putut fi deschis. Îl puteți deschide manual: {0}",
     "Str.Menu.Help.About": "_Despre HexIDE...",
     "Str.Menu.GoToGithubRepo": "Deschide depozitul GitHub",
     "Str.ProjectType.StandardEXE": "EXE standard",
@@ -1274,6 +1276,7 @@
     "Str.AIChat.Send": "Trimite",
     "Str.AIChat.New": "Nou",
     "Str.AIChat.InputPlaceholder": "Întrebați despre codul dvs.…",
-    "Str.AIChat.NewTip": "Conversație nouă (istoricul este păstrat)"
+    "Str.AIChat.NewTip": "Conversație nouă (istoricul este păstrat)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Proiectele {0} partajează dosarul {1}; doar {2} este scris sau importat."
   }
 }

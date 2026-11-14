@@ -7,8 +7,8 @@
             <RowDefinition Height="*" MinHeight="44" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <StackPanel x:Name="PART_Content" Orientation="Horizontal"
-                    Spacing="12" Margin="0,0,0,12" />
+        <Grid x:Name="PART_Content" ColumnDefinitions="Auto,*"
+              ColumnSpacing="12" Margin="0,0,0,12" />
         <StackPanel x:Name="PART_Buttons" Grid.Row="1"
                     Orientation="Horizontal" HorizontalAlignment="Right"
                     Spacing="8" Margin="0,4,0,4" />

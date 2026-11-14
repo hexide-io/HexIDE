@@ -292,6 +292,8 @@
     "Str.Menu.Help.BrandHome": "{0} _pradžios puslapis",
     "Str.Menu.Help.BrandSupport": "{0} _pagalba",
     "Str.Menu.Help.ProductOnWeb": "HexIDE _žiniatinklyje",
+    "Str.Menu.Help.LogFolder": "Atverti HexIDE žurna_lų aplanką",
+    "Str.Help.LogFolder.OpenFailed": "Nepavyko atverti žurnalų aplanko. Galite jį atverti rankiniu būdu: {0}",
     "Str.Menu.Help.About": "_Apie HexIDE...",
     "Str.Menu.GoToGithubRepo": "Atverti GitHub saugyklą",
     "Str.ProjectType.StandardEXE": "Standartinė EXE",
@@ -1274,6 +1276,7 @@
     "Str.AIChat.Send": "Siųsti",
     "Str.AIChat.New": "Naujas",
     "Str.AIChat.InputPlaceholder": "Klauskite apie savo kodą…",
-    "Str.AIChat.NewTip": "Naujas pokalbis (istorija išsaugoma)"
+    "Str.AIChat.NewTip": "Naujas pokalbis (istorija išsaugoma)",
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektai {0} bendrina aplanką {1}; įrašomas arba importuojamas tik {2}."
   }
 }
