@@ -2,6 +2,7 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Разширение на HexIDE; не е налично във VB6.",
     "Str.AIChat.Approved": "✔ Одобрено",
     "Str.AIChat.Rejected": "✗ Отхвърлено",
     "Str.AIChat.Error": "Грешка: {0}",

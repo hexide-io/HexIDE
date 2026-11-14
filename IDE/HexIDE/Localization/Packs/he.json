@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.MemberOrigin.HexIde": "הרחבה של HexIDE; אינה זמינה ב-VB6.",
     "Str.AIChat.Approved": "✔ אושר",
     "Str.AIChat.Rejected": "✗ נדחה",
     "Str.AIChat.Error": "שגיאה: {0}",

@@ -2,6 +2,7 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Extensión de HexIDE; non dispoñible en VB6.",
     "Str.AIChat.Approved": "✔ Aprobado",
     "Str.AIChat.Rejected": "✗ Rexeitado",
     "Str.AIChat.Error": "Erro: {0}",

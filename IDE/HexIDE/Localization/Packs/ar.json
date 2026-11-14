@@ -2,6 +2,7 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.MemberOrigin.HexIde": "امتداد HexIDE؛ غير متاح في VB6.",
     "Str.AIChat.Approved": "✔ تمت الموافقة",
     "Str.AIChat.Rejected": "✗ تم الرفض",
     "Str.AIChat.Error": "خطأ: {0}",

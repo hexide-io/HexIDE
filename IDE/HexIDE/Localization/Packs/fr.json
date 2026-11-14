@@ -2,6 +2,7 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Extension HexIDE ; non disponible dans VB6.",
     "Str.AIChat.Approved": "✔ Approuvé",
     "Str.AIChat.Rejected": "✗ Rejeté",
     "Str.AIChat.Error": "Erreur : {0}",

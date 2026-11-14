@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE の拡張機能。VB6 では使用できません。",
     "Str.AIChat.Approved": "✔ 承認済み",
     "Str.AIChat.Rejected": "✗ 拒否済み",
     "Str.AIChat.Error": "エラー: {0}",

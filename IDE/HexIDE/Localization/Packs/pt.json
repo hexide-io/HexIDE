@@ -2,6 +2,7 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Extensão do HexIDE; não disponível no VB6.",
     "Str.Dock.Host": "Anfitrião de ancoragem",
     "Str.Dock.Root": "Ancoragem raiz",
     "Str.Dock.PinnedHost": "Anfitrião de ancoragem afixada",

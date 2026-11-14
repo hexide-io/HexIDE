@@ -2,6 +2,7 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE-tillägg; inte tillgängligt i VB6.",
     "Str.Dock.Host": "Dockningsvärd",
     "Str.Dock.Root": "Rotdocka",
     "Str.Dock.PinnedHost": "Värd för fäst dockning",

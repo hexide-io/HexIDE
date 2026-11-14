@@ -2,6 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Estensione di HexIDE; non disponibile in VB6.",
     "Str.Dock.Host": "Contenitore di ancoraggio",
     "Str.Dock.Root": "Ancoraggio radice",
     "Str.Dock.PinnedHost": "Contenitore di ancoraggio bloccato",

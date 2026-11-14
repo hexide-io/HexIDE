@@ -2,6 +2,7 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Rozšíření HexIDE; ve VB6 není dostupné.",
     "Str.AIChat.Approved": "✔ Schváleno",
     "Str.AIChat.Rejected": "✗ Odmítnuto",
     "Str.AIChat.Error": "Chyba: {0}",

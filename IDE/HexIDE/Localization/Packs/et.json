@@ -2,6 +2,7 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE laiendus; pole VB6-s saadaval.",
     "Str.Dock.Host": "Doki host",
     "Str.Dock.Root": "Juurdokk",
     "Str.Dock.PinnedHost": "Kinnitatud doki host",

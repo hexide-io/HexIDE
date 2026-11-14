@@ -2,6 +2,7 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Extensie HexIDE; indisponibilă în VB6.",
     "Str.Dock.Host": "Gazdă de andocare",
     "Str.Dock.Root": "Andocare rădăcină",
     "Str.Dock.PinnedHost": "Gazdă de andocare fixată",

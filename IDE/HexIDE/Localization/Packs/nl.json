@@ -2,6 +2,7 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE-uitbreiding; niet beschikbaar in VB6.",
     "Str.Dock.Host": "Dockhost",
     "Str.Dock.Root": "Hoofddock",
     "Str.Dock.PinnedHost": "Host voor vastgemaakte docks",

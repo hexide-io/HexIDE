@@ -2,6 +2,7 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Rozšírenie HexIDE; vo VB6 nie je dostupné.",
     "Str.Dock.Host": "Hostiteľ dokovania",
     "Str.Dock.Root": "Koreňové dokovanie",
     "Str.Dock.PinnedHost": "Hostiteľ pripnutého dokovania",

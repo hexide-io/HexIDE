@@ -2,6 +2,7 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE-utvidelse; ikke tilgjengelig i VB6.",
     "Str.Dock.Host": "Forankringsvert",
     "Str.Dock.Root": "Rotforankring",
     "Str.Dock.PinnedHost": "Vert for festet forankring",

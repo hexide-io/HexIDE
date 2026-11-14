@@ -2,6 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE-udvidelse; ikke tilgængelig i VB6.",
     "Str.Dock.Host": "Forankringsvært",
     "Str.Dock.Root": "Rodforankring",
     "Str.Dock.PinnedHost": "Vært for fastgjort forankring",

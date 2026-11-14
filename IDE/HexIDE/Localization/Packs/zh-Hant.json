@@ -2,6 +2,7 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE 擴充功能；VB6 中無法使用。",
     "Str.AIChat.Approved": "✔ 已核准",
     "Str.AIChat.Rejected": "✗ 已拒絕",
     "Str.AIChat.Error": "錯誤：{0}",

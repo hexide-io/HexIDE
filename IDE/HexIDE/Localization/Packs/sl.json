@@ -2,6 +2,7 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Razširitev HexIDE; ni na voljo v VB6.",
     "Str.Dock.Host": "Gostitelj sidranja",
     "Str.Dock.Root": "Korensko sidrišče",
     "Str.Dock.PinnedHost": "Gostitelj pripetega sidranja",

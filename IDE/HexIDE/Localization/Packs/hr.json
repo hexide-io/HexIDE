@@ -2,6 +2,7 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Proširenje HexIDE-a; nije dostupno u VB6.",
     "Str.AIChat.Approved": "✔ Odobreno",
     "Str.AIChat.Rejected": "✗ Odbijeno",
     "Str.AIChat.Error": "Pogreška: {0}",

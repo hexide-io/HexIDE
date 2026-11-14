@@ -2,6 +2,7 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "HexIDE uzantısı; VB6 içinde kullanılamaz.",
     "Str.Dock.Host": "Yerleştirme konağı",
     "Str.Dock.Root": "Kök yerleştirme alanı",
     "Str.Dock.PinnedHost": "Sabitlenmiş yerleştirme konağı",

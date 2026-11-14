@@ -131,7 +131,7 @@ internal static class ProgressBarMembers
     }
 
     /// <summary>A method called.</summary>
-    public static bool? TryCall(Avalonia.Controls.Control control, string name)
+    public static bool? TryCall(Avalonia.Controls.Control control, string name, IReadOnlyList<Vb6Value> args)
     {
         if (control is not VBProgressBar bar)
             return null;
@@ -141,6 +141,14 @@ internal static class ProgressBarMembers
         var member = Own(bar, name);
         if (member is not { Kind: MemberKind.Method })
             return false;
+        if (member.Name == "Increment")
+        {
+            if (args.Count == 0)
+                throw new VBRunTimeException(VBStandardError.ArgumentNotOptionalOrInvalidPropertyAssignment);
+            var increment = Single(args[0]);
+            bar.VbValue = (float)Math.Clamp((double)bar.VbValue + increment, bar.VbMin, bar.VbMax);
+            return true;
+        }
         // Refresh repaints the bar, which keeps its Value (measured).
         bar.InvalidateVisual();
         return true;

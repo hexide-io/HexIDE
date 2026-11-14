@@ -2,6 +2,7 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Extensión de HexIDE; no disponible en VB6.",
     "Str.AIChat.Approved": "✔ Aprobado",
     "Str.AIChat.Rejected": "✗ Rechazado",
     "Str.AIChat.Error": "Error: {0}",

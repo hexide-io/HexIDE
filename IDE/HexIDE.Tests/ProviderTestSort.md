@@ -157,6 +157,7 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/MemberAttributesFollowARenameTests.cs` | split |
 | `ViewModels/MemberRunFollowsItsLineTests.cs` | split |
 | `ViewModels/ModuleRenameTests.cs` | split |
+| `ViewModels/ObjectBrowserExtensionTests.cs` | split |
 | `ViewModels/OutlineToolViewModelTests.cs` | split |
 | `ViewModels/PictureExportTests.cs` | split |
 | `ViewModels/ProjectPropertiesViewModelTests.cs` | split |

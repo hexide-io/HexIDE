@@ -2,6 +2,7 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.MemberOrigin.HexIde": "Επέκταση του HexIDE· δεν είναι διαθέσιμη στη VB6.",
     "Str.Dock.Host": "Κεντρικός υποδοχέας αγκύρωσης",
     "Str.Dock.Root": "Ριζική αγκύρωση",
     "Str.Dock.PinnedHost": "Υποδοχέας καρφιτσωμένης αγκύρωσης",

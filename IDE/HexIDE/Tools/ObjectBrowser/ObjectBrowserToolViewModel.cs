@@ -11,6 +11,7 @@ using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Runtime.Components;
+using InBox = HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Lsp.Messages;
 using HexIDE.Projects;
@@ -604,6 +605,23 @@ public partial class ObjectBrowserToolViewModel : Document
                         classVm.Members.Add(new OBMemberViewModel(
                             member.Name, MapMemberKind(member.Kind),
                             member.Signature, member.Documentation));
+                    var component = InBox.InBoxComponentClass.Implemented.FirstOrDefault(c =>
+                        c.ControlClassName.Equals(type.Name, StringComparison.OrdinalIgnoreCase)
+                        && c.Libraries.Any(l => l.IsNamedBy(lib.Reference)));
+                    if (component != null)
+                    {
+                        foreach (var member in component.Members.Where(m => m.Origin.HasFlag(InBox.MemberOrigin.HexIde)))
+                        {
+                            var kind = member.Kind switch
+                            {
+                                InBox.MemberKind.Property => OBMemberKind.Property,
+                                InBox.MemberKind.Event => OBMemberKind.Event,
+                                _ => OBMemberKind.Method,
+                            };
+                            classVm.Members.Add(new OBMemberViewModel(member.Name, kind, $"{member.Kind} {member.Name}",
+                                localization.GetString("Str.MemberOrigin.HexIde")));
+                        }
+                    }
                     lib.Classes.Add(classVm);
                 }
                 lib.Classes.Sort((a, b) =>

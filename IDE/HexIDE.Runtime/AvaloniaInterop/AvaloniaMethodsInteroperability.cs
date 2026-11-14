@@ -59,7 +59,7 @@ public static class AvaloniaMethodsInteroperability
         RichTextBoxMembers.RefuseMethod(c, method);
         if (c is VBSSTab && Components.InBox.SSTabComponentClass.Instance.Member(method) is { Implemented: false })
             throw new NotImplementedException($"SSTab {method} is not implemented");
-        if ((StatusBarMembers.TryCall(c, method) ?? ProgressBarMembers.TryCall(c, method)) is { } inBox)
+        if ((StatusBarMembers.TryCall(c, method) ?? ProgressBarMembers.TryCall(c, method, args)) is { } inBox)
             return inBox ? Vb6Value.Nothing : throw new VBMethodOrDataMemberNotFoundException(method, Vb6Value.ValueType.Control);
         // A form's Show and Hide, on a window the program drives (#822). Its load came first, where the member was looked
         // up. A modal Show waits for the form, so only a statement, through CallAsync, can make one.
