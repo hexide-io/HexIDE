@@ -151,3 +151,7 @@ The #3774 loaded-name change uses the same [module-name measurement](vb6-fidelit
 ([#3777](https://github.com/hexide-io/HexIDE/pull/3777)): a `.bas` or `.cls` takes its identity from
 `VB_Name`, silently overriding the `.vbp` name; without that attribute the project line wins. The IDE's
 Save Project writes the chosen name into the `.vbp`. Name collisions were not measured.
+
+The #3920 Screen focus fix uses [a form's own ActiveControl](vb6-fidelity-oracle/a-forms-own-activecontrol.md)
+(#2437, matching native and p-code): hiding the active form returns Screen to the other shown form
+and its remembered control; hiding the last visible form retains both.

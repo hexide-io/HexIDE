@@ -60,6 +60,31 @@ public class FormActiveControlTests
             If Form2.ActiveControl Is Nothing Then Debug.Print "none"
         End Sub
 
+        Public Sub ScreenReport()
+            If Screen.ActiveForm Is Nothing Then Debug.Print "no form" Else Debug.Print Screen.ActiveForm.Name
+            If Screen.ActiveControl Is Nothing Then Debug.Print "no control" Else Debug.Print Screen.ActiveControl.Name
+        End Sub
+        Public Sub ShowOther()
+            Form2.Show
+            Form2.Text1.SetFocus
+        End Sub
+        Public Sub ShowThird()
+            Form3.Show
+            Form3.Text1.SetFocus
+        End Sub
+        Public Sub HideThird()
+            Form3.Hide
+        End Sub
+        Public Sub HideOther()
+            Form2.Hide
+        End Sub
+        Public Sub HideMe()
+            Me.Hide
+        End Sub
+        Public Sub FocusMe()
+            Me.SetFocus
+        End Sub
+
         """;
 
     private static string Form(string controls) =>
@@ -105,13 +130,17 @@ public class FormActiveControlTests
         }
     }
 
-    private static Run Start(string form)
+    private static Run Start(string form, bool thirdForm = false)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form1 = new FormDeserializer().Deserialize(project, form.ReplaceLineEndings("\r\n"), new NullSink())!;
         project.AddForm(form1);
         project.AddForm(new FormDeserializer().Deserialize(project,
             Form(TextAndButton).Replace("Form1", "Form2").ReplaceLineEndings("\r\n"), new NullSink())!);
+
+        if (thirdForm)
+            project.AddForm(new FormDeserializer().Deserialize(project,
+                Form(TextAndButton).Replace("Form1", "Form3").ReplaceLineEndings("\r\n"), new NullSink())!);
 
         var printed = new List<string>();
         var errors = new List<Exception>();
@@ -203,6 +232,59 @@ public class FormActiveControlTests
     {
         using var run = Start(Form(Control("Label", "Label1", 120, 0)));
         run.Call("Report").Should().Equal("none");
+        run.Errors.Should().BeEmpty();
+    }
+
+    // Screen's side of the same probe, a step to a call as the probe took a step to a Timer tick, so the focus moves
+    // between steps. Screen.ActiveControl is the active form's control, and a form made active again gets its own back.
+    [AvaloniaFact]
+    public void Screen_follows_the_active_form_and_gets_its_control_back_when_the_other_hides()
+    {
+        using var run = Start(Form(TextAndButton));
+        run.Call("Focus_Command1");
+        run.Call("ScreenReport").Should().Equal("Form1", "Command1");
+        run.Call("ShowOther").Should().Equal("loaded");
+        run.Call("ScreenReport").Should().Equal("Form2", "Text1");
+        run.Call("HideOther");
+        run.Call("ScreenReport").Should().Equal("Form1", "Command1");
+        run.Errors.Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public void Screen_gets_a_forms_control_back_when_the_form_is_focused_again()
+    {
+        using var run = Start(Form(TextAndButton));
+        run.Call("Focus_Command1");
+        run.Call("ShowOther");
+        run.Call("FocusMe");
+        run.Call("ScreenReport").Should().Equal("Form1", "Command1");
+        run.Errors.Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public void Hiding_the_last_visible_form_keeps_Screens_active_control()
+    {
+        using var run = Start(Form(TextAndButton));
+        run.Call("Focus_Command1");
+        run.Call("HideMe");
+        run.Call("ScreenReport").Should().Equal("Form1", "Command1");
+        run.Errors.Should().BeEmpty();
+    }
+
+    // The selection among several shown forms is the rule #3920's run brief set: the most recently active form still shown.
+    [AvaloniaFact]
+    public void Hiding_the_active_form_returns_to_the_most_recently_active_shown_form()
+    {
+        using var run = Start(Form(TextAndButton), thirdForm: true);
+        run.Call("ShowOther");
+        run.Call("FocusMe");
+        run.Call("Focus_Command1");
+        run.Call("ShowThird");
+        run.Call("ScreenReport").Should().Equal("Form3", "Text1");
+        run.Call("HideThird");
+        run.Call("ScreenReport").Should().Equal("Form1", "Command1");
+        run.Call("HideOther");
+        run.Call("ScreenReport").Should().Equal("Form1", "Command1");
         run.Errors.Should().BeEmpty();
     }
 }
