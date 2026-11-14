@@ -19,6 +19,54 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Discover archive projects and each project's own file
+`get_project_info` SHALL include open archive projects in `projects`, with their container path, their
+own `projectFile`, and `entries` listing stored entry paths, including folders and hidden entries.
+Each ordinary project SHALL also report its own `projectFile`, null when unsaved.
+
+#### Scenario: Discover archive entries with no VB6 project loaded
+- **WHEN** only an archive project is open and the caller requests `get_project_info`
+- **THEN** `projects` lists the archive, its own file and its entry paths
+- **AND** the note explains that the top-level startup-project fields do not describe the archive
+
+### Requirement: Archive automation paths preserve stored names
+Archive entry paths SHALL start with `/` and join percent-escaped name segments with `/`, preserving
+ordinal archive identity even when a name contains a slash or percent sign. These paths SHALL NOT be
+filesystem paths or language-server URIs.
+
+#### Scenario: An entry name contains a slash
+- **WHEN** one archive entry is named `a/b.twin`
+- **THEN** its automation path is `/a%2Fb.twin`, distinct from `b.twin` inside a folder named `a`
+
+### Requirement: Open archive entries by their listed paths
+`open_file` SHALL open an archive entry by its listed path in the existing read-only inspector, without
+writing files or attaching a language server. Its reply SHALL name the container path as `project` and
+the entry path as `document`. The optional `project` SHALL select an archive by its container path,
+file name or stored project name. Ambiguous matches SHALL refuse and list the matching containers
+before opening anything.
+
+#### Scenario: Two archives contain the same entry path
+- **WHEN** `open_file` names an entry path present in two open archives without `project`
+- **THEN** nothing opens and the reply lists both container paths
+- **AND WHEN** the caller repeats the request with one container path as `project`
+- **THEN** that archive's entry opens read-only and the reply names it
+
+### Requirement: Refuse invalid archive caret locations before opening
+A supplied archive caret location SHALL be validated before opening and shown when the inspector
+attaches. Entries without a text preview SHALL refuse a caret location with the preview's reason.
+
+#### Scenario: A caret location is beyond an entry's text
+- **WHEN** `open_file` names a line past an archive entry's last line
+- **THEN** nothing opens and the reply names the invalid line
+
+### Requirement: Missing open-file names explain what can be opened
+An `open_file` miss SHALL describe available ordinary documents and archive entries and point to
+`get_project_info`.
+
+#### Scenario: An unknown entry in an open archive
+- **WHEN** the caller requests a name matching nothing
+- **THEN** the refusal lists the open archives and their available entry paths
+
 ### Requirement: Breakpoint conditions through automation
 
 `set_breakpoints` SHALL retain its required `name` and `lines` arguments and accept an optional
