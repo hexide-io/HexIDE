@@ -716,6 +716,7 @@ added afterwards.
 - [A compare argument, and when it is checked](compare-argument-validation.md) — #881, supplied SP6 native/p-code measurements.
 - [FormatNumber, FormatCurrency and FormatPercent (2026-10-28, #2515)](formatnumber-formatcurrency-and-formatpercent.md#formatnumber-formatcurrency-and-formatpercent-2026-10-28-2515)
 - [FormatDateTime (2026-10-28, #2516)](formatdatetime.md#formatdatetime-2026-10-28-2516)
+- [A long date pattern with an era (2026-11-14, #3946)](a-long-date-pattern-with-an-era.md#a-long-date-pattern-with-an-era-2026-11-14-3946)
 - [LSet and RSet into a String (2026-10-28, #2517)](lset-and-rset-into-a-string.md#lset-and-rset-into-a-string-2026-10-28-2517)
 - [LSet between two user-defined types (2026-10-28, #2518)](lset-between-two-user-defined-types.md#lset-between-two-user-defined-types-2026-10-28-2518)
 - [CallByName (2026-10-28, #2519)](callbyname.md#callbyname-2026-10-28-2519)
