@@ -2114,7 +2114,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var value = evaluated ?? await expressionExecutor.EvaluateValue(context.valueStmt());
 
         if (context.PLUS_EQ() != null || context.MINUS_EQ() != null)
-            throw new NotImplementedException("+-/-= not implemented in variable assignment");
+            OtherDialectRefusal.Refuse((context.PLUS_EQ() ?? context.MINUS_EQ()).GetText(), context.Start);
 
         if (value.Type == Vb6Value.ValueType.Object && (intoArray || IsBareUdtArrayField(context.implicitCallStmt_InStmt())))
             return value;   // ArrayStore refuses it

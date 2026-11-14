@@ -127,7 +127,7 @@ public class DoLoopTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task ContinueDo_IsSyntaxError()
+    public async Task ContinueDo_IsRefusedBeforeExecution()
     {
         string code = @"
             Dim i, result
@@ -143,7 +143,11 @@ public class DoLoopTests : BaseVBTestFixture
         ";
 
         Func<Task> act = () => Run(code);
-        await act.Should().ThrowAsync<VBCompileErrorException>().WithMessage("Compile error:*Syntax error");
+        var error = (await act.Should().ThrowAsync<VBCompileErrorException>()).Which;
+        error.Message.ReplaceLineEndings("\n").Should().Be(
+            "Compile error:\n\nContinue Do isn't part of VB6, VBA or VBScript, so this interpreter doesn't run it.");
+        error.Line.Should().Be(7);
+        debug.Should().BeEmpty();
     }
 
     [Fact]

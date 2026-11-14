@@ -801,12 +801,22 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         parsingModule = moduleName;
         try
         {
-            var parser = new VB6Parser(NextCounterList.Tokens(lexer));
+            var tokens = NextCounterList.Tokens(lexer);
+            OtherDialectRefusal.Check(tokens, source);
+            var parser = new VB6Parser(tokens);
             parser.RemoveErrorListeners();
             parser.AddErrorListener(this);
-            var tree = ParseWithFallback(parser, p => p.startRule(), moduleName: moduleName);
-            ModuleParsePredictionMode = parser.Interpreter.PredictionMode;
-            return tree;
+            try
+            {
+                var tree = ParseWithFallback(parser, p => p.startRule(), moduleName: moduleName);
+                ModuleParsePredictionMode = parser.Interpreter.PredictionMode;
+                return tree;
+            }
+            catch (VBCompileErrorException)
+            {
+                OtherDialectRefusal.Check(tokens, source, wordOperators: true);
+                throw;
+            }
         }
         finally
         {
