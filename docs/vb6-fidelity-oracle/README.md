@@ -501,6 +501,7 @@ added afterwards.
 - [Serialization / file-format fidelity (2026-08-11)](serialization--file-format-fidelity.md#serialization--file-format-fidelity-2026-08-11)
 - [Unsuffixed float literals, and comparing Double with Single (2026-09-03)](unsuffixed-float-literals-and-comparing-double-with-single.md#unsuffixed-float-literals-and-comparing-double-with-single-2026-09-03)
 - [Numeric type pairs — five arithmetic tables, and comparison is a sixth (2026-09-03)](numeric-type-pairs--five-arithmetic-tables-and-comparison-is-a-sixth.md#numeric-type-pairs--five-arithmetic-tables-and-comparison-is-a-sixth-2026-09-03)
+- [A String compared with a number (2026-11-14, #211)](a-string-compared-with-a-number.md#a-string-compared-with-a-number-2026-11-14-211)
 - [Module-name uniqueness is per-project, and filenames are free (2026-09-07)](module-name-uniqueness-is-per-project-and-filenames-are-free.md#module-name-uniqueness-is-per-project-and-filenames-are-free-2026-09-07)
 - [Qualified type names: a `Type` never shadows the qualifier (2026-09-19)](qualified-type-names-a-type-never-shadows-the-qualifier.md#qualified-type-names-a-type-never-shadows-the-qualifier-2026-09-19)
 - [What `/make` writes to `/out`, and what "Line N" counts (2026-09-19)](what-make-writes-to-out-and-what-line-n-counts.md#what-make-writes-to-out-and-what-line-n-counts-2026-09-19)
