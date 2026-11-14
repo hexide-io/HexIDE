@@ -356,6 +356,8 @@
     "Str.Menu.Help.BrandHome": "דף הבית של {0}",
     "Str.Menu.Help.BrandSupport": "תמיכה עבור {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE ברשת",
+    "Str.Menu.Help.LogFolder": "פתיחת תיקיית היומנים של HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "לא ניתן לפתוח את תיקיית היומנים. אפשר לפתוח אותה ידנית: {0}",
     "Str.Menu.Help.About": "אודות HexIDE...",
     "Str.Menu.GoToGithubRepo": "עבור אל מאגר github",
     "Str.NewProject.NoTemplates": "פרופיל זה אינו מציע תבניות לפרויקטים חדשים. יש לפתוח פרויקט קיים במקום זאת.",

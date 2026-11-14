@@ -44,6 +44,17 @@ public class HelpEntryPointTests
         item.Command.Should().Be("shell." + command);
     }
 
+    [Fact]
+    public void LogFolder_IsOfferedBetweenTheWebLinkAndAboutSeparator()
+    {
+        var children = MainMenuDeclaration.Load().Single(item => item.Id == "help").Children!;
+        var item = children.Single(item => item.Id == "help.logfolder");
+        item.LabelKey.Should().Be("Str.Menu.Help.LogFolder");
+        item.Command.Should().Be("shell.OpenLogFolderCommand");
+        children.Select(child => child.Id).Should().ContainInOrder(
+            "help.productonweb", "help.logfolder", "help.separator1", "help.about");
+    }
+
     private static string ViewDirectory()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
