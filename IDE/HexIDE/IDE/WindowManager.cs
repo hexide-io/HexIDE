@@ -221,10 +221,10 @@ public class WindowManager : IWindowManager
         return messageBox.ShowAndWait(window, owner ?? GetTopWindow(desktop));
     }
 
-    public async Task<MessageBoxResult> MessageBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner, bool isProgramDialog = false)
+    public async Task<MessageBoxResult> MessageBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner, bool isProgramDialog = false, MessageBoxLayout layout = MessageBoxLayout.None)
     {
         if (isProgramDialog)
-            return await ProgramDialogs.ShowMessageBox(this, text, caption, buttons, icon, owner);
+            return await ProgramDialogs.ShowMessageBox(this, text, caption, buttons, icon, owner, layout);
         caption ??= Distribution.DisplayName;
         if (Static.SingleView)
         {

@@ -28,9 +28,12 @@ public class StandaloneStandardLib : IBasicStandardLibrary
     /// </remarks>
     private const string OmittedTitleStandIn = "HexIDE";
 
-    public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+    public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+        => MsgBox(text, caption, buttons, icon, MessageBoxLayout.None);
+
+    public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxLayout layout)
     {
-        var msgBox = new MessageBox { IsProgramDialog = true, Text = text, Buttons = buttons, Icon = icon };
+        var msgBox = new MessageBox { IsProgramDialog = true, Text = text, Buttons = buttons, Icon = icon, Layout = layout };
         var window = new Window
         {
             Title = caption ?? OmittedTitleStandIn,
