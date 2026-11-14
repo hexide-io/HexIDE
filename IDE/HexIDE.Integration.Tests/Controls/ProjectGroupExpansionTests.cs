@@ -59,7 +59,7 @@ public sealed class ProjectGroupExpansionTests : IDisposable
             if (openGroup)
             {
                 var path = Path.Join(directory, "Outer.vbg");
-                File.WriteAllText(path, "VBGROUP 5.00\r\nProject=First.vbp\r\nProject=Second.vbp\r\nStartupProject=First.vbp\r\n");
+                File.WriteAllText(path, "VBGROUP 5.0\r\nStartupProject=First.vbp\r\nProject=Second.vbp\r\n");
                 await service.OpenProject(path);
             }
             else

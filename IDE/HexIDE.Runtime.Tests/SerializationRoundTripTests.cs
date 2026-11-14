@@ -890,6 +890,54 @@ public class SerializationRoundTripTests
         output.Should().Contain("SomeExtensionKey=SomeValue");
     }
 
+    // Measured bytes: docs/vb6-fidelity-oracle/a-project-groups-file-as-vb6-writes-it.md (#579).
+    [Theory]
+    [InlineData("VBGROUP 5.0\r\nStartupProject=A\\A.vbp\r\nProject=B\\B.vbp\r\n", "A")]
+    [InlineData("VBGROUP 5.0\r\nProject=A\\A.vbp\r\nStartupProject=B\\B.vbp\r\n", "B")]
+    [InlineData("VBGROUP 5.00\r\nStartupProject=B\\B.vbp\r\nProject=A\\A.vbp\r\nProject=B\\B.vbp\r\n", "B")]
+    public void Group_OracleAndLegacyFiles_ReadInOrderAndWriteVb6Bytes(string source, string startup)
+    {
+        var group = new GroupDeserializer().Deserialize(source);
+        group.ProjectRelativePaths.Should().Equal(@"A\A.vbp", @"B\B.vbp");
+        group.StartupProjectRelativePath.Should().Be($@"{startup}\{startup}.vbp");
+        group.UnknownLines.Should().BeEmpty();
+        var root = TestRoot();
+        var projects = new[] { "A", "B" }.Select(name => new ProjectDefinition(VBProjectType.EXE, name)
+        {
+            AbsolutePath = System.IO.Path.Combine(root, name, name + ".vbp")
+        }).ToArray();
+        var output = new GroupSerializer().Serialize(System.IO.Path.Combine(root, "G1.vbg"), projects,
+            projects.Single(p => p.Name == startup));
+        var expected = startup == "A"
+            ? "VBGROUP 5.0\r\nStartupProject=A\\A.vbp\r\nProject=B\\B.vbp\r\n"
+            : "VBGROUP 5.0\r\nProject=A\\A.vbp\r\nStartupProject=B\\B.vbp\r\n";
+        System.Text.Encoding.ASCII.GetBytes(output).Should().Equal(System.Text.Encoding.ASCII.GetBytes(expected));
+        System.Text.Encoding.ASCII.GetByteCount(output).Should().Be(54);
+    }
+
+    [Theory]
+    [InlineData("A")]
+    [InlineData("B")]
+    public void Group_WriterUsesOracleBytesAtPlannedDestinations(string startup)
+    {
+        var root = TestRoot();
+        var projects = new[] { "A", "B" }.Select(name => new ProjectDefinition(VBProjectType.EXE, name)).ToArray();
+        string? PathOf(object project) => project is ProjectDefinition p
+            ? System.IO.Path.Combine(root, p.Name, p.Name + ".vbp") : null;
+        var output = new GroupSerializer().Serialize(System.IO.Path.Combine(root, "G1.vbg"), projects,
+            projects.Single(p => p.Name == startup), pathOf: PathOf);
+        output.Should().Be(startup == "A"
+            ? "VBGROUP 5.0\r\nStartupProject=A\\A.vbp\r\nProject=B\\B.vbp\r\n"
+            : "VBGROUP 5.0\r\nProject=A\\A.vbp\r\nStartupProject=B\\B.vbp\r\n");
+    }
+
+    [Fact]
+    public void Group_StartupOnly_IsAMember()
+    {
+        var group = new GroupDeserializer().Deserialize("VBGROUP 5.0\r\nStartupProject=probe1.vbp\r\n");
+        group.ProjectRelativePaths.Should().Equal("probe1.vbp");
+    }
+
     // ── Subdirectory member paths (project-explorer spec Phase 1) ────────────
     // Platform-neutral absolute paths: Path.GetRelativePath is platform-semantic, and CI runs
     // on Linux, so these tests build paths from a temp root instead of C:\.
