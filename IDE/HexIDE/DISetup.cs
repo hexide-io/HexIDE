@@ -1,3 +1,4 @@
+using Avalonia.Platform.Storage;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Debugging;
 using HexIDE.Runtime.Debugging;
@@ -42,6 +43,8 @@ public partial class DISetup
     [Conditional("DI")]
     static void Setup() =>
         DI.Setup()
+            .Bind<Func<System.IO.DirectoryInfo, System.Threading.Tasks.Task<bool>>>().To<Func<System.IO.DirectoryInfo, System.Threading.Tasks.Task<bool>>>(_ =>
+                directory => Avalonia.Controls.TopLevel.GetTopLevel(Static.MainView)!.Launcher.LaunchDirectoryInfoAsync(directory))
             .Bind().As(Singleton).To<ToolBoxToolViewModel>()
             .Bind().As(Singleton).To<PropertiesToolViewModel>()
             .Bind().As(Singleton).To(ctx =>

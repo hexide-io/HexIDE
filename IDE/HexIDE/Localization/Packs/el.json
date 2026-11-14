@@ -294,6 +294,8 @@
     "Str.Menu.Help.BrandHome": "Αρχική σελίδα του {0}",
     "Str.Menu.Help.BrandSupport": "Υποστήριξη {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE στον ιστό",
+    "Str.Menu.Help.LogFolder": "Άνοιγμα φακέλου καταγραφών του HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Δεν ήταν δυνατό το άνοιγμα του φακέλου καταγραφών. Μπορείτε να τον ανοίξετε χειροκίνητα: {0}",
     "Str.Menu.Help.About": "Πληροφορίες για το HexIDE...",
     "Str.Menu.GoToGithubRepo": "Μετάβαση στο αποθετήριο github",
     "Str.NewProject.NoTemplates": "Αυτό το προφίλ δεν προσφέρει πρότυπα νέων έργων. Ανοίξτε ένα υπάρχον έργο.",

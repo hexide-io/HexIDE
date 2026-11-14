@@ -2,6 +2,8 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Help.LogFolder": "Abrir pasta de _registros do HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Não foi possível abrir a pasta de registros. Você pode abri-la manualmente: {0}",
     "Str.Dock.Host": "Host de encaixe",
     "Str.Dock.Root": "Encaixe raiz",
     "Str.Dock.PinnedHost": "Host de encaixe fixado",

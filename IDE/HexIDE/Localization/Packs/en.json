@@ -279,6 +279,8 @@
     "Str.Menu.Help.BrandHome": "{0} _Home Page",
     "Str.Menu.Help.BrandSupport": "{0} _Support",
     "Str.Menu.Help.ProductOnWeb": "HexIDE on the _Web",
+    "Str.Menu.Help.LogFolder": "Open HexIDE _Log Folder",
+    "Str.Help.LogFolder.OpenFailed": "Could not open the log folder. You can open it manually: {0}",
     "Str.Menu.Help.About": "_About HexIDE...",
     "Str.Menu.GoToGithubRepo": "Go to github repo",
     "Str.NewProject.NoTemplates": "This profile offers no new project templates. Open an existing project instead.",

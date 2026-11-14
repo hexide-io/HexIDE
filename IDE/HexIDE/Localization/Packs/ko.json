@@ -328,6 +328,8 @@
     "Str.Menu.Help.BrandHome": "{0} 홈페이지",
     "Str.Menu.Help.BrandSupport": "{0} 지원",
     "Str.Menu.Help.ProductOnWeb": "웹의 HexIDE",
+    "Str.Menu.Help.LogFolder": "HexIDE 로그 폴더 열기",
+    "Str.Help.LogFolder.OpenFailed": "로그 폴더를 열 수 없습니다. 직접 열 수 있습니다: {0}",
     "Str.Menu.Help.About": "HexIDE 정보...",
     "Str.Menu.GoToGithubRepo": "github 저장소로 이동",
     "Str.NewProject.NoTemplates": "이 프로필에는 새 프로젝트 템플릿이 없습니다. 기존 프로젝트를 여세요.",

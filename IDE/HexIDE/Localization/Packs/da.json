@@ -294,6 +294,8 @@
     "Str.Menu.Help.BrandHome": "{0} _startside",
     "Str.Menu.Help.BrandSupport": "{0}-_support",
     "Str.Menu.Help.ProductOnWeb": "HexIDE på _nettet",
+    "Str.Menu.Help.LogFolder": "Åbn HexIDE-_logmappen",
+    "Str.Help.LogFolder.OpenFailed": "Logmappen kunne ikke åbnes. Du kan åbne den manuelt: {0}",
     "Str.Menu.Help.About": "_Om HexIDE...",
     "Str.Menu.GoToGithubRepo": "Gå til GitHub-lager",
     "Str.NewProject.NoTemplates": "Denne profil tilbyder ingen nye projektskabeloner. Åbn et eksisterende projekt i stedet.",

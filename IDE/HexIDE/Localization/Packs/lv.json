@@ -290,6 +290,8 @@
     "Str.Menu.Help.BrandHome": "{0} _sākumlapa",
     "Str.Menu.Help.BrandSupport": "{0} _atbalsts",
     "Str.Menu.Help.ProductOnWeb": "HexIDE _tīmeklī",
+    "Str.Menu.Help.LogFolder": "Atvērt HexIDE žurnā_lu mapi",
+    "Str.Help.LogFolder.OpenFailed": "Neizdevās atvērt žurnālu mapi. Varat to atvērt manuāli: {0}",
     "Str.Menu.Help.About": "_Par HexIDE...",
     "Str.Menu.GoToGithubRepo": "Atvērt GitHub repozitoriju",
     "Str.ProjectType.StandardEXE": "Standarta EXE",

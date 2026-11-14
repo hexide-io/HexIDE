@@ -320,6 +320,8 @@
     "Str.Menu.Help.BrandHome": "Page d’_accueil de {0}",
     "Str.Menu.Help.BrandSupport": "_Assistance {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE sur le _Web",
+    "Str.Menu.Help.LogFolder": "Ouvrir le dossier des _journaux HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Impossible d’ouvrir le dossier des journaux. Vous pouvez l’ouvrir manuellement : {0}",
     "Str.Menu.Help.About": "À _propos de HexIDE...",
     "Str.Menu.GoToGithubRepo": "Accéder au dépôt github",
     "Str.NewProject.NoTemplates": "Ce profil ne propose aucun modèle de nouveau projet. Ouvrez plutôt un projet existant.",

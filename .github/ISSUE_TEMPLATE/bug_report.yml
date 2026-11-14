@@ -1,0 +1,50 @@
+name: Bug report
+description: Report something that did not work as expected.
+labels: [bug]
+body:
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Tell us how to reproduce the problem, starting from opening the IDE.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Copy the version from Help → About.
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11, macOS 15, Ubuntu 26.04
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log (optional)
+      description: >-
+        Find logs with Help → Open HexIDE Log Folder (the name follows your build's brand).
+        IDE logs are in ide/ and bundled language-server logs in lsp/.
+        Logs may contain paths under your user profile, and therefore your account name;
+        project and file names; and exception text, which can quote a path, a value or code.
+        Attaching a log to this public issue publishes all of that.
+        Read it first and remove anything you do not want public, or leave it out and say you have one.
+    validations:
+      required: false

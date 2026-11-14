@@ -256,6 +256,8 @@
     "Str.Menu.Help.BrandHome": "_Početna stranica za {0}",
     "Str.Menu.Help.BrandSupport": "_Podrška za {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE na _vebu",
+    "Str.Menu.Help.LogFolder": "Otvori fasciklu _evidencije za HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Nije moguće otvoriti fasciklu evidencije. Možete je otvoriti ručno: {0}",
     "Str.Menu.Help.About": "_O programu HexIDE...",
     "Str.Menu.GoToGithubRepo": "Otvori GitHub repozitorijum",
     "Str.ProjectType.StandardEXE": "Standardni EXE",

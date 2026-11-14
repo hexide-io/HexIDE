@@ -320,6 +320,8 @@
     "Str.Menu.Help.BrandHome": "{0} 主页(_H)",
     "Str.Menu.Help.BrandSupport": "{0} 支持(_S)",
     "Str.Menu.Help.ProductOnWeb": "HexIDE 网站(_W)",
+    "Str.Menu.Help.LogFolder": "打开 HexIDE 日志文件夹(_L)",
+    "Str.Help.LogFolder.OpenFailed": "无法打开日志文件夹。您可以手动打开：{0}",
     "Str.Menu.Help.About": "关于 HexIDE(_A)...",
     "Str.Menu.GoToGithubRepo": "前往 github 仓库",
     "Str.NewProject.NoTemplates": "此配置不提供新建项目模板。请打开现有项目。",

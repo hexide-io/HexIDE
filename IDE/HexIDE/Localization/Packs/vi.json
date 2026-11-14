@@ -294,6 +294,8 @@
     "Str.Menu.Help.BrandHome": "Trang _chủ {0}",
     "Str.Menu.Help.BrandSupport": "_Hỗ trợ {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE trên _web",
+    "Str.Menu.Help.LogFolder": "Mở thư mục nhật _ký HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Không thể mở thư mục nhật ký. Bạn có thể mở thủ công: {0}",
     "Str.Menu.Help.About": "_Giới thiệu về HexIDE...",
     "Str.Menu.GoToGithubRepo": "Đến kho GitHub",
     "Str.NewProject.NoTemplates": "Hồ sơ này không cung cấp mẫu dự án mới. Hãy mở một dự án hiện có.",

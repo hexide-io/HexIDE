@@ -65,6 +65,38 @@ public class MainViewViewModelTests
         _sut.SaveProjectAsCommand.CanExecute(null).Should().BeFalse();
     }
 
+    [Avalonia.Headless.XUnit.AvaloniaFact]
+    public void LogFolderCommand_OpensTheDistributionDirectory()
+    {
+        var paths = new List<string>();
+        var sut = Build(_runnerService, openDirectory: directory =>
+        {
+            paths.Add(directory.FullName);
+            return Task.FromResult(true);
+        });
+        _windowManager.ClearReceivedCalls();
+        sut.OpenLogFolderCommand.Execute(null);
+        paths.Should().Equal(Distribution.LogsDirectory);
+        _windowManager.ReceivedCalls().Should().BeEmpty();
+    }
+
+    [Avalonia.Headless.XUnit.AvaloniaFact]
+    public void LogFolderCommand_WhenOpeningFails_ShowsThePathWithoutRetrying()
+    {
+        var paths = new List<string>();
+        _localization.GetString("Str.Help.LogFolder.OpenFailed").Returns("Cannot open log folder: {0}");
+        var sut = Build(_runnerService, openDirectory: directory =>
+        {
+            paths.Add(directory.FullName);
+            return Task.FromResult(false);
+        });
+        _windowManager.ClearReceivedCalls();
+        sut.OpenLogFolderCommand.Execute(null);
+        paths.Should().Equal(Distribution.LogsDirectory);
+        _windowManager.ReceivedCalls().Should().ContainSingle().Which.GetArguments()[0]
+            .Should().Be("Cannot open log folder: " + Distribution.LogsDirectory);
+    }
+
     private static System.IDisposable MenuTheme()
     {
         var theme = new Avalonia.Themes.Simple.SimpleTheme();
@@ -300,7 +332,8 @@ public class MainViewViewModelTests
         HexIDE.Debugging.ExternalDebugService? external = null, IEditorService? editor = null,
         FindReferencesToolViewModel? references = null, CallHierarchyToolViewModel? hierarchy = null,
         IWindowStateService? windowState = null, AddinToolWindowService? tools = null,
-        HexIDE.Runtime.Debugging.IDebugController? debug = null, IFocusedProjectUtil? focus = null)
+        HexIDE.Runtime.Debugging.IDebugController? debug = null, IFocusedProjectUtil? focus = null,
+        Func<System.IO.DirectoryInfo, Task<bool>>? openDirectory = null)
     {
         projects ??= _projectService;
         var mockDocDock = dock ?? Substitute.For<IDocumentDockService>();
@@ -400,7 +433,7 @@ public class MainViewViewModelTests
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             debug ?? _debugController,
             new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc),
-            recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references, callHierarchy: hierarchy);
+            openDirectory: openDirectory, recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references, callHierarchy: hierarchy);
     }
 
     private sealed class RequeryProbe : IDisposable

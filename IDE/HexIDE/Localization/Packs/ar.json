@@ -320,6 +320,8 @@
     "Str.Menu.Help.BrandHome": "الصفحة الرئيسية لـ {0}",
     "Str.Menu.Help.BrandSupport": "دعم {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE على الويب",
+    "Str.Menu.Help.LogFolder": "فتح مجلد سجلات HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "تعذر فتح مجلد السجلات. يمكنك فتحه يدويًا: {0}",
     "Str.Menu.Help.About": "حول HexIDE...",
     "Str.Menu.GoToGithubRepo": "الانتقال إلى مستودع github",
     "Str.NewProject.NoTemplates": "لا يوفر ملف التعريف هذا قوالب مشاريع جديدة. افتح مشروعًا موجودًا بدلاً من ذلك.",

@@ -282,6 +282,8 @@
     "Str.Menu.Help.BrandHome": "Páxina de _inicio de {0}",
     "Str.Menu.Help.BrandSupport": "_Asistencia de {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE na _web",
+    "Str.Menu.Help.LogFolder": "Abrir o cartafol de _rexistros de HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Non se puido abrir o cartafol de rexistros. Pode abrilo manualmente: {0}",
     "Str.Menu.Help.About": "_Sobre HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ir ao repositorio de GitHub",
     "Str.ProjectType.StandardEXE": "EXE estándar",

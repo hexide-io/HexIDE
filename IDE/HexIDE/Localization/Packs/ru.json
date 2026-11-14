@@ -294,6 +294,8 @@
     "Str.Menu.Help.BrandHome": "Домашняя страница {0}",
     "Str.Menu.Help.BrandSupport": "Поддержка {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE в Интернете",
+    "Str.Menu.Help.LogFolder": "Открыть папку журналов HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "Не удалось открыть папку журналов. Вы можете открыть её вручную: {0}",
     "Str.Menu.Help.About": "О программе HexIDE...",
     "Str.Menu.GoToGithubRepo": "Перейти в репозиторий github",
     "Str.NewProject.NoTemplates": "В этом профиле нет шаблонов новых проектов. Откройте существующий проект.",

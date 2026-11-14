@@ -282,6 +282,8 @@
     "Str.Menu.Help.BrandHome": "Pàgina d’_inici de {0}",
     "Str.Menu.Help.BrandSupport": "_Suport de {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE al _web",
+    "Str.Menu.Help.LogFolder": "Obre la carpeta de _registres del HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "No s’ha pogut obrir la carpeta de registres. La podeu obrir manualment: {0}",
     "Str.Menu.Help.About": "_Quant a HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ves al repositori de GitHub",
     "Str.ProjectType.StandardEXE": "EXE estàndard",

@@ -320,6 +320,8 @@
     "Str.Menu.Help.BrandHome": "Página de _inicio de {0}",
     "Str.Menu.Help.BrandSupport": "_Soporte de {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE en la _Web",
+    "Str.Menu.Help.LogFolder": "Abrir la carpeta de _registros de HexIDE",
+    "Str.Help.LogFolder.OpenFailed": "No se pudo abrir la carpeta de registros. Puede abrirla manualmente: {0}",
     "Str.Menu.Help.About": "_Acerca de HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ir al repositorio de github",
     "Str.NewProject.NoTemplates": "Este perfil no ofrece plantillas para nuevos proyectos. Abra un proyecto existente.",
