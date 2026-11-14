@@ -21,6 +21,7 @@ public partial class AddinOptionsPageViewModel : ObservableObject
     private readonly string _assemblyPath;
     private readonly string _manifestHash;
     private readonly string? _compatibilityError;
+    private readonly string? _loadError;
     private readonly string _addinId;
     private readonly Func<string, Task<bool>>? _confirmWithdrawal;
 
@@ -37,6 +38,7 @@ public partial class AddinOptionsPageViewModel : ObservableObject
         _assemblyPath = info.AssemblyPath;
         _manifestHash = info.ManifestHash;
         _compatibilityError = info.CompatibilityError;
+        _loadError = info.LoadError;
         Title = string.IsNullOrWhiteSpace(info.Title) ? "(unnamed add-in)" : info.Title;
         Description = string.IsNullOrWhiteSpace(info.Description) ? "(no description provided)" : info.Description;
         Version = string.IsNullOrWhiteSpace(info.Version) ? "—" : info.Version;
@@ -76,7 +78,12 @@ public partial class AddinOptionsPageViewModel : ObservableObject
 
     /// <summary>An add-in is "enabled" unless it has been explicitly disabled.</summary>
     public bool IsAddinEnabled => Status != AddinStatus.Disabled;
-    public string StatusText => Status == AddinStatus.Incompatible ? _compatibilityError ?? Status.ToString() : Status.ToString();
+    public string StatusText => Status switch
+    {
+        AddinStatus.Incompatible => _compatibilityError ?? Status.ToString(),
+        AddinStatus.Error => _loadError ?? Status.ToString(),
+        _ => Status.ToString(),
+    };
     public string ToggleLabel => IsAddinEnabled ? "Deactivate" : "Activate";
 
     /// <summary>The first-load consent state, derived from the load status.</summary>

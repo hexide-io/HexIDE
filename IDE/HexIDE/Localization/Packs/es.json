@@ -2,6 +2,8 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Title": "Chat de IA",
+    "Str.AIChat.Menu": "_Chat de IA",
     "Str.AIChat.Approved": "✔ Aprobado",
     "Str.AIChat.Rejected": "✗ Rechazado",
     "Str.AIChat.Error": "Error: {0}",
@@ -1115,6 +1117,8 @@
     "Str.Addins.ServerLaunchRefused": "Se ha rechazado el inicio del servidor de lenguaje del complemento «{0}».",
     "Str.Addins.DebugLaunchRefused": "Se ha rechazado el inicio del adaptador de depuración del complemento «{0}».",
     "Str.Addins.Incompatible": "No se puede cargar el complemento: esquema requerido {0}, HexIDE mínimo {1}; esta compilación admite el esquema {2}, HexIDE {3}. El requisito de esquema o versión no se admite o no es válido.",
+    "Str.Addins.DuplicateId": "No se puede cargar el complemento: la carpeta del paquete «{1}» ya utiliza el identificador «{0}».",
+    "Str.Addins.ChangedAfterVerification": "No se puede cargar el complemento: el paquete cambió en el disco después de verificarse.",
     "Str.MakeProject.NoStartup": "No se encontró ningún proyecto de inicio.",
     "Str.MakeProject.Browser": "La creación de programas no está disponible en un navegador. Use la versión de escritorio de HexIDE.",
     "Str.MakeProject.UnsupportedPlatform": "La creación de programas no es compatible con este sistema operativo. Use HexIDE en Windows, macOS o Linux.",

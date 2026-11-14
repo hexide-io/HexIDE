@@ -21,6 +21,8 @@ public record AddinInfo(
     /// <summary>Verified build declaration for consent/disclosure consumers, not host-use telemetry.</summary>
     public AddinCapabilityDeclaration? VerifiedDeclaration { get; init; }
 
+    public string? LoadError { get; init; }
+
     public string? CompatibilityError { get; init; }
 }
 

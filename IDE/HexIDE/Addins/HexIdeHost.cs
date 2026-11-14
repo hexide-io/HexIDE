@@ -34,6 +34,12 @@ internal sealed class HexIdeHost(
     public IDisposable RegisterCommand(string id, string label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>
         commandService.Register(id, label, onInvoke, gesture, canExecute);
 
+    public IDisposable RegisterCommand(string id, AddinTitle label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>
+        RegisterCommand(id, label, onInvoke, gesture, canExecute, default);
+
+    internal IDisposable RegisterCommand(string id, AddinTitle label, Action onInvoke, string? gesture, Func<bool>? canExecute, AddinOrigin origin) =>
+        commandService.RegisterOwned(origin, id, label, onInvoke, gesture, canExecute);
+
     public IDisposable RegisterComponent(IComponentClass component) =>
         componentRegistry.Register(component);
 

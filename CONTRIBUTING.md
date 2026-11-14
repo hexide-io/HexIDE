@@ -294,6 +294,8 @@ cannot rebuild the signed packages. That does not stop you working on an add-in.
 1. Start the IDE with `--developer-mode`. This only works in a Debug build.
 2. Tick **Options → Developer → Load unsigned add-in packages**, then restart.
 
+AI Chat loads unsigned this way under its own id, `com.hexide.aichat`.
+
 The add-in then loads and is marked as unsigned. This is the setting for testing your own changes. It is
 not a way to ship an add-in. To ship a **third-party** add-in, send the maintainer your public key,
 publisher id and display name. The maintainer issues `publisher.json` and `publisher.sig` offline,

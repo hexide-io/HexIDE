@@ -2,6 +2,8 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Title": "Chat IA",
+    "Str.AIChat.Menu": "_Chat IA",
     "Str.AIChat.Approved": "✔ Approuvé",
     "Str.AIChat.Rejected": "✗ Rejeté",
     "Str.AIChat.Error": "Erreur : {0}",
@@ -1115,6 +1117,8 @@
     "Str.Addins.ServerLaunchRefused": "Le démarrage du serveur de langage du complément « {0} » a été refusé.",
     "Str.Addins.DebugLaunchRefused": "Le démarrage de l’adaptateur de débogage du complément « {0} » a été refusé.",
     "Str.Addins.Incompatible": "Impossible de charger le complément : schéma requis {0}, HexIDE minimum {1} ; cette compilation prend en charge le schéma {2}, HexIDE {3}. Le schéma ou la version exigés ne sont pas pris en charge ou sont invalides.",
+    "Str.Addins.DuplicateId": "Impossible de charger le complément : l’identifiant « {0} » est déjà utilisé par le dossier de paquet « {1} ».",
+    "Str.Addins.ChangedAfterVerification": "Impossible de charger le complément : le paquet a été modifié sur le disque après sa vérification.",
     "Str.MakeProject.NoStartup": "Aucun projet de démarrage trouvé.",
     "Str.MakeProject.Browser": "La création d’un programme n’est pas disponible dans un navigateur. Utilisez la version de bureau de HexIDE.",
     "Str.MakeProject.UnsupportedPlatform": "La création d’un programme n’est pas prise en charge sur ce système d’exploitation. Utilisez HexIDE sous Windows, macOS ou Linux.",
