@@ -53,14 +53,18 @@ public static class VBCaption
         /// AccessText's spelling of it: every underscore doubled, and one in front of the key. Where it does not
         /// <see cref="FitsAccessText"/>, the doubled underscores alone, which draw right and answer to Alt+_.
         /// </summary>
-        public string ForAccessText(bool symbolGlyphs)
+        public string ForAccessText(bool symbolGlyphs) =>
+            ForAccessText(symbolGlyphs ? SymbolFontText.ToSymbolGlyphs : text => text);
+
+        internal string Drawn(Func<string, string> mapping) => mapping(Shown);
+
+        internal string ForAccessText(Func<string, string> mapping)
         {
-            // Mapped before the marker goes in. The mapping is one character for one, so the key's index holds, and an
-            // underscore in a symbol font becomes its glyph rather than a second marker.
-            var drawn = Drawn(symbolGlyphs).Replace("_", "__");
+            var drawn = mapping(Shown).Replace("_", "__");
             if (!FitsAccessText)
                 return drawn;
-            var key = AccessKey!.Value;
+            // A Unicode symbol can occupy two UTF-16 units. Map the prefix to find the marker's drawn index.
+            var key = mapping(Shown[..AccessKey!.Value]).Replace("_", "__").Length;
             return drawn[..key] + "_" + drawn[key..];
         }
     }
