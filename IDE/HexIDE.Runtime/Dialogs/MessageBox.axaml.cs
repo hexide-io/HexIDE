@@ -17,6 +17,7 @@ public partial class MessageBox : UserControl
     public string Text { get; set; } = "";
     public MessageBoxButtons Buttons { get; set; } = MessageBoxButtons.Ok;
     public MessageBoxIcon Icon { get; set; } = MessageBoxIcon.None;
+    public MessageBoxLayout Layout { get; set; }
 
     public event Action<MessageBoxResult>? AcceptRequest;
 
@@ -71,6 +72,9 @@ public partial class MessageBox : UserControl
     /// </remarks>
     public async Task<MessageBoxResult> ShowAndWait(Window window, Window owner)
     {
+        if (IsProgramDialog)
+            window.FlowDirection = (Layout & MessageBoxLayout.RtlReading) != 0
+                ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         var current = window;
         AcceptRequest += r =>
         {
@@ -95,6 +99,7 @@ public partial class MessageBox : UserControl
         var again = new Window
         {
             Title = window.Title,
+            FlowDirection = window.FlowDirection,
             Content = this,
             SizeToContent = SizeToContent.WidthAndHeight,
             CanResize = false,
@@ -142,16 +147,26 @@ public partial class MessageBox : UserControl
         // Built once: a box hidden with its owner moves to a window of its own, and is loaded again there.
         if (PART_Buttons.Children.Count > 0)
             return;
+        if (IsProgramDialog)
+            FlowDirection = (Layout & MessageBoxLayout.RtlReading) != 0
+                ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         if (Icon != MessageBoxIcon.None)
             PART_Content.Children.Add(BuildIconElement(Icon));
 
-        PART_Content.Children.Add(new TextBlock
+        var prompt = new TextBlock
         {
             Text = Text,
             TextWrapping = TextWrapping.Wrap,
             MaxWidth = 360,
             VerticalAlignment = VerticalAlignment.Center
-        });
+        };
+        // #3014 / measuring PR #3958: Right changes only the text alignment.
+        if (IsProgramDialog)
+            prompt.TextAlignment = (Layout & MessageBoxLayout.Right) != 0
+                ? TextAlignment.Right : TextAlignment.Left;
+        Grid.SetColumn(prompt, Icon == MessageBoxIcon.None ? 0 : 1);
+        Grid.SetColumnSpan(prompt, Icon == MessageBoxIcon.None ? 2 : 1);
+        PART_Content.Children.Add(prompt);
 
         if (!IsProgramDialog)
             Classes.Add("ideDialog");

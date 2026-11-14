@@ -14,12 +14,19 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
     private sealed class Recording(MessageBoxResult answer) : IBasicStandardLibrary
     {
         public List<(MessageBoxButtons Buttons, MessageBoxIcon Icon)> Shown { get; } = [];
+        public MessageBoxLayout Layout { get; private set; }
         public List<Vb6Value> Printed { get; } = [];
 
         public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons b, MessageBoxIcon i)
         {
             Shown.Add((b, i));
             return Task.FromResult(answer);
+        }
+
+        public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons b, MessageBoxIcon i, MessageBoxLayout layout)
+        {
+            Layout = layout;
+            return MsgBox(text, caption, b, i);
         }
 
         public Task<string?> InputBox(string p, string? t, string d) => Task.FromResult<string?>("");
@@ -31,6 +38,21 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
         var lib = new Recording(answer);
         await new BasicInterpreter(lib, new ModuleExecutionContext(), new ExecutionEnvironment(), code).Execute();
         return lib;
+    }
+
+    // #3014 / #3958: measured with style 35 in native and p-code.
+    [Theory]
+    [InlineData(35, MessageBoxLayout.None)]
+    [InlineData(524323, MessageBoxLayout.Right)]
+    [InlineData(1048611, MessageBoxLayout.RtlReading)]
+    [InlineData(1572899, MessageBoxLayout.Right | MessageBoxLayout.RtlReading)]
+    public async Task The_style_passes_the_programs_layout_request_to_the_host(int style, MessageBoxLayout expected)
+    {
+        var lib = await RunMsgBox($"Debug.Print MsgBox(\"probe\", {style})\n", MessageBoxResult.Yes);
+
+        lib.Layout.Should().Be(expected);
+        lib.Shown.Should().ContainSingle().Which.Should().Be((MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question));
+        lib.Printed.Should().Equal(new Vb6Value(6L));
     }
 
     // ── MsgBox's style ───────────────────────────────────────────────────────────────────────────
