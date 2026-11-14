@@ -1925,7 +1925,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return current;
     }
 
-    private async Task<object?> ResolveQualifiedMemberValue(
+    internal async Task<object?> ResolveQualifiedMemberValue(
         BasicInterpreter.QualifierTarget qualifier,
         VB6Parser.ICS_S_MemberCallContext[] members,
         Antlr4.Runtime.ParserRuleContext ctx)

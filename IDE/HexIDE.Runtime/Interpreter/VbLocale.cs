@@ -74,15 +74,19 @@ public static class VbLocale
     /// Windows' own locale data, which VB6 reads, does not.
     /// </para>
     /// <para>
-    /// A culture already in that shape is returned unchanged, so a user's own overrides, such as a moved two-digit-year
+    /// On Windows, Gregorian-default locales also take date patterns and names from NLS (#2041). Other cultures
+    /// already in that shape are returned unchanged. A user's other overrides, such as a moved two-digit-year
     /// window, reach the program. <c>CultureInfo.Calendar</c> is still the culture's own calendar on the result; read
     /// <c>DateTimeFormat.Calendar</c>.
     /// </para>
     /// </remarks>
-    public static CultureInfo ForProgram(CultureInfo culture) =>
+    public static CultureInfo ForProgram(CultureInfo culture) => ForProgram(culture, WindowsDateLocale.AppliesTo);
+
+    internal static CultureInfo ForProgram(CultureInfo culture, Func<CultureInfo, bool> appliesTo) =>
         culture.DateTimeFormat.Calendar is GregorianCalendar
         && culture.NumberFormat.NegativeSign == "-" && culture.NumberFormat.PositiveSign == "+"
         && !HasNonbreakingSpaces(culture.DateTimeFormat)
+        && !appliesTo(culture)
             ? culture
             : Adapted.GetValue(culture, Adapt);
 
@@ -105,6 +109,8 @@ public static class VbLocale
                 format.YearMonthPattern = WithoutEra(format.YearMonthPattern);
             }
         }
+        if (WindowsDateLocale.AppliesTo(culture))
+            WindowsDateLocale.Apply(adapted);
         var dates = adapted.DateTimeFormat;
         var fullDateTimePattern = dates.FullDateTimePattern;
         dates.ShortDatePattern = OrdinarySpaces(dates.ShortDatePattern);

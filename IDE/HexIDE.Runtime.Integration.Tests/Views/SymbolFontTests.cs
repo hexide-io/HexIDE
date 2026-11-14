@@ -17,13 +17,14 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 /// <summary>
 /// A caption in a symbol font is drawn as the font's glyphs, as GDI draws it for VB6 (#1133): a Wingdings Label captioned
 /// <c>PMJ</c> is a flag, a bomb and a smiling face in vb6.exe (the oracle's "The fonts a form names"). Where the font isn't
-/// installed, as on Linux and macOS, the letters are drawn as before, so each test answers for whichever this machine is.
+/// installed, Unicode equivalents are used (#1133). Font availability is selected explicitly in caption tests.
 /// </summary>
 public class SymbolFontTests : WindowTestFixture
 {
     private static string Glyphs(params int[] codes) => new(codes.Select(c => (char)c).ToArray());
 
-    private static readonly bool HasWingdings = VBFontExtensions.IsInstalled("Wingdings");
+    private static void Installed(Control control) =>
+        SymbolFontText.Apply(control, new VBFont("Wingdings", 18, charset: 2), _ => true);
 
     private static string Frm(string control, string caption, string font, int charset) => $$"""
         VERSION 5.00
@@ -54,6 +55,101 @@ public class SymbolFontTests : WindowTestFixture
     private static string? Drawn(Control control) =>
         control.GetVisualDescendants().OfType<TextBlock>().Single().Text;
 
+    // Tables chosen in #1133; WG2 N4384 (UTC L2/12-368), section 7 supplies the four Wingdings/Webdings tables.
+    [AvaloniaTheory]
+    [InlineData("Wingdings", 0x4A, 0x263A)]
+    [InlineData("Wingdings", 0x4C, 0x2639)]
+    [InlineData("Wingdings", 0x4D, 0x1F4A3)]
+    [InlineData("Wingdings", 0x4E, 0x1F571)]
+    [InlineData("Wingdings", 0x50, 0x1F3F1)]
+    [InlineData("Wingdings", 0x81, 0x2780)]
+    [InlineData("Wingdings", 0x82, 0x2781)]
+    [InlineData("Webdings", 0x30, 0x1F5D5)]
+    [InlineData("Webdings", 0x31, 0x1F5D6)]
+    [InlineData("Webdings", 0x32, 0x1F5D7)]
+    [InlineData("Wingdings 2", 0x48, 0x1F5A0)]
+    [InlineData("Wingdings 3", 0x5A, 0x1F8A0)]
+    [InlineData("Marlett", 0x30, 0x1F5D5)]
+    [InlineData("Marlett", 0x31, 0x1F5D6)]
+    [InlineData("Marlett", 0x32, 0x1F5D7)]
+    [InlineData("Marlett", 0x33, 0x25C0)]
+    [InlineData("Marlett", 0x34, 0x25B6)]
+    [InlineData("Marlett", 0x35, 0x25B2)]
+    [InlineData("Marlett", 0x36, 0x25BC)]
+    [InlineData("Marlett", 0x38, 0x25B8)]
+    [InlineData("Marlett", 0x39, 0x25BE)]
+    [InlineData("Marlett", 0x61, 0x2713)]
+    [InlineData("Marlett", 0x62, 0x2713)]
+    [InlineData("Marlett", 0x63, 0x250C)]
+    [InlineData("Marlett", 0x65, 0x250C)]
+    [InlineData("Marlett", 0x64, 0x2518)]
+    [InlineData("Marlett", 0x66, 0x2518)]
+    [InlineData("Marlett", 0x67, 0x25A0)]
+    [InlineData("Marlett", 0x68, 0x2022)]
+    [InlineData("Marlett", 0x69, 0x2022)]
+    [InlineData("Marlett", 0x6E, 0x25CF)]
+    [InlineData("Marlett", 0x72, 0x2715)]
+    [InlineData("Marlett", 0x73, 0x3F)]
+    [InlineData("Marlett", 0x74, 0x25B2)]
+    [InlineData("Marlett", 0x75, 0x25BC)]
+    [InlineData("Marlett", 0x76, 0x2B0D)]
+    [InlineData("Marlett", 0x77, 0x25C2)]
+    public void Missing_fonts_use_the_chosen_Unicode_scalar(string family, int value, int scalar)
+    {
+        SymbolFontText.ToUnicodeGlyphs(char.ConvertFromUtf32(0xF000 + value), family.ToLowerInvariant(), _ => true)
+            .Should().Be(char.ConvertFromUtf32(scalar));
+    }
+
+    [AvaloniaFact]
+    public void Unmapped_or_undrawable_characters_keep_the_original_text()
+    {
+        SymbolFontText.ToUnicodeGlyphs("MJ", "Wingdings", scalar => scalar == 0x263A).Should().Be("M☺");
+        SymbolFontText.ToUnicodeGlyphs(" \uF0FF\r\n\t", "Wingdings", _ => true).Should().Be(" \uF0FF\r\n\t");
+        SymbolFontText.ToUnicodeGlyphs("W7", "Marlett", _ => true).Should().Be("W7");
+        SymbolFontText.ToUnicodeGlyphs("MJ", "Unknown", _ => true).Should().Be("MJ");
+        SymbolFontText.ToUnicodeGlyphs("M😀", "Wingdings", _ => true).Should().Be("💣😀");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("VB.Label")]
+    [InlineData("VB.CommandButton")]
+    [InlineData("VB.CheckBox")]
+    [InlineData("VB.OptionButton")]
+    public async Task Missing_font_captions_preserve_the_source_and_access_key_after_a_surrogate_pair(string kind)
+    {
+        var (canvas, _, ctx, env) = Laid(Frm(kind, "M&J", "Wingdings", 2));
+        var control = Child(canvas, "Cell");
+        SymbolFontText.Apply(control, new VBFont("Wingdings", 18, charset: 2), _ => false, _ => true);
+        Drawn(control).Should().Be("💣_☺");
+        (await Run(ctx, env, "Debug.Print Cell.Caption\r\n")).Single().Value.Should().Be("M&J");
+
+        SymbolFontText.Apply(control, new VBFont("Wingdings", 18, charset: 0), _ => false, _ => true);
+        Drawn(control).Should().Be("M_J");
+        SymbolFontText.Apply(control, new VBFont("Wingdings", 18, charset: 2), _ => true, _ => true);
+        Drawn(control).Should().Be("\uF04D_\uF04A");
+        SymbolFontText.Apply(control, new VBFont("Marlett", 18, charset: 2), _ => false, _ => true);
+        Drawn(control).Should().Be("M_J");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("VB.Label")]
+    [InlineData("VB.CommandButton")]
+    [InlineData("VB.CheckBox")]
+    [InlineData("VB.OptionButton")]
+    public void Missing_font_plain_captions_use_Unicode_and_update_with_the_font(string kind)
+    {
+        var (canvas, _, _, _) = Laid(Frm(kind, "MJ", "Wingdings", 2));
+        var control = Child(canvas, "Cell");
+        if (control is VBLabel label)
+            label.RecognizesAccessKey = false;
+        SymbolFontText.Apply(control, new VBFont("Wingdings", 18, charset: 2), _ => false, _ => true);
+        Drawn(control).Should().Be("💣☺");
+        SymbolFontText.Apply(control, new VBFont("Wingdings", 18, charset: 2), _ => false, _ => false);
+        Drawn(control).Should().Be("MJ");
+        SymbolFontText.Apply(control, new VBFont("Arial", 18), _ => true, _ => true);
+        Drawn(control).Should().Be("MJ");
+    }
+
     [AvaloniaFact]
     public void Each_byte_goes_to_its_glyph_in_the_private_use_range()
     {
@@ -73,7 +169,8 @@ public class SymbolFontTests : WindowTestFixture
     {
         var (canvas, _, ctx, env) = Laid(Frm("VB.Label", "PMJ", "Wingdings", 2));
 
-        Drawn(Child(canvas, "Cell")).Should().Be(HasWingdings ? Glyphs(0xF050, 0xF04D, 0xF04A) : "PMJ");
+        Installed(Child(canvas, "Cell"));
+        Drawn(Child(canvas, "Cell")).Should().Be(Glyphs(0xF050, 0xF04D, 0xF04A));
         (await Run(ctx, env, "Debug.Print Cell.Caption\r\n")).Single().Value.Should().Be("PMJ");
     }
 
@@ -103,7 +200,8 @@ public class SymbolFontTests : WindowTestFixture
     {
         var (canvas, _, _, _) = Laid(Frm(control, "&PM", "Wingdings", 2));
 
-        Drawn(Child(canvas, "Cell")).Should().Be(HasWingdings ? "_" + Glyphs(0xF050, 0xF04D) : "_PM");
+        Installed(Child(canvas, "Cell"));
+        Drawn(Child(canvas, "Cell")).Should().Be("_" + Glyphs(0xF050, 0xF04D));
     }
 
     [AvaloniaFact]
@@ -164,7 +262,8 @@ public class SymbolFontTests : WindowTestFixture
         var cell = Child(canvas, "Cell");
 
         AttachedProperties.SetFont(cell, new VBFont("Wingdings", 18, charset: 2));
-        Drawn(cell).Should().Be(HasWingdings ? Glyphs(0xF050, 0xF04D, 0xF04A) : "PMJ");
+        Installed(cell);
+        Drawn(cell).Should().Be(Glyphs(0xF050, 0xF04D, 0xF04A));
 
         AttachedProperties.SetFont(cell, new VBFont("Arial", 18));
         Drawn(cell).Should().Be("PMJ");
