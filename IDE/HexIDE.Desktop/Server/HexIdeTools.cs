@@ -3678,13 +3678,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         var editor = tab as BaseEditorWindowViewModel;
         var document = editor?.OpenDocument;
+        var carried = (tab as RelatedDocumentEditorViewModel)?.RelatedDocument;
         var entry = (tab as ArchiveDocumentViewModel)?.Entry;
         // IsModified is what the tab's `*` is drawn from (#1797), and the title leaves the `*` out (#1945). A tool tab
         // or a read-only view holds nothing to save, so it reports nothing rather than a false that reads as "saved".
         return new DocumentTabInfo(tab.Title ?? "", TabType(tab),
             ReferenceEquals(tab, ctx.DocumentDockService.ActiveTab),
-            entry?.Identity.ContainerPath ?? document?.Project.Name,
-            entry is not null ? ArchiveToolPaths.PathOf(entry) : document?.Name,
+            entry?.Identity.ContainerPath ?? document?.Project.Name ?? carried?.Owner.Name,
+            entry is not null ? ArchiveToolPaths.PathOf(entry) : document?.Name ?? carried?.Name,
             editor is { CanHoldUnsavedChanges: true } ? editor.IsModified : null, ctx.DocumentDockService.AreaOf(tab));
     }
 
@@ -3704,7 +3705,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_document_tabs")]
-    [Description("Returns EVERY tab across all document areas, including splits, with area (0 for the first area, 1 for the next, in layout order; distinguishes equal titles), title, type, project, document, whether it is the active one, and isModified: whether the tab has unsaved changes. The tab marks those with a `*` that the title leaves out, so the title stays the one activate_document_tab and close_document_tab match. Project and document name a form or module's source; for an archive entry they are the container path and percent-escaped entry path returned by open_file. isModified is absent where nothing can be saved: a tool tab, and the read-only project and archive views. It is per tab: a form's designer and code tabs each have one, and they can differ, so the form is unsaved if either is true. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, 'archive' for a read-only archive entry, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the document region and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist. get_open_editors answers the narrower question: the editors only, and which of them is active.")]
+    [Description("Returns EVERY tab across all document areas, including splits, with area (0 for the first area, 1 for the next, in layout order; distinguishes equal titles), title, type, project, document, whether it is the active one, and isModified: whether the tab has unsaved changes. The tab marks those with a `*` that the title leaves out, so the title stays the one activate_document_tab and close_document_tab match. Project and document name a form, module or carried file's source; for an archive entry they are the container path and percent-escaped entry path returned by open_file. isModified is absent where nothing can be saved: a tool tab, and the read-only project and archive views. It is per tab: a form's designer and code tabs each have one, and they can differ, so the form is unsaved if either is true. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, 'archive' for a read-only archive entry, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the document region and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist. get_open_editors answers the narrower question: the editors only, and which of them is active.")]
     public async Task<DocumentTabsResult> GetDocumentTabsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>

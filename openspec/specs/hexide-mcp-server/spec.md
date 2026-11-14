@@ -52,6 +52,14 @@ before opening anything.
 - **AND WHEN** the caller repeats the request with one container path as `project`
 - **THEN** that archive's entry opens read-only and the reply names it
 
+### Requirement: Carried file tab identities
+`get_document_tabs` SHALL report a carried file tab's owner project name as `project` and its
+carried document name as `document`, matching the identity returned by `open_file`.
+
+#### Scenario: Two projects carry files of one name
+- **WHEN** tabs are open for carried files of one name in two loaded projects
+- **THEN** each tab reports that document name and its distinct project name
+
 ### Requirement: Archive tab identities and type
 `get_document_tabs` SHALL report an archive entry tab with `type: archive`, `project` equal to its
 container path and `document` equal to the entry path returned by `open_file`. It SHALL omit
