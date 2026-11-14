@@ -15,7 +15,7 @@ public interface IProjectManager : INotifyPropertyChanged
     public ProjectDefinition? StartupProject { get; set; }
     public ProjectGroupDefinition? CurrentGroup { get; set; }
 
-    public ProjectDefinition NewProject(IAddinProjectTemplate projectTemplate, string name);
+    public ProjectDefinition NewProject(IAddinProjectTemplate projectTemplate, string name, Action<ProjectDefinition>? beforeAdd = null);
     void AddProject(ProjectDefinition project);
     void UnloadAllProjects();
     void UnloadProject(ProjectDefinition projectManager);

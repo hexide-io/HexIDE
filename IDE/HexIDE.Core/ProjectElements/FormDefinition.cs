@@ -257,9 +257,8 @@ public partial class FormDefinition : INotifyPropertyChanged
 
     /// <summary>
     /// This form's designer half as its file has it: the first line of the file through the root <c>End</c>
-    /// inclusive, as read, or as last rendered — by the write that created the file, a committed designer change,
-    /// or a save. Null for a form HexIDE created that none of those has rendered yet: one with no file, untouched
-    /// in the designer (hexide-io/HexIDE#885).
+    /// inclusive, as read, or as last rendered — at creation by ProjectService for a template or Add Form (#885), a committed
+    /// designer change, or a save. Null when no caller has read or rendered a designer half.
     /// </summary>
     /// <remarks>
     /// <b>Kept as text as well as parsed into <see cref="Components"/>, because the two answer different

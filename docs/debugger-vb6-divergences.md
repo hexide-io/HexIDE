@@ -591,10 +591,10 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   first line of code, and is migrated as its project opens, each mark moved down onto the statement it was set
   on (task 3.17). Sidecar version 3 anchors code marks after the full header, so a conflicted external header
   change that never reaches the stores no longer moves those marks on reopen (#884). Its stored offsets are
-  converted at the persistence boundary; the stores and every public surface still use file lines. A newly
-  created form's header still first appears at its first designer change, save or reload
-  ([#885](https://github.com/hexide-io/HexIDE/issues/885)); version 3 can now distinguish its code marks from
-  marks already in a header.
+  converted at the persistence boundary; the stores and every public surface still use file lines. New forms,
+  including a project template's `Form1`, hold their header from creation
+  ([#885](https://github.com/hexide-io/HexIDE/issues/885)). Breakpoints and bookmarks set before the first save
+  reopen on the same statements; version 3 needs no additional numbering record.
 - **Numbered D23 when task 3.16 recorded it**, and renumbered in #273's documentation pass: merging main brought
   in main's own D23 (#1011, cited from `VBWindowContext`), which came first.
 
