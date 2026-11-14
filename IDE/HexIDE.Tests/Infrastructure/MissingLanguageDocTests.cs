@@ -11,12 +11,12 @@ public class MissingLanguageDocTests
     [Theory]
     [InlineData("vbMsgBoxRight")]
     [InlineData("vbMsgBoxRtlReading")]
-    public void MsgBoxDocumentsAcceptedLayoutFlagsWithoutClaimingMeasuredLayout(string flag)
+    public void MsgBoxDocumentsMeasuredLayoutFlags(string flag)
     {
         var text = File.ReadAllText(Path.Combine(RepoTree.Root(), "docs", "MISSING_LANGUAGE.md"));
         var row = Tables(text).SelectMany(t => t.Rows).Single(r => r[0] == "MsgBox");
 
-        row[2].Should().Contain(flag).And.Contain("accepted, no effect").And.Contain("unmeasured");
+        row[2].Should().Contain(flag).And.Contain("#3958").And.Contain("mirrors").And.NotContain("accepted, no effect");
     }
 
     private sealed record Table(string Heading, int HeadingIndex, string[] Columns, List<string[]> Rows);
