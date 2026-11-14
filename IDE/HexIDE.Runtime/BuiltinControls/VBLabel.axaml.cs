@@ -108,6 +108,7 @@ public class VBLabel : TemplatedControl
         RecognizesAccessKeyProperty.Changed.AddClassHandler<VBLabel>((label, e) => { label.UpdateStyle(); label.UpdateAutomationName(); });
         TextProperty.Changed.AddClassHandler<VBLabel>((label, e) => { label.UpdateStyle(); label.UpdateAutomationName(); });
         SymbolFontText.SymbolGlyphsProperty.Changed.AddClassHandler<VBLabel>((label, e) => label.UpdateStyle());
+        SymbolFontText.UnicodeMappingProperty.Changed.AddClassHandler<VBLabel>((label, _) => label.UpdateStyle());
 
         // Before Click, so MouseUp comes first, as VB6 raises them (#974).
         AttachedEvents.AttachMouse<VBLabel>(AttachedEvents.DblClick.InPlaceOfMouseDown);
@@ -153,10 +154,10 @@ public class VBLabel : TemplatedControl
         var textblock = (TextBlock)decorator.Child!;
         // In a symbol font, the glyphs GDI draws for the caption's bytes (#1133); the caption itself is unchanged. With
         // UseMnemonic off, every & is drawn.
-        var symbol = SymbolFontText.GetSymbolGlyphs(this);
+        var mapping = SymbolFontText.Mapping(this);
         textblock.Text = parsed is { } shown
-            ? accessText ? shown.ForAccessText(symbol) : shown.Drawn(symbol)
-            : Text is { } raw && symbol ? SymbolFontText.ToSymbolGlyphs(raw) : Text;
+            ? accessText ? shown.ForAccessText(mapping) : shown.Drawn(mapping)
+            : Text is { } raw ? mapping(raw) : Text;
         textblock.TextWrapping = WordWrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
         textblock.TextAlignment = Alignment switch
         {

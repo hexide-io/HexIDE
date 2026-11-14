@@ -75,3 +75,30 @@ reproduce differently: HexIDE should call the member once, write the copy, and k
 **What it settles for HexIDE (#173).** The qualified write and the chained `Set` are ordinary chains whose last step is
 assigned. The write through a UDT-returning member is the one that must not alias: the copy must be a copy. #3924,
 where a UDT field can't be typed as a project class, gates rows B3 and B4.
+
+## A qualified write through an object, and through another module's UDT property (2026-11-14, #3941)
+
+**The question.** Reviewing #173's fix turned up neighbours of the rows above that HexIDE still refused with 424: a
+module-qualified assignment whose chain runs through an object rather than a UDT, and an unqualified write through
+another module's `Property Get` that returns a UDT.
+
+**The probe.** The same harness as above: vb6.exe SP6 (6.00.9782), `/make`, native code and p-code, which agreed in
+every row. Classes `Outer2` (`Public H As Holder`) and `Holder` (`Public Value As Long`). `Module1` has `Dim o As
+Outer2`, `Dim hh As Holder`, and `Property Get OP() As Holder`, which `Set`s `OP = hh`. Rows F1 and F2 build `o` and
+`o.H` first, and F3 and F4 `Set hh = New Holder`. `Module2` has `Public Type TU` (`Z As Long`), `Dim mt As TU`, a call
+counter `Public gets`, `Public Property Get PT2() As TU` returning `mt`, `SetZ(n)`, and `MZ()` returning `mt.Z`. Rows G1
+and G2 run `Module2.SetZ 3` first, and G2 zeroes `gets`.
+
+| Row | Statement, in `Module1` | vb6.exe | HexIDE with #173's fix (`8e3fabc57`) |
+|---|---|---|---|
+| F1 | `o.H.Value = 4`, then `o.H.Value` | `4` | `4` |
+| F2 | `Module1.o.H.Value = 5`, then `o.H.Value` | `5` | 424, "Object required" |
+| F3 | `Module1.OP.Value = 6`, then `hh.Value` | `6` | 424 |
+| F4 | `OP.Value = 7`, then `hh.Value` | `7` | `7` |
+| G1 | `PT2.Z = 5`, then `MZ()`, `gets` | builds; `3`, `1` | 424 |
+| G2 | `Module2.PT2.Z = 6`, then `MZ()`, `gets` | builds; `3`, `1` | not run |
+
+**The answer.** A qualifier doesn't change what a chain does. Through an object, held in a variable or returned by a
+`Property Get`, the write lands on the object, as it does unqualified. Through another module's UDT-returning `Property
+Get`, used unqualified or qualified, the `Get` runs once and the write goes into a copy that's thrown away, as it does
+for a module's own property (rows D1 and D2 above).

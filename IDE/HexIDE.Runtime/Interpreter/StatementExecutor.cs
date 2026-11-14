@@ -2280,7 +2280,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return true;
     }
 
-    // Resolve only the measured standard-module targets (#1006, #965), at the statement's point of use.
+    // Resolve only the measured standard-module targets (#1006, #965, #173), at the statement's point of use.
     // Keep the existing variable-first precedence; other qualifiers and unmeasured targets use the old path.
     private async Task<bool> TryStoreModuleMember(VB6Parser.ICS_S_MembersCallContext target, Vb6Value value,
         bool reference, Antlr4.Runtime.ParserRuleContext context, bool propertiesOnly = false)
@@ -2291,11 +2291,47 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             || !interpreter.TryResolveQualifier(lead.GetText(), out var qualifier)
             || qualifier.Kind != BasicInterpreter.QualifierKind.Module
             || target.dictionaryCallStmt() != null
-            || target.iCS_S_MemberCall() is not { Length: 1 } members)
+            || target.iCS_S_MemberCall() is not { Length: > 0 } members)
             return false;
         var module = qualifier.Module!;
         var member = members[0];
         var name = UdtFieldName(member);
+        if (members.Length > 1)
+        {
+            // A qualified UDT variable owns the bag, just as an unqualified one does (#173).
+            if (!reference && module.PrePass.Properties.TryGetValue(name, out var returnedProperty)
+                && returnedProperty.Get is not null
+                && (ReferenceEquals(module, currentModule) || BasicInterpreter.IsVisibleOutside(returnedProperty)))
+            {
+                var copy = (Vb6Value)(await expressionExecutor.ResolveQualifiedMemberValue(qualifier, members[..1], context))!;
+                if (copy.Value is not VbUdt || context is not VB6Parser.LetStmtContext propertyLet)
+                    return false;
+                await SetUdtField(copy, members[1..], value, propertyLet);
+                return true;
+            }
+            if (reference || propertiesOnly
+                || !(ReferenceEquals(module, currentModule) || module.PrePass.PublicVariables.Contains(name))
+                || !module.ModuleEnv.TryGetOwnVariableLocation(name, out _))
+                return false;
+            var (found, root) = await interpreter.ReadVariable(module.ModuleEnv, name);
+            if (!found) return false;
+            if (MemberHasArgs(member))
+            {
+                if (root.Value is not VBArray array
+                    || member.iCS_S_ProcedureOrArrayCall() is not { } call || call.argsCall().Length != 1)
+                    return false;
+                var indices = Subscripts(await expressionExecutor.EvaluateCallArgs(call.argsCall(0)));
+                try { root = array.GetValue(indices); }
+                catch (IndexOutOfRangeException)
+                {
+                    throw new VBRunTimeException(context, VBStandardError.SubscriptOutOfRange);
+                }
+            }
+            if (root.Value is not VbUdt || context is not VB6Parser.LetStmtContext let)
+                return false;
+            await SetUdtField(root, members[1..], value, let);
+            return true;
+        }
         if (module.PrePass.Properties.TryGetValue(name, out var property)
             && (ReferenceEquals(module, currentModule) || BasicInterpreter.IsVisibleOutside(property)))
         {
@@ -2497,6 +2533,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // `Screen.MousePointer = x`, where nothing the program declares is named Screen (#2431).
                 if (!leadFound && interpreter.UnclaimedLibraryObject(identifier) is { } libraryObject)
                     (leadFound, variable) = (true, libraryObject);
+                if (!leadFound && currentModule.PrePass.Properties.TryGetValue(identifier, out var leadProperty)
+                    && leadProperty.Get is not null)
+                    (leadFound, variable) = (true, await expressionExecutor.EvaluateValue(leadPart));
                 if (!leadFound)
                     throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Can't find variable " + identifier);
             }
@@ -2515,7 +2554,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             // UDT field assignment (`e.City = x`, nested `e.Address.City = x`) — navigate to the innermost owned
             // bag and set the field in place (the slot holds the same VbUdt reference, so the write persists).
-            // Lifts the single-member restriction for UDT field chains (object chains stay single-dot).
+            // The owned bag is shared with its slot; a returned UDT instead owns a disposable copy.
             if (variable.Value is VbUdt)
             {
                 await SetUdtField(variable, membersCall.iCS_S_MemberCall(), value, context);
@@ -2524,7 +2563,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             // A chain of objects, `Form2.Text1.Text = x` or `obj.Child.Name = x`: every member but the last is read as an
             // expression reads it, which loads Form2 as a read of its control does, and the last is the one assigned
-            // (#822). Where the read ends at a UDT the write would land in a copy and be lost, so that is refused.
+            // (#822). A returned UDT is a copy: its field store is discarded (#173).
             var members = membersCall.iCS_S_MemberCall();
             // Me.mN = value cannot reach a Private class field (vb6.exe SP6, #2121).
             if (members.Length == 1 && !MemberHasArgs(members[0])
@@ -2535,10 +2574,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (members.Length > 1)
             {
                 variable = await expressionExecutor.ResolveMemberChain(variable, members[..^1], 0, context);
-                if (variable.Value is VbUdt)
-                    throw new NotImplementedException(
-                        "Assigning a field of a UDT reached through an object's member is not implemented");
                 members = members[^1..];
+                if (variable.Value is VbUdt)
+                {
+                    await SetUdtField(variable, members, value, context);
+                    return default;
+                }
             }
 
             ExpressionExecutor.RequireMemberReceiver(variable, context);
@@ -3845,15 +3886,24 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 screen.TrySetProperty(UdtFieldName(membersCall.iCS_S_MemberCall()[0]), value);
                 return default;
             }
+            var chainMembers = membersCall.iCS_S_MemberCall();
+            if (!setLead && chainMembers.Length > 1
+                && interpreter.TryResolveQualifier(leadPart.GetText(), out var qualifier)
+                && qualifier.Kind == BasicInterpreter.QualifierKind.Module)
+            {
+                target = (Vb6Value)(await expressionExecutor.ResolveQualifiedMemberValue(qualifier, chainMembers[..^1], context))!;
+                setLead = true;
+            }
+            else if (setLead && chainMembers.Length > 1)
+                target = await expressionExecutor.ResolveMemberChain(target, chainMembers[..^1], 0, context);
             if (!setLead || target.Value is not VbObject targetObj)
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-            if (membersCall.iCS_S_MemberCall().Length != 1)
-                throw new NotImplementedException("Object member chains are single-dot only");
-            if (MemberHasArgs(membersCall.iCS_S_MemberCall()[0]))
+            var setMember = chainMembers[^1];
+            if (MemberHasArgs(setMember))
                 throw new NotImplementedException("Parameterized/indexed object member assignment is not supported");
-            var fieldName = VbInterface.ResolveMember(target, targetObj, UdtFieldName(membersCall.iCS_S_MemberCall()[0]))
+            var fieldName = VbInterface.ResolveMember(target, targetObj, UdtFieldName(setMember))
                 ?? throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound,
-                    UdtFieldName(membersCall.iCS_S_MemberCall()[0]));
+                    UdtFieldName(setMember));
             if (targetObj.ClassDef.PrePass.Properties.TryGetValue(fieldName, out var prop) && prop.Set is { } setter)
             {
                 // The reference flows through the setter's ByVal param (counted on bind, released at its scope-exit)
