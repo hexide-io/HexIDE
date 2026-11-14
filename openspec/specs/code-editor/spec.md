@@ -262,6 +262,8 @@ A refused Cut, Delete Line, Indent or Outdent over protected text SHALL give the
 sentence without Backspace or typing advice (#3899). Automation SHALL still quote the code window's
 status-bar message when one was posted. Typing and Backspace SHALL retain their existing advice, with
 Backspace's advice limited to Backspace rather than inferred from a selection ending at the caret.
+The shared localized sentence SHALL describe the text's read-only status without naming an edit command:
+“This text is read-only: only the IDE changes it.” in English (#3923).
 
 An attribute line left describing nothing SHALL be preserved, not removed: it is inert text, and the IDE does
 not know what the developer meant by it. A run of attribute lines describes a member when it sits directly
@@ -411,7 +413,7 @@ one visible line, so a mark set there would land on a line the developer cannot 
 #### Scenario: A line command cannot write protected text
 - **GIVEN** an edit in a procedure body has been undone, leaving Redo available
 - **WHEN** Delete Line or whole-line Cut targets a protected attribute line, or Indent or Outdent targets only protected lines
-- **THEN** the code window SHALL refuse with its existing read-only typing message before changing the selection or starting a document update
+- **THEN** the code window SHALL refuse with its shared read-only message before changing the selection or starting a document update
 - **AND** the text, caret, selection, Undo and Redo SHALL remain as they were
 - **AND** Redo SHALL still restore the undone body edit
 - **AND** deleting a declaration with its attribute run SHALL retain its existing behaviour

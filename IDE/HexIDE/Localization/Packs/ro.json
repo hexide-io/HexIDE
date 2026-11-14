@@ -417,7 +417,7 @@
     "Str.Designer.Context.AlignToGrid": "Aliniază la grilă",
     "Str.Designer.Context.Properties": "Proprietăți",
     "Str.CodeEditor.FileNotSaved.Banner": "Acest fișier nu va fi salvat — HexIDE nu îl poate reproduce încă fidel, iar salvarea l-ar modifica. Codul face parte din fișier, așa că tastarea în această fereastră este refuzată.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Tastarea a fost refuzată deoarece acest text este doar în citire și numai IDE-ul îl modifică.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Acest text este doar în citire: numai IDE-ul îl modifică.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Redenumirea nu a fost efectuată deoarece ar modifica text doar în citire din acest fișier, pe care numai IDE-ul îl modifică.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Redenumirea nu a fost efectuată deoarece modifică și alte documente: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Nu se poate aplica redenumirea la {0}.",

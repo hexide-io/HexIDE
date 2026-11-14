@@ -443,7 +443,7 @@
     "Str.Designer.Context.AlignToGrid": "Подравняване по мрежата",
     "Str.Designer.Context.Properties": "Свойства",
     "Str.CodeEditor.FileNotSaved.Banner": "Този файл няма да бъде записан — HexIDE все още не може да го възпроизведе точно, така че записването би го променило. Кодът му е част от файла, затова въвеждането в този прозорец е забранено.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Въвеждането е отказано, защото този текст е само за четене и се променя само от IDE.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Този текст е само за четене: променя го само IDE.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Преименуването не е извършено, защото би променило текст само за четене в този файл, който се променя само от IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Преименуването не е извършено, защото редактира и други документи: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Преименуването не може да се приложи към {0}.",

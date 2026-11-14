@@ -456,7 +456,7 @@
     "Str.Designer.Context.AlignToGrid": "Justera mot rutnät",
     "Str.Designer.Context.Properties": "Egenskaper",
     "Str.CodeEditor.FileNotSaved.Banner": "Den här filen sparas inte — HexIDE kan ännu inte återge den exakt, så den skulle ändras om den sparades. Koden är en del av filen, därför avvisas inmatning i det här fönstret.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Inmatningen nekades eftersom texten är skrivskyddad och endast ändras av IDE:n.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Den här texten är skrivskyddad: endast IDE:n ändrar den.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Namnbytet utfördes inte eftersom det skulle ändra skrivskyddad text i den här filen, som bara IDE:n ändrar.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Namnbytet genomfördes inte eftersom det också ändrar andra dokument: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Det går inte att tillämpa namnbytet på {0}.",

@@ -417,7 +417,7 @@
     "Str.Designer.Context.AlignToGrid": "Zarovnať na mriežku",
     "Str.Designer.Context.Properties": "Vlastnosti",
     "Str.CodeEditor.FileNotSaved.Banner": "Tento súbor sa neuloží — HexIDE ho zatiaľ nedokáže verne reprodukovať a uloženie by ho zmenilo. Kód je súčasťou súboru, preto v tomto okne nemožno písať.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Písanie bolo odmietnuté, pretože tento text je iba na čítanie a mení ho iba IDE.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Tento text je iba na čítanie: mení ho iba IDE.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Premenovanie sa nevykonalo, pretože by zmenilo text iba na čítanie v tomto súbore, ktorý mení iba IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Premenovanie sa nevykonalo, pretože by upravilo aj iné dokumenty: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Premenovanie nemožno použiť na {0}.",

@@ -482,7 +482,7 @@
     "Str.Designer.Context.AlignToGrid": "Am Raster ausrichten",
     "Str.Designer.Context.Properties": "Eigenschaften",
     "Str.CodeEditor.FileNotSaved.Banner": "Diese Datei wird nicht gespeichert — HexIDE kann sie noch nicht originalgetreu wiedergeben, sodass sie beim Speichern verändert würde. Ihr Code ist Teil der Datei, daher werden Eingaben in diesem Fenster abgelehnt.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Die Eingabe wurde abgelehnt, da dieser Text schreibgeschützt ist und nur von der IDE geändert wird.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Dieser Text ist schreibgeschützt: Nur die IDE ändert ihn.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Die Umbenennung wurde nicht durchgeführt, da sie schreibgeschützten Text in dieser Datei ändern würde, den nur die IDE ändert.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Die Umbenennung wurde nicht durchgeführt, da sie auch andere Dokumente ändert: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Umbenennung kann nicht auf {0} angewendet werden.",

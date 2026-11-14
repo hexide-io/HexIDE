@@ -417,7 +417,7 @@
     "Str.Designer.Context.AlignToGrid": "Poravnaj sa mrežom",
     "Str.Designer.Context.Properties": "Svojstva",
     "Str.CodeEditor.FileNotSaved.Banner": "Ova datoteka neće biti sačuvana — HexIDE još ne može verno da je reprodukuje, pa bi je čuvanje promenilo. Njen kôd je deo datoteke, zato unos u ovaj prozor nije dozvoljen.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Unos je odbijen jer je ovaj tekst samo za čitanje i menja ga samo IDE.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Ovaj tekst je samo za čitanje: menja ga samo IDE.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Preimenovanje nije izvršeno jer bi promenilo tekst samo za čitanje u ovoj datoteci, koji menja samo IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Ime nije promenjeno jer bi se time izmenili i drugi dokumenti: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Nije moguće primeniti preimenovanje na {0}.",

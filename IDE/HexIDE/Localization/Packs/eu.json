@@ -417,7 +417,7 @@
     "Str.Designer.Context.AlignToGrid": "Lerrokatu saretara",
     "Str.Designer.Context.Properties": "Propietateak",
     "Str.CodeEditor.FileNotSaved.Banner": "Fitxategi hau ez da gordeko: HexIDEk oraindik ezin du zehaztasunez erreproduzitu, eta gordetzeak aldatu egingo luke. Kodea fitxategiaren parte da; beraz, leiho honetan idaztea ukatzen da.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Idaztea ukatu da, testu hau irakurtzeko soilik delako eta IDEak bakarrik aldatzen duelako.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Testu hau irakurtzeko soilik da: IDEak bakarrik aldatzen du.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Ez da izena aldatu, fitxategi honetako irakurtzeko soilik den testua aldatuko lukeelako; IDEak soilik aldatzen du testu hori.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Ez da izena aldatu, beste dokumentu hauek ere editatzen dituelako: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Ezin da izen-aldaketa aplikatu {0} dokumentuan.",

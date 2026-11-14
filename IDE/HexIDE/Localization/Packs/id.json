@@ -490,7 +490,7 @@
     "Str.Designer.Context.AlignToGrid": "Sejajarkan ke Kisi",
     "Str.Designer.Context.Properties": "Properti",
     "Str.CodeEditor.FileNotSaved.Banner": "Berkas ini tidak akan disimpan — HexIDE belum dapat menghasilkannya kembali secara persis, sehingga menyimpannya akan mengubahnya. Kodenya adalah bagian dari berkas, jadi pengetikan di jendela ini ditolak.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Pengetikan ditolak karena teks ini hanya-baca dan hanya IDE yang mengubahnya.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Teks ini hanya-baca: hanya IDE yang mengubahnya.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Penggantian nama tidak dilakukan karena akan mengubah teks hanya-baca dalam berkas ini, yang hanya diubah oleh IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Penggantian nama tidak dilakukan karena juga mengubah dokumen lain: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Tidak dapat menerapkan penggantian nama pada {0}.",

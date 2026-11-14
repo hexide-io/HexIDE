@@ -417,7 +417,7 @@
     "Str.Designer.Context.AlignToGrid": "Joonda ruudustikuga",
     "Str.Designer.Context.Properties": "Omadused",
     "Str.CodeEditor.FileNotSaved.Banner": "Seda faili ei salvestata — HexIDE ei suuda seda veel täpselt taasesitada, seega salvestamine muudaks seda. Kood on faili osa, seega selles aknas tippimine on keelatud.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Tippimine keelati, sest see tekst on kirjutuskaitstud ja seda muudab ainult IDE.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "See tekst on kirjutuskaitstud: seda muudab ainult IDE.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "Ümbernimetamist ei tehtud, sest see muudaks selles failis kirjutuskaitstud teksti, mida muudab ainult IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Ümbernimetamist ei tehtud, sest see muudaks ka teisi dokumente: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Ümbernimetamist ei saa rakendada dokumendile {0}.",

@@ -482,7 +482,7 @@
     "Str.Designer.Context.AlignToGrid": "對齊格線",
     "Str.Designer.Context.Properties": "屬性",
     "Str.CodeEditor.FileNotSaved.Banner": "此檔案不會被儲存 — HexIDE 目前尚無法忠實地重現它，儲存將會改變它。其程式碼是檔案的一部分，因此在此視窗中的輸入會被拒絕。",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "已拒絕輸入，因為此文字為唯讀，只能由 IDE 變更。",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "此文字為唯讀：只能由 IDE 變更。",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "未重新命名，因為這會變更此檔案中的唯讀文字，而這些文字僅由 IDE 變更。",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "未重新命名，因為此操作還會編輯其他文件：{0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "無法對 {0} 套用重新命名。",

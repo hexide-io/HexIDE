@@ -490,7 +490,7 @@
     "Str.Designer.Context.AlignToGrid": "Allinea alla griglia",
     "Str.Designer.Context.Properties": "Proprietà",
     "Str.CodeEditor.FileNotSaved.Banner": "Questo file non verrà salvato — HexIDE non è ancora in grado di riprodurlo fedelmente, quindi salvarlo lo altererebbe. Il suo codice fa parte del file, perciò la digitazione in questa finestra viene rifiutata.",
-    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Digitazione rifiutata perché questo testo è di sola lettura e viene modificato solo dall’IDE.",
+    "Str.CodeEditor.Msg.TypingChangesReadOnlyText": "Questo testo è di sola lettura: viene modificato solo dall’IDE.",
     "Str.CodeEditor.Msg.RenameChangesReadOnlyText": "La ridenominazione non è stata eseguita perché modificherebbe del testo di sola lettura in questo file, che solo l'IDE modifica.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "La ridenominazione non è stata eseguita perché modifica anche altri documenti: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Impossibile applicare la ridenominazione a {0}.",
