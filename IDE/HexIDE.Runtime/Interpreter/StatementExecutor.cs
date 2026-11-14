@@ -2564,7 +2564,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // UDT field assignment (`e.City = x`, nested `e.Address.City = x`) — navigate to the innermost owned
             // bag and set the field in place (the slot holds the same VbUdt reference, so the write persists).
             // The owned bag is shared with its slot; a returned UDT instead owns a disposable copy.
-            if (variable.Value is VbUdt && membersCall.iCS_S_MemberCall().Length == 1)
+            if (variable.Value is VbUdt && members.Length == 1)
             {
                 await SetUdtField(variable, members, value, context);
                 return default;
