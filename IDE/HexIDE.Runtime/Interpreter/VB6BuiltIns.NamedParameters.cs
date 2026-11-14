@@ -17,9 +17,9 @@ public partial class VB6BuiltIns
 
     // #1561 measured positional calls only, and so did #1510 for the byte-string functions. Refuse named calls
     // explicitly until an oracle probe supplies them. #2516, #2523, #2524 (SLN/SYD) and #2622 likewise measure only
-    // positional calls, as do #2515 and #2626.
+    // positional calls, as does #2515.
     private static readonly HashSet<string> UnmeasuredNamedArguments = new(StringComparer.OrdinalIgnoreCase)
-    { "AscB", "CallByName", "ChrB", "CurDir", "Dir", "FileAttr", "FileDateTime", "FileLen", "FormatCurrency", "FormatDateTime", "FormatNumber", "FormatPercent", "FV", "GetAttr", "IMEStatus", "InStrB", "IPmt", "IRR", "LeftB", "LoadResData", "LoadResPicture", "LoadResString", "MidB", "MIRR", "NPer", "NPV", "ObjPtr", "Partition", "Pmt", "PPmt", "PV", "Rate", "RightB", "SLN", "StrPtr", "SYD", "VarPtr" };
+    { "AscB", "CallByName", "ChrB", "CurDir", "Dir", "FileAttr", "FileDateTime", "FileLen", "FormatCurrency", "FormatDateTime", "FormatNumber", "FormatPercent", "FV", "GetAttr", "IMEStatus", "InStrB", "IPmt", "IRR", "LeftB", "MidB", "MIRR", "NPer", "NPV", "ObjPtr", "Partition", "Pmt", "PPmt", "PV", "Rate", "RightB", "SLN", "StrPtr", "SYD", "VarPtr" };
 
     private static readonly Dictionary<string, IntrinsicParameters> NamedParameterTable = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -75,6 +75,10 @@ public partial class VB6BuiltIns
         ["LCase"] = new(["String"], 1),
         ["Left"] = new(["String", "Length"], 2),
         ["LoadPicture"] = new(["FileName", "Size", "ColorDepth", "X", "Y"], 0),
+        // #2626, 2026-11-14: these names and required parameters are measured.
+        ["LoadResString"] = new(["id"], 1),
+        ["LoadResData"] = new(["id", "type"], 2),
+        ["LoadResPicture"] = new(["id", "restype"], 2),
         ["Log"] = new(["Number"], 1),
         ["LTrim"] = new(["String"], 1),
         ["Mid"] = new(["String", "Start", "Length"], 2),

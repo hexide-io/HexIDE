@@ -55,6 +55,7 @@ public sealed class VbUdt
     private readonly IReadOnlySet<string> variantFields;
 
     private readonly IReadOnlyDictionary<string, AutoNew> autoNewFields;
+    private readonly IReadOnlyDictionary<string, string> objectFields;
 
     public VbUdt(string typeName, Dictionary<string, Vb6Value> fields)
         : this(typeName, fields, new Dictionary<string, Vb6Value.ValueType>(), new HashSet<string>())
@@ -62,9 +63,11 @@ public sealed class VbUdt
     }
 
     public VbUdt(string typeName, Dictionary<string, Vb6Value> fields, IReadOnlyDictionary<string, Vb6Value.ValueType> typedFields,
-        IReadOnlySet<string> variantFields, IReadOnlyDictionary<string, AutoNew>? autoNewFields = null)
+        IReadOnlySet<string> variantFields, IReadOnlyDictionary<string, AutoNew>? autoNewFields = null,
+        IReadOnlyDictionary<string, string>? objectFields = null)
     {
         this.autoNewFields = autoNewFields ?? new Dictionary<string, AutoNew>();
+        this.objectFields = objectFields ?? new Dictionary<string, string>();
         this.typedFields = typedFields;
         this.variantFields = variantFields;
         TypeName = typeName;
@@ -82,6 +85,8 @@ public sealed class VbUdt
         value = typedFields.ContainsKey(field) ? value.AsFixedType()
             : variantFields.Contains(field) ? value.AsVariant()
             : value;
+        if (objectFields.TryGetValue(field, out var declaredClass))
+            value = value.ViewedAs(declaredClass);
         return true;
     }
 
@@ -99,6 +104,8 @@ public sealed class VbUdt
         if (!fields.ContainsKey(field)) return false;
         if (typedFields.TryGetValue(field, out var declared))
             value = VbNumeric.CoerceOnStore(value, declared, ctx);
+        if (objectFields.TryGetValue(field, out var declaredClass))
+            ModuleExecutionContext.CheckObjectStore(value, declaredClass.Equals("Object", StringComparison.OrdinalIgnoreCase) ? null : declaredClass, ctx);
         fields[field] = value;
         return true;
     }
@@ -112,6 +119,8 @@ public sealed class VbUdt
 
     /// <summary>Whether a field is declared As Variant, or with no As clause.</summary>
     public bool IsVariantField(string field) => variantFields.Contains(field);
+
+    internal bool IsObjectField(string field) => objectFields.ContainsKey(field);
 
     private static Vb6Value CloneValue(Vb6Value value) => value.Value switch
     {
@@ -134,7 +143,7 @@ public sealed class VbUdt
         var copy = new Dictionary<string, Vb6Value>(fields.Comparer);
         foreach (var (name, value) in fields)
             copy[name] = CloneValue(value);
-        return new VbUdt(TypeName, copy, typedFields, variantFields, autoNewFields);
+        return new VbUdt(TypeName, copy, typedFields, variantFields, autoNewFields, objectFields);
     }
 }
 

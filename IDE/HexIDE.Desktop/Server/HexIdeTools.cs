@@ -896,7 +896,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "open_file")]
-    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it; in a split code window that is the pane last used, which is the one 'line' moves. The reply's 'area' is the document area (0 for the first, 1 for the next, in layout order). New tabs open in the area last used; an existing tab stays in its area. The reply's 'note' names the tab now active and how many are open. Pass 'line', and 'column' if wanted, to put the caret there, as the code window numbers them, so type_text and press_key act at that point with no offset to work out; the note always gives the caret's line, column and offset, even without 'line'. In the header or an Attribute line it also names the nearest editable place. Also opens archive entries by the exact paths get_project_info lists: /-separated, percent-escaped segments. Pass project as the container path, filename or stored project name. Archive entries open read-only without a language server; a line needs an available text preview.")]
+    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it; in a split code window that is the pane last used, which is the one 'line' moves. The reply's 'area' is the document area (0 for the first, 1 for the next, in layout order). New tabs open in the area last used; an existing tab stays in its area. The reply's 'note' names the tab now active and how many are open. Pass 'line', and 'column' if wanted, to put the caret there, as the code window numbers them, so type_text and press_key act at that point with no offset to work out; the note always gives the caret's line, column and offset, even without 'line'. In the header or an Attribute line it also names the nearest editable place. Also opens archive entries by the exact paths get_project_info lists: /-separated, percent-escaped segments. Pass project as the container path, filename or stored project name. Archive entries open read-only without a language server; a line needs an available text preview. Also opens a project file by filename, including a group's .vbg, read-only; project selects its owner by name or path.")]
     public async Task<MutateResult> OpenFileAsync(
         string name, string? project = null,
         [Description("Where to put the caret: a 1-based line, counted from the top of the file with its header included, "
@@ -913,12 +913,15 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         DocumentIdentity? placedIn = null;
         RelatedDocumentDefinition? placedInCarried = null;
         ArchiveDocumentViewModel? placedInArchive = null;
+        ProjectFileDocumentViewModel? placedInProjectFile = null;
         var opened = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             // Carried files are the only project members with no other route in: the Project Explorer opens
             // one on a DOUBLE-CLICK, which no interaction tool could produce when this was written, and Add
             // File goes through a native dialog. Without them here a whole editor type is undrivable, which is
             // what blocked verifying #255 against the running IDE. See docs/mcp-server-gaps.md.
+            var projectFile = OpenProjectFile(name, project, line, column, out placedInProjectFile);
+            if (projectFile != null) return projectFile;
             var archive = OpenArchive(name, project, line, column, out placedInArchive);
             if (archive != null) return archive;
             var archives = ctx.Archives?.Projects ?? [];
@@ -970,11 +973,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     && !ctx.ProjectManager.LoadedProjects.Any(p => string.Equals(p.Name, project, StringComparison.OrdinalIgnoreCase))));
             return new MutateResult(false,
                 (archiveOnly ? "No matching archive entry." : found.Error)
-                + inventory + " Use get_project_info to list available names and archive entries.");
+                + inventory + ProjectFileInventory() + " Use get_project_info to list available names and archive entries.");
         });
 
         var focused = await FocusingTheActiveTabAsync(opened);
-        if ((placedIn is null && placedInCarried is null && placedInArchive is null) || !focused.Success)
+        if ((placedIn is null && placedInCarried is null && placedInArchive is null && placedInProjectFile is null) || !focused.Success)
             return focused;
         // Read back, not echoed (#700 review): once focus and the view's first layout have run, as the view opens a fold
         // around a caret navigated into it and the editor moves one it could not show.
@@ -982,15 +985,69 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             () =>
             {
                 var editor = placedIn is { } placed ? CodeEditorOf(placed)
-                    : placedInArchive ?? (ISearchableDocument?)CarriedEditorOf(placedInCarried!);
+                    : placedInArchive ?? (ISearchableDocument?)placedInProjectFile ?? (ISearchableDocument?)CarriedEditorOf(placedInCarried!);
                 if (editor is null) return null;
                 var at = editor.Document.GetLocation(editor.CaretOffset);
-                return placedInArchive != null
+                return placedInArchive != null || placedInProjectFile != null
                     ? $"The caret is at line {at.Line}, column {at.Column}: offset {editor.CaretOffset} in the read-only preview."
                     : HexIDE.Automation.CaretPlacement.Where(editor, line ?? at.Line, line is null ? at.Column : column ?? 1);
             },
             DispatcherPriority.Background);
         return where is null ? focused : focused with { Note = $"{focused.Note} {where}" };
+    }
+
+    private IEnumerable<HexIDE.IDE.ProjectFileSource> ProjectFiles()
+    {
+        foreach (var project in ctx.ProjectManager.LoadedProjects)
+            if (HexIDE.IDE.ProjectFileSource.ChosenPath(project) != null)
+                yield return new HexIDE.IDE.ProjectFileSource(project);
+        if (ctx.ProjectManager.CurrentGroup is { AbsolutePath: not null } group)
+            yield return new HexIDE.IDE.ProjectFileSource(group);
+    }
+
+    private static string ProjectFileOwnerName(HexIDE.IDE.ProjectFileSource file) => file.Owner switch
+    {
+        ProjectDefinition project => project.Name,
+        ProjectGroupDefinition group => group.Name,
+        _ => "",
+    };
+
+    private string ProjectFileInventory()
+    {
+        var paths = ProjectFiles().Select(f => f.Path).ToArray();
+        return paths.Length == 0 ? " No chosen project files are available."
+            : " Project files: " + string.Join(", ", paths) + ".";
+    }
+
+    private MutateResult? OpenProjectFile(string name, string? project, int? line, int? column,
+        out ProjectFileDocumentViewModel? opened)
+    {
+        opened = null;
+        var matches = ProjectFiles().Where(f =>
+            string.Equals(Path.GetFileName(f.Path), name, StringComparison.OrdinalIgnoreCase)
+            && (project == null || new[] { ProjectFileOwnerName(f), f.Path, Path.GetFileName(f.Path) }
+                .Any(p => string.Equals(p, project, StringComparison.OrdinalIgnoreCase)))).ToArray();
+        if (matches.Length == 0) return null;
+        if (matches.Length > 1)
+            return new MutateResult(false, "Ambiguous project file; pass project as its path: "
+                + string.Join(", ", matches.Select(f => f.Path)));
+        var source = matches[0];
+        if (line is { } wanted)
+        {
+            using var preview = new ProjectFileDocumentViewModel(source, null);
+            if (preview.LoadError is { } error) return new MutateResult(false, "Nothing was opened: " + error);
+            if (HexIDE.Automation.CaretPlacement.Refusal(preview.Document.Text, wanted, column ?? 1) is { } refusal)
+                return new MutateResult(false, "Nothing was opened: " + refusal);
+        }
+        ctx.EditorService.EditProjectFile(source);
+        var editor = ctx.DocumentDockService.OpenDocuments.OfType<ProjectFileDocumentViewModel>()
+            .FirstOrDefault(vm => vm.Source.Owner == source.Owner);
+        opened = editor;
+        if (line is { } at && editor != null) HexIDE.Automation.CaretPlacement.Place(editor, at, column ?? 1);
+        return new MutateResult(true, null, TabStateNote() + " Project file opened read-only."
+            + (editor?.LoadError is { } loadError ? " Could not read the file: " + loadError : ""),
+            Project: ProjectFileOwnerName(source), Document: Path.GetFileName(source.Path),
+            Area: ctx.DocumentDockService.ActiveTab is { } tab ? ctx.DocumentDockService.AreaOf(tab) : null);
     }
 
     private MutateResult? OpenArchive(string name, string? project, int? line, int? column,

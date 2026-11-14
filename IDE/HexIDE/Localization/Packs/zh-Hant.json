@@ -2,6 +2,8 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Title": "AI 聊天",
+    "Str.AIChat.Menu": "AI 聊天(_C)",
     "Str.AIChat.Approved": "✔ 已核准",
     "Str.AIChat.Rejected": "✗ 已拒絕",
     "Str.AIChat.Error": "錯誤：{0}",
@@ -1115,6 +1117,8 @@
     "Str.Addins.ServerLaunchRefused": "已拒絕啟動增益集「{0}」的語言伺服器。",
     "Str.Addins.DebugLaunchRefused": "已拒絕啟動增益集「{0}」的偵錯配接器。",
     "Str.Addins.Incompatible": "無法載入增益集：要求結構描述 {0}、最低 HexIDE {1}；此組建支援結構描述 {2}、HexIDE {3}。結構描述或版本要求不受支援或無效。",
+    "Str.Addins.DuplicateId": "無法載入增益集：識別碼「{0}」已由套件資料夾「{1}」使用。",
+    "Str.Addins.ChangedAfterVerification": "無法載入增益集：套件在驗證後已在磁碟上變更。",
     "Str.MakeProject.NoStartup": "找不到啟動專案。",
     "Str.MakeProject.Browser": "無法在瀏覽器中產生程式。請使用桌面版 HexIDE。",
     "Str.MakeProject.UnsupportedPlatform": "此作業系統不支援產生程式。請在 Windows、macOS 或 Linux 上使用 HexIDE。",

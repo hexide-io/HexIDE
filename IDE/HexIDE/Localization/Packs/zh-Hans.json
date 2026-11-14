@@ -2,6 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Title": "AI 聊天",
+    "Str.AIChat.Menu": "AI 聊天(_C)",
     "Str.AIChat.Approved": "✔ 已批准",
     "Str.AIChat.Rejected": "✗ 已拒绝",
     "Str.AIChat.Error": "错误：{0}",
@@ -1115,6 +1117,8 @@
     "Str.Addins.ServerLaunchRefused": "已拒绝启动加载项“{0}”的语言服务器。",
     "Str.Addins.DebugLaunchRefused": "已拒绝启动加载项“{0}”的调试适配器。",
     "Str.Addins.Incompatible": "无法加载加载项：要求架构 {0}、最低 HexIDE {1}；此构建支持架构 {2}、HexIDE {3}。架构或版本要求不受支持或无效。",
+    "Str.Addins.DuplicateId": "无法加载加载项：ID“{0}”已由程序包文件夹“{1}”占用。",
+    "Str.Addins.ChangedAfterVerification": "无法加载加载项：程序包在验证后已在磁盘上更改。",
     "Str.MakeProject.NoStartup": "未找到启动项目。",
     "Str.MakeProject.Browser": "无法在浏览器中生成程序。请使用桌面版 HexIDE。",
     "Str.MakeProject.UnsupportedPlatform": "此操作系统不支持生成程序。请在 Windows、macOS 或 Linux 上使用 HexIDE。",

@@ -42,18 +42,22 @@ internal static partial class WindowsDateLocale
         Apply(culture, length > 0 ? new string(userName, 0, length - 1) : "", Read);
     }
 
-    internal static void Apply(CultureInfo culture, string userName, Func<string, uint, string> read)
+    internal static void Apply(CultureInfo culture, string userName, Func<string, uint, string> read,
+        Func<string, string>? readEra = null)
     {
         var isUser = culture.UseUserOverride && string.Equals(culture.Name, userName, StringComparison.OrdinalIgnoreCase);
-        Apply(culture.DateTimeFormat, type => read(culture.Name, type | (isUser ? 0u : 0x80000000u)));
+        Apply(culture.DateTimeFormat, type => read(culture.Name, type | (isUser ? 0u : 0x80000000u)),
+            () => (readEra ?? ReadEra)(culture.Name));
     }
 
     // The reader seam also lets Linux exercise the mapping without pretending to measure Windows or VB6.
-    internal static void Apply(DateTimeFormatInfo dates, Func<uint, string> read)
+    internal static void Apply(DateTimeFormatInfo dates, Func<uint, string> read, Func<string> readEra)
     {
+        string? era = null;
+        string Era() => era ??= readEra();
         dates.DateSeparator = read(0x1d); // LOCALE_SDATE
-        dates.ShortDatePattern = ManagedPattern(read(0x1f)); // LOCALE_SSHORTDATE
-        dates.LongDatePattern = ManagedPattern(read(0x20)); // LOCALE_SLONGDATE
+        dates.ShortDatePattern = ManagedPattern(read(0x1f), Era); // LOCALE_SSHORTDATE
+        dates.LongDatePattern = ManagedPattern(read(0x20), Era); // LOCALE_SLONGDATE
         dates.MonthNames = Months(0x38, read);
         dates.AbbreviatedMonthNames = Months(0x44, read);
         dates.MonthGenitiveNames = Months(0x10000038, read);
@@ -71,14 +75,20 @@ internal static partial class WindowsDateLocale
     }
 
     // NLS doubles apostrophes inside literals; .NET escapes them, and treats backslashes as escapes.
-    internal static string ManagedPattern(string pattern)
+    internal static string ManagedPattern(string pattern, Func<string> readEra)
     {
         var result = new System.Text.StringBuilder();
         var quoted = false;
         for (var index = 0; index < pattern.Length; index++)
         {
             char current = pattern[index];
-            if (current == '\\')
+            if (current == 'g' && !quoted)
+            {
+                while (index + 1 < pattern.Length && pattern[index + 1] == 'g')
+                    index++;
+                result.Append('\'').Append(readEra().Replace("\\", "\\\\").Replace("'", "\\'")).Append('\'');
+            }
+            else if (current == '\\')
                 result.Append("\\\\");
             else if (current == '\'' && quoted && index + 1 < pattern.Length && pattern[index + 1] == '\'')
             {
@@ -114,6 +124,28 @@ internal static partial class WindowsDateLocale
             throw new System.ComponentModel.Win32Exception(Marshal.GetLastPInvokeError());
         return new string(buffer, 0, length - 1);
     }
+
+    private static string ReadEra(string locale)
+    {
+        var date = new SystemTime { Year = 2000, Month = 12, Day = 31 };
+        var length = GetDateFormatEx(locale, 0, in date, "gg", null, 0, null);
+        if (length == 0)
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastPInvokeError());
+        var buffer = new char[length];
+        if (GetDateFormatEx(locale, 0, in date, "gg", buffer, buffer.Length, null) == 0)
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastPInvokeError());
+        return new string(buffer, 0, length - 1);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SystemTime
+    {
+        public ushort Year, Month, DayOfWeek, Day, Hour, Minute, Second, Milliseconds;
+    }
+
+    [LibraryImport("kernel32.dll", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
+    private static partial int GetDateFormatEx(string locale, uint flags, in SystemTime date, string format,
+        [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 5)] char[]? output, int count, string? calendar);
 
     [LibraryImport("kernel32.dll", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
     private static partial int GetLocaleInfoEx(string localeName, uint localeType,

@@ -4,7 +4,7 @@ namespace HexIDE.Addins;
 
 internal sealed class AddinContext(AddinInfo info)
 {
-    public AddinInfo Info { get; } = info;
+    public AddinInfo Info { get; set; } = info;
     public IAddin? Instance { get; set; }
     public AddinStatus Status { get; set; }
     public string? ErrorMessage { get; set; }

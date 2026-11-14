@@ -353,3 +353,17 @@ Developer-only docking debug labels are excluded.
 - **WHEN** a document tab is dragged in any shipped language
 - **THEN** its preview widens beyond the tab's preferred width as needed to fit the title and reserved status allowance
 - **AND** Dock, Float and None status labels fit in full alongside the title (#3802)
+
+### Requirement: Owned add-in keys resolve as IDE chrome keys
+The IDE SHALL resolve an allowed add-in title key through the same localization service as its own chrome,
+including shipped, profile and user text and Pseudo transformation. Registration SHALL verify the key against
+the canonical pack and its add-in owner allow-list before display. AI Chat's pane and Tools item SHALL use
+translated keys in every shipped neutral pack.
+
+#### Scenario: Language changes with an add-in pane open
+- **WHEN** the user switches from English to German with AI Chat registered
+- **THEN** its pane and Tools item show `KI-Chat` without reinitializing the add-in
+
+#### Scenario: Pseudo coverage
+- **WHEN** Pseudo is active
+- **THEN** AI Chat's pane title and Tools label are bracketed like other IDE chrome keys

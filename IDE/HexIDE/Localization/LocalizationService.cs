@@ -30,6 +30,8 @@ public sealed class LocalizationService : ILocalizationService
     // The English canonical pack — the universal fallback. Loaded once, never mutated.
     private readonly Dictionary<string, string> _englishStrings;
 
+    internal bool HasCanonicalKey(string key) => _englishStrings.ContainsKey(key);
+
     // The per-user override tier, merged LAST in resolution. Optional so existing `new LocalizationService()`
     // tests still construct without it; when present, an override change live-re-applies the active language.
     private readonly IUserTranslationsService? _userTranslations;

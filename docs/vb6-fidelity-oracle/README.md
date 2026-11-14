@@ -501,6 +501,7 @@ added afterwards.
 - [Serialization / file-format fidelity (2026-08-11)](serialization--file-format-fidelity.md#serialization--file-format-fidelity-2026-08-11)
 - [Unsuffixed float literals, and comparing Double with Single (2026-09-03)](unsuffixed-float-literals-and-comparing-double-with-single.md#unsuffixed-float-literals-and-comparing-double-with-single-2026-09-03)
 - [Numeric type pairs — five arithmetic tables, and comparison is a sixth (2026-09-03)](numeric-type-pairs--five-arithmetic-tables-and-comparison-is-a-sixth.md#numeric-type-pairs--five-arithmetic-tables-and-comparison-is-a-sixth-2026-09-03)
+- [A String compared with a number (2026-11-14, #211)](a-string-compared-with-a-number.md#a-string-compared-with-a-number-2026-11-14-211)
 - [Module-name uniqueness is per-project, and filenames are free (2026-09-07)](module-name-uniqueness-is-per-project-and-filenames-are-free.md#module-name-uniqueness-is-per-project-and-filenames-are-free-2026-09-07)
 - [Qualified type names: a `Type` never shadows the qualifier (2026-09-19)](qualified-type-names-a-type-never-shadows-the-qualifier.md#qualified-type-names-a-type-never-shadows-the-qualifier-2026-09-19)
 - [What `/make` writes to `/out`, and what "Line N" counts (2026-09-19)](what-make-writes-to-out-and-what-line-n-counts.md#what-make-writes-to-out-and-what-line-n-counts-2026-09-19)
@@ -529,6 +530,7 @@ added afterwards.
 - [A member call inside While...Wend (2026-10-13, #882)](a-member-call-inside-whilewend.md#a-member-call-inside-whilewend-2026-10-13-882)
 - [Subscripts, bounds, and a method called from Class_Initialize (2026-10-12, #760, #849, #850)](subscripts-bounds-and-a-method-called-from-class_initialize.md#subscripts-bounds-and-a-method-called-from-class_initialize-2026-10-12-760-849-850)
 - [An object used as a value (2026-10-12, #174)](an-object-used-as-a-value.md#an-object-used-as-a-value-2026-10-12-174)
+- [A default member's value compared with a String (2026-11-14, #174's review)](an-object-used-as-a-value.md#a-default-members-value-compared-with-a-string-2026-11-14-174s-review)
 - [The native build's hidden switches, and where `VB6.EXE` finds C2 and LINK (2026-10-13)](the-native-builds-hidden-switches-and-where-vb6exe-finds-c2-and-link.md#the-native-builds-hidden-switches-and-where-vb6exe-finds-c2-and-link-2026-10-13)
 - [A Function that returns an array (2026-10-13, #975)](a-function-that-returns-an-array.md#a-function-that-returns-an-array-2026-10-13-975)
 - [Arrays copy wherever VB6 stores one (2026-10-14, #970)](arrays-copy-wherever-vb6-stores-one.md#arrays-copy-wherever-vb6-stores-one-2026-10-14-970)
@@ -716,6 +718,7 @@ added afterwards.
 - [A compare argument, and when it is checked](compare-argument-validation.md) — #881, supplied SP6 native/p-code measurements.
 - [FormatNumber, FormatCurrency and FormatPercent (2026-10-28, #2515)](formatnumber-formatcurrency-and-formatpercent.md#formatnumber-formatcurrency-and-formatpercent-2026-10-28-2515)
 - [FormatDateTime (2026-10-28, #2516)](formatdatetime.md#formatdatetime-2026-10-28-2516)
+- [A long date pattern with an era (2026-11-14, #3946)](a-long-date-pattern-with-an-era.md#a-long-date-pattern-with-an-era-2026-11-14-3946)
 - [LSet and RSet into a String (2026-10-28, #2517)](lset-and-rset-into-a-string.md#lset-and-rset-into-a-string-2026-10-28-2517)
 - [LSet between two user-defined types (2026-10-28, #2518)](lset-between-two-user-defined-types.md#lset-between-two-user-defined-types-2026-10-28-2518)
 - [CallByName (2026-10-28, #2519)](callbyname.md#callbyname-2026-10-28-2519)

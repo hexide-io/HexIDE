@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using HexIDE.Runtime.Components;
 
 namespace HexIDE.Addins;
@@ -6,7 +8,7 @@ namespace HexIDE.Addins;
 internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor tools, AddinOrigin origin) : IHexIdeHost
 {
     public IToolWindowContributor ToolWindows => tools;
-    public IMenuContributor Menus => host.Menus;
+    public IMenuContributor Menus { get; } = new OwnedMenus(host.Menus, origin);
     public IAddinEvents Events => host.Events;
     public IAddinRegistry Registry => host.Registry;
     public IEditorAccess Editor => host.Editor;
@@ -15,6 +17,21 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
     public IOptionsPageContributor Options => host.Options;
     public IDisposable RegisterCommand(string id, string label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>
         host.RegisterCommand(id, label, onInvoke, gesture, canExecute);
+    public IDisposable RegisterCommand(string id, AddinTitle label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>
+        host is HexIdeHost concrete ? concrete.RegisterCommand(id, label, onInvoke, gesture, canExecute, origin)
+            : host.RegisterCommand(id, label, onInvoke, gesture, canExecute);
+
+    private sealed class OwnedMenus(IMenuContributor menus, AddinOrigin owner) : IMenuContributor
+    {
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public IDisposable Add(string parentPath, string label, object? icon, Action onInvoke, Func<bool>? canExecute = null) =>
+            menus is AddinMenuService service ? service.AddOwned(owner, parentPath, new AddinTitle(label), icon, onInvoke, canExecute, Assembly.GetCallingAssembly())
+                : menus.Add(parentPath, label, icon, onInvoke, canExecute);
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public IDisposable Add(string parentPath, AddinTitle label, object? icon, Action onInvoke, Func<bool>? canExecute = null) =>
+            menus is AddinMenuService service ? service.AddOwned(owner, parentPath, label, icon, onInvoke, canExecute, Assembly.GetCallingAssembly())
+                : menus.Add(parentPath, label, icon, onInvoke, canExecute);
+    }
     public IDisposable RegisterComponent(IComponentClass component) => host.RegisterComponent(component);
     public IDisposable RegisterProjectTemplate(IAddinProjectTemplate template) => host.RegisterProjectTemplate(template);
     public IAddinServerConnection RegisterLanguageServer(AddinLanguageServer server) =>

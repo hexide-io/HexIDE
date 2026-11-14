@@ -6,6 +6,11 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.Input;
+using Avalonia.Input.Raw;
+using Avalonia.Controls.Primitives;
+using Avalonia.VisualTree;
+using Avalonia.Layout;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.AvaloniaInterop;
@@ -15,7 +20,7 @@ using HexIDE.Integration.Tests.Views;
 
 namespace HexIDE.Runtime.Integration.Tests.Views;
 
-/// <summary>TopIndex assignment measurements from #3275, native and p-code agreeing; measuring PR #3286.</summary>
+/// <summary>Measurements in docs/vb6-fidelity-oracle/a-listboxs-scroll-event.md (#3275, measuring PR #3286).</summary>
 public class ListBoxScrollTests : WindowTestFixture
 {
     [Fact]
@@ -47,7 +52,7 @@ public class ListBoxScrollTests : WindowTestFixture
             Calls.Add(name is "List1_Scroll" or "List1_Click" ? $"{name} top={Top()}" : name);
     }
 
-    private static async Task<(Recorder Recorder, ModuleExecutionContext Ctx, ExecutionEnvironment Env)> Loaded(string setup)
+    private static async Task<(Recorder Recorder, ModuleExecutionContext Ctx, ExecutionEnvironment Env)> Loaded(string setup, double? fontSize = null)
     {
         var (root, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(FormWithList);
         var recorder = new Recorder { Child = root, List = (VBListBox)ContainerRuntimeHarness.Child(canvas, "List1") };
@@ -57,8 +62,14 @@ public class ListBoxScrollTests : WindowTestFixture
         await ContainerRuntimeHarness.Run(ctx, env, setup);
         Dispatcher.UIThread.RunJobs();
         var list = recorder.List!;
+        if (fontSize is not null)
+        {
+            list.FontSize = fontSize.Value;
+            list.UpdateLayout();
+        }
         var rowHeight = list.ContainerFromIndex(0)!.Bounds.Height;
         list.Height += 11 * rowHeight - list.Scroll!.Viewport.Height;
+        window.Height = System.Math.Max(window.Height, list.Height + 60);
         list.UpdateLayout();
         list.Scroll.Viewport.Height.Should().BeApproximately(11 * rowHeight, 0.01);
         recorder.Calls.Clear();
@@ -87,6 +98,162 @@ public class ListBoxScrollTests : WindowTestFixture
         calls.Should().Equal(raises ? new[] { $"List1_Scroll top={expected}" } : System.Array.Empty<string>());
         var printed = await ContainerRuntimeHarness.Run(ctx, env, "Debug.Print List1.TopIndex\r\n");
         printed.Select(v => VbDisplay.ToText(v, System.Globalization.CultureInfo.InvariantCulture)).Should().Equal(expected.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    private static (Window Window, ScrollBar Bar, Point Point) BarPoint(VBListBox list, double fraction)
+    {
+        var window = (Window)TopLevel.GetTopLevel(list)!;
+        var bar = list.GetVisualDescendants().OfType<ScrollBar>().Single(b => b.Orientation == Orientation.Vertical);
+        return (window, bar, bar.TranslatePoint(new Point(bar.Bounds.Width / 2, bar.Bounds.Height * fraction), window)!.Value);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(6, 0.98, 7, null)]
+    [InlineData(6, 0.98, 7, 24.0)]
+    [InlineData(7, 0.8, 17, null)]
+    [InlineData(0, 0.02, 0, null)]
+    public async Task Scrollbar_source_arrow_track_and_top_boundary(int top, double fraction, int expected, double? fontSize)
+    {
+        var (recorder, ctx, env) = await Loaded(SixtyItems, fontSize);
+        await After(recorder, ctx, env, $"List1.TopIndex = {top}\r\n");
+        recorder.List!.Focus();
+        Dispatcher.UIThread.RunJobs();
+        recorder.Calls.Clear();
+        var (window, _, point) = BarPoint(recorder.List!, fraction);
+        window.MouseDown(point, MouseButton.Left);
+        window.MouseUp(point, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        recorder.Calls.Should().Equal(expected == top ? System.Array.Empty<string>() : new[] { $"List1_Scroll top={expected}" });
+    }
+
+    [AvaloniaFact]
+    public async Task Scrollbar_source_thumb_moves_raise_each_time_and_release_raises_none()
+    {
+        var (recorder, _, _) = await Loaded(SixtyItems);
+        var list = recorder.List!;
+        var (window, bar, _) = BarPoint(list, 0);
+        var thumb = bar.GetVisualDescendants().OfType<Thumb>().Single();
+        var point = thumb.TranslatePoint(new Point(thumb.Bounds.Width / 2, thumb.Bounds.Height / 2), window)!.Value;
+        window.MouseDown(point, MouseButton.Left);
+        recorder.Calls.Clear();
+        window.MouseMove(point + new Vector(0, 20));
+        Dispatcher.UIThread.RunJobs();
+        recorder.Calls.Where(c => c != "List1_MouseMove").Should().ContainSingle().Which.Should().Be($"List1_Scroll top={list.TopIndex}");
+        var first = list.TopIndex;
+        recorder.Calls.Clear();
+        window.MouseMove(point + new Vector(0, 40));
+        Dispatcher.UIThread.RunJobs();
+        list.TopIndex.Should().BeGreaterThan(first);
+        recorder.Calls.Where(c => c != "List1_MouseMove").Should().ContainSingle().Which.Should().Be($"List1_Scroll top={list.TopIndex}");
+        recorder.Calls.Clear();
+        window.MouseUp(point + new Vector(0, 40), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        recorder.Calls.Where(c => c != "List1_MouseMove").Should().BeEmpty();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(Key.Down, 27, 17, 18)]
+    [InlineData(Key.PageDown, 27, 18, 27)]
+    [InlineData(Key.Home, 37, 27, 0)]
+    [InlineData(Key.End, 0, 0, 49)]
+    public async Task Key_source_moves_top_row_with_Click_then_Scroll(Key key, int selection, int top, int expected)
+    {
+        var (recorder, ctx, env) = await Loaded(SixtyItems);
+        await After(recorder, ctx, env, $"List1.ListIndex = {selection}\r\nList1.TopIndex = {top}\r\n");
+        recorder.List!.Focus();
+        Dispatcher.UIThread.RunJobs();
+        recorder.Calls.Clear();
+        var window = (Window)TopLevel.GetTopLevel(recorder.List)!;
+        window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
+        Dispatcher.UIThread.RunJobs();
+        recorder.Calls.Should().Equal($"List1_Click top={expected}", $"List1_Scroll top={expected}");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(Key.Up, 27, 17, true)]
+    [InlineData(Key.Down, 59, 49, false)]
+    public async Task Key_source_without_top_row_change_raises_no_Scroll(Key key, int selection, int top, bool click)
+    {
+        var (recorder, ctx, env) = await Loaded(SixtyItems);
+        await After(recorder, ctx, env, $"List1.ListIndex = {selection}\r\nList1.TopIndex = {top}\r\n");
+        recorder.List!.Focus();
+        Dispatcher.UIThread.RunJobs();
+        recorder.Calls.Clear();
+        ((Window)TopLevel.GetTopLevel(recorder.List)!).KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
+        Dispatcher.UIThread.RunJobs();
+        recorder.Calls.Should().Equal(click ? new[] { $"List1_Click top={top}" } : System.Array.Empty<string>());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(Key.Down, 27, 17, 28, 18)]
+    [InlineData(Key.PageDown, 27, 18, 37, 27)]
+    [InlineData(Key.Home, 37, 27, 0, 0)]
+    [InlineData(Key.End, 0, 0, 59, 49)]
+    [InlineData(Key.Up, 27, 17, 26, 17)]
+    [InlineData(Key.Down, 59, 49, 59, 49)]
+    public async Task Key_source_with_item_focus_matches_oracle(Key key, int selection, int top, int expectedSelection, int expectedTop)
+    {
+        var (recorder, ctx, env) = await Loaded(SixtyItems);
+        await After(recorder, ctx, env, $"List1.ListIndex = {selection}\r\nList1.TopIndex = {top}\r\n");
+        var list = recorder.List!;
+        list.ContainerFromIndex(selection)!.Focus(NavigationMethod.Pointer).Should().BeTrue();
+        Dispatcher.UIThread.RunJobs();
+        recorder.Calls.Clear();
+        ((Window)TopLevel.GetTopLevel(list)!).KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
+        Dispatcher.UIThread.RunJobs();
+        list.SelectedIndex.Should().Be(expectedSelection);
+        var expected = new List<string>();
+        if (selection != expectedSelection)
+            expected.Add($"List1_Click top={expectedTop}");
+        if (top != expectedTop)
+            expected.Add($"List1_Scroll top={expectedTop}");
+        recorder.Calls.Where(c => c.StartsWith("List1_Click", System.StringComparison.Ordinal)
+            || c.StartsWith("List1_Scroll", System.StringComparison.Ordinal)).Should().Equal(expected);
+    }
+
+    // #3275's third-round review: the next arrow starts from Page Down's selection.
+    [AvaloniaTheory]
+    [InlineData(3)]
+    [InlineData(27)]
+    public async Task PageDown_source_with_item_focus_moves_focus_so_Up_follows_selection(int selection)
+    {
+        var (recorder, ctx, env) = await Loaded(SixtyItems);
+        await After(recorder, ctx, env, $"List1.ListIndex = {selection}\r\n");
+        var list = recorder.List!;
+        list.ContainerFromIndex(selection)!.Focus(NavigationMethod.Pointer).Should().BeTrue();
+        Dispatcher.UIThread.RunJobs();
+        var window = (Window)TopLevel.GetTopLevel(list)!;
+        window.KeyPress(Key.PageDown, RawInputModifiers.None, PhysicalKey.None, null);
+        Dispatcher.UIThread.RunJobs();
+        var pagedSelection = list.SelectedIndex;
+        pagedSelection.Should().BeGreaterThan(selection);
+        window.FocusManager!.GetFocusedElement().Should().BeSameAs(list.ContainerFromIndex(pagedSelection));
+        recorder.Calls.Clear();
+        window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.None, null);
+        Dispatcher.UIThread.RunJobs();
+        list.SelectedIndex.Should().Be(pagedSelection - 1);
+        window.FocusManager.GetFocusedElement().Should().BeSameAs(list.ContainerFromIndex(pagedSelection - 1));
+        recorder.Calls.Where(c => c.StartsWith("List1_Click", System.StringComparison.Ordinal))
+            .Should().Equal($"List1_Click top={list.TopIndex}");
+    }
+
+    // This pins existing HexIDE behavior, not a VB6 measurement: Page Up remains Avalonia's to handle.
+    [AvaloniaFact]
+    public async Task Unmeasured_PageUp_with_item_focus_keeps_existing_Avalonia_behavior()
+    {
+        var (recorder, ctx, env) = await Loaded(SixtyItems);
+        await After(recorder, ctx, env, "List1.ListIndex = 37\r\nList1.TopIndex = 27\r\n");
+        var list = recorder.List!;
+        list.ContainerFromIndex(37)!.Focus(NavigationMethod.Pointer).Should().BeTrue();
+        Dispatcher.UIThread.RunJobs();
+        var offset = list.Scroll!.Offset.Y;
+        recorder.Calls.Clear();
+        ((Window)TopLevel.GetTopLevel(list)!).KeyPress(Key.PageUp, RawInputModifiers.None, PhysicalKey.None, null);
+        Dispatcher.UIThread.RunJobs();
+        list.SelectedIndex.Should().Be(37);
+        list.Scroll.Offset.Y.Should().BeLessThan(offset);
+        recorder.Calls.Where(c => c.StartsWith("List1_Click", System.StringComparison.Ordinal)
+            || c.StartsWith("List1_Scroll", System.StringComparison.Ordinal)).Should().BeEmpty();
     }
 
     [AvaloniaTheory]

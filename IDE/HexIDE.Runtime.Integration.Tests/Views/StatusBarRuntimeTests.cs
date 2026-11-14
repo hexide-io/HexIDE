@@ -314,6 +314,15 @@ public class StatusBarRuntimeTests
         printed.Select(v => Convert.ToString(v.Value, CultureInfo.InvariantCulture) ?? "").Should().Equal(count, text);
         if (folder == "statusbar-picture")
         {
+            // Measured: built and run, the saved form's first panel has a Picture of Type 1 and the second one of Type 3,
+            // each 423x423 HIMETRIC (docs/vb6-fidelity-oracle/in-box-controls-the-statusbar.md; Type is an Integer and
+            // Width and Height Longs, loadresstring-loadresdata-and-loadrespicture.md, #2626).
+            var measured = await ContainerRuntimeHarness.Run(ctx, env, """
+                Set p1 = StatusBar1.Panels(1).Picture
+                Set p2 = StatusBar1.Panels(2).Picture
+                Debug.Print p1.Type, p1.Width, p1.Height, p2.Type, p2.Width, p2.Height
+                """);
+            measured.Select(v => v.Value).Should().Equal((short)1, 423L, 423L, (short)3, 423L, 423L);
             var pictures = await ContainerRuntimeHarness.Run(ctx, env, """
                 Set p = StatusBar1.Panels(1).Picture
                 Debug.Print p Is Nothing
@@ -325,12 +334,9 @@ public class StatusBarRuntimeTests
                 Debug.Print StatusBar1.Panels(1).Picture Is Nothing
                 """);
             pictures.Select(v => Convert.ToString(v.Value, CultureInfo.InvariantCulture)).Should().Equal("False", "False", "False", "True");
-            foreach (var member in new[] { "Type", "Width", "Height", "Handle" })
-            {
-                var readMember = () => ContainerRuntimeHarness.Run(ctx, env,
-                    $"Debug.Print StatusBar1.Panels(2).Picture.{member}");
-                await readMember.Should().ThrowAsync<NotImplementedException>().WithMessage($"*Panel.Picture.{member}*");
-            }
+            // A native handle is not implemented (#2626, #1087).
+            var readHandle = () => ContainerRuntimeHarness.Run(ctx, env, "Debug.Print StatusBar1.Panels(2).Picture.Handle");
+            await readHandle.Should().ThrowAsync<NotImplementedException>().WithMessage("*Panel.Picture.Handle*");
             var typeName = await ContainerRuntimeHarness.Run(ctx, env,
                 "Debug.Print TypeName(StatusBar1.Panels(2).Picture)");
             typeName.Select(v => v.Value).Should().Equal("Picture");

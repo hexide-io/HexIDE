@@ -37,7 +37,7 @@ evaluate the member once and never invoke a corresponding `Property Let`.
 - **THEN** the backing record's Z stays 3, the getter runs once and its Let accessor never runs
 
 Measurements: [#173](https://github.com/hexide-io/HexIDE/issues/173), vb6.exe SP6 native and p-code,
-2026-11-14. Class-typed UDT fields remain outside this change (#3924).
+2026-11-14. Class-typed UDT fields also support these chained stores (#3924, measured B3/B4).
 
 ### Requirement: The interpreter SHALL remain an approximation by design
 The interpreter SHALL be maintained as an out-of-the-box demonstrator rather than developed toward parity

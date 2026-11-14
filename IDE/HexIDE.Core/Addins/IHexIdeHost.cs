@@ -17,6 +17,7 @@ public interface IHexIdeHost
     IOptionsPageContributor Options { get; }
 
     IDisposable RegisterCommand(string id, string label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null);
+    IDisposable RegisterCommand(string id, AddinTitle label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null);
     /// <summary>Contributes a toolbox control until the returned handle is disposed.</summary>
     IDisposable RegisterComponent(IComponentClass component);
     /// <summary>Contributes a template to subsequently opened New Project dialogs until the returned handle is disposed.</summary>

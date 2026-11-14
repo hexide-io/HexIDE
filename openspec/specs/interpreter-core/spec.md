@@ -73,8 +73,8 @@ The interpreter SHALL load the project's `ResFile32` file read-only when configu
 resolving its Windows-format path against the project folder. Its resource reader SHALL support
 ordinal and case-insensitive string type/name identifiers, DWORD-aligned headers and payloads,
 raw resource bytes and sixteen-slot counted UTF-16 string blocks. Missing, unreadable or malformed
-files SHALL supply no lookup results. A lookup matching more than one language SHALL refuse with
-not-implemented rather than select an unmeasured locale-dependent value (#2625).
+files SHALL supply no lookup results. Language selection SHALL follow the resource intrinsic
+lookup rules below; ambiguous unmatched languages SHALL refuse as not implemented (#2626).
 
 #### Scenario: A run reads the project's resource file
 
@@ -93,9 +93,18 @@ not-implemented rather than select an unmeasured locale-dependent value (#2625).
 from the resource snapshot, following the [#2626 measurements](../../../docs/vb6-fidelity-oracle/loadresstring-loadresdata-and-loadrespicture.md).
 Empty strings, absent resources and string tables requested as raw data SHALL raise 326.
 `LoadResPicture` SHALL load the measured 24-bit bitmap layout into the shared Picture object, report
-326 for absent/wrong-kind resources and 485 for invalid kinds. Present icon/cursor groups, other bitmap
-layouts, named arguments and multi-language selection SHALL refuse as not implemented. Picture properties without measured
-return subtypes and native/default handles SHALL remain explicitly unimplemented.
+326 for absent/wrong-kind resources and 485 for invalid kinds. Per [the later #2626 measurements](https://github.com/hexide-io/HexIDE/issues/2626),
+icon/cursor groups SHALL return 32×32 Pictures, Type Integer 3 and Width/Height Long 847 HiMetric;
+the measured 2×2 bitmap SHALL return Type Integer 1 and Width/Height Long 53. These property types
+SHALL also apply to LoadPicture objects. Per [the icon-size measurements](https://github.com/hexide-io/HexIDE/pull/3969),
+a 16/32 resource icon group SHALL select its 32-pixel image; a 16-only group SHALL stretch to 32.
+LoadPicture SHALL preserve a 16-only icon at 423 HiMetric and select the 32-pixel image from a
+16/32 file at 847 HiMetric. Selection without a 32-pixel image but with a larger one remains unmeasured.
+Native/default handles and other bitmap layouts SHALL refuse.
+The intrinsics SHALL accept required named parameters id, id/type and id/restype respectively.
+Resource lookup SHALL prefer the program locale's exact language, then primary language, then a
+sole other language; ambiguous unmatched languages SHALL refuse as not implemented. An empty
+string slot in the selected block SHALL raise 326 without trying another language.
 
 #### Scenario: Resource text and data
 
@@ -107,6 +116,13 @@ return subtypes and native/default handles SHALL remain explicitly unimplemented
 - **WHEN** the program uses Set with `LoadResPicture(301, vbResBitmap)`
 - **THEN** it receives the shared picture object whose TypeName is `Picture`
 - **AND** native Handle access refuses rather than inventing a handle
+
+#### Scenario: Resource language block selection
+
+- **WHEN** an en-GB program reads string 101 from en-US and de-DE versions of block 7
+- **THEN** it receives the en-US value, regardless of resource order
+- **AND** an empty en-US slot raises 326 even if de-DE fills it
+- **AND** a block available only in de-DE is read
 
 ### Requirement: ObjPtr SHALL preserve object identity
 `ObjPtr` SHALL return Long identities satisfying the relations measured in
@@ -1716,7 +1732,17 @@ A laid-out, single-select ListBox SHALL expose TopIndex and coerce assignments t
 synchronously, only if the resulting top row changes. The handler SHALL read the new TopIndex.
 An index below zero or at or above ListCount SHALL raise error 380 without Scroll.
 MultiSelect access and access before row layout SHALL refuse as not implemented.
-Scrollbar, keyboard and native-message Scroll delivery remains pending.
+Vertical scroll-bar pointer input SHALL raise Scroll once per changed top row, including each thumb move,
+but not on release without movement. Navigation by Down, Up, Page Down, Home or End SHALL raise Click
+then Scroll when the top row changes, with the new TopIndex readable in both handlers. A key that
+changes only selection SHALL raise Click alone. Wheel input and ListIndex assignments SHALL NOT raise Scroll.
+Page Down SHALL move keyboard focus to the selected item so subsequent arrow navigation continues
+from it (#3275). Native-message Scroll delivery remains pending (#3986).
+
+#### Scenario: Page Down followed by Up with item focus
+- **WHEN** an item has keyboard focus and Page Down changes the selection, followed by Up
+- **THEN** Page Down gives its selected item keyboard focus
+- **AND** Up selects and focuses the preceding item, raising Click
 
 #### Scenario: Move and repeat the top row
 - **WHEN** TopIndex changes from 0 to 5 and is then assigned 5 again
@@ -1758,6 +1784,16 @@ forms), and day names (including abbreviated forms) from Windows NLS for the pro
 It SHALL permit user overrides only when the culture's UseUserOverride is true and its name
 matches the Windows user's locale, and request no user overrides otherwise. Other hosts, non-Gregorian default calendars and time formats SHALL retain
 their existing behaviour (#2041; portable Windows date data is deferred to #3928).
+
+For an unquoted era token in these NLS patterns, the interpreter SHALL write Windows' era
+text as a literal. This deliberately diverges from vb6.exe, which writes literal `gg`:
+HexIDE honours the locale rather than reproducing an unexpanded token (#3946;
+[measurement in #3979](https://github.com/hexide-io/HexIDE/pull/3979), oracle page
+`docs/vb6-fidelity-oracle/a-long-date-pattern-with-an-era.md`).
+
+#### Scenario: Windows long date with an era
+- **WHEN** a Windows program in byn-ER formats 31 December 2000 as Long Date
+- **THEN** the era is the text returned by GetDateFormatEx for `gg`, rather than .NET's era name or VB6's literal `gg`
 
 #### Scenario: Measured en-GB long date
 - **WHEN** a Windows program in en-GB formats 1 January 2000 as Long Date

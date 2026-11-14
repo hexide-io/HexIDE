@@ -106,14 +106,36 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             Log.Error(ex, "AddinRegistry: cannot enumerate {Dir} — no add-ins loaded", dir);
             return;
         }
-        // Guard EACH package: a third-party package that can't be read/verified/loaded (a locked .sig held by AV on
-        // first launch, an inaccessible subdir, a MAX_PATH path, a malformed load) must be skipped — never abort the
-        // rest of the add-ins nor unwind through IDE startup. Startup robustness beats loading one broken add-in.
+        // Verify every folder before loading any code, so a verified package wins over an unsigned copy.
+        Array.Sort(packageDirs, StringComparer.Ordinal);
+        var packages = new List<(string Directory, PackageVerificationResult Result)>();
         foreach (var packageDir in packageDirs)
         {
             try
             {
-                LoadPackage(Path.GetFullPath(packageDir), allowUnsigned, host);
+                var fullPath = Path.GetFullPath(packageDir);
+                if (_disabled.Contains(fullPath))
+                {
+                    _contexts.Add(new AddinContext(ShallowInfo(fullPath)) { Status = AddinStatus.Disabled, PackageDirectory = fullPath });
+                    Log.Debug("AddinRegistry: {Dir} is disabled — skipped", fullPath);
+                    continue;
+                }
+                packages.Add((fullPath, _verifier.Verify(fullPath)));
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "AddinRegistry: failed to verify package {Dir} — skipped", packageDir);
+            }
+        }
+        var owners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // Guard EACH package: a third-party package that can't be read/verified/loaded (a locked .sig held by AV on
+        // first launch, an inaccessible subdir, a MAX_PATH path, a malformed load) must be skipped — never abort the
+        // rest of the add-ins nor unwind through IDE startup. Startup robustness beats loading one broken add-in.
+        foreach (var (packageDir, result) in packages.OrderByDescending(package => package.Result.IsVerified))
+        {
+            try
+            {
+                LoadPackage(packageDir, result, allowUnsigned, host, owners);
             }
             catch (Exception ex)
             {
@@ -122,17 +144,9 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         }
     }
 
-    private void LoadPackage(string packageDir, bool allowUnsigned, IHexIdeHost host)
+    private void LoadPackage(string packageDir, PackageVerificationResult result, bool allowUnsigned, IHexIdeHost host,
+        Dictionary<string, string> owners)
     {
-        if (_disabled.Contains(packageDir))
-        {
-            _contexts.Add(new AddinContext(ShallowInfo(packageDir)) { Status = AddinStatus.Disabled, PackageDirectory = packageDir });
-            Log.Debug("AddinRegistry: {Dir} is disabled — skipped", packageDir);
-            return;
-        }
-
-        var result = _verifier.Verify(packageDir);
-
         // A directory without a manifest is simply not an add-in package — ignore it silently.
         if (result.Manifest is null && result.Error == "addin.json not found")
             return;
@@ -150,6 +164,15 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             return;
         }
 
+        if (result.Manifest is { } duplicateManifest && owners.TryGetValue(duplicateManifest.Id, out var ownerDirectory))
+        {
+            var message = string.Format(_localization.GetString("Str.Addins.DuplicateId"), duplicateManifest.Id, ownerDirectory);
+            info = info with { LoadError = message };
+            _contexts.Add(new AddinContext(info) { Status = AddinStatus.Error, ErrorMessage = message, PackageDirectory = packageDir });
+            Log.Warning("AddinRegistry: {Message}", message);
+            return;
+        }
+
         if (!result.IsVerified && !allowUnsigned)
         {
             _contexts.Add(new AddinContext(info) { Status = AddinStatus.Untrusted, ErrorMessage = result.Error, PackageDirectory = packageDir });
@@ -164,6 +187,8 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             Log.Warning("AddinRegistry: {Dir} has no usable manifest ({Reason}) — skipped", packageDir, result.Error);
             return;
         }
+
+        owners.Add(manifest.Id, packageDir);
 
         var status = result.IsVerified ? AddinStatus.Loaded : AddinStatus.DeveloperUnsigned;
 
@@ -210,16 +235,30 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
         var ctx = new AddinContext(info) { PackageDirectory = packageDir, Manifest = manifest };
         _contexts.Add(ctx);
-        LoadEntry(ctx, manifest, status, host);
+        LoadEntry(ctx, result, status, host);
     }
 
     /// <summary>Loads + initializes the entry assembly into <paramref name="ctx"/> (used both at startup
     /// for consented add-ins and later, after consent is granted).</summary>
-    private void LoadEntry(AddinContext ctx, AddinManifest manifest, AddinStatus status, IHexIdeHost host)
+    private void LoadEntry(AddinContext ctx, PackageVerificationResult result, AddinStatus status, IHexIdeHost host)
     {
-        var entryPath = Path.Combine(ctx.PackageDirectory, manifest.Entry);
         try
         {
+            // Both startup and post-consent loads must still match the discovery verification.
+            var fresh = _verifier.Verify(ctx.PackageDirectory);
+            if (fresh.Verdict != result.Verdict
+                || !string.Equals(fresh.ManifestHash, result.ManifestHash, StringComparison.Ordinal)
+                || fresh.Manifest is not { } manifest)
+            {
+                var message = _localization.GetString("Str.Addins.ChangedAfterVerification");
+                ctx.Status = AddinStatus.Error;
+                ctx.ErrorMessage = message;
+                ctx.Info = ctx.Info with { LoadError = message };
+                Log.Warning("AddinRegistry: {Title}: {Message}", ctx.Info.Title, message);
+                return;
+            }
+
+            var entryPath = Path.Combine(ctx.PackageDirectory, manifest.Entry);
             var alc = new AddinLoadContext(ctx.PackageDirectory, manifest);
             ctx.LoadContext = alc;
             var assembly = alc.LoadFromAssemblyPath(entryPath);
@@ -251,8 +290,10 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         {
             using var contributions = new AddinInitializationScope();
             ctx.Instance = addin;
+            var origin = new AddinOrigin(ctx.Info.Id, ctx.Info.Title, ctx.Info.Chain?.IsFirstParty == true,
+                status == AddinStatus.DeveloperUnsigned);
             addin.Initialize(host.ToolWindows is AddinToolWindowService tools
-                ? new AddinOwnedHost(host, tools.ForOwner(ctx.Info.Id), new AddinOrigin(ctx.Info.Id, ctx.Info.Title))
+                ? new AddinOwnedHost(host, tools.ForOwner(origin), origin)
                 : host);
             contributions.Complete();
             ctx.Status = status;
@@ -321,22 +362,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                 continue;
             }
 
-            // TOCTOU guard: the dialog may have been open for a long time. Re-verify and load only if
-            // the package on disk is still EXACTLY what the user consented to (same verdict + same hash).
-            // A swapped signed file fails re-verification; a changed manifest changes the hash.
-            var fresh = _verifier.Verify(ctx.PackageDirectory);
-            if (fresh.IsVerified == result.IsVerified
-                && string.Equals(fresh.ManifestHash, result.ManifestHash, StringComparison.Ordinal)
-                && fresh.Manifest is { } manifest)
-            {
-                LoadEntry(ctx, manifest, result.IsVerified ? AddinStatus.Loaded : AddinStatus.DeveloperUnsigned, host);
-            }
-            else
-            {
-                ctx.Status = AddinStatus.Error;
-                ctx.ErrorMessage = "package changed on disk after the consent prompt";
-                Log.Warning("AddinRegistry: {Title} changed on disk after the consent prompt — not loaded", ctx.Info.Title);
-            }
+            LoadEntry(ctx, result, result.IsVerified ? AddinStatus.Loaded : AddinStatus.DeveloperUnsigned, host);
         }
     }
 
@@ -391,7 +417,8 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                 string.Equals(c.Info.AssemblyPath, norm, StringComparison.OrdinalIgnoreCase));
             if (ctx is not null)
                 ctx.Status = !enabled ? AddinStatus.Disabled
-                    : ctx.Info.CompatibilityError is not null ? AddinStatus.Incompatible : AddinStatus.Loaded;
+                    : ctx.Info.CompatibilityError is not null ? AddinStatus.Incompatible
+                    : ctx.Info.LoadError is not null ? AddinStatus.Error : AddinStatus.Loaded;
         }
     }
 

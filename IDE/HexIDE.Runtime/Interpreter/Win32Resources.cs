@@ -75,13 +75,16 @@ internal sealed class Win32Resources
     // Ordinals remain distinct from strings containing digits. Callers perform VB argument coercion.
     internal byte[]? Find(object type, object name)
     {
-        Entry? found = null;
-        foreach (var entry in entries)
+        var candidates = entries.Where(e => Same(e.Type, type) && Same(e.Name, name)).ToArray();
+        var language = VbLocale.Current.LCID & 0xffff;
+        var found = candidates.FirstOrDefault(e => e.Language == language);
+        if (found is null)
         {
-            if (!Same(entry.Type, type) || !Same(entry.Name, name)) continue;
-            if (found is not null && found.Language != entry.Language)
-                throw new NotImplementedException("Resource language selection is unmeasured (#2625)");
-            found ??= entry;
+            var primary = candidates.Where(e => (e.Language & 0x3ff) == (language & 0x3ff)).ToArray();
+            var remaining = primary.Length != 0 ? primary : candidates;
+            if (remaining.Select(e => e.Language).Distinct().Count() > 1)
+                throw new NotImplementedException("Ambiguous resource language selection is unmeasured (#2626)");
+            found = remaining.FirstOrDefault();
         }
         return found is null ? null : (byte[])found.Data.Clone();
     }

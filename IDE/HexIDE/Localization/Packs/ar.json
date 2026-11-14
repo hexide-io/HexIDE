@@ -2,6 +2,8 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.AIChat.Title": "دردشة الذكاء الاصطناعي",
+    "Str.AIChat.Menu": "دردشة الذكاء الاصطناعي",
     "Str.AIChat.Approved": "✔ تمت الموافقة",
     "Str.AIChat.Rejected": "✗ تم الرفض",
     "Str.AIChat.Error": "خطأ: {0}",
@@ -1115,6 +1117,8 @@
     "Str.Addins.ServerLaunchRefused": "تم رفض تشغيل خادم اللغة للوظيفة الإضافية '{0}'.",
     "Str.Addins.DebugLaunchRefused": "تم رفض تشغيل محول التصحيح للوظيفة الإضافية '{0}'.",
     "Str.Addins.Incompatible": "تعذر تحميل الإضافة: المخطط المطلوب {0}، والحد الأدنى من HexIDE هو {1}؛ يدعم هذا الإصدار المخطط {2} وHexIDE {3}. متطلب المخطط أو الإصدار غير مدعوم أو غير صالح.",
+    "Str.Addins.DuplicateId": "تعذر تحميل الوظيفة الإضافية: المعرّف '{0}' مستخدم بالفعل بواسطة مجلد الحزمة '{1}'.",
+    "Str.Addins.ChangedAfterVerification": "تعذر تحميل الوظيفة الإضافية: تغيرت الحزمة على القرص بعد التحقق منها.",
     "Str.MakeProject.NoStartup": "لم يُعثر على مشروع بدء التشغيل.",
     "Str.MakeProject.Browser": "إنشاء برنامج غير متاح في المتصفح. استخدم إصدار سطح المكتب من HexIDE.",
     "Str.MakeProject.UnsupportedPlatform": "إنشاء برنامج غير مدعوم على نظام التشغيل هذا. استخدم HexIDE على Windows أو macOS أو Linux.",

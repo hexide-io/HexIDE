@@ -139,8 +139,9 @@ public partial class ProjectToolViewModel : Tool
                 editorService.EditCode(SelectedForm.FormDefinition);
             else if (SelectedModule != null)
                 editorService.EditCode(SelectedModule.ModuleDefinition);
+            else if (SelectedItem is ProjectFileViewModel file) editorService.EditProjectFile(file.Source);
             else if (SelectedItem is ArchiveTreeNode node) archives?.OpenDocument(node.Entry);
-        }, () => SelectedForm != null || SelectedModule != null || HasArchiveSelection);
+        }, () => SelectedForm != null || SelectedModule != null || HasArchiveSelection || SelectedItem is ProjectFileViewModel);
         FormPropertiesCommand = new DelegateCommand(() =>
         {
             ViewObjectCommand.Execute(null);
@@ -290,6 +291,10 @@ public partial class ProjectToolViewModel : Tool
             else
                 editorService.EditCode(SelectedModule.ModuleDefinition);
         }
+        else if (selectedItem is ProjectFileViewModel file)
+        {
+            editorService.EditProjectFile(file.Source);
+        }
         else if (selectedItem is RelatedDocViewModel relatedDoc)
         {
             editorService.EditRelatedDocument(relatedDoc.Definition);
@@ -299,8 +304,7 @@ public partial class ProjectToolViewModel : Tool
             // Takes the double-click away from expand/collapse, which is what VB6 did here and what the
             // fallthrough below still does for every other container. Deliberate: the chevron is what
             // expansion is for, and fidelity does not extend to spending the primary gesture on a
-            // second way to do it. A project group keeps the old behaviour until it has something of
-            // its own to open into (.vbg is not read yet).
+            // second way to do it. A group root keeps expand/collapse; its file has its own child node.
             editorService.EditProject(SelectedProject.Definition);
         }
         else if (selectedItem is IProjectTreeElement projectTreeElement)

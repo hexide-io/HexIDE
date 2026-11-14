@@ -363,8 +363,9 @@ public class ProjectToolViewModelTests
 
         CreateVmWithLoadedProject(proj, out var projVm);
 
-        var dir = projVm.Elements.Should().ContainSingle().Subject
-            .Should().BeOfType<DirectoryViewModel>().Subject;
+        projVm.Elements.Should().HaveCount(2);
+        projVm.Elements[0].Should().BeOfType<ProjectFileViewModel>();
+        var dir = projVm.Elements[1].Should().BeOfType<DirectoryViewModel>().Subject;
         dir.Name.Should().Be("Forms");
         dir.Children.Should().ContainSingle().Which.Should().BeOfType<FormViewModel>();
     }
@@ -377,11 +378,15 @@ public class ProjectToolViewModelTests
         proj.AbsolutePath = Path.Combine(root, "App.vbp");
         proj.Forms[0].AbsolutePath = Path.Combine(root, "Main.frm");
         CreateVmWithLoadedProject(proj, out var projVm);
-        projVm.Elements.Should().ContainSingle().Which.Should().BeOfType<FormViewModel>();
+        projVm.Elements.Should().HaveCount(2);
+        projVm.Elements[0].Should().BeOfType<ProjectFileViewModel>();
+        projVm.Elements[1].Should().BeOfType<FormViewModel>();
 
         proj.Forms[0].AbsolutePath = Path.Combine(root, "Forms", "Main.frm");
 
-        projVm.Elements.Should().ContainSingle().Which.Should().BeOfType<DirectoryViewModel>();
+        projVm.Elements.Should().HaveCount(2);
+        projVm.Elements[0].Should().BeOfType<ProjectFileViewModel>();
+        projVm.Elements[1].Should().BeOfType<DirectoryViewModel>();
     }
 
     // ── Command can-execute ───────────────────────────────────────
