@@ -426,4 +426,4 @@ moves it here (#3364). The *Missed* section keeps its own fixed entries, as the 
   elements and another module's Public UDT included, and a chained `Set` stores the final object reference. A field
   store through a UDT-returning property or function writes only the returned copy, calls the getter once, and never
   calls its Let, as [measured](vb6-fidelity-oracle/chained-writes-qualified-set-and-udt-returning-members.md) natively
-  and as p-code. `Set` through a class-typed UDT field remains #3924.
+  and as p-code. `Set` through a class-typed UDT field is supported by #3924, including module-qualified chains; other recognised object field types beyond Object and Collection remain explicitly refused pending measurements.

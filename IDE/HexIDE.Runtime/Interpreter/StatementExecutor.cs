@@ -2415,6 +2415,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 && await TryStoreModuleMember(propertyTarget, value, false, context, propertiesOnly: true))
                 return default;
         }
+        // A fresh object field is the Let target, before the right-hand object's default is read (E7, #3924).
+        if (IsNothingObjectField(context.implicitCallStmt_InStmt()))
+            throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
         value = await LetValue(context, IntoArray(context), value);
 
         if (context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
@@ -2561,7 +2564,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // UDT field assignment (`e.City = x`, nested `e.Address.City = x`) — navigate to the innermost owned
             // bag and set the field in place (the slot holds the same VbUdt reference, so the write persists).
             // The owned bag is shared with its slot; a returned UDT instead owns a disposable copy.
-            if (variable.Value is VbUdt)
+            if (variable.Value is VbUdt && members.Length == 1)
             {
                 await SetUdtField(variable, members, value, context);
                 return default;
@@ -3901,6 +3904,29 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             }
             else if (setLead && chainMembers.Length > 1)
                 target = await expressionExecutor.ResolveMemberChain(target, chainMembers[..^1], 0, context);
+            if (setLead && target.Value is VbUdt udtBag)
+            {
+                var member = chainMembers[^1];
+                if (MemberHasArgs(member))
+                    throw new NotImplementedException("Set through this Type field is not implemented (#3924)");
+                var name = UdtFieldName(member);
+                if (!udtBag.IsObjectField(name))
+                    throw new NotImplementedException("Set on this Type field is not implemented (#3924)");
+                if (!udtBag.TryInspect(name, out var old))
+                    throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, name);
+                interpreter.AddRef(value);
+                try
+                {
+                    udtBag.TrySet(name, value, context);
+                }
+                catch
+                {
+                    await interpreter.ReleaseRef(value);
+                    throw;
+                }
+                await interpreter.ReleaseRef(old);
+                return default;
+            }
             if (!setLead || target.Value is not VbObject targetObj)
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
             var setMember = chainMembers[^1];
@@ -4404,7 +4430,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     // type, Nothing, where VB6's is a Long.
                     else if (IsControlLibraryEnum(qualifier, typeName))
                         value = new Vb6Value(0L);
-                    else if (interpreter.Modules.TryGet(typeName, out var classMod) && classMod.Kind == InterpreterModuleKind.Class)
+                    else if (interpreter.ProjectClassFor(typeName) is { } classMod)
                     {
                         value = Vb6Value.Nothing;
                         declaredClass = classMod.Name;   // the module's own casing, not the Dim's
@@ -4424,7 +4450,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         value = Vb6Value.Nothing;
                         declaredClass = controlClass;
                     }
-                    else if (IsObjectTypeWithoutClass(qualifier, typeName, out var aliasScalar))
+                    else if (interpreter.IsObjectTypeWithoutClass(qualifier, typeName, out var aliasScalar))
                     {
                         // An object of a type the interpreter has no class for: VB's own (`As Form`, `As Control`,
                         // `As TextBox`, `As StdFont`), a form of the project, or a referenced library's (#822). The
@@ -4523,7 +4549,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         else if (interpreter.TryResolveType(typeName, currentModule, qualifier, out _)
                  || (qualifier is null && interpreter.TryResolveEnum(typeName, currentModule, out _)))
             throw new VBCompileErrorException("Invalid use of New keyword");
-        else if (IsObjectTypeWithoutClass(qualifier, typeName, out _))
+        else if (interpreter.IsObjectTypeWithoutClass(qualifier, typeName, out _))
             throw new NotImplementedException($"As New {typeText} is not implemented: New makes a class's object or a Collection here (#435)");
         else
             throw new VBCompileErrorException("User-defined type not defined: " + typeName);
@@ -4782,6 +4808,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         throw new VBRunTimeException(ctx, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
                     value = ArrayStore(field.Type, value, ctx);
                 }
+                if (bag.IsObjectField(fieldName))
+                    RefuseLetIntoObject(field, fieldName, ctx);
                 bag.TrySet(fieldName, interpreter.CopyForStore(value), ctx);
                 await interpreter.ReleaseRef(field);
                 return;
@@ -4789,6 +4817,23 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             else
                 current = field;
         }
+    }
+
+    private bool IsNothingObjectField(VB6Parser.ImplicitCallStmt_InStmtContext target)
+    {
+        if (target.iCS_S_MembersCall() is not { } chain || chain.iCS_S_VariableOrProcedureCall() is not { } lead
+            || !interpreter.ExecutionContext.TryInspectVariable(currentEnv, lead.GetText(), out var current))
+            return false;
+        var members = chain.iCS_S_MemberCall();
+        for (var i = 0; i < members.Length; i++)
+        {
+            var name = UdtFieldName(members[i]);
+            if (MemberHasArgs(members[i]) || current.Value is not VbUdt bag || !bag.TryInspect(name, out current))
+                return false;
+            if (i == members.Length - 1)
+                return bag.IsObjectField(name) && current.Value is null;
+        }
+        return false;
     }
 
     // Inspect only: deciding whether a Let reads an object's default must not evaluate its target twice.
@@ -5128,19 +5173,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return i < parts.Length - 1 ? (parts[^2], name) : (null, name);
     }
 
-    /// <summary>
-    /// Whether a type name the interpreter has no class, UDT or enum for is still a type a declaration may name (#822
-    /// review). It is when it is:
-    /// <list type="bullet">
-    /// <item>one of VB's own, read out of the in-box type libraries (<see cref="VB6InBoxTypes"/>);</item>
-    /// <item>a form, this one or another of the project's, none of which is a class;</item>
-    /// <item>qualified by a library the interpreter can't read, such as <c>ADODB.Connection</c>;</item>
-    /// <item>or unqualified, in a project that references such a library, which may well declare it.</item>
-    /// </list>
-    /// The last two are a missing input, not a missing name: without the library there is no telling, and the slot is
-    /// Nothing either way. A typo then runs on until the variable is used. With nothing referenced, a name nobody
-    /// declares stays VB6's "User-defined type not defined".
-    /// </summary>
     private bool IsControlLibraryEnum(string? qualifier, string typeName)
     {
         foreach (var library in interpreter.BuiltIns.ControlLibraries)
@@ -5148,24 +5180,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 && library.ContainerName(typeName) is not null)
                 return true;
         return false;
-    }
-
-    private bool IsObjectTypeWithoutClass(string? qualifier, string typeName, out Vb6Value.ValueType? aliasScalar)
-    {
-        aliasScalar = null;
-        if (interpreter.LibraryClassFor(qualifier is null ? typeName : qualifier + "." + typeName) is not null)
-            return true;
-        if (VB6InBoxTypes.TryResolve(qualifier, typeName, out var inbox))
-        {
-            aliasScalar = inbox.Scalar;
-            return true;
-        }
-        if (qualifier is null && (interpreter.ProjectFormNames.Contains(typeName)
-                                  || interpreter.Modules.TryGet(typeName, out var m) && m.Kind == InterpreterModuleKind.Form))
-            return true;
-        if (qualifier is not null)
-            return !interpreter.Modules.Contains(qualifier) && !VB6InBoxLibraries.IsLibrary(qualifier);
-        return interpreter.ReferencesOtherLibraries;
     }
 
     private static void CollectLineHeads(VB6Parser.BlockContext block, VB6Parser.BlockStmtContext[] stmts,

@@ -817,8 +817,9 @@ public class PrePass : VB6BaseVisitor<object?>
                 fields.Add(new UdtField(fieldName, null, null, asType.type().GetText()));
                 continue;
             }
-            if (asType.type().complexType() is { } ct)
-                fields.Add(new UdtField(fieldName, null, ct.GetText(), IsArray: isArray, Bounds: bounds));   // nested UDT or Enum, resolved at NewUdt
+            if (asType.type().complexType() is not null || asType.type().baseType()?.OBJECT() is not null
+                || asType.type().baseType()?.COLLECTION() is not null)
+                fields.Add(new UdtField(fieldName, null, asType.type().GetText(), IsArray: isArray, Bounds: bounds));   // nested UDT, Enum or object type, resolved at NewUdt
             else
                 fields.Add(new UdtField(fieldName,
                     BaseTypeMapper.Map(asType.type().baseType())
