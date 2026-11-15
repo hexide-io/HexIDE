@@ -50,6 +50,34 @@ becomes ready, without requiring the developer to reselect a library.
 - **THEN** the VBA library loads those symbols automatically
 - **AND** they appear under VBA or All Libraries without changing the selected library
 
+### Requirement: Component libraries SHALL be browsable on every desktop platform
+The browser SHALL list in-box component libraries from project lines and form headers, once per project
+alongside matching references, using each library's own name and existing alphabetical ordering. It SHALL
+follow component, form and project removals. Loading SHALL use the type-library service, falling back to
+the registry's supplied controls and members. Both paths SHALL label HexIDE-only members with the
+localized origin description.
+
+#### Scenario: A component-only library without a registered OCX
+- **GIVEN** the project names MSCOMCTL.OCX only on an `Object=` line
+- **WHEN** its type-library metadata is unavailable
+- **THEN** MSComctlLib is selectable, with ProgressBar and its Increment member
+- **AND** Increment is described as HexIDE's own extension
+
+#### Scenario: Type metadata is available
+- **WHEN** a component library's type metadata can be read
+- **THEN** the shared type-library service supplies its classes and members
+- **AND** HexIDE-only members are added with their localized origin description
+
+#### Scenario: Both reference kinds name a library
+- **WHEN** a project names the same in-box library on `Reference=` and `Object=` lines
+- **THEN** the browser lists it once for that project, using the reference entry
+- **AND** it retains HexIDE's alphabetical ordering; VB6's ordering remains unmeasured (#3982)
+
+#### Scenario: A form brings a component library
+- **WHEN** a form declaring an in-box library in its header is added
+- **THEN** that library is listed
+- **AND** deleting the form removes it if no remaining project reference or form names it
+
 ### Requirement: Browser rows SHALL show themed kind icons
 The classes, members and workspace search results SHALL show cached images from the icon factory,
 using the keyed Fluent geometries and active theme ink. Forms, modules, class modules and enums SHALL
