@@ -256,11 +256,24 @@ public partial class ProjectToolViewModel : Tool
     {
         var vm = new ProjectViewModel(this, obj);
         projectToViewModel[obj] = vm;
-        LoadedProjects.Add(vm);
+        // At the project's place in the manager's list, which a reloaded project keeps (#4009).
+        var index = IndexOf(projectManager.LoadedProjects, obj);
+        if (index >= 0 && index <= LoadedProjects.Count)
+            LoadedProjects.Insert(index, vm);
+        else
+            LoadedProjects.Add(vm);
         vm.PropertyChanged += OnTitleSourceChanged;
         RefreshTitle();
         if (projectManager.CurrentGroup == null)
             RootItems.Add(vm);
+    }
+
+    private static int IndexOf(IReadOnlyList<ProjectDefinition> projects, ProjectDefinition project)
+    {
+        for (var i = 0; i < projects.Count; i++)
+            if (ReferenceEquals(projects[i], project))
+                return i;
+        return -1;
     }
 
     private void OnProjectUnloaded(ProjectDefinition obj)
