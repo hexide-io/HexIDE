@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.VisualTree;
 using Avalonia.Headless;
 using System.Linq;
+using System.Text.Json;
 using Dock.Model.Core;
 using Dock.Model.Controls;
 using System.Runtime.CompilerServices;
@@ -23,6 +24,44 @@ namespace HexIDE.Tests.ViewModels;
 
 public class DockFactoryTests
 {
+    private static LayoutManifest RoundTripManifest(LayoutManifest manifest) =>
+        ReadManifest(LayoutManifestJson.Serialize(manifest));
+
+    private static LayoutManifest ReadManifest(string json)
+    {
+        var manifest = LayoutManifestJson.Deserialize(json);
+        if (manifest == null)
+        {
+            string? error = null;
+            try
+            {
+                // LayoutManifestJson's own options, to recover the exception its corrupt-file fallback hides.
+                JsonSerializer.Deserialize<LayoutManifest>(json, LayoutManifestJson.Options);
+            }
+            catch (JsonException exception)
+            {
+                error = exception.ToString();
+            }
+            manifest.Should().NotBeNull("manifest JSON must round-trip. JSON: {0}; reader exception: {1}",
+                json, error ?? "no JsonException was thrown");
+        }
+        return manifest!;
+    }
+
+    [Fact]
+    public void ReadManifest_UnreadableManifest_ReportsJsonAndUnderlyingException()
+    {
+        var json = LayoutManifestJson.Serialize(LayoutManifest.Default)
+            .Replace("\"left\"", "\"unknownRegion\"", StringComparison.Ordinal);
+
+        Action read = () => ReadManifest(json);
+
+        var failure = read.Should().Throw<Exception>().Which;
+        failure.Message.Should().Contain(json);
+        failure.Message.Should().Contain(nameof(JsonException));
+        failure.Message.Should().Contain("$.tools[0].region");
+    }
+
     internal static (MainViewViewModel.DockFactory factory, ImmediateToolViewModel immediate) CreateFactory(LayoutManifest? manifest = null, ToolBoxToolViewModel? toolbox = null, ILocalizationService? localization = null)
     {
         var docDock = Substitute.For<IDocumentDockService>();
@@ -174,7 +213,7 @@ public class DockFactoryTests
                     ? t with { Open = true } : t).ToArray(),
                 Topology = Stack(original.Topology!)
             };
-            (factory, immediate) = CreateFactory(LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(saved)));
+            (factory, immediate) = CreateFactory(RoundTripManifest(saved));
             root = factory.CreateLayout();
             factory.InitLayout(root);
         }
@@ -220,7 +259,7 @@ public class DockFactoryTests
                 var viewport = list.GetVisualDescendants().OfType<Avalonia.Controls.ScrollViewer>().Single().Viewport.Height;
                 viewport.Should().BeLessThan(6 * row.Bounds.Height);
             }
-            var saved = LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(factory.CaptureManifest(root)))!;
+            var saved = RoundTripManifest(factory.CaptureManifest(root));
             System.Collections.Generic.IEnumerable<DockLayoutNode> Descendants(DockLayoutNode node) =>
                 new[] { node }.Concat(node.Children.SelectMany(Descendants));
             Descendants(saved.Topology!).Single(n => n.Kind == "document").Proportion.Should().BeGreaterThan(0);
@@ -456,7 +495,7 @@ public class DockFactoryTests
                 if (restart)
                 {
                     var saved = factory.CaptureManifest(root);
-                    (factory, _) = CreateFactory(LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(saved)),
+                    (factory, _) = CreateFactory(RoundTripManifest(saved),
                         (ToolBoxToolViewModel)tool);
                     root = factory.CreateLayout();
                     factory.InitLayout(root);
@@ -552,7 +591,7 @@ public class DockFactoryTests
             for (var restart = 0; restart < 2; restart++)
             {
                 System.IO.File.WriteAllText(file, LayoutManifestJson.Serialize(factory.CaptureManifest(root)));
-                (factory, immediate) = CreateFactory(LayoutManifestJson.Deserialize(System.IO.File.ReadAllText(file)));
+                (factory, immediate) = CreateFactory(ReadManifest(System.IO.File.ReadAllText(file)));
                 root = factory.CreateLayout();
                 factory.InitLayout(root);
                 factory.CaptureManifest(root).Tools.Single(t => t.Key == (addin ? "addin:sample" : "immediate"))
@@ -629,7 +668,7 @@ public class DockFactoryTests
         }
         main.VisibleDockables[0] = split;
         factory.InitLayout(root);
-        var saved = LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(factory.CaptureManifest(root)))!;
+        var saved = RoundTripManifest(factory.CaptureManifest(root));
         var key = addin ? "addin:sample" : "immediate";
         saved.Tools.Single(t => t.Key == key).Open.Should().BeTrue();
         saved.Tools.Single(t => t.Key == key).Region.Should().Be(DockRegion.Left);
@@ -642,7 +681,7 @@ public class DockFactoryTests
         if (addin)
         {
             // A save before add-in registration must retain its slot too.
-            var pending = LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(restoredFactory.CaptureManifest(restoredRoot)))!;
+            var pending = RoundTripManifest(restoredFactory.CaptureManifest(restoredRoot));
             (restoredFactory, _) = CreateFactory(pending);
             restoredRoot = restoredFactory.CreateLayout();
             restoredFactory.InitLayout(restoredRoot);
@@ -725,7 +764,7 @@ public class DockFactoryTests
         dock.Proportion = 0.42;
 
         factory.CloseDockable(closeContainer ? dock : immediate);
-        var saved = LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(factory.CaptureManifest(root)))!;
+        var saved = RoundTripManifest(factory.CaptureManifest(root));
         saved.Tools.Single(t => t.Key == "immediate").Open.Should().BeFalse();
         if (restart)
         {
@@ -757,7 +796,7 @@ public class DockFactoryTests
             new("immediate", true, DockRegion.Bottom, 3, 0.6),
             new("objectBrowser", true, DockRegion.Document, 4, null),
         ]));
-        var (factory, _) = CreateFactory(LayoutManifestJson.Deserialize(json));
+        var (factory, _) = CreateFactory(ReadManifest(json));
 
         var root = factory.CreateLayout();
         factory.InitLayout(root);
@@ -765,7 +804,7 @@ public class DockFactoryTests
         var restored = factory.CaptureManifest(root);
         restored.LeftProportion.Should().Be(0.17);
         restored.RightProportion.Should().Be(0.29);
-        foreach (var expected in LayoutManifestJson.Deserialize(json)!.Tools.Where(t => t.Key != "futureTool"))
+        foreach (var expected in ReadManifest(json).Tools.Where(t => t.Key != "futureTool"))
         {
             var actual = restored.Tools.Single(t => t.Key == expected.Key);
             actual.Open.Should().BeTrue();
@@ -817,7 +856,7 @@ public class DockFactoryTests
             Tools = LayoutManifest.Default.Tools.Select(t => t.Key == "formLayout"
                 ? t with { Open = true } : t).ToArray()
         };
-        var (factory, _) = CreateFactory(LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(saved)));
+        var (factory, _) = CreateFactory(RoundTripManifest(saved));
         var root = factory.CreateLayout();
         factory.InitLayout(root);
         factory.CaptureManifest(root).Tools.Single(t => t.Key == "formLayout").Open.Should().BeTrue();
@@ -936,8 +975,8 @@ public class DockFactoryTests
         var tool = tools.Tools.Single();
         source.RegisterAddinTool(original, tool);
         if (!open) source.CloseDockable(tool);
-        var legacy = LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(source.CaptureManifest(original))
-            .Replace(key, "addin:aiChat", StringComparison.Ordinal))!;
+        var legacy = ReadManifest(LayoutManifestJson.Serialize(source.CaptureManifest(original))
+            .Replace(key, "addin:aiChat", StringComparison.Ordinal));
         legacy.Topology.Should().NotBeNull();
 
         var (restored, _) = CreateFactory(legacy);
@@ -1052,7 +1091,7 @@ public class DockFactoryTests
         var manifest = factory.CaptureManifest(root);
         manifest.Tools.Single(t => t.Key == key).Should().Be(home with { Open = true });
 
-        var (restoredFactory, _) = CreateFactory(LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(manifest)));
+        var (restoredFactory, _) = CreateFactory(RoundTripManifest(manifest));
         var restoredRoot = restoredFactory.CreateLayout();
         restoredFactory.InitLayout(restoredRoot);
         restoredFactory.CaptureManifest(restoredRoot).Tools.Single(t => t.Key == key).Open.Should().BeTrue();
