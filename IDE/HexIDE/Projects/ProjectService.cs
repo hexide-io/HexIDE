@@ -1321,8 +1321,12 @@ public partial class ProjectService : IProjectService
             if (changed.SaveChanges)
                 await SaveSelected(changed);
         }
-        projectManager.UnloadProject(project);
-        await OpenProject(path);
+        // In its place: a project in a group keeps its position, and its startup, and the group stays (#4009).
+        using (projectManager.HoldPlace(project))
+        {
+            projectManager.UnloadProject(project);
+            await OpenProject(path);
+        }
     }
 
     private static void EnsureEveryMemberListed(IReadOnlyList<Destination> destinations)
