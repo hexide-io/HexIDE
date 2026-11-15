@@ -4,7 +4,9 @@
 Define how HexIDE draws its iconography: keyed vector geometries resolved through a single factory
 and tinted from the active theme, with no bitmap artwork in the IDE chrome. Permissively licensed
 third-party icon sets are permitted when their licence and attribution are recorded under the tree's
-licence rule; artwork extracted from another application is not.
+licence rule; artwork extracted from another application is not. Brand images are not icons: HexIDE's
+logo, and the logo a distribution or an add-in supplies, keep their own colours and may be bitmaps
+(decided on #3364, 2026-11-15).
 
 ## Requirements
 
@@ -68,3 +70,21 @@ Most icons are referenced declaratively from views. A minority are needed from c
 #### Scenario: Getting an icon in a specific colour
 - **WHEN** code needs an icon in a colour other than the theme ink
 - **THEN** it asks the factory for that geometry key with the brush to use
+
+### Requirement: Brand images SHALL be exempt from the vector rule
+A brand image SHALL NOT be held to the requirements above: HexIDE's own logo, a white-label distribution's
+logo (`docs/white-label.md`, #2042) and an add-in's logo. These carry fixed colours and MAY be bitmaps.
+HexIDE's own logo SHALL be rendered from `IDE/HexIDE/Icons/AppIcon/hexide-logo.svg` at a size that stays
+sharp at every display scale HexIDE supports.
+
+#### Scenario: Showing HexIDE's logo on a high-DPI display
+- **WHEN** About or New Project shows HexIDE's own logo, 46 to 48 DIP across, at 150% or 200% scaling
+- **THEN** the image is downscaled from its 256-pixel rendering rather than stretched up from a smaller one
+
+#### Scenario: A distribution supplies its logo
+- **WHEN** a white-label descriptor names a PNG logo
+- **THEN** About, New Project and the window icon show it as a bitmap, and the icon rules do not apply to it
+
+#### Scenario: An image that stands for a command
+- **WHEN** an image stands for a command or a kind of item rather than for a product
+- **THEN** it is an icon, and follows the rules above
