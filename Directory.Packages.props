@@ -102,4 +102,8 @@
     <PackageVersion Include="LanguageExt.Core" Version="5.0.0-beta-77" />
     <PackageVersion Include="Svg.Skia" Version="2.0.0" />
   </ItemGroup>
+  <!-- Fuzzing (#1222): tools/FrxFuzz only. Nothing in the product, the solution or any test project uses it. -->
+  <ItemGroup>
+    <PackageVersion Include="SharpFuzz" Version="2.3.0" />
+  </ItemGroup>
 </Project>
