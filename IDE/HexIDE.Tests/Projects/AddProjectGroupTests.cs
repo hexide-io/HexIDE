@@ -30,6 +30,8 @@ public sealed class AddProjectGroupTests : IDisposable
         var strings = Substitute.For<ILocalizationService>();
         strings.GetString("Str.Tool.Project.TitleProject").Returns("Project - {0}");
         strings.GetString("Str.Tool.Project.TitleGroup").Returns("Project Group - {0}");
+        // VB6's files are read by VB6's type, which the composition registers first (#3411 slice 10b).
+        Vb6ProjectType.Register(types, new Vb6ProjectFileFormat());
         service = new ProjectService(new Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(),
             windows, events, manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),

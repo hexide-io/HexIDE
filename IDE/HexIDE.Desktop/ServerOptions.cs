@@ -291,10 +291,9 @@ internal static class ServerOptions
                 var value = option.TakesValue && i + 1 < args.Length ? args[i + 1] : null;
                 if (option.Apply(value) && value is not null) i++;
             }
-            else if (!arg.StartsWith('-') &&
-                     (arg.EndsWith(".vbp", StringComparison.OrdinalIgnoreCase) ||
-                      arg.EndsWith(".vbg", StringComparison.OrdinalIgnoreCase) ||
-                      arg.EndsWith(".twinproj", StringComparison.OrdinalIgnoreCase)))
+            // Any file with an extension: which project type reads it is the open's question, and the open refuses one that
+            // nothing loaded reads (#3411 slice 10b). A '/' option HexIDE doesn't know has no extension, and is still skipped.
+            else if (!arg.StartsWith('-') && Path.HasExtension(arg))
             {
                 ProjectPath = Path.GetFullPath(arg, _invocationDirectory);
             }
@@ -331,7 +330,7 @@ internal static class ServerOptions
             heading,
             "",
             "Usage:",
-            $"  {invocation} [options] [<project>.vbp|.vbg|.twinproj]",
+            $"  {invocation} [options] [<project file>]",
             "",
             "Options:",
             .. Options.Select(o => $"  {Spelling(o).PadRight(width)}  {o.Summary}"),
