@@ -747,6 +747,21 @@ in a Release build, which is why CI compiles that configuration and a test guard
 - **WHEN** a build that excludes the automation server is asked to record a conversation
 - **THEN** it records it, and only the automation tools are absent
 
+### Requirement: Routed document saves SHALL report completion within a bounded wait
+`invoke_menu_item`, `press_key` and `interact` SHALL await a code-editor save they start, including formatting,
+within a two-second budget. The reply SHALL report completion and whether an armed answer was taken or
+remains pending because no picker opened. At budget expiry it SHALL report the save still running and any
+answer still armed. The save SHALL continue, with errors still reaching the IDE error handler (#4047).
+
+#### Scenario: Formatting delays a pathless document's picker
+- **WHEN** a routed Save starts formatting and an armed answer awaits its picker
+- **THEN** the reply waits for the save task within the budget before reporting the answer's state
+
+#### Scenario: Formatting exceeds the budget
+- **WHEN** formatting remains unfinished when the wait budget expires
+- **THEN** the reply says the save is still running and any unused answer is still armed, without claiming
+  that no picker will open
+
 ### Requirement: An automation client SHALL be able to answer a native file dialog
 The server SHALL let a client pre-answer the next file dialog the application opens, with a path or with a
 cancellation, and SHALL let armed answers be discarded. An armed answer SHALL be consumed by exactly one
