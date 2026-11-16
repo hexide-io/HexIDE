@@ -1764,11 +1764,13 @@ Measured by [#3349's oracle](../../../docs/vb6-fidelity-oracle/a-public-array-in
 
 ### Requirement: ListBox TopIndex assignments report a changed top row
 
-A laid-out, single-select ListBox SHALL expose TopIndex and coerce assignments through the standard Integer store
+A populated ListBox with measurable rows SHALL expose TopIndex and coerce assignments through the standard Integer store
 (#3275, measuring PR #3286). An assignment SHALL clamp to the last page and raise Scroll once,
 synchronously, only if the resulting top row changes. The handler SHALL read the new TopIndex.
 An index below zero or at or above ListCount SHALL raise error 380 without Scroll.
-MultiSelect access and access before row layout SHALL refuse as not implemented.
+TopIndex SHALL behave identically for MultiSelect 0, 1 and 2, including on a loaded hidden form
+(#3986, measurements in oracle PR #4021). Hidden lists SHALL clamp using their actual row layout,
+raise Scroll synchronously for each move, and retain the resulting top row when shown.
 Vertical scroll-bar pointer input SHALL raise Scroll once per changed top row, including each thumb move,
 but not on release without movement. Navigation by Down, Up, Page Down, Home or End SHALL raise Click
 then Scroll when the top row changes, with the new TopIndex readable in both handlers. A key that
