@@ -17,6 +17,18 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 
 ---
 
+## Desktop foreground after Continue
+
+### D33. Continue does not request the running form's activation
+- **VB6:** after Ctrl+Break with the form active, F5 returns that form to the foreground (vb6.exe SP6,
+  [#1297's 2026-11-16 measurement](https://github.com/hexide-io/HexIDE/issues/1297)).
+- **HexIDE:** `ProjectRunnerService.ContinueProject` resumes the debugger without requesting activation of a
+  running form. This is a code inspection; native foreground behavior has not been checked in this run.
+- **Why:** the scoped #1297 actions address dialog modality, shortcut routing and bringing the IDE forward on
+  Debug/Break. Foreground restoration on Continue remains separate work.
+- **Status:** **not implemented**, tracked by [#4262](https://github.com/hexide-io/HexIDE/issues/4262). The
+  measurement covers one non-modal form and a maximized IDE only.
+
 ## Edit-and-Continue
 
 ### D1. True E&C is a permanent wall

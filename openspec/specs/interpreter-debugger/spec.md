@@ -15,6 +15,26 @@ prompt for a reset and the execution point moves only between top-level statemen
 
 ## Requirements
 
+### Requirement: Desktop run-time dialogs and keyboard focus
+
+A run-time error dialog SHALL retain the active running form as owner and SHALL disable all existing desktop
+windows, including the IDE, until answered, restoring each window's previous enabled state afterwards.
+Opening the error SHALL NOT activate the IDE. Debug from the error and entering break mode after Ctrl+Break
+SHALL activate the IDE. With a desktop running form focused, IDE shortcuts SHALL NOT execute; Ctrl+Break
+SHALL still reach the IDE's Break command. Measured on vb6.exe SP6 in
+[issue #1297's 2026-11-16 comment](https://github.com/hexide-io/HexIDE/issues/1297).
+
+#### Scenario: Error while the running form is active
+- **WHEN** the running form is active and an unhandled run-time error opens its dialog
+- **THEN** the form owns the dialog, and the IDE is disabled without being brought forward
+- **AND** choosing Debug closes the dialog, restores enabled states and activates the IDE
+
+#### Scenario: Keys while a running form has focus
+- **WHEN** a desktop running form has focus
+- **THEN** Find and Immediate shortcuts do not open IDE windows
+- **AND** Ctrl+Break requests a pause and the IDE comes forward when the statement gate enters break mode
+
+
 ### Requirement: Failed breakpoint conditions explain the stop
 
 The interpreter SHALL pause when a breakpoint condition cannot be evaluated. The stop SHALL retain

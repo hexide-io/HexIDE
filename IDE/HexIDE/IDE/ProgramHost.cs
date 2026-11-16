@@ -56,7 +56,7 @@ public sealed class ProgramHost(IWindowManager windowManager, ILocalizationServi
             : new FontDialogResult(new Avalonia.Media.FontFamily(initial.Name),
                 initial.Italic ? Avalonia.Media.FontStyle.Italic : Avalonia.Media.FontStyle.Normal,
                 initial.Bold ? Avalonia.Media.FontWeight.Bold : Avalonia.Media.FontWeight.Normal, initial.Size);
-        var chosen = await windowManager.ShowFontDialog(start);
+        var chosen = await windowManager.ShowFontDialog(start, isProgramDialog: true);
         return chosen is null
             ? null
             : new VbFontChoice(chosen.Family.Name, (float)chosen.Size, chosen.Weight >= Avalonia.Media.FontWeight.Bold,

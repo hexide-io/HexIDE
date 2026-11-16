@@ -1718,7 +1718,12 @@ public partial class MainViewViewModel : ObservableObject
             () => externalDebugger is not null && !projectRunnerService.IsRunning);
         // When the interpreter breaks, bring the offending form/module's code editor forward. The editor view then
         // paints the amber current-statement bar and scrolls to it (it reads the controller's CurrentStop on open).
-        debugController.Stopped += info => RevealBreak(info.Module);
+        debugController.Stopped += info =>
+        {
+            if (info.Reason == StopReason.Pause && Static.MainView is { } mainView)
+                (TopLevel.GetTopLevel(mainView) as Window)?.Activate();
+            RevealBreak(info.Module);
+        };
         StatusBar = statusBarService;
         debugController.Stopped += _ => Dispatcher.UIThread.Post(UpdateRunState);
         debugController.Continued += () => Dispatcher.UIThread.Post(UpdateRunState);
