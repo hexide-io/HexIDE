@@ -73,6 +73,23 @@ element type with "Can't change data types of array elements". These refusals fo
 - **THEN** it raises "Can't change data types of array elements"
 - **AND** the scalar Variant control `Dim Arr` still accepts the ReDim and stores "Hello" in a `String()`
 
+### Requirement: ReDim declaring a procedure-local array
+
+A plain ReDim of a name not found during procedure execution SHALL declare a dynamic array in that
+procedure's environment, including under Option Explicit. The element type SHALL follow the As clause or type character,
+or otherwise `PrePass.DefaultTypeOf`, defaulting to Variant. ReDim Preserve of an undeclared name SHALL
+raise "Variable not defined" during execution. These behaviours are
+[measured in #1495](https://github.com/hexide-io/HexIDE/issues/1495).
+
+#### Scenario: A new array and its later resize
+- **WHEN** a procedure executes `ReDim q(2)` with no earlier declaration
+- **THEN** q is a local Variant array with upper bound 2
+- **AND** a later `ReDim q(5)` clears it and `ReDim q(3) As Long` refuses a change of element type
+
+#### Scenario: An existing module array
+- **WHEN** a procedure executes ReDim on its module's `Dim mArr() As Long`
+- **THEN** it resizes that module array instead of declaring a local
+
 ### Requirement: For Each collection references and declarations
 
 The interpreter SHALL parse a For Each collection as a reference, refusing parenthesised expressions,
