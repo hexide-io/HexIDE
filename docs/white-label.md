@@ -155,6 +155,8 @@ exist. The result is built beside it and moved into place only when it's complet
 | Its copyright | Your `copyright`, or stock's if you have none. |
 | Its version numbers | The stock build's, because that's the code it holds. |
 | `app\brand.json`, your logo and a `defaultProfile` folder | Copied from beside your `brand.json`. |
+| The setup program's icon and publisher | Your `logo`, at the same four sizes, and your `name`. |
+| The setup program's copyright and home/support links | Your `copyright`, `links.home` and `links.support`, when supplied. |
 | `installer\brand.iss` | Compile it with [Inno Setup](https://jrsoftware.org/isinfo.php)'s `ISCC` to make your setup program. |
 
 The installer's AppId is a GUID derived from your `id`, so an upgrade finds the installed product and it installs
