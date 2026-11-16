@@ -615,6 +615,7 @@ added afterwards.
 - [What VB6's Properties window lists for a UserControl and a PropertyPage (2026-10-23, #1585, design-time, IDE)](what-vb6s-properties-window-lists-for-a-usercontrol-and-a-propertypage.md#what-vb6s-properties-window-lists-for-a-usercontrol-and-a-propertypage-2026-10-23-1585-design-time-ide)
 - [What VB6's Properties window shows a position in (2026-10-23, #1636, design-time, IDE)](what-vb6s-properties-window-shows-a-position-in.md#what-vb6s-properties-window-shows-a-position-in-2026-10-23-1636-design-time-ide)
 - [A UserControl's and a PropertyPage's own events (2026-10-24, #1632, design-time, IDE, release build and SP6)](a-usercontrols-and-a-propertypages-own-events.md#a-usercontrols-and-a-propertypages-own-events-2026-10-24-1632-design-time-ide-release-build-and-sp6)
+- [Loading an element of a UserControl array (2026-11-16, #4337, SP6)](loading-an-element-of-a-usercontrol-array.md#loading-an-element-of-a-usercontrol-array-2026-11-16-4337-sp6)
 - [Write # and Input # (2026-10-23, #1521)](write--and-input.md#write--and-input--2026-10-23-1521)
 - [Make Project Group (2026-10-23, #746, design-time, IDE, release build)](make-project-group.md#make-project-group-2026-10-23-746-design-time-ide-release-build)
 - [A project group's file, as VB6 writes it (2026-11-14, #579, design-time, IDE, SP6)](a-project-groups-file-as-vb6-writes-it.md#a-project-groups-file-as-vb6-writes-it-2026-11-14-579-design-time-ide-sp6)
