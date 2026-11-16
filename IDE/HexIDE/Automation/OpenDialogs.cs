@@ -134,7 +134,7 @@ public static class OpenDialogs
 
     internal static string OwnerOf(Window dialog) => dialog.Owner switch
     {
-        HexIDE.Runtime.IModuleExecutionRoot and Window form => $"the running form '{form.Title}'",
+        Window form when HexIDE.Runtime.FormRoot.Execution(form) is not null => $"the running form '{form.Title}'",
         Window owner => $"'{owner.Title}'",
         _ => "no window",
     };

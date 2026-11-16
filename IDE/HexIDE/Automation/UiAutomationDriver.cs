@@ -2597,15 +2597,15 @@ public static class UiAutomationDriver
     /// <summary>The program behind a running form or a box raised by its MsgBox or InputBox call.</summary>
     internal static (HexIDE.Runtime.EventPump Pump, Window? Form)? ProgramOf(Window window)
     {
-        if (window is HexIDE.Runtime.IModuleExecutionRoot { Events: { } events })
+        if (HexIDE.Runtime.FormRoot.Execution(window) is { Events: { } events })
             return (events, window);
         if (!HexIDE.IDE.ProgramDialogs.IsProgramBox(window.Content))
             return null;
         for (var at = window.Owner as Window; at is not null; at = at.Owner as Window)
-            if (at is HexIDE.Runtime.IModuleExecutionRoot { Events: { } ownerEvents })
+            if (HexIDE.Runtime.FormRoot.Execution(at) is { Events: { } ownerEvents })
                 return (ownerEvents, at);
-        return OpenWindows().FirstOrDefault(w => w is HexIDE.Runtime.IModuleExecutionRoot { Events: not null }) is { } form
-            ? (((HexIDE.Runtime.IModuleExecutionRoot)form).Events!, form)
+        return OpenWindows().FirstOrDefault(w => HexIDE.Runtime.FormRoot.Execution(w) is { Events: not null }) is { } form
+            ? (HexIDE.Runtime.FormRoot.Execution(form)!.Events!, form)
             : null;
     }
 
@@ -2646,7 +2646,7 @@ public static class UiAutomationDriver
     private static Window? DialogOf(ProgramWatch watch) =>
         OpenWindows().Where(w => !watch.Before.Contains(w))
             .Concat((watch.Form?.OwnedWindows ?? []).OrderBy(w => OpenDialogs.IsBox(w.Content) ? 0 : 1))
-            .FirstOrDefault(w => w.IsVisible && w != watch.Form && w is not HexIDE.Runtime.IModuleExecutionRoot
+            .FirstOrDefault(w => w.IsVisible && w != watch.Form && HexIDE.Runtime.FormRoot.Execution(w) is null
                                  && (watch.WaitingOnWindowBefore || !watch.Before.Contains(w)));
 
     /// <summary>
@@ -2654,7 +2654,7 @@ public static class UiAutomationDriver
     /// a program can't change, with its caption beside it where that differs: <c>Form2 ("Second")</c> (#2720).
     /// </summary>
     private static List<string> OpenedForms(ProgramWatch watch) =>
-        [.. OpenWindows().Where(w => w is HexIDE.Runtime.IModuleExecutionRoot && !watch.Before.Contains(w)).Select(FormLabel)];
+        [.. OpenWindows().Where(w => HexIDE.Runtime.FormRoot.Execution(w) is not null && !watch.Before.Contains(w)).Select(FormLabel)];
 
     private static string FormLabel(Window form) =>
         HexIDE.Runtime.BuiltinControls.VBProps.GetName(form) is not { Length: > 0 } name ? $"'{form.Title}'"
@@ -2667,7 +2667,7 @@ public static class UiAutomationDriver
 
     /// <summary>The running program's event pump, read from any of its open forms, or null when none is open.</summary>
     internal static HexIDE.Runtime.EventPump? RunningPump() =>
-        OpenWindows().OfType<HexIDE.Runtime.IModuleExecutionRoot>().Select(r => r.Events).FirstOrDefault(e => e is not null);
+        OpenWindows().Select(w => HexIDE.Runtime.FormRoot.Execution(w)?.Events).FirstOrDefault(e => e is not null);
 
     // `click`'s value: an optional point, a button and the keys held, in any order (ClickValue).
     private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out bool twice, out string? destination, out bool hold, out string problem)
