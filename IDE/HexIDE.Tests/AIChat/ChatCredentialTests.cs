@@ -37,7 +37,7 @@ public class ChatCredentialTests
             if (endpoint is not null) settings.BaseUrl = endpoint;
             File.WriteAllText(Path.Combine(directory, "chat-settings.json"), JsonSerializer.Serialize(settings));
             // The person already chose Send on the privacy notice (#4230), so this tests the credential gate alone.
-            File.WriteAllText(Path.Combine(directory, ChatViewModel.EgressConfirmedFileName), ChatViewModel.EgressNoticeVersion);
+            File.WriteAllText(Path.Combine(directory, ChatViewModel.EgressConfirmedFileName), ChatViewModel.EgressKeyFor(settings.BaseUrl));
             var session = new ChatSession();
             for (var i = 0; i < 6; i++) session.Add(new ConversationMessage("user", "earlier"));
             session.SaveTo(Path.Combine(directory, "chat-history.json"));

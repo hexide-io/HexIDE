@@ -30,8 +30,11 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     private CancellationTokenSource? _responseCancellation;
     private bool _reloadSettingsPending;
     private bool _egressNoticeShown;
-    private bool _egressConfirmed;
+    /// <summary>The notice version and host the person chose Send for this session (#4230), as <see cref="EgressKey"/>.</summary>
+    private string? _egressConfirmedFor;
     private ChatMessageViewModel? _pendingEgress;
+    /// <summary>The notice version and host the pending prompt named, which is what its Send confirms.</summary>
+    private string? _pendingEgressFor;
     private ChatMessageViewModel? _activeStream;
 
     /// <summary>Notes for the assistant written while it was responding, held until a user message may come next.</summary>
@@ -116,12 +119,20 @@ public sealed class ChatViewModel : INotifyPropertyChanged
         }
 
         // An endpoint off this machine waits for Send on the privacy notice before anything leaves, once per notice
-        // version (#4230). The message stays in the box; the notice's Send runs this again.
+        // version and host (#4230): consent to one service doesn't carry over to another. The message stays in the
+        // box; the notice's Send runs this again.
         if (!localEndpoint && !IsEgressConfirmed())
         {
-            if (_pendingEgress is { IsAwaitingDecision: true } pending && Messages.Contains(pending)) return;
+            var key = EgressKey();
+            if (_pendingEgress is { IsAwaitingDecision: true } pending && Messages.Contains(pending))
+            {
+                if (_pendingEgressFor == key) return;
+                // The endpoint changed while the prompt was open. Its Send would confirm a host it no longer names.
+                DeclineEgress(pending);
+            }
             _pendingEgress = new ChatMessageViewModel("assistant",
                 EgressNoticeText() + " " + ChatStrings.GetString("Str.AIChat.EgressConfirm"), isEgressConfirmation: true);
+            _pendingEgressFor = key;
             Messages.Add(_pendingEgress);
             return;
         }
@@ -197,6 +208,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
         _session.SaveTo(_historyPath);
         Messages.Clear();
         _pendingEgress = null;
+        _pendingEgressFor = null;
     }
 
     /// <summary>
@@ -497,35 +509,55 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Whether the person chose Send on this version of the notice, for an endpoint off this machine (#4230). It's a
-    /// file of its own: <c>.ai-egress-ack</c> only records that the notice was shown, which a local endpoint does
-    /// without asking, and that isn't consent to send anywhere else.
+    /// Whether the person chose Send on this version of the notice for the endpoint's host (#4230). It's a file of its
+    /// own: <c>.ai-egress-ack</c> only records that the notice was shown, which a local endpoint does without asking,
+    /// and that isn't consent to send anywhere else. A different host, or a revised notice, asks again.
     /// </summary>
     internal bool IsEgressConfirmed()
     {
-        if (_egressConfirmed) return true;
+        var key = EgressKey();
+        if (_egressConfirmedFor == key) return true;
         try
         {
             var path = Path.Combine(_settingsDir, EgressConfirmedFileName);
-            return File.Exists(path) && File.ReadAllText(path).Trim() == EgressNoticeVersion;
+            return File.Exists(path) && File.ReadAllText(path).Trim() == key;
         }
         catch { return false; /* unreadable: ask, which errs on the side of asking */ }
     }
 
     internal const string EgressConfirmedFileName = ".ai-egress-confirmed";
 
-    /// <summary>The notice's Send: records the choice, then sends what is in the box now.</summary>
+    /// <summary>
+    /// What a confirmation is for: the notice version and the endpoint's host, one per line. The host is the one the
+    /// notice names, lower-cased by <see cref="Uri"/>; an endpoint that doesn't parse is kept as written.
+    /// </summary>
+    internal string EgressKey() => EgressKeyFor(_settings.BaseUrl);
+
+    /// <inheritdoc cref="EgressKey"/>
+    internal static string EgressKeyFor(string baseUrl)
+    {
+        var host = Uri.TryCreate(baseUrl, UriKind.Absolute, out var u) ? u.Host : baseUrl.Trim();
+        return EgressNoticeVersion + "\n" + host;
+    }
+
+    /// <summary>The notice's Send: records the choice for the host it named, then sends what is in the box now.</summary>
     internal async Task ConfirmEgressAsync(ChatMessageViewModel confirmation)
     {
         if (!confirmation.IsEgressConfirmation || !confirmation.IsAwaitingDecision) return;
+        // The prompt confirms the host it named. If the endpoint has changed since, SendAsync asks again.
+        var key = ReferenceEquals(_pendingEgress, confirmation) && _pendingEgressFor is { } named ? named : EgressKey();
         confirmation.Approve();
-        if (ReferenceEquals(_pendingEgress, confirmation)) _pendingEgress = null;
+        if (ReferenceEquals(_pendingEgress, confirmation))
+        {
+            _pendingEgress = null;
+            _pendingEgressFor = null;
+        }
         // Held for this session even where the file can't be written, so Send can't ask again in a loop.
-        _egressConfirmed = true;
+        _egressConfirmedFor = key;
         _egressNoticeShown = true;
         try
         {
-            File.WriteAllText(Path.Combine(_settingsDir, EgressConfirmedFileName), EgressNoticeVersion);
+            File.WriteAllText(Path.Combine(_settingsDir, EgressConfirmedFileName), key);
             File.WriteAllText(Path.Combine(_settingsDir, ".ai-egress-ack"), EgressNoticeVersion);
         }
         catch { /* best-effort: asked again next session */ }
@@ -537,7 +569,11 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     {
         if (!confirmation.IsEgressConfirmation || !confirmation.IsAwaitingDecision) return;
         confirmation.Reject();
-        if (ReferenceEquals(_pendingEgress, confirmation)) _pendingEgress = null;
+        if (ReferenceEquals(_pendingEgress, confirmation))
+        {
+            _pendingEgress = null;
+            _pendingEgressFor = null;
+        }
     }
 
     // ── compaction ───────────────────────────────────────────────────────────

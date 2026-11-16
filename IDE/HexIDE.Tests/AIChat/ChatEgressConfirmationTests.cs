@@ -9,8 +9,8 @@ using HexIDE.AIChat.Views;
 namespace HexIDE.Tests.AIChat;
 
 /// <summary>
-/// The first message to an endpoint off this machine waits for Send on the privacy notice, once per notice version,
-/// and nothing leaves before it (hexide-io/HexIDE#4230, decided on the Team Desk, 2026-11-16).
+/// The first message to an endpoint off this machine waits for Send on the privacy notice, once per notice version
+/// and host, and nothing leaves before it (hexide-io/HexIDE#4230, decided on the Team Desk, 2026-11-16).
 /// </summary>
 public sealed class ChatEgressConfirmationTests : IDisposable
 {
@@ -28,12 +28,19 @@ public sealed class ChatEgressConfirmationTests : IDisposable
 
     private string ConfirmedPath => Path.Combine(_directory, ChatViewModel.EgressConfirmedFileName);
 
+    private const string OtherService = "https://api.openai.com/v1";
+
     private ChatViewModel Chat(string? endpoint = null, string text = "private message")
+    {
+        WriteSettings(endpoint);
+        return new ChatViewModel(_host, _directory, new ChatClient(new HttpClient(_handler))) { InputText = text };
+    }
+
+    private void WriteSettings(string? endpoint)
     {
         var settings = new ChatSettings { ApiKey = "file-key", MaxTurnsBeforeCompaction = 100 };
         if (endpoint is not null) settings.BaseUrl = endpoint;
         File.WriteAllText(Path.Combine(_directory, "chat-settings.json"), JsonSerializer.Serialize(settings));
-        return new ChatViewModel(_host, _directory, new ChatClient(new HttpClient(_handler))) { InputText = text };
     }
 
     private static ChatMessageViewModel[] Confirmations(ChatViewModel chat) =>
@@ -68,7 +75,7 @@ public sealed class ChatEgressConfirmationTests : IDisposable
         _handler.Requests.Should().BeGreaterThan(0);
         chat.InputText.Should().BeEmpty();
         chat.SessionLog.Should().Contain(m => m.Role == "user" && m.Content == "private message");
-        File.ReadAllText(ConfirmedPath).Should().Be(ChatViewModel.EgressNoticeVersion);
+        File.ReadAllText(ConfirmedPath).Should().Be(ChatViewModel.EgressNoticeVersion + "\napi.anthropic.com");
         Confirmations(chat).Single().ApprovalOutcome.Should().BeEmpty("the message shows itself once sent");
     }
 
@@ -135,9 +142,10 @@ public sealed class ChatEgressConfirmationTests : IDisposable
     }
 
     [Theory]
-    [InlineData("project-tool-reads-older")]
+    [InlineData("project-tool-reads-older\napi.anthropic.com")]
     [InlineData("shown")]
-    public async Task A_choice_recorded_for_another_notice_version_asks_again(string recorded)
+    [InlineData(ChatViewModel.EgressNoticeVersion)]
+    public async Task A_choice_recorded_for_another_notice_version_or_no_host_asks_again(string recorded)
     {
         File.WriteAllText(ConfirmedPath, recorded);
         var chat = Chat();
@@ -159,6 +167,79 @@ public sealed class ChatEgressConfirmationTests : IDisposable
 
         Confirmations(chat).Should().ContainSingle();
         _handler.Requests.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task A_choice_for_one_service_does_not_carry_to_another_in_a_new_session()
+    {
+        var first = Chat();
+        await first.SendAsync();
+        await first.ConfirmEgressAsync(Confirmations(first).Single());
+        var sent = _handler.Requests;
+
+        var next = Chat(OtherService, "for the other service");
+        await next.SendAsync();
+
+        Confirmations(next).Should().ContainSingle();
+        _handler.Requests.Should().Be(sent, "nothing goes to the other service before Send");
+        next.InputText.Should().Be("for the other service");
+    }
+
+    [Fact]
+    public async Task A_choice_for_one_service_does_not_carry_to_another_when_the_settings_change()
+    {
+        var chat = Chat();
+        await chat.SendAsync();
+        await chat.ConfirmEgressAsync(Confirmations(chat).Single());
+        var sent = _handler.Requests;
+
+        WriteSettings(OtherService);
+        chat.ReloadSettings();
+        chat.InputText = "for the other service";
+        await chat.SendAsync();
+
+        Confirmations(chat).Should().HaveCount(2);
+        _handler.Requests.Should().Be(sent);
+
+        await chat.ConfirmEgressAsync(Confirmations(chat).Last());
+        _handler.Requests.Should().BeGreaterThan(sent);
+        File.ReadAllText(ConfirmedPath).Should().Be(ChatViewModel.EgressNoticeVersion + "\napi.openai.com");
+    }
+
+    [Fact]
+    public async Task A_question_open_when_the_service_changes_is_replaced_and_cannot_confirm_the_new_one()
+    {
+        var chat = Chat();
+        await chat.SendAsync();
+        var asked = Confirmations(chat).Single();
+
+        WriteSettings(OtherService);
+        chat.ReloadSettings();
+        await chat.SendAsync();
+
+        asked.IsAwaitingDecision.Should().BeFalse("its Send would confirm a host it no longer names");
+        asked.ApprovalOutcome.Should().Be("Str.AIChat.EgressNotSent");
+        Confirmations(chat).Should().HaveCount(2);
+        Confirmations(chat).Last().IsAwaitingDecision.Should().BeTrue();
+        await chat.ConfirmEgressAsync(asked);
+        _handler.Requests.Should().Be(0);
+        File.Exists(ConfirmedPath).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Send_on_a_question_confirms_the_host_it_named_even_if_the_settings_changed_since()
+    {
+        var chat = Chat();
+        await chat.SendAsync();
+        var asked = Confirmations(chat).Single();
+
+        WriteSettings(OtherService);
+        chat.ReloadSettings();
+        await chat.ConfirmEgressAsync(asked);
+
+        File.ReadAllText(ConfirmedPath).Should().Be(ChatViewModel.EgressNoticeVersion + "\napi.anthropic.com");
+        _handler.Requests.Should().Be(0, "the other service was never named, so its send asks first");
+        Confirmations(chat).Should().HaveCount(2);
     }
 
     [Theory]
