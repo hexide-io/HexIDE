@@ -35,7 +35,10 @@ namespace HexIDE.IDE;
 /// </summary>
 public static class UserDataPath
 {
-    private static readonly UserDataRoot Process = new(() => Path.Combine(Base(), Distribution.Current.StateDirectoryName));
+    private static readonly UserDataRoot Process = new(() => For(Distribution.Current, Base()));
+
+    internal static string For(DistributionIdentity identity, string configurationRoot) =>
+        Path.Combine(configurationRoot, identity.StateDirectoryName);
 
     /// <summary>
     /// The directory holding HexIDE's per-user files, created if absent.
