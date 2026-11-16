@@ -413,21 +413,43 @@ public sealed class DistributionDescriptorTests
     public void Help_names_the_brand_and_drops_HexIDEs_mark()
     {
         var help = ServerOptions.HelpText(new ConsoleTarget(false, 120),
-            new DistributionIdentity("acme", "Acme Studio", "For widgets"));
+            new DistributionIdentity("acme", "Acme Studio", "For widgets"), "Acme.IDE");
 
+        help.Should().Contain("Acme.IDE [options]");
         help.Should().Contain("Acme Studio - For widgets").And.Contain("An argument Acme Studio does not");
         help.Should().NotContain("open, cross-platform IDE").And.NotContain("docs/command-line.md");
         help.Should().NotContain("_-----------_");
     }
 
-    [Fact]
-    public void Stock_help_is_unchanged()
+    [Theory]
+    [InlineData("HexIDE")]
+    [InlineData("HexIDE.Desktop")]
+    public void Stock_help_names_the_running_executable(string invocation)
     {
-        var help = ServerOptions.HelpText(new ConsoleTarget(false, 120), DistributionIdentity.Stock);
+        var help = ServerOptions.HelpText(new ConsoleTarget(false, 120), DistributionIdentity.Stock, invocation);
 
-        help.Should().Contain("HexIDE - an open, cross-platform IDE").And.Contain("HexIDE.Desktop [options]");
+        help.Should().Contain("HexIDE - an open, cross-platform IDE").And.Contain($"{invocation} [options]");
         help.Should().Contain("_-----------_").And.Contain("docs/command-line.md");
     }
+
+    [Theory]
+    [InlineData("C:/x/HexIDE.exe", true, "HexIDE")]
+    [InlineData("C:/x/HexIDE.Desktop.exe", true, "HexIDE.Desktop")]
+    [InlineData("C:/x/HexIDE.EXE", true, "HexIDE")]
+    [InlineData("/x/HexIDE.Desktop", false, "HexIDE.Desktop")]
+    [InlineData("/x/Acme.IDE", false, "Acme.IDE")]
+    [InlineData("/x/Acme.exe", false, "Acme.exe")]
+    [InlineData("C:/x/Acme.IDE", true, "Acme.IDE")]
+    [InlineData(null, true, "HexIDE")]
+    [InlineData(null, false, "HexIDE")]
+    [InlineData("", false, "HexIDE")]
+    public void Invocation_name_strips_only_a_Windows_exe_suffix(string? path, bool isWindows, string expected) =>
+        ServerOptions.InvocationName(path, isWindows, "HexIDE").Should().Be(expected);
+
+    // A brand's fallback is its own name, never HexIDE's (#4175 review).
+    [Fact]
+    public void Invocation_name_falls_back_to_the_brand_name() =>
+        ServerOptions.InvocationName(null, true, "Acme Studio").Should().Be("Acme Studio");
 
     [Fact]
     public void The_product_name_replaces_HexIDE_in_the_IDEs_own_strings()
