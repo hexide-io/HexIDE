@@ -781,6 +781,8 @@ public static class UiAutomationDriver
                     return ToggleVerified(tog, LabelOf(control, peer), control is RadioButton, InProgram(control));
 
                 case "expand":
+                    if (control is Dock.Avalonia.Controls.ToolChromeControl openChrome)
+                        return ThroughToolPaneMenu(openChrome, peer, "expand", value);
                     if (control is not MenuItem && peer.GetProvider<IExpandCollapseProvider>() is { } exp)
                     {
                         if (exp.ExpandCollapseState == ExpandCollapseState.Expanded)
@@ -833,6 +835,8 @@ public static class UiAutomationDriver
                     return ThroughSoleMenuWrapper(control, peer, "expand", value) ?? Unsupported("expand");
 
                 case "collapse":
+                    if (control is Dock.Avalonia.Controls.ToolChromeControl closeChrome)
+                        return ThroughToolPaneMenu(closeChrome, peer, "collapse", value);
                     if (control is not MenuItem && peer.GetProvider<IExpandCollapseProvider>() is { } col)
                     {
                         if (col.ExpandCollapseState == ExpandCollapseState.Collapsed)
@@ -5355,6 +5359,28 @@ public static class UiAutomationDriver
     private static InteractOutcome Ok(string detail) => new(true, "peer", detail, null);
     private static InteractOutcome Err(string error) => new(false, "peer", null, error);
     private static InteractOutcome Unsupported(string action) => new(false, "peer", null, $"element does not support '{action}'");
+
+    private static InteractOutcome ThroughToolPaneMenu(Dock.Avalonia.Controls.ToolChromeControl chrome,
+        AutomationPeer peer, string action, string? value)
+    {
+        // Dock's peer opens ToolFlyout on the chrome itself, without the PART_Border's menu context (#4155).
+        var borders = chrome.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Name == "PART_Border" && ReferenceEquals(b.TemplatedParent, chrome)
+                && b.ContextFlyout is MenuFlyout && ReferenceEquals(b.ContextFlyout, chrome.ToolFlyout)).ToArray();
+        if (borders.Length != 1)
+            return Err($"the pane menu on '{LabelOf(chrome, peer)}' could not be reached deterministically; "
+                       + "target its None[PART_Border] child with expand or collapse");
+        var border = borders[0];
+        var flyout = border.ContextFlyout!;
+        var wasOpen = IsOpenOn(flyout, border);
+        var result = Interact(border, action, value);
+        if (!result.Success && !wasOpen) flyout.Hide();
+        return result with
+        {
+            Detail = result.Detail is { } detail
+                ? $"{detail}, the pane menu on PART_Border of '{LabelOf(chrome, peer)}'" : null,
+        };
+    }
 
     /// <summary>
     /// expand or collapse aimed at a node whose only menu is on one unnamed wrapper directly under it; null when there

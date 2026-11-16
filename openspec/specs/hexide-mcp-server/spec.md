@@ -2149,3 +2149,15 @@ reply SHALL give the caret once, with single spaces and clean punctuation.
 
 - **WHEN** `press_key` sends Tab, Shift+Tab or the keymap's Indent chord over a selection from column 1 of a declaration through its Attribute lines and a body line
 - **THEN** the code window indents editable lines and the reply names the protected lines it left as they were, with the caret reported once
+
+### Requirement: Tool pane title menu interaction
+
+`interact` SHALL route `expand` and `collapse` on a docked tool pane's title bar to its
+`PART_Border` pane menu, verifying the popup state rather than the title-bar provider's state.
+If the menu part cannot be reached deterministically, it SHALL refuse and name `PART_Border`.
+
+#### Scenario: Expanding and collapsing a tool pane title
+- **WHEN** a caller expands the docked Immediate pane's title bar
+- **THEN** the pane menu opens with Float, Dock as Tabbed Document and Close, and the reply identifies the menu
+- **AND** collapsing the same title bar closes the menu, or says there is nothing to close
+- **AND** no unreported popup is left to intercept the next pointer press
