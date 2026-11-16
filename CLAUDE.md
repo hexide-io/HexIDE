@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build & Test
 
-Requirements: .NET 10 SDK. No Java needed — `Antlr4BuildTasks` bundles the ANTLR tool.
+Requirements: .NET 11 SDK. No Java needed — `Antlr4BuildTasks` bundles the ANTLR tool.
 
 ```sh
 # Build & run (from repo root)
@@ -31,11 +31,11 @@ pwsh scripts/test.ps1 IDE/HexIDE.Tests/ -- --filter-query "/*/*/CodeEditorViewMo
 pwsh scripts/test.ps1 LspServer/HexIDE.VbLspServer.Tests/ -- --filter-class "*WireContractTests"
 
 # Publish (both needed for the "Make EXE" IDE feature)
-cd IDE && dotnet publish HexIDE.Desktop -f net10.0 -o bin/
-cd IDE && dotnet publish HexIDE.Standalone -f net10.0 -o bin/standalone/
+cd IDE && dotnet publish HexIDE.Desktop -f net11.0 -o bin/
+cd IDE && dotnet publish HexIDE.Standalone -f net11.0 -o bin/standalone/
 
 # Release publish (AOT/trimmed removed — add-in system uses Assembly.Load which is incompatible with AOT)
-cd IDE && dotnet publish HexIDE.Desktop -f net10.0 -o bin/
+cd IDE && dotnet publish HexIDE.Desktop -f net11.0 -o bin/
 
 # LSP server
 cd LspServer && dotnet build HexIDE.VbLspServer/
@@ -178,7 +178,7 @@ The IDE parses and writes Windows-native formats (`.vbp`, `.vbg`, `.frm`), so a 
 Gotchas). Run the suites under WSL rather than discovering it a push later:
 
 ```sh
-# Ubuntu + dotnet-sdk-10.0 from Ubuntu's own repos (no Microsoft feed needed on 26.04+).
+# Ubuntu + dotnet-sdk-11.0. 26.04's own repos don't carry it yet (checked 2026-11-16), so it comes from Ubuntu's .NET backports PPA.
 #
 # `apt-get update` is NOT optional, and leaving it out is why this used to fail. The SDK takes a new
 # point release most months, and apt asks for the exact version its local list names. A list more than
@@ -186,7 +186,7 @@ Gotchas). Run the suites under WSL rather than discovering it a push later:
 # ten of them, naming every dotnet10 package, which reads as a broken archive rather than a stale
 # cache. Measured 2026-09-16 on a working WSL: lists three weeks old, index wanting 10.0.111, pool
 # holding 10.0.112. One `apt-get update` and the same command installed cleanly.
-wsl -e bash -lc 'sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0 rsync'
+wsl -e bash -lc 'sudo add-apt-repository -y ppa:dotnet/backports && sudo apt-get update && sudo apt-get install -y dotnet-sdk-11.0 rsync'
 
 # From the root of any checkout or worktree: copy it to WSL's own filesystem and run one suite there.
 # The export drops the Windows PATH entries WSL appends. With them, every process start searches the 9p
@@ -248,7 +248,7 @@ podman run --rm \
   -v "<clone-root>:/repo" \
   -v hexide-nuget:/root/.nuget \
   -w /repo/IDE \
-  mcr.microsoft.com/dotnet/sdk:10.0-resolute \
+  mcr.microsoft.com/dotnet/sdk:11.0-resolute \
   dotnet test HexIDE.Tests/ --artifacts-path /repo/artifacts/container
 ```
 
