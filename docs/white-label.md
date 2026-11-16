@@ -33,7 +33,7 @@ The design is in [`design/white-label.md`](design/white-label.md).
 | `tagline` | No | Shown under the name in About, and in `--help`. |
 | `copyright` | No | Your copyright line in About. |
 | `credits` | No | Up to 32 entries, shown in About **after** HexIDE's own. |
-| `logo` | No | A PNG of up to 1024×1024 pixels, inside the installation folder, for About, New Project and the window icon. |
+| `logo` | No | A PNG of up to 1024×1024 pixels, inside the installation folder, written with `/`, for About, New Project and the window icon. |
 | `links` | No | `home`, `support` and `repository`, each an absolute `https` URL. Home and support appear in Help under your product's name when supplied; the home entry is labeled “Home Page”, distinct from the existing repository web entry. Without `repository`, that web entry keeps HexIDE's name and opens HexIDE's repository. |
 | `defaultProfile` | No | The profile used when the command line names none: a profile's name, or a folder inside the installation written with `/`, such as `branding/profile`. A profile sets your theme, keymap and defaults, and never your identity. `--profile`, including `--profile none`, still wins. [Your default profile](#your-default-profile) says what the folder holds. |
 
@@ -155,6 +155,8 @@ exist. The result is built beside it and moved into place only when it's complet
 | Its copyright | Your `copyright`, or stock's if you have none. |
 | Its version numbers | The stock build's, because that's the code it holds. |
 | `app\brand.json`, your logo and a `defaultProfile` folder | Copied from beside your `brand.json`. |
+| The setup program's icon and publisher | Your `logo`, at the same four sizes, and your `name`. |
+| The setup program's copyright and home/support links | Your `copyright`, `links.home` and `links.support`, when supplied. |
 | `installer\brand.iss` | Compile it with [Inno Setup](https://jrsoftware.org/isinfo.php)'s `ISCC` to make your setup program. |
 
 The installer's AppId is a GUID derived from your `id`, so an upgrade finds the installed product and it installs

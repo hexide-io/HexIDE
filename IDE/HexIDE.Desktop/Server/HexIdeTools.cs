@@ -785,6 +785,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return (null, null, $"Cannot set '{propClass.Name}' to '{value}': {(why is null ? "it" : why + ". It")} "
                                     + $"takes {PropertyText.Accepted(propClass)}");
 
+            if (DesignerSizeValidation.Refuses(propClass, parsed))
+                return (null, null, NegativeDesignerSizeRefusal(control));
+
             // A position is in the units its row shows: its container's ScaleMode, and a form's own size with its frame, in
             // twips (#1636). The model holds pixels.
             if (DesignPositions.IsPosition(propClass) && parsed is double shownPosition)
@@ -1344,7 +1347,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         var main = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
         return target == main ? "ide"
-            : HexIDE.Runtime.BuiltinControls.VBProps.GetName(target) is { Length: > 0 } form ? form
+            : RunningProgram.Current.Form(target)?.Name is { Length: > 0 } form ? form
             : DescribeWindow(target);
     }
 
@@ -1644,6 +1647,18 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         });
     }
 
+    // Measured on vb6.exe SP6, native and p-code agreeing: docs/vb6-fidelity-oracle/a-negative-or-zero-control-size.md
+    // (PR #4069). The reply names the issue rather than linking the page, so it never points a caller at a missing file.
+    private const string NegativeDesignerSizeReason = "Invalid property value: Width and Height can't be negative. "
+        + "VB6 refuses to load a .frm holding a negative control size (measured, #589).";
+
+    private static string NegativeDesignerSizeRefusal(ComponentInstance control) =>
+        NegativeDesignerSizeReason + $" Nothing was changed. {PropertyText.AddressedName(control)} remains at "
+        + $"Left {PropertyText.Display(control.GetPropertyOrDefault(VBProperties.LeftProperty))}, "
+        + $"Top {PropertyText.Display(control.GetPropertyOrDefault(VBProperties.TopProperty))}, "
+        + $"Width {PropertyText.Display(control.GetPropertyOrDefault(VBProperties.WidthProperty))}, "
+        + $"Height {PropertyText.Display(control.GetPropertyOrDefault(VBProperties.HeightProperty))}, in pixels relative to its container.";
+
     [McpServerTool(Name = "move_control")]
     [Description("Moves or resizes a control on a form designer canvas by simulating a drag transaction. " +
         "Calls BeginDrag on the active designer, updates only the supplied position/size values on the ViewModel, " +
@@ -1692,6 +1707,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (target is null)
                 return Naming(new MutateResult(false,
                     $"No control named '{controlName}' on {document.Display}"), document);
+
+            if (DesignerSizeValidation.Refuses(width, height))
+                return Naming(new MutateResult(false, NegativeDesignerSizeRefusal(target.Instance)), document);
 
             designer.BeginDrag([target]);
 
@@ -1745,6 +1763,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (designer is null)
                 return new AddControlResult(false, null,
                     $"{document.Display} is not open in the visual designer — call view_designer first",
+                    Project: document.Project.Name, Document: document.Name);
+
+            if (DesignerSizeValidation.Refuses(width, height))
+                return new AddControlResult(false, null, NegativeDesignerSizeReason + " No control was created; the designer is unchanged.",
                     Project: document.Project.Name, Document: document.Name);
 
             // A type name picks its button first, so ComctlLib.ProgressBar reaches COMCTL32.OCX's where both libraries are
@@ -2228,7 +2250,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var stopped = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnStopped(StoppedInfo info) => stopped.TrySetResult(info);
         int? errorBefore = null;
-        HexIDE.Runtime.EventPump? pump = null;
+        IProgramActivity? pump = null;
         IReadOnlyCollection<object> liveBefore = [];
 
         var refused = await Dispatcher.UIThread.InvokeAsync(() =>

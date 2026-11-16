@@ -66,7 +66,9 @@ connection. Unsupported adapter-initiated requests SHALL receive an unsuccessful
 Each request SHALL have a finite configurable deadline and accept caller cancellation. A caller MAY override
 the connection deadline for one request with a positive finite timeout; omission SHALL use the connection default. The client SHALL
 bound pending requests and queued events. It SHALL NOT retry timed-out or cancelled requests automatically.
-EOF, malformed input, event overflow and failed writes SHALL close the connection and fail pending work.
+A full event queue SHALL pause stream reading until room is available, without dropping events or closing
+the connection. Its consumer SHALL drain events independently of pending DAP responses, which can follow
+queued events on the same stream. EOF, malformed input and failed writes SHALL close the connection and fail pending work.
 Disposal SHALL settle pending requests with `IOException` and release owned streams; repeated disposal SHALL be safe.
 
 #### Scenario: A cancelled request receives a late reply
@@ -230,13 +232,26 @@ stop; an uncertain resume cancellation or timeout SHALL fault and release the se
 - **THEN** the session remains at that new stop after the response
 
 ### Requirement: Observable session lifetime
-The session SHALL expose bounded ordered updates and raw events, including output, and SHALL fault and close
-on update overflow. Program termination SHALL remain distinct from adapter process completion. Disconnect
-SHALL request debuggee termination and release ownership even on failure, with process diagnostics retained.
+The session SHALL expose bounded ordered updates and raw events, including output. A full update queue
+SHALL await room outside the snapshot lock, preserving order and backpressuring the connection. Consumers
+SHALL drain updates independently of DAP responses. Program termination SHALL remain distinct from adapter
+process completion. Disconnect SHALL request debuggee termination and release ownership even on failure,
+with process diagnostics retained.
 
 #### Scenario: Adapter remains alive after program termination
 - **WHEN** the program terminates but the adapter still awaits disconnect
 - **THEN** the session reports the program ended and can explicitly disconnect and await owned cleanup
+
+### Requirement: Batched IDE updates
+The IDE SHALL apply waiting session updates in order in one UI dispatch per batch and join consecutive
+output texts without losing or duplicating bytes. Run To Cursor restoration SHALL start ahead of the stop's
+dispatch without awaiting its response in the reader.
+
+#### Scenario: Output flood while the UI is busy
+- **WHEN** an adapter sends 10,000 output events after a stop and then a pending stackTrace response
+- **AND** the consumer temporarily stops draining updates
+- **THEN** the session remains stopped and resumes delivering every output byte in order
+- **AND** the inspection completes once the queues drain
 
 ### Requirement: Explicit IDE debug launch
 The IDE SHALL offer an explicit JSON-file launch command and SHALL NOT execute launch files merely because

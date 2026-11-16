@@ -18,7 +18,9 @@ internal static class HoverContentView
         var panel = new StackPanel { Spacing = 8, MaxWidth = 700 };
         foreach (var block in HoverContentRenderer.Render(content))
         {
-            if (block.Language is { } language)
+            if (block.IsThematicBreak)
+                panel.Children.Add(new Border { Height = 1, Background = editor.Foreground, Opacity = 0.3 });
+            else if (block.Language is { } language)
             {
                 var code = new TextEditor
                 {
@@ -36,6 +38,7 @@ internal static class HoverContentView
             else
             {
                 var text = new TextBlock { TextWrapping = TextWrapping.Wrap };
+                if (block.IsHeading) text.FontWeight = FontWeight.Bold;
                 if (block.ListMarker is { } marker)
                 {
                     text.Margin = new Thickness(12, 0, 0, 0);

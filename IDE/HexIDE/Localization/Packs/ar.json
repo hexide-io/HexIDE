@@ -2,6 +2,7 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "ملف المشروع",
     "Str.ProjectFile.ReplaceModel": "سيؤدي تطبيق نص ملف المشروع إلى استبدال إعدادات المشروع غير المحفوظة لـ {0}. هل تريد المتابعة؟",
     "Str.AIChat.Title": "دردشة الذكاء الاصطناعي",
     "Str.AIChat.Menu": "دردشة الذكاء الاصطناعي",
@@ -1138,6 +1139,7 @@
     "Str.ProjectLoad.ParseFailed": "تعذّر تحليل ملف النموذج: {0}",
     "Str.ProjectLoad.InvalidForm": "هذا ليس ملف نموذج صالحًا",
     "Str.ProjectLoad.UnknownControl": "الفئة {0} لعنصر التحكم {1} ليست فئة عناصر تحكم مدعومة — تم الاحتفاظ بها كعنصر غير معروف.",
+    "Str.Tool.Properties.InvalidValue": "قيمة خاصية غير صالحة",
     "Str.ProjectLoad.InvalidValue": "كانت قيمة الخاصية {0} في {1} غير صالحة.",
     "Str.ProjectLoad.MissingOffset": "الخاصية {0} في {1}: لم يتم العثور على الإزاحة في .frx.",
     "Str.ProjectLoad.MissingRecord": "تشير الخاصية '{0}' في '{1}' إلى سجل غير موجود في الملف المرافق، لذا لا يمكن حفظ النموذج.",
@@ -1317,7 +1319,7 @@
     "Str.Dock.ToolTabStripItemDockAsDocument": "إرساء كمستند ذي علامة تبويب",
     "Str.Dock.ToolTabStripItemClose": "إغلاق",
     "Str.AIChat.ApiKeyRequired": "مفتاح API مطلوب. عيّن متغير البيئة HEXIDE_AI_API_KEY أو apiKey في chat-settings.json.",
-    "Str.AIChat.PrivacyNotice": "ℹ الخصوصية: تُرسل رسائلك ومحتويات الملف النشط (بما فيها التخطيط والتسميات التوضيحية للنموذج) وتشخيصاته إلى {0} — وهي خدمة تابعة لجهة خارجية قمت بتكوينها في إعدادات دردشة الذكاء الاصطناعي.",
+    "Str.AIChat.PrivacyNotice": "ℹ الخصوصية: تُرسل رسائلك ومحتويات الملف النشط (بما فيها التخطيط والتسميات التوضيحية للنموذج) وتشخيصاته إلى {0} — وهي خدمة تابعة لجهة خارجية قمت بتكوينها في إعدادات دردشة الذكاء الاصطناعي. تُرسل أيضًا إلى هذه الخدمة، دون طلب موافقتك، محتويات أي ملف آخر في مشاريعك المحمّلة يقرؤه المساعد بأدواته، وقوائم ملفات المشاريع، وتشخيصات أي ملف.",
     "Str.AIChat.PrivacyKeyTip": "نصيحة: عيّن متغير البيئة HEXIDE_AI_API_KEY لتجنب تخزين مفتاح API في ملف.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "تتشارك المشاريع {0} المجلد {1}؛ تتم كتابة أو استيراد {2} فقط.",
     "Str.MemberOrigin.HexIde": "امتداد HexIDE؛ غير متاح في VB6."

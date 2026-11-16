@@ -12,7 +12,9 @@ are [#1168](https://github.com/hexide-io/HexIDE/issues/1168).
 
 Construct `DapConnection` with readable adapter output and writable adapter input. Successful construction
 transfers ownership of both streams. Reading begins immediately; consume `Events` through a single consumer.
-The caller supplies any UI dispatch, event handling and session policy.
+A full event queue pauses stream reading, so pressure reaches the adapter's pipe rather than ending the
+connection. Keep draining events independently of requests: a response on the same stream can be behind
+queued events. The caller supplies any UI dispatch, event handling and session policy.
 
 `RequestAsync(command, arguments, cancellationToken)` sends a DAP request. Arguments are an optional JSON
 object. A successful response retains the complete JSON message; a failed response raises
@@ -38,9 +40,10 @@ Defaults in `DapConnectionOptions`:
 | Queued events | 256 |
 | Request deadline, including writer wait | 30 seconds |
 
-The limits are configurable per connection. A full event queue closes the connection explicitly rather
-than dropping state or growing memory indefinitely. Consumers must drain output events as well as debugger
-state events. The pending-request limit refuses additional work without closing a healthy connection.
+The limits are configurable per connection. A full event queue pauses stream reading until its consumer
+makes room. Consumers must drain output events as well as debugger state events, independently of pending
+responses on the same stream. The pending-request limit refuses additional work without closing a healthy
+connection.
 
 Timeout/cancellation ends the local request wait; it does not undo remote execution. There is no retry or
 automatic DAP cancel request. A late response to an abandoned request is ignored. Cancellation or failure
@@ -115,16 +118,19 @@ initialize response. All startup work shares a 60-second deadline (configurable 
 in addition to the wire request limits. Failed/cancelled startup releases the owned connection/process.
 The returned breakpoint responses retain verified flags, relocated lines and adapter messages.
 
-Consume the bounded `Updates` channel promptly from one background reader. Each update carries a snapshot
-and, where applicable, the original event, including output and extension fields. Overflow ends the connection
-and exposes a fault through `Snapshot`; it never silently drops live debugger state. `Completion` means the
-event reader and owned cleanup have finished. `ProcessCompletion`, available for process-backed sessions,
+Consume the bounded `Updates` channel from one background reader that never awaits a DAP response before
+reading its next update. Each update carries a snapshot and, where applicable, the original event, including
+output and extension fields. A full queue waits for room, backpressuring the connection's bounded event queue
+and then the adapter's pipe. Floods slow the adapter without dropping output or faulting the session. The IDE
+drains waiting updates in batches, applies them in order in one UI dispatch, and joins consecutive output
+texts into one output notification. Inspection and Run To Cursor restoration run independently of the reader.
+`Completion` means the event reader and owned cleanup have finished. `ProcessCompletion`, available for process-backed sessions,
 retains exit code, forced termination and stderr/cleanup diagnostics. A program's terminated event sets
 Ended but does not imply the adapter process exited: call `DisconnectAsync` to send disconnect with
 terminateDebuggee and then dispose. Plain disposal is the bounded fallback, not a protocol disconnect.
 
-`DisconnectAsync` awaits the response before disposal closes stdin; a `terminated` event during that
-wait leaves the connection open. `DapSessionTests.Terminated_during_disconnect_keeps_stdin_open_until_the_response`
+`DisconnectAsync` awaits the response before disposal closes stdin, then drains queued events while its
+consumer continues reading updates; a `terminated` event during that wait leaves the connection open. `DapSessionTests.Terminated_during_disconnect_keeps_stdin_open_until_the_response`
 checks this order with a held response and observes stdin EOF only after the reply. Cancellation,
 timeout and transport failure still permit bounded cleanup without a response (#3894).
 
@@ -269,7 +275,8 @@ stderr pressure, exit codes, final responses, pending requests and process-tree 
 `DapCaptureTests` checks correlation, exact bodies, retention, local outcomes, capture overflow, process
 diagnostics and path pseudonymisation through the shared exporter.
 `DapSessionTests` checks handshake ordering, capability gating, breakpoint replies, stale inspections,
-fast stops, refused/cancelled resumes, startup deadlines, terminal state, output and overflow.
+fast stops, refused/cancelled resumes, startup deadlines, terminal state, output floods, ordered backpressure and disposal while
+queues are full.
 
 ```text
 dotnet test IDE/HexIDE.Tests -- --filter-class "*DapConnectionTests"
