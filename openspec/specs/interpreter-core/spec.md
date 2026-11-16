@@ -1853,3 +1853,21 @@ Contract: [#1116](https://github.com/hexide-io/HexIDE/issues/1116); Value conver
 #### Scenario: Required argument is missing
 - **WHEN** code calls `ProgressBar1.Increment` without an argument
 - **THEN** the runtime raises Argument not optional and leaves Value unchanged
+
+### Requirement: Floating point converted to Decimal
+The runtime SHALL convert a Double to Decimal at 15 significant digits and a Single at 7 significant
+digits, rounding the exact binary value half to even, including implicit Decimal arithmetic and numeric
+formatting. This rule covers values whose significant digits fit within Decimal's 28 decimal places;
+the scale-28 anomalies retain the existing conversion pending a measured rule.
+Provenance: [SP6 native and p-code measurements, #4017](https://github.com/hexide-io/HexIDE/pull/4017).
+
+#### Scenario: Decimal and String rounding differ
+- **WHEN** code evaluates `CDec(1234567890123445#)`
+- **THEN** the Decimal value is 1234567890123440
+- **AND** `CStr` keeps its distinct rounding rule
+
+#### Scenario: A numeric string is a Date serial
+- **WHEN** code evaluates `CDate("24.0")` under en-GB
+- **THEN** its serial is 24, representing 23 January 1900 at midnight
+- **AND** numeric strings outside the Date range raise error 13
+- **AND** `IsDate("24.0")` is False, as the String-to-Date measurements in #967 record

@@ -569,7 +569,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         //
         // The platform guard is FORWARD-LOOKING, not currently required, and that is worth stating precisely
         // because the obvious guess is wrong. Measured both ways: CA1416 does NOT fire for this call in a plain
-        // net10.0 library, which is what HexIDE.Runtime targets today; it fires only when the project itself
+        // net10.0 library (HexIDE.Runtime's target when measured); it fires only when the project itself
         // targets browser, where it is an ERROR under TreatWarningsAsErrors. So the guard costs nothing now and
         // is what keeps this compiling if the Browser aspiration ever multi-targets the runtime. It also spares
         // WASM an exception per call. The analyzer recognises this guard form; the bare call it does not.
