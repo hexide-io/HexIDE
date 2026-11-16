@@ -144,7 +144,7 @@ public sealed class ProfileRecoveryTests : IDisposable
         File.Exists(state).Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task StartupSelectsRecoveryAndStillOpensExplicitProject()
     {
         var properties = typeof(ServerOptions).GetProperties(BindingFlags.Public | BindingFlags.Static)
@@ -157,11 +157,17 @@ public sealed class ProfileRecoveryTests : IDisposable
                 property.SetValue(null, property.PropertyType.IsValueType ? Activator.CreateInstance(property.PropertyType) : null);
             Static.IsRecoveryMode = false;
             var path = Path.Combine(root, "Explicit.vbp");
+            File.WriteAllText(Path.Combine(root, "Module1.bas"), "Attribute VB_Name = \"Module1\"\r\nPublic Sub Main()\r\nEnd Sub\r\n");
+            File.WriteAllText(path, "Type=Exe\r\nModule=Module1; Module1.bas\r\nName=\"Explicit\"\r\n");
             ServerOptions.ParseArgs(["--profile", "none", path], root);
             DesktopStartup.Register();
             Static.IsRecoveryMode.Should().BeTrue();
-            File.WriteAllText(Path.Combine(root, "Module1.bas"), "Attribute VB_Name = \"Module1\"\r\nPublic Sub Main()\r\nEnd Sub\r\n");
-            File.WriteAllText(path, "Type=Exe\r\nModule=Module1; Module1.bas\r\nName=\"Explicit\"\r\n");
+            await using var owner = new StartupComposition();
+            var setup = owner.Setup;
+            using var loader = setup.AddinLoader;
+            var window = new Avalonia.Controls.Window();
+            var desktop = new Avalonia.Controls.ApplicationLifetimes.ClassicDesktopStyleApplicationLifetime { MainWindow = window };
+            Static.DesktopStartupHook!(setup, desktop);
             var manager = Substitute.For<IProjectManager>();
             var projects = new HexIDE.Projects.ProjectService(
                 new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
@@ -170,7 +176,8 @@ public sealed class ProfileRecoveryTests : IDisposable
                 Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
                 Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
                 Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
-            await Static.StartupProjectHook!(projects, manager);
+            try { await Static.StartupProjectHook!(projects, manager); }
+            finally { window.Close(); }
             manager.Received(1).AddProject(Arg.Is<HexIDE.Runtime.ProjectElements.ProjectDefinition>(
                 p => p.Name == "Explicit" && p.Modules.Count == 1));
             typeof(ServerOptions).GetProperty(nameof(ServerOptions.Profile))!.SetValue(null, "vb6");
@@ -183,6 +190,11 @@ public sealed class ProfileRecoveryTests : IDisposable
             Static.CaptureLsp = capture;
             Static.DeveloperMode = developer;
         }
+    }
+
+    private sealed class StartupComposition : CompositionTestBase
+    {
+        public DISetup Setup => Composition;
     }
 
     public void Dispose()

@@ -2,6 +2,7 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "fichier projet",
     "Str.ProjectFile.ReplaceModel": "Appliquer le texte du fichier projet remplacera les paramètres non enregistrés du projet {0}. Continuer ?",
     "Str.AIChat.Title": "Chat IA",
     "Str.AIChat.Menu": "_Chat IA",

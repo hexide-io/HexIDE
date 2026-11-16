@@ -2,6 +2,7 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "ficheiro de proxecto",
     "Str.ProjectFile.ReplaceModel": "Aplicar o texto do ficheiro do proxecto substituirá a configuración sen gardar de {0}. Continuar?",
     "Str.AIChat.Title": "Chat de IA",
     "Str.AIChat.Menu": "_Chat de IA",

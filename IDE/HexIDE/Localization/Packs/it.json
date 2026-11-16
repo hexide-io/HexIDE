@@ -2,6 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "file di progetto",
     "Str.ProjectFile.ReplaceModel": "Applicare il testo del file di progetto sostituirà le impostazioni non salvate di {0}. Continuare?",
     "Str.MemberOrigin.HexIde": "Estensione di HexIDE; non disponibile in VB6.",
     "Str.Dock.Host": "Contenitore di ancoraggio",

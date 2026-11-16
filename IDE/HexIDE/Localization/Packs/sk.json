@@ -2,6 +2,7 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "súbor projektu",
     "Str.ProjectFile.ReplaceModel": "Použitie textu súboru projektu nahradí neuložené nastavenia projektu {0}. Pokračovať?",
     "Str.MemberOrigin.HexIde": "Rozšírenie HexIDE; vo VB6 nie je dostupné.",
     "Str.Dock.Host": "Hostiteľ dokovania",

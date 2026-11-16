@@ -468,6 +468,7 @@ public partial class DISetup
             .Root<LanguageServersToolViewModel>("LanguageServersToolViewModel")
             .Root<HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel>("ProtocolInspectorToolViewModel")
             .Root<IProfileService>("ProfileService")
+            .Root<ContributedProjects>("ContributedProjects")
             .Root<AddinProjectTemplateService>("AddinProjectTemplateService");
 
     public static MainViewViewModel DesignTimeRootViewModel => new DISetup().Root;

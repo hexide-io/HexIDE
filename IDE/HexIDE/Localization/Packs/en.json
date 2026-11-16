@@ -2,6 +2,7 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "project file",
     "Str.ProjectFile.ReplaceModel": "Applying the project file text will replace unsaved project settings for {0}. Continue?",
     "Str.MemberOrigin.HexIde": "HexIDE extension; not available in VB6.",
     "Str.Dock.Host": "Dock host",

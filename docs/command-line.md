@@ -6,7 +6,7 @@ and exists to skip a step you would otherwise take by hand, or to turn on someth
 the IDE finishes starting.
 
 ```text
-HexIDE.Desktop [options] [<project>.vbp | <group>.vbg | <project>.twinproj]
+HexIDE.Desktop [options] [<project file>]
 ```
 
 **Both prefixes work.** `--newproject` and `/newproject` are the same flag, and both are matched
@@ -29,7 +29,7 @@ most people will type today.
 | `--developer-mode` | — | Turns on session developer mode. **Debug builds only** — see below. |
 | `--ansi-code-page` | a Windows code page number, such as `932` | Reads and writes VB6 sources as a machine whose ANSI code page is that one would. **Debug builds only** — see below. |
 | `--dpi-unaware` | — | Runs the IDE at scale 1 on a Windows display scaled above 100%, so a layout can be checked as a 100% display shows it. Windows only. **Debug builds only** — see below. |
-| *(positional)* | a path ending `.vbp`, `.vbg` or `.twinproj` | Opens that project or project group instead of showing the startup dialog; a `.twinproj` opens read-only. Absolute paths are accepted, including Unix paths beginning `/`; relative paths are relative to where you ran HexIDE from. |
+| *(positional)* | a path to an existing project file | Opens through the same project-type lookup as File → Open Project, including add-in types, instead of showing the startup dialog; a `.twinproj` opens read-only. Absolute paths are accepted, including Unix paths beginning `/`; relative paths are relative to where you ran HexIDE from. |
 
 ## The ones that behave differently in a distributed build
 
@@ -153,12 +153,14 @@ beside a valid profile flag. Help-only requests still succeed.
 it starts, and used to resolve the project path *after* that move — so `HexIDE.Desktop ../demo/x.vbp` looked
 beside the executable, found nothing, and opened nothing without saying so.
 
-**The positional path must end in `.vbp`, `.vbg` or `.twinproj`**, matched case-insensitively. A `.vbg` opens
-the whole project group, as **File → Open Project** does, and a `.twinproj` opens read-only, for browsing its
-sources (#1189). Any other path is not taken as a project.
+**The positional path must name an existing file.** It opens through the same project-type lookup as
+**File → Open Project**, including types contributed by add-ins. A `.vbg` opens the whole project group,
+and a `.twinproj` opens read-only, for browsing its sources (#1189). If no loaded type claims the file,
+HexIDE waits for first-load add-in consent after the main window appears, then tries again. If it remains
+unclaimed, a message names the file; the New Project dialog is not shown (#4110).
 
 **Almost nothing is rejected.** An argument HexIDE does not recognise — a misspelled flag, a value in the wrong
-place, or a path that isn't a project — is skipped in silence and the IDE starts normally. The
+place, or a path that does not exist — is skipped in silence and the IDE starts normally. The
 exceptions are the flags whose whole purpose would be defeated by carrying on without them: a
 `--user-data-dir` with no directory, a `--session` with no name, a `--server-port` with no usable port, and an
 `--ansi-code-page` HexIDE has no table for, `--dpi-unaware` anywhere but Windows, malformed profile selection, a rejected profile bundle, or
