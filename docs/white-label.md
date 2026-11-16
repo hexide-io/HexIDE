@@ -81,7 +81,8 @@ fallback, since it runs before the user's language settings are loaded.
   translation override of them are ignored and logged, as for the credits (#4060). Nor can your profile change
   what tells a person whether to trust an add-in: the consent dialog's verdicts, warnings and buttons, the
   revocation and signing lines, and the add-in page's trust and consent status (#4121). Only a user's own
-  translation of those applies.
+  translation of those applies. A translation file copied into the user's own translations folder counts as the
+  user's; a pack you distribute goes through the package tier, which refuses a third party's text for these (#4181).
 - **Compatibility names don't change.** Assembly names, protocol and tool ids, `HEXIDE_*` environment variables,
   and what's written into projects stay as they are, so existing clients and projects keep working.
 - **`--user-data-dir` still wins** over the folder `id` chooses. Pointing two products at one directory opts out of
