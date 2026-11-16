@@ -475,10 +475,10 @@ That distinction is not pedantic, because silence is the normal case. Five serve
 binaries contain no trace machinery at all. A fourth's framework implements the types and its server never
 calls them. So a trace pane that is empty against most servers is correct, and has to say why.
 
-## Carried-file completion and signature help (#266)
+## Carried-file language features (#266)
 
 The code window and carried-file editor attach the same text-area component for completion,
-snippets and signature help. It flushes pending edits before querying the document and cancels
+snippets, signature help, hover and formatting. It flushes pending edits before querying the document and cancels
 requests, closes popups and ends snippet navigation when detached, including a dock move.
 
 A carried file asks its claiming servers only for advertised capabilities. Completion opens on a
@@ -491,8 +491,18 @@ Signature help opens on the server's advertised signature triggers.
 The code window keeps its word-start position, VB6 free-text/read-only rules, Space commit and fixed
 `(` / `,` signature triggers. Each split pane owns its own component.
 
-Hover, formatting, definition navigation, highlights and rename in carried files remain later stages
-of #266. Headless coverage is in `CarriedFileCompletionTests`; live IDE verification remains pending.
+Resting the pointer on text requests hover only when a claiming server advertises `hoverProvider`.
+It uses the code window's 400 ms delay, cancellation and tooltip renderer, including Markdown and
+code fences. Format Document and Format Selection use the claiming server's corresponding advertised
+provider, flush pending edits, and pass the configured Tab Width with spaces. Each reply applies as
+one undo step; a reply to an older buffer or detached view is discarded. A read-only editor refuses
+formatting with an explanation. Archive previews and project-file views remain read-only and have
+no formatting commands. Carried files do not format on save. The code window retains its guarded
+formatting and format-on-save paths, diagnostic tips and debugger data tips.
+
+Definition navigation, highlights and rename in carried files remain later stages of #266. Headless
+coverage is in `CarriedFileCompletionTests` and `CarriedFileHoverFormattingTests`, with clangd coverage
+in `CarriedFileHoverFormattingForeignTests`; live IDE verification remains pending.
 
 ## Capability negotiation
 

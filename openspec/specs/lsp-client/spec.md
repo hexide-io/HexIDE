@@ -86,6 +86,33 @@ retaining its own completion position, commit keys and editing rules.
 - **THEN** the editor sends neither request and opens neither popup
 
 
+### Requirement: Carried-file hover and formatting
+
+A carried-file editor SHALL share the code window's hover and formatting component and use only
+advertised providers. Hover SHALL render Markdown with the same delay and cancellation. Formatting
+SHALL flush pending edits, use Tab Width and spaces, apply each reply as one undo step, and reject
+stale or read-only targets. Carried files SHALL NOT format on save. The code window SHALL retain
+its own hover, guarded formatting and format-on-save.
+
+#### Scenario: Hover in a carried file
+- **WHEN** the pointer rests over text and a claiming server advertises hover
+- **THEN** its reply appears in a tooltip with Markdown rendered
+- **AND** leaving or detaching the editor cancels the pending hover
+
+#### Scenario: Format a document or selection
+- **WHEN** the developer invokes Format Document or Format Selection and a claiming server advertises the corresponding provider
+- **THEN** its edits apply as one undo step
+- **AND** edits are discarded if the document changes or the view detaches before the reply
+
+#### Scenario: No hover or formatting providers
+- **WHEN** no claiming server advertises hover, document formatting or range formatting
+- **THEN** no hover request is sent and both formatting commands are disabled
+
+#### Scenario: Read-only carried text
+- **WHEN** formatting is invoked on a read-only editor
+- **THEN** it refuses without editing the text and explains why
+
+
 ### Requirement: Opt-in restart on project membership changes
 A server entry SHALL accept `restartOnProjectChange`, off by default. At the workspace-folder debounce,
 projects with chosen workspace roots joining or leaving SHALL restart only an opted-in running connection through the registry's
