@@ -64,6 +64,7 @@
     "Str.Dialog.About.Provenance": "HexIDE {0} oinarri hartuta eraikia. {1}",
     "Str.Tool.LanguageServers.Output": "Irteera",
     "Str.Tool.LanguageServers.OutputEmpty": "Oraindik ez da irteerarik jaso.",
+    "Str.Tool.Properties.InvalidValue": "Propietatearen balio baliogabea",
     "Str.Tool.Properties.LoadPicture": "Kargatu irudia",
     "Str.Tool.Properties.Binary": "(bitarra)",
     "Str.Tool.Properties.LoadPictureFailed": "Ezin da irudia kargatu “{0}” kokalekutik.",

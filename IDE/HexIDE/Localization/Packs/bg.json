@@ -89,6 +89,7 @@
     "Str.Dialog.About.Provenance": "Създадено на основата на HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Изход",
     "Str.Tool.LanguageServers.OutputEmpty": "Все още няма получен изход.",
+    "Str.Tool.Properties.InvalidValue": "Невалидна стойност на свойство",
     "Str.Tool.Properties.LoadPicture": "Зареждане на изображение",
     "Str.Tool.Properties.Binary": "(двоични данни)",
     "Str.Tool.Properties.LoadPictureFailed": "Изображението от „{0}“ не може да се зареди.",

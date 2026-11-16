@@ -98,6 +98,7 @@
     "Str.Dialog.About.Provenance": "Veidots, izmantojot HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Izvade",
     "Str.Tool.LanguageServers.OutputEmpty": "Izvade vēl nav saņemta.",
+    "Str.Tool.Properties.InvalidValue": "Nederīga īpašības vērtība",
     "Str.Tool.Properties.LoadPicture": "Ielādēt attēlu",
     "Str.Tool.Properties.Binary": "(binārs)",
     "Str.Tool.Properties.LoadPictureFailed": "Nevar ielādēt attēlu no “{0}”.",

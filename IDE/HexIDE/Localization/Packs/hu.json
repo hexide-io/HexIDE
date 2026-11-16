@@ -98,6 +98,7 @@
     "Str.Dialog.About.Provenance": "A HexIDE {0} alapján készült. {1}",
     "Str.Tool.LanguageServers.Output": "Kimenet",
     "Str.Tool.LanguageServers.OutputEmpty": "Még nem érkezett kimenet.",
+    "Str.Tool.Properties.InvalidValue": "Érvénytelen tulajdonságérték",
     "Str.Tool.Properties.LoadPicture": "Kép betöltése",
     "Str.Tool.Properties.Binary": "(bináris)",
     "Str.Tool.Properties.LoadPictureFailed": "Nem tölthető be kép innen: „{0}”.",

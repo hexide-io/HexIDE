@@ -64,6 +64,7 @@
     "Str.Dialog.About.Provenance": "Bazat pe HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Ieșire",
     "Str.Tool.LanguageServers.OutputEmpty": "Nu s-a primit încă nicio ieșire.",
+    "Str.Tool.Properties.InvalidValue": "Valoare de proprietate nevalidă",
     "Str.Tool.Properties.LoadPicture": "Încarcă imaginea",
     "Str.Tool.Properties.Binary": "(binar)",
     "Str.Tool.Properties.LoadPictureFailed": "Nu se poate încărca imaginea din „{0}”.",
