@@ -21,6 +21,7 @@ pwsh scripts/test.ps1 LspServer/HexIDE.VbLspServer.Tests/ # LSP server tests
 pwsh scripts/test.ps1 IDE/HexIDE.Tests/                  # IDE ViewModel tests (foreign servers — see below)
 pwsh scripts/test.ps1 IDE/HexIDE.Integration.Tests/      # Headless Avalonia UI tests
 pwsh scripts/test.ps1 IDE/HexIDE.Runtime.Integration.Tests/ # Headless Avalonia tests of the runtime alone
+pwsh scripts/test.ps1 IDE/HexIDE.TwinBasic.Tests/        # twinBASIC container reader tests
 
 # Run a single test — NOTE the `--`, and that this is NOT VSTest's --filter (see below)
 pwsh scripts/test.ps1 IDE/HexIDE.Runtime.Tests/ -- --filter-method "*DebugPrint_WithStringLiteral_ShouldOutputCorrectString"
@@ -50,15 +51,15 @@ healthy runs once the suite outgrew it (#3874). Only the two headless suites,
 `Microsoft.Testing.Extensions.HangDump` today. Another project rejects the option until it has the
 package, with its licence line.
 
-CI runs two parallel jobs in `.github/workflows/build.yml`: `build-ide` (working dir `IDE/`) and `build-lsp-server` (working dir `LspServer/`), alongside two guard jobs.
+CI runs three build jobs in `.github/workflows/build.yml`: `build-ide` (Linux, working dir `IDE/`), `build-ide-desktop` (a Windows, Windows-on-Arm and macOS matrix, also in `IDE/`) and `build-lsp-server` (working dir `LspServer/`), alongside two guard jobs.
 
 Failed test jobs upload their `TestResults` directories as `test-results-<job>-<OS>` artifacts, retained for
-seven days (#1309). This includes both `build-ide-desktop` matrix runners. If a test host crashes and
+seven days (#1309). This includes all three `build-ide-desktop` matrix runners. If a test host crashes and
 `dotnet test` prints only a log path, download that job's artifact to read the reason.
 
 CI, `scripts/test.ps1` and `scripts/test-linux.sh` enforce test-count floors from `MIN_TESTS_*` in
 `.github/workflows/build.yml` (#883). A short run must fail so its logs are kept by #1309.
-The five main-suite floors are about 95% of the measured totals recorded beside them; raise them
+The six floors are about 95% of the measured totals recorded beside them; raise them
 when the suites grow. Both scripts use a floor of one for a filtered run, or accept an explicit
 `--minimum-expected-tests` after `--` for a known slice. Run local suites from the repository root
 with `pwsh scripts/test.ps1 <project> [arguments]` (Windows PowerShell 5.1 also works via
@@ -272,7 +273,11 @@ guarantee. #1045 later exposed an ar-SA calendar assumption that fails on ICU 78
 the platform's data. Reach for the container when a CI failure will not reproduce under
 WSL; that is the case it was set up for.
 
-**The 282-failure run is a thread-affinity race in the test harness, not a build problem.** Every so often
+**Fixed by #302 (2026-09-06), which runs `HexIDE.Tests`' Avalonia tests under `[AvaloniaFact]` with `TestApp`; #286 is
+closed. What follows is the diagnosis, kept as a record. 282 tests failing together now is a regression of #302, not a
+flake to re-run.**
+
+**The 282-failure run was a thread-affinity race in the test harness, not a build problem.** Every so often
 `HexIDE.Tests` reports a large batch of failures — **282**, the same number every time, because it is
 exactly the set of tests that touch Avalonia — and passes on the very next attempt.
 
@@ -284,9 +289,9 @@ thread owns it.
    at Avalonia.Threading.Dispatcher.VerifyAccess()
 ```
 
-**The mechanism.** `AvaloniaTestSetup.EnsureInitialized` binds Avalonia's dispatcher to whichever thread
+**The mechanism.** `AvaloniaTestSetup.EnsureInitialized`, since removed, bound Avalonia's dispatcher to whichever thread
 calls it first, and every later access must come from that same thread.
-`TestParallelization.cs` disables parallelisation to protect this, which prevents *concurrency* but does
+`TestParallelization.cs` disables parallelisation, which prevents *concurrency* but does
 **not** guarantee *the same thread*: an async continuation may resume on a different pool thread, and when
 that happens around the first initialisation, every Avalonia-dependent test afterwards is on the wrong
 side of `VerifyAccess`. The suite has async-heavy tests (real stream I/O, JSON-RPC, timers) that make the
@@ -297,7 +302,7 @@ different face** — what you get when the first initialisation throws and the l
 the call it guards, never latches. Both are tracked in
 [#286](https://github.com/hexide-io/HexIDE/issues/286).
 
-**What to do: re-run it, then believe the second answer.** A genuine failure reproduces and names
+**What to do, before #302: re-run it, then believe the second answer.** A genuine failure reproduces and names
 different tests; this one is always the same 282 with the same message.
 
 **What this note used to say, and why it is worth recording that it was wrong.** It attributed the run to
@@ -644,9 +649,9 @@ Package versions are pinned centrally in the root `Directory.Packages.props` (Av
 
 ### LSP architecture
 
-- **Server** (`LspServer/HexIDE.VbLspServer`): out-of-process console app built on **EmmyLua.LanguageServer.Framework** (MIT); handlers wired in `LspServerHost.cs` (stdio, `SingleThreadScheduler`, `AddRequestHandler`/`AddNotificationHandler`). Parses with the **proleap / grammars-v4** VB6 grammar (`VisualBasic6Lexer.g4` + `VisualBasic6Parser.g4`) via a two-stage SLL→LL strategy + a wall-clock parse backstop (`VbDiagnosticsProvider`). Diagnostics = collecting ANTLR error listener, messages via `VbErrorMessages.Prettify()`. The `Option Explicit` undeclared-variable check (`VbScopeAnalyzer`) is compiled out; see the language-analysis boundary below. Run standalone with `dotnet run --project HexIDE.VbLspServer/`.
+- **Server** (`LspServer/HexIDE.VbLspServer`): out-of-process console app built on **EmmyLua.LanguageServer.Framework** (MIT); handlers wired in `LspServerHost.cs` (stdio, `TimingScheduler`: a `SingleThreadScheduler` for all but completion, `AddRequestHandler`/`AddNotificationHandler`). Parses with the **proleap / grammars-v4** VB6 grammar (`VisualBasic6Lexer.g4` + `VisualBasic6Parser.g4`) via a two-stage SLL→LL strategy + a wall-clock parse backstop (`VbDiagnosticsProvider`). Diagnostics = collecting ANTLR error listener, messages via `VbErrorMessages.Prettify()`. The `Option Explicit` undeclared-variable check (`VbScopeAnalyzer`) is compiled out; see the language-analysis boundary below. Run standalone with `dotnet run --project HexIDE.VbLspServer/`.
 - **Client** (`HexIDE.Lsp`): `VBLspClient` uses `StreamJsonRpc` + `SystemTextJsonFormatter`. Auto-started by `App.axaml.cs`, stopped on `ShutdownRequested`. Desktop-only.
-- **Diagnostics flow**: server → `publishDiagnostics` → `VBLspClient.DiagnosticsPublished` → `CodeEditorViewModel.OnDiagnosticsPublished` (on `Dispatcher.UIThread.Post`) → AvaloniaEdit offsets → `LspTextMarkerService.SetMarkers()` → wavy underlines.
+- **Diagnostics flow**: server → `publishDiagnostics` → `VBLspClient.DiagnosticsPublished` → `LspDocumentSession.OnDiagnosticsPublished` (posted to the UI thread) → AvaloniaEdit offsets → `LspTextMarkerService.SetMarkers()` → wavy underlines.
 - **AOT**: `StreamJsonRpc` IL warnings suppressed in Desktop. `LspJsonContext` (source-gen `JsonSerializerContext`) covers all LSP types.
 - **Desktop.csproj** uses `Exists()` condition on the LspServer reference — the IDE builds fine without it (LSP diagnostics disabled).
 - **To see what crossed the wire, use the protocol inspector** (`Tools → Protocol Inspector`, or
@@ -669,7 +674,7 @@ Package versions are pinned centrally in the root `Directory.Packages.props` (Av
 
 ### IDE internals
 
-- **DI**: `Pure.DI` (source-generated, zero reflection — required for `PublishAot=true`). All singletons registered in `DISetup.cs`. Roots: `MainViewViewModel`, `ILspClient`.
+- **DI**: `Pure.DI` (source-generated, zero reflection — required for `PublishAot=true`). All singletons registered in `DISetup.cs`. Roots include `MainViewViewModel` and `ILspClient` (41 in all).
 - **Services** in `IDE/HexIDE/IDE/`: `ProjectManager`, `EditorService`, `WindowManager`, `EventBus`, `FindReplaceService`, `SettingsService`.
 - **Visual designer**: `VisualDesigner/` — works with `ComponentInstance` objects (not live controls).
 - **MVVM**: `ViewLocator` resolves View from ViewModel through an **explicit registration table** in its
@@ -881,13 +886,13 @@ it's a mitigation.**
 - **Avalonia 12 and Dock 12** — the project is on Avalonia 12. The exact versions live only in `Directory.Packages.props`; read them there rather than from this file. `Classic.Avalonia.Theme 12.0.1-beta1` is kept as a **controls-only** dependency (provides `ClassicBorderDecorator`, `ClassicBorderStyle`). **Do not pin it back to 11.3.0.3**: that build was compiled against Avalonia 11, so `ClassicBorderDecorator.DrawRadioButtonBorder` called a `StreamGeometryContext.ArcTo` overload Avalonia 12 replaced, and **every VB6 option button killed the process on render** (`MissingMethodException`, thrown on the render thread — uncatchable, and nothing reaches the Serilog log; the stack only exists in the Windows Application event log). It is a prerelease because it is the only Avalonia-12 build published. `<ClassicTheme />` remains **NOT loaded** and this change does not re-open that question — do not add it back. The `Classic.Avalonia.Theme.Dock`, `.ColorPicker`, and `.DataGrid` sub-packages have been removed. `Avalonia.Themes.Simple`, at Avalonia's version, is the base theme (`<SimpleTheme />` in App.axaml).
 - **`Classic.CommonControls.Avalonia 12.0.1-beta1` controls** (`ToolBar`, `ToolBarButton`, `RebarHandle`, `ListView`, `ListViewItem`) are **NOT used** — the `TypeLoadException: PseudolassesExtensions` applied to the 11.x build, but they stay unused by design (removing VB6 chrome is intended, not incidental). Use standard Avalonia `StackPanel`/`Button`/`ToggleButton`/`ListBox` instead. The version follows `Classic.Avalonia.Theme` transitively; no project references it directly. `SystemColors` static resource keys from that assembly are still used for color lookups and do not crash.
 - **Anything compiled against Avalonia 11 fails only at render time.** That whole class of bug builds cleanly, passes view-model tests, and then kills the process the first time the control is painted. `HexIDE.Integration.Tests/Controls/ClassicRenderTests.cs` is the guard — it renders the affected controls for real under Skia (`UseHeadlessDrawing = false`) and asserts a frame came back. Add a case there before trusting any new `Classic.*` surface.
-- **`Classic.CommonControls.Dialogs` is fully removed** — `MessageBoxResult`, `MessageBoxButtons`, `MessageBoxIcon` are now in `HexIDE.Core/IDE/MessageBoxEnums.cs` (namespace `HexIDE.IDE`). `FontDialogResult`/`AboutDialogOptions` are in `HexIDE/IDE/`. Managed dialog controls (`MessageBox`, `InputBox`) are in `HexIDE.Runtime/Dialogs/`. `AboutDialog`/`FontDialog` views and their ViewModels are in `HexIDE/Forms/Views/` and `HexIDE/Forms/ViewModels/`. `WindowManager` routes all paths (SingleView + desktop) through these managed controls.
+- **`Classic.CommonControls.Dialogs` is fully removed** — `MessageBoxResult`, `MessageBoxButtons`, `MessageBoxIcon` are now in `HexIDE.Core/IDE/MessageBoxEnums.cs` (namespace `HexIDE.IDE`). `FontDialogResult`/`AboutDialogOptions` are in `HexIDE/IDE/`. Program-only dialog controls (`MessageBox`, `InputBox`) are in `HexIDE.Runtime/Dialogs/`; the IDE owns its prompt pair in `HexIDE/Dialogs/`. `AboutDialog`/`FontDialog` views and their ViewModels are in `HexIDE/Forms/Views/` and `HexIDE/Forms/ViewModels/`. `WindowManager` routes all paths (SingleView + desktop) through these managed controls.
 - **Native interop uses `LibraryImport`** (#608). `HexIDE`, `HexIDE.Desktop` and `HexIDE.Runtime`
   allow unsafe compilation for generated marshalling only; handwritten unsafe code in these projects
   is forbidden by `NativeInteropTests`. Strings and Boolean values must declare their native marshalling.
   The tests reference the Debug Desktop assembly rather than compiling its native declarations again.
-- **All projects, tests included**: `<Nullable>enable</Nullable>` + `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`. Do not introduce nullable warnings.
-  This line claimed "all projects" from the first commit while no **test** project actually set it, and the gap had a cost: 22 `xUnit1051` warnings sat unread in `HexIDE.VbLspServer.Tests` because nothing failed on them. The five test projects were brought to zero warnings and the setting turned on, so the statement is now true rather than aspirational. To keep a warning deliberately, suppress it **at the site with a written reason** (see the two `Task.Delay` timeout arms in `SilentServerTests` and `DynamicRegistrationProbe`) rather than adding a project-wide `NoWarn`.
+- **All projects in `HexIDE.slnx`, tests included**: `<Nullable>enable</Nullable>` + `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`. Do not introduce nullable warnings.
+  This line claimed "all projects" from the first commit while no **test** project actually set it, and the gap had a cost: 22 `xUnit1051` warnings sat unread in `HexIDE.VbLspServer.Tests` because nothing failed on them. The test projects were brought to zero warnings and the setting turned on, so the statement is now true rather than aspirational. To keep a warning deliberately, suppress it **at the site with a written reason** (see the two `Task.Delay` timeout arms in `SilentServerTests` and `DynamicRegistrationProbe`) rather than adding a project-wide `NoWarn`.
 - `ThemeVariantScope` on the form canvas (`FormEditView.axaml`) **must never be removed** — it locks the form designer canvas to `Light` theme so form preview colours are stable regardless of OS dark/light mode.
 
 ## Global Usings
@@ -925,7 +930,7 @@ When a new `HexIDE.*` namespace becomes widely used in a project, add it to that
 2. **Server capability** in `VbServerCapabilities.RegisterCapability()` (`VbServerCapabilities.cs`).
 3. **Message types** in `IDE/HexIDE.Core/Lsp/Messages/LspMessages.cs` — `record` types with `[JsonPropertyName]` on every property. (`HexIDE.Lsp/Messages/` holds only the serializer context; the records are in Core.)
 4. **Serializer registration** in `IDE/HexIDE.Lsp/Messages/LspJsonContext.cs` — `[JsonSerializable(typeof(YourResponseType))]`. **Not optional, and not only an AOT concern** — `VBLspClient` builds its `JsonSerializerOptions` *from* this context, whose generated resolver ends in `return null` with nothing chained behind it, so an unregistered type throws under plain JIT too. The throw lands in a debug-level catch, which turns the omission into a server that connects, initializes and then answers nothing — indistinguishable from a broken server, and it has cost real time twice.
-5. **Client** in `IDE/HexIDE.Core/Lsp/ILspClient.cs` + `IDE/HexIDE.Lsp/VBLspClient.cs` — add interface method, implement with `_rpc.InvokeWithParameterObjectAsync<T>(...)`.
+5. **Client** in `IDE/HexIDE.Core/Lsp/ILspClient.cs` + `IDE/HexIDE.Lsp/VBLspClient.cs` — add interface method, implement with `InvokeRequestAsync<T>(_rpc, "method", parameters, ...)`, which wraps `InvokeWithParameterObjectAsync<T>`.
 
 ### Adding a new VB6 control
 
@@ -1007,16 +1012,16 @@ people do use. That is why only tier 1 carries it.
   (`[Fact]`/`[Theory]`) and runner only — the assertions are AwesomeAssertions. `AwesomeAssertions` and
   `Xunit` are global `<Using>`s in every test `.csproj`, so no per-file `using` is needed.
 - **Always mock with NSubstitute** (`Substitute.For<IFoo>()`, `.Returns(...)`, `.Received()`). Do not add
-  Moq or any other mocking library. NSubstitute is referenced + globally imported in `HexIDE.Tests` and
-  `HexIDE.Integration.Tests` (the projects that need mocks); add the `PackageReference` + `<Using>` if a
+  Moq or any other mocking library. NSubstitute is referenced + globally imported in `HexIDE.Tests`,
+  `HexIDE.Integration.Tests` and `HexIDE.Runtime.Integration.Tests` (the projects that need mocks); add the `PackageReference` + `<Using>` if a
   new test project needs it.
 
 ### Testing (Runtime)
 
 Inherit `BaseVBTestFixture`. Call `await Run("VB6 code")`. Assert via `AssertDebugLog(expectedValues)`. Type suffixes: `42!` = Single, `42#` = Double.
 
-**Testing internals:** both `HexIDE` and `HexIDE.Runtime` expose their `internal` members to the test projects
-(`HexIDE.Runtime.Tests`, `HexIDE.Tests`, `HexIDE.Integration.Tests`) via `<InternalsVisibleTo>` in each `.csproj`.
+**Testing internals:** `HexIDE.Runtime` exposes its `internal` members to the test projects
+(`HexIDE.Runtime.Tests`, `HexIDE.Tests`, `HexIDE.Integration.Tests`), and `HexIDE` to the last two, via `<InternalsVisibleTo>` in each `.csproj`.
 `HexIDE.Runtime.Integration.Tests`, which references the runtime but not the IDE, sees `HexIDE.Runtime`'s and
 `HexIDE.Core`'s.
 So a test may call an `internal` type/method directly (e.g. `RuntimeExtensions.ExecuteSub`) — prefer that over
@@ -1067,7 +1072,7 @@ widening visibility to `public` just for a test. When a new test project needs r
   hook while their deliberate leak is still active; setup leaks that survive to the hook fail the test.
 - **Avalonia 12 breaking changes** (already migrated, for reference): `GotFocusEventArgs` → `FocusChangedEventArgs`; `CaptionButtons` (chrome control) removed — replaced with custom `MDICaptionButtons : TemplatedControl`; `GetVisualRoot()` → `TopLevel.GetTopLevel(this)`; `RenderOptions.SetTextRenderingMode` → `TextOptions.SetTextRenderingMode`; `RenderOptions.TextRenderingMode="Alias"` in AXAML → `TextOptions.TextRenderingMode="Alias"`; `<CompiledBinding Path="X" />` inside `MultiBinding` → `<Binding Path="X" />`.
 - **Test frameworks are mid-migration** ([#297](https://github.com/hexide-io/HexIDE/issues/297)).
-  All five test projects are on **xunit v3** and the **MTP** runner — the VSTest/MTP split is closed.
+  All six test projects are on **xunit v3** and the **MTP** runner — the VSTest/MTP split is closed.
   `Microsoft.NET.Test.Sdk`, `xunit.runner.visualstudio` and `coverlet.collector` are gone from all of
   them; a v3 project under MTP needs `<OutputType>Exe</OutputType>` and
   `<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>` and nothing else. (While
@@ -1078,14 +1083,13 @@ widening visibility to `public` just for a test. When a new test project needs r
   `HEXIDE_REQUIRE_FOREIGN_LSP`, whose entire purpose is to stop the foreign-server proof disappearing:
   with servers absent the suite went green at 978 instead of red, fourteen tests simply not there.
   Enforcement now lives in `RequiredServersTests` as ordinary `[Fact]`s, which are discovered whatever
-  the environment. Put availability checks in a test, not in an attribute. A v3 project needs no
-  `OutputType` change — `xunit.v3.core` makes it an executable itself.
+  the environment. Put availability checks in a test, not in an attribute.
 - **`xunit.v3` is capped at `[3.2.2,4.0.0)` and that is deliberate.** 4.0.0 (still "Core Framework v3" — the
   package version and the framework generation are decoupled) breaks `Avalonia.Headless.XUnit` with a
   `MissingMethodException` at test **discovery**: no build error, no restore warning. The package's own
   dependency is an open `>= 3.2.2`, so a routine bump resolves it happily. See the comment in
   `Directory.Packages.props`.
-- **`--filter` is ignored with warning MTP0001. All five projects are on MTP.** Passing VSTest's
+- **`--filter` is ignored with warning MTP0001. All six projects are on MTP.** Passing VSTest's
   `--filter "FullyQualifiedName~Foo"` warns that VSTestTestCaseFilter is ignored and runs **every** test
   in the project, so a run you believe was scoped to one class was actually the whole suite. Measured:
   153 tests instead of 27.
@@ -1114,8 +1118,8 @@ widening visibility to `public` just for a test. When a new test project needs r
   hard limit had already ruled out, and it shipped publicly that way for months.
 - **`docs/foreign-language-servers.md`** — the third-party servers the suite drives, why each earns its
   place, how they are obtained, and why a GPL-licensed one is consistent with a 100%-MIT tree. Read it
-  before adding a third: the bar is a protocol *shape* nothing else exercises, not another server.
-- **`docs/command-line.md`** — every command-line option HexIDE accepts, what each does, and which four are
+  before adding a sixth: the bar is a protocol *shape* nothing else exercises, not another server.
+- **`docs/command-line.md`** — every command-line option HexIDE accepts, what each does, and which five are
   inert in a distributed build. The only user-facing account; keep it in step with
   `HexIDE.Desktop/ServerOptions.cs`, which is the parser it describes.
 - **`docs/language-servers.md`** — how a user attaches a language server: where `lsp-servers.json` lives,
@@ -1136,7 +1140,7 @@ widening visibility to `public` just for a test. When a new test project needs r
   It was written after five changes were found unarchived at once, three of them `MODIFIED` deltas
   whose requirement headings existed in `specs/` while their bodies were weeks out of date — which is
   why a survey by heading reported those three as tidying and archiving them rewrote sixty-eight lines.
-  - Spec-authoring and change-workflow rules live in `openspec/config.yaml` under `rules:`. Notably: where the code contradicts a spec because the *code* is defective, write the **intended** behaviour as the requirement, open an issue, and link it from a note under `## Purpose` — a spec matched to a known bug enshrines the bug (`specs/object-browser` is the worked example).
+  - Spec-authoring and change-workflow rules live in `openspec/config.yaml` under `rules:`. Notably: where the code contradicts a spec because the *code* is defective, write the **intended** behaviour as the requirement, open an issue, and link it from a note under `## Purpose` — a spec matched to a known bug enshrines the bug (`specs/form-designer` is the worked example).
   - `openspec/` **ships publicly**. The 35 pre-OpenSpec design documents that used to sit in `specs-pending/` were all migrated (2026-08-16) and the folder was deleted; migrating each one is also what sanitised it, since rewriting a plan as behaviour contracts drops the third-party names. Anything landing here now is in OpenSpec format from the start.
 - **`docs/MISSING_FEATURES.md`** — full VB6 IDE fidelity catalog; status assessed against the codebase. **Update this file whenever a feature's status changes** — after any implementation phase, scan the relevant rows and update Status/Notes to reflect the new state.
 - **`docs/debugger-vb6-divergences.md`** — living catalogue of where the interpreter debugger + Edit-and-Continue affordance knowingly diverge from real VB6. **Add a row the moment a divergence is found** — during implementation, review, or live verification — so it's tracked, not forgotten. (Sibling to `interpreter-gaps.md` = runtime language gaps, `vb6-fidelity-oracle/README.md` = verified runtime semantics, `MISSING_LANGUAGE.md` = the positive language-coverage inventory.)
