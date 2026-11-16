@@ -158,6 +158,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/SingleViewFormsTests.cs` | split |
 | `Views/StartupFormFailsToLoadTests.cs` | split |
 | `Views/SubMainFormsTests.cs` | split |
+| `Views/SymbolRefreshWireTests.cs` | split |
 | `Views/SyntaxErrorAtStartTests.cs` | split |
 | `Views/TabIndexAssignmentTests.cs` | split |
 | `Views/TabStripForm.cs` | provider |
