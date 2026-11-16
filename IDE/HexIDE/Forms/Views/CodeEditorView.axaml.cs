@@ -504,6 +504,7 @@ public partial class CodeEditorView : UserControl
                 ScheduleFolding(vm);
             };
             vm.Settings.PropertyChanged += _inlaySettingsChanged;
+            vm.Analysis.Refreshed += OnAnalysisRefreshed;
             // Attach LSP text marker service (squiggles) and diagnostics colorizer (red text)
             _markerService = new LspTextMarkerService(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_markerService);
@@ -799,6 +800,7 @@ public partial class CodeEditorView : UserControl
                 _watchedDocument = null;
             }
             vm.LanguageServerStateChanged -= OnLanguageServerStateChanged;
+            vm.Analysis.Refreshed -= OnAnalysisRefreshed;
             if (_fontSettingsChanged is not null) vm.Settings.PropertyChanged -= _fontSettingsChanged;
             _fontSettingsChanged = null;
             if (_inlaySettingsChanged is not null)
@@ -1394,6 +1396,15 @@ public partial class CodeEditorView : UserControl
                 command => vm.RunCodeLensAsync(command).ListenErrors());
             ScheduleFolding(vm);
         }
+    }
+
+    private void OnAnalysisRefreshed(object? sender, EventArgs args)
+    {
+        if (DataContext is not CodeEditorViewModel vm) return;
+        ++_semanticVersion;
+        if (_semanticColorizer is not null) _semanticColorizer.Tokens = [];
+        TextEditor.TextArea.TextView.Redraw();
+        ScheduleFolding(vm);
     }
 
     private void ScheduleFolding(CodeEditorViewModel vm)

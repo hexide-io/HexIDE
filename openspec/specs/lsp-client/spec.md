@@ -2430,7 +2430,7 @@ only on their ranges; read-only region and diagnostic colours SHALL retain their
 
 An empty or failed answer SHALL leave lexical colouring, log once per document on that connection, and
 permit the next change to ask again. Invalid ranges SHALL be discarded. Responses for an earlier document
-version or detached view SHALL NOT be applied. Delta, range and refresh requests are not supported.
+version or detached view SHALL NOT be applied. Delta and range requests are not supported.
 
 Content Modified (`-32801`) replies SHALL retry with exponential backoff from 250 ms to a 4-second cap,
 without spending the per-document warning. Cancellation, a changed or closed document, or a changed
@@ -3047,3 +3047,26 @@ null server answer SHALL leave the initial indentation unchanged. Other triggers
 - **THEN** cancellation is sent and local Enter indentation is applied if the formatting guards still hold
 - **AND** no local closer or keyword correction runs as a fallback
 - **AND** one undo restores the text before Enter
+
+
+### Requirement: Workspace analysis refresh invalidates attached documents
+
+The client SHALL declare `workspace.inlayHint.refreshSupport: true` and
+`workspace.semanticTokens.refreshSupport: true` and answer both workspace refresh requests with null.
+The registry SHALL preserve the issuing connection. Open code windows and carried-file editors attached
+to that connection SHALL re-request hints and full semantic tokens. Code windows SHALL invalidate their
+cached analysis and replace the displayed hints and tokens. Refreshes SHALL coalesce per document while
+a refresh is pending; closing an editor SHALL remove its subscriptions (#4254).
+
+#### Scenario: A module changes another module's argument hints
+
+- **WHEN** a server requests inlay-hint refresh after a declaration changes
+- **THEN** each open document attached to it requests hints again without requiring an edit
+- **AND** a code window displays the updated labels
+- **AND** a document attached only to another server sends no request
+
+#### Scenario: Semantic refresh arrives in a burst
+
+- **WHEN** a server sends several semantic-token refresh requests while a document's refresh is pending
+- **THEN** each request receives null
+- **AND** that document sends one full semantic-token request for the burst

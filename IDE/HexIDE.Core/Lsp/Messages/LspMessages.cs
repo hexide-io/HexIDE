@@ -388,6 +388,10 @@ public record WorkspaceClientCapabilities(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceEditClientCapabilities? WorkspaceEdit = null,
     [property: JsonPropertyName("codeLens")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceCodeLensClientCapabilities? CodeLens = null,
+    [property: JsonPropertyName("inlayHint")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceInlayHintClientCapabilities? InlayHint = null,
+    [property: JsonPropertyName("semanticTokens")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceSemanticTokensClientCapabilities? SemanticTokens = null,
     [property: JsonPropertyName("didChangeWatchedFiles")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DidChangeWatchedFilesClientCapabilities? DidChangeWatchedFiles = null);
 
@@ -399,6 +403,12 @@ public record WorkspaceEditClientCapabilities(
     [property: JsonPropertyName("documentChanges")] bool DocumentChanges = true);
 
 public record WorkspaceCodeLensClientCapabilities(
+    [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
+
+public record WorkspaceInlayHintClientCapabilities(
+    [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
+
+public record WorkspaceSemanticTokensClientCapabilities(
     [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
 
 public record WorkspaceDiagnosticsClientCapabilities(

@@ -274,8 +274,9 @@ The metamodel guard also checks the numeric values of the wire enums (`Diagnosti
 `client/unregisterCapability` (watched files honoured; unsupported methods logged and refused),
 `workspace/diagnostic/refresh`, which is acted on — every open document is asked about again —
 `window/workDoneProgress/create`, which registers a progress token and succeeds, and
-`workspace/configuration`, `window/showMessageRequest`, `workspace/applyEdit`, `window/showDocument` and
-`workspace/codeLens/refresh`, each described in its own section below. Everything
+`workspace/configuration`, `window/showMessageRequest`, `workspace/applyEdit`, `window/showDocument`,
+`workspace/codeLens/refresh`, `workspace/inlayHint/refresh` and `workspace/semanticTokens/refresh`, each
+described in its own section below. Everything
 else gets whatever StreamJsonRpc answers an unknown method with, which is an error response rather than
 silence, on the library's own account; those rows are the library's documented behaviour, not a measurement
 taken here. A server awaiting a reply it never gets hangs rather than degrading, which is invisible until
@@ -1385,7 +1386,15 @@ that expired before detach cannot resume the detached view (#3205).
 The client declares `workspace.codeLens.refreshSupport: true` and answers parameterless
 `workspace/codeLens/refresh` with null. `CodeLensRefreshRequested` preserves the issuing connection through
 the registry; active code windows refetch on that event. A suspended session only invalidates its answer
-until a view resumes it. Semantic-token and inlay-hint workspace refresh support is not advertised.
+until a view resumes it.
+
+The client also declares `workspace.inlayHint.refreshSupport` and
+`workspace.semanticTokens.refreshSupport` and answers both refresh requests with null (#4254).
+The issuing connection is preserved through the registry: only documents attached to that server
+invalidate and refetch their analysis. Refresh bursts coalesce per document, including while its
+refresh requests are pending. Code windows replace their cached hints and semantic tokens and repaint.
+Carried-file editors draw diagnostics only, with no hint or semantic-token renderer, so a refresh
+doesn't ask the server anything for them.
 
 `rdcore.showReferences` and `editor.action.showReferences` fill the existing Find References pane from
 the locations in the third argument, without asking for references again. Other lens commands use
@@ -1531,7 +1540,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 56 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 58 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1599,7 +1608,7 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 10 of 21
+### `workspace/*` — 12 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1616,9 +1625,9 @@ than inferred.
 | ○ | `workspace/didRenameFiles` | → |  |
 | ✅ | `workspace/executeCommand` | → | Routed to the server that declared the command |
 | ○ | `workspace/foldingRange/refresh` | ← |  |
-| ○ | `workspace/inlayHint/refresh` | ← |  |
+| ✅ | `workspace/inlayHint/refresh` | ← | Answers null and refetches analysis in attached documents |
 | ○ | `workspace/inlineValue/refresh` | ← |  |
-| ○ | `workspace/semanticTokens/refresh` | ← |  |
+| ✅ | `workspace/semanticTokens/refresh` | ← | Answers null and refetches analysis in attached documents |
 | ✅ | `workspace/symbol` | → | Asked of every running server that offers it, and unioned |
 | ○ | `workspace/willCreateFiles` | → |  |
 | ○ | `workspace/willDeleteFiles` | → |  |

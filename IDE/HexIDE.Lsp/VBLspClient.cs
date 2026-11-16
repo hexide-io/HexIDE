@@ -92,6 +92,8 @@ public sealed class VBLspClient : ILspClient
     private int _connection;
 
     public event EventHandler? CodeLensRefreshRequested;
+    public event EventHandler? InlayHintRefreshRequested;
+    public event EventHandler? SemanticTokensRefreshRequested;
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<string>? DocumentRetired;
     public event EventHandler<ShowMessageParams>? MessageShown;
@@ -749,6 +751,8 @@ public sealed class VBLspClient : ILspClient
                     WorkspaceEdit: new WorkspaceEditClientCapabilities(),
                     Diagnostics: new WorkspaceDiagnosticsClientCapabilities(),
                     CodeLens: new WorkspaceCodeLensClientCapabilities(),
+                    InlayHint: new WorkspaceInlayHintClientCapabilities(),
+                    SemanticTokens: new WorkspaceSemanticTokensClientCapabilities(),
                     FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
                 Window: new WindowClientCapabilities(ShowDocument: new ShowDocumentClientCapabilities(),
@@ -2833,6 +2837,14 @@ public sealed class VBLspClient : ILspClient
                 { ErrorCode = (int)StreamJsonRpc.Protocol.JsonRpcErrorCode.InvalidParams };
             }
         }
+
+        [JsonRpcMethod("workspace/inlayHint/refresh")]
+        public void OnInlayHintRefresh() =>
+            _client.InlayHintRefreshRequested?.Invoke(_client, EventArgs.Empty);
+
+        [JsonRpcMethod("workspace/semanticTokens/refresh")]
+        public void OnSemanticTokensRefresh() =>
+            _client.SemanticTokensRefreshRequested?.Invoke(_client, EventArgs.Empty);
 
         [JsonRpcMethod("workspace/codeLens/refresh")]
         public void OnCodeLensRefresh() =>
