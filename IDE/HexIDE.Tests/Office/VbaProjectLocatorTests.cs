@@ -91,6 +91,9 @@ public class VbaProjectLocatorTests
     [InlineData("duplicate", VbaProjectStatus.Unreadable, "duplicate")]
     [InlineData("xml", VbaProjectStatus.Unreadable, "Cannot read")]
     [InlineData("dtd", VbaProjectStatus.Unreadable, "DTD")]
+    [InlineData("default", VbaProjectStatus.Found, "")]
+    [InlineData("default-with-other-bin-overridden", VbaProjectStatus.Found, "")]
+    [InlineData("default-with-two-bin-parts", VbaProjectStatus.Unreadable, "more than one")]
     public void ZipOverrideAndMalformedPartsAreReadThroughLocator(string change, VbaProjectStatus status, string reason)
     {
         using var source = new MemoryStream(CompoundFileTests.Fixture("xlsm-shaped.zip"));
@@ -118,10 +121,27 @@ public class VbaProjectLocatorTests
                         xml = "<broken>";
                     if (change == "dtd")
                         xml = "<!DOCTYPE Types [<!ENTITY x 'test'>]>" + xml[(xml.IndexOf("?>", StringComparison.Ordinal) + 2)..];
+                    // As .xlsm, .docm and .pptm declare it: a Default for "bin", with no Override.
+                    if (change.StartsWith("default", StringComparison.Ordinal))
+                        xml = xml.Replace("<Override PartName=\"/xl/vbaProject.bin\" ContentType=\"application/vnd.ms-office.vbaProject\"/>", "",
+                                StringComparison.Ordinal)
+                            .Replace("<Default Extension=\"xml\"",
+                                "<Default Extension=\"BIN\" ContentType=\"application/vnd.ms-office.vbaProject\"/><Default Extension=\"xml\"",
+                                StringComparison.Ordinal);
+                    // As .xlsb does: another .bin part with an Override of its own type.
+                    if (change == "default-with-other-bin-overridden")
+                        xml = xml.Replace("</Types>",
+                            "<Override PartName=\"/xl/workbook.bin\" ContentType=\"application/vnd.ms-excel.sheet.binary.macroEnabled.main\"/></Types>",
+                            StringComparison.Ordinal);
                     target.Write(Encoding.UTF8.GetBytes(xml));
                 }
                 else
                     input.CopyTo(target);
+            }
+            if (change is "default-with-other-bin-overridden" or "default-with-two-bin-parts")
+            {
+                using var other = zip.CreateEntry("xl/workbook.bin").Open();
+                other.WriteByte(0);
             }
             if (change is "duplicate" or "duplicate-case")
             {
@@ -138,6 +158,32 @@ public class VbaProjectLocatorTests
             else
                 result.Error!.Reason.Should().Contain(reason);
         });
+    }
+
+    // Real files from Microsoft 365 (corpus/office/m365-x64): the same project in .xlsm, .xlsb and .xls, a Word project in
+    // .docm and .doc, a PowerPoint one, another project and a UserForm.
+    [Theory]
+    [InlineData("basic.xlsm", "BigModule")]
+    [InlineData("basic.xlsb", "BigModule")]
+    [InlineData("basic.xls", "BigModule")]
+    [InlineData("other.xlsm", "OtherModule")]
+    [InlineData("userform.xlsm", "UserForm1")]
+    [InlineData("basic.docm", "ThisDocument")]
+    [InlineData("basic.doc", "ThisDocument")]
+    [InlineData("basic.pptm", "Class1")]
+    [InlineData("locked.xlsm", "Module1")]
+    [InlineData("cp932.xlsm", "\u65E5\u672C\u8A9E\u30E2\u30B8\u30E5\u30FC\u30EB")]
+    [InlineData("cp932.xls", "\u65E5\u672C\u8A9E\u30E2\u30B8\u30E5\u30FC\u30EB")]
+    public void FindsTheProjectInRealOfficeFiles(string file, string module)
+    {
+        using var result = VbaProjectLocator.Locate(Path.Combine(CompoundFileTests.Corpus, "..", "m365-x64", file));
+
+        result.Status.Should().Be(VbaProjectStatus.Found, result.Error?.Reason);
+        result.Project!.FindChild("PROJECT")!.ReadBytes().Should().NotBeEmpty();
+        var vba = result.Project.FindChild("VBA")!;
+        vba.FindChild("dir")!.ReadBytes().Should().NotBeEmpty();
+        vba.FindChild("_VBA_PROJECT")!.ReadBytes().Should().NotBeEmpty();
+        vba.FindChild(module)!.ReadBytes().Should().NotBeEmpty();
     }
 
     [Fact]

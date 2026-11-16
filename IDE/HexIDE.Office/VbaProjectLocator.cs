@@ -89,18 +89,28 @@ public static class VbaProjectLocator
                 var document = XDocument.Load(xml);
                 if (document.Root?.Name != ContentTypes + "Types")
                     throw new OfficeFileException("Invalid Open XML content-types root.");
-                var projects = document.Root.Elements(ContentTypes + "Override")
-                    .Where(e => (string?)e.Attribute("ContentType") == VbaContentType).ToArray();
+                // A part's type is its Override, or else the Default for its extension. Office declares the project both
+                // ways: .xlsm, .docm and .pptm by a Default for "bin", and .xlsb, whose other .bin parts have other types,
+                // by an Override (corpus/office/m365-x64).
+                var overrides = document.Root.Elements(ContentTypes + "Override").ToArray();
+                var defaults = document.Root.Elements(ContentTypes + "Default").ToArray();
+                foreach (var declared in overrides.Where(e => (string?)e.Attribute("ContentType") == VbaContentType))
+                {
+                    var partName = (string?)declared.Attribute("PartName");
+                    if (string.IsNullOrEmpty(partName) || !partName.StartsWith('/') || partName.Contains('\\') ||
+                        partName.Contains('#') || partName.Contains('?') || partName.Split('/').Skip(1).Any(s => s is "" or "." or ".."))
+                        throw new OfficeFileException("Invalid VBA project part name in [Content_Types].xml.");
+                    if (UniquePart(zip, partName[1..]) is null)
+                        throw new OfficeFileException("The declared VBA project zip part is missing.");
+                }
+                var projects = zip.Entries
+                    .Where(e => !e.FullName.EndsWith('/') && TypeOf(e.FullName, overrides, defaults) == VbaContentType)
+                    .ToArray();
                 if (projects.Length == 0)
                     return new VbaProjectResult(VbaProjectStatus.NoProject);
                 if (projects.Length != 1)
                     throw new OfficeFileException("Open XML container declares more than one VBA project part.");
-                var partName = (string?)projects[0].Attribute("PartName");
-                if (string.IsNullOrEmpty(partName) || !partName.StartsWith('/') || partName.Contains('\\') ||
-                    partName.Contains('#') || partName.Contains('?') || partName.Split('/').Skip(1).Any(s => s is "" or "." or ".."))
-                    throw new OfficeFileException("Invalid VBA project part name in [Content_Types].xml.");
-                var part = UniquePart(zip, partName[1..]) ??
-                    throw new OfficeFileException("The declared VBA project zip part is missing.");
+                var part = projects[0];
                 var projectSource = new MemoryStream(ReadPart(part), writable: false);
                 try
                 {
@@ -124,6 +134,23 @@ public static class VbaProjectLocator
             if (!sourceOwned)
                 source.Dispose();
         }
+    }
+
+    // Open XML packaging: an Override for the part's name wins; otherwise the Default for its extension, if any.
+    private static string? TypeOf(string entryName, XElement[] overrides, XElement[] defaults)
+    {
+        foreach (var entry in overrides)
+            if ((string?)entry.Attribute("PartName") is { Length: > 1 } name && name[0] == '/' && PartNamesEqual(name[1..], entryName))
+                return (string?)entry.Attribute("ContentType");
+        var segment = entryName[(entryName.LastIndexOf('/') + 1)..];
+        var dot = segment.LastIndexOf('.');
+        if (dot < 0)
+            return null;
+        var extension = segment[(dot + 1)..];
+        foreach (var entry in defaults)
+            if ((string?)entry.Attribute("Extension") is { } declared && PartNamesEqual(declared, extension))
+                return (string?)entry.Attribute("ContentType");
+        return null;
     }
 
     private static ZipArchiveEntry? UniquePart(ZipArchive zip, string name)
