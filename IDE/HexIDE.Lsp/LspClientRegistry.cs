@@ -1405,7 +1405,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             ConnectionsChanged?.Invoke(this, EventArgs.Empty);
 
             e.LastAttempt = null;
-            if (_artifacts is not null && e.Registration.ProjectImport is null)
+            if (_artifacts is not null)
             {
                 try { await _artifacts.PrepareAsync(e.Registration, starting); }
                 catch (OperationCanceledException) when (starting.IsCancellationRequested) { throw; }

@@ -2515,9 +2515,26 @@ Substituted values SHALL be JSON-escaped and SHALL NOT be interpreted as templat
 On a registry-started connection after initialization, and on the workspace artefact service's
 debounced project-change trigger, the client SHALL call each declared import command with the first loaded
 project's saved URI and in-memory project text in each resolved folder. The command MUST be advertised by the server. An importing entry SHALL skip workspace
-artefact generation. Reply notes SHALL reach the server log used for `window/logMessage`; object
+artefact regeneration. If it also declares `workspaceArtifact`, the client SHALL seed the artefact before
+launch for the first loaded project in each resolved folder, subject to the normal consent and confinement
+checks. It MUST write through a temporary file in the same folder and move without overwrite, leaving any
+existing target untouched and deleting the temporary file. It MUST NOT record ownership of the seed.
+A seed failure SHALL be noted without preventing launch. Reply notes SHALL reach the server log used for `window/logMessage`; object
 notes SHALL use their `message` text. Failures or unavailable saved paths
 SHALL be reported as configuration problems without disabling the connection.
+
+#### Scenario: First open seeds a descriptor before launch
+
+- **GIVEN** an entry declaring both an artefact and project import, and consent to write
+- **WHEN** the registry starts the server
+- **THEN** a missing artefact is written before launch without taking ownership
+- **AND** an existing file is left byte for byte unchanged, without asking consent
+- **AND** the import still runs after initialization
+
+#### Scenario: A seed fails
+
+- **WHEN** writing the seed fails
+- **THEN** the failure is noted and the server still starts
 
 #### Scenario: Project membership changes before saving
 - **WHEN** a module is removed from a saved project's in-memory membership
