@@ -1153,6 +1153,7 @@
     "Str.ProjectLoad.ParseFailed": "Datoteke obrazca ni bilo mogoče razčleniti: {0}",
     "Str.ProjectLoad.InvalidForm": "To ni veljavna datoteka obrazca",
     "Str.ProjectLoad.UnknownControl": "Razred {0} kontrolnika {1} ni podprt razred kontrolnikov — ohranjen kot neznan.",
+    "Str.Tool.Properties.InvalidValue": "Neveljavna vrednost lastnosti",
     "Str.ProjectLoad.InvalidValue": "Lastnost {0} v {1} je imela neveljavno vrednost.",
     "Str.ProjectLoad.MissingOffset": "Lastnost {0} v {1}: odmik v .frx ni bil najden.",
     "Str.ProjectLoad.MissingRecord": "Lastnost '{0}' v '{1}' se sklicuje na zapis, ki ga spremljevalna datoteka ne vsebuje, zato obrazca ni mogoče shraniti.",

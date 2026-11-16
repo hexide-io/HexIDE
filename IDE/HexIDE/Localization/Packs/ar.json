@@ -1138,6 +1138,7 @@
     "Str.ProjectLoad.ParseFailed": "تعذّر تحليل ملف النموذج: {0}",
     "Str.ProjectLoad.InvalidForm": "هذا ليس ملف نموذج صالحًا",
     "Str.ProjectLoad.UnknownControl": "الفئة {0} لعنصر التحكم {1} ليست فئة عناصر تحكم مدعومة — تم الاحتفاظ بها كعنصر غير معروف.",
+    "Str.Tool.Properties.InvalidValue": "قيمة خاصية غير صالحة",
     "Str.ProjectLoad.InvalidValue": "كانت قيمة الخاصية {0} في {1} غير صالحة.",
     "Str.ProjectLoad.MissingOffset": "الخاصية {0} في {1}: لم يتم العثور على الإزاحة في .frx.",
     "Str.ProjectLoad.MissingRecord": "تشير الخاصية '{0}' في '{1}' إلى سجل غير موجود في الملف المرافق، لذا لا يمكن حفظ النموذج.",

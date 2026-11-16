@@ -1153,6 +1153,7 @@
     "Str.ProjectLoad.ParseFailed": "Vormifaili parsimine nurjus: {0}",
     "Str.ProjectLoad.InvalidForm": "See pole kehtiv vormifail",
     "Str.ProjectLoad.UnknownControl": "Juhtelemendi {1} klass {0} pole toetatud juhtelemendiklass — säilitatakse tundmatuna.",
+    "Str.Tool.Properties.InvalidValue": "Vigane atribuudi väärtus",
     "Str.ProjectLoad.InvalidValue": "Omadusel {0} failis {1} oli vigane väärtus.",
     "Str.ProjectLoad.MissingOffset": "Omadus {0} failis {1}: .frx nihet ei leitud.",
     "Str.ProjectLoad.MissingRecord": "Omadus '{0}' failis '{1}' viitab kirjele, mida kaasfailis pole, seega ei saa vormi salvestada.",

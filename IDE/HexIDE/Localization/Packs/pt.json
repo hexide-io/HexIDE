@@ -1113,6 +1113,7 @@
     "Str.ProjectLoad.ParseFailed": "Não foi possível analisar o ficheiro de formulário: {0}",
     "Str.ProjectLoad.InvalidForm": "Este não é um ficheiro de formulário válido",
     "Str.ProjectLoad.UnknownControl": "A classe {0} do controlo {1} não é uma classe de controlo suportada — preservada como desconhecida.",
+    "Str.Tool.Properties.InvalidValue": "Valor de propriedade inválido",
     "Str.ProjectLoad.InvalidValue": "A propriedade {0} em {1} tinha um valor inválido.",
     "Str.ProjectLoad.MissingOffset": "Propriedade {0} em {1}: deslocamento .frx não encontrado.",
     "Str.ProjectLoad.MissingRecord": "A propriedade '{0}' em '{1}' refere um registo que o ficheiro associado não contém, pelo que o formulário não pode ser guardado.",

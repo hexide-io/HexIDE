@@ -1147,6 +1147,7 @@
     "Str.ProjectLoad.ParseFailed": "Impossibile analizzare il file del form: {0}",
     "Str.ProjectLoad.InvalidForm": "Questo non è un file di form valido",
     "Str.ProjectLoad.UnknownControl": "La classe {0} del controllo {1} non è una classe di controllo supportata — conservata come sconosciuta.",
+    "Str.Tool.Properties.InvalidValue": "Valore della proprietà non valido",
     "Str.ProjectLoad.InvalidValue": "La proprietà {0} in {1} aveva un valore non valido.",
     "Str.ProjectLoad.MissingOffset": "Proprietà {0} in {1}: offset .frx non trovato.",
     "Str.ProjectLoad.MissingRecord": "La proprietà '{0}' in '{1}' fa riferimento a un record assente nel file associato, quindi il form non può essere salvato.",

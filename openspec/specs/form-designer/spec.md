@@ -20,6 +20,20 @@ operations do.
 
 ## Requirements
 
+### Requirement: Refuse negative designer control sizes
+
+The Properties window and `add_control`, `move_control` and `set_control_property` SHALL refuse a
+negative Width or Height before changing any control, recording undo or saving. Zero and positive
+sizes SHALL retain existing behaviour. Negative Left and Top SHALL remain allowed.
+
+#### Scenario: Refuse a negative size atomically
+- **WHEN** a designer edit supplies a negative Width or Height
+- **THEN** the control collection, properties, undo history and saved file remain unchanged
+- **AND** the Properties window shows a localized "Invalid property value" refusal
+- **AND** an automation reply explains that VB6 cannot load a form holding a negative size, naming
+  #589 where that was measured, and reports the control's unchanged state, or that no control was created
+
+
 ### Requirement: Properties window filter
 
 The Properties window SHALL offer a localized live filter above its Alphabetic and Categorized tabs.

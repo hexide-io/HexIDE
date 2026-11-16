@@ -1147,6 +1147,7 @@
     "Str.ProjectLoad.ParseFailed": "Kunne ikke tolke skjemafilen: {0}",
     "Str.ProjectLoad.InvalidForm": "Dette er ikke en gyldig skjemafil",
     "Str.ProjectLoad.UnknownControl": "Klassen {0} for kontrollen {1} er ikke en støttet kontrollklasse — bevart som ukjent.",
+    "Str.Tool.Properties.InvalidValue": "Ugyldig egenskapsverdi",
     "Str.ProjectLoad.InvalidValue": "Egenskapen {0} i {1} hadde en ugyldig verdi.",
     "Str.ProjectLoad.MissingOffset": "Egenskapen {0} i {1}: .frx-forskyvningen ble ikke funnet.",
     "Str.ProjectLoad.MissingRecord": "Egenskapen '{0}' i '{1}' viser til en post som ikke finnes i den tilhørende filen, så skjemaet kan ikke lagres.",

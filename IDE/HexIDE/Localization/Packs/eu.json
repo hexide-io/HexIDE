@@ -1153,6 +1153,7 @@
     "Str.ProjectLoad.ParseFailed": "Ezin izan da inprimaki-fitxategia analizatu: {0}",
     "Str.ProjectLoad.InvalidForm": "Hau ez da baliozko inprimaki-fitxategia",
     "Str.ProjectLoad.UnknownControl": "{1} kontrolaren {0} klasea ez da onartutako kontrol-klasea: ezezagun gisa mantendu da.",
+    "Str.Tool.Properties.InvalidValue": "Propietatearen balio baliogabea",
     "Str.ProjectLoad.InvalidValue": "{1} fitxategiko {0} propietateak balio baliogabea zuen.",
     "Str.ProjectLoad.MissingOffset": "{1} fitxategiko {0} propietatea: ez da .frx desplazamendua aurkitu.",
     "Str.ProjectLoad.MissingRecord": "'{1}' fitxategiko '{0}' propietateak lagun-fitxategian ez dagoen erregistro bat aipatzen du; beraz, ezin da inprimakia gorde.",

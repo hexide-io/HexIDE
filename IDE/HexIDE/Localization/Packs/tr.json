@@ -1113,6 +1113,7 @@
     "Str.ProjectLoad.ParseFailed": "Form dosyası ayrıştırılamadı: {0}",
     "Str.ProjectLoad.InvalidForm": "Bu, geçerli bir form dosyası değil",
     "Str.ProjectLoad.UnknownControl": "{1} denetiminin {0} sınıfı desteklenen bir denetim sınıfı değil — bilinmeyen olarak korundu.",
+    "Str.Tool.Properties.InvalidValue": "Geçersiz özellik değeri",
     "Str.ProjectLoad.InvalidValue": "{1} içindeki {0} özelliğinin değeri geçersizdi.",
     "Str.ProjectLoad.MissingOffset": "{1} içindeki {0} özelliği: .frx uzaklığı bulunamadı.",
     "Str.ProjectLoad.MissingRecord": "'{1}' içindeki '{0}' özelliği, eşlik eden dosyada bulunmayan bir kayda başvurduğundan form kaydedilemiyor.",

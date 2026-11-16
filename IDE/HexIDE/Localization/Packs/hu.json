@@ -1187,6 +1187,7 @@
     "Str.ProjectLoad.ParseFailed": "Az űrlapfájl elemzése sikertelen: {0}",
     "Str.ProjectLoad.InvalidForm": "Ez nem érvényes űrlapfájl",
     "Str.ProjectLoad.UnknownControl": "A(z) {1} vezérlő {0} osztálya nem támogatott vezérlőosztály — ismeretlenként megőrizve.",
+    "Str.Tool.Properties.InvalidValue": "Érvénytelen tulajdonságérték",
     "Str.ProjectLoad.InvalidValue": "A(z) {1} elem {0} tulajdonságának értéke érvénytelen volt.",
     "Str.ProjectLoad.MissingOffset": "A(z) {1} elem {0} tulajdonsága: az .frx eltolás nem található.",
     "Str.ProjectLoad.MissingRecord": "A(z) '{1}' elem '{0}' tulajdonsága olyan rekordra hivatkozik, amelyet a kísérőfájl nem tartalmaz, ezért az űrlap nem menthető.",

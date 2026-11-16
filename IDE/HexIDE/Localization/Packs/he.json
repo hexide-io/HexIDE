@@ -1172,6 +1172,7 @@
     "Str.ProjectLoad.ParseFailed": "פענוח קובץ הטופס נכשל: {0}",
     "Str.ProjectLoad.InvalidForm": "זה אינו קובץ טופס תקין",
     "Str.ProjectLoad.UnknownControl": "המחלקה {0} של הפקד {1} אינה מחלקת פקדים נתמכת — נשמרה כלא מוכרת.",
+    "Str.Tool.Properties.InvalidValue": "ערך מאפיין לא חוקי",
     "Str.ProjectLoad.InvalidValue": "למאפיין {0} בתוך {1} היה ערך לא תקין.",
     "Str.ProjectLoad.MissingOffset": "מאפיין {0} בתוך {1}: ההיסט בקובץ .frx לא נמצא.",
     "Str.ProjectLoad.MissingRecord": "המאפיין '{0}' בתוך '{1}' מפנה לרשומה שאינה קיימת בקובץ הנלווה שלו, ולכן לא ניתן לשמור את הטופס.",

@@ -1138,6 +1138,7 @@
     "Str.ProjectLoad.ParseFailed": "No se pudo analizar el archivo de formulario: {0}",
     "Str.ProjectLoad.InvalidForm": "Este no es un archivo de formulario válido",
     "Str.ProjectLoad.UnknownControl": "La clase {0} del control {1} no es una clase de control compatible — se ha conservado como desconocida.",
+    "Str.Tool.Properties.InvalidValue": "Valor de propiedad no válido",
     "Str.ProjectLoad.InvalidValue": "La propiedad {0} en {1} tenía un valor no válido.",
     "Str.ProjectLoad.MissingOffset": "Propiedad {0} en {1}: no se encontró el desplazamiento en .frx.",
     "Str.ProjectLoad.MissingRecord": "La propiedad '{0}' en '{1}' hace referencia a un registro que no existe en su archivo complementario, por lo que no se puede guardar el formulario.",
