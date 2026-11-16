@@ -736,6 +736,7 @@ added afterwards.
 - [CVErr and the Error subtype (2026-10-28, #2520)](cverr-and-the-error-subtype.md#cverr-and-the-error-subtype-2026-10-28-2520)
 - [Reset and FileAttr (2026-10-28, #2521)](reset-and-fileattr.md#reset-and-fileattr-2026-10-28-2521)
 - [Shell (2026-10-28, #2522)](shell.md#shell-2026-10-28-2522)
+- [Shell: Every window style, and documents (2026-11-16, #4146)](shell.md#every-window-style-and-documents-2026-11-16-4146)
 - [Pmt, FV, PV, NPer, IPmt, PPmt and Rate (2026-10-28, #2523)](pmt-fv-pv-nper-ipmt-ppmt-and-rate.md#pmt-fv-pv-nper-ipmt-ppmt-and-rate-2026-10-28-2523)
 - [DDB, SLN and SYD (2026-10-28, #2524)](ddb-sln-and-syd.md#ddb-sln-and-syd-2026-10-28-2524)
 - [NPV, IRR and MIRR (2026-10-28, #2525)](npv-irr-and-mirr.md#npv-irr-and-mirr-2026-10-28-2525)
