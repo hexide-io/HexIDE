@@ -777,3 +777,4 @@ added afterwards.
 - [Currency and Decimal overflow is error 6 (2026-11-16, #434)](currency-and-decimal-overflow-is-error-6.md#currency-and-decimal-overflow-is-error-6-2026-11-16-434)
 - [Indexed Property Get, Let and Set on a class (2026-11-16, #177)](indexed-property-get-let-and-set-on-a-class.md#indexed-property-get-let-and-set-on-a-class-2026-11-16-177)
 - [SaveSetting from an IDE run, read by the made EXE, and back (2026-11-16, #4070)](savesetting-from-an-ide-run-read-by-the-made-exe.md#savesetting-from-an-ide-run-read-by-the-made-exe-and-back-2026-11-16-4070)
+- [The Properties window's Font dialog: its controls, typed sizes and effects (2026-11-16, #4153, design-time, IDE, SP6)](the-properties-windows-font-dialog.md#the-properties-windows-font-dialog-its-controls-typed-sizes-and-effects-2026-11-16-4153-design-time-ide-sp6)
