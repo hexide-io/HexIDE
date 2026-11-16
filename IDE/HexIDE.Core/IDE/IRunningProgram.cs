@@ -6,8 +6,10 @@ namespace HexIDE.IDE;
 /// <summary>Questions the host can ask a running program, on the UI thread, without knowing its engine.</summary>
 public interface IRunningProgram
 {
-    /// <summary>Whether this window is a running form, and its stable name when it has one.
-    /// Name metadata alone does not make a window a running form; other objects return null.</summary>
+    /// <summary>Whether this object is part of a running program, and its stable name when it has one. That is a running
+    /// form's window, or a UserControl's root on one (<see cref="RunningForm.IsRunning"/> true), or a window carrying a
+    /// form's name and no program (false). A walk up from a control to a running ancestor relies on the UserControl case.
+    /// Other objects return null.</summary>
     RunningForm? Form(object window);
 
     /// <summary>The activity behind a form or one of its program dialogs; null when no program is behind it.
