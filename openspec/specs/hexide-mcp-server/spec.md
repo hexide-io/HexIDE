@@ -404,6 +404,13 @@ deciding what to send next.
 and context disposal SHALL wait for desktop exit, so a refused or cancelled close leaves automation
 available. The reply reports a request, not confirmation of process exit.
 
+#### Scenario: Shutdown reports unsaved work before closing
+- **WHEN** `shutdown_ide` is called
+- **THEN** it captures the save prompt's unsaved project, form and module state on the UI thread, after applying open editor buffers
+- **AND** with `force: true` the reply lists `discardedDocuments` as project/document names (a project file uses its project name), including an empty list when none were modified, and says the changes were discarded
+- **AND** with `force: false` and unsaved work the note names the documents and says a save-changes prompt will open and wait, directing the caller to `dump_visual_tree {window: "auto"}` then `interact` on Yes, No or Cancel; Cancel keeps the IDE running
+- **AND** with `force: false` and no unsaved work the note continues to direct the caller to poll `/health` for exit
+
 #### Scenario: Shutdown is requested through a tool call
 - **WHEN** `shutdown_ide` returns its result
 - **THEN** the main-window close is deferred until the HTTP response completes
