@@ -49,6 +49,8 @@ public sealed class CodeTrust
     private readonly Func<string, bool> isDownloaded;
     private readonly HashSet<string> marked = new(HostFilePath.Comparer);
     private readonly HashSet<string> approved = new(HostFilePath.Comparer);
+    // A file's mark is recorded from the loader's read callback, which can run off the UI thread.
+    private readonly Lock gate = new();
 
     public CodeTrust(IWindowManager windows, ILocalizationService localization, Func<string, bool>? isDownloaded = null)
     {
@@ -72,9 +74,11 @@ public sealed class CodeTrust
         if (HostFilePath.Equals(Full(from), Full(to)))
             return;
         if (IsMarked(from))
-            marked.Add(Full(to));
-        if (approved.Contains(Full(from)))
-            approved.Add(Full(to));
+            lock (gate)
+                marked.Add(Full(to));
+        lock (gate)
+            if (approved.Contains(Full(from)))
+                approved.Add(Full(to));
     }
 
     /// <summary>The files of <paramref name="project"/>'s code that came from outside this computer and haven't been allowed to run.</summary>
@@ -86,14 +90,18 @@ public sealed class CodeTrust
         foreach (var path in CodeFiles(project))
             if (!found.Any(file => HostFilePath.Equals(file.Path, path)) && IsMarked(path))
                 found.Add(new UntrustedFile(path, CodeOrigin.Downloaded));
-        return found.Where(file => !approved.Contains(file.Path)).ToList();
+        lock (gate)
+            return found.Where(file => !approved.Contains(file.Path)).ToList();
     }
 
     /// <summary>A single file to be run, such as a debug launch file, if it came from outside this computer and hasn't been allowed.</summary>
     public UntrustedFile? Unapproved(string path)
     {
         var full = Full(path);
-        return IsMarked(full) && !approved.Contains(full) ? new UntrustedFile(full, CodeOrigin.Downloaded) : null;
+        if (!IsMarked(full))
+            return null;
+        lock (gate)
+            return approved.Contains(full) ? null : new UntrustedFile(full, CodeOrigin.Downloaded);
     }
 
     /// <summary>
@@ -118,8 +126,9 @@ public sealed class CodeTrust
                 Serilog.Log.Information("Not run: running {Name}, whose code came from outside this computer, was declined", name);
                 return false;
             }
-            foreach (var file in files)
-                approved.Add(file.Path);
+            lock (gate)
+                foreach (var file in files)
+                    approved.Add(file.Path);
             return true;
         }
         finally
@@ -131,11 +140,14 @@ public sealed class CodeTrust
     private bool IsMarked(string path)
     {
         var full = Full(path);
-        if (marked.Contains(full))
-            return true;
+        lock (gate)
+            if (marked.Contains(full))
+                return true;
+        // Read outside the lock: it touches the disk.
         if (!isDownloaded(full))
             return false;
-        marked.Add(full);
+        lock (gate)
+            marked.Add(full);
         return true;
     }
 

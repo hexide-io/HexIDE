@@ -25,7 +25,7 @@ internal static class TestRunners
         ILocalizationService localization, IDebugController debugController, IBreakpointService breakpointService,
         WatchService watchService, RunScope runScope, ExternalDebugService? externalDebugger = null,
         ArchiveProjectService? archives = null, DebugLaunchService? debugLaunches = null, IRunChoiceStore? runChoices = null,
-        IStatusBarService? statusBar = null) =>
+        IStatusBarService? statusBar = null, CodeTrust? trust = null) =>
         new(eventBus, projectManager, localization, debugController, breakpointService, watchService, runScope, engine,
-            externalDebugger, archives, debugLaunches, runChoices, statusBar);
+            externalDebugger, archives, debugLaunches, runChoices, statusBar, trust);
 }

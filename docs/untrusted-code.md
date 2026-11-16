@@ -45,7 +45,7 @@ These are gaps, not guarantees. Code that reaches HexIDE without a mark runs wit
 - **A mark lost before HexIDE sees the file.** An archive tool that doesn't carry the mark onto what it extracts, a
   copy through a volume that can't hold one (FAT or exFAT on Windows), a `git clone`, or a copy made by a tool that
   drops it: each leaves files HexIDE can't tell from your own.
-- **macOS: reasoned, not checked here.** The reading is tested on CI's macOS runner, which sets the attribute and reads
-  it back. It hasn't been checked on a real download yet.
+- **macOS: reasoned, not checked.** A test sets the attribute and reads it back, but it runs only on CI's macOS job,
+  and no real download has been checked.
 - **A file changed on disk after a Yes.** A Yes is for the file by its path, so new content at the same path, read in
   the same session, isn't asked about again.
