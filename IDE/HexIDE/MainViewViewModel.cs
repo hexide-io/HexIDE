@@ -1650,11 +1650,13 @@ public partial class MainViewViewModel : ObservableObject
         RecentEditsToolViewModel recentEdits,
         FindReferencesToolViewModel? findReferences,
         CallHierarchyToolViewModel? callHierarchy,
+        // Not optional, like the two above: each optional parameter here doubles Pure.DI's search for the graph, and one
+        // more took it past its 16,384-iteration limit (DIE031).
+        TypeHierarchyToolViewModel? typeHierarchy,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
         HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
         RunWithMenuViewModel? runWith = null,
-        ILogFolderOpener? logFolderOpener = null,
-        TypeHierarchyToolViewModel? typeHierarchy = null)
+        ILogFolderOpener? logFolderOpener = null)
     {
         logFolderOpener ??= new PlatformLogFolderOpener();
         OpenLogFolderCommand = new DelegateCommand(() => OpenLogFolderAsync(windowManager, localization, logFolderOpener).ListenErrors());
