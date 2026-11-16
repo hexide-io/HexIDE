@@ -756,3 +756,4 @@ added afterwards.
 - [A module's name line below the top of its file (2026-11-12, #3757)](a-modules-name-line-below-the-top-of-its-file.md#a-modules-name-line-below-the-top-of-its-file-2026-11-12-3757)
 - [An undeclared name before a dot (2026-11-12, #3778)](an-undeclared-name-before-a-dot.md#an-undeclared-name-before-a-dot-2026-11-12-3778)
 - [`Call` with empty parentheses (2026-11-12, #3779)](an-undeclared-name-before-a-dot.md#call-with-empty-parentheses-2026-11-12-3779)
+- [Indexed Property Get, Let and Set on a class (2026-11-16, #177)](indexed-property-get-let-and-set-on-a-class.md#indexed-property-get-let-and-set-on-a-class-2026-11-16-177)
