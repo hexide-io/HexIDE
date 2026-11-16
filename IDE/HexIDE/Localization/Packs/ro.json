@@ -43,6 +43,7 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Definiți condiții prin Condiție… în meniul marginii punctelor de întrerupere. Fișierul '{0}', intrarea punctului de întrerupere {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Opțiunea punctului de întrerupere '{0}' nu este încă acceptată pentru sesiuni externe. Fișier '{1}', intrarea {2}. Definiți condiții prin Condiție… în meniul marginii punctelor de întrerupere.",
     "Str.Debug.RunWith.Unavailable": "F5 este setat să ruleze acest proiect cu {0}, care nu este disponibil acum, așa că rulează în IDE. Pentru a-l rula de acum în IDE, alegeți În IDE din Executare > F5 execută.",
+    "Str.Debug.RunWith.Default": "F5 rulează {0}. Schimbați opțiunea în Executare > F5 execută.",
     "Str.MainWindow.DeveloperModeNotice": "MOD DEZVOLTATOR",
     "Str.MainWindow.UnsignedAddinsNotice": "MOD DEZVOLTATOR, se pot încărca programe de completare nesemnate",
     "Str.MainWindow.RecoveryNotice": "Sesiune de recuperare — modificările setărilor nu vor fi salvate",

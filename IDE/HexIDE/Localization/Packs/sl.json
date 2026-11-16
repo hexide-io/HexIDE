@@ -43,6 +43,7 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Pogoje nastavite z ukazom Pogoj… v meniju roba prekinitvenih točk. Datoteka '{0}', vnos prekinitvene točke {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Možnost prekinitvene točke '{0}' še ni podprta za zunanje seje. Datoteka '{1}', vnos {2}. Pogoje nastavite z ukazom Pogoj… v meniju roba prekinitvenih točk.",
     "Str.Debug.RunWith.Unavailable": "F5 je nastavljen, da ta projekt zažene z {0}, ki zdaj ni na voljo, zato se izvaja v IDE. Če ga želite odslej izvajati v IDE, izberite V IDE pod Zagon > F5 izvaja.",
+    "Str.Debug.RunWith.Default": "F5 zažene {0}. Spremenite izbiro v Zagon > F5 izvaja.",
     "Str.MainWindow.DeveloperModeNotice": "RAZVIJALSKI NAČIN",
     "Str.MainWindow.UnsignedAddinsNotice": "RAZVIJALSKI NAČIN, mogoče je naložiti nepodpisane dodatke",
     "Str.MainWindow.RecoveryNotice": "Obnovitvena seja — spremembe nastavitev ne bodo shranjene",

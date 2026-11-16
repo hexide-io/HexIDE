@@ -77,6 +77,7 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Angi betingelser med Betingelse… i menyen i stoppunktmargen. Fil '{0}', stoppunktoppføring {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Stoppunktalternativet '{0}' støttes ikke for eksterne økter ennå. Fil '{1}', stoppunktoppføring {2}. Angi betingelser med Betingelse… i menyen i stoppunktmargen.",
     "Str.Debug.RunWith.Unavailable": "F5 er satt til å kjøre dette prosjektet med {0}, som ikke er tilgjengelig nå, så det kjøres i IDE-en. Velg I IDE-en under Kjør > F5 kjører for å kjøre det i IDE-en fra nå av.",
+    "Str.Debug.RunWith.Default": "F5 kjører {0}. Endre dette under Kjør > F5 kjører.",
     "Str.MainWindow.DeveloperModeNotice": "UTVIKLERMODUS",
     "Str.MainWindow.UnsignedAddinsNotice": "UTVIKLERMODUS, usignerte tillegg kan lastes inn",
     "Str.MainWindow.RecoveryNotice": "Gjenopprettingsøkt — endringer i innstillinger blir ikke lagret",
