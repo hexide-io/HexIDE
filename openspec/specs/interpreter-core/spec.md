@@ -1205,6 +1205,22 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-obj
 Measured in [a form's own ActiveControl](../../../docs/vb6-fidelity-oracle/a-forms-own-activecontrol.md)
 (#2437); the choice among several shown forms follows [#3920](https://github.com/hexide-io/HexIDE/issues/3920).
 
+#### Scenario: Form visibility follows Show and Hide
+- **WHEN** a form's Visible property is set to False or True
+- **THEN** it SHALL follow Hide or Show respectively, including the active form's control focus and activation transition
+
+#### Scenario: The active form unloads with another form shown
+- **WHEN** the active form unloads while a previously active form remains shown
+- **THEN** that remaining form SHALL receive Activate and its remembered control SHALL receive GotFocus
+- **AND** the unloaded form SHALL receive neither LostFocus nor Deactivate
+
+#### Scenario: The last visible form is shown again
+- **WHEN** the last visible form is hidden and then shown again
+- **THEN** it SHALL retain its own control focus and Screen readings without Activate, GotFocus or Resize
+
+Measured in [the active form hidden by Visible](../../../docs/vb6-fidelity-oracle/a-forms-resize-activate-and-deactivate.md)
+(#3936), and run 1 of that page for Unload. Unload of the last visible form is unchanged.
+
 #### Scenario: A write to a member a program cannot write
 - **WHEN** a program writes `s.Width = 100` through `Set s = Screen`
 - **THEN** the interpreter SHALL raise 382, "'Width' property cannot be set at run time"
