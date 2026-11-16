@@ -1126,7 +1126,12 @@ probes and its 2026-10-27 entry "A For counter written with a type character" (#
 
 Assignments to an existing intrinsic control's Width and Height SHALL apply the minimum sizes measured in the
 oracle's "A control's position at run time" (#1029), after conversion to whole twips. Move SHALL use the same
-floors. Sizes above a floor SHALL remain unsnapped. TextBox and CommandButton floors SHALL use only the recorded
+floors. For CommandButton, TextBox and Label, the comparison SHALL round to whole pixels half up, and retain
+the assigned whole twips when the rounded size reaches the floor (#4071, oracle PRs #4069 and #4095).
+Assigning either dimension SHALL enforce both dimensions on those controls; loaded zero sizes SHALL remain
+unchanged until assignment. Negative CommandButton, Label or form Width or Height assignments SHALL raise 380, "Invalid property value",
+without changing the size; Move with a negative size SHALL raise 5 before changing any position or size.
+Other controls retain their existing floor comparison. Sizes above a floor SHALL remain unsnapped. TextBox and CommandButton floors SHALL use only the recorded
 font/border combinations, without extrapolating to other fonts. ComboBox Height assignments SHALL raise 383.
 The form's desktop-dependent floor and the absent DriveListBox, DirListBox, FileListBox and Data runtime controls
 remain outside this implementation.
@@ -1144,6 +1149,13 @@ remain outside this implementation.
 - **THEN** it reads 75 and 195
 - **WHEN** a CommandButton receives those sizes in MS Sans Serif 8.25 or Arial 14.25
 - **THEN** it reads 75 × 195 or 120 × 330 respectively
+
+#### Scenario: A CommandButton reaches its minimum after pixel rounding
+
+- **WHEN** a default CommandButton receives Width 67, then 68, and Height 187, then 188
+- **THEN** those reads are 75, 68, 195 and 188 twips respectively
+- **WHEN** a CommandButton in MS Sans Serif 24 pt receives Width 0 and Height 0
+- **THEN** it reads 240 × 555 twips, the measured 16 × 37 pixels at 96 dpi
 
 #### Scenario: Other existing controls receive tiny sizes
 
