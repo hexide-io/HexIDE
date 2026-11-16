@@ -1,4 +1,4 @@
-namespace HexIDE.Runtime.TypeLibrary;
+namespace HexIDE.TypeLibrary;
 
 public record TypeMemberInfo(
     string Name,

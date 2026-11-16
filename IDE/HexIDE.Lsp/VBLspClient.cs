@@ -728,6 +728,7 @@ public sealed class VBLspClient : ILspClient
                     SelectionRange: new SelectionRangeClientCapabilities(),
                     Rename: new RenameClientCapabilities(),
                     CallHierarchy: EmptyParams.Instance,
+                    TypeHierarchy: EmptyParams.Instance,
                     RangeFormatting: EmptyParams.Instance,
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
                         Enum.GetValues<CompletionItemKind>()),
@@ -1844,6 +1845,33 @@ public sealed class VBLspClient : ILspClient
             documentUri: item.Uri) ?? [];
     }
 
+    public async Task<TypeHierarchyItem[]> PrepareTypeHierarchyAsync(string uri, Position position,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("typeHierarchyProvider")) return [];
+        var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
+        return await InvokeRequestAsync<TypeHierarchyItem[]?>(_rpc,
+            "textDocument/prepareTypeHierarchy", p, cancellationToken, documentUri: uri) ?? [];
+    }
+
+    public async Task<TypeHierarchyItem[]> RequestSupertypesAsync(TypeHierarchyItem item,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("typeHierarchyProvider")) return [];
+        return await InvokeRequestAsync<TypeHierarchyItem[]?>(_rpc,
+            "typeHierarchy/supertypes", new TypeHierarchyParams(item), cancellationToken,
+            documentUri: item.Uri) ?? [];
+    }
+
+    public async Task<TypeHierarchyItem[]> RequestSubtypesAsync(TypeHierarchyItem item,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("typeHierarchyProvider")) return [];
+        return await InvokeRequestAsync<TypeHierarchyItem[]?>(_rpc,
+            "typeHierarchy/subtypes", new TypeHierarchyParams(item), cancellationToken,
+            documentUri: item.Uri) ?? [];
+    }
+
     public async Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("referencesProvider")) return [];
@@ -2090,9 +2118,10 @@ public sealed class VBLspClient : ILspClient
 
     internal static readonly TimeSpan OnTypeFormattingTimeout = TimeSpan.FromMilliseconds(250);
 
-    public async Task<TextEdit[]> RequestOnTypeFormattingAsync(string uri, Position position, string trigger, FormattingOptions options, CancellationToken cancellationToken = default)
+    public async Task<TextEdit[]?> RequestOnTypeFormattingAsync(string uri, Position position, string trigger, FormattingOptions options, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized || !SupportsOnTypeFormatting(uri, trigger)) return [];
+        if (_rpc is null || !_initialized) return null;
+        if (!SupportsOnTypeFormatting(uri, trigger)) return [];
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(OnTypeFormattingTimeout);
         var p = new DocumentOnTypeFormattingParams(new TextDocumentIdentifier(uri), position, trigger, options);
@@ -2104,7 +2133,7 @@ public sealed class VBLspClient : ILspClient
         catch (Exception ex)
         {
             WarnRequestFailedOnce("textDocument/onTypeFormatting", ex, cancellationToken);
-            return [];
+            return null;
         }
     }
 
@@ -2986,6 +3015,7 @@ public sealed class VBLspClient : ILspClient
         "inlayHintProvider",
         "referencesProvider",
         "callHierarchyProvider",
+        "typeHierarchyProvider",
         "renameProvider",
         "signatureHelpProvider",
         // Read by the sync readers rather than a gate, because its two shapes mean different things — and

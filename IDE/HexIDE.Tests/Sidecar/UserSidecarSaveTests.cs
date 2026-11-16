@@ -192,7 +192,7 @@ public sealed class UserSidecarSaveTests : IDisposable
     }
 
     [Fact]
-    public async Task TheInterpreter_WhichF5RunsUnlessTheUserSaysOtherwise_WritesNoSidecar()
+    public async Task AnExplicitInterpreterChoice_IsSavedAndReadBack()
     {
         var project = Project();
         var choices = new RunChoiceStore();
@@ -209,7 +209,15 @@ public sealed class UserSidecarSaveTests : IDisposable
         choices.Set(project, null);
         await debounce.ElapseAsync(sidecar);
 
-        File.Exists(SidecarOf(project)).Should().BeFalse("nothing to record: the interpreter is no choice to remember");
+        Read(SidecarOf(project))["runWith"]!.GetValue<string>().Should().BeEmpty();
+        var reopened = new RunChoiceStore();
+        await new UserSidecarService(new BookmarkService(), new BreakpointService(), projectManager,
+            new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader(), reopened)
+        {
+            ReadText = path => Task.FromResult(File.ReadAllText(path)),
+        }.LoadAsync(project);
+        reopened.Get(project).Should().BeNull();
+        reopened.HasChoice(project).Should().BeTrue();
     }
 
     [Fact]

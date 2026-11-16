@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.IO;
 using System.Text;
 using HexIDE.Desktop;
@@ -12,12 +13,9 @@ public sealed class DistributionDescriptorTests
 {
     private const string Minimal = """{"schemaVersion":1,"id":"acme-ide","name":"Acme IDE"}""";
 
-    private static byte[] Png(uint width = 64, uint height = 64)
+    private static byte[] Png(uint width = 1, uint height = 1)
     {
-        var bytes = new byte[32];
-        new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }.CopyTo(bytes, 0);
-        bytes[11] = 13;
-        Encoding.ASCII.GetBytes("IHDR").CopyTo(bytes, 12);
+        var bytes = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=");
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(16), width);
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(20), height);
         return bytes;
@@ -246,6 +244,96 @@ public sealed class DistributionDescriptorTests
     }
 
     [Theory]
+    [InlineData("truncated")]
+    [InlineData("crc")]
+    [InlineData("empty")]
+    public void A_corrupt_logo_is_refused_with_both_file_names(string corruption)
+    {
+        var bytes = Png();
+        if (corruption == "truncated") bytes = bytes[..33];
+        if (corruption == "crc") bytes[29] ^= 1;
+        if (corruption == "empty") bytes = [];
+        var parse = () => Parse("""{"schemaVersion":1,"id":"a","name":"A","logo":"art/logo.png"}""", _ => bytes);
+
+        parse.Should().Throw<DistributionDescriptorException>().WithMessage("*brand.json*art/logo.png*");
+    }
+
+    // Complete chunks with recalculated CRCs isolate header and inflation validation (#4063).
+    [Theory]
+    [InlineData("illegal depth", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAwYAAABoxfWYAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=")]
+    [InlineData("illegal colour", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAEAAACCwvwwAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=")]
+    [InlineData("illegal interlace", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAALxG6WlAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=")]
+    [InlineData("short inflation", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC")]
+    [InlineData("long inflation", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAEAAAYAAf6MZ8gAAAAASUVORK5CYII=")]
+    [InlineData("bad deflate", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAB0lEQVRpbnZhbGlkL6N+2gAAAABJRU5ErkJggg==")]
+    [InlineData("missing trailer", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACUlEQVR4nGNgAAIAAAX6rRQGAAAAAElFTkSuQmCC")]
+    [InlineData("bad filter", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNlAAIAAB4ABrypfGkAAAAASUVORK5CYII=")]
+    [InlineData("missing IDAT", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAElFTkSuQmCC")]
+    [InlineData("missing IEND", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8=")]
+    [InlineData("trailing bytes", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYIJ4")]
+    [InlineData("oversized chunk", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ/////0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=")]
+    public void Malformed_PNG_structure_and_image_data_are_refused(string reason, string encoded)
+    {
+        var parse = () => Parse("""{"schemaVersion":1,"id":"a","name":"A","logo":"art/logo.png"}""",
+            _ => Convert.FromBase64String(encoded));
+
+        parse.Should().Throw<DistributionDescriptorException>(reason).WithMessage("*brand.json*art/logo.png*");
+    }
+
+    [Theory]
+    [InlineData("rgba", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=")]
+    [InlineData("Adam7", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAFoEvQfAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=")]
+    [InlineData("packed grayscale", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4nGNgAAAAAgABSK+kcQAAAABJRU5ErkJggg==")]
+    [InlineData("16 bit RGB", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABEAIAAADA54+dAAAAC0lEQVR4nGNgAAMAAAcAAbKGrPQAAAAASUVORK5CYII=")]
+    public void Complete_logos_are_captured_without_a_UI_toolkit(string format, string encoded)
+    {
+        var bytes = Convert.FromBase64String(encoded);
+        var identity = Parse("""{"schemaVersion":1,"id":"a","name":"A","logo":"art/logo.png"}""", _ => bytes);
+
+        using var captured = identity.OpenLogo();
+        using var copy = new MemoryStream();
+        captured.Should().NotBeNull(format);
+        captured!.CopyTo(copy);
+        copy.ToArray().Should().Equal(bytes);
+    }
+
+    // The validator is stricter than a decoder needs to be, so real files are the check that it isn't too
+    // strict: the repository's own PNGs (screenshots, captures and logos) were made by different tools.
+    [Fact]
+    public void Every_PNG_the_repository_ships_within_the_logo_limits_is_accepted()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !(Directory.Exists(Path.Combine(root.FullName, "IDE")) && Directory.Exists(Path.Combine(root.FullName, "LspServer"))))
+            root = root.Parent;
+        root.Should().NotBeNull("the tests run inside the repository");
+
+        var accepted = new List<string>();
+        foreach (var folder in new[] { "IDE", "corpus", "demo", "screenshots" })
+        {
+            var path = Path.Combine(root!.FullName, folder);
+            if (!Directory.Exists(path))
+                continue;
+            foreach (var png in Directory.EnumerateFiles(path, "*.png", SearchOption.AllDirectories))
+            {
+                var segments = png.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (segments.Any(s => s is "bin" or "obj" or "TestResults"))
+                    continue;
+                var bytes = File.ReadAllBytes(png);
+                if (bytes.Length < 24 || BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(16)) > 1024
+                    || BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(20)) > 1024)
+                    continue;
+
+                var identity = Parse("""{"schemaVersion":1,"id":"a","name":"A","logo":"art/logo.png"}""", _ => bytes);
+                using var captured = identity.OpenLogo();
+                captured.Should().NotBeNull(png);
+                accepted.Add(png);
+            }
+        }
+
+        accepted.Should().HaveCountGreaterThanOrEqualTo(2, "HexIDE's own logo and the test add-in's are within the limits");
+    }
+
+    [Theory]
     [InlineData(0u, 10u)]
     [InlineData(10u, 0u)]
     [InlineData(5000u, 10u)]
@@ -415,6 +503,15 @@ public sealed class DistributionDescriptorTests
     [InlineData("Str.Dialog.About.SigningKeys.RootKey")]
     [InlineData("Str.Dialog.About.SigningKeys.FirstPartyKey")]
     [InlineData("Str.Addins.Incompatible")]
+    [InlineData("Str.MemberOrigin.HexIde")]
+    [InlineData("Str.Dialog.Components.NotImplemented")]
+    [InlineData("Str.Designer.Unmodelled.NotSupported")]
+    [InlineData("Str.ProjectRunner.NotImplementedYet")]
+    [InlineData("Str.Dialog.UnfaithfulSave.Body.One")]
+    [InlineData("Str.Dialog.UnfaithfulSave.Body.Many")]
+    [InlineData("Str.Designer.ReadOnly.Banner")]
+    [InlineData("Str.CodeEditor.FileNotSaved.Banner")]
+    [InlineData("Str.ProjectLoad.ActiveXDocuments")]
     public void Statements_about_HexIDE_itself_keep_saying_so(string key)
     {
         var strings = new Dictionary<string, string> { [key] = "HexIDE made this" };
@@ -469,9 +566,10 @@ public sealed class DistributionDescriptorTests
         ServerOptions.SelectProfile(null, "/where/typed", DistributionIdentity.Stock, "/installed").Should().Be(((string?)null, "/where/typed"));
 
     [Fact]
-    public void HexIDEs_credits_are_the_only_protected_row()
+    public void HexIDEs_credits_and_trust_labels_are_the_protected_rows()
     {
         new HexIDE.Tools.TranslationEditor.TranslationRowViewModel(BrandText.UpstreamCreditsKey).IsProtected.Should().BeTrue();
+        new HexIDE.Tools.TranslationEditor.TranslationRowViewModel("Str.Dialog.About.SigningKeys.RootKey").IsProtected.Should().BeTrue();
         new HexIDE.Tools.TranslationEditor.TranslationRowViewModel("Str.Menu.Help").IsProtected.Should().BeFalse();
     }
 

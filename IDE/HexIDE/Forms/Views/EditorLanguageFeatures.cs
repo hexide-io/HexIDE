@@ -24,6 +24,9 @@ public interface IEditorDocumentQueries
     Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null);
     IReadOnlyList<string> SignatureHelpTriggerCharacters { get; }
     string? DocumentUri { get; }
+    Task<HoverResult?> RequestHoverAsync(Position position, CancellationToken ct = default);
+    Task<TextEdit[]> RequestFormattingAsync(CancellationToken ct = default);
+    Task<TextEdit[]> RequestRangeFormattingAsync(HexIDE.Lsp.Messages.Range range, CancellationToken ct = default);
 }
 
 internal interface IEditorCompletionRules
@@ -36,9 +39,11 @@ internal interface IEditorCompletionRules
     IReadOnlyList<string>? FixedSignatureTriggers { get; }
 }
 
-/// <summary>Completion, snippets and signature help attached to one text area.</summary>
+/// <summary>Language-server interactions attached to one text area, with editor-specific editing rules.</summary>
 internal sealed class EditorLanguageFeatures : IDisposable
 {
+    internal EditorHoverFeatures? Hover { get; private set; }
+    private readonly CancellationTokenSource lifetime = new();
     private readonly TextArea area;
     private readonly IEditorDocumentQueries queries;
     private readonly IEditorCompletionRules rules;
@@ -71,6 +76,37 @@ internal sealed class EditorLanguageFeatures : IDisposable
         }
     }
 
+    public void AttachHover(AvaloniaEdit.TextEditor editor, Func<IReadOnlyList<HexIDE.Controls.LspMarker>> markers,
+        Func<HexIDE.Controls.LspMarker, Control>? diagnosticContent, Action<Uri> openUri,
+        Action? cancelHover = null, bool handlePointer = true)
+    {
+        Hover?.Dispose();
+        Hover = new EditorHoverFeatures(editor, queries, markers, diagnosticContent, openUri, cancelHover, handlePointer);
+    }
+
+    public async Task FormatAsync(bool selection, Action<IReadOnlyList<TextEdit>> apply, Func<bool> refuse)
+    {
+        if (refuse()) return;
+        var document = area.Document;
+        var before = document.Text;
+        var start = document.GetLocation(selection ? area.Selection.SurroundingSegment.Offset : 0);
+        var end = document.GetLocation(selection ? area.Selection.SurroundingSegment.EndOffset : 0);
+        var range = new HexIDE.Lsp.Messages.Range(new(start.Line - 1, start.Column - 1), new(end.Line - 1, end.Column - 1));
+        var token = lifetime.Token;
+        try
+        {
+            await queries.FlushDocumentAsync(token);
+            var edits = selection ? await queries.RequestRangeFormattingAsync(range, token) : await queries.RequestFormattingAsync(token);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!token.IsCancellationRequested && ReferenceEquals(area.Document, document) && document.Text == before
+                    && edits.Length > 0 && !refuse()) apply(edits);
+            });
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Log.Debug("[formatting] {ErrorMessage}", ex.Message); }
+    }
+
     public void CloseCompletion()
     {
         _completionCts?.Cancel();
@@ -80,6 +116,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
     public void OnTextEntering(object? sender, TextInputEventArgs e)
     {
         if (e.Text is not { Length: > 0 }) return;
+        Hover?.Dismiss();
         var ch = e.Text[0];
         if (!char.IsLetterOrDigit(ch) && ch != '_') CloseCompletion();
     }
@@ -116,6 +153,10 @@ internal sealed class EditorLanguageFeatures : IDisposable
 
     public void Dispose()
     {
+        lifetime.Cancel();
+        lifetime.Dispose();
+        Hover?.Dispose();
+        Hover = null;
         area.TextEntering -= OnTextEntering;
         area.TextEntered -= OnTextEntered;
         area.RemoveHandler(Avalonia.Input.InputElement.KeyDownEvent, OnKeyDown);
@@ -165,6 +206,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
             {
                 if (token.IsCancellationRequested || !rules.MayOpenCompletion()) return;
 
+                Hover?.Dismiss();
                 dismissHover?.Invoke();
 
                 // If a window is already open, close it first
@@ -198,6 +240,27 @@ internal sealed class EditorLanguageFeatures : IDisposable
         }
     }
 
+    /// <summary>
+    /// The item the word around the caret selects, ignoring case: one the whole word matches, ahead of an earlier one it
+    /// only starts (#3613), and otherwise the first it starts. Within each, a preselected item comes first. An empty or
+    /// unmatched word selects nothing.
+    /// </summary>
+    /// <remarks>
+    /// Ordinal order lists <c>Xor</c> before <c>x</c>, so a first-prefix rule turned a typed, declared <c>x</c> into
+    /// <c>Xor</c> on Space. In any case-insensitive alphabetical list a whole-word match sorts ahead of every longer
+    /// item it starts, so this agrees with a sorted member list; which of several longer items wins is left as it was.
+    /// </remarks>
+    internal static ICompletionData? SelectionFor(IEnumerable<ICompletionData> list, string word, CompletionItem[] items)
+    {
+        if (word.Length == 0) return null;
+        bool Preselected(ICompletionData data) =>
+            items.Any(item => item.Preselect == true && (item.FilterText ?? item.Label) == data.Text);
+        var whole = list.Where(data => string.Equals(data.Text, word, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (whole.Count > 0) return whole.FirstOrDefault(Preselected) ?? whole[0];
+        var starts = list.Where(data => data.Text.StartsWith(word, StringComparison.OrdinalIgnoreCase)).ToList();
+        return starts.FirstOrDefault(Preselected) ?? starts.FirstOrDefault();
+    }
+
     internal static void FillCompletionList(CompletionWindow window, CompletionItem[] items,
         Func<int, int, bool> refusesTyping, Func<string?>? documentUri = null)
     {
@@ -214,11 +277,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
         {
             var (wordStart, wordEnd) = CompletionWord(area);
             var word = area.Document.GetText(wordStart, wordEnd - wordStart);
-            var matches = window.CompletionList.CompletionData
-                .Where(data => word.Length > 0 && data.Text.StartsWith(word, StringComparison.OrdinalIgnoreCase));
-            window.CompletionList.SelectedItem = matches.FirstOrDefault(data =>
-                items.Any(item => item.Preselect == true && (item.FilterText ?? item.Label) == data.Text))
-                ?? matches.FirstOrDefault();
+            window.CompletionList.SelectedItem = SelectionFor(window.CompletionList.CompletionData, word, items);
             if (window.CompletionList.SelectedItem is { } selected)
                 window.CompletionList.ScrollIntoView(selected);
         }
@@ -296,6 +355,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
                     return;
                 }
 
+                Hover?.Dismiss();
                 dismissHover?.Invoke();
                 _insightWindow?.Close();
                 var provider = new VbSignatureProvider(help);

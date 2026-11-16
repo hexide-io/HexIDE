@@ -72,8 +72,8 @@ the production formatter and source-generated context to guard absence and prese
 |---|---|
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
-| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `prepareRename`, `rename`, `formatting`, `rangeFormatting`, `codeLens`, `codeAction`, `diagnostic`, `inlayHint`, `semanticTokens/full`, `selectionRange`, `prepareCallHierarchy` |
-| Actions | `codeLens/resolve`, `codeAction/resolve`, `callHierarchy/incomingCalls`, `callHierarchy/outgoingCalls`, `workspace/executeCommand` — see *Commands and lenses* |
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `prepareRename`, `rename`, `formatting`, `rangeFormatting`, `codeLens`, `codeAction`, `diagnostic`, `inlayHint`, `semanticTokens/full`, `selectionRange`, `prepareCallHierarchy`, `prepareTypeHierarchy` |
+| Actions | `codeLens/resolve`, `codeAction/resolve`, `callHierarchy/incomingCalls`, `callHierarchy/outgoingCalls`, `typeHierarchy/subtypes`, `typeHierarchy/supertypes`, `workspace/executeCommand` — see *Commands and lenses* |
 | Workspace | `workspace/symbol`, `didChangeWorkspaceFolders`, `didChangeConfiguration`, `didCreateFiles`, `didRenameFiles`, `didDeleteFiles` |
 | Protocol | `$/setTrace`, `$/cancelRequest` |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
@@ -84,9 +84,11 @@ Initialize declares `textDocument.completion` with all 25 LSP completion kinds, 
 Resolve, commit characters, context and other list item defaults are not advertised.
 This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
 Items from all servers are ordered by `sortText ?? label`, ordinal. Matching uses `filterText ?? label`,
-while the displayed label and insertion fallback remain the label. The full list stays visible. The first
-preselected prefix match is selected, otherwise the first prefix match, using the whole word around the
-caret. An empty or unmatched word leaves no item selected. Enter accepts a selected item then commits a
+while the displayed label and insertion fallback remain the label. The full list stays visible. Using the
+whole word around the caret and ignoring case, an item the whole word matches is selected ahead of an
+earlier item it only starts, so a typed `x` selects `x`, not `Xor` ([#3613](https://github.com/hexide-io/HexIDE/issues/3613));
+otherwise the first prefix match is. Within each, a preselected item comes first. An empty or unmatched
+word leaves no item selected. Enter accepts a selected item then commits a
 new line; Space accepts then types a space; with no selection those keys only type. Tab accepts the
 selected item or, with no selection, the first outlined item, replacing the whole word. Escape closes
 without accepting. Complete Word inserts a unique prefix match immediately (#3056). Descriptions
@@ -475,10 +477,10 @@ That distinction is not pedantic, because silence is the normal case. Five serve
 binaries contain no trace machinery at all. A fourth's framework implements the types and its server never
 calls them. So a trace pane that is empty against most servers is correct, and has to say why.
 
-## Carried-file completion and signature help (#266)
+## Carried-file language features (#266)
 
 The code window and carried-file editor attach the same text-area component for completion,
-snippets and signature help. It flushes pending edits before querying the document and cancels
+snippets, signature help, hover and formatting. It flushes pending edits before querying the document and cancels
 requests, closes popups and ends snippet navigation when detached, including a dock move.
 
 A carried file asks its claiming servers only for advertised capabilities. Completion opens on a
@@ -491,8 +493,18 @@ Signature help opens on the server's advertised signature triggers.
 The code window keeps its word-start position, VB6 free-text/read-only rules, Space commit and fixed
 `(` / `,` signature triggers. Each split pane owns its own component.
 
-Hover, formatting, definition navigation, highlights and rename in carried files remain later stages
-of #266. Headless coverage is in `CarriedFileCompletionTests`; live IDE verification remains pending.
+Resting the pointer on text requests hover only when a claiming server advertises `hoverProvider`.
+It uses the code window's 400 ms delay, cancellation and tooltip renderer, including Markdown and
+code fences. Format Document and Format Selection use the claiming server's corresponding advertised
+provider, flush pending edits, and pass the configured Tab Width with spaces. Each reply applies as
+one undo step; a reply to an older buffer or detached view is discarded. A read-only editor refuses
+formatting with an explanation. Archive previews and project-file views remain read-only and have
+no formatting commands. Carried files do not format on save. The code window retains its guarded
+formatting and format-on-save paths, diagnostic tips and debugger data tips.
+
+Definition navigation, highlights and rename in carried files remain later stages of #266. Headless
+coverage is in `CarriedFileCompletionTests` and `CarriedFileHoverFormattingTests`, with clangd coverage
+in `CarriedFileHoverFormattingForeignTests`; live IDE verification remains pending.
 
 ## Capability negotiation
 
@@ -1215,9 +1227,12 @@ line break and the current line's indentation, skipping HexIDE's closer and keyw
 Without that trigger, the local Enter behavior stays unchanged. Other declared characters also request
 formatting after typing; the editor has no local quote or bracket insertion to suppress.
 
-A request has a 250 ms budget and sends `$/cancelRequest` on timeout, leaving the typed text without
-running local helpers. Replies are discarded if the document version or identity changed, even when
-an intervening edit restored the same text. Accepted edits use the guarded formatting writer, map the
+A request has a 250 ms budget and sends `$/cancelRequest` on timeout. On timeout or failure for
+newline, the editor applies the indentation local Enter would supply, without a closer or keyword
+correction (#4057). A successful empty or null server reply leaves the initial indentation unchanged;
+other triggers have no fallback. The fallback uses the same document, version, view, generation and undo
+group guards as server edits and continues the line break's undo group. Replies are discarded if the
+document version or identity changed, even when an intervening edit restored the same text. Accepted edits use the guarded formatting writer, map the
 caret through insertions/replacements, and continue the typing undo group so typing and formatting
 undo together. An edit reaching the caret keeps it on the corresponding line of the replacement: count
 line breaks from the old edit start to the caret, then stop before the next line break in the replacement
@@ -1234,7 +1249,7 @@ A key with nothing pending adds no fixed delay. The formatting request's own 250
 
 Completion requests use the start of the identifier around the caret, including for Complete Word,
 so servers that filter by the preceding word return the full list for that context ([#3340](https://github.com/hexide-io/HexIDE/issues/3340)).
-The editor keeps that list visible and selects prefix matches against the whole word around the caret;
+The editor keeps that list visible and selects against the whole word around the caret, a whole-word match first;
 it does not select PascalCase hump matches. A position after `.` or `(` stays after that punctuation.
 
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
@@ -1329,7 +1344,7 @@ Shift+F12, Edit → Find References and the code editor context menu open the re
 Immediate window's bottom group. When opened or brought forward for results, the pane grows to
 show six rows, borrowing available document height above the document area's minimum (at least
 120 DIP), then height from sibling tools in the same dock down to their minimums. Call Hierarchy
-uses the same policy. A sufficiently tall slot keeps its exact proportion; growth is saved with
+and Type Hierarchy use the same policy. A sufficiently tall slot keeps its exact proportion; growth is saved with
 the layout (#3094, #3114). Call Hierarchy's Edit and code context entries use separate localized
 menu labels with access keys in Latin-script packs; its pane title has no access key marker.
 Each search replaces the list, grouped by module in project order,
@@ -1342,6 +1357,20 @@ so its menu and shortcut explain the missing provider (#3758). A server still in
 running for this check. An empty answer from an available provider still shows “No references”.
 `FindReferencesToolViewModel.ShowLocations` fills the same pane without a request, for code-lens callers
 (#2906). Binding remains the server's responsibility.
+
+## Type hierarchy
+
+Type Hierarchy follows Call Hierarchy in the code context menu and Edit menu (#4056). It is enabled
+only when a running server for the document offers `typeHierarchyProvider`. The client advertises
+`textDocument.typeHierarchy` and sends `textDocument/prepareTypeHierarchy` at the flushed caret.
+Each prepared item becomes a root in a reusable results pane beside Immediate. Each type has Subtypes
+and Supertypes groups; opening a group requests that level once from the server that supplied the type,
+using the original item, including `data`. Returned types have their own independent groups. Empty
+prepares and groups show a localized empty row; request failures name the owning server. Enter or
+double-click navigates a type to its URI and selection range; group and message rows do not navigate.
+The bundled VB6 server does not offer this capability. No relationships are computed in the IDE.
+Menu access keys use free letters in each pack; English's existing menus leave no letter free in
+“Type Hierarchy”, so its entries omit the marker.
 
 ## Commands and lenses
 
@@ -1528,7 +1557,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 56 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 59 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1550,7 +1579,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 28 of 41
+### `textDocument/*` — 29 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1581,7 +1610,7 @@ than inferred.
 | ✅ | `textDocument/onTypeFormatting` | → | Claimed typing triggers, guarded edits, caret mapping and one-step undo (#2672) |
 | ✅ | `textDocument/prepareCallHierarchy` | → | Shows the server's call hierarchy; computes none |
 | ✅ | `textDocument/prepareRename` | → | Asks every claimant advertising prepareProvider before the prompt; range/placeholder seeds it, null/error refuses it (#3073) |
-| ○ | `textDocument/prepareTypeHierarchy` | → |  |
+| ✅ | `textDocument/prepareTypeHierarchy` | → | Shows the server's type hierarchy; computes none |
 | ✅ | `textDocument/publishDiagnostics` | ← |  |
 | ✅ | `textDocument/rangeFormatting` | → |  |
 | ○ | `textDocument/rangesFormatting` | → |  |
@@ -1695,12 +1724,12 @@ than inferred.
 | ✅ | `callHierarchy/incomingCalls` | → | Shows the server's call hierarchy; computes none |
 | ✅ | `callHierarchy/outgoingCalls` | → | Shows the server's call hierarchy; computes none |
 
-### `typeHierarchy/*` — 0 of 2
+### `typeHierarchy/*` — 2 of 2
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `typeHierarchy/subtypes` | → |  |
-| ○ | `typeHierarchy/supertypes` | → |  |
+| ✅ | `typeHierarchy/subtypes` | → | Lazy subtype groups (#4056) |
+| ✅ | `typeHierarchy/supertypes` | → | Lazy supertype groups (#4056) |
 
 ### `workspaceSymbol/*` — 0 of 1
 
@@ -1823,6 +1852,7 @@ awaiting effort, they are **server** features awaiting a server.
 | Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full only; delta, range and refresh remain unwired (#2054) |
 | Parameter-name and inferred-type hints | `textDocument/inlayHint` | **Wired** — labels from any offering server; these binding-dependent hints remain outside the bundled server |
 | Call hierarchy | `textDocument/prepareCallHierarchy` | Shows the server’s call hierarchy; computes none (#3080). Provider-gated command, lazy Calls To / Calls From tree and node/call-site navigation |
+| Type hierarchy | `textDocument/prepareTypeHierarchy`, `typeHierarchy/*` | Provider-gated code context and Edit commands; each prepared item has lazy Subtypes and Supertypes groups, empty/error states and selection-range navigation (#4056). Items retain their owning server and opaque data. Shows server answers; computes none |
 | Workspace symbols | `workspace/symbol` | **Wired** — see below |
 
 **`workspace/symbol` was wired before any server here needed it, and it is worth saying why.** The bundled server
@@ -1862,8 +1892,7 @@ describe returns null: nothing is prompted or written, and a target HexIDE still
 confinement and ownership check as a replace, while an edited one is left alone with its reason. Providers return
 content and never write files. The first provider, `clangd`, projects carried C/C++ files into `compile_commands.json`.
 The second, `rdcore`, projects the project's code files, references and Conditional Compilation Arguments into the
-`.rdproj` RDCore's language server needs at the workspace root. Current RDCore builds take a project import
-instead (below).
+`.rdproj` RDCore's language server needs at the workspace root. RDCore entries can also seed it before importing (below).
 
 Completed artefact writes and removals feed `workspace/didChangeWatchedFiles` registrations directly
 (#456). There is no public add-in contract (#457), no undeclared generation,
@@ -1874,8 +1903,12 @@ The loader recognises a server-neutral `projectImport` command and JSON argument
 Exact `{uri}` and `{text}` string values expand recursively, preserving JSON types and property names.
 After initialization and on the artefact service's 300 ms project-change debounce, the registry calls
 that command with the first loaded project's saved URI and in-memory `.vbp` serialization in each
-resolved folder. Shared folders are configuration problems, as described above. Importing entries skip
-artefact generation. The server must advertise the command; errors become configuration problems and
+resolved folder. Shared folders are configuration problems, as described above. Entries declaring both
+fields seed a missing artefact before launch, with the same consent and confinement checks (an existing one is left
+without asking), using a temporary
+file and a move that cannot overwrite a target. The seed is never recorded as owned; regeneration stays
+import-only. Seed failures are noted without preventing launch. This first-open bridge is to be removed
+when RDCore re-reads the language after import (#3317). The server must advertise the command; errors become configuration problems and
 reply notes reach the same server log as `window/logMessage` (object notes use their `message` text).
 Successful imports invalidate and re-pull open-document diagnostics until
 the connection first requests `workspace/diagnostic/refresh`, after which server refreshes take over

@@ -10,6 +10,7 @@
     "RunToCursorCommand":    "Ctrl+F8",
     "SetNextStatementCommand": "Ctrl+F9",
     "CallHierarchyCommand": "",
+    "TypeHierarchyCommand": "",
     "FormatSelectionCommand": ""
   }
 }

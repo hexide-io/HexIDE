@@ -82,6 +82,24 @@ public class ShippedPackParityTests
     }
 
     [Fact]
+    public void Upstream_statements_keep_HexIDEs_name_in_every_shipped_pack()
+    {
+        var canonical = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), "en.json")),
+            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        var keys = BrandText.UpstreamKeys;
+        var localization = new LocalizationService();
+        foreach (var language in LanguageManifest.Packs)
+        foreach (var key in keys.Where(key => canonical[key].Contains("HexIDE", StringComparison.Ordinal)))
+        {
+            var text = localization.GetStringFrom(language.Id, key);
+            text.Should().Contain("HexIDE", $"{language.Id}: {key}");
+            var strings = new Dictionary<string, string> { [key] = text };
+            BrandText.Apply(strings, "Acme");
+            strings[key].Should().Be(text, $"{language.Id}: {key}");
+        }
+    }
+
+    [Fact]
     public void NoPackHasKeysAbsentFromCanonicalEnglish()
     {
         var packs = PacksDirectory();

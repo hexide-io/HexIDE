@@ -36,6 +36,7 @@ public sealed class LocalizationService : ILocalizationService
     // tests still construct without it; when present, an override change live-re-applies the active language.
     private readonly IUserTranslationsService? _userTranslations;
     private readonly Dictionary<string, Dictionary<string, string>> _profileStrings = new(StringComparer.Ordinal);
+    private string? _profileId;
 
     // The active pack's effective map, including profile and user overrides.
     private Dictionary<string, string> _currentStrings;
@@ -101,6 +102,7 @@ public sealed class LocalizationService : ILocalizationService
     {
         if (profile == null)
             return;
+        _profileId = profile.Id;
         foreach (var (id, payload) in profile.LanguageOverrides)
         {
             var pack = payload.Content.Deserialize(LocalizationJsonContext.Default.LanguagePackRecord)!;
@@ -246,17 +248,19 @@ public sealed class LocalizationService : ILocalizationService
     internal bool TryResolveMap(string id, out Dictionary<string, string> map, out string direction)
     {
         var resolved = TryResolveLayers(id, out map, out direction);
-        KeepUpstreamCredits(id, map);
+        KeepProtectedStrings(id, map);
         if (!Distribution.Current.IsStock)
             BrandText.Apply(map, Distribution.Current.Name, hasRepository: Distribution.Current.RepositoryUrl is not null);
         return resolved;
     }
 
     /// <summary>
-    /// Restores HexIDE's own thanks if a profile or user override changed them. Jen (#2746): "a whitelabelled IDE
-    /// should _not_ get an API to remove HexIDE credits, only to add to them."
+    /// Restores the shipped text of every <see cref="BrandText.ProtectedKeys"/> entry a profile or user override
+    /// changed. That covers HexIDE's own thanks, where Jen ruled (#2746): "a whitelabelled IDE should _not_ get an API
+    /// to remove HexIDE credits, only to add to them". It also covers the lines naming HexIDE's signing keys, which a
+    /// product built on it must not relabel as its own (#4060).
     /// </summary>
-    private void KeepUpstreamCredits(string id, Dictionary<string, string> map)
+    private void KeepProtectedStrings(string id, Dictionary<string, string> map)
     {
         // The pseudo packs are a transformation of canonical English, with no override tier to defend against.
         if (id is "pseudo" or "pseudo-rtl")
@@ -264,42 +268,49 @@ public sealed class LocalizationService : ILocalizationService
 
         var language = id == "system" ? ResolveOsLanguage() : id;
 
-        // This runs on every resolve, and a pack is a large file to parse for a question that is nearly always no.
-        if (!IsCreditsOverridden(language))
-            return;
+        foreach (var key in BrandText.ProtectedKeys)
+        {
+            // This runs on every resolve, and a pack is a large file to parse for a question that is nearly always no.
+            if (OverrideSources(key, language) is not { Count: > 0 } sources)
+                continue;
 
-        var shipped = ShippedCredits(language);
-        if (map.TryGetValue(BrandText.UpstreamCreditsKey, out var current) && current == shipped)
-            return;
+            var shipped = Shipped(key, language);
+            if (map.TryGetValue(key, out var current) && current == shipped)
+                continue;
 
-        Log.Warning("LocalizationService: An override of {Key} for '{Language}' was ignored: HexIDE's credits can be added to, not replaced",
-            BrandText.UpstreamCreditsKey, language);
-        map[BrandText.UpstreamCreditsKey] = shipped;
+            Log.Warning("LocalizationService: An override of {Key} for '{Language}' from {Sources} was ignored: {Reason}",
+                key, language, string.Join(", ", sources), key == BrandText.UpstreamCreditsKey
+                    ? "HexIDE's credits can be added to, not replaced"
+                    : "the lines naming HexIDE's signing keys can't be relabeled");
+            map[key] = shipped;
+        }
     }
 
-    private bool IsCreditsOverridden(string language)
+    /// <summary>Each override tier that supplies <paramref name="key"/> for <paramref name="language"/>, by name.</summary>
+    private List<string>? OverrideSources(string key, string language)
     {
-        foreach (var layer in new[] { language, NeutralLanguageOf(language) })
+        List<string>? sources = null;
+        foreach (var layer in new[] { language, NeutralLanguageOf(language) }.Distinct())
         {
-            if (_profileStrings.TryGetValue(layer, out var profile) && profile.ContainsKey(BrandText.UpstreamCreditsKey))
-                return true;
-            if (_userTranslations?.GetOverrides(layer)?.ContainsKey(BrandText.UpstreamCreditsKey) == true)
-                return true;
+            if (_profileStrings.TryGetValue(layer, out var profile) && profile.ContainsKey(key))
+                (sources ??= []).Add($"profile '{_profileId}' ({layer})");
+            if (_userTranslations?.GetOverrides(layer)?.ContainsKey(key) == true)
+                (sources ??= []).Add($"the user's translations ({layer})");
         }
 
-        return false;
+        return sources;
     }
 
-    private string ShippedCredits(string language)
+    private string Shipped(string key, string language)
     {
         foreach (var layer in new[] { language, NeutralLanguageOf(language) })
         {
-            if (layer != "en" && LoadPackOwnStrings(layer).TryGetValue(BrandText.UpstreamCreditsKey, out var text)
+            if (layer != "en" && LoadPackOwnStrings(layer).TryGetValue(key, out var text)
                 && !string.IsNullOrWhiteSpace(text))
                 return text;
         }
 
-        return _englishStrings.GetValueOrDefault(BrandText.UpstreamCreditsKey, BrandText.UpstreamCreditsKey);
+        return _englishStrings.GetValueOrDefault(key, key);
     }
 
     private bool TryResolveLayers(string id, out Dictionary<string, string> map, out string direction)
