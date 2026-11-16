@@ -48,7 +48,7 @@ public partial class AddinConsentDialogViewModel : ObservableObject, IDialog
         if (_windowManager is null)
             return;
         var unavailable = _chain is null ? _localization.GetString("Str.Dialog.AddinConsent.Vm.NoVerifiableIdentity") : null;
-        await _windowManager.ShowDialog(new TrustChainViewModel(_chain, unavailable, isRevoked: false, asDialog: true));
+        await _windowManager.ShowDialog(new TrustChainViewModel(_chain, unavailable, isRevoked: false, asDialog: true, localization: _localization));
     }
 
     public string AddinTitle { get; }

@@ -9,7 +9,9 @@ namespace HexIDE.IDE;
 /// <summary>The images that carry the product's identity, from its descriptor or else HexIDE's own (#2042).</summary>
 public static class BrandAssets
 {
-    private const string StockLogo = "avares://HexIDE/Icons/AppIcon/hexide-logo-64.png";
+    // A brand image, exempt from the icon system's vector rule (#3364). Rendered from hexide-logo.svg at 256 pixels, so it
+    // stays sharp up to five times the 46 to 48 DIP About and New Project show it at; re-render it if the SVG changes.
+    private const string StockLogo = "avares://HexIDE/Icons/AppIcon/hexide-logo-256.png";
 
     /// <summary>The logo shown in About and the New Project header.</summary>
     public static Bitmap Logo

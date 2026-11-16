@@ -1815,6 +1815,89 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    private sealed record ComboLanguage(string Id, string DisplayName);
+
+    [AvaloniaTheory]
+    [InlineData("set_value")]
+    [InlineData("select")]
+    public void TemplatedCombo_SelectsShownText(string action)
+    {
+        var german = new ComboLanguage("de", "German");
+        var combo = new ComboBox
+        {
+            ItemsSource = new[] { new ComboLanguage("en", "English"), german },
+            ItemTemplate = new FuncDataTemplate<ComboLanguage>((item, _) => new StackPanel
+            {
+                Children = { new TextBlock { Text = item!.DisplayName }, new TextBlock { Text = item.Id, IsVisible = false } },
+            }),
+            SelectedIndex = 0,
+        };
+        var window = Show(combo);
+        try
+        {
+            if (action == "select")
+                UiAutomationDriver.Interact(combo, "expand", null).Success.Should().BeTrue();
+            var outcome = UiAutomationDriver.Interact(combo, action, "german");
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedItem.Should().BeSameAs(german);
+            outcome.Detail.Should().Contain("'German'");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("miss")]
+    [InlineData("path")]
+    [InlineData("fallback")]
+    public void TemplatedCombo_NamesShownTextAndKeepsRecordFallback(string surface)
+    {
+        var german = new ComboLanguage("de", "German");
+        var combo = new ComboBox
+        {
+            ItemsSource = new[] { new ComboLanguage("en", "English"), german },
+            ItemTemplate = new FuncDataTemplate<ComboLanguage>((item, _) => new StackPanel
+            {
+                Children = { new TextBlock { Text = item!.DisplayName }, new TextBlock { Text = item.Id, IsVisible = false } },
+            }),
+            SelectedIndex = 0,
+        };
+        var window = Show(combo);
+        try
+        {
+            if (surface == "miss")
+            {
+                var outcome = UiAutomationDriver.Interact(combo, "set_value", "missing");
+                outcome.Success.Should().BeFalse();
+                outcome.Error.Should().Contain("'English', 'German'").And.NotContain("ComboLanguage {");
+                combo.SelectedIndex.Should().Be(0);
+            }
+            else if (surface == "fallback")
+            {
+                UiAutomationDriver.Interact(combo, "expand", null).Success.Should().BeTrue();
+                var outcome = UiAutomationDriver.Interact(combo, "select", german.ToString());
+                outcome.Success.Should().BeTrue(outcome.Error);
+                combo.SelectedItem.Should().BeSameAs(german);
+                outcome.Detail.Should().Contain("'German'");
+            }
+            else
+            {
+                UiAutomationDriver.Interact(combo, "expand", null).Success.Should().BeTrue();
+                var dump = UiAutomationDriver.Dump(window, "Window", 20, false);
+                var nodes = UiAutomationDriver.Find(dump, "German", 20).Matches
+                    .Where(n => n.ControlType == "ComboBoxItem" && n.Name == "German").ToList();
+                nodes.Should().NotBeEmpty();
+                foreach (var node in nodes)
+                {
+                    node.Path.Should().Contain("ComboBoxItem[German]");
+                    var resolved = UiAutomationDriver.Resolve(window, node.Path);
+                    resolved.error.Should().BeNull();
+                    resolved.control.Should().BeSameAs(combo.ContainerFromIndex(1));
+                }
+            }
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void ReadOnlyValue_ComboMatch_SelectsAndReports()
     {

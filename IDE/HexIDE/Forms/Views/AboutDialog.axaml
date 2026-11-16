@@ -9,7 +9,7 @@
              MinWidth="300">
     <StackPanel Margin="16,16,16,8" Spacing="10">
         <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
-            <Image Source="{CompiledBinding Icon}" Width="48" Height="48"
+            <Image Source="{CompiledBinding Icon}" Width="48" Height="48" RenderOptions.BitmapInterpolationMode="HighQuality"
                    IsVisible="{CompiledBinding Icon, Converter={x:Static ObjectConverters.IsNotNull}}" />
             <StackPanel VerticalAlignment="Center" Spacing="4">
                 <TextBlock Text="{CompiledBinding Title}" FlowDirection="LeftToRight" HorizontalAlignment="Left" FontSize="18" FontWeight="Bold" />

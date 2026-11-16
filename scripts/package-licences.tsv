@@ -48,6 +48,7 @@ R3	MIT
 Serilog	Apache-2.0
 Serilog.Extensions.Logging	Apache-2.0
 Serilog.Sinks.File	Apache-2.0
+SharpFuzz	MIT
 StreamJsonRpc	MIT
 Svg.Skia	MIT
 xunit.analyzers	Apache-2.0

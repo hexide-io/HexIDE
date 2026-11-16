@@ -138,6 +138,50 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (leftValue.Type == rightValue.Type)
             return (leftValue, rightValue);
 
+        // #211: docs/vb6-fidelity-oracle/a-string-compared-with-a-number.md. These are operator
+        // rules, deliberately separate from Select Case's conversion toward its selector.
+        var stringOnLeft = leftValue.Type == Vb6Value.ValueType.String;
+        if (stringOnLeft != (rightValue.Type == Vb6Value.ValueType.String))
+        {
+            var text = stringOnLeft ? leftValue : rightValue;
+            var number = stringOnLeft ? rightValue : leftValue;
+            if (NumericRank(number.Type) >= 0 || number.Type == Vb6Value.ValueType.Boolean || number.Type == Vb6Value.ValueType.Date)
+            {
+                if (number.Type == Vb6Value.ValueType.Decimal || (text.HeldAsVariant &&
+                    (number.Type == Vb6Value.ValueType.Currency || number.Type == Vb6Value.ValueType.Boolean || number.Type == Vb6Value.ValueType.Date)))
+                    throw new NotImplementedException("This String comparison domain is unmeasured (#211).");
+
+                if (text.HeldAsVariant && number.HeldAsVariant)
+                    return stringOnLeft ? (new Vb6Value(1), new Vb6Value(0)) : (new Vb6Value(0), new Vb6Value(1));
+                if (number.HeldAsVariant)
+                {
+                    // Option Compare Text follows the two-String path too; this rule's Text mode is unmeasured.
+                    number = VbNumeric.CoerceOnStore(number, Vb6Value.ValueType.String, context[0]);
+                    return stringOnLeft ? (text, number) : (number, text);
+                }
+
+                var target = number.Type == Vb6Value.ValueType.Currency || number.Type == Vb6Value.ValueType.Boolean || number.Type == Vb6Value.ValueType.Date
+                    ? number.Type : Vb6Value.ValueType.Double;
+                try
+                {
+                    text = VbNumeric.CoerceOnStore(text, target, context[0]);
+                }
+                catch (VBRunTimeException e) when (text.HeldAsVariant && e.Error.ErrNo == VBStandardError.TypeMismatch.ErrNo)
+                {
+                    // A nonnumeric Variant String sorts above the typed number, with no conversion error.
+                    return stringOnLeft ? (new Vb6Value(1), new Vb6Value(0)) : (new Vb6Value(0), new Vb6Value(1));
+                }
+                number = VbNumeric.CoerceOnStore(number, target, context[0]);
+                // Date ordering uses its serial; keep the existing handling of other Date pairs.
+                if (target == Vb6Value.ValueType.Date)
+                {
+                    text = new Vb6Value(AsDouble(text));
+                    number = new Vb6Value(AsDouble(number));
+                }
+                return stringOnLeft ? (text, number) : (number, text);
+            }
+        }
+
         // A Boolean beside a number takes the number's type, as that type's conversion takes it: True is -1, and for a Byte
         // 255, its bits. Measured: `True = -1`, `True < 0` and `CDbl(-1) >= True` are True, and `CByte(1) > True` is False.
         // A chained comparison reaches this, since `3 = 3 < 4` is (3 = 3) < 4 (#1074).
@@ -2364,8 +2408,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             : Order.GreaterOrEqual;
         var (leftValue, rightValue) = await GetTwoValuesSameTypesOrNull(context.valueStmt());
         // Two strings compare ordinally under Option Compare Binary (oracle-verified: "B" < "a", "10" < "9"), and as text
-        // under Option Compare Text. A string-vs-number pair is left to the numeric path below (numeric string coerces; a
-        // non-numeric string vs a number is Type Mismatch, both already faithful, and the same in either mode).
+        // under Option Compare Text. Mixed String/number operands were reconciled above (#211).
         if (StringCompare(leftValue, rightValue, compareText) is int sc)
             return (Vb6Value)Holds(order, sc, 0);
         if (leftValue.Type == Vb6Value.ValueType.Boolean && rightValue.Type == Vb6Value.ValueType.Boolean)
@@ -2397,8 +2440,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     // The comparison operators' order when BOTH operands are String: ordinal under Option Compare Binary (verified against
     // vb6.exe), and vb6.exe's text compare under Option Compare Text (VbTextCompare). Returns null when the pair is not two
-    // strings, so the caller falls through to the numeric path (a numeric string vs a number coerces; a non-numeric string
-    // vs a number is a Type Mismatch, both already faithful).
+    // strings, so the caller falls through to the numeric path.
     private static int? StringCompare(Vb6Value left, Vb6Value right, bool text)
         => left.Type == Vb6Value.ValueType.String && right.Type == Vb6Value.ValueType.String
             ? left.TryCompareTo(right, text)

@@ -36,6 +36,7 @@ public partial class ObjectBrowserToolViewModel : Document
     private readonly ILocalizationService localization;
 
     private readonly Dictionary<ProjectDefinition, OBLibraryViewModel> projectToLibrary = new();
+    private readonly Dictionary<ProjectDefinition, List<OBLibraryViewModel>> projectReferences = new();
     private OBLibraryViewModel? vbaLibrary;
     private readonly OBLibraryViewModel allLibraries;
 
@@ -277,6 +278,14 @@ public partial class ObjectBrowserToolViewModel : Document
         project.ModuleAdded -= OnModuleAdded;
         project.ModuleDeleted -= OnModuleDeleted;
         project.PropertyChanged -= OnProjectChanged;
+        project.ObjectReferencesChanged -= RefreshReferenceLibraries;
+        foreach (var referenceLibrary in projectReferences[project])
+        {
+            PruneHistory(c => referenceLibrary.Classes.Contains(c));
+            Libraries.Remove(referenceLibrary);
+            if (SelectedLibrary == referenceLibrary) SelectedLibrary = null;
+        }
+        projectReferences.Remove(project);
         foreach (var form in project.Forms) form.PropertyChanged -= OnMemberChanged;
         foreach (var module in project.Modules) module.PropertyChanged -= OnMemberChanged;
         PruneHistory(c => lib.Classes.Contains(c));
@@ -294,6 +303,7 @@ public partial class ObjectBrowserToolViewModel : Document
         project.ModuleAdded += OnModuleAdded;
         project.ModuleDeleted += OnModuleDeleted;
         project.PropertyChanged += OnProjectChanged;
+        project.ObjectReferencesChanged += RefreshReferenceLibraries;
         var lib = new OBLibraryViewModel(project.Name);
 
         foreach (var form in project.Forms)
@@ -313,15 +323,36 @@ public partial class ObjectBrowserToolViewModel : Document
         projectToLibrary[project] = lib;
         Libraries.Add(lib);
 
-        foreach (var reference in project.References)
+        projectReferences[project] = new();
+        RefreshReferenceLibraries(project);
+    }
+
+    private void RefreshReferenceLibraries(ProjectDefinition project)
+    {
+        var references = project.References.ToList();
+        foreach (var library in InBox.RuntimeLibraries.ReferencedBy(project))
+            if (!references.Any(library.IsNamedBy))
+                references.Add(new VbReference(library.Guid, library.Version, 0, null, library.Name));
+
+        var owned = projectReferences[project];
+        foreach (var stale in owned.Where(l => !references.Contains(l.Reference!)).ToList())
+        {
+            PruneHistory(c => stale.Classes.Contains(c));
+            Libraries.Remove(stale);
+            owned.Remove(stale);
+            if (SelectedLibrary == stale) SelectedLibrary = null;
+        }
+        foreach (var reference in references)
         {
             if (string.IsNullOrEmpty(reference.LibPath) && string.IsNullOrEmpty(reference.Name)) continue;
+            if (owned.Any(l => l.Reference == reference)) continue;
             var refName = !string.IsNullOrEmpty(reference.Name)
                 ? reference.Name!
                 : SerializedProject.FileNameWithoutExtensionOf(reference.LibPath!);
-            Libraries.Add(new OBLibraryViewModel(refName, reference));
+            var lib = new OBLibraryViewModel(refName, reference);
+            owned.Add(lib);
+            Libraries.Add(lib);
         }
-
         ReorderLibraries();
     }
 
@@ -331,6 +362,7 @@ public partial class ObjectBrowserToolViewModel : Document
         projectToLibrary[project].Classes.Add(new OBClassViewModel(form.Name, OBClassKind.Form,
             project.Name, formDefinition: form));
         RefreshProjectClasses(project);
+        RefreshReferenceLibraries(project);
     }
 
     private void OnModuleAdded(ProjectDefinition project, ModuleDefinition module)
@@ -346,6 +378,7 @@ public partial class ObjectBrowserToolViewModel : Document
     {
         form.PropertyChanged -= OnMemberChanged;
         RemoveProjectClass(project, c => ReferenceEquals(c.FormDefinition, form));
+        RefreshReferenceLibraries(project);
     }
 
     private void OnModuleDeleted(ProjectDefinition project, ModuleDefinition module)
@@ -382,6 +415,11 @@ public partial class ObjectBrowserToolViewModel : Document
 
     private void OnProjectChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (sender is ProjectDefinition changed && e.PropertyName == nameof(ProjectDefinition.References))
+        {
+            RefreshReferenceLibraries(changed);
+            return;
+        }
         if (!string.IsNullOrEmpty(e.PropertyName) && e.PropertyName != nameof(ProjectDefinition.Name)) return;
         if (sender is not ProjectDefinition project) return;
         projectToLibrary[project].Name = project.Name;
@@ -597,8 +635,18 @@ public partial class ObjectBrowserToolViewModel : Document
 
             if (info == null)
             {
-                lib.Classes.Add(new OBClassViewModel(
-                    "(Type metadata unavailable)", OBClassKind.Module, lib.Name));
+                var library = InBox.RuntimeLibraries.All.FirstOrDefault(l => l.IsNamedBy(lib.Reference));
+                foreach (var control in componentRegistry.LibraryControls.Where(c => c.Library == library))
+                {
+                    if (control.Class is not InBox.InBoxComponentClass component) continue;
+                    var classVm = new OBClassViewModel(control.ControlName, OBClassKind.ClassModule, lib.Name);
+                    foreach (var member in component.Members.Where(m => m.IsIn(control.Library)))
+                        classVm.Members.Add(CreateInBoxMember(member));
+                    lib.Classes.Add(classVm);
+                }
+                if (lib.Classes.Count == 0)
+                    lib.Classes.Add(new OBClassViewModel(
+                        "(Type metadata unavailable)", OBClassKind.Module, lib.Name));
             }
             else
             {
@@ -616,21 +664,14 @@ public partial class ObjectBrowserToolViewModel : Document
                     {
                         foreach (var member in component.Members.Where(m => m.Origin.HasFlag(InBox.MemberOrigin.HexIde)))
                         {
-                            var kind = member.Kind switch
-                            {
-                                InBox.MemberKind.Property => OBMemberKind.Property,
-                                InBox.MemberKind.Event => OBMemberKind.Event,
-                                _ => OBMemberKind.Method,
-                            };
-                            classVm.Members.Add(new OBMemberViewModel(member.Name, kind, $"{member.Kind} {member.Name}",
-                                localization.GetString("Str.MemberOrigin.HexIde")));
+                            classVm.Members.Add(CreateInBoxMember(member));
                         }
                     }
                     lib.Classes.Add(classVm);
                 }
-                lib.Classes.Sort((a, b) =>
-                    string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
             }
+            lib.Classes.Sort((a, b) =>
+                string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
 
             if (ReferenceEquals(SelectedLibrary, lib) || SelectedLibrary == allLibraries)
                 RebuildFilteredClasses();
@@ -642,6 +683,15 @@ public partial class ObjectBrowserToolViewModel : Document
         }
         finally { IsLoadingMembers = false; }
     }
+
+    private OBMemberViewModel CreateInBoxMember(InBox.InBoxMember member) => new(member.Name,
+        member.Kind switch
+        {
+            InBox.MemberKind.Property => OBMemberKind.Property,
+            InBox.MemberKind.Event => OBMemberKind.Event,
+            _ => OBMemberKind.Method,
+        }, $"{member.Kind} {member.Name}",
+        member.Origin.HasFlag(InBox.MemberOrigin.HexIde) ? localization.GetString("Str.MemberOrigin.HexIde") : null);
 
     private static OBClassKind MapTypeKind(TypeKind kind) => kind switch
     {

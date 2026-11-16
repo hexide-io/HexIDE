@@ -274,7 +274,8 @@ public class DialogButtonCueTests
         if (defaultKey is not null)
             content.Resources[defaultKey] = new HexIDE.Localization.LocalizationService().GetString(defaultKey);
         if (view == "TrustChainView")
-            content.DataContext = new HexIDE.Forms.ViewModels.TrustChainViewModel(null, null, false, asDialog: true);
+            content.DataContext = new HexIDE.Forms.ViewModels.TrustChainViewModel(null, null, false, asDialog: true,
+                localization: new HexIDE.Localization.LocalizationService());
         // Isolate the chrome/focus policy from view-model command availability, as the rendering matrix does.
         // Do not assign IsDefault: that is the view's contract under test.
         var command = Substitute.For<System.Windows.Input.ICommand>();

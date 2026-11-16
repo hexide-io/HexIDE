@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HexIDE.Addins;
 using HexIDE.IDE;
+using HexIDE.Localization;
 
 namespace HexIDE.Forms.ViewModels;
 
@@ -21,12 +22,16 @@ public sealed record TrustRow(string Heading, string Primary, string? Id, string
 /// </summary>
 public partial class TrustChainViewModel : ObservableObject, IDialog
 {
-    public string Title => "Add-in trust chain";
+    private readonly ILocalizationService _localization;
+
+    public string Title => Text("DialogTitle");
     public bool CanResize => false;
     public event Action<bool>? CloseRequested;
 
-    public TrustChainViewModel(TrustChain? chain, string? unavailableReason, bool isRevoked, bool asDialog)
+    public TrustChainViewModel(TrustChain? chain, string? unavailableReason, bool isRevoked, bool asDialog,
+                               ILocalizationService localization)
     {
+        _localization = localization;
         ShowCloseButton = asDialog;
         IsRevoked = isRevoked;
         UnavailableReason = unavailableReason;
@@ -37,12 +42,12 @@ public partial class TrustChainViewModel : ObservableObject, IDialog
             IsFirstParty = chain.IsFirstParty;
             Rows =
             [
-                new TrustRow("Build", $"{Dash(chain.BuildVersion)}", null, Group(chain.BuildHash), false, false),
-                new TrustRow("Publisher", Dash(chain.Publisher.Label), NullIfEmpty(chain.Publisher.Id),
+                new TrustRow(Text("Build"), $"{Dash(chain.BuildVersion)}", null, Group(chain.BuildHash), false, false),
+                new TrustRow(Text("Publisher"), Dash(chain.Publisher.Label), NullIfEmpty(chain.Publisher.Id),
                              chain.Publisher.KeyFingerprint, true, chain.IsFirstParty),
-                new TrustRow("Marketplace", Dash(chain.Intermediate.Label), NullIfEmpty(chain.Intermediate.Id),
+                new TrustRow(Text("Marketplace"), Dash(chain.Intermediate.Label), NullIfEmpty(chain.Intermediate.Id),
                              chain.Intermediate.KeyFingerprint, true, false),
-                new TrustRow("HexIDE root", "Baked-in trust anchor", null, chain.Root.KeyFingerprint, true, false),
+                new TrustRow(Text("Root"), Text("TrustAnchor"), null, chain.Root.KeyFingerprint, true, false),
             ];
         }
     }
@@ -55,9 +60,9 @@ public partial class TrustChainViewModel : ObservableObject, IDialog
     public bool HasUnavailableReason => !string.IsNullOrEmpty(UnavailableReason);
 
     /// <summary>The compare-it-yourself hint shown beneath the chain.</summary>
-    public string CompareHint =>
-        "Compare the HexIDE root and publisher fingerprints against the values published in HexIDE's docs " +
-        "(TRUST.md) and by the publisher. HexIDE verifies the chain; only you can confirm a key is who it claims.";
+    public string CompareHint => Text("CompareHint");
+
+    private string Text(string name) => _localization.GetString("Str.Dialog.TrustChain." + name);
 
     public IReadOnlyList<TrustRow> Rows { get; } = [];
 

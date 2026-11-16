@@ -8,14 +8,16 @@ namespace HexIDE.IDE;
 /// <see cref="WindowStateService"/> wraps it with the disk read/write.</summary>
 public static class LayoutManifestJson
 {
-    private static readonly JsonSerializerOptions s_json = new()
+    // Internal so a test that round-trips a manifest can read with exactly these options and report the exception
+    // Deserialize's corrupt-file fallback hides (#3985).
+    internal static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
-    public static string Serialize(LayoutManifest manifest) => JsonSerializer.Serialize(manifest, s_json);
+    public static string Serialize(LayoutManifest manifest) => JsonSerializer.Serialize(manifest, Options);
 
     /// <summary>Parse a manifest, migrating a legacy v1 file ({ leftProportion, rightProportion }) onto the
     /// default manifest. Returns <c>null</c> for empty or unparseable input (the caller falls back to
@@ -39,7 +41,7 @@ public static class LayoutManifestJson
                 return LayoutManifest.Default with { LeftProportion = left, RightProportion = right };
             }
 
-            return JsonSerializer.Deserialize<LayoutManifest>(json, s_json);
+            return JsonSerializer.Deserialize<LayoutManifest>(json, Options);
         }
         catch (JsonException)
         {
