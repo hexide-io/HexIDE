@@ -531,6 +531,7 @@ added afterwards.
 - [Subscripts, bounds, and a method called from Class_Initialize (2026-10-12, #760, #849, #850)](subscripts-bounds-and-a-method-called-from-class_initialize.md#subscripts-bounds-and-a-method-called-from-class_initialize-2026-10-12-760-849-850)
 - [An object used as a value (2026-10-12, #174)](an-object-used-as-a-value.md#an-object-used-as-a-value-2026-10-12-174)
 - [A default member's value compared with a String (2026-11-14, #174's review)](an-object-used-as-a-value.md#a-default-members-value-compared-with-a-string-2026-11-14-174s-review)
+- [Through an `As Object` variable (2026-11-16, #174's review)](an-object-used-as-a-value.md#through-an-as-object-variable-2026-11-16-174s-review)
 - [The native build's hidden switches, and where `VB6.EXE` finds C2 and LINK (2026-10-13)](the-native-builds-hidden-switches-and-where-vb6exe-finds-c2-and-link.md#the-native-builds-hidden-switches-and-where-vb6exe-finds-c2-and-link-2026-10-13)
 - [A Function that returns an array (2026-10-13, #975)](a-function-that-returns-an-array.md#a-function-that-returns-an-array-2026-10-13-975)
 - [Arrays copy wherever VB6 stores one (2026-10-14, #970)](arrays-copy-wherever-vb6-stores-one.md#arrays-copy-wherever-vb6-stores-one-2026-10-14-970)
