@@ -107,6 +107,8 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/FlexGridKeyboardTests.cs` | provider |
 | `Views/FlexGridMouseTests.cs` | provider |
 | `Views/FlexGridRuntimeTests.cs` | provider |
+| `Views/FontDialogEffectsTests.cs` | split |
+| `Views/FontDialogSizeTests.cs` | split |
 | `Views/FontSizeInPointsTests.cs` | split |
 | `Views/ForegroundWindowLifetimeTests.cs` | split |
 | `Views/ForegroundWindowTests.cs` | split |
