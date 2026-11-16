@@ -244,8 +244,12 @@ made them look permanent in a way they are not.
 
 Now **Deferred**, with the real work named. None needs a bound AST; each is unimplemented, awkward or costly.
 
-- **Parameterized `Property Let`/`Set`** remain refused on class instances. Standard-module indexed Let
-  dispatches through the procedure binder (#977); indexed Set remains unmeasured and refused. A class's parameterized `Property Get` now
+- **Parameterized `Property Let`/`Set`** dispatch on class instances with indexes before the assigned value
+  ([#177 measurements](https://github.com/hexide-io/HexIDE/issues/177), native and p-code; oracle PR #4042).
+  Standard-module indexed Let dispatches through the procedure binder (#977); standard-module indexed Set
+  remains unmeasured and refused. Mismatched accessor signatures run here but are refused at compile time
+  by VB6; the consistency diagnostic requires binding and is not implemented. Optional/ParamArray indexes
+  and default-member indexed writes (#174) are outside #177. A class's parameterized `Property Get` now
   passes its index arguments through the ordinary procedure binder (#741), including the surplus-argument
   compile error. A Collection's `Item` is separately implemented as an in-box object's member (#1471).
 - **Fixed-length strings** (`Dim s As String * n`) — the width is a CST child of the declaration; the

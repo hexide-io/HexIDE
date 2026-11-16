@@ -10,6 +10,66 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class PropertyTests : BaseVBTestFixture
 {
+    // Measured on vb6.exe SP6, native and p-code: https://github.com/hexide-io/HexIDE/issues/177
+    // (oracle PR #4042). Index arguments precede the assigned value.
+    private const string IndexedItem = """
+        Private m(5) As Variant
+        Public Property Get Item(ByVal i As Long) As Variant
+            If IsObject(m(i)) Then
+                Set Item = m(i)
+            Else
+                Item = m(i)
+            End If
+        End Property
+        Public Property Let Item(ByVal i As Long, ByVal v As Variant)
+            m(i) = v
+        End Property
+        Public Property Set Item(ByVal i As Long, ByVal v As Object)
+            Set m(i) = v
+        End Property
+        """;
+
+    [Theory]
+    [InlineData("CItem")]
+    [InlineData("Object")]
+    public async Task IndexedPropertyLet_PassesIndexBeforeValue(string declaration)
+    {
+        var code = declaration == "CItem"
+            ? "o.Item(1) = 42\nDebug.Print o.Item(1)\nDebug.Print TypeName(o.Item(1))"
+            : "o.Item(3) = \"late\"\nDebug.Print o.Item(3)";
+        await RunClasses($"Dim o As {declaration}\nSet o = New CItem\n{code}\n", ("CItem", IndexedItem));
+        if (declaration == "CItem")
+            AssertDebugLog([42, "Integer"]);
+        else
+            AssertDebugLog(["late"]);
+    }
+
+    [Fact]
+    public async Task IndexedPropertySet_PreservesReference()
+    {
+        await RunClasses("""
+            Dim o As New CItem
+            Dim o2 As New CItem
+            Set o.Item(2) = o2
+            Debug.Print TypeName(o.Item(2))
+            Debug.Print o.Item(2) Is o2
+            """, ("CItem", IndexedItem));
+        AssertDebugLog(["CItem", true]);
+    }
+
+    [Fact]
+    public async Task IndexedPropertyLet_ThroughWithTarget()
+    {
+        await RunClasses("""
+            Dim o As New CItem
+            With o
+                .Item(1) = 5
+                Debug.Print .Item(1)
+            End With
+            """, ("CItem", IndexedItem));
+        AssertDebugLog([5]);
+    }
+
     [Fact]
     public async Task PropertyGetLet_RoundTrip()
     {
