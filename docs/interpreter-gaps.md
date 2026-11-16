@@ -104,7 +104,9 @@ Platform: 5 · Partial: 11 · Other: 1. An entry fixed since the audit is not co
 >   parse, so an inactive branch is never parsed; oracle-pinned).
 > - **→ Deferred:** Load/Unload (since built, for control-array elements and for whole forms, #822/#973) · chained
 >   index groups (`Split(s)(0)`; since fixed, #1476) · AddressOf · unmeasured String/number comparison domains (#211) · **Declare … Lib** (no longer
->   fails the module load — the declaration (including VBA7 `PtrSafe`, #1548) is skipped, so the module runs; an actual
+>   fails the module load — a compatible declaration is skipped, so the module runs;
+>   [#4245](https://github.com/hexide-io/HexIDE/issues/4245) rejects `PtrSafe` for VB6 and requires it for
+>   64-bit VBA7 before that skip, using the issue's measured rows; an actual
 >   call raises the clean "Sub or Function not defined") · selection/system/financial intrinsics (IIf, Choose and Switch
 >   have since been added, and of the financials only IRR, MIRR and DDB remain).
 > - **→ Platform limits:** AppActivate / SendKeys (OS automation). The array-element/call-result lead in a member

@@ -756,6 +756,19 @@ SHALL follow the record of the project being opened. Source bytes SHALL NOT gain
 Whether VB6's File → Save Project retains the section is unmeasured; `/make` accepting trailing sections
 does not establish save behaviour.
 
+The same trailing `[HexIDE]` section SHALL store a project's VBA7 target as `VbaBitness=32` or
+`VbaBitness=64` (#4245). The loader SHALL expose it on the Core project definition. No key SHALL be
+written for the default VB6 target, so an otherwise unchanged VB6 project retains its bytes. Changing
+or clearing the target SHALL replace or remove its previous key while retaining encoding records and
+unknown keys. A `VbaBitness` value other than 32 or 64 SHALL read as no target and SHALL be written back
+verbatim. This is HexIDE metadata, not a claim about VBA's native project format.
+
+#### Scenario: A VBA7 target survives a fresh open
+- **GIVEN** a project whose VBA7 target is 64-bit
+- **WHEN** it is saved and freshly opened
+- **THEN** its trailing `[HexIDE]` section has `VbaBitness=64` and the project retains that target
+- **AND** a project with no target writes no bitness key
+
 #### Scenario: An edit removes the UTF-8 signature
 - **GIVEN** a BOM-less UTF-8 module holding `' café 日本`
 - **WHEN** its code becomes `' café` and the project is saved and freshly opened

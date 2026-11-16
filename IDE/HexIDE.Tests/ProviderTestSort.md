@@ -36,6 +36,7 @@ A test that reaches the provider only at run time, through the application's com
 | `DebugAdapter/DebuggerCompositionTests.cs` | split |
 | `DebugAdapter/RunEngineSeamTests.cs` | split |
 | `DebugAdapter/RunWithTests.cs` | split |
+| `DebugAdapter/VbaBitnessEngineTests.cs` | split |
 | `Debugging/BreakpointServiceTests.cs` | split |
 | `IDE/CodePrefixEquivalenceTests.cs` | split |
 | `IDE/DirtyDetectorTests.cs` | split |
@@ -135,6 +136,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Serialization/SafeImageDecoderTests.cs` | provider |
 | `Serialization/ToolbarSerializationTests.cs` | provider |
 | `Serialization/VbNameRetargetTests.cs` | provider |
+| `Serialization/VbaBitnessPersistenceTests.cs` | provider |
 | `Sidecar/SidecarMigrationTests.cs` | split |
 | `Sidecar/UserSidecarBreakpointTests.cs` | split |
 | `Sidecar/UserSidecarSaveTests.cs` | split |
