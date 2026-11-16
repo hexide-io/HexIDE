@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Net.Sockets;
 using HexIDE.IDE;
 using HexIDE.Localization;
@@ -19,13 +20,52 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
 
     public List<MenuViewModel> Deleted { get; } = new();
 
+    private MenuViewModel blankMenu = null!;
+    private readonly List<(MenuViewModel Menu, int Indent)> originalItems = new();
+    internal bool HasLayoutChanges => !ItemsToApply.Select(menu => (menu, menu.Indent)).SequenceEqual(originalItems);
+    internal bool HasChanges => HasLayoutChanges || ItemsToApply.Any(menu => menu.HasChanges);
+    internal IEnumerable<MenuViewModel> ItemsToApply => FlatMenu.Where(menu => menu != blankMenu);
+
+    public sealed record Choice(string Label, string Value);
+    public List<Choice> Shortcuts { get; } = CreateShortcuts();
+
+    private static List<Choice> CreateShortcuts(ILocalizationService? localization = null)
+    {
+        string Text(string key, string fallback)
+        {
+            var value = localization?.GetString("Str.Dialog.MenuEditor.Shortcut." + key);
+            return string.IsNullOrEmpty(value) ? fallback : value;
+        }
+
+        var ctrl = Text("CtrlFormat", "Ctrl+{0}");
+        var shift = Text("ShiftFormat", "Shift+{0}");
+        var shiftCtrl = Text("ShiftCtrlFormat", "Shift+Ctrl+{0}");
+        var alt = Text("AltFormat", "Alt+{0}");
+        var function = Text("FunctionFormat", "F{0}");
+        var insert = Text("InsertKey", "Ins");
+        var delete = Text("DeleteKey", "Del");
+        var backspace = Text("BackspaceKey", "Bksp");
+        var choices = new List<Choice> { new(Text("None", "(None)"), "") };
+        for (var key = 'A'; key <= 'Z'; key++)
+            choices.Add(new(string.Format(ctrl, key), "^" + key));
+        foreach (var (format, prefix) in new[] { ("{0}", ""), (ctrl, "^"), (shift, "+"), (shiftCtrl, "+^") })
+            for (var key = 1; key <= 12; key++)
+                if (key != 10)
+                    choices.Add(new(string.Format(format, string.Format(function, key)), prefix + "{F" + key + "}"));
+        choices.AddRange([new(string.Format(ctrl, insert), "^{INSERT}"), new(string.Format(shift, insert), "+{INSERT}"),
+            new(delete, "{DEL}"), new(string.Format(shift, delete), "+{DEL}"), new(string.Format(alt, backspace), "%{BKSP}")]);
+        return choices;
+    }
+
     public MenuEditorViewModel()
     {
-
+        AddBlankRow();
+        SelectedMenu = blankMenu;
     }
 
     public MenuEditorViewModel(FormEditViewModel form, ILocalizationService? localization = null)
     {
+        Shortcuts = CreateShortcuts(localization);
         Title = localization?.GetString("Str.Dialog.MenuEditor.Title") ?? Title;
 
         void AddRecur(ComponentInstance menu, int level)
@@ -33,6 +73,7 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
             var vm = new MenuViewModel(menu);
             vm.Indent = level;
             FlatMenu.Add(vm);
+            originalItems.Add((vm, level));
             if (menu.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } subItems)
             {
                 foreach (var subItem in subItems)
@@ -41,6 +82,25 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
         }
         foreach (var menu in form.TopLevelMenu)
             AddRecur(menu.Instance, 0);
+        AddBlankRow();
+        SelectedMenu = blankMenu;
+    }
+
+    private void AddBlankRow()
+    {
+        blankMenu = new MenuViewModel();
+        blankMenu.PropertyChanged += OnBlankCaptionChanged;
+        FlatMenu.Add(blankMenu);
+    }
+
+    private void OnBlankCaptionChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(MenuViewModel.Caption) || string.IsNullOrEmpty(blankMenu.Caption))
+            return;
+
+        // The caption promotes this row; the next blank starts at level zero until Next reaches it (#4141).
+        blankMenu.PropertyChanged -= OnBlankCaptionChanged;
+        AddBlankRow();
     }
 
     public void Accept()
@@ -62,12 +122,16 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
         if (indexOf >= FlatMenu.Count)
             indexOf = 0;
 
-        SelectedMenu = FlatMenu[indexOf];
+        var next = FlatMenu[indexOf];
+        if (next == blankMenu)
+            next.Indent = selectedMenu.Indent;
+        SelectedMenu = next;
     }
 
     public void Insert()
     {
         var indexOf = selectedMenu == null ? Math.Max(0, FlatMenu.Count - 1) : FlatMenu.IndexOf(selectedMenu) + 1;
+        indexOf = Math.Min(indexOf, FlatMenu.Count - 1);
         var newMenu = new MenuViewModel();
         FlatMenu.Insert(indexOf, newMenu);
         newMenu.Indent = selectedMenu?.Indent ?? 0;
@@ -76,7 +140,7 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
 
     public void Delete()
     {
-        if (selectedMenu == null)
+        if (selectedMenu == null || selectedMenu == blankMenu)
             return;
 
         var indexOf = FlatMenu.IndexOf(selectedMenu);
@@ -107,7 +171,7 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
 
     public void MoveUp()
     {
-        if (selectedMenu == null)
+        if (selectedMenu == null || selectedMenu == blankMenu)
             return;
 
         var indexOf = FlatMenu.IndexOf(selectedMenu);
@@ -123,7 +187,7 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
             return;
 
         var indexOf = FlatMenu.IndexOf(selectedMenu);
-        if (indexOf < FlatMenu.Count - 1)
+        if (indexOf < FlatMenu.Count - 2)
         {
             FlatMenu.Move(indexOf, indexOf + 1);
         }
@@ -144,6 +208,10 @@ public partial class MenuViewModel : ObservableObject
     [Notify] private bool isVisible = true;
     [Notify] private bool isWindowsList;
     [Notify] private int indent;
+    [Notify] private int? index;
+    [Notify] private string shortcut = "";
+    [Notify] private int helpContextID;
+    [Notify] private int negotiatePosition;
 
     public MenuViewModel()
     {
@@ -154,6 +222,10 @@ public partial class MenuViewModel : ObservableObject
     public MenuViewModel(ComponentInstance menu)
     {
         Menu = menu;
+        index = menu.GetPropertyOrDefault(MenuComponentClass.IndexProperty);
+        shortcut = menu.GetPropertyOrDefault(MenuComponentClass.ShortcutProperty) ?? "";
+        helpContextID = menu.GetPropertyOrDefault(VBProperties.HelpContextIDProperty);
+        negotiatePosition = menu.GetPropertyOrDefault(MenuComponentClass.NegotiatePositionProperty);
         caption = menu.GetPropertyOrDefault(VBProperties.CaptionProperty) ?? "";
         name = menu.GetPropertyOrDefault(VBProperties.NameProperty) ?? "";
         isChecked = menu.GetPropertyOrDefault(VBProperties.CheckedProperty);
@@ -162,13 +234,35 @@ public partial class MenuViewModel : ObservableObject
         isWindowsList = menu.GetPropertyOrDefault(VBProperties.WindowListProperty);
     }
 
+    internal bool HasChanges => Menu is null
+        || index != Menu.GetPropertyOrDefault(MenuComponentClass.IndexProperty)
+        || shortcut != Menu.GetPropertyOrDefault(MenuComponentClass.ShortcutProperty)
+        || helpContextID != Menu.GetPropertyOrDefault(VBProperties.HelpContextIDProperty)
+        || negotiatePosition != Menu.GetPropertyOrDefault(MenuComponentClass.NegotiatePositionProperty)
+        || caption != (Menu.GetPropertyOrDefault(VBProperties.CaptionProperty) ?? "")
+        || name != (Menu.GetPropertyOrDefault(VBProperties.NameProperty) ?? "")
+        || isEnable != Menu.GetPropertyOrDefault(VBProperties.EnabledProperty)
+        || isVisible != Menu.GetPropertyOrDefault(VBProperties.VisibleProperty)
+        || isChecked != Menu.GetPropertyOrDefault(VBProperties.CheckedProperty)
+        || isWindowsList != Menu.GetPropertyOrDefault(VBProperties.WindowListProperty);
+
     public void Apply(ComponentInstance menu)
     {
-        menu.SetProperty(VBProperties.CaptionProperty, caption);
-        menu.SetProperty(VBProperties.NameProperty, name);
-        menu.SetProperty(VBProperties.EnabledProperty, isEnable);
-        menu.SetProperty(VBProperties.VisibleProperty, isVisible);
-        menu.SetProperty(VBProperties.CheckedProperty, isChecked);
-        menu.SetProperty(VBProperties.WindowListProperty, isWindowsList);
+        void SetIfChanged<T>(PropertyClass<T> property, T value)
+        {
+            if (!EqualityComparer<T>.Default.Equals(menu.GetPropertyOrDefault(property), value))
+                menu.SetProperty(property, value);
+        }
+
+        SetIfChanged(MenuComponentClass.IndexProperty, index);
+        SetIfChanged(MenuComponentClass.ShortcutProperty, shortcut);
+        SetIfChanged(VBProperties.HelpContextIDProperty, helpContextID);
+        SetIfChanged(MenuComponentClass.NegotiatePositionProperty, negotiatePosition);
+        SetIfChanged(VBProperties.CaptionProperty, caption);
+        SetIfChanged(VBProperties.NameProperty, name);
+        SetIfChanged(VBProperties.EnabledProperty, isEnable);
+        SetIfChanged(VBProperties.VisibleProperty, isVisible);
+        SetIfChanged(VBProperties.CheckedProperty, isChecked);
+        SetIfChanged(VBProperties.WindowListProperty, isWindowsList);
     }
 }

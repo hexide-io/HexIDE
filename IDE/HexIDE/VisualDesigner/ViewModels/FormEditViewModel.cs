@@ -1683,8 +1683,16 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     public async Task EditMenu()
     {
         var vm = new MenuEditorViewModel(this, localization);
-        if (!await windowManager.ShowDialog(vm))
+        if (!await windowManager.ShowDialog(vm) || !vm.HasChanges)
             return;
+
+        if (!vm.HasLayoutChanges)
+        {
+            foreach (var item in vm.ItemsToApply)
+                item.Apply(item.Menu!);
+            CommitLayout();
+            return;
+        }
 
         foreach (var deleted in vm.Deleted)
         {
@@ -1694,7 +1702,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
         List<ComponentInstanceViewModel> topLevel = new();
         Stack<(int level, ComponentInstance component)> stack = new();
-        foreach (var menuViewModel in vm.FlatMenu)
+        foreach (var menuViewModel in vm.ItemsToApply)
         {
             if (menuViewModel.Menu != null)
             {
@@ -1703,7 +1711,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                     subItems.Clear();
             }
         }
-        foreach (var menuViewModel in vm.FlatMenu)
+        foreach (var menuViewModel in vm.ItemsToApply)
         {
             var menu = menuViewModel.Menu;
             if (menu == null)
@@ -1733,11 +1741,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         foreach (var x in topLevel)
             TopLevelMenu.Add(x);
 
-        // The first of the three paths that bypass the undo stack: the menu editor adds, removes and
-        // re-parents components and pushes nothing, so nothing else would announce it. In practice the
-        // refresh usually stops at the fidelity gate — HexIDE flattens nested Begin blocks, so a form with
-        // a real menu is one it refuses to save — and that is the correct outcome rather than a missing
-        // one: the buffer keeps showing the file, which is what the save refusal protects.
+        // The menu editor adds, removes and re-parents components outside the undo stack, so announce the change here.
         CommitLayout();
     }
 

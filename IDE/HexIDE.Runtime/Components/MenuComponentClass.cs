@@ -9,9 +9,13 @@ public class MenuComponentClass : ComponentBaseClass
 {
     // No bounds: a menu has no Left, Top, Width or Height in VB6, and a value set there was written into the .frm under
     // a name VB6 gives no menu (#923 review).
-    public MenuComponentClass() : base([CaptionProperty, EnabledProperty, CheckedProperty, WindowListProperty], null, hasBounds: false)
+    public MenuComponentClass() : base([CaptionProperty, EnabledProperty, CheckedProperty, WindowListProperty, HelpContextIDProperty, IndexProperty, ShortcutProperty, NegotiatePositionProperty], null, hasBounds: false)
     {
     }
+
+    public static readonly PropertyClass<int?> IndexProperty = new("Index", "", PropertyCategory.Internal);
+    public static readonly PropertyClass<string> ShortcutProperty = new("Shortcut", "", PropertyCategory.Internal, "");
+    public static readonly PropertyClass<int> NegotiatePositionProperty = new("NegotiatePosition", "", PropertyCategory.Internal);
 
     public override string Name => "Menu";
     public override string VBTypeName => "VB.Menu";
