@@ -107,6 +107,13 @@ public static class RichTextBoxPersistence
             && double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) && number == expected;
     }
 
+    // A one-line property's value, before any comment, when the whole of it is a number: as IsDefault reads it.
+    private static double? WholeNumber(ComponentInstance.UnknownRawProperty raw) =>
+        raw.Lines.Count == 1 && double.TryParse(raw.Lines[0][(raw.Lines[0].IndexOf('=') + 1)..].Split('\'')[0].Trim(),
+            NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
+            ? number
+            : null;
+
     internal static void Write(VbFrmFormatSerializer vb, ComponentInstance instance, CompanionCitations citations)
     {
         vb.WriteProperty("_ExtentX", typeof(int), InBoxComponentClass.Extent((int)Math.Round(instance.GetPropertyOrDefault(VBProperties.WidthProperty))));
@@ -132,7 +139,10 @@ public static class RichTextBoxPersistence
             }
             else if (Raw(instance, name) is { } raw && !IsDefault(raw))
             {
-                if (VBLoader.RawDouble(instance, name) is { } number && double.IsFinite(number)
+                // Rendered from the value IsDefault read, the whole of it, or else carried as it was read. Rendering the
+                // number that starts a damaged value wrote `HideSelection = -1   529992` as the default it then dropped,
+                // and a Font block whose first line held an `=` as `Font = 3` (#4096).
+                if (WholeNumber(raw) is { } number && double.IsFinite(number)
                     && (!BooleanProperties.Contains(name) || number is 0 or -1))
                 {
                     if (BooleanProperties.Contains(name)) vb.WriteProperty(name, typeof(bool), number != 0);
