@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics.Tracing;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -55,6 +56,92 @@ namespace HexIDE.Tests.Infrastructure;
 /// </remarks>
 public class McpRestartTests
 {
+    // #778: observe the shipped transport without replacing its handler or changing its pool.
+    private sealed class NetworkTrace : EventListener
+    {
+        private readonly object gate = new();
+        private readonly Queue<string> events = new();
+        private readonly Dictionary<string, HashSet<string>> connections = new();
+        private readonly Dictionary<Guid, string> requests = new();
+        public int Port { get; set; }
+        private string phase = "setup";
+        private int dropped;
+
+        public void Mark(string name)
+        {
+            lock (gate)
+                phase = name;
+        }
+
+        protected override void OnEventSourceCreated(EventSource source)
+        {
+            if (source.Name is "System.Net.Http" or "System.Net.Sockets")
+                EnableEvents(source, EventLevel.Informational);
+            // TasksFlowActivityIds: without it every event's ActivityId is empty, and the requests the trace pairs with
+            // their connections could not be told apart (measured in review, 2026-11-15).
+            else if (source.Name == "System.Threading.Tasks.TplEventSource")
+                EnableEvents(source, EventLevel.LogAlways, (EventKeywords)0x80);
+        }
+
+        protected override void OnEventWritten(EventWrittenEventArgs data)
+        {
+            if (data.EventName is not ("ConnectionEstablished" or "ConnectionClosed"
+                or "RequestStart" or "RequestStop" or "RequestFailed" or "RequestHeadersStart"
+                or "ConnectStart" or "ConnectStop" or "ConnectFailed"))
+                return;
+            lock (gate)
+            {
+                if (data.EventName == "RequestStart" && data.PayloadNames is { } startNames
+                    && startNames.IndexOf("port") is var portIndex && portIndex >= 0
+                    && data.Payload?[portIndex]?.ToString() == Port.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                {
+                    if (requests.Count == 256)
+                        requests.Remove(requests.Keys.First());
+                    requests[data.ActivityId] = phase;
+                }
+                var payload = string.Join(", ", (data.PayloadNames?.Select((name, index) => $"{name}={data.Payload?[index]}") ?? Enumerable.Empty<string>()));
+                // RequestHeadersStart opens an activity of its own, nested in the request's: its RelatedActivityId is the
+                // request's ActivityId.
+                if (data.EventName == "RequestHeadersStart" && data.PayloadNames is { } names
+                    && requests.TryGetValue(data.RelatedActivityId, out var requestPhase))
+                {
+                    var index = names.IndexOf("connectionId");
+                    if (index >= 0 && data.Payload?[index]?.ToString() is { } id)
+                    {
+                        if (!connections.TryGetValue(requestPhase, out var ids))
+                            connections[requestPhase] = ids = new();
+                        if (ids.Count < 256)
+                            ids.Add(id);
+                    }
+                }
+                if (data.EventName is "RequestStop" or "RequestFailed")
+                    requests.Remove(data.ActivityId);
+                if (events.Count == 256)
+                {
+                    events.Dequeue();
+                    dropped++;
+                }
+                events.Enqueue($"{data.TimeStamp:O} [{phase}] {data.EventSource.Name}/{data.EventName} "
+                    + $"activity={data.ActivityId} related={data.RelatedActivityId} {payload}");
+            }
+        }
+
+        public string Failure(Exception exception)
+        {
+            lock (gate)
+            {
+                connections.TryGetValue("before", out var before);
+                connections.TryGetValue("after", out var after);
+                var reuse = before is { Count: > 0 } && after is { Count: > 0 }
+                    ? (before.Overlaps(after) ? "yes" : "no")
+                    : "unknown (no RequestHeadersStart connection observed for one or both calls)";
+                return $"Connection reused across restart: {reuse}."
+                    + $"{Environment.NewLine}System.Net trace (oldest events dropped: {dropped}):{Environment.NewLine}"
+                    + string.Join(Environment.NewLine, events) + Environment.NewLine + exception;
+            }
+        }
+    }
+
     static McpRestartTests()
     {
         // ToolFailures now lives in the Desktop assembly. Supply this fixture's tool signatures
@@ -244,12 +331,16 @@ public class McpRestartTests
     [Fact]
     public async Task A_client_attached_before_a_restart_is_answered_after_it()
     {
+        using var network = new NetworkTrace();
         var output = TestContext.Current.TestOutputHelper;
         var trace = new McpRestartDiagnostics((level, message) => output?.WriteLine($"[{level}] {message}"));
         var port = FreePort();
+        network.Port = port;
         var first = await StartAsync(port, McpTransport.Configure);
         await using var client = await trace.PhaseAsync("first connect attempt", () => ConnectAsync(port));
+        network.Mark("before");
         (await EchoAsync(client, "before")).Should().Be("before");
+        network.Mark("restart");
 
         await trace.PhaseAsync("stop", () => StopAsync(first));
         var second = await trace.PhaseAsync("restart", () => StartAsync(port, McpTransport.Configure));
@@ -258,11 +349,12 @@ public class McpRestartTests
             string after;
             try
             {
+                network.Mark("after");
                 after = await trace.PhaseAsync("call after", () => EchoAsync(client, "after"));
             }
             catch (Exception exception)
             {
-                throw new InvalidOperationException(trace.Failure(exception), exception);
+                throw new InvalidOperationException(trace.Failure(exception) + Environment.NewLine + network.Failure(exception), exception);
             }
             after.Should().Be("after", "the restart must be invisible to the client");
             (await EchoAsync(client, "again")).Should().Be("again");
@@ -271,6 +363,70 @@ public class McpRestartTests
         {
             await StopAsync(second);
         }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Network_trace_identifies_whether_calls_used_the_same_connection(bool freshClient)
+    {
+        using var network = new NetworkTrace();
+        var port = FreePort();
+        network.Port = port;
+        var app = await StartAsync(port, McpTransport.Configure);
+        try
+        {
+            using var first = new HttpClient();
+            using var second = new HttpClient();
+            network.Mark("before");
+            (await first.GetStringAsync($"http://localhost:{port}/health", TestContext.Current.CancellationToken))
+                .Should().Be("ok");
+            network.Mark("after");
+            (await (freshClient ? second : first).GetStringAsync($"http://localhost:{port}/health",
+                TestContext.Current.CancellationToken)).Should().Be("ok");
+            network.Failure(new TimeoutException("probe")).Should()
+                .Contain($"Connection reused across restart: {(freshClient ? "no" : "yes")}.")
+                .And.Contain("ConnectionEstablished").And.Contain("RequestStop");
+        }
+        finally
+        {
+            await StopAsync(app);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Fast")]
+    public async Task An_unanswered_request_failure_contains_the_network_trace()
+    {
+        using var network = new NetworkTrace();
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        using var http = new HttpClient();
+        using var bound = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        network.Port = port;
+        network.Mark("after");
+        var request = http.GetAsync($"http://127.0.0.1:{port}/unanswered", bound.Token);
+        using var accepted = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        // Read the request before cancelling: this proves it was sent, without a timer or a slow 20 s wait.
+        var buffer = new byte[4096];
+        (await accepted.GetStream().ReadAsync(buffer, TestContext.Current.CancellationToken)).Should().BePositive();
+        bound.Cancel();
+        var call = async () =>
+        {
+            try { await request; }
+            catch (Exception exception) { throw new InvalidOperationException(network.Failure(exception), exception); }
+        };
+        var failure = (await call.Should().ThrowAsync<InvalidOperationException>()).Which;
+        failure.Message.Should().Contain("System.Net trace")
+            .And.Contain("System.Net.Http/RequestStart")
+            .And.Contain("System.Net.Http/RequestHeadersStart")
+            .And.Contain("connectionId=")
+            .And.Contain("System.Net.Http/RequestFailed")
+            .And.Contain("Connection reused across restart: unknown")
+            .And.Contain("TaskCanceledException");
+        // The request's events are told apart by activity id, which is empty unless activity tracking is on.
+        failure.Message.Should().MatchRegex(@"System\.Net\.Http/RequestStart activity=(?!00000000-0000-0000-0000-000000000000 )");
     }
 
     [Fact]
