@@ -511,6 +511,7 @@
     "Str.TranslationEditor.ProtectedCredits": "Mulțumirile HexIDE nu pot fi înlocuite aici. Un produs bazat pe HexIDE le poate doar completa.",
     "Str.TranslationEditor.ProtectedTrust": "Etichetele cheilor de semnare HexIDE nu pot fi înlocuite aici. Un produs bazat pe HexIDE nu poate prezenta aceste chei drept ale sale.",
     "Str.TranslationEditor.Tooltip.Override": "înlocuire: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Textul cursiv indică un text de rezervă în engleză.",
     "Str.TranslationEditor.Tooltip.None": "(niciuna)",
     "Str.TranslationEditor.Area.Menu": "Meniuri",
     "Str.TranslationEditor.Area.Dialog": "Casete de dialog",

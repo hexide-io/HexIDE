@@ -545,6 +545,7 @@
     "Str.TranslationEditor.ProtectedCredits": "HexIDE padėkų čia pakeisti negalima. HexIDE pagrindu sukurtas produktas gali jas tik papildyti.",
     "Str.TranslationEditor.ProtectedTrust": "HexIDE pasirašymo raktų etikečių čia pakeisti negalima. HexIDE pagrindu sukurtas produktas negali pateikti šių raktų kaip savo.",
     "Str.TranslationEditor.Tooltip.Override": "pakeitimas: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Pasvirasis tekstas žymi pakaitinį tekstą anglų kalba.",
     "Str.TranslationEditor.Tooltip.None": "(nėra)",
     "Str.TranslationEditor.Area.Menu": "Meniu",
     "Str.TranslationEditor.Area.Dialog": "Dialogai",

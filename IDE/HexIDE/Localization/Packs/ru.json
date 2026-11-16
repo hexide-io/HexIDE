@@ -141,6 +141,7 @@
     "Str.TranslationEditor.ProtectedCredits": "Благодарности HexIDE нельзя заменить здесь. Продукт на основе HexIDE может только дополнить их.",
     "Str.TranslationEditor.ProtectedTrust": "Названия ключей подписи HexIDE нельзя заменить здесь. Продукт на основе HexIDE не может выдавать эти ключи за свои.",
     "Str.TranslationEditor.Tooltip.Override": "переопределение: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Курсив обозначает подстановку английского текста.",
     "Str.TranslationEditor.Tooltip.None": "(нет)",
     "Str.TranslationEditor.Area.Menu": "Меню",
     "Str.TranslationEditor.Area.Dialog": "Диалоговые окна",

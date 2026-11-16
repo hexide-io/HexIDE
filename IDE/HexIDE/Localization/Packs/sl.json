@@ -511,6 +511,7 @@
     "Str.TranslationEditor.ProtectedCredits": "Zahval HexIDE tukaj ni mogoče zamenjati. Izdelek, zgrajen na HexIDE, jih lahko le dopolni.",
     "Str.TranslationEditor.ProtectedTrust": "Oznak ključev za podpisovanje HexIDE tukaj ni mogoče zamenjati. Izdelek, zgrajen na HexIDE, teh ključev ne more predstaviti kot svojih.",
     "Str.TranslationEditor.Tooltip.Override": "prilagoditev: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Ležeče besedilo označuje nadomestno besedilo v angleščini.",
     "Str.TranslationEditor.Tooltip.None": "(brez)",
     "Str.TranslationEditor.Area.Menu": "Meniji",
     "Str.TranslationEditor.Area.Dialog": "Pogovorna okna",

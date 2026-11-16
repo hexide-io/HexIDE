@@ -200,6 +200,7 @@
     "Str.TranslationEditor.ProtectedCredits": "HexIDE の謝辞はここでは上書きできません。HexIDE をもとにした製品は、追加のみ行えます。",
     "Str.TranslationEditor.ProtectedTrust": "HexIDE の署名キーのラベルはここでは上書きできません。HexIDE をもとにした製品は、これらのキーを自身のものとして表示できません。",
     "Str.TranslationEditor.Tooltip.Override": "上書き: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "斜体のテキストは英語へのフォールバックを示します。",
     "Str.TranslationEditor.Tooltip.None": "(なし)",
     "Str.TranslationEditor.Area.Menu": "メニュー",
     "Str.TranslationEditor.Area.Dialog": "ダイアログ",

@@ -545,6 +545,7 @@
     "Str.TranslationEditor.ProtectedCredits": "A HexIDE köszönetnyilvánítása itt nem írható felül. A HexIDE-ra épülő termék csak kiegészítheti.",
     "Str.TranslationEditor.ProtectedTrust": "A HexIDE aláíró kulcsainak feliratai itt nem írhatók felül. A HexIDE-ra épülő termék nem tüntetheti fel ezeket a kulcsokat sajátjaként.",
     "Str.TranslationEditor.Tooltip.Override": "felülírás: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "A dőlt szöveg angol helyettesítő szöveget jelez.",
     "Str.TranslationEditor.Tooltip.None": "(nincs)",
     "Str.TranslationEditor.Area.Menu": "Menük",
     "Str.TranslationEditor.Area.Dialog": "Párbeszédpanelek",

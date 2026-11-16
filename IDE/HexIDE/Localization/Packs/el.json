@@ -141,6 +141,7 @@
     "Str.TranslationEditor.ProtectedCredits": "Οι ευχαριστίες του HexIDE δεν μπορούν να αντικατασταθούν εδώ. Ένα προϊόν βασισμένο στο HexIDE μπορεί μόνο να προσθέσει σε αυτές.",
     "Str.TranslationEditor.ProtectedTrust": "Οι ετικέτες των κλειδιών υπογραφής του HexIDE δεν μπορούν να αντικατασταθούν εδώ. Ένα προϊόν βασισμένο στο HexIDE δεν μπορεί να παρουσιάσει αυτά τα κλειδιά ως δικά του.",
     "Str.TranslationEditor.Tooltip.Override": "παράκαμψη: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Το πλάγιο κείμενο υποδεικνύει εναλλακτικό κείμενο στα αγγλικά.",
     "Str.TranslationEditor.Tooltip.None": "(καμία)",
     "Str.TranslationEditor.Area.Menu": "Μενού",
     "Str.TranslationEditor.Area.Dialog": "Παράθυρα διαλόγου",

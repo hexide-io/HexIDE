@@ -511,6 +511,7 @@
     "Str.TranslationEditor.ProtectedCredits": "HexIDE enda tänusõnu ei saa siin asendada. HexIDE-l põhinev toode saab neile ainult lisada.",
     "Str.TranslationEditor.ProtectedTrust": "HexIDE allkirjastamisvõtmete silte ei saa siin asendada. HexIDE-l põhinev toode ei saa neid võtmeid enda omadena esitada.",
     "Str.TranslationEditor.Tooltip.Override": "kohandus: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Kaldkiri tähistab ingliskeelset asendusteksti.",
     "Str.TranslationEditor.Tooltip.None": "(puudub)",
     "Str.TranslationEditor.Area.Menu": "Menüüd",
     "Str.TranslationEditor.Area.Dialog": "Dialoogid",

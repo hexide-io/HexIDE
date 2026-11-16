@@ -535,6 +535,7 @@
     "Str.TranslationEditor.ProtectedCredits": "HexIDE's own credits can't be overridden here. A product built on HexIDE can only add to them.",
     "Str.TranslationEditor.ProtectedTrust": "The labels on HexIDE's signing keys can't be overridden here. A product built on HexIDE can't present those keys as its own.",
     "Str.TranslationEditor.Tooltip.Override": "override: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Italic text indicates an English fallback.",
     "Str.TranslationEditor.Tooltip.None": "(none)",
     "Str.TranslationEditor.Area.Menu": "Menus",
     "Str.TranslationEditor.Area.Dialog": "Dialogs",

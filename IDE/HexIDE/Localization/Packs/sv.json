@@ -141,6 +141,7 @@
     "Str.TranslationEditor.ProtectedCredits": "HexIDE:s egna tack kan inte ersättas här. En produkt byggd på HexIDE kan bara lägga till.",
     "Str.TranslationEditor.ProtectedTrust": "Etiketterna för HexIDE:s signeringsnycklar kan inte ersättas här. En produkt byggd på HexIDE kan inte presentera de nycklarna som sina egna.",
     "Str.TranslationEditor.Tooltip.Override": "åsidosättning: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Kursiv text anger en engelsk reservtext.",
     "Str.TranslationEditor.Tooltip.None": "(ingen)",
     "Str.TranslationEditor.Area.Menu": "Menyer",
     "Str.TranslationEditor.Area.Dialog": "Dialogrutor",

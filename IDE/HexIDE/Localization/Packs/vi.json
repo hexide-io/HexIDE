@@ -141,6 +141,7 @@
     "Str.TranslationEditor.ProtectedCredits": "Không thể thay thế lời cảm ơn của HexIDE tại đây. Sản phẩm xây dựng trên HexIDE chỉ có thể bổ sung.",
     "Str.TranslationEditor.ProtectedTrust": "Không thể thay thế nhãn của các khóa ký của HexIDE tại đây. Sản phẩm xây dựng trên HexIDE không thể trình bày các khóa đó như của riêng mình.",
     "Str.TranslationEditor.Tooltip.Override": "ghi đè: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Chữ nghiêng cho biết văn bản tiếng Anh được dùng thay thế.",
     "Str.TranslationEditor.Tooltip.None": "(không có)",
     "Str.TranslationEditor.Area.Menu": "Menu",
     "Str.TranslationEditor.Area.Dialog": "Hộp thoại",

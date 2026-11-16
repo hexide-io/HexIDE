@@ -511,6 +511,7 @@
     "Str.TranslationEditor.ProtectedCredits": "Zahvalnice HexIDE-a ne mogu se ovde zameniti. Proizvod zasnovan na HexIDE-u može samo da ih dopuni.",
     "Str.TranslationEditor.ProtectedTrust": "Oznake ključeva za potpisivanje HexIDE-a ne mogu se ovde zameniti. Proizvod zasnovan na HexIDE-u ne može te ključeve da predstavi kao svoje.",
     "Str.TranslationEditor.Tooltip.Override": "izmenjeni prevod: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Kurziv označava zamenski tekst na engleskom.",
     "Str.TranslationEditor.Tooltip.None": "(nema)",
     "Str.TranslationEditor.Area.Menu": "Meniji",
     "Str.TranslationEditor.Area.Dialog": "Dijalozi",

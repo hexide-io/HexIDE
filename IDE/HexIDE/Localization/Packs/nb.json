@@ -175,6 +175,7 @@
     "Str.TranslationEditor.ProtectedCredits": "HexIDEs egen takk kan ikke overstyres her. Et produkt bygget på HexIDE kan bare legge til.",
     "Str.TranslationEditor.ProtectedTrust": "Etikettene på HexIDEs signeringsnøkler kan ikke overstyres her. Et produkt bygget på HexIDE kan ikke presentere disse nøklene som sine egne.",
     "Str.TranslationEditor.Tooltip.Override": "overstyring: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Kursiv tekst angir en engelsk reservetekst.",
     "Str.TranslationEditor.Tooltip.None": "(ingen)",
     "Str.TranslationEditor.Area.Menu": "Menyer",
     "Str.TranslationEditor.Area.Dialog": "Dialogbokser",

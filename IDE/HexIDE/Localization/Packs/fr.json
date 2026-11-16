@@ -166,6 +166,7 @@
     "Str.TranslationEditor.ProtectedCredits": "Les remerciements de HexIDE ne peuvent pas être remplacés ici. Un produit fondé sur HexIDE peut seulement les compléter.",
     "Str.TranslationEditor.ProtectedTrust": "Les libellés des clés de signature de HexIDE ne peuvent pas être remplacés ici. Un produit fondé sur HexIDE ne peut pas présenter ces clés comme les siennes.",
     "Str.TranslationEditor.Tooltip.Override": "remplacement : {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Le texte en italique indique un repli vers l’anglais.",
     "Str.TranslationEditor.Tooltip.None": "(aucun)",
     "Str.TranslationEditor.Area.Menu": "Menus",
     "Str.TranslationEditor.Area.Dialog": "Boîtes de dialogue",

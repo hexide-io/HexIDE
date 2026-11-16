@@ -511,6 +511,7 @@
     "Str.TranslationEditor.ProtectedCredits": "Poďakovanie HexIDE tu nemožno prepísať. Produkt postavený na HexIDE ho môže iba doplniť.",
     "Str.TranslationEditor.ProtectedTrust": "Označenia podpisových kľúčov HexIDE tu nemožno prepísať. Produkt postavený na HexIDE nemôže tieto kľúče vydávať za svoje.",
     "Str.TranslationEditor.Tooltip.Override": "vlastný preklad: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Kurzíva označuje náhradný anglický text.",
     "Str.TranslationEditor.Tooltip.None": "(žiadny)",
     "Str.TranslationEditor.Area.Menu": "Ponuky",
     "Str.TranslationEditor.Area.Dialog": "Dialógové okná",

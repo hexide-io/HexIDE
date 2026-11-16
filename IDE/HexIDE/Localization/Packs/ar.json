@@ -166,6 +166,7 @@
     "Str.TranslationEditor.ProtectedCredits": "لا يمكن تجاوز شكر HexIDE هنا. يمكن للمنتجات المبنية على HexIDE الإضافة إليه فقط.",
     "Str.TranslationEditor.ProtectedTrust": "لا يمكن تجاوز تسميات مفاتيح التوقيع الخاصة بـ HexIDE هنا. لا يمكن للمنتجات المبنية على HexIDE تقديم هذه المفاتيح على أنها مفاتيحها.",
     "Str.TranslationEditor.Tooltip.Override": "تجاوز: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "يشير النص المائل إلى استخدام النص الإنجليزي البديل.",
     "Str.TranslationEditor.Tooltip.None": "(بلا)",
     "Str.TranslationEditor.Area.Menu": "القوائم",
     "Str.TranslationEditor.Area.Dialog": "مربعات الحوار",

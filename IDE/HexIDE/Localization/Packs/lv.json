@@ -545,6 +545,7 @@
     "Str.TranslationEditor.ProtectedCredits": "HexIDE pateicības šeit nevar aizstāt. Uz HexIDE balstīts produkts tās var tikai papildināt.",
     "Str.TranslationEditor.ProtectedTrust": "HexIDE parakstīšanas atslēgu etiķetes šeit nevar aizstāt. Uz HexIDE balstīts produkts nevar uzdot šīs atslēgas par savām.",
     "Str.TranslationEditor.Tooltip.Override": "aizstājējs: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Slīpraksts norāda aizstājējtekstu angļu valodā.",
     "Str.TranslationEditor.Tooltip.None": "(nav)",
     "Str.TranslationEditor.Area.Menu": "Izvēlnes",
     "Str.TranslationEditor.Area.Dialog": "Dialoglodziņi",
