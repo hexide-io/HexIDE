@@ -756,3 +756,4 @@ added afterwards.
 - [A module's name line below the top of its file (2026-11-12, #3757)](a-modules-name-line-below-the-top-of-its-file.md#a-modules-name-line-below-the-top-of-its-file-2026-11-12-3757)
 - [An undeclared name before a dot (2026-11-12, #3778)](an-undeclared-name-before-a-dot.md#an-undeclared-name-before-a-dot-2026-11-12-3778)
 - [`Call` with empty parentheses (2026-11-12, #3779)](an-undeclared-name-before-a-dot.md#call-with-empty-parentheses-2026-11-12-3779)
+- [The Object Browser's library list: its order (2026-11-16, #4113, design-time, IDE, SP6)](the-object-browsers-library-list.md#the-object-browsers-library-list-its-order-2026-11-16-4113-design-time-ide-sp6)
