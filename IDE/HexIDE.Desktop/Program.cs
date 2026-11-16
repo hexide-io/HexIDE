@@ -16,12 +16,11 @@ sealed partial class Program
         StringMarshalling = System.Runtime.InteropServices.StringMarshalling.Utf16)]
     private static partial int ShowNativeMessageBox(nint owner, string text, string caption, uint type);
 
-    private static string? EstablishDistribution()
+    private static string? EstablishDistribution(string installationDirectory, Action<HexIDE.IDE.DistributionIdentity> establish)
     {
         try
         {
-            HexIDE.IDE.Distribution.Establish(HexIDE.IDE.DistributionDescriptor.Resolve(AppContext.BaseDirectory));
-            WindowsTaskbarIdentity.Apply(HexIDE.IDE.Distribution.Current);
+            establish(HexIDE.IDE.DistributionDescriptor.Resolve(installationDirectory));
             return null;
         }
         catch (HexIDE.IDE.DistributionDescriptorException ex)
@@ -48,34 +47,19 @@ sealed partial class Program
         var invocationDirectory = Environment.CurrentDirectory;
         FixCurrentWorkingDictionary();
 
-        // First of all: every per-user path, log and caption is derived from this (#2042). A failure is held until
-        // the arguments are read, so that --help still answers on a broken installation.
-        var distributionError = EstablishDistribution();
-
-        ServerOptions.ParseArgs(args, invocationDirectory);
-
-        // Before anything Avalonia touches: --help answers and leaves, so asking what the flags are never
-        // starts an IDE, loads a project or opens a port.
-        if (ServerOptions.HelpRequested)
+        var gateExitCode = RunDistributionGate(args, invocationDirectory, AppContext.BaseDirectory, identity =>
         {
-            if (distributionError != null)
-            {
-                ConsoleOutput.Write(distributionError + Environment.NewLine);
-                Environment.ExitCode = 2;
-            }
-
-            ConsoleOutput.Write(ServerOptions.HelpText);
-            return;
-        }
-
-        // Refused rather than started as stock: stock would open HexIDE's own settings and recovery files.
-        if (distributionError != null)
+            HexIDE.IDE.Distribution.Establish(identity);
+            WindowsTaskbarIdentity.Apply(identity);
+        }, message => { ConsoleOutput.Write(message); }, ReportDistributionError, () => Start(args, invocationDirectory));
+        if (gateExitCode is { } exitCode)
         {
-            ReportDistributionError(distributionError);
-            Environment.ExitCode = 2;
-            return;
+            Environment.ExitCode = exitCode;
         }
+    }
 
+    private static void Start(string[] args, string invocationDirectory)
+    {
         if (ServerOptions.ProfileArgumentError is { } profileError)
         {
             var localization = new HexIDE.Localization.LocalizationService();
@@ -163,6 +147,40 @@ sealed partial class Program
         // On a thread of its own, because VB code runs on the UI thread and this first thread's stack is the
         // launcher's choice, 1.5 MiB on Windows (#3228).
         Environment.ExitCode = HexIDE.Runtime.UiThread.Run(() => builder.StartWithClassicDesktopLifetime(args));
+    }
+
+    internal static int? RunDistributionGate(string[] args, string invocationDirectory, string installationDirectory,
+        Action<HexIDE.IDE.DistributionIdentity> establish, Action<Func<ConsoleTarget, string>> write, Action<string> reportError,
+        Action start)
+    {
+        // First of all: every per-user path, log and caption is derived from this (#2042). A failure is held until
+        // the arguments are read, so that --help still answers on a broken installation.
+        var distributionError = EstablishDistribution(installationDirectory, establish);
+
+        ServerOptions.ParseArgs(args, invocationDirectory);
+
+        // Before anything Avalonia touches: --help answers and leaves, so asking what the flags are never
+        // starts an IDE, loads a project or opens a port.
+        if (ServerOptions.HelpRequested)
+        {
+            if (distributionError != null)
+            {
+                write(_ => distributionError + Environment.NewLine);
+            }
+
+            write(ServerOptions.HelpText);
+            return distributionError is null ? 0 : 2;
+        }
+
+        // Refused rather than started as stock: stock would open HexIDE's own settings and recovery files.
+        if (distributionError != null)
+        {
+            reportError(distributionError);
+            return 2;
+        }
+
+        start();
+        return null;
     }
 
     private static void FixCurrentWorkingDictionary()
