@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using HexIDE.Lsp;
-using HexIDE.Runtime.TypeLibrary;
+using HexIDE.TypeLibrary;
 
 namespace HexIDE.IDE;
 

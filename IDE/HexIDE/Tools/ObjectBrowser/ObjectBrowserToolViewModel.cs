@@ -16,7 +16,7 @@ using HexIDE.Runtime.Serialization;
 using HexIDE.Lsp.Messages;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
-using HexIDE.Runtime.TypeLibrary;
+using HexIDE.TypeLibrary;
 using HexIDE.Utils;
 using Dock.Model.Mvvm.Controls;
 using PropertyChanged.SourceGenerator;

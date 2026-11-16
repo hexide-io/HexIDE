@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace HexIDE.Runtime.TypeLibrary;
+namespace HexIDE.TypeLibrary;
 
 public record TypeLibInfo(
     string Name,

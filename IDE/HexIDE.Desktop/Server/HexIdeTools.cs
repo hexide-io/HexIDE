@@ -584,7 +584,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     && ReferenceEquals(Parent(c), parent)).ToList();
                 var blocks = parent.PreservedChildSubtrees;
                 var written = (parent == root
-                    ? ctx.ProjectFileFormat.RootChildren(components, root)
+                    ? HexIDE.IDE.ProjectFormats.Of(form.Owner, ctx.ProjectFileFormat).RootChildren(components, root)
                     : parent.ContainedControls).ToList();
                 var before = CarriedOrder.ChildrenBefore(written.Count, blocks);
                 var siblings = new List<(ComponentInstance? Instance, ControlInfo Row, int Order)>();
@@ -784,6 +784,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     HexIDE.Runtime.BuiltinTypes.VBFontExtensions.IsNameable))
                 return (null, null, $"Cannot set '{propClass.Name}' to '{value}': {(why is null ? "it" : why + ". It")} "
                                     + $"takes {PropertyText.Accepted(propClass)}");
+
+            if (DesignerSizeValidation.Refuses(propClass, parsed))
+                return (null, null, NegativeDesignerSizeRefusal(control));
 
             // A position is in the units its row shows: its container's ScaleMode, and a form's own size with its frame, in
             // twips (#1636). The model holds pixels.
@@ -1644,6 +1647,18 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         });
     }
 
+    // Measured on vb6.exe SP6, native and p-code agreeing: docs/vb6-fidelity-oracle/a-negative-or-zero-control-size.md
+    // (PR #4069). The reply names the issue rather than linking the page, so it never points a caller at a missing file.
+    private const string NegativeDesignerSizeReason = "Invalid property value: Width and Height can't be negative. "
+        + "VB6 refuses to load a .frm holding a negative control size (measured, #589).";
+
+    private static string NegativeDesignerSizeRefusal(ComponentInstance control) =>
+        NegativeDesignerSizeReason + $" Nothing was changed. {PropertyText.AddressedName(control)} remains at "
+        + $"Left {PropertyText.Display(control.GetPropertyOrDefault(VBProperties.LeftProperty))}, "
+        + $"Top {PropertyText.Display(control.GetPropertyOrDefault(VBProperties.TopProperty))}, "
+        + $"Width {PropertyText.Display(control.GetPropertyOrDefault(VBProperties.WidthProperty))}, "
+        + $"Height {PropertyText.Display(control.GetPropertyOrDefault(VBProperties.HeightProperty))}, in pixels relative to its container.";
+
     [McpServerTool(Name = "move_control")]
     [Description("Moves or resizes a control on a form designer canvas by simulating a drag transaction. " +
         "Calls BeginDrag on the active designer, updates only the supplied position/size values on the ViewModel, " +
@@ -1692,6 +1707,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (target is null)
                 return Naming(new MutateResult(false,
                     $"No control named '{controlName}' on {document.Display}"), document);
+
+            if (DesignerSizeValidation.Refuses(width, height))
+                return Naming(new MutateResult(false, NegativeDesignerSizeRefusal(target.Instance)), document);
 
             designer.BeginDrag([target]);
 
@@ -1745,6 +1763,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (designer is null)
                 return new AddControlResult(false, null,
                     $"{document.Display} is not open in the visual designer — call view_designer first",
+                    Project: document.Project.Name, Document: document.Name);
+
+            if (DesignerSizeValidation.Refuses(width, height))
+                return new AddControlResult(false, null, NegativeDesignerSizeReason + " No control was created; the designer is unchanged.",
                     Project: document.Project.Name, Document: document.Name);
 
             // A type name picks its button first, so ComctlLib.ProgressBar reaches COMCTL32.OCX's where both libraries are
@@ -2227,7 +2249,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
     // Subscribe before the menu route starts: an adapter can stop before its command reply arrives.
     private static async Task<MutateResult> AwaitExternalStopAsync(HexIDE.Debugging.ExternalDebugService external,
-        Func<MutateResult?> start, TimeSpan wait, CancellationToken ct)
+        Func<MutateResult?> start, TimeSpan wait, CancellationToken ct, Func<string>? stoppedNote = null)
     {
         var before = external.Stop;
         var inspection = external.Frames;
@@ -2236,7 +2258,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         void Changed()
         {
             if (!external.IsActive || external.State is HexIDE.Dap.DapSessionState.Ended or HexIDE.Dap.DapSessionState.Faulted
-                || !external.IsBusy && (failure is not null ||
+                || !external.IsBusy && !external.RunToCursorPending && (failure is not null ||
                 external.Stop is not null && external.Stop != before && external.Frames.Count > 0))
                 completed.TrySetResult();
         }
@@ -2261,7 +2283,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                         ? $"Paused at {location} ({external.Stop.Reason})."
                         : "Paused; the adapter supplied no source location."
                     : $"Running; no pause within {wait.TotalSeconds:0} s.";
-            return failure is null ? new MutateResult(true, null, state)
+            return failure is null ? new MutateResult(true, null, state +
+                (external.Stop is not null && external.Stop != before ? stoppedNote?.Invoke() : ""))
                 : new MutateResult(false, failure, state + (external.Stop is not null && before is not null && ReferenceEquals(external.Frames, inspection)
                     ? " The stopped inspection was kept." : " Inspection follows the adapter's current state."));
         }
@@ -2269,6 +2292,31 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         {
             external.Changed -= Changed;
             external.Failed -= Failed;
+        }
+    }
+
+    private static bool SameSourcePath(string uri, string? path)
+    {
+        if (path is null) return false;
+        var actual = new Uri(uri).LocalPath;
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        if (string.Equals(actual, path, comparison)) return true;
+        try { return string.Equals(Resolve(actual), Resolve(path), comparison); }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return false;
+        }
+
+        // An adapter can canonicalize a linked working directory even when the source itself is not on disk.
+        static string Resolve(string value)
+        {
+            var full = Path.GetFullPath(value);
+            var parent = Path.GetDirectoryName(full);
+            if (parent is null) return full;
+            var resolved = Path.Combine(Resolve(parent), Path.GetFileName(full));
+            FileSystemInfo info = Directory.Exists(resolved) ? new DirectoryInfo(resolved) : new FileInfo(resolved);
+            var target = info.Exists ? info.ResolveLinkTarget(true) : null;
+            return target is null ? resolved : Resolve(target.FullName);
         }
     }
 
@@ -2328,17 +2376,38 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepOutProject, () => ctx.ProjectRunnerService.StepOutProject(), ct);
 
     [McpServerTool(Name = "run_to_cursor")]
-    [Description("Run To Cursor (Ctrl+F8): run until (module, 1-based line, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them) then break — a one-shot temporary breakpoint. While paused it continues to the target; while running it arms the target; from idle it starts the project and runs to the target (a real breakpoint hit first stays paused there; continue proceeds toward the target). The reply's 'note' says where it paused or, within 2 s, that it has not got there yet, and 'project' and 'document' name the target's document as the IDE spells them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. External sessions refuse this command because they lack one-shot breakpoint support; set a breakpoint in the editor and use continue_program instead. A failed breakpoint condition still pauses; note names the condition and evaluation error, excluded from printed.")]
+    [Description("Run To Cursor (Ctrl+F8): run until (module, 1-based line, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them) then break — a one-shot temporary breakpoint. While paused it continues to the target; while running it arms the target; from idle it starts the project and runs to the target (a real breakpoint hit first stays paused there; continue proceeds toward the target). The reply's 'note' says where it paused or, within 2 s, that it has not got there yet, and 'project' and 'document' name the target's document as the IDE spells them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. A stopped external session requires a saved target document: it adds a temporary adapter breakpoint and continues, removing the temporary line at the next stop (wherever it stops), session end or failure. An unverified or moved target is refused without continuing; the reply gives the adapter reason. External replies report the actual top frame file and line, running or ended, and say when the stop was before the target. A failed breakpoint condition still pauses; note names the condition and evaluation error, excluded from printed.")]
     public async Task<MutateResult> RunToCursorAsync(string module, int line, string? project = null, CancellationToken ct = default)
     {
-        if (await Dispatcher.UIThread.InvokeAsync(() => ctx.RootViewModel.ExternalDebugger?.IsActive == true))
-            return new MutateResult(false, "Run To Cursor is unavailable for external sessions: the external route has no one-shot breakpoint support. Set a breakpoint in the editor and use continue_program instead.");
+        DocumentIdentity? externalDocument = null;
+        var externalReply = await Dispatcher.UIThread.InvokeAsync<Task<MutateResult>?>(() =>
+        {
+            if (ctx.RootViewModel.ExternalDebugger is not { IsActive: true } external) return null;
+            return AwaitExternalStopAsync(external, () =>
+            {
+                if (!ctx.ProjectRunnerService.CanRunToCursor)
+                    return new MutateResult(false, "The external session must be paused and the adapter ready before Run To Cursor.");
+                var lookup = ResolveDocument(module, project);
+                if (lookup.Document is not { } document) return new MutateResult(false, lookup.Error);
+                externalDocument = document;
+                if (OutsideDocument(document, [line], first: 1, "line") is { } outside)
+                    return Naming(new MutateResult(false, outside), document);
+                if (document.AbsolutePath is null)
+                    return Naming(new MutateResult(false, "The target document must be saved so the adapter can address its source file."), document);
+                ctx.ProjectRunnerService.RunToCursorProject(document, line);
+                return null;
+            }, StepReplyWait, ct, () => external.CurrentLocation is { } at &&
+                (at.Line != line || !SameSourcePath(at.Uri, externalDocument?.AbsolutePath))
+                    ? $" Stopped before reaching the cursor target ({externalDocument?.Display} line {line}); the temporary breakpoint was removed."
+                    : "");
+        });
+        if (externalReply is not null) return Naming(await externalReply, externalDocument);
         string? target = null;
         DocumentIdentity? named = null;
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
         {
             if (!ctx.ProjectRunnerService.CanRunToCursor)
-                return new MutateResult(false, WhyNoStart("No project to run — load a project first"));
+                return Naming(new MutateResult(false, WhyNoStart("No project to run — load a project first")), named);
 
             var lookup = ResolveDocument(module, project);
             if (lookup.Document is not { } document)

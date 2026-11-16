@@ -152,7 +152,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (result.Type == Vb6Value.ValueType.Object || result.Type == Vb6Value.ValueType.Control
             || result.Type == Vb6Value.ValueType.CSharpProxyObject || result.Type == Vb6Value.ValueType.Nothing)
             throw new NotImplementedException("Nested default members are unmeasured (#174)");
-        return result;
+        // A late-bound read gives a Variant; an early-bound read keeps the member's declared type (#174).
+        return value.HeldAsVariant || string.Equals(value.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
+            ? result.AsVariant() : result;
     }
 
     /// <summary>
@@ -403,8 +405,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var variantFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var autoNewFields = new Dictionary<string, AutoNew>(StringComparer.OrdinalIgnoreCase);
         var objectFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var fixedStringWidths = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
+            int? fixedWidth = null;
+            if (f.FixedLength is { } length)
+            {
+                var owner = Modules.All.First(m => m.PrePass.Types.Values.Contains(def));
+                fixedWidth = FixedLengthString.Width(length, owner.ModuleEnv, ExecutionContext.State);
+            }
             if (f.IsArray)
             {
                 if (f.UdtTypeName is { } nestedType && Types.TryGetValue(nestedType, out var nestedDef))
@@ -415,6 +424,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                         ? Vb6Value.ValueType.Long : throw new NotImplementedException($"Array field '{f.Name}' has an unsupported element type (#178)"));
                     var arrayType = new Vb6Value.ValueType(elementType, true);
                     fields[f.Name] = f.Bounds is null ? new Vb6Value(arrayType) : new Vb6Value(arrayType, f.Bounds);
+                    if (fixedWidth is { } width)
+                        fields[f.Name] = fields[f.Name].WithArray(FixedLengthString.Array(width, f.Bounds));
                     ((VBArray)fields[f.Name].Value!).IsDynamic = f.Bounds is null;
                 }
                 continue;
@@ -457,7 +468,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 typedFields[f.Name] = Vb6Value.ValueType.Long;
             else if (f.UdtTypeName is null && (f.ScalarType is null || f.ScalarType == Vb6Value.ValueType.EmptyVariant))
                 variantFields.Add(f.Name);
-            if (f.ScalarType is { } scalar)
+            if (fixedWidth is { } stringWidth)
+            {
+                fields[f.Name] = FixedLengthString.Initial(stringWidth);
+                fixedStringWidths[f.Name] = stringWidth;
+            }
+            else if (f.ScalarType is { } scalar)
                 fields[f.Name] = new Vb6Value(scalar);
             else if (f.UdtTypeName is { } nested)
                 fields[f.Name] = Types.ContainsKey(nested) ? Vb6Value.NewUdt(NewUdt(nested, depth + 1))
@@ -466,7 +482,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             else
                 fields[f.Name] = Vb6Value.Variant;
         }
-        return new VbUdt(typeName, fields, typedFields, variantFields, autoNewFields, objectFields);
+        return new VbUdt(typeName, fields, typedFields, variantFields, autoNewFields, objectFields, fixedStringWidths);
     }
 
     /// <summary>
@@ -484,6 +500,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         string => v.CopyString(),
         VbUdt udt => CopyUdt(udt),
+        VBArray { FixedStringWidth: not null } => throw new NotImplementedException(
+            "Copying a whole fixed-length String array is not implemented (#179): its assignment rules are unmeasured"),
         VBArray array => v.WithArray(array.CopyForLet(element => CopyElement(element, depth + 1))),
         _ => v,
     };
@@ -1607,6 +1625,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         callee.ReturnName = proc.IsFunction ? proc.Name : null;
         bool countMe = me is not null && !IsLifecycleHook(proc.Name);
         var refSlots = new List<int>();
+        var fixedStringCopies = new List<(int Slot, IByRefTarget Target)>();
         Vb6Value? ret = null;
         bool completed = false;
         bool holdsMe = false;
@@ -1622,7 +1641,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     holdsMe = true;
                 }
             }
-            await BindParameters(proc, args, callee, owner, ownedSlots, refSlots);
+            await BindParameters(proc, args, callee, owner, ownedSlots, refSlots, fixedStringCopies);
             // The return slot is typed as the declaration says, so a failed store is raised inside the Function,
             // where its own handler traps it (measured, #1444).
             var checkedArrayReturn = proc.CheckedArrayReturn;
@@ -1698,6 +1717,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                       && TryResolveEnum(named, owner, out _) ? returned.AsFixedType()
                     : proc.ReturnsVariant ? returned.AsVariant()
                     : returned;
+            foreach (var (slot, target) in fixedStringCopies)
+                target.Write(ExecutionContext.State[slot]);
             completed = true;
         }
         catch (Exception signal) when (signal is VBRunTimeException or VBCompileErrorException or Debugging.StopExecutionSignal)
@@ -2034,7 +2055,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         p.DeclaredType is { } dt && VbNumeric.IsDeclarableScalar(dt) ? dt : null;
 
     private async Task BindParameters(ProcedureInfo proc, IReadOnlyList<CallArg> args, ExecutionEnvironment callee, ModuleInfo owner,
-        List<int> ownedSlots, List<int> refSlots)
+        List<int> ownedSlots, List<int> refSlots, List<(int Slot, IByRefTarget Target)> fixedStringCopies)
     {
         for (int i = 0; i < proc.Parameters.Count; i++)
         {
@@ -2063,6 +2084,22 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (i < args.Count && !args[i].Value.IsMissing)
             {
                 var arg = args[i];
+                IByRefTarget? fixedTarget = arg.Location is { } fixedSlot
+                    && ExecutionContext.State.FixedStringWidthOf(fixedSlot) is not null
+                    ? new SlotRef(ExecutionContext.State, fixedSlot) : arg.Ref;
+                if (p.ByRef && fixedTarget?.FixedStringWidth is not null)
+                {
+                    var stringOrVariant = !p.IsArray && !p.DeclaredObject && p.TypeName is null
+                        && (p.DeclaredType == Vb6Value.ValueType.String || p.ReadsAsVariant);
+                    if (!stringOrVariant)
+                        throw new NotImplementedException("ByRef fixed-length String to this parameter type is not implemented (#179)");
+                    // #179 measures copy in/out. The parameter's own post-assignment Len is unmeasured;
+                    // use an ordinary String/Variant slot here, applying the width only on return.
+                    ExecutionContext.AllocVariable(callee, p.Name, arg.Value.CopyString(), DeclaredSlotType(p));
+                    callee.TryGetOwnVariableLocation(p.Name, out var slot);
+                    fixedStringCopies.Add((slot, fixedTarget));
+                    continue;
+                }
                 // A ParamArray passed whole to a ByRef parameter is VB6's compile error "Invalid ParamArray use" (measured, to
                 // `x() As Variant` and to `v As Variant`), raised here as the call runs. A ByVal parameter takes a copy.
                 if (p.ByRef && arg.Location is { } argSlot && ExecutionContext.State.IsParamArray(argSlot))

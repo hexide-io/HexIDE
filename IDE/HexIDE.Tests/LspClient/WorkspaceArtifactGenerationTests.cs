@@ -33,6 +33,60 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         "probe", "Probe server", [".c"], "c", () => Substitute.For<ILspClient>(),
         WorkspaceArtifact: new(path, "probe"));
 
+    [Fact]
+    public async Task ImportSeedLeavesAnExistingFileWithoutAskingConsent()
+    {
+        // The ordinary case once a project has been opened: a prompt here would come on every session's first start,
+        // for a file the seed would then refuse to write.
+        var target = Path.Combine(_root, "generated.json");
+        File.WriteAllText(target, "server's file");
+        var server = Server() with { ProjectImport = new("probe.import", JsonDocument.Parse("[]").RootElement.Clone()) };
+        await _service.PrepareAsync(server, TestContext.Current.CancellationToken);
+        File.ReadAllText(target).Should().Be("server's file");
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!, default!);
+    }
+
+    [Fact]
+    public async Task ImportSeedWritesEachResolvedFolderWithoutSavingOwnership()
+    {
+        var second = Path.Combine(_root, "second");
+        _workspace.Projects = [_workspace.Projects[0], _workspace.Projects[0] with { WorkspaceRoot = second }];
+        var state = Path.Combine(_root, "ownership.json");
+        using var service = new WorkspaceArtifactService(_workspace,
+            new WorkspaceArtifactProviderRegistry([_provider]), _consent,
+            NullLogger<WorkspaceArtifactService>.Instance, stateFile: state);
+        var server = Server() with { ProjectImport = new("probe.import", JsonDocument.Parse("[]").RootElement.Clone()) };
+        await service.PrepareAsync(server, TestContext.Current.CancellationToken);
+        File.ReadAllText(Path.Combine(_root, "generated.json")).Should().Be("first");
+        File.ReadAllText(Path.Combine(second, "generated.json")).Should().Be("first");
+        File.Exists(state).Should().BeFalse();
+        _provider.Content = "changed";
+        await service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        File.ReadAllText(Path.Combine(_root, "generated.json")).Should().Be("first");
+        File.ReadAllText(Path.Combine(second, "generated.json")).Should().Be("first");
+        _provider.Content = null;
+        await service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        File.ReadAllText(Path.Combine(_root, "generated.json")).Should().Be("first");
+    }
+
+    [Fact]
+    public async Task ImportSeedLosesAnAtomicMoveRaceWithoutOverwritingTheWinner()
+    {
+        var target = Path.Combine(_root, "generated.json");
+        var writes = 0;
+        _service.WriteContent = (stream, bytes) =>
+        {
+            writes++;
+            stream.Write(bytes);
+            File.WriteAllText(target, "winner");
+        };
+        var server = Server() with { ProjectImport = new("probe.import", JsonDocument.Parse("[]").RootElement.Clone()) };
+        await _service.PrepareAsync(server, TestContext.Current.CancellationToken);
+        writes.Should().Be(1);
+        File.ReadAllText(target).Should().Be("winner");
+        Directory.GetFiles(_root, ".hexide-artifact-*").Should().BeEmpty();
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

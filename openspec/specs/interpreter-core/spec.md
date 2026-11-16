@@ -1126,7 +1126,12 @@ probes and its 2026-10-27 entry "A For counter written with a type character" (#
 
 Assignments to an existing intrinsic control's Width and Height SHALL apply the minimum sizes measured in the
 oracle's "A control's position at run time" (#1029), after conversion to whole twips. Move SHALL use the same
-floors. Sizes above a floor SHALL remain unsnapped. TextBox and CommandButton floors SHALL use only the recorded
+floors. For CommandButton, TextBox and Label, the comparison SHALL round to whole pixels half up, and retain
+the assigned whole twips when the rounded size reaches the floor (#4071, oracle PRs #4069 and #4095).
+Assigning either dimension SHALL enforce both dimensions on those controls; loaded zero sizes SHALL remain
+unchanged until assignment. Negative CommandButton, Label or form Width or Height assignments SHALL raise 380, "Invalid property value",
+without changing the size; Move with a negative size SHALL raise 5 before changing any position or size.
+Other controls retain their existing floor comparison. Sizes above a floor SHALL remain unsnapped. TextBox and CommandButton floors SHALL use only the recorded
 font/border combinations, without extrapolating to other fonts. ComboBox Height assignments SHALL raise 383.
 The form's desktop-dependent floor and the absent DriveListBox, DirListBox, FileListBox and Data runtime controls
 remain outside this implementation.
@@ -1144,6 +1149,13 @@ remain outside this implementation.
 - **THEN** it reads 75 and 195
 - **WHEN** a CommandButton receives those sizes in MS Sans Serif 8.25 or Arial 14.25
 - **THEN** it reads 75 × 195 or 120 × 330 respectively
+
+#### Scenario: A CommandButton reaches its minimum after pixel rounding
+
+- **WHEN** a default CommandButton receives Width 67, then 68, and Height 187, then 188
+- **THEN** those reads are 75, 68, 195 and 188 twips respectively
+- **WHEN** a CommandButton in MS Sans Serif 24 pt receives Width 0 and Height 0
+- **THEN** it reads 240 × 555 twips, the measured 16 × 37 pixels at 96 dpi
 
 #### Scenario: Other existing controls receive tiny sizes
 
@@ -1935,3 +1947,31 @@ state and saved form values.
 - **GIVEN** either intrinsic control's member table
 - **THEN** both search methods are marked HexIde and not persisted
 - **AND** the Object Browser describes them with the shared HexIDE extension localisation key
+
+### Requirement: Fixed-length scalar String storage
+The interpreter SHALL allocate module, local and Static scalar `String * N` variables with N NUL
+characters. Each store SHALL convert to String, truncate on the right or pad on the right with spaces
+to N characters. Null SHALL raise 94 and leave the stored value unchanged. N SHALL be an integer literal
+or integer Const from 1 to 65,526; an invalid length SHALL report "Invalid length for fixed-length
+string", and a variable width SHALL report "Constant expression required".
+
+Measured native and p-code behaviour: [#179](https://github.com/hexide-io/HexIDE/issues/179), supervisor
+comment and oracle PR #4019. Array elements and Type fields SHALL retain their declared widths,
+initialise to N NULs and coerce each store. Erase SHALL reset a fixed array to NULs and plain ReDim SHALL keep
+its element width. Whole-record copies SHALL own independent fields, and Len SHALL count a fixed String
+field by its width (Integer plus String * 4 is 6). ByRef String/Variant parameters SHALL copy the padded
+value in and coerce the copy out on return. Get/Put SHALL omit length prefixes for fixed Strings and Type
+fields, using their declared widths
+([measured record rows](../../../docs/vb6-fidelity-oracle/random-and-binary-files-get-put-and-len.md)).
+Fixed-length String parameters SHALL report "Expected array"; Function and Property Get returns SHALL
+report "Expected: end of statement".
+
+#### Scenario: Padding is part of the value
+- **WHEN** a `String * 5` variable receives `"ab"`
+- **THEN** it holds `"ab   "`, differs from `"ab"`, and retains the spaces through concatenation and copies
+- **AND** Len returns Long 5 and LenB returns Integer 10
+
+#### Scenario: In-place scalar writes
+- **WHEN** Mid, LSet or RSet writes a fixed-length scalar String
+- **THEN** it retains its declared width
+- **AND** both LSet and RSet retain the leftmost characters of an overlong source

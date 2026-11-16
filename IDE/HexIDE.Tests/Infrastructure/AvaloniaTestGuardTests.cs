@@ -11,21 +11,66 @@ public class AvaloniaTestGuardTests
             .Concat(Directory.GetFiles(AppContext.BaseDirectory, "*.dll"))
             .Distinct().Select(path => (MetadataReference)MetadataReference.CreateFromFile(path)).ToArray());
 
+    private static readonly string Folder = Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Tests");
+
+    // This project's own source, bound against the existing build so aliases, target-typed new and derived controls
+    // are covered. Shared by the guards below.
+    private static readonly Lazy<(SyntaxTree[] Trees, CSharpCompilation Compilation)> Source = new(() =>
+    {
+        var trees = Directory.GetFiles(Folder, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !Path.GetRelativePath(Folder, path).Split(Path.DirectorySeparatorChar)
+                .Any(part => part is "bin" or "obj"))
+            .Select(path => CSharpSyntaxTree.ParseText(File.ReadAllText(path), path: path)).ToArray();
+        var globals = CSharpSyntaxTree.ParseText(
+            "global using System; global using System.Linq; global using System.Collections.Generic; global using Xunit;");
+        return (trees, CSharpCompilation.Create("AffinityGuard", trees.Append(globals), References.Value,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)));
+    });
+
+    /// <summary>
+    /// A test that calls <c>HeadlessUnitTestSession.Dispatch</c> itself resumes on the session's thread, and takes
+    /// xunit's runner there with it, which hangs the next <c>[AvaloniaFact]</c> and so the whole run (#4130).
+    /// <c>HeadlessDispatch.RunAsync</c> is the one place that calls it.
+    /// </summary>
+    [Fact]
+    public void OnlyHeadlessDispatchCallsTheSessionsDispatch()
+    {
+        var (trees, compilation) = Source.Value;
+        var failures = trees.Where(tree => Path.GetFileName(tree.FilePath) != "HeadlessDispatch.cs")
+            .SelectMany(tree => DirectDispatches(tree, compilation.GetSemanticModel(tree))
+                .Select(line => $"{Path.GetRelativePath(Folder, tree.FilePath)}:{line}"))
+            .ToArray();
+        failures.Should().BeEmpty("a test reaches the headless session's thread through HeadlessDispatch.RunAsync, "
+            + "or the run can hang with no failure: {0}", string.Join(Environment.NewLine, failures));
+    }
+
+    [Theory]
+    [InlineData("Task T() => Avalonia.Headless.HeadlessUnitTestSession.GetOrStartForAssembly(typeof(Fixture).Assembly).Dispatch<bool>(() => Task.FromResult(true), default);", true)]
+    [InlineData("Task T() { var s = Avalonia.Headless.HeadlessUnitTestSession.GetOrStartForAssembly(typeof(Fixture).Assembly); return s.Dispatch(() => { }, default); }", true)]
+    [InlineData("Task T() => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }).GetTask();", false)]
+    [InlineData("Task T() => Dispatch(); Task Dispatch() => Task.CompletedTask;", false)]
+    public void DispatchGuardFindsTheSessionsDispatchOnly(string members, bool expected)
+    {
+        var tree = CSharpSyntaxTree.ParseText("using System.Threading.Tasks; class Fixture { " + members + " }",
+            cancellationToken: TestContext.Current.CancellationToken);
+        var compilation = CSharpCompilation.Create("Fixture", [tree], References.Value,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        DirectDispatches(tree, compilation.GetSemanticModel(tree)).Any().Should().Be(expected);
+    }
+
+    private static IEnumerable<int> DirectDispatches(SyntaxTree tree, SemanticModel model) =>
+        tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Where(invocation => invocation.Expression is MemberAccessExpressionSyntax { Name.Identifier.Text: "Dispatch" }
+                && model.GetSymbolInfo(invocation) is var info
+                && (info.Symbol ?? info.CandidateSymbols.FirstOrDefault())?.ContainingType.ToDisplayString()
+                    == "Avalonia.Headless.HeadlessUnitTestSession")
+            .Select(invocation => invocation.GetLocation().GetLineSpan().StartLinePosition.Line + 1);
+
     [Fact]
     public void PlainTestsDoNotTouchAvalonia()
     {
-        var folder = Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Tests");
-        var trees = Directory.GetFiles(folder, "*.cs", SearchOption.AllDirectories)
-            .Where(path => !Path.GetRelativePath(folder, path).Split(Path.DirectorySeparatorChar)
-                .Any(part => part is "bin" or "obj"))
-            .Select(path => CSharpSyntaxTree.ParseText(File.ReadAllText(path), path: path,
-                cancellationToken: TestContext.Current.CancellationToken)).ToArray();
-        // Bind types against the existing build so aliases, target-typed new and derived controls are covered.
-        var globals = CSharpSyntaxTree.ParseText(
-            "global using System; global using System.Linq; global using System.Collections.Generic; global using Xunit;",
-            cancellationToken: TestContext.Current.CancellationToken);
-        var compilation = CSharpCompilation.Create("AffinityGuard", trees.Append(globals), References.Value,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var folder = Folder;
+        var (trees, compilation) = Source.Value;
         var failures = new List<string>();
         foreach (var tree in trees)
         {

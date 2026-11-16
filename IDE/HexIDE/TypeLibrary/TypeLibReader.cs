@@ -6,7 +6,7 @@ using System.Runtime.InteropServices.ComTypes;
 using System.Runtime.Versioning;
 using Serilog;
 
-namespace HexIDE.Runtime.TypeLibrary;
+namespace HexIDE.TypeLibrary;
 
 // Reads a COM type library (.tlb / .olb / .dll / .ocx) and returns a TypeLibInfo record.
 // All COM work is Windows-only and guarded by OperatingSystem.IsWindows().

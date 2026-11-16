@@ -35,6 +35,7 @@ internal static class DesktopStartup
             Vb6TextEncoding.SimulateHostCodePage(codePage);
 #endif
 
+        var startupProject = new StartupProjectOpen();
         if (ServerOptions.NewProjectUnsaved)
             HexIDE.Static.StartupProjectHook = (ps, _) => ps.CreateNewProject(IProjectTemplate.StandardEXE);
         else if (ServerOptions.NewProject)
@@ -58,7 +59,7 @@ internal static class DesktopStartup
                 }
             };
         else if (ServerOptions.ProjectPath is { } path)
-            HexIDE.Static.StartupProjectHook = (ps, _) => ps.OpenProject(path);
+            HexIDE.Static.StartupProjectHook = (ps, _) => startupProject.Open(ps, path);
 
         HexIDE.Static.DesktopStartupHook = (setup, desktop) =>
         {
@@ -67,13 +68,7 @@ internal static class DesktopStartup
             loader.LoadAll(setup.HexIdeHost);
             desktop.ShutdownRequested += (_, _) => loader.Dispose();
 
-            // First-load consent: prompt for add-ins awaiting consent AFTER the window is shown (so the
-            // modal has an owner). Not a dev tool — runs in Release too.
-            desktop.MainWindow!.Opened += async (_, _) =>
-            {
-                try { await loader.PromptPendingConsentAsync(); }
-                catch (Exception ex) { Serilog.Log.Error(ex, "Add-in consent pass failed"); }
-            };
+            startupProject.Attach(desktop.MainWindow!, setup.ContributedProjects, loader.PromptPendingConsentAsync);
 
 #if DEBUG
             // MCP server: DEV-only (compiled out of Release), and only when --server-port is specified.

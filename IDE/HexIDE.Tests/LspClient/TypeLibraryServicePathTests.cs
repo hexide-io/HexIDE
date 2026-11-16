@@ -2,7 +2,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using HexIDE.Tests.Infrastructure;
 using HexIDE.IDE;
-using HexIDE.Runtime.TypeLibrary;
+using HexIDE.TypeLibrary;
 
 namespace HexIDE.Tests.LspClient;
 
@@ -60,7 +60,7 @@ public sealed class TypeLibraryServicePathTests
     [Fact]
     public void ReaderHasNoRegisteringLoadTypeLibImport()
     {
-        var source = File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Runtime", "TypeLibrary", "TypeLibReader.cs"));
+        var source = File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE", "TypeLibrary", "TypeLibReader.cs"));
         var root = CSharpSyntaxTree.ParseText(source, cancellationToken: TestContext.Current.CancellationToken).GetRoot(TestContext.Current.CancellationToken);
         var read = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "ReadCore");
         read.DescendantNodes().OfType<InvocationExpressionSyntax>()
