@@ -375,11 +375,11 @@ public class ShutdownWireShapeTests : IAsyncDisposable
 
     private const string OnTypeProvider = """{"firstTriggerCharacter":"\n","moreTriggerCharacter":["\""]}""";
 
-    private static Task<TextEdit[]> OnType(ILspClient client, string trigger, CancellationToken ct)
+    private static Task<TextEdit[]?> OnType(ILspClient client, string trigger, CancellationToken ct)
     {
         var method = typeof(ILspClient).GetMethod("RequestOnTypeFormattingAsync");
         method.Should().NotBeNull();
-        return (Task<TextEdit[]>)method!.Invoke(client,
+        return (Task<TextEdit[]?>)method!.Invoke(client,
             ["file:///M.bas", new Position(2, 4), trigger, new FormattingOptions(8, false), ct])!;
     }
 
@@ -419,7 +419,7 @@ public class ShutdownWireShapeTests : IAsyncDisposable
     {
         var client = await ConnectedAsync(onTypeProvider: OnTypeProvider, answerOnType: false);
         (await OnType(client, "\n", TestContext.Current.CancellationToken)
-            .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken)).Should().BeEmpty();
+            .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken)).Should().BeNull();
         // Cancellation is sent asynchronously; read it before Stop can dispose the connection.
         await _cancellationSeen.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         await client.StopAsync();

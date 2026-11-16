@@ -1,7 +1,8 @@
+using HexIDE.IDE;
 using System.Linq;
 using Avalonia.Platform.Storage;
 
-namespace HexIDE.Runtime.Interpreter;
+namespace HexIDE.Runtime.AvaloniaInterop;
 
 /// <summary>
 /// A CommonDialog's request as the options Avalonia's pickers take (#1084), so every host shows the same dialog.

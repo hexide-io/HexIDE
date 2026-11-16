@@ -71,12 +71,10 @@ A test that reaches the provider only at run time, through the application's com
 | `LspClient/DocumentVersionOnTheWireTests.cs` | split |
 | `LspClient/DocumentWireNameTests.cs` | split |
 | `LspClient/FileOperationWireTests.cs` | split |
-| `LspClient/TypeLibraryNamesTests.cs` | split |
-| `LspClient/TypeLibraryServicePathTests.cs` | split |
 | `LspClient/WorkspaceAndPriorityTests.cs` | split |
-| `LspClient/WorkspaceArtifactProjectTests.cs` | split |
 | `Profiles/ProfileMigrationTests.cs` | split |
 | `Profiles/ProfileRecoveryTests.cs` | split |
+| `ProgramSettingsPathTests.cs` | provider |
 | `ProjectElements/DesignerHalfEncodingTests.cs` | provider |
 | `ProjectElements/DocumentIdentityTests.cs` | provider |
 | `ProjectElements/DocumentLookupTests.cs` | provider |
@@ -107,6 +105,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/PackageEncodingTests.cs` | split |
 | `Projects/ProjectFileEditingTests.cs` | split |
 | `Projects/ProjectFileFormatSeamTests.cs` | split |
+| `Projects/ProjectFormatPerProjectTests.cs` | split |
 | `Projects/ProjectLoadWarningTests.cs` | split |
 | `Projects/ProjectOffersTests.cs` | split |
 | `Projects/ProjectTextReadTests.cs` | provider |

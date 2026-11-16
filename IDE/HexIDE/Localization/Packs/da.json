@@ -131,6 +131,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "Fjern alle dine tilsidesættelser for dette sprog?",
     "Str.TranslationEditor.PlaceholderError": "Redigering afvist: den skal bevare de samme {0}, {1} … pladsholdere som originalen.",
     "Str.TranslationEditor.ProtectedCredits": "HexIDEs egen tak kan ikke tilsidesættes her. Et produkt bygget på HexIDE kan kun føje til den.",
+    "Str.TranslationEditor.ProtectedTrust": "Etiketterne på HexIDEs signeringsnøgler kan ikke tilsidesættes her. Et produkt bygget på HexIDE kan ikke præsentere de nøgler som sine egne.",
     "Str.TranslationEditor.Tooltip.Override": "tilsidesættelse: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ingen)",
     "Str.TranslationEditor.Area.Menu": "Menuer",

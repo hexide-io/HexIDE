@@ -750,7 +750,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         .Any(e => e.Client is { IsRunning: true } c
             && ServerCapabilities.SupportsOnTypeFormatting(c.AdvertisedCapabilities, trigger));
 
-    public async Task<TextEdit[]> RequestOnTypeFormattingAsync(string uri, Position position, string trigger, FormattingOptions options, CancellationToken ct = default)
+    public async Task<TextEdit[]?> RequestOnTypeFormattingAsync(string uri, Position position, string trigger, FormattingOptions options, CancellationToken ct = default)
     {
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
         budget.CancelAfter(VBLspClient.OnTypeFormattingTimeout);
@@ -761,8 +761,15 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         var winner = advertisers[0];
         foreach (var skipped in advertisers.Skip(1))
             skipped.Client!.NotePrioritySkip("documentOnTypeFormattingProvider", OwnerOf(winner.Client!));
-        return await OpenedOnAsync(winner, uri, budget.Token) is { } client
-            ? await client.RequestOnTypeFormattingAsync(uri, position, trigger, options, budget.Token) : [];
+        try
+        {
+            return await OpenedOnAsync(winner, uri, budget.Token) is { } client
+                ? await client.RequestOnTypeFormattingAsync(uri, position, trigger, options, budget.Token) : null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     public bool SupportsRangeFormatting(string uri) => ClaimantsFor(uri, IsProjectMember(uri))

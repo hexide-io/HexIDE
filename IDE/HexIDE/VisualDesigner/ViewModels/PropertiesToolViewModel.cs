@@ -194,7 +194,8 @@ public partial class PropertiesToolViewModel : Tool
 
                         foreach (var raw in component.Instance.UnknownRawProperties)
                         {
-                            var row = new RawPropertyViewModel(raw, localization, format);
+                            var row = new RawPropertyViewModel(raw, localization,
+                                formEditViewModel.FormDefinition is { } shown ? ProjectFormats.Of(shown.Owner, format) : format);
                             Properties.Add(row);
                             CategorizedProperties.Add(row);
                         }

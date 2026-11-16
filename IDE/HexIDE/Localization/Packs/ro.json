@@ -501,6 +501,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "Elimini toate înlocuirile tale pentru această limbă?",
     "Str.TranslationEditor.PlaceholderError": "Editare respinsă: trebuie păstrați aceiași substituenți {0}, {1} … ca în original.",
     "Str.TranslationEditor.ProtectedCredits": "Mulțumirile HexIDE nu pot fi înlocuite aici. Un produs bazat pe HexIDE le poate doar completa.",
+    "Str.TranslationEditor.ProtectedTrust": "Etichetele cheilor de semnare HexIDE nu pot fi înlocuite aici. Un produs bazat pe HexIDE nu poate prezenta aceste chei drept ale sale.",
     "Str.TranslationEditor.Tooltip.Override": "înlocuire: {0}",
     "Str.TranslationEditor.Tooltip.None": "(niciuna)",
     "Str.TranslationEditor.Area.Menu": "Meniuri",

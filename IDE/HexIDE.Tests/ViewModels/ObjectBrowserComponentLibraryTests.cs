@@ -9,7 +9,7 @@ using HexIDE.Lsp;
 using HexIDE.Projects;
 using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
-using HexIDE.Runtime.TypeLibrary;
+using HexIDE.TypeLibrary;
 using HexIDE.Tools.ObjectBrowser;
 
 namespace HexIDE.Tests.ViewModels;

@@ -156,6 +156,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "Supprimer tous vos remplacements pour cette langue ?",
     "Str.TranslationEditor.PlaceholderError": "Modification refusée : elle doit conserver les mêmes espaces réservés {0}, {1} … que l'original.",
     "Str.TranslationEditor.ProtectedCredits": "Les remerciements de HexIDE ne peuvent pas être remplacés ici. Un produit fondé sur HexIDE peut seulement les compléter.",
+    "Str.TranslationEditor.ProtectedTrust": "Les libellés des clés de signature de HexIDE ne peuvent pas être remplacés ici. Un produit fondé sur HexIDE ne peut pas présenter ces clés comme les siennes.",
     "Str.TranslationEditor.Tooltip.Override": "remplacement : {0}",
     "Str.TranslationEditor.Tooltip.None": "(aucun)",
     "Str.TranslationEditor.Area.Menu": "Menus",
