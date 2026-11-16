@@ -380,6 +380,7 @@
     "Str.Tool.CallStack.RowName": "{0}, vrstica {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Vse knjižnice>",
     "Str.Tool.ObjectBrowser.MembersOf": "Člani '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Članov ni mogoče navesti brez knjižnice tipov te knjižnice.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Zapri brskalnik predmetov",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Brskalnik predmetov",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Pojdi na definicijo",

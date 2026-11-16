@@ -414,6 +414,7 @@
     "Str.Tool.CallStack.RowName": "{0}, rinda {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Visas bibliotēkas>",
     "Str.Tool.ObjectBrowser.MembersOf": "'{0}' dalībnieki",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Dalībniekus nevar uzskaitīt bez šīs bibliotēkas tipu bibliotēkas.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Aizvērt objektu pārlūku",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektu pārlūks",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Doties uz definīciju",

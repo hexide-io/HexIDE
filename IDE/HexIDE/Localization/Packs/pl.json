@@ -453,6 +453,7 @@
     "Str.Tool.CallStack.RowName": "{0}, wiersz {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Wszystkie biblioteki>",
     "Str.Tool.ObjectBrowser.MembersOf": "Elementy klasy '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Nie można wyświetlić członków bez biblioteki typów tej biblioteki.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Zamknij Przeglądarkę obiektów",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Przeglądarka obiektów",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Przejdź do definicji",

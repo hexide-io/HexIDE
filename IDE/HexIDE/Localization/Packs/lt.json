@@ -414,6 +414,7 @@
     "Str.Tool.CallStack.RowName": "{0}, eilutė {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Visos bibliotekos>",
     "Str.Tool.ObjectBrowser.MembersOf": "„{0}“ nariai",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Narių negalima išvardyti be šios bibliotekos tipų bibliotekos.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Užverti objektų naršyklę",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektų naršyklė",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Pereiti prie apibrėžties",
