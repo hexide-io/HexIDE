@@ -2603,6 +2603,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (MemberHasArgs(members[0]))
                 {
                     var indexedName = UdtFieldName(members[0]);
+                    var propertyName = VbInterface.ResolveMember(variable, vobj, indexedName);
+                    if (propertyName is not null
+                        && vobj.ClassDef.PrePass.Properties.TryGetValue(propertyName, out var indexedProperty))
+                    {
+                        if (indexedProperty.Let is not { } indexedLetter
+                            || indexedLetter.Parameters.SkipLast(1).Any(p => p.Optional || p.ParamArray)
+                            || members[0].iCS_S_ProcedureOrArrayCall() is not { } propertyCall
+                            || propertyCall.argsCall().Length != 1)
+                            throw new NotImplementedException("This indexed Property Let assignment is not implemented (#177)");
+                        var args = await expressionExecutor.ResolveCallArgs(propertyCall.argsCall(0));
+                        args.Add(new CallArg(value, null));
+                        await interpreter.RunProcedure(vobj.ClassDef, indexedLetter, args, vobj.InstanceEnv, variable, stmtFrames);
+                        return default;
+                    }
                     if (string.Equals(variable.DeclaredAs, vobj.ClassName, StringComparison.OrdinalIgnoreCase)
                         && members[0].iCS_S_ProcedureOrArrayCall() is { } indexed && indexed.argsCall().Length == 1
                         && await interpreter.ReadVariable(vobj.InstanceEnv, indexedName) is (true, var field)
@@ -3933,7 +3947,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
             var setMember = chainMembers[^1];
             if (MemberHasArgs(setMember))
-                throw new NotImplementedException("Parameterized/indexed object member assignment is not supported");
+            {
+                var propertyName = VbInterface.ResolveMember(target, targetObj, UdtFieldName(setMember));
+                if (propertyName is null
+                    || !targetObj.ClassDef.PrePass.Properties.TryGetValue(propertyName, out var indexedProperty)
+                    || indexedProperty.Set is not { } indexedSetter
+                    || indexedSetter.Parameters.SkipLast(1).Any(p => p.Optional || p.ParamArray)
+                    || setMember.iCS_S_ProcedureOrArrayCall() is not { } propertyCall
+                    || propertyCall.argsCall().Length != 1)
+                    throw new NotImplementedException("This indexed Property Set assignment is not implemented (#177)");
+                var args = await expressionExecutor.ResolveCallArgs(propertyCall.argsCall(0));
+                args.Add(new CallArg(value, null));
+                await interpreter.RunProcedure(targetObj.ClassDef, indexedSetter, args, targetObj.InstanceEnv, target, stmtFrames);
+                return ControlFlow.Nothing;
+            }
             var fieldName = VbInterface.ResolveMember(target, targetObj, UdtFieldName(setMember))
                 ?? throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound,
                     UdtFieldName(setMember));
@@ -4875,9 +4902,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
            ?? m.iCS_S_ProcedureOrArrayCall()?.ambiguousIdentifier()?.GetText()
            ?? throw new VBCompileErrorException("Malformed UDT field access");
 
-    // True when a member carries an argument list (`.P(i)`) — a parameterized/indexed member access, a wall for
-    // both scalar properties and object fields (mirrors the READ-site guard). `UdtFieldName` discards the index,
-    // so without this guard `x.P(i) = v` would silently drop `(i)`. Empty parens `.P()` yield no argsCall (the
+    // True when a member carries an argument list (`.P(i)`). `UdtFieldName` discards the index,
+    // so callers must handle it separately. Empty parens `.P()` yield no argsCall (the
     // grammar makes argsCall optional), so this is false — a plain member access.
     private static bool MemberHasArgs(VB6Parser.ICS_S_MemberCallContext m)
         => m.iCS_S_ProcedureOrArrayCall()?.argsCall().Length > 0;

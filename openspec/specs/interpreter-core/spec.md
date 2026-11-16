@@ -1241,6 +1241,21 @@ implemented. Set with no Set SHALL raise "Invalid use of property" (#977).
 - **WHEN** another module executes PW = 5 or Module2.PW = 6
 - **THEN** the Let receives each value
 
+### Requirement: Indexed class property stores
+The interpreter SHALL dispatch an indexed class property assignment to Let or, for Set, to Set with the
+indexes first and the assigned value last, using the procedure parameter binder. Indexed Get SHALL receive
+its indexes through that binder. The measured cases are recorded in [#177](https://github.com/hexide-io/HexIDE/issues/177)
+(native and p-code, oracle PR #4042). Accessor signature consistency is a binding diagnostic and is not checked.
+
+#### Scenario: Indexed class value and reference stores
+- **GIVEN** CItem exposes Get Item(i As Long) As Variant, Let Item(i As Long, v As Variant), and Set Item(i As Long, v As Object)
+- **WHEN** o.Item(1) = 42 executes
+- **THEN** o.Item(1) returns 42 with TypeName Integer
+- **WHEN** Set o.Item(2) = o2 executes
+- **THEN** TypeName(o.Item(2)) is CItem and o.Item(2) Is o2 is True
+- **WHEN** o is declared As Object and o.Item(3) = "late" executes
+- **THEN** o.Item(3) returns "late"
+
 ### Requirement: Err help properties
 
 Err SHALL expose writable HelpFile and HelpContext and read-only LastDllError. Fresh Err and Clear
