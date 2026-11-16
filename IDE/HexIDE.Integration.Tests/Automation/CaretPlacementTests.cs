@@ -111,7 +111,7 @@ public class CaretPlacementTests : IDisposable
         lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
             lsp, new PublishDiagnosticsParams(vm.GetDocumentUriPublic(), []));
         Dispatcher.UIThread.RunJobs();
-        await lsp.Received().RequestDocumentSymbolsAsync(vm.GetDocumentUriPublic());
+        await lsp.Received().RequestDocumentSymbolsAsync(vm.GetDocumentUriPublic(), Arg.Any<CancellationToken>());
         var typed = await UiAutomationDriver.TypeKeysAsync(editor, "Debug.Print \"loaded\"");
         Dispatcher.UIThread.RunJobs();
 
