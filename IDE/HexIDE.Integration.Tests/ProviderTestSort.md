@@ -58,6 +58,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ArchiveProjectBrowsingTests.cs` | split |
 | `Views/BattleshipFormsDemoTests.cs` | split |
 | `Views/BeginOrderTests.cs` | split |
+| `Views/BrandWindowIconTests.cs` | split |
 | `Views/CallHierarchyTests.cs` | split |
 | `Views/CarriedBoxStackingTests.cs` | split |
 | `Views/CarriedPasteTests.cs` | split |
