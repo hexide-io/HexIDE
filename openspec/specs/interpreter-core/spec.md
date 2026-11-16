@@ -1205,6 +1205,22 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-obj
 Measured in [a form's own ActiveControl](../../../docs/vb6-fidelity-oracle/a-forms-own-activecontrol.md)
 (#2437); the choice among several shown forms follows [#3920](https://github.com/hexide-io/HexIDE/issues/3920).
 
+#### Scenario: Form visibility follows Show and Hide
+- **WHEN** a form's Visible property is set to False or True
+- **THEN** it SHALL follow Hide or Show respectively, including the active form's control focus and activation transition
+
+#### Scenario: The active form unloads with another form shown
+- **WHEN** the active form unloads while a previously active form remains shown
+- **THEN** that remaining form SHALL receive Activate and its remembered control SHALL receive GotFocus
+- **AND** the unloaded form SHALL receive neither LostFocus nor Deactivate
+
+#### Scenario: The last visible form is shown again
+- **WHEN** the last visible form is hidden and then shown again
+- **THEN** it SHALL retain its own control focus and Screen readings without Activate, GotFocus or Resize
+
+Measured in [the active form hidden by Visible](../../../docs/vb6-fidelity-oracle/a-forms-resize-activate-and-deactivate.md)
+(#3936), and run 1 of that page for Unload. Unload of the last visible form is unchanged.
+
 #### Scenario: A write to a member a program cannot write
 - **WHEN** a program writes `s.Width = 100` through `Set s = Screen`
 - **THEN** the interpreter SHALL raise 382, "'Width' property cannot be set at run time"
@@ -1257,6 +1273,21 @@ implemented. Set with no Set SHALL raise "Invalid use of property" (#977).
 - **GIVEN** Module2 declares only Property Let PW
 - **WHEN** another module executes PW = 5 or Module2.PW = 6
 - **THEN** the Let receives each value
+
+### Requirement: Indexed class property stores
+The interpreter SHALL dispatch an indexed class property assignment to Let or, for Set, to Set with the
+indexes first and the assigned value last, using the procedure parameter binder. Indexed Get SHALL receive
+its indexes through that binder. The measured cases are recorded in [#177](https://github.com/hexide-io/HexIDE/issues/177)
+(native and p-code, oracle PR #4042). Accessor signature consistency is a binding diagnostic and is not checked.
+
+#### Scenario: Indexed class value and reference stores
+- **GIVEN** CItem exposes Get Item(i As Long) As Variant, Let Item(i As Long, v As Variant), and Set Item(i As Long, v As Object)
+- **WHEN** o.Item(1) = 42 executes
+- **THEN** o.Item(1) returns 42 with TypeName Integer
+- **WHEN** Set o.Item(2) = o2 executes
+- **THEN** TypeName(o.Item(2)) is CItem and o.Item(2) Is o2 is True
+- **WHEN** o is declared As Object and o.Item(3) = "late" executes
+- **THEN** o.Item(3) returns "late"
 
 ### Requirement: Err help properties
 
@@ -1881,3 +1912,26 @@ Contract: [#1116](https://github.com/hexide-io/HexIDE/issues/1116); Value conver
 #### Scenario: Required argument is missing
 - **WHEN** code calls `ProgressBar1.Increment` without an argument
 - **THEN** the runtime raises Argument not optional and leaves Value unchanged
+
+### Requirement: Intrinsic list code-only search extensions
+Under [#1116](https://github.com/hexide-io/HexIDE/issues/1116), ListBox and every ComboBox style
+SHALL expose code-only `FindString(s [, startIndex])` and `FindStringExact(s [, startIndex])`.
+Search SHALL ignore case, match a prefix or whole item respectively, start after startIndex
+(default -1), wrap once, and return a Long index or -1. It SHALL preserve readable control
+state and saved form values.
+
+#### Scenario: Search wraps and distinguishes a prefix from a whole item
+- **GIVEN** a list containing `Alpha`, `alphabet`, `Beta`
+- **WHEN** code calls `FindString("ALP", 1)`
+- **THEN** it returns Long 0
+- **AND** `FindStringExact("ALP")` returns Long -1
+- **AND** the selection and form serialization are unchanged
+
+#### Scenario: Missing required search argument
+- **WHEN** either search method is called without its required string argument
+- **THEN** the runtime raises error 449
+
+#### Scenario: Extension origin and browser description
+- **GIVEN** either intrinsic control's member table
+- **THEN** both search methods are marked HexIde and not persisted
+- **AND** the Object Browser describes them with the shared HexIDE extension localisation key

@@ -8,6 +8,8 @@ using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
+using Avalonia.Data;
+using Avalonia.Diagnostics;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
@@ -28,8 +30,8 @@ namespace HexIDE.Automation;
 /// addressing and discovery logic is unit-testable headlessly.
 ///
 /// The tree is the UIA-style **control view**: structural layout wrappers (controls whose automation type
-/// is <c>None</c> with no non-scroll capability, no keyboard focus and no AutomationId — Panels, Borders, ContentPresenters,
-/// dock plumbing, …) are transparent. They never appear as nodes or in paths; the walk descends through
+/// is <c>None</c> with no non-scroll capability, no keyboard focus, no AutomationId and no explicit automation Name
+/// — Panels, Borders, ContentPresenters, dock plumbing, …) are transparent. They never appear as nodes or in paths; the walk descends through
 /// them and re-parents their meaningful descendants. x:Name alone does not keep a wrapper. Scrollability
 /// and usable range bounds do not change transparency, so growing content does not insert path segments.
 ///
@@ -6052,6 +6054,15 @@ public static class UiAutomationDriver
         return null;
     }
 
+    // A Name given to the element itself, not empty: a local value from markup or code, or a Template value,
+    // which is how markup inside a DataTemplate arrives (the Options Formatting page's ColorPickers). A style
+    // or theme setter is not the view's own: Dock's binds every dock control's Name to the dock's Title,
+    // which HexIDE leaves null, and counting it put a nameless segment into every path under the dock (#4046).
+    private static bool HasOwnName(Control control) =>
+        control.GetDiagnostic(AutomationProperties.NameProperty).Priority
+            is BindingPriority.LocalValue or BindingPriority.Template
+        && !string.IsNullOrWhiteSpace(AutomationProperties.GetName(control));
+
     private static NodeClass Classify(Control control)
     {
         AutomationPeer? peer = null;
@@ -6067,11 +6078,12 @@ public static class UiAutomationDriver
         // Keep the common surfaces' existing collapsed paths, including named TextEditors. Scrolling is
         // content-dependent (OwnScrollerFor starts succeeding on overflow), so it cannot establish a node.
         // rangeValue is also advertised only for a usable range: use the peer's capability, not today's
-        // bounds/read-only state. An AutomationId remains an explicit request to expose a wrapper;
-        // x:Name alone remains transparent, consistently before and after overflow (#1436).
+        // bounds/read-only state. An AutomationId, or an automation Name the view gives the element itself,
+        // requests exposing a wrapper; x:Name alone remains transparent, consistently before and after
+        // overflow (#1436, #4046).
         var hasCapability = providers.Any(p => p is not ("scroll" or "rangeValue" or "multiSelectItem"))
                             || peer?.GetProvider<IRangeValueProvider>() is not null;
-        var structural = type == "None" && !hasCapability && !focusable && autoId is null;
+        var structural = type == "None" && !hasCapability && !focusable && autoId is null && !HasOwnName(control);
 
         // A Separator matches every one of those conditions and is still not plumbing: it is a visible
         // element of a menu whose POSITION is the thing under test. Collapsing it away left a dump that

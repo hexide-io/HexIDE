@@ -204,6 +204,9 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         }
     }
 
+    public System.Threading.Tasks.Task<int> CompareRowsAsync(string name, int row1, int row2, int cmp) =>
+        windowContext.CompareRowsAsync(name, row1, row2, cmp);
+
     public void ExecuteKeyboardEvent(string name, IReadOnlyList<Vb6Value> args, int writable, Action<int> completed) =>
         windowContext.ExecuteKeyboardEvent(name, args, writable, completed);
 
@@ -250,6 +253,9 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         positioned = true;
         ShowActivated = IsEnabled;
         Show();
+        // The last visible form hidden and re-shown keeps its VB focus, without another GotFocus (#3936).
+        if (ReferenceEquals(windowContext.Program?.ActiveForm, windowContext.FormInstance))
+            ActiveControl?.Focus();
         // Me.Show in Load raises Activate and initial GotFocus before the next statement (#2436).
         if (windowContext.Loading && IsEnabled)
             windowContext.Program?.Activated(windowContext);

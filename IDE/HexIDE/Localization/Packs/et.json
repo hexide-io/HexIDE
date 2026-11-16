@@ -381,6 +381,7 @@
     "Str.Tool.CallStack.RowName": "{0}, rida {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Kõik teegid>",
     "Str.Tool.ObjectBrowser.MembersOf": "'{0}' liikmed",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Liikmeid ei saa loetleda ilma selle teegi tüübiteegita.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Sulge objektisirvija",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektisirvija",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Mine definitsiooni juurde",

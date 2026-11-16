@@ -381,6 +381,7 @@
     "Str.Tool.CallStack.RowName": "{0}, riadok {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Všetky knižnice>",
     "Str.Tool.ObjectBrowser.MembersOf": "Členovia '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Členov nemožno vypísať bez knižnice typov tejto knižnice.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Zavrieť prehliadač objektov",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Prehliadač objektov",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Prejsť na definíciu",

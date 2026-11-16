@@ -289,7 +289,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return (leftValue, rightValue);
     }
 
-
     public override Task<object?> Visit(IParseTree tree)
     {
         // Flat operator chains pass the parser's nesting guard but still recurse through the evaluator.
@@ -753,7 +752,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var identifier = context.ambiguousIdentifier().GetText();
         return identifier;
     }
-
 
     // EXPRESSION
     /// <summary>
@@ -1874,6 +1872,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
         }
 
+        if (variable.Value is VBMSFlexGrid grid)
+        {
+            VBProps.RefuseIfRemoved(grid);
+            return FlexGridMembers.Read(grid, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
+        }
+
         if (variable.Value is VBTreeView capacityTree && MemberName(member).Equals("GetVisibleCount", StringComparison.OrdinalIgnoreCase))
         {
             if ((await EvaluateCallArgs(MemberArgs(member))).Count != 0) throw new NotImplementedException();
@@ -1887,6 +1891,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (variable.Value is VBSSTab tab && SSTabMembers.IsIndexed(MemberName(member))
             && MemberArgs(member) is { } tabIndexes)
             return SSTabMembers.ReadIndexed(tab, MemberName(member), await EvaluateCallArgs(tabIndexes));
+
+        if (variable.Value is ItemsControl searchList && ListMembers.IsList(searchList) && ListMembers.IsExtension(searchList, MemberName(member)))
+            return ListMembers.CallExtension(searchList, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
 
         // A list's List(i) and a ListBox's Selected(i), the control members here that take an index (#821, #1395).
         if (variable.Value is Control listControl && ListMembers.IsList(listControl) && MemberArgs(member) is { } listIndexes)
@@ -2632,6 +2639,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             {
                 VBCommonDialog => Components.InBox.CommonDialogComponentClass.Instance.Library.Name,
                 VBProgressBar bar => bar.Library.Name,
+                VBMSFlexGrid => "MSFlexGridLib",
                 VBListView => "MSComctlLib",
                 VBToolbar => "MSComctlLib",
                 VBMonthView => "MSComCtl2",
@@ -2688,7 +2696,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         result = VbBitwise.Pack(op(leftBits, rightBits), VbBitwise.Combine(leftWidth, rightWidth));
         return true;
     }
-
 
     public override async Task<object?> VisitBlockStmt(VB6Parser.BlockStmtContext context)
     {

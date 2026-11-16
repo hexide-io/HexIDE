@@ -445,6 +445,7 @@
     "Str.Tool.CallStack.RowName": "{0}, línea {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Todas las bibliotecas>",
     "Str.Tool.ObjectBrowser.MembersOf": "Miembros de '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "No se pueden enumerar los miembros sin la biblioteca de tipos de esta biblioteca.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Cerrar Examinador de objetos",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Examinador de objetos",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Ir a la definición",
