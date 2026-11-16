@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "קובץ פרויקט",
     "Str.ProjectFile.ReplaceModel": "החלת טקסט קובץ הפרויקט תחליף הגדרות פרויקט שלא נשמרו עבור {0}. להמשיך?",
     "Str.AIChat.Title": "צ׳אט בינה מלאכותית",
     "Str.AIChat.Menu": "צ׳אט בינה מלאכותית",
@@ -119,7 +120,6 @@
     "Str.Dialog.About.Credits.Header": "תודות",
     "Str.Dialog.About.Credits.Thanks": "HexIDE נבנה בידי צוותי AI יוצאי דופן לצד התורמים האנושיים שלו. תודתנו מעומק הלב ל-Claude מבית Anthropic — מפגשי Claude Code שכותבים, סוקרים וממזגים את העבודה — ול-Codex מבית OpenAI — מסלולי העבודה של Codex שמקדמים את התיקונים שבתור. תשומת הלב והעבודה הבלתי נלאית שלהם מאפשרות את HexIDE.",
     "Str.Dialog.About.Provenance": "מבוסס על HexIDE {0}. {1}",
-    "Str.Tool.Properties.InvalidValue": "ערך מאפיין לא תקין",
     "Str.Tool.Properties.LoadPicture": "טעינת תמונה",
     "Str.Tool.Properties.Binary": "(בינארי)",
     "Str.Tool.Properties.LoadPictureFailed": "לא ניתן לטעון תמונה מתוך ״{0}״.",
@@ -1173,6 +1173,7 @@
     "Str.ProjectLoad.ParseFailed": "פענוח קובץ הטופס נכשל: {0}",
     "Str.ProjectLoad.InvalidForm": "זה אינו קובץ טופס תקין",
     "Str.ProjectLoad.UnknownControl": "המחלקה {0} של הפקד {1} אינה מחלקת פקדים נתמכת — נשמרה כלא מוכרת.",
+    "Str.Tool.Properties.InvalidValue": "ערך מאפיין לא חוקי",
     "Str.ProjectLoad.InvalidValue": "למאפיין {0} בתוך {1} היה ערך לא תקין.",
     "Str.ProjectLoad.MissingOffset": "מאפיין {0} בתוך {1}: ההיסט בקובץ .frx לא נמצא.",
     "Str.ProjectLoad.MissingRecord": "המאפיין '{0}' בתוך '{1}' מפנה לרשומה שאינה קיימת בקובץ הנלווה שלו, ולכן לא ניתן לשמור את הטופס.",

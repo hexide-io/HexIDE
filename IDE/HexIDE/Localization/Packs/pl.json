@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "plik projektu",
     "Str.ProjectFile.ReplaceModel": "Zastosowanie tekstu pliku projektu zastąpi niezapisane ustawienia projektu {0}. Kontynuować?",
     "Str.MemberOrigin.HexIde": "Rozszerzenie HexIDE; niedostępne w VB6.",
     "Str.Dock.Host": "Host dokowania",
@@ -94,7 +95,6 @@
     "Str.Dialog.About.Credits.Header": "Podziękowania",
     "Str.Dialog.About.Credits.Thanks": "HexIDE tworzą wyjątkowe zespoły AI wraz z ludzkimi współtwórcami. Serdecznie dziękujemy Claude od Anthropic — sesjom Claude Code, które piszą, przeglądają i scalają pracę — oraz Codex od OpenAI — ścieżkom pracy Codex, które posuwają naprzód poprawki z kolejki. Ich staranność i niestrudzona praca umożliwiają rozwój HexIDE.",
     "Str.Dialog.About.Provenance": "Oparte na HexIDE {0}. {1}",
-    "Str.Tool.Properties.InvalidValue": "Nieprawidłowa wartość właściwości",
     "Str.Tool.Properties.LoadPicture": "Wczytaj obraz",
     "Str.Tool.Properties.Binary": "(dane binarne)",
     "Str.Tool.Properties.LoadPictureFailed": "Nie można wczytać obrazu z „{0}”.",
@@ -1148,6 +1148,7 @@
     "Str.ProjectLoad.ParseFailed": "Nie udało się przeanalizować pliku formularza: {0}",
     "Str.ProjectLoad.InvalidForm": "To nie jest prawidłowy plik formularza",
     "Str.ProjectLoad.UnknownControl": "Klasa {0} kontrolki {1} nie jest obsługiwaną klasą kontrolek — zachowano jako nieznaną.",
+    "Str.Tool.Properties.InvalidValue": "Nieprawidłowa wartość właściwości",
     "Str.ProjectLoad.InvalidValue": "Właściwość {0} w {1} miała nieprawidłową wartość.",
     "Str.ProjectLoad.MissingOffset": "Właściwość {0} w {1}: nie znaleziono przesunięcia .frx.",
     "Str.ProjectLoad.MissingRecord": "Właściwość „{0}” w „{1}” odwołuje się do rekordu, którego nie ma w pliku towarzyszącym, więc formularza nie można zapisać.",

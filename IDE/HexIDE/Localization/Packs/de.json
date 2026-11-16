@@ -2,6 +2,7 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "Projektdatei",
     "Str.ProjectFile.ReplaceModel": "Das Anwenden des Projektdateitexts ersetzt ungespeicherte Projekteinstellungen für {0}. Fortfahren?",
     "Str.AIChat.Title": "KI-Chat",
     "Str.AIChat.Menu": "KI-_Chat",
@@ -85,7 +86,6 @@
     "Str.Dialog.About.Credits.Header": "Danksagung",
     "Str.Dialog.About.Credits.Thanks": "HexIDE wird von außergewöhnlichen KI-Teams gemeinsam mit seinen menschlichen Mitwirkenden entwickelt. Unser herzlicher Dank gilt Claude von Anthropic — den Claude Code-Sitzungen, die die Arbeit schreiben, prüfen und zusammenführen — und Codex von OpenAI — den Codex-Arbeitssträngen, die die eingereihten Korrekturen voranbringen. Ihre Sorgfalt und unermüdliche Arbeit machen HexIDE möglich.",
     "Str.Dialog.About.Provenance": "Basiert auf HexIDE {0}. {1}",
-    "Str.Tool.Properties.InvalidValue": "Ungültiger Eigenschaftswert",
     "Str.Tool.Properties.LoadPicture": "Bild laden",
     "Str.Tool.Properties.Binary": "(binär)",
     "Str.Tool.Properties.LoadPictureFailed": "Das Bild aus „{0}“ kann nicht geladen werden.",
@@ -1139,6 +1139,7 @@
     "Str.ProjectLoad.ParseFailed": "Formulardatei konnte nicht analysiert werden: {0}",
     "Str.ProjectLoad.InvalidForm": "Dies ist keine gültige Formulardatei",
     "Str.ProjectLoad.UnknownControl": "Die Klasse {0} des Steuerelements {1} ist keine unterstützte Steuerelementklasse — als unbekannt beibehalten.",
+    "Str.Tool.Properties.InvalidValue": "Ungültiger Eigenschaftswert",
     "Str.ProjectLoad.InvalidValue": "Die Eigenschaft {0} in {1} hatte einen ungültigen Wert.",
     "Str.ProjectLoad.MissingOffset": "Eigenschaft {0} in {1}: Offset in .frx nicht gefunden.",
     "Str.ProjectLoad.MissingRecord": "Die Eigenschaft '{0}' in '{1}' verweist auf einen Datensatz, den die Begleitdatei nicht enthält. Das Formular kann deshalb nicht gespeichert werden.",

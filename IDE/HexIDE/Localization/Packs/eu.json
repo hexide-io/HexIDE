@@ -2,6 +2,7 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "proiektu-fitxategia",
     "Str.ProjectFile.ReplaceModel": "Proiektu-fitxategiaren testua aplikatzean, {0} proiektuaren gorde gabeko ezarpenak ordeztuko dira. Jarraitu?",
     "Str.MemberOrigin.HexIde": "HexIDE hedapena; ez dago erabilgarri VB6n.",
     "Str.Dock.Host": "Atrakatzeko ostalaria",
@@ -64,7 +65,6 @@
     "Str.Dialog.About.Provenance": "HexIDE {0} oinarri hartuta eraikia. {1}",
     "Str.Tool.LanguageServers.Output": "Irteera",
     "Str.Tool.LanguageServers.OutputEmpty": "Oraindik ez da irteerarik jaso.",
-    "Str.Tool.Properties.InvalidValue": "Propietatearen balio baliogabea",
     "Str.Tool.Properties.LoadPicture": "Kargatu irudia",
     "Str.Tool.Properties.Binary": "(bitarra)",
     "Str.Tool.Properties.LoadPictureFailed": "Ezin da irudia kargatu “{0}” kokalekutik.",
@@ -1154,6 +1154,7 @@
     "Str.ProjectLoad.ParseFailed": "Ezin izan da inprimaki-fitxategia analizatu: {0}",
     "Str.ProjectLoad.InvalidForm": "Hau ez da baliozko inprimaki-fitxategia",
     "Str.ProjectLoad.UnknownControl": "{1} kontrolaren {0} klasea ez da onartutako kontrol-klasea: ezezagun gisa mantendu da.",
+    "Str.Tool.Properties.InvalidValue": "Propietatearen balio baliogabea",
     "Str.ProjectLoad.InvalidValue": "{1} fitxategiko {0} propietateak balio baliogabea zuen.",
     "Str.ProjectLoad.MissingOffset": "{1} fitxategiko {0} propietatea: ez da .frx desplazamendua aurkitu.",
     "Str.ProjectLoad.MissingRecord": "'{1}' fitxategiko '{0}' propietateak lagun-fitxategian ez dagoen erregistro bat aipatzen du; beraz, ezin da inprimakia gorde.",

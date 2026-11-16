@@ -27,6 +27,8 @@ public class RefusedPropertyRowsTests
     // Width and refusal examples recorded in https://github.com/hexide-io/HexIDE/issues/4180.
     [AvaloniaTheory]
     [InlineData("Width", "abc", 1215d, 81d)]
+    // #589 refuses a negative size; the row must come back in twips as well (#4180).
+    [InlineData("Width", "-10", 1215d, 81d)]
     [InlineData("TabIndex", "abc", 0, 0)]
     public void Enter_refusal_restores_the_rows_own_units(string property, string input, object shown, object stored)
     {

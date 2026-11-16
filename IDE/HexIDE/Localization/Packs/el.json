@@ -2,6 +2,7 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "αρχείο έργου",
     "Str.ProjectFile.ReplaceModel": "Η εφαρμογή του κειμένου του αρχείου έργου θα αντικαταστήσει τις μη αποθηκευμένες ρυθμίσεις του έργου {0}. Συνέχεια;",
     "Str.MemberOrigin.HexIde": "Επέκταση του HexIDE· δεν είναι διαθέσιμη στη VB6.",
     "Str.Dock.Host": "Κεντρικός υποδοχέας αγκύρωσης",
@@ -60,7 +61,6 @@
     "Str.Dialog.About.Credits.Header": "Ευχαριστίες",
     "Str.Dialog.About.Credits.Thanks": "Το HexIDE δημιουργείται από εξαιρετικές ομάδες AI μαζί με τους ανθρώπους που συνεισφέρουν σε αυτό. Ευχαριστούμε από καρδιάς το Claude της Anthropic — τις συνεδρίες Claude Code που γράφουν, ελέγχουν και συγχωνεύουν την εργασία — και το Codex της OpenAI — τις ροές εργασίας Codex που προωθούν τις διορθώσεις στην ουρά. Η φροντίδα και η ακούραστη εργασία τους κάνουν το HexIDE δυνατό.",
     "Str.Dialog.About.Provenance": "Βασίζεται στο HexIDE {0}. {1}",
-    "Str.Tool.Properties.InvalidValue": "Μη έγκυρη τιμή ιδιότητας",
     "Str.Tool.Properties.LoadPicture": "Φόρτωση εικόνας",
     "Str.Tool.Properties.Binary": "(δυαδικό)",
     "Str.Tool.Properties.LoadPictureFailed": "Δεν είναι δυνατή η φόρτωση εικόνας από το «{0}».",
@@ -1114,6 +1114,7 @@
     "Str.ProjectLoad.ParseFailed": "Αποτυχία ανάλυσης του αρχείου φόρμας: {0}",
     "Str.ProjectLoad.InvalidForm": "Αυτό δεν είναι έγκυρο αρχείο φόρμας",
     "Str.ProjectLoad.UnknownControl": "Η κλάση {0} του στοιχείου ελέγχου {1} δεν είναι υποστηριζόμενη κλάση στοιχείων ελέγχου — διατηρήθηκε ως άγνωστη.",
+    "Str.Tool.Properties.InvalidValue": "Μη έγκυρη τιμή ιδιότητας",
     "Str.ProjectLoad.InvalidValue": "Η ιδιότητα {0} στο {1} είχε μη έγκυρη τιμή.",
     "Str.ProjectLoad.MissingOffset": "Ιδιότητα {0} στο {1}: δεν βρέθηκε η μετατόπιση στο .frx.",
     "Str.ProjectLoad.MissingRecord": "Η ιδιότητα '{0}' στο '{1}' παραπέμπει σε εγγραφή που δεν υπάρχει στο συνοδευτικό αρχείο, επομένως η φόρμα δεν μπορεί να αποθηκευτεί.",

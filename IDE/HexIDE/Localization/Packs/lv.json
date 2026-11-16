@@ -2,6 +2,7 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "projekta fails",
     "Str.ProjectFile.ReplaceModel": "Lietojot projekta faila tekstu, tiks aizstāti projekta {0} nesaglabātie iestatījumi. Vai turpināt?",
     "Str.MemberOrigin.HexIde": "HexIDE paplašinājums; nav pieejams VB6.",
     "Str.Dock.Host": "Dokošanas resursdators",
@@ -98,7 +99,6 @@
     "Str.Dialog.About.Provenance": "Veidots, izmantojot HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Izvade",
     "Str.Tool.LanguageServers.OutputEmpty": "Izvade vēl nav saņemta.",
-    "Str.Tool.Properties.InvalidValue": "Nederīga īpašības vērtība",
     "Str.Tool.Properties.LoadPicture": "Ielādēt attēlu",
     "Str.Tool.Properties.Binary": "(binārs)",
     "Str.Tool.Properties.LoadPictureFailed": "Nevar ielādēt attēlu no “{0}”.",
@@ -1188,6 +1188,7 @@
     "Str.ProjectLoad.ParseFailed": "Neizdevās parsēt formas failu: {0}",
     "Str.ProjectLoad.InvalidForm": "Šis nav derīgs formas fails",
     "Str.ProjectLoad.UnknownControl": "Vadīklas {1} klase {0} nav atbalstīta vadīklu klase — saglabāta kā nezināma.",
+    "Str.Tool.Properties.InvalidValue": "Nederīga rekvizīta vērtība",
     "Str.ProjectLoad.InvalidValue": "Īpašībai {0} objektā {1} bija nederīga vērtība.",
     "Str.ProjectLoad.MissingOffset": "Īpašība {0} objektā {1}: .frx nobīde nav atrasta.",
     "Str.ProjectLoad.MissingRecord": "Īpašība '{0}' objektā '{1}' norāda uz ierakstu, kura pavadošajā failā nav, tāpēc formu nevar saglabāt.",

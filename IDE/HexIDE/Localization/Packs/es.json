@@ -2,6 +2,7 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "archivo de proyecto",
     "Str.ProjectFile.ReplaceModel": "Al aplicar el texto del archivo de proyecto se reemplazará la configuración sin guardar de {0}. ¿Continuar?",
     "Str.AIChat.Title": "Chat de IA",
     "Str.AIChat.Menu": "_Chat de IA",
@@ -85,7 +86,6 @@
     "Str.Dialog.About.Credits.Header": "Créditos",
     "Str.Dialog.About.Credits.Thanks": "HexIDE se construye con equipos extraordinarios de IA junto a sus colaboradores humanos. Nuestro más sincero agradecimiento a Claude de Anthropic — las sesiones de Claude Code que escriben, revisan e integran el trabajo — y a Codex de OpenAI — las líneas de trabajo de Codex que hacen avanzar las correcciones en cola. Su dedicación y trabajo incansable hacen posible HexIDE.",
     "Str.Dialog.About.Provenance": "Basado en HexIDE {0}. {1}",
-    "Str.Tool.Properties.InvalidValue": "Valor de propiedad no válido",
     "Str.Tool.Properties.LoadPicture": "Cargar imagen",
     "Str.Tool.Properties.Binary": "(binario)",
     "Str.Tool.Properties.LoadPictureFailed": "No se puede cargar la imagen de «{0}».",
@@ -1139,6 +1139,7 @@
     "Str.ProjectLoad.ParseFailed": "No se pudo analizar el archivo de formulario: {0}",
     "Str.ProjectLoad.InvalidForm": "Este no es un archivo de formulario válido",
     "Str.ProjectLoad.UnknownControl": "La clase {0} del control {1} no es una clase de control compatible — se ha conservado como desconocida.",
+    "Str.Tool.Properties.InvalidValue": "Valor de propiedad no válido",
     "Str.ProjectLoad.InvalidValue": "La propiedad {0} en {1} tenía un valor no válido.",
     "Str.ProjectLoad.MissingOffset": "Propiedad {0} en {1}: no se encontró el desplazamiento en .frx.",
     "Str.ProjectLoad.MissingRecord": "La propiedad '{0}' en '{1}' hace referencia a un registro que no existe en su archivo complementario, por lo que no se puede guardar el formulario.",

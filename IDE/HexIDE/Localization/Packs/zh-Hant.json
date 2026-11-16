@@ -2,6 +2,7 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "專案檔案",
     "Str.ProjectFile.ReplaceModel": "套用專案檔案文字將取代 {0} 尚未儲存的專案設定。是否繼續？",
     "Str.AIChat.Title": "AI 聊天",
     "Str.AIChat.Menu": "AI 聊天(_C)",
@@ -85,7 +86,6 @@
     "Str.Dialog.About.Credits.Header": "致謝",
     "Str.Dialog.About.Credits.Thanks": "HexIDE 由傑出的 AI 團隊與人類貢獻者共同建構。我們衷心感謝 Anthropic 的 Claude — 編寫、審查和合併工作的 Claude Code 工作階段 — 以及 OpenAI 的 Codex — 推進佇列中修正工作的 Codex 工作通道。他們的細心與不懈努力使 HexIDE 成為可能。",
     "Str.Dialog.About.Provenance": "以 HexIDE {0} 為基礎建置。{1}",
-    "Str.Tool.Properties.InvalidValue": "屬性值無效",
     "Str.Tool.Properties.LoadPicture": "載入圖片",
     "Str.Tool.Properties.Binary": "(二進位)",
     "Str.Tool.Properties.LoadPictureFailed": "無法從「{0}」載入圖片。",
@@ -1139,6 +1139,7 @@
     "Str.ProjectLoad.ParseFailed": "無法剖析表單檔案：{0}",
     "Str.ProjectLoad.InvalidForm": "這不是有效的表單檔案",
     "Str.ProjectLoad.UnknownControl": "控制項 {1} 的類別 {0} 不是支援的控制項類別 — 已作為未知控制項保留。",
+    "Str.Tool.Properties.InvalidValue": "無效的屬性值",
     "Str.ProjectLoad.InvalidValue": "{1} 中的屬性 {0} 值無效。",
     "Str.ProjectLoad.MissingOffset": "{1} 中的屬性 {0}：找不到 .frx 位移量。",
     "Str.ProjectLoad.MissingRecord": "「{1}」中的屬性「{0}」參照了配套檔案中不存在的記錄，因此無法儲存表單。",

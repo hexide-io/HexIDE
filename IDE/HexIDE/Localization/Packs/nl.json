@@ -2,6 +2,7 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "projectbestand",
     "Str.ProjectFile.ReplaceModel": "Het toepassen van de projectbestandstekst vervangt niet-opgeslagen projectinstellingen voor {0}. Doorgaan?",
     "Str.MemberOrigin.HexIde": "HexIDE-uitbreiding; niet beschikbaar in VB6.",
     "Str.Dock.Host": "Dockhost",
@@ -94,7 +95,6 @@
     "Str.Dialog.About.Credits.Header": "Dankwoord",
     "Str.Dialog.About.Credits.Thanks": "HexIDE wordt gebouwd door buitengewone AI-teams samen met zijn menselijke bijdragers. Onze hartelijke dank aan Claude van Anthropic — de Claude Code-sessies die het werk schrijven, beoordelen en samenvoegen — en Codex van OpenAI — de Codex-werkstromen die de reparaties in de wachtrij vooruithelpen. Hun zorg en onvermoeibare werk maken HexIDE mogelijk.",
     "Str.Dialog.About.Provenance": "Gebaseerd op HexIDE {0}. {1}",
-    "Str.Tool.Properties.InvalidValue": "Ongeldige eigenschapswaarde",
     "Str.Tool.Properties.LoadPicture": "Afbeelding laden",
     "Str.Tool.Properties.Binary": "(binair)",
     "Str.Tool.Properties.LoadPictureFailed": "Kan de afbeelding uit “{0}” niet laden.",
@@ -1148,6 +1148,7 @@
     "Str.ProjectLoad.ParseFailed": "Kan formulierbestand niet parseren: {0}",
     "Str.ProjectLoad.InvalidForm": "Dit is geen geldig formulierbestand",
     "Str.ProjectLoad.UnknownControl": "Klasse {0} van besturingselement {1} is geen ondersteunde klasse van besturingselementen — bewaard als onbekend.",
+    "Str.Tool.Properties.InvalidValue": "Ongeldige eigenschapswaarde",
     "Str.ProjectLoad.InvalidValue": "Eigenschap {0} in {1} had een ongeldige waarde.",
     "Str.ProjectLoad.MissingOffset": "Eigenschap {0} in {1}: .frx-offset niet gevonden.",
     "Str.ProjectLoad.MissingRecord": "Eigenschap '{0}' in '{1}' verwijst naar een record dat niet in het bijbehorende bestand staat, waardoor het formulier niet kan worden opgeslagen.",

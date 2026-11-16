@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "файл проекта",
     "Str.ProjectFile.ReplaceModel": "Применение текста файла проекта заменит несохранённые настройки проекта {0}. Продолжить?",
     "Str.MemberOrigin.HexIde": "Расширение HexIDE; недоступно в VB6.",
     "Str.Dock.Host": "Контейнер закрепления",
@@ -60,7 +61,6 @@
     "Str.Dialog.About.Credits.Header": "Благодарности",
     "Str.Dialog.About.Credits.Thanks": "HexIDE создают выдающиеся команды ИИ вместе с людьми, участвующими в проекте. От всей души благодарим Claude от Anthropic — сеансы Claude Code, которые пишут, проверяют и объединяют работу, — и Codex от OpenAI — рабочие потоки Codex, которые продвигают исправления из очереди. Их забота и неустанный труд делают HexIDE возможным.",
     "Str.Dialog.About.Provenance": "Создано на основе HexIDE {0}. {1}",
-    "Str.Tool.Properties.InvalidValue": "Недопустимое значение свойства",
     "Str.Tool.Properties.LoadPicture": "Загрузить изображение",
     "Str.Tool.Properties.Binary": "(двоичные данные)",
     "Str.Tool.Properties.LoadPictureFailed": "Не удалось загрузить изображение из «{0}».",
@@ -1114,6 +1114,7 @@
     "Str.ProjectLoad.ParseFailed": "Не удалось разобрать файл формы: {0}",
     "Str.ProjectLoad.InvalidForm": "Этот файл не является допустимым файлом формы",
     "Str.ProjectLoad.UnknownControl": "Класс {0} элемента управления {1} не поддерживается — сохранён как неизвестный.",
+    "Str.Tool.Properties.InvalidValue": "Недопустимое значение свойства",
     "Str.ProjectLoad.InvalidValue": "Свойство {0} в {1} имело недопустимое значение.",
     "Str.ProjectLoad.MissingOffset": "Свойство {0} в {1}: смещение в .frx не найдено.",
     "Str.ProjectLoad.MissingRecord": "Свойство «{0}» в «{1}» ссылается на запись, которой нет в сопутствующем файле, поэтому форму нельзя сохранить.",

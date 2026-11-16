@@ -97,3 +97,40 @@ are not.
 - the wheel at a setting other than this guest's, which scrolled 3 rows a notch.
 
 **In HexIDE**, at main 0ee530a5d, the ListBox has no Scroll event, so no row above raises one (#3275).
+
+### A MultiSelect list's TopIndex, and TopIndex before the form is shown (2026-11-15, #3986)
+
+**The question.** The rows above are a single-select list on a shown form. Does `TopIndex` behave the same on a
+MultiSelect list, and before the form is shown, while its rows have never been drawn?
+
+**The probe.**
+- **Build:** VB6 SP6, `/make`, native code and p-code, which logged the same lines.
+- **The form:** three ListBoxes, each 1,425 twips high and showing 7 rows, with 20 items added after `Load Form1` and
+  before `Show`: `List0` with `MultiSelect` 0, `List1` with 1 (Simple), `List2` with 2 (Extended).
+- **The count:** each list's Scroll handler adds 1 to a counter, and each row reads `TopIndex`, `ListIndex`,
+  `SelCount` and the counter.
+
+| Step, on each list in turn | List0 (MultiSelect 0) | List1 (Simple), List2 (Extended) |
+|---|---|---|
+| loaded, not shown: read | `TopIndex` 0, `ListIndex` -1, Scroll 0 | `TopIndex` 0, **`ListIndex` 0**, Scroll 0 |
+| `TopIndex = 5`, not shown | 5, Scroll 1 | 5, Scroll 1 |
+| `TopIndex = 18`, not shown: the last page starts at 13 | 13, Scroll 2 | 13, Scroll 2 |
+| `TopIndex = -1`; `TopIndex = 20`, not shown | | 380 each, `TopIndex` still 13, no Scroll |
+| `Show`, then read | 13, Scroll 2 | 13, Scroll 2 |
+| `TopIndex = 8` | 8, Scroll 3 | 8, Scroll 3 |
+| `TopIndex = 19`, then `TopIndex = 0` | | 13, Scroll 4; 0, Scroll 5 |
+| `List0.ListIndex = 3`, `TopIndex` 8 | **`TopIndex` 3**, `ListIndex` 3, still Scroll 3 | |
+| `Selected(3) = True`, `TopIndex` 0 | | `TopIndex` 0, **`ListIndex` 3**, `SelCount` 1, still Scroll 5 |
+| `TopIndex = 10` | | 10, Scroll 6 |
+
+**Readings:**
+- **A MultiSelect list's `TopIndex` behaves as a single-select list's does.** It accepts 0 to `ListCount - 1`, moves
+  only as far as the last page, raises 380 outside that range, and raises Scroll once for each move.
+- **None of it waits for the form to be shown.** A list on a loaded, hidden form has `TopIndex` 0, takes assignments,
+  clamps to its last page and raises Scroll, and the form shows at that `TopIndex`.
+- **A MultiSelect list's `ListIndex` is 0 before anything is selected,** where a single-select list's is -1.
+  `Selected(3) = True` moves it to 3.
+- `ListIndex = 3` scrolls `List0` up to 3 without a Scroll, as the `ListIndex = 50` row above scrolls down without one.
+
+**Not measured:** Style 1 lists, `Columns` above 0, a held arrow, `Selected` or `Text` on an item out of view, and
+`WM_VSCROLL`. They're #3986's other rows.

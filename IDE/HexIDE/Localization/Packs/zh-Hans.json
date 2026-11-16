@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "项目文件",
     "Str.ProjectFile.ReplaceModel": "应用项目文件文本将替换 {0} 未保存的项目设置。是否继续？",
     "Str.AIChat.Title": "AI 聊天",
     "Str.AIChat.Menu": "AI 聊天(_C)",
@@ -85,7 +86,6 @@
     "Str.Dialog.About.Credits.Header": "致谢",
     "Str.Dialog.About.Credits.Thanks": "HexIDE 由杰出的 AI 团队与人类贡献者共同构建。我们衷心感谢 Anthropic 的 Claude — 编写、审查和合并工作的 Claude Code 会话 — 以及 OpenAI 的 Codex — 推进队列中修复工作的 Codex 工作通道。他们的细心与不懈努力使 HexIDE 成为可能。",
     "Str.Dialog.About.Provenance": "基于 HexIDE {0} 构建。{1}",
-    "Str.Tool.Properties.InvalidValue": "属性值无效",
     "Str.Tool.Properties.LoadPicture": "加载图片",
     "Str.Tool.Properties.Binary": "(二进制)",
     "Str.Tool.Properties.LoadPictureFailed": "无法从“{0}”加载图片。",
@@ -1139,6 +1139,7 @@
     "Str.ProjectLoad.ParseFailed": "无法解析窗体文件：{0}",
     "Str.ProjectLoad.InvalidForm": "这不是有效的窗体文件",
     "Str.ProjectLoad.UnknownControl": "控件 {1} 的类 {0} 不是受支持的控件类 — 已作为未知控件保留。",
+    "Str.Tool.Properties.InvalidValue": "无效的属性值",
     "Str.ProjectLoad.InvalidValue": "{1} 中的属性 {0} 的值无效。",
     "Str.ProjectLoad.MissingOffset": "{1} 中的属性 {0}：未找到 .frx 偏移量。",
     "Str.ProjectLoad.MissingRecord": "“{1}”中的属性“{0}”引用了配套文件中不存在的记录，因此无法保存窗体。",

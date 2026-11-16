@@ -2,6 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "file di progetto",
     "Str.ProjectFile.ReplaceModel": "Applicare il testo del file di progetto sostituirà le impostazioni non salvate di {0}. Continuare?",
     "Str.MemberOrigin.HexIde": "Estensione di HexIDE; non disponibile in VB6.",
     "Str.Dock.Host": "Contenitore di ancoraggio",
@@ -94,7 +95,6 @@
     "Str.Dialog.About.Credits.Header": "Ringraziamenti",
     "Str.Dialog.About.Credits.Thanks": "HexIDE viene costruito da straordinari team di IA insieme ai suoi collaboratori umani. Un grazie di cuore a Claude di Anthropic — le sessioni Claude Code che scrivono, revisionano e integrano il lavoro — e a Codex di OpenAI — le corsie di lavoro Codex che portano avanti le correzioni in coda. La loro cura e il loro lavoro instancabile rendono possibile HexIDE.",
     "Str.Dialog.About.Provenance": "Basato su HexIDE {0}. {1}",
-    "Str.Tool.Properties.InvalidValue": "Valore della proprietà non valido",
     "Str.Tool.Properties.LoadPicture": "Carica immagine",
     "Str.Tool.Properties.Binary": "(binario)",
     "Str.Tool.Properties.LoadPictureFailed": "Impossibile caricare l’immagine da “{0}”.",
@@ -1148,6 +1148,7 @@
     "Str.ProjectLoad.ParseFailed": "Impossibile analizzare il file del form: {0}",
     "Str.ProjectLoad.InvalidForm": "Questo non è un file di form valido",
     "Str.ProjectLoad.UnknownControl": "La classe {0} del controllo {1} non è una classe di controllo supportata — conservata come sconosciuta.",
+    "Str.Tool.Properties.InvalidValue": "Valore della proprietà non valido",
     "Str.ProjectLoad.InvalidValue": "La proprietà {0} in {1} aveva un valore non valido.",
     "Str.ProjectLoad.MissingOffset": "Proprietà {0} in {1}: offset .frx non trovato.",
     "Str.ProjectLoad.MissingRecord": "La proprietà '{0}' in '{1}' fa riferimento a un record assente nel file associato, quindi il form non può essere salvato.",

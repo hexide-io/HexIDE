@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "プロジェクトファイル",
     "Str.ProjectFile.ReplaceModel": "プロジェクト ファイルのテキストを適用すると、{0} の未保存のプロジェクト設定が置き換えられます。続行しますか？",
     "Str.AIChat.Title": "AI チャット",
     "Str.AIChat.Menu": "AI チャット(_C)",
@@ -119,7 +120,6 @@
     "Str.Dialog.About.Credits.Header": "謝辞",
     "Str.Dialog.About.Credits.Thanks": "HexIDEは、人間の貢献者と並んで、卓越したAIチームによって作られています。AnthropicのClaude — 作業の執筆、レビュー、マージを行うClaude Codeのセッション — と、OpenAIのCodex — キューに入った修正を進めるCodexの作業レーン — に心から感謝します。その細やかな配慮とたゆまぬ努力がHexIDEを可能にしています。",
     "Str.Dialog.About.Provenance": "HexIDE {0} をベースに構築。{1}",
-    "Str.Tool.Properties.InvalidValue": "プロパティの値が無効です",
     "Str.Tool.Properties.LoadPicture": "画像を読み込む",
     "Str.Tool.Properties.Binary": "(バイナリ)",
     "Str.Tool.Properties.LoadPictureFailed": "「{0}」から画像を読み込めません。",
@@ -1173,6 +1173,7 @@
     "Str.ProjectLoad.ParseFailed": "フォームファイルを解析できませんでした: {0}",
     "Str.ProjectLoad.InvalidForm": "これは有効なフォームファイルではありません",
     "Str.ProjectLoad.UnknownControl": "コントロール {1} のクラス {0} はサポートされていないコントロールクラスです — 不明なクラスとして保持されました。",
+    "Str.Tool.Properties.InvalidValue": "プロパティの値が無効です",
     "Str.ProjectLoad.InvalidValue": "{1} のプロパティ {0} に無効な値がありました。",
     "Str.ProjectLoad.MissingOffset": "{1} のプロパティ {0}: .frx オフセットが見つかりません。",
     "Str.ProjectLoad.MissingRecord": "'{1}' のプロパティ '{0}' は付随ファイルに存在しないレコードを参照しているため、フォームを保存できません。",

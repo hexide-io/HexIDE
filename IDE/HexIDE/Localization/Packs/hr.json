@@ -2,6 +2,7 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "datoteka projekta",
     "Str.ProjectFile.ReplaceModel": "Primjena teksta projektne datoteke zamijenit će nespremljene postavke projekta {0}. Nastaviti?",
     "Str.AIChat.Title": "AI chat",
     "Str.AIChat.Menu": "AI _chat",
@@ -123,7 +124,6 @@
     "Str.Dialog.About.Provenance": "Temeljeno na programu HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Izlaz",
     "Str.Tool.LanguageServers.OutputEmpty": "Još nije primljen izlaz.",
-    "Str.Tool.Properties.InvalidValue": "Nevaljana vrijednost svojstva",
     "Str.Tool.Properties.LoadPicture": "Učitaj sliku",
     "Str.Tool.Properties.Binary": "(binarno)",
     "Str.Tool.Properties.LoadPictureFailed": "Nije moguće učitati sliku iz „{0}”.",
@@ -1213,6 +1213,7 @@
     "Str.ProjectLoad.ParseFailed": "Nije uspjelo raščlanjivanje datoteke obrasca: {0}",
     "Str.ProjectLoad.InvalidForm": "Ovo nije valjana datoteka obrasca",
     "Str.ProjectLoad.UnknownControl": "Klasa {0} kontrole {1} nije podržana klasa kontrole — sačuvana je kao nepoznata.",
+    "Str.Tool.Properties.InvalidValue": "Nevaljana vrijednost svojstva",
     "Str.ProjectLoad.InvalidValue": "Svojstvo {0} u {1} imalo je nevaljanu vrijednost.",
     "Str.ProjectLoad.MissingOffset": "Svojstvo {0} u {1}: pomak u .frx nije pronađen.",
     "Str.ProjectLoad.MissingRecord": "Svojstvo '{0}' u '{1}' navodi zapis kojeg nema u pratećoj datoteci, pa obrazac nije moguće spremiti.",
