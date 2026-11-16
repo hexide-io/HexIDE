@@ -687,6 +687,7 @@ added afterwards.
 - [A breakpoint on a procedure's End line or its header (2026-10-26, #2172, IDE)](a-breakpoint-on-a-procedures-end-line-or-its-header.md#a-breakpoint-on-a-procedures-end-line-or-its-header-2026-10-26-2172-ide)
 - [A multiple selection in the designer, and Align (2026-10-26, #2181, design-time, IDE)](a-multiple-selection-in-the-designer-and-align.md#a-multiple-selection-in-the-designer-and-align-2026-10-26-2181-design-time-ide)
 - [A UserControl's own properties at run time (2026-10-26, #1631)](a-usercontrols-own-properties-at-run-time.md#a-usercontrols-own-properties-at-run-time-2026-10-26-1631)
+- [Ambient, at design time and at run time (2026-11-16, #4149, design-time, IDE, SP6)](a-usercontrols-own-properties-at-run-time.md#ambient-at-design-time-and-at-run-time-2026-11-16-4149-design-time-ide-sp6)
 - [A UserControl's own properties in the designer and the files (2026-10-26, #1631, design-time, IDE)](a-usercontrols-own-properties-in-the-designer-and-the-files.md#a-usercontrols-own-properties-in-the-designer-and-the-files-2026-10-26-1631-design-time-ide)
 - [In-box controls: the ImageList (2026-10-26, #1083)](in-box-controls-the-imagelist.md#in-box-controls-the-imagelist-2026-10-26-1083)
 - [In-box controls: the StatusBar (2026-10-26, #1087)](in-box-controls-the-statusbar.md#in-box-controls-the-statusbar-2026-10-26-1087)
