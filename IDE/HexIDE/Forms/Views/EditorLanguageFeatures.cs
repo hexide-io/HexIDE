@@ -24,6 +24,9 @@ public interface IEditorDocumentQueries
     Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null);
     IReadOnlyList<string> SignatureHelpTriggerCharacters { get; }
     string? DocumentUri { get; }
+    Task<HoverResult?> RequestHoverAsync(Position position, CancellationToken ct = default);
+    Task<TextEdit[]> RequestFormattingAsync(CancellationToken ct = default);
+    Task<TextEdit[]> RequestRangeFormattingAsync(HexIDE.Lsp.Messages.Range range, CancellationToken ct = default);
 }
 
 internal interface IEditorCompletionRules
@@ -36,9 +39,11 @@ internal interface IEditorCompletionRules
     IReadOnlyList<string>? FixedSignatureTriggers { get; }
 }
 
-/// <summary>Completion, snippets and signature help attached to one text area.</summary>
+/// <summary>Language-server interactions attached to one text area, with editor-specific editing rules.</summary>
 internal sealed class EditorLanguageFeatures : IDisposable
 {
+    internal EditorHoverFeatures? Hover { get; private set; }
+    private readonly CancellationTokenSource lifetime = new();
     private readonly TextArea area;
     private readonly IEditorDocumentQueries queries;
     private readonly IEditorCompletionRules rules;
@@ -71,6 +76,37 @@ internal sealed class EditorLanguageFeatures : IDisposable
         }
     }
 
+    public void AttachHover(AvaloniaEdit.TextEditor editor, Func<IReadOnlyList<HexIDE.Controls.LspMarker>> markers,
+        Func<HexIDE.Controls.LspMarker, Control>? diagnosticContent, Action<Uri> openUri,
+        Action? cancelHover = null, bool handlePointer = true)
+    {
+        Hover?.Dispose();
+        Hover = new EditorHoverFeatures(editor, queries, markers, diagnosticContent, openUri, cancelHover, handlePointer);
+    }
+
+    public async Task FormatAsync(bool selection, Action<IReadOnlyList<TextEdit>> apply, Func<bool> refuse)
+    {
+        if (refuse()) return;
+        var document = area.Document;
+        var before = document.Text;
+        var start = document.GetLocation(selection ? area.Selection.SurroundingSegment.Offset : 0);
+        var end = document.GetLocation(selection ? area.Selection.SurroundingSegment.EndOffset : 0);
+        var range = new HexIDE.Lsp.Messages.Range(new(start.Line - 1, start.Column - 1), new(end.Line - 1, end.Column - 1));
+        var token = lifetime.Token;
+        try
+        {
+            await queries.FlushDocumentAsync(token);
+            var edits = selection ? await queries.RequestRangeFormattingAsync(range, token) : await queries.RequestFormattingAsync(token);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!token.IsCancellationRequested && ReferenceEquals(area.Document, document) && document.Text == before
+                    && edits.Length > 0 && !refuse()) apply(edits);
+            });
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Log.Debug("[formatting] {ErrorMessage}", ex.Message); }
+    }
+
     public void CloseCompletion()
     {
         _completionCts?.Cancel();
@@ -80,6 +116,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
     public void OnTextEntering(object? sender, TextInputEventArgs e)
     {
         if (e.Text is not { Length: > 0 }) return;
+        Hover?.Dismiss();
         var ch = e.Text[0];
         if (!char.IsLetterOrDigit(ch) && ch != '_') CloseCompletion();
     }
@@ -116,6 +153,10 @@ internal sealed class EditorLanguageFeatures : IDisposable
 
     public void Dispose()
     {
+        lifetime.Cancel();
+        lifetime.Dispose();
+        Hover?.Dispose();
+        Hover = null;
         area.TextEntering -= OnTextEntering;
         area.TextEntered -= OnTextEntered;
         area.RemoveHandler(Avalonia.Input.InputElement.KeyDownEvent, OnKeyDown);
@@ -165,6 +206,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
             {
                 if (token.IsCancellationRequested || !rules.MayOpenCompletion()) return;
 
+                Hover?.Dismiss();
                 dismissHover?.Invoke();
 
                 // If a window is already open, close it first
@@ -296,6 +338,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
                     return;
                 }
 
+                Hover?.Dismiss();
                 dismissHover?.Invoke();
                 _insightWindow?.Close();
                 var provider = new VbSignatureProvider(help);
