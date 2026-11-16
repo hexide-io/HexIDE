@@ -2,6 +2,8 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland krevde innebygd Wayland, men ingen Wayland-skjerm kunne nås: {0}. Start med --platform x11 eller --platform auto i stedet.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland krevde innebygd Wayland, men ingen Wayland-skjerm kunne nås: {0}. Sett HEXIDE_PLATFORM til x11 eller auto, eller fjern variabelen.",
     "Str.ProjectFile.ReplaceModel": "Bruk av prosjektfilens tekst erstatter ulagrede prosjektinnstillinger for {0}. Fortsette?",
     "Str.MemberOrigin.HexIde": "HexIDE-utvidelse; ikke tilgjengelig i VB6.",
     "Str.Dock.Host": "Forankringsvert",

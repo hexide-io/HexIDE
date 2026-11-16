@@ -162,7 +162,20 @@ sealed partial class Program
 #endif
         // On a thread of its own, because VB code runs on the UI thread and this first thread's stack is the
         // launcher's choice, 1.5 MiB on Windows (#3228).
-        Environment.ExitCode = HexIDE.Runtime.UiThread.Run(() => builder.StartWithClassicDesktopLifetime(args));
+        Environment.ExitCode = DisplayBackend.Run(
+            DisplayBackend.Select(ServerOptions.Platform, Environment.GetEnvironmentVariable("HEXIDE_PLATFORM")),
+            () => builder.StartWithClassicDesktopLifetime(args),
+            reason => string.Format(new HexIDE.Localization.LocalizationService()
+                .GetStringFrom("system", ServerOptions.Platform != null
+                    ? "Str.Startup.WaylandUnavailableArgument"
+                    : "Str.Startup.WaylandUnavailableEnvironment"), reason),
+            message =>
+            {
+                // Setup failed before App configured logging; open and flush the normal IDE log here.
+                HexIDE.Infrastructure.LoggingSetup.Initialise();
+                Serilog.Log.Fatal("{Message:l}", message);
+                HexIDE.Infrastructure.LoggingSetup.Shutdown();
+            });
     }
 
     private static void FixCurrentWorkingDictionary()

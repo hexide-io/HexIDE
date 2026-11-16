@@ -2,6 +2,8 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland nõudis natiivset Waylandi, kuid ühegi Waylandi kuvaga ei saadud ühendust: {0}. Käivitage selle asemel valikuga --platform x11 või --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland nõudis natiivset Waylandi, kuid ühegi Waylandi kuvaga ei saadud ühendust: {0}. Määrake HEXIDE_PLATFORM väärtuseks x11 või auto või eemaldage muutuja.",
     "Str.ProjectFile.ReplaceModel": "Projektifaili teksti rakendamine asendab projekti {0} salvestamata sätted. Kas jätkata?",
     "Str.MemberOrigin.HexIde": "HexIDE laiendus; pole VB6-s saadaval.",
     "Str.Dock.Host": "Doki host",

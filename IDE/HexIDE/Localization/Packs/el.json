@@ -2,6 +2,8 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "Το --platform wayland απαίτησε εγγενές Wayland, αλλά δεν ήταν δυνατή η σύνδεση με οθόνη Wayland: {0}. Ξεκινήστε με --platform x11 ή --platform auto αντί αυτού.",
+    "Str.Startup.WaylandUnavailableEnvironment": "Το HEXIDE_PLATFORM=wayland απαίτησε εγγενές Wayland, αλλά δεν ήταν δυνατή η σύνδεση με οθόνη Wayland: {0}. Ορίστε το HEXIDE_PLATFORM σε x11 ή auto, ή καταργήστε τη μεταβλητή.",
     "Str.ProjectFile.ReplaceModel": "Η εφαρμογή του κειμένου του αρχείου έργου θα αντικαταστήσει τις μη αποθηκευμένες ρυθμίσεις του έργου {0}. Συνέχεια;",
     "Str.MemberOrigin.HexIde": "Επέκταση του HexIDE· δεν είναι διαθέσιμη στη VB6.",
     "Str.Dock.Host": "Κεντρικός υποδοχέας αγκύρωσης",

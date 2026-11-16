@@ -2,6 +2,8 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland zahtijeva izvorni Wayland, ali nije moguće pristupiti zaslonu Wayland: {0}. Umjesto toga pokrenite s --platform x11 ili --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland zahtijeva izvorni Wayland, ali nije moguće pristupiti zaslonu Wayland: {0}. Postavite HEXIDE_PLATFORM na x11 ili auto, ili uklonite varijablu.",
     "Str.ProjectFile.ReplaceModel": "Primjena teksta projektne datoteke zamijenit će nespremljene postavke projekta {0}. Nastaviti?",
     "Str.AIChat.Title": "AI chat",
     "Str.AIChat.Menu": "AI _chat",

@@ -2,6 +2,8 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland exigia Wayland nativo, mas não foi possível aceder a nenhum ecrã Wayland: {0}. Inicie antes com --platform x11 ou --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland exigia Wayland nativo, mas não foi possível aceder a nenhum ecrã Wayland: {0}. Defina HEXIDE_PLATFORM como x11 ou auto, ou remova a variável.",
     "Str.ProjectFile.ReplaceModel": "Aplicar o texto do ficheiro de projeto substituirá as definições não guardadas de {0}. Continuar?",
     "Str.MemberOrigin.HexIde": "Extensão do HexIDE; não disponível no VB6.",
     "Str.Dock.Host": "Anfitrião de ancoragem",

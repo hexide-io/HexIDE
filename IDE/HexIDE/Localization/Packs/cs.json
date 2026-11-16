@@ -2,6 +2,8 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland vyžaduje nativní Wayland, ale nebylo možné připojit se k displeji Wayland: {0}. Spusťte místo toho s --platform x11 nebo --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland vyžaduje nativní Wayland, ale nebylo možné připojit se k displeji Wayland: {0}. Nastavte HEXIDE_PLATFORM na x11 nebo auto, nebo proměnnou zrušte.",
     "Str.ProjectFile.ReplaceModel": "Použití textu souboru projektu nahradí neuložená nastavení projektu {0}. Pokračovat?",
     "Str.AIChat.Title": "Chat AI",
     "Str.AIChat.Menu": "_Chat AI",

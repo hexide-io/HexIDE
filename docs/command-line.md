@@ -233,13 +233,19 @@ HexIDE.Desktop --help
 
 ## Linux display backend
 
-`--platform <name>` overrides `HEXIDE_PLATFORM`. Both Desktop and Standalone read that environment
+Desktop’s `--platform <name>` overrides `HEXIDE_PLATFORM`. Both Desktop and Standalone read that environment
 variable; unset, missing or unrecognised values select `x11`. Values are case-insensitive. Windows and
 macOS keep their normal backend regardless of this choice.
 
 - `x11`: the existing X11 path, through XWayland in a Wayland session.
 - `auto`: try native Wayland, falling back to X11 when it cannot start.
-- `wayland`: require native Wayland; a startup failure is not hidden by falling back.
+- `wayland`: require native Wayland. If Avalonia cannot start it, Desktop and Standalone exit 2
+  without falling back or dumping core. A single localized diagnostic on stderr includes Avalonia’s
+  reason and identifies how Wayland was required. For `--platform wayland`, it suggests starting
+  with `--platform x11` or `--platform auto`. For `HEXIDE_PLATFORM=wayland`, it suggests setting
+  `HEXIDE_PLATFORM` to `x11` or `auto`, or unsetting it. Desktop writes the same line to the IDE
+  log directory (`logs/ide`). Standalone selects the backend through `HEXIDE_PLATFORM` and writes
+  only to stderr, without creating an IDE log folder.
 
 Serilog records the actual windowing implementation after startup. Native Wayland needs
 libwayland-client, libwayland-cursor and libxkbcommon; GPU rendering additionally needs libEGL and

@@ -2,6 +2,8 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland vereiste native Wayland, maar er kon geen Wayland-scherm worden bereikt: {0}. Start in plaats daarvan met --platform x11 of --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland vereiste native Wayland, maar er kon geen Wayland-scherm worden bereikt: {0}. Stel HEXIDE_PLATFORM in op x11 of auto, of verwijder de variabele.",
     "Str.ProjectFile.ReplaceModel": "Het toepassen van de projectbestandstekst vervangt niet-opgeslagen projectinstellingen voor {0}. Doorgaan?",
     "Str.MemberOrigin.HexIde": "HexIDE-uitbreiding; niet beschikbaar in VB6.",
     "Str.Dock.Host": "Dockhost",

@@ -2,6 +2,8 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland hat natives Wayland angefordert, aber kein Wayland-Display war erreichbar: {0}. Starten Sie stattdessen mit --platform x11 oder --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland hat natives Wayland angefordert, aber kein Wayland-Display war erreichbar: {0}. Setzen Sie HEXIDE_PLATFORM auf x11 oder auto, oder entfernen Sie die Variable.",
     "Str.ProjectFile.ReplaceModel": "Das Anwenden des Projektdateitexts ersetzt ungespeicherte Projekteinstellungen für {0}. Fortfahren?",
     "Str.AIChat.Title": "KI-Chat",
     "Str.AIChat.Menu": "KI-_Chat",

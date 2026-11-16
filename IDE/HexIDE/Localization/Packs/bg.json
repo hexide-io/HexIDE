@@ -2,6 +2,8 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland изисква собствен Wayland, но няма достъпен Wayland дисплей: {0}. Стартирайте с --platform x11 или --platform auto вместо това.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland изисква собствен Wayland, но няма достъпен Wayland дисплей: {0}. Задайте HEXIDE_PLATFORM на x11 или auto, или премахнете променливата.",
     "Str.ProjectFile.ReplaceModel": "Прилагането на текста на проектния файл ще замени незаписаните настройки на проекта {0}. Продължаване?",
     "Str.AIChat.Title": "AI чат",
     "Str.AIChat.Menu": "AI чат",

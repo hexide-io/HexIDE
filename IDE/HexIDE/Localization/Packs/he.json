@@ -2,6 +2,8 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland דרש Wayland מקורי, אך לא ניתן היה להתחבר לתצוגת Wayland: {0}. יש להפעיל עם --platform x11 או --platform auto במקום זאת.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland דרש Wayland מקורי, אך לא ניתן היה להתחבר לתצוגת Wayland: {0}. יש להגדיר את HEXIDE_PLATFORM לערך x11 או auto, או להסיר את המשתנה.",
     "Str.ProjectFile.ReplaceModel": "החלת טקסט קובץ הפרויקט תחליף הגדרות פרויקט שלא נשמרו עבור {0}. להמשיך?",
     "Str.AIChat.Title": "צ׳אט בינה מלאכותית",
     "Str.AIChat.Menu": "צ׳אט בינה מלאכותית",

@@ -2,6 +2,8 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland에 의해 네이티브 Wayland가 요청되었지만 Wayland 디스플레이에 연결할 수 없습니다: {0}. 대신 --platform x11 또는 --platform auto로 시작하세요.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland에 의해 네이티브 Wayland가 요청되었지만 Wayland 디스플레이에 연결할 수 없습니다: {0}. HEXIDE_PLATFORM을 x11 또는 auto로 설정하거나 설정을 해제하세요.",
     "Str.ProjectFile.ReplaceModel": "프로젝트 파일 텍스트를 적용하면 {0}의 저장하지 않은 프로젝트 설정이 바뀝니다. 계속하시겠습니까?",
     "Str.MemberOrigin.HexIde": "HexIDE 확장 기능이며 VB6에서는 사용할 수 없습니다.",
     "Str.Dock.Host": "도킹 호스트",

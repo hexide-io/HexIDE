@@ -2,6 +2,8 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland requeria Wayland natiu, però no s’ha pogut accedir a cap pantalla Wayland: {0}. Inicieu amb --platform x11 o --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland requeria Wayland natiu, però no s’ha pogut accedir a cap pantalla Wayland: {0}. Establiu HEXIDE_PLATFORM a x11 o auto, o suprimiu la variable.",
     "Str.ProjectFile.ReplaceModel": "Aplicar el text del fitxer de projecte substituirà la configuració no desada de {0}. Voleu continuar?",
     "Str.AIChat.Title": "Xat d’IA",
     "Str.AIChat.Menu": "_Xat d’IA",

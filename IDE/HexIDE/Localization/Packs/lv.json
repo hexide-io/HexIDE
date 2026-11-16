@@ -2,6 +2,8 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland pieprasīja vietējo Wayland, bet neizdevās sasniegt nevienu Wayland displeju: {0}. Tā vietā palaidiet ar --platform x11 vai --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland pieprasīja vietējo Wayland, bet neizdevās sasniegt nevienu Wayland displeju: {0}. Iestatiet HEXIDE_PLATFORM uz x11 vai auto, vai noņemiet mainīgo.",
     "Str.ProjectFile.ReplaceModel": "Lietojot projekta faila tekstu, tiks aizstāti projekta {0} nesaglabātie iestatījumi. Vai turpināt?",
     "Str.MemberOrigin.HexIde": "HexIDE paplašinājums; nav pieejams VB6.",
     "Str.Dock.Host": "Dokošanas resursdators",

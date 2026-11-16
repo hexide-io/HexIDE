@@ -2,6 +2,8 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland mengharuskan Wayland native, tetapi tidak ada tampilan Wayland yang dapat dijangkau: {0}. Mulai dengan --platform x11 atau --platform auto sebagai gantinya.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland mengharuskan Wayland native, tetapi tidak ada tampilan Wayland yang dapat dijangkau: {0}. Atur HEXIDE_PLATFORM ke x11 atau auto, atau hapus variabel tersebut.",
     "Str.ProjectFile.ReplaceModel": "Menerapkan teks berkas proyek akan mengganti pengaturan proyek {0} yang belum disimpan. Lanjutkan?",
     "Str.MemberOrigin.HexIde": "Ekstensi HexIDE; tidak tersedia di VB6.",
     "Str.Dock.Host": "Host penambatan",

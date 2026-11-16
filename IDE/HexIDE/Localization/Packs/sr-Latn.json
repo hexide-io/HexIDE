@@ -2,6 +2,8 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland zahteva izvorni Wayland, ali nije moguće pristupiti Wayland ekranu: {0}. Umesto toga pokrenite sa --platform x11 ili --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland zahteva izvorni Wayland, ali nije moguće pristupiti Wayland ekranu: {0}. Postavite HEXIDE_PLATFORM na x11 ili auto, ili uklonite promenljivu.",
     "Str.ProjectFile.ReplaceModel": "Primena teksta datoteke projekta zameniće nesačuvane postavke projekta {0}. Nastaviti?",
     "Str.MemberOrigin.HexIde": "HexIDE proširenje; nije dostupno u VB6.",
     "Str.Dock.Host": "Domaćin usidravanja",

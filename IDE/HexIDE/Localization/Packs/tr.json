@@ -2,6 +2,8 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland yerel Wayland gerektiriyordu, ancak hiçbir Wayland ekranına ulaşılamadı: {0}. Bunun yerine --platform x11 veya --platform auto ile başlatın.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland yerel Wayland gerektiriyordu, ancak hiçbir Wayland ekranına ulaşılamadı: {0}. HEXIDE_PLATFORM değerini x11 veya auto olarak ayarlayın ya da değişkeni kaldırın.",
     "Str.ProjectFile.ReplaceModel": "Proje dosyası metnini uygulamak, {0} için kaydedilmemiş proje ayarlarını değiştirecek. Devam edilsin mi?",
     "Str.MemberOrigin.HexIde": "HexIDE uzantısı; VB6 içinde kullanılamaz.",
     "Str.Dock.Host": "Yerleştirme konağı",

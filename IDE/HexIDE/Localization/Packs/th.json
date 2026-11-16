@@ -2,6 +2,8 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland กำหนดให้ใช้ Wayland แบบเนทีฟ แต่ไม่สามารถเชื่อมต่อจอแสดงผล Wayland ได้: {0}. ให้เริ่มด้วย --platform x11 หรือ --platform auto แทน",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland กำหนดให้ใช้ Wayland แบบเนทีฟ แต่ไม่สามารถเชื่อมต่อจอแสดงผล Wayland ได้: {0}. ตั้งค่า HEXIDE_PLATFORM เป็น x11 หรือ auto หรือยกเลิกการตั้งค่า",
     "Str.ProjectFile.ReplaceModel": "การใช้ข้อความในไฟล์โครงการจะแทนที่การตั้งค่าโครงการที่ยังไม่ได้บันทึกของ {0} ต้องการดำเนินการต่อหรือไม่",
     "Str.MemberOrigin.HexIde": "ส่วนขยายของ HexIDE; ไม่มีใน VB6",
     "Str.Dock.Host": "โฮสต์การเทียบชิด",

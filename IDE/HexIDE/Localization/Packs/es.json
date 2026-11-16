@@ -2,6 +2,8 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland requería Wayland nativo, pero no se pudo acceder a ninguna pantalla Wayland: {0}. Inicie con --platform x11 o --platform auto en su lugar.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland requería Wayland nativo, pero no se pudo acceder a ninguna pantalla Wayland: {0}. Establezca HEXIDE_PLATFORM en x11 o auto, o elimine la variable.",
     "Str.ProjectFile.ReplaceModel": "Al aplicar el texto del archivo de proyecto se reemplazará la configuración sin guardar de {0}. ¿Continuar?",
     "Str.AIChat.Title": "Chat de IA",
     "Str.AIChat.Menu": "_Chat de IA",

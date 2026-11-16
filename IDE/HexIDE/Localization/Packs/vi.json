@@ -2,6 +2,8 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland yêu cầu Wayland gốc, nhưng không thể kết nối với màn hình Wayland nào: {0}. Hãy khởi động bằng --platform x11 hoặc --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland yêu cầu Wayland gốc, nhưng không thể kết nối với màn hình Wayland nào: {0}. Đặt HEXIDE_PLATFORM thành x11 hoặc auto, hoặc bỏ đặt biến này.",
     "Str.ProjectFile.ReplaceModel": "Áp dụng văn bản tệp dự án sẽ thay thế các thiết đặt dự án chưa lưu của {0}. Tiếp tục?",
     "Str.MemberOrigin.HexIde": "Phần mở rộng HexIDE; không có trong VB6.",
     "Str.Dock.Host": "Vùng chứa neo",

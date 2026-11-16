@@ -2,6 +2,8 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "كان Wayland الأصلي مطلوبًا بواسطة --platform wayland، ولكن تعذّر الوصول إلى أي شاشة Wayland: {0}. ابدأ باستخدام --platform x11 أو --platform auto بدلاً من ذلك.",
+    "Str.Startup.WaylandUnavailableEnvironment": "كان Wayland الأصلي مطلوبًا بواسطة HEXIDE_PLATFORM=wayland، ولكن تعذّر الوصول إلى أي شاشة Wayland: {0}. اضبط HEXIDE_PLATFORM على x11 أو auto، أو ألغِ تعيينه.",
     "Str.ProjectFile.ReplaceModel": "سيؤدي تطبيق نص ملف المشروع إلى استبدال إعدادات المشروع غير المحفوظة لـ {0}. هل تريد المتابعة؟",
     "Str.AIChat.Title": "دردشة الذكاء الاصطناعي",
     "Str.AIChat.Menu": "دردشة الذكاء الاصطناعي",

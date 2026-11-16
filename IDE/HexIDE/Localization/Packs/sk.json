@@ -2,6 +2,8 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland vyžaduje natívny Wayland, ale nebolo možné pripojiť sa k displeju Wayland: {0}. Spustite namiesto toho s --platform x11 alebo --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland vyžaduje natívny Wayland, ale nebolo možné pripojiť sa k displeju Wayland: {0}. Nastavte HEXIDE_PLATFORM na x11 alebo auto, alebo premennú odstráňte.",
     "Str.ProjectFile.ReplaceModel": "Použitie textu súboru projektu nahradí neuložené nastavenia projektu {0}. Pokračovať?",
     "Str.MemberOrigin.HexIde": "Rozšírenie HexIDE; vo VB6 nie je dostupné.",
     "Str.Dock.Host": "Hostiteľ dokovania",

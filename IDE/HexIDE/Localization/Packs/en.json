@@ -2,6 +2,8 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "Native Wayland was required by --platform wayland, but no Wayland display could be reached: {0}. Start with --platform x11 or --platform auto instead.",
+    "Str.Startup.WaylandUnavailableEnvironment": "Native Wayland was required by HEXIDE_PLATFORM=wayland, but no Wayland display could be reached: {0}. Set HEXIDE_PLATFORM to x11 or auto, or unset it.",
     "Str.ProjectFile.ReplaceModel": "Applying the project file text will replace unsaved project settings for {0}. Continue?",
     "Str.MemberOrigin.HexIde": "HexIDE extension; not available in VB6.",
     "Str.Dock.Host": "Dock host",

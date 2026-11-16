@@ -2,6 +2,8 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland krævede oprindelig Wayland, men ingen Wayland-skærm kunne nås: {0}. Start med --platform x11 eller --platform auto i stedet.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland krævede oprindelig Wayland, men ingen Wayland-skærm kunne nås: {0}. Sæt HEXIDE_PLATFORM til x11 eller auto, eller fjern variablen.",
     "Str.ProjectFile.ReplaceModel": "Anvendelse af projektfilens tekst erstatter ikke-gemte projektindstillinger for {0}. Fortsæt?",
     "Str.MemberOrigin.HexIde": "HexIDE-udvidelse; ikke tilgængelig i VB6.",
     "Str.Dock.Host": "Forankringsvært",

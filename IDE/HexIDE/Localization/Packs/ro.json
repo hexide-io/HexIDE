@@ -2,6 +2,8 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland a solicitat Wayland nativ, dar nu s-a putut accesa niciun afișaj Wayland: {0}. Porniți cu --platform x11 sau --platform auto în schimb.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland a solicitat Wayland nativ, dar nu s-a putut accesa niciun afișaj Wayland: {0}. Setați HEXIDE_PLATFORM la x11 sau auto, sau eliminați variabila.",
     "Str.ProjectFile.ReplaceModel": "Aplicarea textului fișierului de proiect va înlocui setările nesalvate ale proiectului {0}. Continuați?",
     "Str.MemberOrigin.HexIde": "Extensie HexIDE; indisponibilă în VB6.",
     "Str.Dock.Host": "Gazdă de andocare",

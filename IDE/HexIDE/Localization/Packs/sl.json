@@ -2,6 +2,8 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland je zahteval izvorni Wayland, vendar ni bilo mogoče doseči zaslona Wayland: {0}. Namesto tega zaženite z --platform x11 ali --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland je zahteval izvorni Wayland, vendar ni bilo mogoče doseči zaslona Wayland: {0}. Nastavite HEXIDE_PLATFORM na x11 ali auto ali odstranite spremenljivko.",
     "Str.ProjectFile.ReplaceModel": "Uveljavitev besedila projektne datoteke bo nadomestila neshranjene nastavitve projekta {0}. Želite nadaljevati?",
     "Str.MemberOrigin.HexIde": "Razširitev HexIDE; ni na voljo v VB6.",
     "Str.Dock.Host": "Gostitelj sidranja",

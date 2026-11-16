@@ -2,6 +2,8 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland によりネイティブ Wayland が要求されましたが、Wayland ディスプレイに接続できませんでした: {0}。 代わりに --platform x11 または --platform auto で起動してください。",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland によりネイティブ Wayland が要求されましたが、Wayland ディスプレイに接続できませんでした: {0}。 HEXIDE_PLATFORM を x11 または auto に設定するか、設定を解除してください。",
     "Str.ProjectFile.ReplaceModel": "プロジェクト ファイルのテキストを適用すると、{0} の未保存のプロジェクト設定が置き換えられます。続行しますか？",
     "Str.AIChat.Title": "AI チャット",
     "Str.AIChat.Menu": "AI チャット(_C)",

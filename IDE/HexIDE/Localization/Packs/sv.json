@@ -2,6 +2,8 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland krävde inbyggt Wayland, men ingen Wayland-skärm kunde nås: {0}. Starta med --platform x11 eller --platform auto i stället.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland krävde inbyggt Wayland, men ingen Wayland-skärm kunde nås: {0}. Sätt HEXIDE_PLATFORM till x11 eller auto, eller ta bort variabeln.",
     "Str.ProjectFile.ReplaceModel": "Om projektfilens text tillämpas ersätts osparade projektinställningar för {0}. Fortsätta?",
     "Str.MemberOrigin.HexIde": "HexIDE-tillägg; inte tillgängligt i VB6.",
     "Str.Dock.Host": "Dockningsvärd",

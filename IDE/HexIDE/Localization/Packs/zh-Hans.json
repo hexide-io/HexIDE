@@ -2,6 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland 要求使用原生 Wayland，但无法连接到 Wayland 显示：{0}。 请改用 --platform x11 或 --platform auto 启动。",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland 要求使用原生 Wayland，但无法连接到 Wayland 显示：{0}。 请将 HEXIDE_PLATFORM 设为 x11 或 auto，或取消设置该变量。",
     "Str.ProjectFile.ReplaceModel": "应用项目文件文本将替换 {0} 未保存的项目设置。是否继续？",
     "Str.AIChat.Title": "AI 聊天",
     "Str.AIChat.Menu": "AI 聊天(_C)",

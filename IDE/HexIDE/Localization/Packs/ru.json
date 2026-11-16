@@ -2,6 +2,8 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland потребовал собственный Wayland, но подключиться к дисплею Wayland не удалось: {0}. Запустите с --platform x11 или --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland потребовал собственный Wayland, но подключиться к дисплею Wayland не удалось: {0}. Задайте HEXIDE_PLATFORM значение x11 или auto либо удалите переменную.",
     "Str.ProjectFile.ReplaceModel": "Применение текста файла проекта заменит несохранённые настройки проекта {0}. Продолжить?",
     "Str.MemberOrigin.HexIde": "Расширение HexIDE; недоступно в VB6.",
     "Str.Dock.Host": "Контейнер закрепления",
