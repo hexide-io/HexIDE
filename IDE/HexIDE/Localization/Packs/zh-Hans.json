@@ -965,6 +965,7 @@
     "Str.Tool.LanguageServers.Problem.UnknownFields": "无法识别的字段：{0}。已忽略，请检查拼写。",
     "Str.Tool.LanguageServers.Problem.UnknownField": "无法识别的字段：{0}。已忽略，请检查拼写。",
     "Str.Tool.LanguageServers.Problem.Trace": "“{0}”请求的跟踪级别为“{1}”，不在 “{2}”、“{3}”、“{4}” 之中。已关闭此服务器的跟踪。",
+    "Str.Tool.LanguageServers.Problem.ChatTools": "“{0}”将 chatTools 设为“{1}”，不在 “{2}”、“{3}”、“{4}” 之中。每次调用此服务器的工具前，AI 聊天都会先询问。",
     "Str.Tool.LanguageServers.Problem.PipeRole": "“{0}”请求的 {1} 为“{2}”，不在 “{3}”、“{4}” 之中。此服务器将改用“{3}”。",
     "Str.Tool.LanguageServers.Problem.Disabled": "“{0}”已关闭（{1}），未注册。",
     "Str.Tool.LanguageServers.Problem.PipeTooLong": "{0} 长度为 {1} 个字符；此主机允许 {2} 个字符。请缩短名称，并在管道两端使用相同的名称。此条目已被忽略。",
@@ -1313,6 +1314,8 @@
     "Str.AIChat.ApiKeyRequired": "需要 API 密钥。请设置 HEXIDE_AI_API_KEY 环境变量，或 chat-settings.json 中的 apiKey。",
     "Str.AIChat.PrivacyNotice": "ℹ 隐私：您的消息、活动文件的内容（对于窗体，还包括布局和标题）及其诊断信息会发送到 {0}，即您在 AI 聊天设置中配置的第三方服务。助手通过工具读取的已加载项目中任何其他文件的内容、项目文件列表以及任何文件的诊断信息，也会在不请求批准的情况下发送到该服务。",
     "Str.AIChat.PrivacyKeyTip": "提示：请设置 HEXIDE_AI_API_KEY 环境变量，以避免将 API 密钥存储在文件中。",
+    "Str.AIChat.PrivacyServerTools": "HexIDE 运行的语言服务器（HexIDE 自带的、您配置的，或您允许的加载项添加的）可以为 AI 聊天提供工具和上下文。这些工具返回的结果和该上下文也会发送到该服务。上下文以及服务器声明为只读的工具的结果，会在不询问您的情况下发送。",
+    "Str.AIChat.AllowServerTool": "允许 AI 以 {2} 运行语言服务器 {1} 的“{0}”吗？",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "项目 {0} 共用文件夹 {1}；仅写入或导入 {2}。",
     "Str.MemberOrigin.HexIde": "HexIDE 扩展；VB6 中不可用。"
   }

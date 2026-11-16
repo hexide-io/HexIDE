@@ -53,6 +53,14 @@ public sealed class LanguageServerContributions(
     /// <exception cref="InvalidOperationException">
     /// The id is taken: the configuration names it, and keeps its own entry, or another add-in contributed it first.
     /// </exception>
+    private ServerChatToolsService? _chatTools;
+
+    /// <summary>
+    /// AI Chat's tools and context from the running servers that offer them (#4257). Held here, beside the servers an add-in
+    /// contributes, because the host reaches the registry through this.
+    /// </summary>
+    public IServerChatTools ChatTools => _chatTools ??= new ServerChatToolsService(router.ChatToolsServers, logger);
+
     public AddinServerConnection Register(AddinLanguageServer server, string? origin)
     {
         ArgumentNullException.ThrowIfNull(server);

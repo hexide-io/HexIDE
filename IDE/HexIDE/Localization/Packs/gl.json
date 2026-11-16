@@ -964,6 +964,7 @@
     "Str.Tool.LanguageServers.Problem.UnknownFields": "Campos non recoñecidos: {0}. Ignoráronse; comprobe a ortografía.",
     "Str.Tool.LanguageServers.Problem.UnknownField": "Campo non recoñecido: {0}. Ignorouse; comprobe a ortografía.",
     "Str.Tool.LanguageServers.Problem.Trace": "'{0}' solicita o nivel de rastrexo '{1}', que non é un de '{2}', '{3}', '{4}'. O rastrexo está desactivado para este servidor.",
+    "Str.Tool.LanguageServers.Problem.ChatTools": "'{0}' establece chatTools en '{1}', que non é un de '{2}', '{3}', '{4}'. O chat de IA pregunta antes de cada chamada ás ferramentas deste servidor.",
     "Str.Tool.LanguageServers.Problem.PipeRole": "'{0}' solicita {1} '{2}', que non é un de '{3}', '{4}'. Usarase '{3}' para este servidor.",
     "Str.Tool.LanguageServers.Problem.Disabled": "'{0}' está desactivado ({1}) e non se rexistrou.",
     "Str.Tool.LanguageServers.Problem.PipeTooLong": "{0} ten {1} caracteres; este sistema permite {2}. Acurte o nome e use o mesmo nome nos dous extremos da canalización. Ignorouse a entrada.",
@@ -1313,6 +1314,8 @@
     "Str.AIChat.ApiKeyRequired": "Cómpre unha clave API. Estableza a variable de contorno HEXIDE_AI_API_KEY ou apiKey en chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Privacidade: as súas mensaxes, o contido do ficheiro activo (nun formulario, tamén a disposición e os títulos) e os seus diagnósticos envíanse a {0}, un servizo de terceiros configurado nos axustes do chat de IA. Tamén se envían alí, sen pedir aprobación, o contido de calquera outro ficheiro dos proxectos cargados que o asistente lea coas súas ferramentas, as listas de ficheiros dos proxectos e os diagnósticos de calquera ficheiro.",
     "Str.AIChat.PrivacyKeyTip": "Consello: estableza a variable de contorno HEXIDE_AI_API_KEY para evitar gardar a clave API nun ficheiro.",
+    "Str.AIChat.PrivacyServerTools": "Un servidor de linguaxe que executa HexIDE (o seu propio, un que configurase ou un engadido por un complemento que permitise) pode ofrecer ferramentas e contexto ao chat de IA. Tamén se envían alí os resultados desas ferramentas e ese contexto. O contexto e os resultados das ferramentas que o servidor di que só len envíanse sen preguntarlle.",
+    "Str.AIChat.AllowServerTool": "Permitir que a IA execute «{0}» do servidor de linguaxe {1}, con {2}?",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Os proxectos {0} comparten o cartafol {1}; só se escribe ou importa {2}.",
     "Str.MemberOrigin.HexIde": "Extensión de HexIDE; non dispoñible en VB6."
   }

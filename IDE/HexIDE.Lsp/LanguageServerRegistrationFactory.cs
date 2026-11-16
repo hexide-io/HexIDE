@@ -88,7 +88,11 @@ public sealed class LanguageServerRegistrationFactory(
                         : null,
                 WorkspaceArtifactRefused: entry.WorkspaceArtifact is not null && artifact is null,
                 ProjectImport: ProjectImportSpecReader.TryRead(id, entry.ProjectImport, out var import, out _) ? import : null,
-                RestartOnProjectChange: entry.RestartOnProjectChange == true));
+                RestartOnProjectChange: entry.RestartOnProjectChange == true,
+                // The configuration file's servers, HexIDE's own and a consented add-in's all come through here, which is
+                // what lets them offer AI Chat tools (#4257). A value the loader reported as unreadable asks before every
+                // call: a misspelled setting about approval errs towards asking.
+                ChatTools: ServerChatToolsSetting.Parse(entry.ChatTools) ?? ServerChatToolsPolicy.AskEveryCall));
         }
 
         return registrations;

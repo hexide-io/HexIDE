@@ -964,6 +964,7 @@
     "Str.Tool.LanguageServers.Problem.UnknownFields": "Camps no reconeguts: {0}. S’han ignorat; comproveu-ne l’ortografia.",
     "Str.Tool.LanguageServers.Problem.UnknownField": "Camp no reconegut: {0}. S’ha ignorat; comproveu-ne l’ortografia.",
     "Str.Tool.LanguageServers.Problem.Trace": "'{0}' demana el nivell de traça '{1}', que no és cap de '{2}', '{3}', '{4}'. La traça està desactivada per a aquest servidor.",
+    "Str.Tool.LanguageServers.Problem.ChatTools": "'{0}' estableix chatTools a '{1}', que no és cap de '{2}', '{3}', '{4}'. El xat d’IA demana permís abans de cada crida a les eines d’aquest servidor.",
     "Str.Tool.LanguageServers.Problem.PipeRole": "'{0}' demana {1} '{2}', que no és cap de '{3}', '{4}'. S’utilitza '{3}' per a aquest servidor.",
     "Str.Tool.LanguageServers.Problem.Disabled": "'{0}' està desactivat ({1}) i no s’ha registrat.",
     "Str.Tool.LanguageServers.Problem.PipeTooLong": "{0} té {1} caràcters; aquest sistema en permet {2}. Escurceu el nom i utilitzeu el mateix nom als dos extrems de la canonada. S’ha ignorat l’entrada.",
@@ -1313,6 +1314,8 @@
     "Str.AIChat.ApiKeyRequired": "Cal una clau API. Establiu la variable d’entorn HEXIDE_AI_API_KEY, o apiKey a chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Privadesa: els vostres missatges, el contingut del fitxer actiu (en un formulari, també la disposició i els títols) i els seus diagnòstics s’envien a {0}, un servei de tercers configurat als paràmetres del xat d’IA. També s’hi envien, sense demanar aprovació, el contingut de qualsevol altre fitxer dels projectes carregats que l’assistent llegeixi amb les seves eines, les llistes de fitxers dels projectes i els diagnòstics de qualsevol fitxer.",
     "Str.AIChat.PrivacyKeyTip": "Consell: establiu la variable d’entorn HEXIDE_AI_API_KEY per evitar desar la clau API en un fitxer.",
+    "Str.AIChat.PrivacyServerTools": "Un servidor de llenguatge que executa HexIDE (el seu propi, un que hàgiu configurat o un que hagi afegit un complement que hàgiu permès) pot donar eines i context al xat d’IA. També s’hi envien els resultats d’aquestes eines i aquest context. El context i els resultats de les eines que el servidor diu que només llegeixen s’envien sense demanar-vos-ho.",
+    "Str.AIChat.AllowServerTool": "Voleu permetre que la IA executi «{0}» del servidor de llenguatge {1}, amb {2}?",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Els projectes {0} comparteixen la carpeta {1}; només s’escriu o s’importa {2}.",
     "Str.MemberOrigin.HexIde": "Extensió de HexIDE; no disponible al VB6."
   }

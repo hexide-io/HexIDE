@@ -126,6 +126,7 @@ and the JSON path. Non-ASCII text before the fault counts as characters, rather 
 | `capture` | no | How much of this server's conversation the protocol capture may hold. See *Giving one server a bigger record* below. |
 | `restartOnProjectChange` | no | `true` restarts this connection when projects join or leave the group, reopening its documents. Off by default; use for servers that ignore workspace-folder notifications. |
 | `workspaceArtifact` | no | A workspace-relative `path`, registered `provider` id and provider-owned `settings`. Generation requires consent; see [Generated workspace files](#generated-workspace-files). |
+| `chatTools` | no | Whether AI Chat may use tools and context this server offers: `hints` (default) asks before each call unless the tool says it only reads, `ask` asks before every call, `off` uses none. See [Tools for AI Chat](#tools-for-ai-chat). A misspelled value asks before every call, with a warning. |
 
 Use the array form when quoting matters: `"arguments": ["host", "server --stdio"]` passes two arguments
 exactly as written, including spaces, quotes and empty strings. The legacy string form still uses .NET
@@ -400,6 +401,27 @@ a fact about a program the IDE did not start.
 
 Nothing is refused — refusing to run what you typed into your own file would be theatre. The launch is
 simply not silent.
+
+## Tools for AI Chat
+
+A server can offer AI Chat tools and a context fragment (#4257). The assistant sees them beside AI Chat's own
+tools, named `lsp1_…`, `lsp2_…` and so on, with a description that names the server. A server offers them by
+declaring `experimental.hexide.chatTools` in its capabilities; [the client document](lsp-client.md#tools-for-ai-chat)
+has the wire shape.
+
+- **Only servers HexIDE runs for you count:** HexIDE's own, one in this file, or one an add-in you allowed
+  contributed. Each request goes only to the server that offered the tool, and only while it runs.
+- **A call asks first** unless the tool says it only reads (`readOnlyHint: true` and `destructiveHint: false`)
+  and doesn't say it runs code. `"chatTools": "ask"` makes every call ask; `"off"` uses nothing from the server.
+- **What is sent:** what those tools return, and the context fragment, go to the AI service AI Chat is set up
+  for, as AI Chat's privacy notice says. The context, and results of tools that say they only read, go without
+  asking.
+- **Limits:** 32 tools per server, a description of 1,024 characters, an input schema of 8 KB, a result of
+  16 KB and a context fragment of 8 KB. A tool name is letters, digits, `_`, `-`, `.` and `/`, up to 64
+  characters; a tool with any other name is left out, and the log says so.
+
+A server an add-in contributes takes its `chatTools` from the add-in's own entry; this file can't change it
+without replacing the server under the same id.
 
 ## Servers start when they are needed
 

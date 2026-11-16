@@ -965,6 +965,7 @@
     "Str.Tool.LanguageServers.Problem.UnknownFields": "Nerozpoznaná pole: {0}. Byla ignorována — zkontrolujte pravopis.",
     "Str.Tool.LanguageServers.Problem.UnknownField": "Nerozpoznané pole: {0}. Bylo ignorováno — zkontrolujte pravopis.",
     "Str.Tool.LanguageServers.Problem.Trace": "„{0}“ požaduje úroveň trasování „{1}“, která nepatří mezi „{2}“, „{3}“, „{4}“. Trasování je pro tento server vypnuto.",
+    "Str.Tool.LanguageServers.Problem.ChatTools": "„{0}“ nastavuje chatTools na „{1}“, což nepatří mezi „{2}“, „{3}“, „{4}“. Chat AI se zeptá před každým voláním nástrojů tohoto serveru.",
     "Str.Tool.LanguageServers.Problem.PipeRole": "„{0}“ požaduje {1} „{2}“, což nepatří mezi „{3}“, „{4}“. Pro tento server se použije „{3}“.",
     "Str.Tool.LanguageServers.Problem.Disabled": "„{0}“ je vypnuto ({1}) a nebylo zaregistrováno.",
     "Str.Tool.LanguageServers.Problem.PipeTooLong": "Délka {0} je {1} znaků; tento hostitel povoluje {2}. Zkraťte název a použijte stejný název na obou koncích roury. Položka byla ignorována.",
@@ -1313,6 +1314,8 @@
     "Str.AIChat.ApiKeyRequired": "Je vyžadován klíč API. Nastavte proměnnou prostředí HEXIDE_AI_API_KEY nebo apiKey v chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Soukromí: vaše zprávy, obsah aktivního souboru (u formuláře také rozvržení a popisky) a jeho diagnostika se odesílají do {0} — služby třetí strany nastavené v nastavení chatu AI. Bez žádosti o schválení se tam odesílá také obsah jakéhokoli dalšího souboru v načtených projektech, který asistent přečte svými nástroji, seznamy souborů projektů a diagnostika libovolného souboru.",
     "Str.AIChat.PrivacyKeyTip": "Tip: nastavte proměnnou prostředí HEXIDE_AI_API_KEY, abyste nemuseli ukládat klíč API do souboru.",
+    "Str.AIChat.PrivacyServerTools": "Jazykový server, který HexIDE spouští (jeho vlastní, server, který jste nastavili, nebo server přidaný doplňkem, který jste povolili), může chatu AI poskytovat nástroje a kontext. Odesílají se tam také výsledky těchto nástrojů a tento kontext. Kontext a výsledky nástrojů, o kterých server tvrdí, že pouze čtou, se odesílají bez dotazu.",
+    "Str.AIChat.AllowServerTool": "Povolit AI spustit „{0}“ z jazykového serveru {1} s {2}?",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekty {0} sdílejí složku {1}; zapisuje nebo importuje se pouze {2}.",
     "Str.MemberOrigin.HexIde": "Rozšíření HexIDE; ve VB6 není dostupné."
   }

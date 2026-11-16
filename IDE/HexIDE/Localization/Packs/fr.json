@@ -965,6 +965,7 @@
     "Str.Tool.LanguageServers.Problem.UnknownFields": "Champs non reconnus : {0}. Ils ont été ignorés — vérifiez l’orthographe.",
     "Str.Tool.LanguageServers.Problem.UnknownField": "Champ non reconnu : {0}. Il a été ignoré — vérifiez l’orthographe.",
     "Str.Tool.LanguageServers.Problem.Trace": "« {0} » demande le niveau de trace « {1} », qui ne figure pas parmi « {2} », « {3} », « {4} ». Le traçage est désactivé pour ce serveur.",
+    "Str.Tool.LanguageServers.Problem.ChatTools": "« {0} » définit chatTools sur « {1} », qui ne figure pas parmi « {2} », « {3} », « {4} ». Le chat IA demande avant chaque appel aux outils de ce serveur.",
     "Str.Tool.LanguageServers.Problem.PipeRole": "« {0} » demande {1} « {2} », qui ne figure pas parmi « {3} », « {4} ». « {3} » est utilisé pour ce serveur.",
     "Str.Tool.LanguageServers.Problem.Disabled": "« {0} » est désactivé ({1}) et n’a pas été enregistré.",
     "Str.Tool.LanguageServers.Problem.PipeTooLong": "{0} comporte {1} caractères ; cet hôte en autorise {2}. Raccourcissez le nom et utilisez le même nom aux deux extrémités du tube. L’entrée a été ignorée.",
@@ -1313,6 +1314,8 @@
     "Str.AIChat.ApiKeyRequired": "Clé API requise. Définissez la variable d’environnement HEXIDE_AI_API_KEY, ou apiKey dans chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Confidentialité : vos messages, le contenu du fichier actif (pour un formulaire, sa disposition et ses légendes aussi) et ses diagnostics sont envoyés à {0} — un service tiers configuré dans les paramètres du chat IA. Le contenu de tout autre fichier de vos projets chargés que l’assistant lit avec ses outils, les listes de fichiers des projets et les diagnostics de tout fichier y sont également envoyés sans demander d’approbation.",
     "Str.AIChat.PrivacyKeyTip": "Conseil : définissez la variable d’environnement HEXIDE_AI_API_KEY pour éviter de stocker votre clé API dans un fichier.",
+    "Str.AIChat.PrivacyServerTools": "Un serveur de langage exécuté par HexIDE (le sien, un serveur que vous avez configuré ou un serveur ajouté par un module complémentaire que vous avez autorisé) peut fournir des outils et du contexte au chat IA. Les résultats de ces outils et ce contexte y sont aussi envoyés. Le contexte et les résultats des outils dont le serveur indique qu’ils ne font que lire sont envoyés sans vous le demander.",
+    "Str.AIChat.AllowServerTool": "Autoriser l’IA à exécuter « {0} » du serveur de langage {1}, avec {2} ?",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Les projets {0} partagent le dossier {1} ; seul {2} est écrit ou importé.",
     "Str.MemberOrigin.HexIde": "Extension HexIDE ; non disponible dans VB6."
   }

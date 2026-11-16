@@ -15,6 +15,7 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
     public IProjectAccess Project => host.Project;
     public IDiagnosticsAccess Diagnostics => host.Diagnostics;
     public IOptionsPageContributor Options => host.Options;
+    public IServerChatTools ServerChatTools => host.ServerChatTools;
     public IDisposable RegisterCommand(string id, string label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>
         host.RegisterCommand(id, label, onInvoke, gesture, canExecute);
     public IDisposable RegisterCommand(string id, AddinTitle label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>

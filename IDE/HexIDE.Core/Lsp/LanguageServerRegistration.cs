@@ -88,7 +88,13 @@ public sealed record LanguageServerRegistration(
     /// </summary>
     string? Origin = null,
     /// <summary>Restart when projects join or leave the workspace, rather than relying on folder notifications.</summary>
-    bool RestartOnProjectChange = false)
+    bool RestartOnProjectChange = false,
+    /// <summary>
+    /// Whether AI Chat may use this server's tools and context, and how they are approved (#4257). Off unless the route
+    /// that made the registration says otherwise: the configuration file's and a consented add-in's servers come through
+    /// <c>LanguageServerRegistrationFactory</c>, which reads the entry's <c>chatTools</c>.
+    /// </summary>
+    ServerChatToolsPolicy ChatTools = ServerChatToolsPolicy.Off)
 {
     /// <summary>
     /// The priority the entries HexIDE contributes itself are given — deliberately below the value an

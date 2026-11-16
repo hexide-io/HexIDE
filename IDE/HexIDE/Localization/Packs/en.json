@@ -965,6 +965,7 @@
     "Str.Tool.LanguageServers.Problem.UnknownFields": "Unrecognized fields: {0}. Ignored — check the spelling.",
     "Str.Tool.LanguageServers.Problem.UnknownField": "Unrecognized field: {0}. Ignored — check the spelling.",
     "Str.Tool.LanguageServers.Problem.Trace": "'{0}' asks for trace level '{1}', which is not one of '{2}', '{3}', '{4}'. Tracing is off for this server.",
+    "Str.Tool.LanguageServers.Problem.ChatTools": "'{0}' sets chatTools to '{1}', which is not one of '{2}', '{3}', '{4}'. AI Chat asks before every call to this server's tools.",
     "Str.Tool.LanguageServers.Problem.PipeRole": "'{0}' asks for {1} '{2}', which is not one of '{3}', '{4}'. Falling back to '{3}' for this server.",
     "Str.Tool.LanguageServers.Problem.Disabled": "'{0}' is switched off ({1}) and was not registered.",
     "Str.Tool.LanguageServers.Problem.PipeTooLong": "{0} is {1} characters; this host allows {2}. Shorten the name and use the same name at both ends of the pipe. The entry has been ignored.",
@@ -1314,6 +1315,8 @@
     "Str.AIChat.ApiKeyRequired": "API key required. Set the HEXIDE_AI_API_KEY environment variable, or apiKey in chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Privacy: your messages, the active file's contents (for a form, its layout and captions too), and its diagnostics are sent to {0} — a third-party service you configured in AI Chat settings. The contents of any other file in your loaded projects that the assistant reads with its tools, project file lists, and diagnostics for any file are also sent there without asking for approval.",
     "Str.AIChat.PrivacyKeyTip": "Tip: set the HEXIDE_AI_API_KEY environment variable to avoid storing your API key in a file.",
+    "Str.AIChat.PrivacyServerTools": "A language server HexIDE runs (its own, one you configured, or one an add-in you allowed added) can give AI Chat tools and context. What those tools return, and that context, are sent there too. The context, and the results of tools the server says only read, are sent without asking you.",
+    "Str.AIChat.AllowServerTool": "Allow the AI to run “{0}” from the language server {1}, with {2}?",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projects {0} share folder {1}; only {2} is written or imported."
   }
 }
