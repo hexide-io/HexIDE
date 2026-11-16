@@ -197,18 +197,21 @@ The project is described to the add-in as `IProjectAccess` describes it, with it
 startup form's name, or null.
 
 Nothing runs because an add-in is installed or a project opens. Whether a launch runs the project is asked as the Run menu
-opens and when a run of it starts. For whether F5 can start a project the user chose the launch for, its answer is kept
+opens and when a run of it starts. For whether F5 can start an add-in project with its chosen or default launch, its answer is kept
 until what it is told of the project changes (its name, file, startup object, references, or its members and their names
 and files), so it is never asked at each edit. Its configuration is asked for only when a run of it starts. That is under
 the session's cancellation, and End before the session has started ends it even if the add-in never looks at its token.
 The session is then the same as a launch file's: one at a time, with the project's saved gutter marks, and conditions
 refused in the configuration.
 
-**What F5 runs.** F5 runs the project in the IDE until its user chooses otherwise. **Run > F5 Runs** lists In the IDE
+**What F5 runs.** F5 defaults to the interpreter for projects it runs. For a project opened by an add-in,
+F5 defaults to that same add-in's first registered debug launch, when it offers one that runs the project (#4111).
+The status bar names that launch and points to Run > F5 Runs once per project in a session. An explicit user choice,
+including In the IDE, always wins. **Run > F5 Runs** lists In the IDE
 and each contributed launch that runs the startup project, with the current choice checked. The choice is per project
 and per user, kept in the `.user.hexproj` sidecar as `runWith` by the add-in's id and the launch's title; choosing In the
-IDE removes it. **Run > Start Once With** runs a launch once without changing what F5 runs, and is shown while an add-in
-offers a launch for the startup project. F5 Runs is also shown while the project has a choice whose launch is gone.
+IDE records an empty `runWith` value. An absent `runWith` leaves the default in effect. **Run > Start Once With**
+runs a launch once without changing what F5 runs, and is shown while an add-in offers a launch for the startup project. F5 Runs is also shown while the project has a choice whose launch is gone.
 
 If the chosen launch is gone, because its add-in was removed or turned off, or no longer runs the project, F5 runs the
 project in the IDE and the status bar says so. The choice stays, for when the add-in is back, and shows under F5 Runs as

@@ -75,6 +75,7 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Set conditions with Condition… in the breakpoint gutter menu. File '{0}', breakpoint entry {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Breakpoint option '{0}' isn't supported for external sessions yet. File '{1}', breakpoint entry {2}. Set conditions with Condition… in the breakpoint gutter menu.",
     "Str.Debug.RunWith.Unavailable": "F5 is set to run this project with {0}, which isn't available now, so it runs in the IDE. To run it in the IDE from now on, choose In the IDE under Run > F5 Runs.",
+    "Str.Debug.RunWith.Default": "F5 runs {0}. Change it under Run > F5 Runs.",
     "Str.MainWindow.DeveloperModeNotice": "DEVELOPER MODE",
     "Str.MainWindow.UnsignedAddinsNotice": "DEVELOPER MODE, unsigned add-ins can load",
     "Str.MainWindow.RecoveryNotice": "Recovery session — settings changes won't be saved",
