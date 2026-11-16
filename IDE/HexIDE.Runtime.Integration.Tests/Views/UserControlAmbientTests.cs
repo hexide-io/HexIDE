@@ -34,6 +34,16 @@ public partial class UserControlKeyTests
             formSettings: "BackColor = &H00C0FFFF&\nForeColor = &H000000FF&\nBeginProperty Font\nName = \"Arial\"\nSize = 12\nWeight = 700\nItalic = 0\nEndProperty\n");
         run.Lib.Printed.Should().Equal(new Vb6Value(expected));
     }
+    // vb6.exe SP6, a built EXE: a control-array element's DisplayName is its name with its index (oracle PR #4271).
+    [AvaloniaFact]
+    public void Ambient_DisplayName_of_a_control_array_element_carries_its_index()
+    {
+        using var run = new Run("", controlCode:
+            "Private Sub UserControl_ReadProperties(PropBag As PropertyBag)\nDebug.Print Ambient.DisplayName\nEnd Sub\n",
+            blocks: Block("P.Dial", "uc1", 0, extra: "Index = 0"));
+        run.Lib.Printed.Should().Equal(new Vb6Value("uc1(0)"));
+    }
+
     // These are explicit HexIDE refusals, not invented VB6 results (#4149).
     [AvaloniaTheory]
     [InlineData("Palette", "en-US", "", false)]

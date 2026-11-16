@@ -144,7 +144,8 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
                 "forecolor" => new Vb6Value((long)(AttachedProperties.GetForeColor(window)
                     ?? throw new NotImplementedException("Ambient.ForeColor is not implemented (#4149)")).ToOle()),
                 "font" => new Vb6Value(ControlFont.Get(window)),
-                "displayname" => new Vb6Value(owner.ambientName),
+                // A control-array element's name carries its index, as `AmbCtl1(0)` (measured, oracle PR #4271).
+                "displayname" => new Vb6Value(VBProps.GetIndex(owner) is { } index ? $"{owner.ambientName}({index})" : owner.ambientName),
                 "localeid" when VbLocale.Current.LCID == 1033 => new Vb6Value(1033L),
                 "textalign" => new Vb6Value(0),
                 "scaleunits" => new Vb6Value("Twip"),
