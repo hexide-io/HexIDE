@@ -33,7 +33,7 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 /// <item><c>ListIndex</c> was measured on a ListBox and a ComboBox, as here.</item>
 /// </list>
 /// Pinned at HexIDE's behaviour rather than at a measurement: the refusals that name an issue, and the two
-/// <c>Tag</c> idioms, which hold until #211 makes <c>Tag</c> a String.
+/// <c>Tag</c> idioms, which hold pending #774 making <c>Tag</c> a String.
 /// </para>
 ///
 /// <para>
@@ -41,7 +41,7 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 /// <list type="bullet">
 /// <item>a string with a comma (<c>Left = "1,5"</c> is 15 in VB6, the comma read as a thousands separator, #770);</item>
 /// <item>a hex string past 16 bits (<c>BackColor = "&amp;H8000000F"</c> is a system colour in VB6, an Overflow here, #788);</item>
-/// <item><c>Tag</c>, which VB6 holds as a String (<c>Tag = 5</c> reads back "5") and HexIDE as given, until #211;</item>
+/// <item><c>Tag</c>, which VB6 holds as a String (<c>Tag = 5</c> reads back "5") and HexIDE as given, pending #774;</item>
 /// <item><c>Left</c> rounding to whole twips, which belongs to HexIDE's unit model.</item>
 /// </list>
 /// A case pinned here at HexIDE's answer would certify the divergence.
@@ -242,7 +242,7 @@ public class PropertyAssignmentTests
         value.Should().Be("(unset)");
     }
 
-    // ── Tag keeps what it is given until #211, so the idioms that compare and count with it work ────
+    // ── Tag keeps what it is given pending #774, so the idioms that compare and count with it work ────
 
     [AvaloniaFact]
     public async Task A_Tag_set_to_a_number_compares_equal_to_that_number()

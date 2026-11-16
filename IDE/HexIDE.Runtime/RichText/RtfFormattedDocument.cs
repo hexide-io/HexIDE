@@ -23,8 +23,8 @@ internal sealed class RtfFormattedDocument
         foreach (Match entry in Regex.Matches(fontTable.Groups["fonts"].Value, @"\{\\f(?<id>\d+)(?:\\fnil)?(?:\\fcharset(?<charset>\d+))? (?<name>[^{}\\;]+);\}"))
         {
             var charset = entry.Groups["charset"];
-            document.fonts.Add(new Font(int.Parse(entry.Groups["id"].Value, CultureInfo.InvariantCulture),
-                entry.Groups["name"].Value, charset.Success ? int.Parse(charset.Value, CultureInfo.InvariantCulture) : null));
+            document.fonts.Add(new Font(Number(entry.Groups["id"].Value, "font table entries"),
+                entry.Groups["name"].Value, charset.Success ? Number(charset.Value, "font table entries") : null));
         }
         var consumed = string.Concat(Regex.Matches(fontTable.Groups["fonts"].Value, @"\{\\f\d+(?:\\fnil)?(?:\\fcharset\d+)? [^{}\\;]+;\}").Select(m => m.Value));
         if (consumed != fontTable.Groups["fonts"].Value || document.fonts.Count == 0 ||
@@ -39,9 +39,9 @@ internal sealed class RtfFormattedDocument
         {
             foreach (Match entry in Regex.Matches(colorTable.Groups["colors"].Value, @"\\red(\d+)\\green(\d+)\\blue(\d+);"))
             {
-                var red = int.Parse(entry.Groups[1].Value, CultureInfo.InvariantCulture);
-                var green = int.Parse(entry.Groups[2].Value, CultureInfo.InvariantCulture);
-                var blue = int.Parse(entry.Groups[3].Value, CultureInfo.InvariantCulture);
+                var red = Number(entry.Groups[1].Value, "colour components");
+                var green = Number(entry.Groups[2].Value, "colour components");
+                var blue = Number(entry.Groups[3].Value, "colour components");
                 if (red > 255 || green > 255 || blue > 255) throw Unsupported("colour components");
                 document.colors.Add(red | green << 8 | blue << 16);
             }
@@ -72,7 +72,7 @@ internal sealed class RtfFormattedDocument
                 hasBulletGroups = true;
                 var bullet = Regex.Match(source[index..], @"^\{\\pntext\\f(?<font>\d+)\\'B7\\tab\}\{\\\*\\pn\\pnlvlblt\\pnf\k<font>\\pnindent0\{\\pntxtb\\'B7\}\}");
                 if (!bullet.Success) throw Unsupported("bullet groups");
-                var fontId = int.Parse(bullet.Groups["font"].Value, CultureInfo.InvariantCulture);
+                var fontId = Number(bullet.Groups["font"].Value, "bullet font");
                 if (!document.fonts.Any(f => f.Id == fontId && f.Name == "Symbol" && f.Charset == 2))
                     throw Unsupported("bullet font");
                 Flush();
@@ -83,6 +83,8 @@ internal sealed class RtfFormattedDocument
             if (c == '{') { Flush(); stack.Push((format, paragraph)); continue; }
             if (c == '}') { Flush(); (format, paragraph) = stack.Pop(); continue; }
             if (c != '\\') { text.Append(c); continue; }
+            // A backslash ending the text escapes nothing (#1222).
+            if (index + 1 >= source.Length) throw Unsupported("a trailing escape");
             c = source[++index];
             if (c is '\\' or '{' or '}') { text.Append(c); continue; }
             if (c == '\'')
@@ -97,7 +99,8 @@ internal sealed class RtfFormattedDocument
             start = index;
             if (index < source.Length && source[index] == '-') index++;
             while (index < source.Length && char.IsAsciiDigit(source[index])) index++;
-            int? number = index > start ? int.Parse(source[start..index], CultureInfo.InvariantCulture) : null;
+            // A lone '-', or a value beyond Int32, is refused by name rather than failing the parse (#1222).
+            int? number = index > start ? Number(source[start..index], "control word parameter") : null;
             if (index >= source.Length || source[index] != ' ') index--;
             Flush();
             if (word == "pard") paragraph = new RtfParagraphFormat();
@@ -260,6 +263,9 @@ internal sealed class RtfFormattedDocument
         }
         return output.Append(selection ? "}\r\n" : "\r\n\\par }\r\n").ToString();
     }
+
+    private static int Number(string digits, string what) =>
+        int.TryParse(digits, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value) ? value : throw Unsupported(what);
 
     private static NotImplementedException Unsupported(string detail) => new($"RichTextBox RTF: {detail} is not implemented (#1100)");
 }

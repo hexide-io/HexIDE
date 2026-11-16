@@ -192,6 +192,17 @@ no harm in a logo on a details page, which is a different moment with different 
 - **WHEN** the user inspects an add-in's identity
 - **THEN** they see each link with its identifier and key fingerprint, and whether it is key-pinned first-party
 
+The inspector's dialog title, row headings, root explanation and fingerprint comparison instructions
+SHALL use the active language pack in both the consent dialog and Options expander. The open Options
+page SHALL refresh these strings on a language switch. Branding SHALL preserve references to HexIDE's
+root and TRUST.md; chain identifiers, versions and fingerprints SHALL remain data.
+
+#### Scenario: Inspecting trust in another language
+- **WHEN** the user opens Trust details at consent or the Trust expander in Options
+- **THEN** the inspector's text uses the active pack
+- **AND** changing language with Options open updates the inspector's headings
+- **AND** a distribution with another product name still names HexIDE's root and TRUST.md
+
 #### Scenario: A publisher-supplied logo
 - **WHEN** a package supplies a logo
 - **THEN** it appears only on the informational details surface, never at the consent decision

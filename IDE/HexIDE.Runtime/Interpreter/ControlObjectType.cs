@@ -10,8 +10,25 @@ internal static class ControlObjectType
     internal static string? Of(object? value)
     {
         if (value is VBProgressBar bar) return bar.Library.TypeName("ProgressBar");
+        var other = value switch
+        {
+            VBDTPicker => "MSComCtl2.DTPicker",
+            VBMonthView => "MSComCtl2.MonthView",
+            VBUpDown => "MSComCtl2.UpDown",
+            VBAnimation => "MSComCtl2.Animation",
+            VBFlatScrollBar => "MSComCtl2.FlatScrollBar",
+            VBSSTab => "TabDlg.SSTab",
+            VBMaskEdBox => "MSMask.MaskEdBox",
+            VBRichTextBox => "RichTextLib.RichTextBox",
+            VBCommonDialog => "MSComDlg.CommonDialog",
+            _ => null,
+        };
+        if (other is not null) return other;
         var name = value switch
         {
+            VBImageCombo => "ImageCombo",
+            ImageComboItems => "ComboItems",
+            ImageComboItem => "ComboItem",
             VBImageList => "ImageList",
             ImageListImages => "ListImages",
             ImageListImage => "ListImage",
