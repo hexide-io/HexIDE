@@ -221,6 +221,16 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 
 ---
 
+## Distribution identity (HexIDE addition)
+
+| Feature | Status | Notes |
+|---|---|---|
+| Distribution descriptor | Done | Accepted `brand.json` schema supplies installation name, logo, append-only credits, links and default profile; invalid descriptors refuse startup. Host captions and path diagnostics follow the installation; engine implementation statements retain HexIDE (#2042, #4061). See [white-label guide](white-label.md) |
+| Per-brand state | Done | Stable distribution id separates configuration, logs and recovery; explicit `--user-data-dir` still wins for configuration and recovery. Bundled children share the distribution's log root (#2042) |
+| Distribution repack tool | Partial | `HexIDE.Repack` stages Windows executable/installer identity, Linux desktop assets and macOS bundle identity from the descriptor, preserving notices and trust anchors; adopter signing remains the adopter's responsibility (#2042). The macOS output is still to be checked on a Mac (#3413). See [white-label guide](white-label.md) |
+
+---
+
 ## Standard Toolbar
 
 | Button | Status | Notes |
