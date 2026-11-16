@@ -383,11 +383,13 @@ jobs:
     strategy:
       # One platform's failure must not hide the other platforms' results.
       fail-fast: false
+      # A pull request's own run builds Windows only here; macOS and Windows on Arm run for merge batches (their
+      # `batch/` branches) and for every push. Every change still meets macOS before it reaches main, in its batch. At full
+      # speed on 2026-11-16, 28 PR runs were queued and each wanted one of the few macOS runners the account shares, so
+      # batch 355's macOS job waited about 90 minutes to start. A batch that fails on macOS stops the merge chain, as any
+      # batch failure does, and the failing PR is found and left out.
       matrix:
-        include:
-          - { name: windows, runner: windows-latest }
-          - { name: windows-arm, runner: windows-11-arm }
-          - { name: macos, runner: macos-latest }
+        include: ${{ fromJSON((github.event_name != 'pull_request' || startsWith(github.head_ref, 'batch/')) && '[{"name":"windows","runner":"windows-latest"},{"name":"windows-arm","runner":"windows-11-arm"},{"name":"macos","runner":"macos-latest"}]' || '[{"name":"windows","runner":"windows-latest"}]') }}
 
     steps:
       - name: Checkout code
