@@ -62,12 +62,13 @@ public class ComponentsViewModelTests
         // Keep these measured registry descriptions independent of later library additions.
         vm.Controls.Where(c => c.Library == ControlLibraries.ComctlLib || c.Library == ControlLibraries.MSComctlLib
                 || c.Library == ControlLibraries.MSComDlg || c.Library == ControlLibraries.MSComCtl2
-                || c.Library == ControlLibraries.RichTextLib)
+                || c.Library == ControlLibraries.RichTextLib || c.Library == ControlLibraries.MSFlexGridLib)
             .Select(c => (c.Name, c.Location, c.IsSelected)).Should().Equal(
             ("Microsoft Common Dialog Control 6.0", "COMDLG32.OCX", false),
             ("Microsoft Windows Common Controls 5.0 (SP2)", "COMCTL32.OCX", false),
             ("Microsoft Windows Common Controls 6.0 (SP6)", "MSCOMCTL.OCX", true),
             ("Microsoft Windows Common Controls-2 6.0 (SP6)", "MSCOMCT2.OCX", false),
+            ("MSFLXGRD.OCX", "MSFLXGRD.OCX", false),
             ("RichTextLib", "RICHTX32.OCX", false));
         vm.Controls.Should().OnlyContain(c => c.CanChange);
     }
@@ -159,17 +160,17 @@ public class ComponentsViewModelTests
     [Fact]
     public void A_library_HexIDE_does_not_implement_is_listed_and_left_alone()
     {
-        const string flexGrid = "Object={5E9E78A0-531B-11CF-91F6-C2863C385E30}#1.0#0; MSFLXGRD.OCX";
-        var project = Project(form1UsesMsComctl: false, flexGrid);
+        const string unknown = "Object={00000000-0000-0000-0000-000000000000}#1.0#0; UNKNOWN.OCX";
+        var project = Project(form1UsesMsComctl: false, unknown);
         var vm = new ComponentsViewModel(project, new ComponentRegistry());
 
         var row = vm.Controls.Single(c => c.Library is null);
-        row.Name.Should().Be("MSFLXGRD.OCX (not implemented in HexIDE)");
+        row.Name.Should().Be("UNKNOWN.OCX (not implemented in HexIDE)");
         row.IsSelected.Should().BeTrue();
         row.CanChange.Should().BeFalse();
 
         vm.ApplyCommand.Execute(null);
-        project.UnknownPreSectionLines.Select(l => l.RawLine).Should().Contain(flexGrid);
+        project.UnknownPreSectionLines.Select(l => l.RawLine).Should().Contain(unknown);
     }
 
     [Fact]

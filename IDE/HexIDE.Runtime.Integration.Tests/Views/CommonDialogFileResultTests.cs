@@ -1,3 +1,5 @@
+using HexIDE.Runtime.AvaloniaInterop;
+using HexIDE.IDE;
 using System;
 using System.Threading.Tasks;
 using HexIDE.Runtime.BuiltinControls;

@@ -584,7 +584,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     && ReferenceEquals(Parent(c), parent)).ToList();
                 var blocks = parent.PreservedChildSubtrees;
                 var written = (parent == root
-                    ? ctx.ProjectFileFormat.RootChildren(components, root)
+                    ? HexIDE.IDE.ProjectFormats.Of(form.Owner, ctx.ProjectFileFormat).RootChildren(components, root)
                     : parent.ContainedControls).ToList();
                 var before = CarriedOrder.ChildrenBefore(written.Count, blocks);
                 var siblings = new List<(ComponentInstance? Instance, ControlInfo Row, int Order)>();
@@ -784,6 +784,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     HexIDE.Runtime.BuiltinTypes.VBFontExtensions.IsNameable))
                 return (null, null, $"Cannot set '{propClass.Name}' to '{value}': {(why is null ? "it" : why + ". It")} "
                                     + $"takes {PropertyText.Accepted(propClass)}");
+
+            if (DesignerSizeValidation.Refuses(propClass, parsed))
+                return (null, null, NegativeDesignerSizeRefusal(control));
 
             // A position is in the units its row shows: its container's ScaleMode, and a form's own size with its frame, in
             // twips (#1636). The model holds pixels.
@@ -1644,6 +1647,18 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         });
     }
 
+    // Measured on vb6.exe SP6, native and p-code agreeing: docs/vb6-fidelity-oracle/a-negative-or-zero-control-size.md
+    // (PR #4069). The reply names the issue rather than linking the page, so it never points a caller at a missing file.
+    private const string NegativeDesignerSizeReason = "Invalid property value: Width and Height can't be negative. "
+        + "VB6 refuses to load a .frm holding a negative control size (measured, #589).";
+
+    private static string NegativeDesignerSizeRefusal(ComponentInstance control) =>
+        NegativeDesignerSizeReason + $" Nothing was changed. {PropertyText.AddressedName(control)} remains at "
+        + $"Left {PropertyText.Display(control.GetPropertyOrDefault(VBProperties.LeftProperty))}, "
+        + $"Top {PropertyText.Display(control.GetPropertyOrDefault(VBProperties.TopProperty))}, "
+        + $"Width {PropertyText.Display(control.GetPropertyOrDefault(VBProperties.WidthProperty))}, "
+        + $"Height {PropertyText.Display(control.GetPropertyOrDefault(VBProperties.HeightProperty))}, in pixels relative to its container.";
+
     [McpServerTool(Name = "move_control")]
     [Description("Moves or resizes a control on a form designer canvas by simulating a drag transaction. " +
         "Calls BeginDrag on the active designer, updates only the supplied position/size values on the ViewModel, " +
@@ -1692,6 +1707,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (target is null)
                 return Naming(new MutateResult(false,
                     $"No control named '{controlName}' on {document.Display}"), document);
+
+            if (DesignerSizeValidation.Refuses(width, height))
+                return Naming(new MutateResult(false, NegativeDesignerSizeRefusal(target.Instance)), document);
 
             designer.BeginDrag([target]);
 
@@ -1745,6 +1763,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (designer is null)
                 return new AddControlResult(false, null,
                     $"{document.Display} is not open in the visual designer — call view_designer first",
+                    Project: document.Project.Name, Document: document.Name);
+
+            if (DesignerSizeValidation.Refuses(width, height))
+                return new AddControlResult(false, null, NegativeDesignerSizeReason + " No control was created; the designer is unchanged.",
                     Project: document.Project.Name, Document: document.Name);
 
             // A type name picks its button first, so ComctlLib.ProgressBar reaches COMCTL32.OCX's where both libraries are
@@ -2227,7 +2249,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
     // Subscribe before the menu route starts: an adapter can stop before its command reply arrives.
     private static async Task<MutateResult> AwaitExternalStopAsync(HexIDE.Debugging.ExternalDebugService external,
-        Func<MutateResult?> start, TimeSpan wait, CancellationToken ct)
+        Func<MutateResult?> start, TimeSpan wait, CancellationToken ct, Func<string>? stoppedNote = null)
     {
         var before = external.Stop;
         var inspection = external.Frames;
@@ -2236,7 +2258,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         void Changed()
         {
             if (!external.IsActive || external.State is HexIDE.Dap.DapSessionState.Ended or HexIDE.Dap.DapSessionState.Faulted
-                || !external.IsBusy && (failure is not null ||
+                || !external.IsBusy && !external.RunToCursorPending && (failure is not null ||
                 external.Stop is not null && external.Stop != before && external.Frames.Count > 0))
                 completed.TrySetResult();
         }
@@ -2261,7 +2283,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                         ? $"Paused at {location} ({external.Stop.Reason})."
                         : "Paused; the adapter supplied no source location."
                     : $"Running; no pause within {wait.TotalSeconds:0} s.";
-            return failure is null ? new MutateResult(true, null, state)
+            return failure is null ? new MutateResult(true, null, state +
+                (external.Stop is not null && external.Stop != before ? stoppedNote?.Invoke() : ""))
                 : new MutateResult(false, failure, state + (external.Stop is not null && before is not null && ReferenceEquals(external.Frames, inspection)
                     ? " The stopped inspection was kept." : " Inspection follows the adapter's current state."));
         }
@@ -2269,6 +2292,31 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         {
             external.Changed -= Changed;
             external.Failed -= Failed;
+        }
+    }
+
+    private static bool SameSourcePath(string uri, string? path)
+    {
+        if (path is null) return false;
+        var actual = new Uri(uri).LocalPath;
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        if (string.Equals(actual, path, comparison)) return true;
+        try { return string.Equals(Resolve(actual), Resolve(path), comparison); }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return false;
+        }
+
+        // An adapter can canonicalize a linked working directory even when the source itself is not on disk.
+        static string Resolve(string value)
+        {
+            var full = Path.GetFullPath(value);
+            var parent = Path.GetDirectoryName(full);
+            if (parent is null) return full;
+            var resolved = Path.Combine(Resolve(parent), Path.GetFileName(full));
+            FileSystemInfo info = Directory.Exists(resolved) ? new DirectoryInfo(resolved) : new FileInfo(resolved);
+            var target = info.Exists ? info.ResolveLinkTarget(true) : null;
+            return target is null ? resolved : Resolve(target.FullName);
         }
     }
 
@@ -2328,17 +2376,38 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepOutProject, () => ctx.ProjectRunnerService.StepOutProject(), ct);
 
     [McpServerTool(Name = "run_to_cursor")]
-    [Description("Run To Cursor (Ctrl+F8): run until (module, 1-based line, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them) then break — a one-shot temporary breakpoint. While paused it continues to the target; while running it arms the target; from idle it starts the project and runs to the target (a real breakpoint hit first stays paused there; continue proceeds toward the target). The reply's 'note' says where it paused or, within 2 s, that it has not got there yet, and 'project' and 'document' name the target's document as the IDE spells them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. External sessions refuse this command because they lack one-shot breakpoint support; set a breakpoint in the editor and use continue_program instead. A failed breakpoint condition still pauses; note names the condition and evaluation error, excluded from printed.")]
+    [Description("Run To Cursor (Ctrl+F8): run until (module, 1-based line, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them) then break — a one-shot temporary breakpoint. While paused it continues to the target; while running it arms the target; from idle it starts the project and runs to the target (a real breakpoint hit first stays paused there; continue proceeds toward the target). The reply's 'note' says where it paused or, within 2 s, that it has not got there yet, and 'project' and 'document' name the target's document as the IDE spells them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. A stopped external session requires a saved target document: it adds a temporary adapter breakpoint and continues, removing the temporary line at the next stop (wherever it stops), session end or failure. An unverified or moved target is refused without continuing; the reply gives the adapter reason. External replies report the actual top frame file and line, running or ended, and say when the stop was before the target. A failed breakpoint condition still pauses; note names the condition and evaluation error, excluded from printed.")]
     public async Task<MutateResult> RunToCursorAsync(string module, int line, string? project = null, CancellationToken ct = default)
     {
-        if (await Dispatcher.UIThread.InvokeAsync(() => ctx.RootViewModel.ExternalDebugger?.IsActive == true))
-            return new MutateResult(false, "Run To Cursor is unavailable for external sessions: the external route has no one-shot breakpoint support. Set a breakpoint in the editor and use continue_program instead.");
+        DocumentIdentity? externalDocument = null;
+        var externalReply = await Dispatcher.UIThread.InvokeAsync<Task<MutateResult>?>(() =>
+        {
+            if (ctx.RootViewModel.ExternalDebugger is not { IsActive: true } external) return null;
+            return AwaitExternalStopAsync(external, () =>
+            {
+                if (!ctx.ProjectRunnerService.CanRunToCursor)
+                    return new MutateResult(false, "The external session must be paused and the adapter ready before Run To Cursor.");
+                var lookup = ResolveDocument(module, project);
+                if (lookup.Document is not { } document) return new MutateResult(false, lookup.Error);
+                externalDocument = document;
+                if (OutsideDocument(document, [line], first: 1, "line") is { } outside)
+                    return Naming(new MutateResult(false, outside), document);
+                if (document.AbsolutePath is null)
+                    return Naming(new MutateResult(false, "The target document must be saved so the adapter can address its source file."), document);
+                ctx.ProjectRunnerService.RunToCursorProject(document, line);
+                return null;
+            }, StepReplyWait, ct, () => external.CurrentLocation is { } at &&
+                (at.Line != line || !SameSourcePath(at.Uri, externalDocument?.AbsolutePath))
+                    ? $" Stopped before reaching the cursor target ({externalDocument?.Display} line {line}); the temporary breakpoint was removed."
+                    : "");
+        });
+        if (externalReply is not null) return Naming(await externalReply, externalDocument);
         string? target = null;
         DocumentIdentity? named = null;
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
         {
             if (!ctx.ProjectRunnerService.CanRunToCursor)
-                return new MutateResult(false, WhyNoStart("No project to run — load a project first"));
+                return Naming(new MutateResult(false, WhyNoStart("No project to run — load a project first")), named);
 
             var lookup = ResolveDocument(module, project);
             if (lookup.Document is not { } document)
@@ -2960,7 +3029,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle.";
 
     [McpServerTool(Name = "dump_visual_tree")]
-    [Description("Returns the active window's live control tree to address controls (see 'window'). Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Adorners are under their control. Overflow never inserts a path segment. Context menus and flyouts have a ContextMenu or Flyout segment under their owner; owner paths stay stable. Each node carries its addressing 'path' (feed it back as a target), ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers and isEnabled. Providers and their interact actions: invoke → invoke, selection and selectionItem → select and remove_from_selection, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. Nodes may carry 'isHidden' and 'isOffscreen'; 'flagsNote' says what each means when a node has one. A long ListBox makes rows only for what is in view and a focused row, so its dump lists those; interact 'select' with a value scrolls to the rest. Top-level 'focusedPath' names the keyboard focus anywhere in the window, or 'focusReason' says why there is none. Scope a dump with 'root', or search with 'match'; 'maxDepth' and 'interactiveOnly' say what is kept and when a node is 'truncated'. A tree over about 40,000 characters is cut to fit, keeping the active document, and the 'note', written first, says what was cut.")]
+    [Description("Returns the active window's live control tree to address controls (see 'window'). Uses the UIA 'control view': None-type wrappers without focus, AutomationId, an automation Name of their own or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Adorners are under their control. Overflow never inserts a path segment. Context menus and flyouts have a ContextMenu or Flyout segment under their owner; owner paths stay stable. Each node carries its addressing 'path' (feed it back as a target), ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers and isEnabled. Providers and their interact actions: invoke → invoke, selection and selectionItem → select and remove_from_selection, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. Nodes may carry 'isHidden' and 'isOffscreen'; 'flagsNote' says what each means when a node has one. A long ListBox makes rows only for what is in view and a focused row, so its dump lists those; interact 'select' with a value scrolls to the rest. Top-level 'focusedPath' names the keyboard focus anywhere in the window, or 'focusReason' says why there is none. Scope a dump with 'root', or search with 'match'; 'maxDepth' and 'interactiveOnly' say what is kept and when a node is 'truncated'. A tree over about 40,000 characters is cut to fit, keeping the active document, and the 'note', written first, says what was cut.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
                      + "scope the dump this way. Tool parts use stable AutomationIds such as TitleBar[Tool.locals]/Pane[Tool.locals]; tool document tabs use TabItem[Tool.languageServers]. name is x:Name when set; label is the peer text when different. A segment accepts either.")]
@@ -3265,7 +3334,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails without it, with no fallback to reflection: choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, moving there first unless the last click left it there, so a form's MouseMove precedes MouseDown, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Code replies name line/column, project/document, breakpoint/bookmark, or a covering header/control and covered line. Every verb except invoke_command/set_property refuses a disabled target, naming a disabling container or blocking dialog to answer first, and one not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Find the target and what it supports with dump_visual_tree/inspect_element first. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
+    [Description("Drives 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails without it, with no fallback to reflection: choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input where a real press would land, moving there first unless already there, so MouseMove precedes MouseDown, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Code replies name line/column, project/document, breakpoint/bookmark, or a covering header/control and covered line. Every verb except invoke_command/set_property refuses a disabled target, naming a disabling container or blocking dialog to answer first, and one not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Document saves wait up to 2 s and report completion or still running, and any answer still armed. Find controls with dump_visual_tree/inspect_element. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree, including ContextMenu/Flyout segments for attached popups.")]
         string target,
@@ -3277,6 +3346,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         string? window = null,
         CancellationToken ct = default)
     {
+        using var documentSave = UiSaveFeedback.BeginDocumentSave();
         if (ScriptedFileDialogs.NativePickerNote is { } blocking)
             return new InteractOutcome(false, "peer", null, blocking);
         Control? acted = null;
@@ -3304,6 +3374,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
         // A click's release is its own input, raised once what the press set off has run.
         outcome = await UiAutomationDriver.FinishAsync(outcome);
+        outcome = outcome with { Detail = await documentSave.AfterAsync(outcome.Detail, ct) };
 
         // A committed value is only known to have held once the source has reacted, and a refusal reacts from a
         // posted callback; this hop runs after it. (#625)
@@ -3681,7 +3752,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     private static string? TipOn(Control c) =>
         ToolTip.GetIsOpen(c) && UiAutomationDriver.TipText(ToolTip.GetTip(c)) is { } text ? text : null;
     [McpServerTool(Name = "press_key")]
-    [Description("Presses a key on 'target' through window input: access keys (Alt+letter), menus and key bindings see it. 'modifiers' go down before and up after it; it types the key's character. 'window' selects the window. Retains focus inside target. Unmodified Escape stays in a focused attached menu or flyout placed on target's ancestor; the reply names its path. Otherwise focuses the DEEPEST input surface under 'target' (a code editor's TextArea); falls back to the first focusable descendant, and FAILS when nothing under 'target' can take keyboard focus. A focus move says 'moved focus from <path or nothing> to <path>', raising focus events. The mechanism is 'window-input', or 'routed-key' when focus or platform input was unavailable and KeyDown/KeyUp were raised on the surface instead, which skips access keys; refusals before delivery read 'keyboard'. In a code window, Delete/Back, Delete Line, Cut, Paste and Tab/Shift+Tab over a selection that takes in protected text (the header or a member's Attribute lines) edit its editable parts and say what was left. Keys reach the code window even in protected text. When it writes nothing there, the reply says 'refused by the code window', reports the caret and quotes any status bar message that key set, or says it gave no message; the header and Attribute lines stay protected. Deleting a declaration's whole line deletes its Attribute lines too, and is not refused. Navigation keys are never refused. Waits up to 2 s for completion, parameter info and on-type formatting, including applied edits, then reports the caret; a budget expiry says so. Refuses disabled controls or a modal dialog over the window, which takes a person's keys. " + ProgramWaitNote)]
+    [Description("Presses a key on 'target' through window input: access keys (Alt+letter), menus and key bindings see it. 'modifiers' surround the key; it types its character. 'window' selects the window. Retains focus inside target. Unmodified Escape stays in a focused attached menu or flyout placed on target's ancestor; the reply names its path. Otherwise focuses the DEEPEST input surface under 'target' (a code editor's TextArea); falls back to the first focusable descendant, and FAILS when nothing under 'target' can take keyboard focus. A focus move reports both paths and raises focus events. The mechanism is 'window-input', or 'routed-key' when focus or platform input was unavailable and KeyDown/KeyUp were raised on the surface instead, which skips access keys; refusals before delivery read 'keyboard'. In a code window, Delete/Back, Delete Line, Cut, Paste and Tab/Shift+Tab over a selection that takes in protected text (the header or a member's Attribute lines) edit its editable parts and say what was left. Keys also reach protected text. When it writes nothing there, the reply says 'refused by the code window', reports the caret and quotes any status bar message that key set, or says it gave no message; the header and Attribute lines stay protected. Deleting a declaration's whole line deletes its Attribute lines too, and is not refused. Navigation is never refused. Document saves wait up to 2 s and report completion or still running, and any answer still armed. Waits up to 2 s for completion, parameter info and on-type formatting, including applied edits, then reports the caret; a budget expiry says so. Refuses disabled controls or a blocking modal dialog. " + ProgramWaitNote)]
     public async Task<InteractOutcome> PressKeyAsync(
         [Description("A control's path from dump_visual_tree, including ContextMenu/Flyout segments for attached popups.")] string target,
         [Description("An Avalonia Key name: Enter, Tab, Back, Delete, Escape, Down, S, ... A chord written as one, such as 'Ctrl+H', is read as key 'H' with modifiers 'Ctrl', and the reply says so.")] string key,
@@ -3689,6 +3760,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         [Description(WindowParameter)] string? window = null,
         CancellationToken ct = default)
     {
+        using var documentSave = UiSaveFeedback.BeginDocumentSave();
         UiAutomationDriver.ProgramWatch? watch = null;
         var outcome = await Dispatcher.UIThread.InvokeAsync(async () =>
         {
@@ -3704,6 +3776,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             watch = UiAutomationDriver.WatchProgram(active, () => ctx.DebugController.CurrentStop);
             return await UiAutomationDriver.PressKeyAsync(control, key, modifiers, target, ct);
         });
+        outcome = outcome with { Detail = await documentSave.AfterAsync(outcome.Detail, ct) };
         return await WaitForProgramAsync(watch, outcome, ct);
     }
 
@@ -3948,9 +4021,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "invoke_menu_item")]
-    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first: each submenu on the path gets its SubmenuOpened, as opening it does, so one filled then holds its items. An item whose header is a control is matched by its automation name, as dump_visual_tree names it. If a segment is not found, the error names the menu it looked in and every item that menu holds. Most built-in items are routed commands, which act on the control that has keyboard focus, as a real click does: one that belongs to a document (Tools/Add Procedure to a code window) needs focus in that document, which open_file, view_designer and activate_document_tab give it, as opening it by hand does; the refusal names what has focus instead. A checkable item with no command of its own, such as View/Minimap, is ticked or unticked, as a click does. Returns an error if the path cannot be resolved or the item cannot execute. The reply's 'note' names the item invoked, as its menu shows it. File/Make waits for its result: the program it wrote, with its size, or why it wrote none.")]
+    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first: each submenu on the path gets its SubmenuOpened, as opening it does, so one filled then holds its items. An item whose header is a control is matched by its automation name, as dump_visual_tree names it. If a segment is not found, the error names the menu it looked in and every item that menu holds. Most built-in items are routed commands, which act on the control that has keyboard focus, as a real click does: one that belongs to a document (Tools/Add Procedure to a code window) needs focus in that document, which open_file, view_designer and activate_document_tab give it, as opening it by hand does; the refusal names what has focus instead. A checkable item with no command of its own, such as View/Minimap, is ticked or unticked, as a click does. Returns an error if the path cannot be resolved or the item cannot execute. The reply's 'note' names the item invoked, as its menu shows it. Document saves wait up to 2 s and report completion or still running, and any answer still armed. File/Make waits for its result: the program it wrote, with its size, or why it wrote none.")]
     public async Task<MutateResult> InvokeMenuItemAsync(string path, CancellationToken ct)
     {
+        using var documentSave = UiSaveFeedback.BeginDocumentSave();
         if (ScriptedFileDialogs.NativePickerNote is { } blocking)
             return new MutateResult(false, blocking);
         var makes = HexIDE.Projects.MakeOutcomes.Started;
@@ -3994,6 +4068,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             var note = UiSaveFeedback.Execute(command, found.CommandParameter, $"Invoked '{found.Header ?? path}'.");
             return new MutateResult(true, null, note);
         });
+        invoked = invoked with { Note = await documentSave.AfterAsync(invoked.Note, ct) };
         // Make runs on after its command returns, and said how it ended only in its own message box (#2671).
         if (invoked.Success && HexIDE.Projects.MakeOutcomes.Latest is { } make && make.Number > makes)
             invoked = invoked with { Note = invoked.Note + " " + await MakeReply.AwaitAsync(make, ct) };
@@ -4236,7 +4311,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
 
     [McpServerTool(Name = "answer_next_file_dialog")]
-    [Description("Pre-answers the next file dialog the IDE opens, so a Save As / Open / Export flow can be driven end to end. A native picker is outside the control tree. Tools report an open picker, but cannot answer it: close or cancel it in the operating system. Arm one answer per picker before the action: project saves ask in order for forms, modules, project, then group when needed. Save As and a scratch project (including --newproject) ask for every member and the project, even with working-copy paths; ordinary Save asks for files without paths.\n\nPass the absolute path the dialog should return as `path`. For an Open that lets a person select several files, pass them all as `paths` instead, one answer; a save, or an Open that takes one file, answers that as cancelled and a reply says so. Omit both to answer as CANCELLED, which is a distinct path through most of these flows and the one least likely to have been exercised by hand. The answer is consumed by ONE dialog and is not sticky: arm it immediately before the action that opens the picker, or it will be spent by whichever dialog opens first. set_file_content, set_control_property and add_control say when their save took no answer and one armed before the call is still pending. So do invoke_menu_item for Save Project / Save Project As and interact on project-save toolbar buttons. A document save reached through invoke_menu_item, press_key or interact can still be waiting on formatting when they reply: check with clear_file_dialog_answers, but a pending count then can mean the picker has not opened yet.\n\nNothing is created by arming: name a path in an existing directory.")]
+    [Description("Pre-answers the next file dialog the IDE opens, so a Save As / Open / Export flow can be driven end to end. A native picker is outside the control tree. Tools report an open picker, but cannot answer it: close or cancel it in the operating system. Arm one answer per picker before the action: project saves ask in order for forms, modules, project, then group when needed. Save As and a scratch project (including --newproject) ask for every member and the project, even with working-copy paths; ordinary Save asks for files without paths.\n\nPass the absolute path the dialog should return as `path`. For an Open that lets a person select several files, pass them all as `paths` instead, one answer; a save, or an Open that takes one file, answers that as cancelled and a reply says so. Omit both to answer as CANCELLED, which is a distinct path through most of these flows and the one least likely to have been exercised by hand. The answer is consumed by ONE dialog and is not sticky: arm it immediately before the action that opens the picker, or it will be spent by whichever dialog opens first. set_file_content, set_control_property and add_control say when their save took no answer and one armed before the call is still pending. So do invoke_menu_item for Save Project / Save Project As and interact on project-save toolbar buttons. Document saves through invoke_menu_item, press_key or interact wait up to 2 s and report completion or that the save is still running, with any answer still armed. A completed save that took no answer says this save opened no picker.\n\nNothing is created by arming: name a path in an existing directory.")]
     public Task<FileDialogAnsweredResult> AnswerNextFileDialogAsync(
         string? path = null, string[]? paths = null, CancellationToken ct = default)
     {

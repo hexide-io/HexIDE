@@ -11,8 +11,8 @@ using HexIDE.Runtime.ProjectElements;
 namespace HexIDE.Tests.DebugAdapter;
 
 /// <summary>
-/// What F5 runs: the interpreter, unless the project's user chose an add-in's launch for it, and the interpreter again,
-/// said so, when that launch is gone.
+/// What F5 runs: the interpreter or the project's own add-in's default launch, overridden by the user's choice,
+/// and the interpreter again, said so, when a chosen launch is gone.
 /// </summary>
 public class RunWithTests : IAsyncDisposable
 {
@@ -35,6 +35,7 @@ public class RunWithTests : IAsyncDisposable
         _launches = new DebugLaunchService(debugger);
         _projects.StartupProject.Returns(_project);
         var strings = Substitute.For<ILocalizationService>();
+        strings.GetString("Str.Debug.RunWith.Default").Returns("F5 runs {0}. Change it under Run > F5 Runs.");
         strings.GetString("Str.Debug.RunWith.Unavailable").Returns("{0} isn't available");
         _runner = TestRunners.WithEngine(_engine, Substitute.For<IEventBus>(), _projects, strings,
             Substitute.For<IDebugController>(), Substitute.For<IBreakpointService>(), new WatchService(), new RunScope(), debugger,
@@ -65,6 +66,8 @@ public class RunWithTests : IAsyncDisposable
     [AvaloniaFact]
     public void F5_runs_the_interpreter_though_an_add_in_offers_a_launch_until_the_user_chooses_it()
     {
+        _projects.StartupProject.Returns(new ProjectDefinition(VBProjectType.EXE, "Invoices")
+            { ContributedBy = "com.rdcore.hexide", Offers = ProjectOffers.Everything });
         Contribute();
 
         _runner.StartDefaultProject();
@@ -144,6 +147,60 @@ public class RunWithTests : IAsyncDisposable
         _runner.CanStartDefaultProjectWithFullCompile.Should().BeFalse();
         _runner.CanStepIntoProject.Should().BeFalse("F8 from idle starts the interpreter");
         _runner.CanRunToCursor.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task An_add_in_project_defaults_to_its_own_first_launch_and_says_so_once_per_project()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger")
+            { ContributedBy = "com.rdcore.hexide", Offers = ProjectOffers.Nothing };
+        _projects.StartupProject.Returns(project);
+        _launches.Register(new AddinDebugLaunch("Other")
+        {
+            Claims = _ => true,
+            CreateConfigurationAsync = (_, _) => throw new InvalidOperationException("wrong add-in"),
+        }, "com.other", "Other");
+        Contribute();
+        _launches.Register(new AddinDebugLaunch("Second")
+        {
+            Claims = _ => true,
+            CreateConfigurationAsync = (_, _) => throw new InvalidOperationException("wrong launch"),
+        }, "com.rdcore.hexide", "RDCore for HexIDE");
+
+        _runner.CanStartDefaultProject.Should().BeTrue();
+        _runner.CanStartDefaultProject.Should().BeTrue();
+        _runner.StartDefaultProject();
+        (await _asked.Task.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken)).ProjectName.Should().Be("Ledger");
+        _status.Received(1).SetTemporaryMessage("F5 runs RDCore. Change it under Run > F5 Runs.", Arg.Any<TimeSpan>());
+        _choices.Get(project).Should().BeNull("a default is not a stored choice");
+
+        var other = new ProjectDefinition(VBProjectType.EXE, "Other")
+            { ContributedBy = "com.rdcore.hexide", Offers = ProjectOffers.Nothing };
+        _projects.StartupProject.Returns(other);
+        _runner.CanStartDefaultProject.Should().BeTrue();
+        _status.Received(2).SetTemporaryMessage("F5 runs RDCore. Change it under Run > F5 Runs.", Arg.Any<TimeSpan>());
+        _projects.StartupProject.Returns(project);
+        _runner.CanStartDefaultProject.Should().BeTrue();
+        _status.Received(2).SetTemporaryMessage("F5 runs RDCore. Change it under Run > F5 Runs.", Arg.Any<TimeSpan>());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void An_add_in_project_without_a_launch_or_with_an_explicit_IDE_choice_stays_disabled(bool chooseIde)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger")
+            { ContributedBy = "com.rdcore.hexide", Offers = ProjectOffers.Nothing };
+        _projects.StartupProject.Returns(project);
+        if (chooseIde)
+        {
+            Contribute();
+            _choices.Set(project, null);
+        }
+        _runner.CanStartDefaultProject.Should().BeFalse();
+        _runner.StartDefaultProject();
+        _asked.Task.IsCompleted.Should().BeFalse();
+        _status.DidNotReceive().SetTemporaryMessage(Arg.Any<string>(), Arg.Any<TimeSpan>());
     }
 
     // A project an add-in read, with a module, as the startup project, its user's choice the launch, which counts the times

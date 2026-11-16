@@ -39,6 +39,9 @@ public abstract class ComponentBaseClass : IDesignerComponentClass
         Events = events ?? [];
     }
 
+    /// <summary>Declared members with origin marks; empty for controls not yet migrated to a member table.</summary>
+    public virtual IReadOnlyList<InBox.InBoxMember> Members => [];
+
     public IReadOnlyList<PropertyClass> Properties { get; }
 
     public IReadOnlyDictionary<string, PropertyClass> PropertiesByName { get; }

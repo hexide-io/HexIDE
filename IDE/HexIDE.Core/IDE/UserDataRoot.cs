@@ -9,7 +9,7 @@ namespace HexIDE.IDE;
 /// shares that process. A test that redirected it would move every other test's files, so the tests
 /// construct their own instance instead and the static stays a thin forward.
 /// </remarks>
-internal sealed class UserDataRoot(Func<string> platformDefault)
+internal sealed class UserDataRoot(Func<string> platformDefault, Func<string>? programDefault = null)
 {
     private readonly Lock _gate = new();
     private string? _redirected;
@@ -27,6 +27,15 @@ internal sealed class UserDataRoot(Func<string> platformDefault)
         }
     }
 
+    public string ForPrograms(string fileName)
+    {
+        lock (_gate)
+        {
+            _read = true;
+            return Path.Combine(_redirected ?? (programDefault ?? platformDefault)(), fileName);
+        }
+    }
+
     public bool IsRedirected
     {
         get { lock (_gate) return _redirected is not null; }
@@ -40,7 +49,7 @@ internal sealed class UserDataRoot(Func<string> platformDefault)
         if (string.IsNullOrWhiteSpace(directory) || !Path.IsPathRooted(directory))
             throw new ArgumentException(
                 $"A user data directory must be an absolute path; got '{directory}'. Resolve it against the "
-              + "directory HexIDE was started from before redirecting.",
+              + $"directory {Distribution.DisplayName} was started from before redirecting.",
                 nameof(directory));
 
         var normalised = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));

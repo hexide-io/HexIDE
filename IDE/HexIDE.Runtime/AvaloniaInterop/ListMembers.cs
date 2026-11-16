@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Components.InBox;
 
 namespace HexIDE.Runtime.AvaloniaInterop;
 
@@ -43,6 +46,44 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 /// </summary>
 internal static class ListMembers
 {
+    public static bool IsExtension(Control control, string name)
+    {
+        var component = control switch
+        {
+            ListBox => ListBoxComponentClass.Instance,
+            ComboBox => ComboBoxComponentClass.Instance,
+            _ => null,
+        };
+        return component?.Members.Any(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase)
+            && m.Origin.HasFlag(MemberOrigin.HexIde)) == true;
+    }
+
+    // HexIDE's code-only search contract (#1116), independent of VB6's Integer list indices.
+    public static Vb6Value CallExtension(ItemsControl list, string name, IReadOnlyList<Vb6Value> args)
+    {
+        VBProps.RefuseIfRemoved(list);
+        if (args.Count is < 1 or > 2 || args[0].IsMissing)
+            throw new VBRunTimeException(VBStandardError.ArgumentNotOptionalOrInvalidPropertyAssignment);
+        if (args[0].IsNull || args.Count == 2 && args[1].IsNull)
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        var text = Text(args[0]);
+        var start = args.Count == 2 && !args[1].IsMissing
+            ? Convert.ToInt64(VbNumeric.CoerceOnStore(args[1], Vb6Value.ValueType.Long, null).Value) : -1;
+        // The extension contract reports an invalid argument as type mismatch (#1116).
+        if (start < -1 || start >= list.ItemCount)
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        var exact = name.Equals("FindStringExact", StringComparison.OrdinalIgnoreCase);
+        for (var offset = 1; offset <= list.ItemCount; offset++)
+        {
+            var index = (int)((start + offset) % list.ItemCount);
+            var item = list.Items[index] as string ?? "";
+            if (exact ? string.Equals(item, text, StringComparison.CurrentCultureIgnoreCase)
+                : item.StartsWith(text, StringComparison.CurrentCultureIgnoreCase))
+                return new Vb6Value((long)index);
+        }
+        return new Vb6Value(-1L);
+    }
+
     private const string AssignToReadOnly = "Can't assign to read-only property";
 
     // What VB6 raises for a List(i) write below -1: E_OUTOFMEMORY, presumably the window refusing the insert.

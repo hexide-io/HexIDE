@@ -12,7 +12,7 @@ public class ModuleExecutionContext
     /// Write a named variable, coercing to the slot's declared type on the way in.
     ///
     /// This is the single sink every named write goes through — Let, Set, For counters, For Each elements,
-    /// field writes — so the coercion belongs here rather than at each call site. A slot with no declared
+    /// object field writes — so the coercion belongs here rather than at each call site. A slot with no declared
     /// type is a Variant and takes the value unchanged, which is exactly the old behaviour.
     /// </summary>
     /// <param name="fillingConstant">
@@ -39,6 +39,8 @@ public class ModuleExecutionContext
                 throw new VBRunTimeException(ctx, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
             if (state.DeclaredTypeOf(loc) is { } declared)
                 value = VbNumeric.CoerceOnStore(value, declared, ctx);
+            if (state.FixedStringWidthOf(loc) is { } width)
+                value = FixedLengthString.Store(value, width, ctx);
             // A class-typed slot enforces its name: the object must BE that class or implement it as an
             // interface. Anything else is Err 13 "Type mismatch" at the Set — measured, both for two unrelated
             // classes and for an interface-typed slot given a non-implementer. Nothing always stores (its Value

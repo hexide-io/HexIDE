@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using HexIDE.Runtime.ProjectElements;
-using HexIDE.Runtime.TypeLibrary;
+using HexIDE.TypeLibrary;
 
 namespace HexIDE.IDE;
 
