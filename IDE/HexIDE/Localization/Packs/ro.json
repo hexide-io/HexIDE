@@ -2,6 +2,7 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Aplicarea textului fișierului de proiect va înlocui setările nesalvate ale proiectului {0}. Continuați?",
     "Str.MemberOrigin.HexIde": "Extensie HexIDE; indisponibilă în VB6.",
     "Str.Dock.Host": "Gazdă de andocare",
     "Str.Dock.Root": "Andocare rădăcină",

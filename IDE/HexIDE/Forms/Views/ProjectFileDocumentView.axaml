@@ -1,13 +1,24 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
+             xmlns:input="clr-namespace:Avalonia.Labs.Input"
+             xmlns:vb="clr-namespace:HexIDE"
+             x:Name="Root"
              xmlns:edit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
              x:Class="HexIDE.Forms.Views.ProjectFileDocumentView"
              x:DataType="vm:ProjectFileDocumentViewModel">
+    <input:CommandManager.CommandBindings>
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveCommand}"
+                              ExecutingCommand="{CompiledBinding Save}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.UndoCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.Undo}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RedoCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.Redo}" />
+    </input:CommandManager.CommandBindings>
     <DockPanel>
         <TextBlock DockPanel.Dock="Top" Text="{CompiledBinding LoadError}"
                    IsVisible="{CompiledBinding !!LoadError}" TextWrapping="Wrap" Margin="8" />
-        <edit:TextEditor Name="Editor" Document="{CompiledBinding Document}" IsReadOnly="True"
+        <edit:TextEditor Name="Editor" Document="{CompiledBinding Document}" IsReadOnly="{CompiledBinding IsReadOnlyDocument}"
                          FontFamily="Consolas,Courier New,Monospace" FontSize="13"
                          ShowLineNumbers="True" HorizontalScrollBarVisibility="Auto"
                          VerticalScrollBarVisibility="Auto" />

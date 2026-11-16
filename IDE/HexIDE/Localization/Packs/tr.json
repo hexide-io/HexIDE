@@ -2,6 +2,7 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Proje dosyası metnini uygulamak, {0} için kaydedilmemiş proje ayarlarını değiştirecek. Devam edilsin mi?",
     "Str.MemberOrigin.HexIde": "HexIDE uzantısı; VB6 içinde kullanılamaz.",
     "Str.Dock.Host": "Yerleştirme konağı",
     "Str.Dock.Root": "Kök yerleştirme alanı",
