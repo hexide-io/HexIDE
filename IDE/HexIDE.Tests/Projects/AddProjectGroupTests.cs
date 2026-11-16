@@ -3,6 +3,7 @@ using Avalonia.Headless.XUnit;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Localization;
+using HexIDE.Lsp;
 using HexIDE.Projects;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
@@ -14,6 +15,7 @@ public sealed class AddProjectGroupTests : IDisposable
 {
     private readonly string directory = Path.Join(Path.GetTempPath(), "hexide-add-group-" + Guid.NewGuid().ToString("N"));
     private readonly ProjectManager manager;
+    private readonly ILspClient lsp = Substitute.For<ILspClient>();
     private readonly ProjectService service;
     private readonly ProjectToolViewModel explorer;
     private readonly ContributedProjects types = new();
@@ -24,7 +26,7 @@ public sealed class AddProjectGroupTests : IDisposable
         Directory.CreateDirectory(directory);
         var events = Substitute.For<IEventBus>();
         var editors = Substitute.For<IEditorService>();
-        manager = new ProjectManager(editors, events);
+        manager = new ProjectManager(editors, events, () => lsp);
         var strings = Substitute.For<ILocalizationService>();
         strings.GetString("Str.Tool.Project.TitleProject").Returns("Project - {0}");
         strings.GetString("Str.Tool.Project.TitleGroup").Returns("Project Group - {0}");
@@ -156,6 +158,60 @@ public sealed class AddProjectGroupTests : IDisposable
         explorer.Title.Should().Be("Project Group - G");
         await service.SaveAllProjects(saveAs: false);
         File.ReadAllBytes(path).Should().Equal(groupBytes);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task Reload_only_moves_the_workspace_when_reopening_fails(bool group, bool failReopen)
+    {
+        var path = WriteProject("Startup");
+        await service.OpenProject(path);
+        if (group)
+        {
+            var otherDirectory = Path.Join(directory, "other");
+            Directory.CreateDirectory(otherDirectory);
+            var other = Path.Join(otherDirectory, "Other.vbp");
+            File.WriteAllText(other, "Type=Exe\r\nName=\"Other\"\r\n");
+            await service.OpenProject(other);
+        }
+        var project = manager.StartupProject!;
+        await service.SaveProject(project, saveAs: false);
+        project.Name = "Ours";
+        File.AppendAllText(path, "Title=\"Outside\"\r\n");
+        windows.ShowDialog(Arg.Any<FileConflictViewModel>()).Returns(call =>
+        {
+            var conflict = call.Arg<FileConflictViewModel>();
+            conflict.ReloadAll();
+            if (failReopen) File.Delete(path);
+            return Task.FromResult(true);
+        });
+        var workspace = new ProjectLspWorkspace(() => manager, new Vb6ProjectFileFormat());
+        var rootedAt = workspace.Directory;
+        var calls = 0;
+        var restarts = 0;
+        lsp.WorkspaceChangedAsync().Returns(_ =>
+        {
+            calls++;
+            if (workspace.Directory != rootedAt)
+            {
+                restarts++;
+                rootedAt = workspace.Directory;
+            }
+            return Task.CompletedTask;
+        });
+
+        var save = () => service.SaveProject(project, saveAs: false);
+        if (failReopen)
+            await save.Should().ThrowAsync<IOException>();
+        else
+            await save.Should().ThrowAsync<OperationCanceledException>();
+
+        restarts.Should().Be(failReopen ? 1 : 0);
+        calls.Should().Be(1);
+        manager.StartupProject.Should().NotBeSameAs(project);
+        manager.StartupProject.Should().BeSameAs(manager.LoadedProjects.First());
     }
 
     public void Dispose() => Directory.Delete(directory, recursive: true);
