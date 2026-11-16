@@ -1798,6 +1798,22 @@ pointer, in the same window, SHALL move nothing first, as a still pointer sends 
 - **WHEN** `click` presses again where the last click left the pointer
 - **THEN** no move comes before the press, and the reply says the pointer was already there
 
+### Requirement: A press that closes its window or removes its target SHALL report what happened
+Before hit-testing a click's release, the driver SHALL check whether its window closed or its press
+target left the tree. Either SHALL report success naming the window or target and first or second
+press, say nothing was released there, and send no remaining release or second press. An empty release
+point in an open window with an attached press target SHALL retain its failure.
+
+#### Scenario: A floating title docks on its second press
+- **WHEN** a double click's second press closes the floating tool window
+- **THEN** the reply reports success naming that window and the second press
+- **AND** no release is sent after closure
+
+#### Scenario: A first press removes its target
+- **WHEN** the first press removes the element it reached while the window stays open
+- **THEN** the reply reports success naming the removed target and first press
+- **AND** neither its release nor a second press is sent
+
 ### Requirement: A double click's second press SHALL land where the first did
 The second press of `click` with `double` SHALL go to whatever takes the pointer at the first press's point when it is
 sent, with a click count of 2, even when the first click replaced what it landed on or the addressed control. It SHALL be

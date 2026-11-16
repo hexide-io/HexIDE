@@ -1938,6 +1938,8 @@ public static class UiAutomationDriver
             buttonTime += buttonStep;
             return timestamp;
         }
+        var pressTarget = hit;
+        var pressWindowTitle = (topLevel as Window)?.Title ?? topLevel.GetType().Name;
         var pressTime = ButtonTimestamp();
         // Raw presses cancel the tooltip timer started by arrival and implicitly capture the hit element (#3130, #1373).
         if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse, pressTime))
@@ -1990,6 +1992,16 @@ public static class UiAutomationDriver
                 if (moveFailed is not null)
                     return new InteractOutcome(false, "pointer", null,
                         $"pressed {pressed}, and a held move threw, so the button was let go without a release: {moveFailed.Message}");
+                // A press can dock a floating tool or remove its target before the release's dispatcher turn (#4224).
+                var whichPress = second ? "second" : "first";
+                if (topLevel.PlatformImpl is null)
+                    return new InteractOutcome(true, "pointer",
+                        $"pressed {pressed}; the window '{pressWindowTitle}' closed after the {whichPress} press, "
+                        + "as a double-click on a floating title does when it docks the tool; nothing was released there", null);
+                if (!ReferenceEquals(TopLevel.GetTopLevel(pressTarget), topLevel))
+                    return new InteractOutcome(true, "pointer",
+                        $"pressed {pressed}; the target '{(pressTarget is Control target ? Describe(target) : pressTarget.GetType().Name)}' "
+                        + $"was removed after the {whichPress} press; nothing was released there", null);
                 // A control that captured the pointer on its press takes the release, as it would from a real pointer.
                 var captured = pointer.Captured is not null;
                 var releasedOn = pointer.Captured as Avalonia.Interactivity.Interactive
@@ -2045,6 +2057,7 @@ public static class UiAutomationDriver
                 return Fail($"clicked {pressed}; the second click was not sent because the window is hidden or closed");
             if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive again)
                 return Fail($"clicked {pressed}; the second click was not sent because nothing takes the pointer at that point now");
+            pressTarget = again;
             var secondPressTime = ButtonTimestamp();
             if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse, secondPressTime))
                 again.RaiseEvent(new PointerPressedEventArgs(again, pointer, topLevel, RawPointer.InSurface(topLevel, inWindow), secondPressTime,
