@@ -81,7 +81,22 @@ public class RunWithMenuTests : CompositionTestBase
         fixture.Menu.Refresh();
         fixture.Menu.Choices.Select(item => item.IsChecked).Should().Equal(false, true);
         fixture.Menu.Choices[0].Command.Execute(null);
-        fixture.Choices.Get(fixture.Project).Should().BeNull("the IDE is no choice to remember");
+        fixture.Choices.Get(fixture.Project).Should().BeNull("null names the explicit interpreter choice");
+    }
+
+    [AvaloniaFact]
+    public async Task The_default_is_checked_and_choosing_the_IDE_overrides_it()
+    {
+        await using var fixture = new Fixture();
+        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger")
+            { ContributedBy = "com.rdcore.hexide", Offers = ProjectOffers.Nothing };
+        fixture.Projects.StartupProject.Returns(project);
+        fixture.Launches.Register(Launch("RDCore"), "com.rdcore.hexide", "RDCore for HexIDE");
+        fixture.Menu.Refresh();
+        fixture.Menu.Choices.Select(item => item.IsChecked).Should().Equal(false, true);
+        fixture.Menu.Choices[0].Command.Execute(null);
+        fixture.Menu.Refresh();
+        fixture.Menu.Choices.Select(item => item.IsChecked).Should().Equal(true, false);
     }
 
     [AvaloniaFact]

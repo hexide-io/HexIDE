@@ -250,6 +250,15 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
     {
         await foreach (var update in current.Updates.ReadAllAsync())
         {
+            // Start Run To Cursor's clean-up ahead of this update's dispatch, so the temporary line leaves the set before
+            // anything reacts to the stop. Never wait for its round trip here: Updates is bounded, and a reader held up
+            // by an adapter's reply lets a chatty program overflow it, which faults the session.
+            if (update.Event?.Event is "stopped" or "terminated" ||
+                update.Snapshot.State is DapSessionState.Ended or DapSessionState.Faulted)
+            {
+                var restore = update.Event?.Event == "stopped";
+                await Dispatcher.UIThread.InvokeAsync(() => { _ = RemoveCursorBreakpointAsync(current, restore); });
+            }
             // Capture only immutable protocol data across this dispatch.
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -435,6 +444,7 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
     {
         cancellation?.Cancel();
         if (session is not { } current) return;
+        await RemoveCursorBreakpointAsync(current);
         endStarted = Stopwatch.GetTimestamp();
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         try

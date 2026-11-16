@@ -76,7 +76,8 @@ public partial class ProjectDefinition : INotifyPropertyChanged
 
     /// <summary>
     /// The manifest id of the add-in whose project type opened this project, or null for a project HexIDE read itself. It
-    /// says who the project belongs to, for messages and logs. What the IDE may do with it is <see cref="Offers"/>.
+    /// says who the project belongs to, for messages, logs and selecting that add-in's default launch. What the IDE may
+    /// do with it is <see cref="Offers"/>.
     /// </summary>
     public string? ContributedBy { get; init; }
 

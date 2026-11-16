@@ -122,6 +122,100 @@ public class ExternalRunControlTests : CompositionTestBase
     }
 
     [AvaloniaTheory]
+    [InlineData("cursor", 19, false)]
+    [InlineData("cursor-first", 19, false)]
+    [InlineData("cursor-first", 6, false)]
+    [InlineData("cursor-end", 19, false)]
+    [InlineData("cursor-chatty", 19, false)]
+    [InlineData("cursor", 20, false)]
+    [InlineData("cursor", 10, false)]
+    [InlineData("resume-refusal", 19, false)]
+    [InlineData("cursor", 19, true)]
+    public async Task Run_to_cursor_preserves_user_conditions_and_cleans_up_on_every_outcome(string mode, int target, bool linkedSource)
+    {
+        var composition = Composition;
+        var external = composition.ExternalDebugger;
+        var capture = composition.Capture;
+        capture.ArmsEveryConnection = true;
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-cursor-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var link = directory + "-link";
+        if (linkedSource) Directory.CreateSymbolicLink(link, directory);
+        var project = TestHelpers.CreateProjectWithModule("Target", "Callee");
+        var module = project.Modules[0];
+        module.AbsolutePath = Path.Combine(linkedSource ? link : directory, "Callee.bas");
+        module.UpdateCode(string.Join(Environment.NewLine, Enumerable.Repeat("' target", 25)));
+        var document = HexIDE.Runtime.ProjectElements.DocumentIdentity.For(module);
+        composition.BreakpointService.SetDocument(document, [6]);
+        composition.BreakpointService.SetCondition(document, 6, "i = 3");
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([project]);
+        using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
+            null!, composition.ProjectRunnerService, null!, null!, null!, null!, composition.DebugController,
+            composition.Root, null!, null!, null!, null!, capture, null!, composition.LocalizationService, null!,
+            new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+        var tools = new HexIdeTools(context);
+        var run = external.StartAsync(await ExternalDebugServiceTests.Configuration(directory, mode));
+        Action<string>? heard = null;
+        try
+        {
+            await ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate && external.CanEditBreakpoints);
+            var id = external.Connection!.Id;
+            // Whether the restore was still awaiting its reply as each chatter line reached the IDE. A reader that waited
+            // for the restore would deliver them only after it, so every entry must be true.
+            var chatter = new List<bool>();
+            heard = text => { if (text.StartsWith("chatter", StringComparison.Ordinal)) chatter.Add(external.RunToCursorPending); };
+            external.Output += heard;
+            var reply = await tools.RunToCursorAsync("Callee", target, ct: TestContext.Current.CancellationToken);
+            var refused = target is 10 or 20 || mode == "resume-refusal";
+            reply.Success.Should().Be(!refused, $"the reply was: {reply.Error ?? reply.Note}");
+            if (target == 20) reply.Error.Should().Contain("no executable statement");
+            else if (target == 10) reply.Error.Should().Contain("11");
+            else if (mode == "resume-refusal") reply.Error.Should().Contain("fixture resume refusal");
+            else if (mode == "cursor-end") reply.Note.Should().Contain("ended");
+            else
+            {
+                reply.Note.Should().Contain("Callee.bas").And.Contain(mode == "cursor-first" ? "line 6" : "line 19");
+                if (mode == "cursor-first" && target != 6) reply.Note.Should().Contain("before reaching");
+                if (mode == "cursor") reply.Note.Should().NotContain("before reaching");
+            }
+            await capture.DrainAsync();
+            var requests = capture.Snapshot(id).Where(entry => entry.Kind == ConversationEntryKind.Request).ToArray();
+            var sets = requests.Where(entry => entry.Method == "setBreakpoints").Select(entry =>
+                JsonDocument.Parse(capture.Body(id, entry.Sequence)!.Head).RootElement.GetProperty("arguments").Clone()).ToArray();
+            // A session that ended took the temporary line with it, so nothing is restored on the wire.
+            if (mode == "cursor-end")
+                sets.Should().HaveCount(2, "launch and the temporary set reach the adapter, and an ended session needs no restoration");
+            else
+                sets.Should().HaveCount(3, "launch, temporary set and restoration must all reach the adapter");
+            sets[1].GetProperty("breakpoints").EnumerateArray().Select(item => item.GetProperty("line").GetInt32()).Should().BeEquivalentTo([6, target]);
+            if (mode != "cursor-end")
+                sets[2].GetProperty("breakpoints").EnumerateArray().Select(item => item.GetProperty("line").GetInt32()).Should().Equal(6);
+            if (mode == "cursor-chatty")
+            {
+                chatter.Should().HaveCount(20).And.AllSatisfy(pending => pending.Should().BeTrue(
+                    "the update reader must deliver events while the restore awaits its reply, not after it"));
+                external.State.Should().Be(HexIDE.Dap.DapSessionState.Stopped);
+            }
+            if (mode != "resume-refusal")
+                foreach (var set in sets)
+                    set.GetProperty("breakpoints")[0].GetProperty("condition").GetString().Should().Be("i = 3");
+            sets[1].GetProperty("breakpoints")[1].EnumerateObject().Select(property => property.Name).Should().Equal("line");
+            if (target is 10 or 20) requests.Should().NotContain(entry => entry.Method == "continue");
+            composition.BreakpointService.GetCondition(document, 6).Should().Be("i = 3");
+            composition.BreakpointService.All().Single().Value.Should().Equal(6);
+        }
+        finally
+        {
+            if (heard is not null) external.Output -= heard;
+            await external.StopAsync();
+            await run.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+            if (linkedSource) Directory.Delete(link);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTheory]
     [InlineData("step_into", "stepIn", "run-control")]
     [InlineData("step_into", "stepIn", "run-control-delayed")]
     [InlineData("step_over", "next", "run-control")]
@@ -138,7 +232,6 @@ public class ExternalRunControlTests : CompositionTestBase
     [InlineData("set_next_statement", "goto", "goto-refuse")]
     [InlineData("set_next_statement", "gotoTargets", "goto-empty")]
     [InlineData("set_next_statement", "gotoTargets", "goto-targets-refuse")]
-    [InlineData("run_to_cursor", "", "run-control")]
     [InlineData("set_next_statement_unsaved", "", "goto")]
     [InlineData("step_over", "next", "session")]
     [InlineData("step_into", "", "evaluate-running")]
@@ -184,12 +277,6 @@ public class ExternalRunControlTests : CompositionTestBase
                 "run_to_cursor" => await tools.RunToCursorAsync("Callee", 19, ct: TestContext.Current.CancellationToken),
                 _ => await tools.ContinueProgramAsync(TestContext.Current.CancellationToken),
             };
-            if (tool == "run_to_cursor")
-            {
-                reply.Success.Should().BeFalse();
-                reply.Error.Should().Contain("one-shot breakpoint");
-                return;
-            }
             if (tool == "set_next_statement_unsaved" || mode == "evaluate-running")
             {
                 reply.Success.Should().BeFalse();
@@ -201,7 +288,7 @@ public class ExternalRunControlTests : CompositionTestBase
                 return;
             }
             var refused = mode is "resume-refusal" or "goto-refuse" or "goto-empty" or "goto-targets-refuse";
-            reply.Success.Should().Be(!refused);
+            reply.Success.Should().Be(!refused, $"the reply was: {reply.Error ?? reply.Note}");
             if (refused)
             {
                 reply.Error.Should().Contain(mode == "resume-refusal" ? "fixture resume refusal" : "fixture goto refusal");

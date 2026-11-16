@@ -164,6 +164,48 @@ height. `UCPlain1.Align = 2` is 438.
   control's, then the rest in order.
 - **On Unload,** each raised **Hide** then **Terminate**, in the same order again.
 
+### Ambient, at design time and at run time (2026-11-16, #4149, design-time, IDE, SP6)
+
+Measured for #4149, which refuses every Ambient member but `DisplayAsDefault`. vb6.exe SP6, the IDE and `/make`.
+
+**The setup:** a Standard EXE project holding a UserControl, `AmbCtl`, sited as `AmbCtl1` on its form `AmbForm`. The form was given values distinct from the defaults:
+- `BackColor = &H00C0FFFF&`;
+- `ForeColor = &H000000FF&`;
+- `Font` Arial 12 Bold.
+
+The control's `ReadProperties`, `InitProperties` and `Show` each append one line to a file with every Ambient member, read early-bound, each under its own error capture. Three runs:
+- **design time:** the form's designer opened in the IDE;
+- **F5** in the IDE;
+- **the made EXE.**
+
+| Ambient member | Design time | F5 in the IDE | The EXE |
+|---|---|---|---|
+| `UserMode` | **False** | **True** | **True** |
+| `BackColor` | `&HC0FFFF`, the form's | the same | the same |
+| `ForeColor` | `&HFF`, the form's | the same | the same |
+| `Font` | Arial, 12, Bold True, Italic False (a `Font` object) | the same | the same |
+| `DisplayName` | `AmbCtl1`, the instance's name | the same | the same |
+| `LocaleID` | 1033 (&H409) | the same | the same |
+| `TextAlign` | 0 | 0 | 0 |
+| `ScaleUnits` | `Twip`, a String | the same | the same |
+| `ShowGrabHandles` | False | False | False |
+| `ShowHatching` | **True** | **False** | **False** |
+| `SupportsMnemonics` | True | True | True |
+| `RightToLeft` | False | False | False |
+| `MessageReflect` | True | True | True |
+| `DisplayAsDefault` | False | False | False |
+| `UIDead` | False | False | False |
+
+- **Events:** design time and run time both ran `ReadProperties` then `Show`. `InitProperties` never ran, since the instance already existed in the `.frm`.
+- **Only two members differ between design and run: UserMode and ShowHatching.** The rest come from the container either way: its colours, its font, the instance's name, and the locale.
+- **`/make` itself loads the control at design time.** Building the EXE from the command line ran `ReadProperties` twice, with UserMode False and ShowHatching True, and no `Show`. A control that does work in `ReadProperties` does it during a build too.
+- **Not measured:**
+  - a form with `RightToLeft` True;
+  - a container other than a form (a Frame or a PictureBox);
+  - `Palette`;
+  - `LocaleID` under another locale;
+  - `AmbientChanged` when the form's colours change at design time.
+
 ### In HexIDE
 
 None of these properties is acted on, so a control VB6 hides is drawn (#1631).

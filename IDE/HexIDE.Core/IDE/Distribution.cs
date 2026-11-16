@@ -83,8 +83,10 @@ public sealed class DistributionIdentity
     public string? WindowClass => IsStock ? null : Id;
 
     /// <summary>This distribution's log root. Bundled child processes are told it, so they log beside the host.</summary>
-    public string LogsDirectory => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), StateDirectoryName, "logs");
+    public string LogsDirectory => LogsDirectoryFor(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+
+    internal string LogsDirectoryFor(string localAppData) => Path.Combine(localAppData, StateDirectoryName, "logs");
 
     /// <summary>A new read-only stream over the validated logo, or null when the descriptor names none.</summary>
     public Stream? OpenLogo() => _logo is null ? null : new MemoryStream(_logo, writable: false);

@@ -1650,6 +1650,9 @@ public partial class MainViewViewModel : ObservableObject
         RecentEditsToolViewModel recentEdits,
         FindReferencesToolViewModel? findReferences,
         CallHierarchyToolViewModel? callHierarchy,
+        // Not optional, like the two above: each optional parameter here doubles Pure.DI's search for the graph, and one
+        // more took it past its 16,384-iteration limit (DIE031).
+        TypeHierarchyToolViewModel? typeHierarchy,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
         HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
         RunWithMenuViewModel? runWith = null,
@@ -1671,6 +1674,12 @@ public partial class MainViewViewModel : ObservableObject
             eventBus.Subscribe<CallHierarchyEvent>(e => callHierarchy.SearchAsync(e.Uri, e.Position).ListenErrors());
             callHierarchy.LayoutResized += ScheduleLayoutSave;
             callHierarchy.ShowRequested += () => ShowResultsTool(callHierarchy);
+        }
+        if (typeHierarchy is not null)
+        {
+            eventBus.Subscribe<TypeHierarchyEvent>(e => typeHierarchy.SearchAsync(e.Uri, e.Position).ListenErrors());
+            typeHierarchy.LayoutResized += ScheduleLayoutSave;
+            typeHierarchy.ShowRequested += () => ShowResultsTool(typeHierarchy);
         }
         this.recoveryOffers = recoveryOffers;
         RecoverUnsavedWorkCommand = new DelegateCommand(
