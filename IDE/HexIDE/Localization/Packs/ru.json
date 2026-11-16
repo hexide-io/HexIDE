@@ -2,6 +2,11 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "Рефакторинг",
+    "Str.Menu.Edit.SourceActions": "Действия с исходным кодом",
+    "Str.CodeEditor.Refactor": "Рефакторинг",
+    "Str.CodeEditor.SourceActions": "Действия с исходным кодом",
+    "Str.CodeEditor.NoCodeActions": "Нет применимых действий.",
     "Str.ProjectFile.ReplaceModel": "Применение текста файла проекта заменит несохранённые настройки проекта {0}. Продолжить?",
     "Str.MemberOrigin.HexIde": "Расширение HexIDE; недоступно в VB6.",
     "Str.Dock.Host": "Контейнер закрепления",

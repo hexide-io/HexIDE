@@ -2,6 +2,11 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "R_efaktorisanje",
+    "Str.Menu.Edit.SourceActions": "R_adnje izvornog koda",
+    "Str.CodeEditor.Refactor": "Re_faktorisanje",
+    "Str.CodeEditor.SourceActions": "Radnje izvorno_g koda",
+    "Str.CodeEditor.NoCodeActions": "_Nema primenljivih radnji.",
     "Str.ProjectFile.ReplaceModel": "Primena teksta datoteke projekta zameniće nesačuvane postavke projekta {0}. Nastaviti?",
     "Str.MemberOrigin.HexIde": "HexIDE proširenje; nije dostupno u VB6.",
     "Str.Dock.Host": "Domaćin usidravanja",

@@ -2,6 +2,11 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "R_efaktoriranje",
+    "Str.Menu.Edit.SourceActions": "R_adnje izvornog koda",
+    "Str.CodeEditor.Refactor": "Refaktoriranje",
+    "Str.CodeEditor.SourceActions": "Radnje izvorno_g koda",
+    "Str.CodeEditor.NoCodeActions": "_Nema primjenjivih radnji.",
     "Str.ProjectFile.ReplaceModel": "Primjena teksta projektne datoteke zamijenit će nespremljene postavke projekta {0}. Nastaviti?",
     "Str.AIChat.Title": "AI chat",
     "Str.AIChat.Menu": "AI _chat",

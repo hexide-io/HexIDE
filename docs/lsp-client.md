@@ -1557,7 +1557,7 @@ than inferred.
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ✅ | `textDocument/codeAction` | → | Relays the server's fixes on request; computes none |
+| ✅ | `textDocument/codeAction` | → | Relays server quick fixes, refactorings and source actions on request; computes none |
 | ✅ | `textDocument/codeLens` | → |  |
 | ○ | `textDocument/colorPresentation` | → |  |
 | ✅ | `textDocument/completion` | → |  |
@@ -1822,7 +1822,7 @@ awaiting effort, they are **server** features awaiting a server.
 | Feature | Method | Client support today |
 |---|---|---|
 | Find all references | `textDocument/references` | Shift+F12 and menus; grouped, navigable results and per-server errors (#2907) |
-| Code actions / quick fixes | `textDocument/codeAction` | Relays the server’s fixes on request; computes none (#453) |
+| Code actions / quick fixes | `textDocument/codeAction` | Relays server quick fixes, refactorings and source actions on request; computes none (#453, #4256) |
 | Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full only; delta, range and refresh remain unwired (#2054) |
 | Parameter-name and inferred-type hints | `textDocument/inlayHint` | **Wired** — labels from any offering server; these binding-dependent hints remain outside the bundled server |
 | Call hierarchy | `textDocument/prepareCallHierarchy` | Shows the server’s call hierarchy; computes none (#3080). Provider-gated command, lazy Calls To / Calls From tree and node/call-site navigation |
@@ -1902,7 +1902,7 @@ log once per document per connection; the next change retries. Invalid ranges ar
 responses are ignored. No range request is sent (#2054).
 
 
-## Quick Fixes on request
+## Code actions on request
 
 With the caret inside a current diagnostic, open **Quick Fixes** in the code window’s context menu
 (#453). Only opening that list sends `textDocument/codeAction`, to every document claimant advertising
@@ -1912,6 +1912,17 @@ under the caret is not asked, matching the lone-server behaviour. It sends nothi
 Answers are grouped by server id with display names as headers, so servers with equal names remain separate. Disabled actions show their reason and cannot
 be selected. An empty answer or an action with neither edit nor command explains that no applicable fix
 was supplied.
+
+**Refactor** and **Source Actions** in the code window’s context menu and the Edit menu request actions
+for the selection, or the caret as an empty range, even without a diagnostic (#4256). Each capable
+claimant receives that range and only its own overlapping diagnostics, possibly none. Refactor requests
+`context.only: ["refactor"]` and Source Actions `context.only: ["source"]`. Each lists its kind and
+descendants, plus actions without a kind that aren't diagnostic fixes: asked with `only`, those are the
+ones the server filtered for that menu. RDCore sends every action with the first kind the client
+declares, `""` here, so its sort action reaches Source Actions only this way. These menus list each
+server, then its actions as sent, as Quick Fixes does, with the server's titles and disabled reasons.
+A kind is an identifier, not a label, so it isn't shown. RDCore’s custom
+`rdcore/refactor/*` name dialogs remain outside this relay.
 
 Selecting a lazy action resolves it with its originating server when `resolveProvider` is advertised.
 Edits use the workspace-edit applier: validate every loaded target before writing, one undo step per
@@ -1925,7 +1936,9 @@ Other unlisted commands produce a localized refusal naming the command. Server-i
 `workspace/applyEdit` is handled separately (#2908); see its own section.
 
 The client declares `codeActionLiteralSupport`, `dataSupport`, `disabledSupport` and `resolveSupport`
-for `edit`, plus `publishDiagnostics.dataSupport` for diagnostic tokens. The bundled server supplies no code actions. A keyboard route remains for a later slice.
+for `edit`, with LSP 3.17 base kinds (`""`, `quickfix`, `refactor`, `refactor.extract`,
+`refactor.inline`, `refactor.rewrite`, `source`, `source.organizeImports`, `source.fixAll`),
+plus `publishDiagnostics.dataSupport` for diagnostic tokens. The bundled server supplies no code actions. A keyboard route remains for a later slice.
 ### Expand and Shrink Selection (#3076)
 
 The client declares `textDocument.selectionRange: {}` without dynamic registration and exposes

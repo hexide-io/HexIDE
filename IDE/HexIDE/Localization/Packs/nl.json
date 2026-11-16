@@ -2,6 +2,11 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "Re_factoren",
+    "Str.Menu.Edit.SourceActions": "Bronco_deacties",
+    "Str.CodeEditor.Refactor": "Re_factoren",
+    "Str.CodeEditor.SourceActions": "Broncodeacties",
+    "Str.CodeEditor.NoCodeActions": "_Geen toepasselijke acties.",
     "Str.ProjectFile.ReplaceModel": "Het toepassen van de projectbestandstekst vervangt niet-opgeslagen projectinstellingen voor {0}. Doorgaan?",
     "Str.MemberOrigin.HexIde": "HexIDE-uitbreiding; niet beschikbaar in VB6.",
     "Str.Dock.Host": "Dockhost",

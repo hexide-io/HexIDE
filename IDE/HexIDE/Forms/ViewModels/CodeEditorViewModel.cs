@@ -1817,6 +1817,27 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         return await lspClient.RequestCodeActionsAsync(uri, diagnostics[0].Range, diagnostics, ct);
     }
 
+    internal string NoCodeActionsMenuLabel => localization.GetString("Str.CodeEditor.NoCodeActions");
+
+    internal async Task<OfferedCodeAction[]> RequestCodeActionsAsync(int offset, int length, string[]? only,
+        CancellationToken ct = default)
+    {
+        if (LiveDocumentUri is not { } uri || session is null) return [];
+        Position At(int at)
+        {
+            var location = Document.GetLocation(at);
+            return new Position(location.Line - 1, location.Column - 1);
+        }
+        static int Compare(Position a, Position b) => a.Line != b.Line ? a.Line.CompareTo(b.Line) : a.Character.CompareTo(b.Character);
+        var range = new HexIDE.Lsp.Messages.Range(At(offset), At(offset + length));
+        var diagnostics = session.Diagnostics.Where(d => length == 0
+            ? Compare(d.Range.Start, range.Start) <= 0 && (Compare(range.Start, d.Range.End) < 0 || d.Range.Start == range.Start && d.Range.End == range.Start)
+            : Compare(d.Range.Start, range.End) < 0 && (Compare(range.Start, d.Range.End) < 0
+                || d.Range.Start == d.Range.End && d.Range.Start == range.Start)).ToArray();
+        await FlushDocumentAsync(ct);
+        return await lspClient.RequestCodeActionsAsync(uri, range, diagnostics, only, ct);
+    }
+
     internal async Task<string?> ApplyCodeActionAsync(OfferedCodeAction action, CancellationToken ct = default)
     {
         if (action.DisabledReason is { } disabled) return disabled;

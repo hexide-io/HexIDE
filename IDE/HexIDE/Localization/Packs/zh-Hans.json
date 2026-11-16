@@ -2,6 +2,11 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "重构",
+    "Str.Menu.Edit.SourceActions": "源代码操作",
+    "Str.CodeEditor.Refactor": "重构",
+    "Str.CodeEditor.SourceActions": "源代码操作",
+    "Str.CodeEditor.NoCodeActions": "没有适用的操作。(_N)",
     "Str.ProjectFile.ReplaceModel": "应用项目文件文本将替换 {0} 未保存的项目设置。是否继续？",
     "Str.AIChat.Title": "AI 聊天",
     "Str.AIChat.Menu": "AI 聊天(_C)",

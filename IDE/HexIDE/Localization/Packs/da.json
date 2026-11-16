@@ -2,6 +2,11 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "_Refaktorer",
+    "Str.Menu.Edit.SourceActions": "Kildekodehandlin_ger",
+    "Str.CodeEditor.Refactor": "Refaktorer",
+    "Str.CodeEditor.SourceActions": "Kildekodehandlinger",
+    "Str.CodeEditor.NoCodeActions": "_Ingen relevante handlinger.",
     "Str.ProjectFile.ReplaceModel": "Anvendelse af projektfilens tekst erstatter ikke-gemte projektindstillinger for {0}. Fortsæt?",
     "Str.MemberOrigin.HexIde": "HexIDE-udvidelse; ikke tilgængelig i VB6.",
     "Str.Dock.Host": "Forankringsvært",

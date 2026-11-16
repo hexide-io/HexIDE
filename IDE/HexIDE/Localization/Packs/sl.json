@@ -2,6 +2,11 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "Pre_oblikovanje kode",
+    "Str.Menu.Edit.SourceActions": "De_janja izvorne kode",
+    "Str.CodeEditor.Refactor": "Preoblikovanje kode",
+    "Str.CodeEditor.SourceActions": "Dejanja izvorne kode",
+    "Str.CodeEditor.NoCodeActions": "_Ni ustreznih dejanj.",
     "Str.ProjectFile.ReplaceModel": "Uveljavitev besedila projektne datoteke bo nadomestila neshranjene nastavitve projekta {0}. Želite nadaljevati?",
     "Str.MemberOrigin.HexIde": "Razširitev HexIDE; ni na voljo v VB6.",
     "Str.Dock.Host": "Gostitelj sidranja",

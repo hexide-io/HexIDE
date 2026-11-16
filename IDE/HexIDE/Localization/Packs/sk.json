@@ -2,6 +2,11 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "R_efaktoring",
+    "Str.Menu.Edit.SourceActions": "Ak_cie zdrojového kódu",
+    "Str.CodeEditor.Refactor": "Refaktorin_g",
+    "Str.CodeEditor.SourceActions": "Akcie zdrojov_ého kódu",
+    "Str.CodeEditor.NoCodeActions": "_Žiadne použiteľné akcie.",
     "Str.ProjectFile.ReplaceModel": "Použitie textu súboru projektu nahradí neuložené nastavenia projektu {0}. Pokračovať?",
     "Str.MemberOrigin.HexIde": "Rozšírenie HexIDE; vo VB6 nie je dostupné.",
     "Str.Dock.Host": "Hostiteľ dokovania",

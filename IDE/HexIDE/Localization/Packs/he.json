@@ -2,6 +2,11 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Menu.Edit.Refactor": "ארגון קוד מחדש",
+    "Str.Menu.Edit.SourceActions": "פעולות קוד מקור",
+    "Str.CodeEditor.Refactor": "ארגון קוד מחדש",
+    "Str.CodeEditor.SourceActions": "פעולות קוד מקור",
+    "Str.CodeEditor.NoCodeActions": "אין פעולות מתאימות.",
     "Str.ProjectFile.ReplaceModel": "החלת טקסט קובץ הפרויקט תחליף הגדרות פרויקט שלא נשמרו עבור {0}. להמשיך?",
     "Str.AIChat.Title": "צ׳אט בינה מלאכותית",
     "Str.AIChat.Menu": "צ׳אט בינה מלאכותית",

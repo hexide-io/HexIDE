@@ -2,6 +2,11 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "Refat_orar",
+    "Str.Menu.Edit.SourceActions": "A_ções de código-fonte",
+    "Str.CodeEditor.Refactor": "Refatorar",
+    "Str.CodeEditor.SourceActions": "Ações de c_ódigo-fonte",
+    "Str.CodeEditor.NoCodeActions": "_Nenhuma ação aplicável.",
     "Str.ProjectFile.ReplaceModel": "Aplicar o texto do ficheiro de projeto substituirá as definições não guardadas de {0}. Continuar?",
     "Str.MemberOrigin.HexIde": "Extensão do HexIDE; não disponível no VB6.",
     "Str.Dock.Host": "Anfitrião de ancoragem",

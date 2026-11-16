@@ -271,6 +271,8 @@ public partial class MainViewViewModel : ObservableObject
         RemoveDocumentCommand.RaiseCanExecutedChanged();
     }
 
+    internal CodeEditorViewModel? ActiveCodeDocument => documentDockService.ActiveDocument as CodeEditorViewModel;
+
     private async Task RemoveActiveDocument()
     {
         if (RemovableDocument is not { } document) return;

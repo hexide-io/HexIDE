@@ -2,6 +2,11 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "Refa_ctoring",
+    "Str.Menu.Edit.SourceActions": "Quellc_odeaktionen",
+    "Str.CodeEditor.Refactor": "Refactoring",
+    "Str.CodeEditor.SourceActions": "_Quellcodeaktionen",
+    "Str.CodeEditor.NoCodeActions": "_Keine anwendbaren Aktionen.",
     "Str.ProjectFile.ReplaceModel": "Das Anwenden des Projektdateitexts ersetzt ungespeicherte Projekteinstellungen für {0}. Fortfahren?",
     "Str.AIChat.Title": "KI-Chat",
     "Str.AIChat.Menu": "KI-_Chat",

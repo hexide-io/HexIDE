@@ -724,7 +724,7 @@ public sealed class VBLspClient : ILspClient
                     Implementation: new NavigationClientCapabilities(),
                     TypeDefinition: new NavigationClientCapabilities(),
                     InlayHint: new InlayHintClientCapabilities(),
-                    CodeAction: new CodeActionClientCapabilities(new(new(["quickfix"])), ResolveSupport: new(["edit"])),
+                    CodeAction: new CodeActionClientCapabilities(new(new(["", "quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports", "source.fixAll"])), ResolveSupport: new(["edit"])),
                     SelectionRange: new SelectionRangeClientCapabilities(),
                     Rename: new RenameClientCapabilities(),
                     CallHierarchy: EmptyParams.Instance,
@@ -1985,8 +1985,11 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public Task<OfferedCodeAction[]> RequestCodeActionsAsync(string uri, HexIDE.Lsp.Messages.Range range, Diagnostic[] diagnostics,
+        CancellationToken cancellationToken = default) => RequestCodeActionsAsync(uri, range, diagnostics, null, cancellationToken);
+
     public async Task<OfferedCodeAction[]> RequestCodeActionsAsync(string uri, HexIDE.Lsp.Messages.Range range, Diagnostic[] diagnostics,
-        CancellationToken cancellationToken = default)
+        string[]? only, CancellationToken cancellationToken = default)
     {
         if (_rpc is not { } rpc || !_initialized || !CanServe("codeActionProvider")) return [];
         var documentFor = SnapshotSentDocuments();
@@ -2014,11 +2017,13 @@ public sealed class VBLspClient : ILspClient
                 {
                     if (!ReferenceEquals(rpc, _rpc)) return;
                     await ExecuteCommandAsync(cmd.CommandName, cmd.Arguments, ct);
-                }, documentFor, cmd => ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, cmd.CommandName));
+                }, documentFor, cmd => ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, cmd.CommandName),
+                Kind: payload.TryGetProperty("kind", out var kind) ? kind.GetString() : null,
+                IsQuickFix: payload.TryGetProperty("diagnostics", out var fixes) && fixes.ValueKind == JsonValueKind.Array && fixes.GetArrayLength() > 0);
         }
 
         var response = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/codeAction",
-            new CodeActionParams(new(uri), range, new(diagnostics)), cancellationToken, documentUri: uri);
+            new CodeActionParams(new(uri), range, new(diagnostics, Only: only)), cancellationToken, documentUri: uri);
         return response is { ValueKind: JsonValueKind.Array } actions ? actions.EnumerateArray().Select(a => Read(a, true)).ToArray() : [];
     }
 

@@ -2,6 +2,11 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "Αναδόμηση",
+    "Str.Menu.Edit.SourceActions": "Ενέργειες πηγαίου κώδικα",
+    "Str.CodeEditor.Refactor": "Αναδόμηση",
+    "Str.CodeEditor.SourceActions": "Ενέργειες πηγαίου κώδικα",
+    "Str.CodeEditor.NoCodeActions": "Δεν υπάρχουν εφαρμόσιμες ενέργειες.",
     "Str.ProjectFile.ReplaceModel": "Η εφαρμογή του κειμένου του αρχείου έργου θα αντικαταστήσει τις μη αποθηκευμένες ρυθμίσεις του έργου {0}. Συνέχεια;",
     "Str.MemberOrigin.HexIde": "Επέκταση του HexIDE· δεν είναι διαθέσιμη στη VB6.",
     "Str.Dock.Host": "Κεντρικός υποδοχέας αγκύρωσης",

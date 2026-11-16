@@ -2,6 +2,11 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "_Refaktoreeri",
+    "Str.Menu.Edit.SourceActions": "L_ähtekoodi toimingud",
+    "Str.CodeEditor.Refactor": "Refaktoreeri",
+    "Str.CodeEditor.SourceActions": "Lähtekoodi toimin_gud",
+    "Str.CodeEditor.NoCodeActions": "_Rakendatavaid toiminguid pole.",
     "Str.ProjectFile.ReplaceModel": "Projektifaili teksti rakendamine asendab projekti {0} salvestamata sätted. Kas jätkata?",
     "Str.MemberOrigin.HexIde": "HexIDE laiendus; pole VB6-s saadaval.",
     "Str.Dock.Host": "Doki host",

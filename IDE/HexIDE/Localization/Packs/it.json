@@ -2,6 +2,11 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "Re_factoring",
+    "Str.Menu.Edit.SourceActions": "A_zioni sul codice sorgente",
+    "Str.CodeEditor.Refactor": "Refactoring",
+    "Str.CodeEditor.SourceActions": "Azioni sul codice sorgente",
+    "Str.CodeEditor.NoCodeActions": "_Nessuna azione applicabile.",
     "Str.ProjectFile.ReplaceModel": "Applicare il testo del file di progetto sostituirà le impostazioni non salvate di {0}. Continuare?",
     "Str.MemberOrigin.HexIde": "Estensione di HexIDE; non disponibile in VB6.",
     "Str.Dock.Host": "Contenitore di ancoraggio",

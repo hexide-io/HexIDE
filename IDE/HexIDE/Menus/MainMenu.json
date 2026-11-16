@@ -364,6 +364,18 @@
             "command": "application.ClearAllBookmarksCommand"
           }
         ]
+      },
+      {
+        "kind": "Provider",
+        "id": "edit.refactor",
+        "labelKey": "Str.Menu.Edit.Refactor",
+        "provider": "refactor"
+      },
+      {
+        "kind": "Provider",
+        "id": "edit.sourceactions",
+        "labelKey": "Str.Menu.Edit.SourceActions",
+        "provider": "source-actions"
       }
     ]
   },

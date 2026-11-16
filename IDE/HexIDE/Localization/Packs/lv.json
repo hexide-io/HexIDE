@@ -2,6 +2,11 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "_Refaktorēšana",
+    "Str.Menu.Edit.SourceActions": "Pirmk_oda darbības",
+    "Str.CodeEditor.Refactor": "Refaktorēšana",
+    "Str.CodeEditor.SourceActions": "Pirmkoda darbības",
+    "Str.CodeEditor.NoCodeActions": "_Nav piemērojamu darbību.",
     "Str.ProjectFile.ReplaceModel": "Lietojot projekta faila tekstu, tiks aizstāti projekta {0} nesaglabātie iestatījumi. Vai turpināt?",
     "Str.MemberOrigin.HexIde": "HexIDE paplašinājums; nav pieejams VB6.",
     "Str.Dock.Host": "Dokošanas resursdators",

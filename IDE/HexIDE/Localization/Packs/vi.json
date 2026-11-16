@@ -2,6 +2,11 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "T_ái cấu trúc",
+    "Str.Menu.Edit.SourceActions": "Tha_o tác mã nguồn",
+    "Str.CodeEditor.Refactor": "T_ái cấu trúc",
+    "Str.CodeEditor.SourceActions": "Th_ao tác mã nguồn",
+    "Str.CodeEditor.NoCodeActions": "_Không có thao tác phù hợp.",
     "Str.ProjectFile.ReplaceModel": "Áp dụng văn bản tệp dự án sẽ thay thế các thiết đặt dự án chưa lưu của {0}. Tiếp tục?",
     "Str.MemberOrigin.HexIde": "Phần mở rộng HexIDE; không có trong VB6.",
     "Str.Dock.Host": "Vùng chứa neo",
