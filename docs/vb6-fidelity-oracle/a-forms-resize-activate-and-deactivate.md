@@ -162,9 +162,9 @@ visible form and showing it again raised nothing, as measured.
 **A form's `Move`** stopped the program, refused as not implemented. It runs since #1569, which measured it: [A form's
 Move](a-forms-move.md#a-forms-move-2026-10-26-1569).
 
-**Recorded here and left to their own issues:** `Visible = False` and `Unload` of the active form, which don't hand
-activation on as `Hide` does, and the control `Screen` reads after the last visible form is shown again (#3936); and
-Paint (#991).
+**Since #3936,** `Visible = False` and `Unload` of the active form hand activation on as `Hide` does, with no
+Deactivate for a form that unloads, and the last visible form hidden and shown again keeps its control, as measured
+above. **Left to its own issue:** Paint (#991).
 
 **Not measured:** a form whose `.frm` starts it maximized or minimized. HexIDE raises the show's Resize at the size
 the form was designed at, and another when the window takes its maximized size.
