@@ -77,6 +77,7 @@ The earliest entries were numbered, and code comments and other documents still 
 | 13 | [`shutdown_ide` reports success but the process survives a runtime modal](mcp-gaps/closed/shutdown-ide-reports-success-but-the-process-survives-a.md) |
 | 14 | [`set_file_content` silently dropped a form's `Attribute` header](mcp-gaps/closed/set-file-content-silently-dropped-a-forms-attribute-header.md) |
 | 15 | [`dump_visual_tree` showed a hidden element as though it were on screen](mcp-gaps/closed/dump-visual-tree-showed-a-hidden-element-as-though-it-were.md) |
+| 4046 | [An element the view names itself is kept in the control view](mcp-gaps/closed/4046.md) |
 
 ## Not an MCP gap (recorded to avoid confusion)
 

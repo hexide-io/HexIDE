@@ -1358,6 +1358,28 @@ leave new documents pathless and explain the null path and how to save them in i
 - **THEN** its initial form and project have no file paths
 - **AND** opening the form's code uses its `untitled:` URI until it is saved
 
+### Requirement: Explicit automation names SHALL keep structural controls in the control view
+The control-view collector shared by discovery and path resolution SHALL keep an element whose own
+`AutomationProperties.Name` is set as a local value, in markup or code, and is not empty, as it keeps an
+element with an AutomationId. A name set by a style or theme, and a peer name derived only from content,
+SHALL NOT by themselves keep a structural wrapper, so a theme cannot insert segments into paths. The
+existing `interactiveOnly` filter SHALL continue to apply.
+
+#### Scenario: Finding a named border
+- **WHEN** a border has explicit automation name `imlIcons`, no control type, provider or keyboard focus
+- **AND** `dump_visual_tree` searches for `imlIcons` with `interactiveOnly: false`
+- **THEN** the border is found and its returned path resolves through `inspect_element`
+
+#### Scenario: A wrapper without an explicit automation name
+- **WHEN** a structural wrapper has no AutomationId and no automation name of its own
+- **THEN** it remains folded away even if its peer derives a name from content
+
+#### Scenario: A name from a theme's style
+- **WHEN** a theme's style setter names a structural wrapper, as Dock's theme binds each dock control's
+  name to the dock's title
+- **THEN** the wrapper remains folded away, whether the name is empty or not, and paths through it are
+  unchanged
+
 ### Requirement: Named controls SHALL expose their visible labels
 The control tree and single-control inspection SHALL retain x:Name as `name` when present and report the
 peer's meaningful label as `label` when it differs. Paths SHALL retain their existing stable discriminators
