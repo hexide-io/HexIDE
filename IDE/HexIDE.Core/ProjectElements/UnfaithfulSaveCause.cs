@@ -14,6 +14,12 @@ public enum UnfaithfulSaveCause
 {
     None = 0,
 
+    /// <summary>A repeated property has an unreadable value (#4096).</summary>
+    UnreadableDuplicateProperty = 1 << 8,
+
+    /// <summary>A saved measurement cannot be set by VB6 (#4096).</summary>
+    RefusedMeasurement = 1 << 9,
+
     /// <summary>SSTab children or page references cannot be modelled for designer edits (#2301).</summary>
     SSTabPageMetadata = 1 << 2,
 
