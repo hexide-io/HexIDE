@@ -132,9 +132,9 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 0 | 17 | 0 | 33 | 50 |
 | Compiler directives and options | 0 | 0 | 0 | 14 | 19 | 14 | 47 |
-| In-box objects | 0 | 0 | 58 | 27 | 0 | 39 | 124 |
+| In-box objects | 0 | 0 | 44 | 41 | 0 | 39 | 124 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **0** | **0** | **76** | **482** | **20** | **607** | **1185** |
+| **Total** | **0** | **0** | **62** | **496** | **20** | **607** | **1185** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -169,8 +169,8 @@ visitor, not changing how the language is understood.
 
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
 damage is concentrated in **statements** and the **in-box object model**: 8% of VB6's statements (9
-of 107) and 47% of the
-in-box surface (`App`, `Printer`, `Clipboard`; 58 of 124) are unavailable. Both
+of 107) and 35% of the
+in-box surface (`App`, `Printer`, `Clipboard`; 44 of 124) are unavailable. Both
 figures are rounded to the nearest whole percent.
 
 That is the honest answer to "will my code run?" — the arithmetic will; the plumbing around it often will
@@ -275,7 +275,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 76 names
+## Dies mid-run — 62 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -284,22 +284,8 @@ most of the in-box object model.
 | Name | Status | Detail | Source |
 |---|---|---|---|
 | `AddressOf` | **Dies** | throws `"ADDRESSOF is not implemented"` — (`ADDRESSOF WS valueStmt # vsAddressOf`) then throws at run time: `public override Task<object?> VisitVsAddressOf(VB6Parser.VsAddressOfContext… | ExpressionExecutor.cs |
-| `AmbientProperties` | **Dies** | `Dim a As AmbientProperties` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). #1631 part B gives a placed UserControl a partial Ambient proxy with DisplayAsDefault; it does not implement the declared type. | StatementExecutor.cs, VBUserControl.cs |
-| `AmbientProperties.BackColor` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.DisplayName` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.Font` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.ForeColor` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.LocaleID` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.MessageReflect` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.Palette` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.RightToLeft` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.ScaleUnits` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.ShowGrabHandles` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.ShowHatching` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.SupportsMnemonics` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.TextAlign` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.UIDead` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.UserMode` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
+| `AmbientProperties` | **Dies** | `Dim a As AmbientProperties` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). #4149 supplies measured Ambient members in form-hosted runtime UserControls; it does not implement the declared type. | StatementExecutor.cs, VBUserControl.cs |
+| `AmbientProperties.Palette` | **Dies** | Palette is unmeasured and explicitly refused by Ambient (#4149). Outside a UserControl there is no Ambient/UserControl global. | VBUserControl.cs |
 | `AppActivate` | **Dies** | throws `"AppActivate not implemented"` — Grammar rule `appActivateStmt : APPACTIVATE WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4); the visitor body is a single throw:… | StatementExecutor.cs |
 | `AsyncProperty` | **Dies** | `Dim a As AsyncProperty` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
 | `AsyncProperty_VB5` | **Dies** | `Dim a As AsyncProperty_VB5` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
@@ -877,28 +863,28 @@ missing.
 | `Option Base` | Supported | Collected by PrePass ('ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());', PrePass.cs) and applied on both declaration paths: module-level Dim arrays (PrePass.cs) and… | PrePass.cs |
 | `Version` | Supported | Handled on three independent paths. Form/control files: the deserializer skips the line ('if (line.StartsWith("VERSION")) { continue; }', VbFrmFormatDeserializer.cs) and the serializer… | VbFrmFormatDeserializer.cs |
 
-### In-box objects — 124 names (58 absent, 27 partial, 39 supported)
+### In-box objects — 124 names (44 absent, 41 partial, 39 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
 | `Cls` | **Dies** | **[#995](https://github.com/hexide-io/HexIDE/issues/995):** in a form, a bare `Cls` is the form's method, refused as not implemented for the form, as `Me.Cls` is. — **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
-| `AmbientProperties` | **Dies** | `Dim a As AmbientProperties` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). #1631 part B gives a placed UserControl a partial Ambient proxy with DisplayAsDefault; it does not implement the declared type. | StatementExecutor.cs, VBUserControl.cs |
-| `AmbientProperties.BackColor` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.DisplayAsDefault` | Partial | #1631 part B: a placed UserControl supplies Ambient.DisplayAsDefault and its AmbientChanged notification for DefaultCancel, including CommandButton focus. Other ambient members and unmeasured default/key combinations remain unimplemented. | VBUserControl.cs, UserControlKeys.cs |
-| `AmbientProperties.DisplayName` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.Font` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.ForeColor` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.LocaleID` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.MessageReflect` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.Palette` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.RightToLeft` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.ScaleUnits` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.ShowGrabHandles` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.ShowHatching` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.SupportsMnemonics` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.TextAlign` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.UIDead` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `AmbientProperties.UserMode` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
+| `AmbientProperties` | **Dies** | `Dim a As AmbientProperties` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). #4149 supplies measured Ambient members in form-hosted runtime UserControls; it does not implement the declared type. | StatementExecutor.cs, VBUserControl.cs |
+| `AmbientProperties.BackColor` | Partial | Reads the form's BackColor. Measured in [#4149](https://github.com/hexide-io/HexIDE/issues/4149). Form-hosted runtime instances only; other containers and design-time execution remain unavailable. | VBUserControl.cs |
+| `AmbientProperties.DisplayAsDefault` | Partial | #1631 part B: a placed UserControl supplies Ambient.DisplayAsDefault and its AmbientChanged notification for DefaultCancel, including CommandButton focus. Unmeasured default/key combinations remain unimplemented; #4149 supplies the other measured ambient reads. | VBUserControl.cs, UserControlKeys.cs |
+| `AmbientProperties.DisplayName` | Partial | Reads the instance name. Measured in [#4149](https://github.com/hexide-io/HexIDE/issues/4149). Form-hosted runtime instances only; other containers and design-time execution remain unavailable. | VBUserControl.cs |
+| `AmbientProperties.Font` | Partial | Reads the form's Font object (Name, Size, Bold and Italic). Measured in [#4149](https://github.com/hexide-io/HexIDE/issues/4149). Form-hosted runtime instances only; other containers and design-time execution remain unavailable. | VBUserControl.cs |
+| `AmbientProperties.ForeColor` | Partial | Reads the form's ForeColor. Measured in [#4149](https://github.com/hexide-io/HexIDE/issues/4149). Form-hosted runtime instances only; other containers and design-time execution remain unavailable. | VBUserControl.cs |
+| `AmbientProperties.LocaleID` | Partial | Reads 1033 under en-US; other locales refuse. Measured in [#4149](https://github.com/hexide-io/HexIDE/issues/4149). Form-hosted runtime instances only; other containers and design-time execution remain unavailable. | VBUserControl.cs |
+| `AmbientProperties.MessageReflect` | Partial | Reads True. Measured in [#4149](https://github.com/hexide-io/HexIDE/issues/4149). Form-hosted runtime instances only; other containers and design-time execution remain unavailable. | VBUserControl.cs |
+| `AmbientProperties.Palette` | **Dies** | Palette is unmeasured and explicitly refused by Ambient (#4149). Outside a UserControl there is no Ambient/UserControl global. | VBUserControl.cs |
+| `AmbientProperties.RightToLeft` | Partial | Reads False on a left-to-right form; right-to-left forms refuse. Measured in [#4149](https://github.com/hexide-io/HexIDE/issues/4149). Form-hosted runtime instances only; other containers and design-time execution remain unavailable. | VBUserControl.cs |
+| `AmbientProperties.ScaleUnits` | Partial | Reads the String "Twip". Measured in [#4149](https://github.com/hexide-io/HexIDE/issues/4149). Form-hosted runtime instances only; other containers and design-time execution remain unavailable. | VBUserControl.cs |
+| `AmbientProperties.ShowGrabHandles` | Partial | Reads False. Measured in [#4149](https://github.com/hexide-io/HexIDE/issues/4149). Form-hosted runtime instances only; other containers and design-time execution remain unavailable. | VBUserControl.cs |
+| `AmbientProperties.ShowHatching` | Partial | Reads False at runtime. Measured in [#4149](https://github.com/hexide-io/HexIDE/issues/4149). Form-hosted runtime instances only; other containers and design-time execution remain unavailable. | VBUserControl.cs |
+| `AmbientProperties.SupportsMnemonics` | Partial | Reads True. Measured in [#4149](https://github.com/hexide-io/HexIDE/issues/4149). Form-hosted runtime instances only; other containers and design-time execution remain unavailable. | VBUserControl.cs |
+| `AmbientProperties.TextAlign` | Partial | Reads 0. Measured in [#4149](https://github.com/hexide-io/HexIDE/issues/4149). Form-hosted runtime instances only; other containers and design-time execution remain unavailable. | VBUserControl.cs |
+| `AmbientProperties.UIDead` | Partial | Reads False. Measured in [#4149](https://github.com/hexide-io/HexIDE/issues/4149). Form-hosted runtime instances only; other containers and design-time execution remain unavailable. | VBUserControl.cs |
+| `AmbientProperties.UserMode` | Partial | Reads True at runtime. Measured in [#4149](https://github.com/hexide-io/HexIDE/issues/4149). Form-hosted runtime instances only; other containers and design-time execution remain unavailable. | VBUserControl.cs |
 | `App.HelpFile` | Partial | Empty String without a project help file; String assignments read back unchanged (#2551). Nonempty project HelpFile= and non-String conversions are refused as not implemented. | VbApp.cs |
 | `App.LogEvent` | Partial | **[#2552](https://github.com/hexide-io/HexIDE/issues/2552):** appends the measured ASCII file lines, default Information, integer messages and type 9 error 380. Default/NT logging deliberately writes nothing (interpreter-gaps.md). Other types, conversions, non-ASCII encoding and file-failure semantics are explicitly not implemented. | VbApp.cs |
 | `App.LogMode` | Supported | **#2552:** Long 1 initially; 2 for file, 3 for NT or the first default LogEvent, 1 for off or mode 18, as measured. | VbApp.cs |

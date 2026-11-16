@@ -19,6 +19,9 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
     internal bool DisplayAsDefault { get; private set; }
     private readonly Ambient ambient;
     private readonly FormDefinition definition;
+    private VbObject? ambientForm;
+    private string ambientName = "";
+    private bool ambientRightToLeft;
 
     internal VBUserControl(Control contents, string accessKeys, FormDefinition definition)
     {
@@ -31,10 +34,13 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
         ambient = new Ambient(this);
     }
 
-    internal void Attach(VBProgram program, string moduleName)
+    internal void Attach(VBProgram program, string moduleName, VbObject? form, string name, bool rightToLeft)
     {
         if (!program.Interpreter.Modules.TryGet(moduleName, out var module))
             return;
+        ambientForm = form;
+        ambientName = name;
+        ambientRightToLeft = rightToLeft;
         Context = new VBWindowContext(program.StandardLibrary);
         Context.AttachControl(program, module);
         if (Child is Panel old)
@@ -120,9 +126,34 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
         public void Call(string method, List<Vb6Value> args) => throw new NotImplementedException($"Ambient.{method}");
         public bool TryGetProperty(string name, out Vb6Value value)
         {
-            if (!name.Equals("DisplayAsDefault", StringComparison.OrdinalIgnoreCase))
-                throw new NotImplementedException($"Ambient.{name}");
-            value = new Vb6Value(owner.DisplayAsDefault);
+            if (name.Equals("DisplayAsDefault", StringComparison.OrdinalIgnoreCase))
+            {
+                value = new Vb6Value(owner.DisplayAsDefault);
+                return true;
+            }
+            // Only form-hosted controls were measured (#4149); resolve the current container on every read.
+            if (UserControlContainers.TryGet(owner, "Container", out _)
+                || !ContainerMembers.TryGet(owner, "Container", out var container)
+                || container.Value is not VbObject form || !ReferenceEquals(form, owner.ambientForm)
+                || form.FormWindow is not { } window)
+                throw new NotImplementedException($"Ambient.{name} on a non-form container is not implemented (#4149)");
+            value = name.ToLowerInvariant() switch
+            {
+                "backcolor" => new Vb6Value((long)(AttachedProperties.GetBackColor(window)
+                    ?? throw new NotImplementedException("Ambient.BackColor is not implemented (#4149)")).ToOle()),
+                "forecolor" => new Vb6Value((long)(AttachedProperties.GetForeColor(window)
+                    ?? throw new NotImplementedException("Ambient.ForeColor is not implemented (#4149)")).ToOle()),
+                "font" => new Vb6Value(ControlFont.Get(window)),
+                "displayname" => new Vb6Value(owner.ambientName),
+                "localeid" when VbLocale.Current.LCID == 1033 => new Vb6Value(1033L),
+                "textalign" => new Vb6Value(0),
+                "scaleunits" => new Vb6Value("Twip"),
+                "showgrabhandles" or "showhatching" or "uidead" => new Vb6Value(false),
+                "righttoleft" when !owner.ambientRightToLeft && window.FlowDirection == FlowDirection.LeftToRight => new Vb6Value(false),
+                "usermode" => new Vb6Value(true),
+                "supportsmnemonics" or "messagereflect" => new Vb6Value(true),
+                _ => throw new NotImplementedException($"Ambient.{name} is not implemented (#4149)"),
+            };
             return true;
         }
         public bool TrySetProperty(string name, Vb6Value value) => throw new NotImplementedException($"Ambient.{name}");
