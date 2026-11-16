@@ -110,7 +110,10 @@ The session has a single launch and cannot be restarted. Dispose it and create a
 `LaunchAsync(adapterId, arguments, breakpoints, token)` sends initialize with one-based coordinates and
 native paths, starts launch, waits for initialized, replaces each supplied source's breakpoints, selects
 advertised default exception filters, and sends configurationDone only when supported. It awaits the launch
-response **after** configuration, since adapters may defer that response. Initialized may arrive before the
+response **after** configuration, since adapters may defer that response. During every configuration
+request it also watches for launch failure: a refusal immediately faults startup with the adapter
+message, releases ownership, and prevents further configuration requests (#4160). An early successful
+launch response does not skip or reorder configuration. Initialized may arrive before the
 initialize response. All startup work shares a 60-second deadline (configurable for a supplied connection),
 in addition to the wire request limits. Failed/cancelled startup releases the owned connection/process.
 The returned breakpoint responses retain verified flags, relocated lines and adapter messages.
