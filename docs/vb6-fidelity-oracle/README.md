@@ -707,6 +707,7 @@ added afterwards.
 - [In-box controls: the TabStrip (2026-10-27, #1089)](in-box-controls-the-tabstrip.md#in-box-controls-the-tabstrip-2026-10-27-1089)
 - [In-box classes: a bare name binds to the first library (2026-10-27, #2265)](in-box-classes-a-bare-name-binds-to-the-first-library.md#in-box-classes-a-bare-name-binds-to-the-first-library-2026-10-27-2265)
 - [More bare names: StatusBar, Toolbar, TabStrip and ListView's collections (2026-11-14, #2265)](in-box-classes-a-bare-name-binds-to-the-first-library.md#more-bare-names-statusbar-toolbar-tabstrip-and-listviews-collections-2026-11-14-2265)
+- [The other in-box libraries: MSComCtl2, TabDlg, MSMask, RichTextLib, MSComDlg, and Slider and ImageCombo (2026-11-15, #2265)](in-box-classes-a-bare-name-binds-to-the-first-library.md#the-other-in-box-libraries-mscomctl2-tabdlg-msmask-richtextlib-mscomdlg-and-slider-and-imagecombo-2026-11-15-2265)
 - [A reference's LCID is lowercase hex, unpadded (2026-10-27, #2273)](a-references-lcid-is-lowercase-hex.md#a-references-lcid-is-lowercase-hex-unpadded-2026-10-27-2273)
 - [A reference's path, and the line order a save writes (2026-10-27, #2274)](a-references-path-and-the-line-order-a-save-writes.md#a-references-path-and-the-line-order-a-save-writes-2026-10-27-2274)
 - [In-box controls: the Slider (2026-10-27, #1091)](in-box-controls-the-slider.md#in-box-controls-the-slider-2026-10-27-1091)
