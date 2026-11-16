@@ -25,13 +25,18 @@ internal sealed class RevocationStore
     private readonly string? _rootPub;
     private readonly string _cacheJsonPath;
     private readonly string _cacheSigPath;
+    private readonly string _cachePath;
+    private readonly Func<string, TimeSpan, (byte[] Json, string Signature)> _fetch;
     private RevocationList _active;
 
     public RevocationStore() : this(ReadEmbeddedText("hexide-root.pub"), DefaultCacheDir()) { }
 
-    public RevocationStore(string? rootPub, string cacheDir)
+    public RevocationStore(string? rootPub, string cacheDir,
+        Func<string, TimeSpan, (byte[] Json, string Signature)>? fetch = null)
     {
         _rootPub = rootPub;
+        _fetch = fetch ?? Fetch;
+        _cachePath = Path.Combine(cacheDir, "revocations-cache.signed");
         _cacheJsonPath = Path.Combine(cacheDir, "revocations-cache.json");
         _cacheSigPath = Path.Combine(cacheDir, "revocations-cache.sig");
         _active = PickFreshest(LoadBundled(), LoadCached()) ?? new RevocationList();
@@ -48,14 +53,7 @@ internal sealed class RevocationStore
             return;
         try
         {
-            using var cts = new CancellationTokenSource(timeout);
-            var (jsonBytes, sig) = Task.Run(async () =>
-            {
-                using var http = new HttpClient { Timeout = timeout };
-                var j = await http.GetByteArrayAsync(url, cts.Token);
-                var s = (await http.GetStringAsync(url + ".sig", cts.Token)).Trim();
-                return (j, s);
-            }, cts.Token).GetAwaiter().GetResult();
+            var (jsonBytes, sig) = _fetch(url, timeout);
 
             var fetched = ParseIfValid(jsonBytes, sig);
             if (fetched is null)
@@ -71,8 +69,14 @@ internal sealed class RevocationStore
 
             try
             {
-                File.WriteAllBytes(_cacheJsonPath, jsonBytes);
-                File.WriteAllText(_cacheSigPath, sig);
+                // Keep the exact signed bytes and signature in one atomic replacement.
+                AtomicFileWriter.Write(_cachePath, stream =>
+                {
+                    using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
+                    writer.Write(jsonBytes.Length);
+                    writer.Write(jsonBytes);
+                    writer.Write(sig);
+                });
             }
             catch (Exception ex) { Log.Warning(ex, "RevocationStore: failed to cache fetched list"); }
 
@@ -83,6 +87,18 @@ internal sealed class RevocationStore
         {
             Log.Warning(ex, "RevocationStore: fetch from {Url} failed — using cached/bundled list", url);
         }
+    }
+
+    private static (byte[] Json, string Signature) Fetch(string url, TimeSpan timeout)
+    {
+        using var cts = new CancellationTokenSource(timeout);
+        return Task.Run(async () =>
+        {
+            using var http = new HttpClient { Timeout = timeout };
+            var json = await http.GetByteArrayAsync(url, cts.Token);
+            var sig = (await http.GetStringAsync(url + ".sig", cts.Token)).Trim();
+            return (json, sig);
+        }, cts.Token).GetAwaiter().GetResult();
     }
 
     // ── candidate loading + selection ────────────────────────────
@@ -98,6 +114,16 @@ internal sealed class RevocationStore
     {
         try
         {
+            if (File.Exists(_cachePath))
+            {
+                using var stream = File.OpenRead(_cachePath);
+                using var reader = new BinaryReader(stream, Encoding.UTF8);
+                var length = reader.ReadInt32();
+                if (length < 0 || length > stream.Length - stream.Position)
+                    return null;
+                return ParseIfValid(reader.ReadBytes(length), reader.ReadString());
+            }
+            // Read pre-4022 caches until the first successful refresh replaces them.
             if (!File.Exists(_cacheJsonPath) || !File.Exists(_cacheSigPath))
                 return null;
             return ParseIfValid(File.ReadAllBytes(_cacheJsonPath), File.ReadAllText(_cacheSigPath).Trim());

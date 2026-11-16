@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Áp dụng văn bản tệp dự án sẽ thay thế các thiết đặt dự án chưa lưu của {0}. Tiếp tục?",
     "Str.MemberOrigin.HexIde": "Phần mở rộng HexIDE; không có trong VB6.",
     "Str.Dock.Host": "Vùng chứa neo",
     "Str.Dock.Root": "Vùng neo gốc",
@@ -130,6 +131,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "Xóa tất cả ghi đè của bạn cho ngôn ngữ này?",
     "Str.TranslationEditor.PlaceholderError": "Chỉnh sửa bị từ chối: nó phải giữ nguyên các trình giữ chỗ {0}, {1} … như bản gốc.",
     "Str.TranslationEditor.ProtectedCredits": "Không thể thay thế lời cảm ơn của HexIDE tại đây. Sản phẩm xây dựng trên HexIDE chỉ có thể bổ sung.",
+    "Str.TranslationEditor.ProtectedTrust": "Không thể thay thế nhãn của các khóa ký của HexIDE tại đây. Sản phẩm xây dựng trên HexIDE không thể trình bày các khóa đó như của riêng mình.",
     "Str.TranslationEditor.Tooltip.Override": "ghi đè: {0}",
     "Str.TranslationEditor.Tooltip.None": "(không có)",
     "Str.TranslationEditor.Area.Menu": "Menu",
@@ -419,6 +421,7 @@
     "Str.Tool.CallStack.RowName": "{0}, dòng {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Tất cả thư viện>",
     "Str.Tool.ObjectBrowser.MembersOf": "Thành viên của '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Không thể liệt kê các thành viên khi không có thư viện kiểu của thư viện này.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Đóng Trình duyệt Đối tượng",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Trình duyệt Đối tượng",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Đi tới Định nghĩa",

@@ -177,6 +177,22 @@ public class LspClientRegistryTests
         await Format(low.DidNotReceive(), Arg.Any<CancellationToken>());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OnTypeFormattingPreservesNoAnswerVersusEmptyAnswer(bool noAnswer)
+    {
+        var server = FakeServer(capabilitiesJson: """{"documentOnTypeFormattingProvider":{"firstTriggerCharacter":"\n"}}""");
+        server.RequestOnTypeFormattingAsync(Vb6Doc, Arg.Any<Position>(), "\n", Arg.Any<FormattingOptions>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<TextEdit[]?>(noAnswer ? null : []));
+        await using var sut = Registry(Registration("formatter", server));
+        var ct = TestContext.Current.CancellationToken;
+        await sut.OpenDocumentAsync(Vb6Doc, "code", ct);
+        var result = await sut.RequestOnTypeFormattingAsync(Vb6Doc, new Position(2, 4), "\n", new FormattingOptions(4, true), ct);
+        if (noAnswer) result.Should().BeNull();
+        else result.Should().BeEmpty();
+    }
+
     private static Task<TextEdit[]> RangeFormat(ILspClient client, string uri, LspRange range, FormattingOptions options, CancellationToken ct)
     {
         var method = typeof(ILspClient).GetMethod("RequestRangeFormattingAsync");

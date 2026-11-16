@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using HexIDE.Conversations;
 using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
@@ -94,7 +95,7 @@ public class ShutdownWireShapeTests : IAsyncDisposable
     private async Task<VBLspClient> ConnectedAsync(
         bool answerShutdown = true, bool answerInitialize = true, bool leaveServerRunning = false,
         Func<string>? locale = null, bool callHierarchy = true, string? hierarchyResult = null, bool hierarchyError = false, string rangeProvider = "true", bool configured = false, string? options = null,
-        string onTypeProvider = "null", bool answerOnType = true)
+        string onTypeProvider = "null", bool answerOnType = true, ConversationLog? capture = null, bool textSync = false)
     {
         var (clientSide, duplexServer) = FullDuplexStream.CreatePair();
         // Short enough for macOS, whose temp directory leaves 43 characters for a pipe name (PipeNameLimit).
@@ -143,7 +144,7 @@ public class ShutdownWireShapeTests : IAsyncDisposable
                     // result ends in three consecutive closing braces, which no $$"""...""" form accepts.
                     var head = "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText() + ",\"result\":";
                     var reply = m.GetString() == "initialize"
-                        ? head + "{\"capabilities\":{\"callHierarchyProvider\":" + (callHierarchy ? "{}" : "false") + ",\"documentFormattingProvider\":true,\"documentRangeFormattingProvider\":" + rangeProvider + ",\"documentOnTypeFormattingProvider\":" + onTypeProvider + "},\"serverInfo\":"
+                        ? head + "{\"capabilities\":{" + (textSync ? "\"textDocumentSync\":{\"openClose\":true,\"change\":1}," : "") + "\"callHierarchyProvider\":" + (callHierarchy ? "{}" : "false") + ",\"documentFormattingProvider\":true,\"documentRangeFormattingProvider\":" + rangeProvider + ",\"documentOnTypeFormattingProvider\":" + onTypeProvider + "},\"serverInfo\":"
                                + "{\"name\":\"wire-probe\",\"version\":\"1.0.0\"}}}"
                         : head + "null}";
                     if (m.GetString() is "textDocument/prepareCallHierarchy" or
@@ -180,12 +181,43 @@ public class ShutdownWireShapeTests : IAsyncDisposable
                     "transport":"pipe","pipeName":"{{pipeName}}"{{optionsMember}}}]}
                     """)!.Servers!)
                 .Single().CreateClient()
-            : new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6", locale: locale);
+            : new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6", locale: locale, capture: capture, connectionId: "wire-probe");
         _disposables.Add(client);
         _starting = client.StartAsync();
         if (answerInitialize) await _starting;
         else await _initializeSeen.Task.WaitAsync(TimeSpan.FromSeconds(10), _cts.Token);
         return client;
+    }
+
+    [AvaloniaFact]
+    public async Task Archive_entry_open_and_close_carry_the_opaque_uri_on_the_wire()
+    {
+        await using var capture = new ConversationLog();
+        capture.Arm("wire-probe", true);
+        var client = await ConnectedAsync(capture: capture, textSync: true);
+        var uri = LspDocumentUri.ForFile(Path.Combine(Path.GetTempPath(), "Demo.twinproj"));
+        var expected = "archive-entry:/Sources/Module%20%23%201.twin?container=" + Uri.EscapeDataString(uri);
+        using (var session = new HexIDE.Forms.ViewModels.LspDocumentSession(client,
+                   new AvaloniaEdit.Document.TextDocument("Module Main"),
+                   ArchiveEntryUri.ForEntry(Path.Combine(Path.GetTempPath(), "Demo.twinproj"), ["Sources", "Module # 1.twin"]),
+                   postToUiThread: action => action()))
+        {
+            session.Start();
+        }
+        await client.StopAsync();
+        await ExitArrivedAsync();
+        var opened = FrameFor("textDocument/didOpen").GetProperty("params").GetProperty("textDocument");
+        opened.GetProperty("uri").GetString().Should().Be(expected);
+        opened.GetProperty("text").GetString().Should().Be("Module Main");
+        FrameFor("textDocument/didClose").GetProperty("params").GetProperty("textDocument")
+            .GetProperty("uri").GetString().Should().Be(expected);
+        FrameFor("textDocument/didChange").ValueKind.Should().Be(JsonValueKind.Undefined);
+        await capture.DrainAsync();
+        var sent = capture.Snapshot("wire-probe").Single(e => e.Method == "textDocument/didOpen");
+        sent.Direction.Should().Be(ConversationDirection.Sent);
+        using var recorded = JsonDocument.Parse(capture.Body("wire-probe", sent.Sequence)!.Head);
+        recorded.RootElement.GetProperty("params").GetProperty("textDocument").GetProperty("uri")
+            .GetString().Should().Be(expected);
     }
 
     [Theory]
@@ -343,11 +375,11 @@ public class ShutdownWireShapeTests : IAsyncDisposable
 
     private const string OnTypeProvider = """{"firstTriggerCharacter":"\n","moreTriggerCharacter":["\""]}""";
 
-    private static Task<TextEdit[]> OnType(ILspClient client, string trigger, CancellationToken ct)
+    private static Task<TextEdit[]?> OnType(ILspClient client, string trigger, CancellationToken ct)
     {
         var method = typeof(ILspClient).GetMethod("RequestOnTypeFormattingAsync");
         method.Should().NotBeNull();
-        return (Task<TextEdit[]>)method!.Invoke(client,
+        return (Task<TextEdit[]?>)method!.Invoke(client,
             ["file:///M.bas", new Position(2, 4), trigger, new FormattingOptions(8, false), ct])!;
     }
 
@@ -387,7 +419,7 @@ public class ShutdownWireShapeTests : IAsyncDisposable
     {
         var client = await ConnectedAsync(onTypeProvider: OnTypeProvider, answerOnType: false);
         (await OnType(client, "\n", TestContext.Current.CancellationToken)
-            .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken)).Should().BeEmpty();
+            .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken)).Should().BeNull();
         // Cancellation is sent asynchronously; read it before Stop can dispose the connection.
         await _cancellationSeen.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         await client.StopAsync();

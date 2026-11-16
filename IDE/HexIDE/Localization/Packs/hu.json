@@ -2,6 +2,7 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "A projektfájl szövegének alkalmazása felülírja a(z) {0} projekt nem mentett beállításait. Folytatja?",
     "Str.MemberOrigin.HexIde": "HexIDE-bővítmény; a VB6-ban nem érhető el.",
     "Str.Dock.Host": "Dokkolási gazda",
     "Str.Dock.Root": "Gyökérdokk",
@@ -414,6 +415,7 @@
     "Str.Tool.CallStack.RowName": "{0}, {1}. sor",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Minden könyvtár>",
     "Str.Tool.ObjectBrowser.MembersOf": "'{0}' tagjai",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "A tagok nem listázhatók a könyvtár típuskönyvtára nélkül.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Objektumböngésző bezárása",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektumböngésző",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Ugrás a definícióhoz",
@@ -533,6 +535,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "Eltávolítja az összes saját felülírását ehhez a nyelvhez?",
     "Str.TranslationEditor.PlaceholderError": "A módosítás elutasítva: meg kell tartania az eredetivel azonos {0}, {1} … helyőrzőket.",
     "Str.TranslationEditor.ProtectedCredits": "A HexIDE köszönetnyilvánítása itt nem írható felül. A HexIDE-ra épülő termék csak kiegészítheti.",
+    "Str.TranslationEditor.ProtectedTrust": "A HexIDE aláíró kulcsainak feliratai itt nem írhatók felül. A HexIDE-ra épülő termék nem tüntetheti fel ezeket a kulcsokat sajátjaként.",
     "Str.TranslationEditor.Tooltip.Override": "felülírás: {0}",
     "Str.TranslationEditor.Tooltip.None": "(nincs)",
     "Str.TranslationEditor.Area.Menu": "Menük",

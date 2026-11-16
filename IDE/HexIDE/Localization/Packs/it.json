@@ -2,6 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Applicare il testo del file di progetto sostituirà le impostazioni non salvate di {0}. Continuare?",
     "Str.MemberOrigin.HexIde": "Estensione di HexIDE; non disponibile in VB6.",
     "Str.Dock.Host": "Contenitore di ancoraggio",
     "Str.Dock.Root": "Ancoraggio radice",
@@ -164,6 +165,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "Rimuovere tutte le tue sostituzioni per questa lingua?",
     "Str.TranslationEditor.PlaceholderError": "Modifica rifiutata: deve mantenere gli stessi segnaposto {0}, {1} … dell'originale.",
     "Str.TranslationEditor.ProtectedCredits": "I ringraziamenti di HexIDE non possono essere sostituiti qui. Un prodotto basato su HexIDE può solo aggiungerne altri.",
+    "Str.TranslationEditor.ProtectedTrust": "Le etichette delle chiavi di firma di HexIDE non possono essere sostituite qui. Un prodotto basato su HexIDE non può presentare quelle chiavi come proprie.",
     "Str.TranslationEditor.Tooltip.Override": "sostituzione: {0}",
     "Str.TranslationEditor.Tooltip.None": "(nessuna)",
     "Str.TranslationEditor.Area.Menu": "Menu",
@@ -453,6 +455,7 @@
     "Str.Tool.CallStack.RowName": "{0}, riga {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Tutte le librerie>",
     "Str.Tool.ObjectBrowser.MembersOf": "Membri di '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Impossibile elencare i membri senza la libreria dei tipi di questa libreria.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Chiudi Visualizzatore oggetti",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Visualizzatore oggetti",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Vai alla definizione",

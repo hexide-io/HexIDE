@@ -105,7 +105,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
         string header;
         try
         {
-            header = (form.Owner.FormFormat ?? format).RenderDesignerHeader(form, fileName);
+            header = (form.Owner.FormFormat ?? ProjectFormats.Of(form.Owner, format)).RenderDesignerHeader(form, fileName);
         }
         catch (HexIDE.Projects.RenderRefusal refusal)
         {
@@ -143,7 +143,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     public void ApplyHeader(FormDefinition form, string header)
     {
         var identity = DocumentIdentity.For(form);
-        var current = format.CodePrefix(form);
+        var current = ProjectFormats.Of(form.Owner, format).CodePrefix(form);
 
         // The model half only when the model actually moves, because the marks move with it and a shift of
         // zero must not announce itself to two stores, three gutters and the sidecar.
@@ -191,7 +191,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
                 ApplyHeader(designer, header);
             else if (header is not null && document.Module is { } module)
             {
-                var current = format.CodePrefix(module);
+                var current = ProjectFormats.Of(module.Owner, format).CodePrefix(module);
                 module.RecordOriginalHeader(header);
                 ShiftMarks(document, current, header);
                 editor?.RefreshPrefix(header);
@@ -233,27 +233,28 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
 
         if (document.Module is { } module)
         {
-            if (format.PrefixCarriesName(module))
-                RetargetCode(module.Code, name, module.UpdateCode, moduleLevel: true, prefix: format.CodePrefix(module));
+            if (ProjectFormats.Of(module.Owner, format) is { } own && own.PrefixCarriesName(module))
+                RetargetCode(module.Owner, module.Code, name, module.UpdateCode, moduleLevel: true, prefix: own.CodePrefix(module));
             else
-                RetargetCode(module.Code, name, module.UpdateCode);
+                RetargetCode(module.Owner, module.Code, name, module.UpdateCode);
         }
         else if (document.Form is { } form)
         {
-            RetargetCode(form.Code, name, form.UpdateCode);
+            RetargetCode(form.Owner, form.Code, name, form.UpdateCode);
         }
 
         if (EditorFor(document) is { } editor)
         {
-            if (document.Module is { } headed && format.PrefixCarriesName(headed))
-                editor.RefreshPrefix(format.CodePrefix(headed));
+            if (document.Module is { } headed && ProjectFormats.Of(headed.Owner, format) is { } own && own.PrefixCarriesName(headed))
+                editor.RefreshPrefix(own.CodePrefix(headed));
             editor.RetargetVbName(name);
         }
     }
 
-    private void RetargetCode(string code, string name, Action<string> update, bool moduleLevel = false, string prefix = "")
+    private void RetargetCode(ProjectDefinition project, string code, string name, Action<string> update, bool moduleLevel = false,
+        string prefix = "")
     {
-        if (regionWriter.NameRewrite(prefix + code, prefix.Length, name, moduleLevel) is { } change)
+        if (ProjectFormats.WriterOf(project, regionWriter)?.NameRewrite(prefix + code, prefix.Length, name, moduleLevel) is { } change)
             update(TextChanges.Apply(code, [new HexIDE.Language.TextChange(change.Offset - prefix.Length, change.Length, change.Text)]));
     }
 

@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Застосування тексту файлу проєкту замінить незбережені налаштування проєкту {0}. Продовжити?",
     "Str.MemberOrigin.HexIde": "Розширення HexIDE; недоступне у VB6.",
     "Str.Dock.Host": "Контейнер закріплення",
     "Str.Dock.Root": "Коренева область закріплення",
@@ -130,6 +131,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "Вилучити всі ваші перевизначення для цієї мови?",
     "Str.TranslationEditor.PlaceholderError": "Зміну відхилено: вона має зберігати ті самі заповнювачі {0}, {1} …, що й оригінал.",
     "Str.TranslationEditor.ProtectedCredits": "Подяки HexIDE тут не можна замінити. Продукт на основі HexIDE може лише доповнити їх.",
+    "Str.TranslationEditor.ProtectedTrust": "Назви ключів підпису HexIDE тут не можна замінити. Продукт на основі HexIDE не може видавати ці ключі за свої.",
     "Str.TranslationEditor.Tooltip.Override": "перевизначення: {0}",
     "Str.TranslationEditor.Tooltip.None": "(немає)",
     "Str.TranslationEditor.Area.Menu": "Меню",
@@ -419,6 +421,7 @@
     "Str.Tool.CallStack.RowName": "{0}, рядок {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Усі бібліотеки>",
     "Str.Tool.ObjectBrowser.MembersOf": "Члени '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Неможливо перелічити члени без бібліотеки типів цієї бібліотеки.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Закрити оглядач об'єктів",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Оглядач об'єктів",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Перейти до визначення",

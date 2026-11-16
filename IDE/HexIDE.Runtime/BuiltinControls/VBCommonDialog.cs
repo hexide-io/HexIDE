@@ -1,3 +1,4 @@
+using HexIDE.IDE;
 using System.Globalization;
 using Avalonia.Controls;
 using HexIDE.Runtime.BuiltinTypes;

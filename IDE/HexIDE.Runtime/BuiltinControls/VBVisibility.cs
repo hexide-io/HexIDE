@@ -21,6 +21,17 @@ internal static class VBVisibility
 {
     public static void Set(Control control, bool visible)
     {
+        if (control is IFormView view)
+        {
+            if (view.Context.Program is { } program)
+            {
+                if (visible) program.Show(view);
+                else program.Hide(view, reportModalError: false);
+            }
+            else if (visible) view.ShowForm();
+            else view.HideForm();
+            return;
+        }
         if (control is not IVBContainerControl)
         {
             control.IsVisible = visible;

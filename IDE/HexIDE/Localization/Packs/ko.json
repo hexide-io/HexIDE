@@ -2,6 +2,7 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "프로젝트 파일 텍스트를 적용하면 {0}의 저장하지 않은 프로젝트 설정이 바뀝니다. 계속하시겠습니까?",
     "Str.MemberOrigin.HexIde": "HexIDE 확장 기능이며 VB6에서는 사용할 수 없습니다.",
     "Str.Dock.Host": "도킹 호스트",
     "Str.Dock.Root": "루트 도크",
@@ -164,6 +165,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "이 언어에 대한 모든 재정의를 제거하시겠습니까?",
     "Str.TranslationEditor.PlaceholderError": "편집이 거부되었습니다. 원본과 동일한 {0}, {1} … 자리 표시자를 유지해야 합니다.",
     "Str.TranslationEditor.ProtectedCredits": "HexIDE의 감사 문구는 여기에서 바꿀 수 없습니다. HexIDE 기반 제품은 내용을 추가만 할 수 있습니다.",
+    "Str.TranslationEditor.ProtectedTrust": "HexIDE 서명 키의 레이블은 여기에서 바꿀 수 없습니다. HexIDE 기반 제품은 이 키를 자신의 것으로 표시할 수 없습니다.",
     "Str.TranslationEditor.Tooltip.Override": "재정의: {0}",
     "Str.TranslationEditor.Tooltip.None": "(없음)",
     "Str.TranslationEditor.Area.Menu": "메뉴",
@@ -453,6 +455,7 @@
     "Str.Tool.CallStack.RowName": "{0}, {1}줄",
     "Str.Tool.ObjectBrowser.AllLibraries": "<모든 라이브러리>",
     "Str.Tool.ObjectBrowser.MembersOf": "'{0}'의 멤버",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "이 라이브러리의 형식 라이브러리가 없으면 멤버를 나열할 수 없습니다.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "개체 찾아보기 닫기",
     "Str.Tool.ObjectBrowser.Chrome.Title": "개체 찾아보기",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "정의로 이동",

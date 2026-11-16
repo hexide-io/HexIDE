@@ -12,6 +12,7 @@ public class PrePass : VB6BaseVisitor<object?>
     private readonly ExecutionEnvironment rootEnv;
     private readonly ExecutionState state;
     private readonly bool allowIndexedLet;
+    private readonly bool allowIndexedSet;
     public Dictionary<string, ProcedureInfo> Procedures = new(StringComparer.OrdinalIgnoreCase);
     // `Property Get/Let/Set` accessors, keyed by property name (each name owns up to three accessors).
     public Dictionary<string, PropertyInfo> Properties = new(StringComparer.OrdinalIgnoreCase);
@@ -217,11 +218,12 @@ public class PrePass : VB6BaseVisitor<object?>
             NoteDefaultMember(body.GetChild(i), kind);
     }
 
-    public PrePass(ExecutionEnvironment rootEnv, ExecutionState state, bool allowIndexedLet = false)
+    public PrePass(ExecutionEnvironment rootEnv, ExecutionState state, bool allowIndexedLet = false, bool allowIndexedSet = false)
     {
         this.rootEnv = rootEnv;
         this.state = state;
         this.allowIndexedLet = allowIndexedLet;
+        this.allowIndexedSet = allowIndexedSet;
     }
 
     public override object? VisitChildren(Antlr4.Runtime.Tree.IRuleNode node)
@@ -372,7 +374,7 @@ public class PrePass : VB6BaseVisitor<object?>
                             throw new NotImplementedException("An array declared As New is not implemented (#1482)");
                         objectSlot = true;
                     }
-                    else if (subStmt.asTypeClause().fieldLength() != null)
+                    else if (subStmt.asTypeClause().fieldLength() != null && subStmt.asTypeClause().type()?.baseType()?.STRING() is null)
                         throw new NotImplementedException("fieldLength as type not implemented");
                     if (subStmt.asTypeClause().type().complexType() != null)
                     {
@@ -770,7 +772,7 @@ public class PrePass : VB6BaseVisitor<object?>
         VB6Parser.BlockContext? block, VB6Parser.VisibilityContext? visibility)
     {
         var args = ParseParams(argList);
-        if (args.Count != 1 && !(allowIndexedLet && kind == "Let" && args.Count > 1))
+        if (args.Count != 1 && !(args.Count > 1 && (kind == "Let" ? allowIndexedLet : allowIndexedSet)))
             throw new NotImplementedException(
                 $"Property {kind} '{name}' must take exactly one (value) parameter — parameterized properties are not supported");
         return CheckedLocals(new ProcedureInfo(name, false, args, Vb6Value.ValueType.EmptyVariant, block, IsPrivate(visibility)));
@@ -780,8 +782,8 @@ public class PrePass : VB6BaseVisitor<object?>
     {
         declared = true;
         // A `Type … End Type` definition: parse each field to a scalar ValueType or a nested-type NAME (resolved
-        // — UDT vs Enum — at instantiation, once the program-wide tables exist). Array bounds are collected here; fixed-length
-        // strings inside a Type are deferred.
+        // — UDT vs Enum — at instantiation, once the program-wide tables exist). Array bounds and fixed-string
+        // width syntax are collected here; widths resolve when storage is allocated.
         var name = context.ambiguousIdentifier().GetText();
         DeclareModuleTypeName(name);
         var fields = new List<UdtField>();
@@ -812,8 +814,8 @@ public class PrePass : VB6BaseVisitor<object?>
                 fields.Add(new UdtField(fieldName, Vb6Value.ValueType.EmptyVariant, null, IsArray: isArray, Bounds: bounds));   // untyped -> Variant
                 continue;
             }
-            if (asType.fieldLength() != null)
-                throw new NotImplementedException($"Fixed-length field '{fieldName}' inside Type '{name}' is not yet supported");
+            if (asType.fieldLength() != null && asType.type()?.baseType()?.STRING() is null)
+                throw new NotImplementedException("fieldLength as type not implemented");
             if (asType.NEW() != null)
             {
                 if (isArray)
@@ -828,7 +830,7 @@ public class PrePass : VB6BaseVisitor<object?>
                 fields.Add(new UdtField(fieldName,
                     BaseTypeMapper.Map(asType.type().baseType())
                         ?? throw new NotImplementedException($"Unsupported field type for '{fieldName}' in Type '{name}'"),
-                    null, IsArray: isArray, Bounds: bounds));
+                    null, IsArray: isArray, Bounds: bounds, FixedLength: asType.fieldLength()));
         }
         // Visibility is RECORDED rather than ignored. `Private` means invisible outside this module, and
         // measured means it: a foreign Private Type is "User-defined type not defined" whether the
@@ -881,6 +883,9 @@ public class PrePass : VB6BaseVisitor<object?>
             return result;
         foreach (var arg in argList.arg())
         {
+            if (arg.asTypeClause() is { } fixedType && fixedType.fieldLength() is not null
+                && fixedType.type()?.baseType()?.STRING() is not null)
+                throw new VBCompileErrorException("Expected array");
             // `Sub F(n%)` is `Sub F(n As Integer)`, and an As clause beside the character is VB6's compile error (measured,
             // #742). With neither, the DefType's for the name's letter (measured, #169: `Sub ITake(i7)` under DefInt, given
             // 2.6, holds an Integer 3). DefObj makes it an `As Object`.
@@ -942,6 +947,8 @@ public class PrePass : VB6BaseVisitor<object?>
 
     private static Vb6Value.ValueType ReturnTypeOf(VB6Parser.AsTypeClauseContext? asType)
     {
+        if (asType?.fieldLength() is not null && asType.type()?.baseType()?.STRING() is not null)
+            throw new VBCompileErrorException("Expected: end of statement");
         var type = asType?.type()?.LPAREN() != null && asType.type().baseType() is { } element
             && (element.OBJECT() != null || element.COLLECTION() != null)
             ? Vb6Value.ValueType.Object : ExtractBaseType(asType) ?? Vb6Value.ValueType.EmptyVariant;

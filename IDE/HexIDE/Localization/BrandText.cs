@@ -24,6 +24,28 @@ internal static partial class BrandText
     internal const string UpstreamCreditsKey = "Str.Dialog.About.Credits.Thanks";
 
     /// <summary>
+    /// The lines that say whose signing keys these are: About's provenance and fingerprint labels, and the trust
+    /// inspector's root, trust-anchor and first-party rows. No override tier may relabel them, whether a profile (a
+    /// brand's <c>defaultProfile</c> included), the user's translations or a later package tier. Otherwise a
+    /// product built on HexIDE could present HexIDE's keys as its own beside the real fingerprints (#4060).
+    /// </summary>
+    internal static readonly IReadOnlySet<string> TrustLabelKeys = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "Str.Dialog.About.Provenance",
+        "Str.Dialog.About.SigningKeys.Header",
+        "Str.Dialog.About.SigningKeys.RootKey",
+        "Str.Dialog.About.SigningKeys.FirstPartyKey",
+        "Str.Dialog.TrustChain.Root",
+        "Str.Dialog.TrustChain.TrustAnchor",
+        "Str.Dialog.TrustChain.FirstPartyBadge",
+        "Str.Dialog.TrustChain.CompareHint",
+    };
+
+    /// <summary>Every key that always shows the shipped pack's text: HexIDE's credits (#2746) and its trust labels.</summary>
+    internal static readonly IReadOnlySet<string> ProtectedKeys =
+        new HashSet<string>([UpstreamCreditsKey, .. TrustLabelKeys], StringComparer.Ordinal);
+
+    /// <summary>
     /// Strings that are statements about HexIDE itself, and stay true only if they keep saying so: who built it,
     /// whose signing keys these are, which HexIDE version an add-in asks for, and what its engine implements.
     /// </summary>
@@ -46,6 +68,7 @@ internal static partial class BrandText
         "Str.Designer.ReadOnly.Banner",
         "Str.CodeEditor.FileNotSaved.Banner",
         "Str.ProjectLoad.ActiveXDocuments",
+        "Str.TranslationEditor.ProtectedTrust",
     };
 
     // Not when a dot and a letter follow: that is a file or assembly name, HexIDE.Standalone for one, and those keep

@@ -7,7 +7,7 @@ internal static class IncludedFiles
     private static readonly HashSet<string> ProtectedNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "hexide-root.pub", "hexide-firstparty.pub", "revocations.json", "revocations.sig",
-        "revocations-cache.json", "revocations-cache.sig",
+        "revocations-cache.json", "revocations-cache.sig", "revocations-cache.signed",
     };
 
     public static int Copy(string source, string destination, string stock)

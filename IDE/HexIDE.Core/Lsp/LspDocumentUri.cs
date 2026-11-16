@@ -87,6 +87,10 @@ public static class LspDocumentUri
     /// </summary>
     private static string Normalize(string uri)
     {
+        if (ArchiveEntryUri.TryParse(uri, out var container, out var segments))
+            return ArchiveEntryUri.Normalize(Normalize(container), segments);
+        if (uri.StartsWith("archive-entry:", StringComparison.OrdinalIgnoreCase)) return uri;
+
         // An unparseable URI is compared as-is rather than rejected: a server that sends something
         // odd should lose URI-matching precision, not have its diagnostics thrown away.
         if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed))
@@ -120,6 +124,10 @@ public static class LspDocumentUri
         // the answer under the name it asked about. Worth saying because the obvious test — compare the
         // published URI with the one sent — is a tautology on three of the five foreign servers.
         "untitled" => true,
+
+        // Entry segments are ordinal even on Windows. Only the nested file: container is folded,
+        // by Normalize above; folding this path would alias distinct archive entries.
+        "archive-entry" => false,
 
         // Everything else: RFC 3986 says the path is case-sensitive unless a scheme says otherwise,
         // and we do not know this scheme.

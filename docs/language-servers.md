@@ -611,6 +611,13 @@ in Tools → Language Servers rather than given an invented URI. If your build d
 `rdcore.importProject`, the same window reports the command as unavailable: use the
 [`rdcore` workspace-artefact provider](#generated-workspace-files) in place of `projectImport`.
 
+RDCore's language server needs .NET 11 from RDCore `d6496d6fb` on
+([#4058](https://github.com/hexide-io/HexIDE/issues/4058)). If .NET 11 is installed somewhere other than
+its default location, add `"environment": { "DOTNET_ROOT": "<that folder>" }` to the entry. RDCore starts
+its own helper processes, which find .NET through `DOTNET_ROOT` or the default location, never through
+PATH. Put it on the entry rather than on HexIDE's own environment: a `DOTNET_ROOT` without the runtime
+HexIDE itself needs stops HexIDE from starting, with .NET's "install .NET" message.
+
 **A VB6 project.** RDCore gives a project VB6's implicit `VBRUN` and `VB` libraries only when it knows the
 project is VB6. Its default language is RD-VBA, so without that a form reports `VBC09311` for VB's own types.
 For a VB6 workspace, add this to the entry (#3317):

@@ -41,6 +41,11 @@ A member that isn't in this table stops the IDE from starting. So does anything 
 reports the file and the problem, and doesn't fall back to being HexIDE, because that would open HexIDE's settings
 and recovery files inside your product. `--help` still answers on a broken installation, and exits with code 2.
 
+Logo capture checks every PNG chunk's length and CRC, the header's format, and the final IEND. Its IDAT
+stream must inflate to exactly the scanline bytes required by the dimensions, including Adam7 passes.
+Validation runs before the UI toolkit starts, within the existing 1 MiB file and 1024×1024 pixel limits;
+a corrupt logo refuses startup with both the descriptor and logo file named (#4063).
+
 ## Translating your tagline and credits
 
 Each `tagline` or `credits` entry can be an ordinary string or an object with a required `text` fallback
@@ -71,6 +76,9 @@ fallback, since it runs before the user's language settings are loaded.
 - **HexIDE's credits stay.** You can add to them, and nothing removes, replaces or hides them. A translation
   override of them is ignored. Your About box also says what it's built on, with HexIDE's version and notice.
 - **It grants no trust.** The add-in trust root and the first-party key don't change, and About keeps showing them.
+  The lines that name them can't be relabeled either: About's provenance and signing-key labels, and the add-in trust
+  inspector's root, trust-anchor and first-party rows. A profile, including your `defaultProfile`, and a user's
+  translation override of them are ignored and logged, as for the credits (#4060).
 - **Engine statements keep HexIDE's name.** Messages about what the interpreter or serializer implements,
   including unsupported components and faithful-save refusals, describe the engine in every distribution (#4061).
 - **Compatibility names don't change.** Assembly names, protocol and tool ids, `HEXIDE_*` environment variables,
@@ -129,7 +137,7 @@ path and leaves no output or unfinished staging directory.
 
 It grants no trust: included add-ins still need verification and consent. At every depth, names are
 checked without regard to case against `hexide-root.pub`, `hexide-firstparty.pub`, `revocations.json`,
-`revocations.sig`, `revocations-cache.json` and `revocations-cache.sig`. These are refused even when
+`revocations.sig`, `revocations-cache.json`, `revocations-cache.sig` and `revocations-cache.signed`. These are refused even when
 absent from stock. This list follows `TrustAnchors.cs` (embedded anchors) and `RevocationStore.cs`
 (embedded revocation floor and user-data cache); it does not prohibit a package's publisher certificates.
 

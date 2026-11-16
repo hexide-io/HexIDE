@@ -2,6 +2,7 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "การใช้ข้อความในไฟล์โครงการจะแทนที่การตั้งค่าโครงการที่ยังไม่ได้บันทึกของ {0} ต้องการดำเนินการต่อหรือไม่",
     "Str.MemberOrigin.HexIde": "ส่วนขยายของ HexIDE; ไม่มีใน VB6",
     "Str.Dock.Host": "โฮสต์การเทียบชิด",
     "Str.Dock.Root": "พื้นที่เทียบชิดราก",
@@ -380,6 +381,7 @@
     "Str.Tool.CallStack.RowName": "{0}, บรรทัด {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<ทุกไลบรารี>",
     "Str.Tool.ObjectBrowser.MembersOf": "สมาชิกของ '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "ไม่สามารถแสดงรายการสมาชิกได้หากไม่มีไลบรารีชนิดของไลบรารีนี้",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "ปิดตัวเรียกดูวัตถุ",
     "Str.Tool.ObjectBrowser.Chrome.Title": "ตัวเรียกดูวัตถุ",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "ไปที่นิยาม",
@@ -499,6 +501,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "เอาค่าที่คุณแทนที่ไว้ทั้งหมดสำหรับภาษานี้ออกหรือไม่?",
     "Str.TranslationEditor.PlaceholderError": "ปฏิเสธการแก้ไข: ต้องคงตัวแทนค่า {0}, {1} … เหมือนต้นฉบับ",
     "Str.TranslationEditor.ProtectedCredits": "ไม่สามารถแทนที่คำขอบคุณของ HexIDE ได้ที่นี่ ผลิตภัณฑ์ที่สร้างบน HexIDE ทำได้เพียงเพิ่มเติมเท่านั้น",
+    "Str.TranslationEditor.ProtectedTrust": "ไม่สามารถแทนที่ป้ายกำกับของคีย์ลงลายเซ็นของ HexIDE ได้ที่นี่ ผลิตภัณฑ์ที่สร้างบน HexIDE ไม่สามารถแสดงคีย์เหล่านั้นว่าเป็นของตนเองได้",
     "Str.TranslationEditor.Tooltip.Override": "ค่าที่แทนที่: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ไม่มี)",
     "Str.TranslationEditor.Area.Menu": "เมนู",
