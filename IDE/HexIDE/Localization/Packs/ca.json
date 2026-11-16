@@ -560,6 +560,7 @@
     "Str.Options.Keymap.Pack": "Paquet",
     "Str.Options.Keymap.Capture": "Premeu una drecera (Escape cancel·la).",
     "Str.Options.Keymap.Conflict": "Ja l’utilitza: {0}. Voleu mantenir aquesta drecera?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Retorn",
     "Str.Options.Keymap.MissingBindings": "El fitxer ha de contenir un objecte bindings.",
     "Str.Options.Keymap.InvalidImport": "No s’han importat les personalitzacions. Comproveu el JSON i les cadenes de les dreceres: {0}",

@@ -531,6 +531,7 @@
     "Str.Options.Keymap.Pack": "Paket",
     "Str.Options.Keymap.Capture": "Tryck en tangentkombination (Escape avbryter).",
     "Str.Options.Keymap.Conflict": "Används redan av: {0}. Behålla den här genvägen?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Retur",
     "Str.Options.Keymap.MissingBindings": "Filen måste innehålla ett bindings-objekt.",
     "Str.Options.Keymap.InvalidImport": "Åsidosättningarna importerades inte. Kontrollera JSON och strängarna för tangentkombinationer: {0}",

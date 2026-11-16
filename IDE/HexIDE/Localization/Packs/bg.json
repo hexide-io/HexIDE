@@ -560,6 +560,7 @@
     "Str.Options.Keymap.Pack": "Пакет",
     "Str.Options.Keymap.Capture": "Натиснете клавишна комбинация (Escape отменя).",
     "Str.Options.Keymap.Conflict": "Вече се използва от: {0}. Да се запази ли тази комбинация?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "Файлът трябва да съдържа обект bindings.",
     "Str.Options.Keymap.InvalidImport": "Заместващите настройки не бяха импортирани. Проверете JSON и низовете на клавишните комбинации: {0}",

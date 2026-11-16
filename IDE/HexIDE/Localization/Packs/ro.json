@@ -535,6 +535,7 @@
     "Str.Options.Keymap.Pack": "Pachet",
     "Str.Options.Keymap.Capture": "Apăsați o combinație de taste (Escape anulează).",
     "Str.Options.Keymap.Conflict": "Deja folosită de: {0}. Păstrați această combinație?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "Fișierul trebuie să conțină un obiect bindings.",
     "Str.Options.Keymap.InvalidImport": "Suprascrierile nu au fost importate. Verificați JSON și șirurile combinațiilor de taste: {0}",

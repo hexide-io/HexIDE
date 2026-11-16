@@ -535,6 +535,7 @@
     "Str.Options.Keymap.Pack": "Pakett",
     "Str.Options.Keymap.Capture": "Vajutage kiirklahvi (Escape tühistab).",
     "Str.Options.Keymap.Conflict": "Juba kasutusel: {0}. Kas jätta see kiirklahv alles?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "Fail peab sisaldama bindings-objekti.",
     "Str.Options.Keymap.InvalidImport": "Ülekirjutusi ei imporditud. Kontrollige JSON-i ja kiirklahvide stringe: {0}",

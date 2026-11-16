@@ -531,6 +531,7 @@
     "Str.Options.Keymap.Pack": "Pacote",
     "Str.Options.Keymap.Capture": "Prima um atalho (Escape cancela).",
     "Str.Options.Keymap.Conflict": "Já utilizado por: {0}. Manter este atalho?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "O ficheiro deve conter um objeto bindings.",
     "Str.Options.Keymap.InvalidImport": "As substituições não foram importadas. Verifique o JSON e as cadeias de combinações de teclas: {0}",

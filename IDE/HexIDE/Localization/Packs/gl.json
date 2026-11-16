@@ -560,6 +560,7 @@
     "Str.Options.Keymap.Pack": "Paquete",
     "Str.Options.Keymap.Capture": "Prema un atallo (Escape cancela).",
     "Str.Options.Keymap.Conflict": "Xa o utiliza: {0}. Manter este atallo?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Intro",
     "Str.Options.Keymap.MissingBindings": "O ficheiro debe conter un obxecto bindings.",
     "Str.Options.Keymap.InvalidImport": "Non se importaron as personalizacións. Comprobe o JSON e as cadeas dos atallos: {0}",

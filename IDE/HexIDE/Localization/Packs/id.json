@@ -565,6 +565,7 @@
     "Str.Options.Keymap.Pack": "Paket",
     "Str.Options.Keymap.Capture": "Tekan pintasan (Escape untuk membatalkan).",
     "Str.Options.Keymap.Conflict": "Sudah digunakan oleh: {0}. Pertahankan pintasan ini?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "Berkas harus berisi objek bindings.",
     "Str.Options.Keymap.InvalidImport": "Penggantian tidak diimpor. Periksa JSON dan string pintasan keyboard: {0}",

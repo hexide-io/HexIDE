@@ -565,6 +565,7 @@
     "Str.Options.Keymap.Pack": "Pacchetto",
     "Str.Options.Keymap.Capture": "Premere una scorciatoia (Esc annulla).",
     "Str.Options.Keymap.Conflict": "Già utilizzata da: {0}. Mantenere questa scorciatoia?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Invio",
     "Str.Options.Keymap.MissingBindings": "Il file deve contenere un oggetto bindings.",
     "Str.Options.Keymap.InvalidImport": "Le personalizzazioni non sono state importate. Controllare il JSON e le stringhe delle scorciatoie: {0}",

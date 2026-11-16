@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -10,7 +11,7 @@ using HexIDE.Automation;
 using HexIDE.Debugging;
 using HexIDE.Events;
 using HexIDE.IDE;
-using HexIDE.Localization;
+using HexIDE.Keymaps;using HexIDE.Localization;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Debugging;
@@ -421,6 +422,55 @@ public class ProgramWaitTests
             while (!ready() && elapsed.Elapsed < TimeSpan.FromSeconds(10))
                 await Task.Delay(10);
             ready().Should().BeTrue("the posted command state must reach the toolbar");
+        }
+    }
+
+    // Pause is portable; the Windows Cancel mapping is also exercised on Linux using the Windows policy.
+    public static TheoryData<Key> BreakKeys => OperatingSystem.IsMacOS()
+        ? new() { Key.Pause } : new() { Key.Cancel, Key.Pause };
+
+    [AvaloniaTheory]
+    [MemberData(nameof(BreakKeys))]
+    public async Task Break_key_reaches_a_running_DoEvents_loop_from_the_IDE(Key key)
+    {
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
+        var shell = ToolbarAutomationNameTests.ShowMainView();
+        var main = (MainView)shell.Content!;
+        main.DataContext = composition.Root;
+        var original = ApplicationCommands.BreakProjectCommand.Gestures.ToArray();
+        try
+        {
+            new KeymapService(System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString()), isWindows: true)
+                .Apply("Default");
+            using var run = Start("""
+                Private Sub Command1_Click()
+                    Do
+                        DoEvents
+                    Loop
+                End Sub
+                """, timeSliceMs: null, composition: composition);
+            UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null).Success.Should().BeTrue();
+            await Task.Delay(100);
+            run.Controller.State.Should().Be(DebugState.Running);
+            main.Focus();
+            main.RaiseEvent(new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent, Key = key,
+                KeyModifiers = ApplicationCommands.CopyCommand.Gestures[0].KeyModifiers
+            });
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
+            while (run.Controller.State != DebugState.Paused && elapsed.Elapsed < TimeSpan.FromSeconds(10))
+                await Task.Delay(10);
+            run.Controller.State.Should().Be(DebugState.Paused);
+        }
+        finally
+        {
+            ApplicationCommands.BreakProjectCommand.Gestures.Clear();
+            foreach (var gesture in original) ApplicationCommands.BreakProjectCommand.Gestures.Add(gesture);
+            shell.Close();
+            foreach (var project in composition.DocumentDockService.OpenDocuments.Select(d => d.OpenDocument?.Project).Distinct().ToArray())
+                if (project is not null) composition.EventBus.Publish(new HexIDE.Events.ProjectUnloadedEvent(project));
         }
     }
 

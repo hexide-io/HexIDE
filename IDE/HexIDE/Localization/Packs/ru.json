@@ -531,6 +531,7 @@
     "Str.Options.Keymap.Pack": "Пакет",
     "Str.Options.Keymap.Capture": "Нажмите сочетание клавиш (Escape — отмена).",
     "Str.Options.Keymap.Conflict": "Уже используется: {0}. Сохранить это сочетание клавиш?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Ввод",
     "Str.Options.Keymap.MissingBindings": "Файл должен содержать объект bindings.",
     "Str.Options.Keymap.InvalidImport": "Переопределения не импортированы. Проверьте JSON и строки сочетаний клавиш: {0}",

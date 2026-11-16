@@ -556,6 +556,7 @@
     "Str.Options.Keymap.Pack": "套件",
     "Str.Options.Keymap.Capture": "請按快速鍵（Escape 取消）。",
     "Str.Options.Keymap.Conflict": "已由以下命令使用：{0}。保留此快速鍵嗎？",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "檔案必須包含 bindings 物件。",
     "Str.Options.Keymap.InvalidImport": "未匯入覆寫設定。請檢查 JSON 和按鍵組合字串：{0}",

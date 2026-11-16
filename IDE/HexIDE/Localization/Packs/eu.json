@@ -535,6 +535,7 @@
     "Str.Options.Keymap.Pack": "Paketea",
     "Str.Options.Keymap.Capture": "Sakatu lasterbide bat (Escape teklak bertan behera uzten du).",
     "Str.Options.Keymap.Conflict": "Honek erabiltzen du jada: {0}. Lasterbide hau mantendu?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Sartu",
     "Str.Options.Keymap.MissingBindings": "Fitxategiak bindings objektu bat izan behar du.",
     "Str.Options.Keymap.InvalidImport": "Ez dira gainidazketak inportatu. Egiaztatu JSONa eta lasterbideen kateak: {0}",

@@ -556,6 +556,7 @@
     "Str.Options.Keymap.Pack": "Balíček",
     "Str.Options.Keymap.Capture": "Stiskněte klávesovou zkratku (Escape zruší zadávání).",
     "Str.Options.Keymap.Conflict": "Již používá: {0}. Zachovat tuto zkratku?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "Soubor musí obsahovat objekt bindings.",
     "Str.Options.Keymap.InvalidImport": "Přepsání nebyla importována. Zkontrolujte JSON a řetězce klávesových zkratek: {0}",

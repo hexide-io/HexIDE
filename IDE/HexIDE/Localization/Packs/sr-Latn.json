@@ -535,6 +535,7 @@
     "Str.Options.Keymap.Pack": "Paket",
     "Str.Options.Keymap.Capture": "Pritisnite prečicu (Escape otkazuje).",
     "Str.Options.Keymap.Conflict": "Već koristi: {0}. Zadržati ovu prečicu?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "Datoteka mora sadržati objekat bindings.",
     "Str.Options.Keymap.InvalidImport": "Prilagođena podešavanja nisu uvezena. Proverite JSON i nizove kombinacija tastera: {0}",

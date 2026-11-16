@@ -500,6 +500,7 @@ public class ShippedPackParityTests
         galician.Strings!.Where(pair => pair.Value == canonical.Strings![pair.Key])
             .Select(pair => pair.Key).Should().BeEquivalentTo(new[]
             {
+                "Str.Options.Keymap.Break", // The keyboard key label.
                 "Str.Tool.FindReferences.Error",
                 "Str.Options.Addin.Status.Incompatible",
                 "Str.CodeEditor.ViewAs.Vb6", "Str.Tool.Locals.Ellipsis",

@@ -531,6 +531,7 @@
     "Str.Options.Keymap.Pack": "Paketti",
     "Str.Options.Keymap.Capture": "Paina pikanäppäintä (Escape peruuttaa).",
     "Str.Options.Keymap.Conflict": "Jo käytössä: {0}. Säilytetäänkö tämä pikanäppäin?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "Tiedoston on sisällettävä bindings-objekti.",
     "Str.Options.Keymap.InvalidImport": "Ohituksia ei tuotu. Tarkista JSON ja pikanäppäinten merkkijonot: {0}",

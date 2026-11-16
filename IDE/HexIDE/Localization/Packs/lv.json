@@ -569,6 +569,7 @@
     "Str.Options.Keymap.Pack": "Pakotne",
     "Str.Options.Keymap.Capture": "Nospiediet īsinājumtaustiņu (Escape atceļ).",
     "Str.Options.Keymap.Conflict": "Jau izmanto: {0}. Paturēt šo īsinājumtaustiņu?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "Failā jābūt bindings objektam.",
     "Str.Options.Keymap.InvalidImport": "Pielāgojumi netika importēti. Pārbaudiet JSON un taustiņu kombināciju virknes: {0}",

@@ -528,7 +528,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Ctrl+R | Project Explorer | Done | Functional; Replace is Ctrl+H (Cmd+Alt+F on macOS) |
 | F5 | Start | Done | |
 | Ctrl+F5 | Start with Full Compile | Stub | Same as F5 |
-| Ctrl+Break | Break | Done | Pauses the running interpreter at the next statement (native debugger, Phase 1) |
+| Ctrl+Break | Break | Done | Pauses the running interpreter at the next statement; Windows accepts both Ctrl+Cancel (the keyboard’s Ctrl+Break) and Ctrl+Pause, with one Break binding in Options (#4260) |
 | Shift+F5 | Restart | Done | |
 | F8 | Step Into | Done | Step one statement / start-and-step from idle (native debugger, Phase 2) |
 | Shift+F8 | Step Over | Done | Run called proc to completion, break in current frame (native debugger, Phase 5); factory gesture also available in Default (#3343) |

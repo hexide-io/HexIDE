@@ -565,6 +565,7 @@
     "Str.Options.Keymap.Pack": "Pakiet",
     "Str.Options.Keymap.Capture": "Naciśnij skrót klawiszowy (Escape anuluje).",
     "Str.Options.Keymap.Conflict": "Już używany przez: {0}. Zachować ten skrót?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "Plik musi zawierać obiekt bindings.",
     "Str.Options.Keymap.InvalidImport": "Nie zaimportowano nadpisań. Sprawdź JSON i ciągi kombinacji klawiszy: {0}",

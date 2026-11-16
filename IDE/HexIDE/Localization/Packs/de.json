@@ -556,6 +556,7 @@
     "Str.Options.Keymap.Pack": "Paket",
     "Str.Options.Keymap.Capture": "Drücken Sie eine Tastenkombination (Escape bricht ab).",
     "Str.Options.Keymap.Conflict": "Bereits verwendet von: {0}. Diese Tastenkombination beibehalten?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Eingabe",
     "Str.Options.Keymap.MissingBindings": "Die Datei muss ein bindings-Objekt enthalten.",
     "Str.Options.Keymap.InvalidImport": "Die Überschreibungen wurden nicht importiert. Prüfen Sie das JSON und die Zeichenfolgen der Tastenkombinationen: {0}",

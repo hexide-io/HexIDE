@@ -531,6 +531,7 @@
     "Str.Options.Keymap.Pack": "Gói",
     "Str.Options.Keymap.Capture": "Nhấn phím tắt (Escape để hủy).",
     "Str.Options.Keymap.Conflict": "Đã được dùng bởi: {0}. Giữ phím tắt này?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "Tệp phải chứa đối tượng bindings.",
     "Str.Options.Keymap.InvalidImport": "Chưa nhập các thiết lập ghi đè. Hãy kiểm tra JSON và các chuỗi tổ hợp phím: {0}",
