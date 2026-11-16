@@ -577,6 +577,7 @@ added afterwards.
 - [The reset prompt: which edits raise it, and which windows it holds (2026-10-22, #1329)](the-reset-prompt-which-edits-raise-it-and-which-windows-it-holds.md#the-reset-prompt-which-edits-raise-it-and-which-windows-it-holds-2026-10-22-1329)
 - [A form whose two names disagree (2026-10-22, #473)](a-form-whose-two-names-disagree.md#a-form-whose-two-names-disagree-2026-10-22-473)
 - [A quote inside a .frm string (2026-10-22, #218)](a-quote-inside-a-frm-string.md#a-quote-inside-a-frm-string-2026-10-22-218)
+- [A property named twice, and a measurement VB6 can't set, in a .frm (2026-11-16, #4096, design-time, IDE, SP6)](a-property-named-twice-and-a-measurement-vb6-cant-set-in-a-frm.md#a-property-named-twice-and-a-measurement-vb6-cant-set-in-a-frm-2026-11-16-4096-design-time-ide-sp6)
 - [ToolTipText: which controls have it (2026-10-23, #1403)](tooltiptext-which-controls-have-it.md#tooltiptext-which-controls-have-it-2026-10-23-1403)
 - [What Save Project As does to the paths in a project file (2026-10-22, #1406)](what-save-project-as-does-to-the-paths-in-a-project-file.md#what-save-project-as-does-to-the-paths-in-a-project-file-2026-10-22-1406)
 - [Where and how VB6 writes a project's description (2026-10-22, #42)](where-and-how-vb6-writes-a-projects-description.md#where-and-how-vb6-writes-a-projects-description-2026-10-22-42)
