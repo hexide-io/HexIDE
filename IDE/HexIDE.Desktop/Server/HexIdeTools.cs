@@ -1344,7 +1344,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         var main = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
         return target == main ? "ide"
-            : HexIDE.Runtime.BuiltinControls.VBProps.GetName(target) is { Length: > 0 } form ? form
+            : RunningProgram.Current.Form(target)?.Name is { Length: > 0 } form ? form
             : DescribeWindow(target);
     }
 
@@ -2183,7 +2183,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var stopped = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnStopped(StoppedInfo info) => stopped.TrySetResult(info);
         int? errorBefore = null;
-        HexIDE.Runtime.EventPump? pump = null;
+        IProgramActivity? pump = null;
         IReadOnlyCollection<object> liveBefore = [];
 
         var refused = await Dispatcher.UIThread.InvokeAsync(() =>

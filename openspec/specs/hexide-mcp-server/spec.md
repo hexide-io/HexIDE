@@ -19,6 +19,24 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Ask running programs through the engine contract
+
+Automation SHALL ask the Core running-program contract to recognise forms, observe activity after input,
+and receive printed text (#4067). The interpreter-specific implementation SHALL remain beside the run engine
+until it moves to its provider. The Immediate window and window selection SHALL use the same contract.
+This separation SHALL preserve automation replies and the existing settle timing.
+
+#### Scenario: No engine or no running program
+
+- **WHEN** automation asks about a window with no program behind it
+- **THEN** it finds no running form or activity to wait for, receives no printed text, and raises no exception
+
+#### Scenario: Input starts program work
+
+- **WHEN** an action starts work on a running form
+- **THEN** automation observes activity through the contract at the existing dispatcher priority and polling interval
+- **AND** printed text and the resulting reply retain their existing contents
+
 ### Requirement: Discover archive projects and each project's own file
 `get_project_info` SHALL include open archive projects in `projects`, with their container path, their
 own `projectFile`, and `entries` listing stored entry paths, including folders and hidden entries.
