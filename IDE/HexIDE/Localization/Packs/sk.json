@@ -502,6 +502,7 @@
     "Str.TranslationEditor.PlaceholderError": "Úprava bola odmietnutá: musí zachovať rovnaké zástupné symboly {0}, {1} … ako originál.",
     "Str.TranslationEditor.ProtectedCredits": "Poďakovanie HexIDE tu nemožno prepísať. Produkt postavený na HexIDE ho môže iba doplniť.",
     "Str.TranslationEditor.ProtectedTrust": "Označenia podpisových kľúčov HexIDE tu nemožno prepísať. Produkt postavený na HexIDE nemôže tieto kľúče vydávať za svoje.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Profil nemôže tento riadok zmeniť, pretože vám hovorí, či môžete doplnku dôverovať. Váš vlastný preklad sa naďalej použije.",
     "Str.TranslationEditor.Tooltip.Override": "vlastný preklad: {0}",
     "Str.TranslationEditor.Tooltip.None": "(žiadny)",
     "Str.TranslationEditor.Area.Menu": "Ponuky",

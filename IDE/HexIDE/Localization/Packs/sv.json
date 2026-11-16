@@ -132,6 +132,7 @@
     "Str.TranslationEditor.PlaceholderError": "Ändringen avvisades: den måste behålla samma platshållare {0}, {1} … som originalet.",
     "Str.TranslationEditor.ProtectedCredits": "HexIDE:s egna tack kan inte ersättas här. En produkt byggd på HexIDE kan bara lägga till.",
     "Str.TranslationEditor.ProtectedTrust": "Etiketterna för HexIDE:s signeringsnycklar kan inte ersättas här. En produkt byggd på HexIDE kan inte presentera de nycklarna som sina egna.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "En profil kan inte ändra den här raden, eftersom den talar om huruvida du kan lita på ett tillägg. Din egen översättning gäller fortfarande.",
     "Str.TranslationEditor.Tooltip.Override": "åsidosättning: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ingen)",
     "Str.TranslationEditor.Area.Menu": "Menyer",

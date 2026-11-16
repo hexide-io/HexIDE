@@ -132,6 +132,7 @@
     "Str.TranslationEditor.PlaceholderError": "Chỉnh sửa bị từ chối: nó phải giữ nguyên các trình giữ chỗ {0}, {1} … như bản gốc.",
     "Str.TranslationEditor.ProtectedCredits": "Không thể thay thế lời cảm ơn của HexIDE tại đây. Sản phẩm xây dựng trên HexIDE chỉ có thể bổ sung.",
     "Str.TranslationEditor.ProtectedTrust": "Không thể thay thế nhãn của các khóa ký của HexIDE tại đây. Sản phẩm xây dựng trên HexIDE không thể trình bày các khóa đó như của riêng mình.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Hồ sơ không thể thay đổi dòng này vì dòng này cho bạn biết có nên tin cậy một phần bổ trợ hay không. Bản dịch của riêng bạn vẫn được áp dụng.",
     "Str.TranslationEditor.Tooltip.Override": "ghi đè: {0}",
     "Str.TranslationEditor.Tooltip.None": "(không có)",
     "Str.TranslationEditor.Area.Menu": "Menu",

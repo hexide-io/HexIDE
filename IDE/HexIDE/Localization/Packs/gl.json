@@ -527,6 +527,7 @@
     "Str.TranslationEditor.PlaceholderError": "Edición rexeitada: debe conservar os mesmos marcadores de posición {0}, {1} … ca o orixinal.",
     "Str.TranslationEditor.ProtectedCredits": "Os agradecementos de HexIDE non se poden substituír aquí. Un produto baseado en HexIDE só pode engadir outros.",
     "Str.TranslationEditor.ProtectedTrust": "As etiquetas das chaves de sinatura de HexIDE non se poden substituír aquí. Un produto baseado en HexIDE non pode presentar esas chaves como propias.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Un perfil non pode cambiar esta liña, porque indica se pode confiar nun complemento. A súa propia tradución segue aplicándose.",
     "Str.TranslationEditor.Tooltip.Override": "personalización: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ningunha)",
     "Str.TranslationEditor.Area.Menu": "Menús",

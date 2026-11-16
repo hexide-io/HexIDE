@@ -526,6 +526,7 @@
     "Str.TranslationEditor.PlaceholderError": "Edit rejected: it must keep the same {0}, {1} … placeholders as the original.",
     "Str.TranslationEditor.ProtectedCredits": "HexIDE's own credits can't be overridden here. A product built on HexIDE can only add to them.",
     "Str.TranslationEditor.ProtectedTrust": "The labels on HexIDE's signing keys can't be overridden here. A product built on HexIDE can't present those keys as its own.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "A profile can't change this line, because it tells you whether to trust an add-in. Your own translation still applies.",
     "Str.TranslationEditor.Tooltip.Override": "override: {0}",
     "Str.TranslationEditor.Tooltip.None": "(none)",
     "Str.TranslationEditor.Area.Menu": "Menus",

@@ -536,6 +536,7 @@
     "Str.TranslationEditor.PlaceholderError": "Pakeitimas atmestas: būtina išlaikyti tuos pačius {0}, {1} … vietaženklius kaip originale.",
     "Str.TranslationEditor.ProtectedCredits": "HexIDE padėkų čia pakeisti negalima. HexIDE pagrindu sukurtas produktas gali jas tik papildyti.",
     "Str.TranslationEditor.ProtectedTrust": "HexIDE pasirašymo raktų etikečių čia pakeisti negalima. HexIDE pagrindu sukurtas produktas negali pateikti šių raktų kaip savo.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Profilis negali pakeisti šios eilutės, nes ji nurodo, ar galima pasitikėti priedu. Jūsų pačių vertimas vis tiek taikomas.",
     "Str.TranslationEditor.Tooltip.Override": "pakeitimas: {0}",
     "Str.TranslationEditor.Tooltip.None": "(nėra)",
     "Str.TranslationEditor.Area.Menu": "Meniu",

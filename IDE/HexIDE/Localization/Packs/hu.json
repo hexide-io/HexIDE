@@ -536,6 +536,7 @@
     "Str.TranslationEditor.PlaceholderError": "A módosítás elutasítva: meg kell tartania az eredetivel azonos {0}, {1} … helyőrzőket.",
     "Str.TranslationEditor.ProtectedCredits": "A HexIDE köszönetnyilvánítása itt nem írható felül. A HexIDE-ra épülő termék csak kiegészítheti.",
     "Str.TranslationEditor.ProtectedTrust": "A HexIDE aláíró kulcsainak feliratai itt nem írhatók felül. A HexIDE-ra épülő termék nem tüntetheti fel ezeket a kulcsokat sajátjaként.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Profil nem módosíthatja ezt a sort, mert ez mondja meg, megbízhat-e egy bővítményben. A saját fordítása továbbra is érvényes.",
     "Str.TranslationEditor.Tooltip.Override": "felülírás: {0}",
     "Str.TranslationEditor.Tooltip.None": "(nincs)",
     "Str.TranslationEditor.Area.Menu": "Menük",

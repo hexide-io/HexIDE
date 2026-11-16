@@ -284,21 +284,45 @@ public sealed class LocalizationService : ILocalizationService
                     : "the lines naming HexIDE's signing keys can't be relabeled");
             map[key] = shipped;
         }
+
+        // A profile may not change what tells a person whether to trust an add-in; the user's own translation may (#4121).
+        foreach (var key in BrandText.TrustVerdictKeys)
+        {
+            if (OverrideSources(key, language, includeUser: false) is not { Count: > 0 } sources)
+                continue;
+
+            var expected = UserOverride(key, language) ?? Shipped(key, language);
+            if (map.TryGetValue(key, out var current) && current == expected)
+                continue;
+
+            Log.Warning("LocalizationService: An override of {Key} for '{Language}' from {Sources} was ignored: {Reason}",
+                key, language, string.Join(", ", sources), "a profile can't change what says whether to trust an add-in");
+            map[key] = expected;
+        }
     }
 
     /// <summary>Each override tier that supplies <paramref name="key"/> for <paramref name="language"/>, by name.</summary>
-    private List<string>? OverrideSources(string key, string language)
+    private List<string>? OverrideSources(string key, string language, bool includeUser = true)
     {
         List<string>? sources = null;
         foreach (var layer in new[] { language, NeutralLanguageOf(language) }.Distinct())
         {
             if (_profileStrings.TryGetValue(layer, out var profile) && profile.ContainsKey(key))
                 (sources ??= []).Add($"profile '{_profileId}' ({layer})");
-            if (_userTranslations?.GetOverrides(layer)?.ContainsKey(key) == true)
+            if (includeUser && _userTranslations?.GetOverrides(layer)?.ContainsKey(key) == true)
                 (sources ??= []).Add($"the user's translations ({layer})");
         }
 
         return sources;
+    }
+
+    /// <summary>The user's own translation of <paramref name="key"/>, the region's before its neutral's, as the merge orders them.</summary>
+    private string? UserOverride(string key, string language)
+    {
+        foreach (var layer in new[] { language, NeutralLanguageOf(language) })
+            if (_userTranslations?.GetOverrides(layer) is { } overrides && overrides.TryGetValue(key, out var value))
+                return value;
+        return null;
     }
 
     private string Shipped(string key, string language)

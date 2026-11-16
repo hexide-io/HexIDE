@@ -132,6 +132,7 @@
     "Str.TranslationEditor.PlaceholderError": "Изменение отклонено: оно должно сохранять те же подстановки {0}, {1} …, что и оригинал.",
     "Str.TranslationEditor.ProtectedCredits": "Благодарности HexIDE нельзя заменить здесь. Продукт на основе HexIDE может только дополнить их.",
     "Str.TranslationEditor.ProtectedTrust": "Названия ключей подписи HexIDE нельзя заменить здесь. Продукт на основе HexIDE не может выдавать эти ключи за свои.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Профиль не может изменить эту строку, потому что она сообщает, можно ли доверять надстройке. Ваш собственный перевод по-прежнему применяется.",
     "Str.TranslationEditor.Tooltip.Override": "переопределение: {0}",
     "Str.TranslationEditor.Tooltip.None": "(нет)",
     "Str.TranslationEditor.Area.Menu": "Меню",

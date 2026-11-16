@@ -191,6 +191,7 @@
     "Str.TranslationEditor.PlaceholderError": "העריכה נדחתה: עליה לשמור את אותם מצייני המיקום {0}, {1} … כמו במקור.",
     "Str.TranslationEditor.ProtectedCredits": "לא ניתן להחליף כאן את התודות של HexIDE. מוצר המבוסס על HexIDE יכול רק להוסיף להן.",
     "Str.TranslationEditor.ProtectedTrust": "לא ניתן להחליף כאן את התוויות של מפתחות החתימה של HexIDE. מוצר המבוסס על HexIDE אינו יכול להציג את המפתחות האלה כשלו.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "פרופיל אינו יכול לשנות שורה זו, כי היא אומרת לך אם לסמוך על תוסף. התרגום שלך עדיין חל.",
     "Str.TranslationEditor.Tooltip.Override": "התאמה: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ללא)",
     "Str.TranslationEditor.Area.Menu": "תפריטים",
