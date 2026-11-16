@@ -46,7 +46,7 @@ public abstract class InBoxComponentClass : ComponentBaseClass
     /// The control's own members, as its type libraries declare them, with where each comes from (#1082). The hidden ones
     /// are left out: VB6 offers neither to a program's completion nor its Object Browser.
     /// </summary>
-    public abstract IReadOnlyList<InBoxMember> Members { get; }
+    public abstract override IReadOnlyList<InBoxMember> Members { get; }
 
     /// <summary>The member named <paramref name="name"/>, in any case, or null.</summary>
     public InBoxMember? Member(string name) =>

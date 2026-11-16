@@ -84,6 +84,9 @@ public static class AvaloniaMethodsInteroperability
                 return Vb6Value.Nothing;
             }
         }
+        if (c is ItemsControl extensionList && ListMembers.IsList(c) && ListMembers.IsExtension(c, method))
+            return ListMembers.CallExtension(extensionList, method, args);
+
         if (c is ItemsControl itemsControl)
         {
             if (method.Equals("additem", StringComparison.OrdinalIgnoreCase))

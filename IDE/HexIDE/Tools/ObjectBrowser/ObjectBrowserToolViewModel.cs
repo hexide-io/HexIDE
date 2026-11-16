@@ -191,10 +191,28 @@ public partial class ObjectBrowserToolViewModel : Document
         foreach (var component in componentRegistry.Components)
         {
             var cls = new OBClassViewModel(component.ClassName, OBClassKind.ClassModule, "VB");
-            foreach (var prop in component.Properties)
-                cls.Members.Add(new OBMemberViewModel(prop.Name, OBMemberKind.Property, $"Property {prop.Name}"));
-            foreach (var evt in component.Events)
-                cls.Members.Add(new OBMemberViewModel(evt.Name, OBMemberKind.Event, $"Event {evt.Name}"));
+            if (component is ComponentBaseClass { Members.Count: > 0 } table)
+            {
+                foreach (var member in table.Members)
+                {
+                    var kind = member.Kind switch
+                    {
+                        InBox.MemberKind.Property => OBMemberKind.Property,
+                        InBox.MemberKind.Event => OBMemberKind.Event,
+                        _ => OBMemberKind.Method,
+                    };
+                    cls.Members.Add(new OBMemberViewModel(member.Name, kind, $"{member.Kind} {member.Name}",
+                        member.Origin.HasFlag(InBox.MemberOrigin.HexIde)
+                            ? localization.GetString("Str.MemberOrigin.HexIde") : null));
+                }
+            }
+            else
+            {
+                foreach (var prop in component.Properties)
+                    cls.Members.Add(new OBMemberViewModel(prop.Name, OBMemberKind.Property, $"Property {prop.Name}"));
+                foreach (var evt in component.Events)
+                    cls.Members.Add(new OBMemberViewModel(evt.Name, OBMemberKind.Event, $"Event {evt.Name}"));
+            }
             lib.Classes.Add(cls);
         }
         lib.Classes.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
