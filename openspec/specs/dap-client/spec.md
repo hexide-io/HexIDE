@@ -255,20 +255,31 @@ project opens, under the session's cancellation, and SHALL check the configurati
 checked, with its executable and working directory fully qualified. The session SHALL be given the saved
 gutter marks of the project, as a launch file's is.
 
-F5 SHALL run the interpreter for a project until its user chooses otherwise under Run > F5 Runs, which lists
-the interpreter and every contributed launch that runs the startup project. The choice SHALL be remembered
+F5 SHALL default to the interpreter for projects it runs. For a project whose type came from an add-in,
+F5 SHALL default to that same add-in's first registered launch when it runs the project. An explicit user choice,
+including the interpreter, SHALL override this default. The status bar SHALL name the default launch and direct
+the user to Run > F5 Runs once per project in a session. Run > F5 Runs SHALL list the interpreter and every
+contributed launch that runs the startup project, with the effective choice checked. The choice SHALL be remembered
 per project, for that user, in the user sidecar, by the contributing add-in's id and the launch's title. A
 chosen launch that is gone or no longer runs the project SHALL leave F5 to the interpreter, with a status
 message that says so, and SHALL stay chosen, shown under F5 Runs as not available so the user can set it
 back. Run > Start Once With SHALL run a contributed launch once without changing what F5 runs. Only F5 and Run >
 Start SHALL follow the choice: stepping in from idle, Run To Cursor, Restart and Start With Full Compile SHALL
 stay the interpreter's. Whether a launch runs the project SHALL be asked when the Run menu opens or a run
-starts, never when a project opens. Ending a session whose configuration is still being made SHALL end it,
+starts. For F5's enabled state on an add-in project, the effective launch's answer SHALL be kept until the
+choice, launch or described project changes, rather than asked at every edit. Ending a session whose
+configuration is still being made SHALL end it,
 whether or not the add-in heeds its cancellation.
 
 #### Scenario: An add-in offers a launch
-- **WHEN** an add-in contributes a launch that runs the startup project
+- **WHEN** an add-in contributes a launch that runs an interpreter startup project
 - **THEN** F5 still runs the interpreter, and F5 Runs and Start Once With list the launch
+
+#### Scenario: An add-in project has its own launch
+- **GIVEN** the startup project's type came from an add-in and it has no stored F5 choice
+- **WHEN** that add-in has registered a launch that runs the project
+- **THEN** F5 runs the first launch that add-in registered, and F5 Runs checks it
+- **AND** the status bar names it and points to F5 Runs once per project in the session
 
 #### Scenario: The user chooses the launch for F5
 - **WHEN** the user chooses the launch under F5 Runs, and presses F5

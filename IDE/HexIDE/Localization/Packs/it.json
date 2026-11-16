@@ -83,6 +83,7 @@
     "Str.Debug.External.BreakpointConditionUnsupported": "Impostare le condizioni con Condizione… nel menu del margine dei punti di interruzione. File '{0}', voce del punto di interruzione {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "L'opzione del punto di interruzione '{0}' non è ancora supportata per le sessioni esterne. File '{1}', voce {2}. Impostare le condizioni con Condizione… nel menu del margine dei punti di interruzione.",
     "Str.Debug.RunWith.Unavailable": "F5 è impostato per eseguire questo progetto con {0}, che ora non è disponibile, quindi viene eseguito nell'IDE. Per eseguirlo nell'IDE d'ora in poi, scegli Nell'IDE in Esegui > F5 esegue.",
+    "Str.Debug.RunWith.Default": "F5 esegue {0}. Modificare la scelta in Esegui > F5 esegue.",
     "Str.MainWindow.DeveloperModeNotice": "MODALITÀ SVILUPPATORE",
     "Str.MainWindow.UnsignedAddinsNotice": "MODALITÀ SVILUPPATORE, è possibile caricare componenti aggiuntivi non firmati",
     "Str.MainWindow.RecoveryNotice": "Sessione di ripristino — le modifiche alle impostazioni non verranno salvate",
