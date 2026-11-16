@@ -1853,3 +1853,31 @@ Contract: [#1116](https://github.com/hexide-io/HexIDE/issues/1116); Value conver
 #### Scenario: Required argument is missing
 - **WHEN** code calls `ProgressBar1.Increment` without an argument
 - **THEN** the runtime raises Argument not optional and leaves Value unchanged
+
+### Requirement: Fixed-length scalar String storage
+The interpreter SHALL allocate module, local and Static scalar `String * N` variables with N NUL
+characters. Each store SHALL convert to String, truncate on the right or pad on the right with spaces
+to N characters. Null SHALL raise 94 and leave the stored value unchanged. N SHALL be an integer literal
+or integer Const from 1 to 65,526; an invalid length SHALL report "Invalid length for fixed-length
+string", and a variable width SHALL report "Constant expression required".
+
+Measured native and p-code behaviour: [#179](https://github.com/hexide-io/HexIDE/issues/179), supervisor
+comment and oracle PR #4019. Array elements and Type fields SHALL retain their declared widths,
+initialise to N NULs and coerce each store. Erase SHALL reset a fixed array to NULs and plain ReDim SHALL keep
+its element width. Whole-record copies SHALL own independent fields, and Len SHALL count a fixed String
+field by its width (Integer plus String * 4 is 6). ByRef String/Variant parameters SHALL copy the padded
+value in and coerce the copy out on return. Get/Put SHALL omit length prefixes for fixed Strings and Type
+fields, using their declared widths
+([measured record rows](../../../docs/vb6-fidelity-oracle/random-and-binary-files-get-put-and-len.md)).
+Fixed-length String parameters SHALL report "Expected array"; Function and Property Get returns SHALL
+report "Expected: end of statement".
+
+#### Scenario: Padding is part of the value
+- **WHEN** a `String * 5` variable receives `"ab"`
+- **THEN** it holds `"ab   "`, differs from `"ab"`, and retains the spaces through concatenation and copies
+- **AND** Len returns Long 5 and LenB returns Integer 10
+
+#### Scenario: In-place scalar writes
+- **WHEN** Mid, LSet or RSet writes a fixed-length scalar String
+- **THEN** it retains its declared width
+- **AND** both LSet and RSet retain the leftmost characters of an overlong source
