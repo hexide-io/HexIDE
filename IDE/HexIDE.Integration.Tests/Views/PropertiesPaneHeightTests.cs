@@ -50,24 +50,29 @@ public class PropertiesPaneHeightTests
             {
                 var header = view.FindControl<TabItem>(tab)!;
                 var bounds = Bounds(header, view);
-                bounds.Height.Should().BeGreaterThan(16);
+                // Measured, not a pixel constant: font metrics differ by platform (macOS lays a header out at 15.33).
+                // A header at least one line of its own text tall, and given all of the height it asked for.
+                header.DesiredSize.Height.Should().BeGreaterThanOrEqualTo(header.FontSize);
+                bounds.Height.Should().BeGreaterThanOrEqualTo(header.DesiredSize.Height);
                 bounds.Top.Should().BeGreaterThanOrEqualTo(0);
                 bounds.Bottom.Should().BeLessThanOrEqualTo(view.Bounds.Height + 0.000001);
-                bounds.Height.Should().BeGreaterThanOrEqualTo(header.DesiredSize.Height);
             }
             var list = view.FindControl<ListBox>(selectedTab == 0 ? "AlphabeticProperties" : "CategorizedProperties")!;
             if (height >= 185)
             {
-                var scroll = list.GetVisualDescendants().OfType<ScrollViewer>().Single();
-                scroll.Viewport.Height.Should().BeGreaterThanOrEqualTo(32);
-                scroll.Extent.Height.Should().BeGreaterThan(scroll.Viewport.Height);
-                scroll.GetVisualDescendants().OfType<ScrollBar>().Single(b => b.Orientation == Orientation.Vertical)
-                    .IsEffectivelyVisible.Should().BeTrue();
                 var first = list.ContainerFromIndex(0)!;
                 first.Should().NotBeNull();
                 first.IsEffectivelyVisible.Should().BeTrue();
+                var rowHeight = first.DesiredSize.Height;
+                rowHeight.Should().BeGreaterThanOrEqualTo(((TemplatedControl)first).FontSize);
+                var scroll = list.GetVisualDescendants().OfType<ScrollViewer>().Single();
+                // At least two whole rows, in this platform's row height.
+                scroll.Viewport.Height.Should().BeGreaterThanOrEqualTo(2 * rowHeight);
+                scroll.Extent.Height.Should().BeGreaterThan(scroll.Viewport.Height);
+                scroll.GetVisualDescendants().OfType<ScrollBar>().Single(b => b.Orientation == Orientation.Vertical)
+                    .IsEffectivelyVisible.Should().BeTrue();
                 var row = Bounds(first, view);
-                row.Height.Should().BeGreaterThanOrEqualTo(16);
+                row.Height.Should().BeGreaterThanOrEqualTo(rowHeight);
                 row.Top.Should().BeGreaterThanOrEqualTo(Bounds(list, view).Top);
                 row.Bottom.Should().BeLessThanOrEqualTo(view.Bounds.Height + 0.000001);
                 row.Bottom.Should().BeLessThanOrEqualTo(Bounds(list, view).Bottom);
