@@ -86,6 +86,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/DesignerContextMenuThemeTests.cs` | split |
 | `Views/DesignerContractTests.cs` | split |
 | `Views/DesignerInstantiationFailureTests.cs` | split |
+| `Views/DesignerKeyboardNavigationTests.cs` | split |
 | `Views/DesignerModifiedMarkerTests.cs` | split |
 | `Views/DesignerPictureTests.cs` | split |
 | `Views/DesignerReferenceTests.cs` | split |

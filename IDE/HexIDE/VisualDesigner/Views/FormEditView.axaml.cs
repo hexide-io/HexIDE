@@ -6,6 +6,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using HexIDE.Runtime.Components;
 using Avalonia.Media;
 using HexIDE.Controls;
 using HexIDE.Events;
@@ -21,6 +23,7 @@ public partial class FormEditView : UserControl
     public FormEditView()
     {
         InitializeComponent();
+        FormContainer.AddHandler(KeyDownEvent, OnDesignerKeyDown, RoutingStrategies.Tunnel);
         ControlsContainer.ReferenceChanged += OnControlsContainerReferenceChanged;
         NewControlSpawner.AddHandler(PointerPressedEvent, OnNewControlStarted);
         NewControlSpawner.AddHandler(PointerMovedEvent, OnNewControlMoving);
@@ -86,6 +89,41 @@ public partial class FormEditView : UserControl
             NewControlSpawnerPhantom.IsVisible = false;
         }
         isSpawningNewControl = false;
+    }
+
+    private void OnDesignerKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not FormEditViewModel vm || vm.SelectedComponents.Count > 1)
+            return;
+
+        // Only the single-selection, top-level case is measured for Tab (#3399). Esc selects the form whatever the
+        // other controls are, so it isn't held back by them.
+        var controls = vm.Components.Where(c => c.HasTabIndex).ToArray();
+        // A control drawn on the form has no container, and one loaded from a file has the form: both are top-level.
+        var tabMeasured = !controls.Any(c => (c.Instance.Container is { } container && container != vm.Form.Instance)
+            || !c.IsRuntimeVisible
+            || !c.Instance.GetPropertyOrDefault(VBProperties.EnabledProperty)
+            || !c.Instance.GetPropertyOrDefault(VBProperties.TabStopProperty));
+
+        if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None)
+        {
+            vm.SelectedComponent = vm.Form;
+        }
+        else if (e.Key == Key.Tab && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift
+            && tabMeasured && controls.Length > 0)
+        {
+            var ordered = controls.OrderBy(c => c.TabIndex).ToArray();
+            var index = Array.IndexOf(ordered, vm.SelectedComponent);
+            var backwards = e.KeyModifiers == KeyModifiers.Shift;
+            var next = index < 0 ? (backwards ? ordered.Length - 1 : 0)
+                : (index + (backwards ? ordered.Length - 1 : 1)) % ordered.Length;
+            vm.SelectedComponent = ordered[next];
+        }
+        else
+            return;
+
+        FormContainer.Focus();
+        e.Handled = true;
     }
 
     private void OnNewControlMoving(object? sender, PointerEventArgs e)
