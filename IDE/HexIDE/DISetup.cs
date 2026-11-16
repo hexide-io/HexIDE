@@ -112,6 +112,7 @@ public partial class DISetup
             .Bind().As(Singleton).To<ProjectManager>()
             .Bind().As(Singleton).To<EditorService>()
             .Bind().As(Singleton).To<DockFactoryReference>()
+            .Bind<IProgramHost>().As(Singleton).To<ProgramHost>()
             .Bind<IRunEngine>().As(Singleton).To<InterpreterRunEngine>()
             .Bind<HexIDE.Language.IConditionalCodeReader>().As(Singleton)
                 .To<HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode>()
