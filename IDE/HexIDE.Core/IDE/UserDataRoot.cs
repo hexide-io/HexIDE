@@ -9,7 +9,7 @@ namespace HexIDE.IDE;
 /// shares that process. A test that redirected it would move every other test's files, so the tests
 /// construct their own instance instead and the static stays a thin forward.
 /// </remarks>
-internal sealed class UserDataRoot(Func<string> platformDefault)
+internal sealed class UserDataRoot(Func<string> platformDefault, Func<string>? programDefault = null)
 {
     private readonly Lock _gate = new();
     private string? _redirected;
@@ -24,6 +24,15 @@ internal sealed class UserDataRoot(Func<string> platformDefault)
                 _read = true;
                 return _redirected ?? platformDefault();
             }
+        }
+    }
+
+    public string ForPrograms(string fileName)
+    {
+        lock (_gate)
+        {
+            _read = true;
+            return Path.Combine(_redirected ?? (programDefault ?? platformDefault)(), fileName);
         }
     }
 

@@ -74,6 +74,7 @@ A test that reaches the provider only at run time, through the application's com
 | `LspClient/WorkspaceAndPriorityTests.cs` | split |
 | `Profiles/ProfileMigrationTests.cs` | split |
 | `Profiles/ProfileRecoveryTests.cs` | split |
+| `ProgramSettingsPathTests.cs` | provider |
 | `ProjectElements/DesignerHalfEncodingTests.cs` | provider |
 | `ProjectElements/DocumentIdentityTests.cs` | provider |
 | `ProjectElements/DocumentLookupTests.cs` | provider |
