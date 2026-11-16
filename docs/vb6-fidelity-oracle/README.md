@@ -11,6 +11,7 @@ date functions; graphics) should extend it the same way.
 > language reference alone would have shipped several wrong behaviours (see *Assumptions overturned* below).
 
 - [A UserControl's focus and access keys](usercontrol-focus-and-keys.md) — #1631 part B, SP6 native and p-code, real keystrokes.
+- [Ambient's LocaleID under other user locales, and DisplayName on a control-array element (2026-11-16, #4149, SP6)](ambients-localeid-and-a-control-array-elements-displayname.md#ambients-localeid-under-other-user-locales-and-displayname-on-a-control-array-element-2026-11-16-4149-sp6)
 - [A UserControl’s extender members at run time](usercontrol-extender-members.md) — #1631 part A, SP6 native and p-code; includes the supervisor’s handle decision.
 - [Key events](key-events.md) — #2325, real input, SP6 native and p-code.
 - [A Timer’s default Interval](timer-default-interval.md) — #2068, SP6 native and p-code.
