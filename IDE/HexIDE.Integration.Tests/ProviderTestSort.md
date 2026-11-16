@@ -151,6 +151,9 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/SelectionRangeCommandTests.cs` | split |
 | `Views/ServerApplyEditFocusTests.cs` | split |
 | `Views/SingleViewFormsTests.cs` | split |
+| `Views/SliderFileTests.cs` | provider |
+| `Views/SliderInputTests.cs` | provider |
+| `Views/SliderRuntimeTests.cs` | provider |
 | `Views/StartupFormFailsToLoadTests.cs` | split |
 | `Views/SubMainFormsTests.cs` | split |
 | `Views/SyntaxErrorAtStartTests.cs` | split |

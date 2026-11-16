@@ -145,6 +145,7 @@ public static class AvaloniaInteroperability
         RegisterTabOrder<VBFrame>(tabStop: false);
         RegisterTabOrder<VBLabel>(tabStop: false);
         RegisterTabOrder<VBProgressBar>(tabStop: false);
+        RegisterTabOrder<VBSlider>(tabStop: true);
         RegisterTabOrder<VBUpDown>(tabStop: true);
         RegisterTabOrder<VBAnimation>(tabStop: true);
         RegisterTabOrder<VBDTPicker>(tabStop: true);
