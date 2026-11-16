@@ -1320,7 +1320,7 @@
     "Str.Dock.ToolTabStripItemDockAsDocument": "Dock as Tabbed Document",
     "Str.Dock.ToolTabStripItemClose": "_Close",
     "Str.AIChat.ApiKeyRequired": "API key required. Set the HEXIDE_AI_API_KEY environment variable, or apiKey in chat-settings.json.",
-    "Str.AIChat.PrivacyNotice": "ℹ Privacy: your messages, the active file's contents (for a form, its layout and captions too), and its diagnostics are sent to {0} — a third-party service you configured in AI Chat settings.",
+    "Str.AIChat.PrivacyNotice": "ℹ Privacy: your messages, the active file's contents (for a form, its layout and captions too), and its diagnostics are sent to {0} — a third-party service you configured in AI Chat settings. The contents of any other file in your loaded projects that the assistant reads with its tools, project file lists, and diagnostics for any file are also sent there without asking for approval.",
     "Str.AIChat.PrivacyKeyTip": "Tip: set the HEXIDE_AI_API_KEY environment variable to avoid storing your API key in a file.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projects {0} share folder {1}; only {2} is written or imported."
   }

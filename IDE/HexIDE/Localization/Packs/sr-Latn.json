@@ -1294,7 +1294,7 @@
     "Str.Dock.ToolTabStripItemDockAsDocument": "Usidri kao dokument sa karticom",
     "Str.Dock.ToolTabStripItemClose": "_Zatvori",
     "Str.AIChat.ApiKeyRequired": "Potreban je API ključ. Postavite promenljivu okruženja HEXIDE_AI_API_KEY ili apiKey u chat-settings.json.",
-    "Str.AIChat.PrivacyNotice": "ℹ Privatnost: vaše poruke, sadržaj aktivne datoteke (za obrazac i raspored i natpisi) i njena dijagnostika šalju se na {0} — uslugu treće strane koju ste podesili u postavkama AI ćaskanja.",
+    "Str.AIChat.PrivacyNotice": "ℹ Privatnost: vaše poruke, sadržaj aktivne datoteke (za obrazac i raspored i natpisi) i njena dijagnostika šalju se na {0} — uslugu treće strane koju ste podesili u postavkama AI ćaskanja. Tamo se bez traženja odobrenja šalju i sadržaj bilo koje druge datoteke u učitanim projektima koju asistent pročita svojim alatima, spiskovi datoteka projekata i dijagnostika bilo koje datoteke.",
     "Str.AIChat.PrivacyKeyTip": "Savet: postavite promenljivu okruženja HEXIDE_AI_API_KEY da biste izbegli čuvanje API ključa u datoteci.",
     "Str.AIChat.Approved": "✔ Odobreno",
     "Str.AIChat.Rejected": "✗ Odbijeno",
