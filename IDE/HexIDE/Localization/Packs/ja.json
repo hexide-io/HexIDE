@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "プロジェクトファイル",
     "Str.ProjectFile.ReplaceModel": "プロジェクト ファイルのテキストを適用すると、{0} の未保存のプロジェクト設定が置き換えられます。続行しますか？",
     "Str.AIChat.Title": "AI チャット",
     "Str.AIChat.Menu": "AI チャット(_C)",

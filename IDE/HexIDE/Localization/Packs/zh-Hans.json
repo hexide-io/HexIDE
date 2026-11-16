@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "项目文件",
     "Str.ProjectFile.ReplaceModel": "应用项目文件文本将替换 {0} 未保存的项目设置。是否继续？",
     "Str.AIChat.Title": "AI 聊天",
     "Str.AIChat.Menu": "AI 聊天(_C)",

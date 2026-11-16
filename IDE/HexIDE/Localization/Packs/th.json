@@ -2,6 +2,7 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "ไฟล์โครงการ",
     "Str.ProjectFile.ReplaceModel": "การใช้ข้อความในไฟล์โครงการจะแทนที่การตั้งค่าโครงการที่ยังไม่ได้บันทึกของ {0} ต้องการดำเนินการต่อหรือไม่",
     "Str.MemberOrigin.HexIde": "ส่วนขยายของ HexIDE; ไม่มีใน VB6",
     "Str.Dock.Host": "โฮสต์การเทียบชิด",
