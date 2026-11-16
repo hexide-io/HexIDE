@@ -1008,7 +1008,10 @@ the registry's own record of what is open rather than by the document that trigg
 teardown stops every server and the triggering document's claimants are a smaller set. The root is checked
 after a project save has assigned the `.vbp` its path and when the startup project changes, as well as when a document opens (#1051). Saving only the project file therefore restarts
 and reopens the held documents immediately; no new editor needs to open. An unchanged root does not restart
-anything, and failed entries remain failed.
+anything, and failed entries remain failed. Reloading from disk holds the startup project's definition until
+its replacement is loaded, so an unchanged directory never passes through a rootless workspace and
+restarts no server (#4044). If reopening fails, the hold ends as an unload: the remaining startup
+project (or no project) supplies the root, with one workspace-change notification.
 
 ### Real-server close and teardown coverage
 
