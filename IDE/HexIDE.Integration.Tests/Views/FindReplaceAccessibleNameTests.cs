@@ -41,7 +41,8 @@ public class FindReplaceAccessibleNameTests
             // And a caller reaches the Find What box by that name, not by its position.
             var tree = UiAutomationDriver.Dump(window, "Window", 20, interactiveOnly: true);
             var edit = UiAutomationDriver.Find(tree, findName, 10).Matches.Single(m => m.ControlType == "Edit");
-            edit.Path.Should().EndWith($"Edit[{findName}]");
+            // The caption target has a stable control ID; lookup by its accessible name still reaches it (#2738).
+            edit.Path.Should().EndWith("Edit[FindWhat]");
             UiAutomationDriver.Resolve(window, edit.Path).control.Should().BeSameAs(boxes[0]);
         }
         finally { window.Close(); }
