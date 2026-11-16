@@ -335,10 +335,12 @@ change, and other requests (including formatting) still wait for that change's a
   Comment forms follow the measured [Rem rules](vb6-fidelity-oracle/line-continuations-and-statement-separators.md)
   and [continued comments across CR/LF/CRLF](vb6-fidelity-oracle/a-lone-cr-or-lf-in-vb6-source.md).
 - A bare `Rem` at the caret and a member such as `x.Rem ` remain code for completion (#3577).
-- ◐ Outside free text, the full list comes back regardless of cursor context.
+- After a dot, including a partially typed member name, completion returns an empty list (#3613).
+  Requests at either the word start or the caret are covered. Elsewhere outside free text, including
+  after `!`, the full list comes back.
 - ■ No member-access completion (`obj.`), no type-aware filtering, no symbols from other project files. Each
   needs binding: resolving what `obj` *is*, or what type is expected here, is the relationship between two
-  symbols rather than a list of them.
+  symbols rather than a list of them. Members come from a binding server such as RDCore.
 
 **Depth: 🔧 Wired**
 
