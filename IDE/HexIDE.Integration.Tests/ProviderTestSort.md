@@ -103,6 +103,10 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/FileWatcherReloadTests.cs` | split |
 | `Views/FindReferencesTests.cs` | split |
 | `Views/FlatScrollBarFileTests.cs` | split |
+| `Views/FlexGridDrawingTests.cs` | provider |
+| `Views/FlexGridKeyboardTests.cs` | provider |
+| `Views/FlexGridMouseTests.cs` | provider |
+| `Views/FlexGridRuntimeTests.cs` | provider |
 | `Views/FontSizeInPointsTests.cs` | split |
 | `Views/ForegroundWindowLifetimeTests.cs` | split |
 | `Views/ForegroundWindowTests.cs` | split |
