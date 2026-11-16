@@ -16,7 +16,7 @@
                                     WhenTrue="Bold" WhenFalse="Normal" />
         <conv:BoolToBrushConverter x:Key="RedFallbackBrush"
                                    ActiveBrush="{DynamicResource ValidationErrorBrush}"
-                                   InactiveBrush="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}" />
+                                   InactiveBrush="{DynamicResource {x:Static commonControls:SystemColors.ControlTextBrushKey}}" />
     </UserControl.Resources>
 
     <Grid RowDefinitions="Auto,Auto,*,Auto">

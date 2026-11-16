@@ -113,9 +113,8 @@ public class TranslationEditorViewIntegrationTests
             Content = new TranslationEditorView { DataContext = vm },
         };
         window.Resources["ValidationErrorBrush"] = new SolidColorBrush(Color.Parse("#CC0000"));
-        // The From cell's non-red foreground binds SystemColors.WindowTextBrushKey, which the real app gets
-        // from Classic.axaml but the bare-SimpleTheme test app lacks — supply it so From text renders.
-        window.Resources[Classic.CommonControls.SystemColors.WindowTextBrushKey] = new SolidColorBrush(Colors.Black);
+        // Keep reference text black on the explicitly white capture background.
+        window.Resources[Classic.CommonControls.SystemColors.ControlTextBrushKey] = new SolidColorBrush(Colors.Black);
 
         window.Show();
         Dispatcher.UIThread.RunJobs();
