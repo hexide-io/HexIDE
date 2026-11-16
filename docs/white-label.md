@@ -3,8 +3,8 @@
 HexIDE is MIT-licensed, and an adopter can ship it as another product without a fork. Put a `brand.json` beside
 the executable, and that installation becomes your product: its own name, logo, credits and per-user state.
 
-This is the first slice of [#2042](https://github.com/hexide-io/HexIDE/issues/2042). The design is in
-[`design/white-label.md`](design/white-label.md). The file's schema is provisional until that design is accepted.
+The schema was accepted on 2026-11-09 as part of [#2042](https://github.com/hexide-io/HexIDE/issues/2042).
+The design is in [`design/white-label.md`](design/white-label.md).
 
 ## The file
 
@@ -71,6 +71,8 @@ fallback, since it runs before the user's language settings are loaded.
 - **HexIDE's credits stay.** You can add to them, and nothing removes, replaces or hides them. A translation
   override of them is ignored. Your About box also says what it's built on, with HexIDE's version and notice.
 - **It grants no trust.** The add-in trust root and the first-party key don't change, and About keeps showing them.
+- **Engine statements keep HexIDE's name.** Messages about what the interpreter or serializer implements,
+  including unsupported components and faithful-save refusals, describe the engine in every distribution (#4061).
 - **Compatibility names don't change.** Assembly names, protocol and tool ids, `HEXIDE_*` environment variables,
   and what's written into projects stay as they are, so existing clients and projects keep working.
 - **`--user-data-dir` still wins** over the folder `id` chooses. Pointing two products at one directory opts out of

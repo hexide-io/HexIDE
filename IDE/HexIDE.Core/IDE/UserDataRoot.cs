@@ -40,7 +40,7 @@ internal sealed class UserDataRoot(Func<string> platformDefault)
         if (string.IsNullOrWhiteSpace(directory) || !Path.IsPathRooted(directory))
             throw new ArgumentException(
                 $"A user data directory must be an absolute path; got '{directory}'. Resolve it against the "
-              + "directory HexIDE was started from before redirecting.",
+              + $"directory {Distribution.DisplayName} was started from before redirecting.",
                 nameof(directory));
 
         var normalised = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
