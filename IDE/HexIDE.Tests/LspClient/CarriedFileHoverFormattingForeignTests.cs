@@ -15,12 +15,7 @@ public class CarriedFileHoverFormattingForeignTests
 {
     [ForeignServerFact("cpp")]
     public Task ClangdHoverAndFormattingReachCarriedFile() =>
-        Avalonia.Headless.HeadlessUnitTestSession.GetOrStartForAssembly(typeof(TestApp).Assembly)
-            .Dispatch<bool>(async () =>
-            {
-                await RunClangdHoverAndFormattingAsync();
-                return true;
-            }, TestContext.Current.CancellationToken);
+        HeadlessDispatch.RunAsync(RunClangdHoverAndFormattingAsync, TestContext.Current.CancellationToken);
 
     private static async Task RunClangdHoverAndFormattingAsync()
     {
