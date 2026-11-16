@@ -728,6 +728,7 @@ public sealed class VBLspClient : ILspClient
                     SelectionRange: new SelectionRangeClientCapabilities(),
                     Rename: new RenameClientCapabilities(),
                     CallHierarchy: EmptyParams.Instance,
+                    TypeHierarchy: EmptyParams.Instance,
                     RangeFormatting: EmptyParams.Instance,
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
                         Enum.GetValues<CompletionItemKind>()),
@@ -1841,6 +1842,33 @@ public sealed class VBLspClient : ILspClient
         if (_rpc is null || !_initialized || !CanServe("callHierarchyProvider")) return [];
         return await InvokeRequestAsync<CallHierarchyOutgoingCall[]?>(_rpc,
             "callHierarchy/outgoingCalls", new CallHierarchyCallsParams(item), cancellationToken,
+            documentUri: item.Uri) ?? [];
+    }
+
+    public async Task<TypeHierarchyItem[]> PrepareTypeHierarchyAsync(string uri, Position position,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("typeHierarchyProvider")) return [];
+        var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
+        return await InvokeRequestAsync<TypeHierarchyItem[]?>(_rpc,
+            "textDocument/prepareTypeHierarchy", p, cancellationToken, documentUri: uri) ?? [];
+    }
+
+    public async Task<TypeHierarchyItem[]> RequestSupertypesAsync(TypeHierarchyItem item,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("typeHierarchyProvider")) return [];
+        return await InvokeRequestAsync<TypeHierarchyItem[]?>(_rpc,
+            "typeHierarchy/supertypes", new TypeHierarchyParams(item), cancellationToken,
+            documentUri: item.Uri) ?? [];
+    }
+
+    public async Task<TypeHierarchyItem[]> RequestSubtypesAsync(TypeHierarchyItem item,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("typeHierarchyProvider")) return [];
+        return await InvokeRequestAsync<TypeHierarchyItem[]?>(_rpc,
+            "typeHierarchy/subtypes", new TypeHierarchyParams(item), cancellationToken,
             documentUri: item.Uri) ?? [];
     }
 
@@ -2986,6 +3014,7 @@ public sealed class VBLspClient : ILspClient
         "inlayHintProvider",
         "referencesProvider",
         "callHierarchyProvider",
+        "typeHierarchyProvider",
         "renameProvider",
         "signatureHelpProvider",
         // Read by the sync readers rather than a gate, because its two shapes mean different things — and

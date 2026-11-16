@@ -58,6 +58,7 @@ public partial class DISetup
             .Bind().As(Singleton).To<FormLayoutToolViewModel>()
             .Bind<FindReferencesToolViewModel>().As(Singleton).To<FindReferencesToolViewModel>()
             .Bind<CallHierarchyToolViewModel>().As(Singleton).To<CallHierarchyToolViewModel>()
+            .Bind<TypeHierarchyToolViewModel>().As(Singleton).To<TypeHierarchyToolViewModel>()
             .Bind().As(Singleton).To<ImmediateToolViewModel>()
             .Bind().As(Singleton).To<LocalsToolViewModel>()
             .Bind().As(Singleton).To<OutlineToolViewModel>()

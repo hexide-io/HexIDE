@@ -1643,7 +1643,8 @@ public partial class MainViewViewModel : ObservableObject
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
         HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
         RunWithMenuViewModel? runWith = null,
-        ILogFolderOpener? logFolderOpener = null)
+        ILogFolderOpener? logFolderOpener = null,
+        TypeHierarchyToolViewModel? typeHierarchy = null)
     {
         logFolderOpener ??= new PlatformLogFolderOpener();
         OpenLogFolderCommand = new DelegateCommand(() => OpenLogFolderAsync(windowManager, localization, logFolderOpener).ListenErrors());
@@ -1661,6 +1662,12 @@ public partial class MainViewViewModel : ObservableObject
             eventBus.Subscribe<CallHierarchyEvent>(e => callHierarchy.SearchAsync(e.Uri, e.Position).ListenErrors());
             callHierarchy.LayoutResized += ScheduleLayoutSave;
             callHierarchy.ShowRequested += () => ShowResultsTool(callHierarchy);
+        }
+        if (typeHierarchy is not null)
+        {
+            eventBus.Subscribe<TypeHierarchyEvent>(e => typeHierarchy.SearchAsync(e.Uri, e.Position).ListenErrors());
+            typeHierarchy.LayoutResized += ScheduleLayoutSave;
+            typeHierarchy.ShowRequested += () => ShowResultsTool(typeHierarchy);
         }
         this.recoveryOffers = recoveryOffers;
         RecoverUnsavedWorkCommand = new DelegateCommand(

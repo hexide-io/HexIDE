@@ -2913,6 +2913,19 @@ public partial class CodeEditorView : UserControl
                 TextEditor.TextArea.Caret.Column - 1)).ListenErrors();
     }
 
+    private void CanShowTypeHierarchy(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is CodeEditorViewModel { CanShowTypeHierarchy: true };
+        e.Handled = true;
+    }
+
+    private void TypeHierarchyExecuted(object? sender, Avalonia.Labs.Input.ExecutedRoutedEventArgs e)
+    {
+        if (DataContext is CodeEditorViewModel vm)
+            vm.ShowTypeHierarchyAsync(new Position(TextEditor.TextArea.Caret.Line - 1,
+                TextEditor.TextArea.Caret.Column - 1)).ListenErrors();
+    }
+
     private void CanRunCodeLens(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
     {
         e.CanExecute = codeLenses?.CommandsOnLine(TextEditor.TextArea.Caret.Line).Length > 0;
