@@ -7,6 +7,25 @@ namespace HexIDE.Tests.Infrastructure;
 
 public sealed class ProjectWriteSafetyTests
 {
+    [Fact]
+    public void Folderless_project_refusal_names_the_menu_route_and_keeps_the_answer()
+    {
+        var project = TestHelpers.CreateProjectWithForm("Project1");
+        project.WorkingDirectory = null;
+        var form = project.Forms[0];
+        form.AbsolutePath = null;
+        ScriptedFileDialogs.Clear();
+        try
+        {
+            ScriptedFileDialogs.AnswerNextWith(Path.Combine(Path.GetTempPath(), "Form1.frm"));
+            var refusal = ProjectWriteSafety.Prepare(DocumentIdentity.For(form), new Vb6ProjectFileFormat(), out _);
+            refusal.Should().Contain("project has no folder").And.Contain("File/Save Project1")
+                .And.Contain("forms, then modules, then the project file").And.Contain("clear_file_dialog_answers");
+            ScriptedFileDialogs.Pending.Should().Be(1);
+        }
+        finally { ScriptedFileDialogs.Clear(); }
+    }
+
     [Theory]
     [InlineData(".frm", ".frx")]
     [InlineData(".ctl", ".ctx")]

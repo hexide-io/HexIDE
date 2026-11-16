@@ -1374,6 +1374,16 @@ leave new documents pathless and explain the null path and how to save them in i
 - **THEN** its initial form and project have no file paths
 - **AND** opening the form's code uses its `untitled:` URI until it is saved
 
+#### Scenario: A write needs a folder for the unsaved project
+- **WHEN** a write tool refuses a pathless document's unarmed save picker and its project has no folder
+- **THEN** the refusal SHALL name the missing project folder before suggesting file-dialog answers
+- **AND** it SHALL explain that a document answer alone cannot help, and give the Save Project route:
+  arm one absolute destination per unsaved form, then module, then project file (and group file last
+  when needed) in an existing directory, then invoke the File menu's Save Project item with `invoke_menu_item` (`File/Save Project1`
+  for the default project in English), discovering its actual localized name with `dump_visual_tree`
+- **AND** the refusal SHALL leave the answer queue and document unchanged
+- **AND** an armed destination refused for the missing project folder SHALL give the same route and keep the answer
+
 ### Requirement: Explicit automation names SHALL keep structural controls in the control view
 The control-view collector shared by discovery and path resolution SHALL keep an element whose own
 `AutomationProperties.Name` is set as a local value, in markup or code, and is not empty, as it keeps an

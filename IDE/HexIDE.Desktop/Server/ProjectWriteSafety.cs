@@ -7,6 +7,20 @@ internal static class ProjectWriteSafety
 {
     private const int RecoveryFilesKept = 5;
 
+    private const string SaveProjectRoute =
+        "Arming an answer for this document alone won't help. " +
+        "Clear any pending answers with clear_file_dialog_answers, then arm answer_next_file_dialog once per " +
+        "unsaved file in project order: forms, then modules, then the project file, and the group file if needed. Use absolute paths in an " +
+        "existing directory (for --newproject-unsaved: Form1.frm, then Project1.vbp in that directory). " +
+        "Invoke invoke_menu_item on the File menu's Save Project item (path 'File/Save Project1' for the " +
+        "default project in English; dump_visual_tree gives the actual localized path, including the project " +
+        "or group name), then retry this write.";
+
+    public static string PickerRefusal(DocumentIdentity document) =>
+        document.Project.AbsolutePath is null && document.Project.WorkingDirectory is null
+            ? "cannot be saved: its project has no folder. Nothing was changed. " + SaveProjectRoute
+            : ScriptedFileDialogs.PickerRefusal;
+
     public static string? NameRefusal(string name) =>
         name.IndexOfAny(['/', '\\', ':']) >= 0 || name is "." or ".." || Path.IsPathRooted(name)
             ? $"Refused '{name}': use a document name from get_project_info, not a rooted or relative path. Nothing was changed."
@@ -28,7 +42,7 @@ internal static class ProjectWriteSafety
         try
         {
             if (root is null)
-                return Refused($"Refused '{path}': the project has no folder. Save Project in the IDE first. Nothing was changed.");
+                return Refused($"Refused '{path}': the project has no folder. Nothing was changed. " + SaveProjectRoute);
             var paths = new List<string> { path };
             if ((document.Form is not null || document.Module?.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
                 && (document.Project.FormFormat ?? HexIDE.IDE.ProjectFormats.Of(document.Project, format)).CompanionPath(path) is { } companion)
