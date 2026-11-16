@@ -1,7 +1,9 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Lsp;
+using HexIDE.Language;
 using HexIDE.Localization;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.ProjectElements;
@@ -122,8 +124,72 @@ public partial class EditorService : IEditorService
     {
         var source = documentDockService.ActiveTab as CodeEditorViewModel
             ?? documentDockService.OpenDocuments.OfType<CodeEditorViewModel>().FirstOrDefault();
-        return source is null ? localization.GetString("Str.Lsp.NoWorkspaceEditor")
-            : source.ApplyRename(edit, "", documentFor, codeAction: true, takeFocus: false);
+        var changes = edit.DocumentChanges ?? edit.Changes?.Select(pair =>
+            new TextDocumentEdit(new(pair.Key, null), pair.Value)).ToArray() ?? [];
+        var codeChanges = new List<TextDocumentEdit>();
+        var carried = new List<(RelatedDocumentEditorViewModel Editor, List<TextChange> Changes)>();
+        foreach (var change in changes)
+        {
+            var related = change.Kind is null && change.TextDocument is { } target && change.Edits is not null
+                ? documentDockService.OpenDocuments.OfType<RelatedDocumentEditorViewModel>()
+                    .FirstOrDefault(editor => editor.RelatedDocument is { } document
+                        && Names(target.Uri, null, document.AbsolutePath)) : null;
+            if (related is null)
+            {
+                codeChanges.Add(change);
+                continue;
+            }
+            if (change.Edits!.Length == 0) continue;
+            var uri = change.TextDocument!.Uri;
+            string Refuse(bool stale = false) => string.Format(localization.GetString(stale
+                ? "Str.CodeEditor.QuickFix.ChangedTarget" : "Str.CodeEditor.QuickFix.Refused"), related.RelatedDocument!.Name);
+            var local = LspDocumentSession.VersionsFor(related.LanguageClient, uri);
+            var snapshot = documentFor(uri);
+            if (snapshot is not null && (snapshot.Text != related.Document.Text
+                    || (change.TextDocument.Version is null && snapshot.VersionChanged))
+                || local is { } known && known.Current != known.Sent
+                || change.TextDocument.Version is { } version && snapshot is { } sent && version != sent.Version
+                || snapshot is null && related.IsModified)
+                return Refuse(stale: true);
+            if (carried.Any(item => item.Editor == related)) return Refuse();
+            var resolved = new List<TextChange>();
+            foreach (var textEdit in change.Edits)
+            {
+                bool Valid(Position position) => position.Line >= 0 && position.Line < related.Document.LineCount
+                    && position.Character >= 0 && position.Character <= related.Document.GetLineByNumber(position.Line + 1).Length;
+                if (textEdit.NewText is null || !Valid(textEdit.Range.Start) || !Valid(textEdit.Range.End)) return Refuse();
+                int Offset(Position position) => related.Document.GetLineByNumber(position.Line + 1).Offset + position.Character;
+                var start = Offset(textEdit.Range.Start);
+                var end = Offset(textEdit.Range.End);
+                if (end < start) return Refuse();
+                resolved.Add(new(start, end - start, textEdit.NewText));
+            }
+            resolved = resolved.Select((item, index) => (item, index))
+                .OrderByDescending(entry => entry.item.Offset).ThenByDescending(entry => entry.index)
+                .Select(entry => entry.item).ToList();
+            for (var i = 1; i < resolved.Count; i++)
+                if (resolved[i].Offset + resolved[i].Length > resolved[i - 1].Offset) return Refuse();
+            carried.Add((related, resolved));
+        }
+
+        // Validate every carried buffer before the code applier commits anything. It in turn validates
+        // all code targets before writing; only then can the prepared carried edits be committed.
+        if (carried.Count == 0)
+            return source is null ? localization.GetString("Str.Lsp.NoWorkspaceEditor")
+                : source.ApplyRename(edit, "", documentFor, codeAction: true, takeFocus: false);
+        if (codeChanges.Count > 0)
+        {
+            if (source is null) return localization.GetString("Str.Lsp.NoWorkspaceEditor");
+            if (source.ApplyRename(new(DocumentChanges: codeChanges.ToArray()), "", documentFor,
+                    codeAction: true, takeFocus: false) is { } refusal) return refusal;
+        }
+        foreach (var (editor, edits) in carried)
+        {
+            using (editor.Document.RunUpdate())
+                foreach (var change in edits)
+                    editor.Document.Replace(change.Offset, change.Length, change.Text);
+        }
+        return null;
     }
 
     public bool ShowDocument(ShowDocumentParams request)

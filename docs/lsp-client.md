@@ -1442,7 +1442,16 @@ connections, unsolicited edits and edits after the command answer receive `appli
 Authorized edits use the rename workspace applier, including the answering connection's version and
 snapshot checks, buffer freshness checks, protected IDE lines and read-only forms. Both `changes` and
 `documentChanges` are supported. Preflight refuses the whole edit with the applier's reason, or applies
-it with one undo step per module and answers `applied: true`. Resource operations remain refused. Every
+it with one undo step per document and answers `applied: true` without a `failureReason`.
+Open code windows and open carried text files become modified without saving: their tabs show `*`,
+`get_document_tabs` reports `isModified: true`, and the editor's Save command is available. Undo restores
+the entire previous text; Redo reapplies the edit. Each target has its own independent undo step.
+A loaded code member whose window is closed opens with the edit applied and unsaved; its disk file is
+untouched. A closed carried file or a file outside the loaded code members is refused, rather than
+opened or written. An edit reaching an IDE-only header or another guarded run refuses the whole
+workspace edit with `applied: false` and a nonempty `failureReason`. Open carried targets use the same
+snapshot freshness, version, range and overlap checks before any target changes (#4043).
+Resource operations remain refused. Every
 refusal also shows its reason in the status bar through
 `LanguageServerMessageReporter`, including unsolicited edits and edits following a lens, code-action
 command or direct command (#3175). A client-only flag marks every refusal, including changed targets,
