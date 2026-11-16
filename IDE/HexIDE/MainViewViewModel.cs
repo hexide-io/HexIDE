@@ -1841,7 +1841,7 @@ public partial class MainViewViewModel : ObservableObject
 
         // Route `Debug.Print` output from the running program into the Immediate pane (VB6's Immediate window), as it is
         // written, so a line a statement left open shows at once and the next Debug.Print continues it (#1380).
-        VBDebugConsole.Written += text =>
+        RunningProgram.Current.Written += text =>
         {
             Dispatcher.UIThread.Post(() =>
                 Immediate.Document.Insert(Immediate.Document.TextLength, text.Replace("\r\n", "\n")));
