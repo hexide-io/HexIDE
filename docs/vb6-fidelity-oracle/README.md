@@ -756,3 +756,4 @@ added afterwards.
 - [A module's name line below the top of its file (2026-11-12, #3757)](a-modules-name-line-below-the-top-of-its-file.md#a-modules-name-line-below-the-top-of-its-file-2026-11-12-3757)
 - [An undeclared name before a dot (2026-11-12, #3778)](an-undeclared-name-before-a-dot.md#an-undeclared-name-before-a-dot-2026-11-12-3778)
 - [`Call` with empty parentheses (2026-11-12, #3779)](an-undeclared-name-before-a-dot.md#call-with-empty-parentheses-2026-11-12-3779)
+- [A ReDim that declares its name (2026-11-16, #1495)](redim-that-declares-its-name.md#a-redim-that-declares-its-name-2026-11-16-1495)
