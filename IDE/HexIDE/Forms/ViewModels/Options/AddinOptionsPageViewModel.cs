@@ -163,7 +163,7 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
                 _ => null,
             }
             : null;
-        return new TrustChainViewModel(info.Chain, unavailable, status == AddinStatus.Revoked, asDialog: false);
+        return new TrustChainViewModel(info.Chain, unavailable, status == AddinStatus.Revoked, asDialog: false, localization: _localization);
     }
 
     // Decode the (verifier-sanitized) logo once. LogoPath is null unless the verifier confirmed it names
