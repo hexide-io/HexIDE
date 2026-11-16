@@ -511,6 +511,7 @@ added afterwards.
 - [A running program's locale is the user's regional settings (2026-10-12, #777)](a-running-programs-locale-is-the-users-regional-settings.md#a-running-programs-locale-is-the-users-regional-settings-2026-10-12-777)
 - [Fixed number masks beyond Decimal range (#2118)](format-of-a-number-beyond-decimals-range.md)
 - [Turning a number or a date into text (2026-10-12, #772, #771)](turning-a-number-or-a-date-into-text.md#turning-a-number-or-a-date-into-text-2026-10-12-772-771)
+- [A Double or a Single converted to Decimal (2026-11-15, #4012)](a-double-or-a-single-converted-to-decimal.md#a-double-or-a-single-converted-to-decimal-2026-11-15-4012)
 - [A control where a value is wanted is its default member (2026-10-12, #790)](a-control-where-a-value-is-wanted-is-its-default-member.md#a-control-where-a-value-is-wanted-is-its-default-member-2026-10-12-790)
 - [A Label's colours, read back and painted (2026-10-12, #795)](a-labels-colours-read-back-and-painted.md#a-labels-colours-read-back-and-painted-2026-10-12-795)
 - [Seven system colours (2026-10-22, #908)](seven-system-colours.md#seven-system-colours-2026-10-22-908)
