@@ -1428,6 +1428,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                 await beforeLaunch(starting);
 
             var client = e.Registration.CreateClient();
+            if (client is VBLspClient configured)
+                await configured.UpdateServerSettingsAsync(e.Registration.Settings);
 
             // Heard only while it is listed. A removal takes the server out of the list and stops hearing its client under
             // the same lock, so a client made after that, by a start the removal has not yet called off, is let go unheard.
@@ -1645,9 +1647,23 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         return DiagnosticOwner.LanguageServer;
     }
 
+    /// <summary>Applies reloaded settings to the named server, retaining them for its next start too.</summary>
+    public async Task UpdateServerSettingsAsync(string id, JsonElement? settings)
+    {
+        var entry = _entries.FirstOrDefault(e => e.Registration.Id == id);
+        if (entry is null) return;
+        await entry.Gate.WaitAsync();
+        try
+        {
+            entry.Registration = entry.Registration with { Settings = settings?.Clone() };
+            if (entry.Client is VBLspClient client) await client.UpdateServerSettingsAsync(settings);
+        }
+        finally { entry.Gate.Release(); }
+    }
+
     internal sealed class Entry(LanguageServerRegistration registration)
     {
-        public LanguageServerRegistration Registration { get; } = registration;
+        public LanguageServerRegistration Registration { get; set; } = registration;
         public ILspClient? Client;
         public bool WarnedWaitingForWorkspace;
         public LanguageConnectionState State = LanguageConnectionState.NotStarted;

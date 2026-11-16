@@ -1428,7 +1428,11 @@ client may legitimately gate a custom method on. A server that does not advertis
 
 The client declares `workspace.configuration` and answers `workspace/configuration` with one value
 per requested item, in order. `editor.tabSize` returns the current Tools > Options Tab Width as a
-number, including for scoped items; unknown or absent sections return `null`. Running connections
+number, including for scoped items. Other sections resolve by dotted path within the entry’s `settings`
+object; absent or empty sections return the whole object, and missing paths return `null`. `scopeUri`
+is accepted and ignored. Saving an entry in Language & Debug Servers reloads the file and applies changed
+settings only to the named server, sending `workspace/didChangeConfiguration` with that object. An edit made
+outside HexIDE applies at the next start or the next save in that window. Running connections
 receive `workspace/didChangeConfiguration` with empty `settings` when Tab Width changes, so a server
 can request its configuration again. New connections read the current value on their first request.
 `WorkspaceConfigurationWireTests` checks the capability, response array and change notification frames.
@@ -1605,10 +1609,10 @@ than inferred.
 |---|---|---|---|
 | ✅ | `workspace/applyEdit` | ← | Checked workspace edits during a user command on that server; otherwise refused with a reason (#2908) |
 | ✅ | `workspace/codeLens/refresh` | ← | Answers null and refetches lenses in attached code windows |
-| ✅ | `workspace/configuration` | ← | Returns editor.tabSize from Tab Width; unknown items return null |
+| ✅ | `workspace/configuration` | ← | Returns editor.tabSize from Tab Width; other sections resolve entry settings by dotted path; missing paths return null |
 | ○ | `workspace/diagnostic` | → | The pull model, workspace-wide ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
 | ✅ | `workspace/diagnostic/refresh` | ← | Re-asks every open document; the only way a pull-model server can report a change that is not a document |
-| ✅ | `workspace/didChangeConfiguration` | → | Notifies running servers when Tab Width changes |
+| ✅ | `workspace/didChangeConfiguration` | → | Notifies running servers when Tab Width changes; entry settings changes notify only that server |
 | ✅ | `workspace/didChangeWatchedFiles` | → | Registered globs, masks, relative patterns and coalesced disk events (#456) |
 | ✅ | `workspace/didChangeWorkspaceFolders` | → | Shared project-change debounce; opted-in servers, before import |
 | ✅ | `workspace/didCreateFiles` | → | First saves and Save As to new files, filtered per running server (#2248) |

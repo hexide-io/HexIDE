@@ -88,7 +88,8 @@ public sealed record LanguageServerRegistration(
     /// </summary>
     string? Origin = null,
     /// <summary>Restart when projects join or leave the workspace, rather than relying on folder notifications.</summary>
-    bool RestartOnProjectChange = false)
+    bool RestartOnProjectChange = false,
+    System.Text.Json.JsonElement? Settings = null)
 {
     /// <summary>
     /// The priority the entries HexIDE contributes itself are given — deliberately below the value an
