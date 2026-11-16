@@ -15,6 +15,8 @@ public sealed class DistributionStartupTests
     {
         var directory = Path.Combine(Path.GetTempPath(), "hexide-gate-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
+        var previousLanguage = HexIDE.Localization.LocalizationService.OsUICulture;
+        HexIDE.Localization.LocalizationService.OsUICulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
         var previousHelp = ServerOptions.HelpRequested;
         typeof(ServerOptions).GetProperty(nameof(ServerOptions.HelpRequested))!.SetValue(null, false);
         try
@@ -47,6 +49,7 @@ public sealed class DistributionStartupTests
         }
         finally
         {
+            HexIDE.Localization.LocalizationService.OsUICulture = previousLanguage;
             typeof(ServerOptions).GetProperty(nameof(ServerOptions.HelpRequested))!.SetValue(null, previousHelp);
             Directory.Delete(directory, true);
         }
@@ -78,6 +81,8 @@ public sealed class DistributionStartupTests
             if (help) start.ArgumentList.Add("--help");
             start.ArgumentList.Add("--user-data-dir");
             start.ArgumentList.Add(Path.Combine(state, "settings"));
+            start.Environment["LANG"] = "en_US.UTF-8";
+            start.Environment["LC_ALL"] = "en_US.UTF-8";
             start.Environment["XDG_CONFIG_HOME"] = Path.Combine(state, "config");
             start.Environment["XDG_DATA_HOME"] = Path.Combine(state, "data");
             start.Environment["XDG_STATE_HOME"] = Path.Combine(state, "recovery");

@@ -40,6 +40,10 @@ The design is in [`design/white-label.md`](design/white-label.md).
 A member that isn't in this table stops the IDE from starting. So does anything else wrong with the file: the IDE
 reports the file and the problem, and doesn't fall back to being HexIDE, because that would open HexIDE's settings
 and recovery files inside your product. `--help` still answers on a broken installation, and exits with code 2.
+All startup refusals a person reads use the operating system’s language before settings load (#4065), including
+the descriptor’s detailed reasons, command-line flag errors and native dialog caption. Field names, paths, sizes
+and limits stay unchanged. With `--help`, a broken installation prints the localized refusal before the help
+text. Descriptor exceptions keep their English messages for programs and logs.
 
 Logo capture checks every PNG chunk's length and CRC, the header's format, and the final IEND. Its IDAT
 stream must inflate to exactly the scanline bytes required by the dimensions, including Adam7 passes.
@@ -269,7 +273,3 @@ names. It also stops if macOS doesn't accept the executable's signature or the `
 needs in order to run them at all and which identify nobody. Signing with your own Developer ID and notarizing are
 yours to do, and [the macOS signing notes](macos-signing.md) describe what that takes. The tool never touches a key
 or a trust anchor, and there's no update service.
-
-## Not done yet
-
-Some diagnostics written in English. See the issues linked from #2042.
