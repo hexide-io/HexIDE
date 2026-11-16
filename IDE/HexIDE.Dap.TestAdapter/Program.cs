@@ -101,7 +101,7 @@ public static class Program
                 if (command == "disconnect") return 0;
                 continue;
             }
-            if (mode.StartsWith("cursor", StringComparison.Ordinal) || mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "conditions" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held" or "disconnect-held-stderr")
+            if (mode.StartsWith("cursor", StringComparison.Ordinal) || mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "conditions" or "conditions-running" or "locals-tree" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held" or "disconnect-held-stderr")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
                 if (mode == "run-control-delayed" && command == "stepIn") continue;
@@ -190,7 +190,7 @@ public static class Program
                     currentLine = 9;
                 object reply = command switch
                 {
-                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsGotoTargetsRequest = mode.StartsWith("goto", StringComparison.Ordinal), supportsConditionalBreakpoints = mode == "conditions" || mode.StartsWith("cursor", StringComparison.Ordinal), supportsEvaluateForHovers = mode is "invalidated" or "evaluate" or "evaluate-running" },
+                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsGotoTargetsRequest = mode.StartsWith("goto", StringComparison.Ordinal), supportsConditionalBreakpoints = mode is "conditions" or "conditions-running" || mode.StartsWith("cursor", StringComparison.Ordinal), supportsEvaluateForHovers = mode is "invalidated" or "evaluate" or "evaluate-running" },
                     "threads" => new { threads = new[] { new { id = 1, name = "Main" } } },
                     "stackTrace" when mode != "session" => new { stackFrames = new[]
                     {
@@ -198,6 +198,10 @@ public static class Program
                         new { id = 7, name = "Caller", line = mode == "invalidated" && callerValue == "99" ? 13 : 12, column = 1, source = new { path = Path.GetFullPath("Caller.bas") } },
                     } },
                     "scopes" when mode != "session" => new { scopes = new[] { new { name = "Locals", variablesReference = request.RootElement.GetProperty("arguments").GetProperty("frameId").GetInt32() + 1, expensive = false } } },
+                    "variables" when mode == "locals-tree" => new { variables =
+                        request.RootElement.GetProperty("arguments").GetProperty("variablesReference").GetInt32() == 1
+                            ? new[] { new { name = "aggregate", value = "Object", type = "Object", variablesReference = 8 } }
+                            : new[] { new { name = "self", value = "Object", type = "Object", variablesReference = 8 } } },
                     "variables" when mode != "session" => FrameVariables(request.RootElement.GetProperty("arguments").GetProperty("variablesReference").GetInt32(), callerValue),
                     "stackTrace" => new { stackFrames = new[] { new { id = 0, name = "Main", line = 6, column = 1 } } },
                     "scopes" => new { scopes = new[] { new { name = "Locals", variablesReference = 1, expensive = false } } },
@@ -228,7 +232,7 @@ public static class Program
                     await ReplyBreakpoints(delayed);
                     heldBreakpoints = null;
                 }
-                if (command == "continue" && mode is not ("evaluate-running" or "run-control" or "run-control-running" or "cursor" or "cursor-first" or "cursor-chatty"))
+                if (command == "continue" && mode is not ("evaluate-running" or "run-control" or "run-control-running" or "cursor" or "cursor-first" or "cursor-chatty" or "conditions-running"))
                 {
                     await Send(new { seq = 5, type = "event", @event = "output", body = new { output = "42\n" } });
                     await Send(new { seq = 6, type = "event", @event = "terminated" });
