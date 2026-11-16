@@ -2,6 +2,7 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Aplicar o texto do ficheiro de projeto substituirá as definições não guardadas de {0}. Continuar?",
     "Str.MemberOrigin.HexIde": "Extensão do HexIDE; não disponível no VB6.",
     "Str.Dock.Host": "Anfitrião de ancoragem",
     "Str.Dock.Root": "Ancoragem raiz",

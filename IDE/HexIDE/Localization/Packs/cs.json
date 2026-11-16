@@ -2,6 +2,7 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Použití textu souboru projektu nahradí neuložená nastavení projektu {0}. Pokračovat?",
     "Str.AIChat.Title": "Chat AI",
     "Str.AIChat.Menu": "_Chat AI",
     "Str.AIChat.Approved": "✔ Schváleno",

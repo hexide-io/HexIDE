@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Menerapkan teks berkas proyek akan mengganti pengaturan proyek {0} yang belum disimpan. Lanjutkan?",
     "Str.MemberOrigin.HexIde": "Ekstensi HexIDE; tidak tersedia di VB6.",
     "Str.Dock.Host": "Host penambatan",
     "Str.Dock.Root": "Tambatan akar",

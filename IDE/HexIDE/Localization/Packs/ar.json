@@ -2,6 +2,7 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "سيؤدي تطبيق نص ملف المشروع إلى استبدال إعدادات المشروع غير المحفوظة لـ {0}. هل تريد المتابعة؟",
     "Str.AIChat.Title": "دردشة الذكاء الاصطناعي",
     "Str.AIChat.Menu": "دردشة الذكاء الاصطناعي",
     "Str.AIChat.Approved": "✔ تمت الموافقة",

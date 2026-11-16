@@ -22,6 +22,7 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 ### Requirement: Discover archive projects and each project's own file
 `get_project_info` SHALL include open archive projects in `projects`, with their container path, their
 own `projectFile`, and `entries` listing stored entry paths, including folders and hidden entries.
+`entryUris` SHALL pair each entry path with its opaque `archive-entry:` language-server URI.
 Each ordinary project SHALL also report its own `projectFile`, which SHALL be null while the project has no
 chosen home: never saved, or held only as a working copy.
 
@@ -41,7 +42,7 @@ filesystem paths or language-server URIs.
 
 ### Requirement: Open archive entries by their listed paths
 `open_file` SHALL open an archive entry by its listed path in the existing read-only inspector, without
-writing files or attaching a language server. Its reply SHALL name the container path as `project` and
+writing files. Text previews SHALL use their opaque archive-entry URI for language servers. Its reply SHALL name the container path as `project` and
 the entry path as `document`. The optional `project` SHALL select an archive by its container path,
 file name or stored project name. Ambiguous matches SHALL refuse and list the matching containers
 before opening anything.
@@ -75,15 +76,15 @@ container path and `document` equal to the entry path returned by `open_file`. I
 - **THEN** the tab is brought to the front
 
 ### Requirement: open_file opens a project's own file
-`open_file` SHALL open a project file by filename, including a group's `.vbg`, in the same read-only
-text tab as Project Explorer. `project` SHALL disambiguate owners by name or project-file path.
+`open_file` SHALL open a project file by filename, including a group's `.vbg`, in the same
+text tab as Project Explorer (editable for VB6 `.vbp`, read-only for group and add-in files). `project` SHALL disambiguate owners by name or project-file path.
 A project with no chosen home SHALL offer no project file. A name matching nothing SHALL list available
 project files alongside the existing member and archive guidance.
 
 #### Scenario: Two project files share a name
 - **WHEN** two loaded projects have files called `Example.vbp` and `open_file` names that file
 - **THEN** the reply refuses the ambiguity and names the paths
-- **AND** passing one path as `project` opens that owner's file read-only
+- **AND** passing one path as `project` opens that owner's project-file tab
 
 ### Requirement: Refuse invalid archive caret locations before opening
 A supplied archive caret location SHALL be validated before opening and shown when the inspector

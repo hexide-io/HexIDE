@@ -8,16 +8,21 @@ The project file is permissive about where members live — a form in a subdirec
 traversing out of the project directory are both legal, and both occur in real projects. A tree that hides
 that arrangement leaves the developer unable to see the shape of their own project from inside the IDE.
 
+Recovery capture of project-file tab text, `.vbg` editing and add-in project-file editing are not covered
+(Refs #3915).
+
 ## Requirements
 
 ### Requirement: A project with a chosen home shows its own file
 Every loaded project with a chosen home SHALL show its own file as its first child, named by filename,
 including contributed types and a group's `.vbg`. Activating it SHALL read the file directly, without
-an add-in reader, into a read-only text tab that refreshes after saves. Editing remains in #3915.
+an add-in reader, into a text tab that refreshes after saves. Saved VB6 `.vbp` files without a contributed
+form format or project-file writer SHALL open as editable text with undo and an unsaved `*` marker;
+all other project files SHALL stay read-only.
 
 #### Scenario: Reading a saved project file
 - **WHEN** the developer activates `Example.vbp` under its project
-- **THEN** a read-only tab shows the file's text
+- **THEN** an editable tab shows the file's text
 - **AND** saving changed project settings refreshes that tab with what was written
 
 #### Scenario: A working copy has no chosen home
@@ -27,6 +32,42 @@ an add-in reader, into a read-only text tab that refreshes after saves. Editing 
 #### Scenario: Archive projects keep their existing tree
 - **WHEN** an archive project is open
 - **THEN** its existing archive tree remains unchanged
+
+### Requirement: Proposed VB6 project text is applied before reload
+Tab Save SHALL validate VB6 text, refuse reader errors, resolve disk conflicts and ask before replacing
+unsaved model/member edits through the existing reload path. Accepted text SHALL be written verbatim
+in the project's encoding. Reload SHALL preserve the tab's position and the project's group, order
+and startup. Project/group saves, tab/project close and Exit SHALL protect unsaved tab text with
+Apply, Discard or Cancel. Later edits during apply SHALL stay unsaved.
+
+#### Scenario: Applying proposed project text through the service
+- **WHEN** proposed VB6 project text has no reader errors and all replacement questions are accepted
+- **THEN** the service writes the exact encoded text and reopens the project through the existing reload path
+- **AND** cancelling a disk-conflict, model-replacement or unsaved-member question leaves the project file untouched
+- **AND** the existing tab shows the file without an unsaved marker after a successful apply
+
+#### Scenario: Refused project-file text
+- **WHEN** the project's reader refuses the edited text or reports an error
+- **THEN** no file is written, the tab keeps its text and unsaved marker, and the IDE reports why
+
+#### Scenario: Saving or closing with unsaved project-file text
+- **WHEN** a project/group save, tab/project close or Exit encounters unsaved project-file text
+- **THEN** it asks whether to apply the text, discard it or cancel
+- **AND** Cancel writes nothing and retains the edit; Discard restores the tab from disk
+
+#### Scenario: Text arrives while a save is pending
+- **WHEN** the tab changes after Save captured the text it is applying
+- **THEN** the captured text is written and applied
+- **AND** the later edits remain modified in the same buffer, with their undo history and caret, against the new disk baseline
+
+#### Scenario: Another operation arrives during apply
+- **WHEN** the tab is applying, including while its project is unloaded and reopened
+- **THEN** a second save or close of that tab or project, Save Group or Exit is refused
+- **AND** that second request writes nothing and leaves the tab open
+
+#### Scenario: Read-only group and contributed files
+- **WHEN** a group file or a project with a contributed form format or project-file writer is opened
+- **THEN** its text tab remains read-only
 
 ### Requirement: Explorer names SHALL follow the loaded group or project
 The group root SHALL notify its display name when the group's name changes. The pane title SHALL use

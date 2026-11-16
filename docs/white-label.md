@@ -127,7 +127,7 @@ path and leaves no output or unfinished staging directory.
 
 It grants no trust: included add-ins still need verification and consent. At every depth, names are
 checked without regard to case against `hexide-root.pub`, `hexide-firstparty.pub`, `revocations.json`,
-`revocations.sig`, `revocations-cache.json` and `revocations-cache.sig`. These are refused even when
+`revocations.sig`, `revocations-cache.json`, `revocations-cache.sig` and `revocations-cache.signed`. These are refused even when
 absent from stock. This list follows `TrustAnchors.cs` (embedded anchors) and `RevocationStore.cs`
 (embedded revocation floor and user-data cache); it does not prohibit a package's publisher certificates.
 

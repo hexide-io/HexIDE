@@ -62,10 +62,10 @@ public class ChangedFileViewModel : ObservableObject
     public FormDefinition? Form { get; }
     public ModuleDefinition? Module { get; }
 
-    public ChangedFileViewModel(ProjectDefinition project)
+    public ChangedFileViewModel(ProjectDefinition project, string? name = null)
     {
         Project = project;
-        Name = project.Name;
+        Name = name ?? project.Name;
         Indent = false;
     }
 

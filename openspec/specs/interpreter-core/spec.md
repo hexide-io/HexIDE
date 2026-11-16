@@ -73,6 +73,23 @@ element type with "Can't change data types of array elements". These refusals fo
 - **THEN** it raises "Can't change data types of array elements"
 - **AND** the scalar Variant control `Dim Arr` still accepts the ReDim and stores "Hello" in a `String()`
 
+### Requirement: ReDim declaring a procedure-local array
+
+A plain ReDim of a name not found during procedure execution SHALL declare a dynamic array in that
+procedure's environment, including under Option Explicit. The element type SHALL follow the As clause or type character,
+or otherwise `PrePass.DefaultTypeOf`, defaulting to Variant. ReDim Preserve of an undeclared name SHALL
+raise "Variable not defined" during execution. These behaviours are
+[measured in #1495](https://github.com/hexide-io/HexIDE/issues/1495).
+
+#### Scenario: A new array and its later resize
+- **WHEN** a procedure executes `ReDim q(2)` with no earlier declaration
+- **THEN** q is a local Variant array with upper bound 2
+- **AND** a later `ReDim q(5)` clears it and `ReDim q(3) As Long` refuses a change of element type
+
+#### Scenario: An existing module array
+- **WHEN** a procedure executes ReDim on its module's `Dim mArr() As Long`
+- **THEN** it resizes that module array instead of declaring a local
+
 ### Requirement: For Each collection references and declarations
 
 The interpreter SHALL parse a For Each collection as a reference, refusing parenthesised expressions,
@@ -1764,11 +1781,13 @@ Measured by [#3349's oracle](../../../docs/vb6-fidelity-oracle/a-public-array-in
 
 ### Requirement: ListBox TopIndex assignments report a changed top row
 
-A laid-out, single-select ListBox SHALL expose TopIndex and coerce assignments through the standard Integer store
+A populated ListBox with measurable rows SHALL expose TopIndex and coerce assignments through the standard Integer store
 (#3275, measuring PR #3286). An assignment SHALL clamp to the last page and raise Scroll once,
 synchronously, only if the resulting top row changes. The handler SHALL read the new TopIndex.
 An index below zero or at or above ListCount SHALL raise error 380 without Scroll.
-MultiSelect access and access before row layout SHALL refuse as not implemented.
+TopIndex SHALL behave identically for MultiSelect 0, 1 and 2, including on a loaded hidden form
+(#3986, measurements in oracle PR #4021). Hidden lists SHALL clamp using their actual row layout,
+raise Scroll synchronously for each move, and retain the resulting top row when shown.
 Vertical scroll-bar pointer input SHALL raise Scroll once per changed top row, including each thumb move,
 but not on release without movement. Navigation by Down, Up, Page Down, Home or End SHALL raise Click
 then Scroll when the top row changes, with the new TopIndex readable in both handlers. A key that
@@ -1819,14 +1838,23 @@ On Windows, for a locale whose default calendar is Gregorian, the interpreter SH
 short and long date patterns, date separators, month names (including genitive and abbreviated
 forms), and day names (including abbreviated forms) from Windows NLS for the program locale.
 It SHALL permit user overrides only when the culture's UseUserOverride is true and its name
-matches the Windows user's locale, and request no user overrides otherwise. Other hosts, non-Gregorian default calendars and time formats SHALL retain
-their existing behaviour (#2041; portable Windows date data is deferred to #3928).
+matches the Windows user's locale, and request no user overrides otherwise (#2041).
+Off Windows, when the .NET default calendar is Gregorian and the table's calendar is a defined
+GregorianCalendarTypes value, the interpreter SHALL use the checked-in Windows default date data,
+including era text, through the same mapping (#3928). Missing locales, non-Gregorian defaults and
+time formats SHALL retain their existing behaviour. The table SHALL record its source Windows build;
+Windows user customisations SHALL NOT travel to other hosts.
 
 For an unquoted era token in these NLS patterns, the interpreter SHALL write Windows' era
 text as a literal. This deliberately diverges from vb6.exe, which writes literal `gg`:
 HexIDE honours the locale rather than reproducing an unexpanded token (#3946;
 [measurement in #3979](https://github.com/hexide-io/HexIDE/pull/3979), oracle page
 `docs/vb6-fidelity-oracle/a-long-date-pattern-with-an-era.md`).
+
+#### Scenario: Off-Windows short date order
+- **WHEN** a program in es-US formats 31 December 2000 as Short Date off Windows
+- **THEN** it writes `12/31/2000` and CDate reads that text back as 31 December 2000
+- **AND** the output follows the Windows 10.0.26100 measurements in [#3928](https://github.com/hexide-io/HexIDE/issues/3928)
 
 #### Scenario: Windows long date with an era
 - **WHEN** a Windows program in byn-ER formats 31 December 2000 as Long Date

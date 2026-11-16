@@ -13,8 +13,8 @@
 
 ## 3. Archive entries in core
 
-- [ ] 3.1 Mint, compare and redact archive entry URIs beside `file:` and `untitled:`
-- [ ] 3.2 Give archive tabs a document session and markers, recreated on reload, and kept read-only
+- [x] 3.1 Mint, compare and redact archive entry URIs beside `file:` and `untitled:` (#1118)
+- [x] 3.2 Give archive tabs a document session and markers, recreated on reload, and kept read-only (#1118)
 - [ ] 3.3 Give `ILspWorkspace` archive containers as workspace folders
 - [ ] 3.4 Resolve archive entry URIs in `EditorService.NavigateTo`
 - [ ] 3.5 Stop a workspace move restarting a server whose registration doesn't depend on the VB6 workspace

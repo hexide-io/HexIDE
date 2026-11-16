@@ -4142,7 +4142,26 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (fieldTarget is not null)
                 value = fieldTarget.Read();
             else if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, variableName, out value))
-                throw new VBCompileErrorException("Unknown variable " + variableName);
+            {
+                if (ownedSlots is null)
+                    throw new VBCompileErrorException("Unknown variable " + variableName);
+
+                if (preserve)
+                    throw new VBCompileErrorException("Variable not defined");
+
+                // A plain ReDim declares a new procedure-local dynamic array, even under Option Explicit (#1495).
+                var elementType = varOrProcCall?.typeHint() is { } hint ? BaseTypeMapper.Map(hint)
+                    : currentModule.PrePass.DefaultTypeOf(variableName) ?? Vb6Value.ValueType.EmptyVariant;
+                var arrayType = redim.asTypeClause() is { } clause ? ExtractArrayType(clause)
+                    : new Vb6Value.ValueType(elementType, true);
+                value = new Vb6Value(arrayType);
+                interpreter.ExecutionContext.AllocVariable(currentEnv, variableName, value);
+                if (currentEnv.TryGetOwnVariableLocation(variableName, out var localLoc))
+                {
+                    interpreter.ExecutionContext.State.MarkDeclaredArray(localLoc);
+                    ownedSlots?.Add(localLoc);
+                }
+            }
 
             void Store(Vb6Value next)
             {

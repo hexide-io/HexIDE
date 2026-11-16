@@ -2,6 +2,7 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Uveljavitev besedila projektne datoteke bo nadomestila neshranjene nastavitve projekta {0}. Želite nadaljevati?",
     "Str.MemberOrigin.HexIde": "Razširitev HexIDE; ni na voljo v VB6.",
     "Str.Dock.Host": "Gostitelj sidranja",
     "Str.Dock.Root": "Korensko sidrišče",
@@ -912,7 +913,7 @@
     "Str.Tool.LanguageServers.ArmFutureExplained": "Strežnik se zažene ob prvem dokumentu jezika, ki ga podpira, zato do takrat ni vrstice za označitev. To ne spremeni že zabeleženega.",
     "Str.Tool.LanguageServers.KeepBodies": "Ohrani telesa sporočil",
     "Str.Tool.LanguageServers.ShowAllMessages": "Prikaži vsa zabeležena sporočila",
-    "Str.Tool.LanguageServers.Restart": "_Znova zaženi",
+    "Str.Tool.LanguageServers.Restart": "Z_nova zaženi",
     "Str.Tool.LanguageServers.ShowMessages": "Prikaži njegova sporočila",
     "Str.Tool.LanguageServers.CopyReport": "Kopiraj poročilo",
     "Str.Tool.LanguageServers.ReportRedacted": "Poročilo zamenja poti in naslove z izmišljenimi imeni.",

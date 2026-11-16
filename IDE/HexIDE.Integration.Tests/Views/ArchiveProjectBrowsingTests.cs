@@ -14,6 +14,9 @@ using HexIDE.Forms.ViewModels;
 using HexIDE.Forms.Views;
 using HexIDE.IDE;
 using HexIDE.Localization;
+using HexIDE.Lsp;
+using HexIDE.Lsp.Messages;
+using HexIDE.Controls;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Tools;
@@ -30,6 +33,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     private readonly IWindowManager windows = Substitute.For<IWindowManager>();
     private readonly List<BaseEditorWindowViewModel> tabs = [];
     private readonly ArchiveProjectService archives;
+    private readonly ILspClient lsp = Substitute.For<ILspClient>();
 
     public ArchiveProjectBrowsingTests()
     {
@@ -37,12 +41,54 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         dock.OpenDocuments.Returns(tabs);
         dock.When(d => d.OpenDocument(Arg.Any<BaseEditorWindowViewModel>())).Do(call => tabs.Add(call.Arg<BaseEditorWindowViewModel>()));
-        dock.When(d => d.CloseDocument(Arg.Any<BaseEditorWindowViewModel>())).Do(call => tabs.Remove(call.Arg<BaseEditorWindowViewModel>()));
+        dock.When(d => d.CloseDocument(Arg.Any<BaseEditorWindowViewModel>())).Do(call => { tabs.Remove(call.Arg<BaseEditorWindowViewModel>()); call.Arg<BaseEditorWindowViewModel>().Dispose(); });
         dock.TryActivate<ArchiveDocumentViewModel>(Arg.Any<Func<ArchiveDocumentViewModel, bool>>())
             .Returns(call => tabs.OfType<ArchiveDocumentViewModel>().Any(call.Arg<Func<ArchiveDocumentViewModel, bool>>()));
         localization.GetString("Str.Archive.FolderReadyFormat").Returns("Ready: {0}");
         localization.GetString("Str.Archive.FolderErrorFormat").Returns("Stopped: {0}");
-        archives = new(dock, recent, localization, windows, new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode());
+        archives = new(dock, recent, localization, windows, new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode(), () => lsp);
+    }
+
+    [AvaloniaFact]
+    public async Task Archive_text_sessions_open_reload_close_and_render_diagnostics()
+    {
+        var path = Write("one.twinproj", "Module Main", name: "Module # 1.twin");
+        await archives.Open(path);
+        archives.OpenDocument(archives.Projects[0].Root.Children[0]);
+        var tab = tabs.OfType<ArchiveDocumentViewModel>().Single();
+        var uri = "archive-entry:/Module%20%23%201.twin?container=" + Uri.EscapeDataString(LspDocumentUri.ForFile(path));
+        await lsp.Received(1).OpenDocumentAsync(uri, "Module Main", false);
+        var view = new ArchiveDocumentView { DataContext = tab };
+        var window = new Window { Content = view, Width = 600, Height = 400 };
+        window.Show();
+        try
+        {
+            // A drive-letter case change must still reach the window on Windows; Linux runs the same delivery path.
+            var echo = OperatingSystem.IsWindows()
+                ? uri.Replace(Uri.EscapeDataString(Path.GetPathRoot(path)![..1] + ":"),
+                    Uri.EscapeDataString((char.IsUpper(path[0]) ? char.ToLowerInvariant(path[0]) : char.ToUpperInvariant(path[0])) + ":"), StringComparison.Ordinal)
+                : uri;
+            lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(lsp,
+                new PublishDiagnosticsParams(echo, [new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(0, 6)), "problem", DiagnosticSeverity.Error)]));
+            Dispatcher.UIThread.RunJobs();
+            tab.Markers.Should().ContainSingle();
+            var editor = view.FindControl<TextEditor>("Editor")!;
+            editor.TextArea.TextView.BackgroundRenderers.OfType<LspTextMarkerService>().Single().Markers.Should().ContainSingle();
+            FluentActions.Invoking(() => tab.Document.Insert(0, "bad")).Should().ThrowExactly<InvalidOperationException>();
+            Write("one.twinproj", "replacement", name: "Module # 1.twin");
+            await archives.Reload(path);
+            await lsp.Received(1).CloseDocumentAsync(uri);
+            await lsp.Received(1).OpenDocumentAsync(uri, "replacement", false);
+            tab.Markers.Should().BeEmpty();
+            lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(lsp,
+                new PublishDiagnosticsParams(uri, [new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(0, 3)), "new", DiagnosticSeverity.Error)]));
+            Dispatcher.UIThread.RunJobs();
+            editor.TextArea.TextView.BackgroundRenderers.OfType<LspTextMarkerService>().Single().Markers.Should().ContainSingle();
+            await archives.Close(path);
+            await lsp.Received(2).CloseDocumentAsync(uri);
+            lsp.ReceivedCalls().Should().NotContain(c => c.GetMethodInfo().Name == nameof(ILspClient.ChangeDocumentAsync));
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaFact]
@@ -371,6 +417,10 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             await composition.ProjectService.OpenProject(path);
             composition.ProjectManager.LoadedProjects.Should().BeEmpty();
             root.ProjectExplorer.RootItems.OfType<ArchiveTreeNode>().Should().ContainSingle();
+            composition.ArchiveProjects.OpenDocument(composition.ArchiveProjects.Projects.Single().Root.Children[0]);
+            var archiveTab = composition.DocumentDockService.OpenDocuments.OfType<ArchiveDocumentViewModel>().Single();
+            LspDocumentSession.VersionsFor(composition.LspClient, archiveTab.DocumentUri).Should().NotBeNull(
+                "the production archive service must supply the same router as the rest of the IDE");
             await composition.ProjectService.SaveAllProjects(false);
             await composition.ProjectService.SaveAllProjects(true);
             File.ReadAllBytes(path).Should().Equal(bytes);
@@ -424,5 +474,9 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         }
     }
 
-    public void Dispose() => Directory.Delete(directory, recursive: true);
+    public void Dispose()
+    {
+        foreach (var tab in tabs) tab.Dispose();
+        Directory.Delete(directory, recursive: true);
+    }
 }
