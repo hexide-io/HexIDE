@@ -213,12 +213,17 @@ public class ProgressBarSerializationTests
     // Also found by fuzzing the .frm (#1222): a form block holding another form read as two forms in one model, and saving
     // it threw. VB6 never writes one, and HexIDE now refuses it as it refuses any file that isn't a form.
     [Theory]
-    [InlineData("VB.Form")]
-    [InlineData("VB.UserControl")]
-    public void A_form_that_holds_another_form_is_not_a_form_file(string inner)
+    [InlineData("VB.Form", false)]
+    [InlineData("VB.UserControl", false)]
+    [InlineData("VB.Form", true)]
+    [InlineData("VB.UserControl", true)]
+    public void A_form_that_holds_another_form_is_not_a_form_file(string inner, bool insideFrame)
     {
         var errors = new System.Collections.Generic.List<string>();
-        var text = Head6 + FormOpen + $"   Begin VB.Frame Frame1 \r\n      Begin {inner} Inner \r\n      End\r\n   End\r\n" + FormClose;
+        var block = insideFrame
+            ? $"   Begin VB.Frame Frame1 \r\n      Begin {inner} Inner \r\n      End\r\n   End\r\n"
+            : $"   Begin {inner} Inner \r\n   End\r\n";
+        var text = Head6 + FormOpen + block + FormClose;
 
         var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), text, new ListSink(errors));
 
