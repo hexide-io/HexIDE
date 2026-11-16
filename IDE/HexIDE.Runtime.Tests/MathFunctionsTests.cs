@@ -36,6 +36,25 @@ public class MathFunctionsTests : BaseVBTestFixture
         ]);
     }
 
+    // Round keeps a Decimal's, a Currency's and a Single's type, and rounds a Decimal or a Currency on its exact value
+    // (#4085). vb6.exe SP6, native and p-code agreeing, on a-double-or-a-single-converted-to-decimal.md (oracle PR #4017).
+    // The Double rows were already right; they pin that a Double 2.345 still gives 2.35 beside the Decimal's 2.34.
+    [Theory]
+    [InlineData("CDec(2.345), 2", "2.34|Decimal")]
+    [InlineData("CCur(2.345), 2", "2.34|Currency")]
+    [InlineData("CDec(0.575), 2", "0.58|Decimal")]
+    [InlineData("CSng(0.545), 2", "0.55|Single")]
+    [InlineData("2.345, 2", "2.35|Double")]
+    [InlineData("0.575, 2", "0.57|Double")]
+    [InlineData("2.675, 2", "2.68|Double")]
+    [InlineData("2.5", "2|Double")]
+    [InlineData("3.5", "4|Double")]
+    public async Task Round_keeps_its_arguments_type_and_rounds_a_Decimal_or_Currency_exactly(string args, string expected)
+    {
+        await Run($"Debug.Print CStr(Round({args})) & \"|\" & TypeName(Round({args}))\n");
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
     [Fact]
     public async Task Exp_Sin_Cos()
     {

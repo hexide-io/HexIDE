@@ -29,6 +29,27 @@ public partial class VB6BuiltIns
         d["Log"]   = (_, a, _) => { var x = AsDouble(a[0]); if (x <= 0) throw InvalidCall(); return new Vb6Value(Math.Log(x)); };
         d["Round"] = (_, a, _) => new Vb6Value(Math.Round(AsDouble(a[0]), Supplied(a, 1) ? AsInt(a[1]) : 0, MidpointRounding.ToEven));
         d["Rnd"]   = (self, a, _) => new Vb6Value(self.Rnd(Supplied(a, 0) ? (float)AsDouble(a[0]) : 1f));
+        var roundDouble = d["Round"];
+        d["Round"] = (self, a, text) => RoundKeepingType(a, () => roundDouble(self, a, text));
+    }
+
+    // Round keeps a Decimal's, a Currency's and a Single's type (#4085). A Decimal or a Currency rounds its exact value
+    // half to even: Round(CDec(2.345), 2) is 2.34 and Round(CCur(2.345), 2) is 2.34, where the Double 2.345 gives 2.35.
+    // A Single goes through the Double path, as a Double does, and comes back a Single; the measured rows don't separate
+    // that from scaling in Single. Every other argument takes the Double path unchanged, since vb6.exe's result type for
+    // them isn't measured. vb6.exe SP6, native and p-code, on a-double-or-a-single-converted-to-decimal.md (oracle PR
+    // #4017). The Double path is the registration above, reached through the delegate so that it stays the one place
+    // that decides how a Double rounds.
+    private static Vb6Value RoundKeepingType(IReadOnlyList<Vb6Value> a, Func<Vb6Value> roundDouble)
+    {
+        var digits = Supplied(a, 1) ? AsInt(a[1]) : 0;
+        return a[0].Value switch
+        {
+            decimal m when a[0].Type == VT.Currency => Vb6Value.NewCurrency(Math.Round(m, digits, MidpointRounding.ToEven)),
+            decimal m => Vb6Value.NewDecimal(Math.Round(m, digits, MidpointRounding.ToEven)),
+            float => new Vb6Value((float)AsDouble(roundDouble())),
+            _ => roundDouble(),
+        };
     }
 
     private static Vb6Value Abs(Vb6Value v) => v.Value switch
