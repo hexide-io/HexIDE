@@ -1362,12 +1362,23 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     internal string? LiveDocumentUri => session is { IsOpen: true } open ? open.Uri : null;
 
-    public void SaveForm() => SaveWithFormattingAsync(() => SaveDocumentAsync(false)).ListenErrors();
-    public void SaveModule() => SaveWithFormattingAsync(() => projectService.SaveModule(moduleDefinition!, false)).ListenErrors();
+    public void SaveForm() => StartSave(() => SaveDocumentAsync(false));
+    public void SaveModule() => StartSave(() => projectService.SaveModule(moduleDefinition!, false));
 
     private Task SaveDocumentAsync(bool saveAs) => moduleDefinition != null
         ? projectService.SaveModule(moduleDefinition, saveAs)
         : projectService.SaveForm(formDefinition!, saveAs);
+
+    internal Task? LatestSave { get; private set; }
+
+    private void StartSave(Func<Task> saveAction)
+    {
+        var task = LatestSave = SaveWithFormattingAsync(saveAction);
+#if DEBUG
+        HexIDE.Automation.UiSaveFeedback.Started(task);
+#endif
+        task.ListenErrors();
+    }
 
     private async Task SaveWithFormattingAsync(Func<Task> saveAction)
     {
@@ -2591,7 +2602,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         InsertAtEnd(sb.ToString(), "\nEnd Sub\n");
     }
 
-    public void SaveFormAs() => SaveWithFormattingAsync(() => SaveDocumentAsync(true)).ListenErrors();
+    public void SaveFormAs() => StartSave(() => SaveDocumentAsync(true));
 
     public void ViewCode() => editorService.EditCode(formDefinition);
 
