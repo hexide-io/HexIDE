@@ -73,8 +73,10 @@
 
                     <!-- Look in: toolbar -->
                     <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,4">
-                        <TextBlock Text="{DynamicResource Str.Dialog.NewProject.Label.LookIn}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBox Grid.Column="1"
+                        <Label Target="{CompiledBinding #CurrentDirectory}" VerticalAlignment="Center" Padding="0" Margin="0,0,6,0">
+                            <AccessText Text="{DynamicResource Str.Dialog.NewProject.Label.LookIn}" />
+                        </Label>
+                        <TextBox x:Name="CurrentDirectory" Grid.Column="1"
                                  Text="{CompiledBinding FileBrowser.CurrentDirectory, Mode=OneWay}"
                                  IsReadOnly="True"
                                  FontSize="11" />
@@ -120,16 +122,20 @@
 
                     <!-- File name -->
                     <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,6,0,2">
-                        <TextBlock Text="{DynamicResource Str.Dialog.NewProject.Label.FileName}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBox Grid.Column="1"
+                        <Label Target="{CompiledBinding #ProjectFileName}" VerticalAlignment="Center" Padding="0" Margin="0,0,6,0">
+                            <AccessText Text="{DynamicResource Str.Dialog.NewProject.Label.FileName}" />
+                        </Label>
+                        <TextBox x:Name="ProjectFileName" Grid.Column="1"
                                  Text="{CompiledBinding FileBrowser.FileName}"
                                  FontSize="11" />
                     </Grid>
 
                     <!-- Files of type -->
                     <Grid Grid.Row="3" ColumnDefinitions="Auto,*" Margin="0,2,0,0">
-                        <TextBlock Text="{DynamicResource Str.Dialog.NewProject.Label.FilesOfType}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <ComboBox Grid.Column="1"
+                        <Label Target="{CompiledBinding #ProjectFileType}" VerticalAlignment="Center" Padding="0" Margin="0,0,6,0">
+                            <AccessText Text="{DynamicResource Str.Dialog.NewProject.Label.FilesOfType}" />
+                        </Label>
+                        <ComboBox x:Name="ProjectFileType" Grid.Column="1"
                                   ItemsSource="{CompiledBinding FileBrowser.FileTypeFilters}"
                                   SelectedIndex="{CompiledBinding FileBrowser.SelectedFilterIndex}"
                                   HorizontalAlignment="Stretch" />
