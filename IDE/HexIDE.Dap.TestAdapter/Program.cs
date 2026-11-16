@@ -101,7 +101,7 @@ public static class Program
                 if (command == "disconnect") return 0;
                 continue;
             }
-            if (mode.StartsWith("cursor", StringComparison.Ordinal) || mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "conditions" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held" or "disconnect-held-stderr")
+            if (mode.StartsWith("cursor", StringComparison.Ordinal) || mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "event-flood" or "terminated-flood" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "conditions" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held" or "disconnect-held-stderr")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
                 if (mode == "run-control-delayed" && command == "stepIn") continue;
@@ -188,6 +188,11 @@ public static class Program
                 if (mode.StartsWith("cursor", StringComparison.Ordinal) && command == "continue") currentLine = mode == "cursor-first" ? 6 : 19;
                 if (mode.StartsWith("run-control", StringComparison.Ordinal) && command is "next" or "stepIn" or "stepOut" or "pause" or "continue")
                     currentLine = 9;
+                if (mode == "event-flood" && command is "stackTrace" or "continue")
+                {
+                    for (var i = 0; i < 10_000; i++)
+                        await Send(new { seq = 100 + i, type = "event", @event = "output", body = new { output = $"line {i}\n" } });
+                }
                 object reply = command switch
                 {
                     "initialize" => new { supportsConfigurationDoneRequest = true, supportsGotoTargetsRequest = mode.StartsWith("goto", StringComparison.Ordinal), supportsConditionalBreakpoints = mode == "conditions" || mode.StartsWith("cursor", StringComparison.Ordinal), supportsEvaluateForHovers = mode is "invalidated" or "evaluate" or "evaluate-running" },
@@ -244,6 +249,9 @@ public static class Program
                         body = new { result = "obsolete-evaluation", variablesReference = 0 } });
                     heldEvaluation = null;
                 }
+                if (mode == "terminated-flood" && command == "continue")
+                    for (var i = 0; i < 10_000; i++)
+                        await Send(new { seq = 100 + i, type = "event", @event = "output", body = new { output = $"line {i}\n" } });
                 if (command == "disconnect") return 0;
                 continue;
             }

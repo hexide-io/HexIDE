@@ -2,6 +2,7 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "fitxer de projecte",
     "Str.ProjectFile.ReplaceModel": "Aplicar el text del fitxer de projecte substituirà la configuració no desada de {0}. Voleu continuar?",
     "Str.AIChat.Title": "Xat d’IA",
     "Str.AIChat.Menu": "_Xat d’IA",
@@ -1178,6 +1179,7 @@
     "Str.ProjectLoad.ParseFailed": "No s'ha pogut analitzar el fitxer de formulari: {0}",
     "Str.ProjectLoad.InvalidForm": "Aquest fitxer de formulari no és vàlid",
     "Str.ProjectLoad.UnknownControl": "La classe {0} del control {1} no és una classe de control admesa; es conserva com a desconeguda.",
+    "Str.Tool.Properties.InvalidValue": "Valor de propietat no vàlid",
     "Str.ProjectLoad.InvalidValue": "La propietat {0} de {1} tenia un valor no vàlid.",
     "Str.ProjectLoad.MissingOffset": "Propietat {0} de {1}: no s'ha trobat el desplaçament .frx.",
     "Str.ProjectLoad.MissingRecord": "La propietat «{0}» de «{1}» cita un registre que no conté el fitxer complementari i, per tant, el formulari no es pot desar.",

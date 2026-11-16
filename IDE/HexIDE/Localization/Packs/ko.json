@@ -2,6 +2,7 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "프로젝트 파일",
     "Str.ProjectFile.ReplaceModel": "프로젝트 파일 텍스트를 적용하면 {0}의 저장하지 않은 프로젝트 설정이 바뀝니다. 계속하시겠습니까?",
     "Str.MemberOrigin.HexIde": "HexIDE 확장 기능이며 VB6에서는 사용할 수 없습니다.",
     "Str.Dock.Host": "도킹 호스트",
@@ -1147,6 +1148,7 @@
     "Str.ProjectLoad.ParseFailed": "폼 파일을 구문 분석하지 못했습니다: {0}",
     "Str.ProjectLoad.InvalidForm": "유효한 폼 파일이 아닙니다",
     "Str.ProjectLoad.UnknownControl": "컨트롤 {1}의 클래스 {0}은(는) 지원되는 컨트롤 클래스가 아닙니다 — 알 수 없는 클래스로 보존되었습니다.",
+    "Str.Tool.Properties.InvalidValue": "잘못된 속성 값",
     "Str.ProjectLoad.InvalidValue": "{1}의 속성 {0}에 잘못된 값이 있었습니다.",
     "Str.ProjectLoad.MissingOffset": "{1}의 속성 {0}: .frx 오프셋을 찾을 수 없습니다.",
     "Str.ProjectLoad.MissingRecord": "'{1}'의 속성 '{0}'이(가) 연결된 파일에 없는 레코드를 참조하므로 폼을 저장할 수 없습니다.",

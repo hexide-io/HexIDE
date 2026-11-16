@@ -2,6 +2,7 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "project file",
     "Str.ProjectFile.ReplaceModel": "Applying the project file text will replace unsaved project settings for {0}. Continue?",
     "Str.MemberOrigin.HexIde": "HexIDE extension; not available in VB6.",
     "Str.Dock.Host": "Dock host",
@@ -1179,6 +1180,7 @@
     "Str.ProjectLoad.ParseFailed": "Failed to parse form file: {0}",
     "Str.ProjectLoad.InvalidForm": "This is not a valid form file",
     "Str.ProjectLoad.UnknownControl": "Class {0} of control {1} is not a supported control class — preserved as unknown.",
+    "Str.Tool.Properties.InvalidValue": "Invalid property value",
     "Str.ProjectLoad.InvalidValue": "Property {0} in {1} had an invalid value.",
     "Str.ProjectLoad.MissingOffset": "Property {0} in {1}: .frx offset not found.",
     "Str.ProjectLoad.MissingRecord": "Property '{0}' in '{1}' cites a record its companion does not hold, so the form cannot be saved.",

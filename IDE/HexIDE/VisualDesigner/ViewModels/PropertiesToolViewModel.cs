@@ -415,6 +415,9 @@ public partial class PropertiesToolViewModel : Tool
 
         try
         {
+            if (DesignerSizeValidation.Refuses(propertyClass, value))
+                throw new DataValidationException(localization.GetString("Str.Tool.Properties.InvalidValue"));
+
             // A position is typed in the units its row shows, and kept in pixels (#1636).
             if (DesignPositions.IsPosition(propertyClass) && currentDocument.FormDefinition is { } form)
                 value = ModelPosition(form, instance, propertyClass, value);

@@ -2,6 +2,7 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "projektfil",
     "Str.ProjectFile.ReplaceModel": "Om projektfilens text tillämpas ersätts osparade projektinställningar för {0}. Fortsätta?",
     "Str.MemberOrigin.HexIde": "HexIDE-tillägg; inte tillgängligt i VB6.",
     "Str.Dock.Host": "Dockningsvärd",
@@ -1113,6 +1114,7 @@
     "Str.ProjectLoad.ParseFailed": "Kunde inte tolka formulärfilen: {0}",
     "Str.ProjectLoad.InvalidForm": "Detta är inte en giltig formulärfil",
     "Str.ProjectLoad.UnknownControl": "Klassen {0} för kontrollen {1} är inte en kontrollklass som stöds — bevaras som okänd.",
+    "Str.Tool.Properties.InvalidValue": "Ogiltigt egenskapsvärde",
     "Str.ProjectLoad.InvalidValue": "Egenskapen {0} i {1} hade ett ogiltigt värde.",
     "Str.ProjectLoad.MissingOffset": "Egenskapen {0} i {1}: positionen i .frx hittades inte.",
     "Str.ProjectLoad.MissingRecord": "Egenskapen '{0}' i '{1}' hänvisar till en post som saknas i den tillhörande filen, så formuläret kan inte sparas.",

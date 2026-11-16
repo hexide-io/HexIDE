@@ -2,6 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "projektitiedosto",
     "Str.ProjectFile.ReplaceModel": "Projektitiedoston tekstin käyttäminen korvaa projektin {0} tallentamattomat asetukset. Jatketaanko?",
     "Str.MemberOrigin.HexIde": "HexIDE-laajennus; ei käytettävissä VB6:ssa.",
     "Str.Dock.Host": "Telakointi-isäntä",
@@ -1113,6 +1114,7 @@
     "Str.ProjectLoad.ParseFailed": "Lomaketiedoston jäsentäminen epäonnistui: {0}",
     "Str.ProjectLoad.InvalidForm": "Tämä ei ole kelvollinen lomaketiedosto",
     "Str.ProjectLoad.UnknownControl": "Ohjausobjektin {1} luokka {0} ei ole tuettu ohjausobjektiluokka — säilytetty tuntemattomana.",
+    "Str.Tool.Properties.InvalidValue": "Virheellinen ominaisuuden arvo",
     "Str.ProjectLoad.InvalidValue": "Ominaisuuden {0} arvo kohteessa {1} oli virheellinen.",
     "Str.ProjectLoad.MissingOffset": "Ominaisuus {0} kohteessa {1}: siirtymää .frx-tiedostossa ei löytynyt.",
     "Str.ProjectLoad.MissingRecord": "Ominaisuus '{0}' kohteessa '{1}' viittaa tietueeseen, jota sen oheistiedostossa ei ole, joten lomaketta ei voi tallentaa.",

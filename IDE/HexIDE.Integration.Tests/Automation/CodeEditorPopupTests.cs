@@ -354,6 +354,28 @@ public class CodeEditorPopupTests : IDisposable
         editor.Text.Should().Be(typed);
     }
 
+    // #3613: `Xor` sorts ahead of a declared `x`, and Space committed it. Typed key by key through the window, the whole-word
+    // match is selected and Space leaves what was typed.
+    [AvaloniaFact]
+    public void Space_after_a_whole_word_match_keeps_the_typed_word()
+    {
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
+            [new CompletionItem("Xor", CompletionItemKind.Keyword), new CompletionItem("x", CompletionItemKind.Variable)]);
+        var (window, view, editor) = Show();
+        var vm = (CodeEditorViewModel)view.DataContext!;
+        vm.ReplaceBody("");
+        editor.CaretOffset = editor.Document.TextLength;
+        window.KeyTextInput("x");
+        Pump();
+        CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Single().CompletionList.SelectedItem
+            .Should().BeOfType<VbCompletionData>().Which.Text.Should().Be("x");
+        window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
+        window.KeyTextInput(" ");
+        window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
+        Pump();
+        vm.BufferBody.Should().Be("x ");
+    }
+
     // Measured: docs/vb6-fidelity-oracle/a-lone-cr-or-lf-in-vb6-source.md and
     // docs/vb6-fidelity-oracle/line-continuations-and-statement-separators.md.
     [AvaloniaTheory]

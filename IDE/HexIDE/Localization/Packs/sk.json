@@ -2,6 +2,7 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "súbor projektu",
     "Str.ProjectFile.ReplaceModel": "Použitie textu súboru projektu nahradí neuložené nastavenia projektu {0}. Pokračovať?",
     "Str.MemberOrigin.HexIde": "Rozšírenie HexIDE; vo VB6 nie je dostupné.",
     "Str.Dock.Host": "Hostiteľ dokovania",
@@ -1153,6 +1154,7 @@
     "Str.ProjectLoad.ParseFailed": "Nepodarilo sa analyzovať súbor formulára: {0}",
     "Str.ProjectLoad.InvalidForm": "Toto nie je platný súbor formulára",
     "Str.ProjectLoad.UnknownControl": "Trieda {0} ovládacieho prvku {1} nie je podporovanou triedou ovládacieho prvku — zachovaná ako neznáma.",
+    "Str.Tool.Properties.InvalidValue": "Neplatná hodnota vlastnosti",
     "Str.ProjectLoad.InvalidValue": "Vlastnosť {0} v {1} mala neplatnú hodnotu.",
     "Str.ProjectLoad.MissingOffset": "Vlastnosť {0} v {1}: posun v .frx sa nenašiel.",
     "Str.ProjectLoad.MissingRecord": "Vlastnosť '{0}' v '{1}' odkazuje na záznam, ktorý sprievodný súbor neobsahuje, preto formulár nemožno uložiť.",

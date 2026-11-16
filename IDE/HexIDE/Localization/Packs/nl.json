@@ -2,6 +2,7 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "projectbestand",
     "Str.ProjectFile.ReplaceModel": "Het toepassen van de projectbestandstekst vervangt niet-opgeslagen projectinstellingen voor {0}. Doorgaan?",
     "Str.MemberOrigin.HexIde": "HexIDE-uitbreiding; niet beschikbaar in VB6.",
     "Str.Dock.Host": "Dockhost",
@@ -1147,6 +1148,7 @@
     "Str.ProjectLoad.ParseFailed": "Kan formulierbestand niet parseren: {0}",
     "Str.ProjectLoad.InvalidForm": "Dit is geen geldig formulierbestand",
     "Str.ProjectLoad.UnknownControl": "Klasse {0} van besturingselement {1} is geen ondersteunde klasse van besturingselementen — bewaard als onbekend.",
+    "Str.Tool.Properties.InvalidValue": "Ongeldige eigenschapswaarde",
     "Str.ProjectLoad.InvalidValue": "Eigenschap {0} in {1} had een ongeldige waarde.",
     "Str.ProjectLoad.MissingOffset": "Eigenschap {0} in {1}: .frx-offset niet gevonden.",
     "Str.ProjectLoad.MissingRecord": "Eigenschap '{0}' in '{1}' verwijst naar een record dat niet in het bijbehorende bestand staat, waardoor het formulier niet kan worden opgeslagen.",

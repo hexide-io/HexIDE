@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "项目文件",
     "Str.ProjectFile.ReplaceModel": "应用项目文件文本将替换 {0} 未保存的项目设置。是否继续？",
     "Str.AIChat.Title": "AI 聊天",
     "Str.AIChat.Menu": "AI 聊天(_C)",
@@ -1138,6 +1139,7 @@
     "Str.ProjectLoad.ParseFailed": "无法解析窗体文件：{0}",
     "Str.ProjectLoad.InvalidForm": "这不是有效的窗体文件",
     "Str.ProjectLoad.UnknownControl": "控件 {1} 的类 {0} 不是受支持的控件类 — 已作为未知控件保留。",
+    "Str.Tool.Properties.InvalidValue": "无效的属性值",
     "Str.ProjectLoad.InvalidValue": "{1} 中的属性 {0} 的值无效。",
     "Str.ProjectLoad.MissingOffset": "{1} 中的属性 {0}：未找到 .frx 偏移量。",
     "Str.ProjectLoad.MissingRecord": "“{1}”中的属性“{0}”引用了配套文件中不存在的记录，因此无法保存窗体。",

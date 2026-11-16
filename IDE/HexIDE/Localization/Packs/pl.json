@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "plik projektu",
     "Str.ProjectFile.ReplaceModel": "Zastosowanie tekstu pliku projektu zastąpi niezapisane ustawienia projektu {0}. Kontynuować?",
     "Str.MemberOrigin.HexIde": "Rozszerzenie HexIDE; niedostępne w VB6.",
     "Str.Dock.Host": "Host dokowania",
@@ -1147,6 +1148,7 @@
     "Str.ProjectLoad.ParseFailed": "Nie udało się przeanalizować pliku formularza: {0}",
     "Str.ProjectLoad.InvalidForm": "To nie jest prawidłowy plik formularza",
     "Str.ProjectLoad.UnknownControl": "Klasa {0} kontrolki {1} nie jest obsługiwaną klasą kontrolek — zachowano jako nieznaną.",
+    "Str.Tool.Properties.InvalidValue": "Nieprawidłowa wartość właściwości",
     "Str.ProjectLoad.InvalidValue": "Właściwość {0} w {1} miała nieprawidłową wartość.",
     "Str.ProjectLoad.MissingOffset": "Właściwość {0} w {1}: nie znaleziono przesunięcia .frx.",
     "Str.ProjectLoad.MissingRecord": "Właściwość „{0}” w „{1}” odwołuje się do rekordu, którego nie ma w pliku towarzyszącym, więc formularza nie można zapisać.",

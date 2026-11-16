@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "tệp dự án",
     "Str.ProjectFile.ReplaceModel": "Áp dụng văn bản tệp dự án sẽ thay thế các thiết đặt dự án chưa lưu của {0}. Tiếp tục?",
     "Str.MemberOrigin.HexIde": "Phần mở rộng HexIDE; không có trong VB6.",
     "Str.Dock.Host": "Vùng chứa neo",
@@ -1113,6 +1114,7 @@
     "Str.ProjectLoad.ParseFailed": "Không thể phân tích tệp biểu mẫu: {0}",
     "Str.ProjectLoad.InvalidForm": "Đây không phải là tệp biểu mẫu hợp lệ",
     "Str.ProjectLoad.UnknownControl": "Lớp {0} của điều khiển {1} không phải là lớp điều khiển được hỗ trợ — được giữ lại dưới dạng không xác định.",
+    "Str.Tool.Properties.InvalidValue": "Giá trị thuộc tính không hợp lệ",
     "Str.ProjectLoad.InvalidValue": "Thuộc tính {0} trong {1} có giá trị không hợp lệ.",
     "Str.ProjectLoad.MissingOffset": "Thuộc tính {0} trong {1}: không tìm thấy độ lệch .frx.",
     "Str.ProjectLoad.MissingRecord": "Thuộc tính '{0}' trong '{1}' tham chiếu đến một bản ghi không có trong tệp đi kèm, nên không thể lưu biểu mẫu.",

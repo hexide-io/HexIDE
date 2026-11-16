@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.ProjectFileArgument": "файл проєкту",
     "Str.ProjectFile.ReplaceModel": "Застосування тексту файлу проєкту замінить незбережені налаштування проєкту {0}. Продовжити?",
     "Str.MemberOrigin.HexIde": "Розширення HexIDE; недоступне у VB6.",
     "Str.Dock.Host": "Контейнер закріплення",
@@ -1113,6 +1114,7 @@
     "Str.ProjectLoad.ParseFailed": "Не вдалося розібрати файл форми: {0}",
     "Str.ProjectLoad.InvalidForm": "Це не дійсний файл форми",
     "Str.ProjectLoad.UnknownControl": "Клас {0} елемента керування {1} не підтримується — збережено як невідомий.",
+    "Str.Tool.Properties.InvalidValue": "Неприпустиме значення властивості",
     "Str.ProjectLoad.InvalidValue": "Властивість {0} у {1} мала неприпустиме значення.",
     "Str.ProjectLoad.MissingOffset": "Властивість {0} у {1}: зміщення у .frx не знайдено.",
     "Str.ProjectLoad.MissingRecord": "Властивість «{0}» у «{1}» посилається на запис, якого немає в супровідному файлі, тому форму неможливо зберегти.",
