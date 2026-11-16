@@ -140,4 +140,63 @@
         <Setter Property="Padding" Value="1,1,0,0" />
         <Setter Property="Foreground" Value="{DynamicResource {x:Static commonControls:SystemColors.ControlTextBrushKey}}" />
     </Style>
+    <Style Selector="ToolChromeControl:floating" x:DataType="controls:IToolDock">
+        <Setter Property="ToolFlyout">
+            <MenuFlyout>
+                <MenuItem Header="{DynamicResource ToolChromeControlDockString}"
+                          Command="{CompiledBinding Owner.Factory.PinDockable}"
+                          CommandParameter="{CompiledBinding ActiveDockable}" />
+                <MenuItem Header="{DynamicResource ToolChromeControlDockAsDocumentString}"
+                          Command="{CompiledBinding Owner.Factory.DockAsDocument}"
+                          CommandParameter="{CompiledBinding ActiveDockable}">
+                    <MenuItem.IsVisible>
+                        <MultiBinding Converter="{x:Static converters:DockCapabilityConverters.CanDockAsDocumentMultiConverter}">
+                            <Binding Path="ActiveDockable" />
+                            <Binding Path="ActiveDockable.CanDockAsDocument" />
+                            <Binding Path="ActiveDockable.DockCapabilityOverrides.CanDockAsDocument" />
+                            <Binding Path="(core:IDock).DockCapabilityPolicy.CanDockAsDocument" />
+                        </MultiBinding>
+                    </MenuItem.IsVisible>
+                </MenuItem>
+                <MenuItem Header="{DynamicResource ToolChromeControlCloseString}"
+                          Command="{CompiledBinding Owner.Factory.CloseDockable}"
+                          CommandParameter="{CompiledBinding ActiveDockable}">
+                    <MenuItem.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <MultiBinding Converter="{x:Static converters:DockCapabilityConverters.CanCloseMultiConverter}">
+                                <Binding Path="ActiveDockable" />
+                                <Binding Path="ActiveDockable.CanClose" />
+                                <Binding Path="ActiveDockable.DockCapabilityOverrides.CanClose" />
+                                <Binding Path="(core:IDock).DockCapabilityPolicy.CanClose" />
+                            </MultiBinding>
+                            <MultiBinding Converter="{x:Static converters:CanRemoveDockableConverter.Instance}">
+                                <Binding Path="(core:IDock).CanCloseLastDockable" FallbackValue="{x:True}" />
+                                <Binding Path="(core:IDock).VisibleDockables.Count" FallbackValue="0" />
+                            </MultiBinding>
+                        </MultiBinding>
+                    </MenuItem.IsVisible>
+                </MenuItem>
+            </MenuFlyout>
+        </Setter>
+    </Style>
+    <Style Selector="ToolChromeControl:floating /template/ Grid#PART_Grip">
+        <Setter Property="Background" Value="{DynamicResource DockTitleBarBrush}" />
+    </Style>
+    <Style Selector="ToolChromeControl:floating.floatingHostActive /template/ Grid#PART_Grip">
+        <Setter Property="Background" Value="{DynamicResource ActiveTitleBarBrush}" />
+    </Style>
+    <Style Selector="ToolChromeControl:floating /template/ TextBlock#PART_Title">
+        <Setter Property="Foreground" Value="{DynamicResource {x:Static commonControls:SystemColors.ControlTextBrushKey}}" />
+    </Style>
+    <Style Selector="ToolChromeControl:floating.floatingHostActive /template/ TextBlock#PART_Title">
+        <Setter Property="Foreground" Value="{DynamicResource {x:Static commonControls:SystemColors.ActiveCaptionTextBrushKey}}" />
+    </Style>
+    <!-- The caption buttons' glyphs follow the bar they sit on, not Dock's active dockable: a floating window can be the
+         active window while its tool isn't Dock's active one, and dark glyphs on the active caption can't be read. -->
+    <Style Selector="ToolChromeControl:floating /template/ Path#PART_MenuPath, ToolChromeControl:floating /template/ Path#PART_PinPath, ToolChromeControl:floating /template/ Path#PART_MaximizeRestorePath, ToolChromeControl:floating /template/ Path#PART_ClosePath">
+        <Setter Property="Fill" Value="{DynamicResource {x:Static commonControls:SystemColors.ControlTextBrushKey}}" />
+    </Style>
+    <Style Selector="ToolChromeControl:floating.floatingHostActive /template/ Path#PART_MenuPath, ToolChromeControl:floating.floatingHostActive /template/ Path#PART_PinPath, ToolChromeControl:floating.floatingHostActive /template/ Path#PART_MaximizeRestorePath, ToolChromeControl:floating.floatingHostActive /template/ Path#PART_ClosePath">
+        <Setter Property="Fill" Value="{DynamicResource {x:Static commonControls:SystemColors.ActiveCaptionTextBrushKey}}" />
+    </Style>
 </Styles>
