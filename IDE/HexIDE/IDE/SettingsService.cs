@@ -222,7 +222,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     public string? RevocationListUrl
     {
         get => _revocationListUrl;
-        set => SetProperty(ref _revocationListUrl, value);
+        set => SetProperty(ref _revocationListUrl, value ?? SettingsDefaults.RevocationListUrl);
     }
 
     // ── Window state property ───────────────────────────────────

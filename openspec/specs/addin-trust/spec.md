@@ -161,6 +161,29 @@ its absence as a revocation would do far more damage than the case it guards aga
 - **WHEN** no revocation source is configured
 - **THEN** no retrieval is attempted and startup is not delayed
 
+### Requirement: Startup revocation retrieval SHALL depend on installed packages
+The default source SHALL be `https://hexide.io/revocations.json`, with its signature at the URL plus
+`.sig`. A user URL SHALL override it; null SHALL select the default and an empty URL SHALL disable retrieval. Startup SHALL fetch only
+when an enabled discovered package is not verified against the pinned first-party key, before packages
+load or await consent. Retrieval SHALL retain the three-second timeout, root verification and strictly
+newer `issuedUtc` check.
+
+#### Scenario: Only first-party components installed
+- **WHEN** every enabled discovered package is verified against the pinned first-party key
+- **THEN** startup makes no revocation fetch
+
+#### Scenario: Third-party package awaiting consent
+- **WHEN** an enabled third-party package is discovered and a nonempty source is configured
+- **THEN** startup attempts retrieval before deciding whether that package may load
+
+### Requirement: The revocation cache SHALL replace signed pairs atomically
+The cache SHALL atomically replace the signed bytes and signature together, preserving the previous
+cached list if a write is interrupted. Existing two-file caches SHALL remain readable.
+
+#### Scenario: Interrupted cache update
+- **WHEN** a newer valid list is fetched but its cache write is interrupted
+- **THEN** the current session uses the fetched list and the next session retains the previous valid cache
+
 ### Requirement: Unsigned add-ins SHALL load only under an explicit developer opt-in
 An unsigned or invalid package SHALL load only when developer mode is active and the developer has
 separately opted into loading unsigned add-ins, and such an add-in SHALL be visibly marked as unsigned.
