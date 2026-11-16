@@ -773,3 +773,4 @@ added afterwards.
 - [An undeclared name before a dot (2026-11-12, #3778)](an-undeclared-name-before-a-dot.md#an-undeclared-name-before-a-dot-2026-11-12-3778)
 - [`Call` with empty parentheses (2026-11-12, #3779)](an-undeclared-name-before-a-dot.md#call-with-empty-parentheses-2026-11-12-3779)
 - [A ReDim that declares its name (2026-11-16, #1495)](redim-that-declares-its-name.md#a-redim-that-declares-its-name-2026-11-16-1495)
+- [Currency and Decimal overflow is error 6 (2026-11-16, #434)](currency-and-decimal-overflow-is-error-6.md#currency-and-decimal-overflow-is-error-6-2026-11-16-434)
