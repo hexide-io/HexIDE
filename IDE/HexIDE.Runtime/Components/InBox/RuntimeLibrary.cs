@@ -59,7 +59,7 @@ public sealed class RuntimeLibrary
 
     public IReadOnlyList<LibraryClass> Classes { get; } = [];
 
-    // #2265 and oracle PR #3956: measured names; Tab is qualified only.
+    // #2265 and oracle PRs #3956/#4023: measured names; Tab is qualified only.
     internal IReadOnlyList<string> ControlClasses { get; init; } = [];
 
     public bool IsNamedBy(VbReference reference) =>
@@ -171,7 +171,7 @@ public static class ControlLibraries
         ControlClasses = ["ImageList", "ListImages", "ListImage", "ListView", "ListItems", "ListItem",
             "ColumnHeaders", "ColumnHeader", "TreeView", "Nodes", "Node", "ProgressBar",
             "StatusBar", "Panels", "Panel", "Toolbar", "Buttons", "Button", "TabStrip", "Tabs", "Tab",
-            "ListSubItems", "ListSubItem", "ButtonMenus", "ButtonMenu"],
+            "ListSubItems", "ListSubItem", "ButtonMenus", "ButtonMenu", "ImageCombo", "ComboItems", "ComboItem"],
     };
 
     /// <summary>COMCTL32.OCX, Microsoft Windows Common Controls 5.0: the same controls but ImageCombo, which 6.0 added.</summary>
@@ -192,13 +192,19 @@ public static class ControlLibraries
 
     public static readonly RuntimeLibrary TabDlg = new("TabDlg", "TabDlg",
         "{BDC217C8-ED16-11CD-956C-0000C04E4C0A}", "1.1", "TABCTL32.OCX", 393216,
-        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["SSTab"] = 1090 }, "tabdlg-constants.json");
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["SSTab"] = 1090 }, "tabdlg-constants.json")
+    {
+        ControlClasses = ["SSTab"],
+    };
 
     /// <summary>COMDLG32.OCX, Microsoft Common Dialog Control 6.0.</summary>
     public static readonly RuntimeLibrary MSComDlg = new("MSComDlg", "Microsoft Common Dialog Control 6.0",
         "{F9043C88-F6F2-101A-A3C9-08002B2F49FB}", "1.2", "COMDLG32.OCX", 393216,
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["CommonDialog"] = 1084 },
-        "comdlg32-constants.json");
+        "comdlg32-constants.json")
+    {
+        ControlClasses = ["CommonDialog"],
+    };
 
     /// <summary>MSCOMCT2.OCX, Microsoft Windows Common Controls-2 6.0 (SP6), from VB6's UpDown save (#1093).</summary>
     public static readonly RuntimeLibrary MSComCtl2 = new("MSComCtl2", "Microsoft Windows Common Controls-2 6.0 (SP6)",
@@ -207,18 +213,27 @@ public static class ControlLibraries
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
             ["UpDown"] = 1093, ["DTPicker"] = 1094, ["MonthView"] = 1095, ["Animation"] = 1081, ["FlatScrollBar"] = 1097,
-        }, "mscomct2-constants.json");
+        }, "mscomct2-constants.json")
+    {
+        ControlClasses = ["DTPicker", "MonthView", "UpDown", "Animation", "FlatScrollBar"],
+    };
 
     /// <summary>MSMASK32.OCX: identity and constants measured in the MaskedEdBox oracle (#1098).</summary>
     public static readonly RuntimeLibrary MSMask = new("MSMask", "MSMask",
         "{C932BA88-4374-101B-A56C-00AA003668DC}", "1.1", "MSMASK32.OCX", 393216,
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["MaskEdBox"] = 1098 },
-        "msmask32-constants.json");
+        "msmask32-constants.json")
+    {
+        ControlClasses = ["MaskEdBox"],
+    };
 
     // Its registry description is unmeasured; the dialog uses the recorded library name.
     public static readonly RuntimeLibrary RichTextLib = new("RichTextLib", "RichTextLib",
         "{3B7C8863-D78F-101B-B9B5-04021C009402}", "1.2", "RICHTX32.OCX", 393217,
-        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["RichTextBox"] = 1100 }, null);
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["RichTextBox"] = 1100 }, null)
+    {
+        ControlClasses = ["RichTextBox"],
+    };
 
     /// <summary>Every in-box control library HexIDE knows.</summary>
     public static IReadOnlyList<RuntimeLibrary> All { get; } = [MSComctlLib, ComctlLib, TabDlg, MSComDlg, MSComCtl2, MSMask, RichTextLib];
