@@ -50,6 +50,7 @@
     "Str.Lsp.ServerMessage": "Езиков сървър: {0}",
     "Str.Lsp.ServerError": "Грешка на езиковия сървър: {0}",
     "Str.Lsp.EditNotApplied": "Редакцията от сървъра не е приложена: {0}",
+    "Str.Lsp.EditedByCommand": "Редактирано от {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE прилага редакциите от сървър само докато се изпълнява команда, стартирана от потребителя.",
     "Str.Lsp.NoWorkspaceEditor": "Няма наличен редактор за работната област.",
     "Str.Menu.Edit.CallHierarchy": "Йерархия на извикванията",

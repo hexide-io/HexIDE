@@ -59,6 +59,7 @@
     "Str.Lsp.ServerMessage": "Valodu serveris: {0}",
     "Str.Lsp.ServerError": "Valodu servera kļūda: {0}",
     "Str.Lsp.EditNotApplied": "Servera labojums netika lietots: {0}",
+    "Str.Lsp.EditedByCommand": "Rediģēja {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE lieto servera izmaiņas tikai lietotāja palaistas komandas izpildes laikā.",
     "Str.Lsp.NoWorkspaceEditor": "Nav pieejams neviens darbvietas redaktors.",
     "Str.Menu.Edit.CallHierarchy": "Izsa_ukumu hierarhija",

@@ -50,6 +50,7 @@
     "Str.Lsp.ServerMessage": "Jazykový server: {0}",
     "Str.Lsp.ServerError": "Chyba jazykového serveru: {0}",
     "Str.Lsp.EditNotApplied": "Úprava ze serveru nebyla použita: {0}",
+    "Str.Lsp.EditedByCommand": "Upraveno pomocí {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE použije úpravy serveru pouze během provádění příkazu spuštěného uživatelem.",
     "Str.Lsp.NoWorkspaceEditor": "Není k dispozici žádný editor pracovního prostoru.",
     "Str.Menu.Edit.CallHierarchy": "H_ierarchie volání",

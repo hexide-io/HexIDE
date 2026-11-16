@@ -376,6 +376,10 @@ public interface ILspClient : IAsyncDisposable
         System.Text.Json.JsonElement[]? arguments = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Runs a lens command on the connection that supplied it.</summary>
+    Task ExecuteCodeLensCommandAsync(Command command, CancellationToken cancellationToken = default) =>
+        ExecuteCommandAsync(command.CommandName, command.Arguments, cancellationToken);
+
     /// <summary>Sends vb/builtinSymbols and returns all VBA built-in function signatures, or empty.</summary>
     Task<VbaBuiltinSymbol[]> RequestBuiltinSymbolsAsync(CancellationToken cancellationToken = default);
 

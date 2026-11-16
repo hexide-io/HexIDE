@@ -1359,6 +1359,8 @@ cancellation token when visibility changes. The registry retains the issuing con
 identity, so equal lens values from different servers resolve independently. A copied or unknown lens
 is refused by the registry. Already complete lenses need no round trip, and servers without resolve
 support are not asked. The code window draws resolved lenses above their member lines and runs their commands on click.
+The registry retains each command's producing connection by object identity too: declared commands go
+to that server, and undeclared commands can run only that server's contributed client handler (#4258).
 The visual spacer reserves ascent using the editor font metrics so the whole lens row fits above the member text.
 Edits refetch lenses after the same 300 ms document-change debounce that triggers diagnostics pull,
 after the new text is sent. The old labels remain until the replacement answer arrives. Options →
@@ -1457,7 +1459,7 @@ code window's caret. Targets are opened without activating their tabs (#3123).
 
 The client declares `workspace.applyEdit: true` and retains `workspaceEdit.documentChanges`.
 `workspace/applyEdit` is accepted only while that connection has an unanswered user-started
-`workspace/executeCommand`. The shared command sender tracks overlapping commands per server; other
+`workspace/executeCommand` or a running claimed client-command handler. The shared command sender tracks overlapping commands per server; other
 connections, unsolicited edits and edits after the command answer receive `applied: false` with a
 `failureReason`. Internal project-import commands do not grant this permission.
 Authorized edits use the rename workspace applier, including the answering connection's version and
@@ -1484,13 +1486,38 @@ information dialog.
 `ServerApplyEditTests` drives a scripted server through a code lens command and checks the wire answers,
 per-server permission, stale-version refusal, both edit representations and independent undo.
 Consecutive unversioned edits can change an unsaved open target without saving between commands
-(#3154). The baseline is captured when the command is sent, and overlapping commands use the oldest
+(#3154). The baseline is captured when the command is sent (or the claimed handler starts), and overlapping commands use the oldest
 unanswered command's snapshot on that connection. Typing after that snapshot refuses the whole edit
 with `ChangedTarget`, whether or not its `didChange` has already been sent. Versioned edits still check
 the latest sent version. With no unanswered user command, edits remain refused, including dirty targets;
 the latest `didChange` alone does not establish a baseline.
 `ServerApplyEditFocusTests` checks the production dock with two code windows: editing the other
 member keeps keyboard focus and the originating caret without a focus loss.
+
+### Contributed server command registration (#4258)
+
+`AddinLanguageServer` accepts a `CommandPrefix` and a `ClientCommands` map of `AddinClientCommand`
+handlers alongside its message claims. Registration checks a nonempty name followed by `.`, without
+whitespace; `editor.`, `vscode.` and `hexide.` (including nested prefixes) are reserved, ignoring case.
+Every command must have a name below the exact, case-sensitive prefix. Claims without a prefix are
+refused. Registration copies the map before checking it and installs those claims on each client it
+creates, so later dictionary changes cannot introduce unchecked claims or remove checked ones.
+`AddinServerRegistrationTests` checks these refusals and the connection's independent copy.
+
+Code actions and lens commands route to their producing connection. A declared command still goes to
+that server as `workspace/executeCommand`; otherwise its claimed handler runs on the thread pool with
+the original arguments. Core's existing rename and references commands take precedence. Another
+server's action or lens cannot invoke the claim. Handler failures are logged in full and shown with
+only their message, through the action's refusal path or the lens's status bar.
+
+`IAddinServerConnection.ApplyEditAsync` uses the same workspace applier and user-command window as
+`workspace/applyEdit`, restricted to that connection's running claimed handlers. Unversioned edits use
+the snapshot at handler start. Typing after that snapshot refuses the whole edit; accepted edits mark
+buffers modified and provide one undo step per document. Completion, removal or client stop closes the
+window; removal and stop also cancel the handler's token. An accepted edit shows localized attribution
+naming the server and the action or lens title. Code windows have no undo labels.
+`AddinServerRegistrationTests` and `ServerApplyEditTests` cover routing, isolation, checked edits,
+attribution and message-only failures. Settings and publisher namespace binding are separate work.
 
 ### Server questions (#2908)
 
@@ -1614,7 +1641,7 @@ than inferred.
 | ✅ | `workspace/didCreateFiles` | → | First saves and Save As to new files, filtered per running server (#2248) |
 | ○ | `workspace/didDeleteFiles` | → |  |
 | ○ | `workspace/didRenameFiles` | → |  |
-| ✅ | `workspace/executeCommand` | → | Routed to the server that declared the command |
+| ✅ | `workspace/executeCommand` | → | Declared commands go to their server; contributed action/lens claims run on the offering connection (#4258) |
 | ○ | `workspace/foldingRange/refresh` | ← |  |
 | ○ | `workspace/inlayHint/refresh` | ← |  |
 | ○ | `workspace/inlineValue/refresh` | ← |  |

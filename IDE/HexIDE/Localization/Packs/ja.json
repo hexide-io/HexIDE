@@ -84,6 +84,7 @@
     "Str.Lsp.ServerMessage": "言語サーバー: {0}",
     "Str.Lsp.ServerError": "言語サーバーのエラー: {0}",
     "Str.Lsp.EditNotApplied": "サーバーの編集は適用されませんでした: {0}",
+    "Str.Lsp.EditedByCommand": "{0} による編集: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE は、ユーザーが開始したコマンドの実行中にのみサーバーからの編集を適用します。",
     "Str.Lsp.NoWorkspaceEditor": "利用可能なワークスペースエディターがありません。",
     "Str.Menu.Edit.CallHierarchy": "呼び出し階層(_Y)",

@@ -246,6 +246,9 @@ public sealed class VBLspClient : ILspClient
         public readonly int Connection = connection;
         public readonly Func<string, RenameDocumentSnapshot?> DocumentFor = documentFor;
         public Task? Pending;
+        public bool Claimed;
+        public string? Title;
+        public CancellationToken Lifetime;
     }
     private long _commandOrder;
     private readonly ConcurrentDictionary<UserCommand, byte> _userCommands = new();
@@ -2013,8 +2016,8 @@ public sealed class VBLspClient : ILspClient
                 async (cmd, ct) =>
                 {
                     if (!ReferenceEquals(rpc, _rpc)) return;
-                    await ExecuteCommandAsync(cmd.CommandName, cmd.Arguments, ct);
-                }, documentFor, cmd => ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, cmd.CommandName));
+                    await ExecuteCodeLensCommandAsync(cmd with { Title = title }, ct);
+                }, documentFor, cmd => ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, cmd.CommandName) || _claimedCommands.ContainsKey(cmd.CommandName));
         }
 
         var response = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/codeAction",
@@ -2275,6 +2278,87 @@ public sealed class VBLspClient : ILspClient
     public void Claim(IReadOnlyDictionary<string, HexIDE.Addins.AddinServerMethod> methods) =>
         _claimed = new Dictionary<string, HexIDE.Addins.AddinServerMethod>(methods, StringComparer.Ordinal);
 
+    private IReadOnlyDictionary<string, HexIDE.Addins.AddinClientCommand> _claimedCommands =
+        new Dictionary<string, HexIDE.Addins.AddinClientCommand>(StringComparer.Ordinal);
+
+    /// <summary>Copies the contributing add-in's checked client-side command claims before the client starts.</summary>
+    public void ClaimCommands(IReadOnlyDictionary<string, HexIDE.Addins.AddinClientCommand> commands) =>
+        _claimedCommands = new Dictionary<string, HexIDE.Addins.AddinClientCommand>(commands, StringComparer.Ordinal);
+
+    internal bool HasClaimedCommand(string command) => _claimedCommands.ContainsKey(command);
+
+    private readonly CancellationTokenSource _commandLifetime = new();
+    private Func<CancellationToken> _addinLifetime = () => default;
+    internal void SetCommandLifetime(Func<CancellationToken> lifetime) => _addinLifetime = lifetime;
+
+    public async Task ExecuteCodeLensCommandAsync(Command command, CancellationToken cancellationToken = default)
+    {
+        if (ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, command.CommandName))
+            await ExecuteCommandAsync(command.CommandName, command.Arguments, cancellationToken);
+        else if (_claimedCommands.TryGetValue(command.CommandName, out var handler) && IsRunning && !_stopping)
+        {
+            using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _addinLifetime(), _commandLifetime.Token);
+            var running = new UserCommand(Interlocked.Increment(ref _commandOrder),
+                Volatile.Read(ref _connection), SnapshotSentDocuments())
+            { Claimed = true, Title = command.Title, Lifetime = lifetime.Token };
+            // Publish the task before the handler can run: completion closes the window even if our continuation waits.
+            var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var pending = Task.Run(async () =>
+            {
+                await start.Task.ConfigureAwait(false);
+                lifetime.Token.ThrowIfCancellationRequested();
+                var handling = handler(command.Arguments, lifetime.Token);
+                Volatile.Write(ref running.Pending, handling);
+                await handling.ConfigureAwait(false);
+            }, CancellationToken.None);
+            running.Pending = pending;
+            _userCommands.TryAdd(running, 0);
+            start.SetResult();
+            try { await pending.ConfigureAwait(false); }
+            catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "The add-in's command '{Command}' failed.", command.CommandName);
+                throw new HexIDE.Addins.AddinCommandException(ex.Message);
+            }
+            finally { _userCommands.TryRemove(running, out _); }
+        }
+    }
+
+    internal Task<ApplyWorkspaceEditResult> ApplyClaimedEditAsync(WorkspaceEdit edit, CancellationToken ct) =>
+        ApplyUserEditAsync(edit, ct, claimedOnly: true);
+
+    private async Task<ApplyWorkspaceEditResult> ApplyUserEditAsync(WorkspaceEdit edit, CancellationToken ct, bool claimedOnly = false)
+    {
+        ApplyWorkspaceEditResult Refuse(string reason, string? key = null)
+        {
+            RaiseMessageShown(new ShowMessageParams(LspMessageType.Warning, reason)
+                { LocalizationKey = key, IsEditRefusal = true });
+            return new(false, reason);
+        }
+        var running = _userCommands.Keys
+            .Where(command => command.Connection == Volatile.Read(ref _connection)
+                && (!claimedOnly || command.Claimed) && !command.Lifetime.IsCancellationRequested
+                && Volatile.Read(ref command.Pending) is not { IsCompleted: true })
+            .OrderBy(command => command.Order).FirstOrDefault();
+        if (_stopping || running is null)
+            return Refuse(HexIDE.IDE.Distribution.DisplayName + " applies a server's edits only while a command the user started is running.", "Str.Lsp.EditRequiresUserCommand");
+        if (_applyEdit is not { } apply)
+            return Refuse("No workspace editor is available.", "Str.Lsp.NoWorkspaceEditor");
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct, running.Lifetime);
+        var refusal = await apply(edit, target =>
+            (edit.DocumentChanges is { } changes
+                ? changes.Any(change => change.TextDocument is { Version: null } document
+                    && LspDocumentUri.AreSame(document.Uri, target))
+                : edit.Changes?.Keys.Any(uri => LspDocumentUri.AreSame(uri, target)) == true)
+                ? running.DocumentFor(target) : SentDocumentSnapshot(target), lifetime.Token);
+        if (refusal is not null) return Refuse(refusal);
+        if (running.Claimed)
+            RaiseMessageShown(new ShowMessageParams(LspMessageType.Info, "")
+                { LocalizationKey = "Str.Lsp.EditedByCommand", ServerDisplayName = _connectionId ?? _languageId, CommandTitle = running.Title });
+        return new(true);
+    }
+
     /// <summary>
     /// Sends a request an add-in owns over this connection, and returns the server's result as it was sent. Captured as
     /// any other request is.
@@ -2449,6 +2533,7 @@ public sealed class VBLspClient : ILspClient
         if (_settings is not null) _settings.PropertyChanged -= OnSettingsChanged;
         ClearProgress();
         _stopping = true;
+        await _commandLifetime.CancelAsync();
         // Safe even if the reconnect loop already disposed the CTS in its finally.
         try { _reconnectCts?.Cancel(); } catch (ObjectDisposedException) { }
 
@@ -2766,32 +2851,8 @@ public sealed class VBLspClient : ILspClient
         }
 
         [JsonRpcMethod("workspace/applyEdit", UseSingleObjectParameterDeserialization = true)]
-        public async Task<ApplyWorkspaceEditResult> OnApplyEdit(ApplyWorkspaceEditParams p, CancellationToken cancellationToken)
-        {
-            ApplyWorkspaceEditResult Refuse(string reason, string? localizationKey = null)
-            {
-                OnShowMessage(new ShowMessageParams(LspMessageType.Warning, reason) { LocalizationKey = localizationKey, IsEditRefusal = true });
-                return new(false, reason);
-            }
-
-            // Inspect the wire request's task: the UI continuation can still be queued after its answer.
-            var running = _client._userCommands.Keys
-                .Where(command => command.Connection == Volatile.Read(ref _client._connection)
-                    && Volatile.Read(ref command.Pending) is not { IsCompleted: true })
-                .OrderBy(command => command.Order).FirstOrDefault();
-            if (running is null)
-                return Refuse(HexIDE.IDE.Distribution.DisplayName + " applies a server's edits only while a command the user started is running.", "Str.Lsp.EditRequiresUserCommand");
-            if (_client._applyEdit is not { } apply)
-                return Refuse("No workspace editor is available.", "Str.Lsp.NoWorkspaceEditor");
-            // Versioned edits retain the latest-sent check; unversioned edits use the oldest command.
-            var refusal = await apply(p.Edit, target =>
-                (p.Edit.DocumentChanges is { } changes
-                    ? changes.Any(change => change.TextDocument is { Version: null } document
-                        && LspDocumentUri.AreSame(document.Uri, target))
-                    : p.Edit.Changes?.Keys.Any(uri => LspDocumentUri.AreSame(uri, target)) == true)
-                    ? running.DocumentFor(target) : _client.SentDocumentSnapshot(target), cancellationToken);
-            return refusal is null ? new(true) : Refuse(refusal);
-        }
+        public Task<ApplyWorkspaceEditResult> OnApplyEdit(ApplyWorkspaceEditParams p, CancellationToken cancellationToken) =>
+            _client.ApplyUserEditAsync(p.Edit, cancellationToken);
 
         [JsonRpcMethod("window/showDocument", UseSingleObjectParameterDeserialization = true)]
         public async Task<ShowDocumentResult> OnShowDocument(ShowDocumentParams p, CancellationToken cancellationToken) =>

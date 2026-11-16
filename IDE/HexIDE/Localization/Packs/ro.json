@@ -25,6 +25,7 @@
     "Str.Lsp.ServerMessage": "Server de limbaj: {0}",
     "Str.Lsp.ServerError": "Eroare a serverului de limbaj: {0}",
     "Str.Lsp.EditNotApplied": "Modificarea serverului nu a fost aplicată: {0}",
+    "Str.Lsp.EditedByCommand": "Editat de {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE aplică modificările unui server numai în timpul executării unei comenzi pornite de utilizator.",
     "Str.Lsp.NoWorkspaceEditor": "Nu este disponibil niciun editor al spațiului de lucru.",
     "Str.Menu.Edit.CallHierarchy": "I_erarhia apelurilor",

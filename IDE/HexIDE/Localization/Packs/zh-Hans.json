@@ -50,6 +50,7 @@
     "Str.Lsp.ServerMessage": "语言服务器：{0}",
     "Str.Lsp.ServerError": "语言服务器错误：{0}",
     "Str.Lsp.EditNotApplied": "未应用服务器编辑：{0}",
+    "Str.Lsp.EditedByCommand": "由 {0} 编辑：{1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE 仅在用户启动的命令运行期间应用服务器的编辑。",
     "Str.Lsp.NoWorkspaceEditor": "没有可用的工作区编辑器。",
     "Str.Menu.Edit.CallHierarchy": "调用层次结构(_Y)",

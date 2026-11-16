@@ -1175,6 +1175,45 @@ answer a protocol method in its place, and the IDE's model of the connection wou
 - **WHEN** a contribution's prefix is in a namespace the protocol uses, or it claims or sends a method outside its prefix
 - **THEN** it is refused
 
+### Requirement: A contributed server's command claims SHALL be checked at registration
+A contribution MAY register a command prefix and client-side handlers. The prefix SHALL be a nonempty name
+followed by `.`, without whitespace. Prefixes under `editor.`, `vscode.` or `hexide.` SHALL be refused,
+case-insensitively. Commands SHALL be below the exact, case-sensitive prefix; claims without a prefix SHALL be
+refused. Registration SHALL copy claims before checking them and install that copy on each client it creates,
+independently of other servers.
+
+The client SHALL route offered actions and lenses to their producing connection, sending declared commands
+to the server before considering an add-in claim. Otherwise a claimed handler SHALL run on the thread pool
+with the original arguments and cancellation on contribution removal or client stop. Core client commands
+SHALL retain precedence. Handler failures SHALL be logged in full but displayed with their message only.
+
+A connection SHALL expose checked edit application only while its claimed handler task remains incomplete.
+It SHALL share the server edit applier and command-window tracking, using the snapshot at handler start
+for unversioned edits. Completion, removal and client stop SHALL close this window. Accepted edits SHALL
+mark buffers modified, use one undo step per document and display localized server and command-title
+attribution. Stale or protected targets SHALL refuse the whole edit.
+
+#### Scenario: A contribution claims a reserved command namespace
+- **WHEN** an add-in registers `HexIDE.private.` as its command prefix
+- **THEN** registration is refused before the server is added
+
+#### Scenario: The add-in changes its dictionary after registration
+- **WHEN** an add-in removes a checked command and adds an unchecked one after registering
+- **THEN** clients created for the registration retain the original claim and do not acquire the unchecked one
+
+
+#### Scenario: Two servers offer the same client command
+- **WHEN** only one server's add-in claims the command and the other server offers it in a lens or action
+- **THEN** that other server's command does not invoke the first add-in's handler
+
+#### Scenario: A claimed command applies an edit after typing
+- **WHEN** the user types after the handler started and it submits an unversioned edit
+- **THEN** the edit is refused without partial writes
+
+#### Scenario: An add-in applies an edit after its handler completes
+- **WHEN** the connection submits an edit with no claimed handler running
+- **THEN** it receives the command-required refusal
+
 ### Requirement: A document SHALL be routed by extension, and each server told the identifier it declared
 Routing SHALL key on the document's extension. Where a document is offered to more than one server, each
 server SHALL be told the language identifier **that server declared**, rather than a single identifier
