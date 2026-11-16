@@ -555,6 +555,7 @@ added afterwards.
 - [Menus at run time, and the menu bar (2026-10-17, #1126, #1127)](menus-at-run-time-and-the-menu-bar.md#menus-at-run-time-and-the-menu-bar-2026-10-17-1126-1127)
 - [When a menu's Click is raised (2026-10-22, #1344)](when-a-menus-click-is-raised.md#when-a-menus-click-is-raised-2026-10-22-1344)
 - [Choosing a menu item leaves Checked to the program (2026-10-18, #1158; measured by #1159)](choosing-a-menu-item-leaves-checked-to-the-program.md#choosing-a-menu-item-leaves-checked-to-the-program-2026-10-18-1158-measured-by-1159)
+- [What VB6 writes for a menu in a .frm (2026-11-16, #4141, IDE)](what-vb6-writes-for-a-menu-in-a-frm.md#what-vb6-writes-for-a-menu-in-a-frm-2026-11-16-4141-ide)
 - [SetFocus (2026-10-15, #1061)](setfocus.md#setfocus-2026-10-15-1061)
 - [The Line control (2026-10-15, #163)](the-line-control.md#the-line-control-2026-10-15-163)
 - [Sequential files (2026-10-17, #1145)](sequential-files.md#sequential-files-2026-10-17-1145)
