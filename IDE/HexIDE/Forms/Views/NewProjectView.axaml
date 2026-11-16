@@ -16,7 +16,7 @@
 
         <ClassicBorderDecorator BorderStyle="ThinPressed" BorderThickness="1">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0" Spacing="12">
-                <Image Source="{x:Static ide:BrandAssets.Logo}" Width="46" Height="46" />
+                <Image Source="{x:Static ide:BrandAssets.Logo}" Width="46" Height="46" RenderOptions.BitmapInterpolationMode="HighQuality" />
                 <TextBlock Text="{x:Static core:Distribution.DisplayName}" VerticalAlignment="Center" FontSize="24" FontWeight="Bold" />
             </StackPanel>
         </ClassicBorderDecorator>
