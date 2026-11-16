@@ -620,6 +620,42 @@ public class SeveralFormsTests
         run.Closed.Should().NotContain("Form2", "a hidden form is still loaded");
     }
 
+    // #3936's modal Visible measurements (native and p-code), including Hide's side effect before 402 (#4032).
+    [AvaloniaTheory]
+    [InlineData("Form3.Visible = True", "Form3", 401, false, false)]
+    [InlineData("Form1.Visible = False", "Form1", 0, false, false)]
+    [InlineData("Form1.Hide", "Form1", 402, false, false)]
+    [InlineData("Me.Visible = False", "Me", 0, false, true)]
+    public void Modal_visibility_reports_the_error_and_visibility_before_Show_returns(
+        string statement, string target, int error, bool visible, bool returned)
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Load Form3
+                Form2.Show vbModal
+                Debug.Print "returned"
+            End Sub
+            """, Form2Clicked($"""
+                On Error Resume Next
+                {statement}
+                Debug.Print "error " & Err.Number
+                Err.Clear
+                Debug.Print "visible " & {target}.Visible
+
+            """), form3Code: "");
+        run.Click("Form1");
+        Pump();
+        run.Printed.Clear();
+        run.Click("Form2");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(returned
+            ? [$"error {error}", $"visible {visible}", "returned"]
+            : [$"error {error}", $"visible {visible}"]);
+        run.Closed.Should().BeEmpty("hiding keeps the forms loaded");
+    }
+
     [AvaloniaFact]
     public void Under_a_modal_form_a_modeless_Show_is_401_hiding_another_form_402_and_its_own_modal_Show_405()
     {
@@ -686,6 +722,38 @@ public class SeveralFormsTests
         run.Click("Form2");
         Pump();
         run.Printed.Should().Equal("f2 initialize", "f2 load", "f2 queryunload 1", "f2 unload", "after 0");
+    }
+
+    [AvaloniaFact]
+    public void A_modal_form_beneath_the_innermost_stays_shown_when_hidden_with_402()
+    {
+        // 402 is measured (#822); whether VB6 hides a modal form beneath another is not, so it stays shown (#3936 review).
+        using var run = Start(ShowsForm2Modally, Form2Clicked("""
+                Form3.Show vbModal
+                Unload Me
+
+            """), form3Code: """
+            Private Sub Command1_Click()
+                On Error Resume Next
+                Form2.Hide
+                Debug.Print "Hide " & Err.Number & " " & Form2.Visible
+                Err.Clear
+                Form2.Visible = False
+                Debug.Print "Visible " & Err.Number & " " & Form2.Visible
+                Unload Me
+            End Sub
+
+            """);
+        run.Click("Form1");
+        Pump();
+        run.Click("Form2");
+        Pump();
+        run.Printed.Clear();
+        run.Click("Form3");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Hide 402 True", "Visible 402 True", "f2 queryunload 1", "f2 unload", "after, form1 enabled True");
     }
 
     [AvaloniaFact]
