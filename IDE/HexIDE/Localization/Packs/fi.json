@@ -106,7 +106,7 @@
     "Str.ContributedProject.ReferencesReadOnly": "{0} avataan apuohjelmalla {1}: sen viittaukset määrittää ohjelma, johon se kuuluu, ei HexIDE.",
     "Str.ContributedProject.ComponentsReadOnly": "{0} avataan apuohjelmalla {1}: sen komponentit määrittää ohjelma, johon se kuuluu, ei HexIDE.",
     "Str.ContributedProject.NotMade": "{0} avataan apuohjelmalla {1}. Sen kääntää ja suorittaa ohjelma, johon se kuuluu, ei HexIDE.",
-    "Str.ContributedProject.NoReader": "{0} avataan apuohjelmalla, jota ei ole ladattu. HexIDE avaa itse .vbp-, .vbg- ja .twinproj-projektit.",
+    "Str.ContributedProject.NoReader": "HexIDE ei voi avata tiedostoa {0} projektina. Se avaa itse .vbp-, .vbg- ja .twinproj-projektit; muut projektityypit tulevat apuohjelmista, eikä mikään ladattu apuohjelma lue tätä tiedostoa.",
     "Str.Debug.External.Breakpoint": "Ulkoinen keskeytyskohta: pyydetty rivi {0}; sovittimen rivi {1}; vahvistettu: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Odotetaan keskeytyskohdan vahvistusta.",
     "Str.Tool.Immediate.Expired": "Arvioinnin konteksti muuttui; vastaus hylättiin.",

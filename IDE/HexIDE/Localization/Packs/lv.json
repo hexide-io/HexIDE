@@ -144,7 +144,7 @@
     "Str.ContributedProject.ReferencesReadOnly": "{0} atver {1}: tā atsauces iestata programma, kurai tas pieder, nevis HexIDE.",
     "Str.ContributedProject.ComponentsReadOnly": "{0} atver {1}: tā komponentus iestata programma, kurai tas pieder, nevis HexIDE.",
     "Str.ContributedProject.NotMade": "{0} atver {1}. To izveido un palaiž programma, kurai tas pieder, nevis HexIDE.",
-    "Str.ContributedProject.NoReader": "{0} atver pievienojumprogramma, kas nav ielādēta. HexIDE pats atver .vbp, .vbg un .twinproj projektus.",
+    "Str.ContributedProject.NoReader": "HexIDE nevar atvērt {0} kā projektu. Tas pats atver .vbp, .vbg un .twinproj projektus; citus projektu tipus nodrošina pievienojumprogrammas, un neviena ielādēta pievienojumprogramma nelasa šo failu.",
     "Str.Debug.External.Breakpoint": "Ārējais pārtraukumpunkts: pieprasītā rinda {0}; adaptera rinda {1}; apstiprināts: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Gaida pārtraukumpunkta apstiprinājumu.",
     "Str.Tool.Immediate.Expired": "Izvērtēšanas konteksts mainījās; tā atbilde tika atmesta.",

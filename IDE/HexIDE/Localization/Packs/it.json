@@ -140,7 +140,7 @@
     "Str.ContributedProject.ReferencesReadOnly": "{0} è aperto da {1}: i suoi riferimenti sono impostati dal programma a cui appartiene, non da HexIDE.",
     "Str.ContributedProject.ComponentsReadOnly": "{0} è aperto da {1}: i suoi componenti sono impostati dal programma a cui appartiene, non da HexIDE.",
     "Str.ContributedProject.NotMade": "{0} è aperto da {1}. A crearlo ed eseguirlo è il programma a cui appartiene, non HexIDE.",
-    "Str.ContributedProject.NoReader": "{0} si apre con un componente aggiuntivo non caricato. HexIDE apre direttamente i progetti .vbp, .vbg e .twinproj.",
+    "Str.ContributedProject.NoReader": "HexIDE non può aprire {0} come progetto. Apre direttamente i progetti .vbp, .vbg e .twinproj; gli altri tipi di progetto sono forniti da componenti aggiuntivi, e nessun componente aggiuntivo caricato legge questo file.",
     "Str.Debug.External.Breakpoint": "Punto di interruzione esterno: riga richiesta {0}; riga dell’adattatore {1}; verificato: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "In attesa della verifica del punto di interruzione.",
     "Str.Tool.Immediate.Expired": "Il contesto di valutazione è cambiato; la risposta è stata scartata.",

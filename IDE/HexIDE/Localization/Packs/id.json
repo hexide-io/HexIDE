@@ -140,7 +140,7 @@
     "Str.ContributedProject.ReferencesReadOnly": "{0} dibuka oleh {1}: referensi proyek diatur oleh program pemiliknya, bukan oleh HexIDE.",
     "Str.ContributedProject.ComponentsReadOnly": "{0} dibuka oleh {1}: komponen proyek diatur oleh program pemiliknya, bukan oleh HexIDE.",
     "Str.ContributedProject.NotMade": "{0} dibuka oleh {1}. Program pemiliknya yang membuat dan menjalankannya, bukan HexIDE.",
-    "Str.ContributedProject.NoReader": "{0} dibuka oleh add-in yang tidak dimuat. HexIDE sendiri membuka proyek .vbp, .vbg, dan .twinproj.",
+    "Str.ContributedProject.NoReader": "HexIDE tidak dapat membuka {0} sebagai proyek. HexIDE membuka sendiri proyek .vbp, .vbg, dan .twinproj; jenis proyek lain disediakan oleh add-in, dan tidak ada add-in yang dimuat yang dapat membaca file ini.",
     "Str.Debug.External.Breakpoint": "Breakpoint eksternal: baris yang diminta {0}; baris adaptor {1}; terverifikasi: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Menunggu verifikasi breakpoint.",
     "Str.Tool.Immediate.Expired": "Konteks evaluasi berubah; balasannya diabaikan.",

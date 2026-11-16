@@ -110,7 +110,7 @@
     "Str.ContributedProject.ReferencesReadOnly": "{0} otvára {1}: jeho odkazy nastavuje program, ku ktorému patrí, nie HexIDE.",
     "Str.ContributedProject.ComponentsReadOnly": "{0} otvára {1}: jeho súčasti nastavuje program, ku ktorému patrí, nie HexIDE.",
     "Str.ContributedProject.NotMade": "{0} otvára {1}. Zostavuje a spúšťa ho program, ku ktorému patrí, nie HexIDE.",
-    "Str.ContributedProject.NoReader": "{0} otvára doplnok, ktorý nie je načítaný. HexIDE sám otvára projekty .vbp, .vbg a .twinproj.",
+    "Str.ContributedProject.NoReader": "HexIDE nemôže otvoriť {0} ako projekt. Sám otvára projekty .vbp, .vbg a .twinproj; ostatné typy projektov poskytujú doplnky a žiadny načítaný doplnok tento súbor nečíta.",
     "Str.Debug.External.Breakpoint": "Externý bod prerušenia: požadovaný riadok {0}; riadok adaptéra {1}; overený: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Čaká sa na overenie bodu prerušenia.",
     "Str.Tool.Immediate.Expired": "Kontext vyhodnotenia sa zmenil; odpoveď bola zahodená.",

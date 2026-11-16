@@ -131,7 +131,7 @@
     "Str.ContributedProject.ReferencesReadOnly": "{0} 由 {1} 打开，其引用由它所属的程序设置，而不是由 HexIDE。",
     "Str.ContributedProject.ComponentsReadOnly": "{0} 由 {1} 打开，其部件由它所属的程序设置，而不是由 HexIDE。",
     "Str.ContributedProject.NotMade": "{0} 由 {1} 打开。由它所属的程序生成和运行它，而不是 HexIDE。",
-    "Str.ContributedProject.NoReader": "{0} 需由未加载的加载项打开。HexIDE 本身可打开 .vbp、.vbg 和 .twinproj 项目。",
+    "Str.ContributedProject.NoReader": "HexIDE 无法将 {0} 作为项目打开。它本身可打开 .vbp、.vbg 和 .twinproj 项目；其他项目类型由加载项提供，但没有已加载的加载项能读取此文件。",
     "Str.Debug.External.Breakpoint": "外部断点：请求行 {0}；适配器行 {1}；已验证：{2}。\n{3}",
     "Str.Debug.External.BreakpointPending": "正在等待断点验证。",
     "Str.Tool.Immediate.Expired": "求值上下文已更改；已丢弃其响应。",

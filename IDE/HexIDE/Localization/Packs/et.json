@@ -110,7 +110,7 @@
     "Str.ContributedProject.ReferencesReadOnly": "{0} avab {1}: selle viited määrab programm, millele see kuulub, mitte HexIDE.",
     "Str.ContributedProject.ComponentsReadOnly": "{0} avab {1}: selle komponendid määrab programm, millele see kuulub, mitte HexIDE.",
     "Str.ContributedProject.NotMade": "{0} avab {1}. Selle loob ja käivitab programm, millele see kuulub, mitte HexIDE.",
-    "Str.ContributedProject.NoReader": "{0} avatakse lisandmooduliga, mis pole laaditud. HexIDE avab ise .vbp-, .vbg- ja .twinproj-projekte.",
+    "Str.ContributedProject.NoReader": "HexIDE ei saa faili {0} projektina avada. See avab ise .vbp-, .vbg- ja .twinproj-projekte; muud projektitüübid tulevad lisandmoodulitest ning ükski laaditud lisandmoodul ei loe seda faili.",
     "Str.Debug.External.Breakpoint": "Väline katkestuspunkt: taotletud rida {0}; adapteri rida {1}; kinnitatud: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Oodatakse katkestuspunkti kinnitamist.",
     "Str.Tool.Immediate.Expired": "Hindamiskontekst muutus; vastus jäeti kõrvale.",

@@ -132,7 +132,7 @@
     "Str.ContributedProject.ReferencesReadOnly": "{0} is opened by {1}: its references are set by the program it belongs to, not by HexIDE.",
     "Str.ContributedProject.ComponentsReadOnly": "{0} is opened by {1}: its components are set by the program it belongs to, not by HexIDE.",
     "Str.ContributedProject.NotMade": "{0} is opened by {1}. The program it belongs to makes and runs it, not HexIDE.",
-    "Str.ContributedProject.NoReader": "{0} is opened by an add-in that isn't loaded. HexIDE itself opens .vbp, .vbg and .twinproj projects.",
+    "Str.ContributedProject.NoReader": "HexIDE can't open {0} as a project. It opens .vbp, .vbg and .twinproj projects itself; other project types come from add-ins, and no loaded add-in reads this file.",
     "Str.Debug.External.Breakpoint": "External breakpoint: requested line {0}; adapter line {1}; verified: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Waiting for breakpoint verification.",
     "Str.Tool.Immediate.Expired": "The evaluation context changed; its reply was discarded.",

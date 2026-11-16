@@ -135,7 +135,7 @@
     "Str.ContributedProject.ReferencesReadOnly": "{0} l’obre {1}: les seves referències les defineix el programa al qual pertany, no pas HexIDE.",
     "Str.ContributedProject.ComponentsReadOnly": "{0} l’obre {1}: els seus components els defineix el programa al qual pertany, no pas HexIDE.",
     "Str.ContributedProject.NotMade": "{0} l'obre {1}. El genera i l'executa el programa al qual pertany, no pas HexIDE.",
-    "Str.ContributedProject.NoReader": "{0} s'obre amb un complement que no està carregat. HexIDE obre per si mateix els projectes .vbp, .vbg i .twinproj.",
+    "Str.ContributedProject.NoReader": "HexIDE no pot obrir {0} com a projecte. Obre per si mateix els projectes .vbp, .vbg i .twinproj; els altres tipus de projectes provenen de complements, i cap complement carregat llegeix aquest fitxer.",
     "Str.Debug.External.Breakpoint": "Punt d'interrupció extern: línia sol·licitada {0}; línia de l'adaptador {1}; verificat: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "S'està esperant la verificació del punt d'interrupció.",
     "Str.Tool.Immediate.Expired": "El context d'avaluació ha canviat; s'ha descartat la resposta.",

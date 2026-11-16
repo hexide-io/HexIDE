@@ -144,7 +144,7 @@
     "Str.ContributedProject.ReferencesReadOnly": "{0} atidaro {1}: jo nuorodas nustato programa, kuriai jis priklauso, o ne HexIDE.",
     "Str.ContributedProject.ComponentsReadOnly": "{0} atidaro {1}: jo komponentus nustato programa, kuriai jis priklauso, o ne HexIDE.",
     "Str.ContributedProject.NotMade": "{0} atidaro {1}. Jį sukuria ir paleidžia programa, kuriai jis priklauso, o ne HexIDE.",
-    "Str.ContributedProject.NoReader": "{0} atidaromas papildiniu, kuris neįkeltas. HexIDE pats atidaro .vbp, .vbg ir .twinproj projektus.",
+    "Str.ContributedProject.NoReader": "HexIDE negali atidaryti {0} kaip projekto. Jis pats atidaro .vbp, .vbg ir .twinproj projektus; kitus projektų tipus teikia papildiniai, ir joks įkeltas papildinys neskaito šio failo.",
     "Str.Debug.External.Breakpoint": "Išorinis stabdos taškas: prašyta eilutė {0}; derinimo adapterio eilutė {1}; patvirtinta: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Laukiama stabdos taško patvirtinimo.",
     "Str.Tool.Immediate.Expired": "Vertinimo kontekstas pasikeitė; jo atsakymas atmestas.",
