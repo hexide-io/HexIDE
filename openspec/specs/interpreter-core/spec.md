@@ -1355,11 +1355,15 @@ named calls and unsupported domains SHALL refuse as unimplemented.
 
 ### Requirement: Shell SHALL launch programs with the measured argument and result contract
 `Shell` SHALL work as a function and a statement, launch asynchronously and return the process ID as
-Double. Explicit styles 0–4, 6 and 7 SHALL select the Windows startup show state; Unix hosts SHALL
-accept these styles without changing window state. WindowStyle SHALL convert through CInt.
-Empty paths and directories SHALL raise 5, missing programs 53 and Null arguments 94.
-Unmeasured non-string PathName conversions, successful launches with omitted WindowStyle, and other
-OS launch failures and unmeasured style values SHALL refuse explicitly as not implemented pending measurement (#2522).
+Double. Styles 0–9 SHALL select the Windows startup show state; Unix hosts SHALL
+accept these styles without changing window state. WindowStyle SHALL convert through CInt and default
+to 2 when omitted. Values outside 0–9 SHALL raise 5. These styles and defaults are measured in
+[#4146](https://github.com/hexide-io/HexIDE/issues/4146); the original argument/result measurements are in
+[the Shell oracle](../../../docs/vb6-fidelity-oracle/shell.md).
+Empty paths, directories and recognisable ASCII text documents (including associated documents) SHALL raise 5, missing programs
+53 and Null arguments 94. Unix SHALL retain direct process launching and map non-executable document
+failures to 5 where distinguishable. Non-string PathName conversions, access denied to executables,
+programs that exist but cannot start, and ambiguous/binary document classification SHALL refuse explicitly as not implemented pending measurement (#4146).
 
 #### Scenario: A program launches a helper
 - **WHEN** code calls `Shell` with a quoted executable path, arguments and an accepted explicit style
