@@ -10,7 +10,7 @@ using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Integration.Tests.Views;
 
-// #2265 and oracle PR #3956: "More bare names". All objects come from the running form's controls.
+// #2265 and oracle PR #3956: "More bare names".
 public class ControlClassBindingTests
 {
     public static IEnumerable<object[]> Classes()
@@ -72,6 +72,68 @@ public class ControlClassBindingTests
         await interpreter.Execute();
         values.Select(v => Convert.ToString(v.Value, CultureInfo.InvariantCulture)).Should().Equal(
             "Nothing", typeName, "True", "True", "True", (name == "ProgressBar").ToString(), "13", "True");
+    }
+
+    // #2265's last slice, measured native and p-code in oracle PR #4023.
+    [AvaloniaTheory]
+    [InlineData("MSComCtl2", "DTPicker")]
+    [InlineData("MSComCtl2", "MonthView")]
+    [InlineData("MSComCtl2", "UpDown")]
+    [InlineData("MSComCtl2", "Animation")]
+    [InlineData("MSComCtl2", "FlatScrollBar")]
+    [InlineData("TabDlg", "SSTab")]
+    [InlineData("MSMask", "MaskEdBox")]
+    [InlineData("RichTextLib", "RichTextBox")]
+    [InlineData("MSComDlg", "CommonDialog")]
+    [InlineData("MSComctlLib", "ImageCombo")]
+    [InlineData("MSComctlLib", "ComboItems")]
+    [InlineData("MSComctlLib", "ComboItem")]
+    public async Task Remaining_measured_classes_keep_their_type(string libraryName, string name)
+    {
+        var library = ControlLibraries.All.Single(l => l.Name == libraryName);
+        var control = name.StartsWith("Combo", StringComparison.Ordinal) ? "ImageCombo" : name;
+        ModuleExecutionContext ctx;
+        ExecutionEnvironment env;
+        if (control is "ImageCombo" or "CommonDialog")
+        {
+            // ImageCombo still refuses at F5 (#1092); exercise its existing owner and collection model.
+            // CommonDialog needs a host; no dialog is opened by this test.
+            ctx = new ModuleExecutionContext();
+            env = new ExecutionEnvironment();
+            ctx.AllocVariable(env, "c", new Vb6Value(control == "ImageCombo"
+                ? (Avalonia.Controls.Control)new HexIDE.Runtime.BuiltinControls.VBImageCombo(new EventPump(), () => Task.CompletedTask)
+                : new HexIDE.Runtime.BuiltinControls.VBCommonDialog(new Capture([]))));
+            ctx.AllocVariable(env, "wrong", new Vb6Value(new HexIDE.Runtime.BuiltinControls.VBTextBox()));
+        }
+        else
+        {
+            var form = $"VERSION 5.00\nBegin VB.Form Form1\n Begin {libraryName}.{control} c\n End\n Begin VB.TextBox wrong\n End\nEnd\nAttribute VB_Name = \"Form1\"\n";
+            (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(form);
+        }
+        var expression = name switch { "ComboItems" => "c.ComboItems", "ComboItem" => "c.ComboItems.Add(, , \"Alpha\")", _ => "c" };
+        var values = new List<Vb6Value>();
+        var interpreter = new BasicInterpreter(new Capture(values), ctx, env, $"""
+            Dim x As {name}, q As {libraryName}.{name}
+            Debug.Print TypeName(x), TypeName(q)
+            Dim original As Object
+            Set original = {expression}
+            Set x = original
+            Set q = original
+            Debug.Print TypeName(x), TypeName(q), x Is original, q Is original
+            Debug.Print TypeOf x Is {name}, TypeOf x Is {libraryName}.{name}
+            Debug.Print TypeOf wrong Is {name}
+            On Error Resume Next
+            Set x = wrong
+            Debug.Print Err.Number, x Is original
+            Err.Clear
+            Set q = wrong
+            Debug.Print Err.Number, q Is original
+            """);
+        interpreter.SetAppInfo(new AppInfo(ControlLibraries: [library]));
+        await interpreter.Execute();
+        var typeName = name.StartsWith("Combo", StringComparison.Ordinal) ? "I" + name : name;
+        values.Select(v => Convert.ToString(v.Value, CultureInfo.InvariantCulture)).Should().Equal(
+            "Nothing", "Nothing", typeName, typeName, "True", "True", "True", "True", "False", "13", "True", "13", "True");
     }
 
     [AvaloniaFact]
