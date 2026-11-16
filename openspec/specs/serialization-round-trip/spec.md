@@ -913,6 +913,40 @@ project saves SHALL continue to include carried files; Make SHALL leave source m
 - **THEN** the archive contains neither the carried file nor its project item line
 - **AND** the other project lines retain their relative order and the source project retains the carried file
 
+### Requirement: MSFlexGrid saves retain their own property run
+
+The writer SHALL emit carried MSFlexGrid properties after the extents and version in the order recorded
+by the VB6 saved-file oracle, preserving their raw values, comments and Font block. These carried own
+properties SHALL remain unavailable for designer editing. A new toolbox grid SHALL write the measured
+bare block, including its extender TabIndex, without adding own default-property lines or a companion.
+
+#### Scenario: Editing a form with saved grids
+
+- **GIVEN** the VB6-authored MSFlexGrid fixture in `corpus/inbox-controls/saved/msflexgrid/`
+- **WHEN** the form is saved unchanged, or only its caption is edited
+- **THEN** each grid's block remains byte for byte identical and no companion is produced
+
+### Requirement: MSFlexGrid applies or refuses saved settings at runtime
+
+At F5 the loader SHALL apply saved modelled MSFlexGrid settings, using the measured defaults when
+omitted, and SHALL refuse unsupported saved properties by name with the not-implemented error.
+Loading SHALL leave the carried lines unchanged for serialization. The designer SHALL retain its
+preview without enabling edits to carried settings.
+
+#### Scenario: Saved dimensions reach the running grid
+
+- **GIVEN** a saved grid with Rows 4, Cols 3, FixedRows 2 and FixedCols 0
+- **WHEN** the form runs
+- **THEN** those values are read back, with Row/RowSel/TopRow 2 and Col/ColSel/LeftCol 0
+- **AND** TextMatrix(0, 2) is accessible
+
+#### Scenario: An unsupported saved setting prevents a misleading run
+
+- **GIVEN** a grid carrying a saved Font or FormatString
+- **WHEN** the form starts at F5
+- **THEN** it refuses with the not-implemented error naming that property
+- **AND** its saved property block still round-trips unchanged
+
 ### Requirement: ListView saves preserve read-only own properties
 
 The serializer SHALL carry a loaded MSComctlLib ListView's own property runs and flat column blocks,

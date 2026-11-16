@@ -96,6 +96,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         project.Forms.Single().Name.Should().Be("Form1");
         project.Modules.Single().Name.Should().Be("Module1");
         Messages().Should().Contain(message => message.Contains("Doc1.dob"));
+        project.Format.Should().BeSameAs(_format, "a project keeps the format it was read with (#4053)");
         _baselines.TryGet(_frm).Should().NotBeNull("what the read saw is what a later change is compared with");
         _baselines.TryGet(_vbp).Should().NotBeNull();
     }
@@ -109,7 +110,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
 
         await Opened(vbg);
 
-        _loaded.Should().ContainSingle();
+        _loaded.Should().ContainSingle().Which.Format.Should().BeSameAs(_format);
         _projects.CurrentGroup!.UnknownLines.Should().Equal("a line nothing models");
     }
 
@@ -222,6 +223,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
 
         project!.Forms.Single().Name.Should().Be("Form1");
         project.AbsolutePath.Should().BeNull();
+        project.Format.Should().BeSameAs(_format);
     }
 
     [Fact]
@@ -803,6 +805,8 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
 
     internal sealed class StandInFormat : IProjectFileFormat
     {
+        public FormatRegions? Regions { get; set; }
+
         public string CodePrefix(FormDefinition form) => $"prefix of {form.Name}: {Stamp}\r\n";
         public string CodePrefix(ModuleDefinition module) => $"prefix of {module.Name}: {Stamp}\r\n";
         public bool CarriesName { get; set; } = true;

@@ -38,6 +38,7 @@ edit.separator11
 edit.find
 edit.title
 edit.callhierarchy
+edit.typehierarchy
 edit.findnext
 edit.replace
 edit.separator17

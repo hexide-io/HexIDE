@@ -121,6 +121,35 @@ gave the probe the foreground as it started.
 
 **Not measured:** `Unload` of the last visible form, and a third form waiting behind the one hidden.
 
+### `Visible` while another form is modal, against `Show` and `Hide` (2026-11-16, #3936)
+
+**The question.** #822 measured `Show` and `Hide` raising 401 and 402 while a form is modal. Does setting a form's
+`Visible` raise them too? And does a modal form's own `Visible = False` end its modal loop, as `Hide` does?
+
+**The probe.**
+- **Build:** VB6 SP6, `/make`, native code and p-code, which logged the same lines.
+- **The setup:** a Sub Main project ran `Form1.Show`, `Load Form2`, then `Form3.Show vbModal`.
+- **The test:** Form3's first `Activate` ran each statement under `On Error Resume Next`, logging `Err.Number` and the
+  forms' `Visible`. One build set `Visible` and the other called the methods.
+- **The modal loop:** a 2-second Timer on Form3, enabled just before its own statement, would have shown a modal loop
+  still running. It never fired.
+
+| Statement, run from modal Form3 | vb6.exe |
+|---|---|
+| `Form2.Visible = True`, Form2 loaded and hidden | **401**, and Form2 stays hidden |
+| `Form2.Show` | 401, and Form2 stays hidden |
+| `Form1.Visible = False`, Form1 shown | **no error, and Form1 is hidden** |
+| `Form1.Hide` | **402, and Form1 is hidden anyway** |
+| `Me.Visible = False` | no error. **The modal loop ends**: `Show vbModal` returns, and Form3 stays loaded, hidden |
+| `Me.Hide` | the same: no error, and the loop ends |
+
+**Readings:**
+- **`Visible = True` on another form raises `Show`'s 401** while a form is modal.
+- **`Visible = False` doesn't raise `Hide`'s 402.** Both hide the form, so only `Hide` reports the error.
+- **`Hide`'s 402 comes after the form is hidden.** The obvious reading, that the error leaves the form as it was, is
+  wrong.
+- **A modal form's own `Visible = False` ends its modal loop,** as `Hide` does, and leaves the form loaded.
+
 ### In HexIDE (#994)
 
 **Resize.** A form's context raises it when its window first becomes visible since the form loaded, and after that
@@ -162,9 +191,9 @@ visible form and showing it again raised nothing, as measured.
 **A form's `Move`** stopped the program, refused as not implemented. It runs since #1569, which measured it: [A form's
 Move](a-forms-move.md#a-forms-move-2026-10-26-1569).
 
-**Recorded here and left to their own issues:** `Visible = False` and `Unload` of the active form, which don't hand
-activation on as `Hide` does, and the control `Screen` reads after the last visible form is shown again (#3936); and
-Paint (#991).
+**Since #3936,** `Visible = False` and `Unload` of the active form hand activation on as `Hide` does, with no
+Deactivate for a form that unloads, and the last visible form hidden and shown again keeps its control, as measured
+above. **Left to its own issue:** Paint (#991).
 
 **Not measured:** a form whose `.frm` starts it maximized or minimized. HexIDE raises the show's Resize at the size
 the form was designed at, and another when the window takes its maximized size.

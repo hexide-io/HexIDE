@@ -36,7 +36,7 @@ public partial class StatementExecutor
                     VbRecordFormat.WriteVariant(writer, value);
                     break;
                 default:
-                    VbRecordFormat.WriteTyped(writer, value, operand.Type!, prefixed: random);
+                    VbRecordFormat.WriteTyped(writer, value, operand.Type!, prefixed: random && operand.FixedStringWidth is null);
                     break;
             }
         }
@@ -71,6 +71,8 @@ public partial class StatementExecutor
                     break;
                 case RecordOperandKind.Array:
                     var array = current.Value as VBArray ?? new VBArray();
+                    if (array.FixedStringWidth is not null)
+                        throw new NotImplementedException("Get/Put of an array of fixed-length Strings is not implemented (#179): its record layout is unmeasured");
                     if (!(random && array.IsDynamic))
                     {
                         // A Binary file's array, or a fixed one, is read into as it stands: one with no bounds yet reads
@@ -109,7 +111,7 @@ public partial class StatementExecutor
                     break;
                 default:
                     var length = operand.Type == Vb6Value.ValueType.String ? VbDisplay.ToText(current).Length : 0;
-                    var typed = VbRecordFormat.ReadTyped(read, operand.Type!, prefixed: random, length);
+                    var typed = VbRecordFormat.ReadTyped(read, operand.Type!, prefixed: random && operand.FixedStringWidth is null, operand.FixedStringWidth ?? length);
                     files.EndGet(read);
                     StoreRecordValue(arg, typed);
                     break;
@@ -132,7 +134,7 @@ public partial class StatementExecutor
     private void StoreRecordValue(CallArg arg, Vb6Value value)
     {
         if (arg.Location is { } location)
-            interpreter.ExecutionContext.State[location] = value;
+            new SlotRef(interpreter.ExecutionContext.State, location).Write(value);
         else
             arg.Ref!.Write(value);
     }
@@ -157,12 +159,16 @@ public partial class StatementExecutor
                 return (arg, new RecordOperand(RecordOperandKind.Array));
             if (state.DeclaredClassOf(location) is not null)
                 throw new VBCompileErrorException(VbRecordFormat.ObjectRefused);
+            if (state.FixedStringWidthOf(location) is { } width)
+                return (arg, new RecordOperand(RecordOperandKind.Typed, Vb6Value.ValueType.String, width));
             return (arg, OperandOfType(state.DeclaredTypeOf(location)));
         }
         if (arg.Ref is { } reference)
         {
             if (reference.Read().Value is VbUdt)
                 return (arg, new RecordOperand(RecordOperandKind.Udt));
+            if (reference.FixedStringWidth is { } width)
+                return (arg, new RecordOperand(RecordOperandKind.Typed, Vb6Value.ValueType.String, width));
             if (reference.IsVariant)
                 return (arg, new RecordOperand(RecordOperandKind.Variant));
             return (arg, OperandOfType(reference.DeclaredType ?? Vb6Value.ValueType.Object));

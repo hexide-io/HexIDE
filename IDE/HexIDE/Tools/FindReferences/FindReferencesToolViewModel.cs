@@ -105,8 +105,8 @@ public partial class FindReferencesToolViewModel : ResultsToolViewModel
             Rows.Add(new(null, name, "", "", ""));
             var open = documents.OpenDocuments.OfType<CodeEditorViewModel>()
                 .FirstOrDefault(e => LspDocumentUri.AreSame(e.GetDocumentUriPublic(), group.Key));
-            var text = open?.Document.Text ?? (member?.Module is { } module ? format.CodePrefix(module) + module.Code
-                : member?.Form is { } form ? format.CodePrefix(form) + form.Code : "");
+            var text = open?.Document.Text ?? (member?.Module is { } module ? ProjectFormats.Of(module.Owner, format).CodePrefix(module) + module.Code
+                : member?.Form is { } form ? ProjectFormats.Of(form.Owner, format).CodePrefix(form) + form.Code : "");
             var document = new TextDocument(text);
             foreach (var location in group.OrderBy(l => l.Range.Start.Line).ThenBy(l => l.Range.Start.Character))
             {

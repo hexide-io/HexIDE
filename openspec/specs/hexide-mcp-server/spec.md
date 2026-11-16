@@ -19,6 +19,24 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Ask running programs through the engine contract
+
+Automation SHALL ask the Core running-program contract to recognise forms, observe activity after input,
+and receive printed text (#4067). The interpreter-specific implementation SHALL remain beside the run engine
+until it moves to its provider. The Immediate window and window selection SHALL use the same contract.
+This separation SHALL preserve automation replies and the existing settle timing.
+
+#### Scenario: No engine or no running program
+
+- **WHEN** automation asks about a window with no program behind it
+- **THEN** it finds no running form or activity to wait for, receives no printed text, and raises no exception
+
+#### Scenario: Input starts program work
+
+- **WHEN** an action starts work on a running form
+- **THEN** automation observes activity through the contract at the existing dispatcher priority and polling interval
+- **AND** printed text and the resulting reply retain their existing contents
+
 ### Requirement: Discover archive projects and each project's own file
 `get_project_info` SHALL include open archive projects in `projects`, with their container path, their
 own `projectFile`, and `entries` listing stored entry paths, including folders and hidden entries.
@@ -747,6 +765,21 @@ in a Release build, which is why CI compiles that configuration and a test guard
 - **WHEN** a build that excludes the automation server is asked to record a conversation
 - **THEN** it records it, and only the automation tools are absent
 
+### Requirement: Routed document saves SHALL report completion within a bounded wait
+`invoke_menu_item`, `press_key` and `interact` SHALL await a code-editor save they start, including formatting,
+within a two-second budget. The reply SHALL report completion and whether an armed answer was taken or
+remains pending because no picker opened. At budget expiry it SHALL report the save still running and any
+answer still armed. The save SHALL continue, with errors still reaching the IDE error handler (#4047).
+
+#### Scenario: Formatting delays a pathless document's picker
+- **WHEN** a routed Save starts formatting and an armed answer awaits its picker
+- **THEN** the reply waits for the save task within the budget before reporting the answer's state
+
+#### Scenario: Formatting exceeds the budget
+- **WHEN** formatting remains unfinished when the wait budget expires
+- **THEN** the reply says the save is still running and any unused answer is still armed, without claiming
+  that no picker will open
+
 ### Requirement: An automation client SHALL be able to answer a native file dialog
 The server SHALL let a client pre-answer the next file dialog the application opens, with a path or with a
 cancellation, and SHALL let armed answers be discarded. An armed answer SHALL be consumed by exactly one
@@ -980,6 +1013,13 @@ captures SHALL return an actionable error without a client-only fallback.
 
 - **WHEN** the window has no Windows HWND, or is hidden or minimized
 - **THEN** frame capture returns an error explaining the limitation and what to do next
+
+#### Scenario: A mirrored window
+
+- **WHEN** a caller requests `includeFrame: true` for a window with `WS_EX_LAYOUTRTL`, which Windows draws reversed when asked
+  for its pixels
+- **THEN** the image is flipped back to show the window as the screen does, the reply says the window is mirrored, and the
+  client origin is the client area's left edge on screen
 
 ### Requirement: The status bar SHALL show that the automation server is listening
 While the automation server is listening, the main window's status bar SHALL show a section naming its port, followed
@@ -1358,6 +1398,28 @@ leave new documents pathless and explain the null path and how to save them in i
 - **WHEN** the IDE starts with `--newproject-unsaved`
 - **THEN** its initial form and project have no file paths
 - **AND** opening the form's code uses its `untitled:` URI until it is saved
+
+### Requirement: Explicit automation names SHALL keep structural controls in the control view
+The control-view collector shared by discovery and path resolution SHALL keep an element whose own
+`AutomationProperties.Name` is set as a local value, in markup or code, and is not empty, as it keeps an
+element with an AutomationId. A name set by a style or theme, and a peer name derived only from content,
+SHALL NOT by themselves keep a structural wrapper, so a theme cannot insert segments into paths. The
+existing `interactiveOnly` filter SHALL continue to apply.
+
+#### Scenario: Finding a named border
+- **WHEN** a border has explicit automation name `imlIcons`, no control type, provider or keyboard focus
+- **AND** `dump_visual_tree` searches for `imlIcons` with `interactiveOnly: false`
+- **THEN** the border is found and its returned path resolves through `inspect_element`
+
+#### Scenario: A wrapper without an explicit automation name
+- **WHEN** a structural wrapper has no AutomationId and no automation name of its own
+- **THEN** it remains folded away even if its peer derives a name from content
+
+#### Scenario: A name from a theme's style
+- **WHEN** a theme's style setter names a structural wrapper, as Dock's theme binds each dock control's
+  name to the dock's title
+- **THEN** the wrapper remains folded away, whether the name is empty or not, and paths through it are
+  unchanged
 
 ### Requirement: Named controls SHALL expose their visible labels
 The control tree and single-control inspection SHALL retain x:Name as `name` when present and report the
@@ -1760,6 +1822,15 @@ pointer, in the same window, SHALL move nothing first, as a still pointer sends 
 #### Scenario: A second click at the same point
 - **WHEN** `click` presses again where the last click left the pointer
 - **THEN** no move comes before the press, and the reply says the pointer was already there
+
+### Requirement: A click on a mirrored window SHALL say that it went past Windows' mirroring
+On Windows, when the window `click` presses in has `WS_EX_LAYOUTRTL`, the reply SHALL say that the window is mirrored and that
+the press was raised at the layout point, past the mirroring with which Windows hands a real mouse's messages to such a
+window, so a caller is not told that a person's click reaches the same control (#4102).
+
+#### Scenario: A click on a right-to-left message box
+- **WHEN** `click` presses Cancel on a message box whose window has `WS_EX_LAYOUTRTL`
+- **THEN** the reply names the mirroring, and a click on a window without it carries no such note
 
 ### Requirement: A double click's second press SHALL land where the first did
 The second press of `click` with `double` SHALL go to whatever takes the pointer at the first press's point when it is

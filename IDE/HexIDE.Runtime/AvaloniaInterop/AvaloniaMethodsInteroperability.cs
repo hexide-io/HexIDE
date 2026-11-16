@@ -15,6 +15,8 @@ public static class AvaloniaMethodsInteroperability
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBMSFlexGrid grid) return FlexGridMembers.Call(grid, method, args);
+
         if (c is VBMonthView monthView && (Components.InBox.MonthViewComponentClass.Instance.Member(method) is not null
             || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
         {
@@ -84,6 +86,9 @@ public static class AvaloniaMethodsInteroperability
                 return Vb6Value.Nothing;
             }
         }
+        if (c is ItemsControl extensionList && ListMembers.IsList(c) && ListMembers.IsExtension(c, method))
+            return ListMembers.CallExtension(extensionList, method, args);
+
         if (c is ItemsControl itemsControl)
         {
             if (method.Equals("additem", StringComparison.OrdinalIgnoreCase))

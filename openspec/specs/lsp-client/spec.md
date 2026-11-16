@@ -86,6 +86,33 @@ retaining its own completion position, commit keys and editing rules.
 - **THEN** the editor sends neither request and opens neither popup
 
 
+### Requirement: Carried-file hover and formatting
+
+A carried-file editor SHALL share the code window's hover and formatting component and use only
+advertised providers. Hover SHALL render Markdown with the same delay and cancellation. Formatting
+SHALL flush pending edits, use Tab Width and spaces, apply each reply as one undo step, and reject
+stale or read-only targets. Carried files SHALL NOT format on save. The code window SHALL retain
+its own hover, guarded formatting and format-on-save.
+
+#### Scenario: Hover in a carried file
+- **WHEN** the pointer rests over text and a claiming server advertises hover
+- **THEN** its reply appears in a tooltip with Markdown rendered
+- **AND** leaving or detaching the editor cancels the pending hover
+
+#### Scenario: Format a document or selection
+- **WHEN** the developer invokes Format Document or Format Selection and a claiming server advertises the corresponding provider
+- **THEN** its edits apply as one undo step
+- **AND** edits are discarded if the document changes or the view detaches before the reply
+
+#### Scenario: No hover or formatting providers
+- **WHEN** no claiming server advertises hover, document formatting or range formatting
+- **THEN** no hover request is sent and both formatting commands are disabled
+
+#### Scenario: Read-only carried text
+- **WHEN** formatting is invoked on a read-only editor
+- **THEN** it refuses without editing the text and explains why
+
+
 ### Requirement: Opt-in restart on project membership changes
 A server entry SHALL accept `restartOnProjectChange`, off by default. At the workspace-folder debounce,
 projects with chosen workspace roots joining or leaving SHALL restart only an opted-in running connection through the registry's
@@ -283,6 +310,34 @@ range or placeholder SHALL seed the prompt. Servers without preparation support 
 #### Scenario: Preparation is unsupported
 - **WHEN** no claimant advertises preparation
 - **THEN** no preparation request is sent and the existing prompt behavior remains
+
+### Requirement: Type hierarchy connection requests
+The client SHALL advertise `textDocument.typeHierarchy` and gate prepare, subtypes and supertypes
+requests on `typeHierarchyProvider`. Expansion SHALL send the originating server's item unchanged,
+including opaque `data`. The IDE SHALL compute no type relationships itself.
+
+#### Scenario: Expand a prepared item
+- **WHEN** a user expands a type hierarchy group
+- **THEN** its request returns the original item to the server that prepared it, including `data`
+
+### Requirement: Type hierarchy tool
+The IDE SHALL offer a provider-gated Type Hierarchy command after Call Hierarchy in the code context
+menu and beside it in Edit. Each prepared item SHALL be a root with localized Subtypes and Supertypes
+groups, each requested once on first expansion. Empty prepares and groups SHALL show an empty state;
+failures SHALL identify their server. Activating a type SHALL navigate to its `selectionRange` in its
+`uri`.
+
+#### Scenario: Walk an interface's implementations
+- **WHEN** the server prepares IShape and returns Circle and Square as subtypes and no supertypes
+- **THEN** expanding Subtypes requests that level once and displays both classes
+- **AND** expanding Supertypes displays an empty state
+- **AND** each returned class offers its own independently lazy groups
+
+#### Scenario: No provider or no type
+- **WHEN** the document has no running type hierarchy provider
+- **THEN** the command is disabled and no hierarchy request is sent
+- **WHEN** a provider returns null or an empty prepare result
+- **THEN** the pane displays its empty state
 
 ### Requirement: Call hierarchy connection requests
 The connection client SHALL declare `textDocument.callHierarchy` and gate prepare, incoming and
@@ -643,6 +698,17 @@ for other languages. Plain text SHALL stay literal; normalized marked strings SH
 #### Scenario: A list item contains a link
 - **WHEN** a Markdown hover contains a bulleted or numbered item holding a link
 - **THEN** the marker and the link caption have text tops within one pixel
+
+### Requirement: Hover headings and thematic breaks
+
+ATX headings of levels one through six SHALL render as separate bold blocks without their markers.
+Lines containing at least three matching hyphens, asterisks or underscores and otherwise only spaces
+SHALL render as thin separators, separate from neighbouring blocks. Setext headings remain unsupported.
+
+#### Scenario: A server supplies headings and thematic breaks
+- **WHEN** a Markdown hover contains `### function ` followed by inline code and a standalone `---` line
+- **THEN** the heading is bold without hash markers and the break is a thin separator
+- **AND** neither block is joined to its neighbours
 
 ### Requirement: Hover dismissal while editing
 
@@ -2117,6 +2183,9 @@ or touches protected text.
 
 ### Requirement: Completion insert ranges and indentation modes
 The editor SHALL apply an InsertReplaceEdit's insert range, preserving text after that range.
+Before applying a main edit's range, it SHALL extend the range's end to the caret when the range lies on
+the caret's line, starts at or before the request position, and ends at or after the request position
+but before the caret, within the word around the caret. It SHALL apply any other range as sent.
 It SHALL preserve supplied whitespace under mode 1 (`asIs`), including when no mode is supplied.
 Under mode 2 (`adjustIndentation`), it SHALL prefix each later line with the
 caret line's leading whitespace up to the caret, preserving that line's own indentation and valid
@@ -2126,6 +2195,12 @@ SHALL override the list's `itemDefaults.insertTextMode`. Additional edits SHALL 
 #### Scenario: Insert completion in the middle of a word
 - **WHEN** a completion supplies insert and replace ranges with different ends
 - **THEN** the insert range is replaced and the remaining suffix is kept
+
+#### Scenario: An insert range that stops at the request position
+- **GIVEN** the code window asked for completion at the start of a typed `tot`
+- **WHEN** the chosen item's insert range starts and ends at that word start and Tab commits it
+- **THEN** the item replaces `tot` and the line reads `total`, not `totaltot`
+- **AND** an insert range that already reaches the caret is applied as sent
 
 #### Scenario: A list supplies indentation mode
 - **WHEN** a list defaults to mode 2 and an item has no explicit mode
@@ -2177,14 +2252,19 @@ The editor SHALL request completion at the start of the identifier around the ca
 Complete Word, so a server filtering by the preceding word can return the full list for that context (#3340).
 
 The client SHALL sort merged completion items ordinally by `sortText ?? label` and match the whole word around the caret using
-`filterText ?? label`, keeping the full list visible. The editor SHALL initially select the first preselected prefix match, otherwise
-its first prefix match, leaving no selection for an empty or unmatched word. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
+`filterText ?? label`, keeping the full list visible. Ignoring case, the editor SHALL initially select an item the whole word matches
+ahead of an earlier item the word only starts (#3613), otherwise the first prefix match, preferring a preselected item within each,
+and leaving no selection for an empty or unmatched word. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
 Object Browser glyphs for corresponding kinds, using none without a counterpart.
 If no item matches the opening word, the editor SHALL retain the server's list for explicit acceptance with Tab.
 
 #### Scenario: Server ranking and selection
 - **WHEN** A has sortText `b` and preselect true, and B has sortText `a`, with an empty prefix
 - **THEN** B appears before A and neither item is selected
+
+#### Scenario: A whole-word match is selected ahead of an earlier prefix match
+- **WHEN** the list holds `Xor` and `x` in that order and the user types `x`
+- **THEN** `x` is selected, and Space leaves `x`
 
 #### Scenario: Filter text differs from label
 - **WHEN** an item labelled `Display` has filterText `needle` and the user types `nee`
@@ -2515,9 +2595,26 @@ Substituted values SHALL be JSON-escaped and SHALL NOT be interpreted as templat
 On a registry-started connection after initialization, and on the workspace artefact service's
 debounced project-change trigger, the client SHALL call each declared import command with the first loaded
 project's saved URI and in-memory project text in each resolved folder. The command MUST be advertised by the server. An importing entry SHALL skip workspace
-artefact generation. Reply notes SHALL reach the server log used for `window/logMessage`; object
+artefact regeneration. If it also declares `workspaceArtifact`, the client SHALL seed the artefact before
+launch for the first loaded project in each resolved folder, subject to the normal consent and confinement
+checks. It MUST write through a temporary file in the same folder and move without overwrite, leaving any
+existing target untouched and deleting the temporary file. It MUST NOT record ownership of the seed.
+A seed failure SHALL be noted without preventing launch. Reply notes SHALL reach the server log used for `window/logMessage`; object
 notes SHALL use their `message` text. Failures or unavailable saved paths
 SHALL be reported as configuration problems without disabling the connection.
+
+#### Scenario: First open seeds a descriptor before launch
+
+- **GIVEN** an entry declaring both an artefact and project import, and consent to write
+- **WHEN** the registry starts the server
+- **THEN** a missing artefact is written before launch without taking ownership
+- **AND** an existing file is left byte for byte unchanged, without asking consent
+- **AND** the import still runs after initialization
+
+#### Scenario: A seed fails
+
+- **WHEN** writing the seed fails
+- **THEN** the failure is noted and the server still starts
 
 #### Scenario: Project membership changes before saving
 - **WHEN** a module is removed from a saved project's in-memory membership
@@ -2921,7 +3018,8 @@ The client SHALL expose a query and a request for a document URI and typed chara
 `textDocument/onTypeFormatting` only to the highest-priority running document claimant declaring that
 character in `documentOnTypeFormattingProvider.firstTriggerCharacter` or `moreTriggerCharacter`.
 The request SHALL carry the post-typing position and formatting options, return the server's text edits,
-and cancel after a 250 ms budget with no edits on timeout.
+and cancel after a 250 ms budget. It SHALL return null for timeout or failure, and an empty edit array
+for a successful empty or null server answer.
 
 #### Scenario: A higher-priority server declares a different character
 
@@ -2932,7 +3030,7 @@ and cancel after a 250 ms budget with no edits on timeout.
 #### Scenario: The selected server does not answer
 
 - **WHEN** the on-type formatting request exhausts its budget
-- **THEN** the client sends `$/cancelRequest` for that request and returns no edits
+- **THEN** the client sends `$/cancelRequest` for that request and returns null
 
 ### Requirement: Edit language-server definitions through a field form
 The Language & Debug Servers window SHALL offer Add and Edit for user entries and Customize for bundled
@@ -3018,6 +3116,9 @@ SHALL stop before the replacement's (n+1)th line break, or at its end if fewer e
 breaks in the old text from the edit start to the caret. Once stopped at a line break, later insertions
 at that position SHALL NOT move it. This mapping SHALL also apply to reduced replies protecting read-only
 text. Same-position insertions SHALL retain their array order for on-type and document formatting.
+On newline timeout or failure, the editor SHALL apply local Enter indentation without a closer or keyword
+correction, subject to the same guards and continued undo group as server edits. A successful empty or
+null server answer SHALL leave the initial indentation unchanged. Other triggers SHALL have no fallback.
 
 #### Scenario: A server closes the block
 
@@ -3040,5 +3141,6 @@ text. Same-position insertions SHALL retain their array order for on-type and do
 #### Scenario: A newline formatter times out
 
 - **WHEN** the newline formatter exceeds its 250 ms budget
-- **THEN** cancellation is sent and the typed line break and indentation stay
+- **THEN** cancellation is sent and local Enter indentation is applied if the formatting guards still hold
 - **AND** no local closer or keyword correction runs as a fallback
+- **AND** one undo restores the text before Enter

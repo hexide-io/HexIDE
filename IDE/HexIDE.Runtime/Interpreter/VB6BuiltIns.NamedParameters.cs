@@ -150,6 +150,7 @@ public partial class VB6BuiltIns
     {
         internal HashSet<int> Omitted { get; } = new();
         internal long? LenVariableSize { get; set; }
+        internal int? FixedStringByteLength { get; set; }
         internal long? PointerIdentity { get; set; }
 
         internal void AddArgument(Vb6Value value, bool omitted)

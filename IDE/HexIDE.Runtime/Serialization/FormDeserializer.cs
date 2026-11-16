@@ -89,6 +89,7 @@ public class FormDeserializer
     internal static readonly Components.InBox.InBoxComponentClass[] InBoxComponents =
     [
         Components.InBox.ProgressBarComponentClass.Instance,
+        Components.InBox.FlexGridComponentClass.Instance,
         Components.InBox.ListViewComponentClass.Instance,
         Components.InBox.TabStripComponentClass.Instance,
         Components.InBox.StatusBarComponentClass.Instance,
@@ -145,6 +146,24 @@ public class FormDeserializer
         {
             errorSink.LogError("Str.ProjectLoad.InvalidForm", "This is not a valid form file");
             return null;
+        }
+
+        // Nor is a form that holds another form, or a UserControl or PropertyPage block, which read as one. Loading it
+        // put two forms in one model, and saving that threw (#1222). A stack rather than recursion: the nesting is the
+        // file's to choose.
+        var below = new Stack<VBSerializedComponent>(rootComponent.SubComponents);
+        while (below.Count > 0)
+        {
+            var child = below.Pop();
+            if ((componentsByTypeNames.TryGetValue(child.Type, out var childClass)
+                    || extraComponents != null && extraComponents.TryGetValue(child.Type, out childClass))
+                && childClass is FormComponentClass)
+            {
+                errorSink.LogError("Str.ProjectLoad.InvalidForm", "This is not a valid form file");
+                return null;
+            }
+            foreach (var grandchild in child.SubComponents)
+                below.Push(grandchild);
         }
 
         var form = new FormDefinition(owner, Array.Empty<ComponentInstance>(), "");
@@ -721,6 +740,12 @@ public class FormDeserializer
             form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent,
                 $"it references companion binary content HexIDE cannot re-emit "
                 + $"({capturedBlobs.Count} of {citedBlobCount} blob(s) reached the model)");
+
+        // A NUL in the designer text is damage: VB6 doesn't write one there, and the writer marks its companion citations
+        // with NULs, so a save with a citation to place refused it, after the user had edited (#4096). Said at open instead.
+        if (designerText.Contains('\0'))
+            form.MarkUnfaithfulToSave(UnfaithfulSaveCause.NulInDesignerText,
+                "its designer text holds a NUL character, which a save can't write back beside its companion citations");
 
         // Rendering also serves dirty checks; only the save path may refuse missing extents (#1631).
         if (components.Any(c => c.BaseClass is UserControlComponentClass uc && uc.Setting("InvisibleAtRuntime")
