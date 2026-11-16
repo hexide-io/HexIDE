@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -75,6 +76,7 @@ public partial class MessageBox : UserControl
         if (IsProgramDialog)
             window.FlowDirection = (Layout & MessageBoxLayout.RtlReading) != 0
                 ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        ApplyWindowStyles(window);
         var current = window;
         AcceptRequest += r =>
         {
@@ -105,6 +107,7 @@ public partial class MessageBox : UserControl
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterScreen,
         };
+        ApplyWindowStyles(again);
         current = again;
         window.Close();
         var closed = Watch(again);
@@ -115,6 +118,70 @@ public partial class MessageBox : UserControl
         owner.Closed -= OnOwnerClosed;
         return Answer;
     }
+
+    private void ApplyWindowStyles(Window window)
+    {
+        var callback = WindowStylesCallback(OperatingSystem.IsWindows());
+        if (callback is not null)
+        {
+            Win32Properties.AddWindowStylesCallback(window, callback);
+            Win32Properties.AddWndProcHookCallback(window, MouseHookCallback(OperatingSystem.IsWindows())!);
+        }
+    }
+
+    internal Win32Properties.CustomWindowStylesCallback? WindowStylesCallback(bool isWindows)
+    {
+        // VB6's box has WS_EX_LAYOUTRTL with vbMsgBoxRtlReading, which mirrors the native title bar (measured, #3958).
+        // The content keeps Avalonia's own right-to-left layout, and MouseHookCallback un-mirrors the mouse (#3973).
+        if (!isWindows || !IsProgramDialog || (Layout & MessageBoxLayout.RtlReading) == 0)
+            return null;
+        return (style, exStyle) => (style, exStyle | 0x00400000u); // WS_EX_LAYOUTRTL
+    }
+
+    internal Win32Properties.CustomWndProcHookCallback? MouseHookCallback(bool isWindows,
+        Func<IntPtr, int>? clientWidth = null, Func<IntPtr, uint, IntPtr, IntPtr, IntPtr>? send = null)
+    {
+        if (WindowStylesCallback(isWindows) is null)
+            return null;
+        clientWidth ??= hwnd => GetClientRect(hwnd, out var rect) ? rect.Right - rect.Left : 0;
+        send ??= SendMessage;
+        var resending = false;
+        return (IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+        {
+            // Wheel, WM_CONTEXTMENU and WM_NCHITTEST use screen coordinates; leave them and the native frame alone.
+            if (resending || !(msg is >= 0x0200 and <= 0x0209 or >= 0x020B and <= 0x020D))
+                return IntPtr.Zero;
+            var width = clientWidth(hwnd);
+            if (width <= 0)
+                return IntPtr.Zero;
+            var x = (short)(lParam.ToInt64() & 0xffff);
+            var mapped = new IntPtr(unchecked((int)((lParam.ToInt64() & 0xffff0000L)
+                | (ushort)(width - 1 - x))));
+            resending = true;
+            try
+            {
+                handled = true;
+                return send(hwnd, msg, wParam, mapped);
+            }
+            finally
+            {
+                resending = false;
+            }
+        };
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ClientRect
+    {
+        public int Left, Top, Right, Bottom;
+    }
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetClientRect(IntPtr hwnd, out ClientRect rect);
+
+    [LibraryImport("user32.dll", EntryPoint = "SendMessageW")]
+    private static partial IntPtr SendMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     /// <summary>
     /// Completes when <paramref name="window"/> closes, and makes a person's close of it answer as
