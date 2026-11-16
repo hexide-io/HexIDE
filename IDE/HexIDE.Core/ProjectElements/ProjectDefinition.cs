@@ -93,6 +93,13 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     public HexIDE.IDE.IFormFileFormat? FormFormat { get; init; }
 
     /// <summary>
+    /// The format this project's file and its members are read and written with, set by whatever opened or made the project
+    /// (#4053, #3411 slice 10). <see cref="FormFormat"/>, where set, still decides its forms. Null only for a project nothing
+    /// opened, such as a test's, which the IDE's own format serves until #3411's slice 10b gives every project a format.
+    /// </summary>
+    public HexIDE.IDE.IProjectFileFormat? Format { get; set; }
+
+    /// <summary>
     /// What renders this project's own file, where that isn't the IDE's own format. Every render of the project file goes
     /// through this, so a project an add-in opened never has its file written as a <c>.vbp</c>.
     /// </summary>

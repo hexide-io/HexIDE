@@ -584,7 +584,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     && ReferenceEquals(Parent(c), parent)).ToList();
                 var blocks = parent.PreservedChildSubtrees;
                 var written = (parent == root
-                    ? ctx.ProjectFileFormat.RootChildren(components, root)
+                    ? HexIDE.IDE.ProjectFormats.Of(form.Owner, ctx.ProjectFileFormat).RootChildren(components, root)
                     : parent.ContainedControls).ToList();
                 var before = CarriedOrder.ChildrenBefore(written.Count, blocks);
                 var siblings = new List<(ComponentInstance? Instance, ControlInfo Row, int Order)>();
