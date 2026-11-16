@@ -57,6 +57,7 @@ public class StandaloneStandardLib : IBasicStandardLibrary
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             CanResize = false
         };
+        inputBox.ApplyProgramChrome(window);
         inputBox.TextRequest += r => { result = r; window.Close(); };
         if (_parent.IsVisible)
             await window.ShowDialog(_parent);
