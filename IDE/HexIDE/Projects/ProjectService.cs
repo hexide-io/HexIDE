@@ -2838,9 +2838,16 @@ public partial class ProjectService : IProjectService
                     CopyOf(module, module.Owner, fileName, () => IsDirty(module), () => RenderModule(module, fileName)), DiskHashOf(module.AbsolutePath)));
             }
 
+            // A project with no file has no project-file tab to capture.
+            var projectFileEdit = project.AbsolutePath is { } savedPath
+                && this.documents?.OpenDocuments.OfType<ProjectFileDocumentViewModel>()
+                    .FirstOrDefault(tab => tab.Source.Owner == project && tab.IsModified) is { } tab
+                ? new HexIDE.Recovery.UnsavedFile(Path.GetFileName(savedPath), tab.Document.Text)
+                : null;
+
             // An add-in's project file that has gone keeps the copy its last capture took, as its forms do.
             var projectDirty = IsDirty(project) || StrandedProjectFile(project);
-            if (!projectDirty && documents.All(document => document.Content is null))
+            if (projectFileEdit is null && !projectDirty && documents.All(document => document.Content is null))
                 continue;
 
             var projectPath = project.AbsolutePath ?? NotionalProjectPath(project);
@@ -2860,7 +2867,7 @@ public partial class ProjectService : IProjectService
                     () => new RenderedFile(RenderProjectFile(project, projectPath, PathOf), null)),
                 documents,
                 projectPath,
-                IsInScratchFolder(project)));
+                IsInScratchFolder(project), projectFileEdit));
         }
         return captured;
     }
