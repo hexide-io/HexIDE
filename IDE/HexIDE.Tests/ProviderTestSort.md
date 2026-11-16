@@ -69,10 +69,7 @@ A test that reaches the provider only at run time, through the application's com
 | `LspClient/DocumentVersionOnTheWireTests.cs` | split |
 | `LspClient/DocumentWireNameTests.cs` | split |
 | `LspClient/FileOperationWireTests.cs` | split |
-| `LspClient/TypeLibraryNamesTests.cs` | split |
-| `LspClient/TypeLibraryServicePathTests.cs` | split |
 | `LspClient/WorkspaceAndPriorityTests.cs` | split |
-| `LspClient/WorkspaceArtifactProjectTests.cs` | split |
 | `Profiles/ProfileMigrationTests.cs` | split |
 | `Profiles/ProfileRecoveryTests.cs` | split |
 | `ProjectElements/DesignerHalfEncodingTests.cs` | provider |
