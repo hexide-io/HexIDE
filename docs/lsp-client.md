@@ -612,6 +612,21 @@ from disk, resolve something relative to it, and recognise it when it indexes th
 UserControl or PropertyPage is named by its *module's* file, which is the one the project file names; its
 designer half is given the same path, as every load gives it ([#474](https://github.com/hexide-io/HexIDE/issues/474)).
 
+**An archive member is named `archive-entry:/<segments>?container=<file URI>`** (#1118).
+Each ordinal entry name segment is percent-encoded independently, including embedded `/`, `\`, spaces and `#`;
+the container's complete `file:` URI is percent-encoded as the query value. `ArchiveEntryUri`, beside
+`LspDocumentUri`, builds and parses it. Containers compare as host file paths (case-insensitively on Windows),
+while entry segments remain case-sensitive. Distinct containers never share document identity.
+An available text preview opens a session with its text, routed by the entry's extension, and closes it
+with the tab. Reload recreates that session and its diagnostic markers. Entries stay read-only and send
+no `didChange`; no shadow file is written. `get_project_info` pairs entry paths with their URIs in `entryUris`.
+The protocol inspector and `list_lsp_messages` record the conversation normally; pseudonymised exports redact
+both entry names and the nested container URI.
+
+RDCore was measured on 2026-10-05 answering every request about a non-file URI empty
+([#389](https://github.com/hexide-io/HexIDE/issues/389)). That is RDCore's to change; it was not measured again here.
+Other containers and copying entries to files for servers that need them remain outside this change.
+
 **A document of the project with no file yet is named `untitled:<Project>/<Name>.<ext>`** — the
 project's name, the document's own name, and the extension its kind will be saved with: `.frm`, `.bas`, `.cls`,
 `.ctl` or `.pag`. The extension is there because routing reads it. Three rules:
@@ -1008,7 +1023,10 @@ the registry's own record of what is open rather than by the document that trigg
 teardown stops every server and the triggering document's claimants are a smaller set. The root is checked
 after a project save has assigned the `.vbp` its path and when the startup project changes, as well as when a document opens (#1051). Saving only the project file therefore restarts
 and reopens the held documents immediately; no new editor needs to open. An unchanged root does not restart
-anything, and failed entries remain failed.
+anything, and failed entries remain failed. Reloading from disk holds the startup project's definition until
+its replacement is loaded, so an unchanged directory never passes through a rootless workspace and
+restarts no server (#4044). If reopening fails, the hold ends as an unload: the remaining startup
+project (or no project) supplies the root, with one workspace-change notification.
 
 ### Real-server close and teardown coverage
 
@@ -1456,7 +1474,16 @@ connections, unsolicited edits and edits after the command answer receive `appli
 Authorized edits use the rename workspace applier, including the answering connection's version and
 snapshot checks, buffer freshness checks, protected IDE lines and read-only forms. Both `changes` and
 `documentChanges` are supported. Preflight refuses the whole edit with the applier's reason, or applies
-it with one undo step per module and answers `applied: true`. Resource operations remain refused. Every
+it with one undo step per document and answers `applied: true` without a `failureReason`.
+Open code windows and open carried text files become modified without saving: their tabs show `*`,
+`get_document_tabs` reports `isModified: true`, and the editor's Save command is available. Undo restores
+the entire previous text; Redo reapplies the edit. Each target has its own independent undo step.
+A loaded code member whose window is closed opens with the edit applied and unsaved; its disk file is
+untouched. A closed carried file or a file outside the loaded code members is refused, rather than
+opened or written. An edit reaching an IDE-only header or another guarded run refuses the whole
+workspace edit with `applied: false` and a nonempty `failureReason`. Open carried targets use the same
+snapshot freshness, version, range and overlap checks before any target changes (#4043).
+Resource operations remain refused. Every
 refusal also shows its reason in the status bar through
 `LanguageServerMessageReporter`, including unsolicited edits and edits following a lens, code-action
 command or direct command (#3175). A client-only flag marks every refusal, including changed targets,

@@ -152,8 +152,8 @@ public static class VbNumeric
             decimal res;
             try
             {
-                decimal a = rt == VT.Currency ? CurrencyOperand(l, ctx) : ToDecimal(l);
-                decimal b = rt == VT.Currency ? CurrencyOperand(r, ctx) : ToDecimal(r);
+                decimal a = rt == VT.Currency ? CurrencyOperand(l, ctx) : ToDecimal(l, ctx);
+                decimal b = rt == VT.Currency ? CurrencyOperand(r, ctx) : ToDecimal(r, ctx);
                 res = op == '+' ? a + b : op == '-' ? a - b : a * b;
             }
             catch (OverflowException) { throw new VBRunTimeException(ctx, VBStandardError.Overflow); }
@@ -188,7 +188,7 @@ public static class VbNumeric
         var rt = lr >= 0 && rr >= 0 ? ResultType(DivideTypes, lr, rr) : VT.Double;
         if (rt == VT.Decimal)
         {
-            try { return Vb6Value.NewDecimal(ToDecimal(l) / ToDecimal(r)); }
+            try { return Vb6Value.NewDecimal(ToDecimal(l, ctx) / ToDecimal(r, ctx)); }
             catch (DivideByZeroException) { throw new VBRunTimeException(ctx, VBStandardError.DivisionByZero); }
             catch (OverflowException) { throw new VBRunTimeException(ctx, VBStandardError.Overflow); }
         }
@@ -261,7 +261,7 @@ public static class VbNumeric
             return new Vb6Value(-d);
         }
         if (v.Type == VT.Currency)
-            return MakeCurrency(-ToDecimal(v), ctx);   // -1@ remains Currency (#1073)
+            return MakeCurrency(-ToDecimal(v, ctx), ctx);   // -1@ remains Currency (#1073)
         var rt = rank <= 1 ? VT.Integer : CoreType(rank);   // Byte/Boolean negate into Integer
         if (rt == VT.Integer || rt == VT.Long)
             return NarrowLong(-ToLong(v), rt, ctx, v.HasFixedType);
@@ -288,9 +288,9 @@ public static class VbNumeric
         if (target == VT.Currency)
             return v.Type == VT.Double
                 ? CurrencyFromDouble((double)v.Value!, ctx)
-                : MakeCurrency(ToDecimal(v), ctx);
+                : MakeCurrency(ToDecimal(v, ctx), ctx);
         if (target == VT.Decimal)
-            return Vb6Value.NewDecimal(ToDecimal(v));
+            return Vb6Value.NewDecimal(ToDecimal(v, ctx));
         if (target == VT.Date)
             return FromSerial(ToDouble(v), ctx);
         return v;
@@ -380,7 +380,7 @@ public static class VbNumeric
     private static decimal CurrencyOperand(Vb6Value value, ParserRuleContext? ctx) =>
         value.Type == VT.Single || value.Type == VT.Double
             ? (decimal)CurrencyFromDouble(ToDouble(value), ctx).Value!
-            : ToDecimal(value);
+            : ToDecimal(value, ctx);
 
     private static (BigInteger Numerator, BigInteger Denominator) DoubleFraction(double value, ParserRuleContext? ctx)
     {
@@ -446,6 +446,12 @@ public static class VbNumeric
         return VbDate.InRange(serial)
             ? new Vb6Value(new VbDate(serial))
             : throw new VBRunTimeException(ctx, VBStandardError.Overflow);
+    }
+
+    private static decimal ToDecimal(Vb6Value v, ParserRuleContext? ctx)
+    {
+        try { return ToDecimal(v); }
+        catch (OverflowException) { throw new VBRunTimeException(ctx, VBStandardError.Overflow); }
     }
 
     private static decimal ToDecimal(Vb6Value v) => v.Value switch

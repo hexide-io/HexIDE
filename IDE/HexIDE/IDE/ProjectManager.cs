@@ -43,15 +43,20 @@ public partial class ProjectManager : IProjectManager
 
     public void AddProject(ProjectDefinition proj)
     {
+        var replacesStartup = false;
         if (heldPlace is { Unloaded: true } held && proj.AbsolutePath is { } path && HexIDE.IO.HostFilePath.Equals(path, held.Path))
         {
             loadedProjects.Insert(Math.Min(held.Index, loadedProjects.Count), proj);
+            replacesStartup = startupProject == held.Project;
             heldPlace = null;
         }
         else
             loadedProjects.Add(proj);
         ProjectLoaded?.Invoke(proj);
-        StartupProject ??= proj;
+        if (replacesStartup)
+            StartupProject = proj;
+        else
+            StartupProject ??= proj;
     }
 
     public void UnloadAllProjects()
@@ -72,9 +77,9 @@ public partial class ProjectManager : IProjectManager
         var holding = heldPlace?.Project == proj;
         if (holding)
             heldPlace!.Unloaded = true;
-        // A held startup project gets its place back when it's opened again, so nothing else is made startup meanwhile.
-        if (startupProject == proj)
-            StartupProject = holding ? null : loadedProjects.FirstOrDefault();
+        // Keep the held startup until its replacement arrives, so its workspace never passes through null (#4044).
+        if (startupProject == proj && !holding)
+            StartupProject = loadedProjects.FirstOrDefault();
         if (loadedProjects.Count <= 1 && !holding)
             CurrentGroup = null;
     }
@@ -105,7 +110,8 @@ public partial class ProjectManager : IProjectManager
                 return;
             if (loadedProjects.Count <= 1)
                 CurrentGroup = null;
-            StartupProject ??= loadedProjects.FirstOrDefault();
+            if (startupProject == held.Project || startupProject is null)
+                StartupProject = loadedProjects.FirstOrDefault();
         });
     }
 

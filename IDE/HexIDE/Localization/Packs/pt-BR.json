@@ -2,6 +2,7 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Aplicar o texto do arquivo de projeto substituirá as configurações não salvas de {0}. Continuar?",
     "Str.Menu.Help.LogFolder": "Abrir pasta de _registros do HexIDE",
     "Str.Help.LogFolder.OpenFailed": "Não foi possível abrir a pasta de registros. Você pode abri-la manualmente: {0}",
     "Str.Dock.Host": "Host de encaixe",

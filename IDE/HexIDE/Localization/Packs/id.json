@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Menerapkan teks berkas proyek akan mengganti pengaturan proyek {0} yang belum disimpan. Lanjutkan?",
     "Str.MemberOrigin.HexIde": "Ekstensi HexIDE; tidak tersedia di VB6.",
     "Str.Dock.Host": "Host penambatan",
     "Str.Dock.Root": "Tambatan akar",
@@ -459,6 +460,7 @@
     "Str.Tool.CallStack.RowName": "{0}, baris {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Semua Pustaka>",
     "Str.Tool.ObjectBrowser.MembersOf": "Anggota '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Anggota tidak dapat dicantumkan tanpa pustaka tipe dari pustaka ini.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Tutup Penjelajah Objek",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Penjelajah Objek",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Buka Definisi",

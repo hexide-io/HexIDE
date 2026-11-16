@@ -2,6 +2,7 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Aplicar o texto do ficheiro de projeto substituirá as definições não guardadas de {0}. Continuar?",
     "Str.MemberOrigin.HexIde": "Extensão do HexIDE; não disponível no VB6.",
     "Str.Dock.Host": "Anfitrião de ancoragem",
     "Str.Dock.Root": "Ancoragem raiz",
@@ -425,6 +426,7 @@
     "Str.Tool.CallStack.RowName": "{0}, linha {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Todas as bibliotecas>",
     "Str.Tool.ObjectBrowser.MembersOf": "Membros de '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Não é possível listar os membros sem a biblioteca de tipos desta biblioteca.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Fechar o Navegador de Objetos",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Navegador de Objetos",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Ir para definição",

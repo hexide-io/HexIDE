@@ -2,6 +2,7 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "프로젝트 파일 텍스트를 적용하면 {0}의 저장하지 않은 프로젝트 설정이 바뀝니다. 계속하시겠습니까?",
     "Str.MemberOrigin.HexIde": "HexIDE 확장 기능이며 VB6에서는 사용할 수 없습니다.",
     "Str.Dock.Host": "도킹 호스트",
     "Str.Dock.Root": "루트 도크",
@@ -459,6 +460,7 @@
     "Str.Tool.CallStack.RowName": "{0}, {1}줄",
     "Str.Tool.ObjectBrowser.AllLibraries": "<모든 라이브러리>",
     "Str.Tool.ObjectBrowser.MembersOf": "'{0}'의 멤버",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "이 라이브러리의 형식 라이브러리가 없으면 멤버를 나열할 수 없습니다.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "개체 찾아보기 닫기",
     "Str.Tool.ObjectBrowser.Chrome.Title": "개체 찾아보기",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "정의로 이동",

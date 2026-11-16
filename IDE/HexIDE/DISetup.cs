@@ -160,8 +160,9 @@ public partial class DISetup
                 ctx.Inject<IProjectFileFormat>(out var format);
                 ctx.Inject<IComponentRegistry>(out var componentRegistry);
                 ctx.Inject<HexIDE.Language.IReadOnlyRegionWriter>(out var regionWriter);
+                ctx.Inject<IDocumentDockService>(out var documents);
                 return new ProjectService(regionWriter, newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, format, componentRegistry, archives, lspClient,
-                    contributed);
+                    contributed, documents);
             })
             .Bind().As(Singleton).To<ArchiveProjectService>()
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()

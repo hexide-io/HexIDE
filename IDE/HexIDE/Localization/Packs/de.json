@@ -2,6 +2,7 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Das Anwenden des Projektdateitexts ersetzt ungespeicherte Projekteinstellungen für {0}. Fortfahren?",
     "Str.AIChat.Title": "KI-Chat",
     "Str.AIChat.Menu": "KI-_Chat",
     "Str.AIChat.Approved": "✔ Genehmigt",
@@ -450,6 +451,7 @@
     "Str.Tool.CallStack.RowName": "{0}, Zeile {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Alle Bibliotheken>",
     "Str.Tool.ObjectBrowser.MembersOf": "Mitglieder von '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Ohne die Typbibliothek dieser Bibliothek können die Member nicht aufgelistet werden.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Objektkatalog schließen",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektkatalog",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Gehe zu Definition",

@@ -2,6 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Anvendelse af projektfilens tekst erstatter ikke-gemte projektindstillinger for {0}. Fortsæt?",
     "Str.MemberOrigin.HexIde": "HexIDE-udvidelse; ikke tilgængelig i VB6.",
     "Str.Dock.Host": "Forankringsvært",
     "Str.Dock.Root": "Rodforankring",
@@ -425,6 +426,7 @@
     "Str.Tool.CallStack.RowName": "{0}, linje {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Alle biblioteker>",
     "Str.Tool.ObjectBrowser.MembersOf": "Medlemmer af '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Medlemmer kan ikke vises uden dette biblioteks typebibliotek.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Luk objektgennemser",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektgennemser",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Gå til definition",
