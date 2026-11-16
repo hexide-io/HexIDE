@@ -14,6 +14,13 @@ build_arguments() {
     eval "$runner"
 }
 fail=0
+for setting in UseSharedCompilation=false MSBUILDDISABLENODEREUSE=1; do
+    if ! grep -qx "export $setting" scripts/test-linux.sh; then
+        echo "FAIL: runner must export $setting"; fail=$((fail + 1))
+    else
+        echo "ok: runner exports $setting"
+    fi
+done
 check() {
     local expected=$1
     shift
