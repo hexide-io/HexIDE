@@ -73,6 +73,19 @@ public sealed class AddinLanguageServerTests : IDisposable
     }
 
     [Fact]
+    public void OwnedHost_BindsPrefixesToItsPublishersNamespaces()
+    {
+        // #4258 part D: the namespaces travel from the verified add-in's origin to the registration's check.
+        var owned = new AddinOwnedHost(_host, new AddinToolWindowService().ForOwner("com.example.owner"),
+            new AddinOrigin("com.example.owner", "Owner Add-in") { PublisherNamespaces = ["rdcore."] });
+        var outside = () => owned.RegisterLanguageServer(Probe() with { MessagePrefix = "other/" });
+        outside.Should().Throw<ArgumentException>().Which.Message.Should().Contain("'other/'").And.Contain("'rdcore.'");
+
+        using var inside = owned.RegisterLanguageServer(Probe() with { MessagePrefix = "rdcore/" });
+        _router.Connections.Should().ContainSingle().Which.Origin.Should().Be("Owner Add-in");
+    }
+
+    [Fact]
     public void OwnedHost_KeepsTheManifestOriginForEveryNewContribution()
     {
         var tools = new AddinToolWindowService();

@@ -1551,6 +1551,26 @@ refused. Registration copies the map before checking it and installs those claim
 creates, so later dictionary changes cannot introduce unchecked claims or remove checked ones.
 `AddinServerRegistrationTests` checks these refusals and the connection's independent copy.
 
+### Publisher namespaces (#4258 part D)
+
+A publisher record (`publisher.json`, signed by the marketplace intermediate) can carry the namespaces its
+publisher was issued, such as `"namespaces": ["rdcore."]`. HexIDE reads them only from that record, once its
+signature is checked, and never from `addin.json` or anything else the publisher signs alone. An entry that
+isn't a name followed by `.`, or is `hexide.` or under it, grants nothing and is dropped.
+
+- **With namespaces,** a contributed server's `MessagePrefix` must be `<namespace>/` (or under it) and its
+  `CommandPrefix` `<namespace>.` (or under it) for one of them. Otherwise registration is refused, naming the
+  prefix and the namespaces issued. A record whose list grants nothing allows no prefix.
+- **Without them,** as in records issued before the field existed (the alpha chain, re-issued ahead of v1 in
+  #4109), today's rule applies. The Language Servers window shows one notice for each add-in that uses a
+  prefix, never a refusal.
+- **`hexide/` and `hexide.`** are core's whatever a record says (`hexide/projectProperties`, the
+  `hexide.chatTools` capability).
+
+The packer's `sign-publisher` takes `--namespaces rdcore.,…` and refuses one of the wrong shape or under
+`hexide.`. Routing is per connection, so the binding is about honest names, not isolation: another add-in
+already can't reach a server it didn't contribute.
+
 Code actions and lens commands route to their producing connection. A declared command still goes to
 that server as `workspace/executeCommand`; otherwise its claimed handler runs on the thread pool with
 the original arguments. Core's existing rename and references commands take precedence. Another
