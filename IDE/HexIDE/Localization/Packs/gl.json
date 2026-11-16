@@ -127,7 +127,7 @@
     "Str.ContributedProject.ReferencesReadOnly": "{0} ábreo {1}: as súas referencias defíneas o programa ao que pertence, non HexIDE.",
     "Str.ContributedProject.ComponentsReadOnly": "{0} ábreo {1}: os seus compoñentes defíneos o programa ao que pertence, non HexIDE.",
     "Str.ContributedProject.NotMade": "{0} ábreo {1}. Xérao e execútao o programa ao que pertence, non HexIDE.",
-    "Str.ContributedProject.NoReader": "{0} ábrese cun complemento que non está cargado. HexIDE abre por si mesmo os proxectos .vbp, .vbg e .twinproj.",
+    "Str.ContributedProject.NoReader": "HexIDE non pode abrir {0} como proxecto. Abre por si mesmo os proxectos .vbp, .vbg e .twinproj; os demais tipos de proxectos proveñen de complementos, e ningún complemento cargado le este ficheiro.",
     "Str.Debug.External.Breakpoint": "Punto de interrupción externo: liña solicitada {0}; liña do adaptador {1}; verificado: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Agardando pola verificación do punto de interrupción.",
     "Str.Tool.Immediate.Expired": "O contexto de avaliación cambiou; descartouse a súa resposta.",

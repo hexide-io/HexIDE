@@ -123,7 +123,7 @@
     "Str.ContributedProject.ReferencesReadOnly": "{0} wird von {1} geöffnet: Seine Verweise legt das Programm fest, zu dem es gehört, nicht HexIDE.",
     "Str.ContributedProject.ComponentsReadOnly": "{0} wird von {1} geöffnet: Seine Komponenten legt das Programm fest, zu dem es gehört, nicht HexIDE.",
     "Str.ContributedProject.NotMade": "{0} wird von {1} geöffnet. Erstellt und ausgeführt wird es von dem Programm, zu dem es gehört, nicht von HexIDE.",
-    "Str.ContributedProject.NoReader": "{0} wird von einem Add-In geöffnet, das nicht geladen ist. HexIDE selbst öffnet .vbp-, .vbg- und .twinproj-Projekte.",
+    "Str.ContributedProject.NoReader": "HexIDE kann {0} nicht als Projekt öffnen. Es öffnet .vbp-, .vbg- und .twinproj-Projekte selbst; andere Projekttypen werden von Add-Ins bereitgestellt, und kein geladenes Add-In liest diese Datei.",
     "Str.Debug.External.Breakpoint": "Externer Haltepunkt: angeforderte Zeile {0}; Adapterzeile {1}; bestätigt: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Warten auf Bestätigung des Haltepunkts.",
     "Str.Tool.Immediate.Expired": "Der Auswertungskontext hat sich geändert; die Antwort wurde verworfen.",

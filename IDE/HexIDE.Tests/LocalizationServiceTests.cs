@@ -14,6 +14,18 @@ public class LocalizationServiceTests
 
     private static LocalizationService CreateSut() => new();
 
+    [AvaloniaFact]
+    public void NoProjectReader_English_ReportsOnlyWhatHexIDEKnows()
+    {
+        var text = string.Format(CreateSut().GetStringFrom("en", "Str.ContributedProject.NoReader"), "notes.txt");
+
+        text.Should().NotContain("is opened by an add-in")
+            .And.Contain("can't open notes.txt as a project")
+            .And.Contain(".vbp").And.Contain(".vbg").And.Contain(".twinproj")
+            .And.Contain("other project types come from add-ins")
+            .And.Contain("no loaded add-in reads this file");
+    }
+
     [AvaloniaTheory]
     [InlineData("zz")]
     [InlineData("zz-ZZ")]
