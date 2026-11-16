@@ -59,6 +59,7 @@ public class ViewLocator : IDataTemplate
         Register<AddinConsentDialogViewModel, AddinConsentDialog>();
         Register<WorkspaceArtifactConsentViewModel, WorkspaceArtifactConsentView>();
         Register<WorkspaceArtifactPageViewModel, WorkspaceArtifactPageView>();
+        Register<ServerChatToolsPageViewModel, ServerChatToolsPageView>();
         Register<ExportPreviewDialogViewModel, ExportPreviewDialog>();
         Register<AddWatchDialogViewModel, AddWatchDialog>();
         Register<TrustChainViewModel, TrustChainView>();

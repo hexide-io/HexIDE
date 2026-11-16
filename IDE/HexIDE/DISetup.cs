@@ -371,12 +371,19 @@ public partial class DISetup
                 ctx.Inject<LanguageServerConfigResult>(out var configuration);
                 ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
+                ctx.Inject<ISettingsService>(out var settings);
                 return new LanguageServerContributions(
                     (LspClientRegistry)router, factory,
                     new LanguageServerConfigLoader(loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
                     configuration.Entries.Select(entry => entry.Id).OfType<string>().ToHashSet(StringComparer.Ordinal),
                     loggerFactory.CreateLogger<LanguageServerContributions>(),
-                    new LanguageServerCommandStore(), providers);
+                    new LanguageServerCommandStore(), providers)
+                {
+                    // The person's choice in Options → AI Chat Tools wins over a server's entry, an add-in's included (#4257).
+                    ChatToolsSetting = id => settings.ServerChatTools.TryGetValue(id, out var value)
+                        ? ServerChatToolsSetting.ParseUser(value)
+                        : null,
+                };
             })
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()

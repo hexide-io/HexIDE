@@ -90,11 +90,12 @@ public sealed record LanguageServerRegistration(
     /// <summary>Restart when projects join or leave the workspace, rather than relying on folder notifications.</summary>
     bool RestartOnProjectChange = false,
     /// <summary>
-    /// Whether AI Chat may use this server's tools and context, and how they are approved (#4257). Off unless the route
-    /// that made the registration says otherwise: the configuration file's and a consented add-in's servers come through
-    /// <c>LanguageServerRegistrationFactory</c>, which reads the entry's <c>chatTools</c>.
+    /// Whether AI Chat may use this server's tools and context, and how they are approved, as its entry says (#4257). Null
+    /// for a registration whose route can't offer tools at all, which no setting turns on: only
+    /// <c>LanguageServerRegistrationFactory</c>, the route of the configuration file's servers, the bundled one and a
+    /// consented add-in's, sets it. The person's own setting in Options wins over the entry's value, never over null.
     /// </summary>
-    ServerChatToolsPolicy ChatTools = ServerChatToolsPolicy.Off)
+    ServerChatToolsPolicy? ChatTools = null)
 {
     /// <summary>
     /// The priority the entries HexIDE contributes itself are given — deliberately below the value an

@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
+             x:DataType="vm:ServerChatToolsPageViewModel"
+             x:Class="HexIDE.Forms.Views.Options.ServerChatToolsPageView">
+    <StackPanel Spacing="12">
+        <TextBlock Text="{DynamicResource Str.Options.ServerChatTools.Intro}" TextWrapping="Wrap" />
+        <TextBlock Text="{DynamicResource Str.Options.ServerChatTools.None}" TextWrapping="Wrap"
+                   IsVisible="{CompiledBinding HasNoServers}" />
+        <ItemsControl ItemsSource="{CompiledBinding Servers}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ServerChatToolsRow">
+                    <StackPanel Margin="0,4" Spacing="4">
+                        <TextBlock Text="{CompiledBinding Name}" FontWeight="Bold" />
+                        <TextBlock Text="{CompiledBinding FromAddin}" Opacity="0.75"
+                                   IsVisible="{CompiledBinding FromAddin, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        <ComboBox ItemsSource="{CompiledBinding Choices}" SelectedItem="{CompiledBinding Selected}"
+                                  AutomationProperties.Name="{CompiledBinding ChoiceName}" MinWidth="280"
+                                  HorizontalAlignment="Left">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ServerChatToolsChoice">
+                                    <TextBlock Text="{CompiledBinding Label}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>

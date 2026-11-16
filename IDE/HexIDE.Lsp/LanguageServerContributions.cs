@@ -59,7 +59,14 @@ public sealed class LanguageServerContributions(
     /// AI Chat's tools and context from the running servers that offer them (#4257). Held here, beside the servers an add-in
     /// contributes, because the host reaches the registry through this.
     /// </summary>
-    public IServerChatTools ChatTools => _chatTools ??= new ServerChatToolsService(router.ChatToolsServers, logger);
+    public IServerChatTools ChatTools =>
+        _chatTools ??= new ServerChatToolsService(() => router.ChatToolsServers(ChatToolsSetting), logger);
+
+    /// <summary>
+    /// The person's own setting for a server's AI Chat tools, by its id, which wins over its entry's (#4257). Read on every
+    /// list, call and context request, so a change in Options applies to the next one.
+    /// </summary>
+    public Func<string, ServerChatToolsPolicy?>? ChatToolsSetting { get; init; }
 
     public AddinServerConnection Register(AddinLanguageServer server, string? origin)
     {

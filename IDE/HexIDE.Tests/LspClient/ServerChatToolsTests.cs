@@ -84,7 +84,33 @@ public sealed class ServerChatToolsTests : IAsyncDisposable
     public void ARegistration_OffersNoTools_UnlessItsRouteSaysItMay()
     {
         new LanguageServerRegistration("x", "X", [".x"], "x", () => Substitute.For<ILspClient>())
-            .ChatTools.Should().Be(ServerChatToolsPolicy.Off, "only the factory's routes, the file's and a consented add-in's, turn it on");
+            .ChatTools.Should().BeNull("only the factory's routes, the file's and a consented add-in's, let a server offer tools");
+    }
+
+    [Theory]
+    [InlineData("on", ServerChatToolsPolicy.Hints)]
+    [InlineData(" ASK ", ServerChatToolsPolicy.AskEveryCall)]
+    [InlineData("off", ServerChatToolsPolicy.Off)]
+    [InlineData("hints", null)]
+    [InlineData("", null)]
+    [InlineData(null, null)]
+    public void ThePersonsSetting_NamesAPolicy_OrNone(string? value, ServerChatToolsPolicy? policy)
+    {
+        ServerChatToolsSetting.ParseUser(value).Should().Be(policy);
+        if (policy is { } named) ServerChatToolsSetting.ParseUser(ServerChatToolsSetting.UserValue(named)).Should().Be(named);
+    }
+
+    [Theory]
+    // entry, person, effective
+    [InlineData(ServerChatToolsPolicy.Hints, null, ServerChatToolsPolicy.Hints)]
+    [InlineData(ServerChatToolsPolicy.Hints, ServerChatToolsPolicy.AskEveryCall, ServerChatToolsPolicy.AskEveryCall)]
+    [InlineData(ServerChatToolsPolicy.Off, ServerChatToolsPolicy.Hints, ServerChatToolsPolicy.Hints)]
+    [InlineData(null, ServerChatToolsPolicy.Hints, ServerChatToolsPolicy.Off)]
+    [InlineData(null, null, ServerChatToolsPolicy.Off)]
+    public void ThePersonsChoice_WinsOverTheEntry_ButNeverOverARouteThatCantOfferTools(
+        ServerChatToolsPolicy? entry, ServerChatToolsPolicy? person, ServerChatToolsPolicy effective)
+    {
+        ServerChatToolsSetting.Effective(entry, person).Should().Be(effective);
     }
 
     [Theory]
@@ -274,6 +300,51 @@ public sealed class ServerChatToolsTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task ThePersonsChoice_AppliesToTheNextRequest_AndWinsOverTheEntry()
+    {
+        ServerChatToolsPolicy? choice = null;
+        var (tools, server) = await StartAsync(context: "Context.", user: _ => choice);
+        var read = (await tools.ListAsync(Token)).Single(t => t.Name == "read");
+        read.Asks.Should().BeFalse("the entry trusts the tools' hints");
+
+        choice = ServerChatToolsPolicy.AskEveryCall;
+        var asked = 0;
+        await tools.CallAsync(read, null, (_, _) => { asked++; return Task.FromResult(false); }, Token);
+        (await tools.GetContextAsync(Token)).Should().BeEmpty();
+
+        choice = ServerChatToolsPolicy.Off;
+        server.Forget();
+        (await tools.ListAsync(Token)).Should().BeEmpty();
+        var off = await tools.CallAsync(read, null, (_, _) => Task.FromResult(true), Token);
+
+        asked.Should().Be(1, "asking for every call wins over an entry that trusts hints");
+        server.Calls.Should().BeEmpty();
+        off.IsError.Should().BeTrue();
+        server.Methods.Should().BeEmpty("a server the person turned off is asked for nothing");
+    }
+
+    [Fact]
+    public async Task ThePersonsOn_TurnsOnAServerWhoseEntryIsOff()
+    {
+        var (tools, _) = await StartAsync(chatTools: "off", user: _ => ServerChatToolsPolicy.Hints);
+
+        (await tools.ListAsync(Token)).Select(t => t.Name).Should().Contain("read");
+    }
+
+    [Fact]
+    public async Task ThePersonsOn_CannotTurnOnARouteThatCantOfferTools()
+    {
+        var unrouted = await ServeAsync(new ChatToolServer(declares: true));
+        var made = new LanguageServerRegistrationFactory(_loggerFactory).Create([Entry("unrouted", unrouted.PipeName)]);
+        var (tools, router) = Tools(made.Select(r => r with { ChatTools = null }).ToArray(), _ => ServerChatToolsPolicy.Hints);
+        await OpenAsync(router, "README.md");
+        await unrouted.Server.Initialized.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        (await tools.ListAsync(Token)).Should().BeEmpty();
+        unrouted.Server.Methods.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task WithTwoServers_EachRequestGoesOnlyToTheServerThatOfferedTheTool()
     {
         var first = await ServeAsync(new ChatToolServer(declares: true));
@@ -344,23 +415,27 @@ public sealed class ServerChatToolsTests : IAsyncDisposable
     };
 
     private async Task<(IServerChatTools Tools, ChatToolServer Server)> StartAsync(
-        string? chatTools = null, string? context = null, string? toolsJson = null)
+        string? chatTools = null, string? context = null, string? toolsJson = null, Func<string, ServerChatToolsPolicy?>? user = null)
     {
         var served = await ServeAsync(new ChatToolServer(declares: true, context: context, toolsJson: toolsJson));
-        var (tools, router) = Tools(new LanguageServerRegistrationFactory(_loggerFactory).Create([Entry("probe", served.PipeName, ChatTools: chatTools)]));
+        var (tools, router) = Tools(new LanguageServerRegistrationFactory(_loggerFactory).Create([Entry("probe", served.PipeName, ChatTools: chatTools)]), user);
         await OpenAsync(router, "README.md");
         await WaitForAsync(tools, 1);
         served.Server.Forget();
         return (tools, served.Server);
     }
 
-    private (IServerChatTools Tools, LspClientRegistry Router) Tools(IReadOnlyList<LanguageServerRegistration> registrations)
+    private (IServerChatTools Tools, LspClientRegistry Router) Tools(IReadOnlyList<LanguageServerRegistration> registrations,
+        Func<string, ServerChatToolsPolicy?>? user = null)
     {
         var router = new LspClientRegistry(registrations, _loggerFactory.CreateLogger<LspClientRegistry>());
         _cleanup.Add(router);
         var contributions = new LanguageServerContributions(router, new LanguageServerRegistrationFactory(_loggerFactory),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
-            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>());
+            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>())
+        {
+            ChatToolsSetting = user,
+        };
         return (contributions.ChatTools, router);
     }
 

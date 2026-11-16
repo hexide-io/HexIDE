@@ -238,7 +238,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.Client?.DeclinedCapabilities,
             (e.Client as VBLspClient)?.OpenDocumentCount ?? 0,
             (e.Client as VBLspClient)?.SentWorkspaceRootUri,
-            e.Registration.Origin)).ToList();
+            e.Registration.Origin,
+            e.Registration.ChatTools)).ToList();
 
     /// <summary>
     /// What a connection's state is <em>now</em>, rather than what it was when something last wrote it down.
@@ -784,15 +785,17 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// start one. Each carries the methods its own capability names, so a request can only ever go to the server that
     /// named its method.
     /// </remarks>
-    internal IReadOnlyList<ChatToolsServer> ChatToolsServers()
+    /// <param name="userPolicy">The person's own setting for a server, by id, which wins over its entry's; null for none.</param>
+    internal IReadOnlyList<ChatToolsServer> ChatToolsServers(Func<string, ServerChatToolsPolicy?>? userPolicy = null)
     {
         var found = new List<ChatToolsServer>();
         foreach (var e in _entries)
         {
-            if (e.Registration.ChatTools == ServerChatToolsPolicy.Off) continue;
+            var policy = ServerChatToolsSetting.Effective(e.Registration.ChatTools, userPolicy?.Invoke(e.Registration.Id));
+            if (policy == ServerChatToolsPolicy.Off) continue;
             if (e.Client is not VBLspClient { IsRunning: true } client) continue;
             if (ServerChatToolsCapability.Read(client.AdvertisedCapabilities) is not { } capability) continue;
-            found.Add(new ChatToolsServer(e.Registration.Id, e.Registration.DisplayName, e.Registration.ChatTools, capability,
+            found.Add(new ChatToolsServer(e.Registration.Id, e.Registration.DisplayName, policy, capability,
                 (method, parameters, timeout, ct) => client.SendCustomRequestAsync(method, parameters, timeout, ct)));
         }
         return found;

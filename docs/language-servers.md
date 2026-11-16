@@ -421,8 +421,12 @@ has the wire shape.
   16 KB and a context fragment of 8 KB. A tool name is letters, digits, `_`, `-`, `.` and `/`, up to 64
   characters; a tool with any other name is left out, and the log says so.
 
-A server an add-in contributes takes its `chatTools` from the add-in's own entry; this file can't change it
-without replacing the server under the same id.
+**Your choice in Tools → Options → AI Chat Tools wins** over a server's `chatTools`, for an add-in's server too,
+whose entry the add-in writes: *On* (ask unless the tool only reads), *Ask before every call*, *Off*, or *As
+configured*, which follows the entry. It can't turn on a server whose route can't offer tools at all.
+
+Only HexIDE's own add-ins, AI Chat among them, can use these tools. Another add-in sees none, because the
+add-in that uses them is the one that shows the question.
 
 ## Servers start when they are needed
 

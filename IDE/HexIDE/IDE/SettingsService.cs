@@ -53,6 +53,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private string _activeKeymap = SettingsDefaults.ActiveKeymap;
     private string _activeLanguage = SettingsDefaults.ActiveLanguage;
     private bool _loadUnsignedAddins = SettingsDefaults.LoadUnsignedAddins;
+    private Dictionary<string, string> _serverChatTools = new(StringComparer.Ordinal);
     private bool _reloadFilesChangedOutsideIde = SettingsDefaults.ReloadFilesChangedOutsideIde;
 
     private string? _revocationListUrl = SettingsDefaults.RevocationListUrl;
@@ -213,6 +214,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
         set => SetProperty(ref _loadUnsignedAddins, value);
     }
 
+    public Dictionary<string, string> ServerChatTools
+    {
+        get => new(_serverChatTools, StringComparer.Ordinal);
+        set => SetProperty(ref _serverChatTools, new Dictionary<string, string>(value ?? [], StringComparer.Ordinal));
+    }
+
     public bool ReloadFilesChangedOutsideIde
     {
         get => _reloadFilesChangedOutsideIde;
@@ -362,6 +369,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 ActiveKeymap = _activeKeymap,
                 ActiveLanguage = _activeLanguage,
                 LoadUnsignedAddins = _loadUnsignedAddins,
+                ServerChatTools = _serverChatTools,
                 ReloadFilesChangedOutsideIde = _reloadFilesChangedOutsideIde,
                 RevocationListUrl = _revocationListUrl,
                 IsStandardToolbarVisible = _isStandardToolbarVisible,
@@ -460,6 +468,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             ActiveKeymap = data.ActiveKeymap;
             ActiveLanguage = data.ActiveLanguage;
             LoadUnsignedAddins = data.LoadUnsignedAddins;
+            ServerChatTools = data.ServerChatTools ?? [];
             ReloadFilesChangedOutsideIde = data.ReloadFilesChangedOutsideIde;
             RevocationListUrl = data.RevocationListUrl;
             _isStandardToolbarVisible = data.IsStandardToolbarVisible;
@@ -546,6 +555,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("loadUnsignedAddins")]
         public bool LoadUnsignedAddins { get; set; } = SettingsDefaults.LoadUnsignedAddins;
+
+        [JsonPropertyName("serverChatTools")]
+        public Dictionary<string, string>? ServerChatTools { get; set; } = new();
 
         [JsonPropertyName("reloadFilesChangedOutsideIde")]
         public bool ReloadFilesChangedOutsideIde { get; set; } = SettingsDefaults.ReloadFilesChangedOutsideIde;

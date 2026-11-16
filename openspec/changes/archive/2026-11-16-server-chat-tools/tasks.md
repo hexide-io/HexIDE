@@ -10,6 +10,8 @@
 - [x] 2.1 Offer server tools under the server's name, and put context in the system prompt, labelled
 - [x] 2.2 Ask through the host's callback; report a refusal to the assistant
 - [x] 2.3 Extend the privacy notice in every shipped pack and move its version
+- [x] 2.4 Give the tools to the IDE's own add-ins only
+- [x] 2.5 Let the developer choose per server in Options, over the entry
 
 ## 3. Proof
 

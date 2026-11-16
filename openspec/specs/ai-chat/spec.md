@@ -304,8 +304,9 @@ allow another message. Pending tool approvals SHALL be rejected and remaining to
 ### Requirement: Language servers' tools SHALL come only from servers the IDE runs for the developer
 The assistant SHALL offer tools and a context fragment only from a language server the IDE runs for the
 developer (its own, one in the developer's configuration, or one a consented add-in contributed) that declares
-`experimental.hexide.chatTools`. Each request SHALL go only to the server that named its method. Each tool
-SHALL be offered under its server's name, and its results and the context SHALL be labelled as the server's.
+`experimental.hexide.chatTools`, and only to the IDE's own add-ins. Each request SHALL go only to the server
+that named its method. Each tool SHALL be offered under its server's name, and its results and the context
+SHALL be labelled as the server's.
 
 #### Scenario: Two servers
 - **WHEN** two servers offer tools and the assistant calls one of the second server's
@@ -315,6 +316,21 @@ SHALL be offered under its server's name, and its results and the context SHALL 
 - **WHEN** a server declares the capability but its registration was not made from a configuration entry or a
   consented add-in
 - **THEN** it is asked for nothing
+
+#### Scenario: An add-in that is not the IDE's own
+- **WHEN** a third-party add-in asks for language servers' tools
+- **THEN** it is given none, and cannot call one
+
+### Requirement: The developer SHALL choose, per server, whether the assistant uses its tools
+The IDE SHALL let the developer choose, for each server that can offer tools, between following its entry,
+using its tools and asking unless a tool only reads, asking before every call, and not using them. The
+developer's choice SHALL win over the server's entry, including an entry an add-in wrote, and SHALL NOT turn on
+a server whose route cannot offer tools.
+
+#### Scenario: An add-in's server the developer sets to ask
+- **WHEN** an add-in's server says its tools may run as their hints say, and the developer chooses to be asked
+  before every call
+- **THEN** every call to that server's tools asks first
 
 ### Requirement: The IDE SHALL decide whether a server's tool asks before it runs
 The IDE SHALL decide whether a call asks from the server's own listing at the time of the call, not from
