@@ -1283,7 +1283,7 @@
     "Str.Dock.DocumentTabs": "Karty dokumentów",
     "Str.Dock.ToolTabs": "Karty narzędzi",
     "Str.AIChat.ApiKeyRequired": "Wymagany klucz API. Ustaw zmienną środowiskową HEXIDE_AI_API_KEY lub apiKey w chat-settings.json.",
-    "Str.AIChat.PrivacyNotice": "ℹ Prywatność: Twoje wiadomości, zawartość aktywnego pliku (w przypadku formularza także jego układ i podpisy) oraz jego diagnostyka są wysyłane do {0} — usługi zewnętrznej skonfigurowanej w ustawieniach czatu AI.",
+    "Str.AIChat.PrivacyNotice": "ℹ Prywatność: Twoje wiadomości, zawartość aktywnego pliku (w przypadku formularza także jego układ i podpisy) oraz jego diagnostyka są wysyłane do {0} — usługi zewnętrznej skonfigurowanej w ustawieniach czatu AI. Bez pytania o zgodę są tam również wysyłane treści wszystkich innych plików we wczytanych projektach, które asystent odczytuje swoimi narzędziami, listy plików projektów oraz diagnostyka dowolnych plików.",
     "Str.AIChat.PrivacyKeyTip": "Wskazówka: ustaw zmienną środowiskową HEXIDE_AI_API_KEY, aby uniknąć przechowywania klucza API w pliku.",
     "Str.AIChat.Approved": "✔ Zatwierdzono",
     "Str.AIChat.Rejected": "✗ Odrzucono",

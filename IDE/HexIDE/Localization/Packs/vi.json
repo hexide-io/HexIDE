@@ -1283,7 +1283,7 @@
     "Str.Dock.ToolTabStripItemDockAsDocument": "Neo dưới dạng tài liệu có thẻ",
     "Str.Dock.ToolTabStripItemClose": "_Đóng",
     "Str.AIChat.ApiKeyRequired": "Cần có khóa API. Đặt biến môi trường HEXIDE_AI_API_KEY hoặc apiKey trong chat-settings.json.",
-    "Str.AIChat.PrivacyNotice": "ℹ Quyền riêng tư: tin nhắn của bạn, nội dung tệp đang hoạt động (với biểu mẫu, bao gồm cả bố cục và chú thích) và thông tin chẩn đoán của tệp được gửi đến {0} — dịch vụ bên thứ ba bạn đã cấu hình trong cài đặt trò chuyện AI.",
+    "Str.AIChat.PrivacyNotice": "ℹ Quyền riêng tư: tin nhắn của bạn, nội dung tệp đang hoạt động (với biểu mẫu, bao gồm cả bố cục và chú thích) và thông tin chẩn đoán của tệp được gửi đến {0} — dịch vụ bên thứ ba bạn đã cấu hình trong cài đặt trò chuyện AI. Nội dung của bất kỳ tệp nào khác trong các dự án đã tải mà trợ lý đọc bằng công cụ của mình, danh sách tệp của dự án và thông tin chẩn đoán của bất kỳ tệp nào cũng được gửi đến đó mà không yêu cầu phê duyệt.",
     "Str.AIChat.PrivacyKeyTip": "Mẹo: đặt biến môi trường HEXIDE_AI_API_KEY để tránh lưu khóa API trong tệp.",
     "Str.AIChat.Approved": "✔ Đã chấp thuận",
     "Str.AIChat.Rejected": "✗ Đã từ chối",

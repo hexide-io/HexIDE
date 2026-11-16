@@ -1283,7 +1283,7 @@
     "Str.Dock.ToolTabStripItemDockAsDocument": "Docka som dokumentflik",
     "Str.Dock.ToolTabStripItemClose": "_Stäng",
     "Str.AIChat.ApiKeyRequired": "API-nyckel krävs. Ange miljövariabeln HEXIDE_AI_API_KEY, eller apiKey i chat-settings.json.",
-    "Str.AIChat.PrivacyNotice": "ℹ Integritet: dina meddelanden, den aktiva filens innehåll (för ett formulär även layout och texter) och dess diagnostik skickas till {0} — en tredjepartstjänst som du har konfigurerat i AI-chattens inställningar.",
+    "Str.AIChat.PrivacyNotice": "ℹ Integritet: dina meddelanden, den aktiva filens innehåll (för ett formulär även layout och texter) och dess diagnostik skickas till {0} — en tredjepartstjänst som du har konfigurerat i AI-chattens inställningar. Även innehållet i alla andra filer i dina inlästa projekt som assistenten läser med sina verktyg, projektens fillistor och diagnostik för alla filer skickas dit utan att be om godkännande.",
     "Str.AIChat.PrivacyKeyTip": "Tips: ange miljövariabeln HEXIDE_AI_API_KEY för att undvika att lagra din API-nyckel i en fil.",
     "Str.AIChat.Approved": "✔ Godkänt",
     "Str.AIChat.Rejected": "✗ Avvisat",
