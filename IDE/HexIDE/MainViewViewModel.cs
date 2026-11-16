@@ -499,13 +499,38 @@ public partial class MainViewViewModel : ObservableObject
                 BrandAssets.ApplyWindowIcon(this);
                 PositionChanged += (_, _) => Dispatcher.UIThread.Post(RememberNormalBounds);
                 SizeChanged += (_, _) => Dispatcher.UIThread.Post(RememberNormalBounds);
+                AddHandler(PointerPressedEvent, OnTitlePressed, Avalonia.Interactivity.RoutingStrategies.Tunnel);
                 // The pane's close box runs its tool command; Dock's extra host-close handler
                 // would return the tool first and clear the command parameter (#3770, Dock#1109).
-                LayoutUpdated += (_, _) =>
+                LayoutUpdated += (_, _) => UpdateChrome();
+                PropertyChanged += (_, e) =>
                 {
-                    foreach (var chrome in this.GetVisualDescendants().OfType<Dock.Avalonia.Controls.ToolChromeControl>())
-                        DetachGrip(chrome);
+                    if (e.Property == IsActiveProperty) UpdateChrome();
                 };
+            }
+
+            private void UpdateChrome()
+            {
+                foreach (var chrome in this.GetVisualDescendants().OfType<Dock.Avalonia.Controls.ToolChromeControl>())
+                {
+                    DetachGrip(chrome);
+                    chrome.Classes.Set("floatingHostActive", IsActive);
+                }
+            }
+
+            private void OnTitlePressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+            {
+                if (e.ClickCount != 2 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+                for (var visual = e.Source as Visual; visual != null && visual != this; visual = visual.GetVisualParent())
+                {
+                    if (visual is Button) return;
+                    if (visual is Control { Name: "PART_Grip" })
+                    {
+                        e.Handled = true;
+                        Dispatcher.UIThread.Post(Close);
+                        return;
+                    }
+                }
             }
 
             private void UpdateTitle(object? sender = null, PropertyChangedEventArgs? e = null)
@@ -706,6 +731,17 @@ public partial class MainViewViewModel : ObservableObject
             if (window != null)
                 window.Title = dockable is IDock dock ? dock.ActiveDockable?.Title ?? dockable.Title : dockable.Title;
             return window;
+        }
+
+        public override void PinDockable(IDockable dockable)
+        {
+            // Dock's pin command handles auto-hide; floating tools return through the saved home slots.
+            if (FindRoot(dockable, _ => true)?.Window?.Host is ToolHostWindow host)
+            {
+                host.Close();
+                return;
+            }
+            base.PinDockable(dockable);
         }
 
         public override bool OnWindowClosing(IDockWindow? window)
