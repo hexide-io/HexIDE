@@ -80,10 +80,37 @@
   also half to even.
 - **`CStr` of the same Double rounds half away from zero.** `CStr(1234567890123445#)` ends 345, where `CDec` ends 344(0).
   So the two conversions don't share a rounding rule, and an implementation can't use one for the other.
-- **Everything downstream sees the 15-digit value.** `FormatNumber(1.005, 2)` is 1.01, which the Double's exact
-  binary value, 1.00499999999999989…, would make 1.00. `Round(2.675, 2)` is 2.68 for the same reason.
+- **The Format functions see the 15-digit value.** `FormatNumber(1.005, 2)` is 1.01, which the Double's exact
+  binary value, 1.00499999999999989…, would make 1.00.
+- **`Round` doesn't.** This line first said `Round(2.675, 2)` is 2.68 "for the same reason". That was wrong, and rdcore
+  caught it on 2026-11-16 from a measured `Round(2.345, "2")` of 2.35, which half to even on the 15-digit value would make
+  2.34. The rows below settle it.
 - **`CDate` of a numeric string is the serial number,** and a number outside 1 January 100 to 31 December 9999 is 13,
   not 6.
+
+### `Round` scales in Double, then rounds half to even (2026-11-16)
+
+**The probe.** It's the same build and guest, native code and p-code, which logged the same lines. Each row's
+`x * 100`, computed in Double, is shown beside it, along with what half to even on the 15-digit value would give.
+
+| Expression | `x * 100` in Double | 15-digit value, half to even | VB6 |
+|---|---|---|---|
+| `Round(0.545, 2)`, `Round(1.225, 2)`, `Round(2.345, 2)`, `Round(2.365, 2)` | 54.50000000000001, 122.50000000000001, 234.50000000000003, 236.50000000000003 | 0.54, 1.22, 2.34, 2.36 | **0.55, 1.23, 2.35, 2.37**, Double |
+| `Round(0.575, 2)`, `Round(1.015, 2)`, `Round(2.135, 2)`, `Round(1.275, 2)` | 57.49999999999999, 101.49999999999999, 213.49999999999997, 127.49999999999999 | 0.58, 1.02, 2.14, 1.28 | **0.57, 1.01, 2.13, 1.27**, Double |
+| `Round(2.665, 2)`, `Round(2.675, 2)`, `Round(0.015, 2)`, `Round(0.125, 2)`, `Round(1.005, 2)` | 266.5, 267.5, 1.5, 12.5, 100.49999999999999 | 2.66, 2.68, 0.02, 0.12, 1 | 2.66, 2.68, 0.02, 0.12, 1, Double |
+| `Round(2.5)`, `Round(3.5)` | | | 2, 4 |
+| `Round(CDec(2.345), 2)`, `Round(CCur(2.345), 2)`, `Round(CDec(0.575), 2)` | | | 2.34 Decimal, 2.34 Currency, 0.58 Decimal |
+| `Round(CSng(0.545), 2)` | | | 0.55, Single |
+| `FormatNumber(2.345, 2)`, `FormatNumber(0.575, 2)` | | | "2.35", "0.58" |
+
+**Readings:**
+- **`Round` of a Double multiplies by 10^n in Double, then rounds half to even.** Every one of the 13 Double rows fits
+  that, including the eight where it disagrees with half to even on the 15-digit value, which none of them fits.
+- **The Double's exact binary value isn't the rule either.** That rule makes `Round(2.675, 2)` 2.67, because 2.675 is
+  2.67499999999999982… exactly, and `Round(0.575, 2)` would still be 0.57.
+- **A Decimal or a Currency rounds its exact decimal value, half to even:** 2.345 to 2.34, and 0.575 to 0.58.
+- **`FormatNumber` disagrees with `Round` on the same Double.** It formats the 15-digit value, half away from zero, so
+  `FormatNumber(0.575, 2)` is "0.58" where `Round(0.575, 2)` is 0.57.
 
 **Measured, but no rule I'd defend.** Beyond Decimal's 28 decimal places:
 - `CDec(2.5E-28)`, `CDec(3.5E-28)` and `CDec(1.5E-28)` give 0.0000000000000000000000000002, …3 and …1. That's consistent
