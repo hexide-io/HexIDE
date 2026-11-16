@@ -51,11 +51,20 @@ becomes ready, without requiring the developer to reselect a library.
 - **AND** they appear under VBA or All Libraries without changing the selected library
 
 ### Requirement: Component libraries SHALL be browsable on every desktop platform
-The browser SHALL list in-box component libraries from project lines and form headers, once per project
-alongside matching references, using each library's own name and existing alphabetical ordering. It SHALL
-follow component, form and project removals. Loading SHALL use the type-library service, falling back to
-the registry's supplied controls and members. Both paths SHALL label HexIDE-only members with the
-localized origin description.
+The browser SHALL list component libraries from project lines and form headers once per project
+alongside references, in alphabetical order, and follow removals. Loading SHALL use the type-library
+service. In-box libraries SHALL retain their names and fall back to supplied controls and members,
+labeling HexIDE-only members with localized descriptions. Third-party libraries SHALL load by GUID and
+version, using metadata names or the OCX file stem and a metadata-unavailable entry (#4037).
+
+#### Scenario: A third-party component with readable metadata
+- **WHEN** a project names a third-party library only as a component
+- **THEN** its type-library name, classes and members are available through the shared service
+- **AND** loading requires no file path
+
+#### Scenario: A third-party component without readable metadata
+- **WHEN** a component's library is unregistered or the platform cannot read its metadata
+- **THEN** it remains listed under its OCX file name without its extension, with a metadata-unavailable entry
 
 #### Scenario: A component-only library without a registered OCX
 - **GIVEN** the project names MSCOMCTL.OCX only on an `Object=` line
