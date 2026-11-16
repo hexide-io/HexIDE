@@ -187,4 +187,47 @@ public class ProgressBarSerializationTests
         bars.Select(c => c.GetPropertyOrDefault(InBoxComponentClass.LoadedTypeNameProperty)).Distinct()
             .Should().BeEquivalentTo(["MSComctlLib.ProgressBar", "ComctlLib.ProgressBar"]);
     }
+
+    // Found by fuzzing the .frm (#1222). A saved own value HexIDE can't read is kept as its line. The writer used to keep it
+    // and also write the default, always written for Appearance, so the block held the property twice, and the next save
+    // kept only the default: a typo for 0 became 1.
+    [Theory]
+    [InlineData("O")]
+    [InlineData("flat")]
+    public void An_own_value_that_cannot_be_read_is_kept_once_in_its_place_and_saves_stably(string unreadable)
+    {
+        var block = Block("ComctlLib",
+            Line("Height", "375"), Line("Left", "120"), Line("TabIndex", "0"), Line("Top", "120"), Line("Width", "2655"),
+            Line("_ExtentX", "4683"), Line("_ExtentY", "661"), Line("_Version", "327682"), Line("BorderStyle", "1"),
+            Line("Appearance", unreadable), Line("MousePointer", "11"), Line("Max", "50"));
+        var (form, _) = Read(Head5, block);
+
+        var first = Save(form);
+        first.Should().Contain(Line("BorderStyle", "1") + Line("Appearance", unreadable) + Line("MousePointer", "11"));
+        first.Split("Appearance").Should().HaveCount(2, "the property is written once");
+
+        var reread = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), first, new NullSink())!;
+        Save(reread).Should().Be(first);
+    }
+
+    // Also found by fuzzing the .frm (#1222): a form block holding another form read as two forms in one model, and saving
+    // it threw. VB6 never writes one, and HexIDE now refuses it as it refuses any file that isn't a form.
+    [Theory]
+    [InlineData("VB.Form")]
+    [InlineData("VB.UserControl")]
+    public void A_form_that_holds_another_form_is_not_a_form_file(string inner)
+    {
+        var errors = new System.Collections.Generic.List<string>();
+        var text = Head6 + FormOpen + $"   Begin VB.Frame Frame1 \r\n      Begin {inner} Inner \r\n      End\r\n   End\r\n" + FormClose;
+
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), text, new ListSink(errors));
+
+        form.Should().BeNull();
+        errors.Should().ContainSingle().Which.Should().Contain("not a valid form file");
+    }
+
+    private sealed class ListSink(System.Collections.Generic.List<string> errors) : IDeserializeErrorSink
+    {
+        public void LogError(string error) => errors.Add(error);
+    }
 }
