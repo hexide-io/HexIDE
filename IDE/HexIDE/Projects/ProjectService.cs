@@ -58,8 +58,10 @@ public partial class ProjectService : IProjectService
         ArchiveProjectService? archives = null,
         Func<ILspClient>? lspClient = null,
         ContributedProjects? contributed = null,
-        IDocumentDockService? documents = null)
+        IDocumentDockService? documents = null,
+        CodeTrust? trust = null)
     {
+        this.trust = trust;
         this.documents = documents;
         this.contributed = contributed;
         if (contributed is not null)
@@ -86,6 +88,25 @@ public partial class ProjectService : IProjectService
     /// Western host every byte decodes, so a file the code page cannot read is only reachable by setting it.
     /// </summary>
     internal Vb6TextEncoding HostAnsi { get; set; } = Vb6TextEncoding.Ansi;
+
+    private readonly CodeTrust? trust;
+
+    // A file saved under a new name holds the code that came with the old one's mark, for this session (#1121).
+    private void Saved(string? from, string to)
+    {
+        if (from is not null)
+            trust?.Moved(from, to);
+    }
+
+    /// <summary>
+    /// What reading a file of a project records: its bytes, for the save-changes prompt and the file watcher, and its
+    /// download mark, which a save would drop (#1121).
+    /// </summary>
+    private void RecordRead(string path, byte[] bytes)
+    {
+        baselineStore.Record(path, bytes);
+        trust?.Observe(path);
+    }
 
     private Task<(string Text, byte[] Bytes, Vb6TextEncoding Encoding, bool ByteForByte)> ReadSourceAsync(
         string path, Vb6TextEncoding? lastReadIn = null) =>
@@ -475,9 +496,9 @@ public partial class ProjectService : IProjectService
             }
 
             (project, problems) = await contributed!.BuildAsync(projectPath, content, type, HostAnsi,
-                baselineStore.Record, localization);
+                RecordRead, localization);
             if (projectFileBytes is not null)
-                baselineStore.Record(projectPath, projectFileBytes);
+                RecordRead(projectPath, projectFileBytes);
             // Its plain modules are read and rendered as they were before #4053; its forms and file stay its type's.
             project.Format = format;
             projectManager.AddProject(project);
@@ -600,7 +621,7 @@ public partial class ProjectService : IProjectService
         object? added;
         try
         {
-            added = await contributed!.AddMemberAsync(project, member, HostAnsi, baselineStore.Record, localization);
+            added = await contributed!.AddMemberAsync(project, member, HostAnsi, RecordRead, localization);
         }
         catch (ContributedProjects.MemberNameTakenException ex)
         {
@@ -682,6 +703,8 @@ public partial class ProjectService : IProjectService
 
     private void MoveBaselines(string from, string to)
     {
+        // Code saved under a new name is still the code that came with the old one's mark, for this session (#1121).
+        trust?.Moved(from, to);
         if (renderBaselines.Remove(from, out var rendered))
             renderBaselines[to] = rendered;
         if (baselineStore.TryGet(from) is { } onDisk)
@@ -747,9 +770,9 @@ public partial class ProjectService : IProjectService
         // The load itself is shared with the Standalone host a made program runs in (#1062). What the IDE adds is its own
         // record of what it read, which the save-changes prompt and the file watcher compare against.
         var (project, skippedDocuments, readByteForByteList, projectFileBytes) =
-            await format.ReadProjectAsync(projectPath, HostAnsi, baselineStore.Record, errorSink);
+            await format.ReadProjectAsync(projectPath, HostAnsi, RecordRead, errorSink);
         // The project file too, as a save records it: crash recovery matches a moved project by it (#499).
-        baselineStore.Record(projectPath, projectFileBytes);
+        RecordRead(projectPath, projectFileBytes);
         var readByteForByte = readByteForByteList.ToList();
 
         project.Format = format;
@@ -1553,7 +1576,7 @@ public partial class ProjectService : IProjectService
             Log.Warning("Reload: {Path} could not be read in code page {CodePage}; read byte for byte", path, HostAnsi.CodePage);
             await ReportReadByteForByte([Path.GetFileName(path)]);
         }
-        baselineStore.Record(path, sourceBytes);
+        RecordRead(path, sourceBytes);
 
         byte[]? companion = null;
         if (reader.CompanionPath(path) is { } companionPath && File.Exists(companionPath))
@@ -1588,7 +1611,7 @@ public partial class ProjectService : IProjectService
             Log.Warning("Reload: {Path} could not be read in code page {CodePage}; read byte for byte", path, HostAnsi.CodePage);
             await ReportReadByteForByte([Path.GetFileName(path)]);
         }
-        baselineStore.Record(path, sourceBytes);
+        RecordRead(path, sourceBytes);
         var (preservedHeader, reloadedBody) = FormatOf(module.Owner).SplitModule(source, module.Kind);
 
         module.TextEncoding = sourceEncoding;
@@ -2187,7 +2210,7 @@ public partial class ProjectService : IProjectService
 
         // Recorded only once the parse succeeded. A baseline for a form that was never added would leave
         // the dirty check answering about a file the project does not carry.
-        baselineStore.Record(absolutePath, bytes);
+        RecordRead(absolutePath, bytes);
         form.AbsolutePath = absolutePath;
         form.TextEncoding = sourceEncoding;
         project.AddForm(form);
@@ -2211,7 +2234,7 @@ public partial class ProjectService : IProjectService
         if (CheckAdoptedName(project, name) is var refusal && refusal != AdoptionRefusal.None)
             return Adopted<ModuleDefinition>.Refused(refusal, name);
 
-        baselineStore.Record(absolutePath, bytes);
+        RecordRead(absolutePath, bytes);
         var module = new ModuleDefinition(project, name, kind)
         {
             AbsolutePath = absolutePath,
@@ -2486,6 +2509,7 @@ public partial class ProjectService : IProjectService
         // Neither is correct, but a crash should fail towards the one the developer is told about.
         WriteCompanionBinary(formPath, frxContent, form);
         AtomicWriteText(formPath, frmText, encodedText);
+        Saved(form.AbsolutePath, formPath);
         form.AbsolutePath = formPath;
 
         // The second refresh trigger (#273 task 3.3a). The header the buffer shows becomes the header this
@@ -2716,6 +2740,7 @@ public partial class ProjectService : IProjectService
         if (DesignerPartOf(module) is { } designerPart)
             WriteCompanionBinary(modulePath, companion, designerPart);
         AtomicWriteText(modulePath, text, encodedText);
+        Saved(module.AbsolutePath, modulePath);
         module.AbsolutePath = modulePath;
         // Both halves are the one file, as every load gives them (#474).
         if (DesignerPartOf(module) is { } written)
@@ -2755,6 +2780,7 @@ public partial class ProjectService : IProjectService
         // pinned here, before its own path moves, or the next save would read its kept lines from the new one (#737).
         if (definition.AbsolutePath is { } previous)
             definition.ItemLinesDirectory ??= Path.GetDirectoryName(previous);
+        Saved(definition.AbsolutePath, projectPath);
         definition.AbsolutePath = projectPath;
     }
 

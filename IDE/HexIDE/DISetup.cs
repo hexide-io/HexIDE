@@ -110,6 +110,12 @@ public partial class DISetup
             .Bind().As(Singleton).To<HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel>()
             .Bind().As(Singleton).To<HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel>()
             .Bind().As(Singleton).To<WindowManager>()
+            .Bind().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<ILocalizationService>(out var localization);
+                return new CodeTrust(windows, localization);
+            })
             .Bind().As(Singleton).To<ProjectManager>()
             .Bind().As(Singleton).To<EditorService>()
             .Bind().As(Singleton).To<DockFactoryReference>()
@@ -140,8 +146,9 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Debugging.DebugLaunchService>(out var debugLaunches);
                 ctx.Inject<HexIDE.Debugging.IRunChoiceStore>(out var runChoices);
                 ctx.Inject<IStatusBarService>(out var statusBar);
+                ctx.Inject<CodeTrust>(out var trust);
                 return new ProjectRunnerService(eventBus, projectManager, localization, debugController, breakpointService, watchService, runScope, runEngine, externalDebugger, archives,
-                    debugLaunches, runChoices, statusBar);
+                    debugLaunches, runChoices, statusBar, trust);
             })
             .Bind().As(Singleton).To(ctx =>
             {
@@ -162,8 +169,9 @@ public partial class DISetup
                 ctx.Inject<IComponentRegistry>(out var componentRegistry);
                 ctx.Inject<HexIDE.Language.IReadOnlyRegionWriter>(out var regionWriter);
                 ctx.Inject<IDocumentDockService>(out var documents);
+                ctx.Inject<CodeTrust>(out var trust);
                 return new ProjectService(regionWriter, newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, format, componentRegistry, archives, lspClient,
-                    contributed, documents);
+                    contributed, documents, trust);
             })
             .Bind().As(Singleton).To<ArchiveProjectService>()
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()

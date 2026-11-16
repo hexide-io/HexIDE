@@ -2440,6 +2440,9 @@ public partial class MainViewViewModel : ObservableObject
             FileTypeFilter = [new Avalonia.Platform.Storage.FilePickerFileType("JSON") { Patterns = ["*.json"] }],
         });
         if (paths?.FirstOrDefault() is not { } file || projectRunnerService.IsRunning) return;
+        // A launch file names the program it starts, so a downloaded one is asked about as a downloaded project is (#1121).
+        if (!await projectRunnerService.MayRunFileAsync(file))
+            return;
         OpenImmediateTool();
         await ExternalDebugger.StartAsync(file);
     }

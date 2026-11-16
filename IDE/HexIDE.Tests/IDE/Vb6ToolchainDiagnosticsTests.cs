@@ -71,7 +71,7 @@ public class Vb6ToolchainDiagnosticsTests
     private sealed class StubbedBuild(
         ILspClient lsp, IWindowManager windows, ILocalizationService localization,
         Vb6ToolchainService.Vb6BuildOutcome? outcome)
-        : Vb6ToolchainService(lsp, Substitute.For<IEventBus>(), windows, localization)
+        : Vb6ToolchainService(lsp, Substitute.For<IEventBus>(), windows, localization, new CodeTrust(windows, localization, _ => false))
     {
         internal override Task<Vb6BuildOutcome?> RunVb6Async(string projectPath) =>
             Task.FromResult(outcome);
