@@ -264,7 +264,9 @@ public class SyntaxErrorAtStartTests
     {
         // The form path gave the raw exception message after the form's name, and Sub Main said HexIDE does not
         // implement it. Both now describe it as a fault in a run would be, and the form path names the form.
-        const string module = "Dim Fixed As String * 5\r\nSub Main()\r\nEnd Sub\r\n";
+        // The sample is a declaration the pre-pass still refuses: an array As New (PrePass.cs). It was a
+        // fixed-length String, which #179 implemented, so this test had pinned a gap rather than the start path.
+        const string module = "Dim Many(1) As New Collection\r\nSub Main()\r\nEnd Sub\r\n";
         var formProject = FormProject();
         AddModule(formProject, "Module1", ModuleKind.StandardModule, module);
         var subMainProject = SubMainProject();

@@ -143,7 +143,7 @@ _Original per-item findings (retained for detail; dispositions above supersede t
 
 ## Deferred
 
-- **File statements** — each one runs now, and what stays deferred is the unmeasured subsets named here. Lock and Unlock run within the program since [#2553](https://github.com/hexide-io/HexIDE/issues/2553): whole-file and inclusive ranges, including an omitted start; other handles’ Get/Put and sequential Line Input respect them. Cross-process locking and Binary text reads under range locks remain unmeasured; range conversions other than Byte/Integer/Long are refused as not implemented. Reset closes all files and flushes buffered writes (#2521). Width # runs for the measured sequential-file cases ([#2554](https://github.com/hexide-io/HexIDE/issues/2554)); Binary/Input accept it, with their effect unmeasured, and Random remains refused. Random and Binary files, Get, Put and `Len =` run since [#1646](https://github.com/hexide-io/HexIDE/issues/1646), apart from fixed-length strings and arrays of a Type ([#178](https://github.com/hexide-io/HexIDE/issues/178)). Sequential files run: Open, Close, Print #, Line Input #, FreeFile and EOF (#1145), Input # and Write # (#1521), and LOF, Loc, Seek and the Input function ([#1645](https://github.com/hexide-io/HexIDE/issues/1645)).
+- **File statements** — each one runs now, and what stays deferred is the unmeasured subsets named here. Lock and Unlock run within the program since [#2553](https://github.com/hexide-io/HexIDE/issues/2553): whole-file and inclusive ranges, including an omitted start; other handles’ Get/Put and sequential Line Input respect them. Cross-process locking and Binary text reads under range locks remain unmeasured; range conversions other than Byte/Integer/Long are refused as not implemented. Reset closes all files and flushes buffered writes (#2521). Width # runs for the measured sequential-file cases ([#2554](https://github.com/hexide-io/HexIDE/issues/2554)); Binary/Input accept it, with their effect unmeasured, and Random remains refused. Random and Binary files, Get, Put and `Len =` run since [#1646](https://github.com/hexide-io/HexIDE/issues/1646), including fixed-length Strings and fixed-string Type fields (#179), apart from fixed-string arrays and arrays of a Type ([#178](https://github.com/hexide-io/HexIDE/issues/178)). Sequential files run: Open, Close, Print #, Line Input #, FreeFile and EOF (#1145), Input # and Write # (#1521), and LOF, Loc, Seek and the Input function ([#1645](https://github.com/hexide-io/HexIDE/issues/1645)).
 - **File/directory management** (Kill, Name…As, FileCopy, MkDir, RmDir, SetAttr) — implemented from compiled EXE measurements (#1561). Host attributes and long-name matching diverge as recorded in the fidelity oracle.
 - **Remaining file-related functions** — FileAttr runs for Output, Append, Random and Binary; Input mode, second-argument conversions from types other than Byte/Integer/Long and named arguments explicitly refuse pending measurement (#2521). InputB remains deferred; LOF, Loc, Seek and Input/Input$ run ([#1645](https://github.com/hexide-io/HexIDE/issues/1645)). FreeFile/EOF and the sequential statements run (#1145); FileLen, Dir/Dir$, CurDir, GetAttr and FileDateTime now run (#1561). Named arguments to the five new functions remain explicitly refused pending measurement; the supplied filesystem probe measures positional calls only.
 - **GoSub/Return, On expr GoTo/GoSub** — all four throw; VB6 legacy in-procedure computed branching. Deferred pending linearized CFG/bytecode, the tree-walking limit CLAUDE.md describes.
@@ -252,18 +252,23 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   and default-member indexed writes (#174) are outside #177. A class's parameterized `Property Get` now
   passes its index arguments through the ordinary procedure binder (#741), including the surplus-argument
   compile error. A Collection's `Item` is separately implemented as an in-box object's member (#1471).
-- **Fixed-length strings** (`Dim s As String * n`) — the width is a CST child of the declaration; the
-  behaviour is store-time coercion on a declared type, the mechanism `CoerceOnStore` already runs for
-  Integer/Long/Date. The UDT-field leg needs a new coercion site: `VbUdt.TrySet` writes the field bag with
-  no coercion at all.
+- **Fixed-length strings** (`Dim s As String * n`) — scalar module/local/Static slots now initialise to N NULs
+  and coerce stores to their width, including Mid/LSet/RSet ([#179's measurements](https://github.com/hexide-io/HexIDE/issues/179),
+  oracle PR #4019). Arrays and Type fields now retain their widths, ByRef String/Variant parameters copy in/out,
+  and Get/Put omit the variable-string prefix for fixed Strings and Type fields. Fixed-string array record
+  layouts, whole-array assignment/copying, ReDim with As, and ByRef conversions to other parameter types
+  remain unmeasured and explicitly refused.
+  Fixed-string parameter/return declarations now report the measured compile errors. Non-integer Const
+  width conversions are unmeasured and explicitly refused. LenB’s subtype at widths other than the measured 5
+  is unmeasured and keeps its existing behaviour.
 - **Arrays OF a UDT, and array fields inside a UDT** — implemented (#178): elements own their fields,
   assignments copy every field deeply, and ReDim/Preserve/Erase and ByRef element locks follow the measurements.
   Array fields have indexed reads/writes and whole-array store checks. Nonliteral or inverted Type-field bounds,
-  fixed-length strings and array fields As New remain refused. Get/Put of UDT arrays and Types containing array
+  array fields As New remain refused. Get/Put of UDT arrays and Types containing array
   fields also remain refused pending record-layout measurements. The existing acceptance of ByVal UDT parameters
   and UDT-to-Variant assignments remains a divergence from the compile refusals measured for #178.
 - **`LSet` / `RSet`** — named String variables and Variants holding a String or Integer justify their text
-  since #2517. Fixed-length String declarations, other target types, unmeasured source conversions and
+  since #2517. Other target types, unmeasured source conversions and
   member/indexed targets remain refused. The UDT form waits on a shared byte-layout model, tracked with `Get`/`Put`.
 - **Bang access** (`obj!key`) — **done for a Collection (#1471):** `c!key` is `c("key")`, `c![a key]` brackets a key
   with spaces, `!key` works inside `With c`, and `c!key = 1` is 424 (all measured). On any other object it is still
