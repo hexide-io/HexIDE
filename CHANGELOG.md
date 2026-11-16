@@ -145,7 +145,7 @@ each release by `scripts/changelog-gather.sh` (#1375).
   first slice). Both declare the full Classic colour palette and meet 7:1 for the tested palette text
   and background pairs; their names are translated in every shipped language. Default syntax colours
   also meet 7:1 in VB6 editors, Formatting previews and adopted language definitions, while explicit
-  editor colour overrides retain priority. 2px focus chrome remains separate work.
+  editor colour overrides retain priority. 2px focus chrome is #3641, above.
 
 - **OS high contrast follows Windows and macOS preferences in every profile** (#3300), including
   startup. Clearing contrast restores the prior theme. Explicit theme choices in Options persist and
@@ -335,6 +335,7 @@ each release by `scripts/changelog-gather.sh` (#1375).
 
 - **The `rdcore` provider stamps a `.rdproj` with format `1.0`** (#3269), the format RDCore reads and writes. RDCore opens
   a file of any version from `6c1ed90d` on. For an older build, set `settings.version` to `0.1.0`.
+
 - **The DAP parity runner can choose RDCore's engine and records which it used.** RDCore's default engine is compiled
   from `950a394d` on. `--execution-engine Compiled` or `Interpreter` picks one, and the results header names it.
 
@@ -487,10 +488,6 @@ each release by `scripts/changelog-gather.sh` (#1375).
   wherever it was moved, keeping its close button attached to the right area. Ambiguous tool-tab close
   requests explain how to address the intended close button through the visual tree.
 
-- **The code window's context menu fits its shortcuts and submenu arrows on the first opening**
-  (#3809). Update Avalonia from 12.1.4 to 12.1.5 so pointer popups resize after layout settles;
-  the same fix covers the designer and Project Explorer context menus.
-
 - **Dock parts have localized screen-reader names in floating tool windows** (#3806). The dock host,
   root dock, pinned dock host, pinned tool tabs, command bars and document selector now use the active
   language in both the main window and floating windows, instead of announcing `IRootDock` or English
@@ -541,8 +538,7 @@ each release by `scripts/changelog-gather.sh` (#1375).
 - **Loaded modules and classes use their file's name** (#3774). A `.bas` or `.cls` with an
   `Attribute VB_Name` that differs from its `.vbp` line now loads under that name, so qualified calls
   and class instantiation work. Save Project writes that name into the `.vbp` instead of renaming
-  the file's header. Files without a name attribute keep the project line's name; collisions retain
-  the previous behaviour pending measurement. Empty names also fall back to the project line, and
+  the file's header. Files without a name attribute keep the project line's name. Empty names also fall back to the project line, and
   attributes whose names merely start with `VB_Name` do not rename the module. Existing sidecar
   breakpoints, bookmarks and conditions follow the loaded name, with entries already under that name
   taking precedence.
@@ -717,7 +713,7 @@ each release by `scripts/changelog-gather.sh` (#1375).
 
 - **Add-In Manager opens an overview instead of a blank page** (#3396). Options → Add-Ins explains add-ins, lists installed ones, and shows how and where to install a signed package. The empty-state tree entry opens the same overview.
 
-- **File > Print, Print Setup and Tools > Procedure Attributes are disabled until implemented** (#3395).
+- **File > Print, Print Setup and Tools > Procedure Attributes are disabled until implemented** (#3395; printing is #45, Procedure Attributes #62).
   They no longer open a placeholder dialog. The remaining not-implemented notice uses translated text and
   the standard HexIDE title instead of “NYI”.
 
@@ -776,9 +772,6 @@ each release by `scripts/changelog-gather.sh` (#1375).
   `ListIndex` assignment still raise none, as in VB6.
 
 - **Already-open project warnings follow the IDE language** (#3199), for both VB6 projects and projects opened by an add-in. The message keeps the project file name in all 39 shipped languages.
-
-- **MsgBox coverage records its layout flags** (#3014). `MISSING_LANGUAGE.md` describes
-  `vbMsgBoxRight` and `vbMsgBoxRtlReading` with their measured layout and provenance.
 
 - **A program's MsgBox honours its layout flags** (#3014). `vbMsgBoxRight` right-aligns the
   prompt, and `vbMsgBoxRtlReading` mirrors the icon and button order. The title bar doesn't mirror
@@ -854,7 +847,7 @@ each release by `scripts/changelog-gather.sh` (#1375).
   LL error recovery without delaying the stdio read loop or initialization. Warm-up failures are logged
   without stopping the server; the existing document analysis budget still applies.
 
-- **Failed designer previews cannot be selected for property editing** (#2405, second slice). The Properties object selector and multi-selection exclude failed controls; a selected control that fails returns Properties to the form. Verbatim carry-over after edits elsewhere remains outstanding.
+- **Failed designer previews cannot be selected for property editing** (#2405, second slice). The Properties object selector and multi-selection exclude failed controls; a selected control that fails returns Properties to the form.
 
 - **TextBox Ctrl+Backspace reports KeyAscii 127** (#2325), so KeyPress handlers on the
   control or its form can suppress or replace it using the measured VB6 code.
