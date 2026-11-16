@@ -2119,6 +2119,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (value.Type == Vb6Value.ValueType.Object && (intoArray || IsBareUdtArrayField(context.implicitCallStmt_InStmt())))
             return value;   // ArrayStore refuses it
 
+        // SSTab picture puts accept the object through Let too (#3426 / #4297).
+        if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } pictureCall
+            && pictureCall.iCS_S_VariableOrProcedureCall() is { } pictureLead
+            && pictureCall.iCS_S_MemberCall() is [var pictureMember]
+            && UdtFieldName(pictureMember).ToLowerInvariant() is "picture" or "tabpicture"
+            && interpreter.ExecutionContext.TryInspectVariable(currentEnv, pictureLead.GetText(), out var pictureTarget)
+            && pictureTarget.Value is VBSSTab)
+            return value;
+
         // BuddyControl is a Variant which accepts a control reference even through Let (#1093).
         if (value.Value is Control
             && context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } buddyCall
@@ -3901,13 +3910,23 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 var member = UdtFieldName(setMembers[0]);
                 UserControlMembers.Check(target, member);
-                if (setControl is VBPictureBox && member.Equals("Picture", StringComparison.OrdinalIgnoreCase))
+                if (setControl is VBPictureBox or VBImage && member.Equals("Picture", StringComparison.OrdinalIgnoreCase))
                 {
                     AvaloniaInteroperability.TrySet(setControl, VBProperties.PictureProperty, value);
                     return ControlFlow.Nothing;
                 }
                 if (UserControlContainers.TrySet(setControl, member, value))
                     return ControlFlow.Nothing;
+            }
+            if (setLead && target.Value is VBSSTab setTab && membersCall.iCS_S_MemberCall() is { Length: 1 } sstabMembers)
+            {
+                var name = UdtFieldName(sstabMembers[0]);
+                if (SSTabMembers.IsIndexed(name) && sstabMembers[0].iCS_S_ProcedureOrArrayCall() is { } indexed)
+                {
+                    SSTabMembers.WriteIndexed(setTab, name, await expressionExecutor.EvaluateCallArgs(indexed.argsCall(0)), value);
+                    return default;
+                }
+                if (SSTabMembers.TrySet(setTab, name, value)) return default;
             }
             if (setLead && target.Value is VBStatusBar or StatusBarPanel or StatusBarPanels)
             {
