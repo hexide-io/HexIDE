@@ -240,6 +240,27 @@ internal sealed class EditorLanguageFeatures : IDisposable
         }
     }
 
+    /// <summary>
+    /// The item the word around the caret selects, ignoring case: one the whole word matches, ahead of an earlier one it
+    /// only starts (#3613), and otherwise the first it starts. Within each, a preselected item comes first. An empty or
+    /// unmatched word selects nothing.
+    /// </summary>
+    /// <remarks>
+    /// Ordinal order lists <c>Xor</c> before <c>x</c>, so a first-prefix rule turned a typed, declared <c>x</c> into
+    /// <c>Xor</c> on Space. In any case-insensitive alphabetical list a whole-word match sorts ahead of every longer
+    /// item it starts, so this agrees with a sorted member list; which of several longer items wins is left as it was.
+    /// </remarks>
+    internal static ICompletionData? SelectionFor(IEnumerable<ICompletionData> list, string word, CompletionItem[] items)
+    {
+        if (word.Length == 0) return null;
+        bool Preselected(ICompletionData data) =>
+            items.Any(item => item.Preselect == true && (item.FilterText ?? item.Label) == data.Text);
+        var whole = list.Where(data => string.Equals(data.Text, word, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (whole.Count > 0) return whole.FirstOrDefault(Preselected) ?? whole[0];
+        var starts = list.Where(data => data.Text.StartsWith(word, StringComparison.OrdinalIgnoreCase)).ToList();
+        return starts.FirstOrDefault(Preselected) ?? starts.FirstOrDefault();
+    }
+
     internal static void FillCompletionList(CompletionWindow window, CompletionItem[] items,
         Func<int, int, bool> refusesTyping, Func<string?>? documentUri = null)
     {
@@ -256,11 +277,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
         {
             var (wordStart, wordEnd) = CompletionWord(area);
             var word = area.Document.GetText(wordStart, wordEnd - wordStart);
-            var matches = window.CompletionList.CompletionData
-                .Where(data => word.Length > 0 && data.Text.StartsWith(word, StringComparison.OrdinalIgnoreCase));
-            window.CompletionList.SelectedItem = matches.FirstOrDefault(data =>
-                items.Any(item => item.Preselect == true && (item.FilterText ?? item.Label) == data.Text))
-                ?? matches.FirstOrDefault();
+            window.CompletionList.SelectedItem = SelectionFor(window.CompletionList.CompletionData, word, items);
             if (window.CompletionList.SelectedItem is { } selected)
                 window.CompletionList.ScrollIntoView(selected);
         }
