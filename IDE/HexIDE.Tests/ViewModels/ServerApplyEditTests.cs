@@ -100,8 +100,45 @@ public class ServerApplyEditTests : IAsyncDisposable
 
     private readonly List<VBLspClient> connections = [];
     private readonly List<JsonRpc> peers = [];
+    private readonly List<EditServer> stubs = [];
     private readonly CancellationTokenSource timeout = new(TimeSpan.FromSeconds(15));
     private EditServer server = null!;
+
+    // #3520: on Linux CI, now and then a few of these tests find the stand-in's connection already gone, a millisecond
+    // or two in, while the test's own token is still live. It hasn't reproduced off CI, so the class records what each
+    // side saw, and a test that hits it fails saying so: the stand-in's disconnect reason and exception, the client's
+    // handshake steps and log, and whether the stand-in ever received initialize.
+    private readonly long started = System.Diagnostics.Stopwatch.GetTimestamp();
+    private readonly System.Collections.Concurrent.ConcurrentQueue<string> standInDrops = new();
+    private readonly List<RecordingLogger> clientLogs = [];
+
+    private string Elapsed() =>
+        $"{System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F1}ms";
+
+    private sealed class RecordingLogger(ServerApplyEditTests test, int connection) : ILogger<VBLspClient>
+    {
+        public readonly System.Collections.Concurrent.ConcurrentQueue<string> Lines = new();
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter) =>
+            Lines.Enqueue($"{test.Elapsed()} client {connection} {logLevel}: {formatter(state, exception)}"
+                + (exception is null ? "" : $" {exception}"));
+    }
+
+    private string Diagnosis(string what)
+    {
+        static string Steps(LanguageConnectionAttempt? attempt) => attempt is null ? "none"
+            : $"reached {attempt.ReachedStage}: " + string.Join(", ", attempt.Steps.Select(s =>
+                $"{s.Stage} {s.Outcome} at {s.At?.TotalMilliseconds:F1}ms{(s.Detail is null ? "" : $" ({s.Detail})")}"));
+        var clients = connections.Select((c, i) =>
+            $"client {i + 1}: running={c.IsRunning}, attempt {Steps(c.LastAttempt)}, "
+            + $"stand-in received initialize={stubs[i].InitializeParams.ValueKind != JsonValueKind.Undefined}");
+        return $"#3520: {what} at {Elapsed()}. Test token cancelled={timeout.IsCancellationRequested}; "
+            + $"thread pool threads={ThreadPool.ThreadCount}, queued={ThreadPool.PendingWorkItemCount}. "
+            + $"{string.Join("; ", clients)}. Stand-in drops: [{string.Join(" | ", standInDrops)}]. "
+            + $"Client log: [{string.Join(" | ", clientLogs.SelectMany(l => l.Lines))}]";
+    }
 
     private async Task<VBLspClient> ConnectAsync(bool withEditor = true)
     {
@@ -110,6 +147,10 @@ public class ServerApplyEditTests : IAsyncDisposable
         var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()), stub);
         stub.Rpc = rpc;
         peers.Add(rpc);
+        stubs.Add(stub);
+        var number = peers.Count;
+        rpc.Disconnected += (_, e) => standInDrops.Enqueue($"{Elapsed()} stand-in {number} {e.Reason}: {e.Description}"
+            + (e.Exception is null ? "" : $" {e.Exception}"));
         rpc.StartListening();
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
@@ -117,11 +158,16 @@ public class ServerApplyEditTests : IAsyncDisposable
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(c => Task.FromResult<IJsonRpcMessageHandler?>(
                 new HeaderDelimitedMessageHandler(local, local, c.Arg<IJsonRpcMessageFormatter>())));
-        var connection = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6",
+        var log = new RecordingLogger(this, number);
+        clientLogs.Add(log);
+        var connection = new VBLspClient(transport, log, "vb6",
             applyEdit: !withEditor ? null : (edit, documentFor, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
                 () => editors.ApplyWorkspaceEdit(edit, documentFor), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask());
         connections.Add(connection);
+        var before = Elapsed();
         await connection.StartAsync(timeout.Token);
+        if (!connection.IsRunning)
+            throw new InvalidOperationException(Diagnosis($"client {number} isn't running after StartAsync (began at {before})"));
         server = stub;
         client = connection;
         return connection;
@@ -758,9 +804,13 @@ public class ServerApplyEditTests : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        // Taken before teardown, which drops every stand-in on purpose. No test here drops one itself, so a drop
+        // recorded by now is #3520, whatever the test then failed on.
+        var dropped = standInDrops.IsEmpty ? null : Diagnosis("a stand-in server's connection dropped during the test");
         foreach (var window in windows) window.Dispose();
         foreach (var connection in connections) await connection.DisposeAsync();
         foreach (var peer in peers) peer.Dispose();
         timeout.Dispose();
+        if (dropped is not null) throw new InvalidOperationException(dropped);
     }
 }
