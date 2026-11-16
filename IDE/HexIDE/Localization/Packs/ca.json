@@ -524,6 +524,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "Voleu suprimir totes les personalitzacions d'aquest idioma?",
     "Str.TranslationEditor.PlaceholderError": "Edició rebutjada: cal mantenir els mateixos marcadors {0}, {1}… que a l'original.",
     "Str.TranslationEditor.ProtectedCredits": "Els agraïments d'HexIDE no es poden substituir aquí. Un producte basat en HexIDE només hi pot afegir.",
+    "Str.TranslationEditor.ProtectedTrust": "Les etiquetes de les claus de signatura d'HexIDE no es poden substituir aquí. Un producte basat en HexIDE no pot presentar aquestes claus com a pròpies.",
     "Str.TranslationEditor.Tooltip.Override": "Personalització: {0}",
     "Str.TranslationEditor.Tooltip.None": "(cap)",
     "Str.TranslationEditor.Area.Menu": "Menús",

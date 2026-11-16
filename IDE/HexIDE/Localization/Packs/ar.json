@@ -155,6 +155,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "هل تريد إزالة جميع تجاوزاتك لهذه اللغة؟",
     "Str.TranslationEditor.PlaceholderError": "تم رفض التعديل: يجب أن يحتفظ بنفس العناصر النائبة {0}، {1} … الموجودة في النص الأصلي.",
     "Str.TranslationEditor.ProtectedCredits": "لا يمكن تجاوز شكر HexIDE هنا. يمكن للمنتجات المبنية على HexIDE الإضافة إليه فقط.",
+    "Str.TranslationEditor.ProtectedTrust": "لا يمكن تجاوز تسميات مفاتيح التوقيع الخاصة بـ HexIDE هنا. لا يمكن للمنتجات المبنية على HexIDE تقديم هذه المفاتيح على أنها مفاتيحها.",
     "Str.TranslationEditor.Tooltip.Override": "تجاوز: {0}",
     "Str.TranslationEditor.Tooltip.None": "(بلا)",
     "Str.TranslationEditor.Area.Menu": "القوائم",

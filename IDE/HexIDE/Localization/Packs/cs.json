@@ -155,6 +155,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "Odebrat všechna vaše přepsání pro tento jazyk?",
     "Str.TranslationEditor.PlaceholderError": "Úprava zamítnuta: musí zachovat stejné zástupné symboly {0}, {1} … jako originál.",
     "Str.TranslationEditor.ProtectedCredits": "Vlastní poděkování HexIDE zde nelze přepsat. Produkt postavený na HexIDE je může pouze doplnit.",
+    "Str.TranslationEditor.ProtectedTrust": "Popisky podpisových klíčů HexIDE zde nelze přepsat. Produkt postavený na HexIDE nemůže tyto klíče vydávat za své.",
     "Str.TranslationEditor.Tooltip.Override": "přepsání: {0}",
     "Str.TranslationEditor.Tooltip.None": "(žádné)",
     "Str.TranslationEditor.Area.Menu": "Nabídky",

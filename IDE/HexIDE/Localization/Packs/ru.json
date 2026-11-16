@@ -130,6 +130,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "Удалить все ваши переопределения для этого языка?",
     "Str.TranslationEditor.PlaceholderError": "Изменение отклонено: оно должно сохранять те же подстановки {0}, {1} …, что и оригинал.",
     "Str.TranslationEditor.ProtectedCredits": "Благодарности HexIDE нельзя заменить здесь. Продукт на основе HexIDE может только дополнить их.",
+    "Str.TranslationEditor.ProtectedTrust": "Названия ключей подписи HexIDE нельзя заменить здесь. Продукт на основе HexIDE не может выдавать эти ключи за свои.",
     "Str.TranslationEditor.Tooltip.Override": "переопределение: {0}",
     "Str.TranslationEditor.Tooltip.None": "(нет)",
     "Str.TranslationEditor.Area.Menu": "Меню",
