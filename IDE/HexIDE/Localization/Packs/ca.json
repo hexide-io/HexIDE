@@ -2,6 +2,7 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Aplicar el text del fitxer de projecte substituirà la configuració no desada de {0}. Voleu continuar?",
     "Str.AIChat.Title": "Xat d’IA",
     "Str.AIChat.Menu": "_Xat d’IA",
     "Str.AIChat.Approved": "✔ Aprovat",
@@ -405,6 +406,7 @@
     "Str.Tool.CallStack.RowName": "{0}, línia {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Totes les biblioteques>",
     "Str.Tool.ObjectBrowser.MembersOf": "Membres de «{0}»",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "No es poden llistar els membres sense la biblioteca de tipus d’aquesta biblioteca.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Tanca l'examinador d'objectes",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Examinador d'objectes",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Ves a la definició",

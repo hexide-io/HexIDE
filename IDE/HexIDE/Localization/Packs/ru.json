@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Применение текста файла проекта заменит несохранённые настройки проекта {0}. Продолжить?",
     "Str.MemberOrigin.HexIde": "Расширение HexIDE; недоступно в VB6.",
     "Str.Dock.Host": "Контейнер закрепления",
     "Str.Dock.Root": "Корневая область закрепления",
@@ -419,6 +420,7 @@
     "Str.Tool.CallStack.RowName": "{0}, строка {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Все библиотеки>",
     "Str.Tool.ObjectBrowser.MembersOf": "Члены '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Невозможно перечислить члены без библиотеки типов этой библиотеки.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Закрыть обозреватель объектов",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Обозреватель объектов",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Перейти к определению",

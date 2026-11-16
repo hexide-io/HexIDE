@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Застосування тексту файлу проєкту замінить незбережені налаштування проєкту {0}. Продовжити?",
     "Str.MemberOrigin.HexIde": "Розширення HexIDE; недоступне у VB6.",
     "Str.Dock.Host": "Контейнер закріплення",
     "Str.Dock.Root": "Коренева область закріплення",
@@ -419,6 +420,7 @@
     "Str.Tool.CallStack.RowName": "{0}, рядок {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Усі бібліотеки>",
     "Str.Tool.ObjectBrowser.MembersOf": "Члени '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Неможливо перелічити члени без бібліотеки типів цієї бібліотеки.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Закрити оглядач об'єктів",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Оглядач об'єктів",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Перейти до визначення",

@@ -38,6 +38,7 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindo
     : BaseEditorWindowViewModel, ISearchableDocument, IOutlineDocument, HexIDE.Forms.Views.IEditorDocumentQueries
 {
     internal ISettingsService Settings => settings;
+    internal ILspClient LanguageClient => lspClient;
     public string? DocumentUri => session is { IsOpen: true } open ? open.Uri : null;
     public Task FlushDocumentAsync(CancellationToken ct = default) =>
         session is { IsOpen: true } open ? open.FlushAsync(ct) : Task.CompletedTask;

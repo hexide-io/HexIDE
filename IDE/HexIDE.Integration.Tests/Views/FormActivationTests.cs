@@ -219,14 +219,14 @@ public class FormActivationTests
         run.Click("Form1");
         var before = run.Printed.Count;
 
+        // Measured: the unloaded form gets no Deactivate, and the form shown before it is activated, without waiting for
+        // the window system (oracle, "A form's Resize, Activate and Deactivate", run 1's Unload Form2; #3936).
         run.Click("Form1");
-        run.Since(before).Should().Equal("f2 unload");
+        run.Since(before).Should().Equal("f2 unload", "f1 activate");
         run.Click("Form1");
 
-        // On the desktop Windows activates Form1 once Form2 has gone, and VB6 raises Form1's Activate there, then its
-        // Deactivate at this Show. Headless nothing activates Form1, so neither comes.
         run.Errors.Should().BeEmpty();
-        run.Since(before + 1).Should().Equal("f2 load", "f2 resize", "f2 activate");
+        run.Since(before + 2).Should().Equal("f2 load", "f2 resize", "f1 deactivate", "f2 activate");
     }
 
     [AvaloniaFact]
@@ -237,9 +237,11 @@ public class FormActivationTests
         run.Click("Form1");
         run.Since(Started.Length).Should().Equal("modal", "f2 initialize", "f2 load", "f2 resize", "f1 deactivate", "f2 activate");
 
+        // Measured: the modal form unloads, Show vbModal returns, then the form beneath is activated (oracle, run 1's
+        // Form5.Show vbModal; #3936).
         run.Click("Form2");
         run.Errors.Should().BeEmpty();
-        run.Since(Started.Length + 6).Should().Equal("f2 unload", "back");
+        run.Since(Started.Length + 6).Should().Equal("f2 unload", "back", "f1 activate");
     }
 
     // #2579: docs/vb6-fidelity-oracle/a-forms-resize-activate-and-deactivate.md, run 1 Form4.Show.

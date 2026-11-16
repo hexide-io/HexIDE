@@ -2,6 +2,7 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Прилагането на текста на проектния файл ще замени незаписаните настройки на проекта {0}. Продължаване?",
     "Str.AIChat.Title": "AI чат",
     "Str.AIChat.Menu": "AI чат",
     "Str.AIChat.Approved": "✔ Одобрено",
@@ -405,6 +406,7 @@
     "Str.Tool.CallStack.RowName": "{0}, ред {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Всички библиотеки>",
     "Str.Tool.ObjectBrowser.MembersOf": "Членове на „{0}“",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Членовете не могат да бъдат изброени без библиотеката с типове на тази библиотека.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Затваряне на прегледа на обекти",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Преглед на обекти",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Към дефиницията",

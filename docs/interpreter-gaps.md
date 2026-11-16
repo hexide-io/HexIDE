@@ -244,8 +244,12 @@ made them look permanent in a way they are not.
 
 Now **Deferred**, with the real work named. None needs a bound AST; each is unimplemented, awkward or costly.
 
-- **Parameterized `Property Let`/`Set`** remain refused on class instances. Standard-module indexed Let
-  dispatches through the procedure binder (#977); indexed Set remains unmeasured and refused. A class's parameterized `Property Get` now
+- **Parameterized `Property Let`/`Set`** dispatch on class instances with indexes before the assigned value
+  ([#177 measurements](https://github.com/hexide-io/HexIDE/issues/177), native and p-code; oracle PR #4042).
+  Standard-module indexed Let dispatches through the procedure binder (#977); standard-module indexed Set
+  remains unmeasured and refused. Mismatched accessor signatures run here but are refused at compile time
+  by VB6; the consistency diagnostic requires binding and is not implemented. Optional/ParamArray indexes
+  and default-member indexed writes (#174) are outside #177. A class's parameterized `Property Get` now
   passes its index arguments through the ordinary procedure binder (#741), including the surplus-argument
   compile error. A Collection's `Item` is separately implemented as an in-box object's member (#1471).
 - **Fixed-length strings** (`Dim s As String * n`) — the width is a CST child of the declaration; the
@@ -309,10 +313,13 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   members remain deferred; `MISSING_LANGUAGE.md` lists each boundary.
 
 - **Module/class member visibility enforcement (Private)** — **#2121:** the measured scalar assignment `Me.mN = 5` to an explicitly Private class field is now refused with "Method or data member not found" at execution; other private-member forms remain unchanged pending measurements. Private IS enforced for module procedures (qualified + unqualified dispatch); the gaps are module-level *variable* visibility (PrePass.cs:74-76 "over-permissive") and class *instance* members (`obj.PrivateMethod`, ExpressionExecutor.cs:428-443). Both gaps documented as deferred divergences (interpreter-advanced Phase-4 + Phase-2, ROADMAP Phase 3). (Candidate overstated the total gap.)
-- **ReDim Preserve / non-simple targets / ReDim-as-declaration** — plain ReDim of a declared var works (`VisitRedimStmt`), but Preserve throws and non-simple/undeclared targets throw. VB6: Preserve keeps data (last dim only), and ReDim can declare. Undocumented.
+- **ReDim Preserve / non-simple targets / ReDim-as-declaration** — plain ReDim of a declared var works (`VisitRedimStmt`), with Preserve and procedure-local declarations implemented below; non-simple targets remain partial.
   - **FIXED (#1459): ReDim Preserve** keeps the elements in range and changes only the last dimension's upper bound, with every
-    refusal VB6 makes measured and matched; the oracle's "ReDim Preserve" has the rows. Non-simple targets and ReDim as a
-    declaration are still open.
+    refusal VB6 makes measured and matched; the oracle's "ReDim Preserve" has the rows. Non-simple targets remain partial.
+  - **FIXED (#1495):** plain ReDim declares a procedure-local dynamic array, with the As or DefType element type,
+    even under Option Explicit; Preserve never declares ("Variable not defined"). See
+    [the measured issue](https://github.com/hexide-io/HexIDE/issues/1495). The implicit-Variant read before ReDim,
+    later Dim duplicate diagnostic and module-level diagnostic remain unchanged; see `MISSING_LANGUAGE.md`.
   - **Fixed arrays done (#873):** `Dim a(N)` marks its slot fixed (`ExecutionState.MarkFixedArray`). ReDim of one named directly is VB6's compile error "Array already dimensioned", raised as the ReDim runs (the run-time translation interpreter-core's "An error VB6 reports before running" scenario prescribes, so it was never walled). Through an array parameter or an untyped one it is VB6's run-time 10, and through a `v As Variant` given an array too, since #970 makes it share the caller's slot.
 - **Array-to-array assignment copy & typed/element ByRef passing** — whole-array ByRef (untyped) aliases correctly and For Each works, but `b=a` aliases instead of copying, and `Foo a(1)` copies instead of ByRef. Only the element-ByRef leg is documented (interpreter-advanced Phase-2, interpreter-core "Out of Phase 1").
   - **FIXED (#970): copy on assignment.** A Let, an element Let, a ByVal argument and a For Each variable copy the array, a ByRef `As Variant` shares it, the copy holds the objects it shares, and a fixed array given an array is VB6's compile error, or 13 through a parameter. All measured; the oracle's "Arrays copy wherever VB6 stores one" has the rows.

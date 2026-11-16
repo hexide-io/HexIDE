@@ -2,6 +2,7 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "سيؤدي تطبيق نص ملف المشروع إلى استبدال إعدادات المشروع غير المحفوظة لـ {0}. هل تريد المتابعة؟",
     "Str.AIChat.Title": "دردشة الذكاء الاصطناعي",
     "Str.AIChat.Menu": "دردشة الذكاء الاصطناعي",
     "Str.AIChat.Approved": "✔ تمت الموافقة",
@@ -444,6 +445,7 @@
     "Str.Tool.CallStack.RowName": "{0}، السطر {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<كل المكتبات>",
     "Str.Tool.ObjectBrowser.MembersOf": "أعضاء '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "لا يمكن سرد الأعضاء دون مكتبة الأنواع الخاصة بهذه المكتبة.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "إغلاق مستعرض الكائنات",
     "Str.Tool.ObjectBrowser.Chrome.Title": "مستعرض الكائنات",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "الانتقال إلى التعريف",

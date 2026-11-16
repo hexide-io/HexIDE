@@ -38,6 +38,399 @@ particular, the proposed property request pair and empty WorkspaceEdit example d
 persistence implementation. Review must select and validate the schema, examples and wire shapes before
 any implementation slice starts. No archived design is edited by this handoff.
 
+## Accepted choices (supervisor, 2026-11-15)
+
+This section records the engineering choices the acceptance tasks asked for. Where a choice below conflicts
+with an alternative described in "Questions for review", this section wins. Questions not answered here stay
+open, and their tasks stay unticked: §6 (project property providers), §9 (domain proofs) and the
+profiles reconciliation in §8. No implementation slice may depend on an open question.
+
+What these choices unblock:
+- **Now:** #2945 (unsigned servers, the release opt-in) and a local-file install for #1208.
+- **Downloads (#2820, #2904):** also wait for a default revocation-list URL (A3). #2904 also waits for §8's
+  profiles reconciliation.
+
+The trust choices in A1, A3, A4 and A5 had a single-opinion Fable review on 2026-11-15 (A4 in a second
+pass). Its twelve
+findings are folded in. Two of them were claims about the code on main, and both were checked before
+being relied on. On 2026-11-16, rdcore reviewed it from RDCore's side, and its corrections are folded in
+too: priority-based routing is kept, publisher namespaces are issued, the launch tokens and transport are
+declared, and the runtime is identified by its root.
+
+### A1. Container, inventory and installation (§1)
+
+- **Archive:** ZIP, file extension `.hexpkg`. Only *stored* and *deflate* entries are accepted. Encrypted,
+  multi-disk and spanned archives are refused. ZIP64 is accepted, so size limits are enforced from the
+  measured expansion and not from the headers' claims.
+- **Layout:** the archive root holds the signing envelope and the payload. The envelope is exactly six root
+  files: `package.json` (the manifest), `package.sig`, `publisher.json`, `publisher.sig`,
+  `intermediate.json` and `intermediate.sig`. These are compared case-insensitively.
+- **Signing:** this reuses today's add-in protocol unchanged. Signatures are over the raw bytes on disk,
+  with the root → intermediate → publisher → manifest chain checked by the same code, generalised over the
+  manifest's file name. Canonical JSON is rejected, so there's still one cryptographic protocol.
+- **Inventory:** the manifest's `files` must list every payload file. The six envelope files are the only
+  exclusion, and only at the root. The verifier requires set equality: an unlisted file, a listed file
+  that is missing, or a duplicate entry refuses the package. A directory holding no listed file is
+  refused too.
+- **Add-ins inside a package:** an `addin` contribution names a payload directory holding today's add-in
+  layout, minus its own envelope. The package signature covers it. A nested `addin.sig` chain inside a
+  package is refused rather than evaluated twice. Existing signed add-in directories keep loading through
+  today's loader during the transition (A7).
+- **Portable extraction subset.** Only regular files and directories are accepted. Every entry is refused
+  if:
+  - it is a symbolic link, hard link or device;
+  - it has an absolute or rooted path, a drive letter, a `..` segment or a backslash in its name;
+  - it has an empty segment, or a segment ending in a dot or a space;
+  - any segment is a Windows device name (the same check `ProfilePaths` makes, #2621);
+  - any character is invalid in a Windows file name;
+  - its name, NFC-normalised and compared case-insensitively, duplicates another entry.
+
+  Archive mode bits are ignored.
+- **Limits:**
+  - 20,000 entries;
+  - 256 MiB expanded per entry;
+  - 1 GiB expanded in total;
+  - a compression ratio of 100:1 per entry;
+  - 240 characters per relative path, and 32 levels of depth.
+
+  The limits are enforced while expanding, not trusted from the central directory. A later schema may
+  raise them, never this one silently.
+- **Entry names:** in schema 1, every entry name is ASCII only, compared ordinal-ignore-case. Entries are
+  enumerated from the central directory alone, and digests are computed from the extracted files, so
+  local-header differences can't change what's verified.
+- **Order of checks:**
+  - A downloaded archive's SHA-256 must match the signed manifest before anything is extracted.
+  - A local `.hexpkg` has no prior digest. Its six envelope entries are read into memory first, and the
+    signature, chain and revocation are verified there. The inventory's names are also checked against the
+    central directory before any byte is written to disk.
+  - In both cases, nothing is activated, launched or loaded until the signature, chain, revocation and
+    inventory all pass. Leftover `.staging` directories are deleted at start.
+- **Transactions:**
+  - Install into `<packages>/.staging/<random>`, verify, then rename atomically to
+    `<packages>/<package-dir>/<version>/`. Version directories are immutable.
+  - The active version is a pointer file written with `AtomicFileWriter`.
+  - The previous version is kept until the next successful start with the new one, and then removed.
+    Rolling back is offered, never automatic. It re-runs verification, revocation and the consent
+    lookup, so a crash can't silently reactivate an older, possibly vulnerable build.
+  - Uninstall writes the pointer's removal first, then deletes, and an interrupted uninstall completes at
+    the next start.
+  - Repair re-verifies the inventory. A mismatch marks the installation broken and offers reinstalling
+    from the cache.
+  - No install hook or script runs.
+- **Executable bit:** on Unix it is set after verification, and only on inventory entries that carry
+  `"executable": true`. That flag is in the signed manifest, so the permission is signature-bound.
+- **Data-tier packages can't carry executables.** In a package whose tier is data, which may be unsigned,
+  these refuse the package:
+  - an inventory entry that isn't a file referenced by one of its contributions and accepted by that
+    contribution's parser;
+  - an entry marked `"executable": true`.
+
+  Detection (A4) never searches the packages directory or the cache. So a "theme" can't drop a binary at
+  a predictable path for a probe or an override to find.
+
+### A2. Contribution vocabulary, tiers and activation (§2)
+
+- **Kinds:** schema 1 has a closed set of contribution kinds, each with a fixed tier.
+
+  | Tier | Kinds |
+  |---|---|
+  | Data | `languageDefinition`, `theme`, `keymap`, `translation`, `icons`, `profile`, `template`, `snippets`, `projectPropertySchema` |
+  | Host-run | `languageServer`, `debugAdapter`, `tool` |
+  | Code | `addin` |
+
+  Menu and toolbar placements, settings defaults and property providers wait for later schemas.
+- **A package's tier** is the highest tier among its contributions, derived only from their kinds. A
+  publisher-declared tier field isn't accepted. A "suite" is a package with several contributions, not a
+  kind, so it can't declare itself data.
+- **Payload validation:** every data payload is read by its kind's existing strict parser, which already
+  refuses scripts and executable markup. A payload that fails its parser refuses the package. It never
+  changes the tier.
+- **Translations can't relabel protected keys:** a `translation` contribution gets the same protection as
+  profiles and user overrides. Credit keys and trust labels (the root and first-party key lines,
+  provenance, and the trust chain's root and comparison hint) are never relabelled by a package.
+- **Unknown kinds:** an unknown kind makes the whole package *incompatible*, naming the kind. There is no
+  partial activation of a package build. After installation, the user may disable individual
+  contributions, and that is a user setting, not a partially accepted package.
+- **Dependencies:** schema 1 has none, except a profile's exact-version suite dependencies (Jen,
+  q-2848-suite-deps).
+
+### A3. Trust, revocation, consent and invalidation (§3)
+
+- **Revocation:** reuse today's signed revocation list and identity records, and extend them with
+  optional publisher key fingerprints, so one compromised key can be revoked without revoking the
+  publisher. A fingerprint is the SHA-256 of the key's SubjectPublicKeyInfo DER, in lower-case hex. The
+  list's signing authority is unchanged.
+- **Fetching the revocation list:**
+  - Before a newly acquired host-run or code build gets its first grant, the host must attempt a fresh
+    fetch of the revocation list. If the fetch fails, the offer says so plainly ("revocation status could
+    not be checked") and doesn't pass silently.
+  - Builds already granted keep today's fail-open rule on a failed fetch.
+  - On main, `SettingsDefaults.RevocationListUrl` is `null` (checked 2026-11-15), so a default install
+    only ever sees the list bundled with its release. **No download slice (#2820, #2904) ships until a
+    default list URL does.** That is filed as its own security issue, with the cache's torn-write fix.
+- **Key rotation:** a publisher may hold more than one valid publisher record, each signed by the
+  intermediate. Packages signed by an old key stay valid until that key's fingerprint is revoked.
+  Schema 1 adds no expiry.
+- **Consent identity:** for bundled and downloaded artifacts, the identity is the package id, the version
+  and the manifest hash. The manifest binds every inventory digest, every archive digest, and every argv,
+  environment, working-directory and acquisition field, so it binds every executable byte and every
+  launch input.
+  - The working directory defaults to the immutable install directory, and is shown in the dialog.
+  - Schema 1 allows no variable expansion except a closed set the host defines:
+    - `${installDir}`, `${userDataDir}`, and the host-generated `${pipe}` and `${pid}`, anywhere;
+    - `${workspaceFolder}` and `${workspaceUri}` only in argv after position 0.
+
+    They're refused in the command, the working directory and environment values, so a hostile
+    workspace can't become code through `NODE_OPTIONS` or the working directory. The dialog shows the
+    workspace tokens unexpanded, with a note that they vary per workspace.
+  - **Transport** is declared: `transport` is `stdio` or `pipe`. With `pipe`, the host creates and names
+    the pipe and passes it as `${pipe}`, and the server connects to it.
+  - An artifact that runs on a runtime (`dotnet`, `node`) has its runtime resolved at consent to an
+    install root and major version. For .NET, the host sets `DOTNET_ROOT` to that root when it launches
+    the artifact. A tool's own child processes need it, as RDCore's apphost does (measured 2026-11-15).
+    The identity is that root plus the major version, rechecked before each launch:
+    - a different root, such as a runtime planted earlier on PATH, asks again;
+    - a servicing update within the major doesn't.
+
+    That's a weaker guarantee than a hash, chosen because the runtime is a platform component that its
+    installer updates. The dialog says the runtime is identified by location and version, not by its
+    bytes. A detected executable, outside any
+  inventory, adds its absolute path and its SHA-256 to the identity. Both are rechecked immediately before
+  each launch, and any difference asks again. A detected binary is never presented as inventoried.
+- **When consent is asked:** one consent per package build covers all of its host-run and code
+  contributions. That matches #459's one consent per build. It lists:
+  - commands, argv and environment;
+  - the files read and written;
+  - the download hosts (A4);
+  - each artifact's licence.
+- **The offer flow** (#2820, #2904):
+  - The offer is rendered from manifest bytes that have already passed the signature and revocation
+    checks.
+  - Accepting it writes a pending-activation record (package id, version, manifest hash, time)
+    atomically, before any download starts.
+  - The grant is created only if the installed manifest's hash equals the recorded one.
+  - Only the host's own accept action writes a pending-activation record. Anything an installer or
+    another process places beside a cached archive is an unaccepted offer, and always goes through the
+    dialog (A4).
+  - When the install verifies, that record becomes the grant, with no second prompt.
+  - A pending record found at start whose install never completed asks again rather than resuming a
+    download on an old click.
+  - Declining starts nothing.
+- **Invalidation:** consent is asked again when any of these happens:
+  - the manifest hash changes, for any byte of the manifest;
+  - a detected executable's path or hash changes;
+  - the publisher or its key is revoked, which refuses outright.
+
+  An override's hash is part of the launch identity, so an override written outside the settings UI asks
+  once (A5).
+- **Re-verification before every launch:**
+  - At the first launch of an artifact in each IDE session, the host checks its whole tree: set equality
+    and every file's digest, plus its manifest. That's what the add-in loader does on each load (#3888).
+    So a DLL dropped beside the executable, or into a folder the tool reads such as `Extensions`, refuses
+    the launch, just as a swapped executable does.
+  - Later launches in the same session compare each file's size, modification time and file id with what
+    the full check saw, and any difference triggers a full re-hash.
+    - The cost: a full hash of RDCore's tree measured 0.4 to 1.25 seconds, which every F5 would otherwise
+      pay.
+    - The trade-off, stated plainly: a same-user process that rewrites a file while keeping its
+      metadata could pass until the next session.
+  - **Scope:** these rules cover the host-run contributions a package declares. A server or adapter that
+    an add-in starts at run time is that add-in's own code acting under its consent (code tier, with no
+    sandbox claim), so it is covered by the add-in's verification, not checked per launch.
+  - For a downloaded artifact, the per-file digests recorded at extraction are local metadata. The hash
+    of that metadata is part of the grant, so rewriting it voids the grant.
+  - Immutable version directories are a convention, so the check doesn't rely on them, and A4's
+    writable-installation rule may not weaken it.
+- **Unsigned servers** (#2945):
+  - The opt-in is a separate persisted release setting, off by default.
+  - It's read only from the user's own settings file. It's excluded from the profile settings allowlist,
+    and no package or workspace can set it.
+  - It records the specific unsigned server and adapter ids it was turned on for. A later unsigned one
+    needs its own opt-in.
+  - Unsigned host-run packages still get consent for each build, keyed on the manifest hash.
+  - Under developer mode, or under this opt-in for that named id with the marker showing, an unsigned
+    server may take file routing (A5). That's what lets a publisher test a local build of its own server.
+  - While it is on and an unsigned server or adapter is active, the title bar carries the marker. That
+    placement is Jen's answer to q-2945-unsigned-marker, and it sits beside developer mode's (#2452).
+  - Each start shows a non-modal notice naming every unsigned server, and closing the notice is not
+    consent.
+  - The wording is localized like all chrome.
+  - The opt-in never covers add-ins, compatibility checks, or a profile vouching for a suite.
+
+### A4. Acquisition and platforms (§4, except writable installations)
+
+- **Platform keys:**
+  - The keys are a closed set of .NET runtime identifiers: `win-x64`, `win-arm64`, `osx-x64`,
+    `osx-arm64`, `linux-x64`, `linux-arm64`, `linux-arm`, `linux-musl-x64` and `linux-musl-arm64`.
+  - Matching is exact. There is no fallback across architectures (not osx-arm64 to x64, not win-arm64 to
+    x64) and none from musl to glibc.
+  - A duplicate key refuses the manifest.
+  - A contribution with no key for this platform is listed as *not available on this platform*, and is
+    never offered.
+  - Platform keys are optional on an `addin` contribution. A managed add-in is platform-neutral unless it
+    declares platforms.
+- **Runtime prerequisites:**
+  - Each artifact declares `runtime` inline: `{"kind":"none"}`,
+    `{"kind":"dotnet","minimumVersion":"M.m","rollForward":"minor"}` for the Microsoft.NETCore.App shared
+    framework, or `{"kind":"node","minimumVersion":"M"}`.
+  - `rollForward` defaults to `minor`, meaning the same major version, which is .NET's own default. An app
+    with no roll-forward setting runs only on its major, as RDCore's does.
+  - .NET is detected without running anything, by reading the `shared/Microsoft.NETCore.App/<version>`
+    folders under `DOTNET_ROOT`, the platform's default install locations and the folder of `dotnet` on
+    PATH.
+  - Node can't be version-checked without running it. So detection finds `node` on PATH, and the offer
+    names the minimum version as something the user must confirm, never as verified.
+  - A missing prerequisite blocks the offer. It is shown with what to install and a Retry, so HexIDE
+    never offers a download that can't start. Installing a runtime automatically is not authorised.
+- **Downloads and redirects:**
+  - HTTPS on every hop, with at most 5 redirects.
+  - Each artifact in the signed manifest lists the hosts its download may come from, in `hosts`. The
+    initial URL's host is implicitly allowed, and every redirect target must match an entry exactly.
+  - Consent shows the publisher-facing URL's host and the listed asset hosts, both from the signed
+    manifest, since nothing is fetched before the click.
+  - The archive's SHA-256 must match before extraction, whatever the redirect path.
+  - Each artifact's byte size is in the signed manifest, and a download is aborted as soon as it exceeds
+    it.
+  - A partial transfer is discarded, never resumed into the cache.
+- **What is hashed:**
+  - The signed manifest carries each artifact's archive digest.
+  - After extraction, the installer records the extracted files' digests in the installation's
+    metadata. Repair and tamper checks compare against those, and the metadata is rebuilt only from a
+    verified archive.
+  - Provenance (`publisher-attested` with its checksum URL, or `computed` with who computed it) is shown
+    as information. Trust comes from the publisher's signature over the manifest, not from the label.
+- **Cache:**
+  - The cache is per user, under the active user-data root (so `--user-data-dir` and sessions isolate it),
+    at `packages/cache/sha256/<digest>`. Directories are user-only on Unix (0700), and one installer runs
+    at a time, behind a lock file.
+  - A cached archive is re-hashed on every read, since a directory named for a digest proves nothing.
+  - Eviction keeps the archives of the active version and the retained previous version always.
+    Anything else unused for 30 days is evicted at start.
+  - Offline: installing or repairing from the cache works offline, and a missing artifact shows as
+    *unavailable offline*. Nothing is ever fetched from anywhere but the manifest's URL and hosts.
+- **Adopter-bundled suites:**
+  - An adopter's installer may place an outside suite's archive in the cache as an **unaccepted offer**.
+    This is never A3's pending-activation record, which only the host's accept action writes, so it
+    always goes through the dialog.
+  - HexIDE verifies the publisher's signature, chain and digest exactly as for a download, skipping only
+    transport. It grants no first-party identity, inherits no built-in pinning, and accepts no other root.
+  - The licence and consent are shown at first activation, in the same dialog as a download offer.
+- **Detection** of an installed tool is declarative only: PATH names and known locations. A probe never
+  runs a version command before consent. Explicit user paths and environment overrides keep today's
+  precedence over packages.
+- **Writable installations: option (b).**
+  - The install tree stays verified and read-only. Writable state lives outside it, wherever the tool
+    keeps it, and the host never redirects or permits writes into the tree.
+  - A tool that writes inside its install tree fails A3's per-launch re-verification and is shown as
+    *modified since install*, with a repair. There is no allowlist of changeable files.
+  - The review's premise was an older RDCore. At RDCore d6496d6fb (RDCore.SDK 0.1.4-alpha), read in its
+    code by rdcore on 2026-11-15:
+    - logs go to the per-user log folder (`RDCORE_LOGS_DIRECTORY`);
+    - user settings go to the per-user data folder (`RDCORE_USER_DATA`);
+    - workspaces default to `Workspace.DefaultLocation`, also outside the install;
+    - `Symbols` and `Extensions` are shipped and only read.
+
+    A real build, 3cab50ab on SDK 0.1.5, wrote nothing in its tree across several server and adapter runs.
+    That covered server and adapter runs only. That `Extensions` can be moved through its path setting
+    was reasoned, not run.
+  - **Open with RDCore:** user-installed RDCore extensions would sit inside the verified tree and fail
+    verification. The question for RDCore is a second, per-user extensions root. Moving the existing path
+    would move its core extension with it.
+  - Adopter-bundled artifacts follow the same rule.
+
+### A5. Ids, paths, collisions and overrides (§5)
+
+- **Package ids:** dotted logical ids, in lower case. The id is one to four segments separated by dots,
+  at most 100 characters in all. Each segment starts with a letter, holds only `a–z`, `0–9` and `-`, is
+  at most 40 characters, and is not a Windows device name. The `hexide.` prefix is reserved for the
+  first-party key.
+- **Directory names:**
+  - An install directory is the validated package id followed by the version, and the version grammar
+    (A7) admits only digits, letters, dots and hyphens.
+  - Cache directories derive only from digests.
+  - Contribution ids never become path components.
+- **Scoping:**
+  - A contribution's full id is `<packageId>/<contributionId>`.
+  - References are typed, as `package:` or `<kind>:`, so the built-in package `hexide.vb6` and
+    `LanguageServerDefaults.BundledVb6Id` no longer collide, and neither is renamed.
+- **Publisher ownership:**
+  - A package id's first segment is one of the publisher's namespaces. The publisher record that HexIDE's
+    intermediate signs gains an issued `namespaces` list, as `hexide.` already is for the first-party key.
+    For example, `rdcore.` is issued to RDCore's publisher.
+  - A publisher record issued before the field exists can't use the package route until it's re-issued at
+    a signing ceremony. Today's signed add-in directories and their loader are unaffected.
+  - A signed package whose id doesn't start with its publisher's namespace is refused. That stops one
+    chained publisher squatting another's ids locally, including through a profile's embedded dependency.
+  - Issuance enforces uniqueness: signing a publisher record refuses a namespace already issued to a
+    different publisher id. A publisher's rotated records share its namespace.
+  - Unsigned packages, data or (under the #2945 opt-in) host-run, use only the reserved `local.`
+    namespace, so they can never hold or borrow a publisher's id. An override never rebinds across the
+    signed/unsigned line.
+  - Only one version of an id is active at a time.
+- **Contribution collisions** that select an executable (two claims on one language id or file pattern):
+  - **Who can claim:** the existing registration `Priority` decides, but only among signed, consented
+    packages and add-ins.
+    - That keeps today's deliberate order, where RDCore's add-in at 10 outranks the bundled VB6 server at
+      -1000 for `.bas`, `.cls` and `.frm`.
+    - Unsigned packages never take routing by default. They may under developer mode, or the #2945 opt-in
+      for that named id (A3).
+    - Loose packs never do.
+  - **Consent discloses a takeover.** A manifest declares the file patterns it may claim, and the consent
+    dialog shows which current owner each one displaces ("claims .bas/.cls/.frm, taking them over from the
+    bundled VB6 server"). A registration at run time outside its declared patterns is refused.
+    - An add-in with no declared patterns, which is every add-in today including RDCore's, keeps today's
+      behaviour. A one-time notice appears when one of its registrations first outranks the bundled
+      server.
+    - A later add-in schema will require the declaration.
+  - **Ties:** at equal priority, neither claim is chosen automatically. Both are listed as *conflicting*
+    until the user picks, and the choice is persisted.
+  - A user's own configuration (the settings file, not a loose pack) outranks all of them, as today.
+- **Overrides:**
+  - Overrides are read only from the user's own settings file, never from a workspace, a profile, a
+    package or `settingsDefaults`.
+  - An override replaces the whole entry, keyed by the full contribution id.
+  - When the package is uninstalled, the override is kept, marked *orphaned*, and is inactive: it never
+    launches.
+  - Reinstalling rebinds it if the contribution id still exists, under the same publisher, and the UI
+    says so.
+  - An update that changes the overridden entry marks the override as overriding a changed entry; the
+    user's choice still applies.
+
+### A7. Versions, compatibility and loose packs (§7, §8's migration)
+
+- **Field names:** reuse `schema` and `minHexideVersion` (#310). A package's `schema` numbers the package
+  format, separately from `addin.json`'s, because the file names differ. `minHexideVersion` compares as
+  `addin.json`'s does today.
+- **Package versions:** SemVer 2.0 precedence, with prereleases below their release. Prerelease
+  identifiers and build metadata are lower case only, so two version directories can't collide by case.
+  Build metadata is ignored for ordering. Two builds of equal precedence with different manifest hashes
+  can't both be installed.
+- **Strictness:**
+  - Within a schema, unknown fields refuse the manifest (incompatible), so validation stays honest.
+    Extension data goes under one top-level `x` object, which the host never reads.
+  - A newer schema, or an unmet minimum, is *incompatible* before activation, developer mode included.
+- **Downgrade:** only by explicit user action, never automatic.
+- **Loose packs:** existing loose theme, keymap and language packs keep being discovered by today's
+  readers for a transition period, as user content.
+  - The transition ends once each pack kind has a package form and one release has shipped with both
+    readers. Its end is announced in the changelog.
+  - Publishers holding issued records also get a direct notice one release ahead, through the maintainer. They are not imported into generated packages,
+  which keeps their provenance and rewrites no user file. A loose pack with the same id as a package
+  contribution wins and shows as an override, but only for kinds that can't select an executable
+  (themes, keymaps, translations, icons, snippets and templates). A loose `languageDefinition` never
+  overrides a package's routing; it is listed as conflicting under A5's rule. Payload parsers are reused unchanged, with every rule §8
+  lists.
+
+### Digest spelling (illustrative schema)
+
+SHA-256 digests may be written in either case. The host normalises them to lower case on read and always
+shows them in lower case.
+
+### Validation
+
+`openspec validate 2026-11-03-package-format --type change --strict` and `DesignRecordTests` were run on
+this change (see tasks.md).
+
 ## Questions for review
 
 ### 1. Container, inventory and installation

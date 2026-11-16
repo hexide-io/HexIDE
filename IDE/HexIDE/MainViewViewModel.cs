@@ -740,8 +740,18 @@ public partial class MainViewViewModel : ObservableObject
         /// view's pointer handler instead.</summary>
         public event Action? LayoutChanged;
 
+        private async Task CloseProjectFile(ProjectFileDocumentViewModel file)
+        {
+            if (await file.ConfirmCloseAsync()) CloseDockable(file);
+        }
+
         public override void CloseDockable(IDockable dockable)
         {
+            if (dockable is ProjectFileDocumentViewModel file && (file.IsModified || file.Applying))
+            {
+                CloseProjectFile(file).ListenErrors();
+                return;
+            }
             if (dockable == null) return; // Dock's close command can lose its parameter during teardown.
             RememberToolSlots(dockable);
             base.CloseDockable(dockable);
@@ -1864,7 +1874,8 @@ public partial class MainViewViewModel : ObservableObject
         projectManager.ProjectUnloaded += _ => SaveProjectAsCommand.RaiseCanExecutedChanged();
 
         SaveFormCommand = new DelegateCommand(() => SaveActiveForm(false),
-            () => FocusedProjectUtil.FocusedForm != null);
+            () => FocusedProjectUtil.FocusedForm != null
+                || documentDockService.ActiveDocument is ProjectFileDocumentViewModel { IsReadOnlyDocument: false });
         SaveFormAsCommand = new DelegateCommand(() => SaveActiveForm(true),
             () => FocusedProjectUtil.FocusedForm != null);
 
@@ -2051,6 +2062,7 @@ public partial class MainViewViewModel : ObservableObject
                     _activeDesigner.UndoStack.Changed += _activeDesignerUndoHandler;
                 }
                 UpdateUndoHeaders();
+                SaveFormCommand.RaiseCanExecutedChanged();
 
                 ToggleBreakpointCommand.RaiseCanExecutedChanged();
                 RunToCursorCommand.RaiseCanExecutedChanged();
@@ -2152,6 +2164,11 @@ public partial class MainViewViewModel : ObservableObject
 
     private void SaveActiveForm(bool saveAs)
     {
+        if (!saveAs && documentDockService.ActiveDocument is ProjectFileDocumentViewModel file)
+        {
+            file.SaveAsync().ListenErrors();
+            return;
+        }
         // Use the document's save path so form code keeps format-on-save.
         if (documentDockService.ActiveDocument is FormEditViewModel designer)
         {

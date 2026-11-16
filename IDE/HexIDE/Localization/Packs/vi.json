@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Áp dụng văn bản tệp dự án sẽ thay thế các thiết đặt dự án chưa lưu của {0}. Tiếp tục?",
     "Str.MemberOrigin.HexIde": "Phần mở rộng HexIDE; không có trong VB6.",
     "Str.Dock.Host": "Vùng chứa neo",
     "Str.Dock.Root": "Vùng neo gốc",
@@ -419,6 +420,7 @@
     "Str.Tool.CallStack.RowName": "{0}, dòng {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Tất cả thư viện>",
     "Str.Tool.ObjectBrowser.MembersOf": "Thành viên của '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Không thể liệt kê các thành viên khi không có thư viện kiểu của thư viện này.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Đóng Trình duyệt Đối tượng",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Trình duyệt Đối tượng",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Đi tới Định nghĩa",
