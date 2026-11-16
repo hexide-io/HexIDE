@@ -212,7 +212,7 @@ already built.
 
    ```text
    dotnet build IDE/HexIDE.Runtime.Tests/
-   HEXIDE_DUMP_PROGRAMS=corpus-1 dotnet IDE/HexIDE.Runtime.Tests/bin/Debug/net10.0/HexIDE.Runtime.Tests.dll -culture en-US
+   HEXIDE_DUMP_PROGRAMS=corpus-1 dotnet IDE/HexIDE.Runtime.Tests/bin/Debug/net11.0/HexIDE.Runtime.Tests.dll -culture en-US
    ```
 
 2. Run it. Set `HEXIDE_PARITY_ADAPTER` to the adapter executable and `RDCORE_PLATFORM_ROOT` as above, then:

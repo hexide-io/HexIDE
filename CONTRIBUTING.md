@@ -31,7 +31,7 @@ under **MIT**. A few hard rules:
 
 ## Getting set up
 
-Requires the **.NET 10 SDK** (no Java needed — the ANTLR tool is bundled). From the repo root:
+Requires the **.NET 11 SDK** (no Java needed — the ANTLR tool is bundled). From the repo root:
 
 ```sh
 cd IDE
@@ -262,7 +262,7 @@ VB6 files always use backslash paths, and on Linux `System.IO.Path` treats a bac
 character. Run the same suites under WSL, from the root of your working copy:
 
 ```sh
-wsl -e bash -lc 'sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0 rsync'
+wsl -e bash -lc 'sudo apt-get update && sudo apt-get install -y dotnet-sdk-11.0 rsync'
 wsl -e bash scripts/test-linux.sh IDE/HexIDE.Runtime.Tests/
 ```
 
@@ -279,7 +279,7 @@ larger organisations. Run this from PowerShell; in Git Bash, MSYS rewrites `/rep
 
 ```powershell
 podman run --rm -v "C:\path\to\HexIDE:/repo" -v hexide-nuget:/root/.nuget -w /repo/IDE `
-  mcr.microsoft.com/dotnet/sdk:10.0-resolute `
+  mcr.microsoft.com/dotnet/sdk:11.0-resolute `
   dotnet test HexIDE.Tests/ --artifacts-path /repo/artifacts/container
 ```
 

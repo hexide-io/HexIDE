@@ -229,8 +229,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         byte b => b,
         int i => i,
         long l => l,
-        float f => (decimal)f,
-        double d => (decimal)d,
+        float f => VbNumeric.FloatingToDecimal(f, 7),
+        double d => VbNumeric.FloatingToDecimal(d),
         decimal m => m,
         _ => 0m
     };
