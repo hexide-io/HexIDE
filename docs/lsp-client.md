@@ -84,9 +84,11 @@ Initialize declares `textDocument.completion` with all 25 LSP completion kinds, 
 Resolve, commit characters, context and other list item defaults are not advertised.
 This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
 Items from all servers are ordered by `sortText ?? label`, ordinal. Matching uses `filterText ?? label`,
-while the displayed label and insertion fallback remain the label. The full list stays visible. The first
-preselected prefix match is selected, otherwise the first prefix match, using the whole word around the
-caret. An empty or unmatched word leaves no item selected. Enter accepts a selected item then commits a
+while the displayed label and insertion fallback remain the label. The full list stays visible. Using the
+whole word around the caret and ignoring case, an item the whole word matches is selected ahead of an
+earlier item it only starts, so a typed `x` selects `x`, not `Xor` ([#3613](https://github.com/hexide-io/HexIDE/issues/3613));
+otherwise the first prefix match is. Within each, a preselected item comes first. An empty or unmatched
+word leaves no item selected. Enter accepts a selected item then commits a
 new line; Space accepts then types a space; with no selection those keys only type. Tab accepts the
 selected item or, with no selection, the first outlined item, replacing the whole word. Escape closes
 without accepting. Complete Word inserts a unique prefix match immediately (#3056). Descriptions
@@ -100,7 +102,11 @@ has been typed; a member such as `x.Rem` is not a comment. Space in ordinary cod
 
 The editor applies a completion's `textEdit` in preference to `insertText` or `label`; without
 a `textEdit`, it replaces the completion segment. An insert/replace edit applies its `insert` range,
-keeping the suffix after that range. `additionalTextEdits` use the same original
+keeping the suffix after that range. A server's ranges are for the position it was asked at, and the
+code window asks at the word start, so the word typed before the caret lies after a range that stops
+there. A main range on the caret's line that starts at or before the request position and ends between
+it and the caret is therefore taken on to the caret, so the item replaces what was typed instead of
+going in front of it (#4189); any other range is applied as sent. `additionalTextEdits` use the same original
 document coordinates and commit with the main edit as one undo step. The caret follows the main
 insertion, including shifts from earlier edits. Invalid, overlapping or protected edit sets are
 refused in full. The editor expands numbered snippet tabstops (`$1`, `${1}`), defaults
@@ -161,6 +167,9 @@ Hover replies accept `MarkupContent`, a legacy `MarkedString` (Markdown string o
 code block), or an array of marked strings (#2022). Legacy forms are normalized to Markdown markup
 content, with blank lines between array parts; `MarkupContent` keeps its kind and value. The editor's
 tooltip renders Markdown paragraphs, emphasis, inline code, lists and fenced code blocks (#2905).
+ATX headings (`#` through `######`) render bold without their markers; thematic breaks of three or
+more matching `-`, `*` or `_` markers, with optional spaces, render as thin separators (#4129).
+Setext headings and HTML remain outside the supported subset.
 The renderer owns the advertised `contentFormat` preference: `["markdown", "plaintext"]`.
 `vb` and `vba` fences use the editor's font and shared VB6 colours; other fences use its font
 without highlighting. Raw HTML is literal text. HTTP(S) links open through the browser only on
@@ -1247,7 +1256,7 @@ A key with nothing pending adds no fixed delay. The formatting request's own 250
 
 Completion requests use the start of the identifier around the caret, including for Complete Word,
 so servers that filter by the preceding word return the full list for that context ([#3340](https://github.com/hexide-io/HexIDE/issues/3340)).
-The editor keeps that list visible and selects prefix matches against the whole word around the caret;
+The editor keeps that list visible and selects against the whole word around the caret, a whole-word match first;
 it does not select PascalCase hump matches. A position after `.` or `(` stays after that punctuation.
 
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.

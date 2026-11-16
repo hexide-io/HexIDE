@@ -699,6 +699,17 @@ for other languages. Plain text SHALL stay literal; normalized marked strings SH
 - **WHEN** a Markdown hover contains a bulleted or numbered item holding a link
 - **THEN** the marker and the link caption have text tops within one pixel
 
+### Requirement: Hover headings and thematic breaks
+
+ATX headings of levels one through six SHALL render as separate bold blocks without their markers.
+Lines containing at least three matching hyphens, asterisks or underscores and otherwise only spaces
+SHALL render as thin separators, separate from neighbouring blocks. Setext headings remain unsupported.
+
+#### Scenario: A server supplies headings and thematic breaks
+- **WHEN** a Markdown hover contains `### function ` followed by inline code and a standalone `---` line
+- **THEN** the heading is bold without hash markers and the break is a thin separator
+- **AND** neither block is joined to its neighbours
+
 ### Requirement: Hover dismissal while editing
 
 Typing in the editor SHALL close its hover tip and cancel pending hover requests. Opening a completion
@@ -2172,6 +2183,9 @@ or touches protected text.
 
 ### Requirement: Completion insert ranges and indentation modes
 The editor SHALL apply an InsertReplaceEdit's insert range, preserving text after that range.
+Before applying a main edit's range, it SHALL extend the range's end to the caret when the range lies on
+the caret's line, starts at or before the request position, and ends at or after the request position
+but before the caret, within the word around the caret. It SHALL apply any other range as sent.
 It SHALL preserve supplied whitespace under mode 1 (`asIs`), including when no mode is supplied.
 Under mode 2 (`adjustIndentation`), it SHALL prefix each later line with the
 caret line's leading whitespace up to the caret, preserving that line's own indentation and valid
@@ -2181,6 +2195,12 @@ SHALL override the list's `itemDefaults.insertTextMode`. Additional edits SHALL 
 #### Scenario: Insert completion in the middle of a word
 - **WHEN** a completion supplies insert and replace ranges with different ends
 - **THEN** the insert range is replaced and the remaining suffix is kept
+
+#### Scenario: An insert range that stops at the request position
+- **GIVEN** the code window asked for completion at the start of a typed `tot`
+- **WHEN** the chosen item's insert range starts and ends at that word start and Tab commits it
+- **THEN** the item replaces `tot` and the line reads `total`, not `totaltot`
+- **AND** an insert range that already reaches the caret is applied as sent
 
 #### Scenario: A list supplies indentation mode
 - **WHEN** a list defaults to mode 2 and an item has no explicit mode
@@ -2232,14 +2252,19 @@ The editor SHALL request completion at the start of the identifier around the ca
 Complete Word, so a server filtering by the preceding word can return the full list for that context (#3340).
 
 The client SHALL sort merged completion items ordinally by `sortText ?? label` and match the whole word around the caret using
-`filterText ?? label`, keeping the full list visible. The editor SHALL initially select the first preselected prefix match, otherwise
-its first prefix match, leaving no selection for an empty or unmatched word. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
+`filterText ?? label`, keeping the full list visible. Ignoring case, the editor SHALL initially select an item the whole word matches
+ahead of an earlier item the word only starts (#3613), otherwise the first prefix match, preferring a preselected item within each,
+and leaving no selection for an empty or unmatched word. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
 Object Browser glyphs for corresponding kinds, using none without a counterpart.
 If no item matches the opening word, the editor SHALL retain the server's list for explicit acceptance with Tab.
 
 #### Scenario: Server ranking and selection
 - **WHEN** A has sortText `b` and preselect true, and B has sortText `a`, with an empty prefix
 - **THEN** B appears before A and neither item is selected
+
+#### Scenario: A whole-word match is selected ahead of an earlier prefix match
+- **WHEN** the list holds `Xor` and `x` in that order and the user types `x`
+- **THEN** `x` is selected, and Space leaves `x`
 
 #### Scenario: Filter text differs from label
 - **WHEN** an item labelled `Display` has filterText `needle` and the user types `nee`

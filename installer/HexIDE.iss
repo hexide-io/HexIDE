@@ -25,6 +25,21 @@
 AppId={#AppId}
 AppName={#AppName}
 AppVersion={#AppVersion}
+#ifdef SetupIconFile
+SetupIconFile={#SetupIconFile}
+#endif
+#ifdef AppPublisher
+AppPublisher={#AppPublisher}
+#endif
+#ifdef AppCopyright
+AppCopyright={#AppCopyright}
+#endif
+#ifdef AppPublisherURL
+AppPublisherURL={#AppPublisherURL}
+#endif
+#ifdef AppSupportURL
+AppSupportURL={#AppSupportURL}
+#endif
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 PrivilegesRequired=admin

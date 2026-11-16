@@ -43,4 +43,10 @@ public enum UnfaithfulSaveCause
     /// what it had just read. Its reason is shown as the format gave it.
     /// </summary>
     RefusedByFormat = 1 << 5,
+
+    /// <summary>
+    /// The designer text holds a NUL, which VB6 doesn't write there and which the writer uses to mark where a companion
+    /// citation goes, so a save couldn't place them (#4096).
+    /// </summary>
+    NulInDesignerText = 1 << 7,
 }
