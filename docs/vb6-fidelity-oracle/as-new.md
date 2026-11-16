@@ -155,8 +155,10 @@ When Sub Main returns, the objects still held terminate: the Static's first, the
   and For Each's first read of its variable.
 - For's and For Each's own looks at the variable, to see it exists or release what it held, do not.
 
+**Arrays run since #4150,** as *Arrays, a Type's field, and a Static* describes. A read of an element makes it;
+For Each and a store look at it without making one.
+
 **Refused, by issue:**
-- an array `As New` (#1482);
 - a Type's field `As New`, until #1488 made it run;
 - `Static`, until #1491 made it run;
 - `ReDim` of an undeclared name (#1495);
@@ -168,5 +170,5 @@ When Sub Main returns, the objects still held terminate: the Static's first, the
 - #1490: objects held at the end of the program don't terminate;
 - #1493: `o = 5` released the object, until #1493.
 
-**`AsNewTests`** pins five programs, seven compile errors and five refusals.
+**`AsNewTests`** pins the measured scalar, field and array behavior, including seven compile errors.
 

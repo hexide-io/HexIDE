@@ -48,6 +48,13 @@ public sealed class AutoInstanceNeeded(int location, AutoNew autoNew)
         Field = new UdtFieldRef(bag, field);
     }
 
+    public AutoInstanceNeeded(VBArray array, IReadOnlyList<int> index, AutoNew autoNew) : this(-1, autoNew)
+    {
+        Element = new ArrayElementRef(array, index, false);
+    }
+
+    public ArrayElementRef? Element { get; }
+
     public UdtFieldRef? Field { get; }
 
     /// <summary>The slot to fill.</summary>
