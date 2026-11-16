@@ -553,6 +553,7 @@ added afterwards.
 - [Operator precedence (2026-10-15, #1074)](operator-precedence.md#operator-precedence-2026-10-15-1074)
 - [The library's `$` forms (2026-10-15, #742, #1071)](the-librarys--forms.md#the-librarys--forms-2026-10-15-742-1071)
 - [Move, ScaleWidth and ScaleHeight (2026-10-15, #1071)](move-scalewidth-and-scaleheight.md#move-scalewidth-and-scaleheight-2026-10-15-1071)
+- [A negative or zero control size (2026-11-16, #589)](a-negative-or-zero-control-size.md#a-negative-or-zero-control-size-2026-11-16-589)
 - [Menus at run time, and the menu bar (2026-10-17, #1126, #1127)](menus-at-run-time-and-the-menu-bar.md#menus-at-run-time-and-the-menu-bar-2026-10-17-1126-1127)
 - [When a menu's Click is raised (2026-10-22, #1344)](when-a-menus-click-is-raised.md#when-a-menus-click-is-raised-2026-10-22-1344)
 - [Choosing a menu item leaves Checked to the program (2026-10-18, #1158; measured by #1159)](choosing-a-menu-item-leaves-checked-to-the-program.md#choosing-a-menu-item-leaves-checked-to-the-program-2026-10-18-1158-measured-by-1159)
