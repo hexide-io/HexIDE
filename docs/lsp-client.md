@@ -612,6 +612,21 @@ from disk, resolve something relative to it, and recognise it when it indexes th
 UserControl or PropertyPage is named by its *module's* file, which is the one the project file names; its
 designer half is given the same path, as every load gives it ([#474](https://github.com/hexide-io/HexIDE/issues/474)).
 
+**An archive member is named `archive-entry:/<segments>?container=<file URI>`** (#1118).
+Each ordinal entry name segment is percent-encoded independently, including embedded `/`, `\`, spaces and `#`;
+the container's complete `file:` URI is percent-encoded as the query value. `ArchiveEntryUri`, beside
+`LspDocumentUri`, builds and parses it. Containers compare as host file paths (case-insensitively on Windows),
+while entry segments remain case-sensitive. Distinct containers never share document identity.
+An available text preview opens a session with its text, routed by the entry's extension, and closes it
+with the tab. Reload recreates that session and its diagnostic markers. Entries stay read-only and send
+no `didChange`; no shadow file is written. `get_project_info` pairs entry paths with their URIs in `entryUris`.
+The protocol inspector and `list_lsp_messages` record the conversation normally; pseudonymised exports redact
+both entry names and the nested container URI.
+
+RDCore was measured on 2026-10-05 answering every request about a non-file URI empty
+([#389](https://github.com/hexide-io/HexIDE/issues/389)). That is RDCore's to change; it was not measured again here.
+Other containers and copying entries to files for servers that need them remain outside this change.
+
 **A document of the project with no file yet is named `untitled:<Project>/<Name>.<ext>`** — the
 project's name, the document's own name, and the extension its kind will be saved with: `.frm`, `.bas`, `.cls`,
 `.ctl` or `.pag`. The extension is there because routing reads it. Three rules:

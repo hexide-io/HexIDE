@@ -119,6 +119,9 @@ public sealed class ArchiveFileToolsTests : IDisposable
         listed[1].GetProperty("Path").GetString().Should().Be(path);
         listed[1].GetProperty("ProjectFile").GetString().Should().Be(path);
         listed[1].GetProperty("Entries").EnumerateArray().Select(e => e.GetString()).Should().Equal("/main.twin");
+        listed[1].GetProperty("EntryUris")[0].GetProperty("Path").GetString().Should().Be("/main.twin");
+        listed[1].GetProperty("EntryUris")[0].GetProperty("Uri").GetString().Should().Be(
+            ArchiveEntryUri.ForEntry(path, ["main.twin"]));
         reply.Note.Should().Contain("archive").And.NotContain("No project is loaded");
     }
 

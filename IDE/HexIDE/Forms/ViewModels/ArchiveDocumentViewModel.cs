@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using AvaloniaEdit.Document;
 using HexIDE.Language;
+using HexIDE.Lsp;
+using HexIDE.Controls;
 using HexIDE.Localization;
 using HexIDE.TwinBasic;
 using PropertyChanged.SourceGenerator;
@@ -14,6 +16,11 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
     private readonly ILocalizationService localization;
     private readonly IConditionalCodeReader conditionalCode;
     private string? buildType;
+    private readonly ILspClient? lspClient;
+    private LspDocumentSession? session;
+    public IReadOnlyList<LspMarker> Markers { get; private set; } = [];
+    public event Action<IReadOnlyList<LspMarker>>? MarkersChanged;
+    public string DocumentUri => ArchiveEntryUri.ForEntry(Entry.Identity.ContainerPath, Entry.Identity.Segments);
     public ArchiveProjectEntry Entry { get; private set; }
     [Notify] private TextDocument document = new();
     [Notify] private string notice = "";
@@ -31,8 +38,9 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
     public Func<int, int, bool> SnapshotReadOnlyRegions() => static (_, _) => true;
 
     public ArchiveDocumentViewModel(ArchiveProjectEntry entry, ILocalizationService localization,
-        IConditionalCodeReader conditionalCode, string? buildType = null)
+        IConditionalCodeReader conditionalCode, string? buildType = null, ILspClient? lspClient = null)
     {
+        this.lspClient = lspClient;
         this.localization = localization;
         this.conditionalCode = conditionalCode;
         Entry = entry;
@@ -44,6 +52,10 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
     /// the project names none, and conditions on it are then left ungreyed.</param>
     public void Update(ArchiveProjectEntry entry, string? buildType = null)
     {
+        session?.Dispose();
+        session = null;
+        Markers = [];
+        MarkersChanged?.Invoke(Markers);
         this.buildType = buildType;
         Entry = entry;
         var preview = (entry as ArchiveProjectDocument)?.ReadText();
@@ -64,13 +76,30 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
             ? InactiveLinesOf(preview.Text!, buildType)
             : [];
         Title = ComputeTitle();
+        if (lspClient != null && preview?.Status == ArchiveTextStatus.Available)
+        {
+            session = new LspDocumentSession(lspClient, Document, DocumentUri);
+            session.MarkersChanged += markers =>
+            {
+                Markers = markers;
+                MarkersChanged?.Invoke(markers);
+            };
+            session.Start();
+        }
     }
 
     internal ArchiveDocumentViewModel Reopen()
     {
-        var reopened = new ArchiveDocumentViewModel(Entry, localization, conditionalCode, buildType);
+        var reopened = new ArchiveDocumentViewModel(Entry, localization, conditionalCode, buildType, lspClient);
         reopened.CaretOffset = Math.Clamp(CaretOffset, 0, reopened.Document.TextLength);
         return reopened;
+    }
+
+    public override void Dispose()
+    {
+        session?.Dispose();
+        session = null;
+        base.Dispose();
     }
 
     private IReadOnlyList<LineRange> InactiveLinesOf(string text, string? buildType) =>
