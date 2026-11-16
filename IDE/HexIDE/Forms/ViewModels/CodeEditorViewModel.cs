@@ -2390,7 +2390,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal bool SupportsOnTypeFormatting(string trigger) => !IsReadOnly && LiveDocumentUri is { } uri
         && lspClient.SupportsOnTypeFormatting(uri, trigger);
 
-    internal async Task<TextEdit[]> RequestOnTypeFormattingAsync(Position position, string trigger)
+    internal async Task<TextEdit[]?> RequestOnTypeFormattingAsync(Position position, string trigger)
     {
         var version = Document.Version;
         var originalUri = LiveDocumentUri;

@@ -1197,9 +1197,12 @@ line break and the current line's indentation, skipping HexIDE's closer and keyw
 Without that trigger, the local Enter behavior stays unchanged. Other declared characters also request
 formatting after typing; the editor has no local quote or bracket insertion to suppress.
 
-A request has a 250 ms budget and sends `$/cancelRequest` on timeout, leaving the typed text without
-running local helpers. Replies are discarded if the document version or identity changed, even when
-an intervening edit restored the same text. Accepted edits use the guarded formatting writer, map the
+A request has a 250 ms budget and sends `$/cancelRequest` on timeout. On timeout or failure for
+newline, the editor applies the indentation local Enter would supply, without a closer or keyword
+correction (#4057). A successful empty or null server reply leaves the initial indentation unchanged;
+other triggers have no fallback. The fallback uses the same document, version, view, generation and undo
+group guards as server edits and continues the line break's undo group. Replies are discarded if the
+document version or identity changed, even when an intervening edit restored the same text. Accepted edits use the guarded formatting writer, map the
 caret through insertions/replacements, and continue the typing undo group so typing and formatting
 undo together. An edit reaching the caret keeps it on the corresponding line of the replacement: count
 line breaks from the old edit start to the caret, then stop before the next line break in the replacement
