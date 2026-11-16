@@ -123,6 +123,7 @@ public partial class App : Application
                 {
                     Content = Static.MainView
                 };
+                HexIDE.IDE.BrandAssets.ApplyWindowIcon(desktop.MainWindow);
 
                 rootViewModel.ObservePropertyChanged(x => x.WindowTitle)
                     .Subscribe(title => desktop.MainWindow.Title = title);

@@ -496,6 +496,7 @@ public partial class MainViewViewModel : ObservableObject
             public ToolHostWindow(DockFactory factory)
             {
                 this.factory = factory;
+                BrandAssets.ApplyWindowIcon(this);
                 PositionChanged += (_, _) => Dispatcher.UIThread.Post(RememberNormalBounds);
                 SizeChanged += (_, _) => Dispatcher.UIThread.Post(RememberNormalBounds);
                 // The pane's close box runs its tool command; Dock's extra host-close handler
