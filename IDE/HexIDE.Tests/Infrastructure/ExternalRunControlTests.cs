@@ -156,13 +156,19 @@ public class ExternalRunControlTests : CompositionTestBase
             new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
         var tools = new HexIdeTools(context);
         var run = external.StartAsync(await ExternalDebugServiceTests.Configuration(directory, mode));
+        Action<string>? heard = null;
         try
         {
             await ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate && external.CanEditBreakpoints);
             var id = external.Connection!.Id;
+            // Whether the restore was still awaiting its reply as each chatter line reached the IDE. A reader that waited
+            // for the restore would deliver them only after it, so every entry must be true.
+            var chatter = new List<bool>();
+            heard = text => { if (text.StartsWith("chatter", StringComparison.Ordinal)) chatter.Add(external.RunToCursorPending); };
+            external.Output += heard;
             var reply = await tools.RunToCursorAsync("Callee", target, ct: TestContext.Current.CancellationToken);
             var refused = target is 10 or 20 || mode == "resume-refusal";
-            reply.Success.Should().Be(!refused);
+            reply.Success.Should().Be(!refused, $"the reply was: {reply.Error ?? reply.Note}");
             if (target == 20) reply.Error.Should().Contain("no executable statement");
             else if (target == 10) reply.Error.Should().Contain("11");
             else if (mode == "resume-refusal") reply.Error.Should().Contain("fixture resume refusal");
@@ -186,8 +192,11 @@ public class ExternalRunControlTests : CompositionTestBase
             if (mode != "cursor-end")
                 sets[2].GetProperty("breakpoints").EnumerateArray().Select(item => item.GetProperty("line").GetInt32()).Should().Equal(6);
             if (mode == "cursor-chatty")
-                external.State.Should().Be(HexIDE.Dap.DapSessionState.Stopped,
-                    "a restore awaited in the update reader would let 300 events overflow its 256-update queue");
+            {
+                chatter.Should().HaveCount(20).And.AllSatisfy(pending => pending.Should().BeTrue(
+                    "the update reader must deliver events while the restore awaits its reply, not after it"));
+                external.State.Should().Be(HexIDE.Dap.DapSessionState.Stopped);
+            }
             if (mode != "resume-refusal")
                 foreach (var set in sets)
                     set.GetProperty("breakpoints")[0].GetProperty("condition").GetString().Should().Be("i = 3");
@@ -198,6 +207,7 @@ public class ExternalRunControlTests : CompositionTestBase
         }
         finally
         {
+            if (heard is not null) external.Output -= heard;
             await external.StopAsync();
             await run.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
             if (linkedSource) Directory.Delete(link);
@@ -278,7 +288,7 @@ public class ExternalRunControlTests : CompositionTestBase
                 return;
             }
             var refused = mode is "resume-refusal" or "goto-refuse" or "goto-empty" or "goto-targets-refuse";
-            reply.Success.Should().Be(!refused);
+            reply.Success.Should().Be(!refused, $"the reply was: {reply.Error ?? reply.Note}");
             if (refused)
             {
                 reply.Error.Should().Contain(mode == "resume-refusal" ? "fixture resume refusal" : "fixture goto refusal");

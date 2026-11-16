@@ -13,8 +13,11 @@ route.
 
 **Changed in review (hexide-mcp).** The lane's update reader awaited the restore's round trip before
 reading on. Updates is a bounded queue of 256, so a program printing during a slow restore faulted
-the session; the `cursor-chatty` fixture row (300 events, restore answered after 1 s) failed on the
-lane's reader and passes now, checked with a mutation run. Termination no longer sends
+the session; the `cursor-chatty` fixture row failed on the lane's reader and passes now, checked with a
+mutation run. That row first sent 300 events against the 256-update queue. Under CPU load the reader's
+UI-thread hop per update couldn't drain them in time even when the restore wasn't awaited (macOS CI, and
+locally with 34 busy threads), so it now sends 20 and asserts each reached the IDE while the restore,
+answered after 1 s, was still pending (#4159). The overflow itself is #4249. Termination no longer sends
 `setBreakpoints` to an adapter that need not answer, so `DapSession` keeps refusing it once ended.
 A refused restore is reported with its line and keeps the session instead of disconnecting, and the
 restore has a 5 s deadline. The test-floor change was dropped as out of scope, and the gap entry

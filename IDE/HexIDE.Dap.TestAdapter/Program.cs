@@ -148,7 +148,8 @@ public static class Program
                         await Send(new { seq = 20, type = "event", @event = "output", body = new { output = "breakpoints-pending\n" } });
                         continue;
                     }
-                    // A slow restore after a chatty stop: the client must keep draining events while it waits.
+                    // A slow restore after a chatty stop: the client must keep delivering events while it waits. Held 1 s:
+                    // this loop answers in order, so the stop's stackTrace waits behind it, inside run_to_cursor's wait.
                     if (mode == "cursor-chatty" && cursorContinued) await Task.Delay(TimeSpan.FromSeconds(1));
                     await ReplyBreakpoints(request.RootElement, mode == "breakpoints-refuse-clear" && lines.Length == 0);
                     continue;
@@ -209,9 +210,10 @@ public static class Program
                 {
                     cursorContinued = true;
                     await Send(new { seq = 44, type = "event", @event = "stopped", body = new { threadId = 1, reason = "breakpoint" } });
-                    // More events than the client's update queue holds (256), sent before its restore can be answered.
+                    // Output sent before the restore can be answered. Few enough never to fill the client's queue (256), so
+                    // the test reads delivery order, not a race between this pipe and the client's UI thread (#4159).
                     if (mode == "cursor-chatty")
-                        for (var i = 0; i < 300; i++)
+                        for (var i = 0; i < 20; i++)
                             await Send(new { seq = 45, type = "event", @event = "output", body = new { output = $"chatter {i}\n" } });
                 }
                 if (command is "configurationDone" or "next" || mode.StartsWith("run-control", StringComparison.Ordinal) && command is "stepIn" or "stepOut" or "pause" || mode == "run-control" && command == "continue")
