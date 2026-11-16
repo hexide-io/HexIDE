@@ -728,12 +728,6 @@ public record ServerCapabilities(
     /// <summary>
     /// True when the server offers whole-workspace diagnostics as well as per-document ones.
     /// </summary>
-    /// <remarks>
-    /// Read but not yet acted on: <c>workspace/diagnostic</c> is a separate request with its own progress and
-    /// partial-result machinery, and is deliberately out of scope (hexide-io/HexIDE#284). Present so that the
-    /// question "does this server offer it" is answerable from the capability rather than by guessing, and so
-    /// a server offering it is not silently assumed to be offering nothing.
-    /// </remarks>
     public static bool OffersWorkspaceDiagnostics(System.Text.Json.JsonElement? capabilities) =>
         capabilities is { } caps
         && caps.ValueKind == System.Text.Json.JsonValueKind.Object
@@ -1511,3 +1505,12 @@ public record WatchedFileEvent(
 
 public record DidChangeWatchedFilesParams(
     [property: JsonPropertyName("changes")] WatchedFileEvent[] Changes);
+
+public record PreviousResultId(
+    [property: JsonPropertyName("uri")] string Uri,
+    [property: JsonPropertyName("value")] string Value);
+
+public record WorkspaceDiagnosticParams(
+    [property: JsonPropertyName("identifier")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Identifier,
+    [property: JsonPropertyName("previousResultIds")] PreviousResultId[] PreviousResultIds);

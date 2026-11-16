@@ -272,7 +272,7 @@ The metamodel guard also checks the numeric values of the wire enums (`Diagnosti
 
 **Server-initiated requests.** Nine are handled: `client/registerCapability` and
 `client/unregisterCapability` (watched files honoured; unsupported methods logged and refused),
-`workspace/diagnostic/refresh`, which is acted on — every open document is asked about again —
+`workspace/diagnostic/refresh`, which re-asks open documents and workspace diagnostics when offered,
 `window/workDoneProgress/create`, which registers a progress token and succeeds, and
 `workspace/configuration`, `window/showMessageRequest`, `workspace/applyEdit`, `window/showDocument` and
 `workspace/codeLens/refresh`, each described in its own section below. Everything
@@ -926,14 +926,17 @@ A document pull answered `-32801` (ContentModified), or `-32802` (ServerCancelle
 Each attempt is a separate request in the protocol inspector. A change, close, newer pull or connection
 replacement stops the old retry loop; a changed document gets its own fresh pull.
 
-The close of a pulled document clears its marks under the same gate that checks and publishes answers.
+Unless workspace diagnostics are offered, closing a pulled document clears its marks under the same gate
+that checks and publishes answers.
 The reopen regression distinguishes the initial answer from the reopen answer: #963's empty final
 publication was the close's clear, observed before the reopen answer had arrived because the test mistook
 its identically labelled initial answer for the fresh one. Its failure trace labels that empty clear.
 
-`workspace/diagnostic` — the same model at workspace scope — is **not** implemented; see the limitations
-table. `workspace/diagnostic/refresh` is, because it is the only way a server that speaks when spoken to can
-report a change that is not a document, such as its own configuration file being edited.
+`workspace/diagnostic` requests closed-file findings when the provider declares `workspaceDiagnostics`.
+It runs after initialization, diagnostic refresh and document close, with held result IDs and the provider
+identifier. A new trigger cancels the previous request. Full reports replace closed-file findings,
+unchanged reports retain them, and omitted URIs are cleared. Open files retain their per-document pull
+authority. Closing a file retains its last findings until the workspace answer replaces them (#4263).
 
 ---
 
@@ -1531,7 +1534,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 56 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 57 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1599,15 +1602,15 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 10 of 21
+### `workspace/*` — 11 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ✅ | `workspace/applyEdit` | ← | Checked workspace edits during a user command on that server; otherwise refused with a reason (#2908) |
 | ✅ | `workspace/codeLens/refresh` | ← | Answers null and refetches lenses in attached code windows |
 | ✅ | `workspace/configuration` | ← | Returns editor.tabSize from Tab Width; unknown items return null |
-| ○ | `workspace/diagnostic` | → | The pull model, workspace-wide ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
-| ✅ | `workspace/diagnostic/refresh` | ← | Re-asks every open document; the only way a pull-model server can report a change that is not a document |
+| ✅ | `workspace/diagnostic` | → | Capability-gated workspace pull on initialization, refresh and close; closed-file reports share the diagnostics store (#4263) |
+| ✅ | `workspace/diagnostic/refresh` | ← | Re-asks open documents and, when offered, workspace diagnostics (#4263) |
 | ✅ | `workspace/didChangeConfiguration` | → | Notifies running servers when Tab Width changes |
 | ✅ | `workspace/didChangeWatchedFiles` | → | Registered globs, masks, relative patterns and coalesced disk events (#456) |
 | ✅ | `workspace/didChangeWorkspaceFolders` | → | Shared project-change debounce; opted-in servers, before import |
@@ -1808,7 +1811,6 @@ Three clusters account for nearly all of the gap:
 | Limitation | Consequence | Tracked |
 |---|---|---|
 | Full-text sync only, deliberately including servers declaring Incremental | Wasteful on large files; incremental sync is deferred until a server needs it to justify the desynchronization risk | Decision: [#282](https://github.com/hexide-io/HexIDE/issues/282) |
-| No workspace-wide pull diagnostics (`workspace/diagnostic`) | Diagnostics are per open document; a server's findings about files nobody has open are never requested | Not tracked; per-document pull shipped with [#284](https://github.com/hexide-io/HexIDE/issues/284) |
 
 ---
 

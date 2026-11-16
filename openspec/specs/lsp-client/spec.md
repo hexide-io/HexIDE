@@ -3047,3 +3047,21 @@ null server answer SHALL leave the initial indentation unchanged. Other triggers
 - **THEN** cancellation is sent and local Enter indentation is applied if the formatting guards still hold
 - **AND** no local closer or keyword correction runs as a fallback
 - **AND** one undo restores the text before Enter
+
+### Requirement: Workspace diagnostic pull
+
+The client SHALL request `workspace/diagnostic` only when the provider declares `workspaceDiagnostics`,
+after initialization, each diagnostic refresh, and coalesced document closes. Each request SHALL carry
+the provider identifier and held result IDs, use the normal request timeout, omit partial-result tokens,
+and cancel its predecessor on the connection.
+
+#### Scenario: Closed module findings
+- **WHEN** a workspace response contains a full report for a closed URI
+- **THEN** its diagnostics and result ID replace that server's findings for the URI in the shared store
+- **AND** unchanged reports retain findings, while URIs omitted from the answer are cleared
+- **AND** reports for open documents do not replace their per-document pulls
+
+#### Scenario: Closing an editor
+- **WHEN** a document closes on a connection offering workspace diagnostics
+- **THEN** its last findings remain until a workspace answer replaces them
+- **AND** a connection without that capability retains its existing close-clearing behaviour
