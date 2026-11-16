@@ -32,6 +32,8 @@ internal static partial class BrandText
         UpstreamCreditsKey,
         "Str.Dialog.About.Provenance",
         "Str.Dialog.About.SigningKeys.RootKey",
+        "Str.Dialog.TrustChain.Root",
+        "Str.Dialog.TrustChain.CompareHint",
         "Str.Dialog.About.SigningKeys.FirstPartyKey",
         "Str.Addins.Incompatible",
         "Str.TranslationEditor.ProtectedCredits",

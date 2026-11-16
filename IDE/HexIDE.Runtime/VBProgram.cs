@@ -328,26 +328,48 @@ public sealed class VBProgram : IFormProgram
     }
 
     /// <summary>
-    /// Hide a form. While a modal form is displayed only the innermost one can be hidden: any other is 402, "Must close or
-    /// hide topmost modal form first", a modal form beneath it included (measured, #822).
+    /// Hide a form. While a modal form is displayed, hiding any form other than the innermost raises 402, "Must close or
+    /// hide topmost modal form first", after hiding it (measured, #4032). Visible = False hides a modeless form without
+    /// that error (measured, #3936).
     /// </summary>
-    internal void Hide(IFormView view)
+    /// <remarks>
+    /// A modal form beneath the innermost one is hidden and given 402 by Visible = False too, and its modal loop goes on
+    /// waiting while it is hidden: its Show vbModal returns only once it unloads (measured, native and p-code).
+    /// </remarks>
+    internal void Hide(IFormView view, bool reportModalError = true)
     {
-        if (modals.Count > 0 && !ReferenceEquals(modals[^1], view.Context))
-            throw new VBRunTimeException(VBStandardError.CodeMustCloseTopmostModalFormFirst);
-        var wasActive = ReferenceEquals(active, view.Context);
-        var next = wasActive
-            ? activationOrder.LastOrDefault(context => !ReferenceEquals(context, view.Context)
-                && context.FormInstance is { FormLoaded: true } && context.Window is IFormView { IsShown: true })
-            : null;
+        var underModal = modals.Count > 0 && !ReferenceEquals(modals[^1], view.Context);
+        var modalBeneath = underModal && modals.Contains(view.Context);
+        var modalError = underModal && (reportModalError || modalBeneath);
+        if (modalBeneath)
+            hiddenBeneath.Add(view.Context);
+        else
+            hiddenBeneath.Remove(view.Context);
+        var next = ReferenceEquals(active, view.Context) ? NextShown(view.Context) : null;
         view.HideForm();
-        if (next is not null)
-        {
-            // Own the transition even without a window manager; its activation notification is then harmless.
-            Activated(next);
-            if (next.Window is IFormView { HeldBy: null } nextView)
-                nextView.ActivateForm();
-        }
+        ActivateNext(next);
+        if (modalError)
+            throw new VBRunTimeException(VBStandardError.CodeMustCloseTopmostModalFormFirst);
+    }
+
+    /// <summary>
+    /// Modal forms hidden while another modal form was over them, whose modal loops go on waiting while they are hidden
+    /// (measured). Hiding one again once it is the innermost ends its loop, as Hide of the innermost always does.
+    /// </summary>
+    private readonly HashSet<VBWindowContext> hiddenBeneath = [];
+
+    private VBWindowContext? NextShown(VBWindowContext leaving) =>
+        activationOrder.LastOrDefault(context => !ReferenceEquals(context, leaving)
+            && context.FormInstance is { FormLoaded: true } && context.Window is IFormView { IsShown: true });
+
+    private void ActivateNext(VBWindowContext? next)
+    {
+        if (next is null)
+            return;
+        // Own the transition even without a window manager; its activation notification is then harmless.
+        Activated(next);
+        if (next.Window is IFormView { HeldBy: null } nextView)
+            nextView.ActivateForm();
     }
 
     /// <summary>
@@ -383,11 +405,14 @@ public sealed class VBProgram : IFormProgram
         {
             view.ShowForm();
             var form = context.FormInstance!;
-            await Events.WhileModal(() => form.FormLoaded && view.IsShown && over?.Invoke() != true);
+            // Hidden as the innermost form, it is done; hidden while another modal form was over it, it waits on.
+            await Events.WhileModal(() => form.FormLoaded && (view.IsShown || hiddenBeneath.Contains(context))
+                && over?.Invoke() != true);
         }
         finally
         {
             modals.Remove(context);
+            hiddenBeneath.Remove(context);
             foreach (var (otherView, before) in held)
                 otherView.HeldBy = before;
         }
@@ -455,7 +480,10 @@ public sealed class VBProgram : IFormProgram
     {
         // The active form unloaded is given no Deactivate, and the form Windows activates next its Activate (measured, #994).
         if (ReferenceEquals(active, context))
+        {
             active = null;
+            ActivateNext(NextShown(context));
+        }
         activationOrder.Remove(context);
         var instance = context.FormInstance!;
         var at = loaded.FindIndex(form => ReferenceEquals(form, instance));

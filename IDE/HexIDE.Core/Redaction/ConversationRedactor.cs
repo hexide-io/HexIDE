@@ -139,7 +139,7 @@ public sealed partial class ConversationRedactor
     }
 
     /// <summary>
-    /// A document URI — <c>file:</c> or <c>untitled:</c> — as it appears inside a JSON body.
+    /// A document URI — <c>file:</c>, <c>untitled:</c> or <c>archive-entry:</c> — as it appears inside a JSON body.
     /// </summary>
     /// <remarks>
     /// Stops at the JSON string delimiter and steps over escape sequences, so a path carrying a
@@ -151,18 +151,18 @@ public sealed partial class ConversationRedactor
     /// seeing rather than one worth folding away here.
     ///
     /// <para>
-    /// <b>Both schemes, one expression, and it will match the word in prose too.</b> A diagnostic message
+    /// <b>All three schemes, one expression, and it will match the word in prose too.</b> A diagnostic message
     /// quoting a URI has it replaced along with the real ones. That is the safe direction for something
     /// that governs egress, and it was already true of <c>file:</c>.
     /// </para>
     /// </remarks>
     // Quoted paths may contain spaces. Unquoted paths stop at prose punctuation; a slash inside a
     // method name or URL is not a Unix root. Relative paths cannot be distinguished from ordinary words.
-    [GeneratedRegex("""(?<field>"path"\s*:\s*)(?<value>"(?!(?:file|untitled):)(?:\\.|[^"\\])*")|(?<uri>(?:file|untitled):(?:\\.|[^"\\\s])*)|(?<=["'])(?:[A-Za-z]:[/\\]|\\\\|/)[^"'\r\n]+|(?<![\w:/\\])(?:[A-Za-z]:[/\\]|\\\\|/)[^\s"'<>|,;()\[\]{}]+""", RegexOptions.IgnoreCase)]
+    [GeneratedRegex("""(?<field>"path"\s*:\s*)(?<value>"(?!(?:archive-entry|file|untitled):)(?:\\.|[^"\\])*")|(?<uri>(?:archive-entry|file|untitled):(?:\\.|[^"\\\s])*)|(?<=["'])(?:[A-Za-z]:[/\\]|\\\\|/)[^"'\r\n]+|(?<![\w:/\\])(?:[A-Za-z]:[/\\]|\\\\|/)[^\s"'<>|,;()\[\]{}]+""", RegexOptions.IgnoreCase)]
     private static partial Regex BodyValue();
 
     /// <summary>
-    /// One URI. A <c>file:</c> or <c>untitled:</c> URI is rewritten segment by segment; every other scheme
+    /// One URI. File, untitled and archive-entry URIs are rewritten segment by segment; every other scheme
     /// is left alone.
     /// </summary>
     /// <remarks>
@@ -180,6 +180,16 @@ public sealed partial class ConversationRedactor
     public string Uri(string uri)
     {
         if (!IsPseudonymising || uri.Length == 0) return uri;
+        if (HexIDE.Lsp.ArchiveEntryUri.TryParse(uri, out var container, out _))
+        {
+            var query = uri.IndexOf("?container=", StringComparison.Ordinal);
+            var pathStart = "archive-entry:/".Length;
+            return uri[..pathStart] + string.Join('/', uri[pathStart..query].Split('/')
+                .Select(e => Segment(e, keepExtension: true)))
+                + "?container=" + System.Uri.EscapeDataString(Uri(container));
+        }
+        if (uri.StartsWith("archive-entry:", StringComparison.OrdinalIgnoreCase))
+            return "archive-entry:" + _names.For(uri["archive-entry:".Length..]);
         if (SchemeOf(uri) is not { } scheme) return uri;
 
         var rest = ReplaceRoots(uri[scheme.Length..]);

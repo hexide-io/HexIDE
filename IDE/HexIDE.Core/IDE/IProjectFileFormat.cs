@@ -70,6 +70,10 @@ public interface IProjectFileFormat : IFormFileFormat
     Task<ProjectFileRead> ReadProjectAsync(string path, Vb6TextEncoding hostAnsi, Action<string, byte[]>? fileRead,
         IDeserializeErrorSink problems);
 
+    /// <summary>Reads proposed project text without writing it, resolving members beside the real file.</summary>
+    Task<ProjectFileRead> ReadProjectTextAsync(string path, string text, Vb6TextEncoding encoding,
+        Vb6TextEncoding hostAnsi, IDeserializeErrorSink problems);
+
     /// <summary>What a project group's file names.</summary>
     SerializedProjectGroup ReadGroup(string text);
 
@@ -123,6 +127,6 @@ public readonly record struct RenderedFile(string Text, byte[]? Companion);
 /// The files the host's code page couldn't decode, which were read byte for byte instead: the project's file by its name, a
 /// member by its path as the project's file gives it.
 /// </param>
-/// <param name="ProjectFileBytes">The project's file as it was on disk when it was read.</param>
+/// <param name="ProjectFileBytes">The bytes read from disk, or encoded from proposed project text.</param>
 public sealed record ProjectFileRead(ProjectDefinition Project, IReadOnlyList<string> SkippedDocuments,
     IReadOnlyList<string> ReadByteForByte, byte[] ProjectFileBytes);

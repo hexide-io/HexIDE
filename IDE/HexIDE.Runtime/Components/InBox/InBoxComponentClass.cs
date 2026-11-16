@@ -24,8 +24,13 @@ public abstract class InBoxComponentClass : ComponentBaseClass
 
     /// <summary>The in-box controls HexIDE implements (#1082), which the toolbox offers from each library declaring one.</summary>
     public static IReadOnlyList<InBoxComponentClass> Implemented =>
-        [ProgressBarComponentClass.Instance, ListViewComponentClass.Instance, SliderComponentClass.Instance, StatusBarComponentClass.Instance, ImageListComponentClass.Instance, SSTabComponentClass.Instance,
+        [ProgressBarComponentClass.Instance, ListViewComponentClass.Instance, FlexGridComponentClass.Instance, SliderComponentClass.Instance, StatusBarComponentClass.Instance, ImageListComponentClass.Instance, SSTabComponentClass.Instance,
             CommonDialogComponentClass.Instance, RichTextBoxComponentClass.Instance, UpDownComponentClass.Instance, FlatScrollBarComponentClass.Instance];
+
+    /// <summary>Every in-box control with a component model, including those not yet offered in the toolbox.</summary>
+    public static IReadOnlyList<ComponentBaseClass> Modelled =>
+        [.. Implemented, TreeViewComponentClass.Instance, TabStripComponentClass.Instance, ToolbarComponentClass.Instance,
+            DTPickerComponentClass.Instance, MonthViewComponentClass.Instance, MaskedEdBoxComponentClass.Instance];
 
     /// <summary>The control's class name, as its libraries declare it: <c>ProgressBar</c>.</summary>
     public abstract string ControlClassName { get; }
@@ -46,7 +51,7 @@ public abstract class InBoxComponentClass : ComponentBaseClass
     /// The control's own members, as its type libraries declare them, with where each comes from (#1082). The hidden ones
     /// are left out: VB6 offers neither to a program's completion nor its Object Browser.
     /// </summary>
-    public abstract IReadOnlyList<InBoxMember> Members { get; }
+    public abstract override IReadOnlyList<InBoxMember> Members { get; }
 
     /// <summary>The member named <paramref name="name"/>, in any case, or null.</summary>
     public InBoxMember? Member(string name) =>

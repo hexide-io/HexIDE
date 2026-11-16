@@ -8,6 +8,8 @@ using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
+using Avalonia.Data;
+using Avalonia.Diagnostics;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
@@ -28,8 +30,8 @@ namespace HexIDE.Automation;
 /// addressing and discovery logic is unit-testable headlessly.
 ///
 /// The tree is the UIA-style **control view**: structural layout wrappers (controls whose automation type
-/// is <c>None</c> with no non-scroll capability, no keyboard focus and no AutomationId — Panels, Borders, ContentPresenters,
-/// dock plumbing, …) are transparent. They never appear as nodes or in paths; the walk descends through
+/// is <c>None</c> with no non-scroll capability, no keyboard focus, no AutomationId and no explicit automation Name
+/// — Panels, Borders, ContentPresenters, dock plumbing, …) are transparent. They never appear as nodes or in paths; the walk descends through
 /// them and re-parents their meaningful descendants. x:Name alone does not keep a wrapper. Scrollability
 /// and usable range bounds do not change transparency, so growing content does not insert path segments.
 ///
@@ -227,7 +229,7 @@ public static class UiAutomationDriver
             ownerPath,
             note,
             control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null,
-            DistinctLabelOf(NameOf(control, peer), peer),
+            DistinctLabelOf(control, NameOf(control, peer), peer),
             peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : editorReadOnly,
             control is Window window ? ReadFrame(window) : null,
             ReadExpandCollapseState(peer, control),
@@ -1162,9 +1164,20 @@ public static class UiAutomationDriver
     private static string? ShownSelectionOf(ComboBox box) =>
         box.SelectionBoxItem is { } item
         && box.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().FirstOrDefault(p => ReferenceEquals(p.Content, item)) is { } presenter
-            ? NullIfEmpty(string.Join(" ", presenter.GetVisualDescendants().OfType<TextBlock>()
-                .Where(t => t.IsEffectivelyVisible && !string.IsNullOrWhiteSpace(t.Text)).Select(t => t.Text)))
+            ? ShownTextOf(presenter)
             : null;
+
+    private static string? ShownTextOf(Control container) =>
+        NullIfEmpty(string.Join(" ", container.GetVisualDescendants().OfType<TextBlock>()
+            .Where(t => t.IsEffectivelyVisible && !string.IsNullOrWhiteSpace(t.Text)).Select(t => t.Text)));
+
+    private static string? MeaningfulLabelOf(Control control, AutomationPeer? peer)
+    {
+        var label = MeaningfulLabelOf(peer);
+        return control is ComboBoxItem row && IsDefaultText(Safe(() => peer?.GetName(), "") ?? "", row.Content)
+            ? ShownTextOf(row) ?? label
+            : label;
+    }
 
     /// <summary>What a multi-select list now holds, by the names its rows carry in dump_visual_tree.</summary>
     private static string SelectionSummary(ListBox owner)
@@ -1526,7 +1539,7 @@ public static class UiAutomationDriver
 
     // Snapshot names, not containers: scrolling a dropdown recycles its rows. Read every row before matching,
     // so an offscreen namesake is ambiguous too, and a miss can name all available items (#1672).
-    private sealed record ComboRow(int Index, string? AutoId, string? Name, string? Label, string Shown);
+    private sealed record ComboRow(int Index, string? AutoId, string? Name, string? Label, string Shown, string? Fallback);
 
     private static InteractOutcome SelectComboItem(ComboBox combo, string value)
     {
@@ -1543,9 +1556,11 @@ public static class UiAutomationDriver
                 combo.UpdateLayout();
                 if (combo.ContainerFromIndex(i) is not Control row || Shows(row) is not true) continue;
                 var info = Classify(row);
-                rows.Add(new ComboRow(i, info.AutoId, row.Name, MeaningfulLabelOf(info.Peer), LabelOf(row)));
+                rows.Add(new ComboRow(i, info.AutoId, row.Name, MeaningfulLabelOf(row, info.Peer), LabelOf(row), MeaningfulLabelOf(info.Peer)));
             }
             var (matches, facet) = MatchByDiscriminator(rows, value, r => r.AutoId, r => r.Name, r => r.Label);
+            if (matches.Count == 0)
+                (matches, facet) = MatchByDiscriminator(rows, value, r => r.AutoId, r => r.Name, r => r.Fallback);
             if (matches.Count == 0)
                 return Err($"no selectable item matching '{value}' among {rows.Count} item(s); available items: "
                            + (rows.Count == 0 ? "none" : string.Join(", ", rows.Take(20).Select(r => $"'{r.Shown}'")))
@@ -5333,7 +5348,7 @@ public static class UiAutomationDriver
         return true;
     }
 
-    private static string LabelOf(Control control, AutomationPeer peer) => MeaningfulLabelOf(peer) ?? NameOf(control, peer) ?? ControlTypeOf(peer);
+    private static string LabelOf(Control control, AutomationPeer peer) => MeaningfulLabelOf(control, peer) ?? NameOf(control, peer) ?? ControlTypeOf(peer);
 
     private static string LabelOf(Control control) => LabelOf(control, ControlAutomationPeer.CreatePeerForElement(control));
 
@@ -5591,7 +5606,7 @@ public static class UiAutomationDriver
     private static (List<Control> matches, string facet) MatchByDiscriminator(List<MeaningfulChild> typed, string disc)
     {
         var (matches, facet) = MatchByDiscriminator(typed, disc,
-            m => m.Info.AutoId, m => m.Control.Name, m => MeaningfulLabelOf(m.Info.Peer));
+            m => m.Info.AutoId, m => m.Control.Name, m => MeaningfulLabelOf(m.Control, m.Info.Peer));
         return ([.. matches.Select(m => m.Control)], facet);
     }
 
@@ -5698,7 +5713,7 @@ public static class UiAutomationDriver
             TypeNameAsNameOf(info.Peer),
             truncated ? true : null,
             node.Control.DataContext is { } context && ReferenceEquals(context, parentContext),
-            DistinctLabelOf(info.Name, info.Peer));
+            DistinctLabelOf(node.Control, info.Name, info.Peer));
     }
 
 
@@ -6016,7 +6031,7 @@ public static class UiAutomationDriver
     {
         if (m.Info.AutoId is { } autoId) yield return autoId;
         if (NullIfEmpty(m.Control.Name) is { } xname) yield return xname;
-        if (!HasDataBoundText(m.Control) && MeaningfulLabelOf(m.Info.Peer) is { } label) yield return label;
+        if (!HasDataBoundText(m.Control) && MeaningfulLabelOf(m.Control, m.Info.Peer) is { } label) yield return label;
     }
 
     // Avalonia's public query also returns resource/template expressions. The concrete types are internal;
@@ -6039,6 +6054,15 @@ public static class UiAutomationDriver
         return null;
     }
 
+    // A Name given to the element itself, not empty: a local value from markup or code, or a Template value,
+    // which is how markup inside a DataTemplate arrives (the Options Formatting page's ColorPickers). A style
+    // or theme setter is not the view's own: Dock's binds every dock control's Name to the dock's Title,
+    // which HexIDE leaves null, and counting it put a nameless segment into every path under the dock (#4046).
+    private static bool HasOwnName(Control control) =>
+        control.GetDiagnostic(AutomationProperties.NameProperty).Priority
+            is BindingPriority.LocalValue or BindingPriority.Template
+        && !string.IsNullOrWhiteSpace(AutomationProperties.GetName(control));
+
     private static NodeClass Classify(Control control)
     {
         AutomationPeer? peer = null;
@@ -6054,11 +6078,12 @@ public static class UiAutomationDriver
         // Keep the common surfaces' existing collapsed paths, including named TextEditors. Scrolling is
         // content-dependent (OwnScrollerFor starts succeeding on overflow), so it cannot establish a node.
         // rangeValue is also advertised only for a usable range: use the peer's capability, not today's
-        // bounds/read-only state. An AutomationId remains an explicit request to expose a wrapper;
-        // x:Name alone remains transparent, consistently before and after overflow (#1436).
+        // bounds/read-only state. An AutomationId, or an automation Name the view gives the element itself,
+        // requests exposing a wrapper; x:Name alone remains transparent, consistently before and after
+        // overflow (#1436, #4046).
         var hasCapability = providers.Any(p => p is not ("scroll" or "rangeValue" or "multiSelectItem"))
                             || peer?.GetProvider<IRangeValueProvider>() is not null;
-        var structural = type == "None" && !hasCapability && !focusable && autoId is null;
+        var structural = type == "None" && !hasCapability && !focusable && autoId is null && !HasOwnName(control);
 
         // A Separator matches every one of those conditions and is still not plumbing: it is a visible
         // element of a menu whose POSITION is the thing under test. Collapsing it away left a dump that
@@ -6084,11 +6109,11 @@ public static class UiAutomationDriver
     private static string ControlTypeOf(AutomationPeer peer)
         => Safe(() => peer.GetAutomationControlType().ToString(), "Control");
 
-    private static string? DistinctLabelOf(string? name, AutomationPeer? peer) =>
-        MeaningfulLabelOf(peer) is { } label && label != name ? label : null;
+    private static string? DistinctLabelOf(Control control, string? name, AutomationPeer? peer) =>
+        MeaningfulLabelOf(control, peer) is { } label && label != name ? label : null;
 
     private static string? NameOf(Control control, AutomationPeer peer)
-        => NullIfEmpty(control.Name) ?? MeaningfulLabelOf(peer);
+        => NullIfEmpty(control.Name) ?? MeaningfulLabelOf(control, peer);
 
     /// <summary>The peer's automation name, unless all it says is the .NET type of the control's content.</summary>
     /// <remarks>

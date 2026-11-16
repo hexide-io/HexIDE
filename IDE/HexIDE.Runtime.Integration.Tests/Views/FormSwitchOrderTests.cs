@@ -45,6 +45,9 @@ public class FormSwitchOrderTests
         Private Sub Form_Load()
             Debug.Print "loaded"
         End Sub
+        Private Sub Command1_LostFocus()
+            Debug.Print "Command1 lostfocus"
+        End Sub
         Private Sub Command1_GotFocus()
             Debug.Print "Command1 gotfocus"
         End Sub
@@ -67,6 +70,44 @@ public class FormSwitchOrderTests
         Public Sub HideOther()
             Form2.Hide
             Debug.Print "after"
+        End Sub
+        Private Sub Form_QueryUnload(Cancel As Integer, UnloadMode As Integer)
+            Debug.Print Me.Name & " queryunload"
+        End Sub
+        Private Sub Form_Unload(Cancel As Integer)
+            Debug.Print Me.Name & " unload"
+        End Sub
+        Public Sub HideVisibleOther()
+            Form2.Visible = False
+        End Sub
+        Public Sub ShowVisibleOther()
+            Form2.Visible = True
+        End Sub
+        Public Sub UnloadOther()
+            Unload Form2
+        End Sub
+        Public Sub HideMe()
+            Me.Hide
+        End Sub
+        Public Sub ShowMe()
+            Me.Show
+        End Sub
+        Public Sub HideVisibleMe()
+            Me.Visible = False
+        End Sub
+        Public Sub ShowVisibleMe()
+            Me.Visible = True
+        End Sub
+        Public Sub RememberControls()
+            Command1.SetFocus
+            Form2.Show
+        End Sub
+        Public Sub FocusOtherButton()
+            Form2.Command1.SetFocus
+        End Sub
+        Public Sub ScreenReport()
+            Debug.Print Screen.ActiveForm.Name
+            Debug.Print Screen.ActiveControl.Name
         End Sub
         Public Sub FocusMe()
             Me.SetFocus
@@ -153,6 +194,52 @@ public class FormSwitchOrderTests
     {
         for (var i = 0; i < 20; i++)
             Dispatcher.UIThread.RunJobs();
+    }
+
+    // #3936: a-forms-resize-activate-and-deactivate.md, active Visible / last visible form rows and run 1 Unload.
+    // Pumping distinguishes event order and Screen state, but cannot prove desktop message posting.
+    [AvaloniaTheory]
+    [InlineData("HideVisibleOther")]
+    [InlineData("ShowVisibleOther")]
+    [InlineData("UnloadOther")]
+    public void Visibility_and_unload_switch_to_the_forms_own_control(string action)
+    {
+        using var run = Start(Form(TextAndButton));
+        run.Call("RememberControls");
+        run.Call("FocusOtherButton");
+        if (action == "ShowVisibleOther")
+            run.Call("HideVisibleOther");
+        var expected = action == "UnloadOther"
+            ? new[] { "Form2 queryunload", "Form2 unload", "Form1 activate", "Command1 gotfocus" }
+            : action == "HideVisibleOther"
+                ? new[] { "Form2 deactivate", "Form1 activate", "Command1 gotfocus" }
+                : new[] { "Form1 deactivate", "Form2 activate", "Command1 gotfocus" };
+        // Buttons log their own focus separately from Form_GotFocus, and remember a non-first control.
+        run.Call(action).Should().Equal(action == "UnloadOther" ? expected :
+            new[] { "Command1 lostfocus" }.Concat(expected));
+        run.Call("ScreenReport").Should().Equal(action == "ShowVisibleOther" ? "Form2" : "Form1", "Command1");
+        run.Errors.Should().BeEmpty();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("HideMe", null)]
+    [InlineData("HideMe", "ShowMe")]
+    [InlineData("HideVisibleMe", "ShowVisibleMe")]
+    public void Last_visible_form_retains_focus_without_events(string hide, string? show)
+    {
+        using var run = Start(Form(TextAndButton) + "\nPrivate Sub Form_Resize()\nDebug.Print \"resize\"\nEnd Sub\n");
+        run.Call("FocusButton");
+        run.Call(hide).Should().BeEmpty();
+        run.Call("ScreenReport").Should().Equal("Form1", "Command1");
+        if (show is not null)
+        {
+            // Model desktop focus leaving a hidden window; headless otherwise keeps its native focus.
+            run.Window.FocusManager!.Focus(null);
+            Pump();
+            run.Call(show).Should().BeEmpty();
+            run.Call("ScreenReport").Should().Equal("Form1", "Command1");
+        }
+        run.Errors.Should().BeEmpty();
     }
 
     [AvaloniaFact]

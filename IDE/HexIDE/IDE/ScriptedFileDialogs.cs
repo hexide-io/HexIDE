@@ -180,13 +180,13 @@ public static class ScriptedFileDialogs
     }
 
     /// <summary>
-    /// A project save reached through the UI asks for its destinations before its first incomplete await (#1335).
-    /// It can save several documents, so no single document's existing path explains an unused answer.
+    /// Captures answers before a routed save (#1335, #4047). A project save can ask for several destinations;
+    /// a document save must finish its task before an unused answer means no picker opened.
     /// </summary>
-    public static CancelWatch WatchForUiProjectSave()
+    public static CancelWatch WatchForUiProjectSave(string pendingReason = "this save opened no picker")
     {
         lock (Lock)
-            return new CancelWatch(true, _cancelsTaken, _taken, _armed, _refusalsTaken, "this save opened no picker");
+            return new CancelWatch(true, _cancelsTaken, _taken, _armed, _refusalsTaken, pendingReason);
     }
 
     /// <summary>
@@ -215,6 +215,11 @@ public static class ScriptedFileDialogs
     public readonly struct CancelWatch(bool armed, long takenBefore, long anyTakenBefore, long armedBefore,
         long refusalsBefore, string? pendingReason = null)
     {
+        public bool AnswerTaken
+        {
+            get { lock (Lock) return _taken > anyTakenBefore; }
+        }
+
         /// <summary>
         /// True when the document had no file and its picker, which takes one file, was answered with several paths
         /// since <see cref="WatchForCancel"/>, so it answered as cancelled (#2408).

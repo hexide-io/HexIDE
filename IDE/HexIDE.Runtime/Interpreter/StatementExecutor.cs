@@ -2433,6 +2433,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     : new NotImplementedException($"`{varOrProcCall.GetText()} = …` is supported only on a Collection, which refuses it");
             }
             var identifier = varOrProcCall.ambiguousIdentifier().GetText();
+            // Filling an event result must not read its unmeasured incoming value (#1099).
+            var state = interpreter.ExecutionContext.State;
+            if (currentEnv.TryGetVariableLocation(identifier, out var resultSlot) && state.IsUnmeasuredInput(resultSlot)
+                && state.DeclaredTypeOf(resultSlot) is { } resultType)
+            {
+                state[resultSlot] = VbNumeric.CoerceOnStore(value, resultType, context);
+                return ControlFlow.Nothing;
+            }
             // A UDT is a value type: `b = a` stores an independent deep copy so mutating b never touches a.
             if (!interpreter.TryReadNow(currentEnv, identifier, out var letFound, out var oldLet, out var letFoundNeed))
                 (letFound, oldLet) = await interpreter.ReadVariableAfter(currentEnv, identifier, letFoundNeed!);
@@ -2612,6 +2620,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (MemberHasArgs(members[0]))
                 {
                     var indexedName = UdtFieldName(members[0]);
+                    var propertyName = VbInterface.ResolveMember(variable, vobj, indexedName);
+                    if (propertyName is not null
+                        && vobj.ClassDef.PrePass.Properties.TryGetValue(propertyName, out var indexedProperty))
+                    {
+                        if (indexedProperty.Let is not { } indexedLetter
+                            || indexedLetter.Parameters.SkipLast(1).Any(p => p.Optional || p.ParamArray)
+                            || members[0].iCS_S_ProcedureOrArrayCall() is not { } propertyCall
+                            || propertyCall.argsCall().Length != 1)
+                            throw new NotImplementedException("This indexed Property Let assignment is not implemented (#177)");
+                        var args = await expressionExecutor.ResolveCallArgs(propertyCall.argsCall(0));
+                        args.Add(new CallArg(value, null));
+                        await interpreter.RunProcedure(vobj.ClassDef, indexedLetter, args, vobj.InstanceEnv, variable, stmtFrames);
+                        return default;
+                    }
                     if (string.Equals(variable.DeclaredAs, vobj.ClassName, StringComparison.OrdinalIgnoreCase)
                         && members[0].iCS_S_ProcedureOrArrayCall() is { } indexed && indexed.argsCall().Length == 1
                         && await interpreter.ReadVariable(vobj.InstanceEnv, indexedName) is (true, var field)
@@ -2784,6 +2806,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
             // Every member of a control Controls.Remove took out is 735 (measured, #1556).
             VBProps.RefuseIfRemoved(control);
+
+            if (control is VBMSFlexGrid grid)
+            {
+                var gridMember = members[0].iCS_S_ProcedureOrArrayCall();
+                var gridArgs = gridMember is not null && gridMember.argsCall().Length == 1
+                    ? await expressionExecutor.EvaluateCallArgs(gridMember.argsCall(0)) : [];
+                if (string.Equals(UdtFieldName(members[0]), "Sort", StringComparison.OrdinalIgnoreCase))
+                    await FlexGridMembers.SortAsync(grid, gridArgs, value);
+                else
+                    FlexGridMembers.Write(grid, UdtFieldName(members[0]), gridArgs, value);
+                return default;
+            }
 
             if (control is VBTimer)
                 TimerMembers.CheckWrite(memberIdentifier);
@@ -3944,7 +3978,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
             var setMember = chainMembers[^1];
             if (MemberHasArgs(setMember))
-                throw new NotImplementedException("Parameterized/indexed object member assignment is not supported");
+            {
+                var propertyName = VbInterface.ResolveMember(target, targetObj, UdtFieldName(setMember));
+                if (propertyName is null
+                    || !targetObj.ClassDef.PrePass.Properties.TryGetValue(propertyName, out var indexedProperty)
+                    || indexedProperty.Set is not { } indexedSetter
+                    || indexedSetter.Parameters.SkipLast(1).Any(p => p.Optional || p.ParamArray)
+                    || setMember.iCS_S_ProcedureOrArrayCall() is not { } propertyCall
+                    || propertyCall.argsCall().Length != 1)
+                    throw new NotImplementedException("This indexed Property Set assignment is not implemented (#177)");
+                var args = await expressionExecutor.ResolveCallArgs(propertyCall.argsCall(0));
+                args.Add(new CallArg(value, null));
+                await interpreter.RunProcedure(targetObj.ClassDef, indexedSetter, args, targetObj.InstanceEnv, target, stmtFrames);
+                return ControlFlow.Nothing;
+            }
             var fieldName = VbInterface.ResolveMember(target, targetObj, UdtFieldName(setMember))
                 ?? throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound,
                     UdtFieldName(setMember));
@@ -4153,7 +4200,26 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (fieldTarget is not null)
                 value = fieldTarget.Read();
             else if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, variableName, out value))
-                throw new VBCompileErrorException("Unknown variable " + variableName);
+            {
+                if (ownedSlots is null)
+                    throw new VBCompileErrorException("Unknown variable " + variableName);
+
+                if (preserve)
+                    throw new VBCompileErrorException("Variable not defined");
+
+                // A plain ReDim declares a new procedure-local dynamic array, even under Option Explicit (#1495).
+                var elementType = varOrProcCall?.typeHint() is { } hint ? BaseTypeMapper.Map(hint)
+                    : currentModule.PrePass.DefaultTypeOf(variableName) ?? Vb6Value.ValueType.EmptyVariant;
+                var arrayType = redim.asTypeClause() is { } clause ? ExtractArrayType(clause)
+                    : new Vb6Value.ValueType(elementType, true);
+                value = new Vb6Value(arrayType);
+                interpreter.ExecutionContext.AllocVariable(currentEnv, variableName, value);
+                if (currentEnv.TryGetOwnVariableLocation(variableName, out var localLoc))
+                {
+                    interpreter.ExecutionContext.State.MarkDeclaredArray(localLoc);
+                    ownedSlots?.Add(localLoc);
+                }
+            }
 
             void Store(Vb6Value next)
             {
@@ -4701,7 +4767,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return dimensions;
     }
 
-
     public override async Task<ControlFlow> VisitWhileWendStmt(VB6Parser.WhileWendStmtContext context)
     {
         // While…Wend is a pre-tested loop. VB6 has no `Exit While`/`Continue While`, so any non-Nothing
@@ -4886,9 +4951,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
            ?? m.iCS_S_ProcedureOrArrayCall()?.ambiguousIdentifier()?.GetText()
            ?? throw new VBCompileErrorException("Malformed UDT field access");
 
-    // True when a member carries an argument list (`.P(i)`) — a parameterized/indexed member access, a wall for
-    // both scalar properties and object fields (mirrors the READ-site guard). `UdtFieldName` discards the index,
-    // so without this guard `x.P(i) = v` would silently drop `(i)`. Empty parens `.P()` yield no argsCall (the
+    // True when a member carries an argument list (`.P(i)`). `UdtFieldName` discards the index,
+    // so callers must handle it separately. Empty parens `.P()` yield no argsCall (the
     // grammar makes argsCall optional), so this is false — a plain member access.
     private static bool MemberHasArgs(VB6Parser.ICS_S_MemberCallContext m)
         => m.iCS_S_ProcedureOrArrayCall()?.argsCall().Length > 0;

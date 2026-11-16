@@ -14,7 +14,7 @@ public class OptionCompareTextTests : BaseVBTestFixture
     // Each row is evaluated in a Binary module (B) and a Text module (T). Option Compare is the module's where the
     // comparison is written: a Binary module's function called from the Text module compares as Binary. Rows where a
     // built-in given no compare would take the module's are left out, as its own change, and so are the two that
-    // compare a String with a number, which raise 13 here in either mode (#211).
+    // compare a String with a number, covered by StringNumberComparisonTests (#211).
     [Fact]
     public async Task Option_Compare_Text_compares_with_the_operators_and_Select_Case_in_its_own_module()
     {

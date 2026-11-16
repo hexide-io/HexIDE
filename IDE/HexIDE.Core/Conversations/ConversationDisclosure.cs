@@ -280,6 +280,8 @@ public sealed record ConversationDisclosure(
     /// </remarks>
     private static string Trail(string uri)
     {
+        if (HexIDE.Lsp.ArchiveEntryUri.TryParse(uri, out _, out var entries))
+            return string.Join('/', entries.TakeLast(2));
         var colon = uri.IndexOf(':');
         var path = colon >= 0 && colon < uri.Length - 1 ? uri[(colon + 1)..] : uri;
 
@@ -303,6 +305,8 @@ public sealed record ConversationDisclosure(
     private static string? Leaf(string? uri)
     {
         if (uri is not { Length: > 0 }) return null;
+        if (HexIDE.Lsp.ArchiveEntryUri.TryParse(uri, out _, out var entries))
+            return entries.LastOrDefault();
 
         var cut = uri.LastIndexOfAny(['/', '\\']);
         var leaf = cut >= 0 && cut < uri.Length - 1 ? uri[(cut + 1)..] : uri;

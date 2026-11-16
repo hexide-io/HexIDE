@@ -37,7 +37,8 @@ A few parts of HexIDE are worth calling out for reviewers:
 
 ## Data handling
 
-The core IDE does not phone home, collect telemetry, or transmit your projects anywhere you have not
-configured. It makes a network call only to an address you give it: the add-in revocation list when
-`RevocationListUrl` is set, and a language server you configure to connect over the network. Optional add-ins (for example, an AI chat assistant) may
+The core IDE collects no telemetry and does not transmit your projects anywhere you have not configured.
+At startup it fetches the signed add-in revocation list from `https://hexide.io/revocations.json` only when
+an enabled package is not key-pinned first-party. `RevocationListUrl` overrides that address; an empty value
+disables fetching. A language server you configure may also connect over the network. Optional add-ins (for example, an AI chat assistant) may
 contact external services **that you configure**; consult each add-in's documentation.

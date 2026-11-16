@@ -462,7 +462,9 @@ public class FormSerializer
         || inBox.CarriedOwnProperties.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
         || inBox.CarriedPropertyOrder.Contains(name, StringComparer.OrdinalIgnoreCase)
         || inBox is SliderComponentClass && (SliderComponentClass.FileProperties.Contains(name, StringComparer.OrdinalIgnoreCase)
-            || name.Equals("Text", StringComparison.OrdinalIgnoreCase));
+            || name.Equals("Text", StringComparison.OrdinalIgnoreCase))
+        // An own property whose saved value couldn't be read is kept as its line, and goes back in the own run (#1222).
+        || inBox.OwnProperties.Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// An in-box control's second run (#1082), written after its extender's as VB6 writes it (measured): <c>_ExtentX</c>,
@@ -575,8 +577,13 @@ public class FormSerializer
             if (inBox is StatusBarComponentClass && (property == StatusBarComponentClass.StyleProperty
                 || property == StatusBarComponentClass.SimpleTextProperty || property == StatusBarComponentClass.ShowTipsProperty))
                 continue;
-            var value = instance.GetBoxedPropertyOrDefault(property);
-            if (value is not null && (inBox.IsAlwaysWritten(property) || !Equals(value, property.BoxedDefaultValue(inBox))))
+            // A saved value HexIDE couldn't read stays as the file wrote it, in its place, until something sets the
+            // property. Writing the default beside it put the property in the block twice, and the next save kept only
+            // the default: `Appearance = O`, a typo for 0, became 1 (#1222).
+            if (!instance.TryGetBoxedProperty(property, out _) && Carried(property.Name) is { } unread)
+                WriteCarried(unread);
+            else if (instance.GetBoxedPropertyOrDefault(property) is { } value
+                && (inBox.IsAlwaysWritten(property) || !Equals(value, property.BoxedDefaultValue(inBox))))
                 vb.WriteProperty(property.Name, property.PropertyType, value);
             foreach (var (name, after) in inBox.CarriedOwnProperties)
                 if (ReferenceEquals(after, property) && Carried(name) is { } carried)

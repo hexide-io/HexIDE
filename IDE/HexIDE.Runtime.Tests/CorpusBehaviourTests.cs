@@ -87,17 +87,6 @@ public class CorpusBehaviourTests
         ["aggregate-visibility/two-private-enums-same-name"] = "PRIVATE-ENUM-AGGREGATION: member not found",
         ["continuation-basics/cont-declare-header-wrapped"] = "DECLARE-NOT-CALLABLE: header wrapped, Sub not defined",
 
-        // EQUALITY-OPERATOR-STRING-VS-NUMERIC. `"1" = 1` and `"1.0" = 1` are both True in VB6; HexIDE
-        // raises Type mismatch, because GetTwoValuesSameTypesOrNull has no String/numeric path and falls
-        // through to its throw. Found while measuring Select Case, and deliberately NOT fixed with it: the
-        // two are different rules. Select Case coerces the case value to the SELECTOR's type, so
-        // `Select Case "1.0" / Case 1` does NOT match — while `"1.0" = 1` does. Sharing one helper between
-        // them, which is the obvious move, would break whichever one it was not written for.
-        ["select-case-matching/equality-operator-string-against-numeric"] =
-            "EQ-OPERATOR-COERCION: raises Type mismatch, VB6 says True",
-        ["select-case-matching/equality-operator-string-numerically-equal-textually-different"] =
-            "EQ-OPERATOR-COERCION: raises Type mismatch, VB6 says True",
-
         // ---- REFUSES CODE VB6 RAN. A false rejection at run time rather than parse time — the parse ---
         // ---- gate is blind to these too, because the module parses and then dies executing. ----------
 
