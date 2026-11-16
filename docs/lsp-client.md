@@ -84,9 +84,11 @@ Initialize declares `textDocument.completion` with all 25 LSP completion kinds, 
 Resolve, commit characters, context and other list item defaults are not advertised.
 This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
 Items from all servers are ordered by `sortText ?? label`, ordinal. Matching uses `filterText ?? label`,
-while the displayed label and insertion fallback remain the label. The full list stays visible. The first
-preselected prefix match is selected, otherwise the first prefix match, using the whole word around the
-caret. An empty or unmatched word leaves no item selected. Enter accepts a selected item then commits a
+while the displayed label and insertion fallback remain the label. The full list stays visible. Using the
+whole word around the caret and ignoring case, an item the whole word matches is selected ahead of an
+earlier item it only starts, so a typed `x` selects `x`, not `Xor` ([#3613](https://github.com/hexide-io/HexIDE/issues/3613));
+otherwise the first prefix match is. Within each, a preselected item comes first. An empty or unmatched
+word leaves no item selected. Enter accepts a selected item then commits a
 new line; Space accepts then types a space; with no selection those keys only type. Tab accepts the
 selected item or, with no selection, the first outlined item, replacing the whole word. Escape closes
 without accepting. Complete Word inserts a unique prefix match immediately (#3056). Descriptions
@@ -1234,7 +1236,7 @@ A key with nothing pending adds no fixed delay. The formatting request's own 250
 
 Completion requests use the start of the identifier around the caret, including for Complete Word,
 so servers that filter by the preceding word return the full list for that context ([#3340](https://github.com/hexide-io/HexIDE/issues/3340)).
-The editor keeps that list visible and selects prefix matches against the whole word around the caret;
+The editor keeps that list visible and selects against the whole word around the caret, a whole-word match first;
 it does not select PascalCase hump matches. A position after `.` or `(` stays after that punctuation.
 
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.

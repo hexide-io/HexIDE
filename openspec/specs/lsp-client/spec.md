@@ -2177,14 +2177,19 @@ The editor SHALL request completion at the start of the identifier around the ca
 Complete Word, so a server filtering by the preceding word can return the full list for that context (#3340).
 
 The client SHALL sort merged completion items ordinally by `sortText ?? label` and match the whole word around the caret using
-`filterText ?? label`, keeping the full list visible. The editor SHALL initially select the first preselected prefix match, otherwise
-its first prefix match, leaving no selection for an empty or unmatched word. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
+`filterText ?? label`, keeping the full list visible. Ignoring case, the editor SHALL initially select an item the whole word matches
+ahead of an earlier item the word only starts (#3613), otherwise the first prefix match, preferring a preselected item within each,
+and leaving no selection for an empty or unmatched word. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
 Object Browser glyphs for corresponding kinds, using none without a counterpart.
 If no item matches the opening word, the editor SHALL retain the server's list for explicit acceptance with Tab.
 
 #### Scenario: Server ranking and selection
 - **WHEN** A has sortText `b` and preselect true, and B has sortText `a`, with an empty prefix
 - **THEN** B appears before A and neither item is selected
+
+#### Scenario: A whole-word match is selected ahead of an earlier prefix match
+- **WHEN** the list holds `Xor` and `x` in that order and the user types `x`
+- **THEN** `x` is selected, and Space leaves `x`
 
 #### Scenario: Filter text differs from label
 - **WHEN** an item labelled `Display` has filterText `needle` and the user types `nee`
