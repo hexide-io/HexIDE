@@ -2090,9 +2090,10 @@ public sealed class VBLspClient : ILspClient
 
     internal static readonly TimeSpan OnTypeFormattingTimeout = TimeSpan.FromMilliseconds(250);
 
-    public async Task<TextEdit[]> RequestOnTypeFormattingAsync(string uri, Position position, string trigger, FormattingOptions options, CancellationToken cancellationToken = default)
+    public async Task<TextEdit[]?> RequestOnTypeFormattingAsync(string uri, Position position, string trigger, FormattingOptions options, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized || !SupportsOnTypeFormatting(uri, trigger)) return [];
+        if (_rpc is null || !_initialized) return null;
+        if (!SupportsOnTypeFormatting(uri, trigger)) return [];
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(OnTypeFormattingTimeout);
         var p = new DocumentOnTypeFormattingParams(new TextDocumentIdentifier(uri), position, trigger, options);
@@ -2104,7 +2105,7 @@ public sealed class VBLspClient : ILspClient
         catch (Exception ex)
         {
             WarnRequestFailedOnce("textDocument/onTypeFormatting", ex, cancellationToken);
-            return [];
+            return null;
         }
     }
 

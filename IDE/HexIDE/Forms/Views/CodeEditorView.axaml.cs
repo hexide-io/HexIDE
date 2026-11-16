@@ -2141,6 +2141,7 @@ public partial class CodeEditorView : UserControl
             var line = doc.GetLineByOffset(offset);
             var indent = VbAutoCloseProvider.GetIndentation(doc.GetText(line.Offset, line.Length));
             var newline = DocumentNewLines.Of(doc.Text);
+            string? fallbackIndent = null;
             var before = doc.Version;
             using (doc.RunUpdate())
             {
@@ -2150,6 +2151,7 @@ public partial class CodeEditorView : UserControl
                     TextEditor.TextArea.ClearSelection();
                     (offset, length) = EditedSpan() ?? (TextEditor.CaretOffset, 0);
                 }
+                fallbackIndent = EnterFallbackIndent(owner, offset, length);
                 if (owner.InsertLineBreakPastRun(offset, length, "\n" + indent) is { } placed)
                 {
                     TextEditor.TextArea.ClearSelection();
@@ -2161,7 +2163,7 @@ public partial class CodeEditorView : UserControl
                 }
             }
             if (!ReferenceEquals(before, doc.Version))
-                PendingOnTypeFormatting = FormatTypedCharacterAsync(owner, "\n");
+                PendingOnTypeFormatting = FormatTypedCharacterAsync(owner, "\n", fallbackIndent);
             return;
         }
         // Enter = auto-close block + auto-indent
@@ -2221,7 +2223,59 @@ public partial class CodeEditorView : UserControl
         }
     }
 
-    private async Task FormatTypedCharacterAsync(CodeEditorViewModel vm, string trigger)
+    private string EnterFallbackIndent(CodeEditorViewModel vm, int offset, int length)
+    {
+        var doc = TextEditor.Document;
+        var line = doc.GetLineByOffset(offset);
+        var endLine = doc.GetLineByOffset(offset + length);
+        var prefix = doc.GetText(line.Offset, offset - line.Offset);
+        var suffix = doc.GetText(offset + length, endLine.EndOffset - offset - length);
+        var text = prefix + suffix;
+        var indent = VbAutoCloseProvider.GetIndentation(text);
+        var run = vm.ReadOnlySections.RunHangingFrom(offset);
+        if (!string.IsNullOrWhiteSpace(suffix)
+            || (run is null && VbAutoCloseProvider.IsContinuationLine(text))) return indent;
+
+        var lastLine = run is null ? endLine.LineNumber : doc.GetLineByOffset(run.LastContentEnd).LineNumber;
+        return UnclosedBlock(doc, line.LineNumber, run, lastLine, text).Closer is not null
+            ? VbAutoCloseProvider.GetBodyIndent(indent, TextEditor.Options.IndentationSize) : indent;
+    }
+
+    /// <summary>
+    /// The first line of the logical line that ends on <paramref name="lineNumber"/>, and the closer that logical line
+    /// opens when nothing past <paramref name="lastLine"/> supplies it (null when it opens no block or its closer is
+    /// there). Plain Enter's rule; the on-type fallback (#4057) asks this same method, so the two cannot drift.
+    /// <paramref name="lineText"/>, when given, stands in for line <paramref name="lineNumber"/>'s own text.
+    /// </summary>
+    private static (int StartLine, string? Closer) UnclosedBlock(TextDocument doc, int lineNumber, HangingRegion? run,
+        int lastLine, string? lineText = null)
+    {
+        // The first physical line of the logical line (for continuations).
+        var startLine = run is null ? lineNumber : doc.GetLineByOffset(run.LineStart).LineNumber;
+        if (run is null)
+            while (startLine > 1)
+            {
+                var previous = doc.GetLineByNumber(startLine - 1);
+                if (!VbAutoCloseProvider.IsContinuationLine(doc.GetText(previous.Offset, previous.Length))) break;
+                startLine--;
+            }
+
+        // Nothing above its first line is offered, so for a described line the looser rule cannot walk back past
+        // where 4.1's reader starts it.
+        var logicalLine = VbAutoCloseProvider.AssembleLogicalLine(index =>
+        {
+            if (index + 1 < startLine) return string.Empty;
+            if (index + 1 == lineNumber && lineText is not null) return lineText;
+            var physical = doc.GetLineByNumber(index + 1); // index is 0-based, the document 1-based
+            return doc.GetText(physical.Offset, physical.Length);
+        }, lineNumber - 1);
+
+        var closer = VbAutoCloseProvider.GetClosingStatement(logicalLine);
+        Log.Debug("[auto-close] Logical line: '{LogicalLine}', closer: {Closer}", logicalLine, closer ?? "(null)");
+        return (startLine, closer is not null && !HasMatchingCloser(doc, lastLine, closer) ? closer : null);
+    }
+
+    private async Task FormatTypedCharacterAsync(CodeEditorViewModel vm, string trigger, string? fallbackIndent = null)
     {
         var generation = ++_onTypeGeneration;
         var doc = TextEditor.Document;
@@ -2237,8 +2291,16 @@ public partial class CodeEditorView : UserControl
             var edits = await vm.RequestOnTypeFormattingAsync(new Position(location.Line - 1, location.Column - 1), trigger);
             if (generation != _onTypeGeneration || DataContext != vm || TextEditor.Document != doc
                 || vm.LiveDocumentUri != uri || !ReferenceEquals(version, doc.Version)
-                || !doc.UndoStack.CanUndo || !ReferenceEquals(group, doc.UndoStack.LastGroupDescriptor)
-                || edits.Length == 0) return;
+                || !doc.UndoStack.CanUndo || !ReferenceEquals(group, doc.UndoStack.LastGroupDescriptor)) return;
+
+            if (edits is null && trigger == "\n" && fallbackIndent is not null)
+            {
+                var line = doc.GetLineByNumber(location.Line);
+                if (doc.GetText(line.Offset, location.Column - 1) == fallbackIndent) return;
+                edits = [new TextEdit(new(new(location.Line - 1, 0),
+                    new(location.Line - 1, location.Column - 1)), fallbackIndent)];
+            }
+            if (edits is not { Length: > 0 }) return;
 
             // No group spans an await: typing, undo and unrelated edits stay usable while the server answers.
             doc.UndoStack.StartContinuedUndoGroup();
@@ -2341,40 +2403,9 @@ public partial class CodeEditorView : UserControl
                 return true;
             }
 
-            // Find the first physical line of the logical line (for continuations)
-            var startLineNumber = currentLineNumber;
-            if (run is not null)
-                startLineNumber = doc.GetLineByOffset(run.LineStart).LineNumber;
-            else
-            {
-                while (startLineNumber > 1)
-                {
-                    var prevLine = doc.GetLineByNumber(startLineNumber - 1);
-                    if (!VbAutoCloseProvider.IsContinuationLine(
-                            doc.GetText(prevLine.Offset, prevLine.Length)))
-                        break;
-                    startLineNumber--;
-                }
-            }
-
-            // Assemble the full logical line (handle multi-line continuations). Nothing above its first line is
-            // offered, so for a described line the looser rule cannot walk back past where 4.1's reader starts it.
-            var logicalLine = VbAutoCloseProvider.AssembleLogicalLine(
-                lineIdx =>
-                {
-                    if (lineIdx + 1 < startLineNumber)
-                        return string.Empty;
-                    var dl = doc.GetLineByNumber(lineIdx + 1); // lineIdx is 0-based, doc is 1-based
-                    return doc.GetText(dl.Offset, dl.Length);
-                },
-                currentLineNumber - 1); // Convert to 0-based index
-
-            var closer = VbAutoCloseProvider.GetClosingStatement(logicalLine);
-            Log.Debug("[auto-close] Logical line: '{LogicalLine}', closer: {Closer}",
-                logicalLine, closer ?? "(null)");
-
             // A run is folded into the line it describes as the developer sees it, so the closer is looked for after it.
             var lastLineBefore = run is null ? currentLineNumber : doc.GetLineByOffset(run.LastContentEnd).LineNumber;
+            var (startLineNumber, closer) = UnclosedBlock(doc, currentLineNumber, run, lastLineBefore);
 
             // Keyword-normalize the committed physical lines + insert closer (single undo)
             doc.BeginUpdate();
@@ -2405,7 +2436,7 @@ public partial class CodeEditorView : UserControl
                 var updatedLineText = doc.GetText(updatedLine.Offset, updatedLine.Length);
                 var indent = VbAutoCloseProvider.GetIndentation(updatedLineText);
                 var bodyIndent = VbAutoCloseProvider.GetBodyIndent(indent, TextEditor.Options.IndentationSize);
-                var addCloser = closer is not null && !HasMatchingCloser(doc, lastLineBefore, closer);
+                var addCloser = closer is not null;
                 var insertText = addCloser ? newline + bodyIndent + newline + indent + closer : newline + indent;
 
                 // After the run: the provider places it, writing each line break as the described line's own. The

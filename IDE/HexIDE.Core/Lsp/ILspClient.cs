@@ -329,8 +329,8 @@ public interface ILspClient : IAsyncDisposable
 
     /// <summary>Whether a running document claimant declares this on-type formatting trigger.</summary>
     bool SupportsOnTypeFormatting(string uri, string trigger);
-    /// <summary>Requests edits from one claimant declaring the trigger, with a short cancellation budget.</summary>
-    Task<TextEdit[]> RequestOnTypeFormattingAsync(string uri, Position position, string trigger, FormattingOptions options, CancellationToken cancellationToken = default);
+    /// <summary>Requests edits from one claimant declaring the trigger, with a short cancellation budget; null means timeout or failure.</summary>
+    Task<TextEdit[]?> RequestOnTypeFormattingAsync(string uri, Position position, string trigger, FormattingOptions options, CancellationToken cancellationToken = default);
 
     /// <summary>Whether an open document has a running claimant advertising range formatting.</summary>
     bool SupportsRangeFormatting(string uri);

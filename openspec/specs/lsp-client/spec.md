@@ -2921,7 +2921,8 @@ The client SHALL expose a query and a request for a document URI and typed chara
 `textDocument/onTypeFormatting` only to the highest-priority running document claimant declaring that
 character in `documentOnTypeFormattingProvider.firstTriggerCharacter` or `moreTriggerCharacter`.
 The request SHALL carry the post-typing position and formatting options, return the server's text edits,
-and cancel after a 250 ms budget with no edits on timeout.
+and cancel after a 250 ms budget. It SHALL return null for timeout or failure, and an empty edit array
+for a successful empty or null server answer.
 
 #### Scenario: A higher-priority server declares a different character
 
@@ -2932,7 +2933,7 @@ and cancel after a 250 ms budget with no edits on timeout.
 #### Scenario: The selected server does not answer
 
 - **WHEN** the on-type formatting request exhausts its budget
-- **THEN** the client sends `$/cancelRequest` for that request and returns no edits
+- **THEN** the client sends `$/cancelRequest` for that request and returns null
 
 ### Requirement: Edit language-server definitions through a field form
 The Language & Debug Servers window SHALL offer Add and Edit for user entries and Customize for bundled
@@ -3018,6 +3019,9 @@ SHALL stop before the replacement's (n+1)th line break, or at its end if fewer e
 breaks in the old text from the edit start to the caret. Once stopped at a line break, later insertions
 at that position SHALL NOT move it. This mapping SHALL also apply to reduced replies protecting read-only
 text. Same-position insertions SHALL retain their array order for on-type and document formatting.
+On newline timeout or failure, the editor SHALL apply local Enter indentation without a closer or keyword
+correction, subject to the same guards and continued undo group as server edits. A successful empty or
+null server answer SHALL leave the initial indentation unchanged. Other triggers SHALL have no fallback.
 
 #### Scenario: A server closes the block
 
@@ -3040,5 +3044,6 @@ text. Same-position insertions SHALL retain their array order for on-type and do
 #### Scenario: A newline formatter times out
 
 - **WHEN** the newline formatter exceeds its 250 ms budget
-- **THEN** cancellation is sent and the typed line break and indentation stay
+- **THEN** cancellation is sent and local Enter indentation is applied if the formatting guards still hold
 - **AND** no local closer or keyword correction runs as a fallback
+- **AND** one undo restores the text before Enter
