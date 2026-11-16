@@ -724,6 +724,7 @@ added afterwards.
 - [A long date pattern with an era (2026-11-14, #3946)](a-long-date-pattern-with-an-era.md#a-long-date-pattern-with-an-era-2026-11-14-3946)
 - [LSet and RSet into a String (2026-10-28, #2517)](lset-and-rset-into-a-string.md#lset-and-rset-into-a-string-2026-10-28-2517)
 - [LSet between two user-defined types (2026-10-28, #2518)](lset-between-two-user-defined-types.md#lset-between-two-user-defined-types-2026-10-28-2518)
+- [A nested user-defined type is a record of its own (2026-11-16, #2518)](a-nested-user-defined-type-is-a-record-of-its-own.md#a-nested-user-defined-type-is-a-record-of-its-own-2026-11-16-2518)
 - [CallByName (2026-10-28, #2519)](callbyname.md#callbyname-2026-10-28-2519)
 - [CVErr and the Error subtype (2026-10-28, #2520)](cverr-and-the-error-subtype.md#cverr-and-the-error-subtype-2026-10-28-2520)
 - [Reset and FileAttr (2026-10-28, #2521)](reset-and-fileattr.md#reset-and-fileattr-2026-10-28-2521)
