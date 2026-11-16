@@ -860,12 +860,13 @@ The client SHALL be started when the desktop IDE starts and stopped when it shut
 orderly server shutdown before terminating the process. The shutdown request SHALL have a two-second
 deadline, and the client SHALL attempt `exit` whether shutdown answers, fails or times out, but only
 after `initialize` has been answered. An externally owned pipe server SHALL receive neither message;
-teardown SHALL close only its connection. A launched pipe server SHALL get two seconds to exit before
-its remaining process tree is killed, including during bring-up. Both messages
-SHALL omit the `params` member. The stdio transport SHALL allow two seconds for an orderly exit, then
-kill the remaining process tree and wait up to two seconds for termination before disposing the process
-handle. On Linux and macOS, both transports SHALL allow an additional two seconds for the guard's
-group cleanup before killing it. The process exit code SHALL remain observable in the conversation during client stop,
+teardown SHALL close only its connection. On Windows, a launched pipe server SHALL get two seconds to
+exit before its remaining process tree is killed, including during bring-up. Windows stdio SHALL allow
+two seconds for orderly exit, then kill the remaining process tree and wait up to two seconds for termination
+before disposing the process handle. On Linux and macOS, both launched transports SHALL use a two-second
+disposal deadline, allowing 1.5 seconds for orderly exit and only the remaining time for reaping after a
+kill. Guard cleanup SHALL count against that deadline. Both messages SHALL omit the `params` member.
+The process exit code SHALL remain observable in the conversation during client stop,
 except for a timeout termination after a successful `shutdown` answer and a sent `exit`: that end SHALL
 be recorded once as a stop with the elapsed grace period, without a fault or killed-process exit code.
 Natural non-zero exits and kills without a successful shutdown SHALL retain their exit code and fault.
@@ -890,8 +891,10 @@ start suspended.
 On Linux and macOS, stdio and launched pipe servers SHALL run under `HexIDE.LspGuard`, which
 SHALL create its own process group before starting the server with inherited stdin, stdout and stderr.
 Every 500 ms the guard SHALL check whether its parent has changed. On reparenting it SHALL send
-SIGTERM to its group and, after two seconds, SIGKILL. When the server exits on its own, it SHALL
-perform the same group cleanup, leaving the group before SIGKILL to preserve the server's exit code.
+SIGTERM to its group after leaving it, poll for the group to disappear and send SIGKILL if it remains
+after 500 ms. If leaving the group fails, it SHALL still terminate the group within that cleanup budget.
+When the server exits on its own, it SHALL perform the same group cleanup, preserving the server's exit
+code when it can leave the group. An empty group SHALL end cleanup immediately.
 After the normal transport grace period, a remaining guard SHALL be
 terminated with its group. Externally owned servers SHALL NOT be guarded. Descendants that leave
 the group are outside this guarantee.
@@ -927,7 +930,7 @@ still goes away.
 #### Scenario: The Unix IDE is killed without shutdown
 - **GIVEN** a launched stdio or pipe server and its child remain in the guard's process group
 - **WHEN** the IDE is killed without disposing the transport
-- **THEN** the guard detects reparenting and terminates the group, escalating after two seconds
+- **THEN** the guard detects reparenting and terminates the group, escalating after at most 500 ms
 
 #### Scenario: Shutting down the IDE
 - **WHEN** the IDE shuts down
@@ -937,7 +940,7 @@ still goes away.
 #### Scenario: A Unix server exits cleanly with a child still running
 - **GIVEN** a launched server has spawned a child in the guard's process group
 - **WHEN** the server exits on its own
-- **THEN** the guard sends SIGTERM to the group and SIGKILL after two seconds
+- **THEN** the guard sends SIGTERM to the group and SIGKILL if it remains after 500 ms
 - **AND** a child that ignores SIGTERM is ended, and the guard preserves the server's exit code
 
 #### Scenario: A server never answers shutdown
@@ -946,7 +949,7 @@ still goes away.
 - **AND** it disposes the connection and transport, killing any remaining child with a bounded exit wait
 
 #### Scenario: A stdio server handles exit cleanly
-- **WHEN** the server exits within two seconds of receiving `exit` after `shutdown`
+- **WHEN** the server and guard finish within the orderly-exit grace period after `shutdown` and `exit`
 - **THEN** it is allowed to terminate without being killed
 - **AND** its exit code is recorded in the conversation
 
