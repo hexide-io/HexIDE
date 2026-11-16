@@ -152,7 +152,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (result.Type == Vb6Value.ValueType.Object || result.Type == Vb6Value.ValueType.Control
             || result.Type == Vb6Value.ValueType.CSharpProxyObject || result.Type == Vb6Value.ValueType.Nothing)
             throw new NotImplementedException("Nested default members are unmeasured (#174)");
-        return result;
+        // A late-bound read gives a Variant; an early-bound read keeps the member's declared type (#174).
+        return value.HeldAsVariant || string.Equals(value.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
+            ? result.AsVariant() : result;
     }
 
     /// <summary>
