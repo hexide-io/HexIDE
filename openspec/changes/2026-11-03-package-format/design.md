@@ -53,7 +53,9 @@ What these choices unblock:
 The trust choices in A1, A3, A4 and A5 had a single-opinion Fable review on 2026-11-15 (A4 in a second
 pass). Its twelve
 findings are folded in. Two of them were claims about the code on main, and both were checked before
-being relied on.
+being relied on. On 2026-11-16, rdcore reviewed it from RDCore's side, and its corrections are folded in
+too: priority-based routing is kept, publisher namespaces are issued, the launch tokens and transport are
+declared, and the runtime is identified by its root.
 
 ### A1. Container, inventory and installation (§1)
 
@@ -143,6 +145,9 @@ being relied on.
 - **Payload validation:** every data payload is read by its kind's existing strict parser, which already
   refuses scripts and executable markup. A payload that fails its parser refuses the package. It never
   changes the tier.
+- **Translations can't relabel protected keys:** a `translation` contribution gets the same protection as
+  profiles and user overrides. Credit keys and trust labels (the root and first-party key lines,
+  provenance, and the trust chain's root and comparison hint) are never relabelled by a package.
 - **Unknown kinds:** an unknown kind makes the whole package *incompatible*, naming the kind. There is no
   partial activation of a package build. After installation, the user may disable individual
   contributions, and that is a user setting, not a partially accepted package.
@@ -171,15 +176,25 @@ being relied on.
   environment, working-directory and acquisition field, so it binds every executable byte and every
   launch input.
   - The working directory defaults to the immutable install directory, and is shown in the dialog.
-  - Schema 1 allows no variable expansion except a closed set the host defines: `${installDir}` and
-    `${userDataDir}` anywhere, and `${workspaceFolder}` only in argv after position 0. It is refused in
-    the command, the working directory and environment values, so a hostile workspace can't become code
-    through `NODE_OPTIONS` or the working directory. The dialog shows `${workspaceFolder}` unexpanded, with
-    a note that it varies per workspace.
-  - An artifact that runs on a runtime (`dotnet`, `node`) has its runtime resolved to an absolute path at
-    consent. That runtime is treated as a detected executable: its path and SHA-256 are in the consent
-    identity and rechecked before each launch, so a runtime planted on PATH after consent can't stand
-    in for it. A detected executable, outside any
+  - Schema 1 allows no variable expansion except a closed set the host defines:
+    - `${installDir}`, `${userDataDir}`, and the host-generated `${pipe}` and `${pid}`, anywhere;
+    - `${workspaceFolder}` and `${workspaceUri}` only in argv after position 0.
+
+    They're refused in the command, the working directory and environment values, so a hostile
+    workspace can't become code through `NODE_OPTIONS` or the working directory. The dialog shows the
+    workspace tokens unexpanded, with a note that they vary per workspace.
+  - **Transport** is declared: `transport` is `stdio` or `pipe`. With `pipe`, the host creates and names
+    the pipe and passes it as `${pipe}`, and the server connects to it.
+  - An artifact that runs on a runtime (`dotnet`, `node`) has its runtime resolved at consent to an
+    install root and major version. For .NET, the host sets `DOTNET_ROOT` to that root when it launches
+    the artifact. A tool's own child processes need it, as RDCore's apphost does (measured 2026-11-15).
+    The identity is that root plus the major version, rechecked before each launch:
+    - a different root, such as a runtime planted earlier on PATH, asks again;
+    - a servicing update within the major doesn't.
+
+    That's a weaker guarantee than a hash, chosen because the runtime is a platform component that its
+    installer updates. The dialog says the runtime is identified by location and version, not by its
+    bytes. A detected executable, outside any
   inventory, adds its absolute path and its SHA-256 to the identity. Both are rechecked immediately before
   each launch, and any difference asks again. A detected binary is never presented as inventoried.
 - **When consent is asked:** one consent per package build covers all of its host-run and code
@@ -209,10 +224,19 @@ being relied on.
   An override's hash is part of the launch identity, so an override written outside the settings UI asks
   once (A5).
 - **Re-verification before every launch:**
-  - Before every launch, not only the first, the host checks the whole tree of the launched artifact: set
-    equality and every file's digest, plus its manifest. That's what the add-in loader does on each load
-    (#3888). So a DLL dropped beside the executable, or into a folder the tool reads such as
-    `Extensions`, refuses the launch, just as a swapped executable does.
+  - At the first launch of an artifact in each IDE session, the host checks its whole tree: set equality
+    and every file's digest, plus its manifest. That's what the add-in loader does on each load (#3888).
+    So a DLL dropped beside the executable, or into a folder the tool reads such as `Extensions`, refuses
+    the launch, just as a swapped executable does.
+  - Later launches in the same session compare each file's size, modification time and file id with what
+    the full check saw, and any difference triggers a full re-hash.
+    - The cost: a full hash of RDCore's tree measured 0.4 to 1.25 seconds, which every F5 would otherwise
+      pay.
+    - The trade-off, stated plainly: a same-user process that rewrites a file while keeping its
+      metadata could pass until the next session.
+  - **Scope:** these rules cover the host-run contributions a package declares. A server or adapter that
+    an add-in starts at run time is that add-in's own code acting under its consent (code tier, with no
+    sandbox claim), so it is covered by the add-in's verification, not checked per launch.
   - For a downloaded artifact, the per-file digests recorded at extraction are local metadata. The hash
     of that metadata is part of the grant, so rewriting it voids the grant.
   - Immutable version directories are a convention, so the check doesn't rely on them, and A4's
@@ -224,6 +248,8 @@ being relied on.
   - It records the specific unsigned server and adapter ids it was turned on for. A later unsigned one
     needs its own opt-in.
   - Unsigned host-run packages still get consent for each build, keyed on the manifest hash.
+  - Under developer mode, or under this opt-in for that named id with the marker showing, an unsigned
+    server may take file routing (A5). That's what lets a publisher test a local build of its own server.
   - While it is on and an unsigned server or adapter is active, the title bar carries the marker. That
     placement is Jen's answer to q-2945-unsigned-marker, and it sits beside developer mode's (#2452).
   - Each start shows a non-modal notice naming every unsigned server, and closing the notice is not
@@ -241,9 +267,14 @@ being relied on.
   - A duplicate key refuses the manifest.
   - A contribution with no key for this platform is listed as *not available on this platform*, and is
     never offered.
+  - Platform keys are optional on an `addin` contribution. A managed add-in is platform-neutral unless it
+    declares platforms.
 - **Runtime prerequisites:**
-  - Each artifact declares `runtime` inline: `{"kind":"none"}`, `{"kind":"dotnet","minimumVersion":"M.m"}`
-    for the Microsoft.NETCore.App shared framework, or `{"kind":"node","minimumVersion":"M"}`.
+  - Each artifact declares `runtime` inline: `{"kind":"none"}`,
+    `{"kind":"dotnet","minimumVersion":"M.m","rollForward":"minor"}` for the Microsoft.NETCore.App shared
+    framework, or `{"kind":"node","minimumVersion":"M"}`.
+  - `rollForward` defaults to `minor`, meaning the same major version, which is .NET's own default. An app
+    with no roll-forward setting runs only on its major, as RDCore's does.
   - .NET is detected without running anything, by reading the `shared/Microsoft.NETCore.App/<version>`
     folders under `DOTNET_ROOT`, the platform's default install locations and the folder of `dotnet` on
     PATH.
@@ -292,11 +323,19 @@ being relied on.
     keeps it, and the host never redirects or permits writes into the tree.
   - A tool that writes inside its install tree fails A3's per-launch re-verification and is shown as
     *modified since install*, with a repair. There is no allowlist of changeable files.
-  - The review's premise was an older RDCore. At RDCore d6496d6fb (RDCore.SDK 0.1.4-alpha), logs go to
-    the per-user log folder (`RDCORE_LOGS_DIRECTORY`), user settings and workspaces to the per-user data
-    folder (`RDCORE_USER_DATA`), and `Symbols` and `Extensions` are shipped and only read. That was read
-    in RDCore's code and checked on a real build, which wrote nothing in its tree across several server
-    and adapter runs (rdcore, 2026-11-15).
+  - The review's premise was an older RDCore. At RDCore d6496d6fb (RDCore.SDK 0.1.4-alpha), read in its
+    code by rdcore on 2026-11-15:
+    - logs go to the per-user log folder (`RDCORE_LOGS_DIRECTORY`);
+    - user settings go to the per-user data folder (`RDCORE_USER_DATA`);
+    - workspaces default to `Workspace.DefaultLocation`, also outside the install;
+    - `Symbols` and `Extensions` are shipped and only read.
+
+    A real build, 3cab50ab on SDK 0.1.5, wrote nothing in its tree across several server and adapter runs.
+    That covered server and adapter runs only. That `Extensions` can be moved through its path setting
+    was reasoned, not run.
+  - **Open with RDCore:** user-installed RDCore extensions would sit inside the verified tree and fail
+    verification. The question for RDCore is a second, per-user extensions root. Moving the existing path
+    would move its core extension with it.
   - Adopter-bundled artifacts follow the same rule.
 
 ### A5. Ids, paths, collisions and overrides (§5)
@@ -315,8 +354,11 @@ being relied on.
   - References are typed, as `package:` or `<kind>:`, so the built-in package `hexide.vb6` and
     `LanguageServerDefaults.BundledVb6Id` no longer collide, and neither is renamed.
 - **Publisher ownership:**
-  - A package id's first segment is the publisher's namespace, carried in the publisher record that
-    HexIDE's intermediate signs, as `hexide.` already is for the first-party key.
+  - A package id's first segment is one of the publisher's namespaces. The publisher record that HexIDE's
+    intermediate signs gains an issued `namespaces` list, as `hexide.` already is for the first-party key.
+    For example, `rdcore.` is issued to the publisher `rubberduck-vba`.
+  - A publisher record issued before the field exists can't use the package route until it's re-issued at
+    a signing ceremony. Today's signed add-in directories and their loader are unaffected.
   - A signed package whose id doesn't start with its publisher's namespace is refused. That stops one
     chained publisher squatting another's ids locally, including through a profile's embedded dependency.
   - Issuance enforces uniqueness: signing a publisher record refuses a namespace already issued to a
@@ -325,10 +367,22 @@ being relied on.
     namespace, so they can never hold or borrow a publisher's id. An override never rebinds across the
     signed/unsigned line.
   - Only one version of an id is active at a time.
-- **Contribution collisions** that select an executable (two packages claiming one language id or file
-  pattern):
-  - A first-party contribution wins over an outside one by default.
-  - Between two outside packages, neither is chosen automatically. Both are listed as *conflicting*
+- **Contribution collisions** that select an executable (two claims on one language id or file pattern):
+  - **Who can claim:** the existing registration `Priority` decides, but only among signed, consented
+    packages and add-ins.
+    - That keeps today's deliberate order, where RDCore's add-in at 10 outranks the bundled VB6 server at
+      -1000 for `.bas`, `.cls` and `.frm`.
+    - Unsigned packages never take routing by default. They may under developer mode, or the #2945 opt-in
+      for that named id (A3).
+    - Loose packs never do.
+  - **Consent discloses a takeover.** A manifest declares the file patterns it may claim, and the consent
+    dialog shows which current owner each one displaces ("claims .bas/.cls/.frm, taking them over from the
+    bundled VB6 server"). A registration at run time outside its declared patterns is refused.
+    - An add-in with no declared patterns, which is every add-in today including RDCore's, keeps today's
+      behaviour. A one-time notice appears when one of its registrations first outranks the bundled
+      server.
+    - A later add-in schema will require the declaration.
+  - **Ties:** at equal priority, neither claim is chosen automatically. Both are listed as *conflicting*
     until the user picks, and the choice is persisted.
   - A user's own configuration (the settings file, not a loose pack) outranks all of them, as today.
 - **Overrides:**
@@ -357,7 +411,10 @@ being relied on.
   - A newer schema, or an unmet minimum, is *incompatible* before activation, developer mode included.
 - **Downgrade:** only by explicit user action, never automatic.
 - **Loose packs:** existing loose theme, keymap and language packs keep being discovered by today's
-  readers for a transition period, as user content. They are not imported into generated packages,
+  readers for a transition period, as user content.
+  - The transition ends once each pack kind has a package form and one release has shipped with both
+    readers. Its end is announced in the changelog.
+  - Publishers holding issued records also get a direct notice one release ahead, through the maintainer. They are not imported into generated packages,
   which keeps their provenance and rewrites no user file. A loose pack with the same id as a package
   contribution wins and shows as an override, but only for kinds that can't select an executable
   (themes, keymaps, translations, icons, snippets and templates). A loose `languageDefinition` never
