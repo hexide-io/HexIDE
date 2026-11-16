@@ -161,6 +161,9 @@ Hover replies accept `MarkupContent`, a legacy `MarkedString` (Markdown string o
 code block), or an array of marked strings (#2022). Legacy forms are normalized to Markdown markup
 content, with blank lines between array parts; `MarkupContent` keeps its kind and value. The editor's
 tooltip renders Markdown paragraphs, emphasis, inline code, lists and fenced code blocks (#2905).
+ATX headings (`#` through `######`) render bold without their markers; thematic breaks of three or
+more matching `-`, `*` or `_` markers, with optional spaces, render as thin separators (#4129).
+Setext headings and HTML remain outside the supported subset.
 The renderer owns the advertised `contentFormat` preference: `["markdown", "plaintext"]`.
 `vb` and `vba` fences use the editor's font and shared VB6 colours; other fences use its font
 without highlighting. Raw HTML is literal text. HTTP(S) links open through the browser only on

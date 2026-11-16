@@ -644,6 +644,17 @@ for other languages. Plain text SHALL stay literal; normalized marked strings SH
 - **WHEN** a Markdown hover contains a bulleted or numbered item holding a link
 - **THEN** the marker and the link caption have text tops within one pixel
 
+### Requirement: Hover headings and thematic breaks
+
+ATX headings of levels one through six SHALL render as separate bold blocks without their markers.
+Lines containing at least three matching hyphens, asterisks or underscores and otherwise only spaces
+SHALL render as thin separators, separate from neighbouring blocks. Setext headings remain unsupported.
+
+#### Scenario: A server supplies headings and thematic breaks
+- **WHEN** a Markdown hover contains `### function ` followed by inline code and a standalone `---` line
+- **THEN** the heading is bold without hash markers and the break is a thin separator
+- **AND** neither block is joined to its neighbours
+
 ### Requirement: Hover dismissal while editing
 
 Typing in the editor SHALL close its hover tip and cancel pending hover requests. Opening a completion
