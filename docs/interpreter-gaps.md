@@ -280,7 +280,7 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   modelled. Not a boundary.
 - **Object-model class features** — `With New`, `Friend`, and same-project qualified `New` are runtime lookups, not
   analysis. **`As New` is done (#435):** the object is made where the variable is first read, through the same request
-  and retry that make a form's default instance (#822), with an array `As New` (#1482) still to come. A Type's field makes its object on first use too (#1488);
+  and retry that make a form's default instance (#822), including each element of an array `As New` ([#4150](https://github.com/hexide-io/HexIDE/issues/4150), [measured core rules](vb6-fidelity-oracle/as-new.md)). For Each does not make untouched elements; Set to Nothing and Erase release made ones. A Type's field makes its object on first use too (#1488);
   copying the Type shares the object. (`Friend` treated as Public is arguably not
   a gap at all in a single-project interpreter — there are no external clients to hide from.)
 
