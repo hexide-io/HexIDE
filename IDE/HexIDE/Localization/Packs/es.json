@@ -2,6 +2,7 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Al aplicar el texto del archivo de proyecto se reemplazará la configuración sin guardar de {0}. ¿Continuar?",
     "Str.AIChat.Title": "Chat de IA",
     "Str.AIChat.Menu": "_Chat de IA",
     "Str.AIChat.Approved": "✔ Aprobado",
@@ -444,6 +445,7 @@
     "Str.Tool.CallStack.RowName": "{0}, línea {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Todas las bibliotecas>",
     "Str.Tool.ObjectBrowser.MembersOf": "Miembros de '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "No se pueden enumerar los miembros sin la biblioteca de tipos de esta biblioteca.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Cerrar Examinador de objetos",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Examinador de objetos",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Ir a la definición",

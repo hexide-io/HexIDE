@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "החלת טקסט קובץ הפרויקט תחליף הגדרות פרויקט שלא נשמרו עבור {0}. להמשיך?",
     "Str.AIChat.Title": "צ׳אט בינה מלאכותית",
     "Str.AIChat.Menu": "צ׳אט בינה מלאכותית",
     "Str.AIChat.Approved": "✔ אושר",
@@ -478,6 +479,7 @@
     "Str.Tool.CallStack.RowName": "{0}, שורה {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<כל הספריות>",
     "Str.Tool.ObjectBrowser.MembersOf": "חברים של '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "לא ניתן להציג את רשימת החברים ללא ספריית הטיפוסים של ספרייה זו.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "סגור את דפדפן האובייקטים",
     "Str.Tool.ObjectBrowser.Chrome.Title": "דפדפן אובייקטים",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "עבור להגדרה",

@@ -2,6 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Projektitiedoston tekstin käyttäminen korvaa projektin {0} tallentamattomat asetukset. Jatketaanko?",
     "Str.MemberOrigin.HexIde": "HexIDE-laajennus; ei käytettävissä VB6:ssa.",
     "Str.Dock.Host": "Telakointi-isäntä",
     "Str.Dock.Root": "Juuritelakka",
@@ -419,6 +420,7 @@
     "Str.Tool.CallStack.RowName": "{0}, rivi {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Kaikki kirjastot>",
     "Str.Tool.ObjectBrowser.MembersOf": "Kohteen '{0}' jäsenet",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Jäseniä ei voi luetella ilman tämän kirjaston tyyppikirjastoa.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Sulje objektiselain",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektiselain",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Siirry määritykseen",

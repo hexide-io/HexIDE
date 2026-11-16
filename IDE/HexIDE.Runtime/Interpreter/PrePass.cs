@@ -12,6 +12,7 @@ public class PrePass : VB6BaseVisitor<object?>
     private readonly ExecutionEnvironment rootEnv;
     private readonly ExecutionState state;
     private readonly bool allowIndexedLet;
+    private readonly bool allowIndexedSet;
     public Dictionary<string, ProcedureInfo> Procedures = new(StringComparer.OrdinalIgnoreCase);
     // `Property Get/Let/Set` accessors, keyed by property name (each name owns up to three accessors).
     public Dictionary<string, PropertyInfo> Properties = new(StringComparer.OrdinalIgnoreCase);
@@ -217,11 +218,12 @@ public class PrePass : VB6BaseVisitor<object?>
             NoteDefaultMember(body.GetChild(i), kind);
     }
 
-    public PrePass(ExecutionEnvironment rootEnv, ExecutionState state, bool allowIndexedLet = false)
+    public PrePass(ExecutionEnvironment rootEnv, ExecutionState state, bool allowIndexedLet = false, bool allowIndexedSet = false)
     {
         this.rootEnv = rootEnv;
         this.state = state;
         this.allowIndexedLet = allowIndexedLet;
+        this.allowIndexedSet = allowIndexedSet;
     }
 
     public override object? VisitChildren(Antlr4.Runtime.Tree.IRuleNode node)
@@ -770,7 +772,7 @@ public class PrePass : VB6BaseVisitor<object?>
         VB6Parser.BlockContext? block, VB6Parser.VisibilityContext? visibility)
     {
         var args = ParseParams(argList);
-        if (args.Count != 1 && !(allowIndexedLet && kind == "Let" && args.Count > 1))
+        if (args.Count != 1 && !(args.Count > 1 && (kind == "Let" ? allowIndexedLet : allowIndexedSet)))
             throw new NotImplementedException(
                 $"Property {kind} '{name}' must take exactly one (value) parameter — parameterized properties are not supported");
         return CheckedLocals(new ProcedureInfo(name, false, args, Vb6Value.ValueType.EmptyVariant, block, IsPrivate(visibility)));

@@ -887,7 +887,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // window and every save keep the module as written.
     private ModuleInfo BuildModule(string name, InterpreterModuleKind kind, string moduleCode, ExecutionEnvironment env) => ParseStack.Run(() =>
     {
-        var pp = new PrePass(env, ExecutionContext.State, allowIndexedLet: kind == InterpreterModuleKind.Standard)
+        var pp = new PrePass(env, ExecutionContext.State, allowIndexedLet: kind is InterpreterModuleKind.Standard or InterpreterModuleKind.Class,
+            allowIndexedSet: kind == InterpreterModuleKind.Class)
         {
             ObjectModule = kind != InterpreterModuleKind.Standard
         };

@@ -59,6 +59,7 @@ public class ServerApplyEditTests : IAsyncDisposable
             });
         editors = new EditorService(dock, NewEditor, () => throw new InvalidOperationException(),
             () => throw new InvalidOperationException(), () => throw new InvalidOperationException(), () => manager, localization);
+        localization.GetString("Str.CodeEditor.QuickFix.Refused").Returns("Edit refused: {0}");
         localization.GetString("Str.Lsp.EditNotApplied").Returns("Server edit not applied: {0}");
         localization.GetString("Str.Lsp.EditRequiresUserCommand").Returns("HexIDE applies a server's edits only while a command the user started is running.");
         localization.GetString("Str.CodeEditor.Msg.RenameDocumentRefused").Returns("Rename refused: {0}");
@@ -522,6 +523,198 @@ public class ServerApplyEditTests : IAsyncDisposable
         server.EditAnswer.GetProperty("applied").GetBoolean().Should().BeFalse();
         server.EditAnswer.GetProperty("failureReason").GetString().Should().Contain("command the user started");
         a.Document.Text.Should().Be(before);
+    }
+
+    private async Task ApplyFromServer(VBLspClient connection, WorkspaceEdit edit, bool applied = true)
+    {
+        server.DuringCommand = async () => await SendEdit(server, edit);
+        await connection.ExecuteCommandAsync("test.edit", cancellationToken: timeout.Token);
+        server.EditAnswer.GetProperty("applied").GetBoolean().Should().Be(applied);
+        if (applied)
+            server.EditAnswer.TryGetProperty("failureReason", out var reason).Should().BeFalse();
+        else
+            server.EditAnswer.GetProperty("failureReason").GetString().Should().NotBeNullOrWhiteSpace();
+    }
+
+    private static TextEdit[] TwoEdits(AvaloniaEdit.Document.TextDocument document)
+    {
+        return document.Lines.Where(l => document.GetText(l).Contains("Greet", StringComparison.Ordinal))
+            .Select(l =>
+            {
+                var column = document.GetText(l).IndexOf("Greet", StringComparison.Ordinal);
+                return new TextEdit(new(new(l.LineNumber - 1, column), new(l.LineNumber - 1, column + 5)), "Welcome");
+            }).ToArray();
+    }
+
+    private static void AssertUndoRedo(AvaloniaEdit.Document.TextDocument document, string before)
+    {
+        document.Text.Should().Be(before.Replace("Greet", "Welcome"));
+        document.UndoStack.Undo();
+        document.Text.Should().Be(before);
+        document.UndoStack.CanUndo.Should().BeFalse("the whole server edit is one step");
+        document.UndoStack.Redo();
+        document.Text.Should().Be(before.Replace("Greet", "Welcome"));
+    }
+
+    [AvaloniaFact]
+    public async Task ServerEditOfOpenCodeIsModifiedAndOneUndoStepWithRedo()
+    {
+        var connection = await ConnectAsync();
+        var a = Open(first);
+        await a.FlushDocumentAsync();
+        var before = a.Document.Text;
+        a.Document.UndoStack.ClearAll();
+        await ApplyFromServer(connection, new(new() { [UriOf(first)] = TwoEdits(a.Document) }));
+        a.IsModified.Should().BeTrue();
+        AssertUndoRedo(a.Document, before);
+        a.IsModified.Should().BeTrue();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task ServerEditOfOpenCarriedFileIsModifiedAndOneUndoStepWithRedo(bool withCode, bool versioned)
+    {
+        var connection = await ConnectAsync();
+        var code = withCode ? Open(first) : null;
+        if (code is not null) await code.FlushDocumentAsync();
+        var path = Path.Combine(Path.GetTempPath(), $"hexide-4043-{Guid.NewGuid():N}.md");
+        File.WriteAllText(path, "Greet\r\nGreet\r\n");
+        try
+        {
+            var definition = new RelatedDocumentDefinition(first.Owner, "Notes.md", path);
+            first.Owner.AddRelatedDocument(definition);
+            var a = new RelatedDocumentEditorViewModel(client, Substitute.For<IWindowManager>(), localization,
+                Substitute.For<ISettingsService>()).Initialize(definition);
+            windows.Add(a);
+            await a.FlushDocumentAsync();
+            var before = a.Document.Text;
+            a.Document.UndoStack.ClearAll();
+            var targets = new Dictionary<string, TextEdit[]> { [LspDocumentUri.ForFile(path)] = TwoEdits(a.Document) };
+            var beforeCode = code?.Document.Text;
+            if (code is not null)
+            {
+                code.Document.UndoStack.ClearAll();
+                targets[UriOf(first)] = TwoEdits(code.Document);
+            }
+            var edit = versioned ? new WorkspaceEdit(DocumentChanges: targets.Select(pair =>
+                new TextDocumentEdit(new(pair.Key, 1), pair.Value)).ToArray()) : new WorkspaceEdit(targets);
+            await ApplyFromServer(connection, edit);
+            if (code is not null) AssertUndoRedo(code.Document, beforeCode!);
+            a.IsModified.Should().BeTrue();
+            AssertUndoRedo(a.Document, before);
+            a.IsModified.Should().BeTrue();
+            File.ReadAllText(path).Should().Be(before);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("stale")]
+    [InlineData("range")]
+    [InlineData("overlap")]
+    [InlineData("duplicate")]
+    [InlineData("header")]
+    [InlineData("closed")]
+    public async Task ServerEditValidatesCarriedAndCodeTargetsBeforeChangingEither(string refusal)
+    {
+        var connection = await ConnectAsync();
+        var code = Open(first);
+        await code.FlushDocumentAsync();
+        var path = Path.Combine(Path.GetTempPath(), $"hexide-4043-{Guid.NewGuid():N}.md");
+        File.WriteAllText(path, "Greet\r\nGreet\r\n");
+        try
+        {
+            var definition = new RelatedDocumentDefinition(first.Owner, "Notes.md", path);
+            first.Owner.AddRelatedDocument(definition);
+            var related = new RelatedDocumentEditorViewModel(client, Substitute.For<IWindowManager>(), localization,
+                Substitute.For<ISettingsService>()).Initialize(definition);
+            windows.Add(related);
+            await related.FlushDocumentAsync();
+            if (refusal == "stale") related.Document.Insert(0, "typed");
+            if (refusal == "closed")
+            {
+                windows.Remove(related);
+                related.Dispose();
+            }
+            var codeEdits = refusal == "header" ? new TextEdit[] { new(new(new(0, 0), new(0, 1)), "X") }
+                : TwoEdits(code.Document);
+            var edits = refusal == "range" ? new TextEdit[] { new(new(new(99, 0), new(99, 0)), "X") }
+                : TwoEdits(related.Document);
+            if (refusal == "overlap") edits = [edits[0], edits[0]];
+            var targets = new List<TextDocumentEdit>
+            {
+                new(new(UriOf(first), null), codeEdits),
+                new(new(LspDocumentUri.ForFile(path), null), edits)
+            };
+            if (refusal == "duplicate") targets.Add(targets[1]);
+            var beforeCode = code.Document.Text;
+            var beforeRelated = related.Document.Text;
+            code.Document.UndoStack.ClearAll();
+            related.Document.UndoStack.ClearAll();
+            await ApplyFromServer(connection, new(DocumentChanges: targets.ToArray()), false);
+            code.Document.Text.Should().Be(beforeCode);
+            related.Document.Text.Should().Be(beforeRelated);
+            code.Document.UndoStack.CanUndo.Should().BeFalse();
+            related.Document.UndoStack.CanUndo.Should().BeFalse();
+            File.ReadAllText(path).Should().Be("Greet\r\nGreet\r\n");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [AvaloniaFact]
+    public async Task ServerEditOpensClosedCodeUnsavedWithoutWritingDisk()
+    {
+        var connection = await ConnectAsync();
+        Open(first);
+        var path = Path.Combine(Path.GetTempPath(), $"hexide-4043-{Guid.NewGuid():N}.bas");
+        second.AbsolutePath = path;
+        File.WriteAllText(path, "' disk sentinel");
+        try
+        {
+            await ApplyFromServer(connection, new(new() { [UriOf(second)] = [RenameClosed()] }));
+            var b = windows.OfType<CodeEditorViewModel>().Single(w => w.ModuleDefinition == second);
+            b.Document.Text.Should().Contain("Sub Welcome()");
+            b.IsModified.Should().BeTrue();
+            File.ReadAllText(path).Should().Be("' disk sentinel");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [AvaloniaFact]
+    public async Task ServerEditReachingHeaderRefusesTheWholeEditWithWireReason()
+    {
+        var connection = await ConnectAsync();
+        var a = Open(first);
+        await a.FlushDocumentAsync();
+        var before = a.Document.Text;
+        a.Document.UndoStack.ClearAll();
+        await ApplyFromServer(connection, new(new() { [UriOf(first)] =
+            [..TwoEdits(a.Document), new(new(new(0, 0), new(0, 1)), "X")] }), false);
+        a.Document.Text.Should().Be(before);
+        a.Document.UndoStack.CanUndo.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task ServerEditOfSeveralDocumentsHasOneIndependentStepEach()
+    {
+        var connection = await ConnectAsync();
+        var a = Open(first);
+        var b = Open(second);
+        await a.FlushDocumentAsync();
+        await b.FlushDocumentAsync();
+        var beforeA = a.Document.Text;
+        var beforeB = b.Document.Text;
+        a.Document.UndoStack.ClearAll();
+        b.Document.UndoStack.ClearAll();
+        await ApplyFromServer(connection, new(new() { [UriOf(first)] = TwoEdits(a.Document), [UriOf(second)] = TwoEdits(b.Document) }));
+        AssertUndoRedo(a.Document, beforeA);
+        b.Document.Text.Should().Be(beforeB.Replace("Greet", "Welcome"));
+        AssertUndoRedo(b.Document, beforeB);
+        a.IsModified.Should().BeTrue();
+        b.IsModified.Should().BeTrue();
     }
 
     private sealed class EditServer

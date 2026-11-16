@@ -126,4 +126,126 @@ public sealed class ExternalProjectChangeTests : IDisposable
         File.ReadAllText(ProjectFile).Should().Contain("Name=\"Ours\"");
         await _windows.DidNotReceive().ShowDialog(Arg.Any<FileConflictViewModel>());
     }
+    [AvaloniaFact]
+    public async Task Text_save_writes_exact_bytes_and_reloads_the_model()
+    {
+        var project = await Opened();
+        var before = File.ReadAllBytes(ProjectFile);
+        var text = Vb6TextFile.Decode(before, project.TextEncoding) + "Title=\"Typed title\"\r\n";
+
+        (await _service.ApplyProjectFileText(project, text, before, () => throw new InvalidOperationException("clean model")))
+            .Should().BeTrue();
+
+        File.ReadAllBytes(ProjectFile).Should().Equal(Vb6TextFile.EncodeDocument(ProjectFile, text, project.TextEncoding));
+        var reloaded = _loaded.Should().ContainSingle().Which;
+        reloaded.Should().NotBeSameAs(project);
+        reloaded.UnknownPreSectionLines.Select(line => line.RawLine).Should().Contain("Title=\"Typed title\"");
+    }
+
+    [AvaloniaFact]
+    public async Task Text_reader_errors_write_nothing_and_report_the_refusal()
+    {
+        var project = await Opened();
+        var before = File.ReadAllBytes(ProjectFile);
+        var text = File.ReadAllText(ProjectFile) + "Module=Missing; missing.bas\r\n";
+
+        (await _service.ApplyProjectFileText(project, text, before, () => Task.FromResult(true))).Should().BeFalse();
+
+        File.ReadAllBytes(ProjectFile).Should().Equal(before);
+        _loaded.Should().ContainSingle().Which.Should().BeSameAs(project);
+        await _windows.Received().MessageBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(),
+            MessageBoxIcon.Warning, Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>());
+    }
+
+    [AvaloniaFact]
+    public async Task Text_disk_conflict_cancel_writes_nothing()
+    {
+        var project = await Opened();
+        var before = File.ReadAllBytes(ProjectFile);
+        File.AppendAllText(ProjectFile, "Title=\"External\"\r\n");
+        var disk = File.ReadAllBytes(ProjectFile);
+        Answer(c => c.Cancel());
+
+        var save = () => _service.ApplyProjectFileText(project, "Name=\"Typed\"\r\n", before, () => Task.FromResult(true));
+        await save.Should().ThrowAsync<OperationCanceledException>();
+
+        File.ReadAllBytes(ProjectFile).Should().Equal(disk);
+        _loaded.Should().ContainSingle().Which.Should().BeSameAs(project);
+    }
+
+    [AvaloniaFact]
+    public async Task Text_model_cancel_writes_nothing()
+    {
+        var project = await Opened();
+        var before = File.ReadAllBytes(ProjectFile);
+        project.Name = "Unsaved model";
+        var asked = false;
+        var save = () => _service.ApplyProjectFileText(project, "Name=\"Typed\"\r\n", before, () =>
+        {
+            asked = true;
+            return Task.FromResult(false);
+        });
+
+        await save.Should().ThrowAsync<OperationCanceledException>();
+
+        asked.Should().BeTrue();
+        File.ReadAllBytes(ProjectFile).Should().Equal(before);
+        project.Name.Should().Be("Unsaved model");
+    }
+
+    [AvaloniaFact]
+    public async Task Text_member_cancel_writes_neither_project_nor_member()
+    {
+        var project = await Opened();
+        var before = File.ReadAllBytes(ProjectFile);
+        var code = File.ReadAllBytes(CodeFile);
+        project.Modules.Single().UpdateCode(project.Modules.Single().Code + "' unsaved\r\n");
+        _windows.ShowDialog(Arg.Any<SaveChangesViewModel>()).Returns(false);
+
+        var save = () => _service.ApplyProjectFileText(project, "Name=\"Typed\"\r\n", before, () => Task.FromResult(true));
+        await save.Should().ThrowAsync<OperationCanceledException>();
+
+        File.ReadAllBytes(ProjectFile).Should().Equal(before);
+        File.ReadAllBytes(CodeFile).Should().Equal(code);
+        _loaded.Should().ContainSingle().Which.Should().BeSameAs(project);
+    }
+
+    [AvaloniaFact]
+    public async Task Text_disk_reload_keeps_external_bytes_and_reopens_them()
+    {
+        var project = await Opened();
+        var before = File.ReadAllBytes(ProjectFile);
+        File.AppendAllText(ProjectFile, "Title=\"External\"\r\n");
+        var disk = File.ReadAllBytes(ProjectFile);
+        Answer(c => c.ReloadAll());
+
+        (await _service.ApplyProjectFileText(project, "Name=\"Typed\"\r\n", before, () => throw new InvalidOperationException("reload")))
+            .Should().BeFalse();
+
+        File.ReadAllBytes(ProjectFile).Should().Equal(disk);
+        _loaded.Should().ContainSingle().Which.UnknownPreSectionLines.Select(line => line.RawLine).Should().Contain("Title=\"External\"");
+    }
+
+    [AvaloniaFact]
+    public async Task Text_disk_keep_uses_typed_bytes_after_model_confirmation()
+    {
+        var project = await Opened();
+        var before = File.ReadAllBytes(ProjectFile);
+        File.AppendAllText(ProjectFile, "Title=\"External\"\r\n");
+        project.Name = "Unsaved model";
+        Answer(c => c.KeepAll());
+        var asked = false;
+        const string text = "Name=\"Typed\"\r\n";
+
+        (await _service.ApplyProjectFileText(project, text, before, () =>
+        {
+            asked = true;
+            return Task.FromResult(true);
+        })).Should().BeTrue();
+
+        asked.Should().BeTrue();
+        File.ReadAllBytes(ProjectFile).Should().Equal(Vb6TextFile.EncodeDocument(ProjectFile, text, project.TextEncoding));
+        _loaded.Should().ContainSingle().Which.Name.Should().Be("Typed");
+    }
+
 }

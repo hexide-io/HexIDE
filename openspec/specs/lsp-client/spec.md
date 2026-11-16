@@ -2747,7 +2747,7 @@ when launched; No, dismissal, invalid URI or launch failure SHALL answer false. 
 
 The client SHALL declare `workspace.applyEdit: true` alongside `workspaceEdit.documentChanges`.
 The shared command sender SHALL track unanswered user-started commands per server. Only while one
-is running SHALL `workspace/applyEdit` use the workspace rename applier. Otherwise it SHALL answer
+is running SHALL `workspace/applyEdit` use the workspace edit applier. Otherwise it SHALL answer
 `applied: false` with a `failureReason` explaining the user-command rule and change nothing.
 Internal project imports SHALL NOT authorize server edits.
 Every refused server edit SHALL also show its failure reason in the status bar, including unsolicited
@@ -2762,7 +2762,7 @@ originating code window's caret, without activating target tabs.
 #### Scenario: A lens command requests an edit before answering
 
 - **WHEN** the user runs a code lens command and its server requests an edit before answering
-- **THEN** the checked edit applies with independent undo per module and answers `applied: true`
+- **THEN** the checked edit applies with independent undo per document and answers `applied: true`
 - **AND** the tab active before the edit remains active, with keyboard focus and its caret preserved
 
 #### Scenario: Unsolicited or late edits
@@ -2778,13 +2778,34 @@ The applier SHALL preflight all documents using the requesting connection's late
 versioned edits and its oldest unanswered user command's snapshot for unversioned edits. It SHALL
 refuse changes since the applicable baseline and protected or read-only regions, and apply all edits or none.
 A refusal SHALL return `applied: false` with the applier's text as `failureReason`.
-Success SHALL return `applied: true` with one undo step per module. Both edit representations
+Success SHALL return `applied: true` with one undo step per document. Both edit representations
 SHALL be supported; resource operations SHALL remain refused.
+Open code windows and open carried text files SHALL retain the edits unsaved and report their modified
+state through the tab's `*`, `get_document_tabs.isModified` and the editor's available Save command.
+Undo SHALL restore each document's complete previous text and Redo SHALL reapply its edits.
+A loaded code member without an open window SHALL open with the edit applied and unsaved, without
+writing its disk file. Closed carried files and targets outside the loaded code members SHALL remain refused.
 
 #### Scenario: A checked workspace edit succeeds
 
 - **WHEN** an authorized edit passes every document's checks
-- **THEN** all edits apply, with one independent undo step per module, and the response is `applied: true`
+- **THEN** all edits apply, with one independent undo step per document, and the response is `applied: true`
+
+#### Scenario: An open carried file receives a server edit
+
+- **WHEN** an authorized edit targets an open carried text file, alone or alongside code windows
+- **THEN** each target receives its own single undo step with Redo and is marked modified
+- **AND** no disk file is written
+
+#### Scenario: A closed code member receives a server edit
+
+- **WHEN** an authorized edit targets a loaded code member whose window is closed
+- **THEN** its window opens with the edit applied and marked modified, and its disk file is unchanged
+
+#### Scenario: A guarded target refuses the whole edit
+
+- **WHEN** an authorized edit reaches a code header or another guarded run
+- **THEN** all buffers remain unchanged and a nonempty `failureReason` accompanies `applied: false`
 
 #### Scenario: One stale document refuses the whole edit
 

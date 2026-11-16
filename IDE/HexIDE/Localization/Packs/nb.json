@@ -2,6 +2,7 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Bruk av prosjektfilens tekst erstatter ulagrede prosjektinnstillinger for {0}. Fortsette?",
     "Str.MemberOrigin.HexIde": "HexIDE-utvidelse; ikke tilgjengelig i VB6.",
     "Str.Dock.Host": "Forankringsvert",
     "Str.Dock.Root": "Rotforankring",
@@ -453,6 +454,7 @@
     "Str.Tool.CallStack.RowName": "{0}, linje {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Alle biblioteker>",
     "Str.Tool.ObjectBrowser.MembersOf": "Medlemmer av '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Medlemmer kan ikke listes uten typebiblioteket til dette biblioteket.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Lukk objektutforsker",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektutforsker",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Gå til definisjon",

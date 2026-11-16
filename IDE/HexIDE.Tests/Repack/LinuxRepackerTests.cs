@@ -197,6 +197,7 @@ public sealed class LinuxRepackerTests : IDisposable
     [InlineData("revocations.sig")]
     [InlineData("revocations-cache.json")]
     [InlineData("revocations-cache.sig")]
+    [InlineData("revocations-cache.signed")]
     public void Included_protected_files_are_refused_without_output(string relative)
     {
         WriteStock();

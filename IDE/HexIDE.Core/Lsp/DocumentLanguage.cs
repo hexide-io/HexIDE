@@ -51,6 +51,8 @@ public static class DocumentLanguage
     {
         if (string.IsNullOrWhiteSpace(uri)) return null;
 
+        var end = uri.IndexOfAny(['?', '#']);
+        if (end >= 0) uri = uri[..end];
         var lastDot = uri.LastIndexOf('.');
         var lastSlash = uri.LastIndexOf('/');
         if (lastDot < 0 || lastDot < lastSlash) return null;

@@ -9,6 +9,8 @@ public interface IProjectService
     Task CreateNewProject(bool replaceExisting = false);
     Task CreateNewProject(IProjectTemplate template);
     Task UnloadAllProjects();
+    Task<bool> SaveProjectFileText(HexIDE.Forms.ViewModels.ProjectFileDocumentViewModel tab);
+    Task<bool> ConfirmProjectFileClose(HexIDE.Forms.ViewModels.ProjectFileDocumentViewModel tab);
     Task UnloadProject(ProjectDefinition project);
     /// <summary>Removes a form or module from its project, offering to save unsaved changes first.</summary>
     Task RemoveDocument(DocumentIdentity document);
