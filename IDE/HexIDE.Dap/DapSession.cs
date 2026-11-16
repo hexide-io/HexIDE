@@ -143,16 +143,18 @@ public sealed class DapSession : IAsyncDisposable
     public Task<DapResponse> ScopesAsync(DapStop stop, int frameId, CancellationToken token = default) => Inspect(stop, "scopes", new { frameId }, token);
     public Task<DapResponse> VariablesAsync(DapStop stop, int variablesReference, CancellationToken token = default) => Inspect(stop, "variables", new { variablesReference }, token);
 
-    /// <summary>Replace one source's entire set, including an empty set to clear it, while running or stopped.</summary>
-    public Task<DapResponse> SetBreakpointsAsync(string path, IReadOnlyList<int> lines, CancellationToken token = default, IReadOnlyDictionary<int, string>? conditions = null)
+    /// <summary>Replace one source's entire set, including an empty set to clear it, while running or stopped. A <paramref name="temporaryLine"/> goes after the set with no condition, for Run To Cursor.</summary>
+    public Task<DapResponse> SetBreakpointsAsync(string path, IReadOnlyList<int> lines, CancellationToken token = default, IReadOnlyDictionary<int, string>? conditions = null, int? temporaryLine = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentNullException.ThrowIfNull(lines);
         var copy = lines.ToArray();
+        if (temporaryLine is < 1) throw new ArgumentOutOfRangeException(nameof(temporaryLine));
         if (copy.Any(line => line < 1)) throw new ArgumentOutOfRangeException(nameof(lines));
         if (Snapshot.State is not (DapSessionState.Running or DapSessionState.Stopped))
             throw new InvalidOperationException("The debug session is not active.");
-        return Request("setBreakpoints", new { source = new { path }, breakpoints = BreakpointArguments(copy, conditions) }, token);
+        return Request("setBreakpoints", new { source = new { path }, breakpoints = temporaryLine is { } target
+            ? BreakpointArguments(copy, conditions).Append(new { line = target }).ToArray() : BreakpointArguments(copy, conditions) }, token);
     }
 
     private object[] BreakpointArguments(IReadOnlyList<int> lines, IReadOnlyDictionary<int, string>? conditions) =>
