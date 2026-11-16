@@ -30,6 +30,8 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     private CancellationTokenSource? _responseCancellation;
     private bool _reloadSettingsPending;
     private bool _egressNoticeShown;
+    private bool _egressConfirmed;
+    private ChatMessageViewModel? _pendingEgress;
     private ChatMessageViewModel? _activeStream;
 
     /// <summary>Notes for the assistant written while it was responding, held until a user message may come next.</summary>
@@ -113,6 +115,17 @@ public sealed class ChatViewModel : INotifyPropertyChanged
             return;
         }
 
+        // An endpoint off this machine waits for Send on the privacy notice before anything leaves, once per notice
+        // version (#4230). The message stays in the box; the notice's Send runs this again.
+        if (!localEndpoint && !IsEgressConfirmed())
+        {
+            if (_pendingEgress is { IsAwaitingDecision: true } pending && Messages.Contains(pending)) return;
+            _pendingEgress = new ChatMessageViewModel("assistant",
+                EgressNoticeText() + " " + ChatStrings.GetString("Str.AIChat.EgressConfirm"), isEgressConfirmation: true);
+            Messages.Add(_pendingEgress);
+            return;
+        }
+
         using var cancellation = new CancellationTokenSource();
         _responseCancellation = cancellation;
         InputText   = string.Empty;
@@ -183,6 +196,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     {
         _session.SaveTo(_historyPath);
         Messages.Clear();
+        _pendingEgress = null;
     }
 
     /// <summary>
@@ -467,16 +481,63 @@ public sealed class ChatViewModel : INotifyPropertyChanged
         }
         catch { /* unreadable: show the notice, which errs on the side of telling */ }
 
+        Messages.Add(new ChatMessageViewModel("assistant", EgressNoticeText(), isStatusLine: true));
+
+        try { File.WriteAllText(ackPath, EgressNoticeVersion); } catch { /* best-effort */ }
+    }
+
+    /// <summary>The privacy notice for the configured endpoint, with the tip about a key kept in a file.</summary>
+    private string EgressNoticeText()
+    {
         var host = Uri.TryCreate(_settings.BaseUrl, UriKind.Absolute, out var u) ? u.Host : _settings.BaseUrl;
         var tip = _settings.ApiKeyIsFromPlaintextFile()
             ? " " + ChatStrings.GetString("Str.AIChat.PrivacyKeyTip")
             : "";
+        return string.Format(ChatStrings.GetString("Str.AIChat.PrivacyNotice"), host) + tip;
+    }
 
-        Messages.Add(new ChatMessageViewModel("assistant",
-            string.Format(ChatStrings.GetString("Str.AIChat.PrivacyNotice"), host) + tip,
-            isStatusLine: true));
+    /// <summary>
+    /// Whether the person chose Send on this version of the notice, for an endpoint off this machine (#4230). It's a
+    /// file of its own: <c>.ai-egress-ack</c> only records that the notice was shown, which a local endpoint does
+    /// without asking, and that isn't consent to send anywhere else.
+    /// </summary>
+    internal bool IsEgressConfirmed()
+    {
+        if (_egressConfirmed) return true;
+        try
+        {
+            var path = Path.Combine(_settingsDir, EgressConfirmedFileName);
+            return File.Exists(path) && File.ReadAllText(path).Trim() == EgressNoticeVersion;
+        }
+        catch { return false; /* unreadable: ask, which errs on the side of asking */ }
+    }
 
-        try { File.WriteAllText(ackPath, EgressNoticeVersion); } catch { /* best-effort */ }
+    internal const string EgressConfirmedFileName = ".ai-egress-confirmed";
+
+    /// <summary>The notice's Send: records the choice, then sends what is in the box now.</summary>
+    internal async Task ConfirmEgressAsync(ChatMessageViewModel confirmation)
+    {
+        if (!confirmation.IsEgressConfirmation || !confirmation.IsAwaitingDecision) return;
+        confirmation.Approve();
+        if (ReferenceEquals(_pendingEgress, confirmation)) _pendingEgress = null;
+        // Held for this session even where the file can't be written, so Send can't ask again in a loop.
+        _egressConfirmed = true;
+        _egressNoticeShown = true;
+        try
+        {
+            File.WriteAllText(Path.Combine(_settingsDir, EgressConfirmedFileName), EgressNoticeVersion);
+            File.WriteAllText(Path.Combine(_settingsDir, ".ai-egress-ack"), EgressNoticeVersion);
+        }
+        catch { /* best-effort: asked again next session */ }
+        await SendAsync();
+    }
+
+    /// <summary>The notice's Cancel: nothing is sent, and the message stays in the box.</summary>
+    internal void DeclineEgress(ChatMessageViewModel confirmation)
+    {
+        if (!confirmation.IsEgressConfirmation || !confirmation.IsAwaitingDecision) return;
+        confirmation.Reject();
+        if (ReferenceEquals(_pendingEgress, confirmation)) _pendingEgress = null;
     }
 
     // ── compaction ───────────────────────────────────────────────────────────

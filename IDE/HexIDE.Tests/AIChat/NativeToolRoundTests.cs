@@ -24,6 +24,8 @@ public class NativeToolRoundTests
         {
             File.WriteAllText(Path.Combine(directory, "chat-settings.json"),
                 new JsonObject { ["apiKey"] = "test-key", ["maxTurnsBeforeCompaction"] = compact ? 2 : 100 }.ToJsonString());
+            // The default endpoint is off this machine; the person already chose Send on the privacy notice (#4230).
+            File.WriteAllText(Path.Combine(directory, ChatViewModel.EgressConfirmedFileName), ChatViewModel.EgressNoticeVersion);
             var host = Substitute.For<IHexIdeHost>();
             var editor = Substitute.For<IEditorAccess>();
             host.Editor.Returns(editor);
