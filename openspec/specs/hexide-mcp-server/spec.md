@@ -2149,3 +2149,22 @@ reply SHALL give the caret once, with single spaces and clean punctuation.
 
 - **WHEN** `press_key` sends Tab, Shift+Tab or the keymap's Indent chord over a selection from column 1 of a declaration through its Attribute lines and a body line
 - **THEN** the code window indents editable lines and the reply names the protected lines it left as they were, with the caret reported once
+
+### Requirement: Explicit activation SHALL stay within an already active HexIDE process
+
+`set_window_state` SHALL accept optional `state` (default null) and `activate` (default false) on the wire.
+With neither a state nor activation it SHALL refuse with instructions. Activation SHALL be refused before
+any mutation when no HexIDE window is active, or, on Windows, when the foreground window belongs to another
+process. A modal covering the target SHALL be named and refused, including when the target is the IDE.
+The tool SHALL wait at most one second for platform activation and report the target's `isActive` and the
+previously active window's name and current `isActive`; a timeout SHALL not claim success.
+
+#### Scenario: Switching from a floating tool to the IDE
+- **WHEN** a HexIDE floating window is active and `set_window_state(window: "ide", activate: true)` is called
+- **THEN** the IDE's platform activation is requested without changing its state
+- **AND** the reply reports whether the IDE activated and whether the floating window is still active
+
+#### Scenario: A click does not activate its window
+- **WHEN** `interact` presses on an inactive window and that window remains inactive after release
+- **THEN** its reply SHALL say activation did not move, name any window still active, and point to
+  `set_window_state` with `activate: true`

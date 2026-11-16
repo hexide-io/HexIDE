@@ -1297,7 +1297,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_window_state")]
-    [Description("Returns a window's state (Maximized/Normal/Minimized) and the reported position and client size in every state: the IDE's own window unless 'window' names another, such as a running form. x and y are in screen pixels and width and height in device-independent pixels, as set_window_state takes them; 'outer' (the whole window, on Windows with its invisible resize border), 'frame' (as drawn) and 'client' give each edge on the screen in device-independent pixels, with 'scale' beside them, and 'units' says so in the reply. On native Wayland, which has no window positions, the position fields are left out and 'note' says why. 'name' is what to pass as 'window' to reach the same window again.")]
+    [Description("Returns a window's state (Maximized/Normal/Minimized) and the reported position and client size in every state: the IDE's own window unless 'window' names another, such as a running form. x and y are in screen pixels and width and height in device-independent pixels, as set_window_state takes them; 'outer' (the whole window, on Windows with its invisible resize border), 'frame' (as drawn) and 'client' give each edge on the screen in device-independent pixels, with 'scale' beside them, and 'units' says so in the reply. On native Wayland, which has no window positions, the position fields are left out and 'note' says why. 'isActive' reports platform activation. 'name' is what to pass as 'window' to reach the same window again.")]
     public async Task<WindowStateResult> GetWindowStateAsync(
         [Description(WindowStateParameter)] string? window = null, CancellationToken ct = default)
     {
@@ -1373,7 +1373,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             ? WindowRect.Of(window.PointToScreen(new Avalonia.Point(0, 0)), size, scale) : null;
         return new WindowStateResult(state, positioned ? pos.X : null, positioned ? pos.Y : null, (int)size.Width, (int)size.Height, name,
             Scale: Math.Round(scale, 3), Outer: outer, Frame: frame, Client: client, Units: WindowStateUnits,
-            Note: ServerOptions.DpiUnaware ? DpiUnawareNote : positioned ? null : NoPositionNote);
+            Note: ServerOptions.DpiUnaware ? DpiUnawareNote : positioned ? null : NoPositionNote, IsActive: window.IsActive);
     }
 
     /// <summary>What get_window_state says on native Wayland, where the numbers it leaves out don't exist (#3576).</summary>
@@ -1431,18 +1431,22 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     };
 
     [McpServerTool(Name = "set_window_state")]
-    [Description("Sets a window to Maximized, Normal, or Minimized, the IDE's own unless 'window' names another, and replies with the resulting state, position and size as get_window_state reports them. Another window, such as a running form, changes as a click on its minimize, maximize or restore box would, so its Resize runs, and the reply waits for the program as interact's does. It is refused where a person couldn't do the same: no such box, a fixed border for a resize, a disabled window, or one under a modal dialog. Waits up to 1 s for the state, then up to 1 s for any requested move/resize; if unconfirmed, success is false and note explains how to re-read, or, on an X11 display with no window manager, that a minimize or maximize can never be applied there. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied after a confirmed restore; each is optional, and one left out keeps its current value. `x` and `y` are screen pixels and `width` and `height` the client area in device-independent pixels, as get_window_state reports them. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds, as `x` and `y` are on native Wayland, where only the compositor places a window. An invalid argument is refused before anything changes. A timed-out request may still be applied later.")]
+    [Description("Changes a window's 'state' (Maximized, Normal, Minimized), or activates it with 'activate': true. Both are optional; pass at least one. Omitted 'state' leaves it unchanged. 'window' defaults to the IDE; a name reaches a floating tool, dialog or running form. Activation only switches between HexIDE windows while one is already active; on Windows the foreground must also belong to this process. It never takes foreground from another application. A blocking modal dialog is refused and named, including over the IDE. Waits up to 1 s for activation; 'window' reports the target's isActive and 'previouslyActive' names the window active before and its current isActive. An unconfirmed activation reports success false, with a reason. The reply includes state, position and size as get_window_state does. Another window changes as its caption boxes or frame would, so a running form's Resize runs and the reply waits for the program as interact does. Missing boxes, a fixed border for a resize, and disabled windows are refused. Waits up to 1 s for state and 1 s for geometry; unconfirmed requests report success false and how to re-read, or explain that an X11 display has no window manager. With state Normal, 'x', 'y', 'width' and 'height' apply after restore; omitted values stay as they are. x/y are screen pixels; width/height are client DIPs and must be positive. Geometry requires Normal (explicit or current). A position on no screen is refused with screen bounds, as x/y are on native Wayland, where only the compositor places windows. Arguments and activation eligibility are checked before anything changes. A timed-out request may still apply later.")]
     public async Task<WindowStateChangeResult> SetWindowStateAsync(
-        string state,
+        string? state = null,
         // Defaults, not just nullable types: a nullable parameter with no default is required in the schema,
         // so the "optional" the description promised was refused on the wire. (#582)
         int? x = null, int? y = null, int? width = null, int? height = null,
         [Description(WindowStateParameter)] string? window = null,
+        bool activate = false,
         CancellationToken ct = default)
     {
         UiAutomationDriver.ProgramWatch? watch = null;
         Avalonia.Controls.Window? acted = null;
         string? actedName = null;
+        Avalonia.Controls.Window? previouslyActive = null;
+        WindowActivationState? Previous() => previouslyActive is null ? null
+            : new(StateNameOf(previouslyActive), previouslyActive.IsActive);
         var result = await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             var (resolved, name, resolveError) = ResolveStateWindow(window);
@@ -1450,8 +1454,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return new WindowStateChangeResult(false, resolveError, null);
             var main = resolved == (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
 
-            var target = state.ToLowerInvariant() switch
+            if (state is null && !activate)
+                return new WindowStateChangeResult(false, "Pass 'state' (Maximized, Normal or Minimized), or activate: true. Nothing was changed.", null);
+            var target = state?.ToLowerInvariant() switch
             {
+                null => resolved.WindowState,
                 "maximized" => Avalonia.Controls.WindowState.Maximized,
                 "minimized" => Avalonia.Controls.WindowState.Minimized,
                 "normal"    => Avalonia.Controls.WindowState.Normal,
@@ -1460,6 +1467,23 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
             if (target is null)
                 return new WindowStateChangeResult(false, $"Unknown state '{state}' — use Maximized, Normal, or Minimized", null);
+
+            if (activate)
+            {
+                previouslyActive = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+                    ?.Windows.FirstOrDefault(w => w.IsVisible && w.IsActive);
+                if (previouslyActive is null)
+                    return new WindowStateChangeResult(false,
+                        $"No HexIDE window is active, so activating '{name}' would take the foreground from another application, which this tool doesn't do.", null);
+                // Avalonia keeps a window active while the desktop is locked, when Windows has no foreground window at all.
+                if (!WindowActivation.OwnsForeground(resolved))
+                    return new WindowStateChangeResult(false,
+                        $"'{StateNameOf(previouslyActive)}' is active among HexIDE's windows, but the foreground window isn't HexIDE's: "
+                        + $"another application holds it, or none does, as while the desktop is locked. Activating '{name}' would take "
+                        + "the foreground, which this tool doesn't do.", null);
+                if (UiAutomationDriver.WindowRefusal(resolved, "set_window_state", name) is { } blocked)
+                    return new WindowStateChangeResult(false, blocked, null);
+            }
 
             // Everything is checked before anything changes. A negative size used to throw out of the tool, which
             // reached the caller as a bare "An error occurred invoking"; x without y was dropped with success; and
@@ -1475,7 +1499,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return new WindowStateChangeResult(false, noMove, null);
             // Another window is changed as a person changes it, so what a person couldn't do is refused (#2357). The IDE's
             // own is set as it always was.
-            if (!main && (WindowBoxRefusal(resolved, name!, target.Value, width is not null || height is not null)
+            if (!main && ((state is not null || geometry
+                              ? WindowBoxRefusal(resolved, name!, target.Value, width is not null || height is not null) : null)
                           ?? UiAutomationDriver.WindowRefusal(resolved, "set_window_state", name)) is { } refusal)
                 return new WindowStateChangeResult(false, refusal, null);
 
@@ -1499,22 +1524,40 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (!main)
                 watch = UiAutomationDriver.WatchProgram(resolved, () => ctx.DebugController.CurrentStop);
             (acted, actedName) = (resolved, name);
-            var applied = await HexIDE.Automation.WindowChange.ApplyAsync(resolved, target.Value, x, y, width, height, ct);
-            if (applied)
-                return new WindowStateChangeResult(true, null, WindowStateOf(resolved, name!), WindowSizeNote(resolved, width, height));
-            var (error, note) = Unconfirmed(target.Value, X11WindowManager.IsRunning());
-            return new WindowStateChangeResult(false, error, WindowStateOf(resolved, name!), note);
+            var applied = state is null && !geometry
+                || await HexIDE.Automation.WindowChange.ApplyAsync(resolved, target.Value, x, y, width, height, ct);
+            if (!applied)
+            {
+                var (error, note) = Unconfirmed(target.Value, X11WindowManager.IsRunning());
+                return new WindowStateChangeResult(false, error, WindowStateOf(resolved, name!), note, Previous());
+            }
+            if (activate)
+            {
+                // State confirmation can yield to real input: check foreground ownership again before activating.
+                if (!(Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)!
+                        .Windows.Any(w => w.IsVisible && w.IsActive) || !WindowActivation.OwnsForeground(resolved))
+                    return new WindowStateChangeResult(false,
+                        "HexIDE lost activation before the activation request; no activation was requested. Re-read with get_window_state.",
+                        WindowStateOf(resolved, name!), PreviouslyActive: Previous());
+                resolved.Activate();
+                if (!await WindowChange.WaitAsync(() => resolved.IsActive, ct))
+                    return new WindowStateChangeResult(false,
+                        "The platform did not confirm activation within 1 s. Re-read with get_window_state; the request may still apply later.",
+                        WindowStateOf(resolved, name!), PreviouslyActive: Previous());
+            }
+            return new WindowStateChangeResult(true, null, WindowStateOf(resolved, name!), WindowSizeNote(resolved, width, height), Previous());
         });
         if (watch is null || acted is null)
             return result;
 
         // Waited off the UI thread, as interact's is, then read again: the program's Resize may move or size the form.
         var waited = await UiAutomationDriver.WaitForProgramAsync(watch, new InteractOutcome(true, "window", "", null), ct: ct);
-        var after = await Dispatcher.UIThread.InvokeAsync(() => WindowStateOf(acted, actedName!));
+        var after = await Dispatcher.UIThread.InvokeAsync(() => (Window: WindowStateOf(acted, actedName!), Previous: Previous()));
         var programNote = waited.Detail is { Length: > 0 } detail ? ProgramNote(detail) : null;
         return result with
         {
-            Window = after,
+            Window = after.Window,
+            PreviouslyActive = after.Previous,
             Note = result.Note is null ? programNote : programNote is null ? result.Note : result.Note + " " + programNote,
         };
     }
@@ -3288,7 +3331,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails without it, with no fallback to reflection: choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input where a real press would land, moving there first unless already there, so MouseMove precedes MouseDown, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Code replies name line/column, project/document, breakpoint/bookmark, or a covering header/control and covered line. Every verb except invoke_command/set_property refuses a disabled target, naming a disabling container or blocking dialog to answer first, and one not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Document saves wait up to 2 s and report completion or still running, and any answer still armed. Find controls with dump_visual_tree/inspect_element. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
+    [Description("Drives 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. Provider actions require their reported provider; choose invoke_command/set_property explicitly for reflection. click needs no provider: it moves there unless already there (MouseMove before MouseDown), then presses, releasing 50 ms later as separate input so the press handler runs first. It waits up to 1 s for a drawn frame to hit-test; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. A click that leaves its window inactive names the window still active and points to set_window_state with activate true. Code replies name line/column, project/document, breakpoint/bookmark, or a covering header/control and covered line. Every verb except invoke_command/set_property refuses a disabled target, naming a disabling container or blocking dialog to answer first, and one not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Document saves wait up to 2 s and report completion or still running, and any answer still armed. Find controls with dump_visual_tree/inspect_element. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree, including ContextMenu/Flyout segments for attached popups.")]
         string target,
@@ -4673,7 +4716,7 @@ internal record AddFileResult(
 /// <c>Error</c> says why no window was read.</summary>
 internal record WindowStateResult(string State, int? X, int? Y, int Width, int Height, string? Name = null, string? Error = null,
     double? Scale = null, WindowRect? Outer = null, WindowRect? Frame = null, WindowRect? Client = null, string? Units = null,
-    string? Note = null);
+    string? Note = null, bool IsActive = false);
 
 /// <summary>A rectangle on the screen in device-independent pixels, to a tenth (#2454).</summary>
 internal record WindowRect(double X, double Y, double Width, double Height)
@@ -4688,7 +4731,10 @@ internal record WindowRect(double X, double Y, double Width, double Height)
 }
 
 /// <summary>What <c>set_window_state</c> did: the window's state afterwards, as <c>get_window_state</c> reports it.</summary>
-internal record WindowStateChangeResult(bool Success, string? Error, WindowStateResult? Window, string? Note = null);
+internal record WindowStateChangeResult(bool Success, string? Error, WindowStateResult? Window, string? Note = null,
+    WindowActivationState? PreviouslyActive = null);
+
+internal record WindowActivationState(string Name, bool IsActive);
 
 internal record ToolWindowInfo(string Name, bool Visible);
 
