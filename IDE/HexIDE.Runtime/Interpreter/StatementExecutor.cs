@@ -3076,6 +3076,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var (found, oldValue) = await interpreter.ReadVariable(currentEnv, name);
         if (!found || !currentEnv.TryGetVariableLocation(name, out var slot))
             throw new NotImplementedException("LSet/RSet into an undeclared target is not implemented");
+        if (!right && oldValue.Value is VbUdt targetUdt)
+        {
+            var sourceValue = await expressionExecutor.EvaluateScalar(source);
+            if (sourceValue.Value is not VbUdt sourceUdt)
+                throw new NotImplementedException("LSet between a Type and this source type is not implemented (#2518)");
+            var resultUdt = VbUdtLayout.Overlay(targetUdt, sourceUdt);
+            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, Vb6Value.NewUdt(resultUdt));
+            return ControlFlow.Nothing;
+        }
         var declared = interpreter.ExecutionContext.State.DeclaredTypeOf(slot);
         if (declared is not null && declared != Vb6Value.ValueType.String
             || oldValue.Type != Vb6Value.ValueType.String && oldValue.Type != Vb6Value.ValueType.Integer)

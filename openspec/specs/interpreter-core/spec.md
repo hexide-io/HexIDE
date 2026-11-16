@@ -1963,3 +1963,31 @@ report "Expected: end of statement".
 - **WHEN** Mid, LSet or RSet writes a fixed-length scalar String
 - **THEN** it retains its declared width
 - **AND** both LSet and RSet retain the leftmost characters of an overlong source
+
+### Requirement: LSet between plain-data user-defined types
+
+The interpreter SHALL execute `LSet target = source` between named plain-data UDT variables by
+copying the smaller in-memory size and preserving the target tail, using the layout and encodings
+measured in [#2518](https://github.com/hexide-io/HexIDE/issues/2518) (native and p-code, including
+measuring PR #4241).
+
+#### Scenario: Fields follow the measured in-memory layout
+- **WHEN** a UDT is copied
+- **THEN** fields retain declaration order and align to their size capped at four bytes
+- **AND** Integer and Boolean align to two, and fixed Strings store UTF-16 code units inline
+- **AND** fixed arrays lie inline, a nested UDT is a record of its own, aligned to its largest field and with its size
+  rounded up before the next field, each UDT size rounds up to its largest alignment, and padding starts zero
+- **AND** copied padding remains available to subsequent LSet operations
+- **AND** numbers use little-endian encodings, including Currency's scaled 64-bit integer and Date's Double serial
+
+#### Scenario: A short source preserves the target tail
+- **WHEN** a three-Long target holding 7, 8, 9 receives a one-Long source holding 5
+- **THEN** the target holds 5, 8, 9
+
+#### Scenario: Pointer-containing UDTs are refused at execution
+- **WHEN** either UDT contains a variable String, Variant, dynamic array or Object
+- **THEN** the executed statement raises error 13
+
+#### Scenario: Noncanonical Boolean bits cannot be represented
+- **WHEN** copying bytes would put `01 00` into a Boolean field
+- **THEN** the statement explicitly refuses as not implemented rather than normalising the bits
