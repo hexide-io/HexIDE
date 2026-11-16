@@ -127,7 +127,8 @@ internal sealed class ServerChatToolsService(Func<IReadOnlyList<ChatToolsServer>
         {
             readOnly = Flag(annotations, "readOnlyHint");
             destructive = Flag(annotations, "destructiveHint");
-            runsCode = Flag(annotations, RunsCodeAnnotation) == true;
+            // Present and anything but false counts: a hint that fails to read errs towards asking, as the other two do.
+            runsCode = annotations.TryGetProperty(RunsCodeAnnotation, out var runs) && runs.ValueKind != JsonValueKind.False;
         }
 
         return new ServerChatTool(server.Id, server.DisplayName, name, description, schema,
@@ -215,6 +216,8 @@ internal sealed class ServerChatToolsService(Func<IReadOnlyList<ChatToolsServer>
         var contexts = new List<ServerChatContext>();
         foreach (var server in servers())
         {
+            // A server set to ask for everything gives no context: context goes on every send, with nothing to ask.
+            if (server.Policy == ServerChatToolsPolicy.AskEveryCall) continue;
             if (server.Capability.Context is not { } method) continue;
             JsonElement? answer;
             try

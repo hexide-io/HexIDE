@@ -199,17 +199,36 @@ public sealed class ServerChatToolsTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task AServerSetToAsk_AsksForEveryTool()
+    public async Task AServerSetToAsk_AsksForEveryTool_AndGivesNoContext()
     {
-        var (tools, server) = await StartAsync(chatTools: "ask");
+        var (tools, server) = await StartAsync(chatTools: "ask", context: "Context that would go without asking.");
         var listed = await tools.ListAsync(Token);
         var asked = 0;
 
         listed.Should().OnlyContain(t => t.Asks);
         await tools.CallAsync(listed.Single(t => t.Name == "read"), null, (_, _) => { asked++; return Task.FromResult(false); }, Token);
+        var context = await tools.GetContextAsync(Token);
 
         asked.Should().Be(1);
         server.Calls.Should().BeEmpty();
+        context.Should().BeEmpty("context goes on every send with nothing to ask, so a server set to ask gives none");
+        server.Methods.Should().NotContain(ChatToolServer.ContextMethod);
+    }
+
+    [Theory]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    [InlineData("\"yes\"", true)]
+    [InlineData("\"false\"", true)]
+    [InlineData("1", true)]
+    [InlineData("null", true)]
+    public async Task ARunsCodeHintThatIsntFalse_Asks(string runsCode, bool asks)
+    {
+        var (tools, _) = await StartAsync(toolsJson: $$$"""
+            {"tools":[{"name":"t","annotations":{"readOnlyHint":true,"destructiveHint":false,"hexide.runsCode":{{{runsCode}}}}}]}
+            """);
+
+        (await tools.ListAsync(Token)).Should().ContainSingle().Which.Asks.Should().Be(asks);
     }
 
     [Theory]

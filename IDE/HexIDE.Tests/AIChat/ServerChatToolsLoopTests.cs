@@ -23,7 +23,6 @@ public sealed class ServerChatToolsLoopTests : IAsyncDisposable
 
     public ServerChatToolsLoopTests()
     {
-        new HexIDE.Localization.LocalizationService().Apply("en");
         Directory.CreateDirectory(_directory);
         // Loopback, so no key and no first-send notice stand in the way.
         File.WriteAllText(Path.Combine(_directory, "chat-settings.json"), """{"baseUrl":"http://localhost/v1"}""");
@@ -43,6 +42,7 @@ public sealed class ServerChatToolsLoopTests : IAsyncDisposable
     [InlineData(false)]
     public async Task AToolThatAsks_ReachesTheServer_OnlyAfterAYes(bool approve)
     {
+        new HexIDE.Localization.LocalizationService().Apply("en");
         var (tools, server) = await StartAsync();
         var handler = new ToolCallHandler("lsp2_write", """{"x":1}""");
         using var client = new ChatClient(new HttpClient(handler));
@@ -88,6 +88,7 @@ public sealed class ServerChatToolsLoopTests : IAsyncDisposable
     [AvaloniaFact]
     public async Task AToolThatOnlyReads_RunsWithoutAQuestion()
     {
+        new HexIDE.Localization.LocalizationService().Apply("en");
         var (tools, server) = await StartAsync();
         var handler = new ToolCallHandler("lsp1_read", "{}");
         using var client = new ChatClient(new HttpClient(handler));

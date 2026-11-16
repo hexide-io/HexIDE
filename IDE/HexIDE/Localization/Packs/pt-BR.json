@@ -182,6 +182,7 @@
     "Str.Dock.ToolTabStripItemDockAsDocument": "Acoplar como documento em aba",
     "Str.AIChat.PrivacyNotice": "ℹ Privacidade: suas mensagens, o conteúdo do arquivo ativo (em um formulário, também o layout e as legendas) e seus diagnósticos são enviados para {0}, um serviço de terceiros configurado nas definições do chat de IA. Também são enviados, sem pedir aprovação, o conteúdo de qualquer outro arquivo dos projetos carregados que o assistente leia com suas ferramentas, as listas de arquivos dos projetos e os diagnósticos de qualquer arquivo.",
     "Str.AIChat.PrivacyKeyTip": "Dica: defina a variável de ambiente HEXIDE_AI_API_KEY para evitar salvar sua chave API em um arquivo.",
+    "Str.AIChat.PrivacyServerTools": "Um servidor de linguagem executado pelo HexIDE (o próprio, um que você configurou ou um adicionado por um suplemento que você permitiu) pode fornecer ferramentas e contexto ao chat de IA. Os resultados dessas ferramentas e esse contexto também são enviados para lá. O contexto e os resultados das ferramentas que o servidor diz que apenas leem são enviados sem perguntar a você.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Os projetos {0} compartilham a pasta {1}; apenas {2} é gravado ou importado."
   }
 }

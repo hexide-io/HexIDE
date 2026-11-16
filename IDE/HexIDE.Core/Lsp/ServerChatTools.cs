@@ -22,7 +22,10 @@ public enum ServerChatToolsPolicy
     /// <summary>A tool asks before each call unless it says it only reads (see <see cref="ServerChatToolsApproval"/>).</summary>
     Hints,
 
-    /// <summary>Every call to the server's tools asks first, whatever the tool says about itself.</summary>
+    /// <summary>
+    /// Every call to the server's tools asks first, whatever the tool says about itself, and the server's context fragment
+    /// is not used, since it would go on every send without a question.
+    /// </summary>
     AskEveryCall,
 }
 

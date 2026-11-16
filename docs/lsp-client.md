@@ -1436,8 +1436,9 @@ catalogue keeps its names. The shapes follow MCP's `tools/list` and `tools/call`
 | `call` | `{"name", "arguments"}` | `{"content": [{"type": "text", "text"}], "isError"}`; a non-text part is replaced by a note |
 | `context` | `{}` | a string, or `{"text"}` |
 
-- **`hexide.runsCode` is HexIDE's own annotation**, beside MCP's two hints. A tool that sets it `true` asks
-  before every call, whatever its other hints say. A tool that runs the user's code should set it.
+- **`hexide.runsCode` is HexIDE's own annotation**, beside MCP's two hints. A tool that sets it to anything but
+  `false` asks before every call, whatever its other hints say. A tool that runs the user's code should set it
+  `true`.
 - **A named method stays a chat request.** It is sent only to the server that named it, and only as AI Chat's
   list, call or context request. Approval applies to a call whatever the method is called, so naming
   `textDocument/rename` gains nothing (`ServerChatToolsTests` drives exactly that).
