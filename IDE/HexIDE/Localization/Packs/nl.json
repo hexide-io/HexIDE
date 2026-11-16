@@ -1294,7 +1294,7 @@
     "Str.Dock.DocumentTabs": "Documenttabbladen",
     "Str.Dock.ToolTabs": "Hulptabbladen",
     "Str.AIChat.ApiKeyRequired": "API-sleutel vereist. Stel de omgevingsvariabele HEXIDE_AI_API_KEY in, of apiKey in chat-settings.json.",
-    "Str.AIChat.PrivacyNotice": "ℹ Privacy: uw berichten, de inhoud van het actieve bestand (bij een formulier ook de indeling en bijschriften) en de bijbehorende diagnostiek worden naar {0} gestuurd — een dienst van derden die u in de AI-chatinstellingen hebt geconfigureerd.",
+    "Str.AIChat.PrivacyNotice": "ℹ Privacy: uw berichten, de inhoud van het actieve bestand (bij een formulier ook de indeling en bijschriften) en de bijbehorende diagnostiek worden naar {0} gestuurd — een dienst van derden die u in de AI-chatinstellingen hebt geconfigureerd. Ook de inhoud van elk ander bestand in uw geladen projecten dat de assistent met zijn hulpmiddelen leest, de bestandslijsten van projecten en diagnostiek voor elk bestand worden daarheen gestuurd zonder om goedkeuring te vragen.",
     "Str.AIChat.PrivacyKeyTip": "Tip: stel de omgevingsvariabele HEXIDE_AI_API_KEY in om uw API-sleutel niet in een bestand op te slaan.",
     "Str.AIChat.Approved": "✔ Goedgekeurd",
     "Str.AIChat.Rejected": "✗ Afgewezen",

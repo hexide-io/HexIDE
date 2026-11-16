@@ -1294,7 +1294,7 @@
     "Str.Dock.DocumentTabs": "Dokumentfaner",
     "Str.Dock.ToolTabs": "Verktøyfaner",
     "Str.AIChat.ApiKeyRequired": "API-nøkkel kreves. Angi miljøvariabelen HEXIDE_AI_API_KEY, eller apiKey i chat-settings.json.",
-    "Str.AIChat.PrivacyNotice": "ℹ Personvern: meldingene dine, innholdet i den aktive filen (for et skjema også oppsett og tekster) og diagnostikken sendes til {0} — en tredjepartstjeneste du har konfigurert i innstillingene for KI-chat.",
+    "Str.AIChat.PrivacyNotice": "ℹ Personvern: meldingene dine, innholdet i den aktive filen (for et skjema også oppsett og tekster) og diagnostikken sendes til {0} — en tredjepartstjeneste du har konfigurert i innstillingene for KI-chat. Innholdet i enhver annen fil i de innlastede prosjektene dine som assistenten leser med verktøyene sine, prosjektenes fillister og diagnostikk for enhver fil sendes også dit uten å be om godkjenning.",
     "Str.AIChat.PrivacyKeyTip": "Tips: angi miljøvariabelen HEXIDE_AI_API_KEY for å unngå å lagre API-nøkkelen i en fil.",
     "Str.AIChat.Approved": "✔ Godkjent",
     "Str.AIChat.Rejected": "✗ Avvist",

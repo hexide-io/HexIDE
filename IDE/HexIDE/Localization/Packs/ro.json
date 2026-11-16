@@ -1294,7 +1294,7 @@
     "Str.Dock.ToolTabStripItemDockAsDocument": "Andochează ca document cu filă",
     "Str.Dock.ToolTabStripItemClose": "În_chide",
     "Str.AIChat.ApiKeyRequired": "Este necesară o cheie API. Setați variabila de mediu HEXIDE_AI_API_KEY sau apiKey în chat-settings.json.",
-    "Str.AIChat.PrivacyNotice": "ℹ Confidențialitate: mesajele dvs., conținutul fișierului activ (pentru un formular, și aspectul și legendele) și diagnosticele sale sunt trimise către {0} — un serviciu terț configurat în setările chatului AI.",
+    "Str.AIChat.PrivacyNotice": "ℹ Confidențialitate: mesajele dvs., conținutul fișierului activ (pentru un formular, și aspectul și legendele) și diagnosticele sale sunt trimise către {0} — un serviciu terț configurat în setările chatului AI. Tot acolo sunt trimise, fără a cere aprobare, conținutul oricărui alt fișier din proiectele încărcate pe care asistentul îl citește cu instrumentele sale, listele de fișiere ale proiectelor și diagnosticele pentru orice fișier.",
     "Str.AIChat.PrivacyKeyTip": "Sfat: setați variabila de mediu HEXIDE_AI_API_KEY pentru a evita stocarea cheii API într-un fișier.",
     "Str.AIChat.Approved": "✔ Aprobat",
     "Str.AIChat.Rejected": "✗ Respins",
