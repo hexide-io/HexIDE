@@ -102,7 +102,11 @@ has been typed; a member such as `x.Rem` is not a comment. Space in ordinary cod
 
 The editor applies a completion's `textEdit` in preference to `insertText` or `label`; without
 a `textEdit`, it replaces the completion segment. An insert/replace edit applies its `insert` range,
-keeping the suffix after that range. `additionalTextEdits` use the same original
+keeping the suffix after that range. A server's ranges are for the position it was asked at, and the
+code window asks at the word start, so the word typed before the caret lies after a range that stops
+there. A main range on the caret's line that starts at or before the request position and ends between
+it and the caret is therefore taken on to the caret, so the item replaces what was typed instead of
+going in front of it (#4189); any other range is applied as sent. `additionalTextEdits` use the same original
 document coordinates and commit with the main edit as one undo step. The caret follows the main
 insertion, including shifts from earlier edits. Invalid, overlapping or protected edit sets are
 refused in full. The editor expands numbered snippet tabstops (`$1`, `${1}`), defaults
@@ -163,6 +167,9 @@ Hover replies accept `MarkupContent`, a legacy `MarkedString` (Markdown string o
 code block), or an array of marked strings (#2022). Legacy forms are normalized to Markdown markup
 content, with blank lines between array parts; `MarkupContent` keeps its kind and value. The editor's
 tooltip renders Markdown paragraphs, emphasis, inline code, lists and fenced code blocks (#2905).
+ATX headings (`#` through `######`) render bold without their markers; thematic breaks of three or
+more matching `-`, `*` or `_` markers, with optional spaces, render as thin separators (#4129).
+Setext headings and HTML remain outside the supported subset.
 The renderer owns the advertised `contentFormat` preference: `["markdown", "plaintext"]`.
 `vb` and `vba` fences use the editor's font and shared VB6 colours; other fences use its font
 without highlighting. Raw HTML is literal text. HTTP(S) links open through the browser only on
