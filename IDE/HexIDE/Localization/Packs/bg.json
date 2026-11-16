@@ -1312,6 +1312,11 @@
     "Str.AIChat.PrivacyNotice": "ℹ Поверителност: вашите съобщения, съдържанието на активния файл (за формуляр — и оформлението и надписите) и диагностиката му се изпращат до {0} — услуга на трета страна, конфигурирана в настройките на AI чата.",
     "Str.AIChat.PrivacyKeyTip": "Съвет: задайте променливата на средата HEXIDE_AI_API_KEY, за да избегнете съхраняването на API ключа във файл.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Проектите {0} споделят папка {1}; записва се или се импортира само {2}.",
-    "Str.MemberOrigin.HexIde": "Разширение на HexIDE; не е налично във VB6."
+    "Str.MemberOrigin.HexIde": "Разширение на HexIDE; не е налично във VB6.",
+    "Str.PropDesc.Index": "Индексът на елемента в масива от контроли или празно за самостоятелна контрола.",
+    "Str.ControlArray.InvalidIndex": "Index трябва да е цяло число от 0 до 32767 или празно.",
+    "Str.ControlArray.DuplicateIndex": "„{0}“ вече има Index {1}. Изберете друг Index.",
+    "Str.ControlArray.ClearRefused": "Index не може да се изчисти, докато „{0}“ има същото име.",
+    "Str.ControlArray.UnindexedSibling": "„{0}“ има същото име и няма Index. Първо задайте неговия Index."
   }
 }

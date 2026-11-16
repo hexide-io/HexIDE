@@ -182,7 +182,7 @@ public partial class PropertiesToolViewModel : Tool
                             var prop = properties[propertyClass] = new PropertyViewModel(this, propertyClass, Displayed(component.Instance, propertyClass));
                             Properties.Add(prop);
                         }
-                        foreach (var categoryGroup in component.Instance.BaseClass.Properties.GroupBy(p => p.Category))
+                        foreach (var categoryGroup in PropertyText.InWindowOrder(component.Instance.BaseClass).GroupBy(p => p.Category))
                         {
                             CategorizedProperties.Add(new PropertyCategoryViewModel(this, categoryGroup.Key));
                             foreach (var propertyClass in categoryGroup.OrderBy(prop => prop.Name))
@@ -192,7 +192,9 @@ public partial class PropertiesToolViewModel : Tool
                             }
                         }
 
-                        foreach (var raw in component.Instance.UnknownRawProperties)
+                        foreach (var raw in component.Instance.UnknownRawProperties.Where(raw =>
+                                     !properties.ContainsKey(VBProperties.DesignIndexProperty)
+                                     || !raw.Name.Equals("Index", StringComparison.OrdinalIgnoreCase)))
                         {
                             var row = new RawPropertyViewModel(raw, localization, format);
                             Properties.Add(row);

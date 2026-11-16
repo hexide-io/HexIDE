@@ -1312,6 +1312,11 @@
     "Str.AIChat.New": "Nuova",
     "Str.AIChat.InputPlaceholder": "Chiedi informazioni sul codice…",
     "Str.AIChat.NewTip": "Nuova chat (la cronologia viene conservata)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "I progetti {0} condividono la cartella {1}; viene scritto o importato solo {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "I progetti {0} condividono la cartella {1}; viene scritto o importato solo {2}.",
+    "Str.PropDesc.Index": "Indice dell’elemento della matrice di controlli, o vuoto per un controllo semplice.",
+    "Str.ControlArray.InvalidIndex": "Index deve essere un numero intero da 0 a 32767, oppure vuoto.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' ha già Index {1}. Scegliere un altro Index.",
+    "Str.ControlArray.ClearRefused": "Impossibile svuotare Index mentre '{0}' ha lo stesso nome.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' ha lo stesso nome e non ha Index. Impostare prima il suo Index."
   }
 }

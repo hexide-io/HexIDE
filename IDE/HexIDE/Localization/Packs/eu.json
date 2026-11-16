@@ -1312,6 +1312,11 @@
     "Str.AIChat.New": "Berria",
     "Str.AIChat.InputPlaceholder": "Galdetu zure kodeari buruz…",
     "Str.AIChat.NewTip": "Txat berria (historia gordetzen da)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "{0} proiektuek {1} karpeta partekatzen dute; {2} soilik idazten edo inportatzen da."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "{0} proiektuek {1} karpeta partekatzen dute; {2} soilik idazten edo inportatzen da.",
+    "Str.PropDesc.Index": "Kontrol-matrizeko elementuaren indizea, edo hutsik kontrol soil baterako.",
+    "Str.ControlArray.InvalidIndex": "Index 0 eta 32767 arteko osoko zenbakia edo hutsa izan behar da.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' kontrolak badu Index {1}. Aukeratu beste Index bat.",
+    "Str.ControlArray.ClearRefused": "Ezin da Index hustu '{0}' kontrolak izen bera duen bitartean.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' kontrolak izen bera du eta ez du Index baliorik. Ezarri haren Index lehenik."
   }
 }

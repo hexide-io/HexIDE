@@ -315,7 +315,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Bring to Front / Send to Back | Done | |
 | Center Horizontally / Vertically | Done | Single control only |
 | Double-click → open event handler | Done | Generates handler stub; opens code editor. Handler searches start after the header (#711), so designer properties naming a handler do not intercept navigation or stub generation. Handler searches skip read-only member `Attribute` lines too; double-click navigation lands after the handler's attribute run, keeping it folded (#702) |
-| Properties grid integration | Done | Bidirectional; all property types |
+| Properties grid integration | Done | Bidirectional; all property types. Index creates or moves a control-array element (0–32767), or clears a lone element, through the grid and `set_control_property` (#2701). Invalid values, duplicate indexes and clearing with same-name siblings are refused; undo and form save/load retain the index. VB6 IDE prompts remain unmeasured; event-signature rewriting and indexed handler stubs remain #4205 |
 | Color picker (via Color Palette) | Done | |
 | Font picker (via Property grid) | Done | An uninstalled current family is listed and selected without substituting a rendering fallback (#912) |
 | Form resize | Partial | Bottom, right, and bottom-right handles present; top and left edges not resizable |

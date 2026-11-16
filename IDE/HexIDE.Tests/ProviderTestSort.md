@@ -52,6 +52,7 @@ A test that reaches the provider only at run time, through the application's com
 | `IDE/Vb6ToolchainDiagnosticsTests.cs` | split |
 | `Infrastructure/ArchiveFileToolsTests.cs` | split |
 | `Infrastructure/BreakpointConditionToolTests.cs` | split |
+| `Infrastructure/ControlArrayIndexTests.cs` | split |
 | `Infrastructure/ConversationExportSafetyTests.cs` | split |
 | `Infrastructure/DocumentTabsModifiedTests.cs` | split |
 | `Infrastructure/ExternalRunControlTests.cs` | split |

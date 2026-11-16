@@ -1312,6 +1312,11 @@
     "Str.AIChat.New": "Novo",
     "Str.AIChat.InputPlaceholder": "Pitajte o svom kodu…",
     "Str.AIChat.NewTip": "Novo ćaskanje (istorija se čuva)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} dele fasciklu {1}; zapisuje se ili uvozi samo {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} dele fasciklu {1}; zapisuje se ili uvozi samo {2}.",
+    "Str.PropDesc.Index": "Indeks elementa niza kontrola ili prazno za samostalnu kontrolu.",
+    "Str.ControlArray.InvalidIndex": "Index mora biti ceo broj od 0 do 32767 ili prazan.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' već ima Index {1}. Izaberite drugi Index.",
+    "Str.ControlArray.ClearRefused": "Index se ne može obrisati dok '{0}' ima isti naziv.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' ima isti naziv i nema Index. Prvo postavite njegov Index."
   }
 }

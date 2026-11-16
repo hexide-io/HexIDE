@@ -1312,6 +1312,11 @@
     "Str.AIChat.New": "Nova",
     "Str.AIChat.InputPlaceholder": "Pergunte sobre o seu código…",
     "Str.AIChat.NewTip": "Nova conversa (o histórico é preservado)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Os projetos {0} partilham a pasta {1}; apenas {2} é escrito ou importado."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Os projetos {0} partilham a pasta {1}; apenas {2} é escrito ou importado.",
+    "Str.PropDesc.Index": "Índice do elemento da matriz de controlos, ou vazio para um controlo simples.",
+    "Str.ControlArray.InvalidIndex": "Index deve ser um número inteiro de 0 a 32767, ou vazio.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' já tem Index {1}. Escolha outro Index.",
+    "Str.ControlArray.ClearRefused": "Não é possível limpar Index enquanto '{0}' tiver o mesmo nome.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' tem o mesmo nome e não tem Index. Defina primeiro o seu Index."
   }
 }

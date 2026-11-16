@@ -1312,6 +1312,11 @@
     "Str.AIChat.New": "Νέα",
     "Str.AIChat.InputPlaceholder": "Ρωτήστε για τον κώδικά σας…",
     "Str.AIChat.NewTip": "Νέα συνομιλία (το ιστορικό διατηρείται)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Τα έργα {0} μοιράζονται τον φάκελο {1}· μόνο το {2} γράφεται ή εισάγεται."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Τα έργα {0} μοιράζονται τον φάκελο {1}· μόνο το {2} γράφεται ή εισάγεται.",
+    "Str.PropDesc.Index": "Ο δείκτης του στοιχείου του πίνακα στοιχείων ελέγχου, ή κενό για μεμονωμένο στοιχείο.",
+    "Str.ControlArray.InvalidIndex": "Το Index πρέπει να είναι ακέραιος από 0 έως 32767 ή κενό.",
+    "Str.ControlArray.DuplicateIndex": "Το '{0}' έχει ήδη Index {1}. Επιλέξτε άλλο Index.",
+    "Str.ControlArray.ClearRefused": "Δεν είναι δυνατή η εκκαθάριση του Index όσο το '{0}' έχει το ίδιο όνομα.",
+    "Str.ControlArray.UnindexedSibling": "Το '{0}' έχει το ίδιο όνομα και δεν έχει Index. Ορίστε πρώτα το Index του."
   }
 }
