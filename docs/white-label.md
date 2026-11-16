@@ -41,6 +41,11 @@ A member that isn't in this table stops the IDE from starting. So does anything 
 reports the file and the problem, and doesn't fall back to being HexIDE, because that would open HexIDE's settings
 and recovery files inside your product. `--help` still answers on a broken installation, and exits with code 2.
 
+Logo capture checks every PNG chunk's length and CRC, the header's format, and the final IEND. Its IDAT
+stream must inflate to exactly the scanline bytes required by the dimensions, including Adam7 passes.
+Validation runs before the UI toolkit starts, within the existing 1 MiB file and 1024×1024 pixel limits;
+a corrupt logo refuses startup with both the descriptor and logo file named (#4063).
+
 ## Translating your tagline and credits
 
 Each `tagline` or `credits` entry can be an ordinary string or an object with a required `text` fallback
