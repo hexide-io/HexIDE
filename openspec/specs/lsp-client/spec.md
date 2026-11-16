@@ -284,6 +284,34 @@ range or placeholder SHALL seed the prompt. Servers without preparation support 
 - **WHEN** no claimant advertises preparation
 - **THEN** no preparation request is sent and the existing prompt behavior remains
 
+### Requirement: Type hierarchy connection requests
+The client SHALL advertise `textDocument.typeHierarchy` and gate prepare, subtypes and supertypes
+requests on `typeHierarchyProvider`. Expansion SHALL send the originating server's item unchanged,
+including opaque `data`. The IDE SHALL compute no type relationships itself.
+
+#### Scenario: Expand a prepared item
+- **WHEN** a user expands a type hierarchy group
+- **THEN** its request returns the original item to the server that prepared it, including `data`
+
+### Requirement: Type hierarchy tool
+The IDE SHALL offer a provider-gated Type Hierarchy command after Call Hierarchy in the code context
+menu and beside it in Edit. Each prepared item SHALL be a root with localized Subtypes and Supertypes
+groups, each requested once on first expansion. Empty prepares and groups SHALL show an empty state;
+failures SHALL identify their server. Activating a type SHALL navigate to its `selectionRange` in its
+`uri`.
+
+#### Scenario: Walk an interface's implementations
+- **WHEN** the server prepares IShape and returns Circle and Square as subtypes and no supertypes
+- **THEN** expanding Subtypes requests that level once and displays both classes
+- **AND** expanding Supertypes displays an empty state
+- **AND** each returned class offers its own independently lazy groups
+
+#### Scenario: No provider or no type
+- **WHEN** the document has no running type hierarchy provider
+- **THEN** the command is disabled and no hierarchy request is sent
+- **WHEN** a provider returns null or an empty prepare result
+- **THEN** the pane displays its empty state
+
 ### Requirement: Call hierarchy connection requests
 The connection client SHALL declare `textDocument.callHierarchy` and gate prepare, incoming and
 outgoing call requests on `callHierarchyProvider`. It SHALL preserve server item data on expansion

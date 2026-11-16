@@ -686,6 +686,29 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         return new(answers.SelectMany(a => a.Roots).ToArray(), answers.SelectMany(a => a.Errors).ToArray());
     }
 
+    public bool SupportsTypeHierarchy(string uri) => ClaimantsFor(uri, IsProjectMember(uri))
+        .Any(e => e.Client is { IsRunning: true } c
+            && ServerCapabilities.Supports(c.AdvertisedCapabilities, "typeHierarchyProvider"));
+
+    public async Task<TypeHierarchyResult> FindTypeHierarchyAsync(string uri, Position position, CancellationToken ct = default)
+    {
+        var answers = await GatherAsync(uri, async client =>
+        {
+            if (!ServerCapabilities.Supports(client.AdvertisedCapabilities, "typeHierarchyProvider")) return Array.Empty<TypeHierarchyResult>();
+            try
+            {
+                var items = await client.PrepareTypeHierarchyAsync(uri, position, ct);
+                return new[] { new TypeHierarchyResult(items.Select(i => new TypeHierarchyRoot(client, i, OwnerOf(client))).ToArray(), []) };
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                return new[] { new TypeHierarchyResult([], [new ReferenceSearchError(OwnerOf(client), ex.Message)]) };
+            }
+        }, ct);
+        return new(answers.SelectMany(a => a.Roots).ToArray(), answers.SelectMany(a => a.Errors).ToArray());
+    }
+
     public Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDefinitionAsync(uri, position, ct), ct);
 
