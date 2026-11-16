@@ -1408,6 +1408,13 @@ public record InlayHint(
     [property: JsonPropertyName("position")] Position Position,
     [property: JsonPropertyName("label")] System.Text.Json.JsonElement Label)
 {
+    [JsonPropertyName("kind")]
+    public int? Kind { get; init; }
+    [JsonPropertyName("paddingLeft")]
+    public bool PaddingLeft { get; init; }
+    [JsonPropertyName("paddingRight")]
+    public bool PaddingRight { get; init; }
+
     [JsonIgnore]
     public string Text => Label.ValueKind == System.Text.Json.JsonValueKind.String
         ? Label.GetString() ?? ""

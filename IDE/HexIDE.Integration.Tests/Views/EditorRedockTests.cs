@@ -11,6 +11,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.Folding;
+using AvaloniaEdit.Rendering;
 using HexIDE.Controls;
 using Dock.Avalonia.Controls;
 using Dock.Model.Core;
@@ -168,8 +169,12 @@ public class EditorRedockTests
             var textView = editor.TextArea.TextView;
             view.GetVisualDescendants().OfType<Button>().Should().Contain(b => Equals(b.Content, "1 reference"));
             textView.LineTransformers.OfType<SemanticTokensColorizer>().Single().Tokens.Should().ContainSingle();
-            textView.BackgroundRenderers.OfType<InlayHintRenderer>().Single().Placements(textView)
-                .Should().Contain(p => p.Text == "hint");
+            textView.ElementGenerators.OfType<InlayHintRenderer>().Should().ContainSingle();
+            textView.EnsureVisualLines();
+            textView.VisualLines.SelectMany(line => line.Elements).OfType<InlineObjectElement>()
+                .Select(element => element.Element).OfType<StackPanel>()
+                .SelectMany(panel => panel.Children.OfType<TextBlock>())
+                .Should().Contain(label => label.Text == "hint");
             ((FoldingManager)textView.GetService(typeof(FoldingManager))!).AllFoldings.Should().ContainSingle();
         }
 
