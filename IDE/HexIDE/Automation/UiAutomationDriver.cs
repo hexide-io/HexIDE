@@ -1858,6 +1858,19 @@ public static class UiAutomationDriver
     /// <see cref="FinishAsync"/> raises as input of its own, after whatever the press set off has run.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Windows hands a mirrored window (WS_EX_LAYOUTRTL) its mouse messages with client x measured from the right edge.
+    /// A click is raised at the layout point, past that, so it reaches the named control whether or not the window
+    /// un-mirrors a real mouse's messages, and the reply says so (#4102).
+    /// </summary>
+    internal const string MirroredPressNote = "; this window is mirrored (WS_EX_LAYOUTRTL), and the press was raised at the "
+        + "layout point, past Windows' mirroring: a real mouse here arrives with its client x measured from the right edge, "
+        + "so it reaches the same control only if the window un-mirrors its input";
+
+    private static string MirroredPress(TopLevel topLevel) =>
+        topLevel is Window window && NativeWindowFrame.Read(window).ExStyle is { } ex && (ex & 0x00400000) != 0
+            ? MirroredPressNote : "";
+
     private static InteractOutcome DoClick(Control control, string? value)
     {
         static InteractOutcome Fail(string error) => new(false, "pointer", null, error);
@@ -1955,6 +1968,7 @@ public static class UiAutomationDriver
                 ? $"; ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) is outside '{Describe(control)}', which is "
                   + $"{control.Bounds.Width.ToString("0.#", CultureInfo.InvariantCulture)} × {control.Bounds.Height.ToString("0.#", CultureInfo.InvariantCulture)}, and the press landed on '{Describe(landed)}'"
                 : $"; the press landed on '{Describe(landed)}', which covers the target there";
+        landing += MirroredPress(topLevel);
         var holding = keys == KeyModifiers.None ? "" : " holding " + string.Join(" and ",
             new[] { (KeyModifiers.Shift, "shift"), (KeyModifiers.Control, "ctrl"), (KeyModifiers.Alt, "alt") }
                 .Where(k => keys.HasFlag(k.Item1)).Select(k => k.Item2));

@@ -29,6 +29,18 @@ public class FrameCoverTests
             .Should().Be(0.5);
     }
 
+    // A mirrored window's capture comes back reversed (#4103): the whole row is flipped, then cropped, so a crop that is
+    // not centred (the invisible resize borders need not be equal) still takes the pixels the screen shows there.
+    [Fact]
+    public void A_mirrored_row_is_flipped_whole_and_then_cropped()
+    {
+        // Five pixels A to E, one byte value each, cropped to three from the second.
+        byte[] whole = [.. new byte[] { 1, 2, 3, 4, 5 }.SelectMany(v => new byte[] { v, v, v, 255 })];
+        var row = new byte[3 * 4];
+        NativeWindowFrame.MirrorRow(whole, 5, 1, row);
+        row.Where((_, i) => i % 4 == 0).Should().Equal(4, 3, 2);
+    }
+
     // A minimized form can be restored through set_window_state since #2357, so the refusal says how; a hidden one only
     // its program can show. The two used to share one message that offered both.
     [Fact]
