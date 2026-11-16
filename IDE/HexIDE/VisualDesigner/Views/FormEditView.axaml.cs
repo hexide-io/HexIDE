@@ -24,6 +24,13 @@ public partial class FormEditView : UserControl
     {
         InitializeComponent();
         FormContainer.AddHandler(KeyDownEvent, OnDesignerKeyDown, RoutingStrategies.Tunnel);
+        // Whether a button is held anywhere on the form, a control's own drag included, which marks its events handled.
+        FormContainer.AddHandler(PointerPressedEvent, (_, e) => _buttonHeld = AnyButton(e.GetCurrentPoint(FormContainer)),
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        FormContainer.AddHandler(PointerReleasedEvent, (_, e) => _buttonHeld = AnyButton(e.GetCurrentPoint(FormContainer)),
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        FormContainer.AddHandler(PointerCaptureLostEvent, (_, _) => _buttonHeld = false,
+            RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
         ControlsContainer.ReferenceChanged += OnControlsContainerReferenceChanged;
         NewControlSpawner.AddHandler(PointerPressedEvent, OnNewControlStarted);
         NewControlSpawner.AddHandler(PointerMovedEvent, OnNewControlMoving);
@@ -71,6 +78,11 @@ public partial class FormEditView : UserControl
     // Guards against selection-change loops between VM and ControlsContainer
     private bool _syncingSelection;
 
+    private bool _buttonHeld;
+
+    private static bool AnyButton(PointerPoint point) =>
+        point.Properties is { IsLeftButtonPressed: true } or { IsRightButtonPressed: true } or { IsMiddleButtonPressed: true };
+
     private void OnNewPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (isSpawningNewControl && NewControlSpawnerPhantom.IsVisible)
@@ -105,7 +117,10 @@ public partial class FormEditView : UserControl
             || !c.Instance.GetPropertyOrDefault(VBProperties.EnabledProperty)
             || !c.Instance.GetPropertyOrDefault(VBProperties.TabStopProperty));
 
-        if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None)
+        // While a button is held, Esc belongs to the drag in progress, not to the selection. An abandoned hold presses
+        // Escape and then moves back to where it was pressed and lets go, which puts a moved control back; selecting the
+        // form first would leave the control where the drag had taken it (HeldButtonTests).
+        if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && !_buttonHeld)
         {
             vm.SelectedComponent = vm.Form;
         }
