@@ -1838,6 +1838,17 @@ changes only selection SHALL raise Click alone. Wheel input and ListIndex assign
 Page Down SHALL move keyboard focus to the selected item so subsequent arrow navigation continues
 from it (#3275). Native-message Scroll delivery remains pending (#3986).
 
+A TopIndex assignment after ListIndex or Selected in the same execution SHALL remain in effect after
+queued dispatcher work runs (#4229, measured in the issue). Code selection before the form is shown
+SHALL bring the selected item into view when it is shown unless a later TopIndex assignment supersedes that scroll.
+On a MultiSelect list, `Selected(i) = True` SHALL bring the item into view the same way, the least scroll that shows
+it, and SHALL NOT raise Scroll (measured on vb6.exe, #4229).
+
+#### Scenario: TopIndex follows code selection
+- **WHEN** a 60-item list showing 11 rows executes `ListIndex = 50` then `TopIndex = 20`
+- **THEN** after dispatcher processing ListIndex remains 50 and TopIndex remains 20
+- **AND** only the TopIndex assignment raises Scroll
+
 #### Scenario: Page Down followed by Up with item focus
 - **WHEN** an item has keyboard focus and Page Down changes the selection, followed by Up
 - **THEN** Page Down gives its selected item keyboard focus
