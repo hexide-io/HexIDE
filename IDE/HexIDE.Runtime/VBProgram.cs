@@ -193,7 +193,14 @@ public sealed class VBProgram : IFormProgram
         {
             await Events.Run("Sub Main", async () =>
             {
-                await interpreter.RunStartupSubMain();
+                var session = interpreter.DebugController?.Session;
+                interpreter.DebugController?.NotifyDispatchStarted();
+                try { await interpreter.RunStartupSubMain(); }
+                finally
+                {
+                    if (interpreter.DebugController?.Session == session)
+                        interpreter.DebugController?.NotifyDispatchIdle(carryStep: false);
+                }
                 return true;
             });
         }

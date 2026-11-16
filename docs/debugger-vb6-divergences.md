@@ -96,19 +96,19 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 
 ## Stepping
 
-### D4. Step Into past the end of a procedure returns to the caller; a top-level handler disarms
-- **VB6:** stepping off the end of a proc returns to the caller (breaking there while stepping); off the end of the
-  outermost event handler clears the step and the next event runs free.
-- **HexIDE:** matches this. Step is a one-shot: off the end of a NESTED proc it breaks at the caller's next statement
-  (Step Into always breaks at the next executed statement); off the end of the OUTERMOST event handler it is
-  **disarmed at the event-dispatch boundary** (`VBWindowContext.ExecuteSub`), so it does NOT leak into the next event.
-- **History:** from Phase 2 through the first P5 cut the one-shot instead **carried** into the next event's first
-  statement (a documented divergence — the faithful proc-end-clear had introduced 7 defects in the Phase-2 review, so
-  it was removed). The v2·P5 dispatch-idle disarm restored the VB6 behaviour after both P5 adversarial reviewers
-  independently flagged the leak (a Step Over leaving `target=1` fired on *every* subsequent event).
-- **Status:** **resolved (v2·P5)**. Matches VB6's "next event runs free." **#2320:** returning to idle also
-  publishes Continued and releases frozen events, so the shell leaves break mode (title, current-line bar,
-  inspection windows and command availability). VB6's title and toolbar at this point remain unmeasured.
+### D4. A step carries from an outermost event into the next event
+- **VB6:** Step Into and Step Over remain armed when the outermost event handler returns. The next event
+  breaks at its handler's declaration line before any statement runs. Break while idle enters break mode at once,
+  with no current statement. Continue clears the step; Into/Over resume and arm it for the next event.
+  Measured in the VB6 IDE on 2026-11-16, [#4261's comments](https://github.com/hexide-io/HexIDE/issues/4261)
+  and [oracle PR #4270](https://github.com/hexide-io/HexIDE/pull/4270), also #4269.
+- **HexIDE:** matches these measured positions, including the declaration's current-statement bar and live handler
+  frame. Idle Break has no bar or frame: Show/Set Next Statement, Step Out, Run To Cursor and Call Stack are disabled.
+- **History:** the earlier claim that VB6 cleared the step at idle was unmeasured and is overturned by #4270.
+  The dispatch-idle disarm had protected against stale depth targets and nested events stealing a step. Into/Over
+  now carry only after the outermost chain returns; events raised within that chain retain the existing depth rule.
+  #2320's clearing of break-mode chrome and release of frozen events at idle remains in place.
+- **Status:** **resolved (#4261, #4269)**. Step Out across idle and startup Main's step positions remain unmeasured and keep their previous behavior. Startup `Sub Main` stepping is also unmeasured here and keeps its existing statement positions.
 
 ### D5. Step Over / Step Out (v2·P5)
 - **VB6:** Shift+F8 (Step Over — run a called proc to completion, break at the next statement in the current frame),
@@ -117,7 +117,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   activation is pushed, NOT the live stack size — so an overlapping re-entrant event frame can't inflate it): Step
   Over breaks when the executing frame's depth ≤ the armed depth (a called Sub runs to completion; a non-call
   statement is same-depth so it behaves like Step Into — matches VB6); Step Out breaks when depth < the armed depth
-  (the proc returned). A never-consumed step is disarmed at the event-dispatch boundary (see D4). Module top-level
+  (the proc returned). Into/Over carry across the outermost event-dispatch boundary (D4); Out retains its previous disarm. Module top-level
   code has depth 0 (below any proc), so Step Over from top-level does not descend into a callee and Step Out from a
   top-level-called proc reaches the top-level caller.
 - **Why per-frame (not live count):** the first P5 cut read the live `ActivationStack.Count` with a `Max(1, …)`
