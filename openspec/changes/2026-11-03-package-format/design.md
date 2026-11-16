@@ -148,10 +148,11 @@ declared, and the runtime is identified by its root.
 - **Translations can't relabel protected keys:** a `translation` contribution gets the same protection as
   profiles and user overrides. Credit keys and trust labels (the root and first-party key lines,
   provenance, and the trust chain's root and comparison hint) are never relabelled by a package.
-  - The add-in consent dialog's verdict strings (#4121: unsigned, verified publisher, no verifiable
-    identity, the access and unsigned warnings, the revoked banner and the unsigned-add-ins notice) are
-    relabelled only by a first-party package. A third-party package is refused them, as a profile is,
-    because a data-tier install must not be able to change what a code-tier consent says.
+  - The strings that say whether to trust an add-in are relabelled only by a first-party package. They are
+    #4121's `BrandText.TrustVerdictKeys`, the single list the code checks: the consent dialog's title, verdicts,
+    warnings and Allow/Block; the trust chain's revoked banner and signed-by line; the unsigned-add-ins notice;
+    and Options > Add-Ins' publisher, trust, consent and status lines. A third-party package is refused them,
+    as a profile is, because a data-tier install must not be able to change what a code-tier consent says.
 - **Unknown kinds:** an unknown kind makes the whole package *incompatible*, naming the kind. There is no
   partial activation of a package build. After installation, the user may disable individual
   contributions, and that is a user setting, not a partially accepted package.
