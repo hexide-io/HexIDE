@@ -132,6 +132,7 @@
     "Str.TranslationEditor.PlaceholderError": "Изменение отклонено: оно должно сохранять те же подстановки {0}, {1} …, что и оригинал.",
     "Str.TranslationEditor.ProtectedCredits": "Благодарности HexIDE нельзя заменить здесь. Продукт на основе HexIDE может только дополнить их.",
     "Str.TranslationEditor.Tooltip.Override": "переопределение: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Курсив обозначает подстановку английского текста.",
     "Str.TranslationEditor.Tooltip.None": "(нет)",
     "Str.TranslationEditor.Area.Menu": "Меню",
     "Str.TranslationEditor.Area.Dialog": "Диалоговые окна",

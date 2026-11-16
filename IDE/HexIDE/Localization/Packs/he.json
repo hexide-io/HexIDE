@@ -191,6 +191,7 @@
     "Str.TranslationEditor.PlaceholderError": "העריכה נדחתה: עליה לשמור את אותם מצייני המיקום {0}, {1} … כמו במקור.",
     "Str.TranslationEditor.ProtectedCredits": "לא ניתן להחליף כאן את התודות של HexIDE. מוצר המבוסס על HexIDE יכול רק להוסיף להן.",
     "Str.TranslationEditor.Tooltip.Override": "התאמה: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "טקסט נטוי מציין שימוש בטקסט חלופי באנגלית.",
     "Str.TranslationEditor.Tooltip.None": "(ללא)",
     "Str.TranslationEditor.Area.Menu": "תפריטים",
     "Str.TranslationEditor.Area.Dialog": "תיבות דו-שיח",

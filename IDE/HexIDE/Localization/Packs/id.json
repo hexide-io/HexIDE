@@ -166,6 +166,7 @@
     "Str.TranslationEditor.PlaceholderError": "Suntingan ditolak: harus mempertahankan placeholder {0}, {1} … yang sama dengan aslinya.",
     "Str.TranslationEditor.ProtectedCredits": "Ucapan terima kasih HexIDE tidak dapat diganti di sini. Produk yang dibangun di atas HexIDE hanya dapat menambahkannya.",
     "Str.TranslationEditor.Tooltip.Override": "penggantian: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Teks miring menandakan teks pengganti dalam bahasa Inggris.",
     "Str.TranslationEditor.Tooltip.None": "(tidak ada)",
     "Str.TranslationEditor.Area.Menu": "Menu",
     "Str.TranslationEditor.Area.Dialog": "Dialog",

@@ -132,6 +132,7 @@
     "Str.TranslationEditor.PlaceholderError": "Edição rejeitada: tem de manter os mesmos marcadores {0}, {1} … do original.",
     "Str.TranslationEditor.ProtectedCredits": "Os créditos do HexIDE não podem ser substituídos aqui. Um produto baseado no HexIDE só pode acrescentar outros.",
     "Str.TranslationEditor.Tooltip.Override": "substituição: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "O texto em itálico indica um valor alternativo em inglês.",
     "Str.TranslationEditor.Tooltip.None": "(nenhuma)",
     "Str.TranslationEditor.Area.Menu": "Menus",
     "Str.TranslationEditor.Area.Dialog": "Caixas de diálogo",

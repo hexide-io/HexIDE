@@ -132,6 +132,7 @@
     "Str.TranslationEditor.PlaceholderError": "Зміну відхилено: вона має зберігати ті самі заповнювачі {0}, {1} …, що й оригінал.",
     "Str.TranslationEditor.ProtectedCredits": "Подяки HexIDE тут не можна замінити. Продукт на основі HexIDE може лише доповнити їх.",
     "Str.TranslationEditor.Tooltip.Override": "перевизначення: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Курсив позначає підстановку англійського тексту.",
     "Str.TranslationEditor.Tooltip.None": "(немає)",
     "Str.TranslationEditor.Area.Menu": "Меню",
     "Str.TranslationEditor.Area.Dialog": "Діалогові вікна",

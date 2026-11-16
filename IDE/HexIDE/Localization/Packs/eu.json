@@ -502,6 +502,7 @@
     "Str.TranslationEditor.PlaceholderError": "Edizioa baztertuta: jatorrizkoaren {0}, {1} … leku-marka berberak mantendu behar ditu.",
     "Str.TranslationEditor.ProtectedCredits": "HexIDEren eskerrak ezin dira hemen ordeztu. HexIDEn oinarritutako produktu batek gehitu baino ezin du egin.",
     "Str.TranslationEditor.Tooltip.Override": "gainidazketa: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Testu etzanak ingelesezko ordezko testua adierazten du.",
     "Str.TranslationEditor.Tooltip.None": "(bat ere ez)",
     "Str.TranslationEditor.Area.Menu": "Menuak",
     "Str.TranslationEditor.Area.Dialog": "Elkarrizketa-koadroak",

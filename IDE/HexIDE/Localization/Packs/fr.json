@@ -157,6 +157,7 @@
     "Str.TranslationEditor.PlaceholderError": "Modification refusée : elle doit conserver les mêmes espaces réservés {0}, {1} … que l'original.",
     "Str.TranslationEditor.ProtectedCredits": "Les remerciements de HexIDE ne peuvent pas être remplacés ici. Un produit fondé sur HexIDE peut seulement les compléter.",
     "Str.TranslationEditor.Tooltip.Override": "remplacement : {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "Le texte en italique indique un repli vers l’anglais.",
     "Str.TranslationEditor.Tooltip.None": "(aucun)",
     "Str.TranslationEditor.Area.Menu": "Menus",
     "Str.TranslationEditor.Area.Dialog": "Boîtes de dialogue",

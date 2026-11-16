@@ -527,6 +527,7 @@
     "Str.TranslationEditor.PlaceholderError": "Edición rexeitada: debe conservar os mesmos marcadores de posición {0}, {1} … ca o orixinal.",
     "Str.TranslationEditor.ProtectedCredits": "Os agradecementos de HexIDE non se poden substituír aquí. Un produto baseado en HexIDE só pode engadir outros.",
     "Str.TranslationEditor.Tooltip.Override": "personalización: {0}",
+    "Str.TranslationEditor.Tooltip.Fallback": "O texto en cursiva indica un valor alternativo en inglés.",
     "Str.TranslationEditor.Tooltip.None": "(ningunha)",
     "Str.TranslationEditor.Area.Menu": "Menús",
     "Str.TranslationEditor.Area.Dialog": "Diálogos",
