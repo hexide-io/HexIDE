@@ -96,6 +96,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         project.Forms.Single().Name.Should().Be("Form1");
         project.Modules.Single().Name.Should().Be("Module1");
         Messages().Should().Contain(message => message.Contains("Doc1.dob"));
+        project.Format.Should().BeSameAs(_format, "a project keeps the format it was read with (#4053)");
         _baselines.TryGet(_frm).Should().NotBeNull("what the read saw is what a later change is compared with");
         _baselines.TryGet(_vbp).Should().NotBeNull();
     }
@@ -109,7 +110,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
 
         await Opened(vbg);
 
-        _loaded.Should().ContainSingle();
+        _loaded.Should().ContainSingle().Which.Format.Should().BeSameAs(_format);
         _projects.CurrentGroup!.UnknownLines.Should().Equal("a line nothing models");
     }
 
@@ -222,6 +223,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
 
         project!.Forms.Single().Name.Should().Be("Form1");
         project.AbsolutePath.Should().BeNull();
+        project.Format.Should().BeSameAs(_format);
     }
 
     [Fact]
@@ -767,6 +769,23 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         target.Document.Text.Should().EndWith("other");
     }
 
+    [AvaloniaFact]
+    public async Task Proposed_project_text_is_read_through_the_format_before_model_confirmation()
+    {
+        var service = Service();
+        await service.OpenProject(_vbp);
+        var project = _loaded.Single();
+        var original = File.ReadAllBytes(_vbp);
+        _format.Stamp = "edited model";
+        const string text = "proposed text in the stand-in format";
+
+        var apply = () => service.ApplyProjectFileText(project, text, original, () => Task.FromResult(false));
+        await apply.Should().ThrowAsync<OperationCanceledException>();
+
+        _format.ProposedText.Should().Be(text);
+        File.ReadAllBytes(_vbp).Should().Equal(original);
+    }
+
     [Fact]
     public void Only_the_format_names_the_readers_and_writers()
     {
@@ -786,6 +805,8 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
 
     internal sealed class StandInFormat : IProjectFileFormat
     {
+        public FormatRegions? Regions { get; set; }
+
         public string CodePrefix(FormDefinition form) => $"prefix of {form.Name}: {Stamp}\r\n";
         public string CodePrefix(ModuleDefinition module) => $"prefix of {module.Name}: {Stamp}\r\n";
         public bool CarriesName { get; set; } = true;
@@ -799,6 +820,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         public SerializedProjectGroup Group { get; set; } = new(null, [], []);
         public List<(string Text, byte[]? Companion)> FormsRead { get; } = [];
         public List<(string Text, byte[]? Companion)> DesignerPartsRead { get; } = [];
+        public string? ProposedText { get; private set; }
 
         public RenderedFile RenderForm(FormDefinition form, string fileName) =>
             new($"form {form.Name} as {fileName}: {Stamp}", Companion);
@@ -828,6 +850,14 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
             foreach (var member in new[] { form.AbsolutePath!, module.AbsolutePath! }.Where(File.Exists))
                 fileRead?.Invoke(member, File.ReadAllBytes(member));
             return Task.FromResult(new ProjectFileRead(project, Skipped, [], File.ReadAllBytes(path)));
+        }
+
+        public Task<ProjectFileRead> ReadProjectTextAsync(string path, string text, Vb6TextEncoding encoding,
+            Vb6TextEncoding hostAnsi, IDeserializeErrorSink problems)
+        {
+            ProposedText = text;
+            return Task.FromResult(new ProjectFileRead(new(VBProjectType.EXE, "Proposed"), [], [],
+                Vb6TextFile.EncodeDocument(path, text, encoding)));
         }
 
         public SerializedProjectGroup ReadGroup(string text) => Group;

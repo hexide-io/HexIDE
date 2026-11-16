@@ -1,3 +1,4 @@
+using HexIDE.Runtime.AvaloniaInterop;
 using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;

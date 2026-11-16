@@ -117,13 +117,50 @@ public class VBListBox : ListBox
     {
         get
         {
-            if (IsMultiSelect)
-                throw new NotImplementedException("ListBox.TopIndex with MultiSelect is unmeasured (#3275)");
+            EnsureTopIndexLayout();
             var height = RowHeight();
             if (height <= 0 || Scroll is not { } scroll)
-                throw new NotImplementedException("ListBox.TopIndex before rows are laid out is not implemented (#3275)");
+                throw new NotImplementedException("ListBox.TopIndex cannot determine row layout (#3986)");
             return (int)Math.Floor(scroll.Offset.Y / height + 0.000001);
         }
+    }
+
+    private void EnsureTopIndexLayout()
+    {
+        UpdateLayout();
+        if (RowHeight() > 0 && Scroll is { } scroll && scroll.Viewport.Height > 0)
+            return;
+        // A loaded form need not be shown for TopIndex (#3986). Measure and arrange the list at its
+        // form dimensions so the real template supplies the same row height and viewport as when shown.
+        // Initialize from the host: its content presenter must attach the list without showing the window.
+        if (!double.IsFinite(Width) || !double.IsFinite(Height))
+            return;
+        Control root = this;
+        while (root.Parent is Control parent)
+            root = parent;
+        InitializeLayout(root);
+        InvalidateMeasure();
+        Measure(new Size(Width, Height));
+        Arrange(new Rect(Bounds.Position, DesiredSize));
+        UpdateLayout();
+    }
+
+    private static void InitializeLayout(Control control)
+    {
+        if (!control.IsInitialized)
+        {
+            control.BeginInit();
+            control.EndInit();
+        }
+        control.ApplyStyling();
+        control.ApplyTemplate();
+        // Detached presenters defer creating their child; force it before measuring the hidden form.
+        if (control is Avalonia.Controls.Presenters.ContentPresenter presenter)
+            presenter.UpdateChild();
+        foreach (var child in control.GetVisualChildren())
+            if (child is Control childControl)
+                InitializeLayout(childControl);
+        control.InvalidateMeasure();
     }
 
     private double RowHeight()
@@ -136,14 +173,12 @@ public class VBListBox : ListBox
 
     internal void SetTopIndexFromCode(int index)
     {
-        if (IsMultiSelect)
-            throw new NotImplementedException("ListBox.TopIndex with MultiSelect is unmeasured (#3275)");
         if (index < 0 || index >= ItemCount)
             throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
-        UpdateLayout();
+        EnsureTopIndexLayout();
         var height = RowHeight();
         if (height <= 0 || Scroll is not { } scroll)
-            throw new NotImplementedException("ListBox.TopIndex before rows are laid out is not implemented (#3275)");
+            throw new NotImplementedException("ListBox.TopIndex cannot determine row layout (#3986)");
         var before = TopIndex;
         var lastPage = Math.Max(0, ItemCount - (int)Math.Floor(scroll.Viewport.Height / height));
         scroll.Offset = new Vector(scroll.Offset.X, Math.Min(index, lastPage) * height);

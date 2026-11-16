@@ -83,12 +83,6 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             return;
         }
 
-        // Refresh the revocation list before loading anything — but ONLY if a URL is configured. The
-        // default is the bundled floor + last-known-good cache with no network, so a normal cold start
-        // does no fetch and incurs no delay. The fetch is blocking with a short timeout and fail-open.
-        if (!string.IsNullOrWhiteSpace(_settings.RevocationListUrl))
-            _revocations.RefreshFromUrl(_settings.RevocationListUrl, TimeSpan.FromSeconds(3));
-
         // Unsigned packages load only when BOTH the session is in developer mode AND the persisted
         // capability is on — neither alone is sufficient (the gate the developer-mode spec defines).
         var allowUnsigned = _devMode.IsEnabled && _settings.LoadUnsignedAddins;
@@ -127,6 +121,12 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                 Log.Error(ex, "AddinRegistry: failed to verify package {Dir} — skipped", packageDir);
             }
         }
+        // A normal cold start with only key-pinned first-party packages does no fetch or delay.
+        // Refresh before loading code or offering consent, with a short timeout and fail-open.
+        if (packages.Any(package => package.Result.Manifest is not null && !package.Result.IsFirstParty)
+            && !string.IsNullOrWhiteSpace(_settings.RevocationListUrl))
+            _revocations.RefreshFromUrl(_settings.RevocationListUrl, TimeSpan.FromSeconds(3));
+
         var owners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         // Guard EACH package: a third-party package that can't be read/verified/loaded (a locked .sig held by AV on
         // first launch, an inaccessible subdir, a MAX_PATH path, a malformed load) must be skipped — never abort the

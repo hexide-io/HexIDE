@@ -8,8 +8,10 @@ using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using SharpFuzz;
 
-// Fuzzes a form's companion .frx as HexIDE reads it (#1222). The .frm named on the command line stays fixed; the
-// .frx bytes come from AFL on standard input, or from files given after --replay.
+// Fuzzes a form as HexIDE reads it (#1222), in one of two modes:
+//   - a form's companion .frx: the .frm named on the command line stays fixed, and the .frx bytes vary;
+//   - with --frm, the .frm itself, with no companion, as a form whose .frx is missing is read.
+// The varying bytes come from AFL on standard input, or from files given after --replay.
 //
 // Each input goes through what opening the form and showing or saving it does without a window:
 //   1. FrxDeserializer.Read cuts the companion at the offsets the form cites;
@@ -17,21 +19,27 @@ using SharpFuzz;
 //   3. every record is put through FrxImageHelper (kind, payload, and Avalonia's Skia decode of a bitmap or icon);
 //   4. a StatusBar's panel pictures go through PanelPicture.FromRecord, and a RichTextBox's TextRTF through
 //      RichTextBoxPersistence.ReadDocument and RtfToWrite, as the designer and the running form do;
-//   5. FormSerializer renders the form and its companion again, as a save or a recovery capture does.
+//   5. when HexIDE would let the form be saved, FormSerializer renders it and its companion again, as a save does;
+//   6. what that save wrote is read back and saved again. A form HexIDE wrote must read
+//      back, and the second save must write the same bytes: anything else is a save that damages the file.
 //
 // A refusal HexIDE already makes on purpose, NotImplementedException naming the issue that would implement the
 // record, is not a finding. Any other exception escapes to SharpFuzz, which reports it to AFL as a crash.
 
+var frmMode = args.Length > 0 && args[0] == "--frm";
 if (args.Length < 1)
 {
     Console.Error.WriteLine("usage: FrxFuzz <form.frm>                      fuzz: the .frx comes from standard input");
     Console.Error.WriteLine("       FrxFuzz <form.frm> --replay <file>...   run each file as the .frx and report what happened");
+    Console.Error.WriteLine("       FrxFuzz --frm                           fuzz: the .frm comes from standard input");
+    Console.Error.WriteLine("       FrxFuzz --frm --replay <file>...        run each file as the .frm and report what happened");
     return 2;
 }
 
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-var formText = Encoding.GetEncoding(1252).GetString(File.ReadAllBytes(args[0]));
-var formName = Path.GetFileName(args[0]);
+var ansi = Encoding.GetEncoding(1252);
+var fixedFormText = frmMode ? "" : ansi.GetString(File.ReadAllBytes(args[0]));
+var formName = frmMode ? "Form1.frm" : Path.GetFileName(args[0]);
 
 AppBuilder.Configure<Application>()
     .UseSkia()
@@ -66,9 +74,10 @@ Fuzzer.Run(stream =>
 });
 return 0;
 
-void Load(byte[] companion)
+void Load(byte[] input)
 {
-    var records = FrxDeserializer.Read(companion, formText);
+    var formText = frmMode ? ansi.GetString(input) : fixedFormText;
+    var records = frmMode ? null : FrxDeserializer.Read(input, formText);
     var project = new ProjectDefinition(VBProjectType.EXE, "Fuzz");
     var form = new FormDeserializer().Deserialize(project, formText, new DiscardingSink(), records);
     if (form is null)
@@ -91,7 +100,46 @@ void Load(byte[] companion)
                     Refusable(() => CallInternal(PanelPicture, "FromRecord", picture));
     }
 
-    Refusable(() => new FormSerializer().Serialize(form, formName));
+    // Only a form HexIDE would save is written, as the save path refuses the rest before rendering anything.
+    if (form.CanSaveFaithfully)
+        Refusable(() => SavesStably(form));
+    // For triage: FRXFUZZ_VERBOSE=1 says whether the save check ran, as a refused save makes a pass vacuous.
+    if (Environment.GetEnvironmentVariable("FRXFUZZ_VERBOSE") == "1")
+        Console.WriteLine(form.CanSaveFaithfully ? "  saved and read back" : $"  not saveable: {form.UnfaithfulSaveReason}");
+}
+
+// A save HexIDE allows must write a form it can read back, and saving that again must change nothing.
+void SavesStably(FormDefinition form)
+{
+    var (firstText, firstCompanion) = new FormSerializer().Serialize(form, formName);
+    // For triage: FRXFUZZ_DUMP=<folder> keeps the first save, and the second when they differ.
+    var dump = Environment.GetEnvironmentVariable("FRXFUZZ_DUMP");
+    if (dump is { Length: > 0 })
+    {
+        File.WriteAllText(Path.Combine(dump, "first.frm"), firstText, ansi);
+        if (firstCompanion is not null)
+            File.WriteAllBytes(Path.Combine(dump, "first.frx"), firstCompanion);
+    }
+    var reread = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "Fuzz"), firstText,
+        new DiscardingSink(), firstCompanion is null ? null : FrxDeserializer.Read(firstCompanion, firstText))
+        ?? throw new InvalidOperationException("HexIDE saved a form it cannot read back");
+    if (!reread.CanSaveFaithfully)
+        throw new InvalidOperationException($"HexIDE saved a form it then refuses to save: {reread.UnfaithfulSaveReason}");
+    var (secondText, secondCompanion) = new FormSerializer().Serialize(reread, formName);
+    if (secondText != firstText)
+    {
+        if (dump is { Length: > 0 })
+            File.WriteAllText(Path.Combine(dump, "second.frm"), secondText, ansi);
+        var first = firstText.Split('\n');
+        var second = secondText.Split('\n');
+        var line = Enumerable.Range(0, Math.Min(first.Length, second.Length)).FirstOrDefault(i => first[i] != second[i],
+            Math.Min(first.Length, second.Length));
+        throw new InvalidOperationException($"Saving the form again changed its .frm, first at line {line + 1}: "
+            + $"[{(line < first.Length ? first[line].TrimEnd() : "(end)")}] became "
+            + $"[{(line < second.Length ? second[line].TrimEnd() : "(end)")}]");
+    }
+    if (!(firstCompanion ?? []).AsSpan().SequenceEqual(secondCompanion ?? []))
+        throw new InvalidOperationException("Saving the form again changed its .frx");
 }
 
 static void Decode(byte[] record)

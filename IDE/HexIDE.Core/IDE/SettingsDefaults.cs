@@ -56,5 +56,5 @@ public static class SettingsDefaults
     public const bool IsEditToolbarVisible = false;
     public const bool IsDebugToolbarVisible = false;
     public const bool IsFormEditorToolbarVisible = false;
-    public const string? RevocationListUrl = null;
+    public const string? RevocationListUrl = "https://hexide.io/revocations.json";
 }

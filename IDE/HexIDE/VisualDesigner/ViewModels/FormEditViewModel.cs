@@ -523,7 +523,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     /// <summary>The children a container's block holds, in the order a save writes them, as the writer reads them.</summary>
     private IReadOnlyList<ComponentInstance> WrittenChildren(ComponentInstance container, IReadOnlyList<ComponentInstance> fileOrder) =>
-        ReferenceEquals(container, Form.Instance) ? format.RootChildren(fileOrder, container) : container.ContainedControls;
+        ReferenceEquals(container, Form.Instance)
+            ? (formDefinition is { } own ? ProjectFormats.Of(own.Owner, format) : format).RootChildren(fileOrder, container)
+            : container.ContainedControls;
 
     /// <summary>
     /// Where a save puts each container's carried blocks among the children it writes, from how many of them each child

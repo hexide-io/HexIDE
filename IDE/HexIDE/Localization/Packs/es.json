@@ -2,6 +2,7 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Al aplicar el texto del archivo de proyecto se reemplazará la configuración sin guardar de {0}. ¿Continuar?",
     "Str.AIChat.Title": "Chat de IA",
     "Str.AIChat.Menu": "_Chat de IA",
     "Str.AIChat.Approved": "✔ Aprobado",
@@ -155,6 +156,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "¿Quitar todas sus modificaciones para este idioma?",
     "Str.TranslationEditor.PlaceholderError": "Edición rechazada: debe conservar los mismos marcadores de posición {0}, {1} … que el original.",
     "Str.TranslationEditor.ProtectedCredits": "Los créditos de HexIDE no se pueden reemplazar aquí. Un producto basado en HexIDE solo puede añadir otros.",
+    "Str.TranslationEditor.ProtectedTrust": "Las etiquetas de las claves de firma de HexIDE no se pueden reemplazar aquí. Un producto basado en HexIDE no puede presentar esas claves como propias.",
     "Str.TranslationEditor.Tooltip.Override": "modificación: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ninguna)",
     "Str.TranslationEditor.Area.Menu": "Menús",
@@ -444,6 +446,7 @@
     "Str.Tool.CallStack.RowName": "{0}, línea {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Todas las bibliotecas>",
     "Str.Tool.ObjectBrowser.MembersOf": "Miembros de '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "No se pueden enumerar los miembros sin la biblioteca de tipos de esta biblioteca.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Cerrar Examinador de objetos",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Examinador de objetos",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Ir a la definición",

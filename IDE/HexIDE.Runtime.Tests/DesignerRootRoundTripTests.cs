@@ -148,4 +148,30 @@ public class DesignerRootRoundTripTests
         Root(module.FormPart!).BaseClass.VBTypeName.Should().Be(typeName).And.Be(module.FormPart!.RootVBTypeName);
         module.FormPart!.Name.Should().Be(name);
     }
+
+    // Found by fuzzing the .frm (#1222): a stray minus read as negative zero, the first save wrote -0, and -0 read back
+    // as 0, so a second save changed the file again.
+    [Fact]
+    public void A_measurement_read_as_negative_zero_is_written_as_zero_and_saves_stably()
+    {
+        var source =
+            "VERSION 5.00\r\n"
+          + "Begin VB.Form Form1 \r\n"
+          + "   Caption         =   \"Form1\"\r\n"
+          + "   ClientHeight    =   0-\r\n"
+          + "   ClientLeft      =   60\r\n"
+          + "   ClientTop       =   345\r\n"
+          + "   ClientWidth     =   4680\r\n"
+          + "   LinkTopic       =   \"Form1\"\r\n"
+          + "   ScaleHeight     =   0-\r\n"
+          + "   ScaleWidth      =   4680\r\n"
+          + "End\r\n"
+          + string.Format(Attributes, "Form1", "False");
+
+        var (_, first, _) = RoundTrip(source, "Form1.frm");
+        var (_, second, _) = RoundTrip(first, "Form1.frm");
+
+        first.Should().NotContain("-0").And.Contain("   ClientHeight    =   0\r\n");
+        second.Should().Be(first);
+    }
 }

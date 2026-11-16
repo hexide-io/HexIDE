@@ -51,7 +51,7 @@ public partial class ProjectService
             return true;
         }
 
-        var (header, body) = format.SplitModule(content.Text, module.Kind);
+        var (header, body) = FormatOf(module.Owner).SplitModule(content.Text, module.Kind);
         module.RecordOriginalHeader(header);
         module.UpdateCode(body);
         return true;
@@ -181,6 +181,7 @@ public partial class ProjectService
                         part.AbsolutePath = null;
                 }, encoding => module.TextEncoding = encoding, module.Name);
 
+            project.Format = format;
             SnapshotRenderBaselines(project);
             projectManager.AddProject(project);
             EnsureGroupIfMultiple();

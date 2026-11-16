@@ -2,6 +2,7 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Použitie textu súboru projektu nahradí neuložené nastavenia projektu {0}. Pokračovať?",
     "Str.MemberOrigin.HexIde": "Rozšírenie HexIDE; vo VB6 nie je dostupné.",
     "Str.Dock.Host": "Hostiteľ dokovania",
     "Str.Dock.Root": "Koreňové dokovanie",
@@ -380,6 +381,7 @@
     "Str.Tool.CallStack.RowName": "{0}, riadok {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Všetky knižnice>",
     "Str.Tool.ObjectBrowser.MembersOf": "Členovia '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Členov nemožno vypísať bez knižnice typov tejto knižnice.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Zavrieť prehliadač objektov",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Prehliadač objektov",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Prejsť na definíciu",
@@ -499,6 +501,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "Odstrániť všetky vaše vlastné preklady pre tento jazyk?",
     "Str.TranslationEditor.PlaceholderError": "Úprava bola odmietnutá: musí zachovať rovnaké zástupné symboly {0}, {1} … ako originál.",
     "Str.TranslationEditor.ProtectedCredits": "Poďakovanie HexIDE tu nemožno prepísať. Produkt postavený na HexIDE ho môže iba doplniť.",
+    "Str.TranslationEditor.ProtectedTrust": "Označenia podpisových kľúčov HexIDE tu nemožno prepísať. Produkt postavený na HexIDE nemôže tieto kľúče vydávať za svoje.",
     "Str.TranslationEditor.Tooltip.Override": "vlastný preklad: {0}",
     "Str.TranslationEditor.Tooltip.None": "(žiadny)",
     "Str.TranslationEditor.Area.Menu": "Ponuky",

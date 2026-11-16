@@ -35,7 +35,9 @@ namespace HexIDE.IDE;
 /// </summary>
 public static class UserDataPath
 {
-    private static readonly UserDataRoot Process = new(() => For(Distribution.Current, Base()));
+    private static readonly UserDataRoot Process = new(
+        () => For(Distribution.Current, Base()),
+        () => For(DistributionIdentity.Stock, Base()));
 
     internal static string For(DistributionIdentity identity, string configurationRoot) =>
         Path.Combine(configurationRoot, identity.StateDirectoryName);
@@ -53,6 +55,12 @@ public static class UserDataPath
 
     /// <summary>A named file inside <see cref="Directory"/>.</summary>
     public static string For(string fileName) => Path.Combine(Directory, fileName);
+
+    /// <summary>
+    /// A program's file under stock HexIDE's configuration directory, shared across brands and standalone
+    /// runs. A process redirect still takes precedence, keeping demo and test runs isolated (#4070).
+    /// </summary>
+    public static string ForPrograms(string fileName) => Process.ForPrograms(fileName);
 
     /// <summary>True when this session's files live in a directory named on the command line.</summary>
     public static bool IsRedirected => Process.IsRedirected;

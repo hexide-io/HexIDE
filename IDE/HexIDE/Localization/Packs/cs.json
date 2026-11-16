@@ -2,6 +2,7 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Použití textu souboru projektu nahradí neuložená nastavení projektu {0}. Pokračovat?",
     "Str.AIChat.Title": "Chat AI",
     "Str.AIChat.Menu": "_Chat AI",
     "Str.AIChat.Approved": "✔ Schváleno",
@@ -155,6 +156,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "Odebrat všechna vaše přepsání pro tento jazyk?",
     "Str.TranslationEditor.PlaceholderError": "Úprava zamítnuta: musí zachovat stejné zástupné symboly {0}, {1} … jako originál.",
     "Str.TranslationEditor.ProtectedCredits": "Vlastní poděkování HexIDE zde nelze přepsat. Produkt postavený na HexIDE je může pouze doplnit.",
+    "Str.TranslationEditor.ProtectedTrust": "Popisky podpisových klíčů HexIDE zde nelze přepsat. Produkt postavený na HexIDE nemůže tyto klíče vydávat za své.",
     "Str.TranslationEditor.Tooltip.Override": "přepsání: {0}",
     "Str.TranslationEditor.Tooltip.None": "(žádné)",
     "Str.TranslationEditor.Area.Menu": "Nabídky",
@@ -444,6 +446,7 @@
     "Str.Tool.CallStack.RowName": "{0}, řádek {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Všechny knihovny>",
     "Str.Tool.ObjectBrowser.MembersOf": "Členové '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Členy nelze vypsat bez knihovny typů této knihovny.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Zavřít prohlížeč objektů",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Prohlížeč objektů",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Přejít na definici",

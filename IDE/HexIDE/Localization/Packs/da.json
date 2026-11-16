@@ -2,6 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Anvendelse af projektfilens tekst erstatter ikke-gemte projektindstillinger for {0}. Fortsæt?",
     "Str.MemberOrigin.HexIde": "HexIDE-udvidelse; ikke tilgængelig i VB6.",
     "Str.Dock.Host": "Forankringsvært",
     "Str.Dock.Root": "Rodforankring",
@@ -130,6 +131,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "Fjern alle dine tilsidesættelser for dette sprog?",
     "Str.TranslationEditor.PlaceholderError": "Redigering afvist: den skal bevare de samme {0}, {1} … pladsholdere som originalen.",
     "Str.TranslationEditor.ProtectedCredits": "HexIDEs egen tak kan ikke tilsidesættes her. Et produkt bygget på HexIDE kan kun føje til den.",
+    "Str.TranslationEditor.ProtectedTrust": "Etiketterne på HexIDEs signeringsnøgler kan ikke tilsidesættes her. Et produkt bygget på HexIDE kan ikke præsentere de nøgler som sine egne.",
     "Str.TranslationEditor.Tooltip.Override": "tilsidesættelse: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ingen)",
     "Str.TranslationEditor.Area.Menu": "Menuer",
@@ -419,6 +421,7 @@
     "Str.Tool.CallStack.RowName": "{0}, linje {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Alle biblioteker>",
     "Str.Tool.ObjectBrowser.MembersOf": "Medlemmer af '{0}'",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "Medlemmer kan ikke vises uden dette biblioteks typebibliotek.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Luk objektgennemser",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektgennemser",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Gå til definition",

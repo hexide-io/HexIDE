@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
@@ -15,6 +16,7 @@ public partial class ArchiveDocumentView : UserControl
 {
     private ArchiveDocumentViewModel? model;
     private bool syncing;
+    private LspTextMarkerService? markers;
     private readonly InactiveCodeColorizer inactive;
     private IDisposable? inactiveBrush;
     public ArchiveDocumentView()
@@ -47,27 +49,63 @@ public partial class ArchiveDocumentView : UserControl
     {
         inactiveBrush?.Dispose();
         inactiveBrush = null;
-        if (model != null) model.PropertyChanged -= SyncSelection;
+        if (model != null)
+        {
+            model.PropertyChanged -= SyncSelection;
+            model.MarkersChanged -= OnMarkersChanged;
+        }
+        ClearMarkers();
         model = null;
         base.OnDetachedFromVisualTree(e);
     }
 
     private void BindModel()
     {
-        if (model != null) model.PropertyChanged -= SyncSelection;
+        if (model != null)
+        {
+            model.PropertyChanged -= SyncSelection;
+            model.MarkersChanged -= OnMarkersChanged;
+        }
+        ClearMarkers();
         model = DataContext as ArchiveDocumentViewModel;
         if (model != null)
         {
             model.PropertyChanged += SyncSelection;
+            model.MarkersChanged += OnMarkersChanged;
+            ResetMarkers();
             SyncSelection(model, new PropertyChangedEventArgs(model.SelectionLength > 0
                 ? nameof(model.SelectionStart) : nameof(model.CaretOffset)));
         }
     }
 
+    private void ClearMarkers()
+    {
+        if (markers == null) return;
+        var view = this.FindControl<TextEditor>("Editor")!.TextArea.TextView;
+        view.BackgroundRenderers.Remove(markers);
+        markers = null;
+    }
+
+    private void ResetMarkers()
+    {
+        ClearMarkers();
+        var editor = this.FindControl<TextEditor>("Editor")!;
+        markers = new LspTextMarkerService(editor);
+        editor.TextArea.TextView.BackgroundRenderers.Add(markers);
+        OnMarkersChanged(model?.Markers ?? []);
+    }
+
+    private void OnMarkersChanged(IReadOnlyList<LspMarker> values) => markers?.SetMarkers(values);
+
     private void SyncSelection(object? sender, PropertyChangedEventArgs e)
     {
         if (model == null || syncing) return;
         var editor = this.FindControl<TextEditor>("Editor")!;
+        if (e.PropertyName == nameof(model.Document))
+        {
+            ResetMarkers();
+            return;
+        }
         if (e.PropertyName == nameof(model.InactiveLines))
         {
             editor.TextArea.TextView.Redraw();

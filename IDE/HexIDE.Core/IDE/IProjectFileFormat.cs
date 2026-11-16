@@ -70,6 +70,10 @@ public interface IProjectFileFormat : IFormFileFormat
     Task<ProjectFileRead> ReadProjectAsync(string path, Vb6TextEncoding hostAnsi, Action<string, byte[]>? fileRead,
         IDeserializeErrorSink problems);
 
+    /// <summary>Reads proposed project text without writing it, resolving members beside the real file.</summary>
+    Task<ProjectFileRead> ReadProjectTextAsync(string path, string text, Vb6TextEncoding encoding,
+        Vb6TextEncoding hostAnsi, IDeserializeErrorSink problems);
+
     /// <summary>What a project group's file names.</summary>
     SerializedProjectGroup ReadGroup(string text);
 
@@ -109,7 +113,18 @@ public interface IProjectFileFormat : IFormFileFormat
 
     /// <summary>Whether a property's stored value is a citation of a record in the companion, and not a value.</summary>
     bool IsCompanionCitation(string value);
+
+    /// <summary>
+    /// The read-only regions of this format's code: how the code window finds the lines only the IDE changes, how a save
+    /// rewrites them, and which edits they refuse (#4053). Null for a format with none; until #3411's slice 10b, the IDE's
+    /// injected regions then stand in (<see cref="ProjectFormats"/>).
+    /// </summary>
+    FormatRegions? Regions => null;
 }
+
+/// <summary>A format's read-only regions, found, rewritten and enforced by these three (#4053).</summary>
+public sealed record FormatRegions(HexIDE.Language.IReadOnlyRegionReader Reader,
+    HexIDE.Language.IReadOnlyRegionWriter Writer, HexIDE.Language.IReadOnlyRegionRules Rules);
 
 /// <summary>A file as a format renders it.</summary>
 /// <param name="Text">Its text.</param>
@@ -123,6 +138,6 @@ public readonly record struct RenderedFile(string Text, byte[]? Companion);
 /// The files the host's code page couldn't decode, which were read byte for byte instead: the project's file by its name, a
 /// member by its path as the project's file gives it.
 /// </param>
-/// <param name="ProjectFileBytes">The project's file as it was on disk when it was read.</param>
+/// <param name="ProjectFileBytes">The bytes read from disk, or encoded from proposed project text.</param>
 public sealed record ProjectFileRead(ProjectDefinition Project, IReadOnlyList<string> SkippedDocuments,
     IReadOnlyList<string> ReadByteForByte, byte[] ProjectFileBytes);

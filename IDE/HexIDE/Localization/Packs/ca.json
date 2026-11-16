@@ -2,6 +2,7 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Aplicar el text del fitxer de projecte substituirà la configuració no desada de {0}. Voleu continuar?",
     "Str.AIChat.Title": "Xat d’IA",
     "Str.AIChat.Menu": "_Xat d’IA",
     "Str.AIChat.Approved": "✔ Aprovat",
@@ -405,6 +406,7 @@
     "Str.Tool.CallStack.RowName": "{0}, línia {1}",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Totes les biblioteques>",
     "Str.Tool.ObjectBrowser.MembersOf": "Membres de «{0}»",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "No es poden llistar els membres sense la biblioteca de tipus d’aquesta biblioteca.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Tanca l'examinador d'objectes",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Examinador d'objectes",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Ves a la definició",
@@ -524,6 +526,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "Voleu suprimir totes les personalitzacions d'aquest idioma?",
     "Str.TranslationEditor.PlaceholderError": "Edició rebutjada: cal mantenir els mateixos marcadors {0}, {1}… que a l'original.",
     "Str.TranslationEditor.ProtectedCredits": "Els agraïments d'HexIDE no es poden substituir aquí. Un producte basat en HexIDE només hi pot afegir.",
+    "Str.TranslationEditor.ProtectedTrust": "Les etiquetes de les claus de signatura d'HexIDE no es poden substituir aquí. Un producte basat en HexIDE no pot presentar aquestes claus com a pròpies.",
     "Str.TranslationEditor.Tooltip.Override": "Personalització: {0}",
     "Str.TranslationEditor.Tooltip.None": "(cap)",
     "Str.TranslationEditor.Area.Menu": "Menús",

@@ -80,7 +80,9 @@ HexIDE.Desktop --user-data-dir ./demo-profile
 - **A program's `SaveSetting` settings move with it on Linux and macOS, but not on Windows.** There they
   are kept in the registry key VB6 itself uses, so a program run in HexIDE and the same program compiled by
   VB6 share them, and this flag does not move them. Elsewhere they are in `program-settings.json` in this
-  directory.
+  directory. Without a redirect, Linux and macOS use stock HexIDE’s configuration directory for program
+  settings across all brands and made EXEs ([#4070](https://github.com/hexide-io/HexIDE/issues/4070),
+  measured in [oracle PR #4072](https://github.com/hexide-io/HexIDE/pull/4072)).
 - **Copies of unsaved work move with it.** [Crash recovery](crash-recovery.md) normally keeps them apart from
   your settings, in a local directory that never roams. Under this flag they are in `Recovery` in this directory, so
   a session's copies stay with the session.

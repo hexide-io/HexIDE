@@ -138,6 +138,19 @@ been measured.
 - **WHEN** every letter in a colliding entry's label is already used in its menu
 - **THEN** the entry has no access-key marker, rather than a shared key that cannot activate it
 
+### Requirement: Document-pane access keys SHALL leave the main menu available
+Access keys on controls in the Object Browser, Protocol Inspector, Diagnostics, Language & Debug
+Servers and translation editor SHALL be distinct from the main menu bar's access keys in each
+shipped pack, including regional overrides. Keys SHALL also be unique among each pane's captions.
+Restart in Language & Debug Servers SHALL retain an access key wherever the pack uses access-key
+markers, following that pack's script convention (#4040).
+
+#### Scenario: Restart without taking Run's key
+- **GIVEN** the English Language & Debug Servers document is active with focus in its content
+- **WHEN** the user presses Alt+S
+- **THEN** the server's Restart action runs
+- **AND** Alt+R remains available to the main menu's Run caption
+
 ### Requirement: Chinese SHALL be split by script rather than by region
 Chinese SHALL ship as separate Simplified and Traditional packs, and a Chinese-speaking region SHALL resolve
 to the pack matching the script it uses.

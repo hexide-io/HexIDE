@@ -20,6 +20,8 @@ A test that reaches the provider only at run time, through the application's com
 | `Addins/AddinLanguageServerTests.cs` | split |
 | `Addins/AddinServerTrustTests.cs` | split |
 | `Addins/AddinWholeFileTests.cs` | split |
+| `Components/FlexGridModelTests.cs` | provider |
+| `Components/FlexGridSortTests.cs` | provider |
 | `Components/PropertyTextTests.cs` | split |
 | `Controls/Vb6FoldingAdapterTests.cs` | split |
 | `Corpus/AddinRouteCorpusTests.cs` | split |
@@ -69,12 +71,10 @@ A test that reaches the provider only at run time, through the application's com
 | `LspClient/DocumentVersionOnTheWireTests.cs` | split |
 | `LspClient/DocumentWireNameTests.cs` | split |
 | `LspClient/FileOperationWireTests.cs` | split |
-| `LspClient/TypeLibraryNamesTests.cs` | split |
-| `LspClient/TypeLibraryServicePathTests.cs` | split |
 | `LspClient/WorkspaceAndPriorityTests.cs` | split |
-| `LspClient/WorkspaceArtifactProjectTests.cs` | split |
 | `Profiles/ProfileMigrationTests.cs` | split |
 | `Profiles/ProfileRecoveryTests.cs` | split |
+| `ProgramSettingsPathTests.cs` | provider |
 | `ProjectElements/DesignerHalfEncodingTests.cs` | provider |
 | `ProjectElements/DocumentIdentityTests.cs` | provider |
 | `ProjectElements/DocumentLookupTests.cs` | provider |
@@ -103,9 +103,12 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/NewFormFileTests.cs` | split |
 | `Projects/NewMemberFileInTheWayTests.cs` | split |
 | `Projects/PackageEncodingTests.cs` | split |
+| `Projects/ProjectFileEditingTests.cs` | split |
 | `Projects/ProjectFileFormatSeamTests.cs` | split |
+| `Projects/ProjectFormatPerProjectTests.cs` | split |
 | `Projects/ProjectLoadWarningTests.cs` | split |
 | `Projects/ProjectOffersTests.cs` | split |
+| `Projects/ProjectTextReadTests.cs` | provider |
 | `Projects/RemoveDocumentTests.cs` | split |
 | `Projects/SaveRecordsTheHeaderTests.cs` | split |
 | `Projects/SourceEncodingPersistenceTests.cs` | split |
@@ -118,6 +121,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Recovery/RecoveryOffersTests.cs` | split |
 | `Recovery/UnsavedWorkCaptureTests.cs` | split |
 | `Serialization/CodeWindowTextTests.cs` | split |
+| `Serialization/FlexGridSerializationTests.cs` | provider |
 | `Serialization/FormCodeTextTests.cs` | provider |
 | `Serialization/GuardedContentMemberRunTests.cs` | provider |
 | `Serialization/GuardedContentTests.cs` | provider |

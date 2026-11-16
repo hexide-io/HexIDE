@@ -47,9 +47,14 @@ public class ListBoxScrollTests : WindowTestFixture
     {
         public VBListBox? List { get; set; }
         public List<string> Calls { get; } = new();
+        public List<int> ScrollListIndices { get; } = new();
         private int Top() => ListMembers.TryGet(List!, "TopIndex", out var value) ? (int)value.Value! : -999;
-        public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null) =>
+        public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
+        {
             Calls.Add(name is "List1_Scroll" or "List1_Click" ? $"{name} top={Top()}" : name);
+            if (name == "List1_Scroll")
+                ScrollListIndices.Add(List!.ListIndex);
+        }
     }
 
     private static async Task<(Recorder Recorder, ModuleExecutionContext Ctx, ExecutionEnvironment Env)> Loaded(string setup, double? fontSize = null)
@@ -322,29 +327,64 @@ public class ListBoxScrollTests : WindowTestFixture
         recorder.Calls.Should().BeEmpty();
     }
 
-    [AvaloniaFact]
-    public void Unmeasured_MultiSelect_TopIndex_read_refuses_instead_of_guessing()
-    {
-        var list = new VBListBox { MultiSelect = HexIDE.Runtime.BuiltinTypes.VBMultiSelect.Simple };
-        var read = () => ListMembers.TryGet(list, "TopIndex", out _);
-        read.Should().Throw<System.NotImplementedException>();
-    }
-
+    // #3986's supervisor comment records native/p-code measurements (oracle measuring PR #4021).
     [AvaloniaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void TopIndex_before_layout_refuses_instead_of_guessing(bool write)
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    public async Task TopIndex_in_hidden_and_multiselect_lists_uses_the_same_rows(int multiSelect, bool shown)
     {
-        var list = new VBListBox();
-        list.Items.Add("a");
-        System.Action access = () =>
+        var form = FormWithList.Replace("Begin VB.ListBox List1",
+            $"Begin VB.ListBox List1\n              MultiSelect = {multiSelect}");
+        var (root, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(form);
+        var list = (VBListBox)ContainerRuntimeHarness.Child(canvas, "List1");
+        var recorder = new Recorder { Child = root, List = list };
+        var window = new Window { Content = recorder, Width = 400, Height = 300 };
+        ContainerRuntimeHarness.MergeAppResources(window);
+        if (shown)
+            window.Show();
+        await ContainerRuntimeHarness.Run(ctx, env, "For i = 0 To 19\r\nList1.AddItem CStr(i)\r\nNext\r\n");
+        list.TopIndex.Should().Be(0);
+        // As in Loaded, fit whole rows using the host font rather than assuming its row height.
+        var rowHeight = list.ContainerFromIndex(0)!.Bounds.Height;
+        list.Height += 7 * rowHeight - list.Scroll!.Viewport.Height;
+        if (!shown)
         {
-            if (write)
-                ListMembers.TrySet(list, "TopIndex", new Vb6Value(0));
-            else
-                ListMembers.TryGet(list, "TopIndex", out _);
-        };
-        access.Should().Throw<System.NotImplementedException>();
+            list.Measure(new Size(list.Width, list.Height));
+            list.Arrange(new Rect(list.Bounds.Position, list.DesiredSize));
+        }
+        list.UpdateLayout();
+        list.Scroll.Viewport.Height.Should().BeApproximately(7 * rowHeight, 0.01);
+        if (multiSelect != 0)
+            list.ListIndex.Should().Be(0);
+        recorder.Calls.Clear();
+        list.SetTopIndexFromCode(1);
+        recorder.Calls.Should().Equal("List1_Scroll top=1");
+        recorder.Calls.Clear();
+        list.SetTopIndexFromCode(18);
+        var lastPage = System.Math.Max(0, list.ItemCount - 7);
+        list.TopIndex.Should().Be(lastPage);
+        recorder.Calls.Should().Equal($"List1_Scroll top={lastPage}");
+        recorder.Calls.Clear();
+        list.SetTopIndexFromCode(18);
+        foreach (var invalid in new[] { -1, 20 })
+        {
+            var printed = await ContainerRuntimeHarness.Run(ctx, env,
+                $"On Error Resume Next\r\nList1.TopIndex = {invalid}\r\nDebug.Print Err.Number\r\n");
+            printed.Select(v => VbDisplay.ToText(v, System.Globalization.CultureInfo.InvariantCulture)).Should().Equal("380");
+            list.TopIndex.Should().Be(lastPage);
+        }
+        recorder.Calls.Should().BeEmpty();
+        if (multiSelect != 0)
+            recorder.ScrollListIndices.Should().Equal(0, 0);
+        window.IsVisible.Should().Be(shown);
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        list.TopIndex.Should().Be(lastPage);
+        if (multiSelect != 0)
+            list.ListIndex.Should().Be(0);
     }
 
 }

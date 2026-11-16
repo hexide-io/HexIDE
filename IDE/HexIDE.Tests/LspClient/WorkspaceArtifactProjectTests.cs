@@ -153,14 +153,14 @@ public sealed class WorkspaceArtifactProjectTests
     [Fact(Skip = "Type libraries are read only on Windows.", SkipUnless = nameof(OnWindows))]
     public void TheTypeLibraryNamesOleAutomationStdole()
     {
-        HexIDE.Runtime.TypeLibrary.TypeLibReader.ReadName("{00020430-0000-0000-C000-000000000046}", "2.0", null)
+        HexIDE.TypeLibrary.TypeLibReader.ReadName("{00020430-0000-0000-C000-000000000046}", "2.0", null)
             .Should().Be("stdole");
     }
 
     [Fact(Skip = "Type libraries are read only on Windows.", SkipUnless = nameof(OnWindows))]
     public void ALocalTypeLibraryIsNamedFromItsFile()
     {
-        HexIDE.Runtime.TypeLibrary.TypeLibReader.ReadName("", "0.0", Path.Combine(Environment.SystemDirectory, "stdole2.tlb"))
+        HexIDE.TypeLibrary.TypeLibReader.ReadName("", "0.0", Path.Combine(Environment.SystemDirectory, "stdole2.tlb"))
             .Should().Be("stdole");
     }
 
