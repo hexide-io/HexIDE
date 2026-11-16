@@ -22,7 +22,8 @@ public sealed record DapSourceBreakpoints(string Path, IReadOnlyList<int> Lines)
 
 /// <summary>
 /// Owns a connection (optionally its process), consumes its events, and coordinates one launch.
-/// Consume Updates promptly on one background reader and dispatch UI work yourself. Inspection results
+/// Consume Updates on one background reader and dispatch UI work yourself. A full queue pauses event reading;
+/// the reader must never await a DAP response before taking its next update, since replies can follow events. Inspection results
 /// must still be checked with IsCurrent at the point they are applied to the UI.
 /// </summary>
 public sealed class DapSession : IAsyncDisposable
@@ -36,6 +37,8 @@ public sealed class DapSession : IAsyncDisposable
     private readonly TimeSpan _startupTimeout;
     private readonly Task _events;
     private Task? _dispose;
+    private readonly CancellationTokenSource _lifetime = new();
+    private Task _publication = Task.CompletedTask;
     private long _generation;
     private DapSessionSnapshot _snapshot = new(DapSessionState.Created, null, null);
     private JsonElement _capabilities = JsonSerializer.SerializeToElement(new { });
@@ -292,6 +295,10 @@ public sealed class DapSession : IAsyncDisposable
                 if (_snapshot.State is not (DapSessionState.Ended or DapSessionState.Faulted))
                     Change(DapSessionState.Ended);
             await Request("disconnect", new { terminateDebuggee = true }, token).ConfigureAwait(false);
+            // The reply can overtake events still passing from Events to Updates. A clean disconnect
+            // drains those before disposal cancels blocked publications; consumers keep reading meanwhile.
+            await _connection.DisposeAsync().ConfigureAwait(false);
+            await _events.WaitAsync(token).ConfigureAwait(false);
         }
         finally { await DisposeAsync().ConfigureAwait(false); }
     }
@@ -303,36 +310,43 @@ public sealed class DapSession : IAsyncDisposable
     {
         try
         {
-            await foreach (var message in _connection.Events.ReadAllAsync().ConfigureAwait(false))
+            await foreach (var message in _connection.Events.ReadAllAsync(_lifetime.Token).ConfigureAwait(false))
             {
+                Task publication;
                 lock (_sync)
                 {
                     if (_snapshot.State == DapSessionState.Faulted) continue;
-                    if (_snapshot.State == DapSessionState.Ended) { Publish(message); continue; }
-                    switch (message.Event)
+                    if (_snapshot.State == DapSessionState.Ended) Publish(message);
+                    else
                     {
-                        case "initialized": _initialized.TrySetResult(); break;
-                        case "stopped":
-                            var body = message.Body;
-                            int? thread = body is { } b && b.TryGetProperty("threadId", out var id) ? id.GetInt32() : null;
-                            var reason = body is { } r && r.TryGetProperty("reason", out var why) ? why.GetString() ?? "unknown" : "unknown";
-                            Change(DapSessionState.Stopped, new(Id, _generation + 1, thread, reason), message: message);
-                            continue;
-                        case "invalidated" when _snapshot.Stop is { } stop:
-                            // Area/thread/frame hints may narrow a refresh; our single-stop view refreshes in full.
-                            Change(DapSessionState.Stopped, stop with { Generation = _generation + 1 }, message: message);
-                            continue;
-                        case "continued": Change(DapSessionState.Running, message: message); continue;
-                        case "terminated": Change(DapSessionState.Ended, message: message); continue;
+                        switch (message.Event)
+                        {
+                            case "initialized": _initialized.TrySetResult(); Publish(message); break;
+                            case "stopped":
+                                var body = message.Body;
+                                int? thread = body is { } b && b.TryGetProperty("threadId", out var id) ? id.GetInt32() : null;
+                                var reason = body is { } r && r.TryGetProperty("reason", out var why) ? why.GetString() ?? "unknown" : "unknown";
+                                Change(DapSessionState.Stopped, new(Id, _generation + 1, thread, reason), message: message);
+                                break;
+                            case "invalidated" when _snapshot.Stop is { } stop:
+                                // Area/thread/frame hints may narrow a refresh; our single-stop view refreshes in full.
+                                Change(DapSessionState.Stopped, stop with { Generation = _generation + 1 }, message: message);
+                                break;
+                            case "continued": Change(DapSessionState.Running, message: message); break;
+                            case "terminated": Change(DapSessionState.Ended, message: message); break;
+                            default: Publish(message); break;
+                        }
                     }
-                    Publish(message);
+                    publication = _publication;
                 }
+                await publication.ConfigureAwait(false);
             }
             var failure = await _connection.Completion.ConfigureAwait(false);
             lock (_sync)
                 if (_snapshot.State is not (DapSessionState.Ended or DapSessionState.Faulted))
                     Change(DapSessionState.Faulted, failure: failure ?? new IOException("Debug adapter closed before termination."));
         }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (EndOfStreamException) when (Snapshot.State == DapSessionState.Ended)
         {
             // The program has already terminated. Raw transport diagnostics remain on ProcessCompletion.
@@ -343,6 +357,7 @@ public sealed class DapSession : IAsyncDisposable
             // Wake a startup waiting for initialized even when the stream closes first.
             _initialized.TrySetCanceled();
             await _owner.DisposeAsync().ConfigureAwait(false);
+            await _publication.ConfigureAwait(false);
             _updates.Writer.TryComplete();
         }
     }
@@ -357,19 +372,16 @@ public sealed class DapSession : IAsyncDisposable
 
     private void Publish(DapEvent? message)
     {
-        if (!_updates.Writer.TryWrite(new(_snapshot, message)))
-        {
-            var failure = new IOException("Debug session update queue overflowed; consume Updates promptly.");
-            Fail(failure);
-            _ = CloseOverflowedConnectionAsync();
-            throw failure;
-        }
+        // Capture and order snapshots under _sync; the channel write runs outside it. The event reader
+        // awaits this publication before taking another event, so the bounded queue backpressures the wire.
+        _publication = PublishAsync(_publication, new(_snapshot, message));
     }
 
-    private async Task CloseOverflowedConnectionAsync()
+    private async Task PublishAsync(Task previous, DapSessionUpdate update)
     {
-        try { await _connection.DisposeAsync().ConfigureAwait(false); }
-        catch (Exception exception) { Fail(exception); }
+        await previous.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);
+        try { await _updates.Writer.WriteAsync(update, _lifetime.Token).ConfigureAwait(false); }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
     }
 
     private void Fail(Exception exception)
@@ -379,7 +391,7 @@ public sealed class DapSession : IAsyncDisposable
             if (_snapshot.State == DapSessionState.Faulted) return;
             ++_generation;
             _snapshot = new(DapSessionState.Faulted, null, exception);
-            _updates.Writer.TryWrite(new(_snapshot, null));
+            Publish(null);
         }
     }
 
@@ -398,9 +410,10 @@ public sealed class DapSession : IAsyncDisposable
             {
                 ++_generation;
                 _snapshot = new(DapSessionState.Ended, null, null);
-                _updates.Writer.TryWrite(new(_snapshot, null));
+                Publish(null);
             }
         }
+        _lifetime.Cancel();
         await _owner.DisposeAsync().ConfigureAwait(false);
         await _events.ConfigureAwait(false);
     }
