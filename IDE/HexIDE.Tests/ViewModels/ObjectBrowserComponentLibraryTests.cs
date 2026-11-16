@@ -41,7 +41,7 @@ public class ObjectBrowserComponentLibraryTests
         var types = Substitute.For<ITypeLibraryService>();
         types.GetTypeLibInfoAsync(Arg.Any<VbReference>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<TypeLibInfo?>(new("VendorControls", null,
-                [new("Grid", TypeKind.Class, null, [new("Refresh", HexIDE.Runtime.TypeLibrary.MemberKind.Method, "Sub Refresh()", null, false)])])));
+                [new("Grid", TypeKind.Class, null, [new("Refresh", HexIDE.TypeLibrary.MemberKind.Method, "Sub Refresh()", null, false)])])));
         var (browser, _) = Create(project, types);
         var library = browser.Libraries.Should().ContainSingle(l => l.Name == "VendorControls").Which;
         library.Classes.Should().ContainSingle().Which.Members.Should().ContainSingle(m => m.Name == "Refresh");
