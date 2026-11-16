@@ -8,6 +8,12 @@ public interface IProjectService
     /// <summary>Shows the project chooser, unloading existing projects only after confirmation when requested.</summary>
     Task CreateNewProject(bool replaceExisting = false);
     Task CreateNewProject(IProjectTemplate template);
+
+    /// <summary>
+    /// Makes a new project from the first first-party Standard EXE template registered, as <c>--newproject</c> does (#3411
+    /// slice 10b). Today that's VB6's.
+    /// </summary>
+    Task CreateDefaultProject();
     Task UnloadAllProjects();
     Task<bool> SaveProjectFileText(HexIDE.Forms.ViewModels.ProjectFileDocumentViewModel tab);
     Task<bool> ConfirmProjectFileClose(HexIDE.Forms.ViewModels.ProjectFileDocumentViewModel tab);
