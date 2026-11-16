@@ -41,7 +41,7 @@ public sealed class AddinLanguageServerTests : IDisposable
             _options, new ComponentRegistry(), _runner,
             new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance),
-                new HashSet<string>(StringComparer.Ordinal), NullLogger<LanguageServerContributions>.Instance),
+                new HashSet<string>(StringComparer.Ordinal), NullLogger<LanguageServerContributions>.Instance, null),
             _launches, _types);
     }
 

@@ -1880,7 +1880,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                     if (target is not null) await target.FlushDocumentAsync(ct);
                 }
             }
-            if (await TryRunClientCommandAsync(command)) return null;
+            if (await TryRunClientCommandAsync(command, action.IsClaimed?.Invoke(command) == true)) return null;
             if (action.CanExecute?.Invoke(command) != true || action.Execute is not { } execute)
                 return string.Format(localization.GetString("Str.CodeEditor.QuickFix.UnsupportedCommand"), command.CommandName);
             try { await execute(command, ct); }
@@ -2278,7 +2278,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         try
         {
-            if (!await TryRunClientCommandAsync(command))
+            if (!await TryRunClientCommandAsync(command, lspClient.IsClaimedCodeLensCommand(command)))
                 await lspClient.ExecuteCodeLensCommandAsync(command);
         }
         catch (HexIDE.Addins.AddinCommandException ex)
@@ -2287,8 +2287,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         }
     }
 
-    private async Task<bool> TryRunClientCommandAsync(Command command)
+    private async Task<bool> TryRunClientCommandAsync(Command command, bool claimed)
     {
+        if (claimed && command.CommandName is "rdcore.rename" or "rdcore.showReferences") return false;
         if (command.CommandName is "rdcore.rename" or "editor.action.rename")
         {
             try
@@ -2297,15 +2298,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 var uri = args[0].GetString();
                 if (uri is null) return false;
                 var position = new Position(args[1].GetProperty("line").GetInt32(), args[1].GetProperty("character").GetInt32());
-                var target = LspDocumentUri.AreSame(uri, GetDocumentUriPublic()) ? this : editorService.OpenCodeForUri(uri);
-                if (target is null || position.Line < 0 || position.Line >= target.Document.LineCount
-                    || position.Character < 0 || position.Character > target.Document.GetLineByNumber(position.Line + 1).Length) return false;
-                var offset = target.Document.GetOffset(position.Line + 1, position.Character + 1);
-                target.NavigateToOffset(offset);
-                if (WordAt(target.Document, offset) is not { } name) return true;
-                if (target.RenameRefusalAt(offset, name) is { } refusal) await target.ShowRefusalAsync(refusal);
-                else await target.RenameSymbolAsync(position, name);
-                return true;
+                return await CodeEditorClientActions.StartRenameAsync(editorService, this, uri, position);
             }
             catch (Exception error) when (error is System.Text.Json.JsonException or InvalidOperationException
                 or KeyNotFoundException or FormatException)
@@ -2331,7 +2324,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                     return new Location(item.GetProperty("uri").GetString()!,
                         new HexIDE.Lsp.Messages.Range(ReadPosition("start"), ReadPosition("end")));
                 }).ToArray();
-                eventBus.Publish(new ShowReferenceLocationsEvent(locations));
+                CodeEditorClientActions.ShowReferences(eventBus, locations);
             }
             catch (Exception error) when (error is System.Text.Json.JsonException or InvalidOperationException
                 or KeyNotFoundException or FormatException)
@@ -2341,6 +2334,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             return true;
         }
         return false;
+    }
+
+    internal async Task<bool> StartRenameAtAsync(Position position)
+    {
+        if (position.Line < 0 || position.Line >= Document.LineCount
+            || position.Character < 0 || position.Character > Document.GetLineByNumber(position.Line + 1).Length) return false;
+        var offset = Document.GetOffset(position.Line + 1, position.Character + 1);
+        this.NavigateToOffset(offset);
+        if (WordAt(Document, offset) is not { } name) return true;
+        if (RenameRefusalAt(offset, name) is { } refusal) await ShowRefusalAsync(refusal);
+        else await RenameSymbolAsync(position, name);
+        return true;
     }
 
     public bool CanShowCallHierarchy => LiveDocumentUri is { } uri && lspClient.SupportsCallHierarchy(uri);

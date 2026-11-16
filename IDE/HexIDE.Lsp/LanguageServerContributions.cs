@@ -29,6 +29,7 @@ public sealed class LanguageServerContributions(
     LanguageServerConfigLoader loader,
     IReadOnlyCollection<string> configuredIds,
     ILogger<LanguageServerContributions> logger,
+    IAddinCodeEditorActions? codeEditorActions,
     LanguageServerCommandStore? seen = null,
     IWorkspaceArtifactProviderRegistry? artifactProviders = null,
     TimeProvider? clock = null)
@@ -153,7 +154,7 @@ public sealed class LanguageServerContributions(
         };
 
         logger.LogInformation("{Origin} contributes the language server '{Id}'.", origin ?? "An add-in", id);
-        var added = new AddinServerConnection(router.Add(registration), server.MessagePrefix, logger, settings, router, made.Settings);
+        var added = new AddinServerConnection(router.Add(registration), server.MessagePrefix, logger, settings, router, codeEditorActions, made.Settings);
         connection.SetResult(added);
         return added;
     }
@@ -314,11 +315,12 @@ public sealed class AddinServerConnection : IAddinServerConnection, IAsyncDispos
     private readonly ILogger _logger;
     private readonly ISettingsService _settings;
     private readonly LspClientRegistry _router;
+    private readonly IAddinCodeEditorActions? _codeEditorActions;
 
     private readonly JsonElement? _entrySettings;
 
     internal AddinServerConnection(LspClientRegistry.Contribution contribution, string? prefix, ILogger logger, ISettingsService settings, LspClientRegistry router,
-        JsonElement? entrySettings = null)
+        IAddinCodeEditorActions? codeEditorActions, JsonElement? entrySettings = null)
     {
         _entrySettings = entrySettings?.Clone();
         _contribution = contribution;
@@ -326,6 +328,7 @@ public sealed class AddinServerConnection : IAddinServerConnection, IAsyncDispos
         _logger = logger;
         _settings = settings;
         _router = router;
+        _codeEditorActions = codeEditorActions;
     }
 
     public JsonElement? GetSettings() => _settings.GetLanguageServerSettings(Id) ?? _entrySettings?.Clone();
@@ -376,6 +379,29 @@ public sealed class AddinServerConnection : IAddinServerConnection, IAsyncDispos
             ? client.ApplyClaimedEditAsync(edit, cancellationToken)
             : Task.FromResult(new HexIDE.Lsp.Messages.ApplyWorkspaceEditResult(false,
                 HexIDE.IDE.Distribution.DisplayName + " applies a server's edits only while a command the user started is running."));
+
+    public async Task<bool> StartRenameAsync(string uri, HexIDE.Lsp.Messages.Position position,
+        CancellationToken cancellationToken = default)
+    {
+        using var lifetime = ActionLifetime(cancellationToken);
+        return await _codeEditorActions!.StartRenameAsync(uri, position, lifetime.Token);
+    }
+
+    public async Task ShowReferencesAsync(IReadOnlyList<HexIDE.Lsp.Messages.Location> locations,
+        CancellationToken cancellationToken = default)
+    {
+        using var lifetime = ActionLifetime(cancellationToken);
+        await _codeEditorActions!.ShowReferencesAsync(locations, lifetime.Token);
+    }
+
+    private CancellationTokenSource ActionLifetime(CancellationToken cancellationToken)
+    {
+        if (_contribution.Client is not VBLspClient client)
+            throw new InvalidOperationException("Code-window actions require a running claimed-command handler.");
+        var handler = client.ClaimedCommandLifetime();
+        if (_codeEditorActions is null) throw new InvalidOperationException("No code-window host is available.");
+        return CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, handler);
+    }
 
     private VBLspClient Running(string method)
     {
