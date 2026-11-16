@@ -134,7 +134,9 @@ The built-in names `vb6`, `vbaode` and `vba` are reserved and always select embe
 load only from `profiles/<name>/profile.json` inside the active user-data directory. The user-data flag
 may appear before or after the profile flag. An explicit path can select a bundle with a built-in id.
 Selection is never saved. Missing/repeated selectors or invalid bundles refuse startup with exit code 2;
-bundle errors name the source and file to check. Saved user choices override bundle defaults and packs.
+bundle errors name the source and file to check. Started from Explorer or a shortcut on Windows, where there is no
+console, a bundle error shows in a "Cannot start" box, as a broken `brand.json` does (#4169). Saved user choices
+override bundle defaults and packs.
 
 The built-ins retain today's References placement and New Project offerings: `vb6` offers all eight
 entries with Project References; `vbaode` offers Standard EXE with Tools References; `vba` offers none
