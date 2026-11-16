@@ -4,8 +4,6 @@
         <DotNetVersion>net10.0</DotNetVersion>
         <DotNetVersionDesktop>net10.0</DotNetVersionDesktop>
         <DotNetVersionBrowser>net10.0-browser</DotNetVersionBrowser>
-        <DotNetVersionAndroid>net10.0-android</DotNetVersionAndroid>
-        <DotNetVersioniOS>net10.0-ios</DotNetVersioniOS>
         <ImplicitUsings>enable</ImplicitUsings>
     </PropertyGroup>
 
