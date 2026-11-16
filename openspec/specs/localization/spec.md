@@ -14,6 +14,17 @@ the mechanism.
 
 ## Requirements
 
+### Requirement: Templated Options choices SHALL expose the text they show
+The Language, Region and Theme combo box item containers in Options SHALL expose an automation name
+equal to the text the item shows, without changing the item's string representation. Where the shown text is
+translated, such as "System default" and the high-contrast themes, the automation name SHALL be the
+translated text.
+
+#### Scenario: A screen reader opens a language, region or theme list
+- **WHEN** a Language, Region or Theme dropdown opens in Options
+- **THEN** each item automation peer reports the text the item shows, rather than record details or a
+  theme pack's id
+
 ### Requirement: Program results about IDE-owned text SHALL be English
 Refusals of edits to text only the IDE changes, and a save's notes about text it rewrote, SHALL be
 English when returned to a program, including automation replies and add-in results. Where they name a
