@@ -685,6 +685,7 @@ added afterwards.
 - [A UDT copied whole, and arrays of a UDT (#178)](a-udt-copied-whole-and-arrays-of-a-udt.md)
 - [A UDT copied whole, and arrays of a UDT (2026-10-26, #178)](a-udt-copied-whole-and-arrays-of-a-udt.md#a-udt-copied-whole-and-arrays-of-a-udt-2026-10-26-178)
 - [A breakpoint on a procedure's End line or its header (2026-10-26, #2172, IDE)](a-breakpoint-on-a-procedures-end-line-or-its-header.md#a-breakpoint-on-a-procedures-end-line-or-its-header-2026-10-26-2172-ide)
+- [Break on an idle program, and a step off the end of an event handler (2026-11-16, #4261, IDE)](break-on-an-idle-program-and-a-step-off-an-event-handler.md#break-on-an-idle-program-and-a-step-off-the-end-of-an-event-handler-2026-11-16-4261-ide)
 - [A multiple selection in the designer, and Align (2026-10-26, #2181, design-time, IDE)](a-multiple-selection-in-the-designer-and-align.md#a-multiple-selection-in-the-designer-and-align-2026-10-26-2181-design-time-ide)
 - [A UserControl's own properties at run time (2026-10-26, #1631)](a-usercontrols-own-properties-at-run-time.md#a-usercontrols-own-properties-at-run-time-2026-10-26-1631)
 - [A UserControl's own properties in the designer and the files (2026-10-26, #1631, design-time, IDE)](a-usercontrols-own-properties-in-the-designer-and-the-files.md#a-usercontrols-own-properties-in-the-designer-and-the-files-2026-10-26-1631-design-time-ide)
