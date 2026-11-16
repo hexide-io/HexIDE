@@ -84,6 +84,7 @@ held, in this order, `Label1` (1215 → **-150** wide, 255 high), `Command3` (12
 | Ctrl+S on that form, after the run | **Save File As**, suggesting `NegForm` in the IDE's current folder, not the form's own. |
 | Saved as `NegSaved.frm` | Both widths written as **`Width = 0`**. The Project window then named `NegSaved.frm`; the `.vbp` wasn't saved. `NegForm.frm` kept its bytes and time. |
 | **Control:** the same form with every width 1215, designer opened, Ctrl+S | **No dialog.** Saved in place, over `CleanForm.frm`. |
+| **`Height` instead:** the same form with every width 1215, and `Height = -150` on Label1 and Command2; F5 straight after opening | The same box. The log: `Line 11: Property Height in Label1 could not be set.` and `Line 27: Property Height in Command2 could not be set.` After OK the program **ran**, reading `Command2.Height` **0**, `Label1.Height` **0** and `Command2.Width` 1215. |
 
 **What this settles:**
 - **The line a load error names is the control's `Begin` line,** not the line of the property it couldn't set: 11
@@ -97,5 +98,6 @@ held, in this order, `Label1` (1215 → **-150** wide, 255 high), `Command3` (12
 - **Not about the error:** both saves wrote the controls in a different order from the file's (Command3, Command2,
   Label1, where the file had Label1, Command3, Command2) and put a space after each `Begin` line. The clean save did
   both too, so neither comes from the load error. Why that order wasn't measured.
-- **Not measured:** whether the IDE asks again on a second F5 in the same session, and whether `Height` behaves the
-  same as `Width` for a negative value (only `Width` was negative here).
+- **`Height` behaves as `Width` does:** the same `Begin` line, the same 0, and the same run.
+- **Not measured:** whether the IDE asks again on a second F5 in the same session, and Save As after a negative
+  `Height` (only the `Width` form was saved).
