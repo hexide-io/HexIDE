@@ -22,6 +22,65 @@ public sealed class ProfileSettingsTests : IDisposable
     }
 
     [Fact]
+    [Trait("Issue", "4307")]
+    public void ServerSettingsReplaceOneDefaultWholeAndResetWithoutTouchingOtherIdsOrProfile()
+    {
+        const string defaults = """{"languageServerSettings":{"one":{"rdcore":{"enabled":true,"extra":1}},"two":{"n":2}}}""";
+        var settings = Create(defaults);
+        settings.GetLanguageServerSettings("one")!.Value.GetProperty("rdcore").GetProperty("extra").GetInt32().Should().Be(1);
+        settings.HasLanguageServerSettings("one").Should().BeFalse();
+        settings.GetLanguageServerSettings("missing").Should().BeNull();
+        var changes = new List<string?>();
+        settings.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+        using (var value = JsonDocument.Parse("""{"rdcore":{"enabled":false}}"""))
+            settings.SetLanguageServerSettings("one", value.RootElement);
+        File.ReadAllText(Path.Combine(root, "defaults.json")).Should().Be(defaults);
+        var loaded = Create(defaults);
+        loaded.HasLanguageServerSettings("one").Should().BeTrue();
+        loaded.GetLanguageServerSettings("one")!.Value.GetProperty("rdcore").TryGetProperty("extra", out _).Should().BeFalse();
+        loaded.GetLanguageServerSettings("two")!.Value.GetProperty("n").GetInt32().Should().Be(2);
+        using (var saved = JsonDocument.Parse(File.ReadAllText(SettingsPath)))
+            saved.RootElement.GetProperty("languageServerSettings").TryGetProperty("two", out _).Should().BeFalse();
+        settings.SetLanguageServerSettings("other", JsonDocument.Parse("{}").RootElement);
+        settings.RemoveLanguageServerSettings("one");
+        changes.Should().Equal("LanguageServerSettings", "LanguageServerSettings", "LanguageServerSettings");
+        File.ReadAllText(Path.Combine(root, "defaults.json")).Should().Be(defaults);
+        loaded = Create(defaults);
+        loaded.HasLanguageServerSettings("one").Should().BeFalse();
+        loaded.GetLanguageServerSettings("one")!.Value.GetProperty("rdcore").GetProperty("enabled").GetBoolean().Should().BeTrue();
+        loaded.HasLanguageServerSettings("other").Should().BeTrue();
+        File.ReadAllText(Path.Combine(root, "defaults.json")).Should().Be(defaults);
+    }
+
+    [Fact]
+    [Trait("Issue", "4307")]
+    public void EmptyUserServerObjectOverridesDefaultAndRemovalReturnsNoneWithoutDefault()
+    {
+        var settings = Create("""{"languageServerSettings":{"one":{"n":1}}}""");
+        settings.SetLanguageServerSettings("one", JsonDocument.Parse("{}").RootElement);
+        settings.GetLanguageServerSettings("one")!.Value.EnumerateObject().Should().BeEmpty();
+        settings.SetLanguageServerSettings("two", JsonDocument.Parse("{}").RootElement);
+        settings.RemoveLanguageServerSettings("two");
+        settings.GetLanguageServerSettings("two").Should().BeNull();
+        settings.HasLanguageServerSettings("one").Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("null")]
+    [InlineData("1")]
+    [Trait("Issue", "4307")]
+    public void ServerSettingsRejectNonObjectsInUserAndProfileLayers(string json)
+    {
+        var settings = new SettingsService(SettingsPath);
+        Action write = () => settings.SetLanguageServerSettings("one", JsonDocument.Parse(json).RootElement);
+        write.Should().Throw<ArgumentException>();
+        File.Exists(SettingsPath).Should().BeFalse();
+        Action profile = () => Create("{\"languageServerSettings\":{\"one\":" + json + "}}");
+        profile.Should().Throw<ProfileLoadException>();
+    }
+
+    [Fact]
     public void OmittedSavedPropertiesRetainProfileDefaults()
     {
         File.WriteAllText(SettingsPath, """{"activeLanguage":"de"}""");

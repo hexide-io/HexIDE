@@ -443,6 +443,7 @@
     "Str.Tool.Project.Menu.Print": "Stampa",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
     "Str.Tool.ColorPalette.Title": "Tavolozza dei colori",
+    "Str.Options.Addin.ServerSettingsDefault": "(Predefinito)",
     "Str.Tool.ColorPalette.Button.Default": "Predefinito",
     "Str.Tool.ColorPalette.Button.DefineColors": "Definisci colori",
     "Str.Tool.Locals.ContextReady": "<Pronto>",

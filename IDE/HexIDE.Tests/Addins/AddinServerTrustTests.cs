@@ -54,7 +54,7 @@ public sealed class AddinServerTrustTests : IDisposable
                 reader: new Vb6ReadOnlyRegionReader()),
             new AddinProjectService(projects), _diagnostics, new AddinCommandService(), new AddinProjectTemplateService(),
             new AddinOptionsService(), new ComponentRegistry(), runner,
-            new LanguageServerContributions(_router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
+            new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance), [],
                 NullLogger<LanguageServerContributions>.Instance),
             new HexIDE.Debugging.DebugLaunchService(new HexIDE.Debugging.ExternalDebugService(new HexIDE.Conversations.ConversationLog())),

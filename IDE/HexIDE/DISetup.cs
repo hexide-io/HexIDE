@@ -388,7 +388,8 @@ public partial class DISetup
                 ctx.Inject<LanguageServerConfigResult>(out var configuration);
                 ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
-                return new LanguageServerContributions(
+                ctx.Inject<ISettingsService>(out var settings);
+                return new LanguageServerContributions(settings,
                     (LspClientRegistry)router, factory,
                     new LanguageServerConfigLoader(loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
                     configuration.Entries.Select(entry => entry.Id).OfType<string>().ToHashSet(StringComparer.Ordinal),

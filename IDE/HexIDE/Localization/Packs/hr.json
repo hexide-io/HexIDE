@@ -429,6 +429,7 @@
     "Str.Tool.Project.Menu.Print": "Ispiši",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
     "Str.Tool.ColorPalette.Title": "Paleta boja",
+    "Str.Options.Addin.ServerSettingsDefault": "(Zadano)",
     "Str.Tool.ColorPalette.Button.Default": "Zadano",
     "Str.Tool.ColorPalette.Button.DefineColors": "Definiraj boje",
     "Str.Tool.Locals.ContextReady": "<Spremno>",
