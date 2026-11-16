@@ -467,9 +467,19 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// </summary>
     public async Task<List<Vb6Value>> EvaluateIntrinsicArgs(string name, VB6Parser.ArgsCallContext? context)
     {
-        if (await NamedCallArgs(context) is { } args)
-            return await VB6BuiltIns.ArrangeIntrinsicArguments(name, args);
         var slots = ArgSlots(context);
+        if (await NamedCallArgs(context) is { } args)
+        {
+            var pointer = name.Equals("StrPtr", StringComparison.OrdinalIgnoreCase) || name.Equals("VarPtr", StringComparison.OrdinalIgnoreCase);
+            var arranged = await VB6BuiltIns.ArrangeIntrinsicArguments(name,
+                pointer ? args.Select(arg => arg with { Deferred = null }).ToArray() : args);
+            if (!pointer)
+                return arranged;
+            // Validate the name first, then retain the operand's storage identity (#4145).
+            if (slots.Count == 1 && slots[0]?.valueStmt() is VB6Parser.VsAssignContext assign)
+                return await EvaluatePointerArgs(name, assign.valueStmt());
+            return arranged;
+        }
         // Input(n, #f): the second argument may be a file number written with its #, `#f` being f's value (#1645).
         if (name.Equals("Input", StringComparison.OrdinalIgnoreCase) && slots.Count == 2 && slots[0] is { } count
             && slots[1]?.valueStmt() is { } file && file.GetText().StartsWith('#'))
@@ -483,29 +493,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             if (slots.Count != 1 || slots[0]?.valueStmt() is not { } pointerOperand)
                 throw new NotImplementedException("Unmeasured pointer argument count (#2622)");
-            var arg = await ResolveByRef(pointerOperand);
-            var state = interpreter.ExecutionContext.State;
-            long identity;
-            if (name.Equals("StrPtr", StringComparison.OrdinalIgnoreCase))
-            {
-                if (arg.Value.Type == Vb6Value.ValueType.String)
-                    identity = PointerIdentities.Of(arg.Value.StringBuffer);
-                else if (arg.Value.Type == Vb6Value.ValueType.Integer)
-                    identity = PointerIdentities.Allocate();
-                else
-                    throw new NotImplementedException("StrPtr conversion is unmeasured (#2622)");
-            }
-            else if (arg.Location is { } location)
-                identity = state.VariableIdentity(location);
-            else if (arg.Ref is { } target)
-                identity = PointerIdentities.Target(target);
-            else if (arg.Value.Type == Vb6Value.ValueType.Integer)
-                identity = PointerIdentities.Allocate();
-            else
-                throw new NotImplementedException("VarPtr temporary is unmeasured (#2622)");
-            var pointerArgs = new VB6BuiltIns.IntrinsicArgumentValues(1) { PointerIdentity = identity };
-            pointerArgs.AddArgument(arg.Value, false);
-            return pointerArgs;
+            return await EvaluatePointerArgs(name, pointerOperand);
         }
         var values = await EvaluateCallArgs(context);
         var result = new VB6BuiltIns.IntrinsicArgumentValues(values.Count);
@@ -606,6 +594,33 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             throw lateBound;
         }
+    }
+
+    private async Task<List<Vb6Value>> EvaluatePointerArgs(string name, VB6Parser.ValueStmtContext pointerOperand)
+    {
+        var arg = await ResolveByRef(pointerOperand);
+        var state = interpreter.ExecutionContext.State;
+        long identity;
+        if (name.Equals("StrPtr", StringComparison.OrdinalIgnoreCase))
+        {
+            if (arg.Value.Type == Vb6Value.ValueType.String)
+                identity = PointerIdentities.Of(arg.Value.StringBuffer);
+            else if (arg.Value.Type == Vb6Value.ValueType.Integer)
+                identity = PointerIdentities.Allocate();
+            else
+                throw new NotImplementedException("StrPtr conversion is unmeasured (#2622)");
+        }
+        else if (arg.Location is { } location)
+            identity = state.VariableIdentity(location);
+        else if (arg.Ref is { } target)
+            identity = PointerIdentities.Target(target);
+        else if (arg.Value.Type == Vb6Value.ValueType.Integer)
+            identity = PointerIdentities.Allocate();
+        else
+            throw new NotImplementedException("VarPtr temporary is unmeasured (#2622)");
+        var pointerArgs = new VB6BuiltIns.IntrinsicArgumentValues(1) { PointerIdentity = identity };
+        pointerArgs.AddArgument(arg.Value, false);
+        return pointerArgs;
     }
 
     // A call's arguments with a named one among them, each named argument left for the call to place and evaluate in
