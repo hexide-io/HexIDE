@@ -148,6 +148,24 @@ public class FormDeserializer
             return null;
         }
 
+        // Nor is a form that holds another form, or a UserControl or PropertyPage block, which read as one. Loading it
+        // put two forms in one model, and saving that threw (#1222). A stack rather than recursion: the nesting is the
+        // file's to choose.
+        var below = new Stack<VBSerializedComponent>(rootComponent.SubComponents);
+        while (below.Count > 0)
+        {
+            var child = below.Pop();
+            if ((componentsByTypeNames.TryGetValue(child.Type, out var childClass)
+                    || extraComponents != null && extraComponents.TryGetValue(child.Type, out childClass))
+                && childClass is FormComponentClass)
+            {
+                errorSink.LogError("Str.ProjectLoad.InvalidForm", "This is not a valid form file");
+                return null;
+            }
+            foreach (var grandchild in child.SubComponents)
+                below.Push(grandchild);
+        }
+
         var form = new FormDefinition(owner, Array.Empty<ComponentInstance>(), "");
         form.HeaderLines.AddRange(headerLines);
         // The designer half verbatim, beside the components parsed out of it (#273 task 3.1). Set here
