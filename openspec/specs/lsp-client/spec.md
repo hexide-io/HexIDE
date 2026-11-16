@@ -2117,6 +2117,9 @@ or touches protected text.
 
 ### Requirement: Completion insert ranges and indentation modes
 The editor SHALL apply an InsertReplaceEdit's insert range, preserving text after that range.
+Before applying a main edit's range, it SHALL extend the range's end to the caret when the range lies on
+the caret's line, starts at or before the request position, and ends at or after the request position
+but before the caret, within the word around the caret. It SHALL apply any other range as sent.
 It SHALL preserve supplied whitespace under mode 1 (`asIs`), including when no mode is supplied.
 Under mode 2 (`adjustIndentation`), it SHALL prefix each later line with the
 caret line's leading whitespace up to the caret, preserving that line's own indentation and valid
@@ -2126,6 +2129,12 @@ SHALL override the list's `itemDefaults.insertTextMode`. Additional edits SHALL 
 #### Scenario: Insert completion in the middle of a word
 - **WHEN** a completion supplies insert and replace ranges with different ends
 - **THEN** the insert range is replaced and the remaining suffix is kept
+
+#### Scenario: An insert range that stops at the request position
+- **GIVEN** the code window asked for completion at the start of a typed `tot`
+- **WHEN** the chosen item's insert range starts and ends at that word start and Tab commits it
+- **THEN** the item replaces `tot` and the line reads `total`, not `totaltot`
+- **AND** an insert range that already reaches the caret is applied as sent
 
 #### Scenario: A list supplies indentation mode
 - **WHEN** a list defaults to mode 2 and an item has no explicit mode
