@@ -211,7 +211,7 @@ remains replayable for the current connect attempt (#2685). Subscriber callbacks
 publication order outside the process/readers' gate, so a Closed handler can await disposal without
 blocking the readers. Deliberate teardown still suppresses unexpected closure.
 The Unix guard and post-kill waits described above still exceed #491's requested
-two-second total bound; integrating that deadline with descendant cleanup remains outstanding.
+two-second total bound; integrating that deadline with descendant cleanup remains outstanding (#4152).
 Whole-composition IDE tests use a per-test owner that awaits disposal of the language registry,
 including when an assertion fails (#2588). A source guard rejects direct `DISetup` construction
 elsewhere in `HexIDE.Tests`; this guards ownership rather than enumerating all test-host children.

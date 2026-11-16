@@ -71,7 +71,7 @@ localized origin description.
 #### Scenario: Both reference kinds name a library
 - **WHEN** a project names the same in-box library on `Reference=` and `Object=` lines
 - **THEN** the browser lists it once for that project, using the reference entry
-- **AND** it retains HexIDE's alphabetical ordering; VB6's ordering remains unmeasured (#3982)
+- **AND** it retains HexIDE's alphabetical ordering; VB6's ordering remains unmeasured (#4113)
 
 #### Scenario: A form brings a component library
 - **WHEN** a form declaring an in-box library in its header is added

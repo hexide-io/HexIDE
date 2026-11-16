@@ -13,4 +13,4 @@ for a running form's Frame, PictureBox, Label and Image.
 
 **Suggested fix.** Count an explicitly set `AutomationProperties.Name` as the AutomationId already counts, so a view's
 author is not left to discover the override. The path-stability part of #1436 is fixed; this explicit-name
-discovery gap remains open.
+discovery gap remains open (#4046).

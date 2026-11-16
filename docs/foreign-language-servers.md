@@ -45,8 +45,8 @@ capability to satisfy it caused rumdl to send
 `{"jsonrpc":"2.0","method":"workspace/diagnostic/refresh","params":null,"id":1}` — invalid JSON-RPC, since
 `params` may be an object or an array and nothing else — which HexIDE could not decode and which therefore
 killed **the entire connection** rather than that one message. A malformed frame costing every language
-feature is HexIDE's defect, not the server's; the server's mistake only revealed it (rumdl's half is
-tracked as #428). Nothing written by one hand would have found it.
+feature is HexIDE's defect, not the server's; the server's mistake only revealed it (rumdl's half was
+#428, and whether the pinned rumdl still sends it is #4144). Nothing written by one hand would have found it.
 
 And it kept giving. Reading the repaired frame turned up two more, each of which had been sitting behind
 something that looked like success: the repair was installed **only on connections being recorded**, so a

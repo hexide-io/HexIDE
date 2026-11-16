@@ -1328,7 +1328,7 @@ Double. Explicit styles 0–4, 6 and 7 SHALL select the Windows startup show sta
 accept these styles without changing window state. WindowStyle SHALL convert through CInt.
 Empty paths and directories SHALL raise 5, missing programs 53 and Null arguments 94.
 Unmeasured non-string PathName conversions, successful launches with omitted WindowStyle, and other
-OS launch failures and unmeasured style values SHALL refuse explicitly as not implemented pending measurement (#2522).
+OS launch failures and unmeasured style values SHALL refuse explicitly as not implemented pending measurement (#4146).
 
 #### Scenario: A program launches a helper
 - **WHEN** code calls `Shell` with a quoted executable path, arguments and an accepted explicit style
