@@ -549,3 +549,26 @@ when evaluation fails. Launch-file conditions SHALL remain refused.
 - **THEN** the condition reads the executing frame's scope and a false result skips the breakpoint
 - **AND** an evaluation error stops and reports the expression and error in Immediate
 - **AND** stepping, pause, watches and Run To Cursor still stop independently of a false condition
+
+### Requirement: External Run To Cursor
+
+A stopped external session SHALL support Run To Cursor from the Debug command and automation
+using a saved source path and a temporary breakpoint alongside the user's breakpoints, including
+conditions. The temporary breakpoint SHALL NOT change the saved breakpoint set or editor gutter.
+An unverified or relocated temporary breakpoint SHALL refuse the command with the adapter's reason
+without continuing. The next stop, End or a request failure SHALL restore the user's source
+breakpoints, without holding up the reader of the adapter's events; a session that has ended SHALL
+drop the temporary line without a request. A refused restoration SHALL be reported with the line
+where the adapter may stop again, and SHALL NOT end the session. Automation SHALL report the actual
+top source frame and line, running or ended, and identify a stop before the requested target.
+
+#### Scenario: A user breakpoint stops before the cursor
+- **GIVEN** an external session stopped with user breakpoints and conditions
+- **WHEN** Run To Cursor continues and stops at another breakpoint first
+- **THEN** the temporary line is removed and the user breakpoints and conditions remain
+- **AND** automation reports the actual stop and that it was before the cursor target
+
+#### Scenario: The adapter refuses the temporary target
+- **WHEN** the adapter returns an unverified breakpoint or moves it to another line
+- **THEN** Run To Cursor restores the source's user set without sending continue
+- **AND** the refusal reports the adapter's message and any relocated line

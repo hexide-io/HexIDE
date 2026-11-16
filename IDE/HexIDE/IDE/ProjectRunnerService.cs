@@ -431,7 +431,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     public void RunToCursorProject(DocumentIdentity document, int line)
     {
-        if (externalDebugger?.IsActive == true) return;
+        if (externalDebugger?.IsActive == true)
+        {
+            if (document.AbsolutePath is { } path)
+                _ = externalDebugger.RunToCursorAsync(new Uri(System.IO.Path.GetFullPath(path)).AbsoluteUri, line);
+            return;
+        }
         // Run To Cursor (Ctrl+F8): a one-shot break at (module, line). Paused → arm + Continue; running → arm (breaks
         // when reached); idle → start the project and arm the target after the run-start sequence (a plain run, NOT
         // start-and-step — it runs freely to the cursor line).
@@ -499,7 +504,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public bool CanStepIntoProject => externalDebugger?.IsActive == true ? CanContinueProject : CanRunStartupProject || IsRunning;
     public bool CanStepOverProject => CanStepIntoProject;
     public bool CanStepOutProject => CanStepIntoProject;
-    public bool CanRunToCursor => externalDebugger?.IsActive != true && (CanRunStartupProject || IsRunning);
+    public bool CanRunToCursor => externalDebugger?.IsActive == true
+        ? externalDebugger.CanRunToCursor : CanRunStartupProject || IsRunning;
     public bool CanEndProject => IsRunning;
     public bool CanRestartProject => IsRunning && externalDebugger?.IsActive != true;
 

@@ -295,5 +295,9 @@ MCP run control follows the menu routes for `step_into` (`stepIn`), `step_over` 
 `step_out` (`stepOut`), `continue_program` (`continue`) and `break_program` (`pause`). Replies
 wait up to two seconds for the new stopped stack, report its top source frame or running/ended,
 and preserve the adapter's refusal message. `set_next_statement` resolves a saved module to its
-source path for the capability-gated `gotoTargets`/`goto` route. External `run_to_cursor` remains
-unavailable: this route has no one-shot breakpoint lifecycle (#2968).
+source path for the capability-gated `gotoTargets`/`goto` route. In a stopped external session,
+`run_to_cursor` adds a temporary breakpoint to the saved source's user set, keeping conditions,
+and continues only if the adapter verifies the exact target line. The next stop (including a user
+breakpoint or exception first), End or a failure restores the user set, and an ended session takes
+the temporary line with it. Replies report the
+actual stop and identify a stop before the cursor target (#4045; live check pending).
