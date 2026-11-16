@@ -149,6 +149,40 @@ ComctlLib gave the same `TypeName` for every name it has.
 **Not measured:** these names with both libraries referenced. The 10-27 rows measured that for ListView, ListItem and
 ProgressBar only.
 
+### The other in-box libraries: MSComCtl2, TabDlg, MSMask, RichTextLib, MSComDlg, and Slider and ImageCombo (2026-11-15, #2265)
+
+**The question.** The sections above measured MSComctlLib's and ComctlLib's classes. Do the other in-box control
+libraries' classes bind bare too, and so do MSComctlLib's Slider and ImageCombo, with ImageCombo's collection and item?
+
+**The probe.**
+- **Build:** VB6 SP6, `/make`, native code and p-code, which logged the same lines.
+- **The projects:** one per library. Each referenced the library by its `Object=` line alone, with each control on
+  `Form1`. The libraries were:
+  - MSCOMCT2.OCX 2.0 (MSComCtl2), TABCTL32.OCX 1.1 (TabDlg), MSMASK32.OCX 1.1 (MSMask);
+  - RICHTX32.OCX 1.2 (RichTextLib), COMDLG32.OCX 1.2 (MSComDlg), MSCOMCTL.OCX 2.0 (MSComctlLib).
+- **The test:** each class was declared bare, `Dim x As DTPicker`. It was `Set` to its own control (or ImageCombo1's
+  `ComboItems`, or one of its items), then to another control on the form, or to `Form1` itself where the library has
+  only one control.
+
+| Library | Class | Declared | `Set` to its own | `TypeOf x Is` it | `Set` to another |
+|---|---|---|---|---|---|
+| MSComCtl2 | DTPicker, MonthView, UpDown, Animation, FlatScrollBar | Nothing | 0, `TypeName` the class | True | 13, keeps its object |
+| TabDlg | SSTab | Nothing | 0, SSTab | True | 13 |
+| MSMask | MaskEdBox | Nothing | 0, MaskEdBox | True | 13 |
+| RichTextLib | RichTextBox | Nothing | 0, RichTextBox | True | 13 |
+| MSComDlg | CommonDialog | Nothing | 0, CommonDialog | True | 13 |
+| MSComctlLib | Slider, ImageCombo | Nothing | 0, the class | True | 13 |
+| MSComctlLib | ComboItems; ComboItem | Nothing | 0, **IComboItems**; **IComboItem** | True | 13 |
+
+**Readings:**
+- **Every class measured here binds bare,** with only its OCX's `Object=` line, as MSComctlLib's do above. A typed slot
+  keeps its class: another class is 13 and leaves the earlier object.
+- **`TypeName` of ImageCombo's collection and item is the interface's name,** IComboItems and IComboItem, as
+  ListView's ListSubItems is IListSubItems above.
+
+**Not measured:** two of these libraries referenced together, where a name would be declared twice. None of these
+classes shares a name with another library's.
+
 ### In HexIDE
 
 A bare declaration of any class measured here binds as VB6 binds it (#2265): the 24 MSComctlLib names and the 20 that

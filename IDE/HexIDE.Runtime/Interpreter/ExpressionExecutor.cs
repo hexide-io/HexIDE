@@ -108,11 +108,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var leftValue = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(leftRaw, callerFrames: stmtFrames), context[0]);
         var rightRaw = await EvaluateValue(context[1]);
         var rightValue = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(rightRaw, callerFrames: stmtFrames), context[1]);
-        // #174's round-four measurements distinguish typed defaults from late-bound values.
-        // Mixed String comparisons need #211; a guessed value or trappable 13 would let execution continue.
-        if ((leftRaw.Value is VbObject || rightRaw.Value is VbObject)
-            && (leftValue.Type == Vb6Value.ValueType.String) != (rightValue.Type == Vb6Value.ValueType.String))
-            throw new NotImplementedException("Mixed String comparison after a class default-member read requires #211 (#174).");
         if ((leftValue.Type == Vb6Value.ValueType.Error || rightValue.Type == Vb6Value.ValueType.Error)
             && leftValue.Type != rightValue.Type)
             throw new VBRunTimeException(context[0], VBStandardError.TypeMismatch);
@@ -288,7 +283,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBRunTimeException(context[0], VBStandardError.TypeMismatch);
         return (leftValue, rightValue);
     }
-
 
     public override Task<object?> Visit(IParseTree tree)
     {
@@ -516,12 +510,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             && values.Count == 1
             && slots[0]?.valueStmt() is { } operand)
         {
+            if (name.Equals("Len", StringComparison.OrdinalIgnoreCase) && values[0].Value is VbUdt { HasFixedStringFields: true } record)
+                result.LenVariableSize = record.FixedRecordLength();
             // Len sizes a declared scalar, but a Variant still sizes its text (#780, measured). So does LenB, and a number that is
             // not a variable is the same compile error for it (#1510, measured).
             if (TryGetArgLocation(operand) is { } location)
             {
+                if (name.Equals("LenB", StringComparison.OrdinalIgnoreCase)
+                    && interpreter.ExecutionContext.State.FixedStringWidthOf(location) == 5)
+                    // #179 measures the Integer subtype only for String * 5. Other widths keep LenB's existing path.
+                    result.FixedStringByteLength = 10;
                 var type = interpreter.ExecutionContext.State.DeclaredTypeOf(location);
-                result.LenVariableSize = type == Vb6Value.ValueType.Byte ? 1
+                result.LenVariableSize ??= type == Vb6Value.ValueType.Byte ? 1
                     : type == Vb6Value.ValueType.Integer || type == Vb6Value.ValueType.Boolean ? 2
                     : type == Vb6Value.ValueType.Long || type == Vb6Value.ValueType.Single ? 4
                     : type == Vb6Value.ValueType.Double || type == Vb6Value.ValueType.Currency || type == Vb6Value.ValueType.Date ? 8
@@ -753,7 +753,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var identifier = context.ambiguousIdentifier().GetText();
         return identifier;
     }
-
 
     // EXPRESSION
     /// <summary>
@@ -1874,6 +1873,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
         }
 
+        if (variable.Value is VBMSFlexGrid grid)
+        {
+            VBProps.RefuseIfRemoved(grid);
+            return FlexGridMembers.Read(grid, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
+        }
+
         if (variable.Value is VBTreeView capacityTree && MemberName(member).Equals("GetVisibleCount", StringComparison.OrdinalIgnoreCase))
         {
             if ((await EvaluateCallArgs(MemberArgs(member))).Count != 0) throw new NotImplementedException();
@@ -1887,6 +1892,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (variable.Value is VBSSTab tab && SSTabMembers.IsIndexed(MemberName(member))
             && MemberArgs(member) is { } tabIndexes)
             return SSTabMembers.ReadIndexed(tab, MemberName(member), await EvaluateCallArgs(tabIndexes));
+
+        if (variable.Value is ItemsControl searchList && ListMembers.IsList(searchList) && ListMembers.IsExtension(searchList, MemberName(member)))
+            return ListMembers.CallExtension(searchList, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
 
         // A list's List(i) and a ListBox's Selected(i), the control members here that take an index (#821, #1395).
         if (variable.Value is Control listControl && ListMembers.IsList(listControl) && MemberArgs(member) is { } listIndexes)
@@ -2632,6 +2640,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             {
                 VBCommonDialog => Components.InBox.CommonDialogComponentClass.Instance.Library.Name,
                 VBProgressBar bar => bar.Library.Name,
+                VBMSFlexGrid => "MSFlexGridLib",
                 VBListView => "MSComctlLib",
                 VBToolbar => "MSComctlLib",
                 VBMonthView => "MSComCtl2",
@@ -2688,7 +2697,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         result = VbBitwise.Pack(op(leftBits, rightBits), VbBitwise.Combine(leftWidth, rightWidth));
         return true;
     }
-
 
     public override async Task<object?> VisitBlockStmt(VB6Parser.BlockStmtContext context)
     {

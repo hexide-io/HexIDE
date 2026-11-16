@@ -24,6 +24,9 @@ public interface IEditorDocumentQueries
     Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null);
     IReadOnlyList<string> SignatureHelpTriggerCharacters { get; }
     string? DocumentUri { get; }
+    Task<HoverResult?> RequestHoverAsync(Position position, CancellationToken ct = default);
+    Task<TextEdit[]> RequestFormattingAsync(CancellationToken ct = default);
+    Task<TextEdit[]> RequestRangeFormattingAsync(HexIDE.Lsp.Messages.Range range, CancellationToken ct = default);
 }
 
 internal interface IEditorCompletionRules
@@ -36,9 +39,11 @@ internal interface IEditorCompletionRules
     IReadOnlyList<string>? FixedSignatureTriggers { get; }
 }
 
-/// <summary>Completion, snippets and signature help attached to one text area.</summary>
+/// <summary>Language-server interactions attached to one text area, with editor-specific editing rules.</summary>
 internal sealed class EditorLanguageFeatures : IDisposable
 {
+    internal EditorHoverFeatures? Hover { get; private set; }
+    private readonly CancellationTokenSource lifetime = new();
     private readonly TextArea area;
     private readonly IEditorDocumentQueries queries;
     private readonly IEditorCompletionRules rules;
@@ -71,6 +76,37 @@ internal sealed class EditorLanguageFeatures : IDisposable
         }
     }
 
+    public void AttachHover(AvaloniaEdit.TextEditor editor, Func<IReadOnlyList<HexIDE.Controls.LspMarker>> markers,
+        Func<HexIDE.Controls.LspMarker, Control>? diagnosticContent, Action<Uri> openUri,
+        Action? cancelHover = null, bool handlePointer = true)
+    {
+        Hover?.Dispose();
+        Hover = new EditorHoverFeatures(editor, queries, markers, diagnosticContent, openUri, cancelHover, handlePointer);
+    }
+
+    public async Task FormatAsync(bool selection, Action<IReadOnlyList<TextEdit>> apply, Func<bool> refuse)
+    {
+        if (refuse()) return;
+        var document = area.Document;
+        var before = document.Text;
+        var start = document.GetLocation(selection ? area.Selection.SurroundingSegment.Offset : 0);
+        var end = document.GetLocation(selection ? area.Selection.SurroundingSegment.EndOffset : 0);
+        var range = new HexIDE.Lsp.Messages.Range(new(start.Line - 1, start.Column - 1), new(end.Line - 1, end.Column - 1));
+        var token = lifetime.Token;
+        try
+        {
+            await queries.FlushDocumentAsync(token);
+            var edits = selection ? await queries.RequestRangeFormattingAsync(range, token) : await queries.RequestFormattingAsync(token);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!token.IsCancellationRequested && ReferenceEquals(area.Document, document) && document.Text == before
+                    && edits.Length > 0 && !refuse()) apply(edits);
+            });
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Log.Debug("[formatting] {ErrorMessage}", ex.Message); }
+    }
+
     public void CloseCompletion()
     {
         _completionCts?.Cancel();
@@ -80,6 +116,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
     public void OnTextEntering(object? sender, TextInputEventArgs e)
     {
         if (e.Text is not { Length: > 0 }) return;
+        Hover?.Dismiss();
         var ch = e.Text[0];
         if (!char.IsLetterOrDigit(ch) && ch != '_') CloseCompletion();
     }
@@ -116,6 +153,10 @@ internal sealed class EditorLanguageFeatures : IDisposable
 
     public void Dispose()
     {
+        lifetime.Cancel();
+        lifetime.Dispose();
+        Hover?.Dispose();
+        Hover = null;
         area.TextEntering -= OnTextEntering;
         area.TextEntered -= OnTextEntered;
         area.RemoveHandler(Avalonia.Input.InputElement.KeyDownEvent, OnKeyDown);
@@ -165,6 +206,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
             {
                 if (token.IsCancellationRequested || !rules.MayOpenCompletion()) return;
 
+                Hover?.Dismiss();
                 dismissHover?.Invoke();
 
                 // If a window is already open, close it first
@@ -178,14 +220,14 @@ internal sealed class EditorLanguageFeatures : IDisposable
                         .StartsWith(word, StringComparison.OrdinalIgnoreCase)).ToArray();
                     if (word.Length > 0 && matches.Length == 1)
                     {
-                        new VbCompletionData(matches[0], rules.RefusesTyping, () => queries.DocumentUri).Complete(area,
+                        new VbCompletionData(matches[0], rules.RefusesTyping, () => queries.DocumentUri, position).Complete(area,
                             new TextSegment { StartOffset = start, Length = end - start }, EventArgs.Empty);
                         return;
                     }
                 }
                 _completionWindow = new CompletionWindow(area);
                 completionChanged?.Invoke(_completionWindow);
-                FillCompletionList(_completionWindow, items, rules.RefusesTyping, () => queries.DocumentUri);
+                FillCompletionList(_completionWindow, items, rules.RefusesTyping, () => queries.DocumentUri, position);
 
                 _completionWindow.Closed += (_, _) => { _completionWindow = null; completionChanged?.Invoke(null); };
                 _completionWindow.Show();
@@ -198,8 +240,29 @@ internal sealed class EditorLanguageFeatures : IDisposable
         }
     }
 
+    /// <summary>
+    /// The item the word around the caret selects, ignoring case: one the whole word matches, ahead of an earlier one it
+    /// only starts (#3613), and otherwise the first it starts. Within each, a preselected item comes first. An empty or
+    /// unmatched word selects nothing.
+    /// </summary>
+    /// <remarks>
+    /// Ordinal order lists <c>Xor</c> before <c>x</c>, so a first-prefix rule turned a typed, declared <c>x</c> into
+    /// <c>Xor</c> on Space. In any case-insensitive alphabetical list a whole-word match sorts ahead of every longer
+    /// item it starts, so this agrees with a sorted member list; which of several longer items wins is left as it was.
+    /// </remarks>
+    internal static ICompletionData? SelectionFor(IEnumerable<ICompletionData> list, string word, CompletionItem[] items)
+    {
+        if (word.Length == 0) return null;
+        bool Preselected(ICompletionData data) =>
+            items.Any(item => item.Preselect == true && (item.FilterText ?? item.Label) == data.Text);
+        var whole = list.Where(data => string.Equals(data.Text, word, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (whole.Count > 0) return whole.FirstOrDefault(Preselected) ?? whole[0];
+        var starts = list.Where(data => data.Text.StartsWith(word, StringComparison.OrdinalIgnoreCase)).ToList();
+        return starts.FirstOrDefault(Preselected) ?? starts.FirstOrDefault();
+    }
+
     internal static void FillCompletionList(CompletionWindow window, CompletionItem[] items,
-        Func<int, int, bool> refusesTyping, Func<string?>? documentUri = null)
+        Func<int, int, bool> refusesTyping, Func<string?>? documentUri = null, Position? requestPosition = null)
     {
         var area = window.TextArea;
         var (start, end) = CompletionWord(area);
@@ -208,17 +271,13 @@ internal sealed class EditorLanguageFeatures : IDisposable
         window.CloseWhenCaretAtBeginning = false;
         window.CompletionList.IsFiltering = false;
         foreach (var item in items.OrderBy(item => item.SortText ?? item.Label, StringComparer.Ordinal))
-            window.CompletionList.CompletionData.Add(new VbCompletionData(item, refusesTyping, documentUri));
+            window.CompletionList.CompletionData.Add(new VbCompletionData(item, refusesTyping, documentUri, requestPosition));
 
         void SelectWord(object? sender, EventArgs e)
         {
             var (wordStart, wordEnd) = CompletionWord(area);
             var word = area.Document.GetText(wordStart, wordEnd - wordStart);
-            var matches = window.CompletionList.CompletionData
-                .Where(data => word.Length > 0 && data.Text.StartsWith(word, StringComparison.OrdinalIgnoreCase));
-            window.CompletionList.SelectedItem = matches.FirstOrDefault(data =>
-                items.Any(item => item.Preselect == true && (item.FilterText ?? item.Label) == data.Text))
-                ?? matches.FirstOrDefault();
+            window.CompletionList.SelectedItem = SelectionFor(window.CompletionList.CompletionData, word, items);
             if (window.CompletionList.SelectedItem is { } selected)
                 window.CompletionList.ScrollIntoView(selected);
         }
@@ -231,7 +290,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
         window.Closed += (_, _) => area.Caret.PositionChanged -= SelectWord;
     }
 
-    private static (int Start, int End) CompletionWord(AvaloniaEdit.Editing.TextArea area)
+    internal static (int Start, int End) CompletionWord(AvaloniaEdit.Editing.TextArea area)
     {
         var start = area.Caret.Offset;
         var end = start;
@@ -296,6 +355,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
                     return;
                 }
 
+                Hover?.Dismiss();
                 dismissHover?.Invoke();
                 _insightWindow?.Close();
                 var provider = new VbSignatureProvider(help);
@@ -322,8 +382,12 @@ internal sealed class EditorLanguageFeatures : IDisposable
 /// Whether a span of the buffer is one only the IDE may write. A completion commit writes the document
 /// directly, so the read-only section provider never sees it (#273 task 3.9).
 /// </param>
+/// <param name="requestPosition">
+/// Where the server was asked, which its ranges are relative to: the word start in the code window (#3340), the caret
+/// in the carried-file editor. Null applies every range as sent.
+/// </param>
 internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool> isReadOnlyRegion,
-    Func<string?>? documentUri = null) : ICompletionData
+    Func<string?>? documentUri = null, Position? requestPosition = null) : ICompletionData
 {
     public string Text => item.FilterText ?? item.Label;
     public object Content => KindGlyph is { } glyph
@@ -378,6 +442,7 @@ internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool>
                 range = insert;
             }
             else if (main.Insert is not null || main.Replace is not null) return;
+            range = ReachCaret(range);
             if (range is null || !Resolve(new TextEdit(range, main.NewText), out mainOffset, out mainLength))
                 return;
             mainText = main.NewText;
@@ -429,6 +494,25 @@ internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool>
         textArea.ClearSelection();
         textArea.Caret.Offset = caret;
         snippet?.Activate(textArea, caret - mainText.Length);
+
+        // A server computes its ranges for the position it was asked at, and the caret has moved on by the word typed between
+        // there and here. An insert range stops at the request position, so applied as sent it put the item in front of
+        // that word instead of over it: `x` became `x x` and `tot` became `totaltot` with RDCore (#4189). A range on the
+        // caret's line that starts at or before the request position and ends between it and the caret, where only the
+        // word's own characters lie, is taken on to the caret, as a client does for text typed since a request. Anything
+        // else is applied as sent.
+        HexIDE.Lsp.Messages.Range? ReachCaret(HexIDE.Lsp.Messages.Range? range)
+        {
+            if (requestPosition is not { } request || range is not { Start: { } start, End: { } end }) return range;
+            var caret = document.GetLocation(textArea.Caret.Offset);
+            var at = new Position(caret.Line - 1, caret.Column - 1);
+            var wordStart = document.GetLocation(EditorLanguageFeatures.CompletionWord(textArea).Start).Column - 1;
+            if (start.Line != request.Line || end.Line != request.Line || at.Line != request.Line
+                || start.Character > request.Character || request.Character < wordStart
+                || end.Character < request.Character || end.Character >= at.Character)
+                return range;
+            return range with { End = at };
+        }
 
         bool Resolve(TextEdit edit, out int offset, out int length)
         {

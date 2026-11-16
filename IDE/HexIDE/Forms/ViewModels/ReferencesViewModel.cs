@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 using HexIDE.Utils;
 using PropertyChanged.SourceGenerator;
 
@@ -52,7 +53,10 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
         IWindowManager windowManager,
         ILocalizationService? localization = null)
     {
-        Title = string.Format(localization?.GetString("Str.Dialog.References.TitleFormat") ?? "References - {0}", definition.Name);
+        var projectTitle = string.IsNullOrEmpty(definition.AbsolutePath)
+            ? definition.Name
+            : SerializedProject.FileNameOf(definition.AbsolutePath);
+        Title = string.Format(localization?.GetString("Str.Dialog.References.TitleFormat") ?? "References - {0}", projectTitle);
         this.windowManager = windowManager;
         this.localization = localization;
 

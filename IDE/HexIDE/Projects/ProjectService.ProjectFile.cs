@@ -20,7 +20,7 @@ public partial class ProjectService
             throw new InvalidOperationException("Only a saved VB6 project file can apply project text.");
 
         var errors = new DeserializeErrorSink(localization);
-        var proposed = await format.ReadProjectTextAsync(path, text, project.TextEncoding, HostAnsi, errors);
+        var proposed = await FormatOf(project).ReadProjectTextAsync(path, text, project.TextEncoding, HostAnsi, errors);
         if (errors.Errors.Count > 0)
         {
             await windowManager.MessageBox(localization.GetString("Str.ProjectLoad.Heading") + "\n"
@@ -120,7 +120,7 @@ public partial class ProjectService
         bool includeRelatedDocuments = true)
     {
         if (project.ProjectFileWriter is not { } writer)
-            return format.RenderProject(project, path, pathOf, includeRelatedDocuments);
+            return FormatOf(project).RenderProject(project, path, pathOf, includeRelatedDocuments);
         if (projectFilesRefusedAtOpen.TryGetValue(project, out var refusal))
             throw refusal;
         return writer.RenderProject(project, path, pathOf);

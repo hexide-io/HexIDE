@@ -30,6 +30,12 @@ public sealed record ProjectOffers
     /// <summary>The IDE's Project Properties can change the project.</summary>
     public bool SetsProperties { get; init; }
 
+    /// <summary>
+    /// Project Properties can also change the project's type and its startup object, which only VB6's project file carries.
+    /// Asked of the type rather than of whether the project has a writer, so a <c>.vbp</c> given one keeps both (#4053).
+    /// </summary>
+    public bool SetsTypeAndStartup { get; init; }
+
     /// <summary>The IDE's References can change the project.</summary>
     public bool SetsReferences { get; init; }
 
@@ -46,6 +52,7 @@ public sealed record ProjectOffers
         Runs = true,
         ChangesMembership = true,
         SetsProperties = true,
+        SetsTypeAndStartup = true,
         SetsReferences = true,
         SetsComponents = true,
     };

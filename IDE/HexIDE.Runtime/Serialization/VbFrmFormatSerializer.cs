@@ -191,7 +191,9 @@ public class VbFrmFormatSerializer
                     break;
                 case TypeCode.Double:
                 case TypeCode.Single:
-                    Sink.WriteLine($"{field}=   {value}");
+                    // Never -0. A stray minus, as in `ClientHeight = 0-`, read as negative zero, and the -0 written
+                    // for it read back as 0, so the next save changed the file again (#1222).
+                    Sink.WriteLine($"{field}=   {(Convert.ToDouble(value) == 0 ? 0 : value)}");
                     break;
                 case TypeCode.Boolean:
                     var boolVal = (bool)value ? -1 : 0;

@@ -102,6 +102,7 @@ public class TestApp : Application
         }
         // The running IDE has every window in its lifetime's list, which the headless host has not got: a window a test showed
         // before its first call to the driver went untracked, and a test that ran first saw it as opening later.
+        HexIDE.IDE.RunningProgram.Current = new HexIDE.IDE.InterpreterRunningProgram();
         HexIDE.Automation.UiAutomationDriver.TrackWindows();
         WindowLeakGuard.Track();
         Console.Error.WriteLine("1085 probe: Initialize finished");

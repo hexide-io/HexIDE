@@ -113,7 +113,29 @@ public class SpawnRealServerTest
         await AssertExitAsync(clean: false, closeInput: true);
     }
 
-    private static async Task AssertExitAsync(bool clean, bool closeInput, bool sendExit = false)
+    [Theory]
+    [InlineData("brand-logs")]
+    [InlineData("brand logs with spaces")]
+    public async Task Log_root_argument_places_the_real_servers_log_under_the_hosts_root(string folder)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-lsp-" + Guid.NewGuid().ToString("N"), folder);
+        try
+        {
+            await AssertExitAsync(clean: true, closeInput: false, logRoot: directory);
+            var logs = Directory.GetFiles(Path.Combine(directory, "lsp"), "lsp-*.log");
+            logs.Should().ContainSingle();
+            var contents = await File.ReadAllTextAsync(logs[0], TestContext.Current.CancellationToken);
+            contents.Should().Contain("HexIDE VB6 LSP server (MIT shell) starting")
+                .And.Contain("HexIDE VB6 LSP server exiting");
+        }
+        finally
+        {
+            if (Directory.Exists(Path.GetDirectoryName(directory)))
+                Directory.Delete(Path.GetDirectoryName(directory)!, true);
+        }
+    }
+
+    private static async Task AssertExitAsync(bool clean, bool closeInput, bool sendExit = false, string? logRoot = null)
     {
         var (fileName, arguments) = ResolveServer();
         using var process = new Process
@@ -127,6 +149,11 @@ public class SpawnRealServerTest
                 CreateNoWindow = true,
             }
         };
+        if (logRoot is not null)
+        {
+            process.StartInfo.Arguments += $" --log-root \"{logRoot}\"";
+            process.StartInfo.Environment["XDG_DATA_HOME"] = Path.Combine(Path.GetDirectoryName(logRoot)!, "stock-data");
+        }
         process.Start();
         var stderr = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
         using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(

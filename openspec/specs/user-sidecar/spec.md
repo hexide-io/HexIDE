@@ -50,8 +50,9 @@ mark is missing on the next opening.
 
 ### Requirement: What F5 runs SHALL be per-user project state
 The user's choice of what F5 runs for a project, the interpreter or a launch an add-in contributes (`dap-client`),
-SHALL be kept in the sidecar as `runWith`, by the launch's add-in and title, and absent for the interpreter. The
-interpreter is the default, so it SHALL NOT cause a sidecar to be written.
+SHALL be kept in the sidecar as `runWith`, by the launch's add-in and title, or an empty string for an explicit
+interpreter choice. An absent `runWith` SHALL leave the project's default in effect and SHALL NOT itself cause
+a sidecar to be written.
 
 One developer runs a project under an add-in's debugger and another in the IDE, so the choice is theirs, not the
 project's, and it belongs with their breakpoints.
@@ -59,6 +60,11 @@ project's, and it belongs with their breakpoints.
 #### Scenario: Choosing a launch for F5
 - **WHEN** the user chooses an add-in's launch for F5 and later reopens the project
 - **THEN** F5 is still set to run that launch
+
+#### Scenario: Choosing the interpreter for an add-in project
+- **WHEN** the user chooses In the IDE for a project whose default is an add-in launch and reopens it
+- **THEN** the explicit interpreter choice is retained instead of the add-in default
+
 
 ### Requirement: The sidecar SHALL be named predictably from the project
 The sidecar SHALL be named from the project file's name with a distinct extension, in the same directory.

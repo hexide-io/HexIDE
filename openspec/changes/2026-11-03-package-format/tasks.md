@@ -2,17 +2,17 @@
 
 - [x] Record the four dated policy decisions and their recorded card ids.
 - [x] Draft all seven capability deltas against the current live specs.
-- [ ] Supervisor accepts container/layout, schema, inventory exclusions and portable extraction limits.
-- [ ] Supervisor accepts contribution vocabulary, tier derivation and partial-activation rules.
-- [ ] Supervisor accepts revocation/key rotation, consent identities and invalidation rules.
-- [ ] Supervisor accepts platform keys, runtime detection, redirect disclosure, cache location/eviction
+- [x] Supervisor accepts container/layout, schema, inventory exclusions and portable extraction limits.
+- [x] Supervisor accepts contribution vocabulary, tier derivation and partial-activation rules.
+- [x] Supervisor accepts revocation/key rotation, consent identities and invalidation rules.
+- [x] Supervisor accepts platform keys, runtime detection, redirect disclosure, cache location/eviction
   and writable-state integrity rules, including adopter-bundled artifacts.
-- [ ] Supervisor accepts id/path mapping, collisions, override merging and orphan reactivation rules.
+- [x] Supervisor accepts id/path mapping, collisions, override merging and orphan reactivation rules.
 - [ ] Supervisor accepts property editors, read/apply wire shapes, persistence and text mapping formats.
-- [ ] Supervisor accepts compatibility/version ordering and loose-pack migration rules.
+- [x] Supervisor accepts compatibility/version ordering and loose-pack migration rules.
 - [ ] Supervisor accepts domain-proof wire formats, resolver privacy and registrable-domain handling.
 - [ ] Supervisor reconciles the narrow suite-dependency reversal with the in-flight profiles design.
-- [ ] Supervisor reviews strict validation and design-record guard results.
+- [x] Supervisor reviews strict validation and design-record guard results.
 
 ## Implementation (not started)
 
