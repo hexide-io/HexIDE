@@ -22,6 +22,7 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 ### Requirement: Discover archive projects and each project's own file
 `get_project_info` SHALL include open archive projects in `projects`, with their container path, their
 own `projectFile`, and `entries` listing stored entry paths, including folders and hidden entries.
+`entryUris` SHALL pair each entry path with its opaque `archive-entry:` language-server URI.
 Each ordinary project SHALL also report its own `projectFile`, which SHALL be null while the project has no
 chosen home: never saved, or held only as a working copy.
 
@@ -41,7 +42,7 @@ filesystem paths or language-server URIs.
 
 ### Requirement: Open archive entries by their listed paths
 `open_file` SHALL open an archive entry by its listed path in the existing read-only inspector, without
-writing files or attaching a language server. Its reply SHALL name the container path as `project` and
+writing files. Text previews SHALL use their opaque archive-entry URI for language servers. Its reply SHALL name the container path as `project` and
 the entry path as `document`. The optional `project` SHALL select an archive by its container path,
 file name or stored project name. Ambiguous matches SHALL refuse and list the matching containers
 before opening anything.
