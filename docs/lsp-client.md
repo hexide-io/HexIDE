@@ -1865,8 +1865,7 @@ describe returns null: nothing is prompted or written, and a target HexIDE still
 confinement and ownership check as a replace, while an edited one is left alone with its reason. Providers return
 content and never write files. The first provider, `clangd`, projects carried C/C++ files into `compile_commands.json`.
 The second, `rdcore`, projects the project's code files, references and Conditional Compilation Arguments into the
-`.rdproj` RDCore's language server needs at the workspace root. Current RDCore builds take a project import
-instead (below).
+`.rdproj` RDCore's language server needs at the workspace root. RDCore entries can also seed it before importing (below).
 
 Completed artefact writes and removals feed `workspace/didChangeWatchedFiles` registrations directly
 (#456). There is no public add-in contract (#457), no undeclared generation,
@@ -1877,8 +1876,12 @@ The loader recognises a server-neutral `projectImport` command and JSON argument
 Exact `{uri}` and `{text}` string values expand recursively, preserving JSON types and property names.
 After initialization and on the artefact service's 300 ms project-change debounce, the registry calls
 that command with the first loaded project's saved URI and in-memory `.vbp` serialization in each
-resolved folder. Shared folders are configuration problems, as described above. Importing entries skip
-artefact generation. The server must advertise the command; errors become configuration problems and
+resolved folder. Shared folders are configuration problems, as described above. Entries declaring both
+fields seed a missing artefact before launch, with the same consent and confinement checks (an existing one is left
+without asking), using a temporary
+file and a move that cannot overwrite a target. The seed is never recorded as owned; regeneration stays
+import-only. Seed failures are noted without preventing launch. This first-open bridge is to be removed
+when RDCore re-reads the language after import (#3317). The server must advertise the command; errors become configuration problems and
 reply notes reach the same server log as `window/logMessage` (object notes use their `message` text).
 Successful imports invalidate and re-pull open-document diagnostics until
 the connection first requests `workspace/diagnostic/refresh`, after which server refreshes take over
