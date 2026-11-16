@@ -275,9 +275,9 @@ internal static partial class ToolFailures
 
     /// <summary>Where <c>LoggingSetup.GetLogDirectory("ide")</c> puts the log, written as the platform names it.</summary>
     private static string LogFolder =>
-        OperatingSystem.IsWindows() ? @"%LOCALAPPDATA%\HexIDE\logs\ide"
-        : OperatingSystem.IsMacOS() ? "~/Library/Application Support/HexIDE/logs/ide"
-        : "~/.local/share/HexIDE/logs/ide";
+        OperatingSystem.IsWindows() ? $@"%LOCALAPPDATA%\{HexIDE.IDE.Distribution.Current.StateDirectoryName}\logs\ide"
+        : OperatingSystem.IsMacOS() ? $"~/Library/Application Support/{HexIDE.IDE.Distribution.Current.StateDirectoryName}/logs/ide"
+        : $"~/.local/share/{HexIDE.IDE.Distribution.Current.StateDirectoryName}/logs/ide";
 
     internal static string WithoutProfile(string message)
     {

@@ -107,8 +107,8 @@ public static class UserDataPath
         !string.IsNullOrEmpty(candidate) && Path.IsPathRooted(candidate)
             ? candidate
             : throw new InvalidOperationException(
-                $"Cannot locate HexIDE's per-user directory: {what} resolved to "
+                $"Cannot locate {Distribution.DisplayName}'s per-user directory: {what} resolved to "
               + $"'{candidate}', which is not an absolute path. Refusing to fall back to a relative one — "
               + "settings, consent and add-in revocations would then be written relative to whichever "
-              + "directory HexIDE happened to be started from, and silently not found again.");
+              + $"directory {Distribution.DisplayName} happened to be started from, and silently not found again.");
 }

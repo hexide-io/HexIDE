@@ -503,6 +503,15 @@ public sealed class DistributionDescriptorTests
     [InlineData("Str.Dialog.About.SigningKeys.RootKey")]
     [InlineData("Str.Dialog.About.SigningKeys.FirstPartyKey")]
     [InlineData("Str.Addins.Incompatible")]
+    [InlineData("Str.MemberOrigin.HexIde")]
+    [InlineData("Str.Dialog.Components.NotImplemented")]
+    [InlineData("Str.Designer.Unmodelled.NotSupported")]
+    [InlineData("Str.ProjectRunner.NotImplementedYet")]
+    [InlineData("Str.Dialog.UnfaithfulSave.Body.One")]
+    [InlineData("Str.Dialog.UnfaithfulSave.Body.Many")]
+    [InlineData("Str.Designer.ReadOnly.Banner")]
+    [InlineData("Str.CodeEditor.FileNotSaved.Banner")]
+    [InlineData("Str.ProjectLoad.ActiveXDocuments")]
     public void Statements_about_HexIDE_itself_keep_saying_so(string key)
     {
         var strings = new Dictionary<string, string> { [key] = "HexIDE made this" };
