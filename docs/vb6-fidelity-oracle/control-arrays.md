@@ -98,14 +98,20 @@ saved with Ctrl+S and read back from the `.frm`.
 | Then F5 | **"Compile error: Procedure declaration does not match description of event or procedure having the same name"**, with OK and Help, and the handler's declaration line highlighted in the code window. Nothing ran |
 | `Command1` with `Index = 0` and a handler `Private Sub Command1_Click(Index As Integer)`; clear Index in the Properties window | **No message.** The Properties window then named it `Command1`. The saved `.frm` held no Index line and **the handler unchanged**, still `(Index As Integer)` |
 | Then F5 | **The same compile error,** with the declaration highlighted |
+| `Command1` with `Index = 0` and `Private Sub Command1_Click(i As Integer)`, the parameter renamed; F5, then Space on the button | **Ran.** The handler wrote `i=0` |
+| The same with `(Index As Long)`; F5 | **The compile error** |
+| The same with `(ByVal Index As Integer)`; F5 | **The compile error** |
 
 **What this settles:**
 - **A new handler for an array element takes `Index As Integer` as its first parameter,** ahead of whatever the event
   itself passes.
 - **Setting or clearing Index never rewrites a handler, and doesn't warn.** The mismatch surfaces at F5, as a compile
   error naming no procedure in its text, though the code window highlights the declaration.
+- **What VB6 compares is the parameters' types and passing, not their names.** A renamed `Index` runs and receives
+  the index. `As Long` for `As Integer` is the compile error, and so is `ByVal` on a parameter the event passes by
+  reference. Only the extra parameter `Index` was varied; the event's own arguments, such as MouseDown's, weren't.
 - **Not measured:**
   - the same error from `/make`;
   - an element whose Index is set to something other than 0;
   - a control array made by naming or pasting a second control (that's #1397);
-  - a handler whose parameters are otherwise wrong.
+  - a handler whose other parameters are wrong, such as a MouseDown with a mistyped `Button`.
