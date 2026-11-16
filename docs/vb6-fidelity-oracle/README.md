@@ -545,6 +545,7 @@ added afterwards.
 - [A ListBox's Selected, SelCount and Text, with MultiSelect and without (2026-10-22, #1395)](a-listboxs-selected-selcount-and-text-with-multiselect-and-without.md#a-listboxs-selected-selcount-and-text-with-multiselect-and-without-2026-10-22-1395)
 - [A ListBox's Scroll event: what raises it, and what doesn't (2026-11-06, #3275)](a-listboxs-scroll-event.md#a-listboxs-scroll-event-what-raises-it-and-what-doesnt-2026-11-06-3275)
 - [A MultiSelect list's TopIndex, and TopIndex before the form is shown (2026-11-15, #3986)](a-listboxs-scroll-event.md#a-multiselect-lists-topindex-and-topindex-before-the-form-is-shown-2026-11-15-3986)
+- [A ListBox's Page Up, Selected and Text, checkboxes and columns (2026-11-16, #3986)](a-listboxs-page-up-checkboxes-and-columns.md#a-listboxs-page-up-selected-and-text-checkboxes-and-columns-2026-11-16-3986)
 - [One handler at a time (2026-10-14, #766)](one-handler-at-a-time.md#one-handler-at-a-time-2026-10-14-766)
 - [Unload Me (2026-10-14, #973)](unload-me.md#unload-me-2026-10-14-973)
 - [Overflow edges (2026-10-14, #234)](overflow-edges.md#overflow-edges-2026-10-14-234)
