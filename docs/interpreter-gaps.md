@@ -13,8 +13,12 @@
 **Corrections applied after the audit (things the audit got slightly wrong):**
 - **Placed UserControls are partial (#1631 parts A–C):** extender availability and focus/key routing are
   implemented. Placed instances share the program interpreter and event queue. Their own context currently
-  supplies AccessKeys and Ambient.DisplayAsDefault for the key handlers; the remaining UserControl/Ambient
-  surface and designer/file editing are later work. Part C supplies Container assignment and Count, bottom Align, transparent BackStyle, and measured focus/lifecycle ordering. Align assignments other than 2, BackStyle reads (whose return subtype is unmeasured here), ContainedControls operations other than Count, and PropertyBag operations are still refused. Unmeasured conversions of
+  supplies AccessKeys and the measured form-hosted Ambient reads ([#4149](https://github.com/hexide-io/HexIDE/issues/4149)).
+  The designer (`SpawnComponentsForDesigner`), property-page editor and form preview do not attach a UserControl
+  interpreter: design-time ReadProperties/Show and build-time callbacks remain unavailable. Runtime UserMode is True
+  and ShowHatching False. Palette, non-form containers, LocaleID outside en-US, and RightToLeft on a right-to-left
+  form explicitly refuse pending measurements. AmbientChanged for form colour changes remains unmeasured.
+  The remaining UserControl surface and designer/file editing are later work. Part C supplies Container assignment and Count, bottom Align, transparent BackStyle, and measured focus/lifecycle ordering. Align assignments other than 2, BackStyle reads (whose return subtype is unmeasured here), ContainedControls operations other than Count, and PropertyBag operations are still refused. Unmeasured conversions of
   AccessKeys are explicitly refused, rather than assigned invented VB6 semantics.
 - **Clipboard text is now partial (#1156):** Clear, SetText, GetText and GetFormat(vbCFText) use the host clipboard.
   Image/data methods, non-text format queries and RTF/Link text are deferred and explicitly refused. VB6 preserves
