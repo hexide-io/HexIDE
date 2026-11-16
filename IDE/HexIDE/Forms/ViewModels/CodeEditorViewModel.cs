@@ -192,6 +192,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private DocumentSymbol[]? _symbols;
     public IReadOnlyList<DocumentSymbol> OutlineSymbols => _symbols ?? [];
     private int symbolRefreshVersion;
+    // The symbol request still waiting, and the text it was asked for, by URI and checkpoint (#4162).
+    private CancellationTokenSource? symbolsRequest;
+    private (string Uri, ITextSourceVersion? Checkpoint)? symbolsWaiting;
+
+    private void CancelSymbolRequest()
+    {
+        if (symbolsRequest is not { } waiting) return;
+        symbolsRequest = null;
+        symbolsWaiting = null;
+        waiting.Cancel();
+        waiting.Dispose();
+    }
 
     /// <summary>
     /// This document's conversation with the language layer, shared with the carried-file editor.
@@ -1259,16 +1271,42 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     internal async Task RefreshSymbolsAsync()
     {
-        var version = ++symbolRefreshVersion;
         if (!lspClient.IsRunning || LiveDocumentUri is not { } uri)
         {
+            ++symbolRefreshVersion;
+            CancelSymbolRequest();
             _symbols = [];
             OnPropertyChanged(nameof(OutlineSymbols));
             return;
         }
+        // Every diagnostics publish, from any server, refreshes, so with two servers publishing for one edit the
+        // highest-priority one was asked for the same symbols two or three times over, each a second or more in a large
+        // module, and only the last answer was used (#4162). A request for this text that is still waiting answers this
+        // refresh too; one for older text is cancelled, so the server stops working on it. Once an answer is in, a later
+        // publish asks again, as before: a fresh diagnostic set is still the sign the server has re-read the document.
+        var checkpoint = Document.Version;
+        if (symbolsWaiting is { } waiting && waiting.Uri == uri && ReferenceEquals(waiting.Checkpoint, checkpoint)) return;
+        var version = ++symbolRefreshVersion;
+        CancelSymbolRequest();
+        var request = symbolsRequest = new CancellationTokenSource();
+        symbolsWaiting = (uri, checkpoint);
         var text = Document.Text;
-        await FlushDocumentAsync();
-        var symbols = await lspClient.RequestDocumentSymbolsAsync(uri);
+        DocumentSymbol[] symbols;
+        try
+        {
+            await FlushDocumentAsync(request.Token);
+            symbols = await lspClient.RequestDocumentSymbolsAsync(uri, request.Token);
+        }
+        catch (OperationCanceledException) when (request.IsCancellationRequested) { return; }
+        finally
+        {
+            if (ReferenceEquals(symbolsRequest, request))
+            {
+                symbolsWaiting = null;
+                symbolsRequest = null;
+                request.Dispose();
+            }
+        }
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             if (version != symbolRefreshVersion || LiveDocumentUri != uri || text != Document.Text) return;
