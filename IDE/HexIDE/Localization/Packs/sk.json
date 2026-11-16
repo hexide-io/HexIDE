@@ -1320,6 +1320,7 @@
     "Str.AIChat.New": "Nový",
     "Str.AIChat.InputPlaceholder": "Spýtajte sa na svoj kód…",
     "Str.AIChat.NewTip": "Nový chat (história sa zachová)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekty {0} zdieľajú priečinok {1}; zapisuje alebo importuje sa iba {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekty {0} zdieľajú priečinok {1}; zapisuje alebo importuje sa iba {2}.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} nemožno uložiť ako skupinu projektov: VB6 by otvoril {1} ako moduly kódu, nie ako projekty. Odstráňte ich zo skupiny alebo uložte každý projekt samostatne. Nič sa nezapísalo."
   }
 }

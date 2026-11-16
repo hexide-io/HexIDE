@@ -1320,6 +1320,7 @@
     "Str.AIChat.New": "Ny",
     "Str.AIChat.InputPlaceholder": "Spør om koden din…",
     "Str.AIChat.NewTip": "Ny samtale (historikken beholdes)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Prosjektene {0} deler mappen {1}; bare {2} skrives eller importeres."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Prosjektene {0} deler mappen {1}; bare {2} skrives eller importeres.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} kan ikke lagres som en prosjektgruppe: VB6 ville åpnet {1} som kodemoduler, ikke som prosjekter. Fjern dem fra gruppen, eller lagre hvert prosjekt for seg. Ingenting ble skrevet."
   }
 }

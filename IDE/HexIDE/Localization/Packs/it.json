@@ -1320,6 +1320,7 @@
     "Str.AIChat.New": "Nuova",
     "Str.AIChat.InputPlaceholder": "Chiedi informazioni sul codice…",
     "Str.AIChat.NewTip": "Nuova chat (la cronologia viene conservata)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "I progetti {0} condividono la cartella {1}; viene scritto o importato solo {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "I progetti {0} condividono la cartella {1}; viene scritto o importato solo {2}.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "Impossibile salvare {0} come gruppo di progetti: VB6 aprirebbe {1} come moduli di codice, non come progetti. Rimuoverli dal gruppo o salvare ogni progetto separatamente. Non è stato scritto nulla."
   }
 }

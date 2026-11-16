@@ -1320,6 +1320,7 @@
     "Str.AIChat.New": "Ny",
     "Str.AIChat.InputPlaceholder": "Spørg om din kode…",
     "Str.AIChat.NewTip": "Ny samtale (historikken bevares)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekterne {0} deler mappen {1}; kun {2} skrives eller importeres."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekterne {0} deler mappen {1}; kun {2} skrives eller importeres.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} kan ikke gemmes som en projektgruppe: VB6 ville åbne {1} som kodemoduler, ikke som projekter. Fjern dem fra gruppen, eller gem hvert projekt for sig. Intet blev skrevet."
   }
 }

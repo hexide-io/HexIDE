@@ -1320,6 +1320,7 @@
     "Str.AIChat.New": "Mới",
     "Str.AIChat.InputPlaceholder": "Hỏi về mã của bạn…",
     "Str.AIChat.NewTip": "Cuộc trò chuyện mới (lịch sử được giữ lại)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Các dự án {0} dùng chung thư mục {1}; chỉ {2} được ghi hoặc nhập."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Các dự án {0} dùng chung thư mục {1}; chỉ {2} được ghi hoặc nhập.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "Không thể lưu {0} dưới dạng nhóm dự án: VB6 sẽ mở {1} dưới dạng mô-đun mã, không phải dự án. Hãy xóa chúng khỏi nhóm hoặc lưu riêng từng dự án. Không có gì được ghi."
   }
 }

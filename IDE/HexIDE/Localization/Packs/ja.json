@@ -1320,6 +1320,7 @@
     "Str.AIChat.PrivacyNotice": "ℹ プライバシー: メッセージ、アクティブなファイルの内容（フォームの場合はレイアウトとキャプションも）、およびその診断情報は、AI チャット設定で構成したサードパーティのサービス {0} に送信されます。",
     "Str.AIChat.PrivacyKeyTip": "ヒント: API キーをファイルに保存しないように、環境変数 HEXIDE_AI_API_KEY を設定してください。",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "プロジェクト {0} はフォルダー {1} を共有しています。{2} のみが書き込みまたはインポートされます。",
-    "Str.MemberOrigin.HexIde": "HexIDE の拡張機能。VB6 では使用できません。"
+    "Str.MemberOrigin.HexIde": "HexIDE の拡張機能。VB6 では使用できません。",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} をプロジェクトグループとして保存できません。VB6 は {1} をプロジェクトではなくコードモジュールとして開きます。グループから削除するか、各プロジェクトを個別に保存してください。何も書き込まれませんでした。"
   }
 }

@@ -1320,6 +1320,7 @@
     "Str.AIChat.New": "Új",
     "Str.AIChat.InputPlaceholder": "Kérdezzen a kódjáról…",
     "Str.AIChat.NewTip": "Új csevegés (az előzmények megmaradnak)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "A(z) {0} projektek közös mappája {1}; csak a(z) {2} lesz kiírva vagy importálva."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "A(z) {0} projektek közös mappája {1}; csak a(z) {2} lesz kiírva vagy importálva.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "A(z) {0} nem menthető projektcsoportként: a VB6 a(z) {1} elemeket kódmodulként nyitná meg, nem projektként. Távolítsa el őket a csoportból, vagy mentse külön a projekteket. Semmi sem íródott ki."
   }
 }

@@ -1320,6 +1320,7 @@
     "Str.AIChat.New": "Νέα",
     "Str.AIChat.InputPlaceholder": "Ρωτήστε για τον κώδικά σας…",
     "Str.AIChat.NewTip": "Νέα συνομιλία (το ιστορικό διατηρείται)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Τα έργα {0} μοιράζονται τον φάκελο {1}· μόνο το {2} γράφεται ή εισάγεται."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Τα έργα {0} μοιράζονται τον φάκελο {1}· μόνο το {2} γράφεται ή εισάγεται.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "Το {0} δεν μπορεί να αποθηκευτεί ως ομάδα έργων: το VB6 θα άνοιγε τα {1} ως λειτουργικές μονάδες κώδικα, όχι ως έργα. Αφαιρέστε τα από την ομάδα ή αποθηκεύστε κάθε έργο ξεχωριστά. Δεν γράφτηκε τίποτα."
   }
 }

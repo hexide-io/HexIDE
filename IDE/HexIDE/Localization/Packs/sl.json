@@ -1320,6 +1320,7 @@
     "Str.AIChat.New": "Nov",
     "Str.AIChat.InputPlaceholder": "Vprašajte o svoji kodi…",
     "Str.AIChat.NewTip": "Nov klepet (zgodovina se ohrani)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} si delijo mapo {1}; zapiše ali uvozi se samo {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} si delijo mapo {1}; zapiše ali uvozi se samo {2}.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} ni mogoče shraniti kot skupino projektov: VB6 bi odprl {1} kot module kode, ne kot projekte. Odstranite jih iz skupine ali shranite vsak projekt posebej. Nič ni bilo zapisano."
   }
 }

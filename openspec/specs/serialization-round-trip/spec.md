@@ -71,6 +71,19 @@ See the [VB6 measurements](../../../docs/vb6-fidelity-oracle/a-project-groups-fi
 With a startup project, the writer SHALL emit `VBGROUP 5.0` and each project in group order, using
 `StartupProject=` for startup and `Project=` for every other member, with CR LF line endings.
 Groups without startup SHALL retain their prior output pending measurement.
+Only `.vbp` paths SHALL be listed, case-insensitively; pathless members are skipped.
+A mixed-group save SHALL refuse before any write, including a member's Save As in a saved `.vbg`.
+
+#### Scenario: A group holds another project kind
+- **GIVEN** a group holding A.vbp and Other.rdproj
+- **WHEN** the group is saved, including its first save
+- **THEN** the save refuses, naming Other with its file name and explaining VB6's code-module interpretation
+- **AND** no file is written and the group retains its members, order and startup project
+- **AND** a member's Save Project As to a non-`.vbp` path with a saved `.vbg` holder refuses the same way
+
+Measured in [oracle PR #4308](https://github.com/hexide-io/HexIDE/pull/4308): VB6 opens other extensions
+as code modules and refuses a trailing section in a `.vbg`. A separate mixed-workspace descriptor awaits #1206.
+
 
 #### Scenario: Saving a group whose startup is second
 - **GIVEN** projects A and B in order, with B as startup

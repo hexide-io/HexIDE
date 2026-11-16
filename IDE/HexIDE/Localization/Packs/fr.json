@@ -1320,6 +1320,7 @@
     "Str.AIChat.PrivacyNotice": "ℹ Confidentialité : vos messages, le contenu du fichier actif (pour un formulaire, sa disposition et ses légendes aussi) et ses diagnostics sont envoyés à {0} — un service tiers configuré dans les paramètres du chat IA.",
     "Str.AIChat.PrivacyKeyTip": "Conseil : définissez la variable d’environnement HEXIDE_AI_API_KEY pour éviter de stocker votre clé API dans un fichier.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Les projets {0} partagent le dossier {1} ; seul {2} est écrit ou importé.",
-    "Str.MemberOrigin.HexIde": "Extension HexIDE ; non disponible dans VB6."
+    "Str.MemberOrigin.HexIde": "Extension HexIDE ; non disponible dans VB6.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "Impossible d’enregistrer {0} comme groupe de projets : VB6 ouvrirait {1} comme modules de code et non comme projets. Retirez-les du groupe ou enregistrez chaque projet séparément. Rien n’a été écrit."
   }
 }

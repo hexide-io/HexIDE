@@ -1320,6 +1320,7 @@
     "Str.AIChat.ApiKeyRequired": "API key required. Set the HEXIDE_AI_API_KEY environment variable, or apiKey in chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Privacy: your messages, the active file's contents (for a form, its layout and captions too), and its diagnostics are sent to {0} — a third-party service you configured in AI Chat settings.",
     "Str.AIChat.PrivacyKeyTip": "Tip: set the HEXIDE_AI_API_KEY environment variable to avoid storing your API key in a file.",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projects {0} share folder {1}; only {2} is written or imported."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projects {0} share folder {1}; only {2} is written or imported.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} can't be saved as a project group: VB6 would open {1} as code modules, not as projects. Remove them from the group, or save each project on its own. Nothing was written."
   }
 }

@@ -1320,6 +1320,7 @@
     "Str.AIChat.New": "Berria",
     "Str.AIChat.InputPlaceholder": "Galdetu zure kodeari buruz…",
     "Str.AIChat.NewTip": "Txat berria (historia gordetzen da)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "{0} proiektuek {1} karpeta partekatzen dute; {2} soilik idazten edo inportatzen da."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "{0} proiektuek {1} karpeta partekatzen dute; {2} soilik idazten edo inportatzen da.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "Ezin da {0} proiektu-talde gisa gorde: VB6k {1} kode-modulu gisa irekiko lituzke, ez proiektu gisa. Kendu taldetik edo gorde proiektu bakoitza bereizita. Ez da ezer idatzi."
   }
 }

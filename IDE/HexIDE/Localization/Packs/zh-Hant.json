@@ -1320,6 +1320,7 @@
     "Str.AIChat.PrivacyNotice": "ℹ 隱私權：您的訊息、作用中文件的內容（對於表單，還包括配置和標題）及其診斷資訊會傳送至 {0}，即您在 AI 聊天設定中設定的第三方服務。",
     "Str.AIChat.PrivacyKeyTip": "提示：請設定 HEXIDE_AI_API_KEY 環境變數，以避免將 API 金鑰儲存在檔案中。",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "專案 {0} 共用資料夾 {1}；僅寫入或匯入 {2}。",
-    "Str.MemberOrigin.HexIde": "HexIDE 擴充功能；VB6 中無法使用。"
+    "Str.MemberOrigin.HexIde": "HexIDE 擴充功能；VB6 中無法使用。",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "無法將 {0} 儲存為專案群組：VB6 會將 {1} 作為程式碼模組而非專案開啟。請將它們從群組中移除，或分別儲存每個專案。未寫入任何內容。"
   }
 }

@@ -1320,6 +1320,7 @@
     "Str.AIChat.New": "Naujas",
     "Str.AIChat.InputPlaceholder": "Klauskite apie savo kodą…",
     "Str.AIChat.NewTip": "Naujas pokalbis (istorija išsaugoma)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektai {0} bendrina aplanką {1}; įrašomas arba importuojamas tik {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektai {0} bendrina aplanką {1}; įrašomas arba importuojamas tik {2}.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} negalima įrašyti kaip projektų grupės: VB6 atvertų {1} kaip kodo modulius, o ne projektus. Pašalinkite juos iš grupės arba įrašykite kiekvieną projektą atskirai. Nieko neįrašyta."
   }
 }

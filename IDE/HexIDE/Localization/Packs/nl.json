@@ -1320,6 +1320,7 @@
     "Str.AIChat.New": "Nieuw",
     "Str.AIChat.InputPlaceholder": "Stel een vraag over uw code…",
     "Str.AIChat.NewTip": "Nieuwe chat (de geschiedenis blijft bewaard)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projecten {0} delen map {1}; alleen {2} wordt geschreven of geïmporteerd."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projecten {0} delen map {1}; alleen {2} wordt geschreven of geïmporteerd.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} kan niet als projectgroep worden opgeslagen: VB6 zou {1} als codemodules openen, niet als projecten. Verwijder ze uit de groep of sla elk project afzonderlijk op. Er is niets geschreven."
   }
 }

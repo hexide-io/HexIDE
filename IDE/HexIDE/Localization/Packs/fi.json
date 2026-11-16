@@ -1320,6 +1320,7 @@
     "Str.AIChat.New": "Uusi",
     "Str.AIChat.InputPlaceholder": "Kysy koodistasi…",
     "Str.AIChat.NewTip": "Uusi keskustelu (historia säilytetään)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektit {0} jakavat kansion {1}; vain {2} kirjoitetaan tai tuodaan."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektit {0} jakavat kansion {1}; vain {2} kirjoitetaan tai tuodaan.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "Kohdetta {0} ei voi tallentaa projektiryhmänä: VB6 avaisi kohteet {1} koodimoduuleina, ei projekteina. Poista ne ryhmästä tai tallenna jokainen projekti erikseen. Mitään ei kirjoitettu."
   }
 }

@@ -1320,6 +1320,7 @@
     "Str.AIChat.New": "Nou",
     "Str.AIChat.InputPlaceholder": "Întrebați despre codul dvs.…",
     "Str.AIChat.NewTip": "Conversație nouă (istoricul este păstrat)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Proiectele {0} partajează dosarul {1}; doar {2} este scris sau importat."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Proiectele {0} partajează dosarul {1}; doar {2} este scris sau importat.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} nu poate fi salvat ca grup de proiecte: VB6 ar deschide {1} ca module de cod, nu ca proiecte. Eliminați-le din grup sau salvați fiecare proiect separat. Nu s-a scris nimic."
   }
 }

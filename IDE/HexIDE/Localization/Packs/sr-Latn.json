@@ -1320,6 +1320,7 @@
     "Str.AIChat.New": "Novo",
     "Str.AIChat.InputPlaceholder": "Pitajte o svom kodu…",
     "Str.AIChat.NewTip": "Novo ćaskanje (istorija se čuva)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} dele fasciklu {1}; zapisuje se ili uvozi samo {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} dele fasciklu {1}; zapisuje se ili uvozi samo {2}.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} nije moguće sačuvati kao grupu projekata: VB6 bi otvorio {1} kao module koda, a ne kao projekte. Uklonite ih iz grupe ili sačuvajte svaki projekat zasebno. Ništa nije upisano."
   }
 }
