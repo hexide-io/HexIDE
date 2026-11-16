@@ -107,8 +107,8 @@ Every file a profile names is a path inside its folder. A `settingsDefaults` fil
   `isEditToolbarVisible`, `isDebugToolbarVisible`, `isFormEditorToolbarVisible` and `isMinimapVisible`.
 
 A profile sets where each user starts, and anything a user has chosen and saved wins over it. A member or setting
-not listed here, or a file the profile can't read, stops the IDE from starting with exit code 2. From a console it
-names the profile and the file; started from a shortcut it says nothing yet (#4169). The rules are in
+not listed here, or a file the profile can't read, stops the IDE from starting with exit code 2, and the refusal
+names the profile and the file. The rules are in
 [`openspec/specs/profiles/spec.md`](../openspec/specs/profiles/spec.md).
 
 ## What it doesn't do
