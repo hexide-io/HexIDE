@@ -469,9 +469,10 @@ public sealed class DistributionDescriptorTests
         ServerOptions.SelectProfile(null, "/where/typed", DistributionIdentity.Stock, "/installed").Should().Be(((string?)null, "/where/typed"));
 
     [Fact]
-    public void HexIDEs_credits_are_the_only_protected_row()
+    public void HexIDEs_credits_and_trust_labels_are_the_protected_rows()
     {
         new HexIDE.Tools.TranslationEditor.TranslationRowViewModel(BrandText.UpstreamCreditsKey).IsProtected.Should().BeTrue();
+        new HexIDE.Tools.TranslationEditor.TranslationRowViewModel("Str.Dialog.About.SigningKeys.RootKey").IsProtected.Should().BeTrue();
         new HexIDE.Tools.TranslationEditor.TranslationRowViewModel("Str.Menu.Help").IsProtected.Should().BeFalse();
     }
 

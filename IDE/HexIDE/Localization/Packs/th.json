@@ -501,6 +501,7 @@
     "Str.TranslationEditor.ResetAllConfirm": "เอาค่าที่คุณแทนที่ไว้ทั้งหมดสำหรับภาษานี้ออกหรือไม่?",
     "Str.TranslationEditor.PlaceholderError": "ปฏิเสธการแก้ไข: ต้องคงตัวแทนค่า {0}, {1} … เหมือนต้นฉบับ",
     "Str.TranslationEditor.ProtectedCredits": "ไม่สามารถแทนที่คำขอบคุณของ HexIDE ได้ที่นี่ ผลิตภัณฑ์ที่สร้างบน HexIDE ทำได้เพียงเพิ่มเติมเท่านั้น",
+    "Str.TranslationEditor.ProtectedTrust": "ไม่สามารถแทนที่ป้ายกำกับของคีย์ลงลายเซ็นของ HexIDE ได้ที่นี่ ผลิตภัณฑ์ที่สร้างบน HexIDE ไม่สามารถแสดงคีย์เหล่านั้นว่าเป็นของตนเองได้",
     "Str.TranslationEditor.Tooltip.Override": "ค่าที่แทนที่: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ไม่มี)",
     "Str.TranslationEditor.Area.Menu": "เมนู",
