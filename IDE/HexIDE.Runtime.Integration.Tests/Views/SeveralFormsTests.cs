@@ -724,22 +724,22 @@ public class SeveralFormsTests
         run.Printed.Should().Equal("f2 initialize", "f2 load", "f2 queryunload 1", "f2 unload", "after 0");
     }
 
-    [AvaloniaFact]
-    public void A_modal_form_beneath_the_innermost_stays_shown_when_hidden_with_402()
+    [AvaloniaTheory]
+    [InlineData("Form2.Hide")]
+    [InlineData("Form2.Visible = False")]
+    public void A_modal_form_beneath_the_innermost_is_hidden_with_402_and_its_modal_loop_waits_on(string statement)
     {
-        // 402 is measured (#822); whether VB6 hides a modal form beneath another is not, so it stays shown (#3936 review).
+        // Measured, native and p-code: Form2, modal beneath Form3, is hidden and given 402 by Hide and by Visible = False
+        // alike, and Form1's Show vbModal returns only once Form2 unloads, not when it hides (#3936, #4032).
         using var run = Start(ShowsForm2Modally, Form2Clicked("""
                 Form3.Show vbModal
-                Unload Me
+                Debug.Print "f2 after f3, visible " & Me.Visible
 
-            """), form3Code: """
+            """), form3Code: $$"""
             Private Sub Command1_Click()
                 On Error Resume Next
-                Form2.Hide
-                Debug.Print "Hide " & Err.Number & " " & Form2.Visible
-                Err.Clear
-                Form2.Visible = False
-                Debug.Print "Visible " & Err.Number & " " & Form2.Visible
+                {{statement}}
+                Debug.Print "error " & Err.Number & ", form2 visible " & Form2.Visible
                 Unload Me
             End Sub
 
@@ -753,7 +753,9 @@ public class SeveralFormsTests
         Pump();
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("Hide 402 True", "Visible 402 True", "f2 queryunload 1", "f2 unload", "after, form1 enabled True");
+        run.Printed.Should().Equal(["error 402, form2 visible False", "f2 after f3, visible False"],
+            "Form2's modal loop goes on waiting while it is hidden, so Form1's Show vbModal hasn't returned");
+        run.Closed.Should().NotContain("Form2", "a hidden form is still loaded");
     }
 
     [AvaloniaFact]

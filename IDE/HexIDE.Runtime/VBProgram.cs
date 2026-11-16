@@ -329,25 +329,34 @@ public sealed class VBProgram : IFormProgram
 
     /// <summary>
     /// Hide a form. While a modal form is displayed, hiding any form other than the innermost raises 402, "Must close or
-    /// hide topmost modal form first", after hiding it (measured, #4032). Visible = False hides it without that error
-    /// (measured, #3936).
+    /// hide topmost modal form first", after hiding it (measured, #4032). Visible = False hides a modeless form without
+    /// that error (measured, #3936).
     /// </summary>
     /// <remarks>
-    /// A modal form beneath the innermost one is the exception. Its 402 is measured (#822), but not whether VB6 hides it.
-    /// So it stays shown, raising 402 for Visible = False too, rather than end its modal loop under another.
+    /// A modal form beneath the innermost one is hidden and given 402 by Visible = False too, and its modal loop goes on
+    /// waiting while it is hidden: its Show vbModal returns only once it unloads (measured, native and p-code).
     /// </remarks>
     internal void Hide(IFormView view, bool reportModalError = true)
     {
         var underModal = modals.Count > 0 && !ReferenceEquals(modals[^1], view.Context);
-        if (underModal && modals.Contains(view.Context))
-            throw new VBRunTimeException(VBStandardError.CodeMustCloseTopmostModalFormFirst);
-        var modalError = reportModalError && underModal;
+        var modalBeneath = underModal && modals.Contains(view.Context);
+        var modalError = underModal && (reportModalError || modalBeneath);
+        if (modalBeneath)
+            hiddenBeneath.Add(view.Context);
+        else
+            hiddenBeneath.Remove(view.Context);
         var next = ReferenceEquals(active, view.Context) ? NextShown(view.Context) : null;
         view.HideForm();
         ActivateNext(next);
         if (modalError)
             throw new VBRunTimeException(VBStandardError.CodeMustCloseTopmostModalFormFirst);
     }
+
+    /// <summary>
+    /// Modal forms hidden while another modal form was over them, whose modal loops go on waiting while they are hidden
+    /// (measured). Hiding one again once it is the innermost ends its loop, as Hide of the innermost always does.
+    /// </summary>
+    private readonly HashSet<VBWindowContext> hiddenBeneath = [];
 
     private VBWindowContext? NextShown(VBWindowContext leaving) =>
         activationOrder.LastOrDefault(context => !ReferenceEquals(context, leaving)
@@ -396,11 +405,14 @@ public sealed class VBProgram : IFormProgram
         {
             view.ShowForm();
             var form = context.FormInstance!;
-            await Events.WhileModal(() => form.FormLoaded && view.IsShown && over?.Invoke() != true);
+            // Hidden as the innermost form, it is done; hidden while another modal form was over it, it waits on.
+            await Events.WhileModal(() => form.FormLoaded && (view.IsShown || hiddenBeneath.Contains(context))
+                && over?.Invoke() != true);
         }
         finally
         {
             modals.Remove(context);
+            hiddenBeneath.Remove(context);
             foreach (var (otherView, before) in held)
                 otherView.HeldBy = before;
         }
