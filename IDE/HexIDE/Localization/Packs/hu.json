@@ -283,7 +283,7 @@
     "Str.Menu.Run": "F_uttatás",
     "Str.Menu.Run.Start": "_Indítás",
     "Str.CodeTrust.Caption": "A számítógépen kívülről származó kód",
-    "Str.CodeTrust.Prompt": "A(z) {0} olyan kódot tartalmaz, amely a számítógépen kívülről származik:\n\n{1}\n\nA kód az Ön jogosultságaival fut. Olvashatja, módosíthatja és törölheti a fájljait, és más programokat indíthat. Csak akkor futtassa, ha megbízik a forrásában.\n\nFuttatja a következőt: {0}?",
+    "Str.CodeTrust.Prompt": "Az internetről vagy egy másik számítógépről származó kód futtatására kerül sor.\n\n„{0}”\n{1}\n\nA kód az Ön jogosultságaival fut. Olvashatja, módosíthatja és törölheti a fájljait, és más programokat indíthat. Csak akkor futtassa, ha megbízik a forrásában.\n\nFuttatja?",
     "Str.CodeTrust.Downloaded": "{0}, letöltöttként megjelölve",
     "Str.CodeTrust.Office": "{0}, Office-dokumentumból",
     "Str.Menu.Run.StartWithFullCompile": "Indítás _teljes fordítással",

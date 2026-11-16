@@ -288,7 +288,7 @@
     "Str.Menu.Run": "_Kör",
     "Str.Menu.Run.Start": "_Starta",
     "Str.CodeTrust.Caption": "Kod utifrån den här datorn",
-    "Str.CodeTrust.Prompt": "{0} innehåller kod som kommer utifrån den här datorn:\n\n{1}\n\nKoden körs med dina behörigheter. Den kan läsa, ändra och ta bort dina filer och starta andra program. Kör den bara om du litar på varifrån den kommer.\n\nVill du köra {0}?",
+    "Str.CodeTrust.Prompt": "Kod från internet eller en annan dator håller på att köras.\n\n”{0}”\n{1}\n\nKoden körs med dina behörigheter. Den kan läsa, ändra och ta bort dina filer och starta andra program. Kör den bara om du litar på varifrån den kommer.\n\nVill du köra den?",
     "Str.CodeTrust.Downloaded": "{0}, markerad som hämtad",
     "Str.CodeTrust.Office": "{0}, från ett Office-dokument",
     "Str.Menu.Run.StartWithFullCompile": "Starta med _fullständig kompilering",

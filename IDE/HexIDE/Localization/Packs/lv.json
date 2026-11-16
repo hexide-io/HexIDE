@@ -283,7 +283,7 @@
     "Str.Menu.Run": "_Izpilde",
     "Str.Menu.Run.Start": "_Sākt",
     "Str.CodeTrust.Caption": "Kods no ārpus šī datora",
-    "Str.CodeTrust.Prompt": "{0} satur kodu, kas iegūts ārpus šī datora:\n\n{1}\n\nKods darbojas ar jūsu tiesībām. Tas var lasīt, mainīt un dzēst jūsu failus un palaist citas programmas. Palaidiet to tikai tad, ja uzticaties tā izcelsmei.\n\nVai palaist {0}?",
+    "Str.CodeTrust.Prompt": "Tiks palaists kods no interneta vai cita datora.\n\n“{0}”\n{1}\n\nKods darbojas ar jūsu tiesībām. Tas var lasīt, mainīt un dzēst jūsu failus un palaist citas programmas. Palaidiet to tikai tad, ja uzticaties tā izcelsmei.\n\nVai palaist?",
     "Str.CodeTrust.Downloaded": "{0}, atzīmēts kā lejupielādēts",
     "Str.CodeTrust.Office": "{0}, no Office dokumenta",
     "Str.Menu.Run.StartWithFullCompile": "Sākt ar _pilnu kompilāciju",

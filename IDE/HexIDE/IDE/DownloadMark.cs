@@ -73,7 +73,7 @@ internal static partial class DownloadMark
         var inSection = false;
         foreach (var raw in stream.Split('\n'))
         {
-            var line = raw.Trim().TrimStart('﻿');
+            var line = raw.Trim().TrimStart('\uFEFF');
             if (line.StartsWith('['))
             {
                 inSection = string.Equals(line, "[ZoneTransfer]", StringComparison.OrdinalIgnoreCase);

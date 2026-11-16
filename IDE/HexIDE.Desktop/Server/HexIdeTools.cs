@@ -1247,14 +1247,15 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     /// <summary>
-    /// What a start that stopped to ask answers (#1121): nothing runs yet, the question is a dialog, and how each answer
-    /// ends. A caller that took the reply for a refusal would start again, and that start would only wait on the same box.
+    /// What a start that stopped to ask answers (#1121): a security prompt is open, what it names, and that the answer is
+    /// the person's. It describes the prompt and doesn't say how to answer it: a consent prompt mustn't coach an automated
+    /// caller towards approving downloaded code on the person's behalf (#1121 review).
     /// </summary>
     internal static string AskingToRunReply(IReadOnlyList<HexIDE.IDE.UntrustedFile> asking) =>
-        "Not started yet: the code came from outside this computer, so HexIDE is asking whether to run it ("
+        "Not started: a security prompt is open, asking the person whether to run code that came from outside this computer ("
         + string.Join(", ", asking.Select(file => $"{System.IO.Path.GetFileName(file.Path)}, {(file.Origin == HexIDE.IDE.CodeOrigin.OfficeDocument ? "from an Office document" : "marked as downloaded")}"))
-        + "). The question is a Yes/No dialog: find it with dump_visual_tree and answer it with interact. "
-        + "Yes starts this run by itself and isn't asked again this session; No starts nothing, and the next start asks again.";
+        + "). Whether to run it is their security decision. The run starts by itself if they allow it; if they decline, "
+        + "nothing runs, and the next start asks again.";
 
     /// <summary>
     /// Why the startup project can't start, for a tool that found it can't. The reason used to be inferred from the

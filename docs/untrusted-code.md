@@ -33,9 +33,11 @@ downloaded module, or saving it under a new name, doesn't stop the question.
 The files that count are the project file and each form, module, class, UserControl and designer. A file the project
 only carries, such as a text file, isn't run, so it isn't asked about.
 
-HexIDE never shows what a mark says about where the file came from, such as its `HostUrl`: whoever supplied the file
-wrote that. Names it does show have control and formatting characters removed, so a name can't reverse or hide part of
-itself.
+The question opens with HexIDE's own sentence, and gives the project's name only after it, quoted on a line of its own.
+A project names itself, so its name never opens the question, and it's cut at 60 characters. Every name shown stays on
+one line: a newline reads as a space, and formatting characters, which can reverse or hide part of a name, are removed.
+HexIDE never shows what a mark says about where the file came from, such as its `HostUrl`, because whoever supplied the
+file wrote that.
 
 ## What isn't covered
 

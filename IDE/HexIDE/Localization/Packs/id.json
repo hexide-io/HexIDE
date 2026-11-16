@@ -322,7 +322,7 @@
     "Str.Menu.Run": "_Jalankan",
     "Str.Menu.Run.Start": "_Mulai",
     "Str.CodeTrust.Caption": "Kode dari luar komputer ini",
-    "Str.CodeTrust.Prompt": "{0} berisi kode yang berasal dari luar komputer ini:\n\n{1}\n\nKode berjalan dengan hak Anda. Kode dapat membaca, mengubah, dan menghapus file Anda, serta memulai program lain. Jalankan hanya jika Anda memercayai asalnya.\n\nJalankan {0}?",
+    "Str.CodeTrust.Prompt": "Kode dari internet atau komputer lain akan dijalankan.\n\n“{0}”\n{1}\n\nKode berjalan dengan hak Anda. Kode dapat membaca, mengubah, dan menghapus file Anda, serta memulai program lain. Jalankan hanya jika Anda memercayai asalnya.\n\nJalankan?",
     "Str.CodeTrust.Downloaded": "{0}, ditandai sebagai unduhan",
     "Str.CodeTrust.Office": "{0}, dari dokumen Office",
     "Str.Menu.Run.StartWithFullCompile": "Mulai dengan Kompilasi _Penuh",

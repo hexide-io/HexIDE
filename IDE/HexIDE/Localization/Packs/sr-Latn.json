@@ -249,7 +249,7 @@
     "Str.Menu.Run": "_Pokretanje",
     "Str.Menu.Run.Start": "_Pokreni",
     "Str.CodeTrust.Caption": "Kôd izvan ovog računara",
-    "Str.CodeTrust.Prompt": "{0} sadrži kôd koji je došao izvan ovog računara:\n\n{1}\n\nKôd se izvršava sa vašim pravima. Može da čita, menja i briše vaše datoteke i da pokreće druge programe. Pokrenite ga samo ako verujete njegovom poreklu.\n\nPokrenuti {0}?",
+    "Str.CodeTrust.Prompt": "Pokrenuće se kôd sa interneta ili sa drugog računara.\n\n„{0}”\n{1}\n\nKôd se izvršava sa vašim pravima. Može da čita, menja i briše vaše datoteke i da pokreće druge programe. Pokrenite ga samo ako verujete njegovom poreklu.\n\nPokrenuti?",
     "Str.CodeTrust.Downloaded": "{0}, označeno kao preuzeto",
     "Str.CodeTrust.Office": "{0}, iz Office dokumenta",
     "Str.Menu.Run.StartWithFullCompile": "Pokreni sa _potpunim prevođenjem",

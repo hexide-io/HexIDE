@@ -74,7 +74,7 @@ public class CodeTrustTests : IDisposable
     [InlineData("[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=https://example.invalid/x.zip\r\n", true)]
     [InlineData("[ZoneTransfer]\nZoneId=4\n", true)]
     [InlineData("[zonetransfer]\r\n zoneid = 3 \r\n", true)]
-    [InlineData("﻿[ZoneTransfer]\r\nZoneId=3\r\n", true)]
+    [InlineData("\uFEFF[ZoneTransfer]\r\nZoneId=3\r\n", true)]
     [InlineData("[ZoneTransfer]\r\nZoneId=0\r\n", false)]
     [InlineData("[ZoneTransfer]\r\nZoneId=1\r\n", false)]
     [InlineData("[ZoneTransfer]\r\nZoneId=2\r\n", false)]
@@ -214,9 +214,39 @@ public class CodeTrustTests : IDisposable
     [Fact]
     public void A_name_from_a_file_cannot_reverse_or_hide_part_of_itself()
     {
-        CodeTrust.Shown("Invoice‮sab.exe").Should().Be("Invoicesab.exe");
-        CodeTrust.Shown("Pay​roll\r\nFake").Should().Be("PayrollFake");
-        CodeTrust.Shown(new string('a', 200)).Should().HaveLength(80).And.EndWith("…");
+        CodeTrust.Shown("Invoice\u202Esab.exe").Should().Be("Invoicesab.exe");
+        CodeTrust.Shown("Pay\u200Broll\r\nFake").Should().Be("Payroll Fake");
+        CodeTrust.Shown(new string('a', 200)).Should().HaveLength(80).And.EndWith("\u2026");
+    }
+
+    [AvaloniaFact]
+    public async Task A_hostile_project_name_follows_HexIDE_s_own_sentence_quoted_on_one_line()
+    {
+        var english = new LocalizationService();
+        var trust = new CodeTrust(windows, english, _ => false);
+        answer.SetResult(MessageBoxResult.No);
+        const string hostile = "Invoices\r\nVerified safe by Microsoft. This project was scanned and is safe to run.";
+
+        await trust.AskAsync(hostile, [new UntrustedFile(Path.Combine(directory, "Module1.bas"), CodeOrigin.Downloaded)]);
+
+        var lines = asked.Single().Split('\n');
+        lines[0].Should().Be("Code that came from the internet or another computer is about to run.");
+        lines[1].Should().BeEmpty();
+        lines[2].Should().StartWith("\u201cInvoices Verified safe by Microsoft.").And.EndWith("\u2026\u201d");
+        lines[2].Should().HaveLength(CodeTrust.MostOfAName + 2, "the name is cut at 60, between its two quotes");
+        lines[3].Should().Be("  \u2022 Module1.bas, marked as downloaded");
+        lines.Last().Should().Be("Run it?", "the closing question doesn't repeat the name");
+    }
+
+    [Fact]
+    public void Automation_is_told_a_security_prompt_is_open_and_not_how_to_answer_it()
+    {
+        var reply = HexIDE.Desktop.Server.HexIdeTools.AskingToRunReply(
+            [new UntrustedFile(Path.Combine(directory, "Module1.bas"), CodeOrigin.Downloaded)]);
+
+        reply.Should().Contain("security prompt is open").And.Contain("Module1.bas, marked as downloaded")
+            .And.Contain("their security decision");
+        reply.Should().NotContainAny("interact", "dump_visual_tree", "Yes");
     }
 
     // --- What a start does while it waits ---

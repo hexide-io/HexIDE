@@ -283,7 +283,7 @@
     "Str.Menu.Run": "_Vykdymas",
     "Str.Menu.Run.Start": "_Pradėti",
     "Str.CodeTrust.Caption": "Kodas iš šio kompiuterio išorės",
-    "Str.CodeTrust.Prompt": "{0} turi kodą, gautą iš šio kompiuterio išorės:\n\n{1}\n\nKodas vykdomas jūsų teisėmis. Jis gali skaityti, keisti ir naikinti jūsų failus bei paleisti kitas programas. Vykdykite jį tik tada, jei pasitikite jo kilme.\n\nVykdyti {0}?",
+    "Str.CodeTrust.Prompt": "Bus vykdomas kodas iš interneto arba kito kompiuterio.\n\n„{0}“\n{1}\n\nKodas vykdomas jūsų teisėmis. Jis gali skaityti, keisti ir naikinti jūsų failus bei paleisti kitas programas. Vykdykite jį tik tada, jei pasitikite jo kilme.\n\nVykdyti?",
     "Str.CodeTrust.Downloaded": "{0}, pažymėtas kaip atsisiųstas",
     "Str.CodeTrust.Office": "{0}, iš „Office“ dokumento",
     "Str.Menu.Run.StartWithFullCompile": "Pradėti su _visu kompiliavimu",

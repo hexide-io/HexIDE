@@ -288,7 +288,7 @@
     "Str.Menu.Run": "E_xecutar",
     "Str.Menu.Run.Start": "_Iniciar",
     "Str.CodeTrust.Caption": "Código de fora deste computador",
-    "Str.CodeTrust.Prompt": "{0} contém código que veio de fora deste computador:\n\n{1}\n\nO código é executado com os seus direitos. Pode ler, alterar e eliminar os seus ficheiros e iniciar outros programas. Execute-o apenas se confiar na sua origem.\n\nExecutar {0}?",
+    "Str.CodeTrust.Prompt": "Vai ser executado código proveniente da Internet ou de outro computador.\n\n«{0}»\n{1}\n\nO código é executado com os seus direitos. Pode ler, alterar e eliminar os seus ficheiros e iniciar outros programas. Execute-o apenas se confiar na sua origem.\n\nExecutá-lo?",
     "Str.CodeTrust.Downloaded": "{0}, marcado como transferido",
     "Str.CodeTrust.Office": "{0}, de um documento do Office",
     "Str.Menu.Run.StartWithFullCompile": "Iniciar com Compilação _Completa",

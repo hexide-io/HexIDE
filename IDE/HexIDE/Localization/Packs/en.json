@@ -272,7 +272,7 @@
     "Str.Menu.Run": "_Run",
     "Str.Menu.Run.Start": "_Start",
     "Str.CodeTrust.Caption": "Code from outside this computer",
-    "Str.CodeTrust.Prompt": "{0} has code that came from outside this computer:\n\n{1}\n\nIts code runs with your rights. It can read, change and delete your files, and start other programs. Run it only if you trust where it came from.\n\nRun {0}?",
+    "Str.CodeTrust.Prompt": "Code that came from the internet or another computer is about to run.\n\n“{0}”\n{1}\n\nIts code runs with your rights. It can read, change and delete your files, and start other programs. Run it only if you trust where it came from.\n\nRun it?",
     "Str.CodeTrust.Downloaded": "{0}, marked as downloaded",
     "Str.CodeTrust.Office": "{0}, from an Office document",
     "Str.Menu.Run.StartWithFullCompile": "Start With _Full Compile",

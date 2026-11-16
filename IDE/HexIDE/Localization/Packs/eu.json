@@ -249,7 +249,7 @@
     "Str.Menu.Run": "_Exekutatu",
     "Str.Menu.Run.Start": "_Hasi",
     "Str.CodeTrust.Caption": "Ordenagailu honetatik kanpoko kodea",
-    "Str.CodeTrust.Prompt": "{0} proiektuak ordenagailu honetatik kanpo datorren kodea du:\n\n{1}\n\nKodea zure eskubideekin exekutatzen da. Zure fitxategiak irakurri, aldatu eta ezabatu ditzake, eta beste programa batzuk abiarazi. Exekutatu jatorriaz fidatzen bazara soilik.\n\n{0} exekutatu?",
+    "Str.CodeTrust.Prompt": "Internetetik edo beste ordenagailu batetik datorren kodea exekutatzear dago.\n\n«{0}»\n{1}\n\nKodea zure eskubideekin exekutatzen da. Zure fitxategiak irakurri, aldatu eta ezabatu ditzake, eta beste programa batzuk abiarazi. Exekutatu jatorriaz fidatzen bazara soilik.\n\nExekutatu?",
     "Str.CodeTrust.Downloaded": "{0}, deskargatutzat markatuta",
     "Str.CodeTrust.Office": "{0}, Office dokumentu batetik",
     "Str.Menu.Run.StartWithFullCompile": "Hasi konpilazio _osoarekin",

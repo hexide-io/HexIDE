@@ -249,7 +249,7 @@
     "Str.Menu.Run": "E_xecutare",
     "Str.Menu.Run.Start": "_Pornește",
     "Str.CodeTrust.Caption": "Cod din afara acestui computer",
-    "Str.CodeTrust.Prompt": "{0} conține cod care provine din afara acestui computer:\n\n{1}\n\nCodul rulează cu drepturile dvs. Poate citi, modifica și șterge fișierele dvs. și poate porni alte programe. Rulați-l doar dacă aveți încredere în proveniența lui.\n\nRulați {0}?",
+    "Str.CodeTrust.Prompt": "Urmează să ruleze cod provenit de pe internet sau de pe alt computer.\n\n„{0}”\n{1}\n\nCodul rulează cu drepturile dvs. Poate citi, modifica și șterge fișierele dvs. și poate porni alte programe. Rulați-l doar dacă aveți încredere în proveniența lui.\n\nÎl rulați?",
     "Str.CodeTrust.Downloaded": "{0}, marcat ca descărcat",
     "Str.CodeTrust.Office": "{0}, dintr-un document Office",
     "Str.Menu.Run.StartWithFullCompile": "Pornește cu compilare _completă",

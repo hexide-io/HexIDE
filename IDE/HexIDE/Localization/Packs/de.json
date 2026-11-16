@@ -313,7 +313,7 @@
     "Str.Menu.Run": "_Ausführen",
     "Str.Menu.Run.Start": "_Starten",
     "Str.CodeTrust.Caption": "Code von außerhalb dieses Computers",
-    "Str.CodeTrust.Prompt": "{0} enthält Code, der von außerhalb dieses Computers stammt:\n\n{1}\n\nDer Code läuft mit Ihren Rechten. Er kann Ihre Dateien lesen, ändern und löschen und andere Programme starten. Führen Sie ihn nur aus, wenn Sie seiner Herkunft vertrauen.\n\n{0} ausführen?",
+    "Str.CodeTrust.Prompt": "Code aus dem Internet oder von einem anderen Computer soll ausgeführt werden.\n\n„{0}“\n{1}\n\nDer Code läuft mit Ihren Rechten. Er kann Ihre Dateien lesen, ändern und löschen und andere Programme starten. Führen Sie ihn nur aus, wenn Sie seiner Herkunft vertrauen.\n\nAusführen?",
     "Str.CodeTrust.Downloaded": "{0}, als heruntergeladen markiert",
     "Str.CodeTrust.Office": "{0}, aus einem Office-Dokument",
     "Str.Menu.Run.StartWithFullCompile": "Mit _vollständiger Kompilierung starten",

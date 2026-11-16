@@ -288,7 +288,7 @@
     "Str.Menu.Run": "_Çalıştır",
     "Str.Menu.Run.Start": "_Başlat",
     "Str.CodeTrust.Caption": "Bu bilgisayarın dışından gelen kod",
-    "Str.CodeTrust.Prompt": "{0}, bu bilgisayarın dışından gelen kod içeriyor:\n\n{1}\n\nKod sizin haklarınızla çalışır. Dosyalarınızı okuyabilir, değiştirebilir ve silebilir, başka programlar başlatabilir. Yalnızca kaynağına güveniyorsanız çalıştırın.\n\n{0} çalıştırılsın mı?",
+    "Str.CodeTrust.Prompt": "İnternetten veya başka bir bilgisayardan gelen kod çalıştırılmak üzere.\n\n“{0}”\n{1}\n\nKod sizin haklarınızla çalışır. Dosyalarınızı okuyabilir, değiştirebilir ve silebilir, başka programlar başlatabilir. Yalnızca kaynağına güveniyorsanız çalıştırın.\n\nÇalıştırılsın mı?",
     "Str.CodeTrust.Downloaded": "{0}, indirilmiş olarak işaretli",
     "Str.CodeTrust.Office": "{0}, bir Office belgesinden",
     "Str.Menu.Run.StartWithFullCompile": "_Tam Derleme ile Başlat",

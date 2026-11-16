@@ -313,7 +313,7 @@
     "Str.Menu.Run": "執行(_R)",
     "Str.Menu.Run.Start": "啟動(_S)",
     "Str.CodeTrust.Caption": "來自此電腦外部的程式碼",
-    "Str.CodeTrust.Prompt": "{0} 包含來自此電腦外部的程式碼：\n\n{1}\n\n這些程式碼會以您的權限執行。它可以讀取、變更和刪除您的檔案，並啟動其他程式。只有在您信任其來源時才執行。\n\n要執行 {0} 嗎？",
+    "Str.CodeTrust.Prompt": "即將執行來自網際網路或其他電腦的程式碼。\n\n「{0}」\n{1}\n\n這些程式碼會以您的權限執行。它可以讀取、變更和刪除您的檔案，並啟動其他程式。只有在您信任其來源時才執行。\n\n要執行嗎？",
     "Str.CodeTrust.Downloaded": "{0}，標示為已下載",
     "Str.CodeTrust.Office": "{0}，來自 Office 文件",
     "Str.Menu.Run.StartWithFullCompile": "完整編譯後啟動(_F)",

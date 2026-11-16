@@ -313,7 +313,7 @@
     "Str.Menu.Run": "E_xécution",
     "Str.Menu.Run.Start": "_Exécuter",
     "Str.CodeTrust.Caption": "Code provenant de l'extérieur de cet ordinateur",
-    "Str.CodeTrust.Prompt": "{0} contient du code provenant de l'extérieur de cet ordinateur :\n\n{1}\n\nCe code s'exécute avec vos droits. Il peut lire, modifier et supprimer vos fichiers, et lancer d'autres programmes. Ne l'exécutez que si vous faites confiance à sa provenance.\n\nExécuter {0} ?",
+    "Str.CodeTrust.Prompt": "Du code provenant d'Internet ou d'un autre ordinateur va s'exécuter.\n\n« {0} »\n{1}\n\nCe code s'exécute avec vos droits. Il peut lire, modifier et supprimer vos fichiers, et lancer d'autres programmes. Ne l'exécutez que si vous faites confiance à sa provenance.\n\nL'exécuter ?",
     "Str.CodeTrust.Downloaded": "{0}, marqué comme téléchargé",
     "Str.CodeTrust.Office": "{0}, issu d'un document Office",
     "Str.Menu.Run.StartWithFullCompile": "Exécuter avec compilation _complète",

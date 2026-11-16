@@ -81,19 +81,31 @@ Excel, PowerPoint, Access or Visio document's extension.
 - **WHEN** a file's `Zone.Identifier` stream reads `ZoneId=0`
 - **THEN** the file is not marked
 
+### Requirement: The question SHALL lead with HexIDE's own words
+The question SHALL open with HexIDE's own sentence, that the code came from the internet or another computer, and SHALL
+give the project's or launch file's name only after it, quoted, on a line of its own. A project names itself, so its name
+SHALL NOT be able to read as the question's opening. Every name shown SHALL be on one line, with a newline or other
+control character read as a space, formatting characters dropped, and the project's name cut at 60 characters.
+
+#### Scenario: A project named as reassurance
+- **WHEN** a downloaded project's name is `Invoices`, a newline, and "Verified safe by Microsoft."
+- **THEN** the question opens with HexIDE's sentence, and the name follows it on one quoted line, cut at 60 characters
+
 ### Requirement: The question SHALL show only names, made safe to show
 The question SHALL NOT show what a mark names as the file's source, such as its `HostUrl`, which whoever supplied the
-file wrote. It SHALL drop control and formatting characters from every name it shows, so that no name can reverse or
-hide part of itself, and SHALL cut a long name short.
+file wrote. It SHALL drop formatting characters from every name it shows, so that no name can reverse or hide part of
+itself.
 
 #### Scenario: A file name with a right-to-left override
 - **WHEN** a downloaded file's name holds a right-to-left override character
 - **THEN** the question shows the name without it
 
-### Requirement: Automation SHALL be told a start is waiting on the question
-A tool that starts a run SHALL reply, while the question is up, that the run has not started, which files the question
-names, and that a Yes starts the run by itself while a No starts nothing.
+### Requirement: Automation SHALL be told a start is waiting on the person
+A tool that starts a run SHALL reply, while the question is up, that the run has not started, that a security prompt is
+open, which files it names, and that the answer is the person's: the run starts by itself if they allow it, and nothing
+runs if they decline. The reply SHALL NOT say how to answer the prompt, so that it never coaches an automated caller
+towards allowing downloaded code on the person's behalf.
 
 #### Scenario: run_project on a downloaded project
 - **WHEN** `run_project` starts a project with a downloaded module
-- **THEN** the reply names the module and says the run waits on a Yes/No dialog
+- **THEN** the reply names the module, says the decision is the person's, and doesn't say how to answer the prompt

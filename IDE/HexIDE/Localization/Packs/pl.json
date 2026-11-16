@@ -322,7 +322,7 @@
     "Str.Menu.Run": "_Uruchom",
     "Str.Menu.Run.Start": "_Start",
     "Str.CodeTrust.Caption": "Kod spoza tego komputera",
-    "Str.CodeTrust.Prompt": "{0} zawiera kod pochodzący spoza tego komputera:\n\n{1}\n\nKod działa z Twoimi uprawnieniami. Może odczytywać, zmieniać i usuwać Twoje pliki oraz uruchamiać inne programy. Uruchamiaj go tylko wtedy, gdy ufasz jego źródłu.\n\nCzy uruchomić {0}?",
+    "Str.CodeTrust.Prompt": "Za chwilę zostanie uruchomiony kod pochodzący z internetu lub innego komputera.\n\n„{0}”\n{1}\n\nKod działa z Twoimi uprawnieniami. Może odczytywać, zmieniać i usuwać Twoje pliki oraz uruchamiać inne programy. Uruchamiaj go tylko wtedy, gdy ufasz jego źródłu.\n\nCzy go uruchomić?",
     "Str.CodeTrust.Downloaded": "{0}, oznaczony jako pobrany",
     "Str.CodeTrust.Office": "{0}, z dokumentu pakietu Office",
     "Str.Menu.Run.StartWithFullCompile": "Start z _pełną kompilacją",

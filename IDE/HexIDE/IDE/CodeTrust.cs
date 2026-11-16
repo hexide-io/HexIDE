@@ -118,7 +118,9 @@ public sealed class CodeTrust
             var list = string.Join("\n", files.Select(file => "  • " + string.Format(
                 localization.GetString(file.Origin == CodeOrigin.OfficeDocument ? "Str.CodeTrust.Office" : "Str.CodeTrust.Downloaded"),
                 Shown(Path.GetFileName(file.Path)))));
-            var answer = await windows.MessageBox(string.Format(localization.GetString("Str.CodeTrust.Prompt"), Shown(name), list),
+            // HexIDE's own sentence comes first, and the name only after it, quoted on a line of its own: a project names
+            // itself, so a name must never be able to read as the question's opening (#1121 review).
+            var answer = await windows.MessageBox(string.Format(localization.GetString("Str.CodeTrust.Prompt"), Shown(name, MostOfAName), list),
                 localization.GetString("Str.CodeTrust.Caption"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
                 layout: MessageBoxLayout.SecondButtonDefault);
             if (answer != MessageBoxResult.Yes)
@@ -178,17 +180,28 @@ public sealed class CodeTrust
 
     internal static bool IsOfficeDocument(string path) => OfficeExtensions.Contains(Path.GetExtension(path));
 
+    /// <summary>The most of a project's or launch file's name the question shows.</summary>
+    internal const int MostOfAName = 60;
+
     /// <summary>
-    /// A name read from a file, fit to show: control and formatting characters, which can reverse or hide part of a name,
-    /// are dropped, and a long name is cut.
+    /// A name read from a file, fit to show on one line: a newline or other control character reads as a space, so a name
+    /// can't start a line of its own; formatting characters, which can reverse or hide part of a name, are dropped; and a
+    /// long name is cut, with an ellipsis.
     /// </summary>
-    internal static string Shown(string text)
+    internal static string Shown(string text, int most = 80)
     {
-        const int Most = 80;
         var shown = new StringBuilder();
         foreach (var c in text)
-            if (!char.IsControl(c) && CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.Format)
+        {
+            if (char.IsControl(c) || char.IsWhiteSpace(c))
+            {
+                if (shown.Length > 0 && shown[^1] != ' ')
+                    shown.Append(' ');
+            }
+            else if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.Format)
                 shown.Append(c);
-        return shown.Length <= Most ? shown.ToString() : shown.ToString(0, Most - 1) + "…";
+        }
+        var line = shown.ToString().TrimEnd();
+        return line.Length <= most ? line : line[..(most - 1)] + "…";
     }
 }

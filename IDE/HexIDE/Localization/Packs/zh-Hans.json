@@ -313,7 +313,7 @@
     "Str.Menu.Run": "运行(_R)",
     "Str.Menu.Run.Start": "启动(_S)",
     "Str.CodeTrust.Caption": "来自此计算机外部的代码",
-    "Str.CodeTrust.Prompt": "{0} 包含来自此计算机外部的代码：\n\n{1}\n\n这些代码以你的权限运行。它可以读取、更改和删除你的文件，并启动其他程序。仅当你信任其来源时才运行。\n\n是否运行 {0}？",
+    "Str.CodeTrust.Prompt": "即将运行来自 Internet 或其他计算机的代码。\n\n“{0}”\n{1}\n\n这些代码以你的权限运行。它可以读取、更改和删除你的文件，并启动其他程序。仅当你信任其来源时才运行。\n\n是否运行？",
     "Str.CodeTrust.Downloaded": "{0}，标记为已下载",
     "Str.CodeTrust.Office": "{0}，来自 Office 文档",
     "Str.Menu.Run.StartWithFullCompile": "完全编译后启动(_F)",

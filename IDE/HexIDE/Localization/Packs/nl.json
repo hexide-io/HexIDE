@@ -322,7 +322,7 @@
     "Str.Menu.Run": "_Uitvoeren",
     "Str.Menu.Run.Start": "_Starten",
     "Str.CodeTrust.Caption": "Code van buiten deze computer",
-    "Str.CodeTrust.Prompt": "{0} bevat code die van buiten deze computer komt:\n\n{1}\n\nDe code wordt uitgevoerd met uw rechten. Hij kan uw bestanden lezen, wijzigen en verwijderen, en andere programma's starten. Voer hem alleen uit als u de herkomst vertrouwt.\n\n{0} uitvoeren?",
+    "Str.CodeTrust.Prompt": "Er wordt code uitgevoerd die afkomstig is van internet of een andere computer.\n\n“{0}”\n{1}\n\nDe code wordt uitgevoerd met uw rechten. Hij kan uw bestanden lezen, wijzigen en verwijderen, en andere programma's starten. Voer hem alleen uit als u de herkomst vertrouwt.\n\nUitvoeren?",
     "Str.CodeTrust.Downloaded": "{0}, gemarkeerd als gedownload",
     "Str.CodeTrust.Office": "{0}, uit een Office-document",
     "Str.Menu.Run.StartWithFullCompile": "Starten met _volledige compilatie",

@@ -274,7 +274,7 @@
     "Str.Menu.Run": "_Executar",
     "Str.Menu.Run.Start": "_Iniciar",
     "Str.CodeTrust.Caption": "Código de fóra deste ordenador",
-    "Str.CodeTrust.Prompt": "{0} contén código que procede de fóra deste ordenador:\n\n{1}\n\nO código execútase cos seus permisos. Pode ler, cambiar e eliminar os seus ficheiros e iniciar outros programas. Execúteo só se confía na súa procedencia.\n\nExecutar {0}?",
+    "Str.CodeTrust.Prompt": "Vaise executar código procedente de Internet ou doutro ordenador.\n\n«{0}»\n{1}\n\nO código execútase cos seus permisos. Pode ler, cambiar e eliminar os seus ficheiros e iniciar outros programas. Execúteo só se confía na súa procedencia.\n\nExecutalo?",
     "Str.CodeTrust.Downloaded": "{0}, marcado como descargado",
     "Str.CodeTrust.Office": "{0}, dun documento de Office",
     "Str.Menu.Run.StartWithFullCompile": "Iniciar con compilación _completa",
