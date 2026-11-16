@@ -1844,6 +1844,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             && MemberArgs(member) is { } tabIndexes)
             return SSTabMembers.ReadIndexed(tab, MemberName(member), await EvaluateCallArgs(tabIndexes));
 
+        if (variable.Value is ItemsControl searchList && ListMembers.IsList(searchList) && ListMembers.IsExtension(searchList, MemberName(member)))
+            return ListMembers.CallExtension(searchList, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
+
         // A list's List(i) and a ListBox's Selected(i), the control members here that take an index (#821, #1395).
         if (variable.Value is Control listControl && ListMembers.IsList(listControl) && MemberArgs(member) is { } listIndexes)
         {

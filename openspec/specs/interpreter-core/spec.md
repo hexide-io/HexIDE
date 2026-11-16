@@ -1853,3 +1853,26 @@ Contract: [#1116](https://github.com/hexide-io/HexIDE/issues/1116); Value conver
 #### Scenario: Required argument is missing
 - **WHEN** code calls `ProgressBar1.Increment` without an argument
 - **THEN** the runtime raises Argument not optional and leaves Value unchanged
+
+### Requirement: Intrinsic list code-only search extensions
+Under [#1116](https://github.com/hexide-io/HexIDE/issues/1116), ListBox and every ComboBox style
+SHALL expose code-only `FindString(s [, startIndex])` and `FindStringExact(s [, startIndex])`.
+Search SHALL ignore case, match a prefix or whole item respectively, start after startIndex
+(default -1), wrap once, and return a Long index or -1. It SHALL preserve readable control
+state and saved form values.
+
+#### Scenario: Search wraps and distinguishes a prefix from a whole item
+- **GIVEN** a list containing `Alpha`, `alphabet`, `Beta`
+- **WHEN** code calls `FindString("ALP", 1)`
+- **THEN** it returns Long 0
+- **AND** `FindStringExact("ALP")` returns Long -1
+- **AND** the selection and form serialization are unchanged
+
+#### Scenario: Missing required search argument
+- **WHEN** either search method is called without its required string argument
+- **THEN** the runtime raises error 449
+
+#### Scenario: Extension origin and browser description
+- **GIVEN** either intrinsic control's member table
+- **THEN** both search methods are marked HexIde and not persisted
+- **AND** the Object Browser describes them with the shared HexIDE extension localisation key

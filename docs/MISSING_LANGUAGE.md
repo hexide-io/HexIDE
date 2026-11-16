@@ -1177,6 +1177,12 @@ key codes. This is not the complete keyboard-input implementation.
 | Form, ListBox and CommandButton keyboard events | Silently wrong | #2325 remaining measured work: default/cancel/navigation arbitration, empty-form events and list/button ordering. | VBLoader.cs |
 | CheckBox, OptionButton, ComboBox, scroll bars, PictureBox and UserControl keyboard events | Silently wrong | #2325's later second-slice probe measured CheckBox, OptionButton and ComboBox Styles 0 and 2 (issue comment 6445922821); their keyboard implementation remains pending. ComboBox Style 1, scroll bars, PictureBox and UserControl own key events remain unmeasured; no behavior is inferred from TextBox, and explicit not-implemented member refusals remain pending. | AttachedEvents.cs |
 
+## List search extensions (outside the baseline inventory)
+
+| Member | Status | Detail | Implementation |
+|--------|--------|--------|----------------|
+| `ListBox.FindString`, `ComboBox.FindString`, `ListBox.FindStringExact`, `ComboBox.FindStringExact` | Supported | Code-only HexIDE methods, not VB6 members; [#1116](https://github.com/hexide-io/HexIDE/issues/1116). Case-insensitive prefix/whole-item search after an optional Long startIndex, wrapping once and returning Long -1 when absent. Available in all ComboBox styles; neither selection nor saved form properties change. The intrinsic member tables mark their origin, and the Object Browser uses the shared extension description. No baseline counts change. | ListMembers.cs |
+
 ## ListBox scrolling (outside the baseline inventory)
 
 Measurements: [#3275](https://github.com/hexide-io/HexIDE/issues/3275), VB6 SP6 native and
