@@ -1169,6 +1169,7 @@
     "Str.ProjectLoad.ParseFailed": "Файлът на формуляра не може да се анализира: {0}",
     "Str.ProjectLoad.InvalidForm": "Това не е валиден файл на формуляр",
     "Str.ProjectLoad.UnknownControl": "Класът {0} на контролата {1} не е поддържан клас контроли — запазен е като непознат.",
+    "Str.Tool.Properties.InvalidValue": "Невалидна стойност на свойство",
     "Str.ProjectLoad.InvalidValue": "Свойството {0} в {1} е с невалидна стойност.",
     "Str.ProjectLoad.MissingOffset": "Свойството {0} в {1}: отместването във .frx не е намерено.",
     "Str.ProjectLoad.MissingRecord": "Свойството „{0}“ в „{1}“ сочи запис, който липсва в придружаващия файл, затова формулярът не може да бъде записан.",

@@ -1178,6 +1178,7 @@
     "Str.ProjectLoad.ParseFailed": "Nepavyko išanalizuoti formos failo: {0}",
     "Str.ProjectLoad.InvalidForm": "Tai netinkamas formos failas",
     "Str.ProjectLoad.UnknownControl": "Valdiklio {1} klasė {0} nepalaikoma — išsaugota kaip nežinoma.",
+    "Str.Tool.Properties.InvalidValue": "Neleistina ypatybės reikšmė",
     "Str.ProjectLoad.InvalidValue": "Savybės {0} objekte {1} reikšmė buvo netinkama.",
     "Str.ProjectLoad.MissingOffset": "Savybė {0} objekte {1}: .frx poslinkis nerastas.",
     "Str.ProjectLoad.MissingRecord": "Savybė „{0}“ objekte „{1}“ nurodo įrašą, kurio nėra lydimajame faile, todėl formos įrašyti negalima.",

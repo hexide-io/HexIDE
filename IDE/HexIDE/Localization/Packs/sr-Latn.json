@@ -1144,6 +1144,7 @@
     "Str.ProjectLoad.ParseFailed": "Nije moguće raščlaniti datoteku obrasca: {0}",
     "Str.ProjectLoad.InvalidForm": "Ovo nije važeća datoteka obrasca",
     "Str.ProjectLoad.UnknownControl": "Klasa {0} kontrole {1} nije podržana klasa kontrole — sačuvana je kao nepoznata.",
+    "Str.Tool.Properties.InvalidValue": "Nevažeća vrednost svojstva",
     "Str.ProjectLoad.InvalidValue": "Svojstvo {0} u {1} imalo je nevažeću vrednost.",
     "Str.ProjectLoad.MissingOffset": "Svojstvo {0} u {1}: pomeraj u .frx datoteci nije pronađen.",
     "Str.ProjectLoad.MissingRecord": "Svojstvo „{0}“ u „{1}“ navodi zapis koji prateća datoteka ne sadrži, pa obrazac nije moguće sačuvati.",

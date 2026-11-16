@@ -51,6 +51,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Infrastructure/ArchiveFileToolsTests.cs` | split |
 | `Infrastructure/BreakpointConditionToolTests.cs` | split |
 | `Infrastructure/ConversationExportSafetyTests.cs` | split |
+| `Infrastructure/DesignerSizeTests.cs` | split |
 | `Infrastructure/DocumentTabsModifiedTests.cs` | split |
 | `Infrastructure/ExternalRunControlTests.cs` | split |
 | `Infrastructure/FormControlsSummaryTests.cs` | split |

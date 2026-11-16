@@ -1144,6 +1144,7 @@
     "Str.ProjectLoad.ParseFailed": "แยกวิเคราะห์ไฟล์ฟอร์มไม่สำเร็จ: {0}",
     "Str.ProjectLoad.InvalidForm": "นี่ไม่ใช่ไฟล์ฟอร์มที่ถูกต้อง",
     "Str.ProjectLoad.UnknownControl": "คลาส {0} ของตัวควบคุม {1} ไม่ใช่คลาสตัวควบคุมที่รองรับ จึงเก็บไว้เป็นชนิดที่ไม่รู้จัก",
+    "Str.Tool.Properties.InvalidValue": "ค่าคุณสมบัติไม่ถูกต้อง",
     "Str.ProjectLoad.InvalidValue": "คุณสมบัติ {0} ใน {1} มีค่าไม่ถูกต้อง",
     "Str.ProjectLoad.MissingOffset": "คุณสมบัติ {0} ใน {1}: ไม่พบออฟเซ็ต .frx",
     "Str.ProjectLoad.MissingRecord": "คุณสมบัติ '{0}' ใน '{1}' อ้างถึงระเบียนที่ไม่มีอยู่ในไฟล์คู่กัน จึงไม่สามารถบันทึกฟอร์มได้",

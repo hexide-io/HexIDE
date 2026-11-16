@@ -1144,6 +1144,7 @@
     "Str.ProjectLoad.ParseFailed": "Analiza fișierului de formular a eșuat: {0}",
     "Str.ProjectLoad.InvalidForm": "Acesta nu este un fișier de formular valid",
     "Str.ProjectLoad.UnknownControl": "Clasa {0} a controlului {1} nu este o clasă de control acceptată — păstrată ca necunoscută.",
+    "Str.Tool.Properties.InvalidValue": "Valoare de proprietate nevalidă",
     "Str.ProjectLoad.InvalidValue": "Proprietatea {0} din {1} avea o valoare nevalidă.",
     "Str.ProjectLoad.MissingOffset": "Proprietatea {0} din {1}: poziția din .frx nu a fost găsită.",
     "Str.ProjectLoad.MissingRecord": "Proprietatea „{0}” din „{1}” indică o înregistrare absentă din fișierul însoțitor, așa că formularul nu poate fi salvat.",

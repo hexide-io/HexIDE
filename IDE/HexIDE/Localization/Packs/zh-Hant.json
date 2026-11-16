@@ -1129,6 +1129,7 @@
     "Str.ProjectLoad.ParseFailed": "無法剖析表單檔案：{0}",
     "Str.ProjectLoad.InvalidForm": "這不是有效的表單檔案",
     "Str.ProjectLoad.UnknownControl": "控制項 {1} 的類別 {0} 不是支援的控制項類別 — 已作為未知控制項保留。",
+    "Str.Tool.Properties.InvalidValue": "無效的屬性值",
     "Str.ProjectLoad.InvalidValue": "{1} 中的屬性 {0} 值無效。",
     "Str.ProjectLoad.MissingOffset": "{1} 中的屬性 {0}：找不到 .frx 位移量。",
     "Str.ProjectLoad.MissingRecord": "「{1}」中的屬性「{0}」參照了配套檔案中不存在的記錄，因此無法儲存表單。",

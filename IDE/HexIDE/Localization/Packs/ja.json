@@ -1163,6 +1163,7 @@
     "Str.ProjectLoad.ParseFailed": "フォームファイルを解析できませんでした: {0}",
     "Str.ProjectLoad.InvalidForm": "これは有効なフォームファイルではありません",
     "Str.ProjectLoad.UnknownControl": "コントロール {1} のクラス {0} はサポートされていないコントロールクラスです — 不明なクラスとして保持されました。",
+    "Str.Tool.Properties.InvalidValue": "プロパティの値が無効です",
     "Str.ProjectLoad.InvalidValue": "{1} のプロパティ {0} に無効な値がありました。",
     "Str.ProjectLoad.MissingOffset": "{1} のプロパティ {0}: .frx オフセットが見つかりません。",
     "Str.ProjectLoad.MissingRecord": "'{1}' のプロパティ '{0}' は付随ファイルに存在しないレコードを参照しているため、フォームを保存できません。",

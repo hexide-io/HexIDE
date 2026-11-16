@@ -1178,6 +1178,7 @@
     "Str.ProjectLoad.ParseFailed": "Neizdevās parsēt formas failu: {0}",
     "Str.ProjectLoad.InvalidForm": "Šis nav derīgs formas fails",
     "Str.ProjectLoad.UnknownControl": "Vadīklas {1} klase {0} nav atbalstīta vadīklu klase — saglabāta kā nezināma.",
+    "Str.Tool.Properties.InvalidValue": "Nederīga rekvizīta vērtība",
     "Str.ProjectLoad.InvalidValue": "Īpašībai {0} objektā {1} bija nederīga vērtība.",
     "Str.ProjectLoad.MissingOffset": "Īpašība {0} objektā {1}: .frx nobīde nav atrasta.",
     "Str.ProjectLoad.MissingRecord": "Īpašība '{0}' objektā '{1}' norāda uz ierakstu, kura pavadošajā failā nav, tāpēc formu nevar saglabāt.",
