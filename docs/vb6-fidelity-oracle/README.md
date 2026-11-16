@@ -460,6 +460,7 @@ added afterwards.
 - [`Class_Terminate` lifecycle (interpreter-advanced Phase 4.2)](class_terminate-lifecycle.md#class_terminate-lifecycle-interpreter-advanced-phase-42)
 - [Custom events — `Event` / `RaiseEvent` / `WithEvents` (interpreter-advanced Phase 5)](custom-events--event--raiseevent--withevents.md#custom-events--event--raiseevent--withevents-interpreter-advanced-phase-5)
 - [`End` fires no `Class_Terminate` (interpreter-debugger reset)](end-fires-no-class_terminate.md#end-fires-no-class_terminate-interpreter-debugger-reset)
+- [When a Sub Main program returns: the order objects terminate in (2026-11-16, #1490)](end-fires-no-class_terminate.md#when-a-sub-main-program-returns-the-order-objects-terminate-in-2026-11-16-1490)
 - [Relational comparison + `ChDir`/`ChDrive` (2026-08-03 gap-audit fixes)](relational-comparison--chdirchdrive.md#relational-comparison--chdirchdrive-2026-08-03-gap-audit-fixes)
 - [Control arrays (2026-08-10)](control-arrays.md#control-arrays-2026-08-10)
 - [Option buttons — `Value` is a Boolean, and the group can be empty (2026-08-22, #95)](option-buttons--value-is-a-boolean-and-the-group-can-be-empty.md#option-buttons--value-is-a-boolean-and-the-group-can-be-empty-2026-08-22-95)
