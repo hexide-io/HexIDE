@@ -60,6 +60,14 @@ public sealed class Vb6ProjectFileFormat : IProjectFileFormat
     }
 
     /// <inheritdoc/>
+    public async Task<ProjectFileRead> ReadProjectTextAsync(string path, string text, Vb6TextEncoding encoding,
+        Vb6TextEncoding hostAnsi, IDeserializeErrorSink problems)
+    {
+        var read = await new ProjectLoader { HostAnsi = hostAnsi }.LoadTextAsync(path, text, encoding, problems);
+        return new(read.Project, read.Serialized.SkippedUserDocumentPaths, read.ReadByteForByte, read.ProjectFileBytes);
+    }
+
+    /// <inheritdoc/>
     public SerializedProjectGroup ReadGroup(string text) => new GroupDeserializer().Deserialize(text);
 
     /// <inheritdoc/>

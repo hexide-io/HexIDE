@@ -12,8 +12,14 @@ public partial class ProjectFileDocumentView : UserControl
 {
     private ProjectFileDocumentViewModel? model;
     private bool syncing;
+    public DelegateCommand Undo { get; }
+    public DelegateCommand Redo { get; }
     public ProjectFileDocumentView()
     {
+        Undo = new DelegateCommand(() => this.FindControl<TextEditor>("Editor")!.Undo(),
+            () => this.FindControl<TextEditor>("Editor") is { IsReadOnly: false, CanUndo: true });
+        Redo = new DelegateCommand(() => this.FindControl<TextEditor>("Editor")!.Redo(),
+            () => this.FindControl<TextEditor>("Editor") is { IsReadOnly: false, CanRedo: true });
         AvaloniaXamlLoader.Load(this);
         DataContextChanged += (_, _) => BindModel();
         var editor = this.FindControl<TextEditor>("Editor")!;

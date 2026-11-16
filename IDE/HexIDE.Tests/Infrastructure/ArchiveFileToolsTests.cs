@@ -38,7 +38,8 @@ public sealed class ArchiveFileToolsTests : IDisposable
             Substitute.For<IWindowManager>(), new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode());
         editors = new EditorService(dock, () => throw new InvalidOperationException(),
             () => throw new InvalidOperationException(), () => new ProjectDocumentViewModel(localization),
-            () => throw new InvalidOperationException(), () => projects, localization);
+            () => throw new InvalidOperationException(), () => projects, localization,
+            projects: () => Substitute.For<IProjectService>());
         context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), editors, null!, null!, null!, null!,
             null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
             new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader(), archives: archives);
@@ -49,7 +50,7 @@ public sealed class ArchiveFileToolsTests : IDisposable
     [InlineData("Example.vbp", false)]
     [InlineData("Group.vbg", true)]
     [InlineData("Example.rdproj", false)]
-    public async Task Open_file_opens_the_project_or_group_file_read_only(string filename, bool groupFile)
+    public async Task Open_file_opens_the_project_or_group_file_in_its_editor(string filename, bool groupFile)
     {
         var path = Path.Combine(directory, filename);
         var contributed = filename.EndsWith(".rdproj", StringComparison.Ordinal);
@@ -67,10 +68,11 @@ public sealed class ArchiveFileToolsTests : IDisposable
         var reply = await tools.OpenFileAsync(Path.GetFileName(path));
         reply.Success.Should().BeTrue(reply.Error);
         reply.Document.Should().Be(Path.GetFileName(path));
-        reply.Note.Should().Contain("read-only");
+        var readOnly = groupFile || contributed;
+        reply.Note.Should().Contain(readOnly ? "read-only" : "editing");
         var tab = tabs.Should().ContainSingle().Which.Should().BeOfType<ProjectFileDocumentViewModel>().Which;
         tab.Document.Text.Should().Be(text);
-        tab.IsReadOnlyDocument.Should().BeTrue();
+        tab.IsReadOnlyDocument.Should().Be(readOnly);
         var again = await tools.OpenFileAsync(Path.GetFileName(path), line: 1, column: 3);
         again.Success.Should().BeTrue(again.Error);
         again.Note.Should().Contain("line 1, column 3");

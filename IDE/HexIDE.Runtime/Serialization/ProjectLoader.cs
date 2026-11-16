@@ -36,19 +36,35 @@ public sealed class ProjectLoader
     /// The files the host's code page couldn't decode, which were read byte for byte instead: the project file by its name,
     /// a member by its path as the project file gives it.
     /// </param>
-    /// <param name="ProjectFileBytes">The project file as it was on disk when it was read.</param>
+    /// <param name="ProjectFileBytes">The project file's bytes, read from disk or encoded from proposed text.</param>
     public sealed record Result(ProjectDefinition Project, SerializedProject Serialized, IReadOnlyList<string> ReadByteForByte,
         byte[] ProjectFileBytes);
 
     /// <summary>Load the project at <paramref name="projectPath"/>. Errors short of an unreadable project file go to the sink.</summary>
     public async Task<Result> LoadAsync(string projectPath, IDeserializeErrorSink errorSink)
     {
+        var (projectText, projectBytes, projectEncoding, projectByteForByte) = await Vb6TextFile.ReadDocumentAsync(projectPath, null, HostAnsi);
+        return await LoadContentAsync(projectPath, projectText, projectBytes, projectEncoding, projectByteForByte, errorSink);
+    }
+
+    /// <summary>
+    /// Reads proposed project text without writing it. Members still resolve relative to the project's real path.
+    /// Text that cannot be saved in the project's encoding is refused before any member is read (#3915).
+    /// </summary>
+    public Task<Result> LoadTextAsync(string projectPath, string text, Vb6TextEncoding encoding, IDeserializeErrorSink errorSink)
+    {
+        var bytes = Vb6TextFile.EncodeDocument(projectPath, text, encoding);
+        return LoadContentAsync(projectPath, text, bytes, encoding, false, errorSink);
+    }
+
+    private async Task<Result> LoadContentAsync(string projectPath, string projectText, byte[] projectBytes,
+        Vb6TextEncoding projectEncoding, bool projectByteForByte, IDeserializeErrorSink errorSink)
+    {
         var projectDeserializer = new ProjectDeserializer();
         var formDeserializer = new FormDeserializer();
         var readByteForByte = new List<string>();
         var projectDir = Path.GetDirectoryName(projectPath)!;
 
-        var (projectText, projectBytes, projectEncoding, projectByteForByte) = await Vb6TextFile.ReadDocumentAsync(projectPath, null, HostAnsi);
         if (projectByteForByte)
             readByteForByte.Add(Path.GetFileName(projectPath));
         var serializedProject = projectDeserializer.Deserialize(projectText, errorSink);

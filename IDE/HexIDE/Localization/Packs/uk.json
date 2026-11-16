@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Застосування тексту файлу проєкту замінить незбережені налаштування проєкту {0}. Продовжити?",
     "Str.MemberOrigin.HexIde": "Розширення HexIDE; недоступне у VB6.",
     "Str.Dock.Host": "Контейнер закріплення",
     "Str.Dock.Root": "Коренева область закріплення",

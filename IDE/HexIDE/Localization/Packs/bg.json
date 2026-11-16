@@ -2,6 +2,7 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Прилагането на текста на проектния файл ще замени незаписаните настройки на проекта {0}. Продължаване?",
     "Str.AIChat.Title": "AI чат",
     "Str.AIChat.Menu": "AI чат",
     "Str.AIChat.Approved": "✔ Одобрено",

@@ -2,6 +2,7 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectFile.ReplaceModel": "Primena teksta datoteke projekta zameniće nesačuvane postavke projekta {0}. Nastaviti?",
     "Str.MemberOrigin.HexIde": "HexIDE proširenje; nije dostupno u VB6.",
     "Str.Dock.Host": "Domaćin usidravanja",
     "Str.Dock.Root": "Korensko sidrište",
