@@ -27,6 +27,11 @@ public abstract class InBoxComponentClass : ComponentBaseClass
         [ProgressBarComponentClass.Instance, ListViewComponentClass.Instance, FlexGridComponentClass.Instance, StatusBarComponentClass.Instance, ImageListComponentClass.Instance, SSTabComponentClass.Instance,
             CommonDialogComponentClass.Instance, RichTextBoxComponentClass.Instance, UpDownComponentClass.Instance, FlatScrollBarComponentClass.Instance];
 
+    /// <summary>Every in-box control with a component model, including those not yet offered in the toolbox.</summary>
+    public static IReadOnlyList<ComponentBaseClass> Modelled =>
+        [.. Implemented, TreeViewComponentClass.Instance, TabStripComponentClass.Instance, ToolbarComponentClass.Instance,
+            DTPickerComponentClass.Instance, MonthViewComponentClass.Instance, MaskedEdBoxComponentClass.Instance];
+
     /// <summary>The control's class name, as its libraries declare it: <c>ProgressBar</c>.</summary>
     public abstract string ControlClassName { get; }
 

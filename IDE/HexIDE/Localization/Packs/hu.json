@@ -415,6 +415,7 @@
     "Str.Tool.CallStack.RowName": "{0}, {1}. sor",
     "Str.Tool.ObjectBrowser.AllLibraries": "<Minden könyvtár>",
     "Str.Tool.ObjectBrowser.MembersOf": "'{0}' tagjai",
+    "Str.Tool.ObjectBrowser.MembersUnavailable": "A tagok nem listázhatók a könyvtár típuskönyvtára nélkül.",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Objektumböngésző bezárása",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektumböngésző",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Ugrás a definícióhoz",

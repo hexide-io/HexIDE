@@ -654,13 +654,40 @@ public partial class ObjectBrowserToolViewModel : Document
             if (info == null)
             {
                 var library = InBox.RuntimeLibraries.All.FirstOrDefault(l => l.IsNamedBy(lib.Reference));
-                foreach (var control in componentRegistry.LibraryControls.Where(c => c.Library == library))
+                if (library != null)
                 {
-                    if (control.Class is not InBox.InBoxComponentClass component) continue;
-                    var classVm = new OBClassViewModel(control.ControlName, OBClassKind.ClassModule, lib.Name);
-                    foreach (var member in component.Members.Where(m => m.IsIn(control.Library)))
-                        classVm.Members.Add(CreateInBoxMember(member));
-                    lib.Classes.Add(classVm);
+                    foreach (var name in library.ControlClasses.Concat(library.Controls.Keys)
+                                 .Concat(library.Classes.Select(c => c.Name)).Distinct(StringComparer.OrdinalIgnoreCase))
+                    {
+                        var classVm = new OBClassViewModel(name, OBClassKind.ClassModule, lib.Name);
+                        var component = library.FindComponentClass(name);
+                        if (component is InBox.InBoxComponentClass inBox)
+                        {
+                            foreach (var member in inBox.Members.Where(m => m.IsIn(library)))
+                                classVm.Members.Add(CreateInBoxMember(member));
+                        }
+                        else if (component != null)
+                        {
+                            foreach (var prop in component.Properties)
+                            {
+                                var propertyName = prop == VBProperties.NameProperty ? "Name" : prop.Name;
+                                if (prop.Category == PropertyCategory.Internal || propertyName.Contains('(') || propertyName.Contains(')'))
+                                    continue;
+                                classVm.Members.Add(new OBMemberViewModel(propertyName, OBMemberKind.Property, $"Property {propertyName}"));
+                            }
+                            foreach (var evt in component.Events)
+                                classVm.Members.Add(new OBMemberViewModel(evt.Name, OBMemberKind.Event, $"Event {evt.Name}"));
+                        }
+                        else if (library.Classes.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is { } declared)
+                        {
+                            foreach (var member in declared.Members)
+                                classVm.Members.Add(new OBMemberViewModel(member, OBMemberKind.Method, member));
+                        }
+                        if (classVm.Members.Count == 0)
+                            classVm.Members.Add(new OBMemberViewModel(
+                                localization.GetString("Str.Tool.ObjectBrowser.MembersUnavailable"), OBMemberKind.Status, ""));
+                        lib.Classes.Add(classVm);
+                    }
                 }
                 if (lib.Classes.Count == 0)
                     lib.Classes.Add(new OBClassViewModel(
