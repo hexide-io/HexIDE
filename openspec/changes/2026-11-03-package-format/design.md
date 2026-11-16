@@ -356,7 +356,7 @@ declared, and the runtime is identified by its root.
 - **Publisher ownership:**
   - A package id's first segment is one of the publisher's namespaces. The publisher record that HexIDE's
     intermediate signs gains an issued `namespaces` list, as `hexide.` already is for the first-party key.
-    For example, `rdcore.` is issued to the publisher `rubberduck-vba`.
+    For example, `rdcore.` is issued to RDCore's publisher.
   - A publisher record issued before the field exists can't use the package route until it's re-issued at
     a signing ceremony. Today's signed add-in directories and their loader are unaffected.
   - A signed package whose id doesn't start with its publisher's namespace is refused. That stops one
