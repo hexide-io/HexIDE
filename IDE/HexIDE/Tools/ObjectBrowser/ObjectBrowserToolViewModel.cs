@@ -350,6 +350,12 @@ public partial class ObjectBrowserToolViewModel : Document
             if (!references.Any(library.IsNamedBy))
                 references.Add(new VbReference(library.Guid, library.Version, 0, null, library.Name));
 
+        var components = project.ObjectReferences.Concat(project.Forms.SelectMany(f => f.ObjectReferences)).ToList();
+        foreach (var component in components.Where(c => !InBox.RuntimeLibraries.All.Any(l => l.IsNamedBy(c))))
+            if (!references.Any(r => component.Names(r.Guid)))
+                references.Add(new VbReference(component.Guid, component.Version, component.Lcid, null,
+                    SerializedProject.FileNameWithoutExtensionOf(component.File)));
+
         var owned = projectReferences[project];
         foreach (var stale in owned.Where(l => !references.Contains(l.Reference!)).ToList())
         {
@@ -368,6 +374,9 @@ public partial class ObjectBrowserToolViewModel : Document
             var lib = new OBLibraryViewModel(refName, reference);
             owned.Add(lib);
             Libraries.Add(lib);
+            if (components.Any(c => c.Names(reference.Guid))
+                && !InBox.RuntimeLibraries.All.Any(l => l.IsNamedBy(reference)))
+                LoadReferenceLibraryAsync(lib, useMetadataName: true).ListenErrors();
         }
         ReorderLibraries();
     }
@@ -634,14 +643,16 @@ public partial class ObjectBrowserToolViewModel : Document
         : keyword is null ? sym.Name
         : $"{keyword} {sym.Name}";
 
-    private async Task LoadReferenceLibraryAsync(OBLibraryViewModel lib)
+    private async Task LoadReferenceLibraryAsync(OBLibraryViewModel lib, bool useMetadataName = false)
     {
         if (lib.IsLoaded || lib.Reference == null) return;
+        lib.IsLoaded = true;
         IsLoadingMembers = true;
         try
         {
             var info = await typeLibraryService.GetTypeLibInfoAsync(lib.Reference);
-            lib.IsLoaded = true;
+            if (useMetadataName && info != null)
+                lib.Name = info.Name;
 
             if (info == null)
             {
@@ -710,7 +721,9 @@ public partial class ObjectBrowserToolViewModel : Document
             lib.Classes.Sort((a, b) =>
                 string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
 
-            if (ReferenceEquals(SelectedLibrary, lib) || SelectedLibrary == allLibraries)
+            if (useMetadataName)
+                ReorderLibraries();
+            else if (ReferenceEquals(SelectedLibrary, lib) || SelectedLibrary == allLibraries)
                 RebuildFilteredClasses();
         }
         catch (Exception ex)

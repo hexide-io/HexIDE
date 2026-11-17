@@ -63,6 +63,20 @@ A class with no member list SHALL remain listed and show a localized message
 in its members pane explaining that its type library is required. Both paths SHALL label HexIDE-only
 members with the localized origin description.
 
+Third-party component libraries named on project lines or in form headers SHALL also be listed, once per
+project, and loaded by GUID and version through the same service. Each SHALL use its type library's
+metadata name, or its OCX file name without the extension and a metadata-unavailable entry when the
+metadata can't be read (#4037).
+
+#### Scenario: A third-party component with readable metadata
+- **WHEN** a project names a third-party library only as a component
+- **THEN** its type-library name, classes and members are available through the shared service
+- **AND** loading requires no file path
+
+#### Scenario: A third-party component without readable metadata
+- **WHEN** a component's library is unregistered or the platform cannot read its metadata
+- **THEN** it remains listed under its OCX file name without its extension, with a metadata-unavailable entry
+
 #### Scenario: A component-only library without a registered OCX
 - **GIVEN** the project names MSCOMCTL.OCX only on an `Object=` line
 - **WHEN** its type-library metadata is unavailable
