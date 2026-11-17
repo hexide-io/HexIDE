@@ -143,6 +143,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         Vb6Value result;
         if (member.Kind == PrePass.DefaultMemberKind.Variable)
         {
+            NoteMemberAccess(obj, member.Name);
             var (found, field) = await ReadVariable(obj.InstanceEnv, member.Name);
             if (!found)
                 throw new NotImplementedException("Default member storage is unavailable (#174)");
@@ -577,7 +578,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var instanceEnv = classDef.ModuleEnv.Clone();
         foreach (var block in classDef.PrePass.topLevelBlocks)
             await new StatementExecutor(this, instanceEnv, classDef).Execute(block);
-        var instance = new VbObject(classDef, instanceEnv);
+        var instance = new VbObject(classDef, instanceEnv) { Interpreter = this };
         createdClasses.Add(new WeakReference<VbObject>(instance));
         if (createdClasses.Count >= compactCreatedClassesAt)
         {
@@ -715,7 +716,20 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // A form's hook is its own Form_Terminate, raised once it has unloaded and is released (#973).
         var hook = o.ClassDef.Kind == InterpreterModuleKind.Form ? "Form_Terminate" : "Class_Terminate";
         if (o.ClassDef.PrePass.Procedures.TryGetValue(hook, out var term))
-            await RunProcedure(o.ClassDef, term, [], o.InstanceEnv, Vb6Value.NewObject(o));
+        {
+            var previous = terminatingInstance.Value;
+            var scope = new TerminatingInstance(o, previous);
+            terminatingInstance.Value = scope;
+            try
+            {
+                await RunProcedure(o.ClassDef, term, [], o.InstanceEnv, Vb6Value.NewObject(o));
+            }
+            finally
+            {
+                scope.Active = false;
+                terminatingInstance.Value = previous;
+            }
+        }
         // Auto-unadvise (Phase 5): a terminating listener drops its `WithEvents` connections from their sources
         // (VB6 releases the connection point on Terminate), so no source retains a sink into a dead instance —
         // the dispatch-time Terminated skip is a safety net, this is the real cleanup.
@@ -1120,6 +1134,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             await RunModuleDeclarations(primaryModule);
 
             var statementExecutor = new StatementExecutor(this, rootEnv, primaryModule);
+            topLevelExecutor = statementExecutor;
             foreach (var block in primaryModule.PrePass.topLevelBlocks)
                 await statementExecutor.Execute(block, moduleDeclarations: false);
         }
@@ -1129,6 +1144,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
         finally
         {
+            topLevelExecutor = null;
             if (Forms is null)
                 await ReleasePredeclaredInstances();
         }
@@ -1310,14 +1326,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// <see cref="ReadVariable"/> only when it returns false, so an ordinary read costs what it did before forms could
     /// be made on use.
     /// </summary>
-    internal bool TryReadNow(ExecutionEnvironment env, string name, out bool found, out Vb6Value value, out Exception? need)
+    internal bool TryReadNow(ExecutionEnvironment env, string name, out bool found, out Vb6Value value, out Exception? need, bool trackMemberAccess = true)
     {
         try
         {
             if (SuppressImplicitDeclaration && env.TryGetVariableLocation(name, out var location)
                 && !ExecutionContext.State.TryRead(location, out _))
                 throw new Debugging.ImmediateEvalException($"Execution slot {location} is out of scope.");
-            found = ExecutionContext.TryGetVariable(env, name, out value);
+            found = ExecutionContext.TryGetVariable(env, name, out value, trackMemberAccess);
             need = null;
             return true;
         }
@@ -1432,7 +1448,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         if (form.Kind != InterpreterModuleKind.Form)
             throw new ArgumentException($"{form.Name} is not a form module", nameof(form));
-        var instance = new VbObject(form, form.ModuleEnv.Clone());
+        var instance = new VbObject(form, form.ModuleEnv.Clone()) { Interpreter = this };
         var reference = Vb6Value.NewObject(instance);
         SeedProgramGlobal(form.Name, () => reference);
         if (form.ModuleEnv.TryGetVariableLocation(form.Name, out var slot))
@@ -1620,6 +1636,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         ExecutionEnvironment? baseEnv = null, Vb6Value? me = null, Stack<List<Vb6Value>>? callerFrames = null,
         bool isEntry = false)
     {
+        if (me?.Value is VbObject accessedInstance)
+            NoteMemberAccess(accessedInstance, proc.Name);
         // Immediate-window evaluation forbids running USER code — its statements would hit the paused pause-gate on
         // this (UI) thread and deadlock, and mutate program state. RunProcedure is the single sink every user
         // proc/method/Property-Get body flows through, so guarding here covers bare calls, instance methods,
