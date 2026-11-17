@@ -106,3 +106,47 @@ constants give.
 
 **Not measured:** 32-bit VBA7, where `LongPtr` should be `Long` and `LongLong` refused; `LongLong` in a UDT's layout;
 `LongLong` as an array's bounds or a `For` counter.
+
+### `^` beside an operator, and with no space before it (2026-11-17, #4302)
+
+**The question.** `^` is both the exponent operator and, in 64-bit VBA7, the LongLong type character. Which is it when an
+operator follows, or when no space separates it from a number or a name?
+
+**The probe:** Excel from Microsoft 365 x64 (16.0, 64-bit), one module per row so a compile error stops only its row.
+Each row is `v = <expression>` into a Variant, logged as `TypeName` and value. The VBA editor stores each line in its own
+canonical spacing, and the "stored as" column is that line read back with `CodeModule.Lines`, so it shows how VBA read
+the source. Rows d use `Dim x As LongLong: x = 3` (or `Dim y As Long`, or `Dim z^`) first.
+
+| Row | Source | Stored as | 64-bit VBA7 |
+|---|---|---|---|
+| a1 | `5^ + 1` | `5^ + 1` | 6, LongLong |
+| a2 | `5^ - 1` | `5^ - 1` | 4, LongLong |
+| a3 | `5^-1` | **`5^ - 1`** | 4, LongLong |
+| a4 | `5^+1` | **`5^ + 1`** | 6, LongLong |
+| a5 | `5^ * 2` | `5^ * 2` | 10, LongLong |
+| a6 | `5^ / 2` | `5^ / 2` | 2.5, Double |
+| a7 | `5^ \ 2` | `5^ \ 2` | 2, LongLong |
+| a8 | `5^ Mod 3` | `5^ Mod 3` | 2, LongLong |
+| a9 | `5^ & "x"` | `5^ & "x"` | 5x, String |
+| b1 | `5^ = 5` | `5^ = 5` | True, Boolean |
+| b2 | `(5^) + 1` | `(5^) + 1` | 6, LongLong |
+| b3 | `&HFF^ + 1` | `&HFF^ + 1` | 256, LongLong |
+| b4 | `&HFF^ - 1` | `&HFF^ - 1` | 254, LongLong |
+| c1 | `2^3` | | **"Compile error: Syntax error"**, the line highlighted |
+| c2 | `2 ^ 3` | `2 ^ 3` | 8, Double |
+| d1 | `x^2`, x a LongLong | | **the compile error box** (its text wasn't read) |
+| d2 | `x ^ 2` | `x ^ 2` | 9, Double |
+| d3 | `x^ + 1` | `x^ + 1` | **4, LongLong** |
+| d4 | `x^ - 1` | `x^ - 1` | 2, LongLong |
+| d6 | `z + 1`, z declared `Dim z^` | `z + 1` | 4, LongLong |
+| d7 | `y ^ 2`, y a Long | `y ^ 2` | 9, Double |
+
+**Readings:**
+- **With no space before it, `^` is always the type character,** after a number or a name, whatever follows. `5^-1` is
+  `5^ - 1`, 4, not 5 to the power -1, and `x^ + 1` is x plus 1.
+- **So `2^3` and `x^2` don't compile** in 64-bit VBA7: the `^` is taken as a type character and the `3` or `2` that
+  follows is a syntax error. The exponent needs a space before the `^`, as the VBA editor writes it (c2, d2).
+- **A wrong reading here is a wrong value, not an error:** read as the operator, `5^ - 1` would be 0.2 and `x^ + 1` 3.
+
+**Not measured:** `2^ 3` and `2 ^3`; `^` after a name whose declared type isn't LongLong (`y^ + 1` with y a Long); 32-bit
+VBA7, where `^` should be the operator only.
