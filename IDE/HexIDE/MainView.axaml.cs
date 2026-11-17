@@ -27,7 +27,6 @@ using HexIDE.Addins;
 using HexIDE.Projects;
 using HexIDE.Menus;
 using HexIDE.Utils;
-using HexIDE.Runtime;
 
 namespace HexIDE;
 
@@ -39,8 +38,10 @@ public partial class MainView : UserControl
     static MainView()
     {
         // Desktop forms have their own input route. Only Break crosses back into the IDE (#1297, measured SP6).
-        InputElement.KeyDownEvent.AddClassHandler<VBFormRuntime>((_, e) =>
+        // Which windows are a running program's is the contract's question, not an interpreter type's (#4067).
+        InputElement.KeyDownEvent.AddClassHandler<Window>((window, e) =>
         {
+            if (RunningProgram.Current.Form(window) is not { IsRunning: true }) return;
             if (Static.MainView is not { } main || TopLevel.GetTopLevel(main) is not Window { IsVisible: true }) return;
             var command = ApplicationCommands.BreakProjectCommand;
             foreach (var gesture in command.Gestures)
