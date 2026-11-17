@@ -510,6 +510,7 @@ added afterwards.
 - [What `/make` writes to `/out`, and what "Line N" counts (2026-09-19)](what-make-writes-to-out-and-what-line-n-counts.md#what-make-writes-to-out-and-what-line-n-counts-2026-09-19)
 - [A `.vbp` item line has two shapes, and the keys do not agree on which (2026-09-20)](a-vbp-item-line-has-two-shapes-and-the-keys-do-not-agree-on-which.md#a-vbp-item-line-has-two-shapes-and-the-keys-do-not-agree-on-which-2026-09-20)
 - [When a document gets a file, and what a dangling `Startup=` does (2026-09-20, #489)](when-a-document-gets-a-file-and-what-a-dangling-startup-does.md#when-a-document-gets-a-file-and-what-a-dangling-startup-does-2026-09-20-489)
+- [A name in another case in a .vbp or a .frm (2026-11-17, #823, #824, SP6)](a-name-in-another-case-in-a-vbp-or-a-frm.md#a-name-in-another-case-in-a-vbp-or-a-frm-2026-11-17-823-824-sp6)
 - [A type character on a name the program also declares: `Left$` beside a user `Left` (2026-10-11)](a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left.md#a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left-2026-10-11)
 - [A running program's locale is the user's regional settings (2026-10-12, #777)](a-running-programs-locale-is-the-users-regional-settings.md#a-running-programs-locale-is-the-users-regional-settings-2026-10-12-777)
 - [Fixed number masks beyond Decimal range (#2118)](format-of-a-number-beyond-decimals-range.md)
