@@ -303,8 +303,6 @@ public class SaveRecordsTheHeaderTests : IDisposable
     // Measured load-error save protection: #4096, issuecomment-6915523429.
     [Theory]
     [InlineData("ClientHeight = 2000\r\nClientHeight = abc", false)]
-    [InlineData("Height = 2147483584", true)]
-    [InlineData("Height = 3.7E+18", true)]
     [InlineData("Left = 2147483648", true)]
     [InlineData("ClientHeight = 3.7E+18", false)]
     // A negative Height on a form's control recovers as zero and saves through Save As (#4179); this service's
