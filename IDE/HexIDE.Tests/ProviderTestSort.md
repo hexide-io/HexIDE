@@ -118,6 +118,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/UnsavedChangesPromptTests.cs` | split |
 | `Projects/UnsavedMemberRefusalTests.cs` | split |
 | `Projects/UserControlSaveRoundTripTests.cs` | split |
+| `Projects/Vb6ProjectTypeTests.cs` | split |
 | `Projects/WriteAtSaveTests.cs` | split |
 | `Recovery/RecoveryOffersTests.cs` | split |
 | `Recovery/UnsavedWorkCaptureTests.cs` | split |

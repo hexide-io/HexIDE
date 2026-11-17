@@ -16,6 +16,9 @@ namespace HexIDE.Projects;
 /// <summary>UI-owned archive lifecycle. Serialized file operations run on a worker thread.</summary>
 public sealed class ArchiveProjectService
 {
+    /// <summary>The project archives this service reads, which no project type may take (#3411 slice 10b).</summary>
+    public static ProjectFileReservation Reservation { get; } = new("hexide.archives", "twinBASIC", ["*.twinproj"]);
+
     private readonly ArchiveProjectWorkspace workspace = new();
     private readonly SemaphoreSlim gate = new(1);
     private readonly IDocumentDockService dock;
