@@ -1321,6 +1321,12 @@ the conversation, rather than waiting out a diagnostics timeout. A clean exit or
 connection is not classified as that failure. This adds no retry and does not establish the cause of the
 intermittent SIGPIPE.
 
+The in-memory pairs in `ServerApplyEditTests`, `TheTapStaysOutOfTheWayTests` and
+`RequestFailureLoggingTests` share `WireDiagnosis` (#3520, #3908, #3677). A connection drop during a test
+fails with a `#3520:` diagnosis: elapsed time, test-token and thread-pool state, disconnect reasons,
+client logs and the last 4 KB read by each stand-in. The snapshot precedes deliberate teardown; it adds
+no retry and does not identify the cause of the intermittent CI drops by itself.
+
 The untitled-document tests drain and poll for clangd's URI refusal, with a five-second deadline, before
 asserting on standard error (#2269). Diagnostics arriving does not mean the independent stderr reader
 has finished recording those lines. The ruff test checks watched-file negotiation alongside pull diagnostics (#456).
