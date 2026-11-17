@@ -138,6 +138,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/MouseEventTests.cs` | split |
 | `Views/NewControlNameTests.cs` | split |
 | `Views/ObjectBrowserBehaviourTests.cs` | split |
+| `Views/ObjectBrowserReloadTests.cs` | split |
 | `Views/ObjectBrowserViewIntegrationTests.cs` | split |
 | `Views/OnTypeFormattingTests.cs` | split |
 | `Views/OpeningCaretTests.cs` | split |
