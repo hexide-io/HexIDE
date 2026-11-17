@@ -86,6 +86,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/DesignerContextMenuThemeTests.cs` | split |
 | `Views/DesignerContractTests.cs` | split |
 | `Views/DesignerInstantiationFailureTests.cs` | split |
+| `Views/DesignerKeyboardNavigationTests.cs` | split |
 | `Views/DesignerModifiedMarkerTests.cs` | split |
 | `Views/DesignerPictureTests.cs` | split |
 | `Views/DesignerReferenceTests.cs` | split |
@@ -144,11 +145,13 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/PictureLoadTests.cs` | split |
 | `Views/PositionRowsTests.cs` | split |
 | `Views/PrintDialogTests.cs` | split |
+| `Views/ProgramBoxCaptionTests.cs` | split |
 | `Views/ProjectPropertiesViewIntegrationTests.cs` | split |
 | `Views/QuickFixTests.cs` | split |
 | `Views/RawPropertyRowsTests.cs` | split |
 | `Views/ReadOnlyBannerIntegrationTests.cs` | split |
 | `Views/ReadOnlyGreyingTests.cs` | split |
+| `Views/RefusedPropertyRowsTests.cs` | split |
 | `Views/ResetPromptTests.cs` | split |
 | `Views/RootDoubleClickTests.cs` | split |
 | `Views/RunFaultTests.cs` | split |
@@ -162,6 +165,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/SingleViewFormsTests.cs` | split |
 | `Views/StartupFormFailsToLoadTests.cs` | split |
 | `Views/SubMainFormsTests.cs` | split |
+| `Views/SymbolRefreshWireTests.cs` | split |
 | `Views/SyntaxErrorAtStartTests.cs` | split |
 | `Views/TabIndexAssignmentTests.cs` | split |
 | `Views/TabStripForm.cs` | provider |

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
@@ -307,6 +308,60 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
         {
             try { Directory.Delete(directory, recursive: true); } catch { /* best effort */ }
         }
+    }
+
+    [ForeignServerFact]
+    public async Task RumdlDiagnosticRefreshPinsRawParamsAndReceivesReply()
+    {
+        // #4144: inspect the retained bytes, including undecodable frames, before any null-params repair.
+        _capture.Arm("foreign.markdown", true);
+        _progressWorkspace = Directory.CreateTempSubdirectory("hexide-refresh-").FullName;
+        var file = Path.Combine(_progressWorkspace, "README.md");
+        await File.WriteAllTextAsync(file, SloppyMarkdown, TestContext.Current.CancellationToken);
+        var workspace = Substitute.For<ILspWorkspace>();
+        workspace.Directory.Returns(_progressWorkspace);
+        workspace.Folders.Returns([new LspWorkspaceFolder("refresh", _progressWorkspace)]);
+        var sut = ForeignMarkdownRegistry(workspace);
+        await sut.OpenDocumentAsync(LspDocumentUri.ForFile(file), SloppyMarkdown);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        JsonElement refresh = default;
+        JsonElement reply = default;
+        while (reply.ValueKind == JsonValueKind.Undefined)
+        {
+            await _capture.DrainAsync();
+            foreach (var entry in _capture.Snapshot("foreign.markdown"))
+            {
+                var body = _capture.Body("foreign.markdown", entry.Sequence);
+                if (body is null) continue;
+                body.IsTruncated.Should().BeFalse();
+                using var json = JsonDocument.Parse(body.Head);
+                var frame = json.RootElement;
+                if (entry.Direction == ConversationDirection.Received
+                    && frame.TryGetProperty("method", out var method)
+                    && method.GetString() == "workspace/diagnostic/refresh")
+                    refresh = frame.Clone();
+                if (entry.Direction == ConversationDirection.Sent
+                    && refresh.ValueKind != JsonValueKind.Undefined
+                    && !frame.TryGetProperty("method", out _)
+                    && frame.TryGetProperty("id", out var id)
+                    && JsonElement.DeepEquals(id, refresh.GetProperty("id")))
+                    reply = frame.Clone();
+            }
+            if (timeout.IsCancellationRequested)
+                throw new InvalidOperationException("No refresh reply. Frames: " + string.Join(" | ",
+                    _capture.Snapshot("foreign.markdown").Select(e =>
+                        _capture.Body("foreign.markdown", e.Sequence) is { } b
+                            ? System.Text.Encoding.UTF8.GetString(b.Head) : e.Detail)));
+            if (reply.ValueKind == JsonValueKind.Undefined)
+                await Task.Delay(50, TestContext.Current.CancellationToken);
+        }
+
+        TestContext.Current.TestOutputHelper!.WriteLine($"Refresh: {refresh.GetRawText()}; reply: {reply.GetRawText()}");
+        refresh.GetProperty("params").ValueKind.Should().Be(JsonValueKind.Null,
+            $"rumdl {ForeignServerAcquisition.Markdown.Version} was measured for #4144; frame: {refresh.GetRawText()}");
+        reply.TryGetProperty("error", out _).Should().BeFalse(reply.GetRawText());
+        reply.GetProperty("result").ValueKind.Should().Be(JsonValueKind.Null);
     }
 
     [ForeignServerFact]

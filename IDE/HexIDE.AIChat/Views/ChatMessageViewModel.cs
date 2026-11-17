@@ -11,15 +11,21 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
     private bool _isDecided;
 
     public bool IsUser { get; }
-    public bool IsAssistant => !IsUser && !IsStatusLine && !IsApproval;
+    public bool IsAssistant => !IsUser && !IsStatusLine && !IsApproval && !IsEgressConfirmation;
     public bool IsStatusLine { get; }
     public bool IsError { get; }
 
     /// <summary>True for a tool-approval prompt (a write tool awaiting the user's approve/reject).</summary>
     public bool IsApproval { get; }
 
-    /// <summary>True for a normal user/assistant message bubble (not a status, error, or approval line).</summary>
-    public bool IsBubble => !IsStatusLine && !IsError && !IsApproval;
+    /// <summary>
+    /// True for the privacy notice that waits for Send before the first message to an endpoint off this machine
+    /// (hexide-io/HexIDE#4230). Nothing leaves until the person chooses Send; Cancel leaves the message in the box.
+    /// </summary>
+    public bool IsEgressConfirmation { get; }
+
+    /// <summary>True for a normal user/assistant message bubble (not a status, error, approval or confirmation line).</summary>
+    public bool IsBubble => !IsStatusLine && !IsError && !IsApproval && !IsEgressConfirmation;
 
     public string RawContent
     {
@@ -48,14 +54,16 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public ChatMessageViewModel(string role, string content = "", bool isStatusLine = false, bool isError = false, bool isApproval = false)
+    public ChatMessageViewModel(string role, string content = "", bool isStatusLine = false, bool isError = false, bool isApproval = false,
+        bool isEgressConfirmation = false)
     {
         IsUser       = role == "user";
         IsStatusLine = isStatusLine;
         IsError      = isError;
         IsApproval   = isApproval;
+        IsEgressConfirmation = isEgressConfirmation;
         _rawContent  = content;
-        if (isApproval)
+        if (isApproval || isEgressConfirmation)
             _approvalTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         if (IsBubble && !string.IsNullOrEmpty(content))
             FinaliseContent();
@@ -63,8 +71,8 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
 
     // ── tool approval ──────────────────────────────────────────────────────────
 
-    /// <summary>Pending only while an approval prompt is still awaiting the user's click.</summary>
-    public bool IsAwaitingDecision => IsApproval && !_isDecided;
+    /// <summary>Pending only while an approval prompt or the privacy confirmation is still awaiting the user's click.</summary>
+    public bool IsAwaitingDecision => (IsApproval || IsEgressConfirmation) && !_isDecided;
 
     /// <summary>Shown once the user has decided ("✔ Approved" / "✗ Rejected").</summary>
     public string ApprovalOutcome { get; private set; } = string.Empty;
@@ -80,7 +88,10 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
     {
         if (_isDecided || _approvalTcs is null) return;
         _isDecided = true;
-        ApprovalOutcome = ChatStrings.GetString(approved ? "Str.AIChat.Approved" : "Str.AIChat.Rejected");
+        // A sent message shows itself, so only Cancel leaves a line under the notice.
+        ApprovalOutcome = IsEgressConfirmation
+            ? approved ? string.Empty : ChatStrings.GetString("Str.AIChat.EgressNotSent")
+            : ChatStrings.GetString(approved ? "Str.AIChat.Approved" : "Str.AIChat.Rejected");
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAwaitingDecision)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ApprovalOutcome)));
         _approvalTcs.TrySetResult(approved);
