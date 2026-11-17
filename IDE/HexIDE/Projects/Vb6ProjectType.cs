@@ -19,6 +19,13 @@ public static class Vb6ProjectType
     /// <summary>The files no other type may take.</summary>
     public static ProjectFileReservation Reservation { get; } = new(Id, Title, ["*.vbp", "*.vbg"]);
 
+    /// <summary>
+    /// Member files a refusal may call VB6's when VB6's type isn't registered: the unambiguous VB6 source extensions only.
+    /// <c>.cls</c> is left out because it is equally a LaTeX class file (#279), and HexIDE's own text says only what it knows.
+    /// </summary>
+    public static ProjectFileReservation Members { get; } = new(Id, Title,
+        HexIDE.Lsp.DocumentLanguage.UnambiguousVb6Extensions.Select(extension => "*" + extension).ToArray());
+
     /// <summary>The type, reading and rendering through <paramref name="format"/>.</summary>
     public static AddinProjectType For(IProjectFileFormat format) => new("Visual Basic 6.0 projects")
     {

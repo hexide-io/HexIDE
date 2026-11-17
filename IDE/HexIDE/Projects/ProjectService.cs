@@ -406,9 +406,8 @@ public partial class ProjectService : IProjectService
 
     public async Task OpenProject(string projectPath)
     {
-        if (ArchiveProjectService.Reservation.Covers(projectPath))
+        if (archives is not null && ArchiveProjectService.Reservation.Covers(projectPath))
         {
-            if (archives == null) throw new NotSupportedException("Archive project service is unavailable.");
             try
             {
                 await archives.Open(projectPath);
@@ -439,7 +438,7 @@ public partial class ProjectService : IProjectService
         if (contributed.Find(projectPath) is not { } type)
         {
             await windowManager.MessageBox(
-                string.Format(localization.GetString("Str.ContributedProject.NoReader"), Path.GetFileName(projectPath)),
+                UnreadProjectMessage(projectPath),
                 icon: MessageBoxIcon.Information);
             return;
         }
@@ -447,6 +446,29 @@ public partial class ProjectService : IProjectService
             await LoadProjectFromDisk(projectPath, type, own);
         else
             await OpenContributed(type, projectPath);
+    }
+
+    private string UnreadProjectMessage(string path)
+    {
+        var types = contributed.Types;
+        var missing = contributed.Reserved.FirstOrDefault(reservation => reservation.Covers(path)
+            && (reservation.Owner == ArchiveProjectService.Reservation.Owner
+                ? archives is null
+                : !types.Any(type => type.AddinId == reservation.Owner)));
+        if (missing is null && Vb6ProjectType.Members.Covers(path)
+            && !types.Any(type => type.AddinId == Vb6ProjectType.Id))
+            missing = Vb6ProjectType.Members;
+        var file = Path.GetFileName(path);
+        if (missing is not null)
+            return string.Format(localization.GetString("Str.ContributedProject.ProviderNotLoaded"), file, missing.Title);
+
+        var patterns = types.SelectMany(type => type.Type.FileNames.Concat(type.Type.GroupFileNames));
+        if (archives is not null)
+            patterns = patterns.Concat(ArchiveProjectService.Reservation.Patterns);
+        var names = string.Join(", ", patterns.Select(pattern => pattern.StartsWith("*.", StringComparison.Ordinal) ? pattern[1..] : pattern));
+        return names.Length == 0
+            ? string.Format(localization.GetString("Str.ContributedProject.NoTypeLoaded"), file)
+            : string.Format(localization.GetString("Str.ContributedProject.NoLoadedReader"), file, names);
     }
 
     // A project file an add-in reads: its content becomes a ProjectDefinition, loaded as a .vbp's is from there on, with
