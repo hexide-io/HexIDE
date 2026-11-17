@@ -869,8 +869,9 @@ public class DateFractionOfASecondTests : BaseVBTestFixture
             "02/01/100 | 0:0:0 d2 m1 y100 w7 | 0100-01-02 00:00:00 | kept True | err 0");
     }
 
-    // Left out: Format$(d, "hh:nn:ss AMPM") -> 12:00:01 PM | err 0, #2040, the AMPM token.
-    [WindowsOnlyFact]
+    // Left out: Format$(d, "hh:nn:ss AMPM") -> 12:00:01 PM | err 0. HexIDE prints ICU's "pm" (#4378).
+    // On Windows from NLS, and elsewhere from the generated table of Windows' locale data (#2041, #3928).
+    [Fact]
     public async Task Long_date_uses_the_measured_Windows_pattern()
     {
         await RunInEnGb(Prelude + "\nDebug.Print Format$(e, \"Long Date\")");
