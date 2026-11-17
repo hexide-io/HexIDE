@@ -496,15 +496,41 @@ public partial class MainViewViewModel : ObservableObject
             public ToolHostWindow(DockFactory factory)
             {
                 this.factory = factory;
+                BrandAssets.ApplyWindowIcon(this);
                 PositionChanged += (_, _) => Dispatcher.UIThread.Post(RememberNormalBounds);
                 SizeChanged += (_, _) => Dispatcher.UIThread.Post(RememberNormalBounds);
+                AddHandler(PointerPressedEvent, OnTitlePressed, Avalonia.Interactivity.RoutingStrategies.Tunnel);
                 // The pane's close box runs its tool command; Dock's extra host-close handler
                 // would return the tool first and clear the command parameter (#3770, Dock#1109).
-                LayoutUpdated += (_, _) =>
+                LayoutUpdated += (_, _) => UpdateChrome();
+                PropertyChanged += (_, e) =>
                 {
-                    foreach (var chrome in this.GetVisualDescendants().OfType<Dock.Avalonia.Controls.ToolChromeControl>())
-                        DetachGrip(chrome);
+                    if (e.Property == IsActiveProperty) UpdateChrome();
                 };
+            }
+
+            private void UpdateChrome()
+            {
+                foreach (var chrome in this.GetVisualDescendants().OfType<Dock.Avalonia.Controls.ToolChromeControl>())
+                {
+                    DetachGrip(chrome);
+                    chrome.Classes.Set("floatingHostActive", IsActive);
+                }
+            }
+
+            private void OnTitlePressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+            {
+                if (e.ClickCount != 2 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+                for (var visual = e.Source as Visual; visual != null && visual != this; visual = visual.GetVisualParent())
+                {
+                    if (visual is Button) return;
+                    if (visual is Control { Name: "PART_Grip" })
+                    {
+                        e.Handled = true;
+                        Dispatcher.UIThread.Post(Close);
+                        return;
+                    }
+                }
             }
 
             private void UpdateTitle(object? sender = null, PropertyChangedEventArgs? e = null)
@@ -705,6 +731,17 @@ public partial class MainViewViewModel : ObservableObject
             if (window != null)
                 window.Title = dockable is IDock dock ? dock.ActiveDockable?.Title ?? dockable.Title : dockable.Title;
             return window;
+        }
+
+        public override void PinDockable(IDockable dockable)
+        {
+            // Dock's pin command handles auto-hide; floating tools return through the saved home slots.
+            if (FindRoot(dockable, _ => true)?.Window?.Host is ToolHostWindow host)
+            {
+                host.Close();
+                return;
+            }
+            base.PinDockable(dockable);
         }
 
         public override bool OnWindowClosing(IDockWindow? window)
@@ -1650,6 +1687,9 @@ public partial class MainViewViewModel : ObservableObject
         RecentEditsToolViewModel recentEdits,
         FindReferencesToolViewModel? findReferences,
         CallHierarchyToolViewModel? callHierarchy,
+        // Not optional, like the two above: each optional parameter here doubles Pure.DI's search for the graph, and one
+        // more took it past its 16,384-iteration limit (DIE031).
+        TypeHierarchyToolViewModel? typeHierarchy,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
         HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
         RunWithMenuViewModel? runWith = null,
@@ -1671,6 +1711,12 @@ public partial class MainViewViewModel : ObservableObject
             eventBus.Subscribe<CallHierarchyEvent>(e => callHierarchy.SearchAsync(e.Uri, e.Position).ListenErrors());
             callHierarchy.LayoutResized += ScheduleLayoutSave;
             callHierarchy.ShowRequested += () => ShowResultsTool(callHierarchy);
+        }
+        if (typeHierarchy is not null)
+        {
+            eventBus.Subscribe<TypeHierarchyEvent>(e => typeHierarchy.SearchAsync(e.Uri, e.Position).ListenErrors());
+            typeHierarchy.LayoutResized += ScheduleLayoutSave;
+            typeHierarchy.ShowRequested += () => ShowResultsTool(typeHierarchy);
         }
         this.recoveryOffers = recoveryOffers;
         RecoverUnsavedWorkCommand = new DelegateCommand(
@@ -1837,7 +1883,7 @@ public partial class MainViewViewModel : ObservableObject
 
         // Route `Debug.Print` output from the running program into the Immediate pane (VB6's Immediate window), as it is
         // written, so a line a statement left open shows at once and the next Debug.Print continues it (#1380).
-        VBDebugConsole.Written += text =>
+        RunningProgram.Current.Written += text =>
         {
             Dispatcher.UIThread.Post(() =>
                 Immediate.Document.Insert(Immediate.Document.TextLength, text.Replace("\r\n", "\n")));

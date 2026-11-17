@@ -58,6 +58,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ArchiveProjectBrowsingTests.cs` | split |
 | `Views/BattleshipFormsDemoTests.cs` | split |
 | `Views/BeginOrderTests.cs` | split |
+| `Views/BrandWindowIconTests.cs` | split |
 | `Views/CallHierarchyTests.cs` | split |
 | `Views/CarriedBoxStackingTests.cs` | split |
 | `Views/CarriedPasteTests.cs` | split |
@@ -123,6 +124,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/InBoxToolboxTests.cs` | split |
 | `Views/LineControlTests.cs` | split |
 | `Views/LineNumbersFromTheTopOfTheFileTests.cs` | split |
+| `Views/LoadedFormMenuTests.cs` | split |
 | `Views/LockControlsSaveTests.cs` | split |
 | `Views/MarkGutterOnReadOnlyLineTests.cs` | split |
 | `Views/MemberRunFoldTests.cs` | split |
@@ -167,6 +169,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ToolReactivationFocusTests.cs` | split |
 | `Views/ToolbarDesignerPersistenceTests.cs` | split |
 | `Views/ToolboxFromRegistryTests.cs` | split |
+| `Views/TypeHierarchyTests.cs` | split |
 | `Views/TypedMemberAttributeTests.cs` | split |
 | `Views/UncreatableControlTests.cs` | split |
 | `Views/UnloadTests.cs` | split |

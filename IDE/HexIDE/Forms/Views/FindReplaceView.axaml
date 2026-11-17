@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:HexIDE.Controls"
              xmlns:vm="using:HexIDE.Forms.ViewModels"
              xmlns:converters="clr-namespace:HexIDE.Converters"
              x:Class="HexIDE.Forms.Views.FindReplaceView"
@@ -30,28 +31,36 @@
                 <!-- Find What. Both boxes hold code, so they read left to right whatever the IDE's language (#1944). -->
                 <!-- Each box is named by its caption, without the access-key underscore, so a screen reader and the automation
                      tree know which box takes what (#2717). -->
-                <TextBlock x:Name="FindWhatLabel" MinWidth="69" Margin="0,0,6,0" Text="{DynamicResource Str.Dialog.FindReplace.Label.FindWhat}" VerticalAlignment="Center" />
-                <TextBox Grid.Column="1" Classes="dialogInitialFocus" Text="{CompiledBinding SearchText, Mode=TwoWay}" FlowDirection="LeftToRight"
+                <Label MinWidth="69" Margin="0,0,6,0" Target="{CompiledBinding #FindWhat}" Padding="0" VerticalAlignment="Center">
+                    <AccessText x:Name="FindWhatLabel" Text="{DynamicResource Str.Dialog.FindReplace.Label.FindWhat}" />
+                </Label>
+                <TextBox x:Name="FindWhat" Grid.Column="1" Classes="dialogInitialFocus" Text="{CompiledBinding SearchText, Mode=TwoWay}" FlowDirection="LeftToRight"
                          AutomationProperties.Name="{CompiledBinding #FindWhatLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" />
 
                 <!-- Replace With (conditional) -->
-                <TextBlock x:Name="ReplaceWithLabel" Grid.Row="1" Margin="0,6,6,0" IsVisible="{CompiledBinding ShowReplace}" Text="{DynamicResource Str.Dialog.FindReplace.Label.ReplaceWith}" VerticalAlignment="Center" />
-                <TextBox Grid.Row="1" Grid.Column="1" Margin="0,6,0,0" IsVisible="{CompiledBinding ShowReplace}" Text="{CompiledBinding ReplaceText, Mode=TwoWay}" FlowDirection="LeftToRight"
+                <Label Grid.Row="1" Margin="0,6,6,0" IsVisible="{CompiledBinding ShowReplace}" Target="{CompiledBinding #ReplaceWith}" Padding="0" VerticalAlignment="Center">
+                    <AccessText x:Name="ReplaceWithLabel" Text="{DynamicResource Str.Dialog.FindReplace.Label.ReplaceWith}" />
+                </Label>
+                <TextBox x:Name="ReplaceWith" Grid.Row="1" Grid.Column="1" Margin="0,6,0,0" IsVisible="{CompiledBinding ShowReplace}" Text="{CompiledBinding ReplaceText, Mode=TwoWay}" FlowDirection="LeftToRight"
                          AutomationProperties.Name="{CompiledBinding #ReplaceWithLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" />
 
                 <!-- Search scope -->
-                <TextBlock x:Name="SearchLabel" Grid.Row="2" Margin="0,6,6,0" Text="{DynamicResource Str.Dialog.FindReplace.Label.Search}" VerticalAlignment="Center" />
-                <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,6,0,0" ItemsSource="{CompiledBinding ScopeItems}"
+                <Label Grid.Row="2" Margin="0,6,6,0" Target="{CompiledBinding #SearchScope}" Padding="0" VerticalAlignment="Center">
+                    <AccessText x:Name="SearchLabel" Text="{DynamicResource Str.Dialog.FindReplace.Label.Search}" />
+                </Label>
+                <ComboBox x:Name="SearchScope" Grid.Row="2" Grid.Column="1" Margin="0,6,0,0" ItemsSource="{CompiledBinding ScopeItems}"
                           AutomationProperties.Name="{CompiledBinding #SearchLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}"
                           SelectedIndex="{CompiledBinding SelectedScopeIndex, Mode=TwoWay}"
                           HorizontalAlignment="Stretch" />
 
                 <!-- Direction -->
-                <TextBlock Grid.Row="3" Margin="0,8,6,0" Text="{DynamicResource Str.Dialog.FindReplace.Label.Direction}" VerticalAlignment="Center" />
-                <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,8,0,0" Orientation="Horizontal" Spacing="12">
-                    <RadioButton Content="{DynamicResource Str.Dialog.FindReplace.Direction.Up}" GroupName="Direction"
+                <Label Grid.Row="3" Margin="0,8,6,0" Target="{CompiledBinding #DirectionGroup}" Padding="0" VerticalAlignment="Center">
+                    <AccessText Text="{DynamicResource Str.Dialog.FindReplace.Label.Direction}" />
+                </Label>
+                <StackPanel x:Name="DirectionGroup" Focusable="True" IsTabStop="False" Grid.Row="3" Grid.Column="1" Margin="0,8,0,0" Orientation="Horizontal" Spacing="12">
+                    <controls:IdeRadioButton Content="{DynamicResource Str.Dialog.FindReplace.Direction.Up}" GroupName="Direction"
                                  IsChecked="{CompiledBinding Direction, Converter={x:Static vm:FindDirectionConverters.IsUp}}" />
-                    <RadioButton Content="{DynamicResource Str.Dialog.FindReplace.Direction.Down}" GroupName="Direction"
+                    <controls:IdeRadioButton Content="{DynamicResource Str.Dialog.FindReplace.Direction.Down}" GroupName="Direction"
                                  IsChecked="{CompiledBinding Direction, Converter={x:Static vm:FindDirectionConverters.IsDown}}" />
                 </StackPanel>
             </Grid>

@@ -27,6 +27,8 @@ internal static class InstallerInputs
         using (var copy = File.Create(Path.Combine(directory, SharedScriptName)))
             shared.CopyTo(copy);
 
+        IconResources.WriteIcon(Path.Combine(directory, "brand.ico"), IconResources.LogoOf(brand));
+
         // The build's numbers without the source revision, which is the form stock's installer is given.
         var version = (stock.ProductVersion ?? "").Split('+')[0];
         File.WriteAllText(Path.Combine(directory, ScriptName), Script(brand, executableName, version), new UTF8Encoding(true));
@@ -36,20 +38,37 @@ internal static class InstallerInputs
     {
         // A doubled opening brace is how Inno Setup writes a literal one.
         var appId = "{" + AppId(brand.Id);
+        var metadata = new StringBuilder();
+        Define("SetupIconFile", "brand.ico");
+        Define("AppPublisher", brand.Name);
+        Define("AppCopyright", brand.Copyright);
+        Define("AppPublisherURL", brand.HomeUrl);
+        Define("AppSupportURL", brand.SupportUrl);
+
+        void Define(string key, string? value)
+        {
+            if (value != null)
+                metadata.AppendLine($"#define {key} \"{Escape(value)}\"");
+        }
+
         return $"""
                 ; Written by HexIDE.Repack for the distribution '{brand.Id}'. Compile this file with Inno Setup's ISCC.
                 #define AppId "{appId}"
-                #define AppName "{brand.Name}"
-                #define AppExe "{executableName}"
-                #define AppVersion "{version}"
-                #define AppUserModelId "{brand.AppUserModelId}"
+                #define AppName "{Escape(brand.Name)}"
+                #define AppExe "{Escape(executableName)}"
+                #define AppVersion "{Escape(version)}"
+                #define AppUserModelId "{Escape(brand.AppUserModelId!)}"
                 #define PublishDir "..\app"
                 #define SetupOutputDir "output"
                 #define SetupBaseName "{brand.Id}-windows-amd64-setup"
-                #include "{SharedScriptName}"
+                {metadata}#include "{SharedScriptName}"
 
                 """.ReplaceLineEndings("\r\n");
     }
+
+    // ISPP doubles quotes, and Inno expands constants in every value written here, AppCopyright included: a single "{" in
+    // a copyright aborted ISCC 6 with "Unknown constant", and "{{" came out as one brace (#4171 review). So double both.
+    private static string Escape(string value) => value.Replace("{", "{{").Replace("\"", "\"\"");
 
     /// <summary>
     /// A name-based GUID (RFC 9562, version 5) of the distribution id, in braces as Inno Setup's AppId takes one. The
