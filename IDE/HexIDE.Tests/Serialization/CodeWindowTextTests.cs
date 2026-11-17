@@ -58,7 +58,7 @@ public class CodeWindowTextTests
     [Fact]
     public void AFormIsItsWholeFile()
     {
-        var text = DocumentContent.TextOf(Form(), null, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+        var text = DocumentContent.TextOf(Form(), null);
 
         text.Text.Should().Be(Frm, "the code window holds the file, and every line number counts in it");
         text.LineCount.Should().Be(17, "sixteen lines and the empty one after the last line break");
@@ -71,7 +71,7 @@ public class CodeWindowTextTests
         // The code-editor delta's scenario: the first line of code after a class's standard header is numbered
         // from the top of the file. Asserted against where the header actually ends rather than a constant, so
         // the test says what the rule is, not what today's header happens to be.
-        var text = DocumentContent.TextOf(Class(), null, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+        var text = DocumentContent.TextOf(Class(), null);
 
         var firstCode = LineOf(text, "Option Explicit");
         firstCode.Should().BeGreaterThan(1, "a class has a header");
@@ -86,7 +86,7 @@ public class CodeWindowTextTests
     [InlineData(8)]
     [InlineData(9)]
     public void EveryLineOfAFormsHeaderIsReadOnly(int line) =>
-        DocumentContent.TextOf(Form(), null, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).IsReadOnlyLine(line).Should().BeTrue();
+        DocumentContent.TextOf(Form(), null).IsReadOnlyLine(line).Should().BeTrue();
 
     [Theory]
     [InlineData(10)]
@@ -95,14 +95,14 @@ public class CodeWindowTextTests
     [InlineData(16)]
     [InlineData(17)]
     public void AFormsCodeIsNot(int line) =>
-        DocumentContent.TextOf(Form(), null, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).IsReadOnlyLine(line).Should().BeFalse();
+        DocumentContent.TextOf(Form(), null).IsReadOnlyLine(line).Should().BeFalse();
 
     [Fact]
     public void AMembersAttributeLineIsReadOnlyAndTheDeclarationItDescribesIsNot()
     {
         // The trap 3.11 left: the edit test also refuses the line break the attribute hangs from, which ends the
         // declaration. Asked about a line, it would put every described member out of reach of a breakpoint.
-        var text = DocumentContent.TextOf(Class(), null, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+        var text = DocumentContent.TextOf(Class(), null);
         var declaration = LineOf(text, "Public Function Total");
 
         text.IsReadOnlyLine(declaration).Should().BeFalse();
@@ -115,7 +115,7 @@ public class CodeWindowTextTests
     [InlineData(-1)]
     [InlineData(99)]
     public void ALineTheTextDoesNotHaveIsNotReadOnly(int line) =>
-        DocumentContent.TextOf(Form(), null, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).IsReadOnlyLine(line).Should().BeFalse();
+        DocumentContent.TextOf(Form(), null).IsReadOnlyLine(line).Should().BeFalse();
 
     [Fact]
     public void LinesAreCountedTheSameWhicheverLineEndingTheTextUses()

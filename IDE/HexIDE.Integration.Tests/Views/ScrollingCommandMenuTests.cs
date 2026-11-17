@@ -129,7 +129,7 @@ public class ScrollingCommandMenuTests
         var vm = new CodeEditorViewModel(Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(),
             Substitute.For<IProjectService>(), Substitute.For<IEventBus>(), client, settings,
             Substitute.For<IStatusBarService>(), bookmarks, new BreakpointService(),
-            Substitute.For<IDebugController>(), new RunScope(), localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<IDebugController>(), new RunScope(), localization);
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", ModuleKind.StandardModule);
         module.AbsolutePath = Path.Combine(Path.GetTempPath(), "3155", "Module1.bas");
         module.UpdateCode("Sub Main()\r\nEnd Sub\r\n");

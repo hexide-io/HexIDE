@@ -14,9 +14,7 @@ public sealed class SetLockKeyTests : IDisposable
 {
     private readonly IdeContext context = new(Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(),
         Substitute.For<ILspClient>(), null!, Substitute.For<IProjectRunnerService>(),
-        null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            new Vb6ProjectFileFormat(),
-            new Vb6ReadOnlyRegionReader());
+        null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
     private readonly HexIdeTools tools;
 
     public SetLockKeyTests() => tools = new HexIdeTools(context);

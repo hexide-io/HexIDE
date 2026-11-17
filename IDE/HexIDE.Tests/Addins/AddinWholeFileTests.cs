@@ -51,9 +51,7 @@ public class AddinWholeFileTests : IDisposable
             active = match;
             return true;
         });
-        sut = new AddinEditorService(dock, Substitute.For<IEditorService>(), projects,
-            format: new Vb6ProjectFileFormat(),
-            reader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
+        sut = new AddinEditorService(dock, Substitute.For<IEditorService>(), projects);
     }
 
     public void Dispose()
@@ -105,9 +103,7 @@ public class AddinWholeFileTests : IDisposable
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), new LocalizationService(),
-                new Vb6ProjectFileFormat(),
-                new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
+            Substitute.For<IRunScope>(), new LocalizationService());
         made.Add(vm);
         return vm;
     }
@@ -636,8 +632,7 @@ public class AddinWholeFileTests : IDisposable
         var emptyDock = Substitute.For<IDocumentDockService>();
         emptyDock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel>());
 
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => throw new InvalidOperationException("new-project dialog must not be reached"),
+        return new ProjectService(            () => throw new InvalidOperationException("new-project dialog must not be reached"),
             Substitute.For<IWindowManager>(),
             Substitute.For<IEventBus>(),
             manager,
@@ -646,8 +641,7 @@ public class AddinWholeFileTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
-            new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), new EventBus(), emptyDock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
-            new Vb6ProjectFileFormat(), new ComponentRegistry());
+            new HeaderRefresher(new EventBus(), emptyDock, new BreakpointService(), new BookmarkService()), new ComponentRegistry());
     }
 
     private static readonly string[] SourceExtensions =

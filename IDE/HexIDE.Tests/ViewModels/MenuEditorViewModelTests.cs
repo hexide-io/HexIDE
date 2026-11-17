@@ -66,7 +66,7 @@ public class MenuEditorViewModelTests
         var form = project.Forms.First();
         using var designer = new FormEditViewModel(null!, new EventBus(), Substitute.For<IProjectService>(),
             Substitute.For<IEditorService>(), windows, Substitute.For<ISettingsService>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+            Substitute.For<ILocalizationService>()).Initialize(form);
         windows.ShowDialog(Arg.Any<IDialog>()).Returns(call =>
         {
             var editor = (MenuEditorViewModel)call[0];
@@ -178,7 +178,7 @@ public class MenuEditorViewModelTests
         var events = new EventBus();
         using var designer = new FormEditViewModel(null!, events, Substitute.For<IProjectService>(),
             Substitute.For<IEditorService>(), windows, Substitute.For<ISettingsService>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+            Substitute.For<ILocalizationService>()).Initialize(form);
         // Initialize loads the form's menu tree (#4140), so the editor opens on it.
         designer.TopLevelMenu.Should().ContainSingle(c => c.Instance == menu);
         var serializer = new FormSerializer();

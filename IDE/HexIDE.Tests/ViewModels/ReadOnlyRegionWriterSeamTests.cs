@@ -1,4 +1,5 @@
 using Avalonia.Headless.XUnit;
+using HexIDE.Tests.Infrastructure;
 using HexIDE.Bookmarks;
 using HexIDE.Debugging;
 using HexIDE.Events;
@@ -27,11 +28,14 @@ public class ReadOnlyRegionWriterSeamTests : IDisposable
     private readonly IProjectManager projects = Substitute.For<IProjectManager>();
     private readonly IProjectFileFormat format = Substitute.For<IProjectFileFormat>();
     private readonly NoteWriter writer = new();
+    // One project, one format (#3411 slice 10b-3): the file format and the writer the last helper named, with the notes' reader.
+    private readonly RegionStandInFormat current = new(new NoteReader());
     private readonly FileBaselineStore baselines = new();
 
     public ReadOnlyRegionWriterSeamTests()
     {
         Directory.CreateDirectory(dir);
+        current.Inner = format;
         projects.LoadedProjects.Returns(_ => loaded);
         projects.When(p => p.AddProject(Arg.Any<ProjectDefinition>())).Do(c => loaded.Add(c.Arg<ProjectDefinition>()));
         format.CodePrefix(Arg.Any<FormDefinition>()).Returns(c => FormCodeText.Prefix(c.Arg<FormDefinition>()));
@@ -90,7 +94,7 @@ public class ReadOnlyRegionWriterSeamTests : IDisposable
 
     private sealed class NoWriter : IReadOnlyRegionWriter;
 
-    private ProjectDefinition Project() => new(VBProjectType.EXE, "P") { AbsolutePath = Path.Join(dir, "P.vbp") };
+    private ProjectDefinition Project() => new(VBProjectType.EXE, "P") { AbsolutePath = Path.Join(dir, "P.vbp"), Format = current };
 
     private FormDefinition Form(ProjectDefinition project, string code = Notes)
     {
@@ -111,11 +115,13 @@ public class ReadOnlyRegionWriterSeamTests : IDisposable
 
     private CodeEditorViewModel Editor(ModuleDefinition module, IReadOnlyRegionWriter? provider)
     {
+        current.Inner = new Vb6ProjectFileFormat();
+        current.Writer = provider;
         var vm = new CodeEditorViewModel(
             windows, Substitute.For<IEditorService>(), Substitute.For<IProjectService>(), new EventBus(),
             Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             new BookmarkService(), new BreakpointService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), new LocalizationService(), new Vb6ProjectFileFormat(), new NoteReader(), regionWriter: provider);
+            Substitute.For<IRunScope>(), new LocalizationService());
         editors.Add(vm);
         return vm.Initialize(module);
     }
@@ -125,16 +131,22 @@ public class ReadOnlyRegionWriterSeamTests : IDisposable
         var sidecar = Substitute.For<IUserSidecarService>();
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
-        return new ProjectService(provider, () => throw new InvalidOperationException(), windows, new EventBus(), projects,
+        current.Inner = fileFormat ?? format;
+        current.Writer = provider;
+        // VB6's type, registered with the test's format, as the composition registers it with its own.
+        var types = new ContributedProjects();
+        Vb6ProjectType.Register(types, current);
+        return new ProjectService(() => throw new InvalidOperationException(), windows, new EventBus(), projects,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(), sidecar, baselines,
-            new LocalizationService(), Substitute.For<IHeaderRefresher>(), fileFormat ?? format, new ComponentRegistry());
+            new LocalizationService(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: types);
     }
 
     private HeaderRefresher Refresher(IReadOnlyRegionWriter provider, params CodeEditorViewModel[] open)
     {
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(open.Cast<BaseEditorWindowViewModel>().ToList());
-        return new HeaderRefresher(provider, new EventBus(), dock, new BreakpointService(), new BookmarkService(), format);
+        current.Writer = provider;
+        return new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService());
     }
 
     [Fact]

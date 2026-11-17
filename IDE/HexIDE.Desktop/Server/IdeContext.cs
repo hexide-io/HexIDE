@@ -39,13 +39,6 @@ internal sealed class IdeContext : IDisposable
     /// <summary>The session's pseudonym mapping, so every export names a path the same way.</summary>
     public HexIDE.Redaction.Pseudonymiser Pseudonyms { get; }
 
-    /// <summary>The project file format, for a tool that has to know a document's companion file.</summary>
-    public IProjectFileFormat ProjectFileFormat { get; }
-
-    /// <summary>The reader of a document's read-only regions, including when its code window is closed.</summary>
-    public HexIDE.Language.IReadOnlyRegionReader ReadOnlyRegionReader { get; }
-    public HexIDE.Language.IReadOnlyRegionRules? ReadOnlyRegionRules { get; }
-
     public IdeContext(
         IProjectManager projectManager,
         IDocumentDockService documentDockService,
@@ -66,9 +59,6 @@ internal sealed class IdeContext : IDisposable
         HexIDE.Redaction.Pseudonymiser pseudonyms,
         HexIDE.Localization.ILocalizationService localization,
         ISettingsService settings,
-        IProjectFileFormat projectFileFormat,
-        HexIDE.Language.IReadOnlyRegionReader readOnlyRegionReader,
-        HexIDE.Language.IReadOnlyRegionRules? readOnlyRegionRules = null,
         ArchiveProjectService? archives = null)
     {
         Archives = archives;
@@ -92,9 +82,6 @@ internal sealed class IdeContext : IDisposable
         Pseudonyms = pseudonyms;
         Localization = localization;
         Settings = settings;
-        ProjectFileFormat = projectFileFormat;
-        ReadOnlyRegionReader = readOnlyRegionReader;
-        ReadOnlyRegionRules = readOnlyRegionRules;
     }
 
     public void Dispose() => Diagnostics.Dispose();
