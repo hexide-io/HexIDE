@@ -241,7 +241,7 @@ public class CommonDialogTests
     public void ShowFont_takes_the_font_chosen_and_Cancel_leaves_it()
     {
         var windows = Opening();
-        windows.ShowFontDialog(Arg.Any<FontDialogResult?>()).Returns(
+        windows.ShowFontDialog(Arg.Any<FontDialogResult?>(), isProgramDialog: true).Returns(
             Task.FromResult<FontDialogResult?>(new FontDialogResult(new FontFamily("Courier New"), FontStyle.Italic, FontWeight.Bold, 10)),
             Task.FromResult<FontDialogResult?>(null));
         var ran = Run(Form(Dialog,

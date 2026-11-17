@@ -50,9 +50,9 @@ public class ToolbarAutomationNameTests
     /// The main view with the resources its markup names: the icon geometries and IDE colours it takes from
     /// <c>App.axaml</c>, and the English strings its tooltips resolve, which the IDE loads from the same pack.
     /// </summary>
-    internal static Window ShowMainView()
+    internal static Window ShowMainView(Window? window = null)
     {
-        var window = new Window { Width = 1600, Height = 900 };
+        window ??= new Window { Width = 1600, Height = 900 };
         foreach (var source in new[] { "Themes/IconGeometry.axaml", "Themes/Classic.axaml" })
             window.Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://HexIDE/"))
             {
