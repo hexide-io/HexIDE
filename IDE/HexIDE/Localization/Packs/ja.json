@@ -2,6 +2,11 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "リファクタリング",
+    "Str.Menu.Edit.SourceActions": "ソースアクション",
+    "Str.CodeEditor.Refactor": "リファクタリング",
+    "Str.CodeEditor.SourceActions": "ソースアクション",
+    "Str.CodeEditor.NoCodeActions": "適用できるアクションはありません。(_N)",
     "Str.Startup.ProjectFileArgument": "プロジェクトファイル",
     "Str.ProjectFile.ReplaceModel": "プロジェクト ファイルのテキストを適用すると、{0} の未保存のプロジェクト設定が置き換えられます。続行しますか？",
     "Str.AIChat.Title": "AI チャット",

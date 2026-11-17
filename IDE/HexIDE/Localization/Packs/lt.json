@@ -2,6 +2,11 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "_Refaktorizavimas",
+    "Str.Menu.Edit.SourceActions": "Pirmi_nio kodo veiksmai",
+    "Str.CodeEditor.Refactor": "Refaktori_zavimas",
+    "Str.CodeEditor.SourceActions": "Pirminio kodo veiksmai",
+    "Str.CodeEditor.NoCodeActions": "_Nėra tinkamų veiksmų.",
     "Str.Startup.ProjectFileArgument": "projekto failas",
     "Str.ProjectFile.ReplaceModel": "Pritaikius projekto failo tekstą bus pakeistos neįrašytos projekto {0} nuostatos. Tęsti?",
     "Str.MemberOrigin.HexIde": "HexIDE plėtinys; VB6 nepasiekiamas.",

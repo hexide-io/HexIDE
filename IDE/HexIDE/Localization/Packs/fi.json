@@ -2,6 +2,11 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "_Refaktoroi",
+    "Str.Menu.Edit.SourceActions": "L_ähdekooditoiminnot",
+    "Str.CodeEditor.Refactor": "Re_faktoroi",
+    "Str.CodeEditor.SourceActions": "Lähdekooditoiminnot",
+    "Str.CodeEditor.NoCodeActions": "_Ei soveltuvia toimintoja.",
     "Str.Startup.ProjectFileArgument": "projektitiedosto",
     "Str.ProjectFile.ReplaceModel": "Projektitiedoston tekstin käyttäminen korvaa projektin {0} tallentamattomat asetukset. Jatketaanko?",
     "Str.MemberOrigin.HexIde": "HexIDE-laajennus; ei käytettävissä VB6:ssa.",

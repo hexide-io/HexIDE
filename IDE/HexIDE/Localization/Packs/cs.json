@@ -2,6 +2,11 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "R_efaktoring",
+    "Str.Menu.Edit.SourceActions": "_Akce zdrojového kódu",
+    "Str.CodeEditor.Refactor": "Refaktorin_g",
+    "Str.CodeEditor.SourceActions": "Akce zdrojov_ého kódu",
+    "Str.CodeEditor.NoCodeActions": "_Žádné použitelné akce.",
     "Str.Startup.ProjectFileArgument": "soubor projektu",
     "Str.ProjectFile.ReplaceModel": "Použití textu souboru projektu nahradí neuložená nastavení projektu {0}. Pokračovat?",
     "Str.AIChat.Title": "Chat AI",

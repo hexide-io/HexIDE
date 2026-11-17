@@ -2,6 +2,11 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "Refact_oritza",
+    "Str.Menu.Edit.SourceActions": "Acc_ions del codi font",
+    "Str.CodeEditor.Refactor": "Refactorit_za",
+    "Str.CodeEditor.SourceActions": "Accions del codi font",
+    "Str.CodeEditor.NoCodeActions": "_No hi ha accions aplicables.",
     "Str.Startup.ProjectFileArgument": "fitxer de projecte",
     "Str.ProjectFile.ReplaceModel": "Aplicar el text del fitxer de projecte substituirà la configuració no desada de {0}. Voleu continuar?",
     "Str.AIChat.Title": "Xat d’IA",

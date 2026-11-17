@@ -2,6 +2,11 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "_Refaktorálás",
+    "Str.Menu.Edit.SourceActions": "_Forrásműveletek",
+    "Str.CodeEditor.Refactor": "Refaktor_álás",
+    "Str.CodeEditor.SourceActions": "Forrásm_űveletek",
+    "Str.CodeEditor.NoCodeActions": "_Nincsenek alkalmazható műveletek.",
     "Str.Startup.ProjectFileArgument": "projektfájl",
     "Str.ProjectFile.ReplaceModel": "A projektfájl szövegének alkalmazása felülírja a(z) {0} projekt nem mentett beállításait. Folytatja?",
     "Str.MemberOrigin.HexIde": "HexIDE-bővítmény; a VB6-ban nem érhető el.",

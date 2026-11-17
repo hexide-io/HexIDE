@@ -2,6 +2,11 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "Re_factorizar",
+    "Str.Menu.Edit.SourceActions": "Acc_iones de código fuente",
+    "Str.CodeEditor.Refactor": "Refactori_zar",
+    "Str.CodeEditor.SourceActions": "Acciones de código fuente",
+    "Str.CodeEditor.NoCodeActions": "_No hay acciones aplicables.",
     "Str.Startup.ProjectFileArgument": "archivo de proyecto",
     "Str.ProjectFile.ReplaceModel": "Al aplicar el texto del archivo de proyecto se reemplazará la configuración sin guardar de {0}. ¿Continuar?",
     "Str.AIChat.Title": "Chat de IA",

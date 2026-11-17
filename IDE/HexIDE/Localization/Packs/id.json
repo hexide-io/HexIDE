@@ -2,6 +2,11 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "Re_faktor",
+    "Str.Menu.Edit.SourceActions": "Ti_ndakan kode sumber",
+    "Str.CodeEditor.Refactor": "Refaktor",
+    "Str.CodeEditor.SourceActions": "Tindakan kode sumber",
+    "Str.CodeEditor.NoCodeActions": "_Tidak ada tindakan yang sesuai.",
     "Str.Startup.ProjectFileArgument": "berkas proyek",
     "Str.ProjectFile.ReplaceModel": "Menerapkan teks berkas proyek akan mengganti pengaturan proyek {0} yang belum disimpan. Lanjutkan?",
     "Str.MemberOrigin.HexIde": "Ekstensi HexIDE; tidak tersedia di VB6.",

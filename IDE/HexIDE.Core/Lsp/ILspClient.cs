@@ -342,6 +342,11 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Requests server fixes on demand, retaining their origin for resolution and execution.</summary>
     Task<OfferedCodeAction[]> RequestCodeActionsAsync(string uri, HexIDE.Lsp.Messages.Range range, Diagnostic[] diagnostics,
         CancellationToken cancellationToken = default) => Task.FromResult<OfferedCodeAction[]>([]);
+
+    /// <summary>Requests actions for a selection or caret, optionally restricted to kind hierarchies.</summary>
+    Task<OfferedCodeAction[]> RequestCodeActionsAsync(string uri, HexIDE.Lsp.Messages.Range range, Diagnostic[] diagnostics,
+        string[]? only, CancellationToken cancellationToken = default) => RequestCodeActionsAsync(uri, range, diagnostics, cancellationToken);
+
     /// <summary>Asks supporting servers before prompting; null means preparation is unsupported.</summary>
     Task<PrepareRenameResult?> RequestPrepareRenameAsync(string uri, Position position, CancellationToken cancellationToken = default)
         => Task.FromResult<PrepareRenameResult?>(null);

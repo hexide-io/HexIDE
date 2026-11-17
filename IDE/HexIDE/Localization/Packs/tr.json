@@ -2,6 +2,11 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "Ye_niden düzenle",
+    "Str.Menu.Edit.SourceActions": "Kaynak eyle_mleri",
+    "Str.CodeEditor.Refactor": "Yeniden düzenle",
+    "Str.CodeEditor.SourceActions": "Kaynak eylemleri",
+    "Str.CodeEditor.NoCodeActions": "_Uygulanabilir eylem yok.",
     "Str.Startup.ProjectFileArgument": "proje dosyası",
     "Str.ProjectFile.ReplaceModel": "Proje dosyası metnini uygulamak, {0} için kaydedilmemiş proje ayarlarını değiştirecek. Devam edilsin mi?",
     "Str.MemberOrigin.HexIde": "HexIDE uzantısı; VB6 içinde kullanılamaz.",

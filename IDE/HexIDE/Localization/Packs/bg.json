@@ -2,6 +2,11 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "Рефакториране",
+    "Str.Menu.Edit.SourceActions": "Действия с изходния код",
+    "Str.CodeEditor.Refactor": "Рефакториране",
+    "Str.CodeEditor.SourceActions": "Действия с изходния код",
+    "Str.CodeEditor.NoCodeActions": "Няма приложими действия.",
     "Str.Startup.ProjectFileArgument": "файл на проект",
     "Str.ProjectFile.ReplaceModel": "Прилагането на текста на проектния файл ще замени незаписаните настройки на проекта {0}. Продължаване?",
     "Str.AIChat.Title": "AI чат",

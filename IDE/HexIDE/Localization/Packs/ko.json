@@ -2,6 +2,11 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "리팩터링",
+    "Str.Menu.Edit.SourceActions": "소스 작업",
+    "Str.CodeEditor.Refactor": "리팩터링",
+    "Str.CodeEditor.SourceActions": "소스 작업",
+    "Str.CodeEditor.NoCodeActions": "적용 가능한 작업이 없습니다.",
     "Str.Startup.ProjectFileArgument": "프로젝트 파일",
     "Str.ProjectFile.ReplaceModel": "프로젝트 파일 텍스트를 적용하면 {0}의 저장하지 않은 프로젝트 설정이 바뀝니다. 계속하시겠습니까?",
     "Str.MemberOrigin.HexIde": "HexIDE 확장 기능이며 VB6에서는 사용할 수 없습니다.",

@@ -2,6 +2,11 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "Re_factoriser",
+    "Str.Menu.Edit.SourceActions": "Actions du c_ode source",
+    "Str.CodeEditor.Refactor": "Refactoriser",
+    "Str.CodeEditor.SourceActions": "Actions du code source",
+    "Str.CodeEditor.NoCodeActions": "_Aucune action applicable.",
     "Str.Startup.ProjectFileArgument": "fichier projet",
     "Str.ProjectFile.ReplaceModel": "Appliquer le texte du fichier projet remplacera les paramètres non enregistrés du projet {0}. Continuer ?",
     "Str.AIChat.Title": "Chat IA",

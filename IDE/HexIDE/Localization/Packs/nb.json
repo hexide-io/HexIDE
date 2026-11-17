@@ -2,6 +2,11 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.Refactor": "Refaktorer",
+    "Str.Menu.Edit.SourceActions": "Kil_dekodehandlinger",
+    "Str.CodeEditor.Refactor": "Refaktorer",
+    "Str.CodeEditor.SourceActions": "Kildekodehandlinger",
+    "Str.CodeEditor.NoCodeActions": "_Ingen aktuelle handlinger.",
     "Str.Startup.ProjectFileArgument": "prosjektfil",
     "Str.ProjectFile.ReplaceModel": "Bruk av prosjektfilens tekst erstatter ulagrede prosjektinnstillinger for {0}. Fortsette?",
     "Str.MemberOrigin.HexIde": "HexIDE-utvidelse; ikke tilgjengelig i VB6.",
