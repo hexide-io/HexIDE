@@ -427,6 +427,8 @@ deftypeStmt
         | DEFBYTE
         | DEFINT
         | DEFLNG
+        | DEFLNGLNG
+        | DEFLNGPTR
         | DEFCUR
         | DEFSNG
         | DEFDBL
@@ -1094,6 +1096,7 @@ typeHint
     | EXCLAMATIONMARK
     | HASH
     | PERCENT
+    | POW
     ;
 
 visibility
@@ -1139,6 +1142,8 @@ ambiguousKeyword
     | DEFDEC
     | DEFINT
     | DEFLNG
+    | DEFLNGLNG
+    | DEFLNGPTR
     | DEFOBJ
     | DEFSNG
     | DEFSTR
