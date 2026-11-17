@@ -2817,6 +2817,7 @@ public partial class ProjectService : IProjectService
         }
     }
 
+    public bool HasUnsavedChanges(ProjectDefinition project) => IsDirty(project);
     public bool HasUnsavedChanges(FormDefinition form) => IsDirty(form);
     public bool HasUnsavedChanges(ModuleDefinition module) => IsDirty(module);
 

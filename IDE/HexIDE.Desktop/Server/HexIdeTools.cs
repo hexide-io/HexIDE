@@ -2727,15 +2727,17 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
     [McpServerTool(Name = "shutdown_ide")]
     [Description("Shuts down the HexIDE application cleanly, triggering all shutdown handlers. " +
-                 "Stops a running project and closes any dialogs still open first; floating IDE tools stay floating. Otherwise the app " +
+                 "With force=true, stops a running project and closes any dialogs still open first; floating IDE tools stay floating. Otherwise the app " +
                  "keeps running (its shutdown mode is last-window-close) and the next build fails on a " +
                  "file lock. The reply says what was torn down; it CANNOT confirm the process exited, " +
                  "because the reply has to be sent before it does — poll /health until it stops " +
-                 "answering for that. " +
+                 "answering for that when no save prompt is waiting. " +
                  "`force` (default true) skips the save-changes prompt and DISCARDS unsaved edits — " +
                  "without it that prompt would block the shutdown and wedge automation. " +
                  "Pass force=false to get exactly what a user closing the window sees, including the " +
-                 "prompt; the IDE then stays up if the user cancels.")]
+                 "prompt; the IDE then stays up if the user cancels. The reply lists discardedDocuments " +
+                 "as project/document names (project-file edits use the project name), empty when none were discarded. " +
+                 "With force=false and unsaved work, the note names it and directs you to dump_visual_tree then interact to answer the prompt.")]
     public async Task<ShutdownResult> ShutdownIdeAsync(bool force = true, CancellationToken ct = default)
     {
         var response = httpContextAccessor?.HttpContext?.Response
@@ -2743,8 +2745,24 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
         // Tear down synchronously so the reply says what happened. The main window stays open until the
         // response completes: merely posting its close can still end the process before the reply is sent.
-        var (projectStopped, dialogsClosed) = await Dispatcher.UIThread.InvokeAsync(() =>
-            IdeShutdown.Prepare(ctx, force));
+        var (projectStopped, dialogsClosed, unsaved) = await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            ctx.EventBus.Publish(new HexIDE.Events.ApplyAllUnsavedChangesEvent());
+            var documents = new List<string>();
+            foreach (var project in ctx.ProjectManager.LoadedProjects)
+            {
+                if (ctx.ProjectService.HasUnsavedChanges(project))
+                    documents.Add(project.Name);
+                foreach (var form in project.Forms)
+                    if (ctx.ProjectService.HasUnsavedChanges(form))
+                        documents.Add($"{project.Name}/{form.Name}");
+                foreach (var module in project.Modules)
+                    if (ctx.ProjectService.HasUnsavedChanges(module))
+                        documents.Add($"{project.Name}/{module.Name}");
+            }
+            var prepared = IdeShutdown.Prepare(ctx, force);
+            return (prepared.ProjectStopped, prepared.DialogsClosed, documents.ToArray());
+        });
 
         response.OnCompleted(() =>
         {
@@ -2752,8 +2770,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return Task.CompletedTask;
         });
 
-        return new ShutdownResult(true, projectStopped, dialogsClosed,
-            "Shutdown requested. Poll /health until it stops answering to confirm the process exited.");
+        var note = !force && unsaved.Length > 0
+            ? $"A save-changes prompt will open and wait for: {string.Join(", ", unsaved)}. " +
+              "Use dump_visual_tree {window: \"auto\"}, then interact on Yes, No or Cancel. Cancel keeps the IDE running."
+            : (force ? unsaved.Length > 0
+                ? "Discarded unsaved changes to: " + string.Join(", ", unsaved) + ". "
+                : "Discarded no unsaved changes. " : "") +
+              "Shutdown requested. Poll /health until it stops answering to confirm the process exited.";
+        return new ShutdownResult(true, projectStopped, dialogsClosed, note, force ? unsaved : []);
     }
 
     private static readonly (string Name, int MinimumSelection, Func<HexIDE.VisualDesigner.FormEditViewModel, Action> Of)[] FormatCommands =
@@ -4695,9 +4719,9 @@ internal record MutateResult(
 /// <summary>
 /// What <c>shutdown_ide</c> tore down on the way out. <see cref="Requested"/> is deliberately not
 /// "succeeded": the reply has to be sent before the process exits, so no in-process result can honestly
-/// claim it did. Poll <c>/health</c> for that.
+/// claim it did. Poll <c>/health</c> for that when no save prompt is waiting.
 /// </summary>
-internal record ShutdownResult(bool Requested, bool ProjectStopped, int DialogsClosed, string Note);
+internal record ShutdownResult(bool Requested, bool ProjectStopped, int DialogsClosed, string Note, string[] DiscardedDocuments);
 
 /// <param name="Project">The project the file was added to, by its own name.</param>
 /// <param name="Document">The new document's name.</param>
