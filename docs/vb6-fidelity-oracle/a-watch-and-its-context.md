@@ -133,7 +133,94 @@ one per Property procedure? And what does the Context column then read?
   window open; with the caret in a module's declarations it is that module (the section above).
 
 **Unmeasured:**
-- what the Context column reads for a watch added with Module `(All Modules)`;
+- what the Context column reads for a watch added with Module `(All Modules)` (measured in the next section);
 - a `Property Set`;
-- whether a watch scoped to `X(Get)` evaluates while paused in `X(Let)`;
+- whether a watch scoped to `X(Get)` evaluates while paused in `X(Let)` (measured in the next section);
 - Procedure's default with the caret inside a procedure.
+
+
+## A watch scoped to one accessor, and a watch on (All Modules) (2026-11-17, #4401, #4452)
+
+**The questions.**
+- Does a watch scoped to `X(Get)` evaluate while paused in `X(Let)`?
+- What does the Context column read for a watch added with Module `(All Modules)`, and where does that watch evaluate?
+
+**The probe:**
+- **The software:** VB6's IDE, SP6, on the oracle VM (Windows 10). Measured by the hexide-int session, at hexide-mcp's
+  request.
+- **The project:** the one in the section above, changed so each accessor stops, plus a third stop outside the class:
+
+  ```vb
+  ' Class1
+  Private m As Long
+
+  Public Property Get X() As Long
+      Stop
+      X = m
+  End Property
+
+  Public Property Let X(ByVal v As Long)
+      Stop
+      m = v
+  End Property
+
+  ' Form1
+  Private Sub Form_Load()
+      Dim c As New Class1
+      c.X = 5
+      Debug.Print c.X
+      Stop
+  End Sub
+  ```
+
+- **The first run:** four watches, read in design mode and then at each stop in turn:
+  - `m` at `Class1.X(Get)`;
+  - `m` at `Class1.X(Let)`;
+  - `v` at `Class1.X(Let)`;
+  - `m` at `Class1`, `(All Procedures)`.
+- **The second run:** watches added with Module `(All Modules)`. The project gained `Module1` with `Public g As Long`, and
+  Form_Load gained `g = 7`.
+- **How it was read:** from the Watches window, at each stop, with screenshots kept by hexide-int.
+
+**What the first run showed** (Value / Type):
+
+| Watch, and its Context column | Stop in the Let (`m` 0, `v` 5) | Stop in the Get (`m` 5) | Stop in Form_Load |
+|---|---|---|---|
+| `m`, `Class1.X(Get)` | `<Out of context>` / Empty | 5 / Long | `<Out of context>` / Empty |
+| `m`, `Class1.X(Let)` | 0 / Long | `<Out of context>` / Empty | `<Out of context>` / Empty |
+| `v`, `Class1.X(Let)` | 5 / Long | `<Out of context>` / Empty | `<Out of context>` / Empty |
+| `m`, `Class1` | 0 / Long | 5 / Long | `<Out of context>` / Empty |
+
+In design mode all four read `<Out of context>` / Empty.
+
+**What the second run showed**, for watches added with Module `(All Modules)`:
+
+| Watch | Context column | Value / Type |
+|---|---|---|
+| `m`, Class1's Private | blank | `<Expression not defined in context>` / Empty at all three stops, the one inside Class1's own Let included |
+| `g`, Module1's Public | blank | 0 / Long in design mode; 7 / Long at the stop in the Let |
+| `1 + 1` | blank | 2 / Integer in design mode and at the stop in the Let |
+
+The blank Context column was seen on 3 watches across 2 projects.
+
+**What it shows:**
+- **Each accessor is its own context.** A watch scoped to `X(Get)` reads `<Out of context>` in the Let, and one scoped to
+  `X(Let)` reads it in the Get. A watch on the module, `(All Procedures)`, evaluates in any of the module's procedures
+  and nowhere else.
+- **`(All Modules)` is project scope, not the scope execution is stopped in.** A class's Private variable isn't found
+  even while stopped inside that class, and the message, `<Expression not defined in context>`, differs from
+  `<Out of context>`. A standard module's Public variable is found. Such a watch also evaluates in design mode, where
+  every scoped watch reads `<Out of context>`.
+- **The guesses this overturns.** A watch on `X(Get)` could have applied in any procedure named `X`; it doesn't. The
+  natural reading of `(All Modules)`, "wherever execution is stopped", is wrong.
+
+**What resisted explanation:**
+- **The order of the Watches window's rows.** In all 3 runs the rows came out ordered by Expression, then by Context,
+  with a blank Context first: `1 + 1` before `g`, though `g` was added first. Three runs can't tell that from other
+  orders, so it is not a rule. A row added in an order that discriminates would settle it. Don't build on it.
+
+**Unmeasured:**
+- under `(All Modules)`, a Private module-level variable of a standard module, and a procedure's local;
+- `m` under `(All Modules)` in design mode;
+- `g` and `1 + 1` under `(All Modules)` at the stops in the Get and in Form_Load;
+- a `Property Set`.

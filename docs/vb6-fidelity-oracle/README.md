@@ -736,6 +736,7 @@ added afterwards.
 - [What a Timer has at run time (2026-10-27, #801)](what-a-timer-has-at-run-time.md#what-a-timer-has-at-run-time-2026-10-27-801)
 - [A watch and its context, in the IDE's Watches window (2026-10-27, #2290)](a-watch-and-its-context.md#a-watch-and-its-context-in-the-ides-watches-window-2026-10-27-2290)
 - [Add Watch's Module and Procedure lists, for a property (2026-11-17, #4401)](a-watch-and-its-context.md#add-watchs-module-and-procedure-lists-for-a-property-2026-11-17-4401)
+- [A watch scoped to one accessor, and a watch on (All Modules) (2026-11-17, #4401, #4452)](a-watch-and-its-context.md#a-watch-scoped-to-one-accessor-and-a-watch-on-all-modules-2026-11-17-4401-4452)
 - [In-box controls: the MonthView (2026-10-27, #1095)](in-box-controls-the-monthview.md#in-box-controls-the-monthview-2026-10-27-1095)
 - [Key events: KeyDown, KeyPress and KeyUp (2026-10-27, #2325)](key-events-keydown-keypress-and-keyup.md#key-events-keydown-keypress-and-keyup-2026-10-27-2325)
 - [In-box controls: the ImageCombo (2026-10-27, #1092)](in-box-controls-the-imagecombo.md#in-box-controls-the-imagecombo-2026-10-27-1092)
