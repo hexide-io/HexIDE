@@ -23,7 +23,7 @@ public class DesignerReferenceTests
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
             new ComponentRegistry(), Substitute.For<ILocalizationService>());
         var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
-            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat())
+            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>())
             .Initialize(new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), FormComponentClass.Instance, "Form1"));
         vm.SpawnControlAt(CommandButtonComponentClass.Instance, new Rect(20, 20, 60, 30));
         var first = vm.SelectedComponent!;

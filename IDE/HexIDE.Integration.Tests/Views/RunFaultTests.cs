@@ -196,7 +196,7 @@ public class RunFaultTests
             new HexIDE.VisualDesigner.ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(), new ComponentRegistry(),
                 Substitute.For<ILocalizationService>()), new EventBus(), Substitute.For<HexIDE.Projects.IProjectService>(),
             Substitute.For<IEditorService>(), run.WindowManager, Substitute.For<ISettingsService>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(run.Project.Forms.Single()) : null;
+            Substitute.For<ILocalizationService>()).Initialize(run.Project.Forms.Single()) : null;
         if (designer is not null)
         {
             designer.IsReadOnly.Should().BeFalse();

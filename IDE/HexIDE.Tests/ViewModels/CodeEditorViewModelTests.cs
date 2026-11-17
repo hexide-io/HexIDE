@@ -43,9 +43,7 @@ public class CodeEditorViewModelTests : IDisposable
     private CodeEditorViewModel CreateSut()
     {
         _sut = new CodeEditorViewModel(
-            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _runScope, _localization,
-                new Vb6ProjectFileFormat(),
-                new Vb6ReadOnlyRegionReader(), recentEditHistory: recentEdits);
+            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _runScope, _localization, recentEditHistory: recentEdits);
         return _sut;
     }
 
@@ -622,7 +620,7 @@ public class CodeEditorViewModelTests : IDisposable
         module.UpdateCode("Option Explicit\r\n");
         var vm = CreateSut().Initialize(module);
 
-        var detector = new DirtyDetector(new FileBaselineStore(), Substitute.For<IProjectService>(), new Vb6ProjectFileFormat());
+        var detector = new DirtyDetector(new FileBaselineStore(), Substitute.For<IProjectService>());
 
         detector.Classify(new WatchedFileTarget("Module1.bas", null, module, vm, null))
             .Should().Be(ReloadDecision.CleanReload);
@@ -640,7 +638,7 @@ public class CodeEditorViewModelTests : IDisposable
 
         vm.Document.Text += "Dim x As Long\r\n";
 
-        var detector = new DirtyDetector(new FileBaselineStore(), Substitute.For<IProjectService>(), new Vb6ProjectFileFormat());
+        var detector = new DirtyDetector(new FileBaselineStore(), Substitute.For<IProjectService>());
 
         detector.Classify(new WatchedFileTarget("Module1.bas", null, module, vm, null))
             .Should().Be(ReloadDecision.Conflict);

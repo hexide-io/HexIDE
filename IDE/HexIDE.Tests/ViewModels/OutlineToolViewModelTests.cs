@@ -107,7 +107,7 @@ public class OutlineToolViewModelTests
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).Initialize(TestHelpers.CreateForm());
+            Substitute.For<ILocalizationService>()).Initialize(TestHelpers.CreateForm());
 
     [AvaloniaFact]
     public async Task ActiveDocument_RefreshesFollowsCaretNavigatesAndClears()
@@ -119,7 +119,7 @@ public class OutlineToolViewModelTests
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).Initialize(TestHelpers.CreateForm());
+            Substitute.For<ILocalizationService>()).Initialize(TestHelpers.CreateForm());
         var documents = Substitute.For<IDocumentDockService>();
         documents.ActiveDocument.Returns(editor);
         using var sut = new OutlineToolViewModel(Substitute.For<ILocalizationService>(), documents);

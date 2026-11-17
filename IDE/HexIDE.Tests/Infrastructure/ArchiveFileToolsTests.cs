@@ -41,8 +41,7 @@ public sealed class ArchiveFileToolsTests : IDisposable
             () => throw new InvalidOperationException(), () => projects, localization,
             projects: () => Substitute.For<IProjectService>());
         context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), editors, null!, null!, null!, null!,
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader(), archives: archives);
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, archives: archives);
         tools = new HexIdeTools(context);
     }
 

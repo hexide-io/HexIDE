@@ -67,8 +67,7 @@ public class UnfaithfulSaveGateTests : IDisposable
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
 
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => throw new InvalidOperationException("new-project dialog must not be reached"),
+        return new ProjectService(            () => throw new InvalidOperationException("new-project dialog must not be reached"),
             windowManager,
             Substitute.For<IEventBus>(),
             projectManager,
@@ -77,8 +76,7 @@ public class UnfaithfulSaveGateTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             localization,
-            Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
     }
 
     private const string FlatForm =
@@ -199,8 +197,7 @@ public class UnfaithfulSaveGateTests : IDisposable
             events, Substitute.For<HexIDE.Lsp.ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), new Vb6ProjectFileFormat(),
-            new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader()).Initialize(form))
+            Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form))
         {
             editor.IsReadOnly.Should().BeFalse("the corpus must open without the read-only banner");
             editor.ReadOnlyReason.Should().BeNull();

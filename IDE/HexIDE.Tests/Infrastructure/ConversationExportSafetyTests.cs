@@ -16,7 +16,7 @@ public class ConversationExportSafetyTests
         await using var capture = new ConversationLog();
         using var context = new IdeContext(Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(),
             Substitute.For<ILspClient>(), null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            null!, capture, new Pseudonymiser(), null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            null!, capture, new Pseudonymiser(), null!, null!);
         var tools = new HexIdeTools(context);
         LspExportResult? first = null;
         LspExportResult? second = null;

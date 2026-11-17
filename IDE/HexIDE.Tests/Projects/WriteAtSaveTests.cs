@@ -55,8 +55,7 @@ public class WriteAtSaveTests : IDisposable
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
 
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => throw new InvalidOperationException("new-project dialog must not be reached"),
+        return new ProjectService(            () => throw new InvalidOperationException("new-project dialog must not be reached"),
             windowManager,
             Substitute.For<IEventBus>(),
             projectManager,
@@ -65,8 +64,7 @@ public class WriteAtSaveTests : IDisposable
             realSidecar ?? sidecar,
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            refresher ?? Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat(), new ComponentRegistry());
+            refresher ?? Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
     }
 
     /// <summary>A project as File ▸ New Project leaves it: no file and no folder.</summary>
@@ -310,8 +308,7 @@ public class WriteAtSaveTests : IDisposable
         var bookmarks = new BookmarkService();
         var breakpoints = new BreakpointService();
         var manager = Substitute.For<IProjectManager>();
-        var sidecar = new UserSidecarService(bookmarks, breakpoints, manager,
-            new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader())
+        var sidecar = new UserSidecarService(bookmarks, breakpoints, manager)
         {
             Debounce = token => Task.Delay(System.Threading.Timeout.Infinite, token),
         };
@@ -323,8 +320,8 @@ public class WriteAtSaveTests : IDisposable
         bookmarks.SetBookmarks(document, [line]);
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
-        using var refresher = new HeaderRefresher(new Vb6ReadOnlyRegionWriter(), new EventBus(), dock,
-            breakpoints, bookmarks, new Vb6ProjectFileFormat());
+        using var refresher = new HeaderRefresher(new EventBus(), dock,
+            breakpoints, bookmarks);
 
         await MakeService(sidecar, refresher).SaveProject(project, saveAs: false);
         await sidecar.SaveAsync(project);
@@ -372,7 +369,7 @@ public class WriteAtSaveTests : IDisposable
             Substitute.For<HexIDE.Lsp.ILspClient>(), Substitute.For<ISettingsService>(),
             Substitute.For<IStatusBarService>(), bookmarks, breakpoints,
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<IRunScope>(),
-            new HexIDE.Localization.LocalizationService(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).Initialize(form);
+            new HexIDE.Localization.LocalizationService()).Initialize(form);
 
     private sealed class ThrowingSink : IDeserializeErrorSink
     {

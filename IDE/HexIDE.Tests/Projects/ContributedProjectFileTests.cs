@@ -60,10 +60,10 @@ public sealed class ContributedProjectFileTests : IDisposable
         });
         _windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(),
             Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>()).Returns(Task.FromResult(MessageBoxResult.Ok));
-        _service = new ProjectService(new Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException("no new-project dialog"), _windows,
+        _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
-            Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry(), contributed: _types);
+            Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: _types);
     }
 
     public void Dispose()
@@ -667,7 +667,7 @@ public sealed class ContributedProjectFileTests : IDisposable
         using var type = Contribute();
         await Opened();
 
-        var workspace = new ProjectLspWorkspace(() => _projects, new Vb6ProjectFileFormat());
+        var workspace = new ProjectLspWorkspace(() => _projects);
 
         workspace.Projects.Should().ContainSingle().Which.ProjectText
             .Should().BeNull("the text would be the add-in's format, which a VB6 server doesn't read");

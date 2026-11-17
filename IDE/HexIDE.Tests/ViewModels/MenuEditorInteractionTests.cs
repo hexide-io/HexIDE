@@ -100,7 +100,7 @@ public class MenuEditorInteractionTests
         var windows = Substitute.For<IWindowManager>();
         using var designer = new FormEditViewModel(null!, new EventBus(), Substitute.For<IProjectService>(),
             Substitute.For<IEditorService>(), windows, Substitute.For<ISettingsService>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+            Substitute.For<ILocalizationService>()).Initialize(form);
         windows.ShowDialog(Arg.Any<IDialog>()).Returns(call =>
         {
             using var editor = new Editor((MenuEditorViewModel)call[0]);
@@ -158,7 +158,7 @@ public class MenuEditorInteractionTests
         var project = TestHelpers.CreateProjectWithForm("P", "Form1");
         using var designer = new FormEditViewModel(null!, new EventBus(), Substitute.For<IProjectService>(),
             Substitute.For<IEditorService>(), Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(),
-            localization, new Vb6ProjectFileFormat()).Initialize(project.Forms.First());
+            localization).Initialize(project.Forms.First());
         using var editor = new Editor(new MenuEditorViewModel(designer, localization), language);
         var shortcuts = editor.Field<ComboBox>("ShortcutField");
         shortcuts.Items.Should().HaveCount(76);

@@ -67,7 +67,7 @@ public class CodePrefixEquivalenceTests
         var lines = text[..end].Count(c => c == '\n');
         if (end > 0 && text[end - 1] != '\n') lines++;
 
-        var window = DocumentContent.TextOf(document, null, format, new Vb6ReadOnlyRegionReader());
+        var window = DocumentContent.TextOf(document, null);
         window.HeaderLineCount.Should().Be(lines);
         (window.LeadingRegion?.End ?? 0).Should().Be(end);
         end.Should().Be(ReadOnlyRegions.HeaderEnd(text, prefix.Length));
@@ -79,11 +79,7 @@ public class CodePrefixEquivalenceTests
     public void The_omitted_attribute_note_keeps_todays_answer(string kind)
     {
         var document = Document(kind);
-        DocumentContent.LeftOutLeadingRegion(document, "Option Explicit\r\n",
-            format: new Vb6ProjectFileFormat(),
-            reader: new Vb6ReadOnlyRegionReader()).HasValue.Should().Be(kind is "form" or "new form" or "ctl" or "pag");
-        DocumentContent.LeftOutLeadingRegion(document, FormCodeText.Prefix(document) + (document.Module?.Code ?? document.Form!.Code),
-            format: new Vb6ProjectFileFormat(),
-            reader: new Vb6ReadOnlyRegionReader()).HasValue.Should().BeFalse();
+        DocumentContent.LeftOutLeadingRegion(document, "Option Explicit\r\n").HasValue.Should().Be(kind is "form" or "new form" or "ctl" or "pag");
+        DocumentContent.LeftOutLeadingRegion(document, FormCodeText.Prefix(document) + (document.Module?.Code ?? document.Form!.Code)).HasValue.Should().BeFalse();
     }
 }

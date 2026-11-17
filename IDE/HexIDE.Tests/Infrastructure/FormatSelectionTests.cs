@@ -24,7 +24,7 @@ public class FormatSelectionTests
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
             new ComponentRegistry(), Substitute.For<ILocalizationService>());
         return new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
-            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
     }
 
     [AvaloniaTheory]
@@ -135,9 +135,7 @@ public class FormatSelectionTests
         var dock = Substitute.For<IDocumentDockService>();
         dock.ActiveDocument.Returns(vm);
         using var context = new IdeContext(Substitute.For<IProjectManager>(), dock, Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-                new Vb6ProjectFileFormat(),
-                new Vb6ReadOnlyRegionReader());
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
         var controls = vm.AllComponents.Where(c => c.Name.StartsWith("Command")).ToArray();
         for (var count = 0; count < minimum; count++)

@@ -111,11 +111,10 @@ public class ObjectBrowserReloadTests
                     call.Arg<SaveChangesViewModel>().No();
                     return true;
                 });
-                var service = new ProjectService(new Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(),
+                var service = new ProjectService(() => throw new InvalidOperationException(),
                     windows, new EventBus(), projects, Substitute.For<IRecentProjectsService>(),
                     Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-                    Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(),
-                    new ComponentRegistry());
+                    Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(),                     new ComponentRegistry());
                 await service.OpenProject();
             }
             finally { Directory.Delete(directory, true); }
