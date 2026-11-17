@@ -274,7 +274,7 @@ public class VBWindowContext : IModuleExecutionRoot
     }
 
     // The event is measured; PropertyBag operations are not part of #1631 and remain explicitly refused.
-    private sealed class UnimplementedPropertyBag : ICSharpProxy, ICSharpPropertyBag
+    internal sealed class UnimplementedPropertyBag : ICSharpProxy, ICSharpPropertyBag
     {
         public void Call(string method, List<Vb6Value> args) => throw new NotImplementedException($"PropertyBag.{method}");
         public bool TryGetProperty(string name, out Vb6Value value) => throw new NotImplementedException($"PropertyBag.{name}");
@@ -283,6 +283,11 @@ public class VBWindowContext : IModuleExecutionRoot
 
     private IEnumerable<VBUserControl> UserControls => EnsureInstance().Controls?.All.OfType<VBUserControl>()
         .OrderBy(AvaloniaInterop.UserControlMembers.Windowless) ?? Enumerable.Empty<VBUserControl>();
+
+    // Keep each array in index order, including elements loaded out of order, without reordering other controls.
+    private IEnumerable<VBUserControl> OrderedUserControls => UserControls
+        .GroupBy(c => ControlArrayGroup.TryGetArrayOf(c, out var group) ? (object)group : c)
+        .SelectMany(group => group.OrderBy(VBProps.GetIndex));
 
     private async Task StartControls()
     {
@@ -305,14 +310,14 @@ public class VBWindowContext : IModuleExecutionRoot
         if (controlsShown)
             return;
         controlsShown = true;
-        foreach (var control in UserControls)
-            if (!AvaloniaInterop.UserControlMembers.Invisible(control))
+        foreach (var control in OrderedUserControls)
+            if ((!control.LoadedAtRunTime || control.IsVisible) && !AvaloniaInterop.UserControlMembers.Invisible(control))
                 control.ExecuteSub("UserControl_Show");
     }
 
     private async Task StopControls()
     {
-        foreach (var control in UserControls)
+        foreach (var control in OrderedUserControls)
         {
             if (control.Context is not { } context)
                 continue;

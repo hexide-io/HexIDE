@@ -9,6 +9,18 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     event Action? RunStarting;
 
     void RunProject(ProjectDefinition projectDefinition, bool stepInto = false);
+
+    /// <summary>
+    /// Whether a file that names what runs, such as a debug launch file, may run: asks first when it came from outside
+    /// this computer and hasn't been allowed, as a start asks about a project's code (#1121).
+    /// </summary>
+    Task<bool> MayRunFileAsync(string path);
+
+    /// <summary>
+    /// The files HexIDE is asking whether to run, while the question is up (#1121). A start that asked starts nothing
+    /// until it is answered Yes, and then starts by itself.
+    /// </summary>
+    IReadOnlyList<UntrustedFile>? AskingToRun { get; }
     /// <summary>Runs the startup project in the IDE, as Run To Cursor, Restart, a full compile and F8 from idle do.</summary>
     void RunStartupProject(bool stepInto = false);
 

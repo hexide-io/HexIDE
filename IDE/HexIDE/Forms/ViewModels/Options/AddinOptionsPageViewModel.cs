@@ -1,5 +1,9 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
+using System.Linq;
+using HexIDE.IDE;
+using HexIDE.Lsp;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -33,7 +37,9 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
     /// add-in writes are saved, or let go, while it can still write them.
     /// </param>
     public AddinOptionsPageViewModel(IAddinRegistry registry, AddinInfo info, Func<object>? contributedFactory = null,
-        Func<string, Task<bool>>? confirmWithdrawal = null, ILocalizationService? localization = null)
+        Func<string, Task<bool>>? confirmWithdrawal = null, ILocalizationService? localization = null,
+        ISettingsService? settings = null,
+        IReadOnlyList<(string Name, AddinServerConnection Connection)>? servers = null)
     {
         _registry = registry;
         _info = info;
@@ -47,10 +53,18 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
         _status = _trustStatus = registry.GetStatus(_assemblyPath);
         ContributedContent = BuildContributedContent(contributedFactory);
         Logo = DecodeLogo(info);
+        Servers = settings is null ? [] : (servers ?? []).Select(server =>
+            new AddinServerSettingsViewModel(server.Name, server.Connection, settings)).ToList();
         _localization.LanguageChanged += OnLanguageChanged;
     }
 
-    public void Dispose() => _localization.LanguageChanged -= OnLanguageChanged;
+    public IReadOnlyList<AddinServerSettingsViewModel> Servers { get; }
+
+    public void Dispose()
+    {
+        _localization.LanguageChanged -= OnLanguageChanged;
+        foreach (var server in Servers) server.Dispose();
+    }
 
     private void OnLanguageChanged()
     {

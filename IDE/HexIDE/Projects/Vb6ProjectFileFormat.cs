@@ -11,6 +11,17 @@ namespace HexIDE.Projects;
 /// </summary>
 public sealed class Vb6ProjectFileFormat : IProjectFileFormat
 {
+    public string FormExtension => "frm";
+
+    /// <summary>The file extension VB6 gives a module of this kind.</summary>
+    public string MemberExtension(ModuleKind kind) => kind switch
+    {
+        ModuleKind.ClassModule  => "cls",
+        ModuleKind.UserControl  => "ctl",
+        ModuleKind.PropertyPage => "pag",
+        _                       => "bas"
+    };
+
     /// <inheritdoc/>
     public FormatRegions Regions { get; } =
         new(new Vb6ReadOnlyRegionReader(), new Vb6ReadOnlyRegionWriter(), new Vb6ReadOnlyRegionRules());

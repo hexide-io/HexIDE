@@ -119,6 +119,11 @@ fitted to the serials vb6.exe actually made.
   second it showed while a fraction was cut off.
 - **`DateFractionOfASecondTests`** builds every serial as the exact Double vb6.exe made, from its logged bits, and must show
   and read it as vb6.exe did, line for line, as must every function case that does not read the clock.
-- **Two rows are left out**, though each is right to the second: `Format$(d, "hh:nn:ss AMPM")`, where HexIDE does not
-  know the `AMPM` token (#2040), and `Format$(e, "Long Date")`, where .NET's ICU pattern for en-GB adds the weekday
-  Windows leaves out (#2041).
+- **Two rows were left out**, though each is right to the second. Both run on every host now. This is implementation
+  status, and changes no measurement.
+  - `Format$(d, "hh:nn:ss AMPM")`: HexIDE didn't know the `AMPM` token until #2040, and then printed `12:00:01 pm`,
+    ICU's en-GB designator, where vb6.exe printed `12:00:01 PM` (rechecked 2026-11-17 on Windows and Linux). Since
+    #4378 the designators come from Windows' locale data: from NLS on Windows, and from the generated table elsewhere.
+  - `Format$(e, "Long Date")`: .NET's ICU pattern for en-GB added the weekday that Windows leaves out. Since #2041 and
+    #3928 it comes from Windows' own pattern, from NLS on Windows and from the generated table elsewhere, and prints
+    `01 January 2000`, as vb6.exe did.

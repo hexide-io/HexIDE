@@ -186,6 +186,9 @@ public static class AvaloniaInteroperability
         Register<VBOptionButton, VBAppearance>(VBProperties.AppearanceProperty, VBOptionButton.AppearanceProperty);
         Register<VBOptionButton, bool>(VBProperties.OptionValueProperty, VBOptionButton.ValueProperty);
 
+        Register<VBCommandButton, bool>(VBProperties.DefaultProperty, button => button.Default, (button, value) => button.Default = value);
+        Register<VBCommandButton, bool>(VBProperties.CancelProperty, button => button.Cancel, (button, value) => button.Cancel = value);
+
         Register<VBCommandButton, bool>(VBProperties.CommandValueProperty, _ => false, (button, value) =>
         {
             // Only the True assignment is measured (#2065); keep refusing False until it is measured.

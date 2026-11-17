@@ -1749,7 +1749,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     }
 
     /// <summary>Applies reloaded settings to the named server, retaining them for its next start too.</summary>
-    public async Task UpdateServerSettingsAsync(string id, JsonElement? settings)
+    public async Task UpdateServerSettingsAsync(string id, JsonElement? settings, bool forceNotification = false)
     {
         var entry = _entries.FirstOrDefault(e => e.Registration.Id == id);
         if (entry is null) return;
@@ -1757,7 +1757,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         try
         {
             entry.Registration = entry.Registration with { Settings = settings?.Clone() };
-            if (entry.Client is VBLspClient client) await client.UpdateServerSettingsAsync(settings);
+            if (entry.Client is VBLspClient client) await client.UpdateServerSettingsAsync(settings, forceNotification);
         }
         finally { entry.Gate.Release(); }
     }

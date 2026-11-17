@@ -236,6 +236,8 @@ public sealed class ProjectFormatPerProjectTests : IDisposable
 
     private sealed class ThrowingFormat : IProjectFileFormat
     {
+        public string FormExtension => throw Asked("form extension");
+        public string MemberExtension(ModuleKind kind) => throw Asked("member extension");
         public FormatRegions? Regions => throw Asked("format's regions");
         public RenderedFile RenderForm(FormDefinition form, string fileName) => throw Asked("format");
         public RenderedFile RenderModule(ModuleDefinition module, string fileName) => throw Asked("format");

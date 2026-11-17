@@ -36,6 +36,9 @@ internal sealed class RegionStandInFormat(IReadOnlyRegionReader? reader = null, 
         return project;
     }
 
+    public string FormExtension => Inner.FormExtension;
+    public string MemberExtension(ModuleKind kind) => Inner.MemberExtension(kind);
+
     public RenderedFile RenderForm(FormDefinition form, string fileName) => Inner.RenderForm(form, fileName);
     public RenderedFile RenderModule(ModuleDefinition module, string fileName) => Inner.RenderModule(module, fileName);
     public string RenderDesignerHeader(FormDefinition form, string fileName) => Inner.RenderDesignerHeader(form, fileName);

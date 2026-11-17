@@ -2492,6 +2492,9 @@ public partial class MainViewViewModel : ObservableObject
             FileTypeFilter = [new Avalonia.Platform.Storage.FilePickerFileType("JSON") { Patterns = ["*.json"] }],
         });
         if (paths?.FirstOrDefault() is not { } file || projectRunnerService.IsRunning) return;
+        // A launch file names the program it starts, so a downloaded one is asked about as a downloaded project is (#1121).
+        if (!await projectRunnerService.MayRunFileAsync(file))
+            return;
         OpenImmediateTool();
         await ExternalDebugger.StartAsync(file);
     }
@@ -2558,11 +2561,12 @@ public partial class MainViewViewModel : ObservableObject
             AllowMultiple = true,
             FileTypeFilter =
             [
-                new FilePickerFileType("VB6 Files")
+                new FilePickerFileType(localization.GetString("Str.FilePicker.MemberFiles"))
                 {
-                    Patterns = ["*.bas", "*.cls", "*.frm", "*.ctl", "*.pag"],
+                    Patterns = ["*." + ProjectFormats.Of(p).FormExtension,
+                        .. Enum.GetValues<ModuleKind>().Select(kind => "*." + ProjectFormats.Of(p).MemberExtension(kind)).Distinct()],
                 },
-                new FilePickerFileType("All Files") { Patterns = ["*.*"] },
+                new FilePickerFileType(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] },
             ],
         });
 

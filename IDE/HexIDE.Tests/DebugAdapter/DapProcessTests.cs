@@ -49,6 +49,27 @@ public class DapProcessTests
     }
 
     [Fact]
+    public async Task Disconnect_reads_what_the_adapter_writes_after_its_reply()
+    {
+        // debugpy answers disconnect and then sends one more event (#3894). Closing the adapter's output on the reply made
+        // that write fail with a broken pipe, and debugpy exit 1. The fixture writes the same event after a pause, and
+        // the capture shows whether it was still read.
+        await using var log = new ConversationLog();
+        await using var session = DapSession.Start(Options("disconnect-late-event") with { Capture = new(log, "dap:late") });
+        await session.LaunchAsync("fixture", JsonSerializer.SerializeToElement(new { }), [], TestToken)
+            .WaitAsync(Patience, TestToken);
+        await session.DisconnectAsync(TestToken).WaitAsync(Patience, TestToken);
+        var result = await session.ProcessCompletion!.WaitAsync(Patience, TestToken);
+        result.ExitCode.Should().Be(0);
+        result.ForcedTermination.Should().BeFalse("the adapter exits by itself once its input ends");
+        session.Snapshot.State.Should().Be(DapSessionState.Ended);
+        await log.DrainAsync();
+        log.Snapshot("dap:late").Should().Contain(e => e.Kind == ConversationEntryKind.Notification
+            && e.Direction == ConversationDirection.Received && e.Method == "debugpySockets",
+            "the adapter's output stays open, and read, until the adapter closes it");
+    }
+
+    [Fact]
     public async Task Launch_preserves_argument_boundaries_working_directory_and_environment()
     {
         var directory = Path.Combine(Path.GetTempPath(), "dap fixture " + Guid.NewGuid());

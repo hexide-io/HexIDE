@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using HexIDE.Addins;
+using HexIDE.IDE;
 using Microsoft.Extensions.Logging;
 
 namespace HexIDE.Lsp;
@@ -22,6 +23,7 @@ namespace HexIDE.Lsp;
 /// </para>
 /// </remarks>
 public sealed class LanguageServerContributions(
+    ISettingsService settings,
     LspClientRegistry router,
     LanguageServerRegistrationFactory factory,
     LanguageServerConfigLoader loader,
@@ -143,6 +145,8 @@ public sealed class LanguageServerContributions(
                 ? token => WithinAsync(gate, server.BeforeLaunchTimeout, origin, id, token)
                 : null,
             Origin = origin,
+            // The user's object, then the profile's default, then what the add-in's own entry carries (#4255).
+            Settings = settings.GetLanguageServerSettings(id) ?? made.Settings,
             CreateClient = claimed.Count == 0 && commands.Count == 0 && afterStart is null ? made.CreateClient : () =>
             {
                 var client = made.CreateClient();
@@ -164,7 +168,7 @@ public sealed class LanguageServerContributions(
         };
 
         logger.LogInformation("{Origin} contributes the language server '{Id}'.", origin ?? "An add-in", id);
-        var added = new AddinServerConnection(router.Add(registration), server.MessagePrefix, logger);
+        var added = new AddinServerConnection(router.Add(registration), server.MessagePrefix, logger, settings, router, made.Settings);
         connection.SetResult(added);
         return added;
     }
@@ -323,12 +327,39 @@ public sealed class AddinServerConnection : IAddinServerConnection, IAsyncDispos
     private readonly LspClientRegistry.Contribution _contribution;
     private readonly string? _prefix;
     private readonly ILogger _logger;
+    private readonly ISettingsService _settings;
+    private readonly LspClientRegistry _router;
 
-    internal AddinServerConnection(LspClientRegistry.Contribution contribution, string? prefix, ILogger logger)
+    private readonly JsonElement? _entrySettings;
+
+    internal AddinServerConnection(LspClientRegistry.Contribution contribution, string? prefix, ILogger logger, ISettingsService settings, LspClientRegistry router,
+        JsonElement? entrySettings = null)
     {
+        _entrySettings = entrySettings?.Clone();
         _contribution = contribution;
         _prefix = prefix;
         _logger = logger;
+        _settings = settings;
+        _router = router;
+    }
+
+    public JsonElement? GetSettings() => _settings.GetLanguageServerSettings(Id) ?? _entrySettings?.Clone();
+
+    public async Task SetSettingsAsync(JsonElement settings, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(Lifetime.IsCancellationRequested, this);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (settings.ValueKind != JsonValueKind.Object)
+            throw new ArgumentException("Language server settings must be a JSON object.", nameof(settings));
+        _settings.SetLanguageServerSettings(Id, settings);
+        await _router.UpdateServerSettingsAsync(Id, GetSettings());
+    }
+
+    /// <summary>Removes the user's object and notifies the server with the resolved fallback.</summary>
+    public async Task ResetSettingsAsync()
+    {
+        _settings.RemoveLanguageServerSettings(Id);
+        await _router.UpdateServerSettingsAsync(Id, GetSettings(), forceNotification: true);
     }
 
     public string Id => _contribution.Id;
@@ -340,6 +371,9 @@ public sealed class AddinServerConnection : IAddinServerConnection, IAsyncDispos
 
     /// <summary>Cancelled when the server is taken out.</summary>
     internal CancellationToken Lifetime => _contribution.Lifetime;
+
+    /// <summary>Whether the server has been taken out, as when its add-in is disabled.</summary>
+    public bool IsTakenOut => Lifetime.IsCancellationRequested;
 
     /// <summary>The router's client for the server, once it has started.</summary>
     internal ILspClient? Client => _contribution.Client;

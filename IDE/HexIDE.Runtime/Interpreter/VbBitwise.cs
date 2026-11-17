@@ -11,8 +11,8 @@ namespace HexIDE.Runtime.Interpreter;
 /// bitwise operation on two Bytes stays a Byte and complements at eight bits. <c>Not CByte(5)</c> is
 /// <b>250</b>, not -6.
 ///
-/// Every rule here is measured against vb6.exe — see "Bitwise And / Or / Xor / Not — the result-type
-/// ladder" in docs/vb6-fidelity-oracle/bitwise-and--or--xor--not--the-result-type-ladder.md. None of it is inferred, because most of it is not guessable.
+/// The VB6 rules are measured against vb6.exe — see "Bitwise And / Or / Xor / Not — the result-type
+/// ladder" in docs/vb6-fidelity-oracle/bitwise-and--or--xor--not--the-result-type-ladder.md. LongLong uses the Excel x64 rows in #4302 (oracle PR #4383).
 /// </summary>
 internal static class VbBitwise
 {
@@ -26,10 +26,11 @@ internal static class VbBitwise
         Byte    = 1,
         Integer = 2,
         Long    = 3,
+        LongLong = 4,
     }
 
     /// <summary>
-    /// Reduce a value to the 32 bits VB6 operates on, plus the width it will be reported at.
+    /// Reduce a value to its integral bits, plus the width it will be reported at.
     ///
     /// A floating operand is rounded to Long first, half-to-even — <c>CDbl(2.5) And 3</c> is 2 and
     /// <c>CDbl(3.5) And 3</c> is 0, which is only consistent with rounding 3.5 up to 4. That is .NET's
@@ -66,6 +67,12 @@ internal static class VbBitwise
         {
             bits = (int)value.Value!;
             width = Width.Integer;
+            return true;
+        }
+        if (value.Type == Vb6Value.ValueType.LongLong)
+        {
+            bits = (long)value.Value!;
+            width = Width.LongLong;
             return true;
         }
         if (value.Type == Vb6Value.ValueType.Long)
@@ -108,6 +115,10 @@ internal static class VbBitwise
         return false;
     }
 
+    // Only used when a LongLong participates: Excel x64 rounds numeric operands half to even (#4302, PR #4383).
+    internal static long LongLongBits(Vb6Value value) => VbNumeric.RoundLongLongOperand(
+        value.Type == Vb6Value.ValueType.String ? new Vb6Value(VB6BuiltIns.ToNum(value)) : value, null);
+
     /// <summary>
     /// The width a two-operand result is reported at.
     ///
@@ -126,6 +137,7 @@ internal static class VbBitwise
     /// <summary>Report a result at the given width, truncating to it as VB6 does.</summary>
     internal static Vb6Value Pack(long bits, Width width) => width switch
     {
+        Width.LongLong => Vb6Value.NewLongLong(bits),
         Width.Boolean => (Vb6Value)(bits != 0),
         Width.Byte    => new Vb6Value((byte)(bits & 0xFF)),
         Width.Integer => (Vb6Value)(int)(short)(bits & 0xFFFF),

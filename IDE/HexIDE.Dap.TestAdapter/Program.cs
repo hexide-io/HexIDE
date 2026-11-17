@@ -91,7 +91,7 @@ public static class Program
                 if (command == "initialize") await Send(new { seq = 3, type = "event", @event = "initialized" });
                 continue;
             }
-            if (mode is "exception" or "exception-no-terminate")
+            if (mode is "exception" or "exception-no-terminate" or "disconnect-late-event")
             {
                 // A program that prints, then stops at an unhandled error. Continuing re-runs the failing line and stops
                 // there again, as an engine following VBA's F5 does.
@@ -117,10 +117,19 @@ public static class Program
                     await Send(new { seq = 33, type = "event", @event = "stopped",
                         body = new { threadId = 1, reason = "exception", description = "Division by zero" } });
                 if (command == "terminate") await Send(new { seq = 34, type = "event", @event = "terminated" });
+                if (command == "disconnect" && mode == "disconnect-late-event")
+                {
+                    // As debugpy 1.8.22 does: it answers disconnect, then reports its sockets in one more event (#3894).
+                    // The pause lets a client that closes its end on the reply do so first, as it did on CI. .NET's console
+                    // stream drops a write to a closed pipe silently, so the client's capture is what shows it arrived.
+                    await Task.Delay(TimeSpan.FromMilliseconds(300));
+                    await Send(new { seq = 35, type = "event", @event = "debugpySockets", body = new { sockets = Array.Empty<object>() } });
+                    return 0;
+                }
                 if (command == "disconnect") return 0;
                 continue;
             }
-            if (mode.StartsWith("cursor", StringComparison.Ordinal) || mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "event-flood" or "terminated-flood" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "evaluate-output" or "evaluate-refusal" or "conditions" or "conditions-running" or "locals-tree" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held" or "disconnect-held-stderr")
+            if (mode.StartsWith("cursor", StringComparison.Ordinal) || mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "event-flood" or "terminated-flood" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "evaluate-output" or "evaluate-refusal" or "launch-options-all" or "conditions" or "conditions-running" or "hit-conditions" or "log-points" or "locals-tree" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held" or "disconnect-held-stderr")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
                 if (mode == "run-control-delayed" && command == "stepIn") continue;
@@ -230,7 +239,7 @@ public static class Program
                 }
                 object reply = command switch
                 {
-                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsGotoTargetsRequest = mode.StartsWith("goto", StringComparison.Ordinal), supportsConditionalBreakpoints = mode is "conditions" or "conditions-running" || mode.StartsWith("cursor", StringComparison.Ordinal), supportsEvaluateForHovers = mode is "invalidated" or "evaluate" or "evaluate-running" },
+                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsGotoTargetsRequest = mode.StartsWith("goto", StringComparison.Ordinal), supportsConditionalBreakpoints = mode is "conditions" or "conditions-running" or "launch-options-all" || mode.StartsWith("cursor", StringComparison.Ordinal), supportsHitConditionalBreakpoints = mode is "hit-conditions" or "launch-options-all" or "cursor-options", supportsLogPoints = mode is "log-points" or "launch-options-all" or "cursor-options", supportsEvaluateForHovers = mode is "invalidated" or "evaluate" or "evaluate-running" },
                     "threads" => new { threads = new[] { new { id = 1, name = "Main" } } },
                     "stackTrace" when mode != "session" => new { stackFrames = new[]
                     {
@@ -250,7 +259,7 @@ public static class Program
                 };
                 await Send(new { seq = 2, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(), command, success = true, body = reply });
                 if (command == "initialize") await Send(new { seq = 3, type = "event", @event = "initialized" });
-                if (mode is "cursor" or "cursor-first" or "cursor-chatty" && command == "continue")
+                if (mode is "cursor" or "cursor-first" or "cursor-chatty" or "cursor-options" && command == "continue")
                 {
                     cursorContinued = true;
                     await Send(new { seq = 44, type = "event", @event = "stopped", body = new { threadId = 1, reason = "breakpoint" } });
@@ -272,7 +281,7 @@ public static class Program
                     await ReplyBreakpoints(delayed);
                     heldBreakpoints = null;
                 }
-                if (command == "continue" && mode is not ("evaluate-running" or "run-control" or "run-control-running" or "cursor" or "cursor-first" or "cursor-chatty" or "conditions-running"))
+                if (command == "continue" && mode is not ("evaluate-running" or "run-control" or "run-control-running" or "cursor" or "cursor-first" or "cursor-chatty" or "cursor-options" or "conditions-running"))
                 {
                     await Send(new { seq = 5, type = "event", @event = "output", body = new { output = "42\n" } });
                     await Send(new { seq = 6, type = "event", @event = "terminated" });

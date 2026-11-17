@@ -151,6 +151,12 @@ public partial class DISetup
             .Bind().As(Singleton).To<WindowManager>()
             .Bind().As(Singleton).To(ctx =>
             {
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<ILocalizationService>(out var localization);
+                return new CodeTrust(windows, localization);
+            })
+            .Bind().As(Singleton).To(ctx =>
+            {
                 // Built here, not composed: its optional parameters would double Pure.DI's search, which is at its limit (#4204).
                 ctx.Inject<IEditorService>(out var editorService);
                 ctx.Inject<IEventBus>(out var eventBus);
@@ -196,8 +202,9 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Debugging.DebugLaunchService>(out var debugLaunches);
                 ctx.Inject<HexIDE.Debugging.IRunChoiceStore>(out var runChoices);
                 ctx.Inject<IStatusBarService>(out var statusBar);
+                ctx.Inject<CodeTrust>(out var trust);
                 return new ProjectRunnerService(eventBus, projectManager, localization, debugController, breakpointService, watchService, runScope, runEngine, externalDebugger, archives,
-                    debugLaunches, runChoices, statusBar);
+                    debugLaunches, runChoices, statusBar, trust);
             })
             .Bind<NewProjectViewModel>().To(ctx =>
             {
@@ -229,8 +236,9 @@ public partial class DISetup
                 ctx.Inject<IComponentRegistry>(out var componentRegistry);
                 ctx.Inject<IDocumentDockService>(out var documents);
                 ctx.Inject<AddinProjectTemplateService>(out var templates);
+                ctx.Inject<CodeTrust>(out var trust);
                 return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, componentRegistry, archives, lspClient,
-                    contributed, documents, templates);
+                    contributed, documents, templates, trust);
             })
             .Bind().As(Singleton).To(ctx =>
             {
@@ -468,7 +476,7 @@ public partial class DISetup
                 ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
                 ctx.Inject<ISettingsService>(out var settings);
-                return new LanguageServerContributions(
+                return new LanguageServerContributions(settings,
                     (LspClientRegistry)router, factory,
                     new LanguageServerConfigLoader(loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
                     configuration.Entries.Select(entry => entry.Id).OfType<string>().ToHashSet(StringComparer.Ordinal),
@@ -476,9 +484,7 @@ public partial class DISetup
                     new LanguageServerCommandStore(), providers)
                 {
                     // The person's choice in Options → AI Chat Tools wins over a server's entry, an add-in's included (#4257).
-                    ChatToolsSetting = id => settings.ServerChatTools.TryGetValue(id, out var value)
-                        ? ServerChatToolsSetting.ParseUser(value)
-                        : null,
+                    ChatToolsSetting = ServerChatToolsSetting.FromUserSettings(settings),
                 };
             })
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
@@ -533,7 +539,7 @@ public partial class DISetup
             .Bind().As(Singleton).To(_ =>
             {
                 var templates = new AddinProjectTemplateService();
-                HexIDE.Projects.Vb6ProjectType.RegisterTemplates(templates);
+                if (!Static.WithoutVb6) HexIDE.Projects.Vb6ProjectType.RegisterTemplates(templates);
                 return templates;
             })
             // The project types add-ins contribute, which Open Project and the recent list open as projects, with VB6's own
@@ -543,7 +549,7 @@ public partial class DISetup
                 // VB6's projects are a project type like an add-in's, registered first, with the format only its type names
                 // (#3411 slice 10b).
                 var types = new HexIDE.Projects.ContributedProjects();
-                HexIDE.Projects.Vb6ProjectType.RegisterOwn(types);
+                if (!Static.WithoutVb6) HexIDE.Projects.Vb6ProjectType.RegisterOwn(types);
                 return types;
             })
             .Bind().As(Singleton).To<AddinOptionsService>()

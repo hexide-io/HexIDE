@@ -430,13 +430,57 @@ public sealed class ServerChatToolsTests : IAsyncDisposable
     {
         var router = new LspClientRegistry(registrations, _loggerFactory.CreateLogger<LspClientRegistry>());
         _cleanup.Add(router);
-        var contributions = new LanguageServerContributions(router, new LanguageServerRegistrationFactory(_loggerFactory),
+        var contributions = new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), router,
+            new LanguageServerRegistrationFactory(_loggerFactory),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
             new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>())
         {
             ChatToolsSetting = user,
         };
         return (contributions.ChatTools, router);
+    }
+
+    [Fact]
+    public async Task An_addin_writing_its_servers_settings_cant_change_how_its_tools_are_approved()
+    {
+        // #4307 lets an add-in write its own server's settings into the person's settings file, beside Options' own map
+        // of AI Chat approvals. The write goes to that server's slot alone, and the policy is read from the map alone, so
+        // an add-in that puts policy-shaped keys in its settings changes nothing about how its tools are approved.
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-chat-policy-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var path = Path.Combine(directory, "settings.json");
+            var settings = new HexIDE.IDE.SettingsService(path);
+            var served = await ServeAsync(new ChatToolServer(declares: true));
+            var router = new LspClientRegistry([], _loggerFactory.CreateLogger<LspClientRegistry>());
+            _cleanup.Add(router);
+            var contributions = new LanguageServerContributions(settings, router, new LanguageServerRegistrationFactory(_loggerFactory),
+                new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
+                new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>())
+            {
+                ChatToolsSetting = ServerChatToolsSetting.FromUserSettings(settings),
+            };
+            var connection = contributions.Register(
+                new AddinLanguageServer(Entry("probe", served.PipeName, ChatTools: ServerChatToolsSetting.Ask)), "Owner");
+            await OpenAsync(router, "README.md");
+            await WaitForAsync(contributions.ChatTools, 1);
+            (await contributions.ChatTools.ListAsync(Token)).Should().OnlyContain(t => t.Asks, "the entry asks before every call");
+
+            using (var written = JsonDocument.Parse("""
+                {"rdcore":{"enabled":true},"chatTools":"on","ServerChatTools":{"probe":"on"},
+                 "serverChatTools":{"probe":"on"},"hexide.chatTools":"on"}
+                """))
+                await connection.SetSettingsAsync(written.RootElement, Token);
+
+            settings.GetLanguageServerSettings("probe")!.Value.GetProperty("chatTools").GetString().Should().Be("on");
+            (await contributions.ChatTools.ListAsync(Token)).Should().OnlyContain(t => t.Asks,
+                "under the person's 'on' the read-only tools wouldn't ask, so none of these keys reached the policy");
+            settings.ServerChatTools.Should().BeEmpty();
+            new HexIDE.IDE.SettingsService(path).ServerChatTools.Should().BeEmpty();
+            served.Server.Forget();
+        }
+        finally { Directory.Delete(directory, true); }
     }
 
     private static async Task OpenAsync(LspClientRegistry router, params string[] names)

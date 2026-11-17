@@ -133,7 +133,8 @@ public sealed class ServerChatToolsLoopTests : IAsyncDisposable
         var router = new LspClientRegistry(new LanguageServerRegistrationFactory(_loggerFactory).Create(
             [ServerChatToolsTests.Entry("probe", pipe.PipeName)]), _loggerFactory.CreateLogger<LspClientRegistry>());
         _cleanup.Add(router);
-        var tools = new LanguageServerContributions(router, new LanguageServerRegistrationFactory(_loggerFactory),
+        var tools = new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), router,
+            new LanguageServerRegistrationFactory(_loggerFactory),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
             new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>()).ChatTools;
         await router.OpenDocumentAsync("file:///c:/p/README.md", "x", Token);

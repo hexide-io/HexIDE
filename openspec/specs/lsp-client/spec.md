@@ -12,6 +12,34 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Contributed server settings belong to the user's layer
+A contributed server registration SHALL resolve settings per id: the user's whole object, otherwise a
+profile default, otherwise the add-in entry's own `settings`, otherwise none. Profile files SHALL stay untouched. `workspace/configuration` SHALL
+use the existing settings reader, including dotted sections and null for missing paths.
+
+#### Scenario: A user object overrides a profile default
+- **WHEN** a contributed server has both a profile default and a user object
+- **THEN** configuration requests resolve the whole user object without deep merging
+
+### Requirement: An add-in changes only its own server's settings
+The connection SHALL expose `GetSettings()` and `SetSettingsAsync(JsonElement, CancellationToken)` for
+its own id only. Writes SHALL require an object, persist to the user's settings, and use the existing
+registry update path. A write after removal SHALL throw `ObjectDisposedException` without saving.
+
+#### Scenario: An add-in changes its server's settings
+- **WHEN** an add-in writes a changed object through its connection
+- **THEN** only its server receives workspace/didChangeConfiguration
+- **AND** subsequent configuration requests resolve the new object
+
+### Requirement: Options exposes and resets contributed server settings
+Options SHALL show each add-in's own servers by display name, read-only indented JSON, and localized
+(default) or (none) labels. Reset SHALL be enabled only with a user object and SHALL remove it immediately,
+notifying the running server with the resolved fallback or an empty object.
+
+#### Scenario: A user resets the server's settings
+- **WHEN** the user resets a server in the add-in's Options page
+- **THEN** the profile's default or absent settings are restored and the running server is notified
+
 ### Requirement: Diagnostic project attribution in groups
 
 With multiple loaded projects, the Diagnostics tool window SHALL show each diagnostic's

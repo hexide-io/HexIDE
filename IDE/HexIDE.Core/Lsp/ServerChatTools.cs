@@ -64,6 +64,14 @@ public static class ServerChatToolsSetting
         _ => null,
     };
 
+    /// <summary>
+    /// The person's setting for each server, as the composition reads it: from Options' own map, by server id, on every
+    /// call. Nothing else in the settings is read. A server's own settings, which its add-in may write (#4307), live in a
+    /// slot of their own and can't name a policy.
+    /// </summary>
+    public static Func<string, ServerChatToolsPolicy?> FromUserSettings(HexIDE.IDE.ISettingsService settings) =>
+        id => settings.ServerChatTools.TryGetValue(id, out var value) ? ParseUser(value) : null;
+
     /// <summary>The value Options writes for a policy.</summary>
     public static string UserValue(ServerChatToolsPolicy policy) => policy switch
     {

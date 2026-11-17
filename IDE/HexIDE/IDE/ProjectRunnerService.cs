@@ -39,6 +39,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
     private readonly IRunChoiceStore? runChoices;
     private readonly ChosenLaunchAnswer? chosenLaunch;
     private readonly IStatusBarService? statusBar;
+    private readonly CodeTrust? trust;
     private readonly System.Runtime.CompilerServices.ConditionalWeakTable<ProjectDefinition, object> defaultNotices = new();
 
     // A Run-To-Cursor target requested while IDLE — applied AFTER the run-start Reset (which clears the controller's
@@ -127,8 +128,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
         HexIDE.Projects.ArchiveProjectService? archives = null,
         DebugLaunchService? debugLaunches = null,
         IRunChoiceStore? runChoices = null,
-        IStatusBarService? statusBar = null)
+        IStatusBarService? statusBar = null,
+        CodeTrust? trust = null)
     {
+        this.trust = trust;
         this.debugLaunches = debugLaunches;
         this.runChoices = runChoices;
         if (debugLaunches is not null && runChoices is not null)
@@ -261,6 +264,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 projectDefinition.Name, projectDefinition.ContributedBy);
             return;
         }
+        // Code from outside this computer runs only once the developer says so, asked before anything is claimed or
+        // built (#1121). The start resumes from here on a Yes.
+        if (AskFirst(projectDefinition, () => RunProject(projectDefinition, stepInto)))
+            return;
         externalDebugger?.ClearSessionResult();
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
@@ -337,6 +344,35 @@ public partial class ProjectRunnerService : IProjectRunnerService
             Report(RunFailed, failure);
     }
 
+    /// <inheritdoc />
+    public async Task<bool> MayRunFileAsync(string path) =>
+        trust?.Unapproved(path) is not { } file || await trust.AskAsync(System.IO.Path.GetFileName(path), [file]);
+
+    /// <summary>The files HexIDE is asking whether to run, while it asks; null otherwise. For automation to report.</summary>
+    public IReadOnlyList<UntrustedFile>? AskingToRun => trust?.Asking;
+
+    /// <summary>
+    /// Whether <paramref name="project"/>'s start waits on the question <see cref="CodeTrust"/> asks: true when its code
+    /// came from outside this computer and hasn't been allowed. <paramref name="start"/> runs again on a Yes. A No, or a
+    /// start while the question is already up, starts nothing, and leaves no idle Run To Cursor armed.
+    /// </summary>
+    private bool AskFirst(ProjectDefinition project, Action start)
+    {
+        if (trust?.Unapproved(project) is not { Count: > 0 } files)
+            return false;
+        if (trust.Asking is null)
+            Ask().ListenErrors();
+        return true;
+
+        async Task Ask()
+        {
+            if (await trust.AskAsync(project.Name, files) && !IsRunning)
+                start();
+            else
+                _pendingRunTo = null;
+        }
+    }
+
     /// <summary>Whether an idle Run To Cursor is still waiting for a start. For tests.</summary>
     internal bool HasPendingRunToCursor => _pendingRunTo is not null;
 
@@ -366,6 +402,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public void StartContributedLaunch(ContributedDebugLaunch launch, ProjectDefinition project)
     {
         if (debugLaunches is null || archives?.IsActive == true || IsRunning) return;
+        if (AskFirst(project, () => StartContributedLaunch(launch, project)))
+            return;
         externalDebugger?.ClearSessionResult();
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
         debugLaunches.StartAsync(launch, project).ListenErrors();

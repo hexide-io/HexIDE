@@ -86,6 +86,7 @@ internal sealed class HexIdeHost(
             };
         }
         var connection = languageServers.Register(server, origin.Title, origin.Id, origin.PublisherNamespaces);
+        optionsService.TrackServer(origin.Id, string.IsNullOrWhiteSpace(server.Entry.DisplayName) ? connection.Id : server.Entry.DisplayName, connection);
         if (Registry is AddinRegistry owner) owner.TrackContribution(origin.Id, connection);
         AddinInitializationScope.Record(connection.Dispose);
         return connection;

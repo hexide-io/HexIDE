@@ -28,6 +28,60 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private readonly ProfilePayload? _profileDefaults;
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
 
+    private readonly object _settingsGate = new();
+    private Dictionary<string, JsonElement> _languageServerSettings = new(StringComparer.Ordinal);
+
+    public bool HasLanguageServerSettings(string id)
+    {
+        lock (_settingsGate) return _languageServerSettings.ContainsKey(id);
+    }
+
+    public JsonElement? GetLanguageServerSettings(string id)
+    {
+        lock (_settingsGate)
+        {
+            if (_languageServerSettings.TryGetValue(id, out var settings)) return settings.Clone();
+            if (_profileDefaults is { } defaults
+                && defaults.Content.TryGetProperty("languageServerSettings", out var servers)
+                && servers.TryGetProperty(id, out var fallback) && fallback.ValueKind == JsonValueKind.Object)
+                return fallback.Clone();
+            return null;
+        }
+    }
+
+    // An add-in may write from any thread. The gate covers the dictionary and the save; the change is raised after it is
+    // released, so no handler runs while it is held.
+    public void SetLanguageServerSettings(string id, JsonElement settings)
+    {
+        if (settings.ValueKind != JsonValueKind.Object)
+            throw new ArgumentException("Language server settings must be a JSON object.", nameof(settings));
+        lock (_settingsGate)
+        {
+            _languageServerSettings[id] = settings.Clone();
+            MarkChangedAndSave(nameof(SettingsData.LanguageServerSettings));
+        }
+        RaiseLanguageServerSettingsChanged();
+    }
+
+    public void RemoveLanguageServerSettings(string id)
+    {
+        lock (_settingsGate)
+        {
+            if (!_languageServerSettings.Remove(id)) return;
+            MarkChangedAndSave(nameof(SettingsData.LanguageServerSettings));
+        }
+        RaiseLanguageServerSettingsChanged();
+    }
+
+    private void MarkChangedAndSave(string name)
+    {
+        if (!_loading) _changedProperties.Add(JsonNamingPolicy.CamelCase.ConvertName(name));
+        SaveCore();
+    }
+
+    private void RaiseLanguageServerSettingsChanged() =>
+        base.OnPropertyChanged(new PropertyChangedEventArgs(nameof(SettingsData.LanguageServerSettings)));
+
     // Defaults derive from SettingsDefaults (the single source of truth).
 
     // ── Editor defaults ─────────────────────────────────────────
@@ -338,11 +392,16 @@ public partial class SettingsService : ObservableObject, ISettingsService
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         if (!_loading && e.PropertyName is { } name)
-            _changedProperties.Add(JsonNamingPolicy.CamelCase.ConvertName(name));
+            lock (_settingsGate) _changedProperties.Add(JsonNamingPolicy.CamelCase.ConvertName(name));
         base.OnPropertyChanged(e);
     }
 
     public void Save()
+    {
+        lock (_settingsGate) SaveCore();
+    }
+
+    private void SaveCore()
     {
         if (_recoveryMode || _loading || _changedProperties.Count == 0)
             return;
@@ -351,6 +410,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
         {
             var data = new SettingsData
             {
+                LanguageServerSettings = _languageServerSettings,
                 RequireVariableDeclaration = _requireVariableDeclaration,
                 AutoListMembers = _autoListMembers,
                 AutoQuickInfo = _autoQuickInfo,
@@ -416,6 +476,11 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     public void Load()
     {
+        lock (_settingsGate) LoadCore();
+    }
+
+    private void LoadCore()
+    {
         if (_recoveryMode)
             return;
         _loading = true;
@@ -431,6 +496,13 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
             var json = File.Exists(_filePath) ? File.ReadAllText(_filePath) : "{}";
             using var saved = JsonDocument.Parse(json);
+            _languageServerSettings = new(StringComparer.Ordinal);
+            if (saved.RootElement.TryGetProperty("languageServerSettings", out var servers)
+                && servers.ValueKind == JsonValueKind.Object)
+                foreach (var server in servers.EnumerateObject())
+                    if (server.Value.ValueKind == JsonValueKind.Object)
+                        _languageServerSettings[server.Name] = server.Value.Clone();
+            OnPropertyChanged(nameof(SettingsData.LanguageServerSettings));
             var hasSavedTheme = saved.RootElement.TryGetProperty("activeTheme", out _);
             var hasSavedKeymap = saved.RootElement.TryGetProperty("activeKeymap", out _);
             if (_profileDefaults is { } defaults)
@@ -502,6 +574,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     private class SettingsData
     {
+        [JsonPropertyName("languageServerSettings")]
+        public Dictionary<string, JsonElement> LanguageServerSettings { get; set; } = new();
+
         [JsonPropertyName("requireVariableDeclaration")]
         public bool RequireVariableDeclaration { get; set; } = SettingsDefaults.RequireVariableDeclaration;
 
