@@ -401,11 +401,28 @@ caption mnemonic from a child SHALL switch to its enabled visible tab and then f
 - **THEN** tab two is selected and the SSTab receives focus
 
 
+### Requirement: SSTab runtime pictures belong to each tab
+As measured in [#3426](https://github.com/hexide-io/HexIDE/issues/3426) (including the corrected control rows,
+#4297), `TabPicture(i)` SHALL return the stored Picture object, initially empty (Type 0), never Nothing.
+Set and Let SHALL accept a Picture by reference; Nothing SHALL clear to an empty Picture.
+A PictureBox or Image SHALL supply a separate Picture object containing its Picture's image.
+String, number, Form, TextBox and Label assignments SHALL raise 13 and preserve the stored picture.
+Indexes SHALL convert as CInt and raise 381 outside the tab range. `Picture` SHALL read and write the
+current tab's picture. Shrinking Tabs SHALL discard pictures beyond the new count.
+A picture SHALL draw at its own pixel size left of its caption, with both centred together;
+a tab without a picture SHALL retain its existing rendering. Native handles (#2626), live
+PictureBox.Image references and saved `.frx` pictures (#2696) remain outside this requirement.
+
+#### Scenario: Stored identity and current tab alias
+- **GIVEN** a Picture assigned to TabPicture(2)
+- **WHEN** Tab is set to 2
+- **THEN** Picture and TabPicture(2) return that same object
+- **AND** reducing Tabs to 2 and increasing it to 3 leaves TabPicture(2) empty
+
 ### Requirement: SSTab previews its saved strip in the designer
 The designer SHALL apply the implemented saved strip properties and select the saved Tab, without
 running the runtime-only ControlEnabled tab-zero load quirk. The initial preview SHALL leave saved child
-positions and page metadata unchanged. Per-tab picture binding is not built: `TabPicture` SHALL be refused as not
-implemented at run time until it is (#3426).
+positions and page metadata unchanged. Design-time `.frx` TabPicture binding remains a later slice (#2696).
 
 #### Scenario: Preview a saved nonzero page
 - **GIVEN** an SSTab saved with tab one showing and custom captions

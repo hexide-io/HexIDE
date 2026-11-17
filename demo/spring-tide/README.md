@@ -37,7 +37,7 @@ Two things about the published server are worth knowing before you point HexIDE 
 - **Keep the whole published tree, and set `command` to the executable inside it.** The server derives its
   platform root as the *parent* of its own directory, and reads its configuration, its parse server and its
   extensions from there. An executable copied out on its own starts and then analyses nothing.
-- **The build is framework-dependent**, so the machine needs a .NET 10 runtime. `PlatformPublish.ps1` does
+- **The build is framework-dependent**, so the machine needs a .NET 11 runtime. `PlatformPublish.ps1` does
   not produce a self-contained binary.
 
 **1. Make a profile.** HexIDE keeps settings, layout and its language server configuration in a per-user

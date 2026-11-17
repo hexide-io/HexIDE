@@ -617,16 +617,18 @@ public class RunFaultTests
     {
         // The pre-pass runs while the interpreter is built. That used to happen outside the run's try, after
         // the debugger was reset to Running and the project claimed, so this left both that way (#590's shape).
-        // The sample is a declaration the pre-pass still refuses: an array As New (PrePass.cs). It was a
-        // fixed-length String, which #179 implemented, so this test had pinned a gap rather than the start path.
-        var run = SubMainProject("Dim s(1) As New Collection\r\n\r\nSub Main()\r\n    Debug.Print \"never\"\r\nEnd Sub\r\n");
+        // The sample is a declaration the pre-pass still refuses: an indexed Property Set in a standard module
+        // (PrePass.ParsePropertyMutator). It was a fixed-length String until #179, then an array As New until
+        // #4150, each implemented in turn. When this one is, pick another the pre-pass refuses.
+        var run = SubMainProject("Public Property Set Many(i As Integer, o As Object)\r\nEnd Property\r\n\r\n"
+            + "Sub Main()\r\n    Debug.Print \"never\"\r\nEnd Sub\r\n");
 
         run.Runner.RunProject(run.Project);
 
         // Before pumping: run_project reads StartFailed as raised before the start call returns, so a report that
         // arrived on a later dispatcher pass would leave it answering that the program ran.
         run.StartFailed.Should().ContainSingle("reported before the start call returns, as the form path does")
-            .Which.Should().StartWith("Not implemented yet: ").And.Contain("As New");
+            .Which.Should().StartWith("Not implemented yet: ").And.Contain("Property Set 'Many'");
         AssertNothingIsRunning(run);
 
         Pump();

@@ -6,9 +6,14 @@ namespace HexIDE.Lsp;
 
 internal static partial class LaunchedServerGuard
 {
-    // Unix guards need two more seconds to end the server's remaining group after it exits.
+    // Reserve the final 500 ms of Unix disposal's two-second deadline for termination and reaping.
     public static TimeSpan ExitTimeout => TimeSpan.FromSeconds(
-        OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() ? 4 : 2);
+        OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() ? 1.5 : 2);
+
+    public static TimeSpan ReapTimeout(Stopwatch disposal) =>
+        OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()
+            ? TimeSpan.FromMilliseconds(Math.Max(0, 2000 - disposal.Elapsed.TotalMilliseconds))
+            : TimeSpan.FromSeconds(2);
 
     // Raised for each server process a transport starts. Nothing in the IDE listens. The Integration suite's
     // LanguageServerLeakGuard does, and fails the run on any still running at the end (#2530).
@@ -59,7 +64,12 @@ internal static partial class LaunchedServerGuard
         {
             // The protocol grace period has elapsed: end the guard and its group together.
             // Before setpgid completes there is no such group; fall back to the process tree then.
-            if (SendSignal(-process.Id, 9) == 0) return;
+            if (SendSignal(-process.Id, 9) == 0)
+            {
+                // During descendant cleanup the guard has left that group.
+                try { process.Kill(); } catch (InvalidOperationException) { /* already gone */ }
+                return;
+            }
         }
         process.Kill(entireProcessTree: true);
     }

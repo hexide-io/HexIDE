@@ -248,7 +248,7 @@ public class DialogButtonCueTests
             ("TrustChainView", null, "first"),
             ("MenuEditorView", null, "text"),
             ("AboutDialog", null, "first"),
-            ("FontDialog", null, "first"),
+            ("FontDialog", "Str.Dialog.Font.Button.Ok", "text"),
             ("ColorDialog", "Str.Dialog.MessageBox.Button.Ok", "default"),
             ("PrintDialog", "Str.Dialog.MessageBox.Button.Ok", "default"),
             ("InputBox", null, "text"),
