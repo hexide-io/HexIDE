@@ -67,7 +67,7 @@ public class ServerApplyEditModifiedTests
             Substitute.For<IProjectService>(), new EventBus(), client, settings,
             Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
         editors = new EditorService(dock, NewEditor,
             () => new RelatedDocumentEditorViewModel(client, Substitute.For<IWindowManager>(), localization, settings),
             () => throw new InvalidOperationException(), () => throw new InvalidOperationException(), () => manager, localization);
@@ -116,8 +116,7 @@ public class ServerApplyEditModifiedTests
             ApplicationCommands.SaveCommand.CanExecute(null, textEditor.TextArea).Should().BeTrue();
 
             using var context = new IdeContext(manager, dock, client, null!, Substitute.For<IProjectRunnerService>(),
-                null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-                new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+                null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
             var tools = new HexIdeTools(context);
             var tabs = JsonSerializer.SerializeToElement(await tools.GetDocumentTabsAsync(timeout.Token), ReplyJson.Options).GetProperty("tabs");
             tabs.EnumerateArray().Single(tab => tab.GetProperty("title").GetString() == target.Title)

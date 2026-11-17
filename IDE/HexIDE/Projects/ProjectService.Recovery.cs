@@ -23,7 +23,10 @@ public partial class ProjectService
             return false;
         form.UpdateCode(fresh.Code);
         form.UpdateComponents(fresh.Components);
+        var loadedWithErrors = form.LoadedWithErrors;
         form.AdoptFidelityState(fresh);
+        // A backup renders recovered zeroes, but does not replace the original on disk (#4179).
+        form.LoadedWithErrors |= loadedWithErrors;
         return true;
     }
 
@@ -162,7 +165,8 @@ public partial class ProjectService
             var errorSink = new DeserializeErrorSink(localization);
             // Read back by the type that reads the file the backup was rendered as, as it was opened.
             var type = contributed.Find(renderedAt);
-            var own = type?.Type.Format ?? format;
+            var own = type?.Type.Format ?? Vb6Type?.Type.Format
+                ?? throw new InvalidOperationException($"No registered project type reads {Path.GetFileName(renderedAt)}.");
             var (project, _, _, _) = await own.ReadProjectAsync(renderedAt, HostAnsi, (path, bytes) =>
             {
                 if (!put.Contains(Path.GetFullPath(path)))

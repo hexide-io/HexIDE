@@ -30,6 +30,22 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Control event declarations are checked when a form starts
+
+Before a form's declarations or Initialize run, the interpreter SHALL compare its collected control event Subs with the control class's event argument counts, plus one for an array element. An element's first parameter SHALL be ByRef Integer by effective type, including suffixes and DefType. Names and the event's own argument types/passing SHALL NOT be checked.
+
+
+#### Scenario: An element retains a scalar handler
+Measurements: [#4205](https://github.com/hexide-io/HexIDE/issues/4205), oracle PR #4358.
+- **WHEN** execution enters a form with `Command1` carrying `Index = 0` and `Sub Command1_Click()`
+- **THEN** it raises `Procedure declaration does not match description of event or procedure having the same name` as a compile error before the form's own code runs
+- **AND** the error carries the form module and the handler declaration's line, and the log names the procedure
+
+#### Scenario: A renamed or implicitly Integer index parameter
+- **WHEN** the element's Click handler takes `i As Integer`, `Index%`, or `Index` under `DefInt I`, by reference
+- **THEN** the handler accepts the event and receives Integer 0 when that element is clicked
+
+
 ### Requirement: Source-class default members SHALL resolve at async value boundaries
 
 The engine SHALL collect the name and kind of a source class's default member and read its Function,
@@ -1391,7 +1407,7 @@ to 2 when omitted. Values outside 0–9 SHALL raise 5. These styles and defaults
 Empty paths, directories and recognisable ASCII text documents (including associated documents) SHALL raise 5, missing programs
 53 and Null arguments 94. Unix SHALL retain direct process launching and map non-executable document
 failures to 5 where distinguishable. Non-string PathName conversions, access denied to executables,
-programs that exist but cannot start, and ambiguous/binary document classification SHALL refuse explicitly as not implemented pending measurement (#4146).
+programs that exist but cannot start, and ambiguous/binary document classification SHALL refuse explicitly as not implemented pending measurement (#4406).
 
 #### Scenario: A program launches a helper
 - **WHEN** code calls `Shell` with a quoted executable path, arguments and an accepted explicit style
@@ -1749,6 +1765,51 @@ and unmeasured combinations remain outside this additional code-mapping slice.
 - **AND** the control or KeyPreview form handler can swallow it with 0 or replace it with an ASCII character
 - **AND** KeyUp still receives KeyCode 8 with Shift 2
 - **AND** the default editing action remains the host's behavior pending measurement
+
+### Requirement: Measured keyboard events on buttons, lists and empty forms
+
+CommandButton, CheckBox, OptionButton, ListBox and ComboBox Styles 0 and 2 SHALL declare
+KeyDown, KeyPress and KeyUp and deliver the measured keys using the shared TextBox key-code
+mapping and form-first KeyPreview path. Registration SHALL preserve their existing default
+designer event. A form's zero KeyCode SHALL suppress only the
+control's KeyDown. Zero KeyAscii SHALL swallow the character. A changed KeyAscii for
+printable ASCII text SHALL reach the control and its character effect. Non-ASCII replacements SHALL refuse as
+not implemented until conversion is measured. Nonzero replacements for synthesized Space/Ctrl+A
+SHALL also refuse until their effects are measured. The authority is #2325's
+[console measurements](../../../docs/vb6-fidelity-oracle/key-events-keydown-keypress-and-keyup.md).
+Enter/Esc on forms holding controls and Default/Cancel properties remain #4371's.
+
+#### Scenario: A button's Space Click follows KeyUp
+- **WHEN** Space is pressed and released on a CommandButton or CheckBox
+- **THEN** KeyDown 32, KeyPress 32 and KeyUp 32 precede Click
+- **AND** an already-selected OptionButton raises the same key events without Click
+
+#### Scenario: A list selection is between the key events
+- **WHEN** Down selects the first ListBox item or k selects the item beginning with k
+- **THEN** KeyDown and any KeyPress precede Click, which sees the new ListIndex
+- **AND** KeyUp follows Click
+
+#### Scenario: A combo retains keyboard delivery with its list open
+- **WHEN** Alt+Down opens a Style 0 or Style 2 ComboBox and Down advances its selection
+- **THEN** DropDown follows KeyDown 40 with Shift 4 and precedes its KeyUp
+- **AND** each subsequent Down raises Click between KeyDown and KeyUp only if selection moves
+- **AND** focus moving among the combo and its popup items raises no extra GotFocus
+
+#### Scenario: KeyPreview interleaves form first
+- **WHEN** a key is typed into one of these controls with KeyPreview True
+- **THEN** each form key event precedes its control event, before the character effect
+- **AND** a form KeyAscii replacement is the value received by the control
+
+#### Scenario: Tab and button arrows navigate
+- **WHEN** Tab moves focus or an unmodified button arrow navigates
+- **THEN** neither raises key events on the button
+- **AND** a ComboBox receiving focus from CheckBox Down raises only KeyUp 40
+
+#### Scenario: An empty form receives keys directly
+- **WHEN** a key is pressed on a form with no controls
+- **THEN** its measured KeyDown, character KeyPress and KeyUp reach the form's handlers
+- **AND** unmodified Enter and Esc use 13 and 27, and Tab raises KeyDown 9 and KeyPress 9 without KeyUp
+- **AND** unmeasured modified Enter/Esc/Tab remain unmapped
 
 ### Requirement: Runtime parsing has a sized synchronous stack
 

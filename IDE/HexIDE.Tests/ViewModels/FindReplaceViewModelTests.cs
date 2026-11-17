@@ -73,7 +73,7 @@ public partial class FindReplaceViewModelTests
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<HexIDE.Debugging.IRunScope>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
+            Substitute.For<ILocalizationService>());
         vm.Document.Text = text;
         vm.CaretOffset = 0;
         return vm;
@@ -1208,7 +1208,7 @@ public partial class FindReplaceViewModelTests
         var eventBus = Substitute.For<IEventBus>();
         var loc = Substitute.For<ILocalizationService>();
         loc.ActiveLanguage.Returns("en");
-        var properties = new PropertiesToolViewModel(mockDocDock, eventBus, windowManager, loc, new Vb6ProjectFileFormat());
+        var properties = new PropertiesToolViewModel(mockDocDock, eventBus, windowManager, loc);
         var immediate = new ImmediateToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var formLayout = new FormLayoutToolViewModel(mockDocDock, eventBus, loc);
         var locals = new LocalsToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
@@ -1286,6 +1286,7 @@ public partial class FindReplaceViewModelTests
             windowStateService,
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            new RecentEditsToolViewModel(new RecentEditHistory(eventBus), () => editorService, loc), findReferences: null, callHierarchy: null, typeHierarchy: null);
+            new RecentEditsToolViewModel(new RecentEditHistory(eventBus), () => editorService, loc), findReferences: null, callHierarchy: null, typeHierarchy: null,
+            externalDebugger: null, recoveryOffers: null, runWith: null, logFolderOpener: null);
     }
 }

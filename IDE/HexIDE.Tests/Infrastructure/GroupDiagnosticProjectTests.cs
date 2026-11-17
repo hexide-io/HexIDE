@@ -43,7 +43,7 @@ public class GroupDiagnosticProjectTests
         await using var capture = new ConversationLog();
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), client,
             null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            capture, null!, null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            capture, null!, null!, null!);
         var uris = new[] { DocumentWireName.For(first.Modules[0]), DocumentWireName.For(second.Modules[0]), shared, "file:///outside/none.bas" };
         foreach (var uri in uris)
             client.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(client, new PublishDiagnosticsParams(uri, [Problem()]));

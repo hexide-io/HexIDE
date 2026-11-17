@@ -30,8 +30,8 @@ public sealed class ProfileMigrationTests : IDisposable
         var service = new ProfileService(snapshot);
         service.IsProjectReferencesVisible.Should().Be(project);
         service.IsToolsReferencesVisible.Should().Be(tools);
-        service.AvailableProjectTypes.Should().Equal(id == "vb6" ? IProjectTemplate.Templates
-            : id == "vbaode" ? [IProjectTemplate.StandardEXE] : []);
+        service.AvailableProjectTypes.Should().Equal(id == "vb6" ? Vb6ProjectType.Templates
+            : id == "vbaode" ? [Vb6ProjectType.StandardExe] : []);
         snapshot.MenuVisibility["project.references"].Should().Be(project);
         snapshot.MenuVisibility["tools.references"].Should().Be(tools);
         snapshot.ProjectTypes!.Value.Should().HaveCount(count);
@@ -114,10 +114,10 @@ public sealed class ProfileMigrationTests : IDisposable
         var service = new ProfileService(new ProfileResolver(root, root).Resolve(root));
         service.IsProjectReferencesVisible.Should().BeFalse();
         service.IsToolsReferencesVisible.Should().BeFalse();
-        service.AvailableProjectTypes.Should().Equal(IProjectTemplate.Templates[5], IProjectTemplate.StandardEXE, IProjectTemplate.ActiveXDLL);
+        service.AvailableProjectTypes.Should().Equal(Vb6ProjectType.Templates[5], Vb6ProjectType.StandardExe, Vb6ProjectType.ActiveXDll);
         service.AvailableProjectTypes.Select(t => t.Supported).Should().Equal(false, true, false);
-        new ProfileService(null).AvailableProjectTypes.Should().Equal(IProjectTemplate.Templates);
-        new ProfileService(null).IsProjectReferencesVisible.Should().BeTrue();
+        new ProfileService((HexIDE.Profiles.ProfileSnapshot?)null).AvailableProjectTypes.Should().Equal(Vb6ProjectType.Templates);
+        new ProfileService((HexIDE.Profiles.ProfileSnapshot?)null).IsProjectReferencesVisible.Should().BeTrue();
     }
 
     [Fact]
@@ -232,11 +232,11 @@ public sealed class ProfileMigrationTests : IDisposable
     {
         var service = new ProfileService(new ProfileResolver(root, root).Resolve("vbaode"));
         var addins = new HexIDE.Addins.AddinProjectTemplateService();
-        addins.Register(IProjectTemplate.ActiveXDLL);
+        addins.Register(Vb6ProjectType.ActiveXDll);
         using var context = new HexIDE.Desktop.Server.IdeContext(
             Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(),
             Substitute.For<HexIDE.Lsp.ILspClient>(), null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            service, addins, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            service, addins, null!, null!, null!, null!, null!);
         var result = await new HexIDE.Desktop.Server.HexIdeTools(context)
             .GetNewProjectTemplatesAsync(TestContext.Current.CancellationToken);
         result.Templates.Select(t => t.Name).Should().Equal("Standard EXE", "ActiveX DLL");

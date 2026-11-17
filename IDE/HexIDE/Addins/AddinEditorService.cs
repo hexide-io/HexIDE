@@ -25,7 +25,7 @@ namespace HexIDE.Addins;
 public sealed class AddinEditorService(
     IDocumentDockService documentDock,
     IEditorService editorService,
-    IProjectManager projectManager, IProjectFileFormat format, IReadOnlyRegionReader reader) : IEditorAccess
+    IProjectManager projectManager) : IEditorAccess
 {
     public AddinDocument? GetActiveDocument()
     {
@@ -43,7 +43,7 @@ public sealed class AddinEditorService(
 
             return new AddinDocumentResult(new AddinDocument(document.Name,
                 document.AbsolutePath ?? string.Empty,
-                DocumentContent.Read(document, FindEditor(document), format, reader),
+                DocumentContent.Read(document, FindEditor(document)),
                 GetKind(document.Module?.Kind), document.Project.Name));
         });
     }

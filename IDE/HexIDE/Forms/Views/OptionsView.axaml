@@ -11,7 +11,15 @@
              x:Class="HexIDE.Forms.Views.OptionsView">
     <Grid RowDefinitions="*,Auto" Margin="8">
 
-        <Grid Grid.Row="0" ColumnDefinitions="220,6,*">
+        <!-- The splitter moves between the two minimums, so neither pane can be dragged away (#4392). The page's 320
+             leaves an add-in's description 172 wide beside its 128 logo and 12 margin, inside the page's 8 of
+             padding, where a third-party add-in asked for 160 to keep a one-line description on one line. -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220" MinWidth="120" />
+                <ColumnDefinition Width="6" />
+                <ColumnDefinition Width="*" MinWidth="320" />
+            </Grid.ColumnDefinitions>
 
             <!-- Left pane: category tree -->
             <TreeView Grid.Column="0"

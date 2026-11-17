@@ -75,11 +75,16 @@ public class TemplatedItemAccessibleNameTests
     }
 
     [AvaloniaFact]
-    public void MenuEditor_ItemsAreNamedByCaption()
+    public void MenuEditor_ItemsAreNamedByCaptionAndLevel()
     {
+        // The editor opens on a blank item (#4141), so the rows are that item, File and Open. A nested row also says its
+        // level, and the blank row has a name of its own, both from the pack (MenuItemNameConverter).
+        using var blank = Shown("Str.Dialog.MenuEditor.Blank", "(vide)");
+        using var level = Shown("Str.Dialog.MenuEditor.ItemLevel", "{0}, niveau {1}");
         var vm = new MenuEditorViewModel();
         vm.FlatMenu.Add(new MenuViewModel { Caption = "File" });
         vm.FlatMenu.Add(new MenuViewModel { Caption = "Open", Indent = 1 });
+        string[] expected = ["(vide)", "File", "Open, niveau 2"];
         var view = new MenuEditorView { DataContext = vm };
         var window = new Window { Content = view, Width = 600, Height = 600 };
         window.Show();
@@ -87,9 +92,10 @@ public class TemplatedItemAccessibleNameTests
         {
             Dispatcher.UIThread.RunJobs();
             var list = view.GetVisualDescendants().OfType<ListBox>().Single();
+            vm.FlatMenu.Should().HaveCount(expected.Length);
             for (var i = 0; i < vm.FlatMenu.Count; i++)
                 ControlAutomationPeer.CreatePeerForElement(list.ContainerFromIndex(i)!).GetName()
-                    .Should().Be(vm.FlatMenu[i].Caption);
+                    .Should().Be(expected[i]);
         }
         finally { window.Close(); }
     }

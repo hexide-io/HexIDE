@@ -13,6 +13,9 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     /// <summary>Source encoding retained through saves and path changes.</summary>
     public Vb6TextEncoding TextEncoding { get; set; } = Vb6TextEncoding.Ansi;
 
+    /// <summary>The project's VBA7 target, independent of the engine or IDE profile (#4245).</summary>
+    public VbaBitness VbaBitness { get; set; }
+
     private FormDefinition? startupForm;
     private bool startsAtSubMain;
     private string? absolutePath;

@@ -31,20 +31,18 @@ public static class DocumentContent
     /// </summary>
     /// <param name="document">The form, module or class.</param>
     /// <param name="editor">The code window open on <paramref name="document"/>, or null when there is none.</param>
-    public static string Read(DocumentIdentity document, CodeEditorViewModel? editor,
-        IProjectFileFormat format, IReadOnlyRegionReader reader) =>
-        TextOf(document, editor, format, reader).Text;
+    public static string Read(DocumentIdentity document, CodeEditorViewModel? editor) =>
+        TextOf(document, editor).Text;
 
     /// <summary>
     /// What <see cref="Read"/> returns, with what its line numbers need: the document as its code window
     /// numbers it, open or not.
     /// </summary>
-    public static CodeWindowText TextOf(DocumentIdentity document, CodeEditorViewModel? editor,
-        IProjectFileFormat format, IReadOnlyRegionReader reader)
+    public static CodeWindowText TextOf(DocumentIdentity document, CodeEditorViewModel? editor)
     {
         if (editor is not null) return editor.CodeWindowText;
-        format = ProjectFormats.Of(document.Project, format);
-        reader = ProjectFormats.ReaderOf(document.Project, reader);
+        var format = ProjectFormats.Of(document.Project);
+        var reader = ProjectFormats.ReaderOf(document.Project);
         var prefix = document.Module is { } module ? format.CodePrefix(module) : format.CodePrefix(document.Form!);
         var text = prefix + (document.Module?.Code ?? document.Form!.Code);
         return new CodeWindowText(text, prefix.Length, reader.Regions(text, prefix.Length));
@@ -75,15 +73,14 @@ public static class DocumentContent
     /// given anything typed. With none, the model's code takes it directly: the rule is the same, applied to
     /// the model's composition of the file, and the body is what is written back to it.
     /// </remarks>
-    public static ContentReplacement Write(DocumentIdentity document, CodeEditorViewModel? editor, string incoming,
-        IReadOnlyRegionRules? rules, IProjectFileFormat format, IReadOnlyRegionReader reader)
+    public static ContentReplacement Write(DocumentIdentity document, CodeEditorViewModel? editor, string incoming)
     {
         if (editor is not null)
             return editor.ReplaceContent(incoming);
 
-        format = ProjectFormats.Of(document.Project, format);
-        reader = ProjectFormats.ReaderOf(document.Project, reader);
-        rules = ProjectFormats.RulesOf(document.Project, rules);
+        var format = ProjectFormats.Of(document.Project);
+        var reader = ProjectFormats.ReaderOf(document.Project);
+        var rules = ProjectFormats.RulesOf(document.Project);
         var prefix = document.Module is { } module ? format.CodePrefix(module) : format.CodePrefix(document.Form!);
         var whole = prefix + (document.Module?.Code ?? document.Form!.Code);
         Action<string> update = document.Module is { } target ? target.UpdateCode : document.Form!.UpdateCode;
@@ -99,12 +96,11 @@ public static class DocumentContent
     /// the document's leading region ends past its prefix, and the document is not a module for which
     /// <c>PrefixCarriesName</c> is true. The prefix may be empty, as a new form's is. Otherwise null.
     /// </summary>
-    public static (CodeWindowText Text, TextRegion Region)? LeftOutLeadingRegion(DocumentIdentity document, string incoming,
-        IProjectFileFormat format, IReadOnlyRegionReader reader)
+    public static (CodeWindowText Text, TextRegion Region)? LeftOutLeadingRegion(DocumentIdentity document, string incoming)
     {
-        format = ProjectFormats.Of(document.Project, format);
-        reader = ProjectFormats.ReaderOf(document.Project, reader);
-        var text = TextOf(document, null, format, reader);
+        var format = ProjectFormats.Of(document.Project);
+        var reader = ProjectFormats.ReaderOf(document.Project);
+        var text = TextOf(document, null);
         return new CodeWindowText(incoming, 0, reader.Regions(incoming, 0)).LeadingRegion is null
             && text.LeadingRegion is { } leading && leading.End > text.PrefixLength
             && !(document.Module is { } module && format.PrefixCarriesName(module))

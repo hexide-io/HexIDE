@@ -58,6 +58,27 @@
     "SystemAccentColorLight1": "#2E6490",
     "SystemAccentColorLight2": "#3674A4",
     "SystemAccentColorDark1":  "#1E4464",
-    "SystemAccentColorDark2":  "#143050"
-  }
+    "SystemAccentColorDark2":  "#143050",
+    "ThemeBackgroundBrush": "#000C18",
+    "ThemeForegroundBrush": "#CCDDEE",
+    "ThemeForegroundLowBrush": "#CCDDEE",
+    "ThemeControlMidBrush": "#082040",
+    "ThemeControlMidHighBrush": "#88AACC",
+    "ThemeControlHighlightMidBrush": "#0A2850",
+    "ThemeAccentBrush2": "#993674A4",
+    "ThemeAccentBrush3": "#663674A4",
+    "ThemeAccentBrush4": "#333674A4",
+    "DockThemeBackgroundBrush": "#000C18",
+    "DockThemeControlBackgroundBrush": "#000C18",
+    "DockDocumentTabStripBackgroundBrush": "#000C18",
+    "DockSurfacePanelBrush": "#000C18",
+    "DockSurfaceHeaderBrush": "#082040",
+    "DockSurfaceSidebarBrush": "#001122",
+    "DockTabBackgroundBrush": "#001122",
+    "DockTabActiveBackgroundBrush": "#0A2850",
+    "DockTabForegroundBrush": "#CCDDEE",
+    "DockTabSelectedForegroundBrush": "#CCDDEE",
+    "DockTabActiveForegroundBrush": "#CCDDEE"
+  },
+  "placeholderOpacity": 1
 }

@@ -28,7 +28,7 @@ public class PropertiesPaneHeightTests
     {
         var localization = Substitute.For<ILocalizationService>();
         var vm = new PropertiesToolViewModel(Substitute.For<IDocumentDockService>(),
-            Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), localization, new Vb6ProjectFileFormat());
+            Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), localization);
         for (var i = 0; i < 20; i++)
         {
             var property = new PropertyViewModel(vm, VBProperties.CaptionProperty, null);

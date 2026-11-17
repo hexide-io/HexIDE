@@ -85,7 +85,7 @@ public class CurrentStatementBarTests : IDisposable
             Substitute.For<IBreakpointService>(),
             _debug,
             _runScope,
-            localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader(), callStack: _stack);
+            localization, callStack: _stack);
     }
 
     /// <summary>A module whose own name and whose file name deliberately disagree.</summary>

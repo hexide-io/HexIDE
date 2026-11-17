@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace HexIDE.IDE;
 
@@ -21,7 +23,40 @@ public sealed record VbFileDialogRequest(
     string FileName,
     string DefaultExtension,
     bool OverwritePrompt,
-    bool AllowMultiple = false);
+    bool AllowMultiple = false)
+{
+    /// <summary>
+    /// The position, from 0, of the type shown first, or null with no <c>Filter</c>: FilterIndex counts from 1, and 0, or one
+    /// past the end, shows the first.
+    /// </summary>
+    public int? FirstFilterPosition => Filters.Count == 0 ? null
+        : FilterIndex >= 1 && FilterIndex <= Filters.Count ? FilterIndex - 1 : 0;
+
+    /// <summary>
+    /// The name part of FileName, or null when it has none: a program often leaves a whole path there from the last dialog.
+    /// </summary>
+    public string? SuggestedName
+    {
+        get
+        {
+            var name = FileName[(FileName.LastIndexOfAny(['\\', '/']) + 1)..];
+            return name.Length == 0 ? null : name;
+        }
+    }
+
+    /// <summary>The <c>Filter</c> pair's patterns: <c>*.txt;*.log</c> is two patterns.</summary>
+    public IReadOnlyList<string> Patterns(int position) =>
+        Filters[position].Patterns.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    /// <summary>The index, from 1, of the type a Save dialog was answered under, or null where it can't be told.</summary>
+    public int? IndexOf(string description, IReadOnlyList<string> patterns)
+    {
+        for (var i = 0; i < Filters.Count; i++)
+            if (Filters[i].Description == description && Patterns(i).SequenceEqual(patterns))
+                return i + 1;
+        return null;
+    }
+}
 
 /// <summary>The first file, selected filter (from 1) where known, and any further files in selection order.</summary>
 public sealed record VbFileDialogAnswer(string Path, int? FilterIndex, IReadOnlyList<string>? AdditionalPaths = null);

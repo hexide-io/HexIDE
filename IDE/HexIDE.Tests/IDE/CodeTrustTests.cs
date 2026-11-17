@@ -351,11 +351,11 @@ public class CodeTrustTests : IDisposable
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<HexIDE.Forms.ViewModels.BaseEditorWindowViewModel>());
-        var service = new ProjectService(new Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException("no new-project dialog"),
+        var service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"),
             windows, Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), localization,
-            new HeaderRefresher(new Vb6ReadOnlyRegionWriter(), new EventBus(), dock, new BreakpointService(), new HexIDE.Bookmarks.BookmarkService(), new Vb6ProjectFileFormat()),
-            new Vb6ProjectFileFormat(), new ComponentRegistry(), trust: trust);
+            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new HexIDE.Bookmarks.BookmarkService()),
+            new ComponentRegistry(), trust: trust);
 
         await service.OpenProject(vbp);
         markedNow.Clear();   // as a save leaves the file: written again, with no mark

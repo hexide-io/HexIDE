@@ -220,6 +220,8 @@ public static class PackageVerification
             LogoPath = logoPath,
             Chain = chain,
             VerifiedDeclaration = new AddinCapabilityDeclaration(manifest, manifestHash),
+            // From the record whose signature was checked above, never from the manifest (#4258).
+            PublisherNamespaces = HexIDE.Addins.PublisherNamespaces.From(pub.Namespaces),
         };
     }
 

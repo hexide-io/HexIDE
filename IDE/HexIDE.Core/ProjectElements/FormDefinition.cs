@@ -166,6 +166,9 @@ public partial class FormDefinition : INotifyPropertyChanged
         OwningModule = module;
     }
 
+    /// <summary>A recovered load error allows editing and Save As, but never overwriting the source (#4179).</summary>
+    public bool LoadedWithErrors { get; set; }
+
     public string? AbsolutePath
     {
         get => absolutePath;
@@ -392,6 +395,7 @@ public partial class FormDefinition : INotifyPropertyChanged
     /// </summary>
     public void AdoptFidelityState(FormDefinition fresh)
     {
+        LoadedWithErrors = fresh.LoadedWithErrors;
         UnfaithfulSaveCauses = fresh.UnfaithfulSaveCauses;
         UnfaithfulSaveReason = fresh.UnfaithfulSaveReason;
         MaxUnreproducibleNestingDepth = fresh.MaxUnreproducibleNestingDepth;

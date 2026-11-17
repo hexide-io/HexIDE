@@ -24,13 +24,12 @@ public class FindReplaceService : IFindReplaceService
     private bool _subscribed;
 
     public FindReplaceService(IWindowManager windowManager, IDocumentDockService documentDockService,
-        ILocalizationService localization, IProjectManager projects, IEditorService editors, Func<ProjectToolViewModel> explorer,
-        IReadOnlyRegionReader regionReader, IProjectFileFormat format)
+        ILocalizationService localization, IProjectManager projects, IEditorService editors, Func<ProjectToolViewModel> explorer)
     {
         _windowManager = windowManager;
         _documentDockService = documentDockService;
         _localization = localization;
-        _projects = new FindProjectDocuments(documentDockService, projects, editors, () => SelectedProject(explorer()), format, regionReader);
+        _projects = new FindProjectDocuments(documentDockService, projects, editors, () => SelectedProject(explorer()));
         documentDockService.PropertyChanged += (_, _) => _viewModel?.RefreshScopes();
         projects.PropertyChanged += (_, _) => _viewModel?.RefreshScopes();
         _explorer = explorer;

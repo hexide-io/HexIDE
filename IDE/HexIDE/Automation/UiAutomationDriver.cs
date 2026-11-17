@@ -1547,8 +1547,13 @@ public static class UiAutomationDriver
 
     private static InteractOutcome SelectComboItem(ComboBox combo, string value)
     {
-        if (!combo.IsDropDownOpen)
-            return Err($"'{LabelOf(combo)}' has no selectable items realized — 'expand' it first, then select");
+        var opened = !combo.IsDropDownOpen;
+        if (opened)
+        {
+            var expanded = Interact(combo, "expand", null);
+            if (!expanded.Success) return expanded;
+            combo.UpdateLayout();
+        }
         var scroller = combo.GetRealizedContainers().FirstOrDefault()?.GetVisualAncestors().OfType<ScrollViewer>().FirstOrDefault();
         var original = scroller?.Offset;
         List<ComboRow> rows = [];
@@ -1575,12 +1580,16 @@ public static class UiAutomationDriver
             combo.UpdateLayout();
             if (combo.ContainerFromIndex(matches[0].Index) is not Control target)
                 return Err($"the item matching '{value}' could not be brought into view; nothing was selected");
-            return DoSelect(target, ControlAutomationPeer.CreatePeerForElement(target), null);
+            var selected = DoSelect(target, ControlAutomationPeer.CreatePeerForElement(target), null);
+            return opened && selected.Success
+                ? selected with { Detail = "opened the list, " + selected.Detail }
+                : selected;
         }
         finally
         {
             if (scroller is not null && original is { } offset)
                 scroller.Offset = offset;
+            if (opened) CloseDropDown(combo);
         }
     }
 
@@ -2599,6 +2608,8 @@ public static class UiAutomationDriver
                 };
             }
             // A program stopped in the debugger goes no further until it is continued, so the reply goes now.
+            if (state.Stop is { HasStatement: false })
+                return outcome with { Detail = outcome.Detail + " (the program is paused with no current statement)" };
             if (state.Stop is { } stop)
                 return outcome with
                 {

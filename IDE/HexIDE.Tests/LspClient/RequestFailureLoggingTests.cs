@@ -1,7 +1,6 @@
 using System.Text.Json;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
-using Microsoft.Extensions.Logging;
 using Nerdbank.Streams;
 using StreamJsonRpc;
 
@@ -28,25 +27,36 @@ namespace HexIDE.Tests.LspClient;
 public class RequestFailureLoggingTests : IAsyncDisposable
 {
     private readonly List<IAsyncDisposable> _disposables = [];
-    private readonly RecordingLogger _log = new();
+    private readonly WireDiagnosis.RecordingLogger<VBLspClient> _log;
     private readonly List<int> _renames = [];
+    private readonly WireDiagnosis _diagnosis = new(TestContext.Current.CancellationToken);
+    private readonly List<JsonRpc> _peers = [];
+
+    public RequestFailureLoggingTests() => _log = _diagnosis.ClientLog<VBLspClient>(1);
 
     public async ValueTask DisposeAsync()
     {
+        var dropped = _diagnosis.HasDropped
+            ? _diagnosis.Diagnosis("a connection dropped during the test") : null;
         foreach (var d in _disposables)
         {
             try { await d.DisposeAsync(); } catch { /* teardown is best effort */ }
         }
+        foreach (var peer in _peers) peer.Dispose();
         GC.SuppressFinalize(this);
+        if (dropped is not null) throw new InvalidOperationException(dropped);
     }
 
     private async Task<VBLspClient> ConnectedToThrowingServerAsync(object? server = null)
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
 
+        var remote = _diagnosis.TapPeer(serverSide);
         var serverRpc = new JsonRpc(
-            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
+            new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()),
             server ?? new ThrowingServer(renames: _renames));
+        _peers.Add(serverRpc);
+        _diagnosis.Watch(serverRpc, "stand-in", _peers.Count);
         serverRpc.StartListening();
 
         var transport = Substitute.For<ILspTransport>();
@@ -232,9 +242,12 @@ public class RequestFailureLoggingTests : IAsyncDisposable
         // honestly; that already had its own once-per-capability warning and must not gain a second,
         // different one saying the request failed — because no request was made.
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
+        var remote = _diagnosis.TapPeer(serverSide);
         var serverRpc = new JsonRpc(
-            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
+            new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()),
             new SilentServer());
+        _peers.Add(serverRpc);
+        _diagnosis.Watch(serverRpc, "stand-in", _peers.Count);
         serverRpc.StartListening();
 
         var transport = Substitute.For<ILspTransport>();
@@ -375,34 +388,5 @@ public class RequestFailureLoggingTests : IAsyncDisposable
 
         [JsonRpcMethod("initialized")]
         public void Initialized(JsonElement _) { }
-    }
-
-    /// <summary>
-    /// Records what was logged at which level.
-    /// </summary>
-    /// <remarks>
-    /// A real logger rather than a substitute: <c>ILogger.Log</c> is generic over an internal state type, so
-    /// asserting on a mock's call means matching a type the framework does not expose. Twenty lines here
-    /// buys an assertion that reads as the thing being claimed.
-    /// </remarks>
-    private sealed class RecordingLogger : ILogger<VBLspClient>
-    {
-        public List<string> Warnings { get; } = [];
-        public List<string> Debugs { get; } = [];
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(
-            LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter)
-        {
-            var message = formatter(state, exception);
-            switch (logLevel)
-            {
-                case LogLevel.Warning: lock (Warnings) Warnings.Add(message); break;
-                case LogLevel.Debug or LogLevel.Trace: lock (Debugs) Debugs.Add(message); break;
-            }
-        }
     }
 }

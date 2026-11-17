@@ -25,6 +25,7 @@ public class NativeInteropTests
     [InlineData("HexIDE.Desktop", "Server/X11WindowManager.cs", 6)]
     [InlineData("HexIDE.Runtime", "Interpreter/WindowsDateLocale.cs", 3)]
     [InlineData("HexIDE.Runtime", "Interpreter/WindowsLocaleCompare.cs", 2)]
+    [InlineData("HexIDE.Runtime", "Interpreter/WindowsLanguages.cs", 3)]
     [InlineData("HexIDE", "TypeLibrary/TypeLibReader.cs", 2)]
     [InlineData("HexIDE", "IDE/DownloadMark.cs", 1)]
     [InlineData("HexIDE.Runtime", "BuiltinControls/ToolbarCaptionMetrics.cs", 6)]

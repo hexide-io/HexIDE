@@ -70,7 +70,7 @@ public class ActiveFormSaveTests
         var projects = Substitute.For<IProjectService>();
         var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), FormComponentClass.Instance, "Form1");
         var designer = new FormEditViewModel(null!, Substitute.For<IEventBus>(), projects,
-            null!, null!, null!, Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat());
+            null!, null!, null!, Substitute.For<ILocalizationService>());
         designer.Initialize(form);
         shell.Composition.DocumentDockService.OpenDocument(designer);
         Dispatcher.UIThread.RunJobs();
@@ -134,7 +134,7 @@ public class ActiveFormSaveTests
         using var vm = new CodeEditorViewModel(Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), projects,
             shell.Composition.EventBus, lsp, settings, Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<IBreakpointService>(), Substitute.For<IDebugController>(), new RunScope(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).Initialize(form);
+            Substitute.For<ILocalizationService>()).Initialize(form);
         shell.Composition.DocumentDockService.OpenDocument(vm);
         var view = new CodeEditorView { DataContext = vm };
         shell.Content.Children.Add(view);

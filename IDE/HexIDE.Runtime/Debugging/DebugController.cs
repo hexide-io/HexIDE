@@ -55,6 +55,9 @@ public sealed class DebugController : IDebugGate
     private DebugState _state = DebugState.Running;
     private bool _isAborting;
     private bool _pauseRequested;
+    private bool _dispatchIdle;
+    private int _dispatchDepth;
+    private bool _stepAtNextEvent;
     // One-shot step (Into/Over/Out): the next qualifying statement breaks, then disarms. Over/Out compare the
     // executing frame's Depth to the depth captured when the step was armed.
     private StepMode _stepMode;
@@ -92,6 +95,9 @@ public sealed class DebugController : IDebugGate
         _state = DebugState.Running;
         _isAborting = false;
         _pauseRequested = false;
+        _dispatchIdle = false;
+        _dispatchDepth = 0;
+        _stepAtNextEvent = false;
         _stepMode = StepMode.None;
         _sessionActive = true;   // a run is now active (running/paused) until Stop()
         _currentStop = null;
@@ -142,6 +148,16 @@ public sealed class DebugController : IDebugGate
         }
         _watchBreaks = merged;
         _anyWatchBreaks = merged.Count > 0;
+    }
+
+    public ValueTask OnProcedureEntryAsync(int line, string module, IDebugFrame frame)
+    {
+        if (_state == DebugState.Paused || _stepAtNextEvent)
+        {
+            _stepAtNextEvent = false;
+            return OnStatementAsync(line, module, frame);
+        }
+        return OnBreakpointPositionAsync(line, module, frame);
     }
 
     public ValueTask OnBreakpointPositionAsync(int line, string module, IDebugFrame frame)
@@ -248,6 +264,7 @@ public sealed class DebugController : IDebugGate
                            : StopReason.Pause;
                 if (runToHit) _runToTarget = null;   // one-shot temp breakpoint reached
                 _pauseRequested = false;
+                _stepAtNextEvent = false;
                 _stepMode = StepMode.None;   // one-shot — F8 breaks once; press again to step again
                 await SuspendAtBreakAsync(reason, line, module, frame, condition.Expression, condition.Error);
                 return;
@@ -389,6 +406,8 @@ public sealed class DebugController : IDebugGate
         var bt = _breakTcs;
         var rg = _resumeGate;
         _state = DebugState.Running;
+        _stepAtNextEvent = false;
+        _pauseRequested = false;
         _stepMode = StepMode.None;   // a plain Continue (F5) from a step break runs free
         _currentStop = null;
         _currentFrame = null;
@@ -402,9 +421,21 @@ public sealed class DebugController : IDebugGate
 
     public void Pause()
     {
-        // No-op if not running (idle-between-events pause is a documented no-op; the next statement gate breaks).
-        if (_state == DebugState.Running)
+        if (_state != DebugState.Running)
+            return;
+        if (!_dispatchIdle)
+        {
             _pauseRequested = true;
+            return;
+        }
+        _pauseRequested = false;
+        _stepMode = StepMode.None;
+        _stepAtNextEvent = false;
+        _state = DebugState.Paused;
+        _currentStop = new StoppedInfo(StopReason.Pause, "", 0);
+        _currentFrame = null;
+        _resumeGate ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Stopped?.Invoke(_currentStop.Value);
     }
 
     public void StepInto()
@@ -462,25 +493,45 @@ public sealed class DebugController : IDebugGate
         if (_state != DebugState.Paused)
             return;
         var bt = _breakTcs;
+        var idle = _currentStop is { HasStatement: false };
+        if (idle) _stepAtNextEvent = true;
         _state = DebugState.Running;
         _currentStop = null;
         _currentFrame = null;
         _breakTcs = null;
         _lastYieldTick = Environment.TickCount64;
-        bt?.TrySetResult();   // resume the decider; _resumeGate is intentionally NOT completed
+        if (idle)
+        {
+            var rg = _resumeGate;
+            _resumeGate = null;
+            Continued?.Invoke();
+            rg?.TrySetResult();
+        }
+        bt?.TrySetResult();   // resume the decider; active-chain newcomers stay frozen
     }
 
-    public void NotifyDispatchIdle()
+    public void NotifyDispatchStarted()
     {
-        // A dispatch (event-handler chain) returned to idle without the armed step ever breaking. Disarm it so a
-        // leftover Step Into/Over/Out can't fire on the NEXT, unrelated event handler. Only while Running — never
-        // disturb a step armed for a chain that is currently paused mid-flight (Paused), nor after Stop (Stopped).
+        _dispatchDepth++;
+        _dispatchIdle = false;
+    }
+
+    public void NotifyDispatchIdle(bool carryStep = true)
+    {
+        if (_dispatchDepth > 0 && --_dispatchDepth > 0)
+            return;
+        var wasIdle = _dispatchIdle;
+        _dispatchIdle = true;
+        if (wasIdle || !carryStep)
+            return;
         if (_state != DebugState.Running || _stepMode == StepMode.None)
             return;
-        _stepMode = StepMode.None;
+        // #4261/#4269, measured in VB6's IDE (oracle PR #4270). Only a completed outermost chain
+        // carries a step into a fresh event; a nested event must retain the active step's depth rule.
+        _stepAtNextEvent = _stepMode is StepMode.Into or StepMode.Over;
+        _stepMode = _stepAtNextEvent ? StepMode.Into : StepMode.None;
         var rg = _resumeGate;
         _resumeGate = null;
-        // No next Stopped will move the amber bar: leave break mode and release frozen events as Continue does.
         Continued?.Invoke();
         rg?.TrySetResult();
     }
@@ -490,6 +541,7 @@ public sealed class DebugController : IDebugGate
         if (_state == DebugState.Stopped)
             return;
         _isAborting = true;
+        _stepAtNextEvent = false;
         var bt = _breakTcs;
         var rg = _resumeGate;
         _state = DebugState.Stopped;

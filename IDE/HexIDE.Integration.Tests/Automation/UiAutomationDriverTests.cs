@@ -582,7 +582,7 @@ public class UiAutomationDriverTests
         loc.GetString("Str.PropCategory.Appearance").Returns(header);
         var vm = new HexIDE.VisualDesigner.PropertiesToolViewModel(
             Substitute.For<HexIDE.IDE.IDocumentDockService>(), Substitute.For<HexIDE.IDE.IEventBus>(),
-            Substitute.For<HexIDE.IDE.IWindowManager>(), loc, new Vb6ProjectFileFormat());
+            Substitute.For<HexIDE.IDE.IWindowManager>(), loc);
         var category = new HexIDE.VisualDesigner.PropertyCategoryViewModel(vm, HexIDE.Runtime.Components.PropertyCategory.Appearance);
         var property = new HexIDE.VisualDesigner.PropertyViewModel(vm, HexIDE.Runtime.Components.VBProperties.BackColorProperty, null);
         vm.Properties.Add(property);
@@ -636,7 +636,7 @@ public class UiAutomationDriverTests
         loc.GetString("Str.PropCategory.Appearance").Returns("Appearance");
         var vm = new HexIDE.VisualDesigner.PropertiesToolViewModel(
             Substitute.For<HexIDE.IDE.IDocumentDockService>(), Substitute.For<HexIDE.IDE.IEventBus>(),
-            Substitute.For<HexIDE.IDE.IWindowManager>(), loc, new Vb6ProjectFileFormat());
+            Substitute.For<HexIDE.IDE.IWindowManager>(), loc);
         var category = new HexIDE.VisualDesigner.PropertyCategoryViewModel(vm, HexIDE.Runtime.Components.PropertyCategory.Appearance);
         var property = new HexIDE.VisualDesigner.PropertyViewModel(vm, HexIDE.Runtime.Components.VBProperties.BackColorProperty, null);
         vm.Properties.Add(property);
@@ -2215,6 +2215,55 @@ public class UiAutomationDriverTests
             combo.SelectedItem.Should().Be("B");
             combo.IsDropDownOpen.Should().BeFalse();
             outcome.Detail.Should().EndWith("and closed the dropdown, as a click does");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("B", true)]
+    [InlineData("Missing", false)]
+    public void Interact_Select_OnAClosedDropDown_OpensAndRestoresIt(string value, bool found)
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" }, SelectedIndex = 0 };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(combo, "select", value);
+
+            outcome.Success.Should().Be(found);
+            combo.IsDropDownOpen.Should().BeFalse();
+            combo.SelectedIndex.Should().Be(found ? 1 : 0);
+            if (found)
+                outcome.Detail.Should().Be("opened the list, selected 'B' and closed the dropdown, as a click does");
+            else
+                outcome.Error.Should().Contain("no selectable item matching 'Missing'")
+                    .And.Contain("available items: 'A', 'B'");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Interact_Select_RefusesAnUnavailableComboBeforeOpening(bool disabled)
+    {
+        var combo = new ComboBox
+        {
+            ItemsSource = new[] { "A", "B" }, IsEnabled = !disabled, IsVisible = disabled
+        };
+        var window = Show(combo);
+        try
+        {
+            var opened = false;
+            combo.DropDownOpened += (_, _) => opened = true;
+
+            var outcome = UiAutomationDriver.Interact(combo, "select", "B");
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain(disabled ? "disabled" : "not showing");
+            opened.Should().BeFalse();
+            combo.IsDropDownOpen.Should().BeFalse();
+            combo.SelectedIndex.Should().Be(-1);
         }
         finally { window.Close(); }
     }

@@ -11,12 +11,19 @@ public sealed class LanguageServerEditorStore(
     string filePath, IReadOnlyList<LanguageServerEntry> defaults, ILogger<LanguageServerConfigLoader> logger,
     LanguageServerCommandStore seen, IWorkspaceArtifactProviderRegistry? providers = null)
 {
+    public event Action<IReadOnlyList<LanguageServerEntry>>? Reloaded;
+
     public IReadOnlyList<LanguageServerEntry> Defaults { get; } = defaults;
     private readonly LanguageServerConfigLoader _loader = new(filePath, logger);
 
     public string Read() => File.Exists(filePath) ? File.ReadAllText(filePath) : "{\"version\":1,\"servers\":[]}";
 
-    public LanguageServerConfigResult Load() => _loader.Load(Defaults, artifactProviders: providers);
+    public LanguageServerConfigResult Load()
+    {
+        var result = _loader.Load(Defaults, artifactProviders: providers);
+        Reloaded?.Invoke(result.Entries);
+        return result;
+    }
 
     public LanguageServerConfigResult Preview(string text) => _loader.Preview(text, Defaults, providers);
 
@@ -154,6 +161,7 @@ public sealed class LanguageServerEditorStore(
         AtomicFileWriter.WriteAllBytes(filePath, [.. encoding.GetPreamble(), .. encoding.GetBytes(updated)]);
         if (entry.Id is { } id && LanguageServerConfigLoader.LaunchedCommandOf(entry) is { } command)
             seen.Record(id, command);
+        Load();
         return true;
     }
 
@@ -174,7 +182,7 @@ public sealed class LanguageServerEditorStore(
     private static readonly string[] FieldOrder =
     [
         "id", "extensions", "languageId", "transport", "command", "arguments", "environment", "workingDirectory",
-        "pipeName", "pipeRole", "endpoint", "tcpRole", "websocketRole", "displayName", "initializationOptions",
+        "pipeName", "pipeRole", "endpoint", "tcpRole", "websocketRole", "displayName", "initializationOptions", "settings",
         "trace", "priority", "enabled", "capture", "workspaceArtifact", "projectImport",
     ];
 
