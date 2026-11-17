@@ -96,6 +96,73 @@ public class ListBoxScrollTests : WindowTestFixture
         return recorder.Calls.Where(c => c.StartsWith("List1_", System.StringComparison.Ordinal)).ToList();
     }
 
+    // #4073 and oracle PR #4021: the default font shows seven rows and clamps to 13.
+    [AvaloniaTheory]
+    [InlineData(1.0)]
+    [InlineData(1.5)]
+    public async Task Default_font_uses_seven_rows_and_clamps_to_last_page(double scaling)
+    {
+        var (root, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(FormWithList.Replace("1200", "1425"));
+        var list = (VBListBox)ContainerRuntimeHarness.Child(canvas, "List1");
+        var window = new Window { Content = root, Width = 400, Height = 300 };
+        ContainerRuntimeHarness.MergeAppResources(window);
+        window.SetRenderScaling(scaling);
+        window.Show();
+        await ContainerRuntimeHarness.Run(ctx, env, "For i = 0 To 19\r\nList1.AddItem CStr(i)\r\nNext\r\n");
+        Dispatcher.UIThread.RunJobs();
+        if (scaling == 1)
+            list.Scroll!.Viewport.Height.Should().Be(93);
+        var row = list.ContainerFromIndex(0)!.Bounds.Height;
+        row.Should().BeApproximately(13, 0.01);
+        ((int)System.Math.Floor(list.Scroll!.Viewport.Height / row)).Should().Be(7);
+        // All seven are wholly in view: the first starts at the viewport's top, and the seventh ends inside it.
+        list.ContainerFromIndex(0)!.TranslatePoint(new Avalonia.Point(0, 0), (Avalonia.Visual)list.Scroll)!.Value.Y.Should().BeApproximately(0, 0.01);
+        list.ContainerFromIndex(6)!.TranslatePoint(new Avalonia.Point(0, row), (Avalonia.Visual)list.Scroll)!.Value.Y
+            .Should().BeLessThanOrEqualTo(list.Scroll.Viewport.Height + 0.01);
+        await ContainerRuntimeHarness.Run(ctx, env, "List1.TopIndex = 18\r\n");
+        list.TopIndex.Should().Be(13);
+    }
+
+    // The inferred font rows are recorded in the Controls.Add oracle (#1556).
+    [AvaloniaTheory]
+    [InlineData("Arial", 8.25, 14)]
+    [InlineData("Times New Roman", 12, 19)]
+    public async Task Font_changes_apply_measured_rows(string name, double size, double expected)
+    {
+        var (recorder, ctx, env) = await Loaded(SixtyItems);
+        var list = recorder.List!;
+        AttachedProperties.SetFont(list, new HexIDE.Runtime.BuiltinTypes.VBFont(name, size));
+        list.UpdateLayout();
+        list.ContainerFromIndex(0)!.Bounds.Height.Should().BeApproximately(expected, 0.01);
+        await After(recorder, ctx, env, "List1.Font.Size = 12\r\n");
+        list.UpdateLayout();
+        list.ContainerFromIndex(0)!.Bounds.Height.Should().BeApproximately(name == "Arial" ? 18 : 19, 0.01);
+    }
+
+    [AvaloniaFact]
+    public async Task FontName_and_FontSize_reapply_the_row()
+    {
+        var (recorder, ctx, env) = await Loaded(SixtyItems);
+        await After(recorder, ctx, env, "List1.FontName = \"Arial\"\r\nList1.FontSize = 12\r\n");
+        recorder.List!.UpdateLayout();
+        recorder.List.ContainerFromIndex(0)!.Bounds.Height.Should().BeApproximately(18, 0.01);
+    }
+
+    [AvaloniaFact]
+    public async Task Unmeasured_font_restores_theme_row()
+    {
+        var (recorder, _, _) = await Loaded(SixtyItems);
+        var list = recorder.List!;
+        var measuredPadding = ((ListBoxItem)list.ContainerFromIndex(0)!).Padding;
+        AttachedProperties.SetFont(list, new HexIDE.Runtime.BuiltinTypes.VBFont("Unmeasured font", 8.25));
+        list.UpdateLayout();
+        var item = (ListBoxItem)list.ContainerFromIndex(0)!;
+        item.IsSet(Avalonia.Controls.Control.HeightProperty).Should().BeFalse();
+        item.Padding.Top.Should().BeGreaterThan(0);
+        measuredPadding.Left.Should().Be(item.Padding.Left);
+        measuredPadding.Right.Should().Be(item.Padding.Right);
+    }
+
     private const string SixtyItems = "For i = 0 To 59\r\nList1.AddItem CStr(i)\r\nNext\r\n";
 
     [AvaloniaTheory]
