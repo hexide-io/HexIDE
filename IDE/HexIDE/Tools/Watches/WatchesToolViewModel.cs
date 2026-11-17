@@ -162,7 +162,7 @@ public partial class WatchesToolViewModel : Tool
 
     // The paused frame context; the interpreter dialog source supplies the active code window defaults.
     private string CurrentContext()
-        => (showingExternal ? externalDebugger?.SelectedFrame?.GetProperty("name").GetString() : _debug.GetLocals()?.Context)
+        => (showingExternal ? externalDebugger?.SelectedFrame?.GetProperty("name").GetString() : _debug.GetLocals()?.WatchContext)
             ?? WatchExpression.AllProceduresContext;
 
     /// <summary>Open the Add Watch dialog (optionally pre-filled — QuickWatch passes the caret/selected expression).</summary>
