@@ -129,6 +129,26 @@ public class TranslationEditorViewModelTests
     /// which the VM listens to and routes into its commit path).</summary>
     private static void CommitTo(TranslationRowViewModel row, string value) => row.ToValue = value;
 
+    [AvaloniaTheory]
+    [InlineData(BrandText.UpstreamCreditsKey, "Str.TranslationEditor.ProtectedCredits")]
+    [InlineData("Str.Dialog.TrustChain.Root", "Str.TranslationEditor.ProtectedTrust")]
+    public void CommittingProtectedEdit_RevertsWithoutWriting_AndExplainsReason(string key, string reason)
+    {
+        var (vm, user, loc) = CreateSut();
+        vm.ToLanguage = Lang(vm, "de");
+        var row = vm.Rows.Single(r => r.Key == key);
+        var inherited = row.ToValue;
+
+        CommitTo(row, "Replacement");
+
+        row.ToValue.Should().Be(inherited);
+        row.IsOverridden.Should().BeFalse();
+        user.SetOverrideCalls.Should().BeEmpty();
+        user.ClearOverrideCalls.Should().BeEmpty();
+        user.GetOverrides("de").Should().NotContainKey(key);
+        vm.StatusMessage.Should().Be(loc.GetString(reason)).And.NotBe(reason);
+    }
+
     // ── From == en ⇒ no row is red ─────────────────────────────────────────
 
     [AvaloniaFact]

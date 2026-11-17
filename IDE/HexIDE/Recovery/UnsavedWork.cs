@@ -1,7 +1,7 @@
 namespace HexIDE.Recovery;
 
 /// <summary>
-/// One loaded project's unsaved work, rendered as a save would write it, for crash recovery (hexide-io/HexIDE#499).
+/// One loaded project's unsaved work for crash recovery: rendered saves and pending project-file text (hexide-io/HexIDE#499).
 /// </summary>
 /// <param name="Name">The project's name.</param>
 /// <param name="Path">The project file's path, or null for a project that has never been saved.</param>
@@ -20,6 +20,7 @@ namespace HexIDE.Recovery;
 /// The project is in a scratch folder the IDE made, as <c>--newproject</c>'s is. Nobody opens a project from there, so
 /// its work is offered at start, as a never-saved project's is.
 /// </param>
+/// <param name="ProjectFileEdit">The project-file tab's pending text, kept separately from rendered settings.</param>
 public sealed record UnsavedProject(
     string Name,
     string? Path,
@@ -28,7 +29,8 @@ public sealed record UnsavedProject(
     UnsavedFile? ProjectFile,
     IReadOnlyList<UnsavedDocument> Documents,
     string RenderedAt = "",
-    bool Scratch = false);
+    bool Scratch = false,
+    UnsavedFile? ProjectFileEdit = null);
 
 /// <summary>A form or module in an <see cref="UnsavedProject"/>.</summary>
 /// <param name="Name">Its name within the project, which is how a restore finds it again.</param>

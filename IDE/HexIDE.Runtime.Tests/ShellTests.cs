@@ -28,6 +28,169 @@ public class ShellTests : BaseVBTestFixture
         AssertDebugLog([true]);
     }
 
+    // vb6.exe SP6 measurements: https://github.com/hexide-io/HexIDE/issues/4146.
+    // A missing executable validates the style without starting a process, including on Linux.
+    [Theory]
+    [InlineData("0", 53)]
+    [InlineData("1", 53)]
+    [InlineData("2", 53)]
+    [InlineData("3", 53)]
+    [InlineData("4", 53)]
+    [InlineData("5", 53)]
+    [InlineData("6", 53)]
+    [InlineData("7", 53)]
+    [InlineData("8", 53)]
+    [InlineData("9", 53)]
+    [InlineData("10", 5)]
+    [InlineData("11", 5)]
+    [InlineData("12", 5)]
+    [InlineData("-1", 5)]
+    [InlineData("100", 5)]
+    [InlineData("\"1\"", 53)]
+    [InlineData("1.6", 53)]
+    public async Task MeasuredStyleValidation(string style, int error)
+    {
+        await Run($"On Error Resume Next\nShell \"nosuchprogram_x.exe\", {style}\nDebug.Print Err.Number");
+        AssertDebugLog([new Vb6Value((long)error)]);
+    }
+
+    [WindowsOnlyFact]
+    public async Task RecordsMeasuredStylesAndDefault()
+    {
+        foreach (var (argument, expected) in new[]
+                 { (", 0", 0), (", 1", 1), (", 2", 2), (", 3", 3), (", 4", 4),
+                     (", 5", 5), (", 6", 6), (", 7", 7), (", 8", 8), (", 9", 9),
+                     ("", 2), (", \"1\"", 1), (", 1.6", 2) })
+        {
+            await Run($"Debug.Print Shell({Literal(Command)}{argument})");
+            var launch = ShellLaunches.All.Last();
+            try
+            {
+                launch.WindowStyle.Should().Be(expected);
+                launch.ProcessId.Should().BeGreaterThan(0);
+            }
+            finally
+            {
+                await WaitForHelper(launch.ProcessId);
+            }
+        }
+    }
+
+    // Recording the default is portable; it does not assert a Windows window state.
+    [Fact]
+    public async Task RecordsDefaultStyleOnEveryHost()
+    {
+        await Run($"Debug.Print Shell({Literal(Command)})");
+        var launch = ShellLaunches.All.Last();
+        try
+        {
+            launch.WindowStyle.Should().Be(2);
+            launch.ProcessId.Should().BeGreaterThan(0);
+        }
+        finally
+        {
+            await WaitForHelper(launch.ProcessId);
+        }
+    }
+
+    [Fact]
+    public async Task MissingProgramByPathIs53()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "hexide-shell-missing-" + Guid.NewGuid() + ".exe");
+        await Run($"On Error Resume Next\nShell {Literal(path)}, 1\nDebug.Print Err.Number");
+        AssertDebugLog([new Vb6Value(53L)]);
+    }
+
+    [Fact]
+    public async Task NonStringPathRemainsUnmeasured()
+    {
+        Func<Task> run = () => Run("Shell 123, 1");
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*non-string PathName*#4146*");
+    }
+
+    [Fact]
+    public async Task UnstartableExecutableRemainsUnmeasured()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "hexide-shell-" + Guid.NewGuid() + ".exe");
+        File.WriteAllText(path, "Not an executable image.");
+        try
+        {
+            Func<Task> run = () => Run($"Shell {Literal(path)}, 1");
+            await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*process launch failure*#4146*");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [UnixOnlyFact]
+    public async Task ExistingProgramWithMissingInterpreterRemainsUnmeasured()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "hexide-shell-" + Guid.NewGuid() + ".sh");
+        File.WriteAllText(path, "#!/no/such/hexide-interpreter\n");
+        try
+        {
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+            Func<Task> run = () => Run($"Shell {Literal(path)}, 1");
+            await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*process launch failure*#4146*");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [UnixOnlyFact]
+    public async Task NonExecutableBinaryIsNotMistakenForADocument()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "hexide-shell-" + Guid.NewGuid() + ".bin");
+        File.Copy(Command.Split(' ')[0], path);
+        try
+        {
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            Func<Task> run = () => Run($"Shell {Literal(path)}, 1");
+            await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*process launch failure*#4146*");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Theory]
+    [InlineData(".txt")]
+    [InlineData(".hexide-unassociated")]
+    public async Task DocumentIsInvalid(string extension)
+    {
+        var path = Path.Combine(Path.GetTempPath(), "hexide-shell-" + Guid.NewGuid() + extension);
+        File.WriteAllText(path, "A document, not a program.");
+        try
+        {
+            await Run($"On Error Resume Next\nShell {Literal(path)}, 1\nDebug.Print Err.Number");
+            AssertDebugLog([new Vb6Value(5L)]);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    private static async Task WaitForHelper(int id)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(id);
+            await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+        }
+        catch (ArgumentException)
+        {
+            // The helper may already have exited.
+        }
+    }
+
     // What Shell starts is recorded, so get_process_windows can read its windows and nothing else's (#2591).
     [Fact]
     public async Task RecordsTheProcessItStarted()
@@ -69,6 +232,7 @@ public class ShellTests : BaseVBTestFixture
     [Theory]
     [InlineData("\"nosuchprogram_x.exe\"", "", "53")]
     [InlineData("\"\"", "", "5")]
+    [InlineData("\"\"", ", 1", "5")]
     [InlineData("Null", "", "94")]
     [InlineData("", ", 10", "5")]
     [InlineData("", ", -1", "5")]
@@ -79,14 +243,16 @@ public class ShellTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(long.Parse(error))]);
     }
 
-    [Fact]
-    public async Task FolderIsInvalid()
+    [Theory]
+    [InlineData("")]
+    [InlineData(", 1")]
+    public async Task FolderIsInvalid(string style)
     {
         var directory = Path.Combine(Path.GetTempPath(), "hexide shell folder " + Guid.NewGuid());
         Directory.CreateDirectory(directory);
         try
         {
-            await Run($"On Error Resume Next\nShell {Literal(directory)}\nDebug.Print Err.Number");
+            await Run($"On Error Resume Next\nShell {Literal(directory)}{style}\nDebug.Print Err.Number");
             AssertDebugLog([new Vb6Value(5L)]);
         }
         finally

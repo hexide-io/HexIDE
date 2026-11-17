@@ -257,6 +257,34 @@ public class LspClientRegistryTests
     [Theory]
     [InlineData("true")]
     [InlineData("{}")]
+    public async Task TypeHierarchyKeepsEveryAdvertisingOwnerAndPerServerErrors(string provider)
+    {
+        var first = FakeServer(capabilitiesJson: "{\"typeHierarchyProvider\":" + provider + "}");
+        var second = FakeServer(capabilitiesJson: "{\"typeHierarchyProvider\":true}");
+        var absent = FakeServer();
+        var item = new TypeHierarchyItem("IShape", 5, Vb6Doc, Span(1), Span(1),
+            Data: JsonDocument.Parse("{\"owner\":42}").RootElement.Clone());
+        first.PrepareTypeHierarchyAsync(Vb6Doc, new Position(1, 2), Arg.Any<CancellationToken>()).Returns([item]);
+        second.PrepareTypeHierarchyAsync(Vb6Doc, new Position(1, 2), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<TypeHierarchyItem[]>(new InvalidOperationException("refused")));
+        await using var sut = Registry(Registration("first", first), Registration("second", second), Registration("absent", absent));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        sut.SupportsTypeHierarchy(Vb6Doc).Should().BeTrue();
+        sut.SupportsTypeHierarchy("file:///unclaimed.txt").Should().BeFalse();
+        var result = await sut.FindTypeHierarchyAsync(Vb6Doc, new Position(1, 2), TestContext.Current.CancellationToken);
+        result.Roots.Should().ContainSingle().Which.Client.Should().BeSameAs(first);
+        result.Roots[0].Item.Should().BeSameAs(item);
+        result.Roots[0].Server.Should().Be("first");
+        result.Errors.Should().ContainSingle().Which.Server.Should().Be("second");
+        first.IsRunning.Returns(false);
+        second.IsRunning.Returns(false);
+        sut.SupportsTypeHierarchy(Vb6Doc).Should().BeFalse();
+        await absent.DidNotReceive().PrepareTypeHierarchyAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("true")]
+    [InlineData("{}")]
     public async Task RangeFormattingSelectsExactlyOneAdvertisingClaimant(string provider)
     {
         typeof(ILspClient).GetMethod("RequestRangeFormattingAsync").Should().NotBeNull();

@@ -8,7 +8,8 @@
              xmlns:system="clr-namespace:System;assembly=System.Runtime"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="visualDesigner:PropertiesToolViewModel"
-             x:Class="HexIDE.VisualDesigner.Views.PropertiesToolView">
+             x:Class="HexIDE.VisualDesigner.Views.PropertiesToolView"
+             ClipToBounds="True">
     <UserControl.Styles>
         <!-- Compact tab strip to match VB6 Win32 density (~18 px) -->
         <Style Selector="TabControl#TabProperties TabItem">
@@ -121,7 +122,8 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <!-- Reserve the tab strip and two 16-DIP rows; the description gives way in a short pane (#4090). -->
+            <RowDefinition Height="*" MinHeight="80" />
             <RowDefinition Height="2" />
             <RowDefinition Height="80" />
         </Grid.RowDefinitions>

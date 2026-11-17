@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:tools="clr-namespace:HexIDE.Tools"
+             x:Class="HexIDE.Tools.TypeHierarchyToolView"
+             x:DataType="tools:TypeHierarchyToolViewModel">
+    <DockPanel>
+        <TreeView ItemsSource="{CompiledBinding Roots}" SelectedItem="{CompiledBinding SelectedNode, Mode=TwoWay}"
+                  DoubleTapped="OnDoubleTapped" AutomationProperties.AutomationId="TypeHierarchy.Results">
+            <TreeView.Styles>
+                <Style Selector="TreeViewItem" x:DataType="tools:TypeHierarchyNode">
+                    <Setter Property="IsExpanded" Value="{CompiledBinding IsExpanded, Mode=TwoWay}" />
+                    <Setter Property="AutomationProperties.Name" Value="{CompiledBinding Label}" />
+                </Style>
+            </TreeView.Styles>
+            <TreeView.ItemTemplate>
+                <TreeDataTemplate x:DataType="tools:TypeHierarchyNode" ItemsSource="{CompiledBinding Children}">
+                    <TextBlock Text="{CompiledBinding Label}" />
+                </TreeDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+    </DockPanel>
+</UserControl>

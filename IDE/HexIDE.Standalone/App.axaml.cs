@@ -26,7 +26,7 @@ public partial class App : Application
         AvaloniaXamlLoader.Load(this);
     }
 
-    private static string ErrorString(string key)
+    internal static string ErrorString(string key)
     {
         using var stream = typeof(App).Assembly.GetManifestResourceStream("HexIDE.Standalone.ErrorStrings.json")!;
         using var pack = System.Text.Json.JsonDocument.Parse(stream);

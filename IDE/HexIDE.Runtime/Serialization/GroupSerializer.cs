@@ -24,6 +24,8 @@ public class GroupSerializer
         foreach (var p in projects)
             if (PathOf(p) is { } projectPath)
             {
+                if (!projectPath.EndsWith(".vbp", StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("A VB6 project group can list only .vbp projects.", nameof(projects));
                 var key = ReferenceEquals(p, startupProject) ? "StartupProject" : "Project";
                 w.WriteLine($"{key}={SerializedProject.ToProjectFilePath(Path.GetRelativePath(dir, projectPath))}");
             }
