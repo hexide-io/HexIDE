@@ -57,6 +57,7 @@
     "EditMenuCommand":                         "Ctrl+E",
     "ProjectComponentsCommand":                "Ctrl+T",
     "CallHierarchyCommand": "",
+    "TypeHierarchyCommand": "",
     "FormatSelectionCommand":                  "",
     "NextBookmarkCommand":                     ""
   }

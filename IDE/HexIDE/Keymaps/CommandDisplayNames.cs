@@ -21,6 +21,7 @@ internal static class CommandDisplayNames
         ["BreakProjectCommand"] = "Str.Menu.Run.Break",
         ["BringToFrontCommand"] = "Str.Menu.Format.Order.BringToFront",
         ["CallHierarchyCommand"] = "Str.Menu.Edit.CallHierarchy",
+        ["TypeHierarchyCommand"] = "Str.Menu.Edit.TypeHierarchy",
         ["CenterHorizontallyCommand"] = "Str.Menu.Format.CenterInForm.Horizontally",
         ["CenterVerticallyCommand"] = "Str.Menu.Format.CenterInForm.Vertically",
         ["ClearAllBookmarksCommand"] = "Str.Menu.Edit.Bookmarks.ClearAll",

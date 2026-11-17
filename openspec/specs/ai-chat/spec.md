@@ -181,7 +181,10 @@ than discovering it later.
 
 ### Requirement: The developer SHALL be told what leaves their machine, before it does
 The assistant SHALL disclose, before its first request of a session, that the conversation, the active
-file's contents and its diagnostics are sent to the configured third-party endpoint, naming that endpoint.
+file's contents (including a form's layout and captions) and its diagnostics are sent to the configured
+third-party endpoint, naming that endpoint. It SHALL also disclose that tool reads send the contents of
+any other file in loaded projects that the assistant reads, project file lists, and diagnostics for any
+file to that endpoint without asking for approval.
 The disclosure and its conditional file-key tip SHALL use the selected language's resources.
 
 The thing a developer would most want to know is exactly the thing a chat panel makes easiest to forget:
@@ -189,8 +192,16 @@ the code in the editor is part of every request, not just what was typed into th
 before anything is sent, and naming the actual destination is the difference between a feature they chose
 and a surprise.
 
-#### Scenario: First use in a session
-- **WHEN** the developer sends their first message
+The acknowledgement SHALL record the disclosure version. A developer who acknowledged an older version
+SHALL see the current disclosure once; acknowledging the current version SHALL suppress it on later use.
+
+#### Scenario: Updated disclosure
+- **WHEN** the developer has acknowledged only an older disclosure version
+- **THEN** the current disclosure is shown once and its version is recorded
+- **AND** subsequent use does not show it again
+
+#### Scenario: First use without a current acknowledgement
+- **WHEN** the developer sends their first message without having acknowledged the current disclosure
 - **THEN** they are told what is transmitted and where, before the request is made
 
 ### Requirement: Actions that change the project SHALL require explicit approval

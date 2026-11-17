@@ -212,6 +212,7 @@ async Task<Engine> RunEngine(string workspace, string module)
     var atException = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
     DapSession? session = null;
     Task? observer = null;
+    Task handlingStop = Task.CompletedTask;
     try
     {
         session = DapSession.Start(new(adapter!)
@@ -252,18 +253,8 @@ async Task<Engine> RunEngine(string workspace, string module)
                     case "stopped" when update.Snapshot.Stop is { } stop:
                         var reason = body is { } sb && sb.TryGetProperty("reason", out var r) ? r.GetString() ?? "" : "";
                         engine.Stops.Add(reason);
-                        // An unhandled error stops under the adapter's default filter. Continuing from it re-runs the
-                        // failing line, as VBA's F5 does, so the error is read at this first stop and the program is
-                        // ended there (docs/dap-adapter-smoke.md).
-                        if (reason == "exception")
-                        {
-                            engine.Exception = await ExceptionAt(running, stop, body, token);
-                            atException.TrySetResult();
-                            break;
-                        }
-                        if (engine.Stops.Count > 20)
-                            throw new InvalidOperationException("The program stopped more than 20 times.");
-                        await running.ResumeAsync(stop, "continue", stop.ThreadId ?? 1, token);
+                        // Keep draining while inspection/resume replies wait behind adapter events.
+                        handlingStop = HandleStopAsync(handlingStop, stop, body, reason);
                         break;
                     case "terminated":
                         terminated.TrySetResult();
@@ -271,9 +262,30 @@ async Task<Engine> RunEngine(string workspace, string module)
                 }
             }
         }, token);
+        async Task HandleStopAsync(Task previous, DapStop stop, JsonElement? body, string reason)
+        {
+            try
+            {
+                await previous;
+                // Continuing an exception stop re-runs the failing line; read the error and end there.
+                if (reason == "exception")
+                {
+                    engine.Exception = await ExceptionAt(running, stop, body, token);
+                    atException.TrySetResult();
+                    return;
+                }
+                if (engine.Stops.Count > 20)
+                    throw new InvalidOperationException("The program stopped more than 20 times.");
+                await running.ResumeAsync(stop, "continue", stop.ThreadId ?? 1, token);
+            }
+            catch (Exception exception) { atException.TrySetException(exception); }
+        }
         await session.LaunchAsync("external", JsonSerializer.SerializeToElement(new { module, entryPoint = "HexDumpMain" }), [], token);
         if (await Task.WhenAny(terminated.Task, atException.Task).WaitAsync(token) == atException.Task)
+        {
+            await atException.Task;
             engine.EndedAtException = await EndAtException(session, terminated.Task, token);
+        }
         using var bye = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         try { await session.DisconnectAsync(bye.Token); } catch (Exception) { /* the program already ended */ }
     }
@@ -305,6 +317,7 @@ async Task<Engine> RunEngine(string workspace, string module)
         }
         if (observer is not null)
             try { await observer; } catch (Exception) { /* cancelled with the session */ }
+        await handlingStop;
     }
     engine.ElapsedMs = clock.ElapsedMilliseconds;
     return engine;

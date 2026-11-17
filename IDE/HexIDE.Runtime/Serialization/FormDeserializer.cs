@@ -741,6 +741,12 @@ public class FormDeserializer
                 $"it references companion binary content HexIDE cannot re-emit "
                 + $"({capturedBlobs.Count} of {citedBlobCount} blob(s) reached the model)");
 
+        // A NUL in the designer text is damage: VB6 doesn't write one there, and the writer marks its companion citations
+        // with NULs, so a save with a citation to place refused it, after the user had edited (#4096). Said at open instead.
+        if (designerText.Contains('\0'))
+            form.MarkUnfaithfulToSave(UnfaithfulSaveCause.NulInDesignerText,
+                "its designer text holds a NUL character, which a save can't write back beside its companion citations");
+
         // Rendering also serves dirty checks; only the save path may refuse missing extents (#1631).
         if (components.Any(c => c.BaseClass is UserControlComponentClass uc && uc.Setting("InvisibleAtRuntime")
             && (!c.UnknownRawProperties.Any(p => p.Name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase))
