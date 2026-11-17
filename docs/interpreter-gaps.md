@@ -42,6 +42,30 @@ not a general rule. The interpreter is unchanged, including #1930's Error 28 gua
 rows (2466, 3139, 3665, 4040, 5891, 6045, 6112) pin that guard in `ExpressionDepthGuardTests`, not VB6 behaviour;
 VB6 refuses those modules before running them. No language-support inventory counts change.
 
+## 64-bit VBA7 integers (#1548)
+
+[#4302](https://github.com/hexide-io/HexIDE/issues/4302) implements the Excel x64 rows recorded in that issue
+(measuring PR #3965): LongLong/LongPtr declarations, conversions, arithmetic, Variant overflow, literals,
+comparison and formatting, plus DefLngLng/DefLngPtr. VB6 keeps the measured unknown-name errors
+(measuring PR #4247), at execution where necessary, and user-defined names still win.
+
+Still unmeasured and explicitly refused under #1548: 32-bit VBA7; LongLong array bounds and For counters;
+Len/LenB/Get/Put of a UDT containing LongLong; and conversions to LongLong from source types other than
+Integer, Long, Byte, LongLong, Single, Double and measured decimal/hexadecimal strings. Named arguments
+and unmeasured argument counts for the conversions also refuse under #1548. These are missing
+measurements, not a language-analysis boundary. Intrinsic arguments containing LongLong are limited to the
+measured first-argument calls listed in MISSING_LANGUAGE; other intrinsics/positions, LenB of a Variant,
+and other conversions still refuse under #1548. The review measurements in [#4302](https://github.com/hexide-io/HexIDE/issues/4302)
+(oracle PR #4383) add Decimal division, Date multiplication, rounded integer/bitwise partners,
+Or/Xor/Eqv/Imp/Not, minimum-value overflow errors, and Abs/Int/Fix/Sgn. Comparisons use exact integer
+or Decimal domains, or Double for Single/Double/String/Date; Currency comparisons and LongLong
+Select Case selectors remain refused. Out-of-range integer/bitwise operand coercions, bitwise Date/Empty partners, and out-of-range or unmeasured `^`
+literal forms and a `^` read on a name declared as another type remain refused under #1548.
+Adjacent `^` is a type character in 64-bit projects and an operator in VB6; after `)` it stays an
+operator (reasoned, unmeasured). The bundled LSP grammar's VBA7 syntax/diagnostics follow-up is #4365.
+
+## Slot lifetime (#79)
+
 ## Slot lifetime (#79, #4375)
 
 Procedure activations reclaim their allocated slots after scope-exit reference releases, including on error

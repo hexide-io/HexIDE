@@ -1263,6 +1263,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var counterType = currentEnv.TryGetVariableLocation(variable, out var counterLoc)
             ? interpreter.ExecutionContext.State.DeclaredTypeOf(counterLoc)
             : null;
+        if (counterType == Vb6Value.ValueType.LongLong)
+            throw new NotImplementedException("A LongLong For counter is unmeasured (#1548)");
         var state = forState.GetValueOrDefault(context);
         Vb6Value from, to, step;
         try
@@ -3479,6 +3481,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // code otherwise goes on to test the Cases against a selector it never computed, or reaches Case Else for an
         // object selector (measured, #839), which is not something to reproduce.
         var value = await expressionExecutor.EvaluateScalar(context.valueStmt());
+        if (value.Type == Vb6Value.ValueType.LongLong)
+            throw new NotImplementedException("Select Case with a LongLong selector is unmeasured (#1548)");
         foreach (var @case in context.sC_Case())
         {
             erlLine = @case.Start.Line;
@@ -4206,7 +4210,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private Vb6Value.ValueType ExtractArrayType(VB6Parser.AsTypeClauseContext clause) =>
         ObjectArrayClass(clause) is not null
             ? new Vb6Value.ValueType(Vb6Value.ValueType.Object, true)
-            : ExtractType(clause, true);
+            : ExtractType(clause, true, interpreter.IsVba64);
 
     public override async Task<ControlFlow> VisitRedimStmt(VB6Parser.RedimStmtContext context)
     {
@@ -4502,7 +4506,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 string? declaredClass = null;
                 // `Dim o As New C1`, `Dim c As New Collection`: Nothing until its first use makes the object (#435).
                 string? autoNew = asType?.NEW() != null ? AutoNewClass(asType) : null;
-                if (isArray && asType?.type()?.complexType() is { } arrayElement
+                if (BaseTypeMapper.Vba64Type(asType?.type()?.GetText(), interpreter.IsVba64) is { } wide)
+                {
+                    var wideType = isArray ? new Vb6Value.ValueType(wide, true) : wide;
+                    value = dimensions is null ? new Vb6Value(wideType) : new Vb6Value(wideType, dimensions);
+                }
+                else if (isArray && asType?.type()?.complexType() is { } arrayElement
+
                     && SplitTypeName(arrayElement.GetText()) is var arrayName
                     && interpreter.TryResolveType(arrayName.Name, currentModule, arrayName.Qualifier, out var arrayDef))
                 {
@@ -4597,7 +4607,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         throw new NotImplementedException("An array of objects is not implemented (#1482)");
                     var type = defaultType is not null
                         ? (isArray ? new Vb6Value.ValueType(defaultType, true) : defaultType)
-                        : ExtractType(asType, isArray);
+                        : ExtractType(asType, isArray, interpreter.IsVba64);
                     value = dimensions != null ? new Vb6Value(type, dimensions) : new Vb6Value(type);
                     if (dimensions != null && value.Value is VBArray fixedArr) fixedArr.IsDynamic = false;   // `Dim a(N)` = fixed
                 }
@@ -4742,7 +4752,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// Both together, <c>Const K% As Integer = 1</c>, does not compile: "Expected: =".
     /// </para>
     /// </summary>
-    private static Vb6Value AsDeclared(VB6Parser.ConstSubStmtContext sub, Vb6Value value)
+    private Vb6Value AsDeclared(VB6Parser.ConstSubStmtContext sub, Vb6Value value)
     {
         Vb6Value.ValueType type;
         if (sub.typeHint() is { } hint)
@@ -4753,7 +4763,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (sub.asTypeClause() is { } asType)
         {
-            if (BaseTypeMapper.Map(asType.type()?.baseType()) is not { } declared || asType.fieldLength() != null)
+            if ((BaseTypeMapper.Vba64Type(asType.type()?.GetText(), interpreter.IsVba64)
+                ?? BaseTypeMapper.Map(asType.type()?.baseType())) is not { } declared || asType.fieldLength() != null)
                 throw new NotImplementedException(
                     $"Const {sub.ambiguousIdentifier().GetText()} As {asType.type()?.GetText()} is not supported.");
             type = declared;
@@ -4782,6 +4793,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
     }
 
+    private static int ArrayBound(Vb6Value value) => value.Type == Vb6Value.ValueType.LongLong
+        ? throw new NotImplementedException("A LongLong array bound is unmeasured (#1548)") : Subscript(value);
+
     private async Task<List<(int, int)>?> ExtractDimensions(VB6Parser.SubscriptsContext? subscripts)
     {
         List<(int, int)>? dimensions = null;
@@ -4795,13 +4809,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 var size = dimension.valueStmt();
                 if (size.Length == 2)
                 {
-                    arrayLowerBound = Subscript(await expressionExecutor.EvaluateValue(size[0]));
-                    arrayUpperBound = Subscript(await expressionExecutor.EvaluateValue(size[1]));
+                    arrayLowerBound = ArrayBound(await expressionExecutor.EvaluateValue(size[0]));
+                    arrayUpperBound = ArrayBound(await expressionExecutor.EvaluateValue(size[1]));
                 }
                 else if (size.Length == 1)
                 {
                     arrayLowerBound = currentModule.PrePass.ArrayBase;   // Option Base is per-module
-                    arrayUpperBound = Subscript(await expressionExecutor.EvaluateValue(size[0]));
+                    arrayUpperBound = ArrayBound(await expressionExecutor.EvaluateValue(size[0]));
                 }
                 else
                     throw new VBCompileErrorException("Either specify upper bound or lower and upper bound");
