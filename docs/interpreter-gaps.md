@@ -46,14 +46,20 @@ not a general rule. The interpreter is unchanged, including #1930's Error 28 gua
 rows (2466, 3139, 3665, 4040, 5891, 6045, 6112) pin that guard in `ExpressionDepthGuardTests`, not VB6 behaviour;
 VB6 refuses those modules before running them. No language-support inventory counts change.
 
-## 64-bit VBA7 integers (#1548)
+## VBA7 integers (#1548)
 
 [#4302](https://github.com/hexide-io/HexIDE/issues/4302) implements the Excel x64 rows recorded in that issue
 (measuring PR #3965): LongLong/LongPtr declarations, conversions, arithmetic, Variant overflow, literals,
 comparison and formatting, plus DefLngLng/DefLngPtr. VB6 keeps the measured unknown-name errors
 (measuring PR #4247), at execution where necessary, and user-defined names still win.
 
-Still unmeasured and explicitly refused under #1548: 32-bit VBA7; LongLong array bounds and For counters;
+[#4399](https://github.com/hexide-io/HexIDE/issues/4399) adds the measured Excel x86 target (oracle PR #4398):
+LongPtr and DefLngPtr use Long, CLngPtr uses CLng, and the six built-in compilation constants select
+the measured branches. LongLong/CLngLng remain unknown, ^ remains exponentiation, and PtrSafe is optional.
+DefLngLng retains the VB6 diagnostic as reasoned: its Excel x86 text was not read. LongPtr UDT layouts,
+array bounds and For counters at 32 bits remain unmeasured; this change adds no layout or counter rules.
+
+Still unmeasured and explicitly refused under #1548: LongLong array bounds and For counters;
 Len/LenB/Get/Put of a UDT containing LongLong; and conversions to LongLong from source types other than
 Integer, Long, Byte, LongLong, Single, Double and measured decimal/hexadecimal strings. Named arguments
 and unmeasured argument counts for the conversions also refuse under #1548. These are missing

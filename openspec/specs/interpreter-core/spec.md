@@ -30,6 +30,25 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Measured 32-bit VBA7 integer support
+
+The runtime SHALL start projects targeting `VbaBitness.Bit32` with the Excel x86 behaviour recorded in
+[#4399](https://github.com/hexide-io/HexIDE/issues/4399) (measuring PR #4398). LongPtr declarations,
+parameters, results, Consts and UDT fields SHALL use Long, CLngPtr SHALL convert as CLng, and DefLngPtr
+SHALL select Long. LongLong and CLngLng SHALL retain the VB6 unknown-name errors; DefLngLng SHALL
+retain the VB6 refusal (its x86 diagnostic text is unmeasured). The lexer SHALL keep ^ solely as the
+power operator and Declare SHALL accept either presence or absence of PtrSafe (measured without PtrSafe
+for an As Long result and with it for As Long and As LongPtr; As LongPtr without it is reasoned).
+
+#### Scenario: 32-bit constants
+- **WHEN** a project targets 32-bit VBA7
+- **THEN** VBA6, VBA7 and Win32 are numeric 1, and Win64, Win16 and Mac are numeric 0
+
+#### Scenario: 32-bit pointer integer
+- **WHEN** a LongPtr variable holds 5 in a 32-bit project
+- **THEN** TypeName is Long, VarType is 3 and LenB is 4
+- **AND** CLngPtr(2.5) returns Long 2, while CLngPtr("2147483648") raises 6
+
 ### Requirement: Measured 64-bit VBA7 integer support
 
 The runtime SHALL implement the 64-bit VBA7 rows measured in

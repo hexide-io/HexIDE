@@ -4220,7 +4220,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private Vb6Value.ValueType ExtractArrayType(VB6Parser.AsTypeClauseContext clause) =>
         ObjectArrayClass(clause) is not null
             ? new Vb6Value.ValueType(Vb6Value.ValueType.Object, true)
-            : ExtractType(clause, true, interpreter.IsVba64);
+            : ExtractType(clause, true, interpreter.VbaBitness);
 
     public override async Task<ControlFlow> VisitRedimStmt(VB6Parser.RedimStmtContext context)
     {
@@ -4516,7 +4516,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 string? declaredClass = null;
                 // `Dim o As New C1`, `Dim c As New Collection`: Nothing until its first use makes the object (#435).
                 string? autoNew = asType?.NEW() != null ? AutoNewClass(asType) : null;
-                if (BaseTypeMapper.Vba64Type(asType?.type()?.GetText(), interpreter.IsVba64) is { } wide)
+                if (BaseTypeMapper.VbaType(asType?.type()?.GetText(), interpreter.VbaBitness) is { } wide)
                 {
                     var wideType = isArray ? new Vb6Value.ValueType(wide, true) : wide;
                     value = dimensions is null ? new Vb6Value(wideType) : new Vb6Value(wideType, dimensions);
@@ -4617,7 +4617,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         throw new NotImplementedException("An array of objects is not implemented (#1482)");
                     var type = defaultType is not null
                         ? (isArray ? new Vb6Value.ValueType(defaultType, true) : defaultType)
-                        : ExtractType(asType, isArray, interpreter.IsVba64);
+                        : ExtractType(asType, isArray, interpreter.VbaBitness);
                     value = dimensions != null ? new Vb6Value(type, dimensions) : new Vb6Value(type);
                     if (dimensions != null && value.Value is VBArray fixedArr) fixedArr.IsDynamic = false;   // `Dim a(N)` = fixed
                 }
@@ -4773,7 +4773,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (sub.asTypeClause() is { } asType)
         {
-            if ((BaseTypeMapper.Vba64Type(asType.type()?.GetText(), interpreter.IsVba64)
+            if ((BaseTypeMapper.VbaType(asType.type()?.GetText(), interpreter.VbaBitness)
                 ?? BaseTypeMapper.Map(asType.type()?.baseType())) is not { } declared || asType.fieldLength() != null)
                 throw new NotImplementedException(
                     $"Const {sub.ambiguousIdentifier().GetText()} As {asType.type()?.GetText()} is not supported.");
