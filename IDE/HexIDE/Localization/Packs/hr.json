@@ -901,6 +901,8 @@
     "Str.PropDesc.StartUpPosition": "Gdje se obrazac smješta na zaslonu pri prvom otvaranju.",
     "Str.PropDesc.ShowInTaskbar": "Pojavljuje li se obrazac na programskoj traci.",
     "Str.PropDesc.TabIndex": "Položaj kontrole u redoslijedu tabulatora obrasca.",
+    "Str.PropDesc.Default": "Klikne li Enter ovaj gumb.",
+    "Str.PropDesc.Cancel": "Klikne li Esc ovaj gumb.",
     "Str.PropDesc.TabStop": "Može li korisnik doći do kontrole tipkom Tab.",
     "Str.PropDesc.KeyPreview": "Prima li obrazac događaje tipkovnice prije svojih kontrola.",
     "Str.PropDesc.MaxButton": "Prikazuje li naslovna traka obrasca gumb za maksimiziranje.",

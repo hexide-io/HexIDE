@@ -875,6 +875,8 @@
     "Str.PropDesc.StartUpPosition": "Hvor skjemaet plasseres på skjermen når det åpnes første gang.",
     "Str.PropDesc.ShowInTaskbar": "Om skjemaet vises på oppgavelinjen.",
     "Str.PropDesc.TabIndex": "Kontrollens plass i skjemaets Tab-rekkefølge.",
+    "Str.PropDesc.Default": "Om Enter klikker på denne knappen.",
+    "Str.PropDesc.Cancel": "Om Esc klikker på denne knappen.",
     "Str.PropDesc.TabStop": "Om brukeren kan nå kontrollen med Tab-tasten.",
     "Str.PropDesc.KeyPreview": "Om skjemaet mottar tastaturhendelser før kontrollene gjør det.",
     "Str.PropDesc.MaxButton": "Om skjemaets tittellinje viser en Maksimer-knapp.",

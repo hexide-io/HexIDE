@@ -866,6 +866,8 @@
     "Str.PropDesc.StartUpPosition": "Wo das Formular beim ersten Öffnen auf dem Bildschirm platziert wird.",
     "Str.PropDesc.ShowInTaskbar": "Ob das Formular in der Taskleiste angezeigt wird.",
     "Str.PropDesc.TabIndex": "Die Position des Steuerelements in der Aktivierreihenfolge des Formulars.",
+    "Str.PropDesc.Default": "Ob die Eingabetaste diese Schaltfläche betätigt.",
+    "Str.PropDesc.Cancel": "Ob Esc diese Schaltfläche betätigt.",
     "Str.PropDesc.TabStop": "Ob der Benutzer das Steuerelement mit der Tab-Taste erreichen kann.",
     "Str.PropDesc.KeyPreview": "Ob das Formular Tastaturereignisse vor seinen Steuerelementen empfängt.",
     "Str.PropDesc.MaxButton": "Ob die Titelleiste des Formulars eine Schaltfläche zum Maximieren zeigt.",

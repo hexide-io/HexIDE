@@ -876,6 +876,8 @@
     "Str.PropDesc.StartUpPosition": "Kur ekrānā forma tiek novietota pirmoreiz atverot.",
     "Str.PropDesc.ShowInTaskbar": "Vai forma parādās uzdevumjoslā.",
     "Str.PropDesc.TabIndex": "Vadīklas pozīcija formas tabulēšanas secībā.",
+    "Str.PropDesc.Default": "Vai Enter noklikšķina uz šīs pogas.",
+    "Str.PropDesc.Cancel": "Vai Esc noklikšķina uz šīs pogas.",
     "Str.PropDesc.TabStop": "Vai lietotājs var sasniegt vadīklu ar taustiņu Tab.",
     "Str.PropDesc.KeyPreview": "Vai forma saņem tastatūras notikumus pirms tās vadīklām.",
     "Str.PropDesc.MaxButton": "Vai formas virsrakstjoslā ir maksimizēšanas poga.",

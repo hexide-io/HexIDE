@@ -842,6 +842,8 @@
     "Str.PropDesc.StartUpPosition": "Inprimakia pantailan non kokatzen den lehen aldiz irekitzean.",
     "Str.PropDesc.ShowInTaskbar": "Inprimakia ataza-barran agertzen den.",
     "Str.PropDesc.TabIndex": "Kontrolaren kokapena inprimakiaren tabulazio-ordenan.",
+    "Str.PropDesc.Default": "Enter teklak botoi honetan klik egiten duen.",
+    "Str.PropDesc.Cancel": "Esc teklak botoi honetan klik egiten duen.",
     "Str.PropDesc.TabStop": "Erabiltzailea Tab teklarekin kontrolera irits daitekeen.",
     "Str.PropDesc.KeyPreview": "Inprimakiak teklatu-gertaerak bere kontrolek baino lehen jasotzen dituen.",
     "Str.PropDesc.MaxButton": "Inprimakiaren titulu-barrak Maximizatu botoia erakusten duen.",

@@ -866,6 +866,8 @@
     "Str.PropDesc.StartUpPosition": "موضع النموذج على الشاشة عند فتحه لأول مرة.",
     "Str.PropDesc.ShowInTaskbar": "ما إذا كان النموذج يظهر في شريط المهام.",
     "Str.PropDesc.TabIndex": "موضع عنصر التحكم في ترتيب التنقّل بمفتاح Tab في النموذج.",
+    "Str.PropDesc.Default": "ما إذا كان مفتاح Enter ينقر هذا الزر.",
+    "Str.PropDesc.Cancel": "ما إذا كان مفتاح Esc ينقر هذا الزر.",
     "Str.PropDesc.TabStop": "ما إذا كان بإمكان المستخدم الوصول إلى عنصر التحكم بمفتاح Tab.",
     "Str.PropDesc.KeyPreview": "ما إذا كان النموذج يستقبل أحداث لوحة المفاتيح قبل عناصر التحكم فيه.",
     "Str.PropDesc.MaxButton": "ما إذا كان شريط عنوان النموذج يعرض زر التكبير.",

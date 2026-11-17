@@ -841,6 +841,8 @@
     "Str.PropDesc.StartUpPosition": "Hvor formularen placeres på skærmen, når den åbnes første gang.",
     "Str.PropDesc.ShowInTaskbar": "Om formularen vises på proceslinjen.",
     "Str.PropDesc.TabIndex": "Kontrolelementets placering i formularens tabulatorrækkefølge.",
+    "Str.PropDesc.Default": "Om Enter klikker på denne knap.",
+    "Str.PropDesc.Cancel": "Om Esc klikker på denne knap.",
     "Str.PropDesc.TabStop": "Om brugeren kan nå kontrolelementet med Tab-tasten.",
     "Str.PropDesc.KeyPreview": "Om formularen modtager tastaturhændelser før sine kontrolelementer.",
     "Str.PropDesc.MaxButton": "Om formularens titellinje viser en Maksimér-knap.",

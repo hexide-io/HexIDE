@@ -875,6 +875,8 @@
     "Str.PropDesc.StartUpPosition": "Waar het formulier op het scherm verschijnt wanneer het voor het eerst wordt geopend.",
     "Str.PropDesc.ShowInTaskbar": "Of het formulier op de taakbalk verschijnt.",
     "Str.PropDesc.TabIndex": "De positie van het besturingselement in de tabvolgorde van het formulier.",
+    "Str.PropDesc.Default": "Of Enter op deze knop klikt.",
+    "Str.PropDesc.Cancel": "Of Esc op deze knop klikt.",
     "Str.PropDesc.TabStop": "Of de gebruiker het besturingselement met de Tab-toets kan bereiken.",
     "Str.PropDesc.KeyPreview": "Of het formulier toetsenbordgebeurtenissen vóór zijn besturingselementen ontvangt.",
     "Str.PropDesc.MaxButton": "Of de titelbalk van het formulier een knop Maximaliseren toont.",

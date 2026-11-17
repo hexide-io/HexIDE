@@ -875,6 +875,8 @@
     "Str.PropDesc.StartUpPosition": "폼이 처음 열릴 때 화면에 배치되는 위치.",
     "Str.PropDesc.ShowInTaskbar": "폼이 작업 표시줄에 나타날지 여부.",
     "Str.PropDesc.TabIndex": "폼의 탭 순서에서 컨트롤의 위치.",
+    "Str.PropDesc.Default": "Enter 키가 이 단추를 클릭하는지 여부입니다.",
+    "Str.PropDesc.Cancel": "Esc 키가 이 단추를 클릭하는지 여부입니다.",
     "Str.PropDesc.TabStop": "사용자가 Tab 키로 컨트롤에 도달할 수 있는지 여부.",
     "Str.PropDesc.KeyPreview": "폼이 컨트롤보다 먼저 키보드 이벤트를 받을지 여부.",
     "Str.PropDesc.MaxButton": "폼 제목 표시줄에 최대화 단추를 표시할지 여부.",

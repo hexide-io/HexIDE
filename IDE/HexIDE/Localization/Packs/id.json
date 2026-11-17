@@ -875,6 +875,8 @@
     "Str.PropDesc.StartUpPosition": "Tempat form ditempatkan di layar saat pertama kali dibuka.",
     "Str.PropDesc.ShowInTaskbar": "Apakah form muncul di taskbar.",
     "Str.PropDesc.TabIndex": "Posisi kontrol dalam urutan Tab form.",
+    "Str.PropDesc.Default": "Apakah Enter mengeklik tombol ini.",
+    "Str.PropDesc.Cancel": "Apakah Esc mengeklik tombol ini.",
     "Str.PropDesc.TabStop": "Apakah pengguna dapat mencapai kontrol dengan tombol Tab.",
     "Str.PropDesc.KeyPreview": "Apakah form menerima peristiwa keyboard sebelum kontrolnya.",
     "Str.PropDesc.MaxButton": "Apakah bilah judul form menampilkan tombol Maksimalkan.",

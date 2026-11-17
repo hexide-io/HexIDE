@@ -866,6 +866,8 @@
     "Str.PropDesc.StartUpPosition": "表單首次開啟時在螢幕上的位置。",
     "Str.PropDesc.ShowInTaskbar": "表單是否顯示於工作列。",
     "Str.PropDesc.TabIndex": "控制項在表單 Tab 順序中的位置。",
+    "Str.PropDesc.Default": "是否按 Enter 鍵按一下此按鈕。",
+    "Str.PropDesc.Cancel": "是否按 Esc 鍵按一下此按鈕。",
     "Str.PropDesc.TabStop": "使用者是否能以 Tab 鍵移至控制項。",
     "Str.PropDesc.KeyPreview": "表單是否在其控制項之前接收鍵盤事件。",
     "Str.PropDesc.MaxButton": "表單標題列是否顯示最大化按鈕。",

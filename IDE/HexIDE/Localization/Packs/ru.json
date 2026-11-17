@@ -841,6 +841,8 @@
     "Str.PropDesc.StartUpPosition": "Положение формы на экране при первом открытии.",
     "Str.PropDesc.ShowInTaskbar": "Отображается ли форма на панели задач.",
     "Str.PropDesc.TabIndex": "Позиция элемента в порядке обхода клавишей Tab.",
+    "Str.PropDesc.Default": "Нажимает ли Enter эту кнопку.",
+    "Str.PropDesc.Cancel": "Нажимает ли Esc эту кнопку.",
     "Str.PropDesc.TabStop": "Можно ли перейти к элементу клавишей Tab.",
     "Str.PropDesc.KeyPreview": "Получает ли форма события клавиатуры раньше своих элементов.",
     "Str.PropDesc.MaxButton": "Отображается ли в заголовке формы кнопка развёртывания.",

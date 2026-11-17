@@ -841,6 +841,8 @@
     "Str.PropDesc.StartUpPosition": "Vị trí đặt biểu mẫu trên màn hình khi mở lần đầu.",
     "Str.PropDesc.ShowInTaskbar": "Biểu mẫu có xuất hiện trên thanh tác vụ hay không.",
     "Str.PropDesc.TabIndex": "Vị trí của điều khiển trong thứ tự Tab của biểu mẫu.",
+    "Str.PropDesc.Default": "Enter có nhấp vào nút này hay không.",
+    "Str.PropDesc.Cancel": "Esc có nhấp vào nút này hay không.",
     "Str.PropDesc.TabStop": "Người dùng có thể đến điều khiển bằng phím Tab hay không.",
     "Str.PropDesc.KeyPreview": "Biểu mẫu có nhận sự kiện bàn phím trước các điều khiển của nó hay không.",
     "Str.PropDesc.MaxButton": "Thanh tiêu đề của biểu mẫu có hiển thị nút Phóng to hay không.",

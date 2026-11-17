@@ -22,12 +22,12 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 // #1631 part B, vb6.exe SP6 native and p-code, real input: issuecomment-6425849231.
 public partial class UserControlKeyTests
 {
-    private sealed class Sink : IDeserializeErrorSink
+    internal sealed class Sink : IDeserializeErrorSink
     {
         public void LogError(string error) => throw new InvalidOperationException(error);
     }
 
-    private sealed class Library : IBasicStandardLibrary
+    internal sealed class Library : IBasicStandardLibrary
     {
         internal readonly List<Vb6Value> Printed = [];
         internal Action? BeforePrint;
@@ -40,13 +40,13 @@ public partial class UserControlKeyTests
         public Task<string?> InputBox(string prompt, string? title, string defaultText) => throw new NotImplementedException();
     }
 
-    private sealed class RunWindow : Window, IModuleExecutionRoot
+    internal sealed class RunWindow : Window, IModuleExecutionRoot
     {
         internal VBWindowContext? Context;
         public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null) => Context?.ExecuteSub(name, args);
     }
 
-    private sealed class Run : IDisposable
+    internal sealed class Run : IDisposable
     {
         internal readonly RunWindow Window = new() { Width = 500, Height = 400 };
         internal readonly Library Lib = new();
@@ -106,7 +106,7 @@ public partial class UserControlKeyTests
         public void Dispose() { Context.Program?.Abandon(); Window.Close(); }
     }
 
-    private static string Block(string type, string name, int tab, string child = "", string extra = "") =>
+    internal static string Block(string type, string name, int tab, string child = "", string extra = "") =>
         $"Begin {type} {name}\nHeight = 375\nWidth = 1200\nTop = {tab * 600}\nLeft = 120\nTabIndex = {tab}\n{extra}\n{child}\nEnd\n";
 
     // VB6 SP6 native/p-code: #1631, issuecomment-6425849231.

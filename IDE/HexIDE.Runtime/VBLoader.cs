@@ -318,6 +318,13 @@ public class VBLoader
                 if (control.Parent is Panel parent)
                     ControlStacking.PlaceOver(control, ControlStacking.IsWindowless(control), parent);
         var controls = new FormControls(fileOrder.OrderBy(AvaloniaInterop.UserControlMembers.Windowless), arrayGroups) { Form = form };
+        // #4371 / oracle PR #4376: the last holder in file order wins, independently for each role.
+        var defaultButton = fileOrder.OfType<VBCommandButton>().LastOrDefault(button => button.Default);
+        var cancelButton = fileOrder.OfType<VBCommandButton>().LastOrDefault(button => button.Cancel);
+        if (defaultButton is not null)
+            defaultButton.Default = true;
+        if (cancelButton is not null)
+            cancelButton.Cancel = true;
         foreach (var (block, control) in dialogs)
             if (control is VBUpDown upDown && RuntimeControlBlock(block, "MSComCtl2.UpDown") is { } saved)
                 upDown.LoadBuddy(saved.Properties, controls);
