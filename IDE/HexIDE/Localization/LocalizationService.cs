@@ -35,6 +35,7 @@ public sealed class LocalizationService : ILocalizationService
     // The per-user override tier, merged LAST in resolution. Optional so existing `new LocalizationService()`
     // tests still construct without it; when present, an override change live-re-applies the active language.
     private readonly IUserTranslationsService? _userTranslations;
+    private readonly DistributionIdentity _identity;
     private readonly Dictionary<string, Dictionary<string, string>> _profileStrings = new(StringComparer.Ordinal);
     private string? _profileId;
 
@@ -67,8 +68,10 @@ public sealed class LocalizationService : ILocalizationService
 
     public event Action? LanguageChanged;
 
-    public LocalizationService(IUserTranslationsService? userTranslations = null, IDeveloperModeService? developerMode = null)
+    public LocalizationService(IUserTranslationsService? userTranslations = null, IDeveloperModeService? developerMode = null,
+        DistributionIdentity? identity = null)
     {
+        _identity = identity ?? Distribution.Current;
         _englishStrings = LoadEnglish();
         _currentStrings = new Dictionary<string, string>(_englishStrings);
 
@@ -97,8 +100,8 @@ public sealed class LocalizationService : ILocalizationService
     }
 
     internal LocalizationService(ProfileSnapshot? profile, IUserTranslationsService? userTranslations = null,
-        IDeveloperModeService? developerMode = null)
-        : this(userTranslations, developerMode)
+        IDeveloperModeService? developerMode = null, DistributionIdentity? identity = null)
+        : this(userTranslations, developerMode, identity)
     {
         if (profile == null)
             return;
@@ -249,8 +252,8 @@ public sealed class LocalizationService : ILocalizationService
     {
         var resolved = TryResolveLayers(id, out map, out direction);
         KeepProtectedStrings(id, map);
-        if (!Distribution.Current.IsStock)
-            BrandText.Apply(map, Distribution.Current.Name, hasRepository: Distribution.Current.RepositoryUrl is not null);
+        if (!_identity.IsStock)
+            BrandText.Apply(map, _identity.Name, hasRepository: _identity.RepositoryUrl is not null);
         return resolved;
     }
 
@@ -334,8 +337,8 @@ public sealed class LocalizationService : ILocalizationService
         {
             var rtl = id == "pseudo-rtl";
             var source = new Dictionary<string, string>(_englishStrings);
-            if (!Distribution.Current.IsStock)
-                BrandText.Apply(source, Distribution.Current.Name, hasRepository: Distribution.Current.RepositoryUrl is not null);
+            if (!_identity.IsStock)
+                BrandText.Apply(source, _identity.Name, hasRepository: _identity.RepositoryUrl is not null);
             map = PseudoLocalizer.Transform(source, rtl);
             direction = rtl ? "rtl" : "ltr";
             return true;

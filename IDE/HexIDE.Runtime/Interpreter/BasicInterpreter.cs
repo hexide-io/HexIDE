@@ -1326,7 +1326,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             ? new Vb6Value(NewCollection())
             : Vb6Value.NewObject(await NewObject(need.AutoNew.ClassName));
         AddRef(made);
-        if (need.Field is { } field)
+        if (need.Element is { } element)
+        {
+            if (element.Read().Value is null) element.Write(made);
+            else await ReleaseRef(made);
+        }
+        else if (need.Field is { } field)
             field.Write(made);
         else if (ExecutionContext.State[need.Location] is { Value: null })
             ExecutionContext.State[need.Location] = made;

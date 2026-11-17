@@ -198,12 +198,14 @@ connection before `exit` could be sent. Pending folder updates and imports for t
 receives the current folders in `initialize` and its own project import. When the connection ends,
 unanswered requests are marked Abandoned in the protocol inspector.
 Before an initialize reply, neither message is sent. An externally owned pipe server receives neither
-on stop: HexIDE closes only its connection. A launched pipe server gets two seconds to exit before
-HexIDE kills its remaining process tree, including during bring-up (#313).
-The stdio transport also allows two seconds for an orderly exit, then kills the remaining process
-tree and waits up to two seconds for termination before disposing its process handle (#2023).
-Unix transports allow an additional two seconds for the guard's group cleanup (#2297). The stdio
-exit code is recorded even during client stop, except when HexIDE ends a server that answered
+on stop: HexIDE closes only its connection. On Windows, a launched pipe server gets two seconds to
+exit before HexIDE kills its remaining process tree, including during bring-up (#313). Windows stdio
+also allows two seconds for orderly exit and up to two more to reap a killed process (#2023).
+On Linux and macOS, both launched transports share a two-second disposal deadline: 1.5 seconds for
+orderly exit, then group termination and only the remaining time for reaping (#4152). The guard
+leaves the server's group, sends SIGTERM and polls for an empty group, returning immediately when it
+is empty; after at most 500 ms it sends SIGKILL to any remaining descendants (#2297, #4152).
+The stdio exit code is recorded even during client stop, except when HexIDE ends a server that answered
 `shutdown` successfully and was sent `exit`: that timeout termination is recorded once as
 "stopped after shutdown; still exiting after N s, so ended", without a fault or a killed-process exit
 code (#3217). Both launched transports publish that stop classification before killing the process,
@@ -219,8 +221,8 @@ and no further history is retained; later subscribers receive only future notice
 remains replayable for the current connect attempt (#2685). Subscriber callbacks run serially in
 publication order outside the process/readers' gate, so a Closed handler can await disposal without
 blocking the readers. Deliberate teardown still suppresses unexpected closure.
-The Unix guard and post-kill waits described above still exceed #491's requested
-two-second total bound; integrating that deadline with descendant cleanup remains outstanding.
+The Unix deadline includes guard cleanup and post-kill waits, meeting #491's requested two-second
+total with scheduling tolerance; the separate shutdown-reply deadline precedes it (#4152).
 Whole-composition IDE tests use a per-test owner that awaits disposal of the language registry,
 including when an assertion fails (#2588). A source guard rejects direct `DISetup` construction
 elsewhere in `HexIDE.Tests`; this guards ownership rather than enumerating all test-host children.
@@ -1094,9 +1096,9 @@ failure fails the connection and tears down the launched process; externally own
 are never assigned. `Process.Start` cannot start suspended, so children spawned before assignment
 are outside this guarantee. On Linux and macOS, `HexIDE.LspGuard` starts each launched server
 in its own process group with inherited stdio. Every 500 ms it checks whether its parent has changed;
-after an unclean IDE exit, or when the server exits on its own, it sends SIGTERM to the group,
-then SIGKILL after two seconds. For a server that exits on its own, the guard leaves the server's
-group before SIGKILL so it can preserve the server's exit code. Normal shutdown still attempts the
+after an unclean IDE exit, or when the server exits on its own, it leaves the group and sends SIGTERM.
+It returns as soon as the group disappears, or sends SIGKILL after at most 500 ms (#4152).
+Leaving the group lets it preserve a naturally exiting server's exit code. Normal shutdown still attempts the
 protocol first; a guard left after the transport's grace period is terminated with its group. Externally owned
 pipe servers are never guarded. Descendants that deliberately leave the group are outside this guarantee.
 The lifetime tests kill the owner without disposal and check both server and child on Windows,
