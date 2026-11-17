@@ -142,13 +142,13 @@ public class CommandButtonDefaultCancelTests
     {
         using var run = new Run("", formCode: DialogCode, blocks: DialogBlocks("VB.ComboBox", "Style = 2"));
         await run.Code("Text1.AddItem \"apple\"");
-        // #2325 has not yet supplied ComboBox key events here; this checks list ownership only.
         var combo = (HexIDE.Runtime.BuiltinControls.VBComboBox)run.Named("Text1");
         combo.Focus().Should().BeTrue();
         combo.IsDropDownOpen = true;
         run.Key(key);
         combo.IsDropDownOpen.Should().BeFalse();
-        run.Lib.Printed.Should().BeEmpty();
+        var code = key == Key.Enter ? 13 : 27;
+        run.Lib.Printed.Should().Equal(new Vb6Value($"Text1 down{code}"), new Vb6Value($"Text1 press{code}"));
     }
 
     [AvaloniaFact]
