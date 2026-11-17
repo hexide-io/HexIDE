@@ -16,8 +16,11 @@
   supplies AccessKeys and the measured form-hosted Ambient reads ([#4149](https://github.com/hexide-io/HexIDE/issues/4149)).
   The designer (`SpawnComponentsForDesigner`), property-page editor and form preview do not attach a UserControl
   interpreter: design-time ReadProperties/Show and build-time callbacks remain unavailable. Runtime UserMode is True
-  and ShowHatching False. Palette, non-form containers, LocaleID outside en-US, and RightToLeft on a right-to-left
-  form explicitly refuse pending measurements. AmbientChanged for form colour changes remains unmeasured.
+  and ShowHatching False. Palette, non-form containers, and RightToLeft on a right-to-left form explicitly refuse
+  pending measurements. LocaleID reads 1033 whatever the user locale, as measured, and refuses where the system
+  locale or an interface language isn't US English, or off Windows, because which of those VB6 follows is unmeasured
+  ([#4266](https://github.com/hexide-io/HexIDE/issues/4266)). A refusal or error raised while a form loads its
+  UserControls is reported as any event's is (#4266). AmbientChanged for form colour changes remains unmeasured.
   The remaining UserControl surface and designer/file editing are later work. Part C supplies Container assignment and Count, bottom Align, transparent BackStyle, and measured focus/lifecycle ordering. Align assignments other than 2, BackStyle reads (whose return subtype is unmeasured here), ContainedControls operations other than Count, and PropertyBag operations are still refused. Unmeasured conversions of
   AccessKeys are explicitly refused, rather than assigned invented VB6 semantics.
 - **Clipboard text is now partial (#1156):** Clear, SetText, GetText and GetFormat(vbCFText) use the host clipboard.
@@ -39,16 +42,19 @@ not a general rule. The interpreter is unchanged, including #1930's Error 28 gua
 rows (2466, 3139, 3665, 4040, 5891, 6045, 6112) pin that guard in `ExpressionDepthGuardTests`, not VB6 behaviour;
 VB6 refuses those modules before running them. No language-support inventory counts change.
 
-## Slot lifetime (#79)
+## Slot lifetime (#79, #4375)
 
 Procedure activations reclaim their allocated slots after scope-exit reference releases, including on error
 unwind and failed parameter binding. Static slots pass to the run or instance and remain persistent; ByRef
 aliases never belong to the callee. Freed slot numbers are not reused, and exhausted numbering raises error 7.
 Debugger inspection treats freed slots as out of scope.
 
-Instance fields and instance Statics still retain their storage after termination. Phase 2 is deferred until
-member accesses on terminated instances have been counted across the Runtime suite, Battleship and the #2067
-sweep, as the issue's design note requires. Replacing the module-environment clone is separate performance work.
+Instance fields and instance Statics still retain their storage after termination ([#4375](https://github.com/hexide-io/HexIDE/issues/4375)). Freeing them
+waits until member accesses on terminated instances have been counted, as #79's design note requires: one is a
+holder HexIDE missed, and freeing would turn it into a crash. #4375's in-tree count, on 2026-11-17, found none across
+the Runtime and Runtime integration suites, Battleship and the IDE suite with its 36-project corpus. The #2067 sweep
+of third-party projects is still uncounted: it runs strangers' code, so it needs a container or a throwaway VM.
+The per-call copy of the module environment that #79 also found was removed by #2120.
 
 ## App logging (#2552)
 
@@ -108,7 +114,9 @@ Platform: 5 · Partial: 11 · Other: 1. An entry fixed since the audit is not co
 >   parse, so an inactive branch is never parsed; oracle-pinned).
 > - **→ Deferred:** Load/Unload (since built, for control-array elements and for whole forms, #822/#973) · chained
 >   index groups (`Split(s)(0)`; since fixed, #1476) · AddressOf · unmeasured String/number comparison domains (#211) · **Declare … Lib** (no longer
->   fails the module load — the declaration (including VBA7 `PtrSafe`, #1548) is skipped, so the module runs; an actual
+>   fails the module load — a compatible declaration is skipped, so the module runs;
+>   [#4245](https://github.com/hexide-io/HexIDE/issues/4245) rejects `PtrSafe` for VB6 and requires it for
+>   64-bit VBA7 before that skip, using the issue's measured rows; an actual
 >   call raises the clean "Sub or Function not defined") · selection/system/financial intrinsics (IIf, Choose and Switch
 >   have since been added, and of the financials only IRR, MIRR and DDB remain).
 > - **→ Platform limits:** AppActivate / SendKeys (OS automation). The array-element/call-result lead in a member

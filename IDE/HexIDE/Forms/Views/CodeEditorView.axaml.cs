@@ -497,7 +497,7 @@ public partial class CodeEditorView : UserControl
                 command => vm.RunCodeLensAsync(command).ListenErrors());
 
             _inlayHintRenderer = new InlayHintRenderer(TextEditor);
-            TextEditor.TextArea.TextView.BackgroundRenderers.Add(_inlayHintRenderer);
+            TextEditor.TextArea.TextView.ElementGenerators.Add(_inlayHintRenderer);
             _inlaySettingsChanged = (_, e) =>
             {
                 if (e.PropertyName != nameof(vm.Settings.ShowInlayHints)) return;
@@ -823,7 +823,7 @@ public partial class CodeEditorView : UserControl
         ++_inlayRevision;
         if (_inlayHintRenderer is not null)
         {
-            TextEditor.TextArea.TextView.BackgroundRenderers.Remove(_inlayHintRenderer);
+            TextEditor.TextArea.TextView.ElementGenerators.Remove(_inlayHintRenderer);
             _inlayHintRenderer = null;
         }
         if (_markerService is not null)
@@ -995,7 +995,6 @@ public partial class CodeEditorView : UserControl
         if (_inlayHintRenderer is not null)
         {
             _inlayHintRenderer.Brush = brush;
-            TextEditor.TextArea.TextView.InvalidateLayer(_inlayHintRenderer.Layer);
         }
         TextEditor.TextArea.TextView.Redraw();
     }

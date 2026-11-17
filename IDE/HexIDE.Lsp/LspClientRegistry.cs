@@ -959,17 +959,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         && value.ValueKind != JsonValueKind.Null
         && value.ValueKind != JsonValueKind.Undefined;
 
-    /// <summary>
-    /// Every claimant's lenses, concatenated.
-    /// </summary>
-    /// <remarks>
-    /// <b>Gathering is right here, where it would be wrong for symbols.</b> Two servers listing the same
-    /// procedure produce one duplicated entry in a dropdown; two servers offering a lens on the same line
-    /// produce two genuinely different offers — "Run test" from one and "Show references" from another —
-    /// and a client that dropped either would be hiding a thing the user could have done.
-    /// </remarks>
-    public Task<InlayHint[]> RequestInlayHintsAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken ct = default) =>
-        GatherAsync(uri, c => c.RequestInlayHintsAsync(uri, range, ct), ct);
+    public async Task<InlayHint[]> RequestInlayHintsAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken ct = default) =>
+        await FirstAnswerAsync(uri, async client =>
+        {
+            var hints = await client.RequestInlayHintsAsync(uri, range, ct);
+            return hints.Length > 0 ? hints : null;
+        }, ct) ?? [];
 
     // Identity matters: two servers can return equal ranges and data with different meanings.
     // Weak keys let discarded document/viewport results release their connection provenance.
@@ -983,6 +978,15 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             await client.ExecuteCodeLensCommandAsync(command, cancellationToken);
     }
 
+    /// <summary>
+    /// Every claimant's lenses, concatenated.
+    /// </summary>
+    /// <remarks>
+    /// <b>Gathering is right here, where it would be wrong for symbols.</b> Two servers listing the same
+    /// procedure produce one duplicated entry in a dropdown; two servers offering a lens on the same line
+    /// produce two genuinely different offers — "Run test" from one and "Show references" from another —
+    /// and a client that dropped either would be hiding a thing the user could have done.
+    /// </remarks>
     public Task<CodeLens[]> RequestCodeLensesAsync(string uri, CancellationToken ct = default) =>
         GatherAsync(uri, async client =>
         {
@@ -1515,6 +1519,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                 await beforeLaunch(starting);
 
             var client = e.Registration.CreateClient();
+            if (client is VBLspClient configured)
+                await configured.UpdateServerSettingsAsync(e.Registration.Settings);
 
             // Heard only while it is listed. A removal takes the server out of the list and stops hearing its client under
             // the same lock, so a client made after that, by a start the removal has not yet called off, is let go unheard.
@@ -1742,9 +1748,23 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         return DiagnosticOwner.LanguageServer;
     }
 
+    /// <summary>Applies reloaded settings to the named server, retaining them for its next start too.</summary>
+    public async Task UpdateServerSettingsAsync(string id, JsonElement? settings)
+    {
+        var entry = _entries.FirstOrDefault(e => e.Registration.Id == id);
+        if (entry is null) return;
+        await entry.Gate.WaitAsync();
+        try
+        {
+            entry.Registration = entry.Registration with { Settings = settings?.Clone() };
+            if (entry.Client is VBLspClient client) await client.UpdateServerSettingsAsync(settings);
+        }
+        finally { entry.Gate.Release(); }
+    }
+
     internal sealed class Entry(LanguageServerRegistration registration)
     {
-        public LanguageServerRegistration Registration { get; } = registration;
+        public LanguageServerRegistration Registration { get; set; } = registration;
         public ILspClient? Client;
         public bool WarnedWaitingForWorkspace;
         public LanguageConnectionState State = LanguageConnectionState.NotStarted;

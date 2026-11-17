@@ -116,9 +116,7 @@ public class MemberRunFoldTests : IDisposable
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, statusBar, new BookmarkService(), breakpoints,
-            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(),
-                new Vb6ProjectFileFormat(),
-                new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
+            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>());
         made.Add(vm);
         return vm;
     }
@@ -133,7 +131,7 @@ public class MemberRunFoldTests : IDisposable
         var (_, editor) = Show(vm);
         RunFold(editor, "Public Sub Form_Load()")!.IsFolded.Should().BeTrue();
 
-        navigate!(new CreateOrNavigateToSubEvent(form, "Form_Load"));
+        navigate!(new CreateOrNavigateToSubEvent(form, "Form_Load", "Form", "Load"));
         Dispatcher.UIThread.RunJobs();
 
         editor.CaretOffset.Should().Be(editor.Document.Text.IndexOf("    Debug.Print 1", StringComparison.Ordinal));

@@ -54,8 +54,7 @@ public class DocumentSavedAnnouncementTests : IDisposable
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
 
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => throw new InvalidOperationException("new-project dialog must not be reached"),
+        return new ProjectService(            () => throw new InvalidOperationException("new-project dialog must not be reached"),
             _windows,
             _eventBus,
             projectManager,
@@ -64,7 +63,7 @@ public class DocumentSavedAnnouncementTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry(), lspClient: () => _lsp);
+            Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), lspClient: () => _lsp);
     }
 
     private ProjectDefinition AProjectWith(params string[] moduleNames)

@@ -28,9 +28,7 @@ public class ShutdownIdeTests
         var accessor = new HttpContextAccessor { HttpContext = http };
         using var services = new ServiceCollection().AddSingleton<IHttpContextAccessor>(accessor).BuildServiceProvider();
         using var context = new IdeContext(Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(),
-            Substitute.For<ILspClient>(), null!, null!, null!, new EventBus(), null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-                new Vb6ProjectFileFormat(),
-                new Vb6ReadOnlyRegionReader());
+            Substitute.For<ILspClient>(), null!, null!, null!, new EventBus(), null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         try
         {
             var tools = ActivatorUtilities.CreateInstance<HexIdeTools>(services, context);
@@ -78,8 +76,7 @@ public class ShutdownIdeTests
         });
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(),
             Substitute.For<ILspClient>(), null!, Substitute.For<IProjectRunnerService>(), projectService, bus,
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var http = new DefaultHttpContext();
         var accessor = new HttpContextAccessor { HttpContext = http };
         try

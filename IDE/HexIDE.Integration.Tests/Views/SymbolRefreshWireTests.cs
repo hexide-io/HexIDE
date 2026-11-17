@@ -148,7 +148,7 @@ public class SymbolRefreshWireTests
             var vm = new CodeEditorViewModel(Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(),
                 Substitute.For<IProjectService>(), Substitute.For<IEventBus>(), client, settings,
                 Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
-                Substitute.For<IDebugController>(), new RunScope(), localization, new Vb6ProjectFileFormat(), new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
+                Substitute.For<IDebugController>(), new RunScope(), localization);
             var module = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"),
                 HexIDE.Runtime.Components.FormComponentClass.Instance, "Module1");
             module.AbsolutePath = Path.Combine(Path.GetTempPath(), "HexIDE-symbol-refresh", "Module1.frm");

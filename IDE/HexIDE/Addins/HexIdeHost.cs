@@ -85,7 +85,7 @@ internal sealed class HexIdeHost(
                 },
             };
         }
-        var connection = languageServers.Register(server, origin.Title);
+        var connection = languageServers.Register(server, origin.Title, origin.Id, origin.PublisherNamespaces);
         if (Registry is AddinRegistry owner) owner.TrackContribution(origin.Id, connection);
         AddinInitializationScope.Record(connection.Dispose);
         return connection;

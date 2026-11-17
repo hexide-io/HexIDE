@@ -56,7 +56,7 @@ public class ActiveDocumentDumpTests
                 .SetProperty(VBProperties.HeightProperty, 30d))]);
         using var designer = new FormEditViewModel(composition.ToolBoxViewModel, composition.EventBus,
             Substitute.For<IProjectService>(), null!, null!, Substitute.For<ISettingsService>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+            Substitute.For<ILocalizationService>()).Initialize(form);
         try
         {
             composition.DocumentDockService.OpenDocument(designer);

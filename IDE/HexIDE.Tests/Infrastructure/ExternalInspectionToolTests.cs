@@ -17,6 +17,10 @@ public class ExternalInspectionToolTests : CompositionTestBase
     [InlineData("locals", false)]
     [InlineData("locals", true)]
     [InlineData("evaluate", false)]
+    [InlineData("evaluate-output", false)]
+    [InlineData("evaluate-output-delayed", false)]
+    [InlineData("evaluate-both", false)]
+    [InlineData("evaluate-refusal", false)]
     [InlineData("evaluate", true)]
     [InlineData("add", false)]
     [InlineData("add", true)]
@@ -44,6 +48,7 @@ public class ExternalInspectionToolTests : CompositionTestBase
     public async Task Tools_use_the_external_windows_data_and_breakpoint_wire(string tool, bool running)
     {
         var composition = Composition;
+        var root = composition.Root;
         var external = composition.ExternalDebugger;
         var capture = composition.Capture;
         capture.ArmsEveryConnection = true;
@@ -57,10 +62,10 @@ public class ExternalInspectionToolTests : CompositionTestBase
         projects.LoadedProjects.Returns([project]);
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
             null!, composition.ProjectRunnerService, null!, null!, null!, composition.BreakpointService,
-            composition.DebugController, composition.Root, null!, null!, null!, null!, capture, null!,
-            composition.LocalizationService, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            composition.DebugController, root, null!, null!, null!, null!, capture, null!,
+            composition.LocalizationService, null!);
         var tools = new HexIdeTools(context);
-        var mode = running ? "conditions-running" : tool switch { "locals-tree" or "locals-depth" => "locals-tree", "stack-no-source" => "session", "set-unsupported" => "breakpoints", "clear-refused" => "breakpoints-refuse-clear", _ => "conditions" };
+        var mode = running ? "conditions-running" : tool switch { "locals-tree" or "locals-depth" => "locals-tree", "stack-no-source" => "session", "set-unsupported" => "breakpoints", "evaluate-output" or "evaluate-output-delayed" or "evaluate-both" => "evaluate-output", "evaluate-refusal" => "evaluate-refusal", "clear-refused" => "breakpoints-refuse-clear", _ => "conditions" };
         var run = external.StartAsync(await ExternalDebugServiceTests.Configuration(directory, mode));
         try
         {
@@ -72,7 +77,7 @@ public class ExternalInspectionToolTests : CompositionTestBase
             }
             if (tool == "set-unsaved") module.AbsolutePath = null;
             if (tool is "watches" or "watch-caller" or "watch-reject")
-                composition.Root.Watches.ExternalService.Add(new(tool == "watch-reject" ? "reject" : "value", HexIDE.Debugging.WatchType.Expression, "Callee"));
+                root.Watches.ExternalService.Add(new(tool == "watch-reject" ? "reject" : "value", HexIDE.Debugging.WatchType.Expression, "Callee"));
             if (tool is "clear" or "clear-refused" or "set-preserve" or "set-blank" or "set-empty")
             {
                 external.ToggleBreakpoint(new Uri(module.AbsolutePath!).AbsoluteUri, 10);
@@ -83,6 +88,33 @@ public class ExternalInspectionToolTests : CompositionTestBase
                 await external.CommandAsync("continue");
                 await ExternalDebugServiceTests.WaitFor(external, () => external.Stop is null && external.State == HexIDE.Dap.DapSessionState.Running);
             }
+            async Task<EvaluateResult> EvaluateWithQueuedOutput()
+            {
+                var connectionId = external.Connection!.Id;
+                var gate = Path.Combine(directory, "release-output");
+                var evaluation = tools.EvaluateAsync("? output:" + gate);
+                var contextBeforePump = ExecutionContext.Capture();
+                try { Avalonia.Threading.Dispatcher.UIThread.RunJobs(); }
+                finally { ExecutionContext.Restore(contextBeforePump!); }
+                File.WriteAllText(gate, "release");
+                // Hold the real UI dispatcher until the wire response has arrived. The output event
+                // precedes it on the wire, but its UI delivery cannot run until this thread yields.
+#pragma warning disable xUnit1031 // Deliberately hold the UI dispatcher to reproduce delayed output delivery.
+                Task.Run(async () =>
+                {
+                    using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                    while (true)
+                    {
+                        await capture.DrainAsync();
+                        if (capture.Snapshot(connectionId).Any(entry =>
+                            entry.Kind == ConversationEntryKind.Request && entry.Method == "evaluate" && entry.AnswerSequence is not null)) return;
+                        await Task.Delay(10, deadline.Token);
+                    }
+                }, TestContext.Current.CancellationToken).GetAwaiter().GetResult();
+#pragma warning restore xUnit1031
+                root.Immediate.Document.Text.Should().NotContain(" 84 ");
+                return await evaluation;
+            }
             object reply = tool switch
             {
                 "stack" or "stack-no-source" => await tools.GetCallStackAsync(),
@@ -90,6 +122,10 @@ public class ExternalInspectionToolTests : CompositionTestBase
                 "locals" or "locals-caller" or "locals-tree" => await tools.GetLocalsAsync(),
                 "locals-depth" => await tools.GetLocalsAsync(1),
                 "evaluate" or "evaluate-caller" => await tools.EvaluateAsync("value"),
+                "evaluate-output" => await tools.EvaluateAsync("? output"),
+                "evaluate-output-delayed" => await EvaluateWithQueuedOutput(),
+                "evaluate-both" => await tools.EvaluateAsync("? both"),
+                "evaluate-refusal" => await tools.EvaluateAsync("reject"),
                 "add" => await tools.AddWatchAsync("value"),
                 "watch-break" => await tools.AddWatchAsync("value", "BreakWhenTrue"),
                 "watches" or "watch-caller" or "watch-reject" => await tools.GetWatchesAsync(),
@@ -107,11 +143,18 @@ public class ExternalInspectionToolTests : CompositionTestBase
                 result.GetProperty("Error").GetString().Should().Contain("running").And.Contain("break_program").And.Contain("breakpoint");
                 return;
             }
+            if (tool == "evaluate-refusal")
+            {
+                ((EvaluateResult)reply).Success.Should().BeFalse();
+                ((EvaluateResult)reply).Error.Should().Be("fixture refusal");
+                (await root.Immediate.EvaluateAsync("reject")).Should().Be("fixture refusal");
+                return;
+            }
             if (tool is "watch-break" or "set-unsaved" or "clear-refused")
             {
                 result.GetProperty("Success").GetBoolean().Should().BeFalse();
                 result.GetProperty("Error").GetString().Should().Contain(tool == "watch-break" ? "Expression" : tool == "set-unsaved" ? "saved" : "cannot clear fixture breakpoints");
-                if (tool == "watch-break") composition.Root.Watches.ExternalService.Watches.Should().BeEmpty();
+                if (tool == "watch-break") root.Watches.ExternalService.Watches.Should().BeEmpty();
                 if (tool != "clear-refused") return;
             }
             else result.GetProperty("Success").GetBoolean().Should().BeTrue();
@@ -144,9 +187,9 @@ public class ExternalInspectionToolTests : CompositionTestBase
                     frames[0].Module.Should().EndWith("Callee.bas");
                     break;
                 case "locals-tree":
-                    var root = ((LocalsResult)reply).Locals.Should().ContainSingle().Subject;
-                    root.HasChildren.Should().BeTrue();
-                    var child = root.Children.Should().ContainSingle().Subject;
+                    var localRoot = ((LocalsResult)reply).Locals.Should().ContainSingle().Subject;
+                    localRoot.HasChildren.Should().BeTrue();
+                    var child = localRoot.Children.Should().ContainSingle().Subject;
                     child.Expression.Should().Be("self");
                     child.Repeats.Should().BeTrue();
                     child.Children.Should().BeNull();
@@ -165,6 +208,14 @@ public class ExternalInspectionToolTests : CompositionTestBase
                         new LocalsRow("calleeValue", "41", "Long", false, null));
                     break;
                 case "evaluate": ((EvaluateResult)reply).Result.Should().Be("frame:0:value"); break;
+                case "evaluate-output-delayed":
+                case "evaluate-output":
+                    ((EvaluateResult)reply).Result.Should().Be(" 84 \n");
+                    root.Immediate.Document.Text.Should().Be(" 84 \n");
+                    (await root.Immediate.EvaluateAsync("? output")).Should().BeEmpty();
+                    root.Immediate.Document.Text.Should().Be(" 84 \n 84 \n");
+                    break;
+                case "evaluate-both": ((EvaluateResult)reply).Result.Should().Be(" 84 \nresponse"); break;
                 case "watch-reject":
                     var rejected = ((WatchesResult)reply).Watches.Should().ContainSingle().Subject;
                     rejected.Ok.Should().BeFalse();
@@ -177,8 +228,8 @@ public class ExternalInspectionToolTests : CompositionTestBase
                     watch.Value.Should().Be(tool == "watch-caller" ? "frame:7:value" : "frame:0:value");
                     watch.Type.Should().Be("Long");
                     watch.Ok.Should().BeTrue();
-                    composition.Root.Watches.ExternalService.Watches.Should().ContainSingle();
-                    composition.Root.Watches.Service.Watches.Should().BeEmpty();
+                    root.Watches.ExternalService.Watches.Should().ContainSingle();
+                    root.Watches.Service.Watches.Should().BeEmpty();
                     break;
                 default:
                     await capture.DrainAsync();

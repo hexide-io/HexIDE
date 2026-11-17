@@ -50,8 +50,7 @@ public class UserControlSaveRoundTripTests : IDisposable
 
         loadedProject = () => captured ?? throw new InvalidOperationException("project was never loaded");
 
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => throw new InvalidOperationException("new-project dialog must not be reached"),
+        return new ProjectService(            () => throw new InvalidOperationException("new-project dialog must not be reached"),
             Substitute.For<IWindowManager>(),
             Substitute.For<IEventBus>(),
             projectManager,
@@ -60,8 +59,7 @@ public class UserControlSaveRoundTripTests : IDisposable
             sidecar,
             baselineStore,
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
     }
 
     /// <summary>Writes a canonical .ctl (via the serializer, so the on-disk format is real VB6) plus a .vbp.</summary>
@@ -105,7 +103,7 @@ public class UserControlSaveRoundTripTests : IDisposable
         var form = loaded().Forms.Single();
         using var designer = new HexIDE.VisualDesigner.FormEditViewModel(null!, new EventBus(), svc,
             null!, null!, Substitute.For<ISettingsService>(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+            Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form);
 
         designer.IsReadOnly.Should().BeTrue();
         designer.ReadOnlyReason.Should().Contain("extents");

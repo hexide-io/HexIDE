@@ -50,7 +50,8 @@ the New Project dialog.
 
 ### Requirement: Every project file SHALL be read through one path
 Open Project, a command-line project path, the recent projects list and a project group SHALL read a project file the same way: by a contributed
-type that reads it, then as a `.vbp`. Any other file SHALL be refused with a reason, never read as a `.vbp`.
+type that reads it (including VB6's registered type), or the archive service for its reserved files.
+Any other file SHALL be refused with a localized reason, never read as a `.vbp`.
 
 #### Scenario: A group lists a contributed project
 - **WHEN** a `.vbg` names an `.rdproj` an add-in reads
@@ -59,6 +60,36 @@ type that reads it, then as a `.vbp`. Any other file SHALL be refused with a rea
 #### Scenario: The add-in is not loaded
 - **WHEN** the recent list names an `.rdproj` and no loaded add-in reads it
 - **THEN** it is refused with a reason, and nothing opens
+
+### Requirement: An absent first-party reader SHALL be named
+A refusal SHALL name the file. When a first-party reservation covers it and its reader is absent, it SHALL
+name that reservation's title and say that reader is not loaded. VB6's member patterns SHALL be kept as data
+beside its project reservation, using VB6's unambiguous source extensions: `.cls` SHALL NOT name VB6, since a
+LaTeX class file uses it too (#279). Only first-party readers
+SHALL be named; HexIDE SHALL NOT claim that an unknown file is opened by an add-in.
+
+#### Scenario: VB6 is not registered
+- **WHEN** a `.vbp`, `.vbg` or VB6 member file is opened with no VB6 type registered
+- **THEN** the refusal names "Visual Basic 6.0" and says it is not loaded
+
+#### Scenario: A .cls with VB6 not registered
+- **WHEN** a `.cls` is opened with no VB6 type registered
+- **THEN** the refusal does not name Visual Basic 6.0, and reads as for any other unread file
+
+### Requirement: An unknown project file SHALL explain the available readers
+For any other unread file, the refusal SHALL name the file and list every registered type's project and group patterns in registration order,
+then the archive reservation's patterns while the archive service is present. A `*.ext` pattern SHALL display
+as `.ext`, a plain file name as itself, joined with `, `. With no registered type and no archive service, the
+refusal SHALL say that no project type is loaded.
+
+#### Scenario: An unknown file with readers loaded
+- **WHEN** `notes.txt` is opened with VB6's type and the archive service present
+- **THEN** the refusal names `notes.txt` and lists `.vbp, .vbg, .twinproj`
+- **AND** registering another type adds its patterns without changing a translation
+
+#### Scenario: No reader is loaded
+- **WHEN** an unknown file is opened with no registered type and no archive service
+- **THEN** the refusal names the file and says no project type is loaded
 
 ### Requirement: A contributed project SHALL open as a project of the IDE's model
 Opening a file of a contributed type SHALL ask its add-in to read it, only then, and SHALL load what it returns as a

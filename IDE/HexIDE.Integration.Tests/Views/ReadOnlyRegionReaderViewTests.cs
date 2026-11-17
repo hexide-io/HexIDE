@@ -81,11 +81,12 @@ public class ReadOnlyRegionReaderViewTests : IDisposable
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
-            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(),
-                new Vb6ProjectFileFormat(), reader, regionRules: rules);
+            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>());
         made.Add(vm);
 
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Notes", ModuleKind.StandardModule);
+        // Its regions are its project's format's (#3411 slice 10b-3).
+        new RegionStandInFormat(reader, rules).On(module.Owner);
         module.RecordOriginalHeader("");
         module.UpdateCode("alpha\r\nbeta\r\ngamma\r\ndelta\r\nepsilon\r\nzeta\r\n");
         vm.Initialize(module);

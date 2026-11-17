@@ -641,6 +641,7 @@ added afterwards.
 - [Where the arrow keys go from a button (2026-10-23, #1625)](where-the-arrow-keys-go-from-a-button.md#where-the-arrow-keys-go-from-a-button-2026-10-23-1625)
 - [Conditional compilation (2026-10-23, #1112)](conditional-compilation.md#conditional-compilation-2026-10-23-1112)
 - [LongLong and LongPtr in 64-bit VBA7 (2026-11-14, #1548)](longlong-and-longptr-in-64-bit-vba7.md#longlong-and-longptr-in-64-bit-vba7-2026-11-14-1548), measured in Excel's VBA7, not vb6.exe
+- [LongLong and LongPtr in 32-bit VBA7 (2026-11-17, #1548)](longlong-and-longptr-in-32-bit-vba7.md#longlong-and-longptr-in-32-bit-vba7-2026-11-17-1548)
 - [VBA7's 64-bit syntax in vb6.exe, in active code (2026-11-16, #1548, SP6)](vba7s-64-bit-syntax-in-vb6exe.md#vba7s-64-bit-syntax-in-vb6exe-in-active-code-2026-11-16-1548-sp6)
 - [A form's Width and Height: the frame round its client area (2026-10-23, #1072)](a-forms-width-and-height-the-frame-round-its-client-area.md#a-forms-width-and-height-the-frame-round-its-client-area-2026-10-23-1072)
 - [A form's window styles: BorderStyle, ControlBox, MinButton and MaxButton (2026-10-23, #1575)](a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton.md#a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton-2026-10-23-1575)
@@ -801,3 +802,4 @@ added afterwards.
 - [SaveSetting from an IDE run, read by the made EXE, and back (2026-11-16, #4070)](savesetting-from-an-ide-run-read-by-the-made-exe.md#savesetting-from-an-ide-run-read-by-the-made-exe-and-back-2026-11-16-4070)
 - [The Properties window's Font dialog: its controls, typed sizes and effects (2026-11-16, #4153, design-time, IDE, SP6)](the-properties-windows-font-dialog.md#the-properties-windows-font-dialog-its-controls-typed-sizes-and-effects-2026-11-16-4153-design-time-ide-sp6)
 - [The Object Browser's library list: its order (2026-11-16, #4113, design-time, IDE, SP6)](the-object-browsers-library-list.md#the-object-browsers-library-list-its-order-2026-11-16-4113-design-time-ide-sp6)
+- [Default and Cancel buttons (2026-11-17, #4371)](default-and-cancel-buttons.md#default-and-cancel-buttons-2026-11-17-4371)

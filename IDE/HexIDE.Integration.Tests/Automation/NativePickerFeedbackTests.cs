@@ -120,7 +120,7 @@ public class NativePickerFeedbackTests
         lifetimeField.SetValue(Application.Current!, lifetime);
         using var context = new IdeContext(null!, null!, Substitute.For<HexIDE.Lsp.ILspClient>(),
             null!, null!, null!, null!, null!, null!, Substitute.For<IDebugController>(), null!, null!, null!, null!,
-            null!, null!, null!, null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
         window.Show();
         try

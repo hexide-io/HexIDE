@@ -105,27 +105,22 @@ public partial class FormEditView : UserControl
 
     private void OnDesignerKeyDown(object? sender, KeyEventArgs e)
     {
-        if (DataContext is not FormEditViewModel vm || vm.SelectedComponents.Count > 1)
+        if (DataContext is not FormEditViewModel vm)
             return;
 
-        // Only the single-selection, top-level case is measured for Tab (#3399). Esc selects the form whatever the
-        // other controls are, so it isn't held back by them.
+        // VB6's designer visits every indexed control, ignoring runtime properties and containment (#4211).
         var controls = vm.Components.Where(c => c.HasTabIndex).ToArray();
-        // A control drawn on the form has no container, and one loaded from a file has the form: both are top-level.
-        var tabMeasured = !controls.Any(c => (c.Instance.Container is { } container && container != vm.Form.Instance)
-            || !c.IsRuntimeVisible
-            || !c.Instance.GetPropertyOrDefault(VBProperties.EnabledProperty)
-            || !c.Instance.GetPropertyOrDefault(VBProperties.TabStopProperty));
 
         // While a button is held, Esc belongs to the drag in progress, not to the selection. An abandoned hold presses
         // Escape and then moves back to where it was pressed and lets go, which puts a moved control back; selecting the
         // form first would leave the control where the drag had taken it (HeldButtonTests).
-        if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && !_buttonHeld)
+        if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && !_buttonHeld
+            && vm.SelectedComponents.Count <= 1)
         {
             vm.SelectedComponent = vm.Form;
         }
         else if (e.Key == Key.Tab && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift
-            && tabMeasured && controls.Length > 0)
+            && controls.Length > 0)
         {
             var ordered = controls.OrderBy(c => c.TabIndex).ToArray();
             var index = Array.IndexOf(ordered, vm.SelectedComponent);
@@ -364,9 +359,9 @@ public partial class FormEditView : UserControl
             vm.Name, vm.Instance.BaseClass.Name, eventClass?.Name ?? "(none)");
 
         if (eventClass == null)
-            rootVm.RequestCode(null);
+            rootVm.RequestCode(null, null, null);
         else
-            rootVm.RequestCode($"{vm.Name}_{eventClass.Name}");
+            rootVm.RequestCode($"{vm.Name}_{eventClass.Name}", vm.Name, eventClass.Name);
         e.Handled = true;
     }
 
@@ -376,7 +371,9 @@ public partial class FormEditView : UserControl
         if (DataContext is not FormEditViewModel rootVm)
             return;
 
-        rootVm.RequestCode(rootVm.RootDoubleClickProcedure);
+        rootVm.RequestCode(rootVm.RootDoubleClickProcedure,
+            rootVm.Form.Instance.BaseClass.Name,
+            ((HexIDE.Runtime.Components.FormComponentClass)rootVm.Form.Instance.BaseClass).DesignerDoubleClickEvent);
         e.Handled = true;
     }
 

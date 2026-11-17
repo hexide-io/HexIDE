@@ -89,6 +89,7 @@ public sealed record LanguageServerRegistration(
     string? Origin = null,
     /// <summary>Restart when projects join or leave the workspace, rather than relying on folder notifications.</summary>
     bool RestartOnProjectChange = false,
+    System.Text.Json.JsonElement? Settings = null,
     /// <summary>
     /// Whether AI Chat may use this server's tools and context, and how they are approved, as its entry says (#4257). Null
     /// for a registration whose route can't offer tools at all, which no setting turns on: only

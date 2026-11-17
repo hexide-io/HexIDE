@@ -65,7 +65,7 @@ public class ExternalRunControlTests : CompositionTestBase
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(),
             Substitute.For<ILspClient>(), null!, composition.ProjectRunnerService, null!, null!, null!, null!,
             composition.DebugController, composition.Root, null!, null!, null!, null!, composition.Capture,
-            null!, composition.LocalizationService, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            null!, composition.LocalizationService, null!);
         var tools = new HexIdeTools(context);
         var printed = new ProgramPrinted();
         printed.FollowRuns(composition.ProjectRunnerService);
@@ -152,8 +152,7 @@ public class ExternalRunControlTests : CompositionTestBase
         projects.LoadedProjects.Returns([project]);
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
             null!, composition.ProjectRunnerService, null!, null!, null!, null!, composition.DebugController,
-            composition.Root, null!, null!, null!, null!, capture, null!, composition.LocalizationService, null!,
-            new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            composition.Root, null!, null!, null!, null!, capture, null!, composition.LocalizationService, null!);
         var tools = new HexIdeTools(context);
         var run = external.StartAsync(await ExternalDebugServiceTests.Configuration(directory, mode));
         Action<string>? heard = null;
@@ -255,9 +254,7 @@ public class ExternalRunControlTests : CompositionTestBase
         projects.LoadedProjects.Returns([project]);
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
             null!, composition.ProjectRunnerService, null!, null!, null!, null!, composition.DebugController,
-            composition.Root, null!, null!, null!, null!, capture, null!, composition.LocalizationService, null!,
-                new Vb6ProjectFileFormat(),
-                new Vb6ReadOnlyRegionReader());
+            composition.Root, null!, null!, null!, null!, capture, null!, composition.LocalizationService, null!);
         var tools = new HexIdeTools(context);
         var run = external.StartAsync(await ExternalDebugServiceTests.Configuration(directory, mode));
         try

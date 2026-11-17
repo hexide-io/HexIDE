@@ -52,6 +52,6 @@ public class DpiUnawareLaunchTests
         var at = source.IndexOf("if (ServerOptions.DpiUnaware && !OperatingSystem.IsWindows())", StringComparison.Ordinal);
         at.Should().BeGreaterThan(0);
         var end = source.IndexOf('}', at);
-        source[at..end].Should().Contain("Environment.ExitCode = 2;").And.Contain("return;");
+        source[at..end].Should().Contain("Environment.ExitCode = 2;").And.Contain("return true;");
     }
 }

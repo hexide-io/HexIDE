@@ -292,7 +292,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             using var contributions = new AddinInitializationScope();
             ctx.Instance = addin;
             var origin = new AddinOrigin(ctx.Info.Id, ctx.Info.Title, ctx.Info.Chain?.IsFirstParty == true,
-                status == AddinStatus.DeveloperUnsigned);
+                status == AddinStatus.DeveloperUnsigned) { PublisherNamespaces = ctx.Info.PublisherNamespaces };
             addin.Initialize(host.ToolWindows is AddinToolWindowService tools
                 ? new AddinOwnedHost(host, tools.ForOwner(origin), origin)
                 : host);
@@ -496,7 +496,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         result.Manifest is { } m
             ? new AddinInfo(packageDir, m.Title, m.Description, m.Version, m.Author,
                             result.PublisherDisplayName ?? "", m.Id, result.ManifestHash ?? "",
-                            result.LogoPath, result.Chain) { VerifiedDeclaration = result.VerifiedDeclaration }
+                            result.LogoPath, result.Chain) { VerifiedDeclaration = result.VerifiedDeclaration, PublisherNamespaces = result.PublisherNamespaces }
             : ShallowInfo(packageDir);
 
     private static AddinInfo ShallowInfo(string packageDir) =>
