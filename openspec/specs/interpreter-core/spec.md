@@ -1391,7 +1391,7 @@ to 2 when omitted. Values outside 0–9 SHALL raise 5. These styles and defaults
 Empty paths, directories and recognisable ASCII text documents (including associated documents) SHALL raise 5, missing programs
 53 and Null arguments 94. Unix SHALL retain direct process launching and map non-executable document
 failures to 5 where distinguishable. Non-string PathName conversions, access denied to executables,
-programs that exist but cannot start, and ambiguous/binary document classification SHALL refuse explicitly as not implemented pending measurement (#4146).
+programs that exist but cannot start, and ambiguous/binary document classification SHALL refuse explicitly as not implemented pending measurement (#4406).
 
 #### Scenario: A program launches a helper
 - **WHEN** code calls `Shell` with a quoted executable path, arguments and an accepted explicit style
