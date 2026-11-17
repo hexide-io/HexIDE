@@ -1605,7 +1605,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 59 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 62 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1673,7 +1673,7 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 12 of 21
+### `workspace/*` — 13 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
