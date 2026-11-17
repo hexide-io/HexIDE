@@ -47,6 +47,12 @@ public static partial class PropertyText
         value = null;
         reason = null;
 
+        if (property == VBProperties.DesignIndexProperty)
+        {
+            value = text.Trim();
+            return text.Length == 0 || int.TryParse(text, NumberStyles.Integer, invariant, out var index)
+                && index is >= 0 and <= 32767;
+        }
         if (type == typeof(double))
             return Parsed(double.TryParse(text, NumberStyles.Float, invariant, out var d), d, out value);
         if (type == typeof(float))
@@ -80,6 +86,8 @@ public static partial class PropertyText
     public static string Accepted(PropertyClass property)
     {
         var type = property.PropertyType;
+        if (property == VBProperties.DesignIndexProperty)
+            return "an integer from 0 to 32767, or empty to clear a lone element";
         if (type.IsEnum)
             return "one of " + string.Join(", ", Enum.GetValues(type).Cast<object>()
                        .Select(v => $"{Convert.ToInt64(v, CultureInfo.InvariantCulture)} ({DisplayName(v)})"))
@@ -158,7 +166,9 @@ public static partial class PropertyText
     };
 
     /// <summary>The order the Properties window lists a component's properties in, by name.</summary>
-    public static IEnumerable<PropertyClass> InWindowOrder(IComponentClass type) => type.Properties.OrderBy(p => p.Name);
+    public static IEnumerable<PropertyClass> InWindowOrder(IComponentClass type) =>
+        (type.VBTypeName is "VB.Form" or "VB.UserControl" or "VB.PropertyPage"
+            ? type.Properties : type.Properties.Append(VBProperties.DesignIndexProperty)).OrderBy(p => p.Name);
 
     /// <summary>
     /// Every property of <paramref name="component"/>: each the Properties window shows, in its order, with its value
@@ -171,7 +181,7 @@ public static partial class PropertyText
     /// <item>A value the file holds and HexIDE could not read, such as a palette colour (#786), is kept as the file's
     /// own line and the window shows the default. The row gives the file's text, not settable, since setting it would
     /// replace the line the save otherwise keeps.</item>
-    /// <item>A property HexIDE does not model, such as a TextBox's MultiLine or a control array's Index, is in no row
+    /// <item>A property HexIDE does not model, such as a TextBox's MultiLine, is in no row
     /// at all, so it read as absent. It gets a row of its own with the file's text, not settable.</item>
     /// <item>Width, Height and Visible on a control VB6 draws nothing for, the Timer, are rows the save leaves out, so
     /// a value set there was gone on reload. They are marked not settable.</item>
@@ -186,7 +196,7 @@ public static partial class PropertyText
         var type = component.BaseClass;
         var modelled = InWindowOrder(type).Select(p =>
         {
-            if (!component.TryGetBoxedProperty(p, out _) && RawOf(component, p.Name) is { } unread)
+            if (p != VBProperties.DesignIndexProperty && !component.TryGetBoxedProperty(p, out _) && RawOf(component, p.Name) is { } unread)
                 return new PropertyRow(p.Name, unread, false,
                     "the file holds this, which " + HexIDE.IDE.Distribution.DisplayName + " could not read, so the Properties window shows the default; the "
                     + "save keeps the file's text unless the property is set");
@@ -202,7 +212,7 @@ public static partial class PropertyText
                 && Equals(back, held ?? (p.PropertyType == typeof(string) || p.PropertyType == typeof(object) ? "" : null)));
         });
         var unmodelled = component.UnknownRawProperties
-            .Where(raw => !type.PropertiesByName.ContainsKey(raw.Name))
+            .Where(raw => !InWindowOrder(type).Any(p => p.Name.Equals(raw.Name, StringComparison.OrdinalIgnoreCase)))
             .Select(raw => new PropertyRow(raw.Name, RawText(raw), false,
                 "not modelled by HexIDE, so read-only in the Properties window: the file's own text, which the save keeps"));
         return [.. modelled.Concat(unmodelled).OrderBy(r => r.Name)];
@@ -272,6 +282,8 @@ public static partial class PropertyText
     /// <summary>A control array element's Index, which HexIDE keeps as the file's own line, or null.</summary>
     public static int? ArrayIndexOf(ComponentInstance component) =>
         int.TryParse(RawOf(component, "Index"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) ? index : null;
+
+    internal static string DesignIndexText(ComponentInstance component) => RawOf(component, "Index") ?? "";
 
     // ASCII digits only, as FontSize below: \d also matches an Arabic-Indic digit, which the invariant parse threw on.
     [GeneratedRegex(@"^(?<name>[^()]+)\(\s*(?<index>[0-9]+)\s*\)$")]

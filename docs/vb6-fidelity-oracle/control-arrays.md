@@ -44,4 +44,38 @@ codes (360 already-loaded, 362 can't-unload-design-time, 340 missing).
 the loaded element took the *changed* values: `Load` clones the lowest-index element's **runtime** state. See
 "A form-based game's runtime surface".
 
+### What a `.frm` may hold for Index, and Load's bounds (2026-11-16, #2701)
 
+**Asked because** HexIDE's tools can't make a control array (#2701), and the rules a design-time `Index` must keep
+had to come from VB6 before a tool enforces them. Each case was a `.frm` written by hand and built with `VB6.EXE /make`,
+native and p-code, on SP6 (6.00.9782, MSVBVM60 6.00.9848); `Sub Main` ran `Load Form1` and logged each read under
+`On Error Resume Next`. **Native and p-code agreed in every case.** What the IDE's Properties window says when Index is
+typed wasn't measured: that needs the IDE driven, not `/make`.
+
+| The `.frm` held | `/make` | At run time |
+|---|---|---|
+| one `Command1` with `Index = 0` | built | `Command1.Count` 1, `LBound..UBound` 0..0, `Command1(0).Index` 0 |
+| one `Command1` with `Index = 3` | built | `Count` 1, `LBound..UBound` **3..3**; `Command1(0)` is Err 340 |
+| one `Command1` with `Index = 32767` | built | `Command1(32767).Index` 32767 |
+| one `Command1` with `Index = -1`, or `32768` | **failed**: `Line 15: Property Index in Command1 had an invalid value.`, form not loaded | |
+| two `Command1`, both `Index = 0` | **failed**: `Line 21: Property Index in Command1 could not be set.`, form not loaded | |
+| `Command1` with `Index = 0`, then a `Command1` with no Index | **built**, with `Line 21: Did not find an index property and control Command1 already exists.` in `Form1.log` | see below |
+| two `Command1`, neither with an Index | **didn't finish**: `Form1.log` held the same "Did not find an index property" line, and VB6.EXE was still running at 120 s and was killed | |
+
+**Load's bounds,** on the one-element array from `Index = 0`:
+
+| Probe | Result |
+|---|---|
+| `Load Command1(5)` | no error; `Count` 2, `UBound` 5 |
+| `Load Command1(-1)` | **Err 341** |
+| `Load Command1(32767)` | no error |
+| `Load Command1(32768)` | **Err 6** |
+
+So a design-time Index runs 0 to 32767. One element alone is an array, at any index. A duplicate index stops the
+form loading.
+
+**Resisted explanation:** the indexed-then-unindexed form loads both buttons. `Controls.Count` is 2 and both are
+named `Command1`, but `Command1.Count` is 1. The second button, at its own `Top`, raises **Err 343** for `Index`, and
+only `Controls(1)` reaches it. VB6 kept the control and logged it as an error, but put it outside the array. Why the
+same mistake without the first `Index` leaves `/make` hanging, presumably on a prompt nobody can see in session 0, is
+not known.

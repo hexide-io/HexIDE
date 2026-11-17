@@ -66,7 +66,9 @@ connection. Unsupported adapter-initiated requests SHALL receive an unsuccessful
 Each request SHALL have a finite configurable deadline and accept caller cancellation. A caller MAY override
 the connection deadline for one request with a positive finite timeout; omission SHALL use the connection default. The client SHALL
 bound pending requests and queued events. It SHALL NOT retry timed-out or cancelled requests automatically.
-EOF, malformed input, event overflow and failed writes SHALL close the connection and fail pending work.
+A full event queue SHALL pause stream reading until room is available, without dropping events or closing
+the connection. Its consumer SHALL drain events independently of pending DAP responses, which can follow
+queued events on the same stream. EOF, malformed input and failed writes SHALL close the connection and fail pending work.
 Disposal SHALL settle pending requests with `IOException` and release owned streams; repeated disposal SHALL be safe.
 
 #### Scenario: A cancelled request receives a late reply
@@ -206,6 +208,15 @@ configures source breakpoints and advertised default exception filters, and send
 when supported. It SHALL permit launch responses to follow configuration and release ownership on startup
 failure or cancellation within a bounded startup deadline.
 
+#### Scenario: Launch refused during configuration
+- **WHEN** launch fails while a configuration request is unanswered
+- **THEN** the client SHALL fail startup with the launch error without waiting for that request's deadline,
+  release ownership, and send no further configuration requests
+
+#### Scenario: Early successful launch response
+- **WHEN** launch succeeds before configuration completes
+- **THEN** the client SHALL finish the same configuration sequence
+
 #### Scenario: Deferred launch response
 - **WHEN** the adapter sends initialized but defers its launch response until configurationDone
 - **THEN** the client configures breakpoints and completes the handshake without waiting for launch first
@@ -230,13 +241,26 @@ stop; an uncertain resume cancellation or timeout SHALL fault and release the se
 - **THEN** the session remains at that new stop after the response
 
 ### Requirement: Observable session lifetime
-The session SHALL expose bounded ordered updates and raw events, including output, and SHALL fault and close
-on update overflow. Program termination SHALL remain distinct from adapter process completion. Disconnect
-SHALL request debuggee termination and release ownership even on failure, with process diagnostics retained.
+The session SHALL expose bounded ordered updates and raw events, including output. A full update queue
+SHALL await room outside the snapshot lock, preserving order and backpressuring the connection. Consumers
+SHALL drain updates independently of DAP responses. Program termination SHALL remain distinct from adapter
+process completion. Disconnect SHALL request debuggee termination and release ownership even on failure,
+with process diagnostics retained.
 
 #### Scenario: Adapter remains alive after program termination
 - **WHEN** the program terminates but the adapter still awaits disconnect
 - **THEN** the session reports the program ended and can explicitly disconnect and await owned cleanup
+
+### Requirement: Batched IDE updates
+The IDE SHALL apply waiting session updates in order in one UI dispatch per batch and join consecutive
+output texts without losing or duplicating bytes. Run To Cursor restoration SHALL start ahead of the stop's
+dispatch without awaiting its response in the reader.
+
+#### Scenario: Output flood while the UI is busy
+- **WHEN** an adapter sends 10,000 output events after a stop and then a pending stackTrace response
+- **AND** the consumer temporarily stops draining updates
+- **THEN** the session remains stopped and resumes delivering every output byte in order
+- **AND** the inspection completes once the queues drain
 
 ### Requirement: Explicit IDE debug launch
 The IDE SHALL offer an explicit JSON-file launch command and SHALL NOT execute launch files merely because
@@ -255,20 +279,31 @@ project opens, under the session's cancellation, and SHALL check the configurati
 checked, with its executable and working directory fully qualified. The session SHALL be given the saved
 gutter marks of the project, as a launch file's is.
 
-F5 SHALL run the interpreter for a project until its user chooses otherwise under Run > F5 Runs, which lists
-the interpreter and every contributed launch that runs the startup project. The choice SHALL be remembered
+F5 SHALL default to the interpreter for projects it runs. For a project whose type came from an add-in,
+F5 SHALL default to that same add-in's first registered launch when it runs the project. An explicit user choice,
+including the interpreter, SHALL override this default. The status bar SHALL name the default launch and direct
+the user to Run > F5 Runs once per project in a session. Run > F5 Runs SHALL list the interpreter and every
+contributed launch that runs the startup project, with the effective choice checked. The choice SHALL be remembered
 per project, for that user, in the user sidecar, by the contributing add-in's id and the launch's title. A
 chosen launch that is gone or no longer runs the project SHALL leave F5 to the interpreter, with a status
 message that says so, and SHALL stay chosen, shown under F5 Runs as not available so the user can set it
 back. Run > Start Once With SHALL run a contributed launch once without changing what F5 runs. Only F5 and Run >
 Start SHALL follow the choice: stepping in from idle, Run To Cursor, Restart and Start With Full Compile SHALL
 stay the interpreter's. Whether a launch runs the project SHALL be asked when the Run menu opens or a run
-starts, never when a project opens. Ending a session whose configuration is still being made SHALL end it,
+starts. For F5's enabled state on an add-in project, the effective launch's answer SHALL be kept until the
+choice, launch or described project changes, rather than asked at every edit. Ending a session whose
+configuration is still being made SHALL end it,
 whether or not the add-in heeds its cancellation.
 
 #### Scenario: An add-in offers a launch
-- **WHEN** an add-in contributes a launch that runs the startup project
+- **WHEN** an add-in contributes a launch that runs an interpreter startup project
 - **THEN** F5 still runs the interpreter, and F5 Runs and Start Once With list the launch
+
+#### Scenario: An add-in project has its own launch
+- **GIVEN** the startup project's type came from an add-in and it has no stored F5 choice
+- **WHEN** that add-in has registered a launch that runs the project
+- **THEN** F5 runs the first launch that add-in registered, and F5 Runs checks it
+- **AND** the status bar names it and points to F5 Runs once per project in the session
 
 #### Scenario: The user chooses the launch for F5
 - **WHEN** the user chooses the launch under F5 Runs, and presses F5
@@ -549,3 +584,26 @@ when evaluation fails. Launch-file conditions SHALL remain refused.
 - **THEN** the condition reads the executing frame's scope and a false result skips the breakpoint
 - **AND** an evaluation error stops and reports the expression and error in Immediate
 - **AND** stepping, pause, watches and Run To Cursor still stop independently of a false condition
+
+### Requirement: External Run To Cursor
+
+A stopped external session SHALL support Run To Cursor from the Debug command and automation
+using a saved source path and a temporary breakpoint alongside the user's breakpoints, including
+conditions. The temporary breakpoint SHALL NOT change the saved breakpoint set or editor gutter.
+An unverified or relocated temporary breakpoint SHALL refuse the command with the adapter's reason
+without continuing. The next stop, End or a request failure SHALL restore the user's source
+breakpoints, without holding up the reader of the adapter's events; a session that has ended SHALL
+drop the temporary line without a request. A refused restoration SHALL be reported with the line
+where the adapter may stop again, and SHALL NOT end the session. Automation SHALL report the actual
+top source frame and line, running or ended, and identify a stop before the requested target.
+
+#### Scenario: A user breakpoint stops before the cursor
+- **GIVEN** an external session stopped with user breakpoints and conditions
+- **WHEN** Run To Cursor continues and stops at another breakpoint first
+- **THEN** the temporary line is removed and the user breakpoints and conditions remain
+- **AND** automation reports the actual stop and that it was before the cursor target
+
+#### Scenario: The adapter refuses the temporary target
+- **WHEN** the adapter returns an unverified breakpoint or moves it to another line
+- **THEN** Run To Cursor restores the source's user set without sending continue
+- **AND** the refusal reports the adapter's message and any relocated line

@@ -75,6 +75,7 @@ internal sealed class ServerMessagePrompt
             Title = title, Content = content, FlowDirection = owner.FlowDirection, SizeToContent = SizeToContent.WidthAndHeight,
             CanResize = false, CanMinimize = false, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
+        BrandAssets.ApplyWindowIcon(window);
         window.KeyDown += (_, e) =>
         {
             if (e.Key != Key.Escape) return;

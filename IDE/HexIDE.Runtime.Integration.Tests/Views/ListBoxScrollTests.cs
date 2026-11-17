@@ -48,9 +48,12 @@ public class ListBoxScrollTests : WindowTestFixture
         public VBListBox? List { get; set; }
         public List<string> Calls { get; } = new();
         public List<int> ScrollListIndices { get; } = new();
+        public List<string> States { get; } = new();
         private int Top() => ListMembers.TryGet(List!, "TopIndex", out var value) ? (int)value.Value! : -999;
         public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
         {
+            if (name is "List1_Click" or "List1_Scroll")
+                States.Add($"{name} index={List!.ListIndex} top={Top()}");
             Calls.Add(name is "List1_Scroll" or "List1_Click" ? $"{name} top={Top()}" : name);
             if (name == "List1_Scroll")
                 ScrollListIndices.Add(List!.ListIndex);
@@ -242,23 +245,79 @@ public class ListBoxScrollTests : WindowTestFixture
             .Should().Equal($"List1_Click top={list.TopIndex}");
     }
 
-    // This pins existing HexIDE behavior, not a VB6 measurement: Page Up remains Avalonia's to handle.
-    [AvaloniaFact]
-    public async Task Unmeasured_PageUp_with_item_focus_keeps_existing_Avalonia_behavior()
+    // #3986's 2026-11-16 measurements, oracle PR #4208: a-listboxs-page-up-checkboxes-and-columns.md. Both keys move
+    // the selection a page, the rows shown less one, from wherever it is, and the view scrolls the least it can. The
+    // first four Page Up rows can't tell that from "top row first"; the rows after them can (mid-view, one below the
+    // top row, out of view). Keys enter through the window, with item focus where the item has a container.
+    [AvaloniaTheory]
+    [InlineData(Key.PageUp, 37, 27, 27, 27)]
+    [InlineData(Key.PageUp, 30, 30, 20, 20)]
+    [InlineData(Key.PageUp, 5, 0, 0, 0)]
+    [InlineData(Key.PageUp, 0, 0, 0, 0)]
+    [InlineData(Key.PageUp, 32, 27, 22, 22)]
+    [InlineData(Key.PageUp, 28, 27, 18, 18)]
+    [InlineData(Key.PageUp, 5, 20, 0, 0)]
+    [InlineData(Key.PageUp, 50, 20, 40, 30)]
+    [InlineData(Key.PageDown, 4, 0, 14, 4)]
+    [InlineData(Key.PageDown, 10, 0, 20, 10)]
+    [InlineData(Key.PageDown, 40, 0, 50, 40)]
+    [InlineData(Key.PageDown, 2, 20, 12, 12)]
+    public async Task Page_keys_move_a_page_from_the_selection_as_measured(Key key, int selection, int top, int expectedSelection, int expectedTop)
     {
         var (recorder, ctx, env) = await Loaded(SixtyItems);
-        await After(recorder, ctx, env, "List1.ListIndex = 37\r\nList1.TopIndex = 27\r\n");
+        // As vb6.exe was driven: focus on the list first, then the selection and the top row, then the key.
+        recorder.List!.Focus(NavigationMethod.Pointer).Should().BeTrue();
+        // Two runs: HexIDE scrolls to a new selection a dispatcher turn later, which would undo a TopIndex assigned in
+        // the same run (#4229). VB6 keeps it, and these rows need the selection out of view.
+        await After(recorder, ctx, env, $"List1.ListIndex = {selection}\r\n");
+        await After(recorder, ctx, env, $"List1.TopIndex = {top}\r\n");
         var list = recorder.List!;
-        list.ContainerFromIndex(37)!.Focus(NavigationMethod.Pointer).Should().BeTrue();
+        list.TopIndex.Should().Be(top);
+        var rows = (int)System.Math.Floor(list.Scroll!.Viewport.Height / list.ContainerFromIndex(top)!.Bounds.Height);
+        rows.Should().Be(11, "the expected values are vb6.exe's, measured on a list showing 11 rows");
+        // An item in view takes the focus, as after a click; one out of view leaves it on the list, since focusing
+        // the item would scroll it into view.
+        if (list.ContainerFromIndex(selection) is { IsEffectivelyVisible: true } item && selection >= top && selection < top + rows)
+            item.Focus(NavigationMethod.Pointer).Should().BeTrue();
         Dispatcher.UIThread.RunJobs();
-        var offset = list.Scroll!.Offset.Y;
+        recorder.States.Clear();
+        // Observe the real input route around the VB handlers, including handled presses.
+        recorder.AddHandler(InputElement.KeyDownEvent, (_, _) => recorder.States.Add($"KeyDown index={list.ListIndex} top={list.TopIndex}"), Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        recorder.AddHandler(InputElement.KeyUpEvent, (_, _) => recorder.States.Add($"KeyUp index={list.ListIndex} top={list.TopIndex}"), handledEventsToo: true);
+        var window = (Window)TopLevel.GetTopLevel(list)!;
+        window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
+        window.KeyRelease(key, RawInputModifiers.None, PhysicalKey.None, null);
+        Dispatcher.UIThread.RunJobs();
+        list.ListIndex.Should().Be(expectedSelection);
+        list.TopIndex.Should().Be(expectedTop);
+        window.FocusManager!.GetFocusedElement().Should().BeSameAs(list.ContainerFromIndex(expectedSelection));
+        var expected = new List<string> { $"KeyDown index={selection} top={top}" };
+        if (selection != expectedSelection)
+            expected.Add($"List1_Click index={expectedSelection} top={expectedTop}");
+        if (top != expectedTop)
+            expected.Add($"List1_Scroll index={expectedSelection} top={expectedTop}");
+        expected.Add($"KeyUp index={expectedSelection} top={expectedTop}");
+        recorder.States.Should().Equal(expected);
+    }
+
+    // #3986: code selection scrolls before Click, without Scroll.
+    [AvaloniaTheory]
+    [InlineData("List1.Selected(50) = True", 50)]
+    [InlineData("List1.Text = \"item 45\"", 45)]
+    [InlineData("List1.Text = \"item 05\"", 5)]
+    public async Task Selected_and_Text_bring_item_into_view_with_Click_only(string assignment, int target)
+    {
+        var (recorder, ctx, env) = await Loaded("For i = 0 To 59\r\nList1.AddItem \"item \" & Format(i, \"00\")\r\nNext\r\n");
+        await After(recorder, ctx, env, $"List1.ListIndex = {target}\r\n");
+        var expectedTop = recorder.List!.TopIndex;
+        await After(recorder, ctx, env, "List1.ListIndex = -1\r\nList1.TopIndex = 0\r\n");
         recorder.Calls.Clear();
-        ((Window)TopLevel.GetTopLevel(list)!).KeyPress(Key.PageUp, RawInputModifiers.None, PhysicalKey.None, null);
-        Dispatcher.UIThread.RunJobs();
-        list.SelectedIndex.Should().Be(37);
-        list.Scroll.Offset.Y.Should().BeLessThan(offset);
-        recorder.Calls.Where(c => c.StartsWith("List1_Click", System.StringComparison.Ordinal)
-            || c.StartsWith("List1_Scroll", System.StringComparison.Ordinal)).Should().BeEmpty();
+        recorder.States.Clear();
+        await After(recorder, ctx, env, assignment + "\r\n");
+        recorder.List.ListIndex.Should().Be(target);
+        recorder.List.TopIndex.Should().Be(expectedTop);
+        recorder.Calls.Should().Equal($"List1_Click top={expectedTop}");
+        recorder.States.Should().Equal($"List1_Click index={target} top={expectedTop}");
     }
 
     [AvaloniaTheory]

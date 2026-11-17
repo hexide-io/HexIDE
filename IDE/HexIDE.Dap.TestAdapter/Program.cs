@@ -48,11 +48,13 @@ public static class Program
 
         using var input = Console.OpenStandardInput();
         var one = new byte[1];
+        int? heldLaunch = null;
         int? heldVariables = null;
         int? heldEvaluation = null;
         string callerValue = "42";
         JsonElement? heldBreakpoints = null;
         bool heldBreakpointsOnce = false;
+        bool cursorContinued = false;
         bool refusedResume = false;
         int currentLine = 6;
         while (true)
@@ -71,6 +73,24 @@ public static class Program
             catch (EndOfStreamException) { return 0; }
             using var request = JsonDocument.Parse(body);
             if (mode == "silent") continue;
+            if (mode.StartsWith("launch-refuse-", StringComparison.Ordinal))
+            {
+                var command = request.RootElement.GetProperty("command").GetString();
+                var sequence = request.RootElement.GetProperty("seq").GetInt32();
+                if (command == "launch") { heldLaunch = sequence; continue; }
+                if (command == mode["launch-refuse-".Length..])
+                {
+                    await Send(new { seq = 4, type = "response", request_seq = heldLaunch,
+                        command = "launch", success = false, message = "fixture launch refusal" });
+                    continue; // The refused adapter never answers this configuration request.
+                }
+                object reply = command == "initialize"
+                    ? new { supportsConfigurationDoneRequest = true, exceptionBreakpointFilters = new[] { new { filter = "all", @default = true } } }
+                    : new { };
+                await Send(new { seq = 2, type = "response", request_seq = sequence, command, success = true, body = reply });
+                if (command == "initialize") await Send(new { seq = 3, type = "event", @event = "initialized" });
+                continue;
+            }
             if (mode is "exception" or "exception-no-terminate")
             {
                 // A program that prints, then stops at an unhandled error. Continuing re-runs the failing line and stops
@@ -100,7 +120,7 @@ public static class Program
                 if (command == "disconnect") return 0;
                 continue;
             }
-            if (mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "conditions" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held" or "disconnect-held-stderr")
+            if (mode.StartsWith("cursor", StringComparison.Ordinal) || mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "event-flood" or "terminated-flood" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "conditions" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held" or "disconnect-held-stderr")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
                 if (mode == "run-control-delayed" && command == "stepIn") continue;
@@ -147,6 +167,9 @@ public static class Program
                         await Send(new { seq = 20, type = "event", @event = "output", body = new { output = "breakpoints-pending\n" } });
                         continue;
                     }
+                    // A slow restore after a chatty stop: the client must keep delivering events while it waits. Held 1 s:
+                    // this loop answers in order, so the stop's stackTrace waits behind it, inside run_to_cursor's wait.
+                    if (mode == "cursor-chatty" && cursorContinued) await Task.Delay(TimeSpan.FromSeconds(1));
                     await ReplyBreakpoints(request.RootElement, mode == "breakpoints-refuse-clear" && lines.Length == 0);
                     continue;
                 }
@@ -181,11 +204,17 @@ public static class Program
                     await Send(new { seq = 7, type = "event", @event = "output", body = new { output = "caller-pending\n" } });
                     continue;
                 }
+                if (mode.StartsWith("cursor", StringComparison.Ordinal) && command == "continue") currentLine = mode == "cursor-first" ? 6 : 19;
                 if (mode.StartsWith("run-control", StringComparison.Ordinal) && command is "next" or "stepIn" or "stepOut" or "pause" or "continue")
                     currentLine = 9;
+                if (mode == "event-flood" && command is "stackTrace" or "continue")
+                {
+                    for (var i = 0; i < 10_000; i++)
+                        await Send(new { seq = 100 + i, type = "event", @event = "output", body = new { output = $"line {i}\n" } });
+                }
                 object reply = command switch
                 {
-                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsGotoTargetsRequest = mode.StartsWith("goto", StringComparison.Ordinal), supportsConditionalBreakpoints = mode == "conditions", supportsEvaluateForHovers = mode is "invalidated" or "evaluate" or "evaluate-running" },
+                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsGotoTargetsRequest = mode.StartsWith("goto", StringComparison.Ordinal), supportsConditionalBreakpoints = mode == "conditions" || mode.StartsWith("cursor", StringComparison.Ordinal), supportsEvaluateForHovers = mode is "invalidated" or "evaluate" or "evaluate-running" },
                     "threads" => new { threads = new[] { new { id = 1, name = "Main" } } },
                     "stackTrace" when mode != "session" => new { stackFrames = new[]
                     {
@@ -201,6 +230,16 @@ public static class Program
                 };
                 await Send(new { seq = 2, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(), command, success = true, body = reply });
                 if (command == "initialize") await Send(new { seq = 3, type = "event", @event = "initialized" });
+                if (mode is "cursor" or "cursor-first" or "cursor-chatty" && command == "continue")
+                {
+                    cursorContinued = true;
+                    await Send(new { seq = 44, type = "event", @event = "stopped", body = new { threadId = 1, reason = "breakpoint" } });
+                    // Output sent before the restore can be answered. Few enough never to fill the client's queue (256), so
+                    // the test reads delivery order, not a race between this pipe and the client's UI thread (#4159).
+                    if (mode == "cursor-chatty")
+                        for (var i = 0; i < 20; i++)
+                            await Send(new { seq = 45, type = "event", @event = "output", body = new { output = $"chatter {i}\n" } });
+                }
                 if (command is "configurationDone" or "next" || mode.StartsWith("run-control", StringComparison.Ordinal) && command is "stepIn" or "stepOut" or "pause" || mode == "run-control" && command == "continue")
                     await Send(new { seq = 4, type = "event", @event = "stopped", body = new { threadId = 1, reason = "breakpoint" } });
                 if (command == "next" && mode.StartsWith("breakpoints", StringComparison.Ordinal))
@@ -213,7 +252,7 @@ public static class Program
                     await ReplyBreakpoints(delayed);
                     heldBreakpoints = null;
                 }
-                if (command == "continue" && mode is not ("evaluate-running" or "run-control" or "run-control-running"))
+                if (command == "continue" && mode is not ("evaluate-running" or "run-control" or "run-control-running" or "cursor" or "cursor-first" or "cursor-chatty"))
                 {
                     await Send(new { seq = 5, type = "event", @event = "output", body = new { output = "42\n" } });
                     await Send(new { seq = 6, type = "event", @event = "terminated" });
@@ -229,6 +268,9 @@ public static class Program
                         body = new { result = "obsolete-evaluation", variablesReference = 0 } });
                     heldEvaluation = null;
                 }
+                if (mode == "terminated-flood" && command == "continue")
+                    for (var i = 0; i < 10_000; i++)
+                        await Send(new { seq = 100 + i, type = "event", @event = "output", body = new { output = $"line {i}\n" } });
                 if (command == "disconnect") return 0;
                 continue;
             }

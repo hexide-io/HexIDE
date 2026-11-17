@@ -9,7 +9,7 @@ name: Publish Release
 # nobody targets — the "Windows" zip contained riscv64 Linux binaries. RID-specific is 47.5 MB / 17.4 MB.
 #
 # ── Two flavours per platform ─────────────────────────────────────────────────────────────────────
-#   framework-dependent  ~26-32 MB archived — the IDE needs the .NET 10 Runtime installed
+#   framework-dependent  ~26-32 MB archived — the IDE needs the .NET 11 Runtime installed
 #   self-contained       ~90-102 MB archived — includes .NET; native libraries still required
 # Measured from the v0.1.0 assets across all six RIDs. Both now carry the same self-contained single-file
 # standalone runner (~105 MB unpacked on win-x64, measured 2026-10-26), so the framework-dependent figure is
@@ -110,7 +110,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       - name: Restore first-party signing key (if configured)
         shell: bash
@@ -152,18 +152,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          dotnet publish HexIDE.AddinPacker -f net10.0 -c Release -r linux-x64 --self-contained false -o bin/addin-packer-host/
+          dotnet publish HexIDE.AddinPacker -f net11.0 -c Release -r linux-x64 --self-contained false -o bin/addin-packer-host/
           echo "ADDIN_PACKER_OVERRIDE=-p:AddinPacker=$PWD/bin/addin-packer-host/HexIDE.AddinPacker.dll" >> "$GITHUB_ENV"
 
       # The staging loop below copies bin/standalone into each flavour's standalone/.
       - name: Publish HexIDE.Standalone (${{ matrix.rid }}, single-file, self-contained)
-        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -r ${{ matrix.rid }} -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/standalone/
+        run: dotnet publish HexIDE.Standalone -f net11.0 -c Release -r ${{ matrix.rid }} -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/standalone/
 
       - name: Publish HexIDE.Desktop (framework-dependent)
-        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained false -p:SourceRevisionId=${{ env.SHORT_SHA }} ${{ env.ADDIN_PACKER_OVERRIDE }} -o bin/fdd/
+        run: dotnet publish HexIDE.Desktop -f net11.0 -c Release -r ${{ matrix.rid }} --self-contained false -p:SourceRevisionId=${{ env.SHORT_SHA }} ${{ env.ADDIN_PACKER_OVERRIDE }} -o bin/fdd/
 
       - name: Publish HexIDE.Desktop (self-contained)
-        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained true -p:SourceRevisionId=${{ env.SHORT_SHA }} ${{ env.ADDIN_PACKER_OVERRIDE }} -o bin/sc/
+        run: dotnet publish HexIDE.Desktop -f net11.0 -c Release -r ${{ matrix.rid }} --self-contained true -p:SourceRevisionId=${{ env.SHORT_SHA }} ${{ env.ADDIN_PACKER_OVERRIDE }} -o bin/sc/
 
       - name: Stage both flavours
         shell: bash
@@ -424,7 +424,7 @@ jobs:
             **Which download?**
             - **Windows x64:** `hexide-windows-amd64-setup.exe` — installs for all users; includes .NET.
             - `hexide-<platform>-selfcontained.*` — portable archive; includes .NET.
-            - `hexide-<platform>.*` — smaller, but needs the [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed.
+            - `hexide-<platform>.*` — smaller, but needs the [.NET 11 Runtime](https://dotnet.microsoft.com/download/dotnet/11.0) installed.
 
             [Download and run instructions](https://github.com/hexide-io/HexIDE/blob/${{ inputs.tag }}/README.md#download-and-run), including Linux extraction and launch steps.
 

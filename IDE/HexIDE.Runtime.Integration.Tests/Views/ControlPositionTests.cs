@@ -74,6 +74,42 @@ public class ControlPositionTests
         return run;
     }
 
+    // #4071 / oracle PR #4095: measured at 96 dpi, MS Sans Serif 24 pt.
+    [AvaloniaTheory]
+    [InlineData("Width", 240)]
+    [InlineData("Height", 555)]
+    public void CommandButton_24pt_has_its_measured_minimum(string dimension, int expected)
+    {
+        var controls = "Begin VB.CommandButton C\nWidth = 1500\nHeight = 1500\n"
+            + "BeginProperty Font\nName = \"MS Sans Serif\"\nSize = 24\nWeight = 400\nItalic = 0\nEndProperty\nEnd\n";
+        var run = RunLoad(Form(TwipsForm, controls.ReplaceLineEndings("\r\n")),
+            $"C.{dimension} = 0\nDebug.Print CStr(C.{dimension})");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(expected.ToString());
+    }
+
+    // Measured #4071, oracle PRs #4069 and #4095. A form needs the headless window platform.
+    [AvaloniaTheory]
+    [InlineData("Width")]
+    [InlineData("Height")]
+    public void Negative_form_size_is_380_and_keeps_the_size(string dimension)
+    {
+        var run = RunLoad(Form(TwipsForm, LabelAndButton),
+            $"Dim oldSize As Single\noldSize = Me.{dimension}\nOn Error Resume Next\nMe.{dimension} = -10\n"
+            + $"Debug.Print Err.Number & \"|\" & Err.Description & \"|\" & (Me.{dimension} = oldSize)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("380|Invalid property value|True");
+    }
+
+    [AvaloniaFact]
+    public void Loaded_zero_height_is_kept_until_assignment()
+    {
+        var run = RunLoad(Form(TwipsForm, LabelAndButton.Replace("Height          =   495", "Height          =   0")),
+            "Debug.Print CStr(Command1.Height)\nCommand1.Width = 1215\nDebug.Print CStr(Command1.Height)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("0", "195");
+    }
+
     [AvaloniaTheory]
     [InlineData("0  'Manual")]
     [InlineData("2  'CenterScreen")]

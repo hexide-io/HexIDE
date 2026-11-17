@@ -19,6 +19,24 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Ask running programs through the engine contract
+
+Automation SHALL ask the Core running-program contract to recognise forms, observe activity after input,
+and receive printed text (#4067). The interpreter-specific implementation SHALL remain beside the run engine
+until it moves to its provider. The Immediate window and window selection SHALL use the same contract.
+This separation SHALL preserve automation replies and the existing settle timing.
+
+#### Scenario: No engine or no running program
+
+- **WHEN** automation asks about a window with no program behind it
+- **THEN** it finds no running form or activity to wait for, receives no printed text, and raises no exception
+
+#### Scenario: Input starts program work
+
+- **WHEN** an action starts work on a running form
+- **THEN** automation observes activity through the contract at the existing dispatcher priority and polling interval
+- **AND** printed text and the resulting reply retain their existing contents
+
 ### Requirement: Discover archive projects and each project's own file
 `get_project_info` SHALL include open archive projects in `projects`, with their container path, their
 own `projectFile`, and `entries` listing stored entry paths, including folders and hidden entries.
@@ -996,6 +1014,13 @@ captures SHALL return an actionable error without a client-only fallback.
 - **WHEN** the window has no Windows HWND, or is hidden or minimized
 - **THEN** frame capture returns an error explaining the limitation and what to do next
 
+#### Scenario: A mirrored window
+
+- **WHEN** a caller requests `includeFrame: true` for a window with `WS_EX_LAYOUTRTL`, which Windows draws reversed when asked
+  for its pixels
+- **THEN** the image is flipped back to show the window as the screen does, the reply says the window is mirrored, and the
+  client origin is the client area's left edge on screen
+
 ### Requirement: The status bar SHALL show that the automation server is listening
 While the automation server is listening, the main window's status bar SHALL show a section naming its port, followed
 by the session when the IDE was started for one, as `MCP :5140 · docs-pass`, and SHALL NOT show it before the port is
@@ -1798,6 +1823,15 @@ pointer, in the same window, SHALL move nothing first, as a still pointer sends 
 - **WHEN** `click` presses again where the last click left the pointer
 - **THEN** no move comes before the press, and the reply says the pointer was already there
 
+### Requirement: A click on a mirrored window SHALL say that it went past Windows' mirroring
+On Windows, when the window `click` presses in has `WS_EX_LAYOUTRTL`, the reply SHALL say that the window is mirrored and that
+the press was raised at the layout point, past the mirroring with which Windows hands a real mouse's messages to such a
+window, so a caller is not told that a person's click reaches the same control (#4102).
+
+#### Scenario: A click on a right-to-left message box
+- **WHEN** `click` presses Cancel on a message box whose window has `WS_EX_LAYOUTRTL`
+- **THEN** the reply names the mirroring, and a click on a window without it carries no such note
+
 ### Requirement: A double click's second press SHALL land where the first did
 The second press of `click` with `double` SHALL go to whatever takes the pointer at the first press's point when it is
 sent, with a click count of 2, even when the first click replaced what it landed on or the addressed control. It SHALL be
@@ -2149,3 +2183,15 @@ reply SHALL give the caret once, with single spaces and clean punctuation.
 
 - **WHEN** `press_key` sends Tab, Shift+Tab or the keymap's Indent chord over a selection from column 1 of a declaration through its Attribute lines and a body line
 - **THEN** the code window indents editable lines and the reply names the protected lines it left as they were, with the caret reported once
+
+### Requirement: Tool pane title menu interaction
+
+`interact` SHALL route `expand` and `collapse` on a docked tool pane's title bar to its
+`PART_Border` pane menu, verifying the popup state rather than the title-bar provider's state.
+If the menu part cannot be reached deterministically, it SHALL refuse and name `PART_Border`.
+
+#### Scenario: Expanding and collapsing a tool pane title
+- **WHEN** a caller expands the docked Immediate pane's title bar
+- **THEN** the pane menu opens with Float, Dock as Tabbed Document and Close, and the reply identifies the menu
+- **AND** collapsing the same title bar closes the menu, or says there is nothing to close
+- **AND** no unreported popup is left to intercept the next pointer press

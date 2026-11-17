@@ -19,6 +19,15 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>The server invalidated code lenses; sender identifies the issuing connection.</summary>
     event EventHandler? CodeLensRefreshRequested;
 
+    /// <summary>The server invalidated inlay hints; sender identifies the issuing connection.</summary>
+    event EventHandler? InlayHintRefreshRequested;
+
+    /// <summary>The server invalidated semantic tokens; sender identifies the issuing connection.</summary>
+    event EventHandler? SemanticTokensRefreshRequested;
+
+    /// <summary>Whether this document is attached to the connection issuing a refresh.</summary>
+    bool HandlesRefresh(string uri, object? sender) => ReferenceEquals(this, sender);
+
     /// <summary>Fired when the server sends textDocument/publishDiagnostics.</summary>
     event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
 
@@ -290,6 +299,19 @@ public interface ILspClient : IAsyncDisposable
     async Task<CallHierarchyResult> FindCallHierarchyAsync(string uri, Position position, CancellationToken ct = default)
         => new((await PrepareCallHierarchyAsync(uri, position, ct)).Select(item => new CallHierarchyRoot(this, item)).ToArray(), []);
 
+    bool SupportsTypeHierarchy(string uri) => IsRunning
+        && ServerCapabilities.Supports(AdvertisedCapabilities, "typeHierarchyProvider");
+
+    Task<TypeHierarchyItem[]> PrepareTypeHierarchyAsync(string uri, Position position, CancellationToken ct = default)
+        => Task.FromResult<TypeHierarchyItem[]>([]);
+    Task<TypeHierarchyItem[]> RequestSupertypesAsync(TypeHierarchyItem item, CancellationToken ct = default)
+        => Task.FromResult<TypeHierarchyItem[]>([]);
+    Task<TypeHierarchyItem[]> RequestSubtypesAsync(TypeHierarchyItem item, CancellationToken ct = default)
+        => Task.FromResult<TypeHierarchyItem[]>([]);
+
+    async Task<TypeHierarchyResult> FindTypeHierarchyAsync(string uri, Position position, CancellationToken ct = default)
+        => new((await PrepareTypeHierarchyAsync(uri, position, ct)).Select(item => new TypeHierarchyRoot(this, item)).ToArray(), []);
+
     Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
     /// <summary>Whether a running server for this document offers the capability.</summary>
@@ -375,6 +397,10 @@ public interface ILspClient : IAsyncDisposable
         string command,
         System.Text.Json.JsonElement[]? arguments = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Runs a lens command on the connection that supplied it.</summary>
+    Task ExecuteCodeLensCommandAsync(Command command, CancellationToken cancellationToken = default) =>
+        ExecuteCommandAsync(command.CommandName, command.Arguments, cancellationToken);
 
     /// <summary>Sends vb/builtinSymbols and returns all VBA built-in function signatures, or empty.</summary>
     Task<VbaBuiltinSymbol[]> RequestBuiltinSymbolsAsync(CancellationToken cancellationToken = default);
