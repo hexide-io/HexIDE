@@ -651,7 +651,7 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   storage remain, as #4354. Recursion, cross-module contexts, Break When types and running-state refresh were not
   measured and keep their previous behavior.
 
-### D33. A watch on (All Modules) doesn't evaluate in design mode (#4452)
+### D34. A watch on (All Modules) doesn't evaluate in design mode (#4452)
 - **VB6:** a watch added with Module (All Modules) evaluates in design mode as well as at a break. Before the program
   runs, a standard module's `Public g As Long` reads 0 / Long and `1 + 1` reads 2 / Integer, while every watch scoped
   to a module or procedure reads `<Out of context>` (measured on #4452, hexide-int, vb6.exe SP6;

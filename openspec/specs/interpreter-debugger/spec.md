@@ -351,7 +351,7 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **AND** a watch added there SHALL show a blank Context column
 - **AND** while paused it SHALL evaluate against the project's Public module-level names only, so a module's Private variable, a class's Private variable or a procedure's local SHALL read `<Expression not defined in context>`, even where the program is paused in its scope (measured, #4452)
 - **AND** that text SHALL come from a name missing as the expression is evaluated, never from checking its names up front
-- **AND** outside break mode it SHALL read `<Out of context>`, as every watch does, where VB6 evaluates it (divergence D33)
+- **AND** outside break mode it SHALL read `<Out of context>`, as every watch does, where VB6 evaluates it (divergence D34)
 
 #### Scenario: Adding a watch from declarations
 - **WHEN** the active code window's caret is in the module's declarations
