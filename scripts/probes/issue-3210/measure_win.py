@@ -24,7 +24,7 @@ a = p.parse_args()
 
 ctypes.windll.kernel32.SetErrorMode(0x0001 | 0x0002)  # SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX
 probe = pathlib.Path(a.probe).resolve()
-dll = probe / 'bin/Debug/net10.0/StackProbe.dll'
+dll = probe / 'bin/Debug/net11.0/StackProbe.dll'
 logdir = probe / '.scratch' / 'trials'  # where measure.py keeps them, so they stay out of the tree
 logdir.mkdir(parents=True, exist_ok=True)
 env = dict(os.environ, DOTNET_TieredCompilation='0', DOTNET_DbgEnableMiniDump='0')

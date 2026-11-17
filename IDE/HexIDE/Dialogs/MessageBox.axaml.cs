@@ -93,6 +93,8 @@ public partial class MessageBox : UserControl
         var again = new Window
         {
             Title = window.Title,
+            // The icon it had, whoever's box it is: the brand's on an IDE box, the program's own rule on a program's.
+            Icon = window.Icon,
             Content = this,
             SizeToContent = SizeToContent.WidthAndHeight,
             CanResize = false,

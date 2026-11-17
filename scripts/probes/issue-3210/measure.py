@@ -17,7 +17,7 @@ env['PATH'] = ':'.join(x for x in env['PATH'].split(':') if not x.startswith('/m
 # Fixed JIT policy: no tier changes between depths or processes.
 env['DOTNET_TieredCompilation'] = '0'
 env['GLIBC_TUNABLES'] = 'glibc.pthread.stack_cache_size=0'
-dll = here / 'bin/Debug/net10.0/StackProbe.dll'
+dll = here / 'bin/Debug/net11.0/StackProbe.dll'
 def measure(stage, shape, size):
     trials = 0
     started = time.monotonic()

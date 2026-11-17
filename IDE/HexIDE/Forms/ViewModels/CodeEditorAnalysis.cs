@@ -17,6 +17,13 @@ internal sealed class CodeEditorAnalysis : IDisposable
         this.owner = owner;
         this.client = client;
         owner.Settings.PropertyChanged += OnSettingsChanged;
+        refresh = new EditorAnalysisRefresh(client, owner.GetDocumentUriPublic, async token =>
+        {
+            Invalidate(resetLenses: false);
+            var requests = Task.WhenAll(Tokens(token), Hints(token));
+            Refreshed?.Invoke(this, EventArgs.Empty);
+            await requests;
+        });
     }
 
     private void OnSettingsChanged(object? sender, PropertyChangedEventArgs args)
@@ -24,6 +31,9 @@ internal sealed class CodeEditorAnalysis : IDisposable
         if (args.PropertyName == nameof(owner.Settings.ShowCodeLenses))
             lenses?.SetEnabledAsync(owner.Settings.ShowCodeLenses).ListenErrors();
     }
+
+    private readonly EditorAnalysisRefresh refresh;
+    public event EventHandler? Refreshed;
 
     private bool disposed;
     private object? version;
@@ -112,6 +122,7 @@ internal sealed class CodeEditorAnalysis : IDisposable
     {
         if (disposed) return;
         disposed = true;
+        refresh.Dispose();
         owner.Settings.PropertyChanged -= OnSettingsChanged;
         lifetime.Cancel();
         lifetime.Dispose();

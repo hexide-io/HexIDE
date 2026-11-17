@@ -344,7 +344,10 @@ public static class AvaloniaInteroperability
                 // A VB size assignment raises Resize inside the setter; native window notifications settle together (#2389).
                 using (control is VBFormRuntime runtime && (ReferenceEquals(property, VBProperties.WidthProperty)
                     || ReferenceEquals(property, VBProperties.HeightProperty)) ? runtime.ResizeOnce() : null)
+                {
                     prop.SetUntyped(control, converted);
+                    ControlPositions.EnforceOtherDimension(control, property);
+                }
                 // VB6 resets BackColor with a Label's Appearance (measured, #796).
                 if (control is VBLabel label && ReferenceEquals(property, VBProperties.AppearanceProperty))
                     label.BackColor = VBColor.FromSystemColor(label.Appearance == VBAppearance._3D
@@ -553,7 +556,7 @@ public static class AvaloniaInteroperability
         }
         // A form a modal form holds reads Enabled False (measured, #822). The hold is apart from its own Enabled, which is
         // what it reads once the modal form has gone.
-        if (c is IFormView { HeldBy: not null } && ReferenceEquals(property, VBProperties.EnabledProperty))
+        if (FormRoot.View(c) is { HeldBy: not null } && ReferenceEquals(property, VBProperties.EnabledProperty))
         {
             value = new Vb6Value(false);
             return true;

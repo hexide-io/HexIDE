@@ -20,7 +20,7 @@ public class RunFormIconTests
         try
         {
             VBLoader.DefaultFormIcon = null;
-            var engine = new InterpreterRunEngine(Substitute.For<IWindowManager>(), Substitute.For<IProgramHost>(), new DebugController());
+            var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), new DebugController());
             var project = new ProjectDefinition(VBProjectType.EXE, "P") { StartsAtSubMain = true };
             engine.Prepare(project).Failure.Should().NotBeNull();
 

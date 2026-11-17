@@ -62,7 +62,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       # Tags are beta-x-N. The newest is the highest N rather than the latest date, so a re-published old beta cannot
       # take its place.

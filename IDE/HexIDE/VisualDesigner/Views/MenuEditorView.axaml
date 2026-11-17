@@ -80,6 +80,11 @@
             </Grid>
             <ListBox Margin="3,0" Height="147" SelectedItem="{CompiledBinding SelectedMenu, Mode=TwoWay}"
                      ItemsSource="{CompiledBinding FlatMenu}">
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem" x:DataType="visualDesigner:MenuViewModel">
+                        <Setter Property="AutomationProperties.Name" Value="{CompiledBinding Caption}" />
+                    </Style>
+                </ListBox.Styles>
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="visualDesigner:MenuViewModel">
                         <StackPanel Orientation="Horizontal">

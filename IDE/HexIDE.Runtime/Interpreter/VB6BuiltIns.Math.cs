@@ -27,7 +27,7 @@ public partial class VB6BuiltIns
         // their range, and Tan's asymptote is unreachable in binary floating point.
         d["Exp"]   = (_, a, _) => Finite(Math.Exp(AsDouble(a[0])));
         d["Log"]   = (_, a, _) => { var x = AsDouble(a[0]); if (x <= 0) throw InvalidCall(); return new Vb6Value(Math.Log(x)); };
-        d["Round"] = (_, a, _) => new Vb6Value(Math.Round(AsDouble(a[0]), Supplied(a, 1) ? AsInt(a[1]) : 0, MidpointRounding.ToEven));
+        d["Round"] = (_, a, _) => new Vb6Value(RoundHalfEven(AsDouble(a[0]), Supplied(a, 1) ? AsInt(a[1]) : 0));
         d["Rnd"]   = (self, a, _) => new Vb6Value(self.Rnd(Supplied(a, 0) ? (float)AsDouble(a[0]) : 1f));
         var roundDouble = d["Round"];
         d["Round"] = (self, a, text) => RoundKeepingType(a, () => roundDouble(self, a, text));
@@ -71,6 +71,22 @@ public partial class VB6BuiltIns
         if (double.IsNaN(d)) throw InvalidCall();
         if (double.IsInfinity(d)) throw new VBRunTimeException(VBStandardError.Overflow);
         return new Vb6Value(d);
+    }
+
+    // VB6's Round scales by 10^digits in Double arithmetic, rounds that half to even, and scales back. Measured on vb6.exe
+    // SP6: Round(2.675, 2) is 2.68 (267.5), Round(0.015, 2) is 0.02 (1.5) (PR #4017), and Round(2.345, 2) is 2.35
+    // (234.50000000000003), where half to even on the 15-digit Decimal value would give 2.34. .NET 10's
+    // Math.Round(double, digits) worked the same way; .NET 11's rounds the exact binary value, giving 2.67 and 0.01.
+    // Digits outside 0-15, and values too big to have a fraction, keep the host's handling, errors included.
+    private static readonly double[] PowersOfTen =
+        [1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15];
+
+    private static double RoundHalfEven(double x, int digits)
+    {
+        if (digits is < 0 or > 15 || !double.IsFinite(x) || Math.Abs(x) >= 1e16)
+            return Math.Round(x, digits, MidpointRounding.ToEven);
+        var power = PowersOfTen[digits];
+        return Math.Round(x * power, MidpointRounding.ToEven) / power;
     }
 
     private static Vb6Value Whole(Vb6Value v, bool truncate)

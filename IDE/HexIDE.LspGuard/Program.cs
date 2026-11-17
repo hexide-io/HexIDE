@@ -51,16 +51,21 @@ internal static partial class Program
                 }
                 await Task.WhenAny(exited, stopping.Task, Task.Delay(500));
             }
-            Kill(0, 15);
-            await Task.Delay(2000);
-            // Leave the server's group before SIGKILL so a clean exit keeps its exit code.
-            if (exitCode.HasValue && parentGroup > 0 && SetProcessGroup(0, parentGroup) == 0)
+            var group = Environment.ProcessId;
+            // Leave before signalling: an empty server group can then disappear, and a clean
+            // exit retains its code even when a descendant needs SIGKILL (#2297, #4152).
+            var leftGroup = parentGroup > 0 && SetProcessGroup(0, parentGroup) == 0;
+            var cleanup = Stopwatch.StartNew();
+            Kill(-group, 15);
+            while (cleanup.Elapsed < TimeSpan.FromMilliseconds(500))
             {
-                Kill(-Environment.ProcessId, 9);
-                return exitCode.Value;
+                if (Kill(-group, 0) != 0 && Marshal.GetLastPInvokeError() == 3) // ESRCH
+                    return exitCode ?? 1;
+                await Task.Delay(10);
             }
-            Kill(0, 9);
-            return 1;
+            Kill(-group, 9);
+            if (!leftGroup) return 1; // SIGKILL also ends this guard.
+            return exitCode ?? 1;
         }
     }
 
@@ -73,6 +78,6 @@ internal static partial class Program
     [LibraryImport("libc", EntryPoint = "getpgid")]
     private static partial int GetProcessGroup(int pid);
 
-    [LibraryImport("libc", EntryPoint = "kill")]
+    [LibraryImport("libc", EntryPoint = "kill", SetLastError = true)]
     private static partial int Kill(int pid, int signal);
 }

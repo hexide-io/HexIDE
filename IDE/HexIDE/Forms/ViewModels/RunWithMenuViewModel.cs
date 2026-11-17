@@ -51,7 +51,7 @@ public sealed class RunWithMenuViewModel(DebugLaunchService launches, IRunChoice
         if (projects.StartupProject is { } project)
         {
             var offered = launches.For(project);
-            var chosen = choices.Get(project);
+            var chosen = launches.ChoiceFor(project, choices);
             if (offered.Count > 0 || chosen is not null)
             {
                 Choices.Add(new RunMenuItemViewModel(localization.GetString("Str.Menu.Run.RunWith.Interpreter"),

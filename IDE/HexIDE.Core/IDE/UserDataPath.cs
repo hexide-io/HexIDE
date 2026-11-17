@@ -36,8 +36,11 @@ namespace HexIDE.IDE;
 public static class UserDataPath
 {
     private static readonly UserDataRoot Process = new(
-        () => Path.Combine(Base(), Distribution.Current.StateDirectoryName),
-        () => Path.Combine(Base(), DistributionIdentity.Stock.StateDirectoryName));
+        () => For(Distribution.Current, Base()),
+        () => For(DistributionIdentity.Stock, Base()));
+
+    internal static string For(DistributionIdentity identity, string configurationRoot) =>
+        Path.Combine(configurationRoot, identity.StateDirectoryName);
 
     /// <summary>
     /// The directory holding HexIDE's per-user files, created if absent.
@@ -107,8 +110,8 @@ public static class UserDataPath
         !string.IsNullOrEmpty(candidate) && Path.IsPathRooted(candidate)
             ? candidate
             : throw new InvalidOperationException(
-                $"Cannot locate HexIDE's per-user directory: {what} resolved to "
+                $"Cannot locate {Distribution.DisplayName}'s per-user directory: {what} resolved to "
               + $"'{candidate}', which is not an absolute path. Refusing to fall back to a relative one — "
               + "settings, consent and add-in revocations would then be written relative to whichever "
-              + "directory HexIDE happened to be started from, and silently not found again.");
+              + $"directory {Distribution.DisplayName} happened to be started from, and silently not found again.");
 }

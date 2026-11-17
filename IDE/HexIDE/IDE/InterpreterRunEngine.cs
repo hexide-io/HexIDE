@@ -3,12 +3,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
-using Avalonia.Labs.Input;
 using Avalonia.Platform;
 using Avalonia.Threading;
-using HexIDE.Controls;
-using HexIDE.Events;
 using HexIDE.Runtime;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.BuiltinControls;
@@ -16,22 +12,18 @@ using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
-using HexIDE.Utils;
-using HexIDE.VisualDesigner;
 
 namespace HexIDE.IDE;
 
 /// <summary>Runs a project with HexIDE's own interpreter and its run-time forms, in the IDE's process.</summary>
 public sealed class InterpreterRunEngine : IRunEngine
 {
-    private readonly IWindowManager windowManager;
     private readonly IProgramHost programHost;
     private readonly IDebugGate debugController;
     private Func<RunFailure, Task<bool>>? haltHost;
 
-    public InterpreterRunEngine(IWindowManager windowManager, IProgramHost programHost, IDebugGate debugController)
+    public InterpreterRunEngine(IProgramHost programHost, IDebugGate debugController)
     {
-        this.windowManager = windowManager;
         this.programHost = programHost;
         this.debugController = debugController;
         // A running program's CommonDialog shows the IDE's own dialogs (#1084), whichever window the form runs in.
@@ -308,28 +300,28 @@ public sealed class InterpreterRunEngine : IRunEngine
     }
 
     // As FormComponentClass.InstantiateWindow builds a desktop one, the menu bar included (#1127).
-    private VBMDIFormRuntime InstantiateWindow(ComponentInstance instance, bool menuBar)
+    private HostedFormRoot InstantiateWindow(ComponentInstance instance, bool menuBar)
     {
-        var form = new VBMDIFormRuntime(windowManager, programHost)
-        {
-            Title = instance.GetPropertyOrDefault(VBProperties.CaptionProperty) ?? "",
-            Width = instance.GetPropertyOrDefault(VBProperties.WidthProperty),
-            Height = instance.GetPropertyOrDefault(VBProperties.HeightProperty) + (menuBar ? VBLoader.MenuBarHeight : 0),
-            [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(VBProperties.BackColorProperty),
-            [MDIHostPanel.WindowLocationProperty] = new Point((int)instance.GetPropertyOrDefault(VBProperties.LeftProperty), (int)instance.GetPropertyOrDefault(VBProperties.TopProperty))
-        };
-        VBProps.SetName(form, instance.GetPropertyOrDefault(VBProperties.NameProperty));
-        return form;
+        var hosted = programHost.CreateForm(new HostedFormRequest(
+            instance.GetPropertyOrDefault(VBProperties.CaptionProperty) ?? "",
+            instance.GetPropertyOrDefault(VBProperties.WidthProperty),
+            instance.GetPropertyOrDefault(VBProperties.HeightProperty) + (menuBar ? VBLoader.MenuBarHeight : 0),
+            (int)instance.GetPropertyOrDefault(VBProperties.LeftProperty),
+            (int)instance.GetPropertyOrDefault(VBProperties.TopProperty)));
+        var window = (Control)hosted.Window;
+        window[AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(VBProperties.BackColorProperty);
+        VBProps.SetName(window, instance.GetPropertyOrDefault(VBProperties.NameProperty));
+        return new HostedFormRoot(hosted, new MDIStandaloneStandardLib(programHost));
     }
 
-    private Task RunFormInBrowser(FormDefinition element, CancellationToken token, out VBMDIFormRuntime window,
+    private Task RunFormInBrowser(FormDefinition element, CancellationToken token, out HostedFormRoot window,
         IDebugGate? debugController = null)
     {
         // The same build, start and show as VBLoader.RunForm, in an MDI window (#822). Parsed before anything is shown, so
         // a syntax error fails the start without leaving a window behind that nothing would close. The program's other
         // forms get MDI windows of their own.
         var shown = window = InstantiateWindow(VBLoader.FormComponentOf(element), VBLoader.HasMenuBar(element));
-        VBLoader.PrepareForm(element, shown.Context, content => shown.Content = content, debugController, OpenInBrowser);
+        VBLoader.PrepareForm(element, shown.Context, shown.SetContent, debugController, OpenInBrowser);
         return VBLoader.StartAndShow(shown.Context, token, close: shown.CloseForm,
             showUntilClosed: () => shown.ShowInHost(blockBehind: true));
     }
@@ -337,148 +329,6 @@ public sealed class InterpreterRunEngine : IRunEngine
     // A window for another of the program's forms, in the single-view host (#822).
     private IFormView OpenInBrowser(FormDefinition definition) =>
         InstantiateWindow(VBLoader.FormComponentOf(definition), VBLoader.HasMenuBar(definition));
-
-    public class VBMDIFormRuntime : MDIWindow, IModuleExecutionRoot, IFormView
-    {
-        protected override Type StyleKeyOverride => typeof(MDIWindow);
-
-        private VBWindowContext windowContext;
-        private readonly IWindowManager windowManager;
-
-        public VBWindowContext Context => windowContext;
-
-        // The window's time in the host, from its first show until it closes.
-        private Task? inHost;
-
-        public VBMDIFormRuntime(IWindowManager windowManager, IProgramHost programHost)
-        {
-            this.windowManager = windowManager;
-            windowContext = new VBWindowContext(new MDIStandaloneStandardLib(programHost)) { Window = this };
-            // Held by a modal form, the window takes no input of its own (#822), and a press on it brings the modal form
-            // forward instead.
-            foreach (var input in new RoutedEvent[] { KeyDownEvent, KeyUpEvent, TextInputEvent, PointerReleasedEvent, PointerWheelChangedEvent })
-                AddHandler(input, new EventHandler<RoutedEventArgs>((_, e) => e.Handled |= heldBy is not null), RoutingStrategies.Tunnel);
-            AddHandler(PointerPressedEvent, (_, e) =>
-            {
-                if (heldBy is null)
-                    return;
-                e.Handled = true;
-                heldBy.ActivateForm();
-            }, RoutingStrategies.Tunnel);
-            // Report layout and setters through the same extent comparison (#994, #1570). A size setter reports
-            // immediately, even during Load; the later layout finds nothing new.
-            this.GetObservable(BoundsProperty).Subscribe(new ActionObserver<Rect>(_ =>
-            {
-                sizePending = false;
-                windowContext.WindowResized();
-            }));
-            this.GetObservable(WidthProperty).Subscribe(new ActionObserver<double>(_ => SizeSet()));
-            this.GetObservable(HeightProperty).Subscribe(new ActionObserver<double>(_ => SizeSet()));
-            this.GetObservable(MDIHostPanel.WindowStateProperty).Subscribe(new ActionObserver<WindowState>(_ => windowContext.WindowResized()));
-            this.GetObservable(IsVisibleProperty).Subscribe(new ActionObserver<bool>(visible =>
-            {
-                if (visible)
-                    windowContext.Shown();
-            }));
-            // The host's active window is its topmost, which stays so while the IDE itself is inactive, as a form stays the
-            // program's active one while another application is. A held form is never active (#994).
-            this.GetObservable(MDIHostPanel.IsActiveProperty).Subscribe(new ActionObserver<bool>(active =>
-            {
-                if (active && heldBy is null)
-                    windowContext.Program?.Activated(windowContext);
-            }));
-        }
-
-        private bool sizePending;
-
-        private void SizeSet()
-        {
-            sizePending = true;
-            windowContext.WindowResized(sizeSet: true);
-        }
-
-        /// <inheritdoc/>
-        public (Size Size, WindowState State) Extent
-        {
-            get
-            {
-                var state = MDIHostPanel.GetWindowState(this);
-                if (state == WindowState.Minimized)
-                    return (default, state);
-                // Until the host has arranged a size assignment, use the requested size.
-                var size = sizePending || Bounds.Size == default ? new Size(Width, Height) : Bounds.Size;
-                var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
-                return (new Size(Math.Round(size.Width * scaling), Math.Round(size.Height * scaling)), state);
-            }
-        }
-
-        // Form_Load is not raised here: the program raises Initialize and Load before the window is shown (#822, #994).
-
-        public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
-        {
-            windowContext.ExecuteSub(name, args);
-        }
-
-        public bool Handles(string name) => windowContext.Handles(name);
-
-        public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None, Func<bool>? when = null) =>
-            windowContext.ExecuteEvent(name, args, coalescing, when);
-
-        public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null) => windowContext.ExecuteTimer(name, args);
-
-        public Task<bool> UnloadAsync(int mode) => windowContext.UnloadAsync(mode);
-
-        /// <summary>
-        /// Put the window in the host, or show it again there: the startup form blocking the IDE behind it, another form
-        /// blocking nothing, so the program's forms stay usable beside one another (#822). Completes when it closes.
-        /// </summary>
-        public Task ShowInHost(bool blockBehind)
-        {
-            IsVisible = true;
-            if (inHost is not null)
-                return inHost;
-            inHost = blockBehind ? windowManager.ShowManagedWindow(this) : windowManager.ShowManagedWindow(this, blockBehind: false);
-            // The host's own close takes the window away. The title bar's close asks the program first, as a desktop form's
-            // close box does, QueryUnload with UnloadMode 0 and then Unload (#973), and is refused while a modal form holds
-            // this one (#822). The window goes once the form has unloaded, through the host's close.
-            hostClose = CloseCommand;
-            CloseCommand = new DelegateCommand(() =>
-            {
-                if (!windowContext.UnloadFromCloseBox())
-                    hostClose?.Execute(null);
-            }, () => true);
-            return inHost;
-        }
-
-        // The host's close, which takes the window away without asking the program.
-        private System.Windows.Input.ICommand? hostClose;
-
-        public void SetContent(Control content) => Content = content;
-
-        public void ShowForm() => ShowInHost(blockBehind: false);
-
-        public void HideForm() => IsVisible = false;
-
-        public void CloseForm() => (hostClose ?? CloseCommand)?.Execute(null);
-
-        public bool IsShown => inHost is { IsCompleted: false } && IsVisible;
-
-        private IFormView? heldBy;
-
-        public IFormView? HeldBy
-        {
-            get => heldBy;
-            set
-            {
-                heldBy = value;
-                // Its controls stop taking hits, which disabling them would do too, greying each one (#822).
-                if (Content is Avalonia.Input.InputElement content)
-                    content.IsHitTestVisible = value is null;
-            }
-        }
-
-        public void ActivateForm() => this.ActivateMDIForm();
-    }
 
     public class MDIStandaloneStandardLib : IBasicStandardLibrary
     {

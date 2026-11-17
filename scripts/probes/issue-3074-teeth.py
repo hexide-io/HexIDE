@@ -38,7 +38,7 @@ try:
         p.write_text(text)
     for project in ('HexIDE.Tests', 'HexIDE.Integration.Tests'):
         subprocess.run(['dotnet', 'build', project + '/'], cwd='IDE', env=env, check=True, timeout=1200)
-        result = subprocess.run(['dotnet', project + '/bin/Debug/net10.0/' + project + '.dll',
+        result = subprocess.run(['dotnet', project + '/bin/Debug/net11.0/' + project + '.dll',
                                  '-class', '*ImplementationNavigation*'],
                                 cwd='IDE', env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120)
         print(result.stdout, flush=True)

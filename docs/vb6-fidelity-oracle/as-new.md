@@ -104,6 +104,18 @@ So a ByRef parameter reads the Nothing its caller's variable holds: the `As New`
   - For Each over the array, with a Variant loop variable, sees each untouched element as Nothing and makes none.
     After `Erase a`, the next use makes a new one.
   - An object loop variable over an array does not compile: "For Each control variable on arrays must be Variant".
+  - **Counted, 2026-11-16 (#4150).** One run on vb6.exe SP6, native and p-code agreeing. Class1's Initialize and
+    Terminate counted into module variables, in order, on a module-level `Dim a(3) As New Class1`:
+    - Dim made nothing.
+    - `a(1).X = 5` made one, and reading it again made no other.
+    - `a(2) Is Nothing` was False and made a(2).
+    - `Set a(1) = Nothing` terminated a(1), and the next `a(1) Is Nothing` made a new one, Id 3, X back to 0.
+    - **`TypeName(a(3))`, `Set o = a(0)`, `IsObject(e(0))` and `VarType(e(1))` each made their element.** VarType gave 9.
+    - For Each over all four, with three made, saw exactly one Nothing and made none.
+    - **`Erase a` terminated every made element:** four Terminates.
+    - **A procedure's own `Dim c(1) As New Class1`, or `Dim b() As New Class1` with `ReDim b(2)`,** made none until
+      used. Their made elements terminated when the procedure returned.
+    - **`Set d(0) = New Class1`** made exactly one, and reading `d(0)` afterwards made no other.
 - **A Type's field `m As New C1`** compiles. `t.m.Go` makes it, and `t.m Is Nothing` is False. `u = t` copies the
   reference, so `u.m Is t.m` is True and one object terminates. The #1488 issue records the same
   native/p-code probe from #435: `Dim t As T` and `t.n = 1` make nothing; `t.m.Go` initialises C1 before Go,
@@ -155,8 +167,10 @@ When Sub Main returns, the objects still held terminate: the Static's first, the
   and For Each's first read of its variable.
 - For's and For Each's own looks at the variable, to see it exists or release what it held, do not.
 
+**Arrays run since #4150,** as *Arrays, a Type's field, and a Static* describes. A read of an element makes it;
+For Each and a store look at it without making one.
+
 **Refused, by issue:**
-- an array `As New` (#1482);
 - a Type's field `As New`, until #1488 made it run;
 - `Static`, until #1491 made it run;
 - `ReDim` of an undeclared name (#1495);
@@ -168,5 +182,5 @@ When Sub Main returns, the objects still held terminate: the Static's first, the
 - #1490: objects held at the end of the program don't terminate;
 - #1493: `o = 5` released the object, until #1493.
 
-**`AsNewTests`** pins five programs, seven compile errors and five refusals.
+**`AsNewTests`** pins the measured scalar, field and array behavior, including seven compile errors.
 

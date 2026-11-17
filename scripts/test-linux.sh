@@ -89,4 +89,8 @@ rsync -a --delete \
 
 echo "test-linux.sh: $source_root -> $copy" >&2
 cd "$copy/$project"
+# A compiler server or MSBuild node started in a read-only sandbox can serve later builds by the
+# same user, but cannot write their output (#4133). Exports also reach probes built by the tests.
+export UseSharedCompilation=false
+export MSBUILDDISABLENODEREUSE=1
 exec dotnet test "${test_args[@]}"
