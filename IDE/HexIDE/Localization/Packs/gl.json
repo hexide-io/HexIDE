@@ -52,6 +52,7 @@
     "Str.Dock.ToolTabs": "Lapelas de ferramentas",
     "Str.AIChat.Refusal": "O provedor rexeitou esta solicitude.",
     "Str.AIChat.TokenLimit": "A resposta acadou o límite de tokens e está incompleta.",
+    "Str.Startup.NoVb6Summary": "Iniciar sen rexistrar o tipo de proxecto VB6. Só compilacións Debug.",
     "Str.Startup.PlatformSummary": "Só Linux. Motor gráfico: x11 (predeterminado), auto ou wayland.",
     "Str.Shell.NotImplemented": "Esta función aínda non está implementada",
     "Str.AIChat.Stop": "Deter",

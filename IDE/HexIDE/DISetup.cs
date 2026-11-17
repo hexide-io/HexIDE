@@ -535,7 +535,7 @@ public partial class DISetup
             .Bind().As(Singleton).To(_ =>
             {
                 var templates = new AddinProjectTemplateService();
-                HexIDE.Projects.Vb6ProjectType.RegisterTemplates(templates);
+                if (!Static.WithoutVb6) HexIDE.Projects.Vb6ProjectType.RegisterTemplates(templates);
                 return templates;
             })
             // The project types add-ins contribute, which Open Project and the recent list open as projects, with VB6's own
@@ -545,7 +545,7 @@ public partial class DISetup
                 // VB6's projects are a project type like an add-in's, registered first, with the format only its type names
                 // (#3411 slice 10b).
                 var types = new HexIDE.Projects.ContributedProjects();
-                HexIDE.Projects.Vb6ProjectType.RegisterOwn(types);
+                if (!Static.WithoutVb6) HexIDE.Projects.Vb6ProjectType.RegisterOwn(types);
                 return types;
             })
             .Bind().As(Singleton).To<AddinOptionsService>()

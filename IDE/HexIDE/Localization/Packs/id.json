@@ -58,6 +58,7 @@
     "Str.AIChat.Menu": "_Obrolan AI",
     "Str.AIChat.Refusal": "Penyedia menolak permintaan ini.",
     "Str.AIChat.TokenLimit": "Balasan mencapai batas token dan belum lengkap.",
+    "Str.Startup.NoVb6Summary": "Mulai tanpa mendaftarkan jenis proyek VB6. Hanya build Debug.",
     "Str.Startup.PlatformSummary": "Khusus Linux. Backend tampilan: x11 (bawaan), auto atau wayland.",
     "Str.Shell.NotImplemented": "Fitur ini belum diimplementasikan",
     "Str.AIChat.Stop": "Hentikan",

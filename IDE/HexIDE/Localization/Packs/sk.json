@@ -24,6 +24,7 @@
     "Str.AIChat.Menu": "_Chat AI",
     "Str.AIChat.Refusal": "Poskytovateľ túto požiadavku odmietol.",
     "Str.AIChat.TokenLimit": "Odpoveď dosiahla limit tokenov a nie je úplná.",
+    "Str.Startup.NoVb6Summary": "Spustiť bez registrácie typu projektu VB6. Iba zostavy Debug.",
     "Str.Startup.PlatformSummary": "Iba Linux. Grafický backend: x11 (predvolený), auto alebo wayland.",
     "Str.Shell.NotImplemented": "Táto funkcia zatiaľ nie je implementovaná",
     "Str.AIChat.Stop": "Zastaviť",

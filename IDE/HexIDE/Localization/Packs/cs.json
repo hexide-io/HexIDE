@@ -52,6 +52,7 @@
     "Str.Dock.ToolTabs": "Karty nástrojů",
     "Str.AIChat.Refusal": "Poskytovatel tento požadavek odmítl.",
     "Str.AIChat.TokenLimit": "Odpověď dosáhla limitu tokenů a není úplná.",
+    "Str.Startup.NoVb6Summary": "Spustit bez registrace typu projektu VB6. Pouze sestavení Debug.",
     "Str.Startup.PlatformSummary": "Pouze Linux. Grafický backend: x11 (výchozí), auto nebo wayland.",
     "Str.Shell.NotImplemented": "Tato funkce zatím není implementována",
     "Str.AIChat.Stop": "Zastavit",

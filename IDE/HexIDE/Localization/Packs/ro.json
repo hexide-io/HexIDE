@@ -24,6 +24,7 @@
     "Str.AIChat.Menu": "_Chat AI",
     "Str.AIChat.Refusal": "Furnizorul a refuzat această cerere.",
     "Str.AIChat.TokenLimit": "Răspunsul a atins limita de tokenuri și este incomplet.",
+    "Str.Startup.NoVb6Summary": "Pornește fără înregistrarea tipului de proiect VB6. Doar compilări Debug.",
     "Str.Startup.PlatformSummary": "Doar Linux. Backend de afișare: x11 (implicit), auto sau wayland.",
     "Str.Shell.NotImplemented": "Această funcționalitate nu este încă implementată",
     "Str.AIChat.Stop": "Oprește",

@@ -58,6 +58,7 @@
     "Str.AIChat.Menu": "DI _pokalbis",
     "Str.AIChat.Refusal": "Teikėjas atmetė šią užklausą.",
     "Str.AIChat.TokenLimit": "Atsakymas pasiekė žetonų ribą ir yra neišsamus.",
+    "Str.Startup.NoVb6Summary": "Paleisti neregistruojant VB6 projekto tipo. Tik Debug komponavimo versijos.",
     "Str.Startup.PlatformSummary": "Tik Linux. Vaizdavimo posistemė: x11 (numatytoji), auto arba wayland.",
     "Str.Shell.NotImplemented": "Ši funkcija dar neįgyvendinta",
     "Str.AIChat.Stop": "Stabdyti",

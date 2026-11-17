@@ -58,6 +58,7 @@
     "Str.AIChat.Menu": "MI _tērzēšana",
     "Str.AIChat.Refusal": "Pakalpojuma sniedzējs noraidīja šo pieprasījumu.",
     "Str.AIChat.TokenLimit": "Atbilde sasniedza tokenu ierobežojumu un ir nepilnīga.",
+    "Str.Startup.NoVb6Summary": "Sākt, nereģistrējot VB6 projekta tipu. Tikai Debug būvējumi.",
     "Str.Startup.PlatformSummary": "Tikai Linux. Attēlošanas sistēma: x11 (noklusējums), auto vai wayland.",
     "Str.Shell.NotImplemented": "Šī funkcija vēl nav ieviesta",
     "Str.AIChat.Stop": "Apturēt",

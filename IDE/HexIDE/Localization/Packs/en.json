@@ -53,6 +53,7 @@
     "Str.AIChat.NewTip": "New chat (history is preserved)",
     "Str.AIChat.Refusal": "The provider declined this request.",
     "Str.AIChat.TokenLimit": "The reply reached the token limit and is incomplete.",
+    "Str.Startup.NoVb6Summary": "Start with VB6's project type unregistered. Debug builds only.",
     "Str.Startup.PlatformSummary": "Linux only. Display backend: x11 (default), auto or wayland.",
     "Str.Shell.NotImplemented": "This feature is not yet implemented",
     "Str.AIChat.Stop": "Stop",

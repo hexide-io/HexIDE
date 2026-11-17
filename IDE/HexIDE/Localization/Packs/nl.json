@@ -58,6 +58,7 @@
     "Str.AIChat.Menu": "AI-_chat",
     "Str.AIChat.Refusal": "De aanbieder heeft dit verzoek geweigerd.",
     "Str.AIChat.TokenLimit": "Het antwoord heeft de tokenlimiet bereikt en is onvolledig.",
+    "Str.Startup.NoVb6Summary": "Start zonder het VB6-projecttype te registreren. Alleen Debug-builds.",
     "Str.Startup.PlatformSummary": "Alleen Linux. Weergavebackend: x11 (standaard), auto of wayland.",
     "Str.Shell.NotImplemented": "Deze functie is nog niet geïmplementeerd",
     "Str.AIChat.Stop": "Stoppen",

@@ -86,6 +86,7 @@
     "Str.Dock.ToolTabStripItemClose": "סגירה",
     "Str.AIChat.Refusal": "הספק דחה את הבקשה הזו.",
     "Str.AIChat.TokenLimit": "התשובה הגיעה למגבלת האסימונים ואינה שלמה.",
+    "Str.Startup.NoVb6Summary": "הפעלה ללא רישום סוג הפרויקט VB6. לבניות Debug בלבד.",
     "Str.Startup.PlatformSummary": "Linux בלבד. מנגנון תצוגה: x11 (ברירת מחדל), auto או wayland.",
     "Str.Shell.NotImplemented": "תכונה זו עדיין לא מומשה",
     "Str.AIChat.Stop": "עצור",
