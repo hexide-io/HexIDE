@@ -1194,15 +1194,16 @@ regard to case. Readable duplicates SHALL save as a single line holding the winn
 repeated property has an unreadable value, the reader SHALL keep the readable value and mark the form
 unfaithful to save with a cause naming the property.
 
-A twip measurement whose value converted to Single is at least 2^31, or a negative `Height` on anything but
-a control of a form, SHALL be
+A twip measurement whose value converted to Single is at least 2^31 (except `Height` on a form's control),
+or a negative `Height` on anything but a control of a form, SHALL be
 left as if that line were absent and SHALL mark the form unfaithful to save with a cause naming the
 property and value. Save SHALL refuse these forms before writing the original. These rules follow
 [the #4096 measurements](https://github.com/hexide-io/HexIDE/issues/4096#issuecomment-6915523429);
 the upper bound shares the reader's geometry path, while the negative rule applies only to `Height`.
 VB6 keeps the form editable and opens Save As after load errors. HexIDE protects the original through
 its existing read-only gate; a load-error recovery Save As flow remains outside this requirement.
-A negative `Width` or `Height` on a form's control follows the next requirement instead (#4179).
+A negative `Width` or `Height`, or a `Height` whose Single value is at least 2^31, on a form's control
+follows the next requirement instead (#4179, #4422).
 
 #### Scenario: A readable duplicate
 
@@ -1220,23 +1221,30 @@ A negative `Width` or `Height` on a form's control follows the next requirement 
 
 #### Scenario: A measurement cannot be set
 
-- **GIVEN** a CommandButton with `Height = 3.7E+18`
+- **GIVEN** a CommandButton with `Left = 2147483648`
 - **WHEN** the form is loaded
-- **THEN** the button's Height is left as if the line were absent
+- **THEN** the button's Left is left as if the line were absent
 - **AND** the form is unfaithful to save and Save leaves the original bytes unchanged
 
 ### Requirement: Recover negative control sizes without overwriting the source
 
-Negative control sizes SHALL load as zero with a Begin-line diagnostic, keeping forms editable and
-runnable. Saves MUST protect the source and use Save As until a new file has been written.
+On a `VB.Form`, negative control sizes and control `Height` values whose Single value is at least 2^31
+SHALL load as zero with a Begin-line diagnostic, keeping forms editable and runnable. Saves MUST protect the source and use Save As until a new file has been written.
 
 Source: [VB6 SP6 IDE measurements, oracle PR #4350](https://github.com/hexide-io/HexIDE/pull/4350),
-[#4179 revised decision](https://github.com/hexide-io/HexIDE/issues/4179).
+[#4179 revised decision](https://github.com/hexide-io/HexIDE/issues/4179), and
+[#4422 scope and measurements](https://github.com/hexide-io/HexIDE/issues/4422).
 
 #### Scenario: Opening a negative size
 - **WHEN** a Label or CommandButton has Width or Height -150 in a form file
 - **THEN** that size reads zero and the localized diagnostic is `Line {0}: Property {1} in {2} could not be set.`, naming the property, control and one-based Begin line
 - **AND** the form opens for editing
+
+#### Scenario: Opening a too-large Height
+- **WHEN** a control on a form has a Height whose Single value is at least 2^31
+- **THEN** Height reads zero with the same Begin-line diagnostic and the form remains editable
+- **AND** the form is marked loaded with errors, requiring Save As rather than held unfaithful to save
+- **AND** other refused measurements, including those on UserControls and PropertyPages, retain the read-only hold
 
 #### Scenario: Running without opening the designer
 - **WHEN** F5 runs that project, whether or not its designer was opened

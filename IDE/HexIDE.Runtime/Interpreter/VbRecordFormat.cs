@@ -258,6 +258,7 @@ internal static class VbRecordFormat
     /// <summary>A user-defined Type: its fields in order, packed.</summary>
     public static void WriteUdt(Writer w, VbUdt udt)
     {
+        udt.RefuseUnmeasuredLongLongLayout();
         foreach (var (name, value) in udt.EnumerateFields())
         {
             if (value.Value is VBArray)
@@ -504,6 +505,7 @@ internal static class VbRecordFormat
     /// </summary>
     public static void ReadUdtInto(IRecordSource source, VbUdt udt)
     {
+        udt.RefuseUnmeasuredLongLongLayout();
         foreach (var (name, current) in udt.EnumerateFields().ToList())
         {
             if (current.Value is VBArray)

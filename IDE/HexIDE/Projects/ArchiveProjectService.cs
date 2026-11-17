@@ -10,16 +10,20 @@ using HexIDE.Language;
 using HexIDE.Lsp;
 using HexIDE.Localization;
 using HexIDE.TwinBasic;
+using HexIDE.Utils;
 
 namespace HexIDE.Projects;
 
-/// <summary>UI-owned archive lifecycle. Serialized file operations run on a worker thread.</summary>
+/// <summary>UI-owned read-only container lifecycle. Serialized file operations run on a worker thread.</summary>
 public sealed class ArchiveProjectService
 {
     /// <summary>The project archives this service reads, which no project type may take (#3411 slice 10b).</summary>
     public static ProjectFileReservation Reservation { get; } = new("hexide.archives", "twinBASIC", ["*.twinproj"]);
+    public static ProjectFileReservation OfficeReservation { get; } = new("hexide.office", "Microsoft Office", OfficeBrowserProject.Patterns);
+    public static bool Covers(string path) => Reservation.Covers(path) || OfficeReservation.Covers(path);
+    public static IReadOnlyList<string> FilePatterns { get; } = [.. Reservation.Patterns, .. OfficeReservation.Patterns];
 
-    private readonly ArchiveProjectWorkspace workspace = new();
+    private readonly Dictionary<string, IContainerProject> projects = new(ArchiveEntryIdentity.ContainerPathComparer);
     private readonly SemaphoreSlim gate = new(1);
     private readonly IDocumentDockService dock;
     private readonly IRecentProjectsService recent;
@@ -28,7 +32,7 @@ public sealed class ArchiveProjectService
     private readonly IConditionalCodeReader conditionalCode;
     private readonly Func<ILspClient>? lspClient;
     private bool treeSelected;
-    public IReadOnlyList<ArchiveProjectSnapshot> Projects { get; private set; } = [];
+    public IReadOnlyList<IContainerProject> Projects { get; private set; } = [];
     public event Action? Changed;
     public event Action? FocusChanged;
     public bool IsActive => treeSelected || dock.ActiveDocument is ArchiveDocumentViewModel;
@@ -58,15 +62,23 @@ public sealed class ArchiveProjectService
 
     public async Task Open(string path)
     {
+        var locked = false;
         await gate.WaitAsync();
         try
         {
-            var project = await Task.Run(() => workspace.Open(path));
+            path = Path.GetFullPath(path);
+            if (!projects.TryGetValue(path, out var project))
+            {
+                project = await Task.Run(() => Read(path));
+                projects.Add(path, project);
+            }
+            locked = project.IsLocked;
             Publish();
             recent.Add(project.ContainerPath);
             SelectTreeEntry(true);
         }
         finally { gate.Release(); }
+        if (locked) await windows.MessageBox(localization.GetString("Str.Office.LockedMessage"), icon: MessageBoxIcon.Information);
     }
 
     public async Task Reload(string path)
@@ -74,10 +86,13 @@ public sealed class ArchiveProjectService
         await gate.WaitAsync();
         try
         {
-            var replacement = await Task.Run(() => workspace.Reload(path));
+            path = Path.GetFullPath(path);
+            if (!projects.ContainsKey(path)) throw new InvalidOperationException("The container is not open.");
+            var replacement = await Task.Run(() => Read(path));
+            projects[path] = replacement;
             foreach (var tab in Tabs(replacement.ContainerPath))
                 if (replacement.TryGetEntry(tab.Entry.Identity, out var entry))
-                    tab.Update(entry, TwinBasicCompilationConstants.BuildTypeOf(replacement.Container));
+                    tab.Update(entry, replacement.BuildType);
                 else dock.CloseDocument(tab);
             dock.RecentlyClosed?.RefreshArchive(replacement);
             Publish();
@@ -91,8 +106,8 @@ public sealed class ArchiveProjectService
         await gate.WaitAsync();
         try
         {
-            if (path == null) workspace.CloseAll();
-            else workspace.Close(path);
+            if (path == null) projects.Clear();
+            else projects.Remove(path);
             foreach (var tab in Tabs(path)) dock.CloseDocument(tab);
             dock.RecentlyClosed?.CloseArchive(path);
             SelectTreeEntry(false);
@@ -110,7 +125,7 @@ public sealed class ArchiveProjectService
         try
         {
             // Selection can outlive a closed tree node while waiting for another operation.
-            if (!Projects.Any(p => ArchiveEntryIdentity.ContainerPathComparer.Equals(p.ContainerPath, path))) return;
+            if (!Projects.Any(p => p.CanSynchronizeFolder && ArchiveEntryIdentity.ContainerPathComparer.Equals(p.ContainerPath, path))) return;
             var result = await Task.Run(() => new ArchiveSourceFolder().Synchronize(path));
             message = string.Format(localization.GetString("Str.Archive.FolderReadyFormat"), result.Directory);
         }
@@ -124,23 +139,36 @@ public sealed class ArchiveProjectService
         await windows.MessageBox(message, localization.GetString("Str.Archive.SyncFolder"), icon: icon);
     }
 
-    public void OpenDocument(ArchiveProjectEntry entry)
+    public void OpenDocument(ContainerEntry entry)
     {
         // Stale tree nodes cannot reopen a closed project or an old snapshot.
         var project = Projects.FirstOrDefault(p =>
             ArchiveEntryIdentity.ContainerPathComparer.Equals(p.ContainerPath, entry.Identity.ContainerPath));
         if (project == null || !project.TryGetEntry(entry.Identity, out var current)) return;
+        if (project.IsLocked)
+        {
+            windows.MessageBox(localization.GetString("Str.Office.LockedMessage"), icon: MessageBoxIcon.Information).ListenErrors();
+            return;
+        }
+        if (current.Archive == null && !current.IsDocument) return;
         if (!dock.TryActivate<ArchiveDocumentViewModel>(vm => vm.Entry.Identity.Equals(current.Identity)))
-            dock.OpenDocument(new ArchiveDocumentViewModel(current, localization, conditionalCode, TwinBasicCompilationConstants.BuildTypeOf(project.Container), lspClient?.Invoke()));
+            dock.OpenDocument(new ArchiveDocumentViewModel(current, localization, conditionalCode, project.BuildType, project.SupportsLanguageServers ? lspClient?.Invoke() : null));
     }
 
     private ArchiveDocumentViewModel[] Tabs(string? path) => dock.OpenDocuments
         .OfType<ArchiveDocumentViewModel>().Where(vm => path == null ||
             ArchiveEntryIdentity.ContainerPathComparer.Equals(vm.Entry.Identity.ContainerPath, path)).ToArray();
 
+    private static IContainerProject Read(string path)
+    {
+        if (OfficeReservation.Covers(path)) return OfficeBrowserProject.Read(path);
+        using var input = File.OpenRead(path);
+        return new TwinBasicBrowserProject(ArchiveProjectSnapshot.Read(input, path));
+    }
+
     private void Publish()
     {
-        Projects = workspace.Projects;
+        Projects = projects.Values.ToArray();
         Changed?.Invoke();
     }
 }

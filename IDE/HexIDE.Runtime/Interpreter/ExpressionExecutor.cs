@@ -63,7 +63,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // the static type itself: a Variant's goes with its type first, a typed value bare (Val("2") is 8 bytes of Double, and
     // Space(1) is 08 00 01 00 20).
     private static readonly HashSet<string> TypedIntrinsics = new(StringComparer.OrdinalIgnoreCase)
-        { "Sgn", "Asc", "AscW", "CInt", "CLng", "CByte", "CSng", "CStr", "UBound", "LBound", "Replace", "StrReverse", "Val", "CDate", "Timer" };
+        { "Sgn", "Asc", "AscW", "CInt", "CLng", "CLngLng", "CLngPtr", "CByte", "CSng", "CStr", "UBound", "LBound", "Replace", "StrReverse", "Val", "CDate", "Timer" };
 
     private static readonly HashSet<string> VariantIntrinsics = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -108,6 +108,28 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var leftValue = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(leftRaw, callerFrames: stmtFrames), context[0]);
         var rightRaw = await EvaluateValue(context[1]);
         var rightValue = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(rightRaw, callerFrames: stmtFrames), context[1]);
+        if (leftValue.Type == Vb6Value.ValueType.LongLong || rightValue.Type == Vb6Value.ValueType.LongLong)
+        {
+            if (leftValue.IsNull || rightValue.IsNull)
+                return (leftValue, rightValue);
+            // Excel x64 comparison domains, #4302 / oracle PR #4383.
+            var partner = leftValue.Type == Vb6Value.ValueType.LongLong ? rightValue : leftValue;
+            if (partner.Type == Vb6Value.ValueType.Currency)
+                throw new NotImplementedException("LongLong comparison with Currency is unmeasured (#1548)");
+            if (partner.Type == Vb6Value.ValueType.Single || partner.Type == Vb6Value.ValueType.Double
+                || partner.Type == Vb6Value.ValueType.String || partner.Type == Vb6Value.ValueType.Date)
+            {
+                double Number(Vb6Value v) => v.Type == Vb6Value.ValueType.String ? VB6BuiltIns.ToNum(v) : AsDouble(v);
+                return (new Vb6Value(Number(leftValue)), new Vb6Value(Number(rightValue)));
+            }
+            if (partner.Type == Vb6Value.ValueType.Decimal || partner.Type == Vb6Value.ValueType.Byte
+                || partner.Type == Vb6Value.ValueType.Boolean || partner.Type == Vb6Value.ValueType.Integer
+                || partner.Type == Vb6Value.ValueType.Long || partner.Type == Vb6Value.ValueType.LongLong
+                || partner.Type == Vb6Value.ValueType.EmptyVariant)
+                return (VbNumeric.Narrow(leftValue, Vb6Value.ValueType.Decimal, context[0]),
+                    VbNumeric.Narrow(rightValue, Vb6Value.ValueType.Decimal, context[1]));
+            throw new NotImplementedException("This LongLong comparison domain is unmeasured (#1548)");
+        }
         if ((leftValue.Type == Vb6Value.ValueType.Error || rightValue.Type == Vb6Value.ValueType.Error)
             && leftValue.Type != rightValue.Type)
             throw new VBRunTimeException(context[0], VBStandardError.TypeMismatch);
@@ -498,6 +520,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             && values.Count == 1
             && slots[0]?.valueStmt() is { } operand)
         {
+            if (values[0].Value is VbUdt wideRecord)
+                wideRecord.RefuseUnmeasuredLongLongLayout();
             if (name.Equals("Len", StringComparison.OrdinalIgnoreCase) && values[0].Value is VbUdt { HasFixedStringFields: true } record)
                 result.LenVariableSize = record.FixedRecordLength();
             // Len sizes a declared scalar, but a Variant still sizes its text (#780, measured). So does LenB, and a number that is
@@ -512,7 +536,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 result.LenVariableSize ??= type == Vb6Value.ValueType.Byte ? 1
                     : type == Vb6Value.ValueType.Integer || type == Vb6Value.ValueType.Boolean ? 2
                     : type == Vb6Value.ValueType.Long || type == Vb6Value.ValueType.Single ? 4
-                    : type == Vb6Value.ValueType.Double || type == Vb6Value.ValueType.Currency || type == Vb6Value.ValueType.Date ? 8
+                    : type == Vb6Value.ValueType.LongLong || type == Vb6Value.ValueType.Double || type == Vb6Value.ValueType.Currency || type == Vb6Value.ValueType.Date ? 8
                     : null;
             }
             else if (operand is not VB6Parser.VsStructContext
@@ -776,8 +800,19 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// literals as Variants would silently promote `i = i + 1` past a declared Integer's ceiling, which is
     /// the common shape rather than a rare one. (#122)
     /// </summary>
-    public override Task<object?> VisitVsLiteral(VB6Parser.VsLiteralContext literalContext) =>
-        Task.FromResult<object?>(LiteralValue(literalContext.literal()).AsFixedType());
+    public override Task<object?> VisitVsLiteral(VB6Parser.VsLiteralContext literalContext)
+    {
+        if (literalContext.GetText().EndsWith('^') && !interpreter.IsVba64)
+            throw new VBCompileErrorException("Syntax error");
+        try
+        {
+            return Task.FromResult<object?>(LiteralValue(literalContext.literal()).AsFixedType());
+        }
+        catch (Exception e) when (literalContext.GetText().EndsWith('^') && e is OverflowException or FormatException)
+        {
+            throw new NotImplementedException("This LongLong literal's range or form is unmeasured (#1548)");
+        }
+    }
 
     /// <summary>A literal's value, typed as VB6 types it. An <c>#If</c>'s expression reads its literals here too (#1112).</summary>
     internal static Vb6Value LiteralValue(VB6Parser.LiteralContext literal)
@@ -878,6 +913,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     {
         text = ExponentAsE(text);
         char suffix = text[^1];
+        if (suffix == '^')
+            return Vb6Value.NewLongLong(long.Parse(text[..^1], CultureInfo.InvariantCulture));
         if (suffix is '&' or '@' or '!' or '#' or '%')
         {
             var body = text[..^1];
@@ -932,6 +969,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         bool neg = text[0] == '-';
         if (neg || text[0] == '+') text = text[1..];
         char suffix = text[^1];
+        if (suffix == '^')
+            return Vb6Value.NewLongLong(unchecked((long)Convert.ToUInt64(text[2..^1], radix)));
         bool forceLong = suffix == '&', forceInt = suffix == '%';
         if (forceLong || forceInt) text = text[..^1];
         ulong u = Convert.ToUInt64(text[2..], radix);   // strip the "&H" / "&O" prefix
@@ -1284,6 +1323,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // declared by: a mismatch, or one on a Variant Function, is VB6's compile error (measured, #740).
     private static void RefuseMismatchedCharacter(ProcedureInfo procedure, VB6Parser.TypeHintContext hint)
     {
+        if (hint.LONGLONGCHAR() != null && (procedure.ReturnsVariant || procedure.ReturnType != Vb6Value.ValueType.LongLong))
+            throw new NotImplementedException("A LongLong character on a name of another type is unmeasured (#1548)");
         if (procedure.ReturnsVariant || procedure.ReturnType != BaseTypeMapper.Map(hint))
             throw new VBCompileErrorException(TypeCharacterMismatch);
     }
@@ -1295,6 +1336,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // docs/vb6-fidelity-oracle/a-name-read-with-a-type-character.md).
     private void RefuseMismatchedVariableCharacter(int location, Vb6Value value, VB6Parser.TypeHintContext hint)
     {
+        if (hint.LONGLONGCHAR() != null && CharacterTypeOf(location, value) != Vb6Value.ValueType.LongLong)
+            throw new NotImplementedException("A LongLong character on a name of another type is unmeasured (#1548)");
         if (CharacterTypeOf(location, value) != BaseTypeMapper.Map(hint))
             throw new VBCompileErrorException(TypeCharacterMismatch);
     }
@@ -2702,7 +2745,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     }
 
     /// <summary>
-    /// Apply a bitwise operator under VB6's rules: each operand reduced to 32 bits on its own terms,
+    /// Apply a bitwise operator at VB6's widths or VBA7's LongLong width (#4302),
     /// the result reported at the width the ladder gives. False when either operand is not something
     /// VB6 accepts, which the caller turns into a type mismatch.
     ///
@@ -2713,6 +2756,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// </summary>
     private static bool TryBitwise(Vb6Value left, Vb6Value right, Func<long, long, long> op, out Vb6Value result)
     {
+        if (left.Type == Vb6Value.ValueType.LongLong || right.Type == Vb6Value.ValueType.LongLong)
+        {
+            if (left.Type == Vb6Value.ValueType.Date || right.Type == Vb6Value.ValueType.Date
+                || left.Type == Vb6Value.ValueType.EmptyVariant || right.Type == Vb6Value.ValueType.EmptyVariant)
+                throw new NotImplementedException("LongLong bitwise operations with Date or Empty are unmeasured (#1548)");
+            result = Vb6Value.NewLongLong(op(VbBitwise.LongLongBits(left), VbBitwise.LongLongBits(right)));
+            return true;
+        }
         result = default;
         if (!VbBitwise.TryUnpack(left, out var leftBits, out var leftWidth)) return false;
         if (!VbBitwise.TryUnpack(right, out var rightBits, out var rightWidth)) return false;

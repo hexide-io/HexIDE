@@ -23,6 +23,22 @@ public class WindowsDateTableTests : BaseVBTestFixture
         ((string)debug[1].Value!).Normalize().Should().Be(shortDate.Normalize());
     }
 
+    // #4378: compare with Windows data itself; these are not VB6 expectations for other locales.
+    [Theory]
+    [InlineData("en-GB")]
+    [InlineData("en-US")]
+    [InlineData("de-DE")]
+    public void Table_sets_designators_including_empty_values(string name)
+    {
+        var culture = new CultureInfo(name, false);
+        culture.DateTimeFormat.AMDesignator = "sentinel AM";
+        culture.DateTimeFormat.PMDesignator = "sentinel PM";
+        WindowsDateTable.Apply(culture);
+        var entry = WindowsDateTable.Data.GetProperty("locales").GetProperty(name);
+        culture.DateTimeFormat.AMDesignator.Should().Be(entry.GetProperty("amDesignator").GetString());
+        culture.DateTimeFormat.PMDesignator.Should().Be(entry.GetProperty("pmDesignator").GetString());
+    }
+
     [Fact]
     public async Task Es_US_short_date_round_trips()
     {

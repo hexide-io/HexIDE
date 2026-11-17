@@ -227,6 +227,9 @@ internal static class VbSignatures
             // Type conversion
             ["CStr"]  = [new SignatureEntry("CStr(Expression) As String",  ["Expression"], "Converts an expression to String.")],
             ["CInt"]  = [new SignatureEntry("CInt(Expression) As Integer", ["Expression"], "Converts an expression to Integer.")],
+            // #4302 measures positional conversions only; these labels do not enable named calls.
+            ["CLngLng"] = [new SignatureEntry("CLngLng(Expression) As LongLong", ["Expression"])],
+            ["CLngPtr"] = [new SignatureEntry("CLngPtr(Expression)", ["Expression"])],
             ["CLng"]  = [new SignatureEntry("CLng(Expression) As Long",    ["Expression"], "Converts an expression to Long.")],
             ["CDbl"]  = [new SignatureEntry("CDbl(Expression) As Double",  ["Expression"], "Converts an expression to Double.")],
             ["CSng"]  = [new SignatureEntry("CSng(Expression) As Single",  ["Expression"], "Converts an expression to Single.")],

@@ -32,9 +32,10 @@ public class FormatAmPmTests : BaseVBTestFixture
     [Theory]
     [InlineData("xAM", "yPM", "09:05:03 xAM", "9 xAM", "yPM")]
     [InlineData("", "", "09:05:03 ", "9 ", "")]
-    public async Task AmPm_reads_user_overrides_even_when_empty(string am, string pm, string morning, string hour, string afternoon)
+    public async Task AmPm_reads_supplied_designators_even_when_empty(string am, string pm, string morning, string hour, string afternoon)
     {
-        var culture = (CultureInfo)CultureInfo.GetCultureInfo("de-DE").Clone();
+        // Synthetic designators bypass native locale selection; NLS overrides are tested in WindowsDateLocaleTests.
+        var culture = (CultureInfo)CultureInfo.InvariantCulture.Clone();
         culture.DateTimeFormat.AMDesignator = am;
         culture.DateTimeFormat.PMDesignator = pm;
         using var locale = VbLocale.Use(culture);

@@ -30,6 +30,38 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Measured 64-bit VBA7 integer support
+
+The runtime SHALL implement the 64-bit VBA7 rows measured in
+[#4302](https://github.com/hexide-io/HexIDE/issues/4302) (measuring PRs #3965 and #4383), selected by `VbaBitness.Bit64`.
+VB6 SHALL retain its measured errors and user-name precedence (measuring PR #4247), at execution where
+necessary. Unmeasured LongLong array bounds, For counters and UDT layouts SHALL refuse naming #1548.
+
+#### Scenario: Single with LongLong
+- **WHEN** a 64-bit project adds CLngLng(5) and CSng(1)
+- **THEN** the value is Double 6
+
+#### Scenario: Variant overflow
+- **WHEN** a Variant holding LongLong 9223372036854775807 is incremented
+- **THEN** it becomes Double without error, while the measured typed overflow raises 6
+
+#### Scenario: Adjacent type character in a 64-bit project
+- **WHEN** a 64-bit project evaluates `5^-1`
+- **THEN** it subtracts 1 from LongLong 5 and returns LongLong 4
+- **AND** `2^3` is a syntax error, while `2 ^ 3` returns Double 8
+
+#### Scenario: Decimal comparison retains precision
+- **WHEN** a 64-bit project compares CLngLng("9007199254740993") with CDec("9007199254740992")
+- **THEN** equality is False, through the exact Decimal domain
+
+#### Scenario: Unmeasured operand coercion range
+- **WHEN** a 64-bit project uses an operand whose rounded value is outside the signed 64-bit range with LongLong in integer division, Mod or a bitwise operation
+- **THEN** the runtime refuses the unmeasured coercion naming #1548 rather than guessing a value or diagnostic
+
+#### Scenario: User-defined conversion name
+- **WHEN** either a VB6 or a 64-bit VBA7 project defines Function CLngLng
+- **THEN** a call uses the user function before the built-in
+
 ### Requirement: Control event declarations are checked when a form starts
 
 Before a form's declarations or Initialize run, the interpreter SHALL compare its collected control event Subs with the control class's event argument counts, plus one for an array element. An element's first parameter SHALL be ByRef Integer by effective type, including suffixes and DefType. Names and the event's own argument types/passing SHALL NOT be checked.
@@ -1759,7 +1791,8 @@ letters, top-row digits, Space, navigation/editing keys, F1–F9/F11/F12 and key
 keys mapped by #2325's [keyboard sweep](https://github.com/hexide-io/HexIDE/issues/2325#issuecomment-6454480155),
 using its measured KeyCode and held-modifier Shift mask. KeyPreview SHALL retain
 the existing form-first delivery. Host-translated keypad navigation SHALL use
-the navigation key received from the host. Enter/Esc, Tab arbitration, punctuation
+the navigation key received from the host. Plain Enter/Esc SHALL deliver 13/27
+when no eligible Default/Cancel receiver takes them (#4371). Tab arbitration, punctuation
 and unmeasured combinations remain outside this additional code-mapping slice.
 
 #### Scenario: Home reaches a handler before TextBox navigation
@@ -1777,6 +1810,30 @@ and unmeasured combinations remain outside this additional code-mapping slice.
 - **AND** KeyUp still receives KeyCode 8 with Shift 2
 - **AND** the default editing action remains the host's behavior pending measurement
 
+### Requirement: CommandButton Default and Cancel
+
+CommandButton SHALL expose saved and runtime Boolean Default and Cancel properties, initially False.
+Setting either to True SHALL clear that role on the other CommandButtons of the form; the last holder
+in file order SHALL win on load. A button MAY hold both roles. An enabled, visible holder SHALL take
+plain Enter or Esc in the tunnel phase, before any control or KeyPreview key event, including KeyUp.
+Enter on a focused CommandButton SHALL click that button instead. An open ComboBox list SHALL retain
+both keys. A hidden or disabled holder SHALL retain True without taking keys. With no receiver, a
+TextBox SHALL raise KeyDown, KeyPress and KeyUp with 13 or 27, leaving single-line text unchanged;
+Enter in a multi-line box SHALL insert its CRLF. These are [#4371's measured rows](https://github.com/hexide-io/HexIDE/issues/4371),
+including oracle PR #4376, and the [key-event oracle](../../../docs/vb6-fidelity-oracle/key-events-keydown-keypress-and-keyup.md).
+A separate default-border look, nested-container roles, focus-time role changes and Properties-grid
+exclusivity remain outside this slice.
+
+#### Scenario: A dialog takes Enter before KeyPreview
+- **WHEN** a TextBox or ListBox has focus, KeyPreview is True and an eligible Default CommandButton exists
+- **THEN** Enter raises only that button's Click, with no form or control key event
+
+#### Scenario: Moving the role and disabling its holder
+- **WHEN** a program sets Command2.Default True while Command1 holds Default
+- **THEN** Command1.Default reads False and Enter clicks Command2
+- **WHEN** Command2 is disabled or hidden
+- **THEN** Command2.Default still reads True and Enter reaches the focused TextBox's key events
+
 ### Requirement: Measured keyboard events on buttons, lists and empty forms
 
 CommandButton, CheckBox, OptionButton, ListBox and ComboBox Styles 0 and 2 SHALL declare
@@ -1788,7 +1845,7 @@ printable ASCII text SHALL reach the control and its character effect. Non-ASCII
 not implemented until conversion is measured. Nonzero replacements for synthesized Space/Ctrl+A
 SHALL also refuse until their effects are measured. The authority is #2325's
 [console measurements](../../../docs/vb6-fidelity-oracle/key-events-keydown-keypress-and-keyup.md).
-Enter/Esc on forms holding controls and Default/Cancel properties remain #4371's.
+Enter and Esc on a form holding controls SHALL follow the CommandButton Default and Cancel requirement.
 
 #### Scenario: A button's Space Click follows KeyUp
 - **WHEN** Space is pressed and released on a CommandButton or CheckBox

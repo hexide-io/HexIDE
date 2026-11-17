@@ -20,6 +20,8 @@ public class CommandButtonComponentClass : ComponentBaseClass
         PictureProperty,
         EnabledProperty,
         TabStopProperty,
+        DefaultProperty,
+        CancelProperty,
         TabIndexProperty,
         ToolTipTextProperty], [ClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent, KeyDownEvent, KeyPressEvent, KeyUpEvent])
     {
@@ -32,6 +34,8 @@ public class CommandButtonComponentClass : ComponentBaseClass
     {
         return new VBCommandButton()
         {
+            Default = instance.GetPropertyOrDefault(DefaultProperty),
+            Cancel = instance.GetPropertyOrDefault(CancelProperty),
             Content = instance.GetPropertyOrDefault(CaptionProperty),
             [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(BackColorProperty),
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),
