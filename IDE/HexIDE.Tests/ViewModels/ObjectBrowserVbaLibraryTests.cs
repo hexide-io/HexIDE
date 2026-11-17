@@ -20,7 +20,7 @@ public class ObjectBrowserVbaLibraryTests
             JsonDocument.Parse(caps).RootElement.Clone());
 
     private static (ObjectBrowserToolViewModel Vm, ILspClient Client, ILanguageConnectionRegistry Registry) Make(
-        LanguageConnectionState state, string caps, bool throws = false)
+        LanguageConnectionState state, string caps, bool throws = false, ILocalizationService? localization = null)
     {
         var projects = Substitute.For<IProjectManager>();
         projects.LoadedProjects.Returns(new List<ProjectDefinition>());
@@ -30,7 +30,7 @@ public class ObjectBrowserVbaLibraryTests
                 : Task.FromResult<VbaBuiltinSymbol[]>([new("Abs", "Function Abs(number)", "Absolute value")]));
         var registry = Substitute.For<ILanguageConnectionRegistry>();
         registry.Connections.Returns([Connection(state, caps)]);
-        var loc = Substitute.For<ILocalizationService>();
+        var loc = localization ?? Substitute.For<ILocalizationService>();
         loc.GetString(Arg.Any<string>()).Returns(ci => ci.Arg<string>());
         return (new ObjectBrowserToolViewModel(projects, client, Substitute.For<IEditorService>(),
             Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(),
@@ -38,6 +38,41 @@ public class ObjectBrowserVbaLibraryTests
     }
 
     private const string Capable = """{"experimental":{"vbBuiltinSymbols":true}}""";
+
+    [Theory]
+    [InlineData("NoServer")]
+    [InlineData("NoProvider")]
+    [InlineData("Empty")]
+    [InlineData("Globals")]
+    public async Task Live_language_switch_refreshes_vba_without_reloading(string status)
+    {
+        var loc = Substitute.For<ILocalizationService>();
+        var (vm, client, registry) = Make(LanguageConnectionState.NotStarted, "{}", localization: loc);
+        if (status != "NoServer")
+            registry.Connections.Returns([Connection(LanguageConnectionState.Running,
+                status == "NoProvider" ? "{}" : Capable)]);
+        if (status == "Empty")
+            client.RequestBuiltinSymbolsAsync(Arg.Any<CancellationToken>()).Returns([]);
+        vm.SelectedLibrary = vm.Libraries.Single(l => l.Name == "VBA");
+        vm.SelectedClass = vm.FilteredClasses.Single();
+        var cls = vm.SelectedClass;
+        var library = vm.SelectedLibrary;
+        cls.Name.Should().Be("Str.Tool.ObjectBrowser.Vba." + status);
+        await vm.SearchWorkspaceAsync("Abs");
+        vm.SearchStatus.Should().Be("Str.Tool.ObjectBrowser.Search.NoServer");
+        client.ClearReceivedCalls();
+        loc.GetString(Arg.Any<string>()).Returns(ci => "New " + ci.Arg<string>());
+        loc.GetString("Str.Tool.ObjectBrowser.MembersOf").Returns("New members of {0}");
+
+        loc.LanguageChanged += Raise.Event<System.Action>();
+
+        cls.Name.Should().Be("New Str.Tool.ObjectBrowser.Vba." + status);
+        vm.SelectedClass.Should().BeSameAs(cls);
+        vm.SelectedLibrary.Should().BeSameAs(library);
+        vm.MembersHeader.Should().Contain(cls.Name);
+        vm.SearchStatus.Should().BeEmpty();
+        client.ReceivedCalls().Should().BeEmpty();
+    }
 
     [Fact]
     public void CapableServerPopulatesVbaAndAllLibraries()
