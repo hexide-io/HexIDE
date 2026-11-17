@@ -436,6 +436,7 @@
     "Str.Tool.Project.Menu.Print": "Tisk",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
     "Str.Tool.ColorPalette.Title": "Paleta barev",
+    "Str.Options.Addin.ServerSettingsDefault": "(Výchozí)",
     "Str.Tool.ColorPalette.Button.Default": "Výchozí",
     "Str.Tool.ColorPalette.Button.DefineColors": "Definovat barvy",
     "Str.Tool.Locals.ContextReady": "<Připraveno>",

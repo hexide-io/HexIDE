@@ -1124,6 +1124,31 @@ assertion would be guarding against nothing.
 
 ---
 
+### Contributed server settings
+
+An add-in's contributed servers keep their settings in the user's `settings.json`, under
+`languageServerSettings` keyed by server id (#4307). A profile's settings-defaults payload may supply
+objects under that same key. Resolution is per id: a user's object replaces the profile's object whole,
+otherwise the profile supplies the default, otherwise the add-in's own entry `settings` (#4255) applies,
+otherwise settings are absent. Writes never change a profile
+or use an add-in's data folder. Profile settings defaults were already read for other settings; this
+adds the server-settings key to that existing path.
+
+`IAddinServerConnection.GetSettings()` returns this connection's resolved object or `null`.
+`SetSettingsAsync(JsonElement, CancellationToken)` accepts only an object, saves it in the user's layer,
+and uses the registry's existing settings-update path to send `workspace/didChangeConfiguration` when
+changed. A connection has no server-id argument and cannot write another server's settings. After removal,
+a write throws `ObjectDisposedException` without saving. `workspace/configuration` resolves these objects
+through the same section and dotted-path reader as file entries; missing paths return `null`.
+
+Tools → Options → Add-Ins → the add-in lists its servers by display name with read-only, indented JSON.
+A profile-supplied object is labelled **(default)** and absent settings **(none)**. **Reset** is enabled
+only with a user object: it removes that object immediately, independently of Options' OK/Cancel,
+and notifies a running server with its fallback (the profile object, then the entry's, or `{}` when none exists).
+Scripted peers in `AddinServerRegistrationTests` check configuration answers and received notifications;
+`OptionsViewIntegrationTests` checks the rendered JSON and Reset button. The live RDCore add-in check
+follows once it calls `SetSettingsAsync`.
+
 ### Add-in server trust
 
 Add-in-contributed servers re-check the contributing add-in’s enabled state, consent and active

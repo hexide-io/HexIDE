@@ -410,7 +410,9 @@ The personality APIs have been replaced by `IProfileService`; the removed flag r
 a translated replacement diagnostic before a window opens. The settings adapter accepts a validated snapshot and layers explicitly present saved
 properties above profile defaults, then uses the existing settings reader and value validation. Properties omitted from both
 layers retain host defaults. Loading and saving unrelated edits do not copy profile defaults into
-the user settings file. `ProfileSettingsTests` cover this internal seam. The theme adapter reads the
+the user settings file. `languageServerSettings` defaults are JSON objects keyed by server id; each
+id's whole user object wins over its profile default (#4307). Add-in writes and Options resets affect
+only the user's layer. `ProfileSettingsTests` cover this internal seam. The theme adapter reads the
 snapshot's existing `ThemePackRecord` format, ahead of the profile's `activeTheme` default and below an
 explicit saved theme choice (including Classic). Known invalid colours reject the bundle before any
 surface is applied; unknown colour keys retain the existing warn-and-skip rule, with source/file

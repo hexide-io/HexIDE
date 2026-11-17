@@ -442,6 +442,7 @@
     "Str.Tool.Project.Menu.Print": "Skriv ut",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
     "Str.Tool.ColorPalette.Title": "Fargepalett",
+    "Str.Options.Addin.ServerSettingsDefault": "(Standard)",
     "Str.Tool.ColorPalette.Button.Default": "Standard",
     "Str.Tool.ColorPalette.Button.DefineColors": "Definer farger",
     "Str.Tool.Locals.ContextReady": "<Ready>",

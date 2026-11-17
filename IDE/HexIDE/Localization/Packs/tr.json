@@ -408,6 +408,7 @@
     "Str.Tool.Project.Menu.Print": "Yazdır",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
     "Str.Tool.ColorPalette.Title": "Renk Paleti",
+    "Str.Options.Addin.ServerSettingsDefault": "(Varsayılan)",
     "Str.Tool.ColorPalette.Button.Default": "Varsayılan",
     "Str.Tool.ColorPalette.Button.DefineColors": "Renkleri Tanımla",
     "Str.Tool.Locals.ContextReady": "<Hazır>",

@@ -2880,11 +2880,11 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task UpdateServerSettingsAsync(JsonElement? settings)
+    public async Task UpdateServerSettingsAsync(JsonElement? settings, bool forceNotification = false)
     {
         var value = settings is { ValueKind: JsonValueKind.Object } ? settings.Value.Clone() : (JsonElement?)null;
         var previous = _serverSettings?.Value;
-        if (previous.HasValue == value.HasValue
+        if (!forceNotification && previous.HasValue == value.HasValue
             && (!previous.HasValue || JsonElement.DeepEquals(previous.Value, value!.Value))) return;
         _serverSettings = value is { } json ? new ServerConfiguration(json) : null;
         var rpc = _rpc;
