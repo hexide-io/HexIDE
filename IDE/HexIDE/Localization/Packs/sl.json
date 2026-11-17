@@ -409,6 +409,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Člani",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Razredi",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Rezultati iskanja",
+    "Str.Tool.ObjectBrowser.MemberOf": "Član {0}.{1}",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globalno)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Noben jezikovni strežnik se še ni zagnal. Odprite okno kode, da ga zaženete.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Noben delujoči jezikovni strežnik ne ponuja vgrajenih simbolov.",

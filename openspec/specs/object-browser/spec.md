@@ -140,7 +140,8 @@ member signature without an icon prefix.
 
 ### Requirement: Selecting a type SHALL show its members, and selecting a member SHALL describe it
 Selecting a type SHALL list its members; selecting a member SHALL show its signature and what it belongs to,
-along with any description available for it.
+along with any description available for it. The owning-type label SHALL be localized, with the library
+and class names substituted into the selected language’s format.
 
 The two-step shape is the whole interaction: narrow to a type, scan its members, read one. The description
 is what makes the last step worth taking — a member name alone rarely answers the question, and the

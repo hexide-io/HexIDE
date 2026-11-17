@@ -409,6 +409,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Članovi",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Klase",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Rezultati pretrage",
+    "Str.Tool.ObjectBrowser.MemberOf": "Član objekta {0}.{1}",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globalno)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Nijedan jezički server još nije pokrenut. Otvorite prozor koda da biste ga pokrenuli.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Nijedan pokrenuti jezički server ne nudi ugrađene simbole.",
