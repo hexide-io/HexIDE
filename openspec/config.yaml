@@ -3,7 +3,7 @@ schema: spec-driven
 context: |
   HexIDE — a cross-platform recreation of the Visual Basic 6 IDE in C#/Avalonia.
   Monorepo: IDE/ (the IDE, VB6 interpreter, LSP client) and LspServer/ (out-of-process
-  VB6/VBA language server). MIT throughout. .NET 10, Avalonia 12, xUnit +
+  VB6/VBA language server). MIT throughout. .NET 11, Avalonia 12, xUnit +
   AwesomeAssertions + NSubstitute.
 
   Design north star: recognisable to a 20-year VB6 professional. Modern capability is

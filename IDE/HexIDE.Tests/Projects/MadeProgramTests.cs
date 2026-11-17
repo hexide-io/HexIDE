@@ -101,7 +101,7 @@ public sealed class MadeProgramFactAttribute : FactAttribute
         if (!OperatingSystem.IsWindows()) Skip = "A made program is started on Windows only: elsewhere it needs a desktop session.";
         else if (!File.Exists(Runner))
             Skip = $"No runner at {Runner}. From IDE/, run "
-                 + "`dotnet publish HexIDE.Standalone -f net10.0 -o ../artifacts/make-runtime/standalone/` to run this.";
+                 + "`dotnet publish HexIDE.Standalone -f net11.0 -o ../artifacts/make-runtime/standalone/` to run this.";
     }
 
     private static string RepoRoot()
