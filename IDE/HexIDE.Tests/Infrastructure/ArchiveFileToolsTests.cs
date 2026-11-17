@@ -56,10 +56,14 @@ public sealed class ArchiveFileToolsTests : IDisposable
         listed.GetProperty("Entries").EnumerateArray().Select(e => e.GetString()).Should().Contain("/Standard/Module1");
         var opened = await tools.OpenFileAsync("/Standard/Module1", project: path, line: 1);
         opened.Success.Should().BeTrue(opened.Error);
-        opened.Note.Should().Contain("no language-server session");
+        opened.Note.Should().Contain("Language servers know it as Module1.bas");
         var tab = tabs.OfType<ArchiveDocumentViewModel>().Single();
         tab.Document.Text.Should().Contain("Option Explicit");
         tab.IsReadOnlyDocument.Should().BeTrue();
+        var entryUris = listed.GetProperty("EntryUris").EnumerateArray();
+        entryUris.Single(e => e.GetProperty("Path").GetString() == "/Standard/Module1")
+            .GetProperty("Uri").GetString().Should().Be(tab.DocumentUri);
+        tab.DocumentUri.Should().Contain("/Standard/Module1.bas?");
     }
 
     [AvaloniaTheory]

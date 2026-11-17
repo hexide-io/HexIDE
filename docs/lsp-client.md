@@ -651,10 +651,15 @@ both entry names and the nested container URI.
 
 RDCore was measured on 2026-10-05 answering every request about a non-file URI empty
 ([#389](https://github.com/hexide-io/HexIDE/issues/389)). That is RDCore's to change; it was not measured again here.
-Office containers use the same entry identities in the browser and automation inventory (#4331), but
-their VBA tabs deliberately open no language-server session: the bundled VB6 grammar would reject
-VBA7 `PtrSafe` and `LongPtr`. See [Office containers](office-containers.md). Copying entries to files
-for servers that need them remains outside this change.
+Office VBA modules use the same browser identities (#4331), with an export extension appended only to the
+wire name (#4453): `.bas` for standard modules, `.cls` for class and document modules, and `.frm` for UserForms.
+For example, `/Standard/Module1` opens as `archive-entry:/Standard/Module1.bas?container=…`.
+The tab and `get_project_info` use the same URI. Modules open as project members, so a stored class needs
+no `VERSION 1.0 CLASS` header, and only servers establishing VB6 claim them. Routing still reads the extension;
+the bundled server receives `languageId` `vb6`, while other claimants receive their own configured identifier.
+Available source gets the same read-only diagnostic session as an archive preview: `didOpen`, no `didChange`,
+and `didClose` on tab/container close or reload. Locked projects expose no modules and open no sessions.
+Copying entries to files for servers that need them remains outside this change. See [Office containers](office-containers.md).
 
 **A document of the project with no file yet is named `untitled:<Project>/<Name>.<ext>`** — the
 project's name, the document's own name, and the extension its kind will be saved with: `.frm`, `.bas`, `.cls`,

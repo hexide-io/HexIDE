@@ -125,16 +125,23 @@ p-code beside it when its version matches, so what runs can differ. UserForms op
 carry an additional notice that the form designer isn't available here yet (it awaits #1114); the browser does not retain borrowed
 MS-OFORMS storages after disposal.
 
-Office tabs have **no language-server session** in this slice. The bundled server reads VBA7's syntax
-(`PtrSafe`, and since #4365 `DefLngLng`, `DefLngPtr` and `^`), so what's missing is routing: which
-`languageId` and URI a module with no file is named by. That's #4453. F5, Run and Make cannot implicitly
-fall through to a loaded startup project while an Office node or tab is active; running Office
-code remains #1121. Synchronize Folder, Show Hidden, twinBASIC metadata and inactive-line shading
-remain twinBASIC capabilities. Automation `get_project_info` lists these containers and exact
-module paths, and `open_file` opens those paths read-only without a language-server session.
+Office source tabs get the same read-only language-server session as archive previews (#4453).
+The wire name appends VBA's export extension: `.bas` for standard modules, `.cls` for class and document
+modules, `.frm` for UserForms. `/Standard/Module1` remains the browser and `open_file` path; its wire URI is
+`archive-entry:/Standard/Module1.bas?container=…`, shared by the tab and `get_project_info`'s `entryUris`.
+Modules open as project members, so stored classes need no `VERSION 1.0 CLASS` header and only servers
+establishing VB6 receive them. Extension claims route them; the bundled server receives `languageId` `vb6`.
+Sessions send `didOpen` and `didClose`, with no changes, and close on tab/container close or reload.
+Locked projects have no modules and no sessions. Diagnostics appear as markers; no source is written back.
+F5, Run and Make cannot implicitly fall through to a loaded startup project while an Office node or tab
+is active; running Office code remains #1121. Synchronize Folder, Show Hidden, twinBASIC metadata and
+inactive-line shading remain twinBASIC capabilities.
 
 `OfficeProjectBrowsingTests` use the [measured Office corpus](../corpus/office/m365-x64/README.md).
-Headless `ArchiveProjectBrowsingTests` exercise the tree, text notice and composition's run refusal.
+Headless `ArchiveProjectBrowsingTests` exercise the tree, text notice, diagnostic markers, session lifetime
+and composition's run refusal. `OfficeModuleSessionTests` check real bundled-server frames and a VBA7
+`PtrSafe` declaration; `OfficeModuleCorpusTests` check every module in the eight #4453 corpus files publishes
+no diagnostics.
 Verified on the running IDE at review (#4331's pull request): each host's folders, the locked root,
 source and UserForm notices, the read-only editor, disabled run and build commands, and no
 twinBASIC-only controls.
