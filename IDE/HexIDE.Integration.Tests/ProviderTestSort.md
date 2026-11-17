@@ -150,6 +150,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/RawPropertyRowsTests.cs` | split |
 | `Views/ReadOnlyBannerIntegrationTests.cs` | split |
 | `Views/ReadOnlyGreyingTests.cs` | split |
+| `Views/RefusedPropertyRowsTests.cs` | split |
 | `Views/ResetPromptTests.cs` | split |
 | `Views/RootDoubleClickTests.cs` | split |
 | `Views/RunFaultTests.cs` | split |

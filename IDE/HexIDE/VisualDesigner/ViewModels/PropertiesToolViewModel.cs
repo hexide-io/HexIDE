@@ -454,7 +454,7 @@ public partial class PropertiesToolViewModel : Tool
         catch (Exception e)
         {
             Log.Error(e, "Invalid property value");
-            windowManager.MessageBox("Invalid property value", icon: MessageBoxIcon.Error).ListenErrors();
+            windowManager.MessageBox(localization.GetString("Str.Tool.Properties.InvalidValue"), icon: MessageBoxIcon.Error).ListenErrors();
         }
 
         // A refused value goes back to what the object holds. The row kept showing it, so after the refusal the
@@ -462,7 +462,7 @@ public partial class PropertiesToolViewModel : Tool
         // had just been refused (#625). POSTED, and measured to need it: this runs inside the row's binding
         // writing to its source, and a change raised during that write is not carried back to the text box.
         if (!committed && Properties.OfType<PropertyViewModel>().FirstOrDefault(p => p.PropertyClass == propertyClass) is { } row)
-            Avalonia.Threading.Dispatcher.UIThread.Post(() => row.UpdateValueNoRaise(before));
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => row.UpdateValueNoRaise(Displayed(instance, propertyClass)));
 
         if (committed && !Equals(before, after))
             currentDocument.PushSetPropertyCommand(instance, propertyClass, before, after);
