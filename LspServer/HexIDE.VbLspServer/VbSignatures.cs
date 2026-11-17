@@ -248,6 +248,7 @@ internal static class VbSignatures
             ["Int"]  = [new SignatureEntry("Int(Number) As Integer", ["Number"], "Returns the integer portion of a number.")],
             ["Fix"]  = [new SignatureEntry("Fix(Number) As Integer", ["Number"], "Returns the integer portion of a number (truncates toward zero).")],
             ["Round"] = [new SignatureEntry("Round(Number, [NumDigitsAfterDecimal As Long]) As Variant", ["Number", "NumDigitsAfterDecimal"], "Rounds a number to a number of decimal places, a half to the even digit.")],
+            ["DDB"]  = [new SignatureEntry("DDB(Cost, Salvage, Life, Period, [Factor]) As Double", ["Cost", "Salvage", "Life", "Period", "Factor"], "Returns double-declining-balance depreciation for one period.")],
             ["SLN"]  = [new SignatureEntry("SLN(Cost, Salvage, Life) As Double", ["Cost", "Salvage", "Life"], "Returns straight-line depreciation for one period.")],
             ["SYD"]  = [new SignatureEntry("SYD(Cost, Salvage, Life, Period) As Double", ["Cost", "Salvage", "Life", "Period"], "Returns sum-of-years depreciation for the given period.")],
             ["Sqr"]  = [new SignatureEntry("Sqr(Number) As Double",  ["Number"], "Returns the square root of a number.")],

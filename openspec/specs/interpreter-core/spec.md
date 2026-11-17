@@ -437,7 +437,18 @@ may not be named", and named IMEStatus "Wrong number of arguments or invalid pro
 The interpreter SHALL implement positional `SLN` and `SYD` calls with Double results matching
 all measured rows in [#2524](https://github.com/hexide-io/HexIDE/issues/2524) bit for bit.
 It SHALL accept their measured named parameters (#4145) and refuse unmeasured positional argument counts as not implemented.
-`DDB` remains unimplemented until every measured row can be reproduced.
+`DDB` SHALL use #2524's approved closest model: exact rate, a Double spill at
+`1 - rate`, financial-number power and exact book value and amount, returning the nearest Double
+to the smaller of amount and book value minus salvage. It SHALL default Factor to 2, raise error 5
+for zero life or period outside 1 to life, and refuse unmeasured argument counts and power domains.
+It SHALL take the named arguments `Cost`, `Salvage`, `Life`, `Period` and `Factor`, as measured on SP6.
+
+#### Scenario: Approved DDB rounding divergence
+- **WHEN** a program evaluates `DDB(2400, 300, 10, 10)`
+- **THEN** it returns Double with bits `40361F5F40D83791`
+- **AND** Debug.Print displays `22.1225472000002`
+- **AND** this is the documented exception approved in #2524 issuecomment-6954532512 to the [measured](../../../docs/vb6-fidelity-oracle/ddb-sln-and-syd.md) bits `40361F5F40D83797`
+
 
 #### Scenario: Straight-line depreciation
 - **WHEN** a program evaluates `SLN(30000, 7500, 10)`
