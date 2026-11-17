@@ -66,13 +66,31 @@ console. Each opened with no message. Then:
 
 Apart from that line and the added `Dim zz`, both files were byte-identical to what went in.
 
+**The form's own line, and a control from an OCX.** Three more projects, built and run the same way, then opened, edited
+and saved in the IDE as above.
+- **The form's own line:** `Begin vb.form Form1`, with `Form_Load` writing `TypeName(Me)`, the Caption and `Err.Number`.
+- **An OCX control in lower case:** MSCOMCTL's ProgressBar, as `Begin mscomctllib.progressbar ProgressBar1`, with the
+  form's usual `Object = "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0"; "MSCOMCTL.OCX"` line and the project's
+  matching `Object=` line. `Form_Load` writes `TypeName(ProgressBar1)`, its Max and `Err.Number`.
+- **The same ProgressBar spelled `MSComctlLib.ProgressBar`,** as a control, built and run only.
+
+| `Begin` line | `/make` | The program wrote | After the IDE's save |
+|---|---|---|---|
+| `Begin vb.form Form1` | succeeded | `Form1\|Form1\|0` | **`Begin VB.Form Form1`** |
+| `Begin mscomctllib.progressbar ProgressBar1` | succeeded | `ProgressBar\|100\|0` | **`Begin MSComctlLib.ProgressBar ProgressBar1`** |
+| `Begin MSComctlLib.ProgressBar ProgressBar1` (control) | succeeded | `ProgressBar\|100\|0` | not saved |
+
+Both opened in the IDE with no message. Apart from the `Begin` line and `Dim zz`, both saves were byte-identical to what
+went in.
+
 **What it shows:**
-- **VB6 finds a control's class without regard to case,** in the library part and the class part alike.
-- **Its save writes the class's own spelling,** `VB.Label`.
+- **VB6 finds a control's class without regard to case,** in the library part and the class part alike. That holds
+  for VB's own controls, for an OCX's, and for the form's own `Begin` line.
+- **Its save writes the class's own spelling:** `VB.Label`, `VB.Form`, `MSComctlLib.ProgressBar`.
 
 **Not measured:**
-- **A control from an OCX,** such as `Begin mscomctllib.progressbar`.
-- **The form's own `Begin` line,** as in `Begin vb.form Form1`.
+- **A UserControl's type name,** in a project that holds the UserControl.
+- **The `Object=` lines themselves** in another case.
 
 **A trap in the probe, recorded so the next one avoids it.** The console was driven through Hyper-V's synthetic
 keyboard, which sends virtual keys. The guest's layout is English (UK), so the US virtual key for `\` typed `#`, and a
