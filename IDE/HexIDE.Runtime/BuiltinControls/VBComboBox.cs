@@ -53,6 +53,7 @@ public class VBComboBox : ComboBox
 
     static VBComboBox()
     {
+        ControlKeyEvents.Attach<VBComboBox>();
         // One GotFocus as the combo is entered, whether the combo or its text box takes the focus (measured, #1101).
         AttachedEvents.AttachFocusEvents<VBComboBox>();
     }

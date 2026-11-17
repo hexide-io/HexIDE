@@ -383,3 +383,19 @@ translated keys in every shipped neutral pack.
 #### Scenario: Pseudo coverage
 - **WHEN** Pseudo is active
 - **THEN** AI Chat's pane title and Tools label are bracketed like other IDE chrome keys
+
+### Requirement: Startup refusals follow the operating system language before settings load
+Before settings can be read, descriptor refusals and invalid command-line flag diagnostics read by a
+person SHALL use shipped language-pack keys resolved through `system`. Descriptor exceptions SHALL
+retain English `Message` text for programs and logs and carry the localization key and arguments
+separately. Field names, paths, product names, flag names, sizes and limits SHALL remain arguments.
+
+#### Scenario: Broken descriptor on a French operating system
+- **WHEN** the OS UI language is French and the installation descriptor has an invalid field
+- **THEN** startup refuses with a French explanation and caption before opening user state
+- **AND** the descriptor path and field name remain unchanged
+- **AND** the exception's `Message` remains English
+
+#### Scenario: Invalid startup flag on a French operating system
+- **WHEN** the OS UI language is French and a startup flag is refused
+- **THEN** the diagnostic is French and retains the flag spelling, product name and supplied invalid value

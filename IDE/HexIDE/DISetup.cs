@@ -84,7 +84,8 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Runtime.Debugging.IDebugController>(out var debugger);
                 ctx.Inject<IWindowManager>(out var windows);
                 ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
-                return new WatchesToolViewModel(localization, watches, debugger, windows, external);
+                ctx.Inject<WatchDialogContextSource>(out var contexts);
+                return new WatchesToolViewModel(localization, watches, debugger, windows, external) { DialogContextSource = contexts };
             })
             .Bind().As(Singleton).To(ctx =>
             {
@@ -319,15 +320,27 @@ public partial class DISetup
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
                 ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
                 var logger = loggerFactory.CreateLogger<LanguageServerConfigLoader>();
-                return new LanguageServerEditorStore(LanguageServerConfigLoader.DefaultFilePath(),
+                ctx.Inject<ILspClient>(out var router);
+                var store = new LanguageServerEditorStore(LanguageServerConfigLoader.DefaultFilePath(),
                     LanguageServerDefaults.For(locator, logger), logger, new LanguageServerCommandStore(), providers);
+                store.Reloaded += async entries =>
+                {
+                    try
+                    {
+                        foreach (var entry in entries)
+                            if (entry.Id is { } id)
+                                await ((LspClientRegistry)router).UpdateServerSettingsAsync(id, entry.Settings);
+                    }
+                    catch (Exception ex) { logger.LogWarning(ex, "Could not update language server settings."); }
+                };
+                return store;
             })
             // The configuration, read exactly once for the session.
             //
             // It used to be read inside the router's own factory, which was fine until the capture needed
             // its limits: the capture is constructed first, so it would have had to read the file a second
             // time and the two reads could disagree about what the user wrote. One binding, two consumers.
-            // Changes still take effect on restart, so nothing here resolves it later.
+            // Connection changes still take effect on restart; the entry store reloads server settings separately.
             .Bind<LanguageServerConfigResult>().As(Singleton).To(ctx =>
             {
                 ctx.Inject<ILspServerLocator>(out var locator);

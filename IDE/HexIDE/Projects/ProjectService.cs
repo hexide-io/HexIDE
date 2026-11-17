@@ -411,9 +411,8 @@ public partial class ProjectService : IProjectService
 
     public async Task OpenProject(string projectPath)
     {
-        if (ArchiveProjectService.Reservation.Covers(projectPath))
+        if (archives is not null && ArchiveProjectService.Reservation.Covers(projectPath))
         {
-            if (archives == null) throw new NotSupportedException("Archive project service is unavailable.");
             try
             {
                 await archives.Open(projectPath);
@@ -444,7 +443,7 @@ public partial class ProjectService : IProjectService
         if (contributed.Find(projectPath) is not { } type)
         {
             await windowManager.MessageBox(
-                string.Format(localization.GetString("Str.ContributedProject.NoReader"), Path.GetFileName(projectPath)),
+                UnreadProjectMessage(projectPath),
                 icon: MessageBoxIcon.Information);
             return;
         }
@@ -452,6 +451,29 @@ public partial class ProjectService : IProjectService
             await LoadProjectFromDisk(projectPath, type, own);
         else
             await OpenContributed(type, projectPath);
+    }
+
+    private string UnreadProjectMessage(string path)
+    {
+        var types = contributed.Types;
+        var missing = contributed.Reserved.FirstOrDefault(reservation => reservation.Covers(path)
+            && (reservation.Owner == ArchiveProjectService.Reservation.Owner
+                ? archives is null
+                : !types.Any(type => type.AddinId == reservation.Owner)));
+        if (missing is null && Vb6ProjectType.Members.Covers(path)
+            && !types.Any(type => type.AddinId == Vb6ProjectType.Id))
+            missing = Vb6ProjectType.Members;
+        var file = Path.GetFileName(path);
+        if (missing is not null)
+            return string.Format(localization.GetString("Str.ContributedProject.ProviderNotLoaded"), file, missing.Title);
+
+        var patterns = types.SelectMany(type => type.Type.FileNames.Concat(type.Type.GroupFileNames));
+        if (archives is not null)
+            patterns = patterns.Concat(ArchiveProjectService.Reservation.Patterns);
+        var names = string.Join(", ", patterns.Select(pattern => pattern.StartsWith("*.", StringComparison.Ordinal) ? pattern[1..] : pattern));
+        return names.Length == 0
+            ? string.Format(localization.GetString("Str.ContributedProject.NoTypeLoaded"), file)
+            : string.Format(localization.GetString("Str.ContributedProject.NoLoadedReader"), file, names);
     }
 
     // A project file an add-in reads: its content becomes a ProjectDefinition, loaded as a .vbp's is from there on, with
@@ -1069,6 +1091,10 @@ public partial class ProjectService : IProjectService
         // keeps a reload during a later picker from slipping a file past it (see the remarks).
         destinations.RemoveAll(destination => RefusesUnfaithful(destination.Document));
 
+        foreach (var destination in destinations)
+            if (destination.Document is FormDefinition form)
+                RefuseLoadedFormOverwrite(form, destination.Path);
+
         EnsureEveryMemberListed(destinations);
         EnsureNoMemberOverItsProjectFile(destinations);
         EnsureEncodable(destinations);
@@ -1124,6 +1150,17 @@ public partial class ProjectService : IProjectService
                 // docs/serialization-outcomes.md says is never acceptable. (#143)
                 if (RefusesUnfaithful(form))
                     return null;
+                if (form.LoadedWithErrors && form.AbsolutePath is not null)
+                {
+                    if (!userSave && !saveAs)
+                        throw LoadedFormRefusal(form);
+                    var directory = IsScratchFile(form.Owner, form.AbsolutePath)
+                        ? PickerDirectory(form.Owner, previousDirectory) : null;
+                    string chosen;
+                    do { chosen = await ChooseFormPath(form, directory); }
+                    while (WouldOverwriteLoadedForm(form, chosen));
+                    return new Destination(form, chosen, Chosen: true);
+                }
                 return form.AbsolutePath is { } formPath && !saveAs && (!userSave || !IsScratchFile(form.Owner, formPath))
                     ? new Destination(form, formPath)
                     : new Destination(form, await ChooseFormPath(form, form.AbsolutePath is null || IsScratchFile(form.Owner, form.AbsolutePath) ? PickerDirectory(form.Owner, previousDirectory) : null), Chosen: true);
@@ -2474,6 +2511,18 @@ public partial class ProjectService : IProjectService
         }
     }
 
+    private static InvalidOperationException LoadedFormRefusal(FormDefinition form) =>
+        new($"Refusing to overwrite {form.Name}: it loaded with errors; save it to a new file.");
+
+    private static void RefuseLoadedFormOverwrite(FormDefinition form, string path)
+    {
+        if (WouldOverwriteLoadedForm(form, path))
+            throw LoadedFormRefusal(form);
+    }
+
+    private static bool WouldOverwriteLoadedForm(FormDefinition form, string path) =>
+        form.LoadedWithErrors && IsItsOwnFile(form.AbsolutePath, path);
+
     /// <summary>
     /// Write a form's two halves — the designer text and its companion binary — or write neither.
     ///
@@ -2492,6 +2541,8 @@ public partial class ProjectService : IProjectService
     // path that depends on it cannot be driven from a test (it needs the published standalone runtime).
     internal bool SerializeFormToFile(FormDefinition form, string formPath, bool adoptHeader = true, bool ownCommand = false, SaveRewriteReport? rewrites = null)
     {
+        RefuseLoadedFormOverwrite(form, formPath);
+
         // ONE ruler, asked ONCE, before either half is written. (#148)
         //
         // The text write used to be unconditional while the companion write carried a refusal of its own,
@@ -2544,6 +2595,8 @@ public partial class ProjectService : IProjectService
         WriteCompanionBinary(formPath, frxContent, form);
         AtomicWriteText(formPath, frmText, encodedText);
         form.AbsolutePath = formPath;
+        if (adoptHeader)
+            form.LoadedWithErrors = false;
 
         // The second refresh trigger (#273 task 3.3a). The header the buffer shows becomes the header this
         // save wrote, which is NOT always the one it was opened with: the serializer is a reproduction

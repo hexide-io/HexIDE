@@ -23,7 +23,10 @@ public partial class ProjectService
             return false;
         form.UpdateCode(fresh.Code);
         form.UpdateComponents(fresh.Components);
+        var loadedWithErrors = form.LoadedWithErrors;
         form.AdoptFidelityState(fresh);
+        // A backup renders recovered zeroes, but does not replace the original on disk (#4179).
+        form.LoadedWithErrors |= loadedWithErrors;
         return true;
     }
 

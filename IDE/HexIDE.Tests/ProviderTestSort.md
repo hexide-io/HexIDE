@@ -30,7 +30,9 @@ A test that reaches the provider only at run time, through the application's com
 | `Corpus/ProjectSmokeServiceTests.cs` | split |
 | `DebugAdapter/DebuggerCompositionTests.cs` | split |
 | `DebugAdapter/RunEngineSeamTests.cs` | split |
+| `DebugAdapter/RunFormIconTests.cs` | split |
 | `DebugAdapter/RunWithTests.cs` | split |
+| `DebugAdapter/VbaBitnessEngineTests.cs` | split |
 | `Debugging/BreakpointServiceTests.cs` | split |
 | `IDE/CodePrefixEquivalenceTests.cs` | split |
 | `IDE/DirtyDetectorTests.cs` | split |
@@ -73,6 +75,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/DesignerHalfSaveTests.cs` | split |
 | `Projects/DocumentSavedAnnouncementTests.cs` | split |
 | `Projects/MemberWithoutAFileTests.cs` | split |
+| `Projects/NegativeSizeSaveTests.cs` | split |
 | `Projects/PackageEncodingTests.cs` | split |
 | `Projects/ProjectFileFormatSeamTests.cs` | split |
 | `Projects/ProjectFormatPerProjectTests.cs` | split |
@@ -98,10 +101,12 @@ A test that reaches the provider only at run time, through the application's com
 | `Serialization/MemberAttributeQualifiersTests.cs` | provider |
 | `Serialization/MemberDeclarationsTests.cs` | provider |
 | `Serialization/MemberRunsTests.cs` | provider |
+| `Serialization/MenuPropertyPersistenceTests.cs` | split |
 | `Serialization/ReadOnlyRegionsTests.cs` | provider |
 | `Serialization/SafeImageDecoderTests.cs` | provider |
 | `Serialization/ToolbarSerializationTests.cs` | provider |
 | `Serialization/VbNameRetargetTests.cs` | provider |
+| `Serialization/VbaBitnessPersistenceTests.cs` | provider |
 | `Sidecar/SidecarMigrationTests.cs` | split |
 | `Sidecar/UserSidecarBreakpointTests.cs` | split |
 | `Sidecar/UserSidecarSaveTests.cs` | split |
@@ -127,6 +132,8 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/MainViewViewModelTests.cs` | split |
 | `ViewModels/MarkOnReadOnlyLineTests.cs` | split |
 | `ViewModels/MemberRunFollowsItsLineTests.cs` | split |
+| `ViewModels/MenuEditorInteractionTests.cs` | split |
+| `ViewModels/MenuEditorViewModelTests.cs` | split |
 | `ViewModels/ModuleRenameTests.cs` | split |
 | `ViewModels/ObjectBrowserComponentLibraryTests.cs` | split |
 | `ViewModels/ObjectBrowserExtensionTests.cs` | split |

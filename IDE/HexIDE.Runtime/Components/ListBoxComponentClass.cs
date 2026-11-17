@@ -26,7 +26,7 @@ public class ListBoxComponentClass : ComponentBaseClass
         AppearanceProperty,
         TabStopProperty,
         TabIndexProperty,
-        ToolTipTextProperty], [ClickEvent, ScrollEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+        ToolTipTextProperty], [ClickEvent, ScrollEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent, KeyDownEvent, KeyPressEvent, KeyUpEvent])
     {
         Members = CreateMembers();
     }

@@ -25,6 +25,7 @@ public class ObjectBrowserComponentLibraryTests
         var loc = Substitute.For<ILocalizationService>();
         loc.GetString("Str.MemberOrigin.HexIde").Returns("HexIDE extension");
         loc.GetString("Str.Tool.ObjectBrowser.MembersUnavailable").Returns("Localized unavailable members");
+        loc.GetString("Str.Tool.ObjectBrowser.TypeMetadataUnavailable").Returns("Localized unavailable type metadata");
         return (new ObjectBrowserToolViewModel(projects, Substitute.For<ILspClient>(),
             Substitute.For<IEditorService>(), new ComponentRegistry(), types,
             FocusedProject(project), loc, Substitute.For<ILanguageConnectionRegistry>()), projects);
@@ -94,7 +95,7 @@ public class ObjectBrowserComponentLibraryTests
         var (browser, _) = Create(project);
         var library = browser.Libraries.Should().ContainSingle(l => l.Name == "VendorGrid").Which;
         browser.SelectedLibrary = library;
-        library.Classes.Should().ContainSingle().Which.Name.Should().Be("(Type metadata unavailable)");
+        library.Classes.Should().ContainSingle().Which.Name.Should().Be("Localized unavailable type metadata");
     }
 
     [Fact]
@@ -277,7 +278,7 @@ public class ObjectBrowserComponentLibraryTests
     [Fact]
     public void Every_declared_control_has_a_component_model_or_an_explicit_gap()
     {
-        string[] notYetModelled = ["Slider", "ImageCombo", "Animation"];
+        string[] notYetModelled = ["ImageCombo", "Animation"];
         foreach (var library in ControlLibraries.All)
         foreach (var name in library.Controls.Keys)
         {
@@ -314,6 +315,17 @@ public class ObjectBrowserComponentLibraryTests
         line.Name.Should().Be("Localized unavailable members");
         line.Kind.Should().Be(OBMemberKind.Status);
         line.Signature.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Reference_without_metadata_shows_a_localized_class_placeholder()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddReference(new(Guid.NewGuid().ToString("B"), "1.0", 0, "NOTREAL.OCX", "NOTREAL"));
+        var (browser, _) = Create(project);
+        var library = browser.Libraries.Single(l => l.Name == "NOTREAL");
+        browser.SelectedLibrary = library;
+        library.Classes.Should().ContainSingle().Which.Name.Should().Be("Localized unavailable type metadata");
     }
 
     [Fact]

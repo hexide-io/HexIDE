@@ -1703,10 +1703,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         });
     }
 
-    // Measured on vb6.exe SP6, native and p-code agreeing: docs/vb6-fidelity-oracle/a-negative-or-zero-control-size.md
-    // (PR #4069). The reply names the issue rather than linking the page, so it never points a caller at a missing file.
+    // Assignment refusal: oracle PR #4069. Saved-size recovery: VB6 IDE measurements in #4179 / PR #4350.
+    // The reply names the issue rather than linking a page that may not be installed.
     private const string NegativeDesignerSizeReason = "Invalid property value: Width and Height can't be negative. "
-        + "VB6 refuses to load a .frm holding a negative control size (measured, #589).";
+        + "VB6 reports a load error and reads a negative saved control size as 0 (measured, #4179).";
 
     private static string NegativeDesignerSizeRefusal(ComponentInstance control) =>
         NegativeDesignerSizeReason + $" Nothing was changed. {PropertyText.AddressedName(control)} remains at "
@@ -2220,7 +2220,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "break_program")]
-    [Description("Pauses the running project at the next executed statement (VB6 Break / Ctrl+Break). External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept. Error if not running or already paused. The reply's 'note' gives where it paused (the module and the line, counted from the top of the file as the code window numbers it) or, when the program is waiting for an event, says it will pause at the next statement that runs.")]
+    [Description("Pauses the running project immediately while idle, otherwise at the next executed statement (VB6 Break / Ctrl+Break). External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept. Error if not running or already paused. The reply's 'note' gives where it paused (the module and the line, counted from the top of the file as the code window numbers it) or says there is no current statement when paused between events.")]
     public async Task<MutateResult> BreakProgramAsync(CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -2421,7 +2421,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         }
     }
 
-    private string PausedAt(StoppedInfo at) => $"Paused at {ctx.ProjectRunnerService.RunningProject?.Name}/{at.Module} line {at.Line} ({at.Reason})." + ConditionFailureNote(at);
+    private string PausedAt(StoppedInfo at) => at.HasStatement
+        ? $"Paused at {ctx.ProjectRunnerService.RunningProject?.Name}/{at.Module} line {at.Line} ({at.Reason})." + ConditionFailureNote(at)
+        : "Paused with no current statement (Pause).";
 
     private static string ConditionFailureNote(StoppedInfo? at) => at is { ConditionError: { } error } stop
         ? $" Breakpoint condition '{stop.ConditionExpression}' on line {stop.Line} couldn't be evaluated: {error}." : "";
@@ -2462,7 +2464,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "step_into")]
-    [Description("Step Into (F8): from idle, starts the project and breaks at the first executed statement; while paused, executes the next statement and breaks (descending into any called Sub/Function); while running, breaks at the next statement. External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended. A failed breakpoint condition still pauses; note names the condition and evaluation error, excluded from printed.")]
+    [Description("Step Into (F8): from design mode, starts the project and breaks at the first executed statement; while paused, executes the next statement and breaks (descending into any called Sub/Function); while running, breaks at the next statement. From idle break mode, or after stepping off an outermost handler, it waits for the next event and stops at its declaration before any statement. External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended. A failed breakpoint condition still pauses; note names the condition and evaluation error, excluded from printed.")]
     public Task<MutateResult> StepIntoAsync(CancellationToken ct) =>
         StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepIntoProject, () => ctx.ProjectRunnerService.StepIntoProject(), ct);
 
@@ -2593,7 +2595,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [DescribesEnum(typeof(DebugState))]
     [DescribesEnum(typeof(StopReason))]
     [DescribesEnum(typeof(HexIDE.Dap.DapSessionState), "Created", "Stopped")]
-    [Description("Returns the current or most recent session's debug state. Interpreter states: Running/Paused/Stopped. External states: Starting/Running/Paused (adapter Stopped)/Ended/Faulted; running is true only for Starting, Running or Paused, even during adapter cleanup. When paused, module and 1-based line locate the break, counted from the file top, header included, as the code window numbers it. Interpreter module is a module name and project names its running project. External module is the adapter's source file path, project is absent; set_next_statement takes a module name, not that path. stopReason is Breakpoint (breakpoint or Run To Cursor), Watch (a break watch), Step (step completed), StopStatement (VB6 Stop), Assertion (failed Debug.Assert), Pause (requested break), or RuntimeError (unhandled error, Debug chosen). External reasons map breakpoint/function breakpoint to Breakpoint, data breakpoint to Watch, step/goto to Step, pause to Pause, exception to RuntimeError; unknown reasons give null. adapterStopReason retains the external adapter's raw reason. Both reasons are null unless Paused. 'note' says when no run engine runs the startup project. A failed breakpoint condition still pauses; note names the condition and evaluation error, excluded from printed.")]
+    [Description("Returns the current or most recent session's debug state. Interpreter states: Running/Paused/Stopped. External states: Starting/Running/Paused (adapter Stopped)/Ended/Faulted; running is true only for Starting, Running or Paused, even during adapter cleanup. When paused, module and 1-based line locate the break, counted from the file top, header included, as the code window numbers it. Interpreter module is a module name and project names its running project. External module is the adapter's source file path, project is absent; set_next_statement takes a module name, not that path. stopReason is Breakpoint (breakpoint or Run To Cursor), Watch (a break watch), Step (step completed), StopStatement (VB6 Stop), Assertion (failed Debug.Assert), Pause (requested break), or RuntimeError (unhandled error, Debug chosen). External reasons map breakpoint/function breakpoint to Breakpoint, data breakpoint to Watch, step/goto to Step, pause to Pause, exception to RuntimeError; unknown reasons give null. adapterStopReason retains the external adapter's raw reason. Both reasons are null unless Paused. Idle Break has null module and line; note says there is no current statement. 'note' says when no run engine runs the startup project. A failed breakpoint condition still pauses; note names the condition and evaluation error, excluded from printed.")]
     public async Task<DebugStateResult> GetDebugStateAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -2630,12 +2632,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 ctx.ProjectRunnerService.IsRunning,
                 state.ToString(),
                 stop?.Reason.ToString(),
-                stop?.Module,
-                stop?.Line,
+                stop is { HasStatement: true } location ? location.Module : null,
+                stop is { HasStatement: true } position ? position.Line : null,
                 // The module is a bare name, and a group may hold two of it: the running project says which.
                 stop is null ? null : ctx.ProjectRunnerService.RunningProject?.Name,
                 // The note is written to follow another sentence; standing alone, it starts with no space.
-                Note: stop is { ConditionError: not null }
+                Note: stop is { HasStatement: false } ? "Paused with no current statement." + ctx.ProjectRunnerService.CodeEditNote()
+                    : stop is { ConditionError: not null }
                     ? ConditionFailureNote(stop).TrimStart() + ctx.ProjectRunnerService.CodeEditNote()
                     : ctx.ProjectRunnerService.CodeEditNote()?.TrimStart() ?? NoEngineNote());
         });

@@ -970,7 +970,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var pp = new PrePass(env, ExecutionContext.State, allowIndexedLet: kind is InterpreterModuleKind.Standard or InterpreterModuleKind.Class,
             allowIndexedSet: kind == InterpreterModuleKind.Class)
         {
-            ObjectModule = kind != InterpreterModuleKind.Standard
+            ObjectModule = kind != InterpreterModuleKind.Standard,
+            VbaBitness = compilationConstants.VbaBitness
         };
         pp.Visit(Parse(ConditionalCompiler.Preprocess(moduleCode, compilationConstants, name).Text, name));
         return new ModuleInfo(name, kind, pp, env);
@@ -1753,7 +1754,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 {
                     await executor.HoistDeclaredLocals(proc);
                     if (proc.Declaration is VB6Parser.SubStmtContext declaration)
-                        await executor.ProcedureBoundary(declaration.Start.Line, breakpointOnly: true);
+                        await executor.ProcedureBoundary(declaration.Start.Line, breakpointOnly: true, entry: true);
                     if (proc.Body is { } procedureBody)
                         await executor.Execute(procedureBody);
                     // A handler the last statement raised finishes inside the call, as it does in VB6, before the caller

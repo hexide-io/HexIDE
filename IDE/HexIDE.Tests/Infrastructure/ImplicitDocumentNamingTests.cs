@@ -387,6 +387,16 @@ public class ImplicitDocumentNamingTests
     }
 
     [Fact]
+    public void An_idle_break_reply_says_there_is_no_current_statement()
+    {
+        // #4261's measured idle Break (oracle PR #4270).
+        using var f = new Fixture();
+        var method = typeof(HexIdeTools).GetMethod("PausedAt", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)!;
+        method.Invoke(f.Tools, [new StoppedInfo(StopReason.Pause, "", 0)]).Should()
+            .Be("Paused with no current statement (Pause).");
+    }
+
+    [Fact]
     public void A_paused_location_names_the_running_project()
     {
         using var f = new Fixture();

@@ -35,6 +35,20 @@ public sealed class LanguageServerEditorTests : IDisposable
     private static void Set(LanguageServerEditorViewModel vm, string name, string value) => vm.Fields.Single(f => f.Name == name).Text = value;
 
     [Fact]
+    public void SettingsFieldSavesRawJsonAndReloadsIt()
+    {
+        File.WriteAllText(Config, "{\"servers\":[" + Entry + "]}");
+        var form = Form("probe");
+        Set(form, "settings", """{"rdcore":{"SdkInlayHintOptions":{"BlockEnds":false}}}""");
+        form.CanSave.Should().BeTrue();
+        form.SaveCommand.Execute(null);
+        var entry = Store().Load().Entries.Single(e => e.Id == "probe");
+        entry.Settings!.Value.GetProperty("rdcore").GetProperty("SdkInlayHintOptions")
+            .GetProperty("BlockEnds").GetBoolean().Should().BeFalse();
+        Form("probe").Fields.Single(f => f.Name == "settings").IsJson.Should().BeTrue();
+    }
+
+    [Fact]
     public void FieldJsonLocationsCountLinesAndCharactersFromOne()
     {
         var form = Form("bundled", true);
@@ -150,6 +164,7 @@ public sealed class LanguageServerEditorTests : IDisposable
     [InlineData("arguments")]
     [InlineData("environment")]
     [InlineData("initializationOptions")]
+    [InlineData("settings")]
     [InlineData("workspaceArtifact.settings")]
     public void InvalidJsonNamesTheFieldLabel(string name)
     {
@@ -276,7 +291,7 @@ public sealed class LanguageServerEditorTests : IDisposable
     {
         var names = Form().Fields.Select(f => f.Name).ToArray();
         names.Should().Equal("id", "extensions", "languageId", "transport", "command", "arguments",
-            "environment", "workingDirectory", "pipeName", "pipeRole", "endpoint", "tcpRole", "websocketRole", "displayName", "initializationOptions",
+            "environment", "workingDirectory", "pipeName", "pipeRole", "endpoint", "tcpRole", "websocketRole", "displayName", "initializationOptions", "settings",
             "trace", "priority", "enabled", "capture.envelopeEntries", "capture.prologueEntries", "capture.payloadBytesPerConnection",
             "capture.frameBytes", "workspaceArtifact.path", "workspaceArtifact.provider", "workspaceArtifact.settings",
             "workspaceArtifact.restartOnChange", "projectImport.command", "projectImport.arguments");
