@@ -25,6 +25,12 @@ namespace HexIDE.IDE;
 /// </remarks>
 public interface IProjectFileFormat : IFormFileFormat
 {
+    /// <summary>The file extension of a form, without its dot.</summary>
+    string FormExtension { get; }
+
+    /// <summary>The file extension of a module of this kind, without its dot.</summary>
+    string MemberExtension(ModuleKind kind);
+
     /// <summary>A module's file, as it would be written under this name.</summary>
     RenderedFile RenderModule(ModuleDefinition module, string fileName);
 

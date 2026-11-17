@@ -137,6 +137,14 @@ consumer continues reading updates; a `terminated` event during that wait leaves
 checks this order with a held response and observes stdin EOF only after the reply. Cancellation,
 timeout and transport failure still permit bounded cleanup without a response (#3894).
 
+For an adapter process, the reply doesn't end what it writes. debugpy answers `disconnect` and then sends a
+`debugpySockets` event. So `DisconnectAsync` closes stdin after the reply and goes on reading the adapter's stdout
+until the adapter closes it, for at most `ShutdownTimeout`, before disposal closes the rest. It used to close stdout
+on the reply too, and when that won the race, debugpy's late write failed with a broken pipe and it exited 1 (#3894).
+`DapProcessTests.Disconnect_reads_what_the_adapter_writes_after_its_reply` checks that an event written 300 ms after
+the reply still reaches the capture. A session over a bare connection closes on the reply as before, since its
+stream may never end.
+
 Stopped snapshots carry a session-specific `DapStop`. Pass it to Threads/StackTrace/Scopes/VariablesAsync.
 The raw response retains thread/frame IDs (including frame zero), source paths/references, variable
 references and unknown fields. Reads reject a stop that expired before or during the request. Call
@@ -293,6 +301,13 @@ dotnet test IDE/HexIDE.Tests -- --filter-class "*DapConnectionTests"
 dotnet test IDE/HexIDE.Tests -- --filter-class "*DapProcessTests"
 ```
 
+Launch-file breakpoint entries accept `condition`, `hitCondition` and `logMessage` strings (#4143).
+Each is sent only with the corresponding adapter capability; unsupported fields are omitted with one
+localized notice per field per session, keeping the breakpoint. Launch conditions take precedence over
+gutter conditions. `ExternalDebugServiceTests` captures the requests to `HexIDE.Dap.TestAdapter` and checks
+initial/live wire fields, capability omissions, notice lifetime, Run To Cursor preservation and removal.
+See [external debug sessions](debug-launch.md) for the launch format.
+
 The opt-in [real adapter smoke](dap-adapter-smoke.md) launches a separately installed adapter and its real
 components. It is not downloaded or run by ordinary CI; the smoke executable is built with the IDE solution.
 
@@ -300,7 +315,7 @@ components. It is not downloaded or run by ordinary CI; the smoke executable is 
 
 - Rich launch settings UI and workspace preparation, including any VB6 project conversion.
 - Multi-thread inspection.
-- Command-specific MCP routing and conditional/hit-count breakpoints.
+- Command-specific MCP inspection and gutter editing for hit conditions and log messages.
 - External break-condition watches, dynamic capabilities and further capability-dependent UI.
 - Automated acquisition and cross-platform real-adapter acceptance in CI.
 - An add-in contributing a debug adapter, [#891](https://github.com/hexide-io/HexIDE/issues/891). An add-in can already

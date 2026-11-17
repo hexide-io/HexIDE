@@ -125,7 +125,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   and nested events stealing a step. Into/Over now carry only after the outermost chain returns; events raised within
   that chain retain the existing depth rule. #2320's clearing of break-mode chrome and release of frozen events at
   idle remains in place.
-- **Status:** **resolved (#4261, #4269)**. Step Out across idle and startup Main's step positions remain unmeasured and keep their previous behavior. Startup `Sub Main` stepping is also unmeasured here and keeps its existing statement positions.
+- **Status:** **resolved (#4261, #4269)**. Step Out across idle and startup Main's step positions remain unmeasured and keep their previous behavior. Startup `Sub Main` stepping is also unmeasured here and keeps its existing statement positions ([#4449](https://github.com/hexide-io/HexIDE/issues/4449)).
 
 ### D5. Step Over / Step Out (v2·P5)
 - **VB6:** Shift+F8 (Step Over — run a called proc to completion, break at the next statement in the current frame),

@@ -24,6 +24,59 @@ namespace HexIDE.Integration.Tests.Views;
 public class OptionsViewIntegrationTests
 {
     [AvaloniaFact]
+    [Trait("Issue", "4307")]
+    public async Task AddinServerSettingsRenderReadOnlyAndResetThroughTheButton()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-options-settings-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var settings = new SettingsService(Path.Combine(directory, "settings.json"));
+        await using var router = new HexIDE.Lsp.LspClientRegistry([],
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<HexIDE.Lsp.LspClientRegistry>.Instance);
+        var contributions = new HexIDE.Lsp.LanguageServerContributions(settings, router,
+            new HexIDE.Lsp.LanguageServerRegistrationFactory(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance),
+            new HexIDE.Lsp.LanguageServerConfigLoader(Microsoft.Extensions.Logging.Abstractions.NullLogger<HexIDE.Lsp.LanguageServerConfigLoader>.Instance),
+            new HashSet<string>(StringComparer.Ordinal),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<HexIDE.Lsp.LanguageServerContributions>.Instance);
+        await using var connection = contributions.Register(new AddinLanguageServer(new HexIDE.Lsp.LanguageServerEntry
+        {
+            Id = "example", DisplayName = "Example server", Extensions = [".example"], LanguageId = "example",
+            Transport = "stdio", Command = "example-server",
+        }), "Add-in");
+        using var page = new AddinOptionsPageViewModel(Substitute.For<IAddinRegistry>(), SampleAddin,
+            settings: settings, servers: [("Example server", connection)]);
+        var view = new AddinOptionsPageView { DataContext = page };
+        view.Resources["Str.LspArtifact.Reset"] = "Reset";
+        view.Resources["Str.TranslationEditor.Tooltip.None"] = "(none)";
+        var window = new Window { Content = view, Width = 600, Height = 800 };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            view.GetVisualDescendants().OfType<TextBlock>().Select(block => block.Text).Should().Contain("Example server");
+            var reset = view.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Reset"));
+            reset.IsEffectivelyEnabled.Should().BeFalse();
+            await Task.Run(() => connection.SetSettingsAsync(
+                System.Text.Json.JsonDocument.Parse("""{"rdcore":{"enabled":false}}""").RootElement,
+                TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+            Dispatcher.UIThread.RunJobs();
+            reset.IsEffectivelyEnabled.Should().BeTrue();
+            var json = view.GetVisualDescendants().OfType<TextBox>().Single();
+            json.IsReadOnly.Should().BeTrue();
+            json.Text.Should().Contain("\"enabled\": false");
+            ((Avalonia.Automation.Provider.IInvokeProvider)new ButtonAutomationPeer(reset)).Invoke();
+            Dispatcher.UIThread.RunJobs();
+            settings.HasLanguageServerSettings("example").Should().BeFalse();
+            reset.IsEffectivelyEnabled.Should().BeFalse();
+            page.Servers[0].IsNone.Should().BeTrue();
+        }
+        finally
+        {
+            window.Close();
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
     public void TheSystemDefaultRowReadsInTheIdesLanguage()
     {
         var (settings, _, _, languageSwitch, _, _) = Mocks();

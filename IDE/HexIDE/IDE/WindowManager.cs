@@ -224,9 +224,17 @@ public class WindowManager : IWindowManager
         }
     }
 
-    private Task<MessageBoxResult> ShowDesktopMessageBox(IClassicDesktopStyleApplicationLifetime desktop, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner)
+    // Only the default button is read from the layout: the IDE's own boxes are laid out as the IDE lays them out.
+    private static int DefaultButtonOf(MessageBoxLayout layout) => layout.HasFlag(MessageBoxLayout.SecondButtonDefault) ? 1 : 0;
+
+    private Task<MessageBoxResult> ShowDesktopMessageBox(IClassicDesktopStyleApplicationLifetime desktop, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner,
+        MessageBoxLayout layout = MessageBoxLayout.None)
     {
-        var messageBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon };
+        var messageBox = new MessageBox
+        {
+            Text = text, Buttons = buttons, Icon = icon, DefaultButton = DefaultButtonOf(layout),
+            IsSecurityPrompt = layout.HasFlag(MessageBoxLayout.SecurityPrompt),
+        };
         var window = MakeDialogWindow(caption, messageBox);
         return messageBox.ShowAndWait(window, owner ?? GetTopWindow(desktop));
     }
@@ -242,7 +250,9 @@ public class WindowManager : IWindowManager
             {
                 Text = text,
                 Buttons = buttons,
-                Icon = icon
+                Icon = icon,
+                DefaultButton = DefaultButtonOf(layout),
+                IsSecurityPrompt = layout.HasFlag(MessageBoxLayout.SecurityPrompt),
             };
             var task = ShowManagedWindow(out var window, caption, messageBox, false);
 
@@ -266,7 +276,7 @@ public class WindowManager : IWindowManager
         {
             // A person's close answers as Windows' does, or is refused where the box has none, and a box hidden with
             // its owner keeps waiting (see ShowAndWait).
-            return await ShowDesktopMessageBox(desktop, text, caption, buttons, icon, owner ?? GetIdeDialogOwner(desktop));
+            return await ShowDesktopMessageBox(desktop, text, caption, buttons, icon, owner ?? GetIdeDialogOwner(desktop), layout);
         }
         else
             throw new NotImplementedException();

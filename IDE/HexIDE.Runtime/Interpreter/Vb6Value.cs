@@ -21,7 +21,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
                 return ((ushort)Value!).CompareTo((ushort)other.Value!);
             if (Type == ValueType.Integer)
                 return ((int)Value!).CompareTo((int)other.Value!);
-            if (Type == ValueType.Long)
+            if (Type == ValueType.Long || Type == ValueType.LongLong)
                 return ((long)Value!).CompareTo((long)other.Value!);
             if (Type == ValueType.Byte)
                 return ((byte)Value!).CompareTo((byte)other.Value!);
@@ -190,6 +190,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
             payload = (long)value;
         }
     }
+    public static Vb6Value NewLongLong(long value) => new(ValueType.LongLong, value);
     public Vb6Value(long value) : this(ValueType.Long, value) {}
     internal static Vb6Value NewAutomationUnsignedLong(uint value) => new(ValueType.AutomationUnsignedLong, value);
     public Vb6Value(byte value) : this(ValueType.Byte, value) {}
@@ -256,6 +257,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
                 ValueTypePrimitive.File => throw new NotImplementedException(),
                 ValueTypePrimitive.Integer => 0,
                 ValueTypePrimitive.Long => 0L,
+                ValueTypePrimitive.LongLong => 0L,
                 ValueTypePrimitive.Byte => (byte)0,
                 ValueTypePrimitive.Currency => 0m,
                 ValueTypePrimitive.Decimal => 0m,
@@ -314,6 +316,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         public static readonly ValueType EmptyVariant = new ValueType(ValueTypePrimitive.EmptyVariant, false);
         public static readonly ValueType CSharpProxyObject = new ValueType(ValueTypePrimitive.CSharpProxyObject, false);
         public static readonly ValueType Null = new ValueType(ValueTypePrimitive.Null, false);
+        public static readonly ValueType LongLong = new(ValueTypePrimitive.LongLong, false);
         public static readonly ValueType Long = new ValueType(ValueTypePrimitive.Long, false);
         public static readonly ValueType AutomationUnsignedLong = new(ValueTypePrimitive.AutomationUnsignedLong, false);
         public static readonly ValueType Byte = new ValueType(ValueTypePrimitive.Byte, false);
@@ -388,7 +391,8 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         Missing,
 
         AutomationUnsignedLong,
-        Error
+        Error,
+        LongLong
     }
 
     public static implicit operator Vb6Value(int value) =>
