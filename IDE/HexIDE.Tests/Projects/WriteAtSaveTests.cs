@@ -285,6 +285,7 @@ public class WriteAtSaveTests : IDisposable
         var service = MakeService(manager: manager);
         await service.CreateNewProject(IProjectTemplate.StandardEXE);
         var project = manager.LoadedProjects.Single();
+        project.Format.Should().BeOfType<Vb6ProjectFileFormat>("a new project is made in the IDE's format (#4053)");
         var form = project.Forms.Single();
         using var editor = TemplateEditor(form, new BookmarkService(), new BreakpointService());
         var header = form.DesignerText;

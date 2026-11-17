@@ -16,7 +16,7 @@ using HexIDE.Runtime.Serialization;
 using HexIDE.Lsp.Messages;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
-using HexIDE.Runtime.TypeLibrary;
+using HexIDE.TypeLibrary;
 using HexIDE.Utils;
 using Dock.Model.Mvvm.Controls;
 using PropertyChanged.SourceGenerator;
@@ -31,7 +31,6 @@ public partial class ObjectBrowserToolViewModel : Document
     private readonly ILspClient lspClient;
     private readonly IEditorService editorService;
     private readonly ITypeLibraryService typeLibraryService;
-    private readonly IFocusedProjectUtil focusedProjectUtil;
     private readonly ILanguageConnectionRegistry connections;
     private readonly ILocalizationService localization;
 
@@ -123,7 +122,6 @@ public partial class ObjectBrowserToolViewModel : Document
         this.editorService = editorService;
         this.componentRegistry = componentRegistry;
         this.typeLibraryService = typeLibraryService;
-        this.focusedProjectUtil = focusedProjectUtil;
         this.connections = connections;
         this.localization = localization;
         allLibraries = new OBLibraryViewModel(localization.GetString("Str.Tool.ObjectBrowser.AllLibraries"));
@@ -461,15 +459,9 @@ public partial class ObjectBrowserToolViewModel : Document
 
     private void ReorderLibraries()
     {
-        // Order: [<All Libraries>] [focused project] [everything else, alpha]
-        var focused = focusedProjectUtil.FocusedOrStartupProject != null
-            && projectToLibrary.TryGetValue(focusedProjectUtil.FocusedOrStartupProject, out var fl)
-            ? fl : null;
-
         var desired = Libraries
-            .OrderBy(l => l == allLibraries ? 0 : l == focused ? 1 : 2)
-            .ThenBy(l => l == allLibraries || l == focused
-                ? string.Empty : l.Name, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(l => l == allLibraries ? 0 : 1)
+            .ThenBy(l => l.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         for (int i = 0; i < desired.Count; i++)

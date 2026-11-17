@@ -438,6 +438,9 @@ public class VBArray
     public Vb6Value.ValueType? ElementType => elementType;
 
     internal string? DeclaredClass { get; set; }
+    internal int? FixedStringWidth { get; set; }
+
+    internal AutoNew? AutoNew { get; set; }
 
     // Dynamic (`Dim a()`, ReDim, Array()/Split()/Filter()) vs fixed (`Dim a(N)`). Only Erase distinguishes them:
     // a dynamic array is freed (undimensioned), a fixed one keeps its bounds and resets elements. Default dynamic;
@@ -480,6 +483,7 @@ public class VBArray
         bounds = new List<(int lbound, int ubound)>(bounds),
         elementType = elementType,
         elementDefault = elementDefault,
+        FixedStringWidth = FixedStringWidth,
         DeclaredClass = DeclaredClass,
         array = aliases is null ? CopyLevel(array, copyElement) : CopyAliases(copyElement),
     };
@@ -502,9 +506,13 @@ public class VBArray
         return copy;
     }
 
-    internal VBArray NewWithBounds(IReadOnlyList<(int, int)>? newBounds) => newBounds is null
-        ? Unallocated(elementType ?? Vb6Value.ValueType.EmptyVariant, elementDefault)
-        : new VBArray(elementType ?? Vb6Value.ValueType.EmptyVariant, newBounds, elementDefault);
+    internal VBArray NewWithBounds(IReadOnlyList<(int, int)>? newBounds)
+    {
+        var result = newBounds is null ? Unallocated(elementType ?? Vb6Value.ValueType.EmptyVariant, elementDefault)
+            : new VBArray(elementType ?? Vb6Value.ValueType.EmptyVariant, newBounds, elementDefault);
+        result.FixedStringWidth = FixedStringWidth;
+        return result;
+    }
 
     public VBArray()
     {
@@ -657,6 +665,15 @@ public class VBArray
         return ((Vb6Value)arr).ViewedAs(DeclaredClass);
     }
 
+    // Expression reads make an untouched element (#4150). Stores, enumeration and inspection use GetValue.
+    internal Vb6Value ReadValue(IReadOnlyList<int> index)
+    {
+        var value = GetValue(index);
+        if (value.Value is null && AutoNew is { } autoNew)
+            throw new AutoInstanceNeeded(this, index.ToArray(), autoNew);
+        return value;
+    }
+
     public void SetValue(IReadOnlyList<int> index, Vb6Value val)
     {
         if (index.Count != bounds.Count)
@@ -681,6 +698,8 @@ public class VBArray
         if (elementType is { } et && VbNumeric.IsDeclarableScalar(et))
             val = VbNumeric.CoerceOnStore(val, et, null);
 
+        if (FixedStringWidth is { } width)
+            val = FixedLengthString.Store(val, width);
         ModuleExecutionContext.CheckObjectStore(val, DeclaredClass);
 
         ((object[])arr)[index[^1] - bounds[^1].lbound] = val;

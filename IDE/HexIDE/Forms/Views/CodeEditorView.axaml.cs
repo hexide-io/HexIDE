@@ -504,6 +504,7 @@ public partial class CodeEditorView : UserControl
                 ScheduleFolding(vm);
             };
             vm.Settings.PropertyChanged += _inlaySettingsChanged;
+            vm.Analysis.Refreshed += OnAnalysisRefreshed;
             // Attach LSP text marker service (squiggles) and diagnostics colorizer (red text)
             _markerService = new LspTextMarkerService(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_markerService);
@@ -638,14 +639,17 @@ public partial class CodeEditorView : UserControl
             }
 
             // Hover tooltip
-            ToolTip.SetPlacement(TextEditor, PlacementMode.Pointer);
-            ToolTip.SetShowDelay(TextEditor, 0);
-            ToolTip.SetServiceEnabled(TextEditor, false);
             TextEditor.PointerMoved += OnPointerMoved;
             TextEditor.PointerExited += OnPointerExited;
 
             _languageFeatures = new EditorLanguageFeatures(TextEditor.TextArea, vm,
                 new CodeWindowCompletionRules(this, vm), DismissHover, window => _completionWindow = window, handleInput: false);
+            _languageFeatures.AttachHover(TextEditor, () => _markerService?.Markers ?? [], vm.DiagnosticContent, uri =>
+            {
+                if (uri.IsFile) vm.OpenHoverFile(uri);
+                else if (uri.Scheme is "http" or "https" && TopLevel.GetTopLevel(this) is { } top)
+                    _ = top.Launcher.LaunchUriAsync(uri);
+            }, () => _hoverCts?.Cancel(), handlePointer: false);
 
             // IntelliSense completion
             TextEditor.TextArea.TextEntered  += OnTextEntered;
@@ -799,6 +803,7 @@ public partial class CodeEditorView : UserControl
                 _watchedDocument = null;
             }
             vm.LanguageServerStateChanged -= OnLanguageServerStateChanged;
+            vm.Analysis.Refreshed -= OnAnalysisRefreshed;
             if (_fontSettingsChanged is not null) vm.Settings.PropertyChanged -= _fontSettingsChanged;
             _fontSettingsChanged = null;
             if (_inlaySettingsChanged is not null)
@@ -1396,6 +1401,15 @@ public partial class CodeEditorView : UserControl
         }
     }
 
+    private void OnAnalysisRefreshed(object? sender, EventArgs args)
+    {
+        if (DataContext is not CodeEditorViewModel vm) return;
+        ++_semanticVersion;
+        if (_semanticColorizer is not null) _semanticColorizer.Tokens = [];
+        TextEditor.TextArea.TextView.Redraw();
+        ScheduleFolding(vm);
+    }
+
     private void ScheduleFolding(CodeEditorViewModel vm)
     {
         ++_inlayRevision;
@@ -1683,12 +1697,8 @@ public partial class CodeEditorView : UserControl
         else CloseTip();
     }
 
-    private async Task CloseRichTipAfterExitAsync(ToolTip tip)
-    {
-        await Task.Delay(200);
-        if (ReferenceEquals(ToolTip.GetTip(TextEditor), tip) && !tip.IsPointerOver && !TextEditor.IsPointerOver)
-            CloseTip();
-    }
+    private Task CloseRichTipAfterExitAsync(ToolTip tip)
+        => _languageFeatures?.Hover?.CloseRichTipAfterExitAsync(tip) ?? Task.CompletedTask;
 
     public void TriggerQuickInfo()
     {
@@ -1763,73 +1773,11 @@ public partial class CodeEditorView : UserControl
         TextEditor.Focus();
     }
 
-    private async Task HoverAfterDelayAsync(CodeEditorViewModel vm, Position pos, CancellationToken token)
-    {
-        try
-        {
-            await Task.Delay(400, token);
-            await ShowHoverAsync(vm, pos, token, vm.Settings.AutoQuickInfo);
-        }
-        catch (OperationCanceledException) { }
-    }
+    private Task HoverAfterDelayAsync(CodeEditorViewModel vm, Position pos, CancellationToken token)
+        => _languageFeatures?.Hover?.ShowAfterDelayAsync(pos, token, () => vm.Settings.AutoQuickInfo) ?? Task.CompletedTask;
 
-    private async Task ShowHoverAsync(CodeEditorViewModel vm, Position pos, CancellationToken token, bool requestQuickInfo = true)
-    {
-        try
-        {
-            ShowDiagnosticTip(pos, null);
-            var result = requestQuickInfo
-                ? await vm.RequestHoverAsync(pos, token) : null;
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (token.IsCancellationRequested) return;
-                ShowDiagnosticTip(pos, result?.Contents);
-            });
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            Log.Debug("[hover] {ErrorMessage}", ex.Message);
-        }
-    }
-
-    private void ShowDiagnosticTip(Position pos, MarkupContent? quickInfo)
-    {
-        var offset = TextEditor.Document.GetOffset(pos.Line + 1, pos.Character + 1);
-        if (DataContext is not CodeEditorViewModel vm) return;
-        var markers = _markerService?.Markers.Where(m => offset >= m.StartOffset && offset < m.EndOffset).ToArray() ?? [];
-        if (quickInfo?.Kind != "markdown" && !markers.Any(m => m.RelatedInformation is { Length: > 0 }))
-        {
-            var parts = markers.Select(m => string.IsNullOrEmpty(m.Source) ? m.Message : $"{m.Source}: {m.Message}").ToList();
-            if (!string.IsNullOrEmpty(quickInfo?.Value)) parts.Add(quickInfo.Value);
-            if (parts.Count == 0) { CloseTip(); return; }
-            ToolTip.SetTip(TextEditor, string.Join(Environment.NewLine + Environment.NewLine, parts));
-            ToolTip.SetIsOpen(TextEditor, true);
-            return;
-        }
-        var panel = new StackPanel { Spacing = 8 };
-        if (_markerService is { } service)
-        {
-            foreach (var marker in service.Markers)
-                if (offset >= marker.StartOffset && offset < marker.EndOffset)
-                    panel.Children.Add(vm.DiagnosticContent(marker));
-        }
-        if (quickInfo is { Value.Length: > 0 })
-            panel.Children.Add(HoverContentView.Render(quickInfo, TextEditor, uri =>
-            {
-                if (uri.IsFile) vm.OpenHoverFile(uri);
-                else if (uri.Scheme is "http" or "https" && TopLevel.GetTopLevel(this) is { } top)
-                    _ = top.Launcher.LaunchUriAsync(uri);
-            }));
-        if (panel.Children.Count == 0) { CloseTip(); return; }
-        var richTip = new ToolTip { Content = panel };
-        richTip.PointerEntered += (_, _) => _hoverCts?.Cancel();
-        richTip.PointerExited += (_, _) => _ = CloseRichTipAfterExitAsync(richTip);
-        // Replacing the tip instance does not update the popup that is already open.
-        ToolTip.SetIsOpen(TextEditor, false);
-        ToolTip.SetTip(TextEditor, richTip);
-        ToolTip.SetIsOpen(TextEditor, true);
-    }
+    private Task ShowHoverAsync(CodeEditorViewModel vm, Position pos, CancellationToken token, bool requestQuickInfo = true)
+        => _languageFeatures?.Hover?.ShowAsync(pos, token, requestQuickInfo) ?? Task.CompletedTask;
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -2141,6 +2089,7 @@ public partial class CodeEditorView : UserControl
             var line = doc.GetLineByOffset(offset);
             var indent = VbAutoCloseProvider.GetIndentation(doc.GetText(line.Offset, line.Length));
             var newline = DocumentNewLines.Of(doc.Text);
+            string? fallbackIndent = null;
             var before = doc.Version;
             using (doc.RunUpdate())
             {
@@ -2150,6 +2099,7 @@ public partial class CodeEditorView : UserControl
                     TextEditor.TextArea.ClearSelection();
                     (offset, length) = EditedSpan() ?? (TextEditor.CaretOffset, 0);
                 }
+                fallbackIndent = EnterFallbackIndent(owner, offset, length);
                 if (owner.InsertLineBreakPastRun(offset, length, "\n" + indent) is { } placed)
                 {
                     TextEditor.TextArea.ClearSelection();
@@ -2161,7 +2111,7 @@ public partial class CodeEditorView : UserControl
                 }
             }
             if (!ReferenceEquals(before, doc.Version))
-                PendingOnTypeFormatting = FormatTypedCharacterAsync(owner, "\n");
+                PendingOnTypeFormatting = FormatTypedCharacterAsync(owner, "\n", fallbackIndent);
             return;
         }
         // Enter = auto-close block + auto-indent
@@ -2221,7 +2171,59 @@ public partial class CodeEditorView : UserControl
         }
     }
 
-    private async Task FormatTypedCharacterAsync(CodeEditorViewModel vm, string trigger)
+    private string EnterFallbackIndent(CodeEditorViewModel vm, int offset, int length)
+    {
+        var doc = TextEditor.Document;
+        var line = doc.GetLineByOffset(offset);
+        var endLine = doc.GetLineByOffset(offset + length);
+        var prefix = doc.GetText(line.Offset, offset - line.Offset);
+        var suffix = doc.GetText(offset + length, endLine.EndOffset - offset - length);
+        var text = prefix + suffix;
+        var indent = VbAutoCloseProvider.GetIndentation(text);
+        var run = vm.ReadOnlySections.RunHangingFrom(offset);
+        if (!string.IsNullOrWhiteSpace(suffix)
+            || (run is null && VbAutoCloseProvider.IsContinuationLine(text))) return indent;
+
+        var lastLine = run is null ? endLine.LineNumber : doc.GetLineByOffset(run.LastContentEnd).LineNumber;
+        return UnclosedBlock(doc, line.LineNumber, run, lastLine, text).Closer is not null
+            ? VbAutoCloseProvider.GetBodyIndent(indent, TextEditor.Options.IndentationSize) : indent;
+    }
+
+    /// <summary>
+    /// The first line of the logical line that ends on <paramref name="lineNumber"/>, and the closer that logical line
+    /// opens when nothing past <paramref name="lastLine"/> supplies it (null when it opens no block or its closer is
+    /// there). Plain Enter's rule; the on-type fallback (#4057) asks this same method, so the two cannot drift.
+    /// <paramref name="lineText"/>, when given, stands in for line <paramref name="lineNumber"/>'s own text.
+    /// </summary>
+    private static (int StartLine, string? Closer) UnclosedBlock(TextDocument doc, int lineNumber, HangingRegion? run,
+        int lastLine, string? lineText = null)
+    {
+        // The first physical line of the logical line (for continuations).
+        var startLine = run is null ? lineNumber : doc.GetLineByOffset(run.LineStart).LineNumber;
+        if (run is null)
+            while (startLine > 1)
+            {
+                var previous = doc.GetLineByNumber(startLine - 1);
+                if (!VbAutoCloseProvider.IsContinuationLine(doc.GetText(previous.Offset, previous.Length))) break;
+                startLine--;
+            }
+
+        // Nothing above its first line is offered, so for a described line the looser rule cannot walk back past
+        // where 4.1's reader starts it.
+        var logicalLine = VbAutoCloseProvider.AssembleLogicalLine(index =>
+        {
+            if (index + 1 < startLine) return string.Empty;
+            if (index + 1 == lineNumber && lineText is not null) return lineText;
+            var physical = doc.GetLineByNumber(index + 1); // index is 0-based, the document 1-based
+            return doc.GetText(physical.Offset, physical.Length);
+        }, lineNumber - 1);
+
+        var closer = VbAutoCloseProvider.GetClosingStatement(logicalLine);
+        Log.Debug("[auto-close] Logical line: '{LogicalLine}', closer: {Closer}", logicalLine, closer ?? "(null)");
+        return (startLine, closer is not null && !HasMatchingCloser(doc, lastLine, closer) ? closer : null);
+    }
+
+    private async Task FormatTypedCharacterAsync(CodeEditorViewModel vm, string trigger, string? fallbackIndent = null)
     {
         var generation = ++_onTypeGeneration;
         var doc = TextEditor.Document;
@@ -2237,8 +2239,16 @@ public partial class CodeEditorView : UserControl
             var edits = await vm.RequestOnTypeFormattingAsync(new Position(location.Line - 1, location.Column - 1), trigger);
             if (generation != _onTypeGeneration || DataContext != vm || TextEditor.Document != doc
                 || vm.LiveDocumentUri != uri || !ReferenceEquals(version, doc.Version)
-                || !doc.UndoStack.CanUndo || !ReferenceEquals(group, doc.UndoStack.LastGroupDescriptor)
-                || edits.Length == 0) return;
+                || !doc.UndoStack.CanUndo || !ReferenceEquals(group, doc.UndoStack.LastGroupDescriptor)) return;
+
+            if (edits is null && trigger == "\n" && fallbackIndent is not null)
+            {
+                var line = doc.GetLineByNumber(location.Line);
+                if (doc.GetText(line.Offset, location.Column - 1) == fallbackIndent) return;
+                edits = [new TextEdit(new(new(location.Line - 1, 0),
+                    new(location.Line - 1, location.Column - 1)), fallbackIndent)];
+            }
+            if (edits is not { Length: > 0 }) return;
 
             // No group spans an await: typing, undo and unrelated edits stay usable while the server answers.
             doc.UndoStack.StartContinuedUndoGroup();
@@ -2341,40 +2351,9 @@ public partial class CodeEditorView : UserControl
                 return true;
             }
 
-            // Find the first physical line of the logical line (for continuations)
-            var startLineNumber = currentLineNumber;
-            if (run is not null)
-                startLineNumber = doc.GetLineByOffset(run.LineStart).LineNumber;
-            else
-            {
-                while (startLineNumber > 1)
-                {
-                    var prevLine = doc.GetLineByNumber(startLineNumber - 1);
-                    if (!VbAutoCloseProvider.IsContinuationLine(
-                            doc.GetText(prevLine.Offset, prevLine.Length)))
-                        break;
-                    startLineNumber--;
-                }
-            }
-
-            // Assemble the full logical line (handle multi-line continuations). Nothing above its first line is
-            // offered, so for a described line the looser rule cannot walk back past where 4.1's reader starts it.
-            var logicalLine = VbAutoCloseProvider.AssembleLogicalLine(
-                lineIdx =>
-                {
-                    if (lineIdx + 1 < startLineNumber)
-                        return string.Empty;
-                    var dl = doc.GetLineByNumber(lineIdx + 1); // lineIdx is 0-based, doc is 1-based
-                    return doc.GetText(dl.Offset, dl.Length);
-                },
-                currentLineNumber - 1); // Convert to 0-based index
-
-            var closer = VbAutoCloseProvider.GetClosingStatement(logicalLine);
-            Log.Debug("[auto-close] Logical line: '{LogicalLine}', closer: {Closer}",
-                logicalLine, closer ?? "(null)");
-
             // A run is folded into the line it describes as the developer sees it, so the closer is looked for after it.
             var lastLineBefore = run is null ? currentLineNumber : doc.GetLineByOffset(run.LastContentEnd).LineNumber;
+            var (startLineNumber, closer) = UnclosedBlock(doc, currentLineNumber, run, lastLineBefore);
 
             // Keyword-normalize the committed physical lines + insert closer (single undo)
             doc.BeginUpdate();
@@ -2405,7 +2384,7 @@ public partial class CodeEditorView : UserControl
                 var updatedLineText = doc.GetText(updatedLine.Offset, updatedLine.Length);
                 var indent = VbAutoCloseProvider.GetIndentation(updatedLineText);
                 var bodyIndent = VbAutoCloseProvider.GetBodyIndent(indent, TextEditor.Options.IndentationSize);
-                var addCloser = closer is not null && !HasMatchingCloser(doc, lastLineBefore, closer);
+                var addCloser = closer is not null;
                 var insertText = addCloser ? newline + bodyIndent + newline + indent + closer : newline + indent;
 
                 // After the run: the provider places it, writing each line break as the described line's own. The
@@ -2913,6 +2892,19 @@ public partial class CodeEditorView : UserControl
                 TextEditor.TextArea.Caret.Column - 1)).ListenErrors();
     }
 
+    private void CanShowTypeHierarchy(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is CodeEditorViewModel { CanShowTypeHierarchy: true };
+        e.Handled = true;
+    }
+
+    private void TypeHierarchyExecuted(object? sender, Avalonia.Labs.Input.ExecutedRoutedEventArgs e)
+    {
+        if (DataContext is CodeEditorViewModel vm)
+            vm.ShowTypeHierarchyAsync(new Position(TextEditor.TextArea.Caret.Line - 1,
+                TextEditor.TextArea.Caret.Column - 1)).ListenErrors();
+    }
+
     private void CanRunCodeLens(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
     {
         e.CanExecute = codeLenses?.CommandsOnLine(TextEditor.TextArea.Caret.Line).Length > 0;
@@ -3121,52 +3113,13 @@ public partial class CodeEditorView : UserControl
 
     private void FormatSelectionExecuted(object? sender, Avalonia.Labs.Input.ExecutedRoutedEventArgs e) => _ = FormatSelectionAsync();
 
-    internal async Task FormatSelectionAsync()
-    {
-        if (DataContext is not CodeEditorViewModel { CanFormatSelection: true } vm) return;
-        var start = vm.Document.GetLocation(vm.SelectionStart);
-        var end = vm.Document.GetLocation(vm.SelectionStart + vm.SelectionLength);
-        var range = new HexIDE.Lsp.Messages.Range(new Position(start.Line - 1, start.Column - 1),
-            new Position(end.Line - 1, end.Column - 1));
-        try
-        {
-            await vm.FlushDocumentAsync();
-            var edits = await vm.RequestRangeFormattingAsync(range);
-            if (edits.Length == 0) return;
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => vm.ApplyFormatting(edits));
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            Log.Debug("[rangeFormatting] {ErrorMessage}", ex.Message);
-        }
-    }
-
-    // ── Format document (Shift+Alt+F) ─────────────────────────────────────────
+    internal Task FormatSelectionAsync()
+        => DataContext is CodeEditorViewModel { CanFormatSelection: true } vm && _languageFeatures is { } features
+            ? features.FormatAsync(true, edits => vm.ApplyFormatting(edits), () => false) : Task.CompletedTask;
 
     public void FormatDocument()
     {
-        if (DataContext is not CodeEditorViewModel vm) return;
-        _ = FormatDocumentAsync(vm);
-    }
-
-    private async Task FormatDocumentAsync(CodeEditorViewModel vm)
-    {
-        try
-        {
-            await vm.FlushDocumentAsync();
-            var edits = await vm.RequestFormattingAsync();
-
-            if (edits.Length == 0) return;
-
-            // Through the view model's guarded path, which Format on Save shares, never onto the document as
-            // sent: a whole-document answer would otherwise rewrite the header (#273 phase 3).
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => vm.ApplyFormatting(edits));
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            Log.Debug("[formatting] {ErrorMessage}", ex.Message);
-        }
+        if (DataContext is CodeEditorViewModel vm && _languageFeatures is { } features)
+            _ = features.FormatAsync(false, edits => vm.ApplyFormatting(edits), () => false);
     }
 }

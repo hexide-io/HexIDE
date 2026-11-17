@@ -353,6 +353,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
         var process = _process;
         if (process is null) return;
 
+        var disposal = Stopwatch.StartNew();
         lock (_exitGate) _disposing = true;
         // Give a server that received exit time to finish before terminating a wedged wrapper and its children.
         try
@@ -383,7 +384,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
                 }
             }
             catch { /* already gone */ }
-            try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2)); } catch { /* best effort */ }
+            try { await process.WaitForExitAsync().WaitAsync(LaunchedServerGuard.ReapTimeout(disposal)); } catch { /* best effort */ }
         }
         // Process queries can wait on Windows; never hold the exit callback's gate over them.
         var hasExited = process.HasExited;

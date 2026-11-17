@@ -12,6 +12,10 @@ namespace HexIDE.Projects;
 public sealed class Vb6ProjectFileFormat : IProjectFileFormat
 {
     /// <inheritdoc/>
+    public FormatRegions Regions { get; } =
+        new(new Vb6ReadOnlyRegionReader(), new Vb6ReadOnlyRegionWriter(), new Vb6ReadOnlyRegionRules());
+
+    /// <inheritdoc/>
     public RenderedFile RenderForm(FormDefinition form, string fileName)
     {
         var (text, companion) = new FormSerializer().Serialize(form, fileName);

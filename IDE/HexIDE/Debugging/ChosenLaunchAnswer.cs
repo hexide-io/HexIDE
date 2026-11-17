@@ -5,7 +5,7 @@ using HexIDE.Runtime.ProjectElements;
 namespace HexIDE.Debugging;
 
 /// <summary>
-/// Whether the launch a project's user chose for F5 says it runs the project, as F5's state shows it. The launch's own
+/// Whether the project's effective F5 launch says it runs the project, as F5's state shows it. The launch's own
 /// answer, kept until what it was asked about changes, as F5's state is read at every requery, and so at every edit.
 /// </summary>
 /// <remarks>
@@ -89,7 +89,7 @@ internal sealed class ChosenLaunchAnswer
     }
 
     private (string Key, ContributedDebugLaunch Launch)? Chosen(ProjectDefinition project) =>
-        _choices.Get(project) is { } key && _launches.Find(key) is { } launch ? (key, launch) : null;
+        _launches.ChoiceFor(project, _choices) is { } key && _launches.Find(key) is { } launch ? (key, launch) : null;
 
     private ContributedDebugLaunch? Answer(ProjectDefinition project, string key, ContributedDebugLaunch launch)
     {

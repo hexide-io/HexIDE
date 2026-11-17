@@ -33,6 +33,8 @@ public sealed class ContributedProjectFileTests : IDisposable
 
     public ContributedProjectFileTests()
     {
+        // VB6's files are read by VB6's type, which the composition registers first (#3411 slice 10b).
+        Vb6ProjectType.Register(_types, new Vb6ProjectFileFormat());
         Directory.CreateDirectory(_dir);
         File.WriteAllText(CodeFile, Module);
         File.WriteAllText(ProjectFile, "ledger\r\nCode.bas\r\n");
@@ -177,6 +179,17 @@ public sealed class ContributedProjectFileTests : IDisposable
 
         await ToldOf("Str.ContributedProject.ReferencesReadOnly");
         await _windows.DidNotReceive().ShowDialog(Arg.Any<ReferencesViewModel>());
+    }
+
+    [AvaloniaFact]
+    public async Task A_contributed_project_reads_its_plain_modules_through_the_IDE_s_format_and_keeps_its_own_forms_and_file()
+    {
+        using var type = Contribute();
+        var project = await Opened();
+
+        project.Format.Should().BeOfType<Vb6ProjectFileFormat>("its plain modules are read and rendered as before #4053");
+        project.FormFormat.Should().BeOfType<ContributedFormFormat>();
+        project.ProjectFileWriter.Should().NotBeNull();
     }
 
     [AvaloniaFact]
@@ -661,7 +674,8 @@ public sealed class ContributedProjectFileTests : IDisposable
 
     [Fact]
     public void No_product_code_renders_a_project_file_past_its_project_s_writer() =>
-        ProductSource.FilesMatching(new Regex(@"\b_?format\s*\.\s*RenderProject\b"),
+        // Through the injected format, or through a project's own (#4053).
+        ProductSource.FilesMatching(new Regex(@"(\b_?format|\bFormatOf\([^)]*\)|\bProjectFormats\.Of\([^)]*\))\s*\.\s*RenderProject\b"),
                 // The one call, which a project's writer goes before, and the language server's text, which is a .vbp's only.
                 "ProjectService.ProjectFile.cs", "ProjectLspWorkspace.cs")
             .Should().BeEmpty("a project an add-in opened has its file written by that add-in's writer, or by nothing");

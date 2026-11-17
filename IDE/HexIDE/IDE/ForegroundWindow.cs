@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Controls;
-using HexIDE.Runtime.BuiltinControls;
 
 namespace HexIDE.IDE;
 
@@ -10,7 +9,7 @@ namespace HexIDE.IDE;
 /// Which top-level window is the user actually looking at?
 ///
 /// "The first visible window that isn't the main one" is the obvious answer and it is wrong as soon as
-/// two are open at once. A running VB6 program puts a <c>VBFormRuntime</c> window on screen; a
+/// two are open at once. A running VB6 program puts a running form window on screen; a
 /// <c>MsgBox</c> from that program puts a second window on top of it. Both are visible, both are
 /// non-main, and the form was created first — so first-wins reports the form and the dialog on top of it
 /// is invisible to anything asking this question.
@@ -67,7 +66,7 @@ public static class ForegroundWindow
         // A window by its title, or a running form by its name, which outlives a caption the program changes.
         var named = windows.Where(w => w != mainWindow
             && (string.Equals(w.Title, scope, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(VBProps.GetName(w), scope, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(RunningProgram.Current.Form(w)?.Name, scope, StringComparison.OrdinalIgnoreCase)
                 || MainViewViewModel.DockFactory.FloatingTools(w).Any(t => string.Equals(t.Key, scope, StringComparison.OrdinalIgnoreCase)))).ToList();
         var shown = named.Where(w => w.IsVisible).ToList();
         if (shown.Count == 1)
@@ -134,7 +133,7 @@ public static class ForegroundWindow
     public static string? StackedNote(Window picked, string? scope) =>
         string.IsNullOrWhiteSpace(scope) || picked.Owner is not Window under
         || !(string.Equals(under.Title, scope, StringComparison.OrdinalIgnoreCase)
-             || string.Equals(VBProps.GetName(under), scope, StringComparison.OrdinalIgnoreCase))
+             || string.Equals(RunningProgram.Current.Form(under)?.Name, scope, StringComparison.OrdinalIgnoreCase))
             ? null
             : $"'{scope}' reached the window on top, \"{picked.Title}\", which sits over another window of that name: that one "
               + "is reached again once the window on top closes, as a person can't use it before then either";
@@ -142,7 +141,7 @@ public static class ForegroundWindow
     // Each window as a caller can name it: a running form by its name, then its title in quotes, and any other window
     // by its title alone.
     private static string Titles(IEnumerable<Window> windows) =>
-        string.Join(", ", windows.Select(w => VBProps.GetName(w) is { Length: > 0 } name
+        string.Join(", ", windows.Select(w => RunningProgram.Current.Form(w)?.Name is { Length: > 0 } name
             ? $"{name} (\"{w.Title}\")"
             : $"\"{w.Title}\"" + FloatingKeys(w)));
 

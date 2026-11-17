@@ -39,6 +39,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
     private readonly IRunChoiceStore? runChoices;
     private readonly ChosenLaunchAnswer? chosenLaunch;
     private readonly IStatusBarService? statusBar;
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<ProjectDefinition, object> defaultNotices = new();
 
     // A Run-To-Cursor target requested while IDLE — applied AFTER the run-start Reset (which clears the controller's
     // target), so the fresh run breaks at it. Consumed once in RunProject.
@@ -370,13 +371,17 @@ public partial class ProjectRunnerService : IProjectRunnerService
         debugLaunches.StartAsync(launch, project).ListenErrors();
     }
 
-    // The add-in's launch this project's user chose for F5, or null for the interpreter. A choice whose launch is gone,
+    // The effective F5 launch, from the user's choice or the project's add-in default. A choice whose launch is gone,
     // or no longer runs this project, falls back to the interpreter and says so; it stays chosen, for when the add-in
     // is back. The launch is asked now, whatever F5's state kept of its last answer.
     private ContributedDebugLaunch? LaunchChosenFor(ProjectDefinition project)
     {
-        if (chosenLaunch is null || runChoices?.Get(project) is not { } key) return null;
-        if (chosenLaunch.Ask(project) is { } launch) return launch;
+        if (chosenLaunch is null || runChoices is null || debugLaunches?.ChoiceFor(project, runChoices) is not { } key) return null;
+        if (chosenLaunch.Ask(project) is { } launch)
+        {
+            NoticeDefault(project, launch);
+            return launch;
+        }
         statusBar?.SetTemporaryMessage(
             string.Format(localization.GetString("Str.Debug.RunWith.Unavailable"), ContributedDebugLaunch.TitleOf(key)),
             TimeSpan.FromSeconds(10));
@@ -431,7 +436,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     public void RunToCursorProject(DocumentIdentity document, int line)
     {
-        if (externalDebugger?.IsActive == true) return;
+        if (externalDebugger?.IsActive == true)
+        {
+            if (document.AbsolutePath is { } path)
+                _ = externalDebugger.RunToCursorAsync(new Uri(System.IO.Path.GetFullPath(path)).AbsoluteUri, line);
+            return;
+        }
         // Run To Cursor (Ctrl+F8): a one-shot break at (module, line). Paused → arm + Continue; running → arm (breaks
         // when reached); idle → start the project and arm the target after the run-start sequence (a plain run, NOT
         // start-and-step — it runs freely to the cursor line).
@@ -482,11 +492,26 @@ public partial class ProjectRunnerService : IProjectRunnerService
         RunStartupProject();
     }
 
-    // A project an add-in read is run by the program it belongs to, never by HexIDE's interpreter: F5 starts one only
-    // with the add-in's launch its user chose for it under Run > F5 Runs. Read at every requery, so from the launch's
-    // kept answer, which a start asks again.
-    public bool CanStartDefaultProject => archives?.IsActive != true && !IsRunning
-        && projectManager.StartupProject is { } project && (runEngine.Runs(project) || chosenLaunch?.Kept(project) is not null);
+    private void NoticeDefault(ProjectDefinition project, ContributedDebugLaunch launch)
+    {
+        if (runChoices?.HasChoice(project) != false || defaultNotices.TryGetValue(project, out _)) return;
+        defaultNotices.Add(project, new object());
+        statusBar?.SetTemporaryMessage(
+            string.Format(localization.GetString("Str.Debug.RunWith.Default"), launch.Title), TimeSpan.FromSeconds(10));
+    }
+
+    // A launch's kept answer avoids calling add-in code at every edit; a start asks again.
+    public bool CanStartDefaultProject
+    {
+        get
+        {
+            if (archives?.IsActive == true || IsRunning || projectManager.StartupProject is not { } project) return false;
+            if (runEngine.Runs(project)) return true;
+            if (chosenLaunch?.Kept(project) is not { } launch) return false;
+            NoticeDefault(project, launch);
+            return true;
+        }
+    }
     public bool CanRunStartupProject => archives?.IsActive != true && !IsRunning && projectManager.StartupProject is { } project && runEngine.Runs(project);
     public bool CanStartDefaultProjectWithFullCompile => CanRunStartupProject;
     public bool CanBreakProject => externalDebugger?.IsActive == true
@@ -499,7 +524,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public bool CanStepIntoProject => externalDebugger?.IsActive == true ? CanContinueProject : CanRunStartupProject || IsRunning;
     public bool CanStepOverProject => CanStepIntoProject;
     public bool CanStepOutProject => CanStepIntoProject;
-    public bool CanRunToCursor => externalDebugger?.IsActive != true && (CanRunStartupProject || IsRunning);
+    public bool CanRunToCursor => externalDebugger?.IsActive == true
+        ? externalDebugger.CanRunToCursor : CanRunStartupProject || IsRunning;
     public bool CanEndProject => IsRunning;
     public bool CanRestartProject => IsRunning && externalDebugger?.IsActive != true;
 

@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -227,13 +228,14 @@ public static partial class DistributionDescriptor
         var reference = OptionalString(root, "logo", file);
         if (reference == null)
             return null;
+        if (reference.Contains('\\'))
+            throw Refuse(file, $"'logo' is '{reference}'; it must be written with '/'");
         if (!reference.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
             throw Refuse(file, "'logo' must name a .png file");
 
         var bytes = readAsset(reference);
 
-        // The signature, the IHDR length and type, then the two big-endian dimensions. Bounded before anything
-        // decodes it: the reader caps the bytes, and this caps the pixels a small file can ask for.
+        // Gate dimensions before inflating: the reader caps the bytes, and this caps the pixels.
         if (bytes.Length < 24 || !bytes.AsSpan(0, 8).SequenceEqual(PngSignature)
             || !bytes.AsSpan(12, 4).SequenceEqual("IHDR"u8))
             throw Refuse(file, $"'logo' names '{reference}', which is not a PNG image");
@@ -243,7 +245,127 @@ public static partial class DistributionDescriptor
         if (width is 0 or > MaximumLogoDimension || height is 0 or > MaximumLogoDimension)
             throw Refuse(file, $"'logo' is {width}x{height}; each side must be from 1 to {MaximumLogoDimension} pixels");
 
+        if (!IsCompletePng(bytes, (int)width, (int)height))
+            throw Refuse(file, $"'logo' names '{reference}', which is not a PNG image");
+
         return bytes;
+    }
+
+    private static bool IsCompletePng(byte[] bytes, int width, int height)
+    {
+        if (bytes.Length < 33 || BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(8)) != 13)
+            return false;
+        var depth = bytes[24];
+        var colour = bytes[25];
+        var channels = colour switch { 0 => 1, 2 => 3, 3 => 1, 4 => 2, 6 => 4, _ => 0 };
+        var validDepth = colour switch
+        {
+            0 => depth is 1 or 2 or 4 or 8 or 16,
+            3 => depth is 1 or 2 or 4 or 8,
+            2 or 4 or 6 => depth is 8 or 16,
+            _ => false
+        };
+        if (!validDepth || bytes[26] != 0 || bytes[27] != 0 || bytes[28] > 1)
+            return false;
+
+        using var compressed = new MemoryStream();
+        var palette = false;
+        var dataSeen = false;
+        var dataEnded = false;
+        var ended = false;
+        for (var offset = 8; offset < bytes.Length;)
+        {
+            if (bytes.Length - offset < 12) return false;
+            var length = BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(offset));
+            if (length > bytes.Length - offset - 12) return false;
+            var count = (int)length;
+            var type = bytes.AsSpan(offset + 4, 4);
+            var chunk = bytes.AsSpan(offset + 4, count + 4);
+            if (PngCrc(chunk) != BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(offset + 8 + count)))
+                return false;
+            foreach (var letter in type)
+                if (letter is not (>= (byte)'A' and <= (byte)'Z') and not (>= (byte)'a' and <= (byte)'z'))
+                    return false;
+            if ((type[2] & 32) != 0) return false;
+            if (type.SequenceEqual("IHDR"u8))
+            {
+                if (offset != 8) return false;
+            }
+            else if (type.SequenceEqual("PLTE"u8))
+            {
+                if (palette || dataSeen || colour is 0 or 4 || count == 0 || count % 3 != 0
+                    || count > 768 || (colour == 3 && count / 3 > (1 << depth))) return false;
+                palette = true;
+            }
+            else if (type.SequenceEqual("IDAT"u8))
+            {
+                if (dataEnded || (colour == 3 && !palette)) return false;
+                dataSeen = true;
+                compressed.Write(bytes, offset + 8, count);
+            }
+            else
+            {
+                if (dataSeen) dataEnded = true;
+                if (type.SequenceEqual("IEND"u8))
+                {
+                    if (count != 0 || offset + 12 != bytes.Length) return false;
+                    ended = true;
+                }
+                else if ((type[0] & 32) == 0) return false;
+            }
+            offset += count + 12;
+        }
+        if (!ended || !dataSeen || compressed.Length < 6) return false;
+
+        compressed.Position = 0;
+        try
+        {
+            using var inflated = new ZLibStream(compressed, CompressionMode.Decompress, leaveOpen: true);
+            uint adlerA = 1, adlerB = 0;
+            // Adam7 passes, or a single full image. Empty passes contribute no filter byte.
+            int[] startX = bytes[28] == 0 ? [0] : [0, 4, 0, 2, 0, 1, 0];
+            int[] startY = bytes[28] == 0 ? [0] : [0, 0, 4, 0, 2, 0, 1];
+            int[] stepX = bytes[28] == 0 ? [1] : [8, 8, 4, 4, 2, 2, 1];
+            int[] stepY = bytes[28] == 0 ? [1] : [8, 8, 8, 4, 4, 2, 2];
+            for (var pass = 0; pass < startX.Length; pass++)
+            {
+                var columns = Math.Max(0, (width - startX[pass] + stepX[pass] - 1) / stepX[pass]);
+                var rows = Math.Max(0, (height - startY[pass] + stepY[pass] - 1) / stepY[pass]);
+                if (columns == 0) continue;
+                var rowBytes = (columns * channels * depth + 7) / 8;
+                var row = new byte[rowBytes + 1];
+                for (var y = 0; y < rows; y++)
+                {
+                    inflated.ReadExactly(row);
+                    if (row[0] > 4) return false;
+                    foreach (var value in row)
+                    {
+                        adlerA = (adlerA + value) % 65521;
+                        adlerB = (adlerB + adlerA) % 65521;
+                    }
+                }
+            }
+            if (inflated.ReadByte() != -1) return false;
+            // Also refuse truncated zlib trailers, which a stream can otherwise treat as EOF.
+            var data = compressed.GetBuffer().AsSpan(0, (int)compressed.Length);
+            return BinaryPrimitives.ReadUInt32BigEndian(data[^4..]) == (adlerB << 16 | adlerA);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException)
+        {
+            return false;
+        }
+    }
+
+    private static uint PngCrc(ReadOnlySpan<byte> bytes)
+    {
+        var crc = uint.MaxValue;
+        foreach (var value in bytes)
+        {
+            crc ^= value;
+            for (var bit = 0; bit < 8; bit++)
+                crc = (crc >> 1) ^ ((crc & 1) == 0 ? 0 : 0xEDB88320u);
+        }
+        return ~crc;
     }
 
     // A name, or a folder inside the installation. "none" is the user's recovery route, and a brand can't start there.

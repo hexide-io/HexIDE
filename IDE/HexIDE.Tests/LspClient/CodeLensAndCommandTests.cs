@@ -148,6 +148,27 @@ public class CodeLensAndCommandTests : IAsyncDisposable
         origin.Should().BeSameAs(client);
     }
 
+    [Theory]
+    [InlineData("inlayHint")]
+    [InlineData("semanticTokens")]
+    public async Task InitializeDeclaresAnalysisRefreshSupport(string capability)
+    {
+        var server = new StubServer("{}", "[]");
+        await ConnectedToAsync(server);
+        server.LastInitializeParams!.Value.GetProperty("capabilities").GetProperty("workspace")
+            .GetProperty(capability).GetProperty("refreshSupport").GetBoolean().Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("workspace/inlayHint/refresh")]
+    [InlineData("workspace/semanticTokens/refresh")]
+    public async Task AnalysisRefreshAnswersNull(string method)
+    {
+        var server = new StubServer("{}", "[]");
+        await ConnectedToAsync(server);
+        (await server.Rpc!.InvokeAsync<JsonElement?>(method)).Should().BeNull();
+    }
+
     // ── codeLens ────────────────────────────────────────────────────────────────────────────────────
 
     [Fact]

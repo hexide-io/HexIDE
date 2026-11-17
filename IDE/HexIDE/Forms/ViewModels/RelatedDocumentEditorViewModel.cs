@@ -58,6 +58,42 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindo
         DocumentUri is { } uri && lspClient.SupportsCapability(uri, "signatureHelpProvider")
             ? lspClient.RequestSignatureHelpAsync(uri, position, ct, triggerCharacter) : Task.FromResult<SignatureHelp?>(null);
 
+    public async Task<HoverResult?> RequestHoverAsync(Position position, CancellationToken ct = default)
+    {
+        if (session is not { IsOpen: true } open || !lspClient.SupportsCapability(open.Uri, "hoverProvider")) return null;
+        await open.FlushAsync(ct);
+        return await lspClient.RequestHoverAsync(open.Uri, position, ct);
+    }
+    public bool CanFormatDocument => DocumentUri is { } uri && lspClient.SupportsCapability(uri, "documentFormattingProvider");
+    public bool CanFormatSelection => SelectionLength > 0 && DocumentUri is { } uri && lspClient.SupportsRangeFormatting(uri);
+    public Task<TextEdit[]> RequestFormattingAsync(CancellationToken ct = default) =>
+        CanFormatDocument && DocumentUri is { } uri
+            ? lspClient.RequestFormattingAsync(uri, new FormattingOptions(settings.TabWidth, true), ct) : Task.FromResult<TextEdit[]>([]);
+    public Task<TextEdit[]> RequestRangeFormattingAsync(HexIDE.Lsp.Messages.Range range, CancellationToken ct = default) =>
+        DocumentUri is { } uri && lspClient.SupportsRangeFormatting(uri)
+            ? lspClient.RequestRangeFormattingAsync(uri, range, new FormattingOptions(settings.TabWidth, true), ct) : Task.FromResult<TextEdit[]>([]);
+
+    internal bool RefuseFormatting(bool readOnly)
+    {
+        if (!readOnly && LoadError is null) return false;
+        _ = windowManager.MessageBox(LoadError ?? localization.GetString("Str.CodeEditor.Msg.TypingChangesReadOnlyText"),
+            icon: MessageBoxIcon.Warning);
+        return true;
+    }
+
+    internal void ApplyFormatting(IReadOnlyList<TextEdit> edits)
+    {
+        if (RefuseFormatting(false)) return;
+        var resolved = edits.Select((edit, index) =>
+        {
+            var start = Document.GetOffset(edit.Range.Start.Line + 1, edit.Range.Start.Character + 1);
+            var end = Document.GetOffset(edit.Range.End.Line + 1, edit.Range.End.Character + 1);
+            return (Start: start, Length: end - start, edit.NewText, Index: index);
+        }).OrderByDescending(edit => edit.Start).ThenByDescending(edit => edit.Index).ToArray();
+        using (Document.RunUpdate())
+            foreach (var edit in resolved) Document.Replace(edit.Start, edit.Length, edit.NewText);
+    }
+
     public IReadOnlyList<DocumentSymbol> OutlineSymbols { get; private set; } = [];
     public event Action? LanguageServerStateChanged;
     private int symbolRefreshVersion;
@@ -131,6 +167,8 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindo
     [Notify] private int selectionStart;
 
     [Notify] private int selectionLength;
+
+    private void OnSelectionLengthChanged() => Avalonia.Labs.Input.CommandManager.InvalidateRequerySuggested();
 
     public RelatedDocumentDefinition? RelatedDocument => document;
 
@@ -231,7 +269,11 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindo
         // Taken here, on the UI thread: StateChanged arrives on the connection's thread, and asking Dispatcher.UIThread
         // there while a headless test's setup has it cleared makes that thread the UI thread (#2530).
         var uiThread = Avalonia.Threading.Dispatcher.UIThread;
-        EventHandler stateChanged = (_, _) => uiThread.Post(() => LanguageServerStateChanged?.Invoke());
+        EventHandler stateChanged = (_, _) => uiThread.Post(() =>
+        {
+            LanguageServerStateChanged?.Invoke();
+            Avalonia.Labs.Input.CommandManager.InvalidateRequerySuggested();
+        });
         lspClient.StateChanged += stateChanged;
         AutoDispose(new ActionDisposable(() => lspClient.StateChanged -= stateChanged));
         session.Start();
