@@ -39,6 +39,9 @@ public partial class ObjectBrowserToolViewModel : Document
     private OBLibraryViewModel? vbaLibrary;
     private readonly OBLibraryViewModel allLibraries;
 
+    private OBLibraryViewModel? libraryBeforeReload;
+    private bool removingLibrary;
+
     public ObservableCollection<OBLibraryViewModel> Libraries { get; } = new();
 
     [Notify] [AlsoNotify(nameof(MembersHeader))]
@@ -83,7 +86,7 @@ public partial class ObjectBrowserToolViewModel : Document
     public string DescriptionSignature => selectedMember?.Signature ?? string.Empty;
 
     public string DescriptionMembership => selectedMember != null && selectedClass != null
-        ? $"Member of {selectedClass.LibraryName}.{selectedClass.Name}"
+        ? string.Format(localization.GetString("Str.Tool.ObjectBrowser.MemberOf"), selectedClass.LibraryName, selectedClass.Name)
         : string.Empty;
 
     public string DescriptionText => selectedMember?.Description ?? string.Empty;
@@ -145,6 +148,8 @@ public partial class ObjectBrowserToolViewModel : Document
         CloseCommand = new DelegateCommand(Close);
 
         connections.ConnectionsChanged += OnConnectionsChanged;
+        projectManager.ReloadStarted += OnReloadStarted;
+        projectManager.ReloadFinished += OnReloadFinished;
         projectManager.ProjectLoaded += OnProjectLoaded;
         projectManager.ProjectUnloaded += OnProjectUnloaded;
         focusedProjectUtil.ObservePropertyChanged(x => x.FocusedOrStartupProject)
@@ -152,6 +157,7 @@ public partial class ObjectBrowserToolViewModel : Document
 
         this.ObservePropertyChanged(x => x.SelectedLibrary).Subscribe(_ =>
         {
+            if (!removingLibrary) libraryBeforeReload = null;
             if (SelectedLibrary is { IsLoaded: false })
             {
                 if (SelectedLibrary == vbaLibrary)
@@ -284,6 +290,37 @@ public partial class ObjectBrowserToolViewModel : Document
         finally { IsLoadingMembers = false; }
     }
 
+    private void OnReloadStarted()
+    {
+        libraryBeforeReload = SelectedLibrary is { } lib
+            && (lib.Reference != null || projectToLibrary.ContainsValue(lib)) ? lib : null;
+    }
+
+    private void OnReloadFinished()
+    {
+        var previous = libraryBeforeReload;
+        libraryBeforeReload = null;
+        if (previous == null || Libraries.Contains(previous)) return;
+        var candidates = previous.Reference != null
+            ? Libraries.Where(l => l.Reference != null)
+            : projectToLibrary.Values;
+        SelectedLibrary = candidates.FirstOrDefault(l =>
+            l.Name.Equals(previous.Name, StringComparison.OrdinalIgnoreCase)) ?? allLibraries;
+    }
+
+    private void RemoveLibrary(OBLibraryViewModel library)
+    {
+        // Move the selection before the bound ComboBox removes its selected item.
+        removingLibrary = true;
+        try
+        {
+            if (SelectedLibrary == library) SelectedLibrary = allLibraries;
+            PruneHistory(c => library.Classes.Contains(c));
+            Libraries.Remove(library);
+        }
+        finally { removingLibrary = false; }
+    }
+
     private void OnProjectLoaded(ProjectDefinition project) => AddProjectLibrary(project);
 
     private void OnProjectUnloaded(ProjectDefinition project)
@@ -297,17 +334,13 @@ public partial class ObjectBrowserToolViewModel : Document
         project.ObjectReferencesChanged -= RefreshReferenceLibraries;
         foreach (var referenceLibrary in projectReferences[project])
         {
-            PruneHistory(c => referenceLibrary.Classes.Contains(c));
-            Libraries.Remove(referenceLibrary);
-            if (SelectedLibrary == referenceLibrary) SelectedLibrary = null;
+            RemoveLibrary(referenceLibrary);
         }
         projectReferences.Remove(project);
         foreach (var form in project.Forms) form.PropertyChanged -= OnMemberChanged;
         foreach (var module in project.Modules) module.PropertyChanged -= OnMemberChanged;
-        PruneHistory(c => lib.Classes.Contains(c));
-        Libraries.Remove(lib);
+        RemoveLibrary(lib);
         projectToLibrary.Remove(project);
-        if (SelectedLibrary == lib) SelectedLibrary = null;
         ReorderLibraries();
     }
 
@@ -359,10 +392,8 @@ public partial class ObjectBrowserToolViewModel : Document
         var owned = projectReferences[project];
         foreach (var stale in owned.Where(l => !references.Contains(l.Reference!)).ToList())
         {
-            PruneHistory(c => stale.Classes.Contains(c));
-            Libraries.Remove(stale);
+            RemoveLibrary(stale);
             owned.Remove(stale);
-            if (SelectedLibrary == stale) SelectedLibrary = null;
         }
         foreach (var reference in references)
         {

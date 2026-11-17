@@ -952,6 +952,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 && string.Equals(value.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
                 && !FormMembers.IsMember(identifier, out _))
                 throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+            interpreter.NoteMemberAccess(vobj, identifier, currentModule.Name, context.Start.Line);
             // A form's built-in method is its window's: `Call Me.Move 0, 0` (#822).
             value = await interpreter.Loading((Form: vobj, Member: identifier), static s => s.Form.BuiltInMembersFor(s.Member)) is { } formWindow
                 ? new Vb6Value(formWindow)
@@ -2449,7 +2450,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return ControlFlow.Nothing;
             }
             // A UDT is a value type: `b = a` stores an independent deep copy so mutating b never touches a.
-            if (!interpreter.TryReadNow(currentEnv, identifier, out var letFound, out var oldLet, out var letFoundNeed))
+            if (!interpreter.TryReadNow(currentEnv, identifier, out var letFound, out var oldLet, out var letFoundNeed, trackMemberAccess: false))
                 (letFound, oldLet) = await interpreter.ReadVariableAfter(currentEnv, identifier, letFoundNeed!);
             if (!letFound)
             {
@@ -2641,6 +2642,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         && await interpreter.ReadVariable(vobj.InstanceEnv, indexedName) is (true, var field)
                         && expressionExecutor.IsVariantArrayField(vobj, indexedName, field))
                     {
+                        interpreter.NoteMemberAccess(vobj, indexedName, currentModule.Name, context.Start.Line);
                         var indices = await expressionExecutor.EvaluateCallArgs(indexed.argsCall(0));
                         // VB6 writes into a copy of the field's array, leaving the field unchanged (#1435).
                         // Only an in-bounds store is measured; keep other stores refused.
@@ -2665,6 +2667,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     await interpreter.RunProcedure(vobj.ClassDef, letter, [new CallArg(value, null)], vobj.InstanceEnv, variable, stmtFrames);
                     return default;
                 }
+                interpreter.NoteMemberAccess(vobj, fieldName, currentModule.Name, context.Start.Line);
                 if (!interpreter.TryReadNow(vobj.InstanceEnv, fieldName, out var isField, out var oldFieldLet, out var isFieldNeed))
                     (isField, oldFieldLet) = await interpreter.ReadVariableAfter(vobj.InstanceEnv, fieldName, isFieldNeed!);
                 if (isField)
@@ -4022,6 +4025,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return ControlFlow.Nothing;
             }
             // Raw object-field write: refcount the field slot (AddRef new before Release old, as for a plain var).
+            interpreter.NoteMemberAccess(targetObj, fieldName, currentModule.Name, context.Start.Line);
             if (!interpreter.TryReadNow(targetObj.InstanceEnv, fieldName, out var setField, out var oldField, out var setFieldNeed))
                 (setField, oldField) = await interpreter.ReadVariableAfter(targetObj.InstanceEnv, fieldName, setFieldNeed!);
             if (!setField)
@@ -5058,6 +5062,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 && string.Equals(value.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
                 && !FormMembers.IsMember(identifier, out _))
                 throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+            interpreter.NoteMemberAccess(vobj, identifier, currentModule.Name, context.Start.Line);
             // A form's built-in method is its window's: `Me.Hide`, `Form1.Move 0, 0` (#822).
             value = await interpreter.Loading((Form: vobj, Member: identifier), static s => s.Form.BuiltInMembersFor(s.Member)) is { } formWindow
                 ? new Vb6Value(formWindow)

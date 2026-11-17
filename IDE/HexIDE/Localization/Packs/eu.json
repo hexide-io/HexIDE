@@ -409,6 +409,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Kideak",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Klaseak",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Bilaketaren emaitzak",
+    "Str.Tool.ObjectBrowser.MemberOf": "{0}.{1} objektuaren kidea",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globalak)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Oraindik ez da hizkuntza-zerbitzaririk abiarazi. Ireki kode-leiho bat zerbitzari bat abiarazteko.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Martxan dagoen hizkuntza-zerbitzari batek ere ez du eskaintzen ikur integraturik.",

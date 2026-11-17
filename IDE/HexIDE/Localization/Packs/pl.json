@@ -485,6 +485,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Składowe",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Klasy",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Wyniki wyszukiwania",
+    "Str.Tool.ObjectBrowser.MemberOf": "Element klasy {0}.{1}",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globalne)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Żaden serwer językowy nie został jeszcze uruchomiony. Otwórz okno kodu, aby go uruchomić.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Żaden uruchomiony serwer językowy nie oferuje wbudowanych symboli.",
