@@ -27,7 +27,7 @@ public class PropertyCategoryToggleTests
     {
         var vm = new PropertiesToolViewModel(Substitute.For<HexIDE.IDE.IDocumentDockService>(),
             Substitute.For<HexIDE.IDE.IEventBus>(), Substitute.For<HexIDE.IDE.IWindowManager>(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), new Vb6ProjectFileFormat());
+            Substitute.For<HexIDE.Localization.ILocalizationService>());
         var category = new PropertyCategoryViewModel(vm, PropertyCategory.Appearance);
         var property = new PropertyViewModel(vm, VBProperties.BackColorProperty, null);
         vm.Properties.Add(property);

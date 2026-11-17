@@ -63,8 +63,7 @@ public class SaveRecordsTheHeaderTests : IDisposable
             .Returns(ci => Task.FromResult<string?>(
                 Path.Join(dir, ci.Arg<Avalonia.Platform.Storage.FilePickerSaveOptions>().SuggestedFileName)));
 
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => throw new InvalidOperationException("new-project dialog must not be reached"),
+        return new ProjectService(            () => throw new InvalidOperationException("new-project dialog must not be reached"),
             windowManager,
             Substitute.For<IEventBus>(),
             projectManager,
@@ -73,8 +72,7 @@ public class SaveRecordsTheHeaderTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            refresher ?? new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
-            new Vb6ProjectFileFormat(), new ComponentRegistry());
+            refresher ?? new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), new ComponentRegistry());
     }
 
     private sealed class NullSink : IDeserializeErrorSink
@@ -130,8 +128,8 @@ public class SaveRecordsTheHeaderTests : IDisposable
         var bookmarks = new BookmarkService();
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel>());
-        using var refresher = new HeaderRefresher(new Vb6ReadOnlyRegionWriter(), new EventBus(), dock,
-            marks, bookmarks, new Vb6ProjectFileFormat());
+        using var refresher = new HeaderRefresher(new EventBus(), dock,
+            marks, bookmarks);
         var service = MakeService(refresher);
         await service.OpenProject(vbp);
         var project = loaded.Single();
@@ -144,7 +142,7 @@ public class SaveRecordsTheHeaderTests : IDisposable
             Substitute.For<HexIDE.Lsp.ILspClient>(), Substitute.For<ISettingsService>(),
             Substitute.For<IStatusBarService>(), bookmarks, marks,
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<IRunScope>(),
-            new HexIDE.Localization.LocalizationService(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).Initialize(module) : null;
+            new HexIDE.Localization.LocalizationService()).Initialize(module) : null;
         dock.OpenDocuments.Returns(editor is null ? new List<BaseEditorWindowViewModel>() : [editor]);
         if (editor is not null) editor.CaretOffset = body.IndexOf("Hi =", StringComparison.Ordinal);
         service.HasUnsavedChanges(module).Should().BeFalse();
@@ -307,7 +305,8 @@ public class SaveRecordsTheHeaderTests : IDisposable
     [InlineData("Height = 3.7E+18", true)]
     [InlineData("Left = 2147483648", true)]
     [InlineData("ClientHeight = 3.7E+18", false)]
-    [InlineData("Height = -1", true)]
+    // A negative Height on a form's control recovers as zero and saves through Save As (#4179); this service's
+    // picker answers with the original path, which re-prompts without end, so that row lives in #4179's tests.
     public async Task DamagedPropertySaveLeavesOriginalBytes(string properties, bool button)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "Test") { AbsolutePath = Path.Join(dir, "Test.vbp") };

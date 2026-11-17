@@ -13,7 +13,7 @@ namespace HexIDE.IDE;
 
 /// <summary>Uses live buffers first; searching never flushes an editor or opens a non-matching file.</summary>
 internal sealed class FindProjectDocuments(IDocumentDockService dock, IProjectManager projects,
-    IEditorService editors, Func<ProjectDefinition?> selectedProject, IProjectFileFormat format, IReadOnlyRegionReader regionReader)
+    IEditorService editors, Func<ProjectDefinition?> selectedProject)
 {
     public ProjectDefinition? CurrentProject => dock.ActiveDocument switch
     {
@@ -35,8 +35,8 @@ internal sealed class FindProjectDocuments(IDocumentDockService dock, IProjectMa
         {
             if (!allProjects && project != CurrentProject) continue;
             // Each project's documents through its own format and regions (#4053).
-            var own = ProjectFormats.Of(project, format);
-            var reader = ProjectFormats.ReaderOf(project, regionReader);
+            var own = ProjectFormats.Of(project);
+            var reader = ProjectFormats.ReaderOf(project);
             foreach (var module in project.Modules)
                 result.Add(Lookup(module) ?? new UnopenedDocument(own.CodePrefix(module) + module.Code,
                     own.CodePrefix(module).Length, () => { editors.EditCode(module); return Lookup(module); },

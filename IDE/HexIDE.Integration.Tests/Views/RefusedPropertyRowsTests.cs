@@ -48,10 +48,10 @@ public class RefusedPropertyRowsTests
         loc.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         var messages = Substitute.For<IWindowManager>();
         using var designer = new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<HexIDE.Projects.IProjectService>(),
-            null!, messages, Substitute.For<ISettingsService>(), loc, new Vb6ProjectFileFormat()).Initialize(form);
+            null!, messages, Substitute.For<ISettingsService>(), loc).Initialize(form);
         var dock = Substitute.For<IDocumentDockService>();
         dock.ActiveDocument.Returns(designer);
-        var grid = new PropertiesToolViewModel(dock, Substitute.For<IEventBus>(), messages, loc, new Vb6ProjectFileFormat());
+        var grid = new PropertiesToolViewModel(dock, Substitute.For<IEventBus>(), messages, loc);
         designer.SelectedComponent = designer.AllComponents.Single(c => c.Name == "Command1");
         grid.FilterText = property;
         var row = grid.Properties.OfType<PropertyViewModel>().Single(p => p.Name == property);

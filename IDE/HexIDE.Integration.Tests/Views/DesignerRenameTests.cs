@@ -49,7 +49,7 @@ public class DesignerRenameTests
         project.AddForm(form);
         var vm = new FormEditViewModel(
             null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!, null!,
-            Naming(), new Vb6ProjectFileFormat());
+            Naming());
         return vm.Initialize(form);
     }
 

@@ -117,6 +117,7 @@ public partial class MainViewViewModel : ObservableObject
     public DelegateCommand RunToCursorCommand { get; }
     public DelegateCommand SetNextStatementCommand { get; }
     public DelegateCommand ShowNextStatementCommand { get; }
+    public DelegateCommand OpenCallStackCommand { get; }
     public DelegateCommand EditWatchCommand { get; }
     public DelegateCommand SaveFormCommand { get; }
     public DelegateCommand RemoveDocumentCommand { get; }
@@ -310,6 +311,7 @@ public partial class MainViewViewModel : ObservableObject
 
     private readonly AddinToolWindowService _addinToolWindowService;
 
+    internal event Action? PauseFocusRequested;
     internal event Action<IDockable, bool>? KeyboardFocusRequested;
 
     public class DockFactory : Factory
@@ -1692,10 +1694,10 @@ public partial class MainViewViewModel : ObservableObject
         // Not optional, like the two above: each optional parameter here doubles Pure.DI's search for the graph, and one
         // more took it past its 16,384-iteration limit (DIE031).
         TypeHierarchyToolViewModel? typeHierarchy,
-        HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
-        HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
-        RunWithMenuViewModel? runWith = null,
-        ILogFolderOpener? logFolderOpener = null)
+        HexIDE.Debugging.ExternalDebugService? externalDebugger,
+        HexIDE.Recovery.IRecoveryOffers? recoveryOffers,
+        RunWithMenuViewModel? runWith,
+        ILogFolderOpener? logFolderOpener)
     {
         logFolderOpener ??= new PlatformLogFolderOpener();
         OpenLogFolderCommand = new DelegateCommand(() => OpenLogFolderAsync(windowManager, localization, logFolderOpener).ListenErrors());
@@ -1768,9 +1770,8 @@ public partial class MainViewViewModel : ObservableObject
         // paints the amber current-statement bar and scrolls to it (it reads the controller's CurrentStop on open).
         debugController.Stopped += info =>
         {
-            if (info.Reason == StopReason.Pause && Static.MainView is { } mainView)
-                (TopLevel.GetTopLevel(mainView) as Window)?.Activate();
-            RevealBreak(info.Module);
+            if (info.Reason == StopReason.Pause) PauseFocusRequested?.Invoke();
+            if (info.HasStatement) RevealBreak(info.Module);
         };
         StatusBar = statusBarService;
         debugController.Stopped += _ => Dispatcher.UIThread.Post(UpdateRunState);
@@ -1996,14 +1997,15 @@ public partial class MainViewViewModel : ObservableObject
 
         bool HasActiveCodeWindow() => documentDockService.ActiveDocument is CodeEditorViewModel;
         ToggleBreakpointCommand = new DelegateCommand(ToggleBreakpoint, HasActiveCodeWindow);
-        RunToCursorCommand = new DelegateCommand(RunToCursor, HasActiveCodeWindow);
-        SetNextStatementCommand = new DelegateCommand(SetNextStatement, () => ExternalDebugger?.IsActive == true || (HasActiveCodeWindow() && debugController.CurrentStop is not null));
-        ShowNextStatementCommand = new DelegateCommand(ShowNextStatement, () => ExternalDebugger?.IsActive == true || debugController.CurrentStop is not null);
+        RunToCursorCommand = new DelegateCommand(RunToCursor, () => HasActiveCodeWindow() && debugController.CurrentStop is not { HasStatement: false });
+        SetNextStatementCommand = new DelegateCommand(SetNextStatement, () => ExternalDebugger?.IsActive == true || (HasActiveCodeWindow() && debugController.CurrentStop is { HasStatement: true }));
+        ShowNextStatementCommand = new DelegateCommand(ShowNextStatement, () => ExternalDebugger?.IsActive == true || debugController.CurrentStop is { HasStatement: true });
+        OpenCallStackCommand = new DelegateCommand(OpenCallStackTool, () => ExternalDebugger?.IsActive == true || debugController.CurrentStop is not { HasStatement: false });
         EditWatchCommand = new DelegateCommand(EditWatch, () => Watches.SelectedRow is not null);
 
         // Routed commands listen to CommandManager, not to the delegate behind their binding.
         foreach (var command in new[] { ToggleBreakpointCommand, RunToCursorCommand, SetNextStatementCommand,
-                     ShowNextStatementCommand, EditWatchCommand, SaveProjectAsCommand })
+                     ShowNextStatementCommand, OpenCallStackCommand, EditWatchCommand, SaveProjectAsCommand })
             command.CanExecuteChanged += (_, _) => Avalonia.Labs.Input.CommandManager.InvalidateRequerySuggested();
 
         if (externalDebugger is not null)
@@ -2011,16 +2013,22 @@ public partial class MainViewViewModel : ObservableObject
             {
                 SetNextStatementCommand.RaiseCanExecutedChanged();
                 ShowNextStatementCommand.RaiseCanExecutedChanged();
+                OpenCallStackCommand.RaiseCanExecutedChanged();
+                RunToCursorCommand.RaiseCanExecutedChanged();
             };
         debugController.Stopped += _ =>
         {
             SetNextStatementCommand.RaiseCanExecutedChanged();
             ShowNextStatementCommand.RaiseCanExecutedChanged();
+            OpenCallStackCommand.RaiseCanExecutedChanged();
+            RunToCursorCommand.RaiseCanExecutedChanged();
         };
         debugController.Continued += () =>
         {
             SetNextStatementCommand.RaiseCanExecutedChanged();
             ShowNextStatementCommand.RaiseCanExecutedChanged();
+            OpenCallStackCommand.RaiseCanExecutedChanged();
+            RunToCursorCommand.RaiseCanExecutedChanged();
         };
         Watches.ObservePropertyChanged(x => x.SelectedRow)
             .Subscribe(_ => EditWatchCommand.RaiseCanExecutedChanged());
@@ -2470,7 +2478,7 @@ public partial class MainViewViewModel : ObservableObject
                 editorService.NavigateTo(location.Uri, location.Line, 1);
             return;
         }
-        if (debugController.CurrentStop is { } stop)
+        if (debugController.CurrentStop is { HasStatement: true } stop)
             RevealBreak(stop.Module);
     }
 

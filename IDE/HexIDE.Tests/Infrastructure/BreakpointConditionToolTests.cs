@@ -26,8 +26,7 @@ public class BreakpointConditionToolTests : CompositionTestBase
             projects.LoadedProjects.Returns([Project]);
             Context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
                 null!, Substitute.For<IProjectRunnerService>(), null!, null!, null!, Marks, null!, root,
-                null!, null!, null!, null!, null!, null!, new LocalizationService(), null!,
-                new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+                null!, null!, null!, null!, null!, null!, new LocalizationService(), null!);
             Tools = new HexIdeTools(Context);
         }
         public void Dispose() => Context.Dispose();

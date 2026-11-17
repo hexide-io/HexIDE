@@ -25,9 +25,7 @@ public class DocumentFloatingTests
             Substitute.For<IProjectService>(), Substitute.For<IEventBus>(), Substitute.For<ILspClient>(),
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<ILocalizationService>(),
-                new Vb6ProjectFileFormat(),
-                new Vb6ReadOnlyRegionReader());
+            Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<ILocalizationService>());
 
     [AvaloniaTheory]
     [InlineData(false)]

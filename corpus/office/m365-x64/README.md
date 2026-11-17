@@ -43,3 +43,16 @@ Eleven Office files with VBA projects, made 2026-11-16 for #4330, the reader of 
 `locked.xlsm` was locked by `lock.ps1`, which drives the VBA editor's Project Properties with keys, since protection has no COM call; reopened, its `VBProject.Protection` reads 1, and its `PROJECT` stream carries `CMG`, `DPB` and `GC`. `build.ps1`, `lock.ps1` and the two check scripts are kept for repeating the build. The scan needs the account's names, which are never written down. They're read on the build machine at scan time.
 
 `cp932.xlsm` and `cp932.xls` were made by `cp932.ps1` with the build machine's system locale set to Japanese (ANSI code page 932), then set back. `cpcheck.py` confirms each holds the module's name in its `dir` stream in code page 932 (MODULENAME) and in UTF-16LE (MODULENAMEUNICODE), a module stream named in Japanese, and the string literal in code page 932 in the decompressed source. A reader that decodes with the wrong code page will mangle all three.
+
+## What another reader makes of them
+
+`oletools-expected.json` is what oletools 0.60.2 (BSD-2-Clause), an independent reader, reads from each file. It covers
+the project's name, its declared code page and system kind, and each module's Unicode name, Unicode stream name, type
+(`0x21` procedural, `0x22` document or class), source offset, and the length and SHA-256 of its decompressed source.
+`oletools_expected.py` made it. oletools is used only as an oracle here, and nothing in HexIDE uses or ships it.
+
+**Measured, 2026-11-16: the declared code page doesn't describe the bytes.** Both `cp932` files declare
+`PROJECTCODEPAGE` 1252 and LCID `0x409` in their `dir` stream, though they were saved with the system's ANSI code page
+at 932. Their module name and source are cp932 bytes. The `dir` stream also holds the name in UTF-16
+(`MODULENAMEUNICODE`), and that is right. oletools trusts the declared 1252 and decodes the name to mojibake, which is
+why its byte-decoded names aren't recorded here.

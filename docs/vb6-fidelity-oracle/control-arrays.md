@@ -101,6 +101,9 @@ saved with Ctrl+S and read back from the `.frm`.
 | `Command1` with `Index = 0` and `Private Sub Command1_Click(i As Integer)`, the parameter renamed; F5, then Space on the button | **Ran.** The handler wrote `i=0` |
 | The same with `(Index As Long)`; F5 | **The compile error** |
 | The same with `(ByVal Index As Integer)`; F5 | **The compile error** |
+| The same with `(Index)`, no type and no DefType; F5 | **The compile error** |
+| The same with `(Index)` and `DefInt I` in the module; F5, then Space | **Ran.** `TypeName(Index)` was Integer, the value 0 |
+| The same with `(Index%)`; F5, then Space | **Ran.** Integer, 0 |
 
 **What this settles:**
 - **A new handler for an array element takes `Index As Integer` as its first parameter,** ahead of whatever the event
@@ -110,6 +113,9 @@ saved with Ctrl+S and read back from the `.frm`.
 - **What VB6 compares is the parameters' types and passing, not their names.** A renamed `Index` runs and receives
   the index. `As Long` for `As Integer` is the compile error, and so is `ByVal` on a parameter the event passes by
   reference. Only the extra parameter `Index` was varied; the event's own arguments, such as MouseDown's, weren't.
+- **The type compared is the effective one,** as DefType decides it ([DefType](deftype--default-typing-by-first-letter.md)):
+  an untyped `Index` is Variant and refused, but the same declaration under `DefInt I` is Integer and runs, as `Index%`
+  does. The obvious reading, that a declaration must say `As Integer`, would have refused two programs VB6 runs.
 - **Not measured:**
   - the same error from `/make`;
   - an element whose Index is set to something other than 0;

@@ -4,12 +4,19 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
+using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.LogicalTree;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.Runtime;
+using HexIDE.IDE;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
+using HexIDE.VisualDesigner;
 using HexIDE.Runtime.Interpreter;
 using static HexIDE.Integration.Tests.Views.ContainerRuntimeHarness;
 
@@ -104,6 +111,59 @@ public class RuntimeMenuTests : WindowTestFixture
         Dispatcher.UIThread.RunJobs();
         var bar = ((DockPanel)content).Children.OfType<Menu>().Single();
         return (bar, canvas, root);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Editor_choice_survives_save_and_drives_the_runtime(bool array)
+    {
+        var form = new FormDeserializer().Deserialize(
+            new ProjectDefinition(VBProjectType.EXE, "P"),
+            MenuForm.Replace("Shortcut        =   ^N", ""), Substitute.For<IDeserializeErrorSink>())!;
+        var component = form.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "mnuFileNew");
+        var model = new MenuEditorViewModel
+            { SelectedMenu = new MenuViewModel(component) };
+        var view = new MenuEditorView { DataContext = model };
+        var editor = new Window { Content = view, Width = 650, Height = 500 };
+        IdeDialogChrome.Apply(editor);
+        editor.Show();
+        editor.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+        if (array)
+        {
+            var index = view.GetLogicalDescendants().OfType<TextBox>().ElementAt(2);
+            index.Should().NotBeNull();
+            index!.Focus();
+            editor.KeyTextInput("0");
+        }
+        else
+        {
+            var shortcut = view.GetLogicalDescendants().OfType<ComboBox>().First();
+            shortcut.Should().NotBeNull();
+            shortcut!.SelectedIndex = 14; // Ctrl+N, after (None) and Ctrl+A through Ctrl+M.
+        }
+        model.SelectedMenu!.Apply(component);
+        editor.Close();
+        var saved = new FormSerializer().Serialize(form, "Form1.frm").frmText;
+        saved.Should().Contain(array ? "Index           =   0" : "Shortcut        =   ^N");
+        var (bar, canvas, root) = Run(saved);
+        var item = Item(Item(bar, "&File"), "&New");
+        if (array)
+        {
+            ControlArrayGroup.TryGetArrayOf(item, out var group).Should().BeTrue();
+            group.Elements.Keys.Should().Equal(0);
+            group.Elements[0].Should().BeSameAs(item);
+        }
+        else
+        {
+            canvas.Children.OfType<TextBox>().First().Focus();
+            Dispatcher.UIThread.RunJobs();
+            root.Executed.Clear();
+            root.KeyPress(Key.N, RawInputModifiers.Control, PhysicalKey.None, "n");
+            Dispatcher.UIThread.RunJobs();
+            root.Executed.Should().Equal("mnuFile_Click", "mnuFileNew_Click");
+        }
     }
 
     private static MenuItem Item(ItemsControl parent, string header) =>
@@ -261,7 +321,7 @@ public class RuntimeMenuTests : WindowTestFixture
         var (bar, _, root) = Run(MenuForm);
         var file = Item(bar, "&File");
         var newItem = Item(file, "&New");
-        ((HexIDE.Runtime.BuiltinControls.VBMenu)newItem).Checked = programChecked;
+        ((VBMenu)newItem).Checked = programChecked;
         file.Open();
         Dispatcher.UIThread.RunJobs();
         var popupRoot = TopLevel.GetTopLevel(newItem)!;
@@ -284,7 +344,7 @@ public class RuntimeMenuTests : WindowTestFixture
     {
         var (bar, _, root) = Run(MenuForm);
         var file = Item(bar, "&File");
-        var newItem = (HexIDE.Runtime.BuiltinControls.VBMenu)Item(file, "&New");
+        var newItem = (VBMenu)Item(file, "&New");
         newItem.Checked = programChecked;
         HexIDE.Automation.UiAutomationDriver.Interact(file, "expand", null);
         Dispatcher.UIThread.RunJobs();

@@ -56,7 +56,7 @@ public class TypedMemberAttributeTests : IDisposable
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             events, Substitute.For<ILspClient>(), settings, status,
             new BookmarkService(), new BreakpointService(), Substitute.For<IDebugController>(), new RunScope(),
-            localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            localization);
         made.Add(vm);
         module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "DName", ModuleKind.StandardModule);
         module.RecordOriginalHeader("Attribute VB_Name = \"DName\"\r\n");
