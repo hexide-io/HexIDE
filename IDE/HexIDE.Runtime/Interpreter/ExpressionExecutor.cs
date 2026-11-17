@@ -1861,6 +1861,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 return await interpreter.RunProcedure(vobj.ClassDef, getter, getArgs, vobj.InstanceEnv, variable, stmtFrames)
                     ?? throw new VBSubOrFunctionNotDefinedException(memberName);
             }
+            interpreter.NoteMemberAccess(vobj, memberName, currentModule.Name, ctx.Start.Line);
             if (!interpreter.TryReadNow(vobj.InstanceEnv, memberName, out var isField, out var fieldVal, out var isFieldNeed))
                 (isField, fieldVal) = await interpreter.ReadVariableAfter(vobj.InstanceEnv, memberName, isFieldNeed!);
             if (isField)
