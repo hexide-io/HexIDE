@@ -1462,17 +1462,17 @@ two genuinely different things, and dropping either would hide something the use
 ## Inlay hints
 
 The client declares `textDocument.inlayHint` and requests `textDocument/inlayHint` only from servers
-advertising `inlayHintProvider` (a flag or options object). Matching servers' labels are gathered for the
-whole open document after edits settle and after a connection starts. Edits clear old labels and obsolete
-replies are discarded. String labels and label-part arrays render after their source line in the theme's
-read-only text colour, without inserting text, affecting undo or adding caret columns. An interior hint
-position still places its label after that line; several labels on one line are joined in server order.
+advertising `inlayHintProvider` (a flag or options object). The highest-priority claimant returning nonempty
+hints supplies labels for the whole open document after edits settle and after a connection starts. Edits
+clear old labels and obsolete replies are discarded. String labels and label-part arrays render inline at
+their reported positions in the theme's read-only text colour, honouring left and right padding, without
+inserting text, affecting undo or adding caret stops. End-of-line hints stay at the line end. Empty answers fall back to the next claimant (#4253).
 Options → Editor → General → **Show inlay hints** hides them and stops requests; it defaults on.
 
 The bundled server supplies syntactic block-end labels (#1998), an explicit exception to the analysis
 boundary below. Parameter names and inferred types still need binding and remain a backend's job.
-Labels alone are consumed: `inlayHint/resolve`, refresh requests, tooltips, navigation, commands and
-hint text edits are not supported or advertised.
+The client consumes label text, positions and padding. `inlayHint/resolve`, refresh requests, tooltips,
+navigation, commands and hint text edits are not supported or advertised.
 
 ## Custom methods
 
@@ -1683,7 +1683,7 @@ than inferred.
 | ✅ | `textDocument/formatting` | → |  |
 | ✅ | `textDocument/hover` | → |  |
 | ✅ | `textDocument/implementation` | → | Capability-gated navigation; all three location shapes, multiple results in Find References (#3074) |
-| ✅ | `textDocument/inlayHint` | → | Labels after the line; syntactic block ends from the bundled server |
+| ✅ | `textDocument/inlayHint` | → | Inline labels at their positions; first nonempty provider; bundled syntactic block ends |
 | ○ | `textDocument/inlineCompletion` | → |  |
 | ○ | `textDocument/inlineValue` | → |  |
 | ○ | `textDocument/linkedEditingRange` | → |  |

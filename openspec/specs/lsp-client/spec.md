@@ -2455,14 +2455,20 @@ names under a dedicated severity header. Headers SHALL fit their localized capti
 ### Requirement: Inlay hints SHALL render without changing caret columns
 
 The client SHALL declare inlay-hint support and request `textDocument/inlayHint` only from matching servers
-advertising `inlayHintProvider`. It SHALL render string or label-part labels after the corresponding line,
-without changing document text or caret columns. An Editor General option SHALL hide hints and suppress
-requests. Edits SHALL clear stale hints and prevent obsolete replies from restoring them.
+advertising `inlayHintProvider`. It SHALL render string or label-part labels inline at their reported
+positions, honouring left and right padding, without changing document text or adding caret stops. It SHALL
+use only the highest-priority claimant returning nonempty hints, falling back on empty answers. An Editor
+General option SHALL hide hints and suppress requests. Edits SHALL clear stale hints and prevent obsolete replies from restoring them.
 
 #### Scenario: An offering server returns a label
 - **WHEN** a server offering inlay hints returns a label for an open document
-- **THEN** the label appears after its line in the read-only text colour
+- **THEN** the label appears at its reported position in the read-only text colour
 - **AND** the document, undo history and caret columns are unchanged
+
+#### Scenario: Several claimants offer hints
+- **WHEN** matching servers return nonempty hints
+- **THEN** only the highest-priority answer is shown
+- **AND** an empty answer falls back to the next claimant
 
 #### Scenario: Hints are disabled or unsupported
 - **WHEN** the user disables inlay hints or no matching server offers them
