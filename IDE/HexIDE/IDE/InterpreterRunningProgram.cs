@@ -13,20 +13,21 @@ public sealed class InterpreterRunningProgram : IRunningProgram
 {
     public InterpreterRunningProgram() => _ = opened;
 
+    // A single-view host window holds its form's execution root as content (#4068), so ask FormRoot, not the window's type.
     public RunningForm? Form(object window) => window is AvaloniaObject form
-        && (window is IModuleExecutionRoot || window is Window && VBProps.GetName(form) is not null)
-        ? new RunningForm(window, VBProps.GetName(form), window is IModuleExecutionRoot) : null;
+        && (FormRoot.Execution(window) is not null || window is Window && VBProps.GetName(form) is not null)
+        ? new RunningForm(window, VBProps.GetName(form), FormRoot.Execution(window) is not null) : null;
 
     public IProgramActivity? Activity(object? window)
     {
         if (window is null)
-            return PumpOf(OpenWindows().FirstOrDefault(w => w is IModuleExecutionRoot { Events: not null }));
-        if (window is IModuleExecutionRoot)
+            return PumpOf(OpenWindows().FirstOrDefault(w => FormRoot.Execution(w) is { Events: not null }));
+        if (FormRoot.Execution(window) is not null)
             return PumpOf(window);
         if (window is not Window box || !ProgramDialogs.IsProgramBox(box.Content))
             return null;
         for (var at = box.Owner as Window; at is not null; at = at.Owner as Window)
-            if (at is IModuleExecutionRoot { Events: not null })
+            if (FormRoot.Execution(at) is { Events: not null })
                 return PumpOf(at);
         return Activity(null);
     }
@@ -46,7 +47,7 @@ public sealed class InterpreterRunningProgram : IRunningProgram
             ?.Windows ?? []).Concat(opened).Distinct().Where(w => w.IsVisible);
 
     private static IProgramActivity? PumpOf(object? window) =>
-        window is IModuleExecutionRoot { Events: { } pump } ? pump : null;
+        FormRoot.Execution(window) is { Events: { } pump } ? pump : null;
 
     public event Action<string>? Written
     {
