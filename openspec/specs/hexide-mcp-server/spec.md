@@ -2237,3 +2237,30 @@ previously active window's name and current `isActive`; a timeout SHALL not clai
 - **WHEN** `interact` presses on an inactive window and that window remains inactive after release
 - **THEN** its reply SHALL say activation did not move, name any window still active, and point to
   `set_window_state` with `activate: true`
+
+### Requirement: External inspection and breakpoint tools
+
+While an external session is active, `get_call_stack`, `get_locals`, `evaluate`, `add_watch` and
+`get_watches` SHALL use the same frames, variables, Immediate evaluation and external watch store
+as the IDE windows. Replies SHALL preserve the tools' result shapes, omit unavailable source or
+project fields and explain the adapter frame context. Running inspection SHALL refuse with guidance
+to use `break_program` or a breakpoint. External watches SHALL support Expression watches only.
+`set_breakpoints` and `clear_all_breakpoints` SHALL edit the editor's external breakpoint set and
+report adapter verification, relocation, refusal and unsupported conditions after awaiting its replies.
+`get_breakpoints` SHALL read that same external set, with its conditions, so it agrees with the editor.
+
+#### Scenario: Inspect a stopped external session
+
+- **WHEN** an inspection tool is called with an external session stopped in a selected frame
+- **THEN** its reply contains that adapter frame's data or evaluation, as the corresponding IDE window does
+
+#### Scenario: Inspect while running
+
+- **WHEN** an inspection tool is called while the external session runs
+- **THEN** its reply explains that inspection requires a stop and names `break_program` or a breakpoint
+
+#### Scenario: Replace external breakpoints
+
+- **WHEN** `set_breakpoints` replaces a saved document's lines and conditions
+- **THEN** the adapter receives the editor's setBreakpoints request and the reply reports its verification and relocated lines
+- **AND** `get_breakpoints` for that document returns the same lines and conditions
