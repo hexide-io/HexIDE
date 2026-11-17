@@ -19,6 +19,15 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>The server invalidated code lenses; sender identifies the issuing connection.</summary>
     event EventHandler? CodeLensRefreshRequested;
 
+    /// <summary>The server invalidated inlay hints; sender identifies the issuing connection.</summary>
+    event EventHandler? InlayHintRefreshRequested;
+
+    /// <summary>The server invalidated semantic tokens; sender identifies the issuing connection.</summary>
+    event EventHandler? SemanticTokensRefreshRequested;
+
+    /// <summary>Whether this document is attached to the connection issuing a refresh.</summary>
+    bool HandlesRefresh(string uri, object? sender) => ReferenceEquals(this, sender);
+
     /// <summary>Fired when the server sends textDocument/publishDiagnostics.</summary>
     event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
 
