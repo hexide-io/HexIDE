@@ -54,6 +54,23 @@ public class CodeEditorViewModelTests : IDisposable
         _sut?.Dispose();
     }
 
+    // #4245: each new code window starts with the project's target, for both member kinds.
+    [AvaloniaTheory]
+    [InlineData(VbaBitness.None, 0)]
+    [InlineData(VbaBitness.Bit32, 1)]
+    [InlineData(VbaBitness.Bit64, 2)]
+    public void Conditional_preview_defaults_to_project_bitness(VbaBitness bitness, int expected)
+    {
+        var module = TestHelpers.CreateModule();
+        module.Owner.VbaBitness = bitness;
+        var moduleVm = CreateSut().Initialize(module);
+        moduleVm.ConditionalTargetIndex.Should().Be(expected);
+        moduleVm.Dispose();
+        var form = TestHelpers.CreateForm(name: "Form1");
+        form.Owner.VbaBitness = bitness;
+        CreateSut().Initialize(form).ConditionalTargetIndex.Should().Be(expected);
+    }
+
     [AvaloniaFact]
     public async Task AddWatchInDeclarationsDefaultsToActiveModule()
     {

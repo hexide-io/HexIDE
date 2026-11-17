@@ -970,7 +970,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var pp = new PrePass(env, ExecutionContext.State, allowIndexedLet: kind is InterpreterModuleKind.Standard or InterpreterModuleKind.Class,
             allowIndexedSet: kind == InterpreterModuleKind.Class)
         {
-            ObjectModule = kind != InterpreterModuleKind.Standard
+            ObjectModule = kind != InterpreterModuleKind.Standard,
+            VbaBitness = compilationConstants.VbaBitness
         };
         pp.Visit(Parse(ConditionalCompiler.Preprocess(moduleCode, compilationConstants, name).Text, name));
         return new ModuleInfo(name, kind, pp, env);
