@@ -12,7 +12,7 @@ import sys
 root = Path(__file__).resolve().parents[3]
 output = root / "artifacts" / "issue-3197"
 output.mkdir(parents=True, exist_ok=True)
-binary = root / "IDE/HexIDE.Integration.Tests/bin/Debug/net10.0/HexIDE.Integration.Tests"
+binary = root / "IDE/HexIDE.Integration.Tests/bin/Debug/net11.0/HexIDE.Integration.Tests"
 available_cpus = sorted(os.sched_getaffinity(0))
 worker_count = min(4, len(available_cpus) // 2)
 write_lock = threading.Lock()

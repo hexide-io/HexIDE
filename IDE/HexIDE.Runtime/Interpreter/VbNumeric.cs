@@ -288,7 +288,9 @@ public static class VbNumeric
         if (target == VT.Currency)
             return v.Type == VT.Double
                 ? CurrencyFromDouble((double)v.Value!, ctx)
-                : MakeCurrency(ToDecimal(v, ctx), ctx);
+                // #4017 measures Decimal conversions, not Single-to-Currency: keep that host conversion, with #434's
+                // overflow (CCur(1E+30) is error 6) for a Single too.
+                : MakeCurrency(v.Value is float f ? HostDecimal(f, ctx) : ToDecimal(v, ctx), ctx);
         if (target == VT.Decimal)
             return Vb6Value.NewDecimal(ToDecimal(v, ctx));
         if (target == VT.Date)
@@ -386,7 +388,7 @@ public static class VbNumeric
     {
         if (!double.IsFinite(value))
             throw new VBRunTimeException(ctx, VBStandardError.Overflow);
-        // (decimal)d keeps only about 15 significant digits: it turns 1.00005 and 0.00015 into
+        // A 15-significant-digit Decimal conversion turns 1.00005 and 0.00015 into
         // decimal ties, losing which side their binary values occupy (#966). Decode d = mantissa * 2^exponent
         // instead. BigInteger shifts and products preserve every bit, including subnormal values.
         ulong bits = BitConverter.DoubleToUInt64Bits(value);
@@ -448,6 +450,12 @@ public static class VbNumeric
             : throw new VBRunTimeException(ctx, VBStandardError.Overflow);
     }
 
+    private static decimal HostDecimal(float f, ParserRuleContext? ctx)
+    {
+        try { return (decimal)f; }
+        catch (OverflowException) { throw new VBRunTimeException(ctx, VBStandardError.Overflow); }
+    }
+
     private static decimal ToDecimal(Vb6Value v, ParserRuleContext? ctx)
     {
         try { return ToDecimal(v); }
@@ -459,12 +467,43 @@ public static class VbNumeric
         byte b => b,
         int i => i,
         long l => l,
-        float f => (decimal)f,
-        double d => (decimal)d,
+        float f => FloatingToDecimal(f, 7),
+        double d => FloatingToDecimal(d, 15),
         decimal m => m,
         bool bo => bo ? -1 : 0,
         _ => 0m   // EmptyVariant / null
     };
+
+    // SP6 native and p-code, PR #4017: Decimal uses 15 significant digits for a Double,
+    // 7 for a Single, half to even. CStr's rounding is different, so do not format and parse.
+    internal static decimal FloatingToDecimal(double value, int digits = 15)
+    {
+        // Range-check before rounding: an out-of-range input must not round back into Decimal.
+        decimal original = (decimal)value;
+        if (value == 0) return original;
+        var (numerator, denominator) = DoubleFraction(value, null);
+        bool negative = numerator.Sign < 0;
+        numerator = BigInteger.Abs(numerator);
+        int exponent = (int)Math.Floor(Math.Log10(Math.Abs(value)));
+        // Log10 only estimates the decade; compare exact integers at the boundary.
+        bool BelowPower(int power) => power >= 0
+            ? numerator < denominator * BigInteger.Pow(10, power)
+            : numerator * BigInteger.Pow(10, -power) < denominator;
+        while (BelowPower(exponent)) exponent--;
+        while (!BelowPower(exponent + 1)) exponent++;
+        int scale = digits - 1 - exponent;
+        // The oracle records scale-28 anomalies without a rule. Keep the host conversion there.
+        if (scale > 28) return digits == 7 ? (decimal)(float)value : original;
+        if (scale >= 0) numerator *= BigInteger.Pow(10, scale);
+        else denominator *= BigInteger.Pow(10, -scale);
+        var units = BigInteger.DivRem(numerator, denominator, out var remainder);
+        int comparison = (remainder * 2).CompareTo(denominator);
+        if (comparison > 0 || (comparison == 0 && !units.IsEven)) units++;
+        decimal result = (decimal)units;
+        if (scale >= 0) result /= (decimal)BigInteger.Pow(10, scale);
+        else result *= (decimal)BigInteger.Pow(10, -scale);
+        return negative ? -result : result;
+    }
 
     // ===== helpers =====
 

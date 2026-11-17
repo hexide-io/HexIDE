@@ -9,7 +9,7 @@ namespace HexIDE.Tests.Infrastructure;
 public class ProgramHostSeamTests
 {
     private static readonly Regex Forbidden = new(
-        @"\b(ILocalizationService|HexIDE\.Localization|OpenFilePickerAsync|SaveFilePickerAsync)\b|windowManager\.(MessageBox|InputBox|ShowPrintDialog|ShowColorDialog|ShowFontDialog)");
+        @"\b(MDIWindow|MDIHostPanel|IWindowManager|ShowManagedWindow|ActivateMDIForm|ActionObserver|DelegateCommand|ILocalizationService|HexIDE\.Localization|OpenFilePickerAsync|SaveFilePickerAsync)\b|windowManager\.(MessageBox|InputBox|ShowPrintDialog|ShowColorDialog|ShowFontDialog)");
 
     [Fact]
     public void Run_engine_shows_program_dialogs_and_gets_failure_texts_through_Core()

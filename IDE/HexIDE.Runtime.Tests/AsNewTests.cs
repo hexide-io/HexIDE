@@ -546,16 +546,100 @@ public class AsNewTests : BaseVBTestFixture
         AssertDebugLog(expected);
     }
 
-    [Theory]
-    [InlineData("Dim a(1) As New Collection\na(0).Add 1")]
-    [InlineData("Private a(1) As New C1\na(0).Go")]
-    [InlineData("Sub S()\n    Dim a(1) As New Collection\nEnd Sub\nS")]
-    [InlineData("Sub S()\n    Dim a(1) As New C1\nEnd Sub\nS")]
-    [InlineData("Sub S()\n    ReDim b(1) As New Collection\nEnd Sub\nS")]
-    public async Task An_array_declared_As_New_stops_the_run_naming_its_issue(string statements)
-    {
-        var run = () => RunClasses(statements + "\n", ("C1", C1));
+    // Measured native and p-code: #4150's 2026-11-16 table; core rules in
+    // docs/vb6-fidelity-oracle/as-new.md, "Arrays, a Type's field, and a Static".
+    private const string Counted = """
+        Public Id As Long
+        Public X As Long
+        Private Sub Class_Initialize()
+            Made = Made + 1
+            Id = Made
+        End Sub
+        Private Sub Class_Terminate()
+            Terms = Terms + 1
+        End Sub
+        """;
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("An array declared As New is not implemented (#1482)");
+    [Fact]
+    public async Task Array_elements_make_independently_and_Erase_releases_every_made_element()
+    {
+        await RunClasses("""
+            Public Made As Long, Terms As Long
+            Dim a(3) As New Class1
+            Debug.Print Made
+            a(1).X = 5
+            Debug.Print Made, a(1).X, Made
+            Debug.Print a(2) Is Nothing, Made
+            Set a(1) = Nothing
+            Debug.Print Terms, Made
+            Debug.Print a(1) Is Nothing, a(1).Id, a(1).X
+            Debug.Print TypeName(a(3)), Made
+            Dim o As Variant, visits As Long, nothingCount As Long
+            For Each o In a
+                visits = visits + 1
+                If o Is Nothing Then nothingCount = nothingCount + 1
+            Next
+            Debug.Print visits, nothingCount, Made
+            Set o = Nothing
+            Dim obj As Object
+            Set obj = a(0)
+            Debug.Print obj Is Nothing, Made
+            Set obj = Nothing
+            Erase a
+            Debug.Print Terms
+            Debug.Print a(0) Is Nothing, Made
+
+            """, ("Class1", Counted));
+        AssertDebugLog([new(0L), new(1L), new(5L), new(1L), new(false), new(2L),
+            new(1L), new(2L), new(false), new(3L), new(0L), new("Class1"), new(4L),
+            new(4L), new(1L), new(4L), new(false), new(5L), new(5L), new(false), new(6L)]);
+    }
+
+    [Theory]
+    [InlineData("Dim c(1) As New Class1")]
+    [InlineData("Dim c() As New Class1\nReDim c(2)")]
+    [InlineData("ReDim c(1) As New Class1")]
+    public async Task Local_and_redimensioned_arrays_make_nothing_until_use_and_release_on_return(string declaration)
+    {
+        await RunClasses("Public Made As Long, Terms As Long\nSub Probe()\n" + declaration + """
+
+            Debug.Print Made
+            c(0).X = 1
+            Debug.Print Made
+            End Sub
+            Probe
+            Debug.Print Terms
+
+            """, ("Class1", Counted));
+        AssertDebugLog([new(0L), new(1L), new(1L)]);
+    }
+
+    [Fact]
+    public async Task Explicit_New_makes_only_one_and_intrinsics_each_make_their_element()
+    {
+        await RunClasses("""
+            Public Made As Long, Terms As Long
+            Dim d(1) As New Class1, e(1) As New Class1
+            Set d(0) = New Class1
+            Debug.Print Made, d(0).Id, Made
+            Debug.Print IsObject(e(0)), Made, VarType(e(1)), Made
+
+            """, ("Class1", Counted));
+        AssertDebugLog([new(1L), new(1L), new(1L), new(true), new(2L), new(9L), new(3L)]);
+    }
+
+    [Theory]
+    [InlineData("Dim s(1) As New Collection", "s(0)")]
+    [InlineData("Public s(1) As New Collection", "Module1.s(0)")]
+    [InlineData("Dim s(1, 1) As New Collection", "s(0, 1)")]
+    [InlineData("Sub Probe()\nStatic s(1) As New Collection", "s(0)")]
+    public async Task Collection_arrays_use_the_same_lazy_storage(string declaration, string element)
+    {
+        var store = element.Replace("Module1.", "");
+        var code = declaration + "\n" + element + ".Add 1\nDebug.Print " + element + ".Count\nSet " + store
+            + " = Nothing\nDebug.Print " + element + ".Count\n";
+        if (declaration.StartsWith("Sub")) code += "End Sub\nProbe\n";
+        await Run(code);
+        AssertDebugLog([new(1L), new(0L)]);
     }
 }

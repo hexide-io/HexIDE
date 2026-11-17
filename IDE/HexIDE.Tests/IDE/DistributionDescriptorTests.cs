@@ -103,6 +103,35 @@ public sealed class DistributionDescriptorTests
     }
 
     [Fact]
+    public void A_logo_with_a_backslash_is_refused_before_reading_the_asset()
+    {
+        var readAsset = Substitute.For<Func<string, byte[]>>();
+        readAsset(Arg.Any<string>()).Returns(Png());
+        var parse = () => Parse("""{"schemaVersion":1,"id":"a","name":"A","logo":"branding\\logo.png"}""", readAsset);
+
+        parse.Should().Throw<DistributionDescriptorException>()
+            .WithMessage("brand.json: 'logo' is 'branding\\logo.png'; it must be written with '/'.");
+        readAsset.DidNotReceive()(Arg.Any<string>());
+    }
+
+    [Fact]
+    public void A_logo_with_slashes_is_read_as_written()
+    {
+        var readAsset = Substitute.For<Func<string, byte[]>>();
+        var bytes = Png();
+        readAsset("branding/logo.png").Returns(bytes);
+
+        var identity = Parse("""{"schemaVersion":1,"id":"a","name":"A","logo":"branding/logo.png"}""", readAsset);
+
+        using var logo = identity.OpenLogo();
+        logo.Should().NotBeNull();
+        using var copy = new MemoryStream();
+        logo!.CopyTo(copy);
+        copy.ToArray().Should().Equal(bytes);
+        readAsset.Received(1)("branding/logo.png");
+    }
+
+    [Fact]
     public void Everything_a_descriptor_may_say_is_captured()
     {
         var identity = Parse("""

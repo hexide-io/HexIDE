@@ -26,7 +26,7 @@ public class ReleaseDownloadDocumentationTests
         instructions.Should().Contain("mkdir -p ~/hexide\ntar -xzf hexide-linux-amd64-selfcontained.tar.gz -C ~/hexide\n~/hexide/HexIDE");
         instructions.Should().Contain("python3 -m tarfile -e").And.Contain("untested");
         instructions.Should().Contain("ICU").And.Contain("llvmpipe").And.Contain("openSUSE Leap 16");
-        instructions.Should().Contain(".NET 10 Runtime");
+        instructions.Should().Contain(".NET 11 Runtime");
     }
 
     [Fact]
@@ -34,7 +34,7 @@ public class ReleaseDownloadDocumentationTests
     {
         var workflow = Read(".github", "workflows", "publish.yml");
         workflow.Should().NotContain("desktop runtime", "the published apps require Microsoft.NETCore.App only");
-        workflow.Should().Contain("[.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)");
+        workflow.Should().Contain("[.NET 11 Runtime](https://dotnet.microsoft.com/download/dotnet/11.0)");
         workflow.Should().NotContain("no prerequisites");
         var linux = workflow.Split('\n').Single(line => line.Contains("**Linux**"));
         linux.Should().Contain("ICU").And.Contain("libX11").And.Contain("libICE")

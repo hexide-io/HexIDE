@@ -19,6 +19,10 @@ startup unless the row says otherwise, and Module1 holds the logger `L`. Module2
 | Module1's own `Dim X As Long` set to 1, Module2's `Public X` to 2: `X & " " & Module2.X` in Module1 | `1 2` |
 | `L X`, with Module2's `Public X As Long` and Module3's `Public Sub X()` | does not compile: "Ambiguous name detected: X" |
 | `L F`, with Module2's `Public F As Long` and Module3's `Public Function F() As Long` | does not compile: "Ambiguous name detected: F" |
+| a Function of Module1's returning bare `X`, with Module2's `Public X As Long` and Module3's `Public Property Get X() As Long` (2026-11-16, #3359) | does not compile: "Ambiguous name detected: X" |
+| the same with Module3's `Public Property Let X` alone, and no Get (#3359) | does not compile: "Ambiguous name detected: X" |
+| the same variable and Property Get, read qualified as `Module2.X & "/" & Module3.X` (#3359) | `1/2` |
+| Module3's `Public Property Get X` alone, with no variable of the name: bare `X` (#3359) | `2` |
 | `vbCancel & " " & TypeName(vbCancel)`, with Module2's `Public Const vbCancel = 42` | `42 Integer` |
 | Class1's `GetG = G`, then its `G = 11`, then `Module2.G` from Module1 | `5`, then `11` |
 | Form1 as the startup: Load's `L G & " " & M`, then `G = 4` and `L Module2.G` | `0 3`, then `4` |
@@ -40,8 +44,8 @@ What these show:
   In a form, the form's own members come before them too (L2, *A form as an object*).
 - **A clash is an error only where it is used.** Two modules exporting `X` compile, each reads its own, and qualified
   reads work; only the bare use from a third module is "Ambiguous name detected". A Public variable beside another
-  module's Public Sub or Function of the same name is ambiguous in the same way, so variables and procedures share one
-  namespace here.
+  module's Public Sub, Function or Property of the same name is ambiguous in the same way, so variables and procedures share one
+  namespace here. A Property counts whether it has a Get or only a Let (#3359), and the qualified reads still work.
 - **The project comes before the library** at run time as in a bound: `vbCancel` is Module2's 42.
 - **A store into another module's Public Const** is refused as one into the module's own is.
 
@@ -53,7 +57,8 @@ Option Explicit; the Const store made a new variable; a bound or Const naming on
 
 Since #880, each module sees the other standard modules' Public variables and Consts bare, behind its own names. The
 table is collected from the pre-pass's lists of each module's Public names (`ProjectNames`), and a name is resolved to
-its slot only when the walk reads it. Every row above matches, and is pinned in `PublicNamesAcrossModulesTests`,
+its slot only when the walk reads it. Every row above matches except #3359's two Property rows, where HexIDE reads
+Module2's variable with no error (#3359), and each is pinned in `PublicNamesAcrossModulesTests`,
 `FormInstanceTests`, `ModuleLevelArrayBoundTests` and `ConstStoreTests`, with three rows changed in shape because of
 gaps elsewhere: the probes that stored through a qualifier (`Module2.X = 1`) have each module store its own, because a
 qualified store raises 424 (#1006); `Module2.A(2)` is read through a Function of Module2's, because it reads the whole

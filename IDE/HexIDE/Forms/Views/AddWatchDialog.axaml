@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:HexIDE.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
@@ -22,12 +23,12 @@
 
         <StackPanel Spacing="4">
             <TextBlock Text="{DynamicResource Str.Dialog.AddWatch.WatchType}" FontWeight="Bold" />
-            <RadioButton GroupName="watchType" IsChecked="{CompiledBinding IsExpression, Mode=TwoWay}"
+            <controls:IdeRadioButton GroupName="watchType" IsChecked="{CompiledBinding IsExpression, Mode=TwoWay}"
                          Content="{DynamicResource Str.Dialog.AddWatch.Type.Expression}" />
-            <RadioButton GroupName="watchType" IsChecked="{CompiledBinding IsBreakWhenTrue, Mode=TwoWay}"
+            <controls:IdeRadioButton GroupName="watchType" IsChecked="{CompiledBinding IsBreakWhenTrue, Mode=TwoWay}"
                          IsEnabled="{CompiledBinding AllowsBreakConditions}"
                          Content="{DynamicResource Str.Dialog.AddWatch.Type.BreakTrue}" />
-            <RadioButton GroupName="watchType" IsChecked="{CompiledBinding IsBreakWhenChanged, Mode=TwoWay}"
+            <controls:IdeRadioButton GroupName="watchType" IsChecked="{CompiledBinding IsBreakWhenChanged, Mode=TwoWay}"
                          IsEnabled="{CompiledBinding AllowsBreakConditions}"
                          Content="{DynamicResource Str.Dialog.AddWatch.Type.BreakChanged}" />
         </StackPanel>

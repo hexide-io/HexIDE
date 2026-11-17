@@ -4,8 +4,8 @@ using System.Threading.Channels;
 namespace HexIDE.Dap;
 
 /// <summary>
-/// One DAP connection over owned streams. Reads start immediately. Consume Events promptly; an overflowing
-/// event queue closes the connection rather than dropping debugger state or growing memory without a bound.
+/// One DAP connection over owned streams. Reads start immediately. A full Events queue pauses stream reading.
+/// Its single consumer must keep draining while DAP requests are pending: a response can follow queued events.
 /// No UI dispatch, process ownership, handshake policy or automatic retry is hidden in this wire layer.
 /// </summary>
 public sealed class DapConnection : IAsyncDisposable
@@ -182,8 +182,7 @@ public sealed class DapConnection : IAsyncDisposable
                     case "event":
                         var name = Text(message, "event");
                         RecordFrame();
-                        if (!_events.Writer.TryWrite(new(sequence, name, message)))
-                            throw new IOException("DAP event queue overflowed; the consumer is not keeping up.");
+                        await _events.Writer.WriteAsync(new(sequence, name, message), _lifetime.Token).ConfigureAwait(false);
                         break;
                     case "request":
                         var reverseCommand = Text(message, "command");

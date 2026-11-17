@@ -39,7 +39,8 @@ public interface IRecoveryOffers
 /// </para>
 /// <para>
 /// <b>A saved project's own settings are not restored.</b> Its backed-up project file says which documents it held,
-/// and a document missing since is added back. A changed startup object or reference is not re-applied.
+/// and a document missing since is added back. A changed startup object or reference is not re-applied. Pending
+/// project-file text comes back only as a tab edit for the developer to save or discard.
 /// </para>
 /// </remarks>
 public sealed class RecoveryOffers : IRecoveryOffers
@@ -53,14 +54,16 @@ public sealed class RecoveryOffers : IRecoveryOffers
     private readonly IFileBaselineStore baselineStore;
     private readonly IClock clock;
     private readonly FileReloader reloader;
+    private readonly IEditorService editors;
     private readonly List<Waiting> waiting = [];
     private bool detected;
 
     public RecoveryOffers(IRecoveryService recovery, IProjectService projects, IProjectManager projectManager,
         IWindowManager windowManager, ILocalizationService localization, IDocumentDockService dock,
         IFileBaselineStore baselineStore, IClock clock, IEventBus eventBus, IStatusBarService statusBar,
-        IHeaderRefresher headerRefresher, IProjectFileFormat format)
+        IHeaderRefresher headerRefresher, IProjectFileFormat format, IEditorService editors)
     {
+        this.editors = editors;
         this.recovery = recovery;
         this.projects = projects;
         this.projectManager = projectManager;
@@ -107,7 +110,8 @@ public sealed class RecoveryOffers : IRecoveryOffers
             return false;
         }
         if (backup.Path is not { } projectPath
-            || backup.ProjectFile is { } projectFile && !Holds(projectPath, projectFile.Text, backup.Encoding))
+            || backup.ProjectFile is { } projectFile && !Holds(projectPath, projectFile.Text, backup.Encoding)
+            || backup.ProjectFileEdit is { } edit && !Holds(projectPath, edit.Text, backup.Encoding))
             return false;
         foreach (var document in backup.Documents)
         {
@@ -194,7 +198,9 @@ public sealed class RecoveryOffers : IRecoveryOffers
         {
             return true; // offered, and the restore says it can't be read
         }
-        return backup.Documents.Any(document => Find(project, document) switch
+        return backup.ProjectFileEdit is { } edit && project.AbsolutePath is { } projectPath
+            && !Holds(projectPath, edit.Text, project.TextEncoding)
+            || backup.Documents.Any(document => Find(project, document) switch
         {
             null => document.Content is not null || document.Path is { } path && File.Exists(path),
             FormDefinition form => document.Content is { } content && !projects.RecoveredMatches(form, content),
@@ -252,6 +258,9 @@ public sealed class RecoveryOffers : IRecoveryOffers
         var backedUp = string.Format(localization.GetString("Str.Dialog.Recovery.BackedUp"),
             w.Run.SavedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "");
         var changed = record.Documents.Where(ChangedSince).Select(d => d.Name).ToList();
+        if (record.ProjectFileEdit is not null && record.Path is { } projectPath
+            && ChangedSince(projectPath, record.ProjectFileHash))
+            changed.Add(Path.GetFileName(projectPath));
         return new RecoveryItemViewModel(record.Name, origin, backedUp,
             changed.Count > 0
                 ? string.Format(localization.GetString("Str.Dialog.Recovery.ChangedOnDisk"), string.Join(", ", changed))
@@ -263,7 +272,13 @@ public sealed class RecoveryOffers : IRecoveryOffers
     // over a newer file, which the next save would then replace (task 2.4).
     private static bool ChangedSince(RecoveryRun.DocumentRecord document)
     {
-        if (document is not { File: not null, Path: { } path, DiskHash: { } hash } || !File.Exists(path))
+        return document is { File: not null, Path: { } path }
+            && ChangedSince(path, document.DiskHash);
+    }
+
+    private static bool ChangedSince(string path, string? hash)
+    {
+        if (hash is null || !File.Exists(path))
             return false;
         try
         {
@@ -338,6 +353,17 @@ public sealed class RecoveryOffers : IRecoveryOffers
     private async Task<bool> OverlayAsync(ProjectDefinition project, UnsavedProject backup)
     {
         var whole = true;
+        if (backup.ProjectFileEdit is { } edit && project.AbsolutePath is { } projectPath
+            && !Holds(projectPath, edit.Text, project.TextEncoding))
+        {
+            editors.EditProjectFile(new ProjectFileSource(project));
+            var tab = dock.OpenDocuments.OfType<ProjectFileDocumentViewModel>()
+                .FirstOrDefault(tab => tab.Source.Owner == project);
+            if (tab is { IsReadOnlyDocument: false })
+                tab.Document.Text = edit.Text;
+            else
+                whole = false;
+        }
         foreach (var document in backup.Documents)
         {
             var target = Find(project, document);

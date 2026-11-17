@@ -41,6 +41,31 @@ public class ReferencesViewModelTests
         return new ReferencesViewModel(project, libraries, Substitute.For<IWindowManager>());
     }
 
+    // Measured in VB6 SP6: https://github.com/hexide-io/HexIDE/issues/1468 (2026-11-16 comment).
+    [Theory]
+    [InlineData("Project1")]
+    [InlineData("Renamed")]
+    public void Never_saved_title_uses_the_current_project_name(string name)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
+        project.Name = name;
+
+        Dialog(project).Title.Should().Be($"References - {name}");
+    }
+
+    [Theory]
+    [InlineData(@"C:\Projects\Other.vbp")]
+    [InlineData("/projects/Other.vbp")]
+    public void Saved_title_uses_the_file_name_even_after_renaming(string path)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1") { AbsolutePath = path };
+        Dialog(project).Title.Should().Be("References - Other.vbp");
+
+        project.Name = "Renamed";
+
+        Dialog(project).Title.Should().Be("References - Other.vbp");
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
