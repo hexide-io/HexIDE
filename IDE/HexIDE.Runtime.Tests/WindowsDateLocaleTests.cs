@@ -6,6 +6,34 @@ namespace HexIDE.Runtime.Tests;
 
 public partial class WindowsDateLocaleTests : BaseVBTestFixture
 {
+    // #4463 records Windows NLS data; these are not vb6.exe measurements.
+    [Theory]
+    [InlineData("tzm-Latn-DZ", "23:59:59")]
+    [InlineData("en-US", "11:59:59 PM")]
+    [InlineData("en-GB", "23:59:59")]
+    public async Task CStr_time_uses_the_Windows_pattern_and_round_trips(string name, string expected)
+    {
+        using var locale = VbLocale.Use(new CultureInfo(name, false));
+        await Run("Dim s As String\ns = CStr(TimeSerial(23, 59, 59))\nDebug.Print s\nDebug.Print Hour(CDate(s)) & \":\" & Minute(CDate(s)) & \":\" & Second(CDate(s))\n");
+        AssertDebugLog([new Vb6Value(expected), new Vb6Value("23:59:59")]);
+    }
+
+    [Fact]
+    public void Table_time_format_reaches_the_managed_pattern()
+    {
+        var culture = new CultureInfo("tzm-Latn-DZ", false);
+        WindowsDateTable.Apply(culture);
+        culture.DateTimeFormat.LongTimePattern.Should().Be("H:mm:ss");
+    }
+
+    [Fact]
+    public void Time_pattern_literals_are_converted_through_the_reader()
+    {
+        var dates = (DateTimeFormatInfo)CultureInfo.InvariantCulture.DateTimeFormat.Clone();
+        WindowsDateLocale.Apply(dates, type => type == 0x1003 ? "H:mm 'o''clock'" : "fixture", () => "era");
+        dates.LongTimePattern.Should().Be("H:mm 'o\\'clock'");
+    }
+
     [Fact]
     public void ForProgram_reads_the_calendar_once_per_culture()
     {
@@ -49,33 +77,6 @@ public partial class WindowsDateLocaleTests : BaseVBTestFixture
         dates.PMDesignator.Should().BeEmpty();
     }
 
-    [Fact]
-    public void Empty_Nls_designators_leave_a_twelve_hour_pattern_its_own()
-    {
-        // tzm-Latn-DZ: NLS has no designators beside its own 24-hour "H:mm:ss", which isn't taken, while .NET's
-        // pattern is "h:mm:ss tt". Taking the empty ones wrote 23:59:59 as "11:59:59 ", which reads back as morning.
-        var dates = (DateTimeFormatInfo)CultureInfo.InvariantCulture.DateTimeFormat.Clone();
-        dates.LongTimePattern = "h:mm:ss tt";
-        dates.AMDesignator = "am";
-        dates.PMDesignator = "pm";
-        WindowsDateLocale.Apply(dates, type => type is 0x28 or 0x29 ? "" : "fixture",
-            () => throw new InvalidOperationException());
-        dates.AMDesignator.Should().Be("am");
-        dates.PMDesignator.Should().Be("pm");
-    }
-
-    [Theory]
-    [InlineData("h:mm:ss tt", true)]
-    [InlineData("tt h:mm", true)]
-    [InlineData("HH:mm:ss", false)]
-    [InlineData("H:mm' Uhr'", false)]
-    [InlineData("H:mm 'at'", false)]
-    [InlineData("H:mm \"at\"", false)]
-    [InlineData("H:mm \\t", false)]
-    [InlineData("'it''s' h tt", true)]
-    public void A_pattern_writes_a_designator_only_through_an_unquoted_t(string pattern, bool writes) =>
-        WindowsDateLocale.WritesDesignator(pattern).Should().Be(writes);
-
     [Theory]
     [InlineData("en-GB")]
     [InlineData("de-DE")]
@@ -109,11 +110,11 @@ public partial class WindowsDateLocaleTests : BaseVBTestFixture
     }
 
     [Fact]
-    public void Nls_fields_map_to_the_date_format_without_changing_time_patterns_or_calendar()
+    public void Nls_fields_map_to_date_and_long_time_without_changing_short_time_or_calendar()
     {
         var dates = (DateTimeFormatInfo)CultureInfo.InvariantCulture.DateTimeFormat.Clone();
         var calendar = dates.Calendar;
-        var time = dates.LongTimePattern;
+        var time = dates.ShortTimePattern;
         WindowsDateLocale.Apply(dates, type => $"'field{type:X}'", () => throw new InvalidOperationException());
 
         dates.ShortDatePattern.Should().Be("'field1F'");
@@ -135,7 +136,8 @@ public partial class WindowsDateLocaleTests : BaseVBTestFixture
             dates.AbbreviatedDayNames[(i + 1) % 7].Should().Be($"'field{0x31 + i:X}'");
         }
         dates.Calendar.Should().BeSameAs(calendar);
-        dates.LongTimePattern.Should().Be(time);
+        dates.LongTimePattern.Should().Be("'field1003'");
+        dates.ShortTimePattern.Should().Be(time);
     }
 
     [Theory]
