@@ -24,6 +24,8 @@ public class OptionButtonComponentClass : ComponentBaseClass
     {
     }
 
+    public override string? DesignerDoubleClickEvent => "Click";
+
     public override string Name => "Option";
     public override string VBTypeName => "VB.OptionButton";
 

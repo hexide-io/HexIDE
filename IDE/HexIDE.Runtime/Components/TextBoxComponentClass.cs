@@ -23,6 +23,8 @@ public class TextBoxComponentClass : ComponentBaseClass
         ForeColorProperty.OverrideDefault<TextBoxComponentClass>(VBColor.FromSystemColor(VbSystemColor.Windowtext));
     }
 
+    public override string? DesignerDoubleClickEvent => "Change";
+
     public override string Name => "Text";
     public override string VBTypeName => "VB.TextBox";
 
