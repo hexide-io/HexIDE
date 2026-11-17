@@ -185,32 +185,29 @@ public partial class ObjectBrowserToolViewModel : Document
         SelectedLibrary = allLibraries;
     }
 
+    // LocalizationService.Apply swaps Application.Resources, so LanguageChanged always arrives on the UI thread, and this
+    // handles it in place, as every other subscriber does. Posting it when raised elsewhere left a run whose test thread
+    // didn't own the dispatcher reading the old names (#4382).
     private void OnLanguageChanged()
     {
-        if (uiThread.CheckAccess()) Refresh();
-        else uiThread.Post(Refresh);
-
-        void Refresh()
+        allLibraries.Name = localization.GetString("Str.Tool.ObjectBrowser.AllLibraries");
+        foreach (var library in Libraries)
+        foreach (var cls in library.Classes)
         {
-            allLibraries.Name = localization.GetString("Str.Tool.ObjectBrowser.AllLibraries");
-            foreach (var library in Libraries)
-            foreach (var cls in library.Classes)
+            if (cls.NameKey is { } classKey)
+                cls.Name = localization.GetString(classKey);
+            foreach (var member in cls.Members)
             {
-                if (cls.NameKey is { } classKey)
-                    cls.Name = localization.GetString(classKey);
-                foreach (var member in cls.Members)
-                {
-                    if (member.NameKey is { } nameKey)
-                        member.Name = localization.GetString(nameKey);
-                    if (member.DescriptionKey is { } descriptionKey)
-                        member.Description = localization.GetString(descriptionKey);
-                }
+                if (member.NameKey is { } nameKey)
+                    member.Name = localization.GetString(nameKey);
+                if (member.DescriptionKey is { } descriptionKey)
+                    member.Description = localization.GetString(descriptionKey);
             }
-            SearchStatus = string.Empty;
-            OnPropertyChanged(nameof(MembersHeader));
-            OnPropertyChanged(nameof(DescriptionText));
-            OnPropertyChanged(nameof(DescriptionMembership));
         }
+        SearchStatus = string.Empty;
+        OnPropertyChanged(nameof(MembersHeader));
+        OnPropertyChanged(nameof(DescriptionText));
+        OnPropertyChanged(nameof(DescriptionMembership));
     }
 
     private void AddVbLibrary(IComponentRegistry componentRegistry)

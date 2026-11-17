@@ -74,6 +74,41 @@ public class ObjectBrowserVbaLibraryTests
         client.ReceivedCalls().Should().BeEmpty();
     }
 
+    // Which thread owns the dispatcher depends on which test touched it first, so a switch the view model posted when
+    // raised elsewhere passed alone and failed in a full run (#4382). This raises it where the dispatcher can't be owned.
+    [Fact]
+    public void A_language_switch_is_handled_on_the_thread_that_raises_it()
+    {
+        _ = Avalonia.Threading.Dispatcher.UIThread;
+        var owner = true;
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                owner = Avalonia.Threading.Dispatcher.UIThread.CheckAccess();
+                var loc = Substitute.For<ILocalizationService>();
+                var (vm, _, _) = Make(LanguageConnectionState.NotStarted, "{}", localization: loc);
+                vm.SelectedLibrary = vm.Libraries.Single(l => l.Name == "VBA");
+                var cls = vm.FilteredClasses.Single();
+                loc.GetString(Arg.Any<string>()).Returns(ci => "New " + ci.Arg<string>());
+
+                loc.LanguageChanged += Raise.Event<Action>();
+
+                cls.Name.Should().Be("New Str.Tool.ObjectBrowser.Vba.NoServer");
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+        });
+        thread.Start();
+        thread.Join();
+
+        owner.Should().BeFalse("the switch is raised on a thread that does not own the dispatcher");
+        failure.Should().BeNull();
+    }
+
     [Fact]
     public void CapableServerPopulatesVbaAndAllLibraries()
     {
