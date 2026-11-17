@@ -222,7 +222,14 @@ public sealed class ProjectLoader
                 var (moduleSource, _, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath, ProjectEncodingRecords.Read(serializedProject.ExtensionTail, modulePath));
                 module.TextEncoding = moduleEncoding;
                 // .bas/.cls: strip the VB6 header so Code is the body only (no-op for .pag/.ctl).
-                var (preservedHeader, moduleBody) = ModuleFileFormat.SplitHeader(moduleSource, moduleKind, out var lineMap, out var oldHeaderLines);
+                int[]? lineMap = null;
+                var oldHeaderLines = 0;
+                var designerAsModule = ModuleFileFormat.HandlesHeader(moduleKind) && ModuleFileFormat.IsDesignerFile(moduleSource);
+                var (preservedHeader, moduleBody) = designerAsModule ? ("", moduleSource)
+                    : ModuleFileFormat.SplitHeader(moduleSource, moduleKind, out lineMap, out oldHeaderLines);
+                if (designerAsModule)
+                    module.MarkUnfaithfulToSave(UnfaithfulSaveCause.DesignerFileAsModule,
+                        $"'{project.Name}' listed '{moduleAbsolutePath}' as a code module, but it is a designer file.");
                 module.LoadedLineMap = lineMap;
                 module.LoadedOldHeaderLines = oldHeaderLines;
 
@@ -263,7 +270,8 @@ public sealed class ProjectLoader
         // (#3774), so keep the project-line name for those rather than choosing a winner by load order.
         var names = project.Modules.Select(m => (Module: m, Original: m.Name,
             Loaded: ModuleFileFormat.HandlesHeader(m.Kind)
-                ? ModuleFileFormat.ModuleNameFor(m.Name, m.OriginalHeader) : m.Name)).ToArray();
+                ? ModuleFileFormat.ModuleNameFor(m.Name,
+                    m.UnfaithfulSaveCauses.HasFlag(UnfaithfulSaveCause.DesignerFileAsModule) ? m.Code : m.OriginalHeader) : m.Name)).ToArray();
         foreach (var item in names)
         {
             if (names.Any(other => other.Module != item.Module &&

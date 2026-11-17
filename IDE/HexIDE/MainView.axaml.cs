@@ -170,7 +170,8 @@ public partial class MainView : UserControl
         if (_projectItems.Count == 0)
         {
             var item = new MenuItem { IsEnabled = false };
-            item.Bind(HeaderedSelectingItemsControl.HeaderProperty, this.GetResourceObservable("Str.NewProject.NoTemplates"));
+            item.Bind(HeaderedSelectingItemsControl.HeaderProperty, this.GetResourceObservable(vm.ProjectTemplates.HasTemplates
+                ? "Str.NewProject.NoTemplates" : "Str.NewProject.NoInstalledTemplates"));
             _projectItems.Add(item);
         }
     }

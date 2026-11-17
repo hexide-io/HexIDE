@@ -30,6 +30,25 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Measured 32-bit VBA7 integer support
+
+The runtime SHALL start projects targeting `VbaBitness.Bit32` with the Excel x86 behaviour recorded in
+[#4399](https://github.com/hexide-io/HexIDE/issues/4399) (measuring PR #4398). LongPtr declarations,
+parameters, results, Consts and UDT fields SHALL use Long, CLngPtr SHALL convert as CLng, and DefLngPtr
+SHALL select Long. LongLong and CLngLng SHALL retain the VB6 unknown-name errors; DefLngLng SHALL
+retain the VB6 refusal (its x86 diagnostic text is unmeasured). The lexer SHALL keep ^ solely as the
+power operator and Declare SHALL accept either presence or absence of PtrSafe (measured without PtrSafe
+for an As Long result and with it for As Long and As LongPtr; As LongPtr without it is reasoned).
+
+#### Scenario: 32-bit constants
+- **WHEN** a project targets 32-bit VBA7
+- **THEN** VBA6, VBA7 and Win32 are numeric 1, and Win64, Win16 and Mac are numeric 0
+
+#### Scenario: 32-bit pointer integer
+- **WHEN** a LongPtr variable holds 5 in a 32-bit project
+- **THEN** TypeName is Long, VarType is 3 and LenB is 4
+- **AND** CLngPtr(2.5) returns Long 2, while CLngPtr("2147483648") raises 6
+
 ### Requirement: Measured 64-bit VBA7 integer support
 
 The runtime SHALL implement the 64-bit VBA7 rows measured in
@@ -455,7 +474,7 @@ by value will run such a program to completion while producing the wrong answer.
 The interpreter SHALL accept the intrinsic parameter names and required omissions measured in
 [#4145](https://github.com/hexide-io/HexIDE/issues/4145), placing arguments in parameter order and
 retaining positional values and optional defaults. Financial flags SHALL be named Due, arrays ValueArray,
-and pointer operands Ptr. Existing ChrB, IRR and MIRR execution refusals SHALL remain.
+and pointer operands Ptr. ChrB execution SHALL remain refused; IRR and MIRR SHALL use the cash-flow models below.
 Wrong names SHALL raise "Named argument not found" and omitted required arguments "Argument not optional"
 as the statement runs. Named InStrB SHALL raise "Syntax error", named CallByName "Argument in ParamArray
 may not be named", and named IMEStatus "Wrong number of arguments or invalid property assignment".
@@ -469,7 +488,18 @@ may not be named", and named IMEStatus "Wrong number of arguments or invalid pro
 The interpreter SHALL implement positional `SLN` and `SYD` calls with Double results matching
 all measured rows in [#2524](https://github.com/hexide-io/HexIDE/issues/2524) bit for bit.
 It SHALL accept their measured named parameters (#4145) and refuse unmeasured positional argument counts as not implemented.
-`DDB` remains unimplemented until every measured row can be reproduced.
+`DDB` SHALL use #2524's approved closest model: exact rate, a Double spill at
+`1 - rate`, financial-number power and exact book value and amount, returning the nearest Double
+to the smaller of amount and book value minus salvage. It SHALL default Factor to 2, raise error 5
+for zero life or period outside 1 to life, and refuse unmeasured argument counts and power domains.
+It SHALL take the named arguments `Cost`, `Salvage`, `Life`, `Period` and `Factor`, as measured on SP6.
+
+#### Scenario: Approved DDB rounding divergence
+- **WHEN** a program evaluates `DDB(2400, 300, 10, 10)`
+- **THEN** it returns Double with bits `40361F5F40D83791`
+- **AND** Debug.Print displays `22.1225472000002`
+- **AND** this is the documented exception approved in #2524 issuecomment-6954532512 to the [measured](../../../docs/vb6-fidelity-oracle/ddb-sln-and-syd.md) bits `40361F5F40D83797`
+
 
 #### Scenario: Straight-line depreciation
 - **WHEN** a program evaluates `SLN(30000, 7500, 10)`
@@ -2002,7 +2032,7 @@ it, and SHALL NOT raise Scroll (measured on vb6.exe, #4229).
 - **THEN** TopIndex becomes 49 and Scroll is raised only if that changes the top row
 - **AND** assigning 60 or -1 raises 380 without changing the row or raising Scroll
 
-### Requirement: Measured net present value and explicit cash-flow refusals
+### Requirement: Measured net present value and authorized cash-flow models
 
 The interpreter SHALL execute all five positional NPV rows measured in
 [#2525](https://github.com/hexide-io/HexIDE/issues/2525), preserving Double subtypes,
@@ -2011,8 +2041,11 @@ each cumulative discount power to Double as described in
 [Cash-flow precision](../../../docs/financial-precision-2525.md).
 Named NPV calls SHALL accept Rate and ValueArray (#4145).
 Unmeasured conversions, empty/multidimensional arrays and unsupported arithmetic
-domains SHALL refuse as unimplemented. IRR and MIRR SHALL explicitly refuse as unimplemented
-until a precision model matches every measured row for the function.
+domains SHALL refuse as unimplemented. IRR and MIRR SHALL execute the closest 64-bit models
+recorded in the precision note (Horner masks 9 and 84), authorized by Jen’s 2026-11-17 decision
+in #2525, preserving their documented computed bits and measured error numbers. Their
+unmeasured conversions, argument shapes, nonconvergence, other flows without a sign change,
+ReinvestRate -1 and unsupported power domains SHALL refuse as unimplemented.
 
 #### Scenario: Every cash flow is discounted
 - **WHEN** NPV is called with rate 0.1 and the measured five-element Double array a
@@ -2022,9 +2055,18 @@ until a precision model matches every measured row for the function.
 - **WHEN** NPV is called with the measured rate -1 or unallocated Double array
 - **THEN** it raises error 5
 
-#### Scenario: A cash-flow function has no matching precision model
-- **WHEN** IRR or MIRR is called
-- **THEN** execution stops with HexIDE's not-implemented error rather than returning guessed bits
+#### Scenario: Authorized approximate cash-flow results
+- **WHEN** IRR(a) or MIRR(b, 0.1, 0.12) is called with the measured Double arrays
+- **THEN** the Double result has bits `3FC875EFF17028E0` or `3FB94260ED23798E`, respectively
+- **AND** the documented differences from VB6 remain explicit
+
+#### Scenario: Measured cash-flow errors
+- **WHEN** IRR(cs), MIRR(cs, 0.1, 0.12), or MIRR(b, -1, 0.12) is called
+- **THEN** the error number is 5, 11, or 5, respectively
+
+#### Scenario: Unmeasured cash-flow domain
+- **WHEN** IRR does not converge or MIRR is called with ReinvestRate -1
+- **THEN** execution stops with HexIDE's not-implemented error naming #2525
 
 ### Requirement: Windows program dates use Windows locale data
 On Windows, for a locale whose default calendar is Gregorian, the interpreter SHALL take

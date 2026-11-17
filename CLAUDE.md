@@ -797,6 +797,12 @@ It never licenses approximating a **result**. A wrong answer that runs is worse 
 is the whole of `docs/serialization-outcomes.md`, and it applies here identically. Late error: acceptable.
 Missing error on a path never taken: acceptable, and documented. Wrong value: never.
 
+**One recorded exception** (Jen, 2026-11-17, Team Desk card `q-2524-ddb-precision`): `DDB`, `IRR` and `MIRR` may
+run with the closest evaluation model found, although no model tried reproduces every measured row bit for bit
+(#2524, #2525). Each may differ from VB6 in its last few printed digits at most; the difference must be written down
+in `docs/MISSING_LANGUAGE.md` and the precision notes, and a model that matches every row replaces it. The exception
+covers those three functions only. Any other result that knowingly differs needs its own explicit decision.
+
 **Three limits, not one — do not conflate them.** The CST/AST line is only one of the things that bounds
 this interpreter, and filing everything under it is how `interpreter-gaps.md` came to have nine deferrals
 sitting in its "Walled off (by design)" section, `GoSub` and `Implements` justified identically when

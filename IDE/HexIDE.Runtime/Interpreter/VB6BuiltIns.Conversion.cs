@@ -17,7 +17,8 @@ public partial class VB6BuiltIns
         d["CByte"] = (_, a, _) => NarrowNum(a[0], VT.Byte);
         d["CInt"]  = (_, a, _) => NarrowNum(a[0], VT.Integer);
         d["CLngLng"] = (_, a, _) => VbNumeric.ToLongLong(a[0], null);
-        d["CLngPtr"] = (_, a, _) => VbNumeric.ToLongLong(a[0], null);
+        d["CLngPtr"] = (self, a, _) => self.VbaBitness == VbaBitness.Bit32
+            ? NarrowNum(a[0], VT.Long) : VbNumeric.ToLongLong(a[0], null);
         d["CLng"]  = (_, a, _) => NarrowNum(a[0], VT.Long);
         d["CSng"]  = (_, a, _) => NarrowNum(a[0], VT.Single);
         d["CDbl"]  = (_, a, _) => NarrowNum(a[0], VT.Double);

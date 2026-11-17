@@ -52,6 +52,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// A handler further down the stack never sees an error raised above an entry (measured, #1011).</summary>
     internal bool IsEntry { get; init; }
 
+    /// <summary>The Property accessor this activation runs, <c>Get</c>, <c>Let</c> or <c>Set</c>; null otherwise.</summary>
+    internal string? Accessor { get; init; }
+
+    // This activation's procedure as a watch context names it: `X` for a Sub or Function, `X(Get)` for an accessor,
+    // as VB6's Add Watch and Context column write it (measured, #4401).
+    private string? ContextProcedure => procName is not null && Accessor is not null ? $"{procName}({Accessor})" : procName;
+
     // Whether a run-time error raised in this activation now would be trapped by it. Nothing is while its handler runs,
     // whatever On Error the handler has said since: the error goes to the caller (measured, #877).
     private bool Traps => errorMode != ErrorMode.None && !inHandler;
@@ -109,7 +116,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// <summary>The debugger's view of THIS activation's Locals (see <see cref="Debugging.DebugInspector"/>) —
     /// called by the controller only while this frame is the one paused at a break.</summary>
     Debugging.DebugScope Debugging.IDebugFrame.GetLocals()
-        => Debugging.DebugInspector.Build(currentEnv, currentModule, interpreter, procName);
+    {
+        var scope = Debugging.DebugInspector.Build(currentEnv, currentModule, interpreter, procName);
+        return Accessor is null || procName is null ? scope : scope with { WatchContext = $"{currentModule.Name}.{ContextProcedure}" };
+    }
 
     /// <summary>Handle an Immediate-window line against THIS paused frame. A leading <c>?</c>/<c>Print</c>/
     /// <c>Debug.Print</c> forces EXPRESSION evaluation (print the result). A BARE assignment or <c>Set</c> is
@@ -234,7 +244,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var matches = new List<StatementExecutor>();
             for (var i = index; i >= 0; i--)
                 if (string.Equals(stack[i].currentModule.Name, module, StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(stack[i].procName, procedure, StringComparison.OrdinalIgnoreCase))
+                    && string.Equals(stack[i].ContextProcedure, procedure, StringComparison.OrdinalIgnoreCase))
                     matches.Add(stack[i]);
             if (matches.Count == 0)
                 return ContextError("<Out of context>");
@@ -4210,7 +4220,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private Vb6Value.ValueType ExtractArrayType(VB6Parser.AsTypeClauseContext clause) =>
         ObjectArrayClass(clause) is not null
             ? new Vb6Value.ValueType(Vb6Value.ValueType.Object, true)
-            : ExtractType(clause, true, interpreter.IsVba64);
+            : ExtractType(clause, true, interpreter.VbaBitness);
 
     public override async Task<ControlFlow> VisitRedimStmt(VB6Parser.RedimStmtContext context)
     {
@@ -4506,7 +4516,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 string? declaredClass = null;
                 // `Dim o As New C1`, `Dim c As New Collection`: Nothing until its first use makes the object (#435).
                 string? autoNew = asType?.NEW() != null ? AutoNewClass(asType) : null;
-                if (BaseTypeMapper.Vba64Type(asType?.type()?.GetText(), interpreter.IsVba64) is { } wide)
+                if (BaseTypeMapper.VbaType(asType?.type()?.GetText(), interpreter.VbaBitness) is { } wide)
                 {
                     var wideType = isArray ? new Vb6Value.ValueType(wide, true) : wide;
                     value = dimensions is null ? new Vb6Value(wideType) : new Vb6Value(wideType, dimensions);
@@ -4607,7 +4617,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         throw new NotImplementedException("An array of objects is not implemented (#1482)");
                     var type = defaultType is not null
                         ? (isArray ? new Vb6Value.ValueType(defaultType, true) : defaultType)
-                        : ExtractType(asType, isArray, interpreter.IsVba64);
+                        : ExtractType(asType, isArray, interpreter.VbaBitness);
                     value = dimensions != null ? new Vb6Value(type, dimensions) : new Vb6Value(type);
                     if (dimensions != null && value.Value is VBArray fixedArr) fixedArr.IsDynamic = false;   // `Dim a(N)` = fixed
                 }
@@ -4763,7 +4773,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (sub.asTypeClause() is { } asType)
         {
-            if ((BaseTypeMapper.Vba64Type(asType.type()?.GetText(), interpreter.IsVba64)
+            if ((BaseTypeMapper.VbaType(asType.type()?.GetText(), interpreter.VbaBitness)
                 ?? BaseTypeMapper.Map(asType.type()?.baseType())) is not { } declared || asType.fieldLength() != null)
                 throw new NotImplementedException(
                     $"Const {sub.ambiguousIdentifier().GetText()} As {asType.type()?.GetText()} is not supported.");

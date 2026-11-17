@@ -315,3 +315,23 @@ They come from the VBA type library inside `msvbvm60.dll`, read with `LoadTypeLi
 - **A wrong name is a compile error, "Named argument not found."** That's `LeftB(Foo:=…)`, `ChrB(Code:=…)`, `CurDir(Path:=…)`, `Dir(Path:=…)`, `GetAttr(Path:=…)`, `StrPtr(x:=…)`, `FV(…, Type:=1)` and `NPV(…, Values:=…)`.
 - **An omitted required argument is a compile error, "Argument not optional."** That's `LeftB(Length:=2)`, `MidB(String:=…, Length:=2)`, `FV(Rate:=…, NPer:=…)`, `MIRR` without `ReinvestRate`, `Partition` without `Interval`, and `SLN` without `Life`.
 - **`LeftB`, `RightB`, `MidB`, `ChrB` and `CurDir`** have no parameters in the type library. They're the compiler's own, and these names are what it accepted.
+
+### DDB's names (2026-11-17, #2524)
+
+vb6.exe SP6, `/make`, every call built native and as p-code, which logged the same lines. `DDB` wasn't registered in HexIDE when #4145 measured the others, so its names were measured with #2524's review. Each named call ran beside its positional twin; a compile error needed a build of its own.
+
+| Expression | Result |
+|---|---|
+| `DDB(2400, 300, 10, 1)` | `480`, Double |
+| `DDB(Cost:=2400, Salvage:=300, Life:=10, Period:=1)` | `480`, Double |
+| `DDB(cost:=2400, salvage:=300, life:=10, period:=1)` | `480`, Double |
+| `DDB(2400, 300, 10, 2, 1.5)` | `306`, Double |
+| `DDB(Cost:=2400, Salvage:=300, Life:=10, Period:=2, Factor:=1.5)` | `306`, Double |
+| `DDB(Factor:=1.5, Period:=2, Life:=10, Salvage:=300, Cost:=2400)` | `306`, Double |
+| `DDB(2400, 300, Life:=10, Period:=2, Factor:=1.5)` | `306`, Double |
+| `DDB(Cost:=2400, Salvage:=300, Life:=10)` | **compile error "Argument not optional"** |
+| `DDB(Cost:=2400, Salvage:=300, Life:=10, Per:=1)` | **compile error "Named argument not found"** |
+| `DDB(Cost:=2400, Salvage:=300, Life:=10, Period:=1, Type:=0)` | **compile error "Named argument not found"** |
+
+- **`DDB` takes `Cost`, `Salvage`, `Life`, `Period` and `[Factor]`,** in any order, after positional arguments, and without regard to case, as `SLN` and `SYD` do. Each named call gave its positional twin's value.
+- **Not measured:** a positional call with too few or too many arguments.

@@ -50,6 +50,8 @@ public class ListBoxComponentClass : ComponentBaseClass
             .Select(n => new InBox.InBoxMember(n, InBox.MemberKind.Method, InBox.MemberOrigin.HexIde, false, true)),
     ];
 
+    public override string? DesignerDoubleClickEvent => "Click";
+
     public override string Name => "List";
     public override string VBTypeName => "VB.ListBox";
     public override (int Width, int Height) AddedSize => (1215, 450);

@@ -38,7 +38,7 @@ public class FormComponentClass : ComponentBaseClass
     /// The event whose procedure the designer writes when its background is double-clicked: a form's Load (#1532), a
     /// UserControl's Initialize and a PropertyPage's SelectionChanged (measured, #1632).
     /// </summary>
-    public virtual string DesignerDoubleClickEvent => "Load";
+    public override string DesignerDoubleClickEvent => "Load";
 
     private static readonly EventClass[] RootEvents = [KeyDownEvent, KeyPressEvent, KeyUpEvent, ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent];
 

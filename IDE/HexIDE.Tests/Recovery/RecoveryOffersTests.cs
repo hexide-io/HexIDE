@@ -60,9 +60,11 @@ public sealed class RecoveryOffersTests : IDisposable
         public readonly List<BaseEditorWindowViewModel> Tabs = [];
         public readonly IDocumentDockService Dock = Substitute.For<IDocumentDockService>();
         public readonly EditorService Editors;
+        public readonly ContributedProjects Types;
 
         public Session(ContributedProjects? contributed = null, bool realManager = false)
         {
+            Types = contributed ?? Vb6ProjectType.Alone();
             Dock.OpenDocuments.Returns(Tabs);
             Dock.When(d => d.OpenDocument(Arg.Any<BaseEditorWindowViewModel>(), Arg.Any<bool>()))
                 .Do(ci => Tabs.Add(ci.Arg<BaseEditorWindowViewModel>()));
@@ -81,16 +83,16 @@ public sealed class RecoveryOffersTests : IDisposable
             Service = new ProjectService(                () => throw new InvalidOperationException("new-project dialog must not be reached"),
                 Windows, Bus, Manager, Substitute.For<IRecentProjectsService>(),
                 Substitute.For<IReferenceLibraryService>(), sidecar, Store, Substitute.For<ILocalizationService>(),
-                Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: contributed, documents: Dock);
+                Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: Types, documents: Dock);
         }
 
         public ProjectDefinition Project => Loaded.Single();
     }
 
-    private RecoveryOffers Offers(Session session, IEventBus? bus = null)
+    private RecoveryOffers Offers(Session session, IEventBus? bus = null, ContributedProjects? contributed = null, string? recoveryRoot = null)
     {
         var recovery = Substitute.For<IRecoveryService>();
-        recovery.RunFolder.Returns(Path.Join(root, "this-run"));
+        recovery.RunFolder.Returns(Path.Join(recoveryRoot ?? root, "this-run"));
 
         var windows = Substitute.For<IWindowManager>();
         windows.ShowDialog(Arg.Any<IDialog>()).Returns(async ci =>
@@ -115,7 +117,7 @@ public sealed class RecoveryOffersTests : IDisposable
 
         return new RecoveryOffers(recovery, session.Service, session.Manager, windows, localization, dock,
             session.Store, clock, bus ?? Substitute.For<IEventBus>(), Substitute.For<IStatusBarService>(),
-            Substitute.For<IHeaderRefresher>(), editors: session.Editors);
+            Substitute.For<IHeaderRefresher>(), editors: session.Editors, contributed: contributed ?? session.Types);
     }
 
     /// <summary>Writes a saved project of a form and two modules into <paramref name="folder"/>, and names its file.</summary>
@@ -433,6 +435,154 @@ public sealed class RecoveryOffersTests : IDisposable
         Module(restored, "Module1").Code.Should().Contain("Public Sub Typed()");
         Directory.Exists(Path.GetDirectoryName(renderedAt)).Should().BeFalse("the files it was rebuilt from are gone");
         Directory.Exists(run).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task A_never_saved_backup_waits_until_its_type_is_registered_again()
+    {
+        var first = new Session();
+        first.Loaded.Add(TestHelpers.CreateProjectWithForm("Waiting"));
+        var run = Crash(first);
+        var second = new Session(new ContributedProjects());
+        var offers = Offers(second, contributed: new ContributedProjects());
+
+        (await offers.OfferAtStartAsync()).Should().BeFalse();
+        shown.Should().BeEmpty();
+        offers.WaitingCount.Should().Be(1);
+        Directory.Exists(run).Should().BeTrue();
+
+        // A later process has no earlier session's exclusive claim. Copy the persisted backup, without that claim,
+        // into its store so this test can keep both sessions alive without changing the coordinator's lifetime.
+        var laterRoot = Path.Join(dir, "LaterRecovery");
+        var laterRun = Path.Join(laterRoot, Path.GetFileName(run));
+        foreach (var file in Directory.EnumerateFiles(run, "*", SearchOption.AllDirectories)
+                     .Where(file => Path.GetFileName(file) != "claim"))
+        {
+            var copy = Path.Join(laterRun, Path.GetRelativePath(run, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(copy)!);
+            File.Copy(file, copy);
+        }
+        var third = new Session(Vb6ProjectType.Alone());
+        answers.Enqueue(Restore);
+        (await Offers(third, recoveryRoot: laterRoot).OfferAtStartAsync()).Should().BeTrue();
+        third.Project.Name.Should().Be("Waiting");
+        third.Project.AbsolutePath.Should().BeNull();
+        third.Project.Forms.Should().ContainSingle();
+        Directory.Exists(laterRun).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task A_saved_backup_without_its_type_is_listed_as_waiting_and_cannot_restore()
+    {
+        var first = await Opened(WriteProject(dir));
+        Module(first.Project, "Module1").UpdateCode("Public Sub Edited()\r\nEnd Sub\r\n");
+        var run = Crash(first);
+        var offers = Offers(new Session(new ContributedProjects()), contributed: new ContributedProjects());
+
+        await offers.ShowPendingAsync();
+
+        var dialog = shown.Should().ContainSingle().Subject;
+        dialog.SelectedItem!.AccessibleName.Should().Contain("Str.Dialog.Recovery.WaitingForType: Test.vbp");
+        dialog.RestoreCommand.CanExecute(null).Should().BeFalse();
+        dialog.DiscardCommand.CanExecute(null).Should().BeTrue();
+        offers.WaitingCount.Should().Be(1);
+        Directory.Exists(run).Should().BeTrue();
+        await dialog.RestoreSelectedAsync();
+        messages.Should().BeEmpty("a disabled restore must not try opening the project");
+        await dialog.DiscardSelectedAsync();
+        offers.WaitingCount.Should().Be(0);
+        Directory.Exists(run).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task A_scratch_backup_without_its_type_is_kept_even_if_its_files_hold_it()
+    {
+        var (_, run) = await CrashedScratch(edited: false);
+        var offers = Offers(new Session(new ContributedProjects()), contributed: new ContributedProjects());
+
+        (await offers.OfferAtStartAsync()).Should().BeFalse();
+
+        shown.Should().BeEmpty();
+        offers.WaitingCount.Should().Be(1);
+        Directory.Exists(run).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task An_old_record_is_judged_by_its_path_without_a_type_field()
+    {
+        var run = RecoveryRun.Begin(root, Environment.ProcessId, LongAgo);
+        // The original format has neither a type identifier nor RenderedAt.
+        File.WriteAllText(Path.Join(run.Folder, "run.json"), $$"""
+            {
+              "format": 1, "processId": {{Environment.ProcessId}}, "processStart": "2000-01-01T00:00:00Z",
+              "savedAt": "2000-01-01T00:01:00Z", "capture": "s1",
+              "projects": [
+                { "name": "Old", "path": "Old.vbp", "codePage": 1252, "utf8Bom": false, "documents": [] }
+              ]
+            }
+            """);
+        var offers = Offers(new Session(new ContributedProjects()), contributed: new ContributedProjects());
+
+        await offers.ShowPendingAsync();
+
+        shown.Single().SelectedItem!.AccessibleName.Should().Contain("Str.Dialog.Recovery.WaitingForType: Old.vbp");
+        shown.Single().RestoreCommand.CanExecute(null).Should().BeFalse();
+        Directory.Exists(run.Folder).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task An_unsaved_backup_needs_a_type_with_a_format_for_its_RenderedAt()
+    {
+        var run = RecoveryRun.Begin(root, Environment.ProcessId, LongAgo);
+        run.Write([new UnsavedProject("Other", null, null, new Vb6TextEncoding(1252),
+            new UnsavedFile("Other.other", "content"), [], Path.Join(dir, "Other.other"))], DateTime.UtcNow);
+        var types = Vb6ProjectType.Alone();
+        types.Register(new AddinProjectType("Read only")
+        {
+            FileNames = ["*.other"],
+            OpenAsync = (_, _, _) => Task.FromResult(new AddinProjectContent("Other")),
+        },
+            new AddinOrigin("test.reader", "Reader"));
+        var offers = Offers(new Session(types), contributed: types);
+
+        await offers.OfferAtStartAsync();
+
+        shown.Should().BeEmpty("a reader without a Format cannot rebuild an unsaved project");
+        offers.WaitingCount.Should().Be(1);
+        Directory.Exists(run.Folder).Should().BeTrue();
+        await offers.ShowPendingAsync();
+        shown.Single().SelectedItem!.AccessibleName.Should().Contain("Str.Dialog.Recovery.WaitingForType: Other.other");
+        shown.Single().RestoreCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Opening_a_project_does_not_offer_or_resolve_a_backup_without_its_type()
+    {
+        var first = await Opened(WriteProject(dir));
+        Module(first.Project, "Module1").UpdateCode("Public Sub Edited()\r\nEnd Sub\r\n");
+        var run = Crash(first);
+        var second = await Opened(first.Project.AbsolutePath!);
+        var offers = Offers(second, contributed: new ContributedProjects());
+
+        await offers.OfferForAsync(second.Project);
+
+        shown.Should().BeEmpty();
+        offers.WaitingCount.Should().Be(1);
+        Directory.Exists(run).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task A_record_with_empty_RenderedAt_is_still_offered_without_a_type()
+    {
+        var run = RecoveryRun.Begin(root, Environment.ProcessId, LongAgo);
+        run.Write([new UnsavedProject("Old", null, null, new Vb6TextEncoding(1252), null, [])], DateTime.UtcNow);
+        var offers = Offers(new Session(new ContributedProjects()), contributed: new ContributedProjects());
+
+        await offers.OfferAtStartAsync();
+
+        shown.Single().RestoreCommand.CanExecute(null).Should().BeTrue();
+        offers.WaitingCount.Should().Be(1);
+        Directory.Exists(run.Folder).Should().BeTrue();
     }
 
     /// <summary>

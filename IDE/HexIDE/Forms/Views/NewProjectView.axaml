@@ -29,8 +29,17 @@
                 <Grid RowDefinitions="*,9,Auto">
                     <TextBlock x:Name="NoProjectTemplates"
                                IsVisible="{CompiledBinding HasNoTemplates}"
-                               Text="{DynamicResource Str.NewProject.NoTemplates}"
-                               TextWrapping="Wrap" Margin="8" VerticalAlignment="Center" />
+                               Classes.NoInstalledTemplates="{CompiledBinding HasNoInstalledTemplates}"
+                               TextWrapping="Wrap" Margin="8" VerticalAlignment="Center">
+                        <TextBlock.Styles>
+                            <Style Selector="TextBlock">
+                                <Setter Property="Text" Value="{DynamicResource Str.NewProject.NoTemplates}" />
+                            </Style>
+                            <Style Selector="TextBlock.NoInstalledTemplates">
+                                <Setter Property="Text" Value="{DynamicResource Str.NewProject.NoInstalledTemplates}" />
+                            </Style>
+                        </TextBlock.Styles>
+                    </TextBlock>
                     <ListBox IsVisible="{CompiledBinding !HasNoTemplates}"
                              ItemsSource="{CompiledBinding Templates}"
                              SelectedItem="{CompiledBinding SelectedTemplate}"
