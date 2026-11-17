@@ -402,11 +402,25 @@ by value will run such a program to completion while producing the wrong answer.
 - **WHEN** a member call statement puts its parenthesised argument directly after the member name
 - **THEN** it runs as the spaced form does, with the parenthesised expression passed by value
 
+### Requirement: Measured intrinsic named arguments
+
+The interpreter SHALL accept the intrinsic parameter names and required omissions measured in
+[#4145](https://github.com/hexide-io/HexIDE/issues/4145), placing arguments in parameter order and
+retaining positional values and optional defaults. Financial flags SHALL be named Due, arrays ValueArray,
+and pointer operands Ptr. Existing ChrB, IRR and MIRR execution refusals SHALL remain.
+Wrong names SHALL raise "Named argument not found" and omitted required arguments "Argument not optional"
+as the statement runs. Named InStrB SHALL raise "Syntax error", named CallByName "Argument in ParamArray
+may not be named", and named IMEStatus "Wrong number of arguments or invalid property assignment".
+
+#### Scenario: Reordered financial parameters with omitted optionals
+- **WHEN** `FV(Pmt:=-100, NPer:=12, Rate:=0.01)` executes
+- **THEN** its value equals `FV(0.01, 12, -100)`
+
 ### Requirement: Measured straight-line and sum-of-years depreciation
 
 The interpreter SHALL implement positional `SLN` and `SYD` calls with Double results matching
 all measured rows in [#2524](https://github.com/hexide-io/HexIDE/issues/2524) bit for bit.
-It SHALL refuse their unmeasured named calls and argument counts as not implemented.
+It SHALL accept their measured named parameters (#4145) and refuse unmeasured positional argument counts as not implemented.
 `DDB` remains unimplemented until every measured row can be reproduced.
 
 #### Scenario: Straight-line depreciation
@@ -445,7 +459,8 @@ A Sub used as a value SHALL return Empty. Missing or empty class member names an
 Get on a method raises 450, too few arguments 449, and too many 450.
 Forms/controls, Collection object results, private members, non-scalar fields, field Set/indexing and
 unavailable accessors SHALL refuse as not implemented. So SHALL other unmeasured member/call-type/arity
-combinations, named/omitted arguments and name/call-type conversions.
+combinations, omitted arguments and name/call-type conversions. Named arguments SHALL raise the compile
+error "Argument in ParamArray may not be named" as the statement runs (#4145).
 
 #### Scenario: Collection lookup by name
 - **WHEN** a Collection receives `CallByName k, "Add", VbMethod, "a", "ka"`
@@ -1330,7 +1345,8 @@ and unmeasured HelpContext conversions SHALL be refused as not implemented.
 The interpreter SHALL execute the measured positional `Pmt`, `FV` and `PV` calls from
 [#2523](https://github.com/hexide-io/HexIDE/issues/2523), preserving their exact Double bits and
 measured errors. It SHALL round the base `1 + rate` to Double before retaining higher-precision
-intermediates. Unmeasured named calls, argument errors and unsupported calculation domains SHALL
+intermediates. Named calls SHALL use the measured names, including Due (#4145). Unmeasured positional
+argument errors and unsupported calculation domains SHALL
 fail clearly as unimplemented, rather than supply an invented VB6 result.
 
 #### Scenario: Ordinary loan payment retains intermediate precision
@@ -1351,7 +1367,7 @@ The interpreter SHALL execute every measured positional NPer, IPmt, PPmt and Rat
 [#2523](https://github.com/hexide-io/HexIDE/issues/2523), preserving exact Double bits and errors.
 It SHALL use the fitted per-function spills described in
 [Financial precision](../../../docs/financial-precision-2523.md). Unmeasured argument conversions,
-named calls and unsupported domains SHALL refuse as unimplemented.
+and unsupported domains SHALL refuse as unimplemented. Named calls SHALL use the measured names, including Due (#4145).
 
 #### Scenario: Beginning-period interest and zero-rate interest
 - **WHEN** the program evaluates the measured first-period beginning payment or zero-rate IPmt call
@@ -1387,10 +1403,10 @@ programs that exist but cannot start, and ambiguous/binary document classificati
 
 ### Requirement: Reset and FileAttr
 The interpreter SHALL close all open files and flush buffered writes on `Reset`, unless a module-local
-Sub named Reset handles the call. `FileAttr` SHALL return Long mode values 2 for Output, 8 for Append,
-4 for Random and 32 for Binary, defaulting its second argument to 1. An open Input file,
-second-argument conversions from types other than Byte/Integer/Long, and named arguments SHALL be
-refused as not implemented until measured (#2521).
+Sub named Reset handles the call. `FileAttr` SHALL return Long mode values 1 for Input, 2 for Output,
+8 for Append, 4 for Random and 32 for Binary (#2521, #4145). It SHALL accept the names FileNumber and
+ReturnType, default ReturnType to 1 and convert it as CInt (half to even, Null error 94, bad text error 13).
+A converted ReturnType other than 1 SHALL raise error 5, including the legacy handle request 2.
 
 #### Scenario: Reset releases buffered files
 - **WHEN** Reset runs with open files
@@ -1498,7 +1514,7 @@ and file-failure semantics SHALL fail explicitly as not implemented.
 - **AND** no operating-system event is written
 
 ### Requirement: FormatDateTime SHALL use the program's locale
-`FormatDateTime(Date, [NamedFormat])` SHALL return a String using `VbLocale`: omitted or 0
+`FormatDateTime(Expression, [NamedFormat])` SHALL return a String using `VbLocale`: omitted or 0
 uses CStr's general date rendering, 1 the long date, 2 the short date, 3 the long time, and
 4 24-hour hours and minutes. It SHALL accept the date serials, date text, Empty, Null and
 True measured in [#2516](https://github.com/hexide-io/HexIDE/issues/2516).
@@ -1864,7 +1880,8 @@ The interpreter SHALL execute all five positional NPV rows measured in
 exact result bits and measured error numbers. It SHALL retain the base and sum while rounding
 each cumulative discount power to Double as described in
 [Cash-flow precision](../../../docs/financial-precision-2525.md).
-Unmeasured conversions, named calls, empty/multidimensional arrays and unsupported arithmetic
+Named NPV calls SHALL accept Rate and ValueArray (#4145).
+Unmeasured conversions, empty/multidimensional arrays and unsupported arithmetic
 domains SHALL refuse as unimplemented. IRR and MIRR SHALL explicitly refuse as unimplemented
 until a precision model matches every measured row for the function.
 
