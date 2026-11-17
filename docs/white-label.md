@@ -268,7 +268,7 @@ and the input is never changed.
 | In the output | Comes from |
 |---|---|
 | `<name>.app` | Your `name`. |
-| `Contents/MacOS/<id>` | Stock's `HexIDE`, renamed from your `id`. Its bytes don't change. |
+| `Contents/MacOS/<id>` | Stock's `HexIDE`, renamed from your `id`, then ad-hoc signed with the bundle. |
 | `Contents/Info.plist` | Stock's, with the bundle's name, display name, identifier, executable and icon changed. The version numbers stay the build's. |
 | `Contents/Resources/<id>.icns` | Your `logo`, which is required here, at every size from 16 to 1024 pixels. Nothing of stock's icon stays. |
 | `Contents/MacOS/brand.json`, your logo and a `defaultProfile` folder | Copied from beside your `brand.json`. |
@@ -279,9 +279,8 @@ remove it, delete the `.app`. Each user's settings and logs stay where macOS kee
 
 The run stops if your name can't be a bundle's name, or if the build is missing `LICENSE` or `THIRD-PARTY-NOTICES.md`.
 Every other file is copied unchanged, including the helper programs such as `HexIDE.VbLspServer`, which keep their
-names. It also stops if macOS doesn't accept the executable's signature or the `Info.plist` afterwards.
+names. It also stops if macOS doesn't accept the rewritten `Info.plist`, the ad-hoc re-sealing, or strict deep bundle verification.
 
-**The output has no signing identity.** Its programs keep the ad-hoc signatures stock shipped with, which Apple Silicon
-needs in order to run them at all and which identify nobody. Signing with your own Developer ID and notarizing are
-yours to do, and [the macOS signing notes](macos-signing.md) describe what that takes. The tool never touches a key
+**The output has no signing identity.** The rewritten bundle is re-sealed ad hoc on macOS, which identifies nobody.
+Signing with your own Developer ID and notarizing are yours to do, and [the macOS signing notes](macos-signing.md) describe what that takes. The tool never touches a key
 or a trust anchor, and there's no update service.

@@ -329,6 +329,9 @@ jobs:
       - name: Build HexIDE.Standalone in Release
         run: dotnet build HexIDE.Standalone -f net11.0 -c Release
 
+      - name: Self-test macOS bundle orchestration
+        run: bash ../scripts/macos-bundle.selftest.sh
+
       - name: Self-test the Release output guard
         run: bash ../scripts/check-release-output.selftest.sh
 
@@ -399,6 +402,38 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '11.0.x'
+
+      - name: Verify macOS bundle and repack seals
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rid="osx-arm64"
+          [ "$(uname -m)" = arm64 ] || rid="osx-x64"
+          dotnet publish HexIDE.Desktop -f net11.0 -c Release -r "$rid" --self-contained true -o bin/seal-probe
+          dotnet publish HexIDE.Standalone -f net11.0 -c Release -r "$rid" --self-contained true -o bin/seal-probe/standalone
+          mv bin/seal-probe/HexIDE.Desktop bin/seal-probe/HexIDE
+          # Keyless CI has no packed add-ins. Keep the dotted-folder regression represented.
+          mkdir -p bin/seal-probe/addins/com.hexide.sealprobe
+          cp bin/seal-probe/HexIDE.Desktop.dll bin/seal-probe/addins/com.hexide.sealprobe/probe.dll
+          ../scripts/macos-bundle.sh bin/seal-probe bin/seal-stock/HexIDE.app 0.0.0
+          mkdir -p bin/seal-brand
+          cp HexIDE/Icons/AppIcon/hexide-logo-256.png bin/seal-brand/logo.png
+          cat > bin/seal-brand/brand.json <<'JSON'
+          {"schemaVersion":1,"id":"seal-probe","name":"Seal Probe","logo":"logo.png"}
+          JSON
+          dotnet run --project HexIDE.Repack -- --input bin/seal-stock/HexIDE.app --brand bin/seal-brand/brand.json --output bin/seal-repacked
+          codesign --verify --strict --deep bin/seal-stock/HexIDE.app
+          codesign --verify --strict --deep "bin/seal-repacked/Seal Probe.app"
+          # Data files keep their ad-hoc signatures in extended attributes, so the seal has to survive the
+          # release's own archive format, and a browser's quarantine flag riding along with it (#4507).
+          for app in bin/seal-stock/HexIDE.app "bin/seal-repacked/Seal Probe.app"; do
+            rm -rf bin/seal-tar && mkdir -p bin/seal-tar/x
+            tar -czf bin/seal-tar/app.tar.gz -C "$(dirname "$app")" "$(basename "$app")"
+            xattr -w com.apple.quarantine "0081;$(printf %x "$(date +%s)");Safari;" bin/seal-tar/app.tar.gz
+            tar -xzf bin/seal-tar/app.tar.gz -C bin/seal-tar/x
+            codesign --verify --strict --deep "bin/seal-tar/x/$(basename "$app")"
+          done
 
       # dotnet's MSBuild has a different Roslyn layout; it cannot guard Visual Studio builds (#3124).
       - name: Build the solution with Visual Studio MSBuild
