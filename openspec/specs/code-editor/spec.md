@@ -531,6 +531,15 @@ blank line inside it. A diagnostics or document-symbol refresh SHALL NOT navigat
 - **WHEN** the developer selects an event with no handler and the language server publishes diagnostics
 - **THEN** typing lands on the blank body line between the declaration and `End Sub`
 
+### Requirement: Rebuilding the Procedure box SHALL preserve the caret
+A document-symbol refresh SHALL preserve the current Procedure selection when it remains in the list and
+SHALL NOT navigate the caret when restoring that selection. Choosing a procedure in the box SHALL still navigate.
+
+#### Scenario: Symbols arrive while the developer is typing
+- **GIVEN** `(Declarations)` or a named procedure is selected under `(General)` and the caret is in a procedure body
+- **WHEN** diagnostics cause the document symbols and Procedure list to refresh
+- **THEN** the same Procedure item remains selected and the caret and document text are unchanged
+
 ### Requirement: Delete SHALL work without a selection
 The code window's Delete command SHALL delete the selection when one exists, and otherwise use the text area's
 forward deletion. Both the Delete key and the menu command SHALL arm the existing reset prompt when a run is active.
