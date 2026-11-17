@@ -22,6 +22,9 @@ public sealed partial class ExternalDebugService
         public string Path { get; } = path;
         public SortedSet<int> Desired { get; set; } = [];
         public Dictionary<int, string> Conditions { get; } = [];
+        public Dictionary<int, string> LaunchConditions { get; } = [];
+        public Dictionary<int, string> HitConditions { get; } = [];
+        public Dictionary<int, string> LogMessages { get; } = [];
         public IReadOnlyList<ExternalBreakpoint> Rows { get; set; } = [];
         public long Version { get; set; }
         public bool Sending { get; set; }
@@ -38,6 +41,8 @@ public sealed partial class ExternalDebugService
     {
         breakpointsReady = false;
         conditionsNoticeShown = false;
+        hitConditionsNoticeShown = false;
+        logPointsNoticeShown = false;
         breakpointSources.Clear();
     }
 
@@ -46,6 +51,15 @@ public sealed partial class ExternalDebugService
         foreach (var source in sources)
         {
             var state = new BreakpointSource(Path.GetFullPath(source.Path)) { Desired = new(source.Lines) };
+            foreach (var line in source.Lines)
+            {
+                if (source.Condition is { } condition) state.LaunchConditions[line] = condition;
+                if (source.HitCondition is { } hitCondition) state.HitConditions[line] = hitCondition;
+                if (source.LogMessage is { } logMessage) state.LogMessages[line] = logMessage;
+                if (source.Conditions.TryGetValue(line, out var savedCondition)) state.Conditions[line] = savedCondition;
+                if (source.HitConditions.TryGetValue(line, out var savedHitCondition)) state.HitConditions[line] = savedHitCondition;
+                if (source.LogMessages.TryGetValue(line, out var savedLogMessage)) state.LogMessages[line] = savedLogMessage;
+            }
             state.Rows = state.Desired.Select(line => new ExternalBreakpoint(line)).ToArray();
             breakpointSources[state.Path] = state;
         }
@@ -65,7 +79,11 @@ public sealed partial class ExternalDebugService
             }
         Changed?.Invoke();
         return breakpointSources.Values.Select(source => new DapSourceBreakpoints(source.Path, source.Desired.ToArray())
-            { Conditions = new Dictionary<int, string>(source.Conditions) }).ToArray();
+            {
+                Conditions = EffectiveConditions(source),
+                HitConditions = new Dictionary<int, string>(source.HitConditions),
+                LogMessages = new Dictionary<int, string>(source.LogMessages),
+            }).ToArray();
     }
 
     private static string? SourcePath(string uri)
@@ -85,7 +103,13 @@ public sealed partial class ExternalDebugService
         if (!breakpointSources.TryGetValue(path, out var source))
             breakpointSources[path] = source = new(path);
         if (!source.Desired.Remove(line)) source.Desired.Add(line);
-        else source.Conditions.Remove(line);
+        else
+        {
+            source.Conditions.Remove(line);
+            source.LaunchConditions.Remove(line);
+            source.HitConditions.Remove(line);
+            source.LogMessages.Remove(line);
+        }
         QueueBreakpoints(source);
         return true;
     }
@@ -98,8 +122,18 @@ public sealed partial class ExternalDebugService
             if (source.Desired.Count == 0 && source.Rows.Count == 0) continue;
             source.Desired.Clear();
             source.Conditions.Clear();
+            source.LaunchConditions.Clear();
+            source.HitConditions.Clear();
+            source.LogMessages.Clear();
             QueueBreakpoints(source);
         }
+    }
+
+    private static Dictionary<int, string> EffectiveConditions(BreakpointSource source)
+    {
+        var result = new Dictionary<int, string>(source.Conditions);
+        foreach (var (line, condition) in source.LaunchConditions) result[line] = condition;
+        return result;
     }
 
     /// <summary>Replaces the editor's external breakpoint set, preserving omitted conditions.</summary>
@@ -130,19 +164,29 @@ public sealed partial class ExternalDebugService
     public bool SupportsConditionalBreakpoints => session?.Supports("supportsConditionalBreakpoints") == true;
 
     private bool conditionsNoticeShown;
+    private bool hitConditionsNoticeShown;
+    private bool logPointsNoticeShown;
 
     private void NoticeIgnoredConditions()
     {
-        if (conditionsNoticeShown || session?.Supports("supportsConditionalBreakpoints") != false ||
-            !breakpointSources.Values.Any(source => source.Conditions.Count > 0)) return;
-        conditionsNoticeShown = true;
-        Output?.Invoke((localization ?? new HexIDE.Localization.LocalizationService())
-            .GetString("Str.Debug.Conditions.AdapterIgnored") + "\n");
+        Notice(ref conditionsNoticeShown, "supportsConditionalBreakpoints", "Str.Debug.Conditions.AdapterIgnored",
+            breakpointSources.Values.Any(source => source.Conditions.Count > 0 || source.LaunchConditions.Count > 0));
+        Notice(ref hitConditionsNoticeShown, "supportsHitConditionalBreakpoints", "Str.Debug.HitConditions.AdapterIgnored",
+            breakpointSources.Values.Any(source => source.HitConditions.Count > 0));
+        Notice(ref logPointsNoticeShown, "supportsLogPoints", "Str.Debug.LogPoints.AdapterIgnored",
+            breakpointSources.Values.Any(source => source.LogMessages.Count > 0));
+
+        void Notice(ref bool shown, string capability, string key, bool present)
+        {
+            if (shown || !present || session?.Supports(capability) != false) return;
+            shown = true;
+            Output?.Invoke((localization ?? new HexIDE.Localization.LocalizationService()).GetString(key) + "\n");
+        }
     }
 
     public string? GetCondition(string uri, int line) =>
         SourcePath(uri) is { } path && breakpointSources.TryGetValue(path, out var source) &&
-        source.Conditions.TryGetValue(line, out var condition) ? condition : null;
+        (source.LaunchConditions.TryGetValue(line, out var condition) || source.Conditions.TryGetValue(line, out condition)) ? condition : null;
 
     public void SetCondition(string uri, int line, string? condition)
     {
@@ -177,7 +221,9 @@ public sealed partial class ExternalDebugService
                 var lines = source.Desired.ToArray();
                 try
                 {
-                    var reply = await current.SetBreakpointsAsync(source.Path, lines, conditions: new Dictionary<int, string>(source.Conditions), temporaryLine: CursorLine(source));
+                    var reply = await current.SetBreakpointsAsync(source.Path, lines, conditions: EffectiveConditions(source),
+                        hitConditions: new Dictionary<int, string>(source.HitConditions), logMessages: new Dictionary<int, string>(source.LogMessages),
+                        temporaryLine: CursorLine(source));
                     if (session != current || !CanEditBreakpoints) return;
                     if (source.Version != version) continue;
                     ApplyBreakpointReply(source, lines, reply);
@@ -231,7 +277,8 @@ public sealed partial class ExternalDebugService
                 if (!current.IsCurrent(stop) || cursor.Cleanup is not null)
                     throw new InvalidOperationException("The external session moved before Run To Cursor could start.");
                 var lines = source.Desired.ToArray();
-                var reply = await current.SetBreakpointsAsync(path, lines, conditions: new Dictionary<int, string>(source.Conditions), temporaryLine: line);
+                var reply = await current.SetBreakpointsAsync(path, lines, conditions: EffectiveConditions(source),
+                    hitConditions: new Dictionary<int, string>(source.HitConditions), logMessages: new Dictionary<int, string>(source.LogMessages), temporaryLine: line);
                 var values = reply.Body!.Value.GetProperty("breakpoints");
                 var index = lines.Length;
                 var breakpoint = index < values.GetArrayLength() ? ReadBreakpoint(line, values[index]) : new ExternalBreakpoint(line, Pending: false);
@@ -281,7 +328,8 @@ public sealed partial class ExternalDebugService
                 var lines = cursor.Source.Desired.ToArray();
                 using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
                 var reply = await current.SetBreakpointsAsync(cursor.Source.Path, lines, deadline.Token,
-                    new Dictionary<int, string>(cursor.Source.Conditions));
+                    EffectiveConditions(cursor.Source), hitConditions: new Dictionary<int, string>(cursor.Source.HitConditions),
+                    logMessages: new Dictionary<int, string>(cursor.Source.LogMessages));
                 if (session == current) ApplyBreakpointReply(cursor.Source, lines, reply);
             }
             catch (Exception exception)
