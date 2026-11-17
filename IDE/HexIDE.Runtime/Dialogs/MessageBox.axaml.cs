@@ -77,6 +77,8 @@ public partial class MessageBox : UserControl
             window.FlowDirection = (Layout & MessageBoxLayout.RtlReading) != 0
                 ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         ApplyWindowStyles(window);
+        if (IsProgramDialog)
+            ProgramDialogChrome.Apply(window);
         var current = window;
         AcceptRequest += r =>
         {
@@ -108,6 +110,8 @@ public partial class MessageBox : UserControl
             WindowStartupLocation = WindowStartupLocation.CenterScreen,
         };
         ApplyWindowStyles(again);
+        if (IsProgramDialog)
+            ProgramDialogChrome.Apply(again);
         current = again;
         window.Close();
         var closed = Watch(again);

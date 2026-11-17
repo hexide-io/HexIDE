@@ -75,9 +75,10 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// The id of the project type's add-in that opened this project, VB6's own (<c>hexide.vb6</c>) included since #3411's
-    /// slice 10b; null only for a project nothing opened, such as a test's. It says who the project belongs to, for messages
-    /// and logs, and is never a question of whether HexIDE may change it: that's <see cref="Offers"/>.
+    /// The manifest id of the add-in whose project type opened this project, VB6's own (<c>hexide.vb6</c>) included since
+    /// #3411's slice 10b; null only for a project nothing opened, such as a test's. It says who the project belongs to, for
+    /// messages, logs and selecting that add-in's default launch, and is never a question of whether HexIDE may change it:
+    /// that's <see cref="Offers"/>.
     /// </summary>
     public string? ContributedBy { get; set; }
 

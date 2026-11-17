@@ -575,6 +575,7 @@ budget and cached-result fallback still apply. Startup measurements are recorded
 | Formatting | `textDocument/formatting` | 🔶 Partial | ◐ spacing, range |
 | Block-end hints | `textDocument/inlayHint` | ✅ Full | ■ parameter names and inferred types |
 | Call hierarchy | `textDocument/prepareCallHierarchy`, `callHierarchy/*` | Not provided | ■ call relationships |
+| Type hierarchy | `textDocument/prepareTypeHierarchy`, `typeHierarchy/*` | Not provided | ■ type relationships; the client can display an external server’s answers (#4056) |
 
 Legend: ◐ depth (outstanding work) · ■ boundary (belongs to a language engine).
 

@@ -110,6 +110,84 @@ public sealed class ContributedProjectTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Startup_open_waits_for_initial_add_in_discovery()
+    {
+        var startup = new HexIDE.Desktop.StartupProjectOpen();
+        var window = new Avalonia.Controls.Window();
+        try
+        {
+            var opening = startup.Open(_service, ProjectFile);
+            opening.IsCompleted.Should().BeFalse();
+            using var type = Contribute();
+            startup.Attach(window, _types, () => Task.CompletedTask);
+            await opening;
+            _loaded.Should().ContainSingle().Which.ContributedBy.Should().Be("rdcore");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task Startup_open_uses_the_contributed_type_lookup()
+    {
+        using var type = Contribute();
+        var startup = new HexIDE.Desktop.StartupProjectOpen();
+        var window = new Avalonia.Controls.Window();
+        startup.Attach(window, _types, () => Task.CompletedTask);
+        try
+        {
+            await startup.Open(_service, ProjectFile);
+            _loaded.Should().ContainSingle().Which.ContributedBy.Should().Be("rdcore");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task Startup_open_waits_for_window_consent_and_retries_the_lookup()
+    {
+        var consent = new TaskCompletionSource();
+        var prompted = false;
+        var startup = new HexIDE.Desktop.StartupProjectOpen();
+        var window = new Avalonia.Controls.Window();
+        startup.Attach(window, _types, async () => { prompted = true; await consent.Task; });
+        try
+        {
+            var opening = startup.Open(_service, ProjectFile);
+            opening.IsCompleted.Should().BeFalse();
+            prompted.Should().BeFalse();
+            window.Show();
+            prompted.Should().BeTrue();
+            opening.IsCompleted.Should().BeFalse();
+            using var type = Contribute();
+            consent.SetResult();
+            await opening;
+            _loaded.Should().ContainSingle().Which.ContributedBy.Should().Be("rdcore");
+            await _windows.DidNotReceiveWithAnyArgs().MessageBox(default!, default, default, default);
+        }
+        finally { consent.TrySetResult(); window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task Startup_unclaimed_file_is_named_after_consent_without_a_new_project_prompt()
+    {
+        var consent = new TaskCompletionSource();
+        var startup = new HexIDE.Desktop.StartupProjectOpen();
+        var window = new Avalonia.Controls.Window();
+        startup.Attach(window, _types, () => consent.Task);
+        try
+        {
+            var opening = startup.Open(_service, ProjectFile);
+            window.Show();
+            opening.IsCompleted.Should().BeFalse();
+            consent.SetResult();
+            await opening;
+            _loaded.Should().BeEmpty();
+            await _windows.Received(1).MessageBox("Str.ContributedProject.NoReader .rdproj",
+                Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information);
+        }
+        finally { consent.TrySetResult(); window.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task A_contributed_project_file_is_read_by_its_add_in_into_a_project_with_its_modules_references_and_folders()
     {
         using var type = Contribute();

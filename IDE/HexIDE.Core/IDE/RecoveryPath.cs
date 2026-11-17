@@ -63,6 +63,6 @@ public static class RecoveryPath
         !string.IsNullOrEmpty(candidate) && Path.IsPathRooted(candidate)
             ? candidate
             : throw new InvalidOperationException(
-                $"Cannot locate HexIDE's recovery directory: {what} resolved to '{candidate}', which is not an absolute "
+                $"Cannot locate {Distribution.DisplayName}'s recovery directory: {what} resolved to '{candidate}', which is not an absolute "
               + "path. Unsaved work is not backed up this session.");
 }

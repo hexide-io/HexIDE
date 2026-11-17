@@ -56,7 +56,7 @@ public enum EventCoalescing
 /// on a debugger: a run with none needs the order as much.
 /// </para>
 /// </remarks>
-public sealed class EventPump
+public sealed class EventPump : HexIDE.IDE.IProgramActivity
 {
     /// <summary>One handler's run.</summary>
     internal sealed class Walk(string name)

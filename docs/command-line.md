@@ -29,7 +29,7 @@ most people will type today.
 | `--developer-mode` | — | Turns on session developer mode. **Debug builds only** — see below. |
 | `--ansi-code-page` | a Windows code page number, such as `932` | Reads and writes VB6 sources as a machine whose ANSI code page is that one would. **Debug builds only** — see below. |
 | `--dpi-unaware` | — | Runs the IDE at scale 1 on a Windows display scaled above 100%, so a layout can be checked as a 100% display shows it. Windows only. **Debug builds only** — see below. |
-| *(positional)* | a path to a project or project group file | Opens it instead of showing the startup dialog, with the project type that reads it; a `.twinproj` opens read-only. Absolute paths are accepted, including Unix paths beginning `/`; relative paths are relative to where you ran HexIDE from. |
+| *(positional)* | a path to an existing project file | Opens through the same project-type lookup as File → Open Project, including add-in types, instead of showing the startup dialog; a `.twinproj` opens read-only. Absolute paths are accepted, including Unix paths beginning `/`; relative paths are relative to where you ran HexIDE from. |
 
 ## The ones that behave differently in a distributed build
 
@@ -134,7 +134,9 @@ The built-in names `vb6`, `vbaode` and `vba` are reserved and always select embe
 load only from `profiles/<name>/profile.json` inside the active user-data directory. The user-data flag
 may appear before or after the profile flag. An explicit path can select a bundle with a built-in id.
 Selection is never saved. Missing/repeated selectors or invalid bundles refuse startup with exit code 2;
-bundle errors name the source and file to check. Saved user choices override bundle defaults and packs.
+bundle errors name the source and file to check. Started from Explorer or a shortcut on Windows, where there is no
+console, a bundle error shows in a "Cannot start" box, as a broken `brand.json` does (#4169). Saved user choices
+override bundle defaults and packs.
 
 The built-ins retain today's References placement and New Project offerings: `vb6` offers all eight
 entries with Project References; `vbaode` offers Standard EXE with Tools References; `vba` offers none
@@ -155,14 +157,14 @@ beside a valid profile flag. Help-only requests still succeed.
 it starts, and used to resolve the project path *after* that move — so `HexIDE.Desktop ../demo/x.vbp` looked
 beside the executable, found nothing, and opened nothing without saying so.
 
-**The positional path is any file with an extension**, opened as **File → Open Project** opens it: by the project type
-that reads files of its name, VB6's for a `.vbp` and a `.vbg` or an add-in's for its own, and a `.twinproj` read-only,
-for browsing its sources (#1189). A `.vbg` opens the whole project group. A file no loaded project type reads, such as
-an add-in's whose add-in isn't loaded, is refused with a message saying so (#3411 slice 10b). An argument with no
-extension is not taken as a project.
+**The positional path must name an existing file.** It opens through the same project-type lookup as
+**File → Open Project**, including types contributed by add-ins. A `.vbg` opens the whole project group,
+and a `.twinproj` opens read-only, for browsing its sources (#1189). If no loaded type claims the file,
+HexIDE waits for first-load add-in consent after the main window appears, then tries again. If it remains
+unclaimed, a message names the file; the New Project dialog is not shown (#4110).
 
 **Almost nothing is rejected.** An argument HexIDE does not recognise — a misspelled flag, a value in the wrong
-place, or a path that isn't a project — is skipped in silence and the IDE starts normally. The
+place, or a path that does not exist — is skipped in silence and the IDE starts normally. The
 exceptions are the flags whose whole purpose would be defeated by carrying on without them: a
 `--user-data-dir` with no directory, a `--session` with no name, a `--server-port` with no usable port, and an
 `--ansi-code-page` HexIDE has no table for, `--dpi-unaware` anywhere but Windows, malformed profile selection, a rejected profile bundle, or

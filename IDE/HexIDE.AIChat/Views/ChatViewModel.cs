@@ -15,7 +15,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     /// Which privacy notice the acknowledgement file records. The first wrote "shown"; change this whenever what
     /// the notice discloses grows, so that everyone is told once more.
     /// </summary>
-    internal const string EgressNoticeVersion = "whole-file";
+    internal const string EgressNoticeVersion = "project-tool-reads";
 
     private readonly IHexIdeHost _host;
     private readonly ChatSession _session;
@@ -452,7 +452,8 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     /// 3.19). A form's designer block goes too, and with it its captions, menu text and the names of the binary
     /// files beside it, which "code" would not lead anyone to expect. So the acknowledgement records which notice
     /// was shown, and a developer who saw only the old one is shown the new one once: more now leaves the machine
-    /// than they were told.
+    /// than they were told. The project-tool-reads notice also names other loaded-project files, file lists
+    /// and diagnostics read by tools without approval (#4131).
     /// </remarks>
     internal void MaybeShowEgressNotice()
     {

@@ -291,9 +291,7 @@ internal static class ServerOptions
                 var value = option.TakesValue && i + 1 < args.Length ? args[i + 1] : null;
                 if (option.Apply(value) && value is not null) i++;
             }
-            // Any file with an extension: which project type reads it is the open's question, and the open refuses one that
-            // nothing loaded reads (#3411 slice 10b). A '/' option HexIDE doesn't know has no extension, and is still skipped.
-            else if (!arg.StartsWith('-') && Path.HasExtension(arg))
+            else if (!arg.StartsWith('-') && File.Exists(Path.Combine(_invocationDirectory, arg)))
             {
                 ProjectPath = Path.GetFullPath(arg, _invocationDirectory);
             }
@@ -324,13 +322,14 @@ internal static class ServerOptions
             ? "HexIDE - an open, cross-platform IDE for Visual Basic 6 & VBA."
             : identity.Tagline is { } tagline ? $"{identity.Name} - {tagline}" : identity.Name;
 
+        var projectFile = new HexIDE.Localization.LocalizationService().GetStringFrom("en", "Str.Startup.ProjectFileArgument");
         string[] text =
         [
             "",
             heading,
             "",
             "Usage:",
-            $"  {invocation} [options] [<project file>]",
+            $"  {invocation} [options] [<{projectFile}>]",
             "",
             "Options:",
             .. Options.Select(o => $"  {Spelling(o).PadRight(width)}  {o.Summary}"),

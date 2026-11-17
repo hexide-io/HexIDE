@@ -33,3 +33,21 @@ the file `#1` held, which failed. So the Input row is **not** a measurement of I
 | `FileLen(a.txt) after Reset` | `7` | Long | 0 |
 | `FileLen(b.txt) after Reset` | `6` | Long | 0 |
 | `Close #1 after Reset` | `ok` | | 0 |
+
+### An Input-mode file, and ReturnType's conversions (2026-11-16, #4145)
+
+vb6.exe SP6, `/make`, native and p-code agreeing. This is the measurement the Input row above was not: here the file was open for Input when `FileAttr` read it.
+
+| Call | Result |
+|---|---|
+| `FileAttr(f, 1)`: Input, Output, Random, Append, Binary | **1**, 2, 4, 8, 32 |
+| `FileAttr(f)` and `FileAttr(FileNumber:=f)`, an Output file | 2: ReturnType defaults to 1 |
+| ReturnType `1` as `"1"`, `CCur(1)`, `CDec(1)`, `CSng(1)`, `CByte(1)` | the mode |
+| ReturnType 1.4 | the mode |
+| ReturnType 0, 2, 3, -1, `True`, `Empty` | 5 |
+| ReturnType 0.5, 1.5, 1.6, 2.5 | 5: it rounds half to even (0.5 is 0, 1.5 is 2), as CInt does |
+| ReturnType `Null` | 94 |
+| ReturnType `"x"` | 13 |
+
+- **An Input-mode file is 1,** which is what `VbFiles.cs` refuses today.
+- **ReturnType 2,** the 16-bit file handle, **is 5** on this 32-bit VB6.
