@@ -392,9 +392,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     /// <summary>
     /// The order the canvas draws a form's components in, the last on top, from the order the file holds them in, where
-    /// the first block in each container is the control on top (measured, #1481). Each container's contents go last in
-    /// the file first, each followed by what it holds. A VB6 file lists a container's windowed controls before its
-    /// windowless ones, so the windowless come out under them, as VB6 draws them. Menus are not drawn and go last, in
+    /// the first block in each plane is the control on top (measured, #1481). Each container draws its windowless
+    /// controls first, then its windowed controls, regardless of file order (#1517). Each plane runs last block first,
+    /// each followed by what it holds. Menus are not drawn and go last, in
     /// the file's order. <see cref="ComponentsAsSaved"/> is the inverse.
     /// </summary>
     private List<ComponentInstance> DrawOrder(IReadOnlyList<ComponentInstance> fileOrder)
@@ -416,12 +416,16 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         {
             if (!contents.TryGetValue(container, out var list))
                 return;
-            for (var i = list.Count - 1; i >= 0; i--)
+            // Nonvisual designer icons keep their slots: their plane is not measured by #1517.
+            var visual = list.Where(c => c.BaseClass.IsVisual).OrderBy(c => IsWindowless(c.BaseClass)).ToArray();
+            var at = 0;
+            var siblings = list.Select(c => c.BaseClass.IsVisual ? visual[at++] : c).ToArray();
+            foreach (var component in siblings.Reverse())
             {
-                if (!drawn.Add(list[i]))
+                if (!drawn.Add(component))
                     continue;
-                order.Add(list[i]);
-                Draw(list[i]);
+                order.Add(component);
+                Draw(component);
             }
         }
         Draw(Form.Instance);
@@ -582,7 +586,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             if (formDefinition is not { } form)
                 return false;
             var ordered = ComponentsAsSaved().Ordered;
-            return !ordered.SequenceEqual(form.Components)
+            // A hand-ordered file has the same stacking after its planes are partitioned (#1517).
+            return !DrawOrder(ordered).SequenceEqual(DrawOrder(form.Components))
                 || CarriedPlacement(ordered).Any(p => !p.Ordinals.SequenceEqual(p.Container.PreservedChildSubtrees.Select(b => b.Ordinal)));
         }
     }
