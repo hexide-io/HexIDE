@@ -11,6 +11,19 @@ there isn't one yet. Anything may change between 0.x releases.
 New entries are written one file per change in [`changelog.d/`](changelog.d/README.md), and gathered here at
 each release by `scripts/changelog-gather.sh` (#1375).
 
+## [0.6.1] — 2026-11-17
+
+A patch release: v0.6.0 with only the move to .NET 11, so add-ins built for .NET 11 load in a released HexIDE.
+
+### Changed
+
+- **HexIDE runs on .NET 11** (#4012), with SDK 11.0.100 for builds and the .NET 11 runtime
+  for framework-dependent downloads. Package versions remain unchanged. Decimal conversions and numeric
+  date strings retain VB6's measured behaviour across the runtime upgrade.
+- **The smaller downloads now need the .NET 11 Runtime** (#4012). The Windows installer and the
+  `-selfcontained` archives include it, as before; `hexide-<platform>.*` needs the
+  [.NET 11 Runtime](https://dotnet.microsoft.com/download/dotnet/11.0) installed in place of .NET 10.
+
 ## [0.6.0] — 2026-11-16
 
 ### Added
@@ -6060,7 +6073,8 @@ binary could not be identified.
   native payloads for every platform SkiaSharp ships, so the Windows archive carried Linux binaries and
   the download was six times larger than it needed to be.
 
-[Unreleased]: https://github.com/hexide-io/HexIDE/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/hexide-io/HexIDE/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/hexide-io/HexIDE/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/hexide-io/HexIDE/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/hexide-io/HexIDE/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/hexide-io/HexIDE/compare/v0.3.0...v0.4.0
