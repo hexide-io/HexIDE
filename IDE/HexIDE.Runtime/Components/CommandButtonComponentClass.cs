@@ -27,6 +27,8 @@ public class CommandButtonComponentClass : ComponentBaseClass
     {
     }
 
+    public override string? DesignerDoubleClickEvent => "Click";
+
     public override string Name => "Command";
     public override string VBTypeName => "VB.CommandButton";
 

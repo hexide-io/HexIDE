@@ -354,14 +354,7 @@ public partial class FormEditView : UserControl
             return;
         }
 
-        var eventClass = vm.Instance.BaseClass.Events.FirstOrDefault();
-        Log.Debug("FormEditView: DoubleTapped on {ControlName} ({ControlType}), default event={Event}",
-            vm.Name, vm.Instance.BaseClass.Name, eventClass?.Name ?? "(none)");
-
-        if (eventClass == null)
-            rootVm.RequestCode(null, null, null);
-        else
-            rootVm.RequestCode($"{vm.Name}_{eventClass.Name}", vm.Name, eventClass.Name);
+        rootVm.RequestControlDoubleClickCode(vm);
         e.Handled = true;
     }
 

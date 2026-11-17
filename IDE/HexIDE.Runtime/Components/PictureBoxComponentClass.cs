@@ -25,6 +25,8 @@ public class PictureBoxComponentClass : ComponentBaseClass
     {
     }
 
+    public override string? DesignerDoubleClickEvent => "Click";
+
     public override string Name => "Picture";
     public override string VBTypeName => "VB.PictureBox";
 

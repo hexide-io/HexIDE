@@ -24,6 +24,8 @@ public class CheckBoxComponentClass : ComponentBaseClass
     {
     }
 
+    public override string? DesignerDoubleClickEvent => "Click";
+
     public override string Name => "Check";
     public override string VBTypeName => "VB.CheckBox";
 
