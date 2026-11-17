@@ -20,7 +20,7 @@ public class UnsavedProjectWriteTests
         var setup = owned.Composition;
         var root = setup.Root;
         // The same creation entry point as DesktopStartup's --newproject-unsaved hook.
-        await setup.ProjectService.CreateNewProject(IProjectTemplate.StandardEXE);
+        await setup.ProjectService.CreateNewProject(Vb6ProjectType.StandardExe);
         var project = setup.ProjectManager.LoadedProjects.Single();
         project.AbsolutePath.Should().BeNull();
         project.WorkingDirectory.Should().BeNull();
