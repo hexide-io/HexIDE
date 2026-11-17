@@ -20,7 +20,7 @@ size = int(a.stack_mib*1024*1024)
 def trial(depth, repeat):
     start = time.monotonic()
     try:
-        r = subprocess.run(['dotnet', str(here/'bin/Debug/net10.0/StackProbe.dll'), a.stage, a.shape, str(depth), str(size)],
+        r = subprocess.run(['dotnet', str(here/'bin/Debug/net11.0/StackProbe.dll'), a.stage, a.shape, str(depth), str(size)],
                            capture_output=True, text=True, env=env, timeout=a.timeout)
         text = f'exit={r.returncode}\n{r.stdout}\n{r.stderr[:4000]}'
         valid = 'READY\n' in r.stdout and f'bytes={size}\n' in r.stdout

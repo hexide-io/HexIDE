@@ -112,7 +112,12 @@ public partial class VB6BuiltIns
     /// <c>"13/13/2003"</c>), a year first (<c>"2003/13/1"</c>), or a month and a year (<c>"13/2003"</c>): each is Type
     /// mismatch. A locale that puts the month first is taken to swap the same way, which is not measured.
     /// </remarks>
+    // .NET 11 can read "24.0" as a time rolling into year 1. VB6 reads serial 24,
+    // but IsDate is False (SP6 String-to-Date measurements, #967; CDate repeated in #4017).
     internal static bool TryReadDate(string text, out DateTime result)
+        => TryReadDateCore(text, out result) && (result.Year >= 100 || result.Date == DateTime.MinValue);
+
+    private static bool TryReadDateCore(string text, out DateTime result)
     {
         var culture = VbLocale.Current;
         // A dot between two digits separates a time's parts, never a date's (measured under en-GB, #967): "1.5" is 01:05,
