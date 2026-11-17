@@ -364,9 +364,9 @@ public partial class FormEditView : UserControl
             vm.Name, vm.Instance.BaseClass.Name, eventClass?.Name ?? "(none)");
 
         if (eventClass == null)
-            rootVm.RequestCode(null);
+            rootVm.RequestCode(null, null, null);
         else
-            rootVm.RequestCode($"{vm.Name}_{eventClass.Name}");
+            rootVm.RequestCode($"{vm.Name}_{eventClass.Name}", vm.Name, eventClass.Name);
         e.Handled = true;
     }
 
@@ -376,7 +376,9 @@ public partial class FormEditView : UserControl
         if (DataContext is not FormEditViewModel rootVm)
             return;
 
-        rootVm.RequestCode(rootVm.RootDoubleClickProcedure);
+        rootVm.RequestCode(rootVm.RootDoubleClickProcedure,
+            rootVm.Form.Instance.BaseClass.Name,
+            ((HexIDE.Runtime.Components.FormComponentClass)rootVm.Form.Instance.BaseClass).DesignerDoubleClickEvent);
         e.Handled = true;
     }
 

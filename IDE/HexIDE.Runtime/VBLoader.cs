@@ -44,6 +44,8 @@ public class VBLoader
         VBProgram? program = null,
         VBWindowContext? windowContext = null)
     {
+        if (windowContext is not null)
+            windowContext.FormDefinition = element;
         var runtimeBlocks = element.Components.Where(c => c.BaseClass is FormComponentClass)
             .SelectMany(c => c.PreservedChildSubtrees)
             .Select(block => (block.Text, Component: (Components.InBox.ToolbarComponentClass.ReadForRuntime(block.Text)
