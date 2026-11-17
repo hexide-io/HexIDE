@@ -6,6 +6,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using HexIDE.Runtime.Components;
 using Avalonia.Media;
 using HexIDE.Controls;
 using HexIDE.Events;
@@ -21,6 +23,14 @@ public partial class FormEditView : UserControl
     public FormEditView()
     {
         InitializeComponent();
+        FormContainer.AddHandler(KeyDownEvent, OnDesignerKeyDown, RoutingStrategies.Tunnel);
+        // Whether a button is held anywhere on the form, a control's own drag included, which marks its events handled.
+        FormContainer.AddHandler(PointerPressedEvent, (_, e) => _buttonHeld = AnyButton(e.GetCurrentPoint(FormContainer)),
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        FormContainer.AddHandler(PointerReleasedEvent, (_, e) => _buttonHeld = AnyButton(e.GetCurrentPoint(FormContainer)),
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        FormContainer.AddHandler(PointerCaptureLostEvent, (_, _) => _buttonHeld = false,
+            RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
         ControlsContainer.ReferenceChanged += OnControlsContainerReferenceChanged;
         NewControlSpawner.AddHandler(PointerPressedEvent, OnNewControlStarted);
         NewControlSpawner.AddHandler(PointerMovedEvent, OnNewControlMoving);
@@ -68,6 +78,11 @@ public partial class FormEditView : UserControl
     // Guards against selection-change loops between VM and ControlsContainer
     private bool _syncingSelection;
 
+    private bool _buttonHeld;
+
+    private static bool AnyButton(PointerPoint point) =>
+        point.Properties is { IsLeftButtonPressed: true } or { IsRightButtonPressed: true } or { IsMiddleButtonPressed: true };
+
     private void OnNewPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (isSpawningNewControl && NewControlSpawnerPhantom.IsVisible)
@@ -86,6 +101,39 @@ public partial class FormEditView : UserControl
             NewControlSpawnerPhantom.IsVisible = false;
         }
         isSpawningNewControl = false;
+    }
+
+    private void OnDesignerKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not FormEditViewModel vm)
+            return;
+
+        // VB6's designer visits every indexed control, ignoring runtime properties and containment (#4211).
+        var controls = vm.Components.Where(c => c.HasTabIndex).ToArray();
+
+        // While a button is held, Esc belongs to the drag in progress, not to the selection. An abandoned hold presses
+        // Escape and then moves back to where it was pressed and lets go, which puts a moved control back; selecting the
+        // form first would leave the control where the drag had taken it (HeldButtonTests).
+        if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && !_buttonHeld
+            && vm.SelectedComponents.Count <= 1)
+        {
+            vm.SelectedComponent = vm.Form;
+        }
+        else if (e.Key == Key.Tab && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift
+            && controls.Length > 0)
+        {
+            var ordered = controls.OrderBy(c => c.TabIndex).ToArray();
+            var index = Array.IndexOf(ordered, vm.SelectedComponent);
+            var backwards = e.KeyModifiers == KeyModifiers.Shift;
+            var next = index < 0 ? (backwards ? ordered.Length - 1 : 0)
+                : (index + (backwards ? ordered.Length - 1 : 1)) % ordered.Length;
+            vm.SelectedComponent = ordered[next];
+        }
+        else
+            return;
+
+        FormContainer.Focus();
+        e.Handled = true;
     }
 
     private void OnNewControlMoving(object? sender, PointerEventArgs e)
