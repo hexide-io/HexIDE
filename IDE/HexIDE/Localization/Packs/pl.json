@@ -374,6 +374,8 @@
     "Str.Menu.Help.About": "_O programie HexIDE...",
     "Str.Menu.GoToGithubRepo": "Przejdź do repozytorium github",
     "Str.NewProject.NoTemplates": "Ten profil nie oferuje szablonów nowych projektów. Otwórz istniejący projekt.",
+    "Str.NewProject.Msg.NoStandardExe": "W {0} nie zainstalowano typu projektu tworzącego projekt Standard EXE, więc program uruchomiono bez projektu.",
+    "Str.NewProject.NoInstalledTemplates": "Żaden zainstalowany typ projektu nie tworzy nowych projektów. Otwórz istniejący projekt.",
     "Str.ProjectType.StandardEXE": "Standardowy EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
     "Str.ProjectType.ActiveXDLL": "ActiveX DLL",

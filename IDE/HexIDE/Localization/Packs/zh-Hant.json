@@ -368,6 +368,8 @@
     "Str.Menu.Help.About": "關於 HexIDE(_A)...",
     "Str.Menu.GoToGithubRepo": "前往 github 儲存庫",
     "Str.NewProject.NoTemplates": "此設定檔未提供新專案範本。請開啟現有專案。",
+    "Str.NewProject.Msg.NoStandardExe": "{0} 未安裝可建立 Standard EXE 專案的專案類型，因此啟動時未建立專案。",
+    "Str.NewProject.NoInstalledTemplates": "已安裝的專案類型皆無法建立新專案。請改為開啟現有專案。",
     "Str.ProjectType.StandardEXE": "標準 EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
     "Str.ProjectType.ActiveXDLL": "ActiveX DLL",

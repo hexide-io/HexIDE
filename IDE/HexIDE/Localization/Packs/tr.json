@@ -340,6 +340,8 @@
     "Str.Menu.Help.About": "HexIDE _Hakkında...",
     "Str.Menu.GoToGithubRepo": "github deposuna git",
     "Str.NewProject.NoTemplates": "Bu profil yeni proje şablonu sunmuyor. Bunun yerine mevcut bir projeyi açın.",
+    "Str.NewProject.Msg.NoStandardExe": "{0} içinde Standard EXE projesi oluşturan bir proje türü yüklü olmadığından program projesiz başlatıldı.",
+    "Str.NewProject.NoInstalledTemplates": "Yüklü proje türlerinden hiçbiri yeni proje oluşturmuyor. Bunun yerine mevcut bir proje açın.",
     "Str.ProjectType.StandardEXE": "Standart EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
     "Str.ProjectType.ActiveXDLL": "ActiveX DLL",

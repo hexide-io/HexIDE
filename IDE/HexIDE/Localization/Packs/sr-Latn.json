@@ -78,6 +78,8 @@
     "Str.Profiles.SelectorRequired": "--profile zahteva tačno jednu vrednost: naziv paketa, putanju direktorijuma ili none. Proverite argumente pokretanja.",
     "Str.RevertGate.SessionOnly": "Ova promena jezika važi samo za ovu sesiju.",
     "Str.NewProject.NoTemplates": "Ovaj profil ne nudi šablone za nove projekte. Otvorite postojeći projekat.",
+    "Str.NewProject.Msg.NoStandardExe": "U {0} nije instaliran nijedan tip projekta koji pravi Standard EXE projekat, pa je program pokrenut bez projekta.",
+    "Str.NewProject.NoInstalledTemplates": "Nijedan instalirani tip projekta ne pravi nove projekte. Umesto toga otvorite postojeći projekat.",
     "Str.Dialog.About.Credits.Header": "Zasluge",
     "Str.Dialog.About.Credits.Thanks": "HexIDE uz ljudske saradnike grade izvanredni AI timovi. Od srca zahvaljujemo Claude by Anthropic — sesijama Claude Code koje pišu, pregledaju i spajaju rad — i Codex by OpenAI — radnim tokovima Codex koji unapređuju ispravke na čekanju. Njihova brižnost i neumoran rad omogućavaju HexIDE.",
     "Str.Dialog.About.Provenance": "Zasnovano na programu HexIDE {0}. {1}",

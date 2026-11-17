@@ -78,6 +78,8 @@
     "Str.Profiles.SelectorRequired": "--profile vyžaduje presne jednu hodnotu: názov balíka, cestu k adresáru alebo none. Skontrolujte argumenty spustenia.",
     "Str.RevertGate.SessionOnly": "Táto zmena jazyka platí iba pre túto reláciu.",
     "Str.NewProject.NoTemplates": "Tento profil neponúka šablóny nových projektov. Otvorte existujúci projekt.",
+    "Str.NewProject.Msg.NoStandardExe": "V {0} nie je nainštalovaný žiadny typ projektu, ktorý vytvára projekt Standard EXE, preto sa program spustil bez projektu.",
+    "Str.NewProject.NoInstalledTemplates": "Žiadny nainštalovaný typ projektu nevytvára nové projekty. Otvorte namiesto toho existujúci projekt.",
     "Str.Dialog.About.Credits.Header": "Poďakovanie",
     "Str.Dialog.About.Credits.Thanks": "HexIDE spolu s ľudskými prispievateľmi vytvárajú výnimočné AI tímy. Zo srdca ďakujeme Claude by Anthropic — reláciám Claude Code, ktoré píšu, kontrolujú a zlučujú prácu — a Codex by OpenAI — pracovným prúdom Codex, ktoré posúvajú čakajúce opravy vpred. Ich starostlivosť a neúnavná práca umožňujú existenciu HexIDE.",
     "Str.Dialog.About.Provenance": "Založené na HexIDE {0}. {1}",

@@ -112,6 +112,8 @@
     "Str.Profiles.SelectorRequired": "A --profile pontosan egy értéket vár: csomagnevet, könyvtárútvonalat vagy none értéket. Ellenőrizze az indítási argumentumokat.",
     "Str.RevertGate.SessionOnly": "Ez a nyelvváltás csak erre a munkamenetre érvényes.",
     "Str.NewProject.NoTemplates": "Ez a profil nem kínál újprojektsablonokat. Nyisson meg egy meglévő projektet.",
+    "Str.NewProject.Msg.NoStandardExe": "A(z) {0} alkalmazásban nincs telepítve Standard EXE projektet létrehozó projekttípus, ezért projekt nélkül indult el.",
+    "Str.NewProject.NoInstalledTemplates": "Egyetlen telepített projekttípus sem hoz létre új projekteket. Nyisson meg egy meglévő projektet.",
     "Str.Dialog.About.Credits.Header": "Köszönetnyilvánítás",
     "Str.Dialog.About.Credits.Thanks": "A HexIDE fejlesztésén emberi közreműködői mellett rendkívüli AI-csapatok dolgoznak. Szívből köszönjük a Claude by Anthropic — a munkát megíró, ellenőrző és egyesítő Claude Code munkamenetek — és a Codex by OpenAI — a sorban álló javításokat előrevivő Codex munkafolyamatok — segítségét. Gondosságuk és fáradhatatlan munkájuk teszi lehetővé a HexIDE létét.",
     "Str.Dialog.About.Provenance": "A HexIDE {0} alapján készült. {1}",

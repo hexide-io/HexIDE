@@ -78,6 +78,8 @@
     "Str.Profiles.SelectorRequired": "--profile ต้องมีค่าเดียวเท่านั้น: ชื่อชุด เส้นทางไดเรกทอรี หรือ none ตรวจสอบอาร์กิวเมนต์เริ่มต้น",
     "Str.RevertGate.SessionOnly": "การเปลี่ยนภาษานี้มีผลเฉพาะเซสชันนี้เท่านั้น",
     "Str.NewProject.NoTemplates": "โปรไฟล์นี้ไม่มีแม่แบบโครงการใหม่ ให้เปิดโครงการที่มีอยู่แทน",
+    "Str.NewProject.Msg.NoStandardExe": "{0} ไม่มีชนิดโครงการที่ติดตั้งไว้ซึ่งสร้างโครงการ Standard EXE ได้ จึงเริ่มทำงานโดยไม่มีโครงการ",
+    "Str.NewProject.NoInstalledTemplates": "ไม่มีชนิดโครงการที่ติดตั้งไว้ซึ่งสร้างโครงการใหม่ได้ โปรดเปิดโครงการที่มีอยู่แทน",
     "Str.Dialog.About.Credits.Header": "กิตติกรรมประกาศ",
     "Str.Dialog.About.Credits.Thanks": "HexIDE สร้างขึ้นโดยทีม AI ที่ยอดเยี่ยมร่วมกับผู้ร่วมพัฒนาที่เป็นมนุษย์ เราขอขอบคุณจากใจต่อ Claude by Anthropic — เซสชัน Claude Code ที่เขียน ตรวจทาน และผสานงาน — และ Codex by OpenAI — สายงาน Codex ที่ดำเนินการแก้ไขซึ่งรออยู่ในคิวให้คืบหน้า ความเอาใจใส่และการทำงานอย่างไม่รู้เหน็ดเหนื่อยของพวกเขาทำให้ HexIDE เป็นไปได้",
     "Str.Dialog.About.Provenance": "สร้างบนพื้นฐานของ HexIDE {0} {1}",

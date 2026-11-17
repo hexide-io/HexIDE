@@ -112,6 +112,8 @@
     "Str.Profiles.SelectorRequired": "--profile nepieciešama tieši viena vērtība: pakotnes nosaukums, direktorija ceļš vai none. Pārbaudiet palaišanas argumentus.",
     "Str.RevertGate.SessionOnly": "Šī valodas maiņa ir spēkā tikai šajā sesijā.",
     "Str.NewProject.NoTemplates": "Šis profils nepiedāvā jauna projekta veidnes. Atveriet esošu projektu.",
+    "Str.NewProject.Msg.NoStandardExe": "Programmā {0} nav instalēts neviens projekta tips, kas izveido Standard EXE projektu, tāpēc programma tika palaista bez projekta.",
+    "Str.NewProject.NoInstalledTemplates": "Neviens instalētais projekta tips neveido jaunus projektus. Tā vietā atveriet esošu projektu.",
     "Str.Dialog.About.Credits.Header": "Pateicības",
     "Str.Dialog.About.Credits.Thanks": "HexIDE kopā ar cilvēkiem, kas piedalās tā izstrādē, veido izcilas AI komandas. No sirds pateicamies Claude by Anthropic — Claude Code sesijām, kas raksta, pārskata un apvieno darbu — un Codex by OpenAI — Codex darba plūsmām, kas virza uz priekšu rindā gaidošos labojumus. Viņu rūpība un nenogurstošais darbs padara HexIDE iespējamu.",
     "Str.Dialog.About.Provenance": "Veidots, izmantojot HexIDE {0}. {1}",

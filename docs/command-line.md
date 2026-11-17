@@ -69,7 +69,9 @@ display's own scale and look as though it had worked.
 
 **`--no-vb6` starts with no project type installed.** It leaves VB6's type, templates and member
 format unregistered so the no-provider paths can be checked, while normal user launches stay unchanged.
-With it, `--newproject` fails until [#4275](https://github.com/hexide-io/HexIDE/issues/4275).
+With it, `--newproject` and `--newproject-unsaved` explain that no installed project type makes a
+Standard EXE and leave the IDE running without a project. The New tab and the New Project flyout
+distinguish no installed templates from a profile that offers none of the registered templates.
 
 **`--user-data-dir` keeps a session away from your real settings.** Everything HexIDE stores per user
 lives in one directory — `settings.json`, the window layout, recent projects, [`lsp-servers.json`](language-servers.md),
