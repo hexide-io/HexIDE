@@ -38,8 +38,9 @@ internal sealed class ProjectNames
     {
     }
 
-    /// <summary>The names <paramref name="reader"/> sees unqualified that another standard module declares.</summary>
-    public static ProjectNames For(ModuleInfo reader, IReadOnlyList<ModuleInfo> modules)
+    /// <summary>The names <paramref name="reader"/> sees unqualified that another standard module declares. With no reader,
+    /// the names every module exports: what a watch on (All Modules) sees (#4452).</summary>
+    public static ProjectNames For(ModuleInfo? reader, IReadOnlyList<ModuleInfo> modules)
     {
         var names = new ProjectNames();
         foreach (var owner in modules)
@@ -75,9 +76,9 @@ internal sealed class ProjectNames
         return names;
     }
 
-    private void Add(ModuleInfo reader, ModuleInfo owner, string name)
+    private void Add(ModuleInfo? reader, ModuleInfo owner, string name)
     {
-        if (DeclaresItself(reader, name))
+        if (reader is not null && DeclaresItself(reader, name))
             return;
         owners[name] = owners.ContainsKey(name) ? null : owner;
     }

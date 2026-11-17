@@ -439,6 +439,7 @@
     "Str.Dialog.AddWatch.Ok": "D'acord",
     "Str.Dialog.AddWatch.Cancel": "Cancel·la",
     "Str.Dialog.AddWatch.AllContext": "(Tots els procediments)",
+    "Str.Dialog.AddWatch.AllModules": "(Tots els mòduls)",
     "Str.Tool.CallStack.Column.Frame": "Procediment",
     "Str.Tool.CallStack.Column.Line": "Línia",
     "Str.Tool.CallStack.RowName": "{0}, línia {1}",

@@ -515,6 +515,7 @@
     "Str.Dialog.AddWatch.Ok": "אישור",
     "Str.Dialog.AddWatch.Cancel": "ביטול",
     "Str.Dialog.AddWatch.AllContext": "(כל ההליכים)",
+    "Str.Dialog.AddWatch.AllModules": "(כל המודולים)",
     "Str.Tool.CallStack.Column.Frame": "הליך",
     "Str.Tool.CallStack.Column.Line": "שורה",
     "Str.Tool.CallStack.RowName": "{0}, שורה {1}",

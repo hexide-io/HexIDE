@@ -411,6 +411,7 @@
     "Str.Dialog.AddWatch.Ok": "V redu",
     "Str.Dialog.AddWatch.Cancel": "Prekliči",
     "Str.Dialog.AddWatch.AllContext": "(Vsi postopki)",
+    "Str.Dialog.AddWatch.AllModules": "(Vsi moduli)",
     "Str.Tool.CallStack.Column.Frame": "Postopek",
     "Str.Tool.CallStack.Column.Line": "Vrstica",
     "Str.Tool.CallStack.RowName": "{0}, vrstica {1}",

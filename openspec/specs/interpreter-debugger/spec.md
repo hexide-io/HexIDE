@@ -345,6 +345,14 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **AND** a watch stored as `Module.Name(Get)` SHALL evaluate only while that accessor runs, reading `<Out of context>` while another accessor of the same property runs (measured, #4401)
 - **AND** the shared VB-family collector SHALL collect Sub, Function, Property Get/Let/Set, Enum and Type headers without binding names or selecting conditional-compilation branches
 
+#### Scenario: A watch on (All Modules)
+- **WHEN** the developer opens Add Watch
+- **THEN** the Module list SHALL start with `(All Modules)`, which offers `(All Procedures)` alone, and SHALL default to it when no code window is active and no program is paused (measured, #4452)
+- **AND** a watch added there SHALL show a blank Context column
+- **AND** while paused it SHALL evaluate against the project's Public module-level names only, so a module's Private variable, a class's Private variable or a procedure's local SHALL read `<Expression not defined in context>`, even where the program is paused in its scope (measured, #4452)
+- **AND** that text SHALL come from a name missing as the expression is evaluated, never from checking its names up front
+- **AND** outside break mode it SHALL read `<Out of context>`, as every watch does, where VB6 evaluates it (divergence D34)
+
 #### Scenario: Adding a watch from declarations
 - **WHEN** the active code window's caret is in the module's declarations
 - **THEN** Add Watch SHALL default to that module and `(All Procedures)` ([measured context](../../../docs/vb6-fidelity-oracle/a-watch-and-its-context.md), #4354)

@@ -481,6 +481,7 @@
     "Str.Dialog.AddWatch.Ok": "确定",
     "Str.Dialog.AddWatch.Cancel": "取消",
     "Str.Dialog.AddWatch.AllContext": "(所有过程)",
+    "Str.Dialog.AddWatch.AllModules": "(所有模块)",
     "Str.Tool.CallStack.Column.Frame": "过程",
     "Str.Tool.CallStack.Column.Line": "行",
     "Str.Tool.CallStack.RowName": "{0}，第 {1} 行",

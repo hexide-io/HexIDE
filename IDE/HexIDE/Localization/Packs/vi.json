@@ -453,6 +453,7 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "Hủy",
     "Str.Dialog.AddWatch.AllContext": "(Tất cả thủ tục)",
+    "Str.Dialog.AddWatch.AllModules": "(Tất cả mô-đun)",
     "Str.Tool.CallStack.Column.Frame": "Thủ tục",
     "Str.Tool.CallStack.Column.Line": "Dòng",
     "Str.Tool.CallStack.RowName": "{0}, dòng {1}",

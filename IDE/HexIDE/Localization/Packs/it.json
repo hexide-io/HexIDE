@@ -487,6 +487,7 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "Annulla",
     "Str.Dialog.AddWatch.AllContext": "(Tutte le procedure)",
+    "Str.Dialog.AddWatch.AllModules": "(Tutti i moduli)",
     "Str.Tool.CallStack.Column.Frame": "Routine",
     "Str.Tool.CallStack.Column.Line": "Riga",
     "Str.Tool.CallStack.RowName": "{0}, riga {1}",

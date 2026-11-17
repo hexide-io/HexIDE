@@ -481,6 +481,7 @@
     "Str.Dialog.AddWatch.Ok": "موافق",
     "Str.Dialog.AddWatch.Cancel": "إلغاء",
     "Str.Dialog.AddWatch.AllContext": "(كل الإجراءات)",
+    "Str.Dialog.AddWatch.AllModules": "(كل الوحدات النمطية)",
     "Str.Tool.CallStack.Column.Frame": "إجراء",
     "Str.Tool.CallStack.Column.Line": "السطر",
     "Str.Tool.CallStack.RowName": "{0}، السطر {1}",

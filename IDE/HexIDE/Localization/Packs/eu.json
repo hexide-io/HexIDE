@@ -411,6 +411,7 @@
     "Str.Dialog.AddWatch.Ok": "Ados",
     "Str.Dialog.AddWatch.Cancel": "Utzi",
     "Str.Dialog.AddWatch.AllContext": "(Prozedura guztiak)",
+    "Str.Dialog.AddWatch.AllModules": "(Modulu guztiak)",
     "Str.Tool.CallStack.Column.Frame": "Prozedura",
     "Str.Tool.CallStack.Column.Line": "Lerroa",
     "Str.Tool.CallStack.RowName": "{0}, {1}. lerroa",
