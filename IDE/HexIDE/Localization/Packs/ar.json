@@ -783,6 +783,7 @@
     "Str.Dialog.Recovery.Prompt": "أُغلق HexIDE دون حفظ هذا العمل. استعده لتتابع من حيث توقفت، أو تجاهله. يحتفظ به «القرار لاحقًا» لوقت لاحق، ضمن استرداد العمل غير المحفوظ في القائمة ملف.",
     "Str.Dialog.Recovery.List": "العمل غير المحفوظ",
     "Str.Dialog.Recovery.NeverSaved": "لم يُحفظ قط",
+    "Str.Dialog.Recovery.WaitingForType": "في انتظار نوع مشروع يقرأ {0}.",
     "Str.Dialog.Recovery.From": "من {0}",
     "Str.Dialog.Recovery.MovedFrom": "نُقل من {0}",
     "Str.Dialog.Recovery.BackedUp": "نُسخ احتياطيًا في {0}",

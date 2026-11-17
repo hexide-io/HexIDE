@@ -793,6 +793,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE aizvērās, nesaglabājot šo darbu. Atjaunojiet to, lai turpinātu iesākto, vai atmetiet to. Izvēle Izlemt vēlāk patur darbu vēlākam izvēlnes Fails sadaļā Atgūt nesaglabāto darbu.",
     "Str.Dialog.Recovery.List": "Nesaglabātais darbs",
     "Str.Dialog.Recovery.NeverSaved": "Nekad nav saglabāts",
+    "Str.Dialog.Recovery.WaitingForType": "Gaida projekta tipu, kas lasa {0}.",
     "Str.Dialog.Recovery.From": "No {0}",
     "Str.Dialog.Recovery.MovedFrom": "Pārvietots no {0}",
     "Str.Dialog.Recovery.BackedUp": "Rezerves kopija: {0}",

@@ -755,6 +755,7 @@
     "Str.Dialog.Recovery.Prompt": "Το HexIDE έκλεισε χωρίς να αποθηκεύσει αυτήν την εργασία. Επαναφέρετέ την για να συνεχίσετε από εκεί που σταματήσατε ή απορρίψτε την. Η επιλογή «Απόφαση αργότερα» τη διατηρεί για αργότερα, στην εντολή Ανάκτηση μη αποθηκευμένης εργασίας του μενού Αρχείο.",
     "Str.Dialog.Recovery.List": "Μη αποθηκευμένη εργασία",
     "Str.Dialog.Recovery.NeverSaved": "Δεν αποθηκεύτηκε ποτέ",
+    "Str.Dialog.Recovery.WaitingForType": "Αναμονή για τύπο έργου που διαβάζει το {0}.",
     "Str.Dialog.Recovery.From": "Από {0}",
     "Str.Dialog.Recovery.MovedFrom": "Μετακινήθηκε από {0}",
     "Str.Dialog.Recovery.BackedUp": "Αντίγραφο ασφαλείας: {0}",

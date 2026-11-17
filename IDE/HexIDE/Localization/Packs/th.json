@@ -759,6 +759,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE ปิดลงโดยไม่ได้บันทึกงานนี้ คืนค่างานเพื่อทำต่อจากจุดเดิม หรือทิ้งงาน เลือกตัดสินใจภายหลังเพื่อเก็บไว้ในรายการกู้คืนงานที่ยังไม่บันทึกบนเมนูไฟล์",
     "Str.Dialog.Recovery.List": "งานที่ยังไม่บันทึก",
     "Str.Dialog.Recovery.NeverSaved": "ยังไม่เคยบันทึก",
+    "Str.Dialog.Recovery.WaitingForType": "กำลังรอชนิดโครงการที่อ่าน {0} ได้",
     "Str.Dialog.Recovery.From": "จาก {0}",
     "Str.Dialog.Recovery.MovedFrom": "ย้ายมาจาก {0}",
     "Str.Dialog.Recovery.BackedUp": "สำรองไว้เมื่อ {0}",

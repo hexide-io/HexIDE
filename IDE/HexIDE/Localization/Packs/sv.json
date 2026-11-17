@@ -755,6 +755,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE stängdes utan att spara det här arbetet. Återställ det för att fortsätta där du slutade, eller släng det. ”Bestäm senare” sparar det till senare, under Återställ osparat arbete på menyn Arkiv.",
     "Str.Dialog.Recovery.List": "Osparat arbete",
     "Str.Dialog.Recovery.NeverSaved": "Aldrig sparat",
+    "Str.Dialog.Recovery.WaitingForType": "Väntar på en projekttyp som kan läsa {0}.",
     "Str.Dialog.Recovery.From": "Från {0}",
     "Str.Dialog.Recovery.MovedFrom": "Flyttat från {0}",
     "Str.Dialog.Recovery.BackedUp": "Säkerhetskopierat {0}",

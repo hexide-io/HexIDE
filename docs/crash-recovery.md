@@ -62,6 +62,12 @@ from it.
 - **File → Recover Unsaved Work** lists everything still waiting, so work for a project you don't open again is not
   out of sight for good.
 
+A backup waits when no installed project type reads its project file name. It is kept without being offered at
+start or on project open. File → Recover Unsaved Work still lists it, with a waiting explanation and Restore disabled;
+Discard remains available. Once the type is registered again, the backup can be offered and restored (#4276).
+For unsaved and scratch projects, the type must also have a format that can rebuild the rendered project file.
+Older records use the same file-name lookup; a record with no rendered file name keeps its existing offer behavior.
+
 ## The dialog
 
 Each row is a project: its name, where its work came from, and when the copy was taken.

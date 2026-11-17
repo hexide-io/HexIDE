@@ -783,6 +783,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE se cerró sin guardar este trabajo. Restáurelo para continuar donde lo dejó, o descártelo. «Decidir más tarde» lo conserva para más tarde, en Recuperar trabajo sin guardar, en el menú Archivo.",
     "Str.Dialog.Recovery.List": "Trabajo sin guardar",
     "Str.Dialog.Recovery.NeverSaved": "Nunca guardado",
+    "Str.Dialog.Recovery.WaitingForType": "Esperando un tipo de proyecto que lea {0}.",
     "Str.Dialog.Recovery.From": "De {0}",
     "Str.Dialog.Recovery.MovedFrom": "Movido desde {0}",
     "Str.Dialog.Recovery.BackedUp": "Copia de seguridad: {0}",

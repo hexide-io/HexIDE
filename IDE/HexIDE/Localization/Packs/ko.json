@@ -789,6 +789,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE가 이 작업을 저장하지 않고 종료되었습니다. 복원하여 중단한 곳부터 계속하거나 삭제하십시오. '나중에 결정'을(를) 선택하면 [파일] 메뉴의 [저장하지 않은 작업 복구]에 나중을 위해 보관됩니다.",
     "Str.Dialog.Recovery.List": "저장하지 않은 작업",
     "Str.Dialog.Recovery.NeverSaved": "저장한 적 없음",
+    "Str.Dialog.Recovery.WaitingForType": "{0}을(를) 읽을 수 있는 프로젝트 형식을 기다리는 중입니다.",
     "Str.Dialog.Recovery.From": "{0}에서",
     "Str.Dialog.Recovery.MovedFrom": "{0}에서 이동됨",
     "Str.Dialog.Recovery.BackedUp": "{0}에 백업됨",

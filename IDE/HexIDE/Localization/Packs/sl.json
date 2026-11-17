@@ -759,6 +759,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE se je zaprl, ne da bi shranil to delo. Obnovite ga, da nadaljujete tam, kjer ste ostali, ali ga zavrzite. Možnost Odloči se pozneje ga ohrani za pozneje pod Obnovi neshranjeno delo v meniju Datoteka.",
     "Str.Dialog.Recovery.List": "Neshranjeno delo",
     "Str.Dialog.Recovery.NeverSaved": "Še nikoli shranjeno",
+    "Str.Dialog.Recovery.WaitingForType": "Čakanje na vrsto projekta, ki bere {0}.",
     "Str.Dialog.Recovery.From": "Iz {0}",
     "Str.Dialog.Recovery.MovedFrom": "Premaknjeno iz {0}",
     "Str.Dialog.Recovery.BackedUp": "Varnostno kopirano {0}",

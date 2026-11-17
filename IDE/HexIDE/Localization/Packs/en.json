@@ -786,6 +786,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE closed without saving this work. Restore it to carry on where you left off, or discard it. Decide Later keeps it for later, under Recover Unsaved Work on the File menu.",
     "Str.Dialog.Recovery.List": "Unsaved work",
     "Str.Dialog.Recovery.NeverSaved": "Never saved",
+    "Str.Dialog.Recovery.WaitingForType": "Waiting for a project type that reads {0}.",
     "Str.Dialog.Recovery.From": "From {0}",
     "Str.Dialog.Recovery.MovedFrom": "Moved from {0}",
     "Str.Dialog.Recovery.BackedUp": "Backed up {0}",

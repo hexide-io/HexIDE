@@ -755,6 +755,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE lukkede uden at gemme dette arbejde. Gendan det for at fortsætte, hvor du slap, eller kassér det. „Beslut senere“ gemmer det til senere under Gendan ikke-gemt arbejde i menuen Filer.",
     "Str.Dialog.Recovery.List": "Ikke-gemt arbejde",
     "Str.Dialog.Recovery.NeverSaved": "Aldrig gemt",
+    "Str.Dialog.Recovery.WaitingForType": "Venter på en projekttype, der kan læse {0}.",
     "Str.Dialog.Recovery.From": "Fra {0}",
     "Str.Dialog.Recovery.MovedFrom": "Flyttet fra {0}",
     "Str.Dialog.Recovery.BackedUp": "Sikkerhedskopieret {0}",

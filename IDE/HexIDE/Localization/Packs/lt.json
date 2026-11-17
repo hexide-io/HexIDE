@@ -793,6 +793,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE buvo užverta neįrašius šio darbo. Atkurkite jį, kad galėtumėte tęsti, arba atmeskite. „Nuspręsti vėliau“ palieka jį meniu „Failas“ dalyje „Atkurti neįrašytą darbą“.",
     "Str.Dialog.Recovery.List": "Neįrašytas darbas",
     "Str.Dialog.Recovery.NeverSaved": "Dar neįrašyta",
+    "Str.Dialog.Recovery.WaitingForType": "Laukiama projekto tipo, kuris skaito {0}.",
     "Str.Dialog.Recovery.From": "Iš {0}",
     "Str.Dialog.Recovery.MovedFrom": "Perkelta iš {0}",
     "Str.Dialog.Recovery.BackedUp": "Atsarginė kopija: {0}",

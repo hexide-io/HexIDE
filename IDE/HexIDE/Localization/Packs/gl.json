@@ -787,6 +787,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE pechouse sen gardar este traballo. Restáureo para continuar onde o deixou ou descárteo. Decidir máis tarde consérvao para despois, en Recuperar traballo sen gardar no menú Ficheiro.",
     "Str.Dialog.Recovery.List": "Traballo sen gardar",
     "Str.Dialog.Recovery.NeverSaved": "Nunca gardado",
+    "Str.Dialog.Recovery.WaitingForType": "Agardando por un tipo de proxecto que lea {0}.",
     "Str.Dialog.Recovery.From": "De {0}",
     "Str.Dialog.Recovery.MovedFrom": "Movido de {0}",
     "Str.Dialog.Recovery.BackedUp": "Copia de seguranza de {0}",

@@ -755,6 +755,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE đã đóng mà chưa lưu công việc này. Hãy khôi phục để tiếp tục từ chỗ bạn dừng lại, hoặc bỏ đi. “Quyết định sau” sẽ giữ lại để xử lý sau, trong mục Khôi phục công việc chưa lưu của menu Tệp.",
     "Str.Dialog.Recovery.List": "Công việc chưa lưu",
     "Str.Dialog.Recovery.NeverSaved": "Chưa từng lưu",
+    "Str.Dialog.Recovery.WaitingForType": "Đang chờ một loại dự án có thể đọc {0}.",
     "Str.Dialog.Recovery.From": "Từ {0}",
     "Str.Dialog.Recovery.MovedFrom": "Đã chuyển từ {0}",
     "Str.Dialog.Recovery.BackedUp": "Sao lưu lúc {0}",
