@@ -75,10 +75,10 @@ public class NegativeSizeSaveTests : IDisposable
 
     private IWindowManager picker = null!;
 
-    private (ProjectDefinition Project, FormDefinition Form, string Original) Load(int width = -150)
+    private (ProjectDefinition Project, FormDefinition Form, string Original) Load(int width = -150, string property = "Width")
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P") { AbsolutePath = Path.Join(dir, "P.vbp") };
-        var source = $"VERSION 5.00\r\nBegin VB.Form Form1\r\nBegin VB.CommandButton Command2\r\nWidth = {width}\r\nEnd\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n";
+        var source = $"VERSION 5.00\r\nBegin VB.Form Form1\r\nBegin VB.CommandButton Command2\r\n{property} = {width}\r\nEnd\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n";
         var form = new FormDeserializer().Deserialize(project, source, NullSink.Instance)!;
         form.AbsolutePath = Path.Join(dir, "Form1.frm");
         File.WriteAllText(form.AbsolutePath, source);
@@ -108,6 +108,24 @@ public class NegativeSizeSaveTests : IDisposable
         File.ReadAllBytes(path).Should().Equal(bytes);
         File.ReadAllText(path).Should().Be(original);
         File.GetLastWriteTimeUtc(path).Should().Be(time);
+    }
+
+    // #4096's measured Height = -1 on a form's button takes this recovery too, not #4096's read-only hold: both
+    // measurements have VB6 read 0 and open Save As (#4096 issuecomment-6915523429, oracle PR #4350).
+    [Fact]
+    public async Task A_negative_Height_saves_through_Save_As_and_preserves_the_original()
+    {
+        var (_, form, original) = Load(-1, "Height");
+        form.LoadedWithErrors.Should().BeTrue();
+        form.CanSaveFaithfully.Should().BeTrue();
+        var service = MakeService();
+        var path = form.AbsolutePath!;
+        var copy = Path.Join(dir, "Recovered.frm");
+        picker.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>()).Returns(Task.FromResult<string?>(copy));
+        (await service.SaveForm(form, false)).Should().BeTrue();
+        await picker.Received(1).SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        File.ReadAllText(path).Should().Be(original);
+        File.ReadAllText(copy).Should().Contain("Height          =   0");
     }
 
     [Theory]
