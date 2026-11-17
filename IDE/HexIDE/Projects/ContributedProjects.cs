@@ -269,7 +269,7 @@ public sealed partial class ContributedProjects
     /// The files HexIDE's own readers read, which a type may take only if it's the reader reserving them. Known from the
     /// start, so a type registered before VB6's is refused its files as one registered after it is (#3411 slice 10b).
     /// </summary>
-    internal IReadOnlyList<ProjectFileReservation> Reserved { get; init; } = [Vb6ProjectType.Reservation, ArchiveProjectService.Reservation];
+    internal IReadOnlyList<ProjectFileReservation> Reserved { get; init; } = [Vb6ProjectType.Reservation, ArchiveProjectService.Reservation, ArchiveProjectService.OfficeReservation];
 
     private readonly object _gate = new();
     private readonly List<ContributedProjectType> _types = [];
@@ -402,7 +402,7 @@ public sealed partial class ContributedProjects
             return
             [
                 .. types.Where(t => t.Type.Format is not null).SelectMany(t => t.Type.FileNames.Concat(t.Type.GroupFileNames)),
-                .. ArchiveProjectService.Reservation.Patterns,
+                .. ArchiveProjectService.FilePatterns,
                 .. types.Where(t => t.Type.Format is null).SelectMany(t => t.Type.FileNames),
             ];
         }

@@ -1,3 +1,4 @@
+using BrowserFolder = HexIDE.Projects.ContainerFolder;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -47,6 +48,128 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         localization.GetString("Str.Archive.FolderReadyFormat").Returns("Ready: {0}");
         localization.GetString("Str.Archive.FolderErrorFormat").Returns("Stopped: {0}");
         archives = new(dock, recent, localization, windows, new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode(), () => lsp);
+    }
+
+    private static string OfficeFile(string name)
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root.Parent != null && !Directory.Exists(Path.Combine(root.FullName, "corpus"))) root = root.Parent;
+        return Path.Combine(root.FullName, "corpus", "office", "m365-x64", name);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("basic.xlsm", "Str.Office.ExcelObjects")]
+    [InlineData("basic.docm", "Str.Office.WordObjects")]
+    [InlineData("userform.xlsm", "Str.Office.ExcelObjects")]
+    public async Task Office_tree_and_readonly_code_show_the_source_notice_without_a_language_session(string file, string hostKey)
+    {
+        localization.GetString("Str.Office.ProjectCaption").Returns("{0} ({1})");
+        await archives.Open(OfficeFile(file));
+        var manager = Substitute.For<IProjectManager>();
+        var model = new ProjectToolViewModel(manager, Substitute.For<IEventBus>(),
+            Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
+        var root = model.RootItems.OfType<ArchiveTreeNode>().Single();
+        root.Name.Should().Contain(file);
+        root.IsExpanded = true;
+        root.Children.First().Name.Should().Be(hostKey);
+        model.SelectedItem = root;
+        model.SynchronizeArchiveFolderCommand.CanExecute(null).Should().BeFalse();
+        var treeView = new ProjectToolView { DataContext = model };
+        treeView.Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://HexIDE/"))
+        {
+            Source = new Uri("avares://HexIDE/Themes/IconGeometry.axaml"),
+        });
+        var treeWindow = new Window { Content = treeView, Width = 700, Height = 500 };
+        treeWindow.Show();
+        var module = root.Children.Single(n => n.Name == (file == "userform.xlsm" ? "Str.Office.Forms" : "Str.Office.Modules")).Children.First();
+        model.SelectedItem = module;
+        model.OpenSelected();
+        var tab = tabs.OfType<ArchiveDocumentViewModel>().Single();
+        tab.Notice.Should().Be(file == "userform.xlsm" ? "Str.Office.FormNotice" : "Str.Office.SourceNotice");
+        tab.InactiveLines.Should().BeEmpty();
+        tab.Metadata.Should().BeEmpty();
+        var view = new ArchiveDocumentView { DataContext = tab };
+        var window = new Window { Content = view, Width = 700, Height = 500 };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            var tree = treeView.GetLogicalDescendants().OfType<TreeView>().Single();
+            tree.Items.Should().Contain(root);
+            treeView.GetLogicalDescendants().OfType<TextBlock>().Should().Contain(b => b.Text == hostKey);
+            var caption = treeView.GetLogicalDescendants().OfType<TextBlock>().First(b => b.Text == root.Name);
+            ToolTip.GetTip(caption).Should().Be("Str.Office.SourceNotice");
+            var menu = (MenuFlyout)tree.ContextFlyout!;
+            menu.ShowAt(tree);
+            Dispatcher.UIThread.RunJobs();
+            menu.Items.OfType<MenuItem>().First().IsVisible.Should().BeFalse();
+            menu.Items.OfType<MenuItem>().Single(m => ReferenceEquals(m.Command, model.SynchronizeArchiveFolderCommand)).IsVisible.Should().BeFalse();
+            var editor = view.FindControl<TextEditor>("Editor")!;
+            editor.IsReadOnly.Should().BeTrue();
+            editor.Text.Should().Contain(file == "userform.xlsm" ? "CommandButton1_Click" : "Option Explicit");
+            view.GetLogicalDescendants().OfType<TextBlock>().Should().Contain(b => b.Text == tab.Notice);
+            FluentActions.Invoking(() => tab.Document.Insert(0, "bad")).Should().Throw<InvalidOperationException>();
+            lsp.ReceivedCalls().Should().BeEmpty();
+        }
+        finally
+        {
+            ((MenuFlyout)treeView.GetLogicalDescendants().OfType<TreeView>().Single().ContextFlyout!).Hide();
+            window.Close();
+            treeWindow.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Office_locked_root_is_labelled_and_has_no_module_nodes()
+    {
+        localization.GetString("Str.Office.LockedCaption").Returns("{0} ({1}) locked");
+        await archives.Open(OfficeFile("locked.xlsm"));
+        var model = new ProjectToolViewModel(Substitute.For<IProjectManager>(), Substitute.For<IEventBus>(),
+            Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
+        var root = model.RootItems.OfType<ArchiveTreeNode>().Single();
+        root.Name.Should().Be("LockedProject (locked.xlsm) locked");
+        root.Children.Should().OnlyContain(n => n.Name == "Str.Office.References");
+        model.SelectedItem = root;
+        model.InspectArchive();
+        tabs.Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public async Task Office_selection_and_active_tab_refuse_run_and_make_in_the_composition()
+    {
+        var recentPath = UserDataPath.For("recent-projects.json");
+        var savedRecent = File.Exists(recentPath) ? File.ReadAllBytes(recentPath) : null;
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
+        var root = composition.Root;
+        var vb = new ProjectDefinition(VBProjectType.EXE, "VBProject");
+        composition.ProjectManager.AddProject(vb);
+        try
+        {
+            await composition.ArchiveProjects.Open(OfficeFile("basic.xlsm"));
+            root.ProjectExplorer.SelectedItem = root.ProjectExplorer.RootItems.OfType<ArchiveTreeNode>().Single();
+            composition.ProjectRunnerService.CanStartDefaultProject.Should().BeFalse();
+            root.MakeProjectCommand.CanExecute(null).Should().BeFalse();
+            composition.ProjectRunnerService.RunStartupProject();
+            composition.ProjectRunnerService.IsRunning.Should().BeFalse();
+            root.ProjectExplorer.SelectedItem = null;
+            composition.ArchiveProjects.OpenDocument(composition.ArchiveProjects.Projects.Single().Root.Children.Cast<BrowserFolder>().Single(n => n.Name == "Standard").Children.First());
+            composition.ArchiveProjects.IsActive.Should().BeTrue();
+            composition.ProjectRunnerService.CanStartDefaultProject.Should().BeFalse();
+            composition.ProjectRunnerService.CanRunStartupProject.Should().BeFalse();
+            root.MakeProjectCommand.CanExecute(null).Should().BeFalse();
+            LspDocumentSession.VersionsFor(composition.LspClient,
+                composition.DocumentDockService.OpenDocuments.OfType<ArchiveDocumentViewModel>().Single().DocumentUri).Should().BeNull();
+            composition.ProjectRunnerService.RunStartupProject();
+            composition.ProjectRunnerService.IsRunning.Should().BeFalse();
+        }
+        finally
+        {
+            composition.ProjectManager.UnloadAllProjects();
+            await composition.ArchiveProjects.Close();
+            if (savedRecent != null) File.WriteAllBytes(recentPath, savedRecent);
+            else File.Delete(recentPath);
+        }
     }
 
     [AvaloniaFact]

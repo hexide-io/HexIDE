@@ -89,6 +89,45 @@ public class ListViewRuntimeTests
             """)).Should().Equal("True", "False", "1", "False", "True", "False", "2", "True", "True", "True", "True");
     }
 
+    // #4414, oracle PR #4413: Removing the SelectedItem, native and p-code (R1–R10).
+    [AvaloniaTheory]
+    [InlineData(1, "ListView1.ListItems(3).Selected = True", "ListView1.ListItems.Remove 3", "k4", "3", "False", "")]
+    [InlineData(2, "Set ListView1.SelectedItem = ListView1.ListItems(3)", "ListView1.ListItems.Remove \"k3\"", "k4", "3", "False", "")]
+    [InlineData(3, "ListView1.ListItems(5).Selected = True", "ListView1.ListItems.Remove 5", "k4", "4", "False", "")]
+    [InlineData(4, "ListView1.ListItems(3).Selected = True\nListView1.ListItems(3).Selected = False", "ListView1.ListItems.Remove 3", "k4", "3", "False", "")]
+    [InlineData(5, "ListView1.MultiSelect = True\nListView1.ListItems(1).Selected = True\nListView1.ListItems(3).Selected = True", "ListView1.ListItems.Remove 3", "k4", "3", "False", "k1")]
+    [InlineData(6, "ListView1.ListItems(4).Selected = True", "ListView1.ListItems.Remove 2", "k4", "3", "True", "k4")]
+    [InlineData(7, "ListView1.ListItems(3).Selected = True", "ListView1.ListItems.Clear", null, null, null, "")]
+    [InlineData(8, "ListView1.ListItems(1).Selected = True", "ListView1.ListItems.Remove 1", "k2", "1", "False", "")]
+    [InlineData(9, "ListView1.ListItems.Remove 5\nListView1.ListItems.Remove 4\nListView1.ListItems.Remove 3\nListView1.ListItems.Remove 2\nListView1.ListItems(1).Selected = True", "ListView1.ListItems.Remove 1", null, null, null, "")]
+    [InlineData(10, "ListView1.ListItems(3).Selected = True", "ListView1.ListItems.Remove 3\nCall ListView1.ListItems.Add(, \"k9\")", "k4", "3", "False", "")]
+    public async Task Removing_items_preserves_the_measured_SelectedItem(int row, string before, string remove,
+        string? key, string? index, string? selected, string selectedKeys)
+    {
+        var output = await Run("""
+            ListView1.View = 3
+            Call ListView1.ListItems.Add(, "k1")
+            Call ListView1.ListItems.Add(, "k2")
+            Call ListView1.ListItems.Add(, "k3")
+            Call ListView1.ListItems.Add(, "k4")
+            Call ListView1.ListItems.Add(, "k5")
+            """ + "\n" + before + "\n" + remove + "\n" + """
+            If ListView1.SelectedItem Is Nothing Then
+                Debug.Print "Nothing"
+            Else
+                Debug.Print ListView1.SelectedItem.Key, ListView1.SelectedItem.Index, ListView1.SelectedItem.Selected
+            End If
+            Dim i As Long, keys As String
+            keys = ""
+            For i = 1 To ListView1.ListItems.Count
+                If ListView1.ListItems(i).Selected Then keys = keys & ListView1.ListItems(i).Key
+            Next
+            Debug.Print keys
+            """);
+        string[] expected = key == null ? ["Nothing", selectedKeys] : [key, index!, selected!, selectedKeys];
+        output.Should().Equal(expected, $"measured row R{row}");
+    }
+
     [AvaloniaFact]
     public async Task Checkbox_toggles_preserve_each_items_state()
     {
@@ -161,7 +200,6 @@ public class ListViewRuntimeTests
     [InlineData("Debug.Print ListView1.ListItems(\"A\").Text", "key case comparison")]
     [InlineData("Call ListView1.ListItems.Add(, \"6\")", "numeric ListView key")]
     [InlineData("Call ListView1.ListItems.Add(, \"a\")\nDebug.Print Err.Description", "error description")]
-    [InlineData("ListView1.ListItems.Remove 1\nDebug.Print ListView1.SelectedItem", "SelectedItem after deleting")]
     public async Task Unmeasured_values_refuse_instead_of_guessing(string code, string detail)
     {
         Func<Task> action = async () => await Run("Dim a\nSet a = ListView1.ListItems.Add(, \"a\", \"Alpha\")\n" + code);

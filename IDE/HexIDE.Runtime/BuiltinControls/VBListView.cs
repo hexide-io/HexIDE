@@ -259,9 +259,6 @@ public sealed partial class VBListView : Decorator, ICSharpPropertyBag, INamedPa
     public bool TryGetProperty(string name, out Vb6Value value)
     {
         CheckSort();
-        if (name.Equals("SelectedItem", StringComparison.OrdinalIgnoreCase)
-            && SelectedItem is { } selected && !Items.Entries.Contains(selected))
-            throw new NotImplementedException("SelectedItem after deleting the current item is unmeasured (#1085)");
         if (properties.TryGetValue(name, out value))
             return true;
         if (name.Equals("Enabled", StringComparison.OrdinalIgnoreCase))

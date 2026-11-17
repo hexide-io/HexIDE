@@ -105,6 +105,14 @@ public sealed record AddinLanguageServer(LanguageServerEntry Entry)
 /// </summary>
 public interface IAddinServerConnection : IDisposable
 {
+    /// <summary>Reads this server's resolved settings, or null when none exist.</summary>
+    JsonElement? GetSettings();
+
+    /// <summary>Stores this server's object in the user's settings and notifies its running server.</summary>
+    /// <exception cref="ArgumentException">Settings is not a JSON object.</exception>
+    /// <exception cref="ObjectDisposedException">The server has been taken out.</exception>
+    Task SetSettingsAsync(JsonElement settings, CancellationToken cancellationToken = default);
+
     /// <summary>The id the server was registered under.</summary>
     string Id { get; }
 

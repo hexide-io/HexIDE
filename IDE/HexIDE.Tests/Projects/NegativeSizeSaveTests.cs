@@ -51,6 +51,7 @@ public class NegativeSizeSaveTests : IDisposable
                 Path.Join(dir, ci.Arg<Avalonia.Platform.Storage.FilePickerSaveOptions>().SuggestedFileName)));
 
         var localization = Substitute.For<HexIDE.Localization.ILocalizationService>();
+        localization.GetString("Str.Dialog.SaveLoadedForm.ChooseNewFile").Returns("Localized warning for {0}: choose another file.");
         localization.GetString("Str.ProjectLoad.PropertyNotSet").Returns("Line {0}: Property {1} in {2} could not be set.");
 
         return new ProjectService(
@@ -75,7 +76,7 @@ public class NegativeSizeSaveTests : IDisposable
 
     private IWindowManager picker = null!;
 
-    private (ProjectDefinition Project, FormDefinition Form, string Original) Load(int width = -150, string property = "Width")
+    private (ProjectDefinition Project, FormDefinition Form, string Original) Load(string width = "-150", string property = "Width")
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P") { AbsolutePath = Path.Join(dir, "P.vbp") };
         var source = $"VERSION 5.00\r\nBegin VB.Form Form1\r\nBegin VB.CommandButton Command2\r\n{property} = {width}\r\nEnd\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n";
@@ -112,10 +113,14 @@ public class NegativeSizeSaveTests : IDisposable
 
     // #4096's measured Height = -1 on a form's button takes this recovery too, not #4096's read-only hold: both
     // measurements have VB6 read 0 and open Save As (#4096 issuecomment-6915523429, oracle PR #4350).
-    [Fact]
-    public async Task A_negative_Height_saves_through_Save_As_and_preserves_the_original()
+    // Too-large values: #4422, measured in #4096 issuecomment-6915523429.
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("2147483584")]
+    [InlineData("3.7E+18")]
+    public async Task A_refused_Height_saves_through_Save_As_and_preserves_the_original(string value)
     {
-        var (_, form, original) = Load(-1, "Height");
+        var (_, form, original) = Load(value, "Height");
         form.LoadedWithErrors.Should().BeTrue();
         form.CanSaveFaithfully.Should().BeTrue();
         var service = MakeService();
@@ -232,7 +237,7 @@ public class NegativeSizeSaveTests : IDisposable
     [Fact]
     public async Task Clean_form_saves_in_place_without_a_picker()
     {
-        var (_, form, _) = Load(150);
+        var (_, form, _) = Load("150");
         var service = MakeService();
         (await service.SaveForm(form, false)).Should().BeTrue();
         File.ReadAllText(form.AbsolutePath!).Should().Contain("Width           =   150");
@@ -265,8 +270,53 @@ public class NegativeSizeSaveTests : IDisposable
             .Returns(Task.FromResult<string?>(Path.Join(dir, ".", "Form1.frm")), Task.FromResult<string?>(copy));
         await service.SaveForm(form, false);
         await picker.Received(2).SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        await picker.Received(1).MessageBox("Localized warning for Form1: choose another file.", icon: MessageBoxIcon.Warning);
+        Received.InOrder(() =>
+        {
+            _ = picker.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+            _ = picker.MessageBox("Localized warning for Form1: choose another file.", icon: MessageBoxIcon.Warning);
+            _ = picker.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        });
         File.ReadAllText(path).Should().Be(original);
         File.Exists(copy).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Choosing_a_new_path_shows_no_warning()
+    {
+        var (_, form, original) = Load();
+        var path = form.AbsolutePath!;
+        var service = MakeService();
+        var copy = Path.Join(dir, "Recovered.frm");
+        picker.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>())
+            .Returns(Task.FromResult<string?>(copy));
+
+        (await service.SaveForm(form, false)).Should().BeTrue();
+
+        await picker.DidNotReceiveWithAnyArgs().MessageBox("");
+        await picker.Received(1).SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        File.ReadAllText(path).Should().Be(original);
+        File.Exists(copy).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Cancelling_the_picker_shows_no_warning_and_writes_nothing()
+    {
+        var (_, form, original) = Load();
+        var path = form.AbsolutePath!;
+        var service = MakeService();
+        picker.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>())
+            .Returns(Task.FromResult<string?>(null));
+
+        var save = () => service.SaveForm(form, false);
+        await save.Should().ThrowAsync<OperationCanceledException>();
+
+        await picker.DidNotReceiveWithAnyArgs().MessageBox("");
+        await picker.Received(1).SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        File.ReadAllText(path).Should().Be(original);
+        Directory.GetFiles(dir).Should().Equal(path);
+        form.AbsolutePath.Should().Be(path);
+        form.LoadedWithErrors.Should().BeTrue();
     }
 
     [Fact]

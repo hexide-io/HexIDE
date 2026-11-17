@@ -23,6 +23,7 @@ public sealed class AddinLanguageServerTests : IDisposable
     private readonly AddinDiagnosticsService _diagnostics;
     private readonly IAddinRegistry _addins = Substitute.For<IAddinRegistry>();
     private readonly HexIdeHost _host;
+    private readonly AddinOptionsService _options = new();
     private readonly HexIDE.Debugging.DebugLaunchService _launches = new(
         new HexIDE.Debugging.ExternalDebugService(new HexIDE.Conversations.ConversationLog()));
     private readonly HexIDE.Projects.ContributedProjects _types = new();
@@ -37,8 +38,8 @@ public sealed class AddinLanguageServerTests : IDisposable
         _host = new HexIdeHost(new AddinMenuService(), new AddinToolWindowService(), _events, _addins,
             new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), _projects),
             new AddinProjectService(_projects), _diagnostics, new AddinCommandService(), new AddinProjectTemplateService(),
-            new AddinOptionsService(), new ComponentRegistry(), _runner,
-            new LanguageServerContributions(_router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
+            _options, new ComponentRegistry(), _runner,
+            new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance),
                 new HashSet<string>(StringComparer.Ordinal), NullLogger<LanguageServerContributions>.Instance),
             _launches, _types);
@@ -84,6 +85,7 @@ public sealed class AddinLanguageServerTests : IDisposable
     }
 
     [Fact]
+    [Trait("Issue", "4307")]
     public void OwnedHost_KeepsTheManifestOriginForEveryNewContribution()
     {
         var tools = new AddinToolWindowService();
@@ -101,6 +103,9 @@ public sealed class AddinLanguageServerTests : IDisposable
         });
 
         _router.Connections.Should().ContainSingle().Which.Origin.Should().Be("Owner Add-in");
+        _options.ServersFor("com.example.owner").Should().ContainSingle().Which
+            .Should().Be(("Probe", (AddinServerConnection)connection));
+        _options.ServersFor("another-owner").Should().BeEmpty();
         _launches.Launches.Should().ContainSingle().Which.Key.Should().Be("com.example.owner/Fixture");
         _launches.Launches.Single().Origin.Should().Be("Owner Add-in");
         _types.Types.Should().ContainSingle().Which.AddinId.Should().Be("com.example.owner");

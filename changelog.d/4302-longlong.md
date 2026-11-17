@@ -1,0 +1,4 @@
+### Added
+
+- **64-bit VBA7 LongLong and LongPtr** (part of #1548, #4302): declarations, conversions, measured arithmetic and Variant overflow, `^` literals, formatting and DefLngLng/DefLngPtr use 64-bit integers. VB6 preserves its measured errors and user-defined names. Adjacent `^` selects a type character in 64-bit projects and exponentiation in VB6. Decimal division, rounded integer and bitwise operands, exact integer/Decimal comparisons, minimum-value overflow errors and Abs/Int/Fix/Sgn follow the further Excel x64 measurements. Unmeasured array bounds, For counters, UDT layouts and remaining intrinsic/operator uses refuse explicitly.
+- The LongLong record-layout refusal tests close their file handles before removing temporary files, including when execution throws, so they also run on Windows.

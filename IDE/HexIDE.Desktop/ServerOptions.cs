@@ -89,6 +89,9 @@ internal static class ServerOptions
     /// node + the dev-gated capabilities, and shows the title-bar suffix).</summary>
     public static bool DeveloperMode { get; private set; }
 
+    /// <summary><c>--no-vb6</c>: start with VB6's project type unregistered. Debug builds only.</summary>
+    public static bool NoVb6 { get; private set; }
+
     /// <summary><c>--capture-lsp</c>: arm the protocol capture for every connection before any of them is
     /// made, so a conversation is recorded in full from the first handshake.</summary>
     /// <remarks>
@@ -242,6 +245,10 @@ internal static class ServerOptions
                 Session = value.Trim();
                 return true;
             }),
+
+        new("no-vb6", null,
+            new HexIDE.Localization.LocalizationService().GetStringFrom("en", "Str.Startup.NoVb6Summary"),
+            _ => { NoVb6 = true; return false; }),
 
         new("developer-mode", null,
             "Turn on session developer mode. Debug builds only.",

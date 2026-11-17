@@ -9,10 +9,15 @@ namespace HexIDE.Runtime.Interpreter;
 // range-check -> Overflow, Err 6). Every rule here was verified against vb6.exe (Hex/Oct width, CStr/CBool/CDate).
 public partial class VB6BuiltIns
 {
+    internal static bool IsLongLongConversion(string name) =>
+        name.Equals("CLngLng", StringComparison.OrdinalIgnoreCase) || name.Equals("CLngPtr", StringComparison.OrdinalIgnoreCase);
+
     private static void RegisterConversion(Dictionary<string, BuiltinFn> d)
     {
         d["CByte"] = (_, a, _) => NarrowNum(a[0], VT.Byte);
         d["CInt"]  = (_, a, _) => NarrowNum(a[0], VT.Integer);
+        d["CLngLng"] = (_, a, _) => VbNumeric.ToLongLong(a[0], null);
+        d["CLngPtr"] = (_, a, _) => VbNumeric.ToLongLong(a[0], null);
         d["CLng"]  = (_, a, _) => NarrowNum(a[0], VT.Long);
         d["CSng"]  = (_, a, _) => NarrowNum(a[0], VT.Single);
         d["CDbl"]  = (_, a, _) => NarrowNum(a[0], VT.Double);
@@ -249,6 +254,8 @@ public partial class VB6BuiltIns
     {
         if (v.Type == VT.Byte || v.Type == VT.Integer)
             return Width16((short)AsInt(v), radix);
+        if (v.Type == VT.LongLong)
+            return radix == 16 ? unchecked((ulong)(long)v.Value!).ToString("X") : Convert.ToString((long)v.Value!, 8);
         long l = (long)Math.Round(AsDouble(v), MidpointRounding.ToEven);
         if (v.Type != VT.Long && l >= short.MinValue && l <= short.MaxValue)
             return Width16((short)l, radix);

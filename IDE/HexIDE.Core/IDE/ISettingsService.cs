@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Collections.Generic;
 
@@ -157,6 +158,13 @@ public interface ISettingsService : INotifyPropertyChanged
     /// Window position, size, and state for the next launch.
     /// </summary>
     WindowData Window { get; set; }
+
+    /// <summary>Resolved settings: the user's whole object, otherwise the profile's, otherwise null.</summary>
+    JsonElement? GetLanguageServerSettings(string id);
+    bool HasLanguageServerSettings(string id);
+    /// <summary>Stores a user object and raises PropertyChanged for LanguageServerSettings.</summary>
+    void SetLanguageServerSettings(string id, JsonElement settings);
+    void RemoveLanguageServerSettings(string id);
 
     // ── Language server ─────────────────────────────────────────
 
