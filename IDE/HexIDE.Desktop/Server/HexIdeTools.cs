@@ -2837,7 +2837,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 var added = await BuildWatchesResult();
                 return added with { Note = $"Added external Expression watch '{expression}'. " + added.Note };
             }
-            var context = ctx.DebugController.GetLocals()?.Context ?? HexIDE.Debugging.WatchExpression.AllProceduresContext;
+            // The paused frame as a watch context names it: Class1.X(Get) inside an accessor, which the scoped match needs (#4401).
+            var context = ctx.DebugController.GetLocals()?.WatchContext ?? HexIDE.Debugging.WatchExpression.AllProceduresContext;
             ctx.RootViewModel.Watches.Service.Add(new HexIDE.Debugging.WatchExpression(expression, watchKind, context));
             return await BuildWatchesResult();
         });
