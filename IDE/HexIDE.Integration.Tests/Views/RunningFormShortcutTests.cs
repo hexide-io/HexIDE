@@ -20,6 +20,8 @@ public class RunningFormShortcutTests
         var activation = new IdeActivationProbe();
         var ide = ToolbarAutomationNameTests.ShowMainView(activation.Window);
         Static.MainView = (MainView)ide.Content!;
+        // The pause reaches the window through the view's own view model, as in the IDE (PauseFocusRequested).
+        Static.MainView.DataContext = owned.Composition.Root;
         var input = new TextBox();
         var form = new VBFormRuntime { Content = input };
         var debug = (IDebugGate)owned.Composition.DebugController;
