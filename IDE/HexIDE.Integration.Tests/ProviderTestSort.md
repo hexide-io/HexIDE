@@ -145,6 +145,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/PictureLoadTests.cs` | split |
 | `Views/PositionRowsTests.cs` | split |
 | `Views/PrintDialogTests.cs` | split |
+| `Views/ProgramBoxCaptionTests.cs` | split |
 | `Views/ProjectPropertiesViewIntegrationTests.cs` | split |
 | `Views/QuickFixTests.cs` | split |
 | `Views/RawPropertyRowsTests.cs` | split |
