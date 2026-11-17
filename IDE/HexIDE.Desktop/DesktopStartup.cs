@@ -37,7 +37,7 @@ internal static class DesktopStartup
 
         var startupProject = new StartupProjectOpen();
         if (ServerOptions.NewProjectUnsaved)
-            HexIDE.Static.StartupProjectHook = (ps, _) => ps.CreateNewProject(IProjectTemplate.StandardEXE);
+            HexIDE.Static.StartupProjectHook = (ps, _) => ps.CreateDefaultProject();
         else if (ServerOptions.NewProject)
             HexIDE.Static.StartupProjectHook = async (ps, pm) =>
             {
@@ -45,7 +45,7 @@ internal static class DesktopStartup
                 // just before stays the startup project, and saving that instead wrote its recovered work over its
                 // files (hexide-io/HexIDE#499).
                 var before = pm.LoadedProjects.ToList();
-                await ps.CreateNewProject(IProjectTemplate.StandardEXE);
+                await ps.CreateDefaultProject();
                 if (pm.LoadedProjects.FirstOrDefault(p => !before.Contains(p)) is { } project)
                 {
                     // Through the shared helper, NOT a second copy of the same path rule. This line

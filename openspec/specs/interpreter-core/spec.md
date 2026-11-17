@@ -30,6 +30,22 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Control event declarations are checked when a form starts
+
+Before a form's declarations or Initialize run, the interpreter SHALL compare its collected control event Subs with the control class's event argument counts, plus one for an array element. An element's first parameter SHALL be ByRef Integer by effective type, including suffixes and DefType. Names and the event's own argument types/passing SHALL NOT be checked.
+
+
+#### Scenario: An element retains a scalar handler
+Measurements: [#4205](https://github.com/hexide-io/HexIDE/issues/4205), oracle PR #4358.
+- **WHEN** execution enters a form with `Command1` carrying `Index = 0` and `Sub Command1_Click()`
+- **THEN** it raises `Procedure declaration does not match description of event or procedure having the same name` as a compile error before the form's own code runs
+- **AND** the error carries the form module and the handler declaration's line, and the log names the procedure
+
+#### Scenario: A renamed or implicitly Integer index parameter
+- **WHEN** the element's Click handler takes `i As Integer`, `Index%`, or `Index` under `DefInt I`, by reference
+- **THEN** the handler accepts the event and receives Integer 0 when that element is clicked
+
+
 ### Requirement: Source-class default members SHALL resolve at async value boundaries
 
 The engine SHALL collect the name and kind of a source class's default member and read its Function,
@@ -402,11 +418,25 @@ by value will run such a program to completion while producing the wrong answer.
 - **WHEN** a member call statement puts its parenthesised argument directly after the member name
 - **THEN** it runs as the spaced form does, with the parenthesised expression passed by value
 
+### Requirement: Measured intrinsic named arguments
+
+The interpreter SHALL accept the intrinsic parameter names and required omissions measured in
+[#4145](https://github.com/hexide-io/HexIDE/issues/4145), placing arguments in parameter order and
+retaining positional values and optional defaults. Financial flags SHALL be named Due, arrays ValueArray,
+and pointer operands Ptr. Existing ChrB, IRR and MIRR execution refusals SHALL remain.
+Wrong names SHALL raise "Named argument not found" and omitted required arguments "Argument not optional"
+as the statement runs. Named InStrB SHALL raise "Syntax error", named CallByName "Argument in ParamArray
+may not be named", and named IMEStatus "Wrong number of arguments or invalid property assignment".
+
+#### Scenario: Reordered financial parameters with omitted optionals
+- **WHEN** `FV(Pmt:=-100, NPer:=12, Rate:=0.01)` executes
+- **THEN** its value equals `FV(0.01, 12, -100)`
+
 ### Requirement: Measured straight-line and sum-of-years depreciation
 
 The interpreter SHALL implement positional `SLN` and `SYD` calls with Double results matching
 all measured rows in [#2524](https://github.com/hexide-io/HexIDE/issues/2524) bit for bit.
-It SHALL refuse their unmeasured named calls and argument counts as not implemented.
+It SHALL accept their measured named parameters (#4145) and refuse unmeasured positional argument counts as not implemented.
 `DDB` remains unimplemented until every measured row can be reproduced.
 
 #### Scenario: Straight-line depreciation
@@ -445,7 +475,8 @@ A Sub used as a value SHALL return Empty. Missing or empty class member names an
 Get on a method raises 450, too few arguments 449, and too many 450.
 Forms/controls, Collection object results, private members, non-scalar fields, field Set/indexing and
 unavailable accessors SHALL refuse as not implemented. So SHALL other unmeasured member/call-type/arity
-combinations, named/omitted arguments and name/call-type conversions.
+combinations, omitted arguments and name/call-type conversions. Named arguments SHALL raise the compile
+error "Argument in ParamArray may not be named" as the statement runs (#4145).
 
 #### Scenario: Collection lookup by name
 - **WHEN** a Collection receives `CallByName k, "Add", VbMethod, "a", "ka"`
@@ -1330,7 +1361,8 @@ and unmeasured HelpContext conversions SHALL be refused as not implemented.
 The interpreter SHALL execute the measured positional `Pmt`, `FV` and `PV` calls from
 [#2523](https://github.com/hexide-io/HexIDE/issues/2523), preserving their exact Double bits and
 measured errors. It SHALL round the base `1 + rate` to Double before retaining higher-precision
-intermediates. Unmeasured named calls, argument errors and unsupported calculation domains SHALL
+intermediates. Named calls SHALL use the measured names, including Due (#4145). Unmeasured positional
+argument errors and unsupported calculation domains SHALL
 fail clearly as unimplemented, rather than supply an invented VB6 result.
 
 #### Scenario: Ordinary loan payment retains intermediate precision
@@ -1351,7 +1383,7 @@ The interpreter SHALL execute every measured positional NPer, IPmt, PPmt and Rat
 [#2523](https://github.com/hexide-io/HexIDE/issues/2523), preserving exact Double bits and errors.
 It SHALL use the fitted per-function spills described in
 [Financial precision](../../../docs/financial-precision-2523.md). Unmeasured argument conversions,
-named calls and unsupported domains SHALL refuse as unimplemented.
+and unsupported domains SHALL refuse as unimplemented. Named calls SHALL use the measured names, including Due (#4145).
 
 #### Scenario: Beginning-period interest and zero-rate interest
 - **WHEN** the program evaluates the measured first-period beginning payment or zero-rate IPmt call
@@ -1367,11 +1399,15 @@ named calls and unsupported domains SHALL refuse as unimplemented.
 
 ### Requirement: Shell SHALL launch programs with the measured argument and result contract
 `Shell` SHALL work as a function and a statement, launch asynchronously and return the process ID as
-Double. Explicit styles 0–4, 6 and 7 SHALL select the Windows startup show state; Unix hosts SHALL
-accept these styles without changing window state. WindowStyle SHALL convert through CInt.
-Empty paths and directories SHALL raise 5, missing programs 53 and Null arguments 94.
-Unmeasured non-string PathName conversions, successful launches with omitted WindowStyle, and other
-OS launch failures and unmeasured style values SHALL refuse explicitly as not implemented pending measurement (#2522).
+Double. Styles 0–9 SHALL select the Windows startup show state; Unix hosts SHALL
+accept these styles without changing window state. WindowStyle SHALL convert through CInt and default
+to 2 when omitted. Values outside 0–9 SHALL raise 5. These styles and defaults are measured in
+[#4146](https://github.com/hexide-io/HexIDE/issues/4146); the original argument/result measurements are in
+[the Shell oracle](../../../docs/vb6-fidelity-oracle/shell.md).
+Empty paths, directories and recognisable ASCII text documents (including associated documents) SHALL raise 5, missing programs
+53 and Null arguments 94. Unix SHALL retain direct process launching and map non-executable document
+failures to 5 where distinguishable. Non-string PathName conversions, access denied to executables,
+programs that exist but cannot start, and ambiguous/binary document classification SHALL refuse explicitly as not implemented pending measurement (#4146).
 
 #### Scenario: A program launches a helper
 - **WHEN** code calls `Shell` with a quoted executable path, arguments and an accepted explicit style
@@ -1383,10 +1419,10 @@ OS launch failures and unmeasured style values SHALL refuse explicitly as not im
 
 ### Requirement: Reset and FileAttr
 The interpreter SHALL close all open files and flush buffered writes on `Reset`, unless a module-local
-Sub named Reset handles the call. `FileAttr` SHALL return Long mode values 2 for Output, 8 for Append,
-4 for Random and 32 for Binary, defaulting its second argument to 1. An open Input file,
-second-argument conversions from types other than Byte/Integer/Long, and named arguments SHALL be
-refused as not implemented until measured (#2521).
+Sub named Reset handles the call. `FileAttr` SHALL return Long mode values 1 for Input, 2 for Output,
+8 for Append, 4 for Random and 32 for Binary (#2521, #4145). It SHALL accept the names FileNumber and
+ReturnType, default ReturnType to 1 and convert it as CInt (half to even, Null error 94, bad text error 13).
+A converted ReturnType other than 1 SHALL raise error 5, including the legacy handle request 2.
 
 #### Scenario: Reset releases buffered files
 - **WHEN** Reset runs with open files
@@ -1494,7 +1530,7 @@ and file-failure semantics SHALL fail explicitly as not implemented.
 - **AND** no operating-system event is written
 
 ### Requirement: FormatDateTime SHALL use the program's locale
-`FormatDateTime(Date, [NamedFormat])` SHALL return a String using `VbLocale`: omitted or 0
+`FormatDateTime(Expression, [NamedFormat])` SHALL return a String using `VbLocale`: omitted or 0
 uses CStr's general date rendering, 1 the long date, 2 the short date, 3 the long time, and
 4 24-hour hours and minutes. It SHALL accept the date serials, date text, Empty, Null and
 True measured in [#2516](https://github.com/hexide-io/HexIDE/issues/2516).
@@ -1883,6 +1919,17 @@ changes only selection SHALL raise Click alone. Wheel input and ListIndex assign
 Page Down SHALL move keyboard focus to the selected item so subsequent arrow navigation continues
 from it (#3275). Native-message Scroll delivery remains pending (#3986).
 
+A TopIndex assignment after ListIndex or Selected in the same execution SHALL remain in effect after
+queued dispatcher work runs (#4229, measured in the issue). Code selection before the form is shown
+SHALL bring the selected item into view when it is shown unless a later TopIndex assignment supersedes that scroll.
+On a MultiSelect list, `Selected(i) = True` SHALL bring the item into view the same way, the least scroll that shows
+it, and SHALL NOT raise Scroll (measured on vb6.exe, #4229).
+
+#### Scenario: TopIndex follows code selection
+- **WHEN** a 60-item list showing 11 rows executes `ListIndex = 50` then `TopIndex = 20`
+- **THEN** after dispatcher processing ListIndex remains 50 and TopIndex remains 20
+- **AND** only the TopIndex assignment raises Scroll
+
 #### Scenario: Page Down followed by Up with item focus
 - **WHEN** an item has keyboard focus and Page Down changes the selection, followed by Up
 - **THEN** Page Down gives its selected item keyboard focus
@@ -1905,7 +1952,8 @@ The interpreter SHALL execute all five positional NPV rows measured in
 exact result bits and measured error numbers. It SHALL retain the base and sum while rounding
 each cumulative discount power to Double as described in
 [Cash-flow precision](../../../docs/financial-precision-2525.md).
-Unmeasured conversions, named calls, empty/multidimensional arrays and unsupported arithmetic
+Named NPV calls SHALL accept Rate and ValueArray (#4145).
+Unmeasured conversions, empty/multidimensional arrays and unsupported arithmetic
 domains SHALL refuse as unimplemented. IRR and MIRR SHALL explicitly refuse as unimplemented
 until a precision model matches every measured row for the function.
 
@@ -1970,6 +2018,24 @@ Contract: [#1116](https://github.com/hexide-io/HexIDE/issues/1116); Value conver
 - **WHEN** code calls `ProgressBar1.Increment` without an argument
 - **THEN** the runtime raises Argument not optional and leaves Value unchanged
 
+### Requirement: Floating point converted to Decimal
+The runtime SHALL convert a Double to Decimal at 15 significant digits and a Single at 7 significant
+digits, rounding the exact binary value half to even, including implicit Decimal arithmetic and numeric
+formatting. This rule covers values whose significant digits fit within Decimal's 28 decimal places;
+the scale-28 anomalies retain the existing conversion pending a measured rule.
+Provenance: [SP6 native and p-code measurements, #4017](https://github.com/hexide-io/HexIDE/pull/4017).
+
+#### Scenario: Decimal and String rounding differ
+- **WHEN** code evaluates `CDec(1234567890123445#)`
+- **THEN** the Decimal value is 1234567890123440
+- **AND** `CStr` keeps its distinct rounding rule
+
+#### Scenario: A numeric string is a Date serial
+- **WHEN** code evaluates `CDate("24.0")` under en-GB
+- **THEN** its serial is 24, representing 23 January 1900 at midnight
+- **AND** numeric strings outside the Date range raise error 13
+- **AND** `IsDate("24.0")` is False, as the String-to-Date measurements in #967 record
+
 ### Requirement: Intrinsic list code-only search extensions
 Under [#1116](https://github.com/hexide-io/HexIDE/issues/1116), ListBox and every ComboBox style
 SHALL expose code-only `FindString(s [, startIndex])` and `FindStringExact(s [, startIndex])`.
@@ -2020,3 +2086,31 @@ report "Expected: end of statement".
 - **WHEN** Mid, LSet or RSet writes a fixed-length scalar String
 - **THEN** it retains its declared width
 - **AND** both LSet and RSet retain the leftmost characters of an overlong source
+
+### Requirement: LSet between plain-data user-defined types
+
+The interpreter SHALL execute `LSet target = source` between named plain-data UDT variables by
+copying the smaller in-memory size and preserving the target tail, using the layout and encodings
+measured in [#2518](https://github.com/hexide-io/HexIDE/issues/2518) (native and p-code, including
+measuring PR #4241).
+
+#### Scenario: Fields follow the measured in-memory layout
+- **WHEN** a UDT is copied
+- **THEN** fields retain declaration order and align to their size capped at four bytes
+- **AND** Integer and Boolean align to two, and fixed Strings store UTF-16 code units inline
+- **AND** fixed arrays lie inline, a nested UDT is a record of its own, aligned to its largest field and with its size
+  rounded up before the next field, each UDT size rounds up to its largest alignment, and padding starts zero
+- **AND** copied padding remains available to subsequent LSet operations
+- **AND** numbers use little-endian encodings, including Currency's scaled 64-bit integer and Date's Double serial
+
+#### Scenario: A short source preserves the target tail
+- **WHEN** a three-Long target holding 7, 8, 9 receives a one-Long source holding 5
+- **THEN** the target holds 5, 8, 9
+
+#### Scenario: Pointer-containing UDTs are refused at execution
+- **WHEN** either UDT contains a variable String, Variant, dynamic array or Object
+- **THEN** the executed statement raises error 13
+
+#### Scenario: Noncanonical Boolean bits cannot be represented
+- **WHEN** copying bytes would put `01 00` into a Boolean field
+- **THEN** the statement explicitly refuses as not implemented rather than normalising the bits

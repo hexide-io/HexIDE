@@ -268,8 +268,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         byte b => b,
         int i => i,
         long l => l,
-        float f => (decimal)f,
-        double d => (decimal)d,
+        float f => VbNumeric.FloatingToDecimal(f, 7),
+        double d => VbNumeric.FloatingToDecimal(d),
         decimal m => m,
         _ => 0m
     };
@@ -462,9 +462,19 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// </summary>
     public async Task<List<Vb6Value>> EvaluateIntrinsicArgs(string name, VB6Parser.ArgsCallContext? context)
     {
-        if (await NamedCallArgs(context) is { } args)
-            return await VB6BuiltIns.ArrangeIntrinsicArguments(name, args);
         var slots = ArgSlots(context);
+        if (await NamedCallArgs(context) is { } args)
+        {
+            var pointer = name.Equals("StrPtr", StringComparison.OrdinalIgnoreCase) || name.Equals("VarPtr", StringComparison.OrdinalIgnoreCase);
+            var arranged = await VB6BuiltIns.ArrangeIntrinsicArguments(name,
+                pointer ? args.Select(arg => arg with { Deferred = null }).ToArray() : args);
+            if (!pointer)
+                return arranged;
+            // Validate the name first, then retain the operand's storage identity (#4145).
+            if (slots.Count == 1 && slots[0]?.valueStmt() is VB6Parser.VsAssignContext assign)
+                return await EvaluatePointerArgs(name, assign.valueStmt());
+            return arranged;
+        }
         // Input(n, #f): the second argument may be a file number written with its #, `#f` being f's value (#1645).
         if (name.Equals("Input", StringComparison.OrdinalIgnoreCase) && slots.Count == 2 && slots[0] is { } count
             && slots[1]?.valueStmt() is { } file && file.GetText().StartsWith('#'))
@@ -478,29 +488,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             if (slots.Count != 1 || slots[0]?.valueStmt() is not { } pointerOperand)
                 throw new NotImplementedException("Unmeasured pointer argument count (#2622)");
-            var arg = await ResolveByRef(pointerOperand);
-            var state = interpreter.ExecutionContext.State;
-            long identity;
-            if (name.Equals("StrPtr", StringComparison.OrdinalIgnoreCase))
-            {
-                if (arg.Value.Type == Vb6Value.ValueType.String)
-                    identity = PointerIdentities.Of(arg.Value.StringBuffer);
-                else if (arg.Value.Type == Vb6Value.ValueType.Integer)
-                    identity = PointerIdentities.Allocate();
-                else
-                    throw new NotImplementedException("StrPtr conversion is unmeasured (#2622)");
-            }
-            else if (arg.Location is { } location)
-                identity = state.VariableIdentity(location);
-            else if (arg.Ref is { } target)
-                identity = PointerIdentities.Target(target);
-            else if (arg.Value.Type == Vb6Value.ValueType.Integer)
-                identity = PointerIdentities.Allocate();
-            else
-                throw new NotImplementedException("VarPtr temporary is unmeasured (#2622)");
-            var pointerArgs = new VB6BuiltIns.IntrinsicArgumentValues(1) { PointerIdentity = identity };
-            pointerArgs.AddArgument(arg.Value, false);
-            return pointerArgs;
+            return await EvaluatePointerArgs(name, pointerOperand);
         }
         var values = await EvaluateCallArgs(context);
         var result = new VB6BuiltIns.IntrinsicArgumentValues(values.Count);
@@ -601,6 +589,33 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             throw lateBound;
         }
+    }
+
+    private async Task<List<Vb6Value>> EvaluatePointerArgs(string name, VB6Parser.ValueStmtContext pointerOperand)
+    {
+        var arg = await ResolveByRef(pointerOperand);
+        var state = interpreter.ExecutionContext.State;
+        long identity;
+        if (name.Equals("StrPtr", StringComparison.OrdinalIgnoreCase))
+        {
+            if (arg.Value.Type == Vb6Value.ValueType.String)
+                identity = PointerIdentities.Of(arg.Value.StringBuffer);
+            else if (arg.Value.Type == Vb6Value.ValueType.Integer)
+                identity = PointerIdentities.Allocate();
+            else
+                throw new NotImplementedException("StrPtr conversion is unmeasured (#2622)");
+        }
+        else if (arg.Location is { } location)
+            identity = state.VariableIdentity(location);
+        else if (arg.Ref is { } target)
+            identity = PointerIdentities.Target(target);
+        else if (arg.Value.Type == Vb6Value.ValueType.Integer)
+            identity = PointerIdentities.Allocate();
+        else
+            throw new NotImplementedException("VarPtr temporary is unmeasured (#2622)");
+        var pointerArgs = new VB6BuiltIns.IntrinsicArgumentValues(1) { PointerIdentity = identity };
+        pointerArgs.AddArgument(arg.Value, false);
+        return pointerArgs;
     }
 
     // A call's arguments with a named one among them, each named argument left for the call to place and evaluate in
@@ -736,7 +751,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var index = await ResolveSubscripts(await EvaluateCallArgs(call.argsCall(0)));
         try
         {
-            return (ElementAsRead(holder, array, array.GetValue(index)), new ArrayElementRef(array, index, holder.HeldAsVariant));
+            return (ElementAsRead(holder, array, await ReadArrayElement(array, index)), new ArrayElementRef(array, index, holder.HeldAsVariant));
         }
         catch (IndexOutOfRangeException)
         {
@@ -1347,7 +1362,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var later = new LaterGroups(this, groups, procOrArrayCall);
         var whole = await EvaluateCallOrElement(procOrArrayCall, groups[0], later.Evaluate) as Vb6Value?
             ?? throw new NotImplementedException($"indexing {procOrArrayCall.GetText()} is not implemented (#1476)");
-        return IndexAll(whole, await later.Values(), procOrArrayCall);
+        return await IndexAll(whole, await later.Values(), procOrArrayCall);
     }
 
     /// <summary>
@@ -1408,10 +1423,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         }
     }
 
-    private static Vb6Value IndexAll(Vb6Value value, IEnumerable<List<Vb6Value>> groups, Antlr4.Runtime.ParserRuleContext ctx)
+    internal ValueTask<Vb6Value> ReadArrayElement(VBArray array, IReadOnlyList<int> index) =>
+        interpreter.Loading((Array: array, Index: index), static s => s.Array.ReadValue(s.Index));
+
+    private async Task<Vb6Value> IndexAll(Vb6Value value, IEnumerable<List<Vb6Value>> groups, Antlr4.Runtime.ParserRuleContext ctx)
     {
         foreach (var group in groups)
-            value = IndexResult(value, group, ctx);
+            value = await IndexResult(value, group, ctx);
         return value;
     }
 
@@ -1425,13 +1443,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// </list>
     /// An object's own default member is #174's, and Nothing is unmeasured: both are refused.
     /// </summary>
-    internal static Vb6Value IndexResult(Vb6Value value, IReadOnlyList<Vb6Value> indices, Antlr4.Runtime.ParserRuleContext ctx)
+    internal async Task<Vb6Value> IndexResult(Vb6Value value, IReadOnlyList<Vb6Value> indices, Antlr4.Runtime.ParserRuleContext ctx)
     {
         if (value.Value is VBArray array)
         {
             try
             {
-                return ElementAsRead(value, array, array.GetValue(Subscripts(indices)));
+                return ElementAsRead(value, array, await ReadArrayElement(array, Subscripts(indices)));
             }
             catch (IndexOutOfRangeException)
             {
@@ -1612,7 +1630,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var indices = await EvaluateCallArgs(argsCtx, beforeLast);
             try
             {
-                return ElementAsRead(variable, array, array.GetValue(await ResolveSubscripts(indices)));
+                return ElementAsRead(variable, array, await ReadArrayElement(array, await ResolveSubscripts(indices)));
             }
             catch (IndexOutOfRangeException)
             {
@@ -1664,7 +1682,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 var index = await EvaluateCallArgs(argsCtx, beforeLast);
                 var whole = await interpreter.CallProcedure(name, [], currentModule, callerEnv: env, callerFrames: stmtFrames)
                     ?? throw new VBSubOrFunctionNotDefinedException(name);
-                return IndexResult(whole, index, procOrArrayCall);
+                return await IndexResult(whole, index, procOrArrayCall);
             }
             var callArgs = await ResolveCallArgs(argsCtx, beforeLast);
             if (await interpreter.CallProcedure(name, callArgs, currentModule, callerEnv: env, callerFrames: stmtFrames) is { } fnResult)
@@ -1710,13 +1728,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// Object (measured, #1435). Other fields and bindings remain refused.
     /// </para>
     /// </summary>
-    private Vb6Value FieldElement(Vb6Value receiver, VbObject obj, string name, Vb6Value field, List<Vb6Value> indexes,
+    private async Task<Vb6Value> FieldElement(Vb6Value receiver, VbObject obj, string name, Vb6Value field, List<Vb6Value> indexes,
         Antlr4.Runtime.ParserRuleContext ctx)
     {
         if (IsVariantArrayField(obj, name, field))
         {
             if (string.Equals(receiver.DeclaredAs, obj.ClassName, StringComparison.OrdinalIgnoreCase))
-                return IndexResult(field, indexes, ctx);
+                return await IndexResult(field, indexes, ctx);
             if (string.Equals(receiver.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase))
                 throw new VBRunTimeException(ctx, VBStandardError.ObjectNotACollection);
         }
@@ -1823,7 +1841,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                     var index = await EvaluateCallArgs(MemberArgs(member), beforeLast);
                     var whole = await interpreter.RunProcedure(vobj.ClassDef, method, [], vobj.InstanceEnv, variable, stmtFrames)
                         ?? throw new VBSubOrFunctionNotDefinedException(memberName);
-                    return IndexResult(whole, index, ctx);
+                    return await IndexResult(whole, index, ctx);
                 }
                 var callArgs = await ResolveCallArgs(MemberArgs(member), beforeLast);
                 return await interpreter.RunProcedure(vobj.ClassDef, method, callArgs, vobj.InstanceEnv, variable, stmtFrames)
@@ -1837,17 +1855,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                     var index = await EvaluateCallArgs(MemberArgs(member), beforeLast);
                     var whole = await interpreter.RunProcedure(vobj.ClassDef, getter, [], vobj.InstanceEnv, variable, stmtFrames)
                         ?? throw new VBSubOrFunctionNotDefinedException(memberName);
-                    return IndexResult(whole, index, ctx);
+                    return await IndexResult(whole, index, ctx);
                 }
                 var getArgs = await ResolveCallArgs(MemberArgs(member), beforeLast);
                 return await interpreter.RunProcedure(vobj.ClassDef, getter, getArgs, vobj.InstanceEnv, variable, stmtFrames)
                     ?? throw new VBSubOrFunctionNotDefinedException(memberName);
             }
+            interpreter.NoteMemberAccess(vobj, memberName, currentModule.Name, ctx.Start.Line);
             if (!interpreter.TryReadNow(vobj.InstanceEnv, memberName, out var isField, out var fieldVal, out var isFieldNeed))
                 (isField, fieldVal) = await interpreter.ReadVariableAfter(vobj.InstanceEnv, memberName, isFieldNeed!);
             if (isField)
                 return MemberArgs(member) is { } fieldArgs
-                    ? FieldElement(variable, vobj, memberName, fieldVal, await EvaluateCallArgs(fieldArgs), ctx)
+                    ? await FieldElement(variable, vobj, memberName, fieldVal, await EvaluateCallArgs(fieldArgs), ctx)
                     : fieldVal;
             if (vobj.ClassDef.Kind == InterpreterModuleKind.Form
                 && string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
@@ -2186,7 +2205,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // reads and non-array calls are unmeasured here and retain their existing behaviour.
             if (argsCtx != null && v.Value is VBArray
                 && module.PrePass.PublicVariables.Contains(memberName))
-                v = IndexResult(v, await EvaluateCallArgs(argsCtx), ctx);
+                v = await IndexResult(v, await EvaluateCallArgs(argsCtx), ctx);
             return await ThenTheRest(v);
         }
 
@@ -2224,7 +2243,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 static s => s.Bag.TryGet(s.Name, out var value) ? value
                     : throw new VBRunTimeException(s.Context, VBStandardError.MethodOrDataMemberNotFound, s.Name));
             if (MemberArgs(m) is { } args)
-                current = IndexResult(current, await EvaluateCallArgs(args), ctx);
+                current = await IndexResult(current, await EvaluateCallArgs(args), ctx);
         }
         return current;
     }
@@ -2253,7 +2272,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return await ResolveOneMember(current, member, ctx);
         var later = new LaterGroups(this, groups, ctx);
         var whole = await ResolveOneMember(current, member, ctx, later.Evaluate);
-        return IndexAll(whole, await later.Values(), ctx);
+        return await IndexAll(whole, await later.Values(), ctx);
     }
 
     public override async Task<object?> VisitVsAmp(VB6Parser.VsAmpContext context)

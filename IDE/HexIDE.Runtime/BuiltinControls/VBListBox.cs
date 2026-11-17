@@ -50,6 +50,7 @@ public class VBListBox : ListBox
     private bool shiftPressed;
 
     private int? pointerTop;
+    private bool scrollIntoViewOnLayout;
 
     static VBListBox()
     {
@@ -103,6 +104,20 @@ public class VBListBox : ListBox
 
     public VBListBox()
     {
+        // Code and keys scroll synchronously; a queued anchor scroll would undo a later TopIndex (#4229).
+        AutoScrollToSelectedItem = false;
+        LayoutUpdated += (_, _) =>
+        {
+            if (!scrollIntoViewOnLayout || !CanScrollNow())
+                return;
+            scrollIntoViewOnLayout = false;
+            // ListIndex rather than the index chosen: an item added above it since then moves it down.
+            if (ListIndex >= 0)
+            {
+                ScrollIntoView(ListIndex);
+                UpdateLayout();
+            }
+        };
         // Clear leaves a multi-select list's focus at 0 (measured). What RemoveItem does to it is not measured; it is
         // kept on an item while there is one.
         Items.CollectionChanged += (_, e) =>
@@ -177,6 +192,7 @@ public class VBListBox : ListBox
     {
         if (index < 0 || index >= ItemCount)
             throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+        scrollIntoViewOnLayout = false;
         EnsureTopIndexLayout();
         var height = RowHeight();
         if (height <= 0 || Scroll is not { } scroll)
@@ -457,11 +473,29 @@ public class VBListBox : ListBox
     {
         SelectedIndex = index;
         if (index >= 0)
+            ScrollIntoViewFromCode(index);
+        else
+            scrollIntoViewOnLayout = false;
+    }
+
+    private bool CanScrollNow() =>
+        IsEffectivelyVisible && RowHeight() > 0 && Scroll is { Viewport.Height: > 0 };
+
+    /// <summary>
+    /// Brings an item code selected into view, the least it can, before the statement after it runs: inside Click and
+    /// without Scroll (#3986). A MultiSelect list's Selected(i) = True does the same (measured, #4229). A list not laid
+    /// out yet, as in Form_Load, scrolls when it is, unless a TopIndex assignment comes first.
+    /// </summary>
+    private void ScrollIntoViewFromCode(int index)
+    {
+        scrollIntoViewOnLayout = false;
+        if (!CanScrollNow())
         {
-            // Code selection exposes the new top row inside Click, without Scroll (#3986).
-            ScrollIntoView(index);
-            UpdateLayout();
+            scrollIntoViewOnLayout = true;
+            return;
         }
+        ScrollIntoView(index);
+        UpdateLayout();
     }
 
     /// <summary>
@@ -485,6 +519,7 @@ public class VBListBox : ListBox
         {
             Selection.Select(index);
             focusIndex = index;
+            ScrollIntoViewFromCode(index);
         }
         else
             Selection.Deselect(index);

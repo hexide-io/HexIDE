@@ -26,8 +26,9 @@ public sealed record ContributedProjectType(AddinProjectType Type, string AddinI
     /// <summary>
     /// What a project of this type offers: its forms written where its type can render them, and its own file, with
     /// membership and references where that file carries them, where its type has a writer. Never Components, Make or Run.
+    /// A type with a format of its own, which only HexIDE's first-party types have, offers everything, as a .vbp always has.
     /// </summary>
-    public ProjectOffers Offers => ProjectOffers.Nothing with
+    public ProjectOffers Offers => Type.Format is not null ? ProjectOffers.Everything : ProjectOffers.Nothing with
     {
         SetsProperties = Type.ProjectFile is { } properties && properties.Carries.HasFlag(ProjectFileParts.Properties),
         SetsReferences = Type.ProjectFile is { } references && references.Carries.HasFlag(ProjectFileParts.References),
@@ -264,8 +265,11 @@ internal sealed class ContributedFormFormat(ContributedProjectType type) : IForm
 /// </summary>
 public sealed partial class ContributedProjects
 {
-    // HexIDE's own, which no add-in reads in its place.
-    private static readonly string[] OwnPatterns = ["*.vbp", "*.vbg", "*.twinproj"];
+    /// <summary>
+    /// The files HexIDE's own readers read, which a type may take only if it's the reader reserving them. Known from the
+    /// start, so a type registered before VB6's is refused its files as one registered after it is (#3411 slice 10b).
+    /// </summary>
+    internal IReadOnlyList<ProjectFileReservation> Reserved { get; init; } = [Vb6ProjectType.Reservation, ArchiveProjectService.Reservation];
 
     private readonly object _gate = new();
     private readonly List<ContributedProjectType> _types = [];
@@ -298,21 +302,42 @@ public sealed partial class ContributedProjects
         ArgumentNullException.ThrowIfNull(type);
         ArgumentException.ThrowIfNullOrWhiteSpace(type.Title, nameof(type));
         ArgumentException.ThrowIfNullOrWhiteSpace(origin.Id);
-        if (type.OpenAsync is null || type.FileNames is not { Count: > 0 })
+        if (type.OpenAsync is null && type.Format is null || type.FileNames is not { Count: > 0 })
             throw new ArgumentException("A project type needs the files it reads and what reads them.", nameof(type));
+        if (type.GroupFileNames is { Count: > 0 } && type.Format is null)
+            throw new ArgumentException("A project type reads group files only through a format of its own.", nameof(type));
+        // A format runs at every open, save, dirty check, recovery capture and close of the type's projects, which is more
+        // than an add-in has been trusted with so far, so for now only HexIDE's own types may bring one (#3411 slice 10b,
+        // and #4132 for opening it up).
+        if (type.Format is not null && !origin.IsFirstParty)
+        {
+            Log.Warning("Refused the project type {Title} from {Addin}: it has a format of its own, which only a first-party type may have",
+                type.Title, origin.Id);
+            throw new InvalidOperationException(
+                $"{origin.Title} contributes a project type with a format of its own, which only HexIDE's own project types may have.");
+        }
         // Copied, so the names checked below are the names read: a list the add-in changes later changes neither.
         IReadOnlyList<string> names = [.. type.FileNames];
-        foreach (var name in names)
+        IReadOnlyList<string> groupNames = [.. type.GroupFileNames];
+        foreach (var name in names.Concat(groupNames))
             if (!IsFileNameOrPattern(name))
                 throw new ArgumentException($"'{name}' is neither a file name nor a pattern of the form '*.ext'.", nameof(type));
 
-        var contributed = new ContributedProjectType(type with { FileNames = names }, origin.Id, origin.Title);
+        var contributed = new ContributedProjectType(type with { FileNames = names, GroupFileNames = groupNames }, origin.Id,
+            origin.Title);
         lock (_gate)
         {
-            var taken = names.FirstOrDefault(name =>
-                OwnPatterns.Any(own => Overlaps(own, name)) || _types.Any(known => known.Type.FileNames.Any(other => Overlaps(other, name))));
-            if (taken is not null)
-                throw new InvalidOperationException($"{origin.Title} contributes a project type for '{taken}', which another project type reads already.");
+            foreach (var name in names.Concat(groupNames))
+            {
+                // A reservation is its reader's, and only a first-party type of that reader's id may take it.
+                if (Reserved.FirstOrDefault(r => r.Patterns.Any(own => Overlaps(own, name))
+                        && !(origin.IsFirstParty && string.Equals(r.Owner, origin.Id, StringComparison.Ordinal))) is { } reserved)
+                    throw new InvalidOperationException(
+                        $"{origin.Title} contributes a project type for '{name}', which {reserved.Title} reads.");
+                if (_types.Any(known => known.Type.FileNames.Concat(known.Type.GroupFileNames).Any(other => Overlaps(other, name))))
+                    throw new InvalidOperationException(
+                        $"{origin.Title} contributes a project type for '{name}', which another project type reads already.");
+            }
             _types.Add(contributed);
         }
         TypesChanged?.Invoke();
@@ -339,6 +364,32 @@ public sealed partial class ContributedProjects
             return _types.FirstOrDefault(known => known.Type.FileNames.Any(name => Matches(name, fileName)));
     }
 
+    /// <summary>
+    /// The files Open Project offers, in its order: the projects and groups of each type that reads its projects whole, VB6's
+    /// first, then the archives', then the projects of each type an add-in reads (#3411 slice 10b).
+    /// </summary>
+    public IReadOnlyList<string> OpenablePatterns
+    {
+        get
+        {
+            var types = Types;
+            return
+            [
+                .. types.Where(t => t.Type.Format is not null).SelectMany(t => t.Type.FileNames.Concat(t.Type.GroupFileNames)),
+                .. ArchiveProjectService.Reservation.Patterns,
+                .. types.Where(t => t.Type.Format is null).SelectMany(t => t.Type.FileNames),
+            ];
+        }
+    }
+
+    /// <summary>The type whose format reads this project group file, or null when none does.</summary>
+    public ContributedProjectType? FindGroup(string path)
+    {
+        var fileName = Path.GetFileName(path);
+        lock (_gate)
+            return _types.FirstOrDefault(known => known.Type.GroupFileNames.Any(name => Matches(name, fileName)));
+    }
+
     private static bool IsFileNameOrPattern(string name) =>
         !string.IsNullOrWhiteSpace(name) && name.IndexOfAny(Path.GetInvalidFileNameChars().Where(c => c != '*').ToArray()) < 0 &&
         (!name.Contains('*') || PatternForm().IsMatch(name));
@@ -346,7 +397,7 @@ public sealed partial class ContributedProjects
     [GeneratedRegex(@"^\*\.[^*.]+$")]
     private static partial Regex PatternForm();
 
-    private static bool Matches(string nameOrPattern, string fileName) =>
+    internal static bool Matches(string nameOrPattern, string fileName) =>
         nameOrPattern.StartsWith("*.", StringComparison.Ordinal)
             ? fileName.EndsWith(nameOrPattern[1..], StringComparison.OrdinalIgnoreCase)
               && fileName.Length > nameOrPattern.Length - 1

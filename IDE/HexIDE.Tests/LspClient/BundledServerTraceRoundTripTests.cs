@@ -227,11 +227,11 @@ internal static class BundledServer
     {
         string[] candidates =
         [
-            Path.Combine(RepoRoot(), "LspServer", "HexIDE.VbLspServer", "bin", Configuration, "net10.0", ExeName),
+            Path.Combine(RepoRoot(), "LspServer", "HexIDE.VbLspServer", "bin", Configuration, "net11.0", ExeName),
 
             // Also where a desktop build copies it, which is the shape a developer who has run the IDE will
             // have. Same configuration, for the reason above.
-            Path.Combine(RepoRoot(), "IDE", "HexIDE.Desktop", "bin", Configuration, "net10.0", ExeName),
+            Path.Combine(RepoRoot(), "IDE", "HexIDE.Desktop", "bin", Configuration, "net11.0", ExeName),
         ];
 
         return Array.Find(candidates, File.Exists);

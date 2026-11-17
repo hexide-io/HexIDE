@@ -68,6 +68,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private readonly ExecutionEnvironment rootEnv;
     private readonly string code;
     private PrePass prepass;
+    internal bool StartupMainReturned { get; private set; }
+
+    // Weak entries preserve creation order without retaining objects after their last VB reference.
+    private readonly List<WeakReference<VbObject>> createdClasses = new();
+    private int compactCreatedClassesAt = MinCompactCreatedClasses;
+    private const int MinCompactCreatedClasses = 1024;
+
+    /// <summary>How many created instances are still tracked for the end of a Sub Main program (#1490).</summary>
+    internal int TrackedInstanceCount => createdClasses.Count;
 
     /// <summary>Classes whose <c>Implements</c> conformance has already been verified — the check is per class,
     /// not per instance.</summary>
@@ -134,6 +143,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         Vb6Value result;
         if (member.Kind == PrePass.DefaultMemberKind.Variable)
         {
+            NoteMemberAccess(obj, member.Name);
             var (found, field) = await ReadVariable(obj.InstanceEnv, member.Name);
             if (!found)
                 throw new NotImplementedException("Default member storage is unavailable (#174)");
@@ -568,7 +578,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var instanceEnv = classDef.ModuleEnv.Clone();
         foreach (var block in classDef.PrePass.topLevelBlocks)
             await new StatementExecutor(this, instanceEnv, classDef).Execute(block);
-        var instance = new VbObject(classDef, instanceEnv);
+        var instance = new VbObject(classDef, instanceEnv) { Interpreter = this };
+        createdClasses.Add(new WeakReference<VbObject>(instance));
+        if (createdClasses.Count >= compactCreatedClassesAt)
+        {
+            // A long-running program makes and drops objects without end. Drop the entries whose object has terminated or
+            // gone, keeping creation order, and let the list double before the next pass, so the cost stays amortised.
+            createdClasses.RemoveAll(e => !e.TryGetTarget(out var o) || o.Terminated);
+            compactCreatedClassesAt = Math.Max(MinCompactCreatedClasses, createdClasses.Count * 2);
+        }
         if (classDef.PrePass.Procedures.TryGetValue("Class_Initialize", out var init))
         {
             // The object under construction is held while Class_Initialize runs, as the New expression holds it in
@@ -588,6 +606,36 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             }
         }
         return instance;
+    }
+
+    // #1490: retain the live classes while releasing module and Static storage, then drop those holds in
+    // reverse creation order. A shared object still terminates only when its last reference goes.
+    internal async Task ReleaseProgramObjects()
+    {
+        var instances = new List<VbObject>();
+        foreach (var entry in createdClasses)
+            if (entry.TryGetTarget(out var instance) && !instance.Terminated && instance.RefCount > 0)
+            {
+                AddRef(Vb6Value.NewObject(instance));
+                instances.Add(instance);
+            }
+        var slots = new HashSet<int>(ExecutionContext.State.ModuleStatics.InSourceOrder());
+        foreach (var module in Modules.All)
+            if (module.Kind == InterpreterModuleKind.Standard)
+                foreach (var slot in module.ModuleEnv.variableToLocation.Values)
+                    if (!predeclaredSlots.Contains(slot) && ExecutionContext.State.DefaultFormOf(slot) is null)
+                        slots.Add(slot);
+        foreach (var slot in slots)
+        {
+            var value = ExecutionContext.State[slot];
+            if (value.Value is not (VbObject or VbCollection or VBArray or VbUdt or LibraryObject))
+                continue;
+            ExecutionContext.State[slot] = Vb6Value.Nothing;
+            await ReleaseRef(value);
+        }
+        for (var i = instances.Count - 1; i >= 0; i--)
+            await ReleaseRef(Vb6Value.NewObject(instances[i]));
+        createdClasses.Clear();
     }
 
     // ---- Class_Terminate reference counting (interpreter-advanced Phase 4.2) ----
@@ -668,7 +716,20 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // A form's hook is its own Form_Terminate, raised once it has unloaded and is released (#973).
         var hook = o.ClassDef.Kind == InterpreterModuleKind.Form ? "Form_Terminate" : "Class_Terminate";
         if (o.ClassDef.PrePass.Procedures.TryGetValue(hook, out var term))
-            await RunProcedure(o.ClassDef, term, [], o.InstanceEnv, Vb6Value.NewObject(o));
+        {
+            var previous = terminatingInstance.Value;
+            var scope = new TerminatingInstance(o, previous);
+            terminatingInstance.Value = scope;
+            try
+            {
+                await RunProcedure(o.ClassDef, term, [], o.InstanceEnv, Vb6Value.NewObject(o));
+            }
+            finally
+            {
+                scope.Active = false;
+                terminatingInstance.Value = previous;
+            }
+        }
         // Auto-unadvise (Phase 5): a terminating listener drops its `WithEvents` connections from their sources
         // (VB6 releases the connection point on Terminate), so no source retains a sink into a dead instance —
         // the dispatch-time Terminated skip is a safety net, this is the real cleanup.
@@ -681,7 +742,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // never reaches this path (its count never hit zero); a shared field just decrements. (Inter-field
         // teardown order is unpinned — Dictionary order — no oracle constraint yet.)
         foreach (var slot in o.InstanceEnv.variableToLocation.Values)
-            if (!predeclaredSlots.Contains(slot))   // shared program names are not this instance's fields (#2555)
+            if (!predeclaredSlots.Contains(slot) && ExecutionContext.State.DefaultFormOf(slot) is null)
+                // Shared program names are not this instance's fields (#2555, #1490).
                 await ReleaseRef(ExecutionContext.State[slot]);
         // Then its procedures' Statics, in the order the module declares them (measured, #1491).
         if (o.Statics is { } statics)
@@ -1072,6 +1134,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             await RunModuleDeclarations(primaryModule);
 
             var statementExecutor = new StatementExecutor(this, rootEnv, primaryModule);
+            topLevelExecutor = statementExecutor;
             foreach (var block in primaryModule.PrePass.topLevelBlocks)
                 await statementExecutor.Execute(block, moduleDeclarations: false);
         }
@@ -1081,6 +1144,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
         finally
         {
+            topLevelExecutor = null;
             if (Forms is null)
                 await ReleasePredeclaredInstances();
         }
@@ -1120,6 +1184,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </remarks>
     public async Task RunStartupSubMain()
     {
+        StartupMainReturned = false;
         var startup = FindStartupSubMain();
 
         try
@@ -1137,6 +1202,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             await RunModuleDeclarations();
 
             await RunProcedure(startup.Module, startup.Proc, Array.Empty<CallArg>(), isEntry: true);
+            StartupMainReturned = true;
         }
         catch (Debugging.StopExecutionSignal)
         {
@@ -1260,14 +1326,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// <see cref="ReadVariable"/> only when it returns false, so an ordinary read costs what it did before forms could
     /// be made on use.
     /// </summary>
-    internal bool TryReadNow(ExecutionEnvironment env, string name, out bool found, out Vb6Value value, out Exception? need)
+    internal bool TryReadNow(ExecutionEnvironment env, string name, out bool found, out Vb6Value value, out Exception? need, bool trackMemberAccess = true)
     {
         try
         {
             if (SuppressImplicitDeclaration && env.TryGetVariableLocation(name, out var location)
                 && !ExecutionContext.State.TryRead(location, out _))
                 throw new Debugging.ImmediateEvalException($"Execution slot {location} is out of scope.");
-            found = ExecutionContext.TryGetVariable(env, name, out value);
+            found = ExecutionContext.TryGetVariable(env, name, out value, trackMemberAccess);
             need = null;
             return true;
         }
@@ -1326,7 +1392,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             ? new Vb6Value(NewCollection())
             : Vb6Value.NewObject(await NewObject(need.AutoNew.ClassName));
         AddRef(made);
-        if (need.Field is { } field)
+        if (need.Element is { } element)
+        {
+            if (element.Read().Value is null) element.Write(made);
+            else await ReleaseRef(made);
+        }
+        else if (need.Field is { } field)
             field.Write(made);
         else if (ExecutionContext.State[need.Location] is { Value: null })
             ExecutionContext.State[need.Location] = made;
@@ -1377,7 +1448,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         if (form.Kind != InterpreterModuleKind.Form)
             throw new ArgumentException($"{form.Name} is not a form module", nameof(form));
-        var instance = new VbObject(form, form.ModuleEnv.Clone());
+        var instance = new VbObject(form, form.ModuleEnv.Clone()) { Interpreter = this };
         var reference = Vb6Value.NewObject(instance);
         SeedProgramGlobal(form.Name, () => reference);
         if (form.ModuleEnv.TryGetVariableLocation(form.Name, out var slot))
@@ -1565,6 +1636,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         ExecutionEnvironment? baseEnv = null, Vb6Value? me = null, Stack<List<Vb6Value>>? callerFrames = null,
         bool isEntry = false)
     {
+        if (me?.Value is VbObject accessedInstance)
+            NoteMemberAccess(accessedInstance, proc.Name);
         // Immediate-window evaluation forbids running USER code — its statements would hit the paused pause-gate on
         // this (UI) thread and deadlock, and mutate program state. RunProcedure is the single sink every user
         // proc/method/Property-Get body flows through, so guarding here covers bare calls, instance methods,

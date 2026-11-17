@@ -61,6 +61,14 @@ public class ToolDescriptionTextTests
     }
 
     [Fact]
+    public void External_evaluate_describes_printed_output_response_text_and_adapter_refusals()
+    {
+        ToolSource.Tools.Single(t => t.Name == "evaluate").Description.Should()
+            .Contain("printed output followed by response text")
+            .And.Contain("success: false").And.Contain("message as error");
+    }
+
+    [Fact]
     public void A_description_is_read_past_a_constant_it_appends()
     {
         // interact, type_text and press_key end with + ProgramWaitNote, which was neither measured nor checked.

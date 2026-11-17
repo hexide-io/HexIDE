@@ -6,6 +6,8 @@ namespace HexIDE.Runtime.Tests;
 public class CashFlowIntrinsicTests : BaseVBTestFixture
 {
     [Theory]
+    // Named call equals its measured positional twin (#4145).
+    [InlineData("NPV(ValueArray := a, Rate := 0.1)", "409C45757D31FA2E", 0)]
     [InlineData("NPV(0.1, a)", "409C45757D31FA2E", 0)]
     [InlineData("NPV(0, a)", "40B3880000000000", 0)]
     [InlineData("NPV(-1, a)", "", 5)]
@@ -45,7 +47,6 @@ public class CashFlowIntrinsicTests : BaseVBTestFixture
     [InlineData("NPV(0.1, Array(1, 2))")]
     [InlineData("NPV(0.1, 42)")]
     [InlineData("NPV(0.1, matrix)")]
-    [InlineData("NPV(Rate := 0.1, ValueArray := a)")]
     public async Task Unsupported_cash_flow_calls_refuse(string expression)
     {
         var run = () => Run($"""

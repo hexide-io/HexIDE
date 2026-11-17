@@ -21,6 +21,12 @@ public partial class TranslationRowViewModel
     public bool IsProtected => HexIDE.Localization.BrandText.ProtectedKeys.Contains(Key);
 
     /// <summary>The key of the message that says why <see cref="IsProtected"/> holds, or null when it doesn't.</summary>
+    /// <summary>
+    /// True for what tells a person whether to trust an add-in (#4121). A profile can't change these lines, but the
+    /// user's own translation can, so the row stays editable and its tooltip says why a profile's text never shows.
+    /// </summary>
+    public bool IsProtectedFromProfiles => HexIDE.Localization.BrandText.TrustVerdictKeys.Contains(Key);
+
     public string? ProtectedReasonKey => !IsProtected ? null
         : Key == HexIDE.Localization.BrandText.UpstreamCreditsKey ? "Str.TranslationEditor.ProtectedCredits"
         : "Str.TranslationEditor.ProtectedTrust";

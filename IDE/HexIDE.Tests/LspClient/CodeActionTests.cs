@@ -29,6 +29,18 @@ public class CodeActionTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task KindFilterAndActionKindsSurviveTheWire()
+    {
+        peer.Actions = """[{"title":"Sort","kind":"source.sortMembers","data":{"id":42}},{"title":"Fix","diagnostics":[{}]}]""";
+        var sut = await Connect();
+        var actions = await sut.RequestCodeActionsAsync("file:///a.bas", Range, [], ["source"], TestContext.Current.CancellationToken);
+        peer.Request!.Value.GetProperty("context").GetProperty("only").EnumerateArray().Select(v => v.GetString()).Should().Equal("source");
+        peer.Request.Value.GetProperty("range").Deserialize<HexIDE.Lsp.Messages.Range>().Should().Be(Range);
+        actions[0].Kind.Should().Be("source.sortMembers");
+        actions[1].IsQuickFix.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task DiagnosticsAndOpaqueDataReachTheServerUnchanged()
     {
         var sut = await Connect();
@@ -55,7 +67,7 @@ public class CodeActionTests : IAsyncDisposable
         caps.GetProperty("dataSupport").GetBoolean().Should().BeTrue();
         caps.GetProperty("disabledSupport").GetBoolean().Should().BeTrue();
         caps.GetProperty("codeActionLiteralSupport").GetProperty("codeActionKind").GetProperty("valueSet")
-            .EnumerateArray().Select(v => v.GetString()).Should().Contain("quickfix");
+            .EnumerateArray().Select(v => v.GetString()).Should().Equal("", "quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports", "source.fixAll");
         caps.GetProperty("resolveSupport").GetProperty("properties").EnumerateArray().Select(v => v.GetString()).Should().Equal("edit");
     }
 
