@@ -26,6 +26,7 @@
     "Str.Lsp.ServerMessage": "Kielipalvelin: {0}",
     "Str.Lsp.ServerError": "Kielipalvelimen virhe: {0}",
     "Str.Lsp.EditNotApplied": "Palvelimen muokkausta ei otettu käyttöön: {0}",
+    "Str.Lsp.EditedByCommand": "Muokkaaja {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE ottaa palvelimen muokkaukset käyttöön vain käyttäjän käynnistämän komennon suorituksen aikana.",
     "Str.Lsp.NoWorkspaceEditor": "Työtilan editoria ei ole käytettävissä.",
     "Str.Menu.Edit.CallHierarchy": "Ku_tsuhierarkia",

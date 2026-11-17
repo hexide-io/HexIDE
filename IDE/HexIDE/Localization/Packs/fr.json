@@ -51,6 +51,7 @@
     "Str.Lsp.ServerMessage": "Serveur de langage : {0}",
     "Str.Lsp.ServerError": "Erreur du serveur de langage : {0}",
     "Str.Lsp.EditNotApplied": "Modification du serveur non appliquée : {0}",
+    "Str.Lsp.EditedByCommand": "Modifié par {0} : {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE applique les modifications d’un serveur uniquement pendant l’exécution d’une commande lancée par l’utilisateur.",
     "Str.Lsp.NoWorkspaceEditor": "Aucun éditeur d’espace de travail n’est disponible.",
     "Str.Menu.Edit.CallHierarchy": "_Hiérarchie des appels",

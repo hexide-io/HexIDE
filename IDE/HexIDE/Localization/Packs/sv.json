@@ -26,6 +26,7 @@
     "Str.Lsp.ServerMessage": "Språkserver: {0}",
     "Str.Lsp.ServerError": "Språkserverfel: {0}",
     "Str.Lsp.EditNotApplied": "Serverändringen tillämpades inte: {0}",
+    "Str.Lsp.EditedByCommand": "Redigerat av {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE tillämpar bara en servers ändringar medan ett kommando som användaren startat körs.",
     "Str.Lsp.NoWorkspaceEditor": "Ingen redigerare för arbetsytan är tillgänglig.",
     "Str.Menu.Edit.CallHierarchy": "Anro_pshierarki",

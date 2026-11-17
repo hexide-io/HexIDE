@@ -178,6 +178,9 @@ public record ShowMessageParams(
     public bool IsEditRefusal { get; init; }
 
     [JsonIgnore]
+    public string? CommandTitle { get; init; }
+
+    [JsonIgnore]
     public string? ServerDisplayName { get; init; }
 }
 

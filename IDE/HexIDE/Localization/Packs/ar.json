@@ -51,6 +51,7 @@
     "Str.Lsp.ServerMessage": "خادم اللغة: {0}",
     "Str.Lsp.ServerError": "خطأ في خادم اللغة: {0}",
     "Str.Lsp.EditNotApplied": "لم يُطبّق تعديل الخادم: {0}",
+    "Str.Lsp.EditedByCommand": "تم التعديل بواسطة {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "يطبّق HexIDE تعديلات الخادم فقط أثناء تنفيذ أمر بدأه المستخدم.",
     "Str.Lsp.NoWorkspaceEditor": "لا يتوفر محرر لمساحة العمل.",
     "Str.Menu.Edit.CallHierarchy": "التسلسل الهرمي للاستدعاءات",

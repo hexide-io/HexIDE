@@ -85,6 +85,7 @@
     "Str.Lsp.ServerMessage": "שרת שפה: {0}",
     "Str.Lsp.ServerError": "שגיאת שרת שפה: {0}",
     "Str.Lsp.EditNotApplied": "עריכת השרת לא הוחלה: {0}",
+    "Str.Lsp.EditedByCommand": "נערך על ידי {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE מחיל עריכות של שרת רק בזמן הפעלת פקודה שהמשתמש יזם.",
     "Str.Lsp.NoWorkspaceEditor": "אין עורך זמין לסביבת העבודה.",
     "Str.Menu.Edit.CallHierarchy": "היררכיית קריאות",

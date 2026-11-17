@@ -60,6 +60,7 @@
     "Str.Lsp.ServerMessage": "Nyelvi kiszolgáló: {0}",
     "Str.Lsp.ServerError": "Nyelvi kiszolgáló hibája: {0}",
     "Str.Lsp.EditNotApplied": "A kiszolgáló módosítása nem lett alkalmazva: {0}",
+    "Str.Lsp.EditedByCommand": "Szerkesztette: {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "A HexIDE csak a felhasználó által indított parancs futása közben alkalmazza a kiszolgáló módosításait.",
     "Str.Lsp.NoWorkspaceEditor": "Nem érhető el munkaterület-szerkesztő.",
     "Str.Menu.Edit.CallHierarchy": "H_ívási hierarchia",

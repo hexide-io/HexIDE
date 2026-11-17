@@ -832,11 +832,90 @@ public class ServerApplyEditTests : IAsyncDisposable
         b.IsModified.Should().BeTrue();
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task ClaimedCommandEditsUseCheckedSnapshotAndCloseWithHandler(bool typeDuringHandler, bool action)
+    {
+        var connection = await ConnectAsync();
+        var a = Open(first);
+        await a.FlushDocumentAsync();
+        var before = a.Document.Text;
+        a.Document.UndoStack.ClearAll();
+        var edit = new WorkspaceEdit(new() { [UriOf(first)] = TwoEdits(a.Document) });
+        ApplyWorkspaceEditResult? answer = null;
+        localization.GetString("Str.Lsp.EditedByCommand").Returns("Edited by {0}: {1}");
+        using var reporter = new LanguageServerMessageReporter(connection, status, localization);
+        connection.ClaimCommands(new Dictionary<string, HexIDE.Addins.AddinClientCommand>
+        {
+            ["test.claimed"] = async (_, ct) =>
+            {
+                if (typeDuringHandler)
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+                    {
+                        a.Document.Insert(a.Document.TextLength, "' typed during command\r\n");
+                        await a.FlushDocumentAsync();
+                    });
+                answer = await connection.ApplyClaimedEditAsync(edit, ct);
+            },
+        });
+        if (action)
+        {
+            server.ActionCommand = "test.claimed";
+            var offered = (await connection.RequestCodeActionsAsync(UriOf(first), new(new(1, 0), new(1, 1)), [], timeout.Token)).Single();
+            (await a.ApplyCodeActionAsync(offered, timeout.Token)).Should().BeNull();
+        }
+        else await a.RunCodeLensAsync(new Command("Extract Method", "test.claimed"));
+        answer.Should().NotBeNull();
+        answer!.Applied.Should().Be(!typeDuringHandler);
+        if (typeDuringHandler)
+        {
+            answer.FailureReason.Should().Contain("changed since the server read it");
+            a.Document.Text.Should().Contain("Sub Greet()");
+        }
+        else
+        {
+            a.IsModified.Should().BeTrue();
+            status.Received().SetTemporaryMessage(action ? "Edited by vb6: Edit" : "Edited by vb6: Extract Method", TimeSpan.FromSeconds(5));
+            AssertUndoRedo(a.Document, before);
+        }
+        var outside = await connection.ApplyClaimedEditAsync(edit, timeout.Token);
+        outside.Applied.Should().BeFalse();
+        outside.FailureReason.Should().Contain("command the user started");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ClaimedCommandFailureShowsOnlyItsMessage(bool lens)
+    {
+        var connection = await ConnectAsync();
+        var a = Open(first);
+        connection.ClaimCommands(new Dictionary<string, HexIDE.Addins.AddinClientCommand>
+        {
+            ["test.claimed"] = (_, _) => throw new InvalidOperationException("add-in message"),
+        });
+        if (lens)
+        {
+            await a.RunCodeLensAsync(new Command("Fail", "test.claimed"));
+            status.Received().SetTemporaryMessage("add-in message", TimeSpan.FromSeconds(10));
+        }
+        else
+        {
+            server.ActionCommand = "test.claimed";
+            var action = (await connection.RequestCodeActionsAsync(UriOf(first), new(new(1, 0), new(1, 1)), [], timeout.Token)).Single();
+            (await a.ApplyCodeActionAsync(action, timeout.Token)).Should().Be("add-in message");
+        }
+    }
+
     private sealed class EditServer
     {
         public JsonRpc Rpc = null!;
         public JsonElement InitializeParams;
         public JsonElement EditAnswer;
+        public string ActionCommand = "test.edit";
         public Func<Task<JsonElement>>? DuringCommand;
         public Func<Task<WorkspaceEdit>>? DuringRename;
         public readonly TaskCompletionSource TypedChange = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -860,7 +939,7 @@ public class ServerApplyEditTests : IAsyncDisposable
         [JsonRpcMethod("textDocument/codeLens", UseSingleObjectParameterDeserialization = true)]
         public JsonElement Lenses(JsonElement p) => JsonDocument.Parse("""[{"range":{"start":{"line":1,"character":0},"end":{"line":1,"character":0}},"command":{"title":"Edit","command":"test.edit"}}]""").RootElement.Clone();
         [JsonRpcMethod("textDocument/codeAction", UseSingleObjectParameterDeserialization = true)]
-        public JsonElement Actions(JsonElement p) => JsonDocument.Parse("""[{"title":"Edit","command":"test.edit"}]""").RootElement.Clone();
+        public JsonElement Actions(JsonElement p) => JsonSerializer.SerializeToElement(new[] { new { title = "Edit", command = ActionCommand } });
         [JsonRpcMethod("textDocument/rename", UseSingleObjectParameterDeserialization = true)]
         public Task<WorkspaceEdit> Rename(JsonElement p) => DuringRename!();
         [JsonRpcMethod("workspace/executeCommand", UseSingleObjectParameterDeserialization = true)]

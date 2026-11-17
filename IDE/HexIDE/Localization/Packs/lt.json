@@ -60,6 +60,7 @@
     "Str.Lsp.ServerMessage": "Kalbos serveris: {0}",
     "Str.Lsp.ServerError": "Kalbos serverio klaida: {0}",
     "Str.Lsp.EditNotApplied": "Serverio pakeitimas nepritaikytas: {0}",
+    "Str.Lsp.EditedByCommand": "Redagavo {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE taiko serverio pakeitimus tik vykdant naudotojo paleistą komandą.",
     "Str.Lsp.NoWorkspaceEditor": "Nėra pasiekiamo darbo srities redaktoriaus.",
     "Str.Menu.Edit.CallHierarchy": "Iškvi_etimų hierarchija",

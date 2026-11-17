@@ -934,13 +934,24 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // Identity matters: two servers can return equal ranges and data with different meanings.
     // Weak keys let discarded document/viewport results release their connection provenance.
     private readonly ConditionalWeakTable<CodeLens, ILspClient> _codeLensOwners = new();
+    private readonly ConditionalWeakTable<Command, ILspClient> _lensCommandOwners = new();
+
+    public async Task ExecuteCodeLensCommandAsync(Command command, CancellationToken cancellationToken = default)
+    {
+        if (_lensCommandOwners.TryGetValue(command, out var client) && client.IsRunning
+            && _entries.Any(e => ReferenceEquals(e.Client, client)))
+            await client.ExecuteCodeLensCommandAsync(command, cancellationToken);
+    }
 
     public Task<CodeLens[]> RequestCodeLensesAsync(string uri, CancellationToken ct = default) =>
         GatherAsync(uri, async client =>
         {
             var lenses = await client.RequestCodeLensesAsync(uri, ct);
             foreach (var lens in lenses)
+            {
                 _codeLensOwners.GetValue(lens, _ => client);
+                if (lens.Command is { } command) _lensCommandOwners.GetValue(command, _ => client);
+            }
             return lenses;
         }, ct);
 
@@ -949,7 +960,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         if (ct.IsCancellationRequested || !_codeLensOwners.TryGetValue(lens, out var client)
             || !client.IsRunning || !_entries.Any(e => ReferenceEquals(e.Client, client))) return null;
         var resolved = await client.ResolveCodeLensAsync(lens, ct);
-        if (resolved is not null) _codeLensOwners.GetValue(resolved, _ => client);
+        if (resolved is not null)
+        {
+            _codeLensOwners.GetValue(resolved, _ => client);
+            if (resolved.Command is { } command) _lensCommandOwners.GetValue(command, _ => client);
+        }
         return resolved;
     }
 

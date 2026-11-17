@@ -26,6 +26,7 @@
     "Str.Lsp.ServerMessage": "Jezikovni strežnik: {0}",
     "Str.Lsp.ServerError": "Napaka jezikovnega strežnika: {0}",
     "Str.Lsp.EditNotApplied": "Sprememba strežnika ni bila uveljavljena: {0}",
+    "Str.Lsp.EditedByCommand": "Uredil {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE uveljavi spremembe strežnika samo med izvajanjem ukaza, ki ga je zagnal uporabnik.",
     "Str.Lsp.NoWorkspaceEditor": "Na voljo ni nobenega urejevalnika delovnega prostora.",
     "Str.Menu.Edit.CallHierarchy": "Hi_erarhija klicev",

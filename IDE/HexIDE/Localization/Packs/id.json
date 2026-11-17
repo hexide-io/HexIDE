@@ -60,6 +60,7 @@
     "Str.Lsp.ServerMessage": "Server bahasa: {0}",
     "Str.Lsp.ServerError": "Kesalahan server bahasa: {0}",
     "Str.Lsp.EditNotApplied": "Suntingan server tidak diterapkan: {0}",
+    "Str.Lsp.EditedByCommand": "Diedit oleh {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE hanya menerapkan suntingan server saat perintah yang dimulai pengguna sedang berjalan.",
     "Str.Lsp.NoWorkspaceEditor": "Tidak ada editor ruang kerja yang tersedia.",
     "Str.Menu.Edit.CallHierarchy": "Hi_erarki Panggilan",
