@@ -27,6 +27,21 @@ A VB6 developer expects the file on disk to be what they last saved. A backup el
 - **WHEN** the developer works in a new project and saves nothing
 - **THEN** the text of each of its documents is backed up
 
+### Requirement: Pending project-file text SHALL be recovered as an edit
+The IDE SHALL capture a modified VB6 `.vbp` tab's text separately from the project model's rendered file,
+even when the project has no other unsaved work. Restoring SHALL open that text through the project-file editor,
+marked modified, without writing the file or applying settings. Saving the tab SHALL use the existing project-file
+save transaction and its conflict and unsaved-change questions. An edit already held on disk SHALL NOT be offered.
+Records without pending project-file text SHALL continue to restore their documents as before.
+
+#### Scenario: Recovering only project-file typing
+- **WHEN** a run ends uncleanly with only a modified `.vbp` tab
+- **THEN** recovery offers the text and restores it in a modified project-file tab with the disk bytes unchanged
+
+#### Scenario: Project without a file
+- **WHEN** the project has no file
+- **THEN** it has no project-file tab and its existing recovery behaviour is unchanged
+
 ### Requirement: The backup SHALL stay private to the machine and the user
 The private store SHALL live in the user's local, non-roaming application data, or under the user-data directory
 named at start-up when one is. It SHALL NOT be written in the project's folder or in its user sidecar. Each run's

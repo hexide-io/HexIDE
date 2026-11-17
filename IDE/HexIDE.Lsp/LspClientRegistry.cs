@@ -122,6 +122,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private readonly DiagnosticLifecycle _diagnosticLifecycle;
 
     public event EventHandler? CodeLensRefreshRequested;
+    public event EventHandler? InlayHintRefreshRequested;
+    public event EventHandler? SemanticTokensRefreshRequested;
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<string>? DocumentRetired;
     public event EventHandler<ShowMessageParams>? MessageShown;
@@ -290,6 +292,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             if (e.Client is not { } client) continue;
             client.DiagnosticsPublished -= OnInnerDiagnostics;
             client.CodeLensRefreshRequested -= OnInnerCodeLensRefresh;
+            client.InlayHintRefreshRequested -= OnInnerInlayHintRefresh;
+            client.SemanticTokensRefreshRequested -= OnInnerSemanticTokensRefresh;
             client.MessageShown -= OnInnerMessage;
             client.MessageLogged -= OnInnerLogMessage;
             client.TraceReceived -= OnInnerTrace;
@@ -712,6 +716,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDefinitionAsync(uri, position, ct), ct);
 
+    public bool HandlesRefresh(string uri, object? sender) =>
+        StartedClaimantsFor(uri).Any(client => ReferenceEquals(client, sender));
+
     public bool SupportsCapability(string uri, string capability) =>
         ClaimantsFor(uri, IsProjectMember(uri)).Any(e =>
             e.Client is { IsRunning: true } client && client.SupportsCapability(uri, capability));
@@ -739,6 +746,20 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             .Select(d => d.Diagnostic).ToArray();
         if (ownDiagnostics.Length == 0) return [];
         var actions = await client.RequestCodeActionsAsync(uri, ownDiagnostics[0].Range, ownDiagnostics, ct);
+        var name = _entries.First(e => ReferenceEquals(e.Client, client)).Registration.DisplayName;
+        return actions.Select(action => action with { Server = owner, ServerDisplayName = name }).ToArray();
+    }, ct);
+
+    public Task<OfferedCodeAction[]> RequestCodeActionsAsync(string uri, HexIDE.Lsp.Messages.Range range, Diagnostic[] diagnostics,
+        string[]? only, CancellationToken ct = default) => GatherAsync(uri, async client =>
+    {
+        if (!ServerCapabilities.Supports(client.AdvertisedCapabilities, "codeActionProvider")) return [];
+        var owner = OwnerOf(client);
+        var ownDiagnostics = _diagnostics.Snapshot()
+            .Where(d => d.Owner == owner && LspDocumentUri.AreSame(d.Uri, uri)
+                && diagnostics.Any(candidate => ReferenceEquals(candidate, d.Diagnostic)))
+            .Select(d => d.Diagnostic).ToArray();
+        var actions = await client.RequestCodeActionsAsync(uri, range, ownDiagnostics, only, ct);
         var name = _entries.First(e => ReferenceEquals(e.Client, client)).Registration.DisplayName;
         return actions.Select(action => action with { Server = owner, ServerDisplayName = name }).ToArray();
     }, ct);
@@ -927,13 +948,24 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // Identity matters: two servers can return equal ranges and data with different meanings.
     // Weak keys let discarded document/viewport results release their connection provenance.
     private readonly ConditionalWeakTable<CodeLens, ILspClient> _codeLensOwners = new();
+    private readonly ConditionalWeakTable<Command, ILspClient> _lensCommandOwners = new();
+
+    public async Task ExecuteCodeLensCommandAsync(Command command, CancellationToken cancellationToken = default)
+    {
+        if (_lensCommandOwners.TryGetValue(command, out var client) && client.IsRunning
+            && _entries.Any(e => ReferenceEquals(e.Client, client)))
+            await client.ExecuteCodeLensCommandAsync(command, cancellationToken);
+    }
 
     public Task<CodeLens[]> RequestCodeLensesAsync(string uri, CancellationToken ct = default) =>
         GatherAsync(uri, async client =>
         {
             var lenses = await client.RequestCodeLensesAsync(uri, ct);
             foreach (var lens in lenses)
+            {
                 _codeLensOwners.GetValue(lens, _ => client);
+                if (lens.Command is { } command) _lensCommandOwners.GetValue(command, _ => client);
+            }
             return lenses;
         }, ct);
 
@@ -942,7 +974,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         if (ct.IsCancellationRequested || !_codeLensOwners.TryGetValue(lens, out var client)
             || !client.IsRunning || !_entries.Any(e => ReferenceEquals(e.Client, client))) return null;
         var resolved = await client.ResolveCodeLensAsync(lens, ct);
-        if (resolved is not null) _codeLensOwners.GetValue(resolved, _ => client);
+        if (resolved is not null)
+        {
+            _codeLensOwners.GetValue(resolved, _ => client);
+            if (resolved.Command is { } command) _lensCommandOwners.GetValue(command, _ => client);
+        }
         return resolved;
     }
 
@@ -1252,6 +1288,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         if (e.Client is not { } client) return;
         client.DiagnosticsPublished -= OnInnerDiagnostics;
         client.CodeLensRefreshRequested -= OnInnerCodeLensRefresh;
+        client.InlayHintRefreshRequested -= OnInnerInlayHintRefresh;
+        client.SemanticTokensRefreshRequested -= OnInnerSemanticTokensRefresh;
         client.MessageShown -= OnInnerMessage;
         client.MessageLogged -= OnInnerLogMessage;
         client.TraceReceived -= OnInnerTrace;
@@ -1462,6 +1500,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                 {
                     client.DiagnosticsPublished += OnInnerDiagnostics;
                     client.CodeLensRefreshRequested += OnInnerCodeLensRefresh;
+                    client.InlayHintRefreshRequested += OnInnerInlayHintRefresh;
+                    client.SemanticTokensRefreshRequested += OnInnerSemanticTokensRefresh;
                     client.MessageShown += OnInnerMessage;
                     client.ProgressReceived += OnInnerProgress;
                     client.MessageLogged += OnInnerLogMessage;
@@ -1484,6 +1524,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                 e.LastAttempt = client.LastAttempt;
                 client.DiagnosticsPublished -= OnInnerDiagnostics;
                 client.CodeLensRefreshRequested -= OnInnerCodeLensRefresh;
+                client.InlayHintRefreshRequested -= OnInnerInlayHintRefresh;
+                client.SemanticTokensRefreshRequested -= OnInnerSemanticTokensRefresh;
                 client.MessageShown -= OnInnerMessage;
                 client.MessageLogged -= OnInnerLogMessage;
                 client.TraceReceived -= OnInnerTrace;
@@ -1602,6 +1644,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             ServerDisplayName = _entries.FirstOrDefault(e => ReferenceEquals(e.Client, sender))?.Registration.DisplayName
                 ?? p.ServerDisplayName,
         });
+
+    private void OnInnerInlayHintRefresh(object? sender, EventArgs e) =>
+        InlayHintRefreshRequested?.Invoke(sender, e);
+
+    private void OnInnerSemanticTokensRefresh(object? sender, EventArgs e) =>
+        SemanticTokensRefreshRequested?.Invoke(sender, e);
 
     private void OnInnerCodeLensRefresh(object? sender, EventArgs e) =>
         CodeLensRefreshRequested?.Invoke(sender, e);
@@ -1777,6 +1825,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     {
         client.DiagnosticsPublished -= OnInnerDiagnostics;
         client.CodeLensRefreshRequested -= OnInnerCodeLensRefresh;
+        client.InlayHintRefreshRequested -= OnInnerInlayHintRefresh;
+        client.SemanticTokensRefreshRequested -= OnInnerSemanticTokensRefresh;
         client.MessageShown -= OnInnerMessage;
         client.ProgressReceived -= OnInnerProgress;
         client.MessageLogged -= OnInnerLogMessage;
@@ -1821,6 +1871,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             {
                 client.DiagnosticsPublished -= OnInnerDiagnostics;
                 client.CodeLensRefreshRequested -= OnInnerCodeLensRefresh;
+                client.InlayHintRefreshRequested -= OnInnerInlayHintRefresh;
+                client.SemanticTokensRefreshRequested -= OnInnerSemanticTokensRefresh;
                 client.MessageShown -= OnInnerMessage;
                 client.MessageLogged -= OnInnerLogMessage;
                 client.TraceReceived -= OnInnerTrace;

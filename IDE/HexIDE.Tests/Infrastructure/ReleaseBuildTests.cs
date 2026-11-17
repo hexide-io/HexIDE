@@ -19,7 +19,7 @@ public class ReleaseBuildTests
         var workflow = File.ReadAllText(Path.Combine(RepoTree.Root(), ".github", "workflows", "publish.yml"))
             .ReplaceLineEndings("\n");
         workflow.Should().Contain("if: matrix.rid == 'linux-arm'\n")
-            .And.Contain("dotnet publish HexIDE.AddinPacker -f net10.0 -c Release -r linux-x64 --self-contained false -o bin/addin-packer-host/")
+            .And.Contain("dotnet publish HexIDE.AddinPacker -f net11.0 -c Release -r linux-x64 --self-contained false -o bin/addin-packer-host/")
             .And.Contain("ADDIN_PACKER_OVERRIDE=-p:AddinPacker=$PWD/bin/addin-packer-host/HexIDE.AddinPacker.dll");
         var desktopPublishes = workflow.Split('\n')
             .Where(line => line.Contains("run: dotnet publish HexIDE.Desktop")).ToArray();
@@ -53,15 +53,15 @@ public class ReleaseBuildTests
     [Fact]
     public void BothShippingProjectsCompileInRelease()
     {
-        Job.Should().Contain("dotnet build HexIDE.Desktop -f net10.0 -c Release");
-        Job.Should().Contain("dotnet build HexIDE.Standalone -f net10.0 -c Release");
+        Job.Should().Contain("dotnet build HexIDE.Desktop -f net11.0 -c Release");
+        Job.Should().Contain("dotnet build HexIDE.Standalone -f net11.0 -c Release");
     }
 
     [Fact]
     public void ReleaseOutputIsCheckedAfterBuilding()
     {
-        var build = Job.IndexOf("dotnet build HexIDE.Desktop -f net10.0 -c Release", StringComparison.Ordinal);
-        var check = Job.IndexOf("bash ../scripts/check-release-output.sh HexIDE.Desktop/bin/Release/net10.0", StringComparison.Ordinal);
+        var build = Job.IndexOf("dotnet build HexIDE.Desktop -f net11.0 -c Release", StringComparison.Ordinal);
+        var check = Job.IndexOf("bash ../scripts/check-release-output.sh HexIDE.Desktop/bin/Release/net11.0", StringComparison.Ordinal);
         build.Should().BeGreaterThanOrEqualTo(0);
         check.Should().BeGreaterThan(build);
         Job.Should().NotContain("continue-on-error: true\n        run: bash ../scripts/check-release-output.sh");

@@ -482,7 +482,9 @@ public partial class VB6BuiltIns
 
         int exp = abs == 0 ? 0 : (int)Math.Floor(Math.Log10(abs));
         int mantFrac = OnlyPlaceholders(mantMask.Contains('.') ? mantMask[(mantMask.IndexOf('.') + 1)..] : "").Length;
-        decimal mant = abs == 0 ? 0m : Math.Round((decimal)(abs / Math.Pow(10, exp)), mantFrac, MidpointRounding.AwayFromZero);
+        // The 15-digit Decimal value, as the fixed masks see it (#4017): .NET 11's (decimal) cast keeps more digits, so
+        // 2.675 became 2.67499999... and rounded to 2.67E+00, where .NET 10 gave 2.68E+00.
+        decimal mant = abs == 0 ? 0m : Math.Round(VbNumeric.FloatingToDecimal(abs / Math.Pow(10, exp)), mantFrac, MidpointRounding.AwayFromZero);
         if (mant >= 10m) { mant /= 10m; exp++; mant = Math.Round(mant, mantFrac, MidpointRounding.AwayFromZero); }
 
         string expSign = exp < 0 ? "-" : (signChar == '+' ? "+" : "");
@@ -499,7 +501,8 @@ public partial class VB6BuiltIns
     {
         if (v.Value is decimal m) return m;
         if (v.Value is bool b) return b ? -1m : 0m;
-        if (Vb6Value.TryNumericToDouble(v, out var d)) return (decimal)d;
+        if (v.Value is float f) return VbNumeric.FloatingToDecimal(f, 7);
+        if (Vb6Value.TryNumericToDouble(v, out var d)) return VbNumeric.FloatingToDecimal(d);
         if (v.Value is string s && decimal.TryParse(s, NumberStyles.Any, VbLocale.Current, out var ds)) return ds;
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }

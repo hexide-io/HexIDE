@@ -15,14 +15,44 @@ public partial class VB6BuiltIns
     /// other intrinsic leaving out a required one is "Argument not optional".</param>
     internal sealed record IntrinsicParameters(string[] Names, int Required, bool OmittedIsSyntaxError = false);
 
-    // #1561 measured positional calls only, and so did #1510 for the byte-string functions. Refuse named calls
-    // explicitly until an oracle probe supplies them. #2516, #2523, #2524 (SLN/SYD) and #2622 likewise measure only
-    // positional calls, as does #2515.
-    private static readonly HashSet<string> UnmeasuredNamedArguments = new(StringComparer.OrdinalIgnoreCase)
-    { "AscB", "CallByName", "ChrB", "CurDir", "Dir", "FileAttr", "FileDateTime", "FileLen", "FormatCurrency", "FormatDateTime", "FormatNumber", "FormatPercent", "FV", "GetAttr", "IMEStatus", "InStrB", "IPmt", "IRR", "LeftB", "MidB", "MIRR", "NPer", "NPV", "ObjPtr", "Partition", "Pmt", "PPmt", "PV", "Rate", "RightB", "SLN", "StrPtr", "SYD", "VarPtr" };
+    // #4145 measured named-call signatures; leave unmeasured positional count errors to each intrinsic.
+    private static readonly HashSet<string> NamedOnlySignatures = new(StringComparer.OrdinalIgnoreCase)
+    { "AscB", "ChrB", "CurDir", "LeftB", "RightB", "MidB", "Dir", "FileAttr", "FileDateTime", "FileLen", "GetAttr", "FormatCurrency", "FormatNumber", "FormatPercent", "FormatDateTime", "Partition", "SLN", "SYD", "FV", "PV", "Pmt", "IPmt", "PPmt", "NPer", "Rate", "IRR", "MIRR", "NPV", "StrPtr", "VarPtr", "ObjPtr" };
 
     private static readonly Dictionary<string, IntrinsicParameters> NamedParameterTable = new(StringComparer.OrdinalIgnoreCase)
     {
+        // Names and required arguments measured in vb6.exe SP6, native and p-code (#4145).
+        ["AscB"] = new(["String"], 1),
+        ["ChrB"] = new(["CharCode"], 1),
+        ["CurDir"] = new(["Drive"], 0),
+        ["LeftB"] = new(["String", "Length"], 2),
+        ["RightB"] = new(["String", "Length"], 2),
+        ["MidB"] = new(["String", "Start", "Length"], 2),
+        ["Dir"] = new(["PathName", "Attributes"], 0),
+        ["FileAttr"] = new(["FileNumber", "ReturnType"], 1),
+        ["FileDateTime"] = new(["PathName"], 1),
+        ["FileLen"] = new(["PathName"], 1),
+        ["GetAttr"] = new(["PathName"], 1),
+        ["FormatCurrency"] = new(["Expression", "NumDigitsAfterDecimal", "IncludeLeadingDigit", "UseParensForNegativeNumbers", "GroupDigits"], 1),
+        ["FormatNumber"] = new(["Expression", "NumDigitsAfterDecimal", "IncludeLeadingDigit", "UseParensForNegativeNumbers", "GroupDigits"], 1),
+        ["FormatPercent"] = new(["Expression", "NumDigitsAfterDecimal", "IncludeLeadingDigit", "UseParensForNegativeNumbers", "GroupDigits"], 1),
+        ["FormatDateTime"] = new(["Expression", "NamedFormat"], 1),
+        ["Partition"] = new(["Number", "Start", "Stop", "Interval"], 4),
+        ["SLN"] = new(["Cost", "Salvage", "Life"], 3),
+        ["SYD"] = new(["Cost", "Salvage", "Life", "Period"], 4),
+        ["FV"] = new(["Rate", "NPer", "Pmt", "PV", "Due"], 3),
+        ["PV"] = new(["Rate", "NPer", "Pmt", "FV", "Due"], 3),
+        ["Pmt"] = new(["Rate", "NPer", "PV", "FV", "Due"], 3),
+        ["IPmt"] = new(["Rate", "Per", "NPer", "PV", "FV", "Due"], 4),
+        ["PPmt"] = new(["Rate", "Per", "NPer", "PV", "FV", "Due"], 4),
+        ["NPer"] = new(["Rate", "Pmt", "PV", "FV", "Due"], 3),
+        ["Rate"] = new(["NPer", "Pmt", "PV", "FV", "Due", "Guess"], 3),
+        ["IRR"] = new(["ValueArray", "Guess"], 1),
+        ["MIRR"] = new(["ValueArray", "FinanceRate", "ReinvestRate"], 3),
+        ["NPV"] = new(["Rate", "ValueArray"], 2),
+        ["StrPtr"] = new(["Ptr"], 1),
+        ["VarPtr"] = new(["Ptr"], 1),
+        ["ObjPtr"] = new(["Ptr"], 1),
         ["Asc"] = new(["String"], 1),
         ["AscW"] = new(["String"], 1),
         ["Atn"] = new(["Number"], 1),
@@ -125,12 +155,13 @@ public partial class VB6BuiltIns
     private static readonly HashSet<string> TakesNoNamedArguments = new(StringComparer.OrdinalIgnoreCase)
     {
         "Abs", "CBool", "CByte", "CCur", "CDate", "CDbl", "CInt", "CLng", "CSng", "CStr", "CVar", "CVErr", "Fix", "InStr", "Input",
-        "InputB", "Int", "LBound", "Len", "LenB", "Sgn", "StrComp", "UBound",
+        "InputB", "InStrB", "Int", "LBound", "Len", "LenB", "Sgn", "StrComp", "UBound",
     };
 
     // The intrinsics with no parameters, which VB6 refuses a name in three ways (measured, #1475: `Now(X:=1)`).
     private static readonly Dictionary<string, string> NoParameters = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["IMEStatus"] = "Wrong number of arguments or invalid property assignment",
         ["Command"] = "Named arguments not allowed",
         ["Date"] = "Syntax error",
         ["DoEvents"] = "Wrong number of arguments or invalid property assignment",
@@ -143,7 +174,7 @@ public partial class VB6BuiltIns
 
     // A ParamArray from the first parameter: `Array(ArgList:=1)`, `Choose(Index:=1, Choice:="a")` and `Switch(VarExpr:=True)`
     // are "Argument in ParamArray may not be named" (measured; Switch with #1560).
-    private static readonly HashSet<string> NamedIsAParamArray = new(StringComparer.OrdinalIgnoreCase) { "Array", "Choose", "Switch" };
+    private static readonly HashSet<string> NamedIsAParamArray = new(StringComparer.OrdinalIgnoreCase) { "Array", "Choose", "Switch", "CallByName" };
 
     // A blank slot is missing syntax; a supplied Optional Variant can hold Missing as a value (#1512).
     internal sealed class IntrinsicArgumentValues(int capacity) : List<Vb6Value>(capacity)
@@ -166,6 +197,8 @@ public partial class VB6BuiltIns
     // (measured, #1512). InStr and StrComp need two; the other no-names intrinsics need one.
     private static void CheckIntrinsicArgumentCount(string name, IReadOnlyList<Vb6Value> args)
     {
+        if (NamedOnlySignatures.Contains(name) || name.Equals("InStrB", StringComparison.OrdinalIgnoreCase))
+            return;
         // Only known signatures impose a maximum (#741); Array/Choose and unlisted intrinsics stay unlimited.
         int? maximum = NamedParameterTable.TryGetValue(name, out var signature) ? signature.Names.Length
             : TakesNoNamedArguments.Contains(name) ? name.ToUpperInvariant() switch
@@ -215,7 +248,7 @@ public partial class VB6BuiltIns
     /// </summary>
     internal static bool SaysHowItTakesNames(string name) =>
         NamedParameterTable.ContainsKey(name) || TakesNoNamedArguments.Contains(name) || NamedIsAParamArray.Contains(name)
-        || NoParameters.ContainsKey(name) || UnmeasuredNamedArguments.Contains(name);
+        || NoParameters.ContainsKey(name);
 
     /// <summary>
     /// An intrinsic's arguments as positions, named ones placed by name and evaluated in parameter order (#1465). With none
@@ -226,8 +259,6 @@ public partial class VB6BuiltIns
     {
         if (NamedArguments.Any(args))
         {
-            if (UnmeasuredNamedArguments.Contains(name))
-                throw new NotImplementedException($"Named arguments to {name} are not implemented yet");
             if (TakesNoNamedArguments.Contains(name))
                 throw new VBCompileErrorException("Syntax error");
             if (NoParameters.TryGetValue(name, out var noParameters))

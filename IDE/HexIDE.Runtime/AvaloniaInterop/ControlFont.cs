@@ -21,7 +21,7 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
 
     private ControlFont(VBFont font) => this.font = font;
 
-    internal static bool AppliesTo(Control control) => control is IFormView or VBLabel or VBTextBox
+    internal static bool AppliesTo(Control control) => FormRoot.View(control) is not null || control is VBLabel or VBTextBox
         or VBCommandButton or VBCheckBox or VBOptionButton or VBComboBox or VBListBox or VBFrame or VBPictureBox
         or VBScrollBar or VBTimer or VBShape or VBLine or VBImage || control.GetValue(NotImplementedProperty);
 

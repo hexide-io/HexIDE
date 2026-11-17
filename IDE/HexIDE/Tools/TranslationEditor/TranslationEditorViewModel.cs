@@ -284,8 +284,11 @@ public partial class TranslationEditorViewModel : Document
         lines.Add(string.Format(
             _localization.GetString("Str.TranslationEditor.Tooltip.Override"), overrideValue));
 
-        if (new TranslationRowViewModel(key).ProtectedReasonKey is { } reason)
+        var row = new TranslationRowViewModel(key);
+        if (row.ProtectedReasonKey is { } reason)
             lines.Add(_localization.GetString(reason));
+        else if (row.IsProtectedFromProfiles)
+            lines.Add(_localization.GetString("Str.TranslationEditor.ProtectedFromProfiles"));
 
         return string.Join(Environment.NewLine, lines);
     }

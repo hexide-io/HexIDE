@@ -45,8 +45,13 @@ capability to satisfy it caused rumdl to send
 `{"jsonrpc":"2.0","method":"workspace/diagnostic/refresh","params":null,"id":1}` — invalid JSON-RPC, since
 `params` may be an object or an array and nothing else — which HexIDE could not decode and which therefore
 killed **the entire connection** rather than that one message. A malformed frame costing every language
-feature is HexIDE's defect, not the server's; the server's mistake only revealed it (rumdl's half was
-#428, and whether the pinned rumdl still sends it is #4144). Nothing written by one hand would have found it.
+feature is HexIDE's defect, not the server's; the server's mistake only revealed it. Rechecked on
+2026-11-16 with pinned rumdl **0.2.79** over stdio: the raw refresh frame above still carries
+`"params":null`, and HexIDE replies with a matching id and `"result":null`
+([#4144](https://github.com/hexide-io/HexIDE/issues/4144)).
+`RumdlDiagnosticRefreshPinsRawParamsAndReceivesReply` pins both wire shapes. The repair stays even if
+a future server version omits the member: HexIDE tolerates this malformed frame from servers it did
+not write. Nothing written by one hand would have found it.
 
 And it kept giving. Reading the repaired frame turned up two more, each of which had been sitting behind
 something that looked like success: the repair was installed **only on connections being recorded**, so a

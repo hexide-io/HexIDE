@@ -720,6 +720,70 @@ public class AddinServerRegistrationTests : IDisposable
         router.Connections.Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData("probe")]
+    [InlineData(".")]
+    [InlineData("probe .")]
+    [InlineData("editor.")]
+    [InlineData("EDITOR.private.")]
+    [InlineData("vscode.")]
+    [InlineData("VSCode.private.")]
+    [InlineData("hexide.")]
+    [InlineData("HexIDE.private.")]
+    public void AnInvalidOrReservedCommandPrefix_IsRefused(string prefix)
+    {
+        var router = Router();
+        var registering = () => Contributions(router).Register(
+            new AddinLanguageServer(PipeEntry("probe", "unused")) { CommandPrefix = prefix }, "My Add-in");
+
+        registering.Should().Throw<ArgumentException>();
+        router.Connections.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(null, "probe.run")]
+    [InlineData("probe.", "other.run")]
+    [InlineData("probe.", "probe.")]
+    [InlineData("probe.", "Probe.run")]
+    public void ACommandWithoutItsPrefix_IsRefused(string? prefix, string command)
+    {
+        var router = Router();
+        var registering = () => Contributions(router).Register(new AddinLanguageServer(PipeEntry("probe", "unused"))
+        {
+            CommandPrefix = prefix,
+            ClientCommands = new Dictionary<string, AddinClientCommand> { [command] = (_, _) => Task.CompletedTask },
+        }, "My Add-in");
+
+        registering.Should().Throw<ArgumentException>();
+        router.Connections.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CommandClaims_AreCopiedAtRegistration_AndBelongToThatConnectionOnly()
+    {
+        var pipeName = PipeName();
+        await using var pipe = new ProbePipe(pipeName, () => new ProbeServer());
+        var (contributions, router) = WiredContributions();
+        var commands = new Dictionary<string, AddinClientCommand> { ["probe.run"] = (_, _) => Task.CompletedTask };
+        await using var connection = contributions.Register(new AddinLanguageServer(PipeEntry("probe", pipeName))
+        {
+            CommandPrefix = "probe.",
+            ClientCommands = commands,
+        }, "My Add-in");
+
+        commands.Clear();
+        commands["other.run"] = (_, _) => Task.CompletedTask;
+        await router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
+
+        var client = (VBLspClient)connection.Client!;
+        client.HasClaimedCommand("probe.run").Should().BeTrue();
+        client.HasClaimedCommand("other.run").Should().BeFalse();
+        client.HasClaimedCommand("Probe.run").Should().BeFalse();
+        await using var other = new VBLspClient(Substitute.For<ILspTransport>(),
+            _loggerFactory.CreateLogger<VBLspClient>(), "markdown");
+        other.HasClaimedCommand("probe.run").Should().BeFalse();
+    }
+
     /// <summary>
     /// Every method of the Language Server Protocol 3.17, its requests and its notifications, as its meta-model lists
     /// them. <c>initialize</c>, <c>initialized</c>, <c>shutdown</c> and <c>exit</c> have no namespace, and a prefix,
@@ -821,7 +885,17 @@ public class AddinServerRegistrationTests : IDisposable
 
         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
         public JsonElement Initialize(JsonElement _) => JsonDocument.Parse(
-            """{"capabilities":{"textDocumentSync":{"openClose":true,"change":1}}}""").RootElement.Clone();
+            """{"capabilities":{"textDocumentSync":{"openClose":true,"change":1},"codeActionProvider":true,"codeLensProvider":{},"executeCommandProvider":{"commands":["probe.declared"]}}}""").RootElement.Clone();
+
+        [JsonRpcMethod("textDocument/codeAction", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Actions(JsonElement _) => JsonDocument.Parse("""[{"title":"Run","command":"probe.run","arguments":[{"n":42},"text"]},{"title":"Declared","command":"probe.declared"}]""").RootElement.Clone();
+
+        [JsonRpcMethod("textDocument/codeLens", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Lenses(JsonElement _) => JsonDocument.Parse("""[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"command":{"title":"Run","command":"probe.run"}}]""").RootElement.Clone();
+
+        public JsonElement? Executed;
+        [JsonRpcMethod("workspace/executeCommand", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement? Execute(JsonElement parameters) { Executed = parameters.Clone(); return null; }
 
         [JsonRpcMethod("initialized", UseSingleObjectParameterDeserialization = true)]
         public void OnInitialized(JsonElement _)
@@ -967,6 +1041,100 @@ public class AddinServerRegistrationTests : IDisposable
         export.Messages.Should().Contain("probe/echo", "the add-in's own messages are in the export");
         export.Messages.Should().NotContain("quintana").And.NotContain("InvoiceLedger").And.NotContain("Fixtures",
             "a file an add-in's message names is the user's, as one in textDocument/didOpen is");
+    }
+
+    [Fact]
+    public async Task ClaimedActionsRunWithOriginalArgumentsOnPool_DeclaredActionsStayOnWire()
+    {
+        var pipeName = PipeName();
+        var server = new ProbeServer();
+        await using var pipe = new ProbePipe(pipeName, () => server);
+        var (contributions, router) = WiredContributions();
+        JsonElement[]? received = null;
+        SynchronizationContext? context = new SynchronizationContext();
+        var declaredCalls = 0;
+        IAddinServerConnection? added = null;
+        ApplyWorkspaceEditResult? during = null;
+        await using var connection = contributions.Register(new AddinLanguageServer(PipeEntry("probe", pipeName))
+        {
+            CommandPrefix = "probe.",
+            ClientCommands = new Dictionary<string, AddinClientCommand>
+            {
+                ["probe.run"] = async (args, ct) =>
+                {
+                    received = args;
+                    context = SynchronizationContext.Current;
+                    during = await added!.ApplyEditAsync(new WorkspaceEdit(), ct);
+                },
+                ["probe.declared"] = (_, _) => { declaredCalls++; return Task.CompletedTask; },
+            },
+        }, "My Add-in");
+        added = connection;
+        const string uri = "file:///c:/p/README.md";
+        await router.OpenDocumentAsync(uri, "# hi", Token);
+        var actions = await connection.Client!.RequestCodeActionsAsync(uri, new(new(0, 0), new(0, 1)), [], Token);
+        var action = actions[0];
+        action.CanExecute!(action.Command!).Should().BeTrue();
+        await action.Execute!(action.Command!, Token);
+        received.Should().HaveCount(2);
+        received![0].GetProperty("n").GetInt32().Should().Be(42);
+        received[1].GetString().Should().Be("text");
+        context.Should().BeNull();
+        during!.FailureReason.Should().Be("No workspace editor is available.", "the handler was authorized and reached the shared applier check");
+        var outside = await connection.ApplyEditAsync(new WorkspaceEdit(), Token);
+        outside.FailureReason.Should().Contain("command the user started");
+        await actions[1].Execute!(actions[1].Command!, Token);
+        server.Executed!.Value.GetProperty("command").GetString().Should().Be("probe.declared");
+        declaredCalls.Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LensCommandsStayWithTheirProducingConnection_AndRemovalCancelsHandler(bool stopClient)
+    {
+        var firstPipe = PipeName();
+        var secondPipe = PipeName();
+        await using var pipe = new ProbePipe(firstPipe, () => new ProbeServer());
+        await using var otherPipe = new ProbePipe(secondPipe, () => new ProbeServer());
+        var (contributions, router) = WiredContributions();
+        var started = new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var calls = 0;
+        var connection = contributions.Register(new AddinLanguageServer(PipeEntry("probe", firstPipe))
+        {
+            CommandPrefix = "probe.",
+            ClientCommands = new Dictionary<string, AddinClientCommand>
+            {
+                ["probe.run"] = async (_, token) =>
+                {
+                    Interlocked.Increment(ref calls);
+                    started.TrySetResult(token);
+                    await Task.Delay(Timeout.InfiniteTimeSpan, token);
+                },
+            },
+        }, "My Add-in");
+        await using var cleanup = connection;
+        await using var other = contributions.Register(new AddinLanguageServer(PipeEntry("other", secondPipe)), "Other Add-in");
+        const string uri = "file:///c:/p/README.md";
+        await router.OpenDocumentAsync(uri, "# hi", Token);
+        var lenses = await router.RequestCodeLensesAsync(uri, Token);
+        lenses.Should().HaveCount(2);
+        var otherActions = await other.Client!.RequestCodeActionsAsync(uri, new(new(0, 0), new(0, 1)), [], Token);
+        otherActions[0].CanExecute!(otherActions[0].Command!).Should().BeFalse();
+        await otherActions[0].Execute!(otherActions[0].Command!, Token);
+        calls.Should().Be(0);
+        await router.ExecuteCodeLensCommandAsync(lenses[1].Command!, Token);
+        calls.Should().Be(0);
+        var running = router.ExecuteCodeLensCommandAsync(lenses[0].Command!, Token);
+        var token = await started.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        if (stopClient) await connection.Client!.StopAsync();
+        else await connection.DisposeAsync();
+        token.IsCancellationRequested.Should().BeTrue();
+        await FluentActions.Awaiting(() => running).Should().ThrowAsync<OperationCanceledException>();
+        calls.Should().Be(1);
+        var refused = await connection.ApplyEditAsync(new WorkspaceEdit(), Token);
+        refused.Applied.Should().BeFalse();
+        refused.FailureReason.Should().Contain("command the user started");
     }
 
     // Accepts each connection HexIDE makes to the pipe, a restart's included, each with a server of its own.

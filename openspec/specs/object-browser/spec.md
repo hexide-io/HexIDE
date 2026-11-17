@@ -14,7 +14,9 @@ which is why VB6 gave it a dedicated key.
 ### Requirement: The browser SHALL show everything visible to the project
 The browser SHALL present the project's own forms, modules and classes, the runtime control library, the
 built-in language functions, and the types in any referenced library, and SHALL allow narrowing to one
-library at a time.
+library at a time. The library dropdown SHALL keep `<All Libraries>` first, followed by every library,
+including the focused project's own library, in case-insensitive alphabetical order. Reordering SHALL
+preserve the selected library. This order was measured in VB6 SP6 in [#4113](https://github.com/hexide-io/HexIDE/issues/4113).
 
 The value is in the union. A developer asking "what can I call here" does not care which of those four
 sources answers, and a browser covering only the project's own code would answer the easy question while
@@ -61,6 +63,20 @@ A class with no member list SHALL remain listed and show a localized message
 in its members pane explaining that its type library is required. Both paths SHALL label HexIDE-only
 members with the localized origin description.
 
+Third-party component libraries named on project lines or in form headers SHALL also be listed, once per
+project, and loaded by GUID and version through the same service. Each SHALL use its type library's
+metadata name, or its OCX file name without the extension and a metadata-unavailable entry when the
+metadata can't be read (#4037).
+
+#### Scenario: A third-party component with readable metadata
+- **WHEN** a project names a third-party library only as a component
+- **THEN** its type-library name, classes and members are available through the shared service
+- **AND** loading requires no file path
+
+#### Scenario: A third-party component without readable metadata
+- **WHEN** a component's library is unregistered or the platform cannot read its metadata
+- **THEN** it remains listed under its OCX file name without its extension, with a metadata-unavailable entry
+
 #### Scenario: A component-only library without a registered OCX
 - **GIVEN** the project names MSCOMCTL.OCX only on an `Object=` line
 - **WHEN** its type-library metadata is unavailable
@@ -83,7 +99,7 @@ members with the localized origin description.
 #### Scenario: Both reference kinds name a library
 - **WHEN** a project names the same in-box library on `Reference=` and `Object=` lines
 - **THEN** the browser lists it once for that project, using the reference entry
-- **AND** it retains HexIDE's alphabetical ordering; VB6's ordering remains unmeasured (#4113)
+- **AND** it follows the measured VB6 order: `<All Libraries>` first, then all libraries, including the project, alphabetically ignoring case ([#4113](https://github.com/hexide-io/HexIDE/issues/4113))
 
 #### Scenario: A form brings a component library
 - **WHEN** a form declaring an in-box library in its header is added
