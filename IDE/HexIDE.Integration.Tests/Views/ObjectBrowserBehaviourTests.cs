@@ -76,8 +76,10 @@ public class ObjectBrowserBehaviourTests
         vm.FilteredMembers.Should().ContainSingle().Which.Name.Should().Be("Abs");
     }
 
+    // The IDE raises LanguageChanged on the UI thread (Apply swaps Application.Resources), and the browser refreshes there
+    // at once rather than queuing it (#4382).
     [AvaloniaFact]
-    public async Task LanguageSwitchFromWorkerRefreshesStatusOnDispatcher()
+    public void LanguageSwitchRefreshesStatusAtOnceOnTheUiThread()
     {
         var projects = Substitute.For<IProjectManager>();
         projects.LoadedProjects.Returns(new List<ProjectDefinition>());
@@ -98,8 +100,7 @@ public class ObjectBrowserBehaviourTests
         };
         loc.GetString(Arg.Any<string>()).Returns(ci => "New " + ci.Arg<string>());
 
-        await Task.Run(() => loc.LanguageChanged += Raise.Event<System.Action>());
-        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        loc.LanguageChanged += Raise.Event<System.Action>();
 
         cls.Name.Should().Be("New Str.Tool.ObjectBrowser.Vba.NoServer");
         vm.SelectedClass.Should().BeSameAs(cls);
