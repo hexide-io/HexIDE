@@ -128,13 +128,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 0 | 0 | 9 | 53 | 0 | 47 | 109 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 4 | 77 | 0 | 74 | 155 |
+| Intrinsic functions | 0 | 0 | 3 | 78 | 0 | 74 | 155 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 0 | 20 | 0 | 33 | 53 |
 | Compiler directives and options | 0 | 0 | 0 | 14 | 19 | 14 | 47 |
 | In-box objects | 0 | 0 | 44 | 41 | 0 | 39 | 124 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **0** | **0** | **60** | **505** | **20** | **607** | **1192** |
+| **Total** | **0** | **0** | **59** | **506** | **20** | **607** | **1192** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -275,7 +275,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 60 names
+## Dies mid-run — 59 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -306,7 +306,6 @@ most of the in-box object model.
 | `DataObject.SetData` | **Dies** | Current diagnostic: 424 "Object required" on a Variant holder (#257), and 91 on a typed `Dim` holding Nothing. | StatementExecutor.cs |
 | `DataObjectFiles` | **Dies** | `Dim f As DataObjectFiles` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
 | `Date` | **Dies** | throws `"Date not implemented"` — The grammar has a dedicated rule `dateStmt : DATE WS? EQ WS? valueStmt` (VB6.g4), listed in the block alternatives at VB6.g4 ahead of letStmt so it… | StatementExecutor.cs |
-| `DDB` | **Dies** | Unregistered: #2524 precision probe matches nine of ten measured rows, but period 10 remains unmatched (closest spill model ends in 3791; measured 3797). Refused pending a model matching every row. | VB6BuiltIns.cs; scripts/probes/depreciation-2524.py |
 | `EventInfo` | **Dies** | `Dim e As EventInfo` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
 | `EventParameter` | **Dies** | `Dim e As EventParameter` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
 | `EventParameters` | **Dies** | `Dim e As EventParameters` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
@@ -504,7 +503,7 @@ missing.
 | `TypeOf ... Is` | Supported | #1962: CommonDialog takes its library identity from the registered component class. **#2265:** measured MSComctlLib/ComctlLib class names, including their collection and item objects, follow the first declaring library in combined project `Reference=`/`Object=` read order; qualified names select their own library. The other measured in-box names (oracle PR #4023, recorded in #2265) also answer bare and qualified, including ComboItems and ComboItem. Project classes retain precedence. Two-library binding beyond ListView, ListItem and ProgressBar follows the measured lookup rule; combinations involving the other in-box libraries are unmeasured. **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 155 names (4 absent, 77 partial, 74 supported)
+### Intrinsic functions — 155 names (3 absent, 78 partial, 74 supported)
 
 
 **array** (3)
@@ -634,7 +633,7 @@ missing.
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `DDB` | **Dies** | Unregistered: #2524 precision probe matches nine of ten measured rows, but period 10 remains unmatched (closest spill model ends in 3791; measured 3797). Refused pending a model matching every row. | VB6BuiltIns.cs; scripts/probes/depreciation-2524.py |
+| `DDB` | Partial | Runs, differs: closest evaluation model approved by Jen (#2524, issuecomment-6954532512). Nine of ten [measured rows](vb6-fidelity-oracle/ddb-sln-and-syd.md) match exactly; `DDB(2400, 300, 10, 10)` computes `40361F5F40D83791` versus measured `40361F5F40D83797` (6 ULPs below), both printing `22.1225472000002`. Invalid life/period raises 5. Named arguments take `Cost`, `Salvage`, `Life`, `Period` and `Factor` in any order, measured with this change on SP6 native and p-code; a missing `Period` is "Argument not optional". Unmeasured argument counts and power domains (including non-positive bases) refuse. | VB6BuiltIns.Depreciation.cs; scripts/probes/depreciation-2524.py |
 | `FV` | Partial | **#2523:** measured positional future values, optional present value/Type, zero rate and zero periods; exact Double bits pinned to [the issue](https://github.com/hexide-io/HexIDE/issues/2523). Named calls are accepted (#4145); Date/nonnumeric/Null conversions, positional missing/count errors, singular powers, nonpositive bases and periods beyond 10,000 refuse as unimplemented; these edges are unmeasured. | VB6BuiltIns.Financial.cs |
 | `IPmt` | Partial | **#2523:** every measured positional row in [the issue](https://github.com/hexide-io/HexIDE/issues/2523) passes with exact Double bits and errors; fitted spills in [Financial precision](financial-precision-2523.md). Named calls are accepted (#4145); positional missing/count errors, Date/nonnumeric/Null conversions and singular/extreme domains refuse as unimplemented. | VB6BuiltIns.Financial.cs |
 | `IRR` | Partial | Runs, differs (#2525; Jen’s 2026-11-17 decision). IRR(a): measured `3FC875EFF170437B` (0.191099160089404), computed `3FC875EFF17028E0` (0.191099160089215); IRR(a, 0.2): measured `3FC875EFF1704153` (0.191099160089389), computed `3FC875EFF170444A` (0.191099160089410); IRR(b): measured `3FB62D72209FBD49` (0.0866309480331796), computed `3FB62D7220A36D0D` (0.0866309480365326). All-positive flows raise measured error 5. Nonconvergence, other flows without a sign change, unsupported argument shapes/conversions and arithmetic domains refuse as unimplemented. [Models and measurement source](financial-precision-2525.md#irr). | VB6BuiltIns.Financial.cs |

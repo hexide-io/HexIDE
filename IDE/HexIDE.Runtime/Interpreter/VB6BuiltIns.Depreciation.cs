@@ -8,6 +8,22 @@ public partial class VB6BuiltIns
 {
     private static void RegisterDepreciation(Dictionary<string, BuiltinFn> d)
     {
+        d["DDB"] = (_, a, _) =>
+        {
+            if (a.Count is not (4 or 5)) throw new NotImplementedException("DDB argument count is not measured (#2524)");
+            var cost = FinancialNumber.FromDouble(AsDouble(a[0]));
+            var salvage = FinancialNumber.FromDouble(AsDouble(a[1]));
+            var life = AsDouble(a[2]);
+            var period = AsDouble(a[3]);
+            var factor = a.Count == 5 ? AsDouble(a[4]) : 2;
+            if (life == 0 || period < 1 || period > life) throw InvalidCall();
+            var rate = FinancialNumber.FromDouble(factor) / FinancialNumber.FromDouble(life);
+            // #2524's approved closest model spills only the base to Double.
+            var basis = FinancialNumber.FromDouble((1 - rate).ToDouble());
+            var book = cost * basis.Pow(period - 1);
+            var amount = book * rate;
+            return Finite(Math.Min(amount.ToDouble(), (book - salvage).ToDouble()));
+        };
         d["SLN"] = (_, a, _) =>
         {
             if (a.Count != 3) throw new NotImplementedException("SLN argument count is not measured (#2524)");
