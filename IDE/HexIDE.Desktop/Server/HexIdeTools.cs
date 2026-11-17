@@ -2873,7 +2873,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "evaluate")]
-    [Description("Runs an Immediate-window line against the paused frame. A leading ?/Print/Debug.Print EVALUATES and returns what the VB6 Immediate window prints for it, Print formatting and all: \"?count\" gives \" 42 \", a number with a space where its sign would go and one after, and \"?a; b\" or \"?a, b\" prints the list as Debug.Print does. A bare expression returns the value alone (\"count\" gives \"42\"); use it, or add_watch and get_watches, to compare values. A BARE assignment or Set (e.g. \"count = 7\", \"Set obj = Nothing\") is EXECUTED and mutates the paused frame (returns empty) — whereas \"?count = 7\" compares. User Sub/Function calls are still rejected (they would deadlock the paused gate). Valid only while paused (get_debug_state.state == Paused). Returns the formatted result / empty (for a statement) / a VB6-style error message. In an external debug session the line goes to the adapter's Immediate (REPL) evaluation, so its syntax and result are the adapter's. While one runs, the reply says how to stop it.")]
+    [Description("Runs an Immediate-window line against the paused frame. A leading ?/Print/Debug.Print EVALUATES and returns what the VB6 Immediate window prints for it, Print formatting and all: \"?count\" gives \" 42 \", a number with a space where its sign would go and one after, and \"?a; b\" or \"?a, b\" prints the list as Debug.Print does. A bare expression returns the value alone (\"count\" gives \"42\"); use it, or add_watch and get_watches, to compare values. A BARE assignment or Set (e.g. \"count = 7\", \"Set obj = Nothing\") is EXECUTED and mutates the paused frame (returns empty) — whereas \"?count = 7\" compares. User Sub/Function calls are still rejected (they would deadlock the paused gate). Valid only while paused (get_debug_state.state == Paused). Returns the formatted result / empty (for a statement) / a VB6-style error message. In an external debug session the line goes to the adapter's Immediate (REPL) evaluation, using the adapter's syntax. The result contains printed output followed by response text; an adapter refusal returns success: false with its message as error. While one runs, the reply says how to stop it.")]
     public async Task<EvaluateResult> EvaluateAsync(string expression, CancellationToken ct = default)
     {
         var externalReply = await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -2884,7 +2884,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             {
                 var value = await external.EvaluateAsync(expression);
                 return value.Expired ? new EvaluateResult(false, "External frame changed; evaluate again while stopped.", null)
-                    : new EvaluateResult(true, null, value.Text);
+                    : value.Error is { } error ? new EvaluateResult(false, error, null)
+                    : new EvaluateResult(true, null, value.PrintedOutput + value.Text);
             }
             catch (Exception exception) { return new EvaluateResult(false, exception.Message, null); }
         });
