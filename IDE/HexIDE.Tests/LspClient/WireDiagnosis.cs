@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using HexIDE.Tests.Infrastructure;
 using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
 
@@ -49,7 +50,7 @@ internal sealed class WireDiagnosis(CancellationToken testToken)
     {
         var read = reads.Select((tap, i) => $"stand-in {i + 1} read: <{tap.Recent()}>");
         return $"#3520: {what} at {Elapsed()}. Test token cancelled={testToken.IsCancellationRequested}; "
-            + $"thread pool threads={ThreadPool.ThreadCount}, queued={ThreadPool.PendingWorkItemCount}. "
+            + $"{RunnerLoad.Describe(System.Diagnostics.Stopwatch.GetElapsedTime(started))}. "
             + $"{(clients.Length == 0 ? "" : clients + ". ")}Stand-in drops: [{string.Join(" | ", drops)}]. "
             + $"Client log: [{string.Join(" | ", logs.SelectMany(l => l.Lines))}]. "
             + $"Last bytes each stand-in read: [{string.Join(" || ", read)}]";

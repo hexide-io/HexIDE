@@ -40,6 +40,6 @@ public class ProcessNoticeWaitTests
             TestContext.Current.CancellationToken, TimeSpan.Zero, () => ProcessNoticeWait.Describe(seen, gate));
 
         await waiting.Should().ThrowAsync<TimeoutException>()
-            .WithMessage("*Received meanwhile: StandardError 'one'; Lifecycle 'process exited with code 3'");
+            .WithMessage("*Received meanwhile: StandardError 'one'; Lifecycle 'process exited with code 3'*runner load over the last 0 s:*");
     }
 }

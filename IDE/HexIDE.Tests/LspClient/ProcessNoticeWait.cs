@@ -1,3 +1,5 @@
+using HexIDE.Tests.Infrastructure;
+
 namespace HexIDE.Tests.LspClient;
 
 internal static class ProcessNoticeWait
@@ -15,7 +17,8 @@ internal static class ProcessNoticeWait
         {
             throw new TimeoutException($"Timed out waiting for {expected}; the child process or its callbacks "
                 + "may not have been scheduled. This does not establish a missing exit code."
-                + (received is null ? "" : $" Received meanwhile: {received()}"), ex);
+                + (received is null ? "" : $" Received meanwhile: {received()}")
+                + " " + RunnerLoad.Describe(timeout ?? TimeSpan.FromMinutes(2)), ex);
         }
     }
 
