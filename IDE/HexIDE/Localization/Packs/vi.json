@@ -1350,6 +1350,7 @@
     "Str.ControlArray.ClearRefused": "Không thể xóa Index khi '{0}' có cùng tên.",
     "Str.ControlArray.UnindexedSibling": "'{0}' có cùng tên và không có Index. Hãy đặt Index cho điều khiển đó trước.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland yêu cầu Wayland gốc, nhưng không thể kết nối với màn hình Wayland nào: {0}. Hãy khởi động bằng --platform x11 hoặc --platform auto.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland yêu cầu Wayland gốc, nhưng không thể kết nối với màn hình Wayland nào: {0}. Đặt HEXIDE_PLATFORM thành x11 hoặc auto, hoặc bỏ đặt biến này."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland yêu cầu Wayland gốc, nhưng không thể kết nối với màn hình Wayland nào: {0}. Đặt HEXIDE_PLATFORM thành x11 hoặc auto, hoặc bỏ đặt biến này.",
+    "Str.ProjectLoad.PropertyNotSet": "Dòng {0}: không thể đặt thuộc tính {1} trong {2}."
   }
 }

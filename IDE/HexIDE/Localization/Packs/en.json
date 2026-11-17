@@ -1350,6 +1350,7 @@
     "Str.ControlArray.UnindexedSibling": "'{0}' has the same name and no Index. Set its Index first.",
     "Str.ControlArray.ClearRefused": "Index can't be cleared while '{0}' has the same name.",
     "Str.Startup.WaylandUnavailableArgument": "Native Wayland was required by --platform wayland, but no Wayland display could be reached: {0}. Start with --platform x11 or --platform auto instead.",
-    "Str.Startup.WaylandUnavailableEnvironment": "Native Wayland was required by HEXIDE_PLATFORM=wayland, but no Wayland display could be reached: {0}. Set HEXIDE_PLATFORM to x11 or auto, or unset it."
+    "Str.Startup.WaylandUnavailableEnvironment": "Native Wayland was required by HEXIDE_PLATFORM=wayland, but no Wayland display could be reached: {0}. Set HEXIDE_PLATFORM to x11 or auto, or unset it.",
+    "Str.ProjectLoad.PropertyNotSet": "Line {0}: Property {1} in {2} could not be set."
   }
 }

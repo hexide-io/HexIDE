@@ -1350,6 +1350,7 @@
     "Str.ControlArray.ClearRefused": "Index se ne može obrisati dok '{0}' ima isti naziv.",
     "Str.ControlArray.UnindexedSibling": "'{0}' ima isti naziv i nema Index. Prvo postavite njegov Index.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland zahteva izvorni Wayland, ali nije moguće pristupiti Wayland ekranu: {0}. Umesto toga pokrenite sa --platform x11 ili --platform auto.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland zahteva izvorni Wayland, ali nije moguće pristupiti Wayland ekranu: {0}. Postavite HEXIDE_PLATFORM na x11 ili auto, ili uklonite promenljivu."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland zahteva izvorni Wayland, ali nije moguće pristupiti Wayland ekranu: {0}. Postavite HEXIDE_PLATFORM na x11 ili auto, ili uklonite promenljivu.",
+    "Str.ProjectLoad.PropertyNotSet": "Red {0}: svojstvo {1} u {2} nije moguće postaviti."
   }
 }

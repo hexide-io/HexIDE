@@ -1350,6 +1350,7 @@
     "Str.ControlArray.ClearRefused": "No es pot buidar Index mentre '{0}' tingui el mateix nom.",
     "Str.ControlArray.UnindexedSibling": "'{0}' té el mateix nom i no té Index. Establiu-ne primer l’Index.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland requeria Wayland natiu, però no s’ha pogut accedir a cap pantalla Wayland: {0}. Inicieu amb --platform x11 o --platform auto.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland requeria Wayland natiu, però no s’ha pogut accedir a cap pantalla Wayland: {0}. Establiu HEXIDE_PLATFORM a x11 o auto, o suprimiu la variable."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland requeria Wayland natiu, però no s’ha pogut accedir a cap pantalla Wayland: {0}. Establiu HEXIDE_PLATFORM a x11 o auto, o suprimiu la variable.",
+    "Str.ProjectLoad.PropertyNotSet": "Línia {0}: no s’ha pogut definir la propietat {1} de {2}."
   }
 }

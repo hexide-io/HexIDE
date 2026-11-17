@@ -1350,6 +1350,7 @@
     "Str.ControlArray.ClearRefused": "Index kan niet worden gewist zolang '{0}' dezelfde naam heeft.",
     "Str.ControlArray.UnindexedSibling": "'{0}' heeft dezelfde naam en geen Index. Stel eerst de Index ervan in.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland vereiste native Wayland, maar er kon geen Wayland-scherm worden bereikt: {0}. Start in plaats daarvan met --platform x11 of --platform auto.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland vereiste native Wayland, maar er kon geen Wayland-scherm worden bereikt: {0}. Stel HEXIDE_PLATFORM in op x11 of auto, of verwijder de variabele."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland vereiste native Wayland, maar er kon geen Wayland-scherm worden bereikt: {0}. Stel HEXIDE_PLATFORM in op x11 of auto, of verwijder de variabele.",
+    "Str.ProjectLoad.PropertyNotSet": "Regel {0}: eigenschap {1} in {2} kon niet worden ingesteld."
   }
 }

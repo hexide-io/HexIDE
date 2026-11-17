@@ -1350,6 +1350,7 @@
     "Str.ControlArray.ClearRefused": "Δεν είναι δυνατή η εκκαθάριση του Index όσο το '{0}' έχει το ίδιο όνομα.",
     "Str.ControlArray.UnindexedSibling": "Το '{0}' έχει το ίδιο όνομα και δεν έχει Index. Ορίστε πρώτα το Index του.",
     "Str.Startup.WaylandUnavailableArgument": "Το --platform wayland απαίτησε εγγενές Wayland, αλλά δεν ήταν δυνατή η σύνδεση με οθόνη Wayland: {0}. Ξεκινήστε με --platform x11 ή --platform auto αντί αυτού.",
-    "Str.Startup.WaylandUnavailableEnvironment": "Το HEXIDE_PLATFORM=wayland απαίτησε εγγενές Wayland, αλλά δεν ήταν δυνατή η σύνδεση με οθόνη Wayland: {0}. Ορίστε το HEXIDE_PLATFORM σε x11 ή auto, ή καταργήστε τη μεταβλητή."
+    "Str.Startup.WaylandUnavailableEnvironment": "Το HEXIDE_PLATFORM=wayland απαίτησε εγγενές Wayland, αλλά δεν ήταν δυνατή η σύνδεση με οθόνη Wayland: {0}. Ορίστε το HEXIDE_PLATFORM σε x11 ή auto, ή καταργήστε τη μεταβλητή.",
+    "Str.ProjectLoad.PropertyNotSet": "Γραμμή {0}: δεν ήταν δυνατός ο ορισμός της ιδιότητας {1} στο {2}."
   }
 }

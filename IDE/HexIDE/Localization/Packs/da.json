@@ -1350,6 +1350,7 @@
     "Str.ControlArray.ClearRefused": "Index kan ikke ryddes, så længe '{0}' har samme navn.",
     "Str.ControlArray.UnindexedSibling": "'{0}' har samme navn og intet Index. Angiv først dets Index.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland krævede oprindelig Wayland, men ingen Wayland-skærm kunne nås: {0}. Start med --platform x11 eller --platform auto i stedet.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland krævede oprindelig Wayland, men ingen Wayland-skærm kunne nås: {0}. Sæt HEXIDE_PLATFORM til x11 eller auto, eller fjern variablen."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland krævede oprindelig Wayland, men ingen Wayland-skærm kunne nås: {0}. Sæt HEXIDE_PLATFORM til x11 eller auto, eller fjern variablen.",
+    "Str.ProjectLoad.PropertyNotSet": "Linje {0}: Egenskaben {1} i {2} kunne ikke angives."
   }
 }

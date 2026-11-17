@@ -1350,6 +1350,7 @@
     "Str.ControlArray.ClearRefused": "Az Index nem törölhető, amíg a(z) '{0}' neve azonos.",
     "Str.ControlArray.UnindexedSibling": "A(z) '{0}' neve azonos, és nincs Index értéke. Először állítsa be az Index értékét.",
     "Str.Startup.WaylandUnavailableArgument": "A --platform wayland natív Wayland használatát követelte meg, de nem érhető el Wayland-kijelző: {0}. Indítsa helyette a --platform x11 vagy --platform auto beállítással.",
-    "Str.Startup.WaylandUnavailableEnvironment": "A HEXIDE_PLATFORM=wayland natív Wayland használatát követelte meg, de nem érhető el Wayland-kijelző: {0}. Állítsa a HEXIDE_PLATFORM értékét x11 vagy auto értékre, vagy törölje a változót."
+    "Str.Startup.WaylandUnavailableEnvironment": "A HEXIDE_PLATFORM=wayland natív Wayland használatát követelte meg, de nem érhető el Wayland-kijelző: {0}. Állítsa a HEXIDE_PLATFORM értékét x11 vagy auto értékre, vagy törölje a változót.",
+    "Str.ProjectLoad.PropertyNotSet": "{0}. sor: a(z) {2} {1} tulajdonságát nem sikerült beállítani."
   }
 }

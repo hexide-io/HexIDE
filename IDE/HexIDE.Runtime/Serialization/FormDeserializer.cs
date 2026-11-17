@@ -341,7 +341,9 @@ public class FormDeserializer
                         or "ClientLeft" or "ClientTop" or "ClientWidth" or "ClientHeight"
                     && (parent is null || componentClass.PropertiesByName.ContainsKey(propertyName))
                     && TryReadNumber(serializedProperty.Value, out var measurement)
-                    && ((float)measurement >= 2147483648f || propertyName == "Height" && (float)measurement < 0))
+                    && ((float)measurement >= 2147483648f || propertyName == "Height" && (float)measurement < 0
+                        // A negative size on a form's control recovers as zero with Save As instead (#4179, oracle PR #4350).
+                        && !(rootComponent.Type == "VB.Form" && parent is not null)))
                 {
                     form.MarkUnfaithfulToSave(UnfaithfulSaveCause.RefusedMeasurement,
                         FormattableString.Invariant($"Property {serializedProperty.Key} in {serializedComponent.Name} could not be set to {serializedProperty.Value}."));
@@ -418,6 +420,15 @@ public class FormDeserializer
                     continue; // unknown property — preserved verbatim by OrderedRawProperties loop below
 
                 var val = serializedProperty.Value;
+                // VB6 IDE load errors recover the size as zero, and require Save As (#4179, oracle PR #4350).
+                if (rootComponent.Type == "VB.Form" && parent is not null && TryReadNumber(val, out var size)
+                    && DesignerSizeValidation.Refuses(propertyClass, size))
+                {
+                    val = 0;
+                    form.LoadedWithErrors = true;
+                    errorSink.LogError("Str.ProjectLoad.PropertyNotSet", "Line {0}: Property {1} in {2} could not be set.",
+                        serializedComponent.BeginLine, propertyName, serializedComponent.Name);
+                }
                 void InvalidValue()
                 {
                     errorSink.LogError("Str.ProjectLoad.InvalidValue", "Property {0} in {1} had an invalid value.", serializedProperty.Key, serializedComponent.Name);

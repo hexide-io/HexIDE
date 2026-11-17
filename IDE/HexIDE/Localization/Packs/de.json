@@ -1350,6 +1350,7 @@
     "Str.ControlArray.ClearRefused": "Index kann nicht geleert werden, solange „{0}“ denselben Namen hat.",
     "Str.ControlArray.UnindexedSibling": "„{0}“ hat denselben Namen und keinen Index. Legen Sie zuerst dessen Index fest.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland hat natives Wayland angefordert, aber kein Wayland-Display war erreichbar: {0}. Starten Sie stattdessen mit --platform x11 oder --platform auto.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland hat natives Wayland angefordert, aber kein Wayland-Display war erreichbar: {0}. Setzen Sie HEXIDE_PLATFORM auf x11 oder auto, oder entfernen Sie die Variable."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland hat natives Wayland angefordert, aber kein Wayland-Display war erreichbar: {0}. Setzen Sie HEXIDE_PLATFORM auf x11 oder auto, oder entfernen Sie die Variable.",
+    "Str.ProjectLoad.PropertyNotSet": "Zeile {0}: Die Eigenschaft {1} in {2} konnte nicht festgelegt werden."
   }
 }

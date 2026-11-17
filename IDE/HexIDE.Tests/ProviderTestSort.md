@@ -105,6 +105,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/MakeProjectMessageTests.cs` | split |
 | `Projects/MemberWithoutAFileTests.cs` | split |
 | `Projects/ModuleCloseSaveTests.cs` | split |
+| `Projects/NegativeSizeSaveTests.cs` | split |
 | `Projects/NewFormFileTests.cs` | split |
 | `Projects/NewMemberFileInTheWayTests.cs` | split |
 | `Projects/PackageEncodingTests.cs` | split |

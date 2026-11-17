@@ -1350,6 +1350,7 @@
     "Str.ControlArray.ClearRefused": "'{0}' が同じ名前である間は Index を空欄にできません。",
     "Str.ControlArray.UnindexedSibling": "'{0}' は同じ名前で、Index がありません。先にその Index を設定してください。",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland によりネイティブ Wayland が要求されましたが、Wayland ディスプレイに接続できませんでした: {0}。 代わりに --platform x11 または --platform auto で起動してください。",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland によりネイティブ Wayland が要求されましたが、Wayland ディスプレイに接続できませんでした: {0}。 HEXIDE_PLATFORM を x11 または auto に設定するか、設定を解除してください。"
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland によりネイティブ Wayland が要求されましたが、Wayland ディスプレイに接続できませんでした: {0}。 HEXIDE_PLATFORM を x11 または auto に設定するか、設定を解除してください。",
+    "Str.ProjectLoad.PropertyNotSet": "行 {0}: {2} のプロパティ {1} を設定できませんでした。"
   }
 }

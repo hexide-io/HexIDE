@@ -1703,10 +1703,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         });
     }
 
-    // Measured on vb6.exe SP6, native and p-code agreeing: docs/vb6-fidelity-oracle/a-negative-or-zero-control-size.md
-    // (PR #4069). The reply names the issue rather than linking the page, so it never points a caller at a missing file.
+    // Assignment refusal: oracle PR #4069. Saved-size recovery: VB6 IDE measurements in #4179 / PR #4350.
+    // The reply names the issue rather than linking a page that may not be installed.
     private const string NegativeDesignerSizeReason = "Invalid property value: Width and Height can't be negative. "
-        + "VB6 refuses to load a .frm holding a negative control size (measured, #589).";
+        + "VB6 reports a load error and reads a negative saved control size as 0 (measured, #4179).";
 
     private static string NegativeDesignerSizeRefusal(ComponentInstance control) =>
         NegativeDesignerSizeReason + $" Nothing was changed. {PropertyText.AddressedName(control)} remains at "

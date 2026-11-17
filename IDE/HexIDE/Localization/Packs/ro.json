@@ -1350,6 +1350,7 @@
     "Str.ControlArray.ClearRefused": "Index nu poate fi golit cât timp '{0}' are același nume.",
     "Str.ControlArray.UnindexedSibling": "'{0}' are același nume și nu are Index. Setați mai întâi proprietatea Index a acestuia.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland a solicitat Wayland nativ, dar nu s-a putut accesa niciun afișaj Wayland: {0}. Porniți cu --platform x11 sau --platform auto în schimb.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland a solicitat Wayland nativ, dar nu s-a putut accesa niciun afișaj Wayland: {0}. Setați HEXIDE_PLATFORM la x11 sau auto, sau eliminați variabila."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland a solicitat Wayland nativ, dar nu s-a putut accesa niciun afișaj Wayland: {0}. Setați HEXIDE_PLATFORM la x11 sau auto, sau eliminați variabila.",
+    "Str.ProjectLoad.PropertyNotSet": "Linia {0}: proprietatea {1} din {2} nu a putut fi setată."
   }
 }
