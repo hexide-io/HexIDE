@@ -71,6 +71,19 @@ See the [VB6 measurements](../../../docs/vb6-fidelity-oracle/a-project-groups-fi
 With a startup project, the writer SHALL emit `VBGROUP 5.0` and each project in group order, using
 `StartupProject=` for startup and `Project=` for every other member, with CR LF line endings.
 Groups without startup SHALL retain their prior output pending measurement.
+Only `.vbp` paths SHALL be listed, case-insensitively; pathless members are skipped.
+A mixed-group save SHALL refuse before any write, including a member's Save As in a saved `.vbg`.
+
+#### Scenario: A group holds another project kind
+- **GIVEN** a group holding A.vbp and Other.rdproj
+- **WHEN** the group is saved, including its first save
+- **THEN** the save refuses, naming Other with its file name and explaining VB6's code-module interpretation
+- **AND** no file is written and the group retains its members, order and startup project
+- **AND** a member's Save Project As to a non-`.vbp` path with a saved `.vbg` holder refuses the same way
+
+Measured in [oracle PR #4308](https://github.com/hexide-io/HexIDE/pull/4308): VB6 opens other extensions
+as code modules and refuses a trailing section in a `.vbg`. A separate mixed-workspace descriptor awaits #1206.
+
 
 #### Scenario: Saving a group whose startup is second
 - **GIVEN** projects A and B in order, with B as startup
@@ -913,6 +926,40 @@ project saves SHALL continue to include carried files; Make SHALL leave source m
 - **THEN** the archive contains neither the carried file nor its project item line
 - **AND** the other project lines retain their relative order and the source project retains the carried file
 
+### Requirement: MSFlexGrid saves retain their own property run
+
+The writer SHALL emit carried MSFlexGrid properties after the extents and version in the order recorded
+by the VB6 saved-file oracle, preserving their raw values, comments and Font block. These carried own
+properties SHALL remain unavailable for designer editing. A new toolbox grid SHALL write the measured
+bare block, including its extender TabIndex, without adding own default-property lines or a companion.
+
+#### Scenario: Editing a form with saved grids
+
+- **GIVEN** the VB6-authored MSFlexGrid fixture in `corpus/inbox-controls/saved/msflexgrid/`
+- **WHEN** the form is saved unchanged, or only its caption is edited
+- **THEN** each grid's block remains byte for byte identical and no companion is produced
+
+### Requirement: MSFlexGrid applies or refuses saved settings at runtime
+
+At F5 the loader SHALL apply saved modelled MSFlexGrid settings, using the measured defaults when
+omitted, and SHALL refuse unsupported saved properties by name with the not-implemented error.
+Loading SHALL leave the carried lines unchanged for serialization. The designer SHALL retain its
+preview without enabling edits to carried settings.
+
+#### Scenario: Saved dimensions reach the running grid
+
+- **GIVEN** a saved grid with Rows 4, Cols 3, FixedRows 2 and FixedCols 0
+- **WHEN** the form runs
+- **THEN** those values are read back, with Row/RowSel/TopRow 2 and Col/ColSel/LeftCol 0
+- **AND** TextMatrix(0, 2) is accessible
+
+#### Scenario: An unsupported saved setting prevents a misleading run
+
+- **GIVEN** a grid carrying a saved Font or FormatString
+- **WHEN** the form starts at F5
+- **THEN** it refuses with the not-implemented error naming that property
+- **AND** its saved property block still round-trips unchanged
+
 ### Requirement: ListView saves preserve read-only own properties
 
 The serializer SHALL carry a loaded MSComctlLib ListView's own property runs and flat column blocks,
@@ -1126,6 +1173,42 @@ file without a question. An unchanged disk file SHALL save without a conflict qu
 - **GIVEN** an opened `.vbp` with no local project edit and different bytes now on disk
 - **WHEN** the user saves the project
 - **THEN** the external project bytes survive without a conflict question
+
+### Requirement: Damaged modelled property lines SHALL protect the original
+
+The reader SHALL apply repeated modelled designer properties in file order, comparing names without
+regard to case. Readable duplicates SHALL save as a single line holding the winning value. If a
+repeated property has an unreadable value, the reader SHALL keep the readable value and mark the form
+unfaithful to save with a cause naming the property.
+
+A twip measurement whose value converted to Single is at least 2^31, or a negative `Height`, SHALL be
+left as if that line were absent and SHALL mark the form unfaithful to save with a cause naming the
+property and value. Save SHALL refuse these forms before writing the original. These rules follow
+[the #4096 measurements](https://github.com/hexide-io/HexIDE/issues/4096#issuecomment-6915523429);
+the upper bound shares the reader's geometry path, while the negative rule applies only to `Height`.
+VB6 keeps the form editable and opens Save As after load errors. HexIDE protects the original through
+its existing read-only gate; a load-error recovery Save As flow remains outside this requirement.
+
+#### Scenario: A readable duplicate
+
+- **GIVEN** `ClientHeigHt = 3000` followed by `ClientHeight = 4000`
+- **WHEN** the form is loaded and saved twice
+- **THEN** its height holds 4000 twips and each save writes one `ClientHeight` line
+- **AND** the two saves are byte-identical
+
+#### Scenario: A failed line does not replace a readable value
+
+- **GIVEN** `ClientHeight = 2000` followed by `ClientHeight = abc`
+- **WHEN** the form is loaded
+- **THEN** its height holds 2000 twips and the form is unfaithful to save
+- **AND** Save refuses without changing the original bytes
+
+#### Scenario: A measurement cannot be set
+
+- **GIVEN** a CommandButton with `Height = 3.7E+18`
+- **WHEN** the form is loaded
+- **THEN** the button's Height is left as if the line were absent
+- **AND** the form is unfaithful to save and Save leaves the original bytes unchanged
 
 ## Out of Scope
 - **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are

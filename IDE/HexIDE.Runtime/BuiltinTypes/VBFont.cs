@@ -44,6 +44,9 @@ public static class VBFontExtensions
     public static bool IsNameable(string? family) =>
         !string.IsNullOrEmpty(family) && AvaloniaInterop.FontMembers.Takes(family);
 
+    /// <summary>The design-time dialog's measured 96-dpi rounding, without bitmap-font substitution (#4153).</summary>
+    public static double SnapDialogSize(double size) => Math.Max(2, AvaloniaInterop.VbFontSizes.RoundToPixels(size)) * 0.75;
+
     public static FontWeight ToFontWeight(this VBFont font) =>
         font.Bold ? FontWeight.Bold : FontWeight.Normal;
 

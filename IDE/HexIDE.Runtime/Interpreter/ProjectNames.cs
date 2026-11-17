@@ -63,13 +63,14 @@ internal sealed class ProjectNames
                     foreach (var member in members.Keys)
                         names.Add(reader, owner, member);
         }
-        // A Public variable or Const beside another module's Public procedure of the name is ambiguous as well (measured
-        // for a Sub and for a Function).
+        // A Public variable or Const beside another module's visible procedure or Property is ambiguous as well
+        // (Sub and Function measured in #880; Property Get and Let-only in #3359).
         foreach (var name in new List<string>(names.owners.Keys))
             foreach (var other in modules)
                 if (!ReferenceEquals(other, reader) && !ReferenceEquals(other, names.owners[name])
                     && other.Kind == InterpreterModuleKind.Standard
-                    && other.PrePass.Procedures.TryGetValue(name, out var procedure) && !procedure.IsPrivate)
+                    && ((other.PrePass.Procedures.TryGetValue(name, out var procedure) && !procedure.IsPrivate)
+                        || (other.PrePass.Properties.TryGetValue(name, out var property) && BasicInterpreter.IsVisibleOutside(property))))
                     names.owners[name] = null;
         return names;
     }

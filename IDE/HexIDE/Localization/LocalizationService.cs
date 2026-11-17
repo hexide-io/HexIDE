@@ -35,7 +35,9 @@ public sealed class LocalizationService : ILocalizationService
     // The per-user override tier, merged LAST in resolution. Optional so existing `new LocalizationService()`
     // tests still construct without it; when present, an override change live-re-applies the active language.
     private readonly IUserTranslationsService? _userTranslations;
+    private readonly DistributionIdentity _identity;
     private readonly Dictionary<string, Dictionary<string, string>> _profileStrings = new(StringComparer.Ordinal);
+    private string? _profileId;
 
     // The active pack's effective map, including profile and user overrides.
     private Dictionary<string, string> _currentStrings;
@@ -66,8 +68,10 @@ public sealed class LocalizationService : ILocalizationService
 
     public event Action? LanguageChanged;
 
-    public LocalizationService(IUserTranslationsService? userTranslations = null, IDeveloperModeService? developerMode = null)
+    public LocalizationService(IUserTranslationsService? userTranslations = null, IDeveloperModeService? developerMode = null,
+        DistributionIdentity? identity = null)
     {
+        _identity = identity ?? Distribution.Current;
         _englishStrings = LoadEnglish();
         _currentStrings = new Dictionary<string, string>(_englishStrings);
 
@@ -96,11 +100,12 @@ public sealed class LocalizationService : ILocalizationService
     }
 
     internal LocalizationService(ProfileSnapshot? profile, IUserTranslationsService? userTranslations = null,
-        IDeveloperModeService? developerMode = null)
-        : this(userTranslations, developerMode)
+        IDeveloperModeService? developerMode = null, DistributionIdentity? identity = null)
+        : this(userTranslations, developerMode, identity)
     {
         if (profile == null)
             return;
+        _profileId = profile.Id;
         foreach (var (id, payload) in profile.LanguageOverrides)
         {
             var pack = payload.Content.Deserialize(LocalizationJsonContext.Default.LanguagePackRecord)!;
@@ -246,17 +251,19 @@ public sealed class LocalizationService : ILocalizationService
     internal bool TryResolveMap(string id, out Dictionary<string, string> map, out string direction)
     {
         var resolved = TryResolveLayers(id, out map, out direction);
-        KeepUpstreamCredits(id, map);
-        if (!Distribution.Current.IsStock)
-            BrandText.Apply(map, Distribution.Current.Name, hasRepository: Distribution.Current.RepositoryUrl is not null);
+        KeepProtectedStrings(id, map);
+        if (!_identity.IsStock)
+            BrandText.Apply(map, _identity.Name, hasRepository: _identity.RepositoryUrl is not null);
         return resolved;
     }
 
     /// <summary>
-    /// Restores HexIDE's own thanks if a profile or user override changed them. Jen (#2746): "a whitelabelled IDE
-    /// should _not_ get an API to remove HexIDE credits, only to add to them."
+    /// Restores the shipped text of every <see cref="BrandText.ProtectedKeys"/> entry a profile or user override
+    /// changed. That covers HexIDE's own thanks, where Jen ruled (#2746): "a whitelabelled IDE should _not_ get an API
+    /// to remove HexIDE credits, only to add to them". It also covers the lines naming HexIDE's signing keys, which a
+    /// product built on it must not relabel as its own (#4060).
     /// </summary>
-    private void KeepUpstreamCredits(string id, Dictionary<string, string> map)
+    private void KeepProtectedStrings(string id, Dictionary<string, string> map)
     {
         // The pseudo packs are a transformation of canonical English, with no override tier to defend against.
         if (id is "pseudo" or "pseudo-rtl")
@@ -264,42 +271,73 @@ public sealed class LocalizationService : ILocalizationService
 
         var language = id == "system" ? ResolveOsLanguage() : id;
 
-        // This runs on every resolve, and a pack is a large file to parse for a question that is nearly always no.
-        if (!IsCreditsOverridden(language))
-            return;
-
-        var shipped = ShippedCredits(language);
-        if (map.TryGetValue(BrandText.UpstreamCreditsKey, out var current) && current == shipped)
-            return;
-
-        Log.Warning("LocalizationService: An override of {Key} for '{Language}' was ignored: HexIDE's credits can be added to, not replaced",
-            BrandText.UpstreamCreditsKey, language);
-        map[BrandText.UpstreamCreditsKey] = shipped;
-    }
-
-    private bool IsCreditsOverridden(string language)
-    {
-        foreach (var layer in new[] { language, NeutralLanguageOf(language) })
+        foreach (var key in BrandText.ProtectedKeys)
         {
-            if (_profileStrings.TryGetValue(layer, out var profile) && profile.ContainsKey(BrandText.UpstreamCreditsKey))
-                return true;
-            if (_userTranslations?.GetOverrides(layer)?.ContainsKey(BrandText.UpstreamCreditsKey) == true)
-                return true;
+            // This runs on every resolve, and a pack is a large file to parse for a question that is nearly always no.
+            if (OverrideSources(key, language) is not { Count: > 0 } sources)
+                continue;
+
+            var shipped = Shipped(key, language);
+            if (map.TryGetValue(key, out var current) && current == shipped)
+                continue;
+
+            Log.Warning("LocalizationService: An override of {Key} for '{Language}' from {Sources} was ignored: {Reason}",
+                key, language, string.Join(", ", sources), key == BrandText.UpstreamCreditsKey
+                    ? "HexIDE's credits can be added to, not replaced"
+                    : "the lines naming HexIDE's signing keys can't be relabeled");
+            map[key] = shipped;
         }
 
-        return false;
+        // A profile may not change what tells a person whether to trust an add-in; the user's own translation may (#4121).
+        foreach (var key in BrandText.TrustVerdictKeys)
+        {
+            if (OverrideSources(key, language, includeUser: false) is not { Count: > 0 } sources)
+                continue;
+
+            var expected = UserOverride(key, language) ?? Shipped(key, language);
+            if (map.TryGetValue(key, out var current) && current == expected)
+                continue;
+
+            Log.Warning("LocalizationService: An override of {Key} for '{Language}' from {Sources} was ignored: {Reason}",
+                key, language, string.Join(", ", sources), "a profile can't change what says whether to trust an add-in");
+            map[key] = expected;
+        }
     }
 
-    private string ShippedCredits(string language)
+    /// <summary>Each override tier that supplies <paramref name="key"/> for <paramref name="language"/>, by name.</summary>
+    private List<string>? OverrideSources(string key, string language, bool includeUser = true)
+    {
+        List<string>? sources = null;
+        foreach (var layer in new[] { language, NeutralLanguageOf(language) }.Distinct())
+        {
+            if (_profileStrings.TryGetValue(layer, out var profile) && profile.ContainsKey(key))
+                (sources ??= []).Add($"profile '{_profileId}' ({layer})");
+            if (includeUser && _userTranslations?.GetOverrides(layer)?.ContainsKey(key) == true)
+                (sources ??= []).Add($"the user's translations ({layer})");
+        }
+
+        return sources;
+    }
+
+    /// <summary>The user's own translation of <paramref name="key"/>, the region's before its neutral's, as the merge orders them.</summary>
+    private string? UserOverride(string key, string language)
+    {
+        foreach (var layer in new[] { language, NeutralLanguageOf(language) })
+            if (_userTranslations?.GetOverrides(layer) is { } overrides && overrides.TryGetValue(key, out var value))
+                return value;
+        return null;
+    }
+
+    private string Shipped(string key, string language)
     {
         foreach (var layer in new[] { language, NeutralLanguageOf(language) })
         {
-            if (layer != "en" && LoadPackOwnStrings(layer).TryGetValue(BrandText.UpstreamCreditsKey, out var text)
+            if (layer != "en" && LoadPackOwnStrings(layer).TryGetValue(key, out var text)
                 && !string.IsNullOrWhiteSpace(text))
                 return text;
         }
 
-        return _englishStrings.GetValueOrDefault(BrandText.UpstreamCreditsKey, BrandText.UpstreamCreditsKey);
+        return _englishStrings.GetValueOrDefault(key, key);
     }
 
     private bool TryResolveLayers(string id, out Dictionary<string, string> map, out string direction)
@@ -323,8 +361,8 @@ public sealed class LocalizationService : ILocalizationService
         {
             var rtl = id == "pseudo-rtl";
             var source = new Dictionary<string, string>(_englishStrings);
-            if (!Distribution.Current.IsStock)
-                BrandText.Apply(source, Distribution.Current.Name, hasRepository: Distribution.Current.RepositoryUrl is not null);
+            if (!_identity.IsStock)
+                BrandText.Apply(source, _identity.Name, hasRepository: _identity.RepositoryUrl is not null);
             map = PseudoLocalizer.Transform(source, rtl);
             direction = rtl ? "rtl" : "ltr";
             return true;

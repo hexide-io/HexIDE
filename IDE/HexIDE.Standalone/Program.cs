@@ -41,7 +41,15 @@ public class Program
 
         // The made program's VB code runs on the UI thread, so it gets the IDE's stack rather than the
         // launcher's, which is 1.5 MiB on Windows (#3228).
-        HexIDE.Runtime.UiThread.Run(() => BuildAvaloniaApp().StartWithClassicDesktopLifetime(args));
+        Environment.ExitCode = DisplayBackend.Run(
+            DisplayBackend.Select(null, Environment.GetEnvironmentVariable("HEXIDE_PLATFORM")),
+            () =>
+            {
+                BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+                return 0;
+            },
+            reason => string.Format(App.ErrorString("Str.Startup.WaylandUnavailableEnvironment"), reason),
+            _ => { });
     }
 
     private sealed class ConsoleLogSink : Serilog.Core.ILogEventSink

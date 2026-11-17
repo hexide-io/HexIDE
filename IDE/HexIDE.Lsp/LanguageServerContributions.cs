@@ -77,6 +77,8 @@ public sealed class LanguageServerContributions(
         // added to it later, outside the prefix, would otherwise be answered by the add-in in the client's place.
         var claimed = new Dictionary<string, AddinServerMethod>(server.ServerMethods, StringComparer.Ordinal);
         CheckMessages(server.MessagePrefix, claimed);
+        var commands = new Dictionary<string, AddinClientCommand>(server.ClientCommands, StringComparer.Ordinal);
+        CheckCommands(server.CommandPrefix, commands);
         if (server.BeforeLaunchTimeout <= TimeSpan.Zero || server.BeforeLaunchTimeout > AddinLanguageServer.MaxBeforeLaunchTimeout)
             throw new ArgumentException(
                 $"The wait for a gate before launch must be positive and at most {AddinLanguageServer.MaxBeforeLaunchTimeout}.",
@@ -125,12 +127,17 @@ public sealed class LanguageServerContributions(
                 ? token => WithinAsync(gate, server.BeforeLaunchTimeout, origin, id, token)
                 : null,
             Origin = origin,
-            CreateClient = claimed.Count == 0 && afterStart is null ? made.CreateClient : () =>
+            CreateClient = claimed.Count == 0 && commands.Count == 0 && afterStart is null ? made.CreateClient : () =>
             {
                 var client = made.CreateClient();
                 if (client is VBLspClient lsp)
                 {
                     if (claimed.Count > 0) lsp.Claim(claimed);
+                    if (commands.Count > 0)
+                    {
+                        lsp.ClaimCommands(commands);
+                        lsp.SetCommandLifetime(() => connection.Task.IsCompletedSuccessfully ? connection.Task.Result.Lifetime : default);
+                    }
                     // On the pool, not after a yield: a yield returns to the context of the start, and a document opened
                     // from the code window starts its server on the UI thread.
                     if (afterStart is not null)
@@ -239,6 +246,28 @@ public sealed class LanguageServerContributions(
         }
     }
 
+    private static void CheckCommands(string? commandPrefix, IReadOnlyDictionary<string, AddinClientCommand> claimed)
+    {
+        const string server = "server";
+        if (commandPrefix is not { } prefix)
+        {
+            if (claimed.Count > 0)
+                throw new ArgumentException("Commands can be claimed only under a command prefix.", server);
+            return;
+        }
+
+        if (prefix.Length < 2 || !prefix.EndsWith('.') || prefix.Any(char.IsWhiteSpace))
+            throw new ArgumentException($"'{prefix}' is not a command prefix: one is a name followed by '.', such as 'myserver.'.",
+                server);
+
+        if (new[] { "editor.", "vscode.", "hexide." }.Any(ns => prefix.StartsWith(ns, StringComparison.OrdinalIgnoreCase)))
+            throw new ArgumentException($"'{prefix}' is a reserved command namespace, so it is not an add-in's.", server);
+
+        foreach (var command in claimed.Keys)
+            if (!IsUnder(command, prefix))
+                throw new ArgumentException($"'{command}' is not under the registration's prefix '{prefix}'.", server);
+    }
+
     internal static bool IsUnder(string method, string prefix) =>
         method.Length > prefix.Length && method.StartsWith(prefix, StringComparison.Ordinal);
 }
@@ -279,6 +308,13 @@ public sealed class AddinServerConnection : IAddinServerConnection, IAsyncDispos
 
     public Task NotifyAsync(string method, JsonElement? parameters = null, CancellationToken cancellationToken = default) =>
         Running(method).SendCustomNotificationAsync(method, parameters, cancellationToken);
+
+    public Task<HexIDE.Lsp.Messages.ApplyWorkspaceEditResult> ApplyEditAsync(
+        HexIDE.Lsp.Messages.WorkspaceEdit edit, CancellationToken cancellationToken) =>
+        _contribution.Client is VBLspClient client
+            ? client.ApplyClaimedEditAsync(edit, cancellationToken)
+            : Task.FromResult(new HexIDE.Lsp.Messages.ApplyWorkspaceEditResult(false,
+                HexIDE.IDE.Distribution.DisplayName + " applies a server's edits only while a command the user started is running."));
 
     private VBLspClient Running(string method)
     {

@@ -1,3 +1,4 @@
+using HexIDE.Runtime.AvaloniaInterop;
 using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -12,9 +13,10 @@ public class StandaloneStandardLib : IBasicStandardLibrary
 {
     private readonly Window _parent;
 
-    public StandaloneStandardLib(Window parent)
+    public StandaloneStandardLib(Window parent, string fallbackTitle)
     {
         _parent = parent;
+        OmittedTitleStandIn = fallbackTitle;
     }
 
     /// <summary>
@@ -26,14 +28,14 @@ public class StandaloneStandardLib : IBasicStandardLibrary
     /// here means there was no project behind the program at all — a bare interpreter or the headless
     /// runner. This is the last resort for that case, not the application-name default.
     /// </remarks>
-    private const string OmittedTitleStandIn = "HexIDE";
+    private readonly string OmittedTitleStandIn;
 
     public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         => MsgBox(text, caption, buttons, icon, MessageBoxLayout.None);
 
     public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxLayout layout)
     {
-        var msgBox = new MessageBox { IsProgramDialog = true, Text = text, Buttons = buttons, Icon = icon, Layout = layout };
+        var msgBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon, Layout = layout };
         var window = new Window
         {
             Title = caption ?? OmittedTitleStandIn,
@@ -48,7 +50,7 @@ public class StandaloneStandardLib : IBasicStandardLibrary
     public async Task<string?> InputBox(string prompt, string? title, string defaultText)
     {
         string? result = null;
-        var inputBox = new InputBox { IsProgramDialog = true, Prompt = prompt, Text = defaultText };
+        var inputBox = new InputBox { Prompt = prompt, Text = defaultText };
         var window = new Window
         {
             Title = title ?? OmittedTitleStandIn,
@@ -57,6 +59,7 @@ public class StandaloneStandardLib : IBasicStandardLibrary
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             CanResize = false
         };
+        inputBox.ApplyProgramChrome(window);
         inputBox.TextRequest += r => { result = r; window.Close(); };
         if (_parent.IsVisible)
             await window.ShowDialog(_parent);

@@ -66,9 +66,11 @@ public sealed class RegistryVbSettingsStore(string root = RegistryVbSettingsStor
 public static class VbSettingsStores
 {
     /// <summary>
-    /// On Windows, the registry key vb6.exe itself uses. Elsewhere, a file in HexIDE's user-data directory, which
-    /// <c>--user-data-dir</c> moves, so a demo or test run never touches the user's own settings.
+    /// On Windows, the registry key vb6.exe itself uses. Elsewhere, a file under stock HexIDE's configuration directory:
+    /// a program's settings belong to the program, as in VB6, so branded IDEs and made EXEs share them
+    /// (#4070, measured in oracle PR #4072). <c>--user-data-dir</c> still moves the file, so a demo or test
+    /// run never touches the user's own settings.
     /// </summary>
     public static IVbSettingsStore ForThisUser() =>
-        OperatingSystem.IsWindows() ? new RegistryVbSettingsStore() : new FileVbSettingsStore(UserDataPath.For("program-settings.json"));
+        OperatingSystem.IsWindows() ? new RegistryVbSettingsStore() : new FileVbSettingsStore(UserDataPath.ForPrograms("program-settings.json"));
 }

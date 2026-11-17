@@ -16,12 +16,11 @@ sealed partial class Program
         StringMarshalling = System.Runtime.InteropServices.StringMarshalling.Utf16)]
     private static partial int ShowNativeMessageBox(nint owner, string text, string caption, uint type);
 
-    private static string? EstablishDistribution()
+    private static string? EstablishDistribution(string installationDirectory, Action<HexIDE.IDE.DistributionIdentity> establish)
     {
         try
         {
-            HexIDE.IDE.Distribution.Establish(HexIDE.IDE.DistributionDescriptor.Resolve(AppContext.BaseDirectory));
-            WindowsTaskbarIdentity.Apply(HexIDE.IDE.Distribution.Current);
+            establish(HexIDE.IDE.DistributionDescriptor.Resolve(installationDirectory));
             return null;
         }
         catch (HexIDE.IDE.DistributionDescriptorException ex)
@@ -32,11 +31,40 @@ sealed partial class Program
     }
 
     // A shortcut or Explorer gives this program no console, and on Windows a start that says nothing looks like a hang.
+    // A broken brand.json and a profile that can't be loaded both refuse the start through here.
     private static void ReportDistributionError(string message)
     {
         const uint iconError = 0x10;
         if (!ConsoleOutput.Write(message + Environment.NewLine) && OperatingSystem.IsWindows())
             ShowNativeMessageBox(0, message, "Cannot start", iconError);
+    }
+
+    /// <summary>
+    /// Loads the profile this start uses: <c>--profile</c>'s, or else the brand's <c>defaultProfile</c>.
+    /// </summary>
+    /// <returns>
+    /// False when the profile can't be loaded, after <paramref name="reportError"/> has been given the localized reason
+    /// naming the profile and its file.
+    /// </returns>
+    /// <remarks>
+    /// A refusal goes to the reporter a broken brand.json uses, not straight to the console. Started from Explorer or a
+    /// shortcut, a branded product whose default profile was missing used to exit with code 2 and show nothing (#4169).
+    /// </remarks>
+    internal static bool TryLoadProfile(Func<HexIDE.Profiles.ProfileSnapshot?> resolve, Action<string> reportError,
+        out HexIDE.Profiles.ProfileSnapshot? profile)
+    {
+        try
+        {
+            profile = resolve();
+            return true;
+        }
+        catch (HexIDE.Profiles.ProfileLoadException ex)
+        {
+            var localization = new HexIDE.Localization.LocalizationService();
+            reportError(string.Format(localization.GetStringFrom("system", "Str.Profiles.LoadError"), ex.SourceId, ex.File));
+            profile = null;
+            return false;
+        }
     }
 
     [STAThread]
@@ -48,34 +76,19 @@ sealed partial class Program
         var invocationDirectory = Environment.CurrentDirectory;
         FixCurrentWorkingDictionary();
 
-        // First of all: every per-user path, log and caption is derived from this (#2042). A failure is held until
-        // the arguments are read, so that --help still answers on a broken installation.
-        var distributionError = EstablishDistribution();
-
-        ServerOptions.ParseArgs(args, invocationDirectory);
-
-        // Before anything Avalonia touches: --help answers and leaves, so asking what the flags are never
-        // starts an IDE, loads a project or opens a port.
-        if (ServerOptions.HelpRequested)
+        var gateExitCode = RunDistributionGate(args, invocationDirectory, AppContext.BaseDirectory, identity =>
         {
-            if (distributionError != null)
-            {
-                ConsoleOutput.Write(distributionError + Environment.NewLine);
-                Environment.ExitCode = 2;
-            }
-
-            ConsoleOutput.Write(ServerOptions.HelpText);
-            return;
-        }
-
-        // Refused rather than started as stock: stock would open HexIDE's own settings and recovery files.
-        if (distributionError != null)
+            HexIDE.IDE.Distribution.Establish(identity);
+            WindowsTaskbarIdentity.Apply(identity);
+        }, message => { ConsoleOutput.Write(message); }, ReportDistributionError, () => Start(args, invocationDirectory));
+        if (gateExitCode is { } exitCode)
         {
-            ReportDistributionError(distributionError);
-            Environment.ExitCode = 2;
-            return;
+            Environment.ExitCode = exitCode;
         }
+    }
 
+    private static void Start(string[] args, string invocationDirectory)
+    {
         if (ServerOptions.ProfileArgumentError is { } profileError)
         {
             var localization = new HexIDE.Localization.LocalizationService();
@@ -137,18 +150,13 @@ sealed partial class Program
         if (ServerOptions.UserDataDirectory is { } userData)
             HexIDE.IDE.UserDataPath.RedirectTo(userData);
 
-        try
+        if (!TryLoadProfile(() => ServerOptions.ResolveProfile(invocationDirectory, HexIDE.IDE.UserDataPath.Directory),
+                ReportDistributionError, out var profile))
         {
-            HexIDE.Static.Profile = ServerOptions.ResolveProfile(invocationDirectory, HexIDE.IDE.UserDataPath.Directory);
-        }
-        catch (HexIDE.Profiles.ProfileLoadException ex)
-        {
-            var localization = new HexIDE.Localization.LocalizationService();
-            var message = string.Format(localization.GetStringFrom("system", "Str.Profiles.LoadError"), ex.SourceId, ex.File);
-            ConsoleOutput.Write(message + Environment.NewLine);
             Environment.ExitCode = 2;
             return;
         }
+        HexIDE.Static.Profile = profile;
 
         DesktopStartup.Register();
         // The lifetime returns the code the app shut down with. Discarding it made every exit 0, including
@@ -162,7 +170,54 @@ sealed partial class Program
 #endif
         // On a thread of its own, because VB code runs on the UI thread and this first thread's stack is the
         // launcher's choice, 1.5 MiB on Windows (#3228).
-        Environment.ExitCode = HexIDE.Runtime.UiThread.Run(() => builder.StartWithClassicDesktopLifetime(args));
+        Environment.ExitCode = DisplayBackend.Run(
+            DisplayBackend.Select(ServerOptions.Platform, Environment.GetEnvironmentVariable("HEXIDE_PLATFORM")),
+            () => builder.StartWithClassicDesktopLifetime(args),
+            reason => string.Format(new HexIDE.Localization.LocalizationService()
+                .GetStringFrom("system", ServerOptions.Platform != null
+                    ? "Str.Startup.WaylandUnavailableArgument"
+                    : "Str.Startup.WaylandUnavailableEnvironment"), reason),
+            message =>
+            {
+                // Setup failed before App configured logging; open and flush the normal IDE log here.
+                HexIDE.Infrastructure.LoggingSetup.Initialise();
+                Serilog.Log.Fatal("{Message:l}", message);
+                HexIDE.Infrastructure.LoggingSetup.Shutdown();
+            });
+    }
+
+    internal static int? RunDistributionGate(string[] args, string invocationDirectory, string installationDirectory,
+        Action<HexIDE.IDE.DistributionIdentity> establish, Action<Func<ConsoleTarget, string>> write, Action<string> reportError,
+        Action start)
+    {
+        // First of all: every per-user path, log and caption is derived from this (#2042). A failure is held until
+        // the arguments are read, so that --help still answers on a broken installation.
+        var distributionError = EstablishDistribution(installationDirectory, establish);
+
+        ServerOptions.ParseArgs(args, invocationDirectory);
+
+        // Before anything Avalonia touches: --help answers and leaves, so asking what the flags are never
+        // starts an IDE, loads a project or opens a port.
+        if (ServerOptions.HelpRequested)
+        {
+            if (distributionError != null)
+            {
+                write(_ => distributionError + Environment.NewLine);
+            }
+
+            write(ServerOptions.HelpText);
+            return distributionError is null ? 0 : 2;
+        }
+
+        // Refused rather than started as stock: stock would open HexIDE's own settings and recovery files.
+        if (distributionError != null)
+        {
+            reportError(distributionError);
+            return 2;
+        }
+
+        start();
+        return null;
     }
 
     private static void FixCurrentWorkingDictionary()

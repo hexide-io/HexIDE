@@ -284,8 +284,11 @@ public partial class TranslationEditorViewModel : Document
         lines.Add(string.Format(
             _localization.GetString("Str.TranslationEditor.Tooltip.Override"), overrideValue));
 
-        if (key == HexIDE.Localization.BrandText.UpstreamCreditsKey)
-            lines.Add(_localization.GetString("Str.TranslationEditor.ProtectedCredits"));
+        var row = new TranslationRowViewModel(key);
+        if (row.ProtectedReasonKey is { } reason)
+            lines.Add(_localization.GetString(reason));
+        else if (row.IsProtectedFromProfiles)
+            lines.Add(_localization.GetString("Str.TranslationEditor.ProtectedFromProfiles"));
 
         return string.Join(Environment.NewLine, lines);
     }
@@ -302,8 +305,8 @@ public partial class TranslationEditorViewModel : Document
 
     internal void ExplainProtected(TranslationRowViewModel row)
     {
-        if (row.IsProtected)
-            StatusMessage = _localization.GetString("Str.TranslationEditor.ProtectedCredits");
+        if (row.ProtectedReasonKey is { } reason)
+            StatusMessage = _localization.GetString(reason);
     }
 
     private void CommitTo(TranslationRowViewModel row)
@@ -316,7 +319,7 @@ public partial class TranslationEditorViewModel : Document
             _suppressCommit = true;
             try { row.ToValue = _localization.GetStringFrom(toId, row.Key); }
             finally { _suppressCommit = false; }
-            StatusMessage = _localization.GetString("Str.TranslationEditor.ProtectedCredits");
+            StatusMessage = _localization.GetString(row.ProtectedReasonKey!);
             return;
         }
 

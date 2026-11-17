@@ -14,6 +14,12 @@ public enum UnfaithfulSaveCause
 {
     None = 0,
 
+    /// <summary>A repeated property has an unreadable value (#4096).</summary>
+    UnreadableDuplicateProperty = 1 << 8,
+
+    /// <summary>A saved measurement cannot be set by VB6 (#4096).</summary>
+    RefusedMeasurement = 1 << 9,
+
     /// <summary>SSTab children or page references cannot be modelled for designer edits (#2301).</summary>
     SSTabPageMetadata = 1 << 2,
 
@@ -43,4 +49,10 @@ public enum UnfaithfulSaveCause
     /// what it had just read. Its reason is shown as the format gave it.
     /// </summary>
     RefusedByFormat = 1 << 5,
+
+    /// <summary>
+    /// The designer text holds a NUL, which VB6 doesn't write there and which the writer uses to mark where a companion
+    /// citation goes, so a save couldn't place them (#4096).
+    /// </summary>
+    NulInDesignerText = 1 << 7,
 }

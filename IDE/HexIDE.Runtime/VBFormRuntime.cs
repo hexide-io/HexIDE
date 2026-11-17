@@ -73,7 +73,7 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
             if (e is FocusChangedEventArgs moved && FindControl(this, moved.NewFocusedElement as ILogical) is { } control)
                 ActiveControl = control;
         }, RoutingStrategies.Bubble, handledEventsToo: true);
-        windowContext = new VBWindowContext(new StandaloneStandardLib(this)) { Window = this };
+        windowContext = new VBWindowContext(new StandaloneStandardLib(this, HexIDE.IDE.Distribution.DisplayName)) { Window = this };
         // Held by a modal form, the window takes no input of its own (#822): what reaches it is stopped on the way down, and
         // activating it brings the modal form forward instead.
         foreach (var input in new RoutedEvent[] { KeyDownEvent, KeyUpEvent, TextInputEvent, PointerPressedEvent, PointerReleasedEvent, PointerWheelChangedEvent })
@@ -204,6 +204,9 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         }
     }
 
+    public System.Threading.Tasks.Task<int> CompareRowsAsync(string name, int row1, int row2, int cmp) =>
+        windowContext.CompareRowsAsync(name, row1, row2, cmp);
+
     public void ExecuteKeyboardEvent(string name, IReadOnlyList<Vb6Value> args, int writable, Action<int> completed) =>
         windowContext.ExecuteKeyboardEvent(name, args, writable, completed);
 
@@ -250,6 +253,9 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         positioned = true;
         ShowActivated = IsEnabled;
         Show();
+        // The last visible form hidden and re-shown keeps its VB focus, without another GotFocus (#3936).
+        if (ReferenceEquals(windowContext.Program?.ActiveForm, windowContext.FormInstance))
+            ActiveControl?.Focus();
         // Me.Show in Load raises Activate and initial GotFocus before the next statement (#2436).
         if (windowContext.Loading && IsEnabled)
             windowContext.Program?.Activated(windowContext);

@@ -40,6 +40,7 @@ shortcuts) is the canonical example: the form still opens perfectly in HexIDE.
 
 | Format | Target | Why |
 |---|---|---|
+| `.vbg` | **1**, or **0** for mixed project kinds | Only `.vbp` members are safe: VB6 opens other extensions as code modules ([oracle PR #4308](https://github.com/hexide-io/HexIDE/pull/4308)). Mixed-group saves refuse before writing anything, pending #1206’s workspace descriptor |
 | `.vbp` | **1** | Small key=value file; humans read its diffs |
 | `.frm` / `.ctl` designer block | **1** | See "diffs are the real requirement" below. 2 is an interim state, not a resting place |
 | `.cls` / `.bas` headers | **1** | These carry Instancing semantics; preserving what was read is both easier and safer than regenerating |

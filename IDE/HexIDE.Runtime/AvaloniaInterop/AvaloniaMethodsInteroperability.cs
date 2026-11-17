@@ -15,6 +15,8 @@ public static class AvaloniaMethodsInteroperability
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBMSFlexGrid grid) return FlexGridMembers.Call(grid, method, args);
+
         if (c is VBMonthView monthView && (Components.InBox.MonthViewComponentClass.Instance.Member(method) is not null
             || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
         {
@@ -63,7 +65,7 @@ public static class AvaloniaMethodsInteroperability
             return inBox ? Vb6Value.Nothing : throw new VBMethodOrDataMemberNotFoundException(method, Vb6Value.ValueType.Control);
         // A form's Show and Hide, on a window the program drives (#822). Its load came first, where the member was looked
         // up. A modal Show waits for the form, so only a statement, through CallAsync, can make one.
-        if (c is IFormView view)
+        if (FormRoot.View(c) is { } view)
         {
             if (method.Equals("show", StringComparison.OrdinalIgnoreCase))
             {
@@ -84,6 +86,9 @@ public static class AvaloniaMethodsInteroperability
                 return Vb6Value.Nothing;
             }
         }
+        if (c is ItemsControl extensionList && ListMembers.IsList(c) && ListMembers.IsExtension(c, method))
+            return ListMembers.CallExtension(extensionList, method, args);
+
         if (c is ItemsControl itemsControl)
         {
             if (method.Equals("additem", StringComparison.OrdinalIgnoreCase))
@@ -113,7 +118,7 @@ public static class AvaloniaMethodsInteroperability
         if (method.Equals("zorder", StringComparison.OrdinalIgnoreCase) && c is not Window)
             return ZOrder(c, args);
 
-        if (method.Equals("setfocus", StringComparison.OrdinalIgnoreCase) && args.Count == 0 && (c is IFormView || c.Focusable))
+        if (method.Equals("setfocus", StringComparison.OrdinalIgnoreCase) && args.Count == 0 && (FormRoot.View(c) is not null || c.Focusable))
             return SetFocus(c);
 
         if (c is VBTreeView)
@@ -145,11 +150,11 @@ public static class AvaloniaMethodsInteroperability
     /// </summary>
     private static Vb6Value SetFocus(Control c)
     {
-        var view = c as IFormView ?? c.GetLogicalAncestors().OfType<IFormView>().FirstOrDefault();
-        if (view is not { IsShown: true } || c is not IFormView && (!c.IsEffectivelyVisible || !c.IsEffectivelyEnabled))
+        var view = FormRoot.View(c) ?? c.GetLogicalAncestors().OfType<IFormView>().FirstOrDefault();
+        if (view is not { IsShown: true } || FormRoot.View(c) is null && (!c.IsEffectivelyVisible || !c.IsEffectivelyEnabled))
             throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
         view.ActivateForm();
-        if (c is not IFormView)
+        if (FormRoot.View(c) is null)
         {
             using var posting = view.Context.Loading ? null : view.Context.Events.Posting();
             c.Focus();
@@ -275,7 +280,7 @@ public static class AvaloniaMethodsInteroperability
         // A CommonDialog's ShowOpen and the rest wait for the dialog (#1084).
         if (c is VBCommonDialog dialog && VBCommonDialog.Handles(method))
             return await dialog.CallAsync(method, args);
-        if (c is IFormView view && method.Equals("show", StringComparison.OrdinalIgnoreCase) && IsModal(args))
+        if (FormRoot.View(c) is { } view && method.Equals("show", StringComparison.OrdinalIgnoreCase) && IsModal(args))
         {
             var program = view.Context.Program
                           ?? throw new NotImplementedException("Show vbModal needs a program of forms, which this host doesn't run (#822).");

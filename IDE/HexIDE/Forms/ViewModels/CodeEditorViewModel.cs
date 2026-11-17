@@ -192,6 +192,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private DocumentSymbol[]? _symbols;
     public IReadOnlyList<DocumentSymbol> OutlineSymbols => _symbols ?? [];
     private int symbolRefreshVersion;
+    // The symbol request still waiting, and the text it was asked for, by URI and checkpoint (#4162).
+    private CancellationTokenSource? symbolsRequest;
+    private (string Uri, ITextSourceVersion? Checkpoint)? symbolsWaiting;
+
+    private void CancelSymbolRequest()
+    {
+        if (symbolsRequest is not { } waiting) return;
+        symbolsRequest = null;
+        symbolsWaiting = null;
+        waiting.Cancel();
+        waiting.Dispose();
+    }
 
     /// <summary>
     /// This document's conversation with the language layer, shared with the carried-file editor.
@@ -222,6 +234,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private readonly IReadOnlyRegionReader regionReader;
     private readonly IReadOnlyRegionRules? regionRules;
     private readonly IReadOnlyRegionWriter? regionWriter;
+
+    // The project this code belongs to, whose format reads and guards it (#4053); null for code no project owns, which
+    // the injected format and regions still serve until #3411's slice 10b.
+    private ProjectDefinition? OwnerProject => moduleDefinition?.Owner ?? formDefinition?.Owner;
+
+    private IProjectFileFormat Format => OwnerProject is { } p ? ProjectFormats.Of(p, format) : format;
+
+    private IReadOnlyRegionReader RegionReader => OwnerProject is { } p ? ProjectFormats.ReaderOf(p, regionReader) : regionReader;
+
+    private IReadOnlyRegionRules? RegionRules => OwnerProject is { } p ? ProjectFormats.RulesOf(p, regionRules) : regionRules;
+
+    private IReadOnlyRegionWriter? RegionWriter => OwnerProject is { } p ? ProjectFormats.WriterOf(p, regionWriter) : regionWriter;
 
     public CodeEditorViewModel(IWindowManager windowManager,
         IEditorService editorService,
@@ -420,7 +444,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             // document BEFORE the buffer above was written back to the definition.
             RefreshModelModified();
             if (session is { } closing)
-                ProjectLspDocument.CloseWindow(lspClient, Identity, closing, eventBus, format, IsModified && !unloading);
+                ProjectLspDocument.CloseWindow(lspClient, Identity, closing, eventBus, Format, IsModified && !unloading);
         }));
     }
 
@@ -460,8 +484,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// current one, so this is what gets put back.
     /// </summary>
     private string ModelHeader =>
-        moduleDefinition is { } module ? format.CodePrefix(module)
-        : formDefinition is { } form ? format.CodePrefix(form)
+        moduleDefinition is { } module ? Format.CodePrefix(module)
+        : formDefinition is { } form ? Format.CodePrefix(form)
         : bufferPrefix;
 
     /// <summary>
@@ -570,7 +594,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal void AdoptRewrittenQualifiers(string written)
     {
         var text = Document.Text;
-        var rewrites = regionWriter?.SaveRewrites(text, bufferPrefix.Length) ?? [];
+        var rewrites = RegionWriter?.SaveRewrites(text, bufferPrefix.Length) ?? [];
         if (rewrites.Count == 0)
             return;
         if (!string.Equals(FormCodeText.BodyOf(TextChanges.Apply(text, rewrites), bufferPrefix), written,
@@ -667,7 +691,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     // Mark admission must still see a member attribute line while typing owns it (#3871).
     public CodeWindowText CodeWindowText => new(Document.Text, bufferPrefix.Length,
         typedLine is null ? ReadOnlyRegionsNow
-            : regionReader.Regions(Document.Text, bufferPrefix.Length, PrefixIsEntireHeader));
+            : RegionReader.Regions(Document.Text, bufferPrefix.Length, PrefixIsEntireHeader));
 
     /// <summary>
     /// True once the developer has expanded the header's fold in this window, and false again once they fold
@@ -869,8 +893,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     internal void RetargetVbName(string name)
     {
-        if (regionWriter?.NameRewrite(Document.Text, bufferPrefix.Length, name,
-                moduleDefinition is { } module && format.PrefixCarriesName(module)) is not { } change)
+        if (RegionWriter?.NameRewrite(Document.Text, bufferPrefix.Length, name,
+                moduleDefinition is { } module && Format.PrefixCarriesName(module)) is not { } change)
             return;
         var (offset, length, line) = change;
         var caret = CaretOffset;
@@ -910,7 +934,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         RefreshPrefix(ModelHeader);
         if (identity is { Name: { Length: > 0 } name })
             RetargetVbName(name);
-        if (qualifiers && regionWriter?.SaveRewrites(Document.Text, bufferPrefix.Length) is { Count: > 0 } rewrites)
+        if (qualifiers && RegionWriter?.SaveRewrites(Document.Text, bufferPrefix.Length) is { Count: > 0 } rewrites)
             WriteQualifiers(rewrites);
     }
 
@@ -988,7 +1012,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             .Subscribe(_ => { Title = ComputeTitle(); ReconcileWireName(); }));
         // The whole file, not the code section (#273 task 3.2). One line number now means the same
         // thing to the editor, a language server, the interpreter and the debugger.
-        bufferPrefix = format.CodePrefix(formElement);
+        bufferPrefix = Format.CodePrefix(formElement);
         Document.Text = bufferPrefix + formElement.Code;
         ClearUndoHistoryAfterLoad();
         PlaceCaretBelowHeader();
@@ -1029,7 +1053,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             .Subscribe(_ => { Title = ComputeTitle(); ReconcileWireName(); }));
         // As above. For a .ctl/.pag the prefix comes from the FormPart's designer half, and the body is
         // the MODULE's code -- which is the pairing the save path writes for those kinds too.
-        bufferPrefix = format.CodePrefix(moduleElement);
+        bufferPrefix = Format.CodePrefix(moduleElement);
         Document.Text = bufferPrefix + moduleElement.Code;
         ClearUndoHistoryAfterLoad();
         PlaceCaretBelowHeader();
@@ -1247,16 +1271,42 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     internal async Task RefreshSymbolsAsync()
     {
-        var version = ++symbolRefreshVersion;
         if (!lspClient.IsRunning || LiveDocumentUri is not { } uri)
         {
+            ++symbolRefreshVersion;
+            CancelSymbolRequest();
             _symbols = [];
             OnPropertyChanged(nameof(OutlineSymbols));
             return;
         }
+        // Every diagnostics publish, from any server, refreshes, so with two servers publishing for one edit the
+        // highest-priority one was asked for the same symbols two or three times over, each a second or more in a large
+        // module, and only the last answer was used (#4162). A request for this text that is still waiting answers this
+        // refresh too; one for older text is cancelled, so the server stops working on it. Once an answer is in, a later
+        // publish asks again, as before: a fresh diagnostic set is still the sign the server has re-read the document.
+        var checkpoint = Document.Version;
+        if (symbolsWaiting is { } waiting && waiting.Uri == uri && ReferenceEquals(waiting.Checkpoint, checkpoint)) return;
+        var version = ++symbolRefreshVersion;
+        CancelSymbolRequest();
+        var request = symbolsRequest = new CancellationTokenSource();
+        symbolsWaiting = (uri, checkpoint);
         var text = Document.Text;
-        await FlushDocumentAsync();
-        var symbols = await lspClient.RequestDocumentSymbolsAsync(uri);
+        DocumentSymbol[] symbols;
+        try
+        {
+            await FlushDocumentAsync(request.Token);
+            symbols = await lspClient.RequestDocumentSymbolsAsync(uri, request.Token);
+        }
+        catch (OperationCanceledException) when (request.IsCancellationRequested) { return; }
+        finally
+        {
+            if (ReferenceEquals(symbolsRequest, request))
+            {
+                symbolsWaiting = null;
+                symbolsRequest = null;
+                request.Dispose();
+            }
+        }
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             if (version != symbolRefreshVersion || LiveDocumentUri != uri || text != Document.Text) return;
@@ -1362,12 +1412,23 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     internal string? LiveDocumentUri => session is { IsOpen: true } open ? open.Uri : null;
 
-    public void SaveForm() => SaveWithFormattingAsync(() => SaveDocumentAsync(false)).ListenErrors();
-    public void SaveModule() => SaveWithFormattingAsync(() => projectService.SaveModule(moduleDefinition!, false)).ListenErrors();
+    public void SaveForm() => StartSave(() => SaveDocumentAsync(false));
+    public void SaveModule() => StartSave(() => projectService.SaveModule(moduleDefinition!, false));
 
     private Task SaveDocumentAsync(bool saveAs) => moduleDefinition != null
         ? projectService.SaveModule(moduleDefinition, saveAs)
         : projectService.SaveForm(formDefinition!, saveAs);
+
+    internal Task? LatestSave { get; private set; }
+
+    private void StartSave(Func<Task> saveAction)
+    {
+        var task = LatestSave = SaveWithFormattingAsync(saveAction);
+#if DEBUG
+        HexIDE.Automation.UiSaveFeedback.Started(task);
+#endif
+        task.ListenErrors();
+    }
 
     private async Task SaveWithFormattingAsync(Func<Task> saveAction)
     {
@@ -1529,7 +1590,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     }
 
     private IReadOnlyList<TextRegion> RegionsOf(string text, int prefixLength) =>
-        regionReader.Regions(TextForRegions(text, prefixLength), prefixLength, PrefixIsEntireHeader);
+        RegionReader.Regions(TextForRegions(text, prefixLength), prefixLength, PrefixIsEntireHeader);
 
     // Only an accepted input edit starts ownership; navigating onto a file's attributes never does (#3819).
     private DocumentLine? typedLine;
@@ -1571,12 +1632,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             return text;
         // Hide only a newly recognised member attribute line from the reader. The file's leading run and
         // a declaration with an existing run keep their usual protection. Offsets and line breaks stay put.
-        if (!regionReader.Regions(text, prefixLength, PrefixIsEntireHeader).Any(r => r.Anchor is not null && r.Touches(line.Offset, line.Length)))
+        if (!RegionReader.Regions(text, prefixLength, PrefixIsEntireHeader).Any(r => r.Anchor is not null && r.Touches(line.Offset, line.Length)))
             return text;
         return text.Remove(line.Offset, line.Length).Insert(line.Offset, new string(' ', line.Length));
     }
 
-    private bool PrefixIsEntireHeader => moduleDefinition is { } module && format.PrefixCarriesName(module);
+    private bool PrefixIsEntireHeader => moduleDefinition is { } module && Format.PrefixCarriesName(module);
 
     private IReadOnlyList<TextRegion>? regionsCache;
     private ITextSourceVersion? regionsCacheVersion;
@@ -1602,7 +1663,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (hangingCache is null || !ReferenceEquals(hangingCacheVersion, version)
                 || hangingCachePrefixLength != bufferPrefix.Length)
             {
-                hangingCache = regionReader.HangingRegions(TextForRegions(Document.Text, bufferPrefix.Length), bufferPrefix.Length);
+                hangingCache = RegionReader.HangingRegions(TextForRegions(Document.Text, bufferPrefix.Length), bufferPrefix.Length);
                 hangingCacheVersion = version;
                 hangingCachePrefixLength = bufferPrefix.Length;
                 HangingRegionScans++;
@@ -1627,7 +1688,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </summary>
     internal CodeWindowReadOnlySections ReadOnlySections =>
         readOnlySections ??= new CodeWindowReadOnlySections(Document, () => IsReadOnly, () => ReadOnlyRegionsNow,
-            () => HangingRegionsNow, regionReader);
+            () => HangingRegionsNow, RegionReader);
 
     private CodeWindowReadOnlySections? readOnlySections;
 
@@ -1794,6 +1855,27 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         return await lspClient.RequestCodeActionsAsync(uri, diagnostics[0].Range, diagnostics, ct);
     }
 
+    internal string NoCodeActionsMenuLabel => localization.GetString("Str.CodeEditor.NoCodeActions");
+
+    internal async Task<OfferedCodeAction[]> RequestCodeActionsAsync(int offset, int length, string[]? only,
+        CancellationToken ct = default)
+    {
+        if (LiveDocumentUri is not { } uri || session is null) return [];
+        Position At(int at)
+        {
+            var location = Document.GetLocation(at);
+            return new Position(location.Line - 1, location.Column - 1);
+        }
+        static int Compare(Position a, Position b) => a.Line != b.Line ? a.Line.CompareTo(b.Line) : a.Character.CompareTo(b.Character);
+        var range = new HexIDE.Lsp.Messages.Range(At(offset), At(offset + length));
+        var diagnostics = session.Diagnostics.Where(d => length == 0
+            ? Compare(d.Range.Start, range.Start) <= 0 && (Compare(range.Start, d.Range.End) < 0 || d.Range.Start == range.Start && d.Range.End == range.Start)
+            : Compare(d.Range.Start, range.End) < 0 && (Compare(range.Start, d.Range.End) < 0
+                || d.Range.Start == d.Range.End && d.Range.Start == range.Start)).ToArray();
+        await FlushDocumentAsync(ct);
+        return await lspClient.RequestCodeActionsAsync(uri, range, diagnostics, only, ct);
+    }
+
     internal async Task<string?> ApplyCodeActionAsync(OfferedCodeAction action, CancellationToken ct = default)
     {
         if (action.DisabledReason is { } disabled) return disabled;
@@ -1818,7 +1900,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (await TryRunClientCommandAsync(command)) return null;
             if (action.CanExecute?.Invoke(command) != true || action.Execute is not { } execute)
                 return string.Format(localization.GetString("Str.CodeEditor.QuickFix.UnsupportedCommand"), command.CommandName);
-            await execute(command, ct);
+            try { await execute(command, ct); }
+            catch (HexIDE.Addins.AddinCommandException ex) { return ex.Message; }
         }
         return null;
     }
@@ -1865,7 +1948,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             var module = identity.Module;
             var form = module is not null ? module.FormPart : identity.Form;
             if (form is { CanSaveFaithfully: false }) return Refuse(target.Uri);
-            var prefix = editor?.bufferPrefix ?? (module is not null ? format.CodePrefix(module) : format.CodePrefix(form!));
+            // The target's own project decides its prefix and its regions, and it needn't be this window's (#4053).
+            var targetFormat = ProjectFormats.Of(identity.Project, format);
+            var targetReader = ProjectFormats.ReaderOf(identity.Project, regionReader);
+            var targetRules = ProjectFormats.RulesOf(identity.Project, regionRules);
+            var prefix = editor?.bufferPrefix ?? (module is not null ? targetFormat.CodePrefix(module) : targetFormat.CodePrefix(form!));
             var document = editor?.Document ?? new TextDocument(prefix + (module?.Code ?? form!.Code));
             var (local, server) = versions[i];
             if (codeAction && server is not null && server.Text != document.Text)
@@ -1905,9 +1992,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             var resolved = Resolve(document, target.Edits);
             for (var j = 1; j < resolved.Count; j++)
                 if (resolved[j].Offset + resolved[j].Length > resolved[j - 1].Offset) return Refuse(target.Uri);
-            if (resolved.Any(c => ReadOnlyRegions.Changes(regionReader.Regions(document.Text, prefix.Length,
-                    module is not null && format.PrefixCarriesName(module)), c.Offset, c.Length)
-                && (codeAction || regionRules?.RenameMayWrite(document.Text, prefix.Length, resolved, c) != true)))
+            if (resolved.Any(c => ReadOnlyRegions.Changes(targetReader.Regions(document.Text, prefix.Length,
+                    module is not null && targetFormat.PrefixCarriesName(module)), c.Offset, c.Length)
+                && (codeAction || targetRules?.RenameMayWrite(document.Text, prefix.Length, resolved, c) != true)))
                 return Refuse(target.Uri);
             prepared.Add((target.Uri, identity, resolved));
         }
@@ -1969,7 +2056,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         foreach (var refused in changes)
         {
             if (!ReadOnlyRegions.Changes(RegionsOf(Document.Text, bufferPrefix.Length), refused.Offset, refused.Length)
-                || regionRules?.RenameMayWrite(Document.Text, bufferPrefix.Length, changes, refused) == true)
+                || RegionRules?.RenameMayWrite(Document.Text, bufferPrefix.Length, changes, refused) == true)
                 continue;
             Log.Information("Refused a rename of {Name} in {Document}: an edit at offset {Offset} is in a read-only region",
                 oldName, identity?.Display, refused.Offset);
@@ -2034,7 +2121,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </para>
     /// </remarks>
     internal string? RenameRefusalAt(int offset, string word) =>
-        IsReadOnlyRegion(offset, 0) || regionRules?.HeaderDeclares(Document.Text, bufferPrefix.Length, word) == true
+        IsReadOnlyRegion(offset, 0) || RegionRules?.HeaderDeclares(Document.Text, bufferPrefix.Length, word) == true
             ? localization.GetString("Str.CodeEditor.Msg.RenameChangesReadOnlyText")
             : null;
 
@@ -2049,7 +2136,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             return new ContentReplacement(null, ReadOnlyWriteRefusal, HeaderKept: false);
 
         var result = ContentReplacementRules.Replace(Document.Text, bufferPrefix,
-            DocumentNewLines.Normalize(incoming, Document.Text), regionReader, regionRules);
+            DocumentNewLines.Normalize(incoming, Document.Text), RegionReader, RegionRules);
         if (result.NewText is { } text)
             Document.Text = text;
         return result;
@@ -2119,7 +2206,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         var after = Document.Text;
         foreach (var edit in lastFirst)
             after = after.Remove(edit.Offset, edit.Length).Insert(edit.Offset, edit.Text);
-        if (regionRules?.RangeEditRefusal(Document.Text, after, bufferPrefix.Length) is { } refusal)
+        if (RegionRules?.RangeEditRefusal(Document.Text, after, bufferPrefix.Length) is { } refusal)
             return $"Edits refused: {refusal}. Nothing was changed.";
 
         ApplyAsOneStep(lastFirst);
@@ -2131,7 +2218,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     /// <summary>The format's phrase for the regions reached by an edit or caret.</summary>
     internal string DescribeRegions(IReadOnlyList<TextRegion> regions, string? text = null) =>
-        (regions.Count == 0 ? null : regionRules?.DescribeRegions(text ?? Document.Text, bufferPrefix.Length, regions))
+        (regions.Count == 0 ? null : RegionRules?.DescribeRegions(text ?? Document.Text, bufferPrefix.Length, regions))
         ?? "read-only text";
 
     /// <summary>The English refusal returned to programs for a file the IDE cannot save faithfully.</summary>
@@ -2206,8 +2293,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     internal async Task RunCodeLensAsync(Command command)
     {
-        if (!await TryRunClientCommandAsync(command))
-            await lspClient.ExecuteCommandAsync(command.CommandName, command.Arguments);
+        try
+        {
+            if (!await TryRunClientCommandAsync(command))
+                await lspClient.ExecuteCodeLensCommandAsync(command);
+        }
+        catch (HexIDE.Addins.AddinCommandException ex)
+        {
+            statusBarService.SetTemporaryMessage(ex.Message, TimeSpan.FromSeconds(10));
+        }
     }
 
     private async Task<bool> TryRunClientCommandAsync(Command command)
@@ -2273,6 +2367,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (!CanShowCallHierarchy) return;
         await FlushDocumentAsync();
         if (LiveDocumentUri is { } uri) eventBus.Publish(new CallHierarchyEvent(uri, position));
+    }
+
+    public bool CanShowTypeHierarchy => LiveDocumentUri is { } uri && lspClient.SupportsTypeHierarchy(uri);
+
+    public async Task ShowTypeHierarchyAsync(Position position)
+    {
+        if (!CanShowTypeHierarchy) return;
+        await FlushDocumentAsync();
+        if (LiveDocumentUri is { } uri) eventBus.Publish(new TypeHierarchyEvent(uri, position));
     }
 
     public async Task FindReferencesAsync(Position position)
@@ -2390,7 +2493,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal bool SupportsOnTypeFormatting(string trigger) => !IsReadOnly && LiveDocumentUri is { } uri
         && lspClient.SupportsOnTypeFormatting(uri, trigger);
 
-    internal async Task<TextEdit[]> RequestOnTypeFormattingAsync(Position position, string trigger)
+    internal async Task<TextEdit[]?> RequestOnTypeFormattingAsync(Position position, string trigger)
     {
         var version = Document.Version;
         var originalUri = LiveDocumentUri;
@@ -2591,7 +2694,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         InsertAtEnd(sb.ToString(), "\nEnd Sub\n");
     }
 
-    public void SaveFormAs() => SaveWithFormattingAsync(() => SaveDocumentAsync(true)).ListenErrors();
+    public void SaveFormAs() => StartSave(() => SaveDocumentAsync(true));
 
     public void ViewCode() => editorService.EditCode(formDefinition);
 

@@ -33,6 +33,8 @@ public sealed class ContributedProjectFileTests : IDisposable
 
     public ContributedProjectFileTests()
     {
+        // VB6's files are read by VB6's type, which the composition registers first (#3411 slice 10b).
+        Vb6ProjectType.Register(_types, new Vb6ProjectFileFormat());
         Directory.CreateDirectory(_dir);
         File.WriteAllText(CodeFile, Module);
         File.WriteAllText(ProjectFile, "ledger\r\nCode.bas\r\n");
@@ -47,6 +49,7 @@ public sealed class ContributedProjectFileTests : IDisposable
         var strings = Substitute.For<ILocalizationService>();
         strings.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() switch
         {
+            "Str.Dialog.ProjectGroup.OtherKindRefused" => "{0} refuses {1}",
             "Str.ContributedProject.SavedInPlace" => "{0} is saved where it was opened, because {1} writes its project file only there.",
             "Str.ContributedProject.RenderRefused" => "{0} wasn't written by {1}.",
             "Str.ContributedProject.MemberOverProjectFile" => "{0} would go over {1}.",
@@ -180,6 +183,17 @@ public sealed class ContributedProjectFileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task A_contributed_project_reads_its_plain_modules_through_the_IDE_s_format_and_keeps_its_own_forms_and_file()
+    {
+        using var type = Contribute();
+        var project = await Opened();
+
+        project.Format.Should().BeOfType<Vb6ProjectFileFormat>("its plain modules are read and rendered as before #4053");
+        project.FormFormat.Should().BeOfType<ContributedFormFormat>();
+        project.ProjectFileWriter.Should().NotBeNull();
+    }
+
+    [AvaloniaFact]
     public async Task Properties_applied_in_the_dialog_are_saved_where_the_writer_carries_them()
     {
         _writer.Carries |= ProjectFileParts.Properties;
@@ -245,7 +259,7 @@ public sealed class ContributedProjectFileTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task Save_project_as_moves_only_the_vbp_and_names_the_project_saved_in_place()
+    public async Task Save_project_as_refuses_a_mixed_group_with_a_contributed_writer()
     {
         using var type = Contribute();
         var project = await Opened();
@@ -258,18 +272,17 @@ public sealed class ContributedProjectFileTests : IDisposable
         _windows.SaveFilePickerAsync(Arg.Is<FilePickerSaveOptions>(options => options.DefaultExtension == "vbg"),
             Arg.Any<string?>()).Returns(Path.Join(_dir, "Group.vbg"));
 
-        await _service.SaveAllProjects(true);
+        var save = () => _service.SaveAllProjects(true);
+        (await save.Should().ThrowAsync<ProjectGroupKindRefusal>()).Which.Members.Should().Equal("Ledger (Ledger.sproj)");
 
-        await _windows.Received(1).SaveFilePickerAsync(
-            Arg.Is<FilePickerSaveOptions>(options => options.DefaultExtension == "vbp"), Arg.Any<string?>());
-        File.Exists(moved).Should().BeTrue();
+        File.Exists(moved).Should().BeFalse();
+        File.Exists(Path.Join(_dir, "Group.vbg")).Should().BeFalse();
         project.AbsolutePath.Should().Be(ProjectFile);
-        File.ReadAllText(ProjectFile).Should().Be("ledger\r\n");
-        await ToldOf("Ledger is saved where it was opened, because A provider writes its project file only there.");
+        File.ReadAllText(ProjectFile).Should().Be("ledger\r\nCode.bas\r\n");
     }
 
     [AvaloniaFact]
-    public async Task Save_project_as_does_not_name_a_project_without_a_writer()
+    public async Task Save_project_as_refuses_a_mixed_group_without_a_contributed_writer()
     {
         using var type = Contribute(null);
         await Opened();
@@ -282,12 +295,12 @@ public sealed class ContributedProjectFileTests : IDisposable
         _windows.SaveFilePickerAsync(Arg.Is<FilePickerSaveOptions>(options => options.DefaultExtension == "vbg"),
             Arg.Any<string?>()).Returns(Path.Join(_dir, "Group.vbg"));
 
-        await _service.SaveAllProjects(true);
+        var save = () => _service.SaveAllProjects(true);
+        await save.Should().ThrowAsync<ProjectGroupKindRefusal>();
 
-        File.Exists(moved).Should().BeTrue();
+        File.Exists(moved).Should().BeFalse();
         File.ReadAllBytes(ProjectFile).Should().Equal(before);
-        await _windows.DidNotReceive().MessageBox(Arg.Is<string>(said => said.Contains("is saved where it was opened")),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+        File.Exists(Path.Join(_dir, "Group.vbg")).Should().BeFalse();
     }
 
     [AvaloniaFact]
@@ -385,6 +398,9 @@ public sealed class ContributedProjectFileTests : IDisposable
         await _service.SaveProject(project, saveAs: true);
 
         File.ReadAllText(ProjectFile).Should().Be("ledger\r\n");
+        Directory.GetFiles(_dir, "*.vbg").Should().BeEmpty();
+        await _windows.DidNotReceive().MessageBox(Arg.Is<string>(said => said.Contains("as code modules")),
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
         Directory.Exists(other).Should().BeFalse();
         await _windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
     }
@@ -661,7 +677,8 @@ public sealed class ContributedProjectFileTests : IDisposable
 
     [Fact]
     public void No_product_code_renders_a_project_file_past_its_project_s_writer() =>
-        ProductSource.FilesMatching(new Regex(@"\b_?format\s*\.\s*RenderProject\b"),
+        // Through the injected format, or through a project's own (#4053).
+        ProductSource.FilesMatching(new Regex(@"(\b_?format|\bFormatOf\([^)]*\)|\bProjectFormats\.Of\([^)]*\))\s*\.\s*RenderProject\b"),
                 // The one call, which a project's writer goes before, and the language server's text, which is a .vbp's only.
                 "ProjectService.ProjectFile.cs", "ProjectLspWorkspace.cs")
             .Should().BeEmpty("a project an add-in opened has its file written by that add-in's writer, or by nothing");

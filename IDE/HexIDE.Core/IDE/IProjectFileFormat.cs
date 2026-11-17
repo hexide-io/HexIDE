@@ -113,7 +113,18 @@ public interface IProjectFileFormat : IFormFileFormat
 
     /// <summary>Whether a property's stored value is a citation of a record in the companion, and not a value.</summary>
     bool IsCompanionCitation(string value);
+
+    /// <summary>
+    /// The read-only regions of this format's code: how the code window finds the lines only the IDE changes, how a save
+    /// rewrites them, and which edits they refuse (#4053). Null for a format with none; until #3411's slice 10b, the IDE's
+    /// injected regions then stand in (<see cref="ProjectFormats"/>).
+    /// </summary>
+    FormatRegions? Regions => null;
 }
+
+/// <summary>A format's read-only regions, found, rewritten and enforced by these three (#4053).</summary>
+public sealed record FormatRegions(HexIDE.Language.IReadOnlyRegionReader Reader,
+    HexIDE.Language.IReadOnlyRegionWriter Writer, HexIDE.Language.IReadOnlyRegionRules Rules);
 
 /// <summary>A file as a format renders it.</summary>
 /// <param name="Text">Its text.</param>

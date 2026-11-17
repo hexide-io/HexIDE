@@ -75,6 +75,49 @@ public class PublicNamesAcrossModulesTests : BaseVBTestFixture
         (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Ambiguous name detected: X*");
     }
 
+    // #3359: vb6.exe SP6, native and p-code agreeing; measurements in
+    // https://github.com/hexide-io/HexIDE/issues/3359 (oracle PR #4325).
+    private const string PropertyVariable = "Public X As Long\nPublic Sub Init2()\n    X = 1\nEnd Sub\n";
+    private const string PublicGetter = "Public Property Get X() As Long\n    X = 2\nEnd Property\n";
+
+    [Theory]
+    [InlineData(PublicGetter)]
+    [InlineData("Public Property Let X(ByVal v As Long)\nEnd Property\n")]
+    public async Task A_Public_variable_beside_another_modules_Property_is_ambiguous_used_bare(string property)
+    {
+        var run = () => RunModules("Init2\nDebug.Print X\n",
+            ("Module2", PropertyVariable), ("Module3", property));
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Ambiguous name detected: X*");
+    }
+
+    [Fact]
+    public async Task A_Public_variable_and_another_modules_Property_are_read_qualified()
+    {
+        await RunModules("Init2\nDebug.Print Module2.X & \"/\" & Module3.X\n",
+            ("Module2", PropertyVariable), ("Module3", PublicGetter));
+
+        Printed("1/2");
+    }
+
+    [Fact]
+    public async Task Another_modules_Public_Property_Get_alone_is_read_bare()
+    {
+        await RunModules("Debug.Print \"\" & X\n", ("Module3", PublicGetter));
+
+        Printed("2");
+    }
+
+    [Fact]
+    public async Task Each_modules_own_variable_or_Property_wins_over_the_other()
+    {
+        await RunModules("Init2\nShow2\nShow3\n",
+            ("Module2", PropertyVariable + "Public Sub Show2()\n    Debug.Print \"\" & X\nEnd Sub\n"),
+            ("Module3", PublicGetter + "Public Sub Show3()\n    Debug.Print \"\" & X\nEnd Sub\n"));
+
+        Printed("1", "2");
+    }
+
     [Fact]
     public async Task A_name_two_modules_export_is_read_qualified_and_by_its_own_module()
     {

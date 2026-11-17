@@ -507,8 +507,8 @@ command and its arguments; the filename is appended as a separate argument, and 
 `["clang"]`. This is a core provider seam, not yet a public add-in contract (#457).
 
 The `rdcore` provider writes the `.rdproj` that RDCore's language server reads from the workspace root,
-without which it analyses nothing. Current RDCore builds import the project instead
-([below](#rdcore)); the provider is for a build that can't:
+without which it analyses nothing. Use it together with project import to seed a missing file before
+startup ([below](#rdcore)), or alone for a build that cannot import:
 
 ```json
 "workspaceArtifact": { "path": ".rdproj", "provider": "rdcore", "restartOnChange": true }
@@ -582,7 +582,10 @@ After initialization, HexIDE calls the declared command for the first loaded pro
 URI and the current in-memory project serialization. Membership, reference and modeled project-setting
 changes repeat the import after the same 300 ms debounce used for generated workspace files. The command
 must also appear in the server's advertised `executeCommandProvider.commands`. A declared import replaces
-that entry's `workspaceArtifact` generation, without asking for artefact-write consent.
+that entry's ongoing `workspaceArtifact` generation. When both fields are declared and the file is
+missing, HexIDE asks for artefact-write consent and seeds it before launch. It never overwrites an existing file,
+or asks about one,
+or records ownership of the seed. Later project changes only import.
 
 Reply `notes` appear in the server output. Failed imports, unavailable commands and projects without a
 saved path appear as configuration problems in Tools → Language Servers; the server remains available.
@@ -618,6 +621,7 @@ imports the project with `rdcore.importProject`:
   "arguments": "--pipe-name {pipe} --workspace {workspaceUri}",
   "priority": 10,
   "restartOnProjectChange": true,
+  "workspaceArtifact": { "path": ".rdproj", "provider": "rdcore" },
   "projectImport": {
     "command": "rdcore.importProject",
     "arguments": [{ "uri": "{uri}", "text": "{text}", "overwrite": true }]
@@ -638,14 +642,18 @@ in Tools → Language Servers rather than given an invented URI. If your build d
 `rdcore.importProject`, the same window reports the command as unavailable: use the
 [`rdcore` workspace-artefact provider](#generated-workspace-files) in place of `projectImport`.
 
-**A VB6 project.** RDCore gives a project VB6's implicit `VBRUN` and `VB` libraries only when it knows the
-project is VB6. Its default language is RD-VBA, so without that a form reports `VBC09311` for VB's own types.
-For a VB6 workspace, add this to the entry (#3317):
+RDCore's language server needs .NET 11 from RDCore `d6496d6fb` on
+([#4058](https://github.com/hexide-io/HexIDE/issues/4058)). If .NET 11 is installed somewhere other than
+its default location, add `"environment": { "DOTNET_ROOT": "<that folder>" }` to the entry. RDCore starts
+its own helper processes, which find .NET through `DOTNET_ROOT` or the default location, never through
+PATH. Put it on the entry rather than on HexIDE's own environment: a `DOTNET_ROOT` without the runtime
+HexIDE itself needs stops HexIDE from starting, with .NET's "install .NET" message.
 
-```json
-"initializationOptions": { "language": "vb6" }
-```
+HexIDE writes RDCore's `.rdproj` before RDCore starts, only when the folder has none and artefact
+consent is granted; the import then rewrites it as RDCore's own file. This is a first-open bridge until
+RDCore reads the language again after an import ([#3317](https://github.com/hexide-io/HexIDE/issues/3317)),
+and is to be removed then.
 
-RDCore has said it will take VB6 from the `.vbp` a project file records as its `SourceProject` when the client
-names no language. RDCore's import records it, and so does the `rdcore` provider. Once RDCore does that, the
-entry won't need the option. A language the entry names still wins.
+**A VB6 project.** With this entry, a `.vbp` project needs no `initializationOptions` language:
+the `rdcore` provider records its `SourceProject` before startup, so RDCore can load VB6's implicit
+`VBRUN` and `VB` libraries on first open. A language the entry names in `initializationOptions` still wins.

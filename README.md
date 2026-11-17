@@ -141,7 +141,7 @@ Download from [Releases](https://github.com/hexide-io/HexIDE/releases). On **Win
 
 Portable archives remain available for every platform and processor.
 Start with `hexide-<platform>-selfcontained.*`, which includes .NET. The smaller
-`hexide-<platform>.*` build needs the plain [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
+`hexide-<platform>.*` build needs the plain [.NET 11 Runtime](https://dotnet.microsoft.com/download/dotnet/11.0)
 (`Microsoft.NETCore.App`) installed on every platform.
 
 **Linux:** choose `amd64` if `uname -m` prints `x86_64`, `arm64` if it prints `aarch64`,
@@ -179,7 +179,7 @@ The builds are not notarised; Finder extraction applies a quarantine flag that t
 
 ### Build requirements
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) or later
+- [.NET 11 SDK](https://dotnet.microsoft.com/download/dotnet/11.0) or later
 - No Java required — the ANTLR4 grammar compiles via MSBuild
 
 ### Build and run
@@ -210,7 +210,7 @@ runner.
   that `dotnet run --project HexIDE.Desktop/` starts, from `IDE/`:
 
   ```sh
-  dotnet publish HexIDE.Standalone -f net10.0 -o HexIDE.Desktop/bin/Debug/net10.0/standalone/
+  dotnet publish HexIDE.Standalone -f net11.0 -o HexIDE.Desktop/bin/Debug/net11.0/standalone/
   ```
 
   The runner's project file publishes it single-file and self-contained, for the platform you publish on, so the

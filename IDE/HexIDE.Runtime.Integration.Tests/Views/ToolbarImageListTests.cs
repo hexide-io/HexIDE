@@ -262,15 +262,109 @@ public class ToolbarImageListTests
         bind.Should().Throw<NotImplementedException>();
     }
 
-    [AvaloniaFact]
-    public void Alternate_image_bindings_remain_unimplemented()
+    // Measured on vb6.exe SP6, native and p-code: hexide-io/HexIDE#4147.
+    [AvaloniaTheory]
+    [InlineData("2#", 0, 2)]
+    [InlineData("CSng(2)", 0, 2)]
+    [InlineData("CByte(2)", 0, 2)]
+    [InlineData("CCur(2)", 0, 2)]
+    [InlineData("CDec(2)", 0, 2)]
+    [InlineData("1.6#", 0, 2)]
+    [InlineData("2.5#", 0, 2)]
+    [InlineData("3E0", 0, 3)]
+    [InlineData("0", 0, 0)]
+    [InlineData("Empty", 0, 0)]
+    [InlineData("True", 35600, 1)]
+    [InlineData("-1", 35600, 1)]
+    [InlineData("4", 35600, 1)]
+    [InlineData("Null", 35603, 1)]
+    [InlineData("\"\"", 35603, 1)]
+    [InlineData("\"blue\"", 0, "blue")]
+    [InlineData("\"BLUE\"", 35601, 1)]
+    [InlineData("\"Blue\"", 35601, 1)]
+    [InlineData("\"Nope\"", 35601, 1)]
+    [InlineData("\"2\"", 35601, 1)]
+    public async Task Measured_image_selectors_validate_assignment_and_add(string expression, int error, object expected)
+    {
+        var context = new ModuleExecutionContext();
+        var environment = new ExecutionEnvironment();
+        context.AllocVariable(environment, "bar", new Vb6Value(new VBToolbar()));
+        context.AllocVariable(environment, "images", new Vb6Value((Control)Images()));
+        var printed = await ContainerRuntimeHarness.Run(context, environment, $$"""
+            Set bar.ImageList = images
+            Set b = bar.Buttons.Add(, , , , 1)
+            On Error Resume Next
+            b.Image = {{expression}}
+            Debug.Print Err.Number, b.Image, TypeName(b.Image)
+            Err.Clear
+            Set added = bar.Buttons.Add(, , , , {{expression}})
+            Debug.Print Err.Number, bar.Buttons.Count, b.Image
+            If Err.Number = 0 Then Debug.Print added.Image, TypeName(added.Image)
+            """);
+        var value = expected is string text ? new Vb6Value(text) : new Vb6Value((int)expected);
+        var type = new Vb6Value(expected is string ? "String" : "Integer");
+        var wanted = new[] { new Vb6Value((long)error), value, type, new Vb6Value((long)error),
+            new Vb6Value(error == 0 ? 2 : 1), value };
+        printed.Should().Equal(error == 0 ? wanted.Concat(new[] { value, type }) : wanted);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("HotImageList")]
+    [InlineData("DisabledImageList")]
+    public async Task Measured_alternate_bindings_preserve_image_and_refused_assignments(string member)
     {
         var bar = new VBToolbar();
-        foreach (var member in new[] { "HotImageList", "DisabledImageList" })
+        bar.TrySetProperty("ImageList", new Vb6Value((Control)Images()));
+        var button = (ToolbarItem)(await bar.Buttons.CallAsync("Add", []))!.Value.Value!;
+        button.TrySetProperty("Image", new Vb6Value(1));
+        var alternate = Images();
+        await alternate.Images.CallAsync("Remove", [new Vb6Value(3)]);
+        await alternate.Images.CallAsync("Remove", [new Vb6Value(2)]);
+        bar.TrySetProperty(member, new Vb6Value((Control)alternate)).Should().BeTrue();
+        Read(bar, member).Value.Should().BeSameAs(alternate);
+        var empty = Images();
+        await empty.Images.CallAsync("Clear", []);
+        foreach (var (value, error) in new[] { (new Vb6Value("x"), 13),
+            (new Vb6Value((Control)empty), 380), (new Vb6Value(new VBPictureBox()), 35610) })
         {
-            var alternate = () => bar.TrySetProperty(member, new Vb6Value((Control)Images()));
-            alternate.Should().Throw<NotImplementedException>();
+            var assign = () => bar.TrySetProperty(member, value);
+            assign.Should().Throw<VBRunTimeException>().Which.Error.ErrNo.Should().Be(error);
+            // Fidelity Principle decision in #4147: refuse PictureBox without VB6's clear-on-error defect.
+            Read(bar, member).Value.Should().BeSameAs(alternate);
+            Read(button, "Image").Should().Be(new Vb6Value(1));
         }
+        bar.TrySetProperty(member, Vb6Value.Nothing).Should().BeTrue();
+        Read(bar, member).Value.Should().BeNull();
+        Read(button, "Image").Should().Be(new Vb6Value(1));
+    }
+
+    [AvaloniaFact]
+    public async Task Unmeasured_false_selector_still_refuses()
+    {
+        var bar = new VBToolbar();
+        bar.TrySetProperty("ImageList", new Vb6Value((Control)Images()));
+        var button = (ToolbarItem)(await bar.Buttons.CallAsync("Add", []))!.Value.Value!;
+        button.TrySetProperty("Image", new Vb6Value(1));
+        var assign = () => button.TrySetProperty("Image", new Vb6Value(false));
+        assign.Should().Throw<NotImplementedException>();
+        Read(button, "Image").Should().Be(new Vb6Value(1));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("HotImageList", false)]
+    [InlineData("HotImageList", true)]
+    [InlineData("DisabledImageList", false)]
+    [InlineData("DisabledImageList", true)]
+    public async Task Unmeasured_alternate_sizes_still_refuse(string member, bool empty)
+    {
+        var bar = new VBToolbar();
+        bar.TrySetProperty("ImageList", new Vb6Value((Control)Images()));
+        var alternate = Images();
+        if (empty) await alternate.Images.CallAsync("Clear", []);
+        alternate.ImageWidth = alternate.ImageHeight = 32;
+        var assign = () => bar.TrySetProperty(member, new Vb6Value((Control)alternate));
+        assign.Should().Throw<NotImplementedException>();
+        Read(bar, member).Value.Should().BeNull();
     }
 
     [AvaloniaFact]

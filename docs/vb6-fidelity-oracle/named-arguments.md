@@ -275,3 +275,43 @@ So the rows are:
 |---|---|---|
 | `FileName, Size, ColorDepth, X, Y` | 0 | LoadPicture |
 | `Picture, FileName` | 2 | SavePicture |
+
+### The intrinsics #1465 left unmeasured, and the type library's names (2026-11-16, #4145)
+
+vb6.exe SP6, `/make`. Each named call ran beside its positional twin, native and p-code agreeing. A compile error needs a build of its own, so those were built one at a time. The names come from the VBA type library inside `msvbvm60.dll`, read with `LoadTypeLibEx`, since that, not the documentation, is what the compiler matches.
+
+They come from the VBA type library inside `msvbvm60.dll`, read with `LoadTypeLibEx`. **Where they differ from the documentation, the type library wins.** The financial functions' last flag is `Due`, not `Type`, and the arrays are `ValueArray`. A documented name is "Named argument not found".
+
+| Function | Names, `[optional]` | Named call |
+|---|---|---|
+| `AscB` | `String` | accepted |
+| `ChrB` | `CharCode` | accepted |
+| `CurDir` | `[Drive]` | accepted |
+| `LeftB`, `RightB` | `String`, `Length` | accepted |
+| `MidB` | `String`, `Start`, `[Length]` | accepted, in any order |
+| `Dir` | `[PathName]`, `[Attributes]` | accepted |
+| `FileAttr` | `FileNumber`, `[ReturnType]` | accepted |
+| `FileDateTime`, `FileLen`, `GetAttr` | `PathName` | accepted |
+| `FormatCurrency`, `FormatNumber`, `FormatPercent` | `Expression`, `[NumDigitsAfterDecimal]`, `[IncludeLeadingDigit]`, `[UseParensForNegativeNumbers]`, `[GroupDigits]` | accepted |
+| `FormatDateTime` | `Expression`, `[NamedFormat]` | accepted |
+| `Partition` | `Number`, `Start`, `Stop`, `Interval` | accepted |
+| `SLN` | `Cost`, `Salvage`, `Life` | accepted |
+| `SYD` | `Cost`, `Salvage`, `Life`, `Period` | accepted |
+| `FV` | `Rate`, `NPer`, `Pmt`, `[PV]`, `[Due]` | accepted |
+| `PV` | `Rate`, `NPer`, `Pmt`, `[FV]`, `[Due]` | accepted |
+| `Pmt` | `Rate`, `NPer`, `PV`, `[FV]`, `[Due]` | accepted |
+| `IPmt`, `PPmt` | `Rate`, `Per`, `NPer`, `PV`, `[FV]`, `[Due]` | accepted |
+| `NPer` | `Rate`, `Pmt`, `PV`, `[FV]`, `[Due]` | accepted |
+| `Rate` | `NPer`, `Pmt`, `PV`, `[FV]`, `[Due]`, `[Guess]` | accepted |
+| `IRR` | `ValueArray`, `[Guess]` | accepted |
+| `MIRR` | `ValueArray`, `FinanceRate`, `ReinvestRate` | accepted |
+| `NPV` | `Rate`, `ValueArray` | accepted |
+| `StrPtr`, `VarPtr`, `ObjPtr` | `Ptr` | accepted |
+| `InStrB` | `[Start]`, `[String1]`, `[String2]`, `[Compare]` | **compile error "Syntax error"**, with or without `Start` |
+| `CallByName` | `Object`, `ProcName`, `CallType`, then a ParamArray | **compile error "Argument in ParamArray may not be named"**, even with `Args` not named |
+| `IMEStatus` | none | **compile error "Wrong number of arguments or invalid property assignment"** |
+
+- **Every accepted named call gave its positional twin's value.** `FV(Pmt:=-100, NPer:=12, Rate:=0.01)`, out of order with its optionals omitted, equals `FV(0.01, 12, -100)`.
+- **A wrong name is a compile error, "Named argument not found."** That's `LeftB(Foo:=…)`, `ChrB(Code:=…)`, `CurDir(Path:=…)`, `Dir(Path:=…)`, `GetAttr(Path:=…)`, `StrPtr(x:=…)`, `FV(…, Type:=1)` and `NPV(…, Values:=…)`.
+- **An omitted required argument is a compile error, "Argument not optional."** That's `LeftB(Length:=2)`, `MidB(String:=…, Length:=2)`, `FV(Rate:=…, NPer:=…)`, `MIRR` without `ReinvestRate`, `Partition` without `Interval`, and `SLN` without `Life`.
+- **`LeftB`, `RightB`, `MidB`, `ChrB` and `CurDir`** have no parameters in the type library. They're the compiler's own, and these names are what it accepted.

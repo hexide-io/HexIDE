@@ -16,7 +16,12 @@ opening, showing and saving the form does without a window:
    icon. The harness starts Avalonia headless with Skia, so the decode is the real one.
 4. A StatusBar's panel pictures go through `PanelPicture.FromRecord`. A RichTextBox's `TextRTF` goes through
    `RichTextBoxPersistence.ReadDocument` and `RtfToWrite`, as the designer and a running form do.
-5. `FormSerializer` renders the form and its companion again, as a save or a recovery capture does.
+5. When HexIDE would let the form be saved, `FormSerializer` renders it and its companion again, as a save does. The
+   save path refuses any other form before rendering it, so the harness does too.
+6. What that save wrote is read back and saved again.
+
+With `--frm` in place of a form, AFL supplies the `.frm` itself instead, with no companion, as a form whose `.frx` is
+missing is read. The same steps follow.
 
 It doesn't reach anything that needs a window: drawing a control, or a running form's own use of a record.
 
@@ -24,7 +29,9 @@ It doesn't reach anything that needs a window: drawing a control, or a running f
 - any exception except `NotImplementedException`, which is HexIDE's deliberate refusal of a record it doesn't
   implement yet, naming the issue that would;
 - a hang past AFL's timeout;
-- an allocation the run's heap limit refuses.
+- an allocation the run's heap limit refuses;
+- a save that damages the file: a form HexIDE saved that it can't read back, or then refuses to save, or whose second
+  save writes different bytes.
 
 `ProjectLoader` catches an exception from a form and reports the form as failing to load, so a finding seldom takes
 the IDE down. It's still a defect, because a damaged `.frx` should be refused by name, not fail somewhere inside a
@@ -58,7 +65,16 @@ AFL_SKIP_BIN_CHECK=1 AFL_FORKSRV_INIT_TMOUT=60000 DOTNET_GCHeapHardLimit=0x20000
 - `-m none` is needed because the runtime reserves far more address space than it uses. The heap limit,
   `DOTNET_GCHeapHardLimit` (512 MB here), does that job instead.
 
-Good seeds hold different kinds of record: `imagelist/three` (ImageList pictures), `richtextbox` (`TextRTF`) and
+To fuzz the `.frm` itself, seed from a few small forms of different shapes: intrinsic controls with a nested Frame, a
+control array, a Font block and a menu, plus in-box controls and a module with member attributes. Run several
+instances on one output directory (`-M main` for one, `-S s1` and so on for the others), and give the harness `--frm`
+in place of the form:
+
+```sh
+afl-fuzz -M main -i ~/fuzz/frm-in -o ~/fuzz/frm-out -t 2000 -m none -- dotnet $B/FrxFuzz.dll --frm
+```
+
+Good `.frx` seeds hold different kinds of record: `imagelist/three` (ImageList pictures), `richtextbox` (`TextRTF`) and
 `statusbar-picture` (a panel picture). Run each for as long as you can spare; AFL's own status says when it has stopped
 finding new paths.
 
