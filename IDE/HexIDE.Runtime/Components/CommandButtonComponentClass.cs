@@ -21,7 +21,7 @@ public class CommandButtonComponentClass : ComponentBaseClass
         EnabledProperty,
         TabStopProperty,
         TabIndexProperty,
-        ToolTipTextProperty], [ClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+        ToolTipTextProperty], [ClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent, KeyDownEvent, KeyPressEvent, KeyUpEvent])
     {
     }
 

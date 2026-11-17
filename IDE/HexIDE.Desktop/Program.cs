@@ -25,8 +25,9 @@ sealed partial class Program
         }
         catch (HexIDE.IDE.DistributionDescriptorException ex)
         {
-            return $"This installation's branding cannot be used, so the IDE has not started and no settings, logs or "
-                 + $"recovery files were opened. {ex.Message}";
+            var localization = new HexIDE.Localization.LocalizationService();
+            var reason = string.Format(localization.GetStringFrom("system", ex.LocalizationKey), ex.Arguments);
+            return string.Format(localization.GetStringFrom("system", "Str.Startup.BrandingError"), reason);
         }
     }
 
@@ -36,7 +37,10 @@ sealed partial class Program
     {
         const uint iconError = 0x10;
         if (!ConsoleOutput.Write(message + Environment.NewLine) && OperatingSystem.IsWindows())
-            ShowNativeMessageBox(0, message, "Cannot start", iconError);
+        {
+            var localization = new HexIDE.Localization.LocalizationService();
+            ShowNativeMessageBox(0, message, localization.GetStringFrom("system", "Str.Startup.CannotStart"), iconError);
+        }
     }
 
     /// <summary>
@@ -97,54 +101,8 @@ sealed partial class Program
             return;
         }
 
-        if (ServerOptions.UserDataDirectoryMissing)
-        {
-            ConsoleOutput.Write(
-                "--user-data-dir needs a directory after it. " + HexIDE.IDE.Distribution.DisplayName + " has not started, rather than start on "
-              + "the settings you asked it to keep away from." + Environment.NewLine);
-            Environment.ExitCode = 2;
+        if (RefuseInvalidArguments(text => ConsoleOutput.Write(text)))
             return;
-        }
-
-#if DEBUG
-        if (ServerOptions.ServerPortInvalid is { } badPort)
-        {
-            ConsoleOutput.Write(
-                $"--server-port needs a port number from 1 to 65535 after it, and got '{badPort}'. " + HexIDE.IDE.Distribution.DisplayName + " has not "
-              + "started, rather than start without the automation server you asked for." + Environment.NewLine);
-            Environment.ExitCode = 2;
-            return;
-        }
-
-        if (ServerOptions.SessionMissing)
-        {
-            ConsoleOutput.Write(
-                "--session needs the name of an agent session after it. " + HexIDE.IDE.Distribution.DisplayName + " has not started, rather than start an "
-              + "automation server that answers every session's client." + Environment.NewLine);
-            Environment.ExitCode = 2;
-            return;
-        }
-
-        if (ServerOptions.AnsiCodePageInvalid is { } badCodePage)
-        {
-            ConsoleOutput.Write(
-                $"--ansi-code-page needs a Windows code page number after it, such as 932, and got '{badCodePage}'. "
-              + "" + HexIDE.IDE.Distribution.DisplayName + " has not started: reading files in this machine's own code page instead would look as "
-              + "though the flag had worked." + Environment.NewLine);
-            Environment.ExitCode = 2;
-            return;
-        }
-
-        if (ServerOptions.DpiUnaware && !OperatingSystem.IsWindows())
-        {
-            ConsoleOutput.Write(
-                "--dpi-unaware works on Windows only. " + HexIDE.IDE.Distribution.DisplayName + " has not started, rather than start at the display's own "
-              + "scale and look as though the flag had worked. On Linux, Avalonia's X11 platform reads "
-              + "AVALONIA_GLOBAL_SCALE_FACTOR instead." + Environment.NewLine);
-            Environment.ExitCode = 2;
-            return;
-        }
-#endif
 
         // Before anything else starts: UserDataPath refuses a redirect once any per-user file has been looked up.
         if (ServerOptions.UserDataDirectory is { } userData)
@@ -170,7 +128,20 @@ sealed partial class Program
 #endif
         // On a thread of its own, because VB code runs on the UI thread and this first thread's stack is the
         // launcher's choice, 1.5 MiB on Windows (#3228).
-        Environment.ExitCode = HexIDE.Runtime.UiThread.Run(() => builder.StartWithClassicDesktopLifetime(args));
+        Environment.ExitCode = DisplayBackend.Run(
+            DisplayBackend.Select(ServerOptions.Platform, Environment.GetEnvironmentVariable("HEXIDE_PLATFORM")),
+            () => builder.StartWithClassicDesktopLifetime(args),
+            reason => string.Format(new HexIDE.Localization.LocalizationService()
+                .GetStringFrom("system", ServerOptions.Platform != null
+                    ? "Str.Startup.WaylandUnavailableArgument"
+                    : "Str.Startup.WaylandUnavailableEnvironment"), reason),
+            message =>
+            {
+                // Setup failed before App configured logging; open and flush the normal IDE log here.
+                HexIDE.Infrastructure.LoggingSetup.Initialise();
+                Serilog.Log.Fatal("{Message:l}", message);
+                HexIDE.Infrastructure.LoggingSetup.Shutdown();
+            });
     }
 
     internal static int? RunDistributionGate(string[] args, string invocationDirectory, string installationDirectory,
@@ -205,6 +176,59 @@ sealed partial class Program
 
         start();
         return null;
+    }
+
+    internal static bool RefuseInvalidArguments(Action<string> write)
+    {
+        if (ServerOptions.UserDataDirectoryMissing)
+        {
+            write(StartupMessage("Str.Startup.UserDataDirectoryMissing",
+                "--user-data-dir", HexIDE.IDE.Distribution.DisplayName) + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return true;
+        }
+
+#if DEBUG
+        if (ServerOptions.ServerPortInvalid is { } badPort)
+        {
+            write(StartupMessage("Str.Startup.ServerPortInvalid",
+                "--server-port", 1, 65535, badPort, HexIDE.IDE.Distribution.DisplayName) + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return true;
+        }
+
+        if (ServerOptions.SessionMissing)
+        {
+            write(StartupMessage("Str.Startup.SessionMissing",
+                "--session", HexIDE.IDE.Distribution.DisplayName) + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return true;
+        }
+
+        if (ServerOptions.AnsiCodePageInvalid is { } badCodePage)
+        {
+            write(StartupMessage("Str.Startup.AnsiCodePageInvalid",
+                "--ansi-code-page", 932, badCodePage, HexIDE.IDE.Distribution.DisplayName) + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return true;
+        }
+
+        if (ServerOptions.DpiUnaware && !OperatingSystem.IsWindows())
+        {
+            write(StartupMessage("Str.Startup.DpiUnaware",
+                "--dpi-unaware", HexIDE.IDE.Distribution.DisplayName, "AVALONIA_GLOBAL_SCALE_FACTOR") + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return true;
+        }
+#endif
+
+        return false;
+    }
+
+    private static string StartupMessage(string key, params object[] arguments)
+    {
+        var localization = new HexIDE.Localization.LocalizationService();
+        return string.Format(localization.GetStringFrom("system", key), arguments);
     }
 
     private static void FixCurrentWorkingDictionary()

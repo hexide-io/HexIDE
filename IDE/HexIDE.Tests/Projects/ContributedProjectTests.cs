@@ -33,6 +33,8 @@ public sealed class ContributedProjectTests : IDisposable
     public ContributedProjectTests()
     {
         _types = new ContributedProjects { ReadFile = _reads.Read };
+        // VB6's files are read by VB6's type, which the composition registers first (#3411 slice 10b).
+        Vb6ProjectType.Register(_types, new Vb6ProjectFileFormat());
         Directory.CreateDirectory(Path.Join(_dir, "src", "Classes"));
         Directory.CreateDirectory(Path.Join(_dir, "docs"));
         File.WriteAllText(ProjectFile, """{ "ProjectInfo": { "Name": "Ledger" } }""");
@@ -55,7 +57,7 @@ public sealed class ContributedProjectTests : IDisposable
         {
             "Str.Project.AlreadyOpen" => "Projet {0} déjà ouvert.",
             "Str.ContributedProject.OpenError" => "Could not open {0} with {1}: {2}",
-            "Str.ContributedProject.NoReader" => "Str.ContributedProject.NoReader {0}",
+            "Str.ContributedProject.NoLoadedReader" => "Str.ContributedProject.NoLoadedReader {0}",
             var key => key + " {0} {1}",
         });
         var dock = Substitute.For<IDocumentDockService>();
@@ -179,7 +181,7 @@ public sealed class ContributedProjectTests : IDisposable
             consent.SetResult();
             await opening;
             _loaded.Should().BeEmpty();
-            await _windows.Received(1).MessageBox("Str.ContributedProject.NoReader .rdproj",
+            await _windows.Received(1).MessageBox("Str.ContributedProject.NoLoadedReader .rdproj",
                 Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information);
         }
         finally { consent.TrySetResult(); window.Close(); }
@@ -246,6 +248,10 @@ public sealed class ContributedProjectTests : IDisposable
         File.ReadAllText(Path.Join(_dir, "src", "Main.bas")).Should().Contain("Debug.Print 1");
         File.ReadAllText(ProjectFile).Should().Be(before, "the project file is its add-in's program's to write");
         File.Exists(Path.Join(_dir, ".vbp")).Should().BeFalse();
+        Directory.GetFiles(_dir, "*.vbg").Should().BeEmpty();
+        _loaded.Any(p => p.Offers.MovesProjectFile).Should().BeFalse("Save Project As is unavailable for an OpenAsync-only type");
+        await _windows.DidNotReceive().MessageBox(Arg.Is<string>(message => message.Contains("as code modules")),
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 
     [AvaloniaFact]
@@ -534,7 +540,7 @@ public sealed class ContributedProjectTests : IDisposable
         await _service.OpenProject(ProjectFile);
 
         _loaded.Should().BeEmpty();
-        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.NoReader")),
+        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.NoLoadedReader")),
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 
@@ -582,7 +588,7 @@ public sealed class ContributedProjectTests : IDisposable
 
         _loaded.Should().ContainSingle().Which.ContributedBy.Should().Be("rdcore",
             "a group names a project file as Open Project does, and is read the same way");
-        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.NoReader Other.xproj"),
+        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.NoLoadedReader Other.xproj"),
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 
@@ -649,7 +655,8 @@ public sealed class ContributedProjectTests : IDisposable
         names.Add(".rdproj");
 
         _types.Find(Path.Join(_dir, "x.mypro")).Should().NotBeNull();
-        _types.Find(Path.Join(_dir, "x.vbp")).Should().BeNull("a type never takes HexIDE's own files, however it is changed");
+        _types.Find(Path.Join(_dir, "x.vbp"))!.AddinId.Should().Be(Vb6ProjectType.Id,
+            "a type never takes VB6's files, however it is changed");
         using var rdcore = Contribute();
         _types.Find(ProjectFile)!.Origin.Should().Be("RDCore for HexIDE");
     }
@@ -688,6 +695,6 @@ public sealed class ContributedProjectTests : IDisposable
         using (new AddinInitializationScope())
             Contribute();
 
-        _types.Types.Should().BeEmpty();
+        _types.Types.Should().ContainSingle().Which.AddinId.Should().Be(Vb6ProjectType.Id, "only VB6's own type is left");
     }
 }

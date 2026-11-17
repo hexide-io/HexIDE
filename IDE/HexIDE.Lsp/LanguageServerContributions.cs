@@ -46,6 +46,12 @@ public sealed class LanguageServerContributions(
     /// </summary>
     /// <param name="server">The server, as the add-in describes it.</param>
     /// <param name="origin">Who contributed it, for the Language Servers window: the add-in's title.</param>
+    /// <param name="originId">The add-in's id, which keys the one notice about a publisher record without namespaces.</param>
+    /// <param name="publisherNamespaces">
+    /// The namespaces the add-in's verified publisher record issues (<see cref="PublisherNamespaces"/>). When given, the
+    /// message prefix must be <c>&lt;ns&gt;/</c> and the command prefix <c>&lt;ns&gt;.</c> for one of them. Null for a record
+    /// issued before the field existed, or an add-in with no verified record: today's rule applies, with a notice.
+    /// </param>
     /// <exception cref="ArgumentException">
     /// The entry fails the checks a file entry gets, is switched off, or its prefix or one of its methods is not the
     /// add-in's to use. What was wrong with the entry is also a configuration problem.
@@ -53,7 +59,8 @@ public sealed class LanguageServerContributions(
     /// <exception cref="InvalidOperationException">
     /// The id is taken: the configuration names it, and keeps its own entry, or another add-in contributed it first.
     /// </exception>
-    public AddinServerConnection Register(AddinLanguageServer server, string? origin)
+    public AddinServerConnection Register(AddinLanguageServer server, string? origin, string? originId = null,
+        IReadOnlyList<string>? publisherNamespaces = null)
     {
         ArgumentNullException.ThrowIfNull(server);
         ArgumentNullException.ThrowIfNull(server.Entry);
@@ -62,6 +69,9 @@ public sealed class LanguageServerContributions(
         // added to it later, outside the prefix, would otherwise be answered by the add-in in the client's place.
         var claimed = new Dictionary<string, AddinServerMethod>(server.ServerMethods, StringComparer.Ordinal);
         CheckMessages(server.MessagePrefix, claimed);
+        var commands = new Dictionary<string, AddinClientCommand>(server.ClientCommands, StringComparer.Ordinal);
+        CheckCommands(server.CommandPrefix, commands);
+        CheckNamespaces(server.MessagePrefix, server.CommandPrefix, publisherNamespaces, origin);
         if (server.BeforeLaunchTimeout <= TimeSpan.Zero || server.BeforeLaunchTimeout > AddinLanguageServer.MaxBeforeLaunchTimeout)
             throw new ArgumentException(
                 $"The wait for a gate before launch must be positive and at most {AddinLanguageServer.MaxBeforeLaunchTimeout}.",
@@ -97,6 +107,14 @@ public sealed class LanguageServerContributions(
             throw new ArgumentException($"The language server '{id}' is switched off, so there is nothing to add.", nameof(server));
         }
 
+        // A record issued before publisher namespaces existed binds no prefix: say so, once for each add-in.
+        if (publisherNamespaces is null && (server.MessagePrefix is not null || server.CommandPrefix is not null)
+            && NoticeOnce(originId ?? origin ?? id))
+            problems.Add(new LanguageServerConfigProblem(id,
+                $"{origin ?? "An add-in"} uses the prefix {string.Join(" and ", new[] { server.MessagePrefix, server.CommandPrefix }.OfType<string>().Select(p => $"'{p}'"))}, "
+                + "and its publisher's record names no namespaces, so the prefix isn't checked against its publisher. "
+                + "Records issued before v1 don't carry them.", false));
+
         // What was worth saying about an entry that is used all the same: a launch command not run before, a misspelt field.
         router.ReportContributionProblems(id, problems);
 
@@ -110,12 +128,17 @@ public sealed class LanguageServerContributions(
                 ? token => WithinAsync(gate, server.BeforeLaunchTimeout, origin, id, token)
                 : null,
             Origin = origin,
-            CreateClient = claimed.Count == 0 && afterStart is null ? made.CreateClient : () =>
+            CreateClient = claimed.Count == 0 && commands.Count == 0 && afterStart is null ? made.CreateClient : () =>
             {
                 var client = made.CreateClient();
                 if (client is VBLspClient lsp)
                 {
                     if (claimed.Count > 0) lsp.Claim(claimed);
+                    if (commands.Count > 0)
+                    {
+                        lsp.ClaimCommands(commands);
+                        lsp.SetCommandLifetime(() => connection.Task.IsCompletedSuccessfully ? connection.Task.Result.Lifetime : default);
+                    }
                     // On the pool, not after a yield: a yield returns to the context of the start, and a document opened
                     // from the code window starts its server on the UI thread.
                     if (afterStart is not null)
@@ -197,6 +220,28 @@ public sealed class LanguageServerContributions(
         }
     }
 
+    private readonly HashSet<string> _noticed = new(StringComparer.OrdinalIgnoreCase);
+
+    private bool NoticeOnce(string key)
+    {
+        lock (_noticed) return _noticed.Add(key);
+    }
+
+    // #4258 part D: with a verified publisher record that issues namespaces, the prefixes must be under one of them.
+    private static void CheckNamespaces(string? messagePrefix, string? commandPrefix, IReadOnlyList<string>? namespaces,
+        string? origin)
+    {
+        const string server = "server";
+        if (namespaces is null) return;
+        string Issued() => namespaces.Count == 0 ? "none" : string.Join(", ", namespaces.Select(ns => $"'{ns}'"));
+        if (messagePrefix is { } message && !PublisherNamespaces.AllowsMessagePrefix(namespaces, message))
+            throw new ArgumentException($"{origin ?? "The add-in"}'s message prefix '{message}' isn't under a namespace its "
+                + $"publisher was issued ({Issued()}): it must be '<namespace>/' for one of them.", server);
+        if (commandPrefix is { } command && !PublisherNamespaces.AllowsCommandPrefix(namespaces, command))
+            throw new ArgumentException($"{origin ?? "The add-in"}'s command prefix '{command}' isn't under a namespace its "
+                + $"publisher was issued ({Issued()}): it must be '<namespace>.' for one of them.", server);
+    }
+
     // The prefix, and the methods claimed under it, checked before anything is added.
     private static void CheckMessages(string? messagePrefix, IReadOnlyDictionary<string, AddinServerMethod> claimed)
     {
@@ -217,11 +262,37 @@ public sealed class LanguageServerContributions(
             throw new ArgumentException($"'{prefix}' is a namespace the Language Server Protocol uses, so it is not an add-in's.",
                 server);
 
+        // Core's own (hexide/projectProperties, #4024), whatever a publisher record says.
+        if (prefix.StartsWith("hexide/", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException($"'{prefix}' is a reserved message namespace, so it is not an add-in's.", server);
+
         foreach (var method in claimed.Keys)
         {
             if (!IsUnder(method, prefix))
                 throw new ArgumentException($"'{method}' is not under the registration's prefix '{prefix}'.", server);
         }
+    }
+
+    private static void CheckCommands(string? commandPrefix, IReadOnlyDictionary<string, AddinClientCommand> claimed)
+    {
+        const string server = "server";
+        if (commandPrefix is not { } prefix)
+        {
+            if (claimed.Count > 0)
+                throw new ArgumentException("Commands can be claimed only under a command prefix.", server);
+            return;
+        }
+
+        if (prefix.Length < 2 || !prefix.EndsWith('.') || prefix.Any(char.IsWhiteSpace))
+            throw new ArgumentException($"'{prefix}' is not a command prefix: one is a name followed by '.', such as 'myserver.'.",
+                server);
+
+        if (new[] { "editor.", "vscode.", "hexide." }.Any(ns => prefix.StartsWith(ns, StringComparison.OrdinalIgnoreCase)))
+            throw new ArgumentException($"'{prefix}' is a reserved command namespace, so it is not an add-in's.", server);
+
+        foreach (var command in claimed.Keys)
+            if (!IsUnder(command, prefix))
+                throw new ArgumentException($"'{command}' is not under the registration's prefix '{prefix}'.", server);
     }
 
     internal static bool IsUnder(string method, string prefix) =>
@@ -264,6 +335,13 @@ public sealed class AddinServerConnection : IAddinServerConnection, IAsyncDispos
 
     public Task NotifyAsync(string method, JsonElement? parameters = null, CancellationToken cancellationToken = default) =>
         Running(method).SendCustomNotificationAsync(method, parameters, cancellationToken);
+
+    public Task<HexIDE.Lsp.Messages.ApplyWorkspaceEditResult> ApplyEditAsync(
+        HexIDE.Lsp.Messages.WorkspaceEdit edit, CancellationToken cancellationToken) =>
+        _contribution.Client is VBLspClient client
+            ? client.ApplyClaimedEditAsync(edit, cancellationToken)
+            : Task.FromResult(new HexIDE.Lsp.Messages.ApplyWorkspaceEditResult(false,
+                HexIDE.IDE.Distribution.DisplayName + " applies a server's edits only while a command the user started is running."));
 
     private VBLspClient Running(string method)
     {

@@ -90,7 +90,7 @@ public class DialogChromeLocalizationTests
     public void ATemplate_ReadsInTheLanguageAndKeepsItsEnglishName()
     {
         _localization.GetString("Str.ProjectType.DataProject").Returns("Datenprojekt");
-        var template = IProjectTemplate.Templates.Single(t => t.NameKey == "Str.ProjectType.DataProject");
+        var template = Vb6ProjectType.Templates.Single(t => t.NameKey == "Str.ProjectType.DataProject");
 
         var row = new ProjectTemplateViewModel(template, _localization);
 
@@ -103,7 +103,7 @@ public class DialogChromeLocalizationTests
     {
         var strings = CanonicalStrings();
 
-        foreach (var template in IProjectTemplate.Templates)
+        foreach (var template in Vb6ProjectType.Templates)
             strings.Should().ContainKey(template.NameKey!, template.Name);
     }
 

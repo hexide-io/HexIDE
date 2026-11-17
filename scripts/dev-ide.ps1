@@ -194,7 +194,7 @@ foreach ($argument in $IdeArguments) {
 
 if (-not $Exe) {
     $name = if ($onWindows) { 'HexIDE.Desktop.exe' } else { 'HexIDE.Desktop' }
-    $Exe = Join-Path (Split-Path $PSScriptRoot -Parent) "IDE/HexIDE.Desktop/bin/Debug/net10.0/$name"
+    $Exe = Join-Path (Split-Path $PSScriptRoot -Parent) "IDE/HexIDE.Desktop/bin/Debug/net11.0/$name"
 }
 if ((Split-Path $Exe -Leaf) -notmatch '^HexIDE\.Desktop(\.exe)?\z') {
     throw "-Exe is '$Exe', which is not a HexIDE.Desktop executable."

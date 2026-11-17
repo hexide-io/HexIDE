@@ -2,10 +2,14 @@ using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;
 
-// #881: vb6.exe SP6, native and p-code agreeing (issue measurements).
+// #881 and #4151: vb6.exe SP6, native and p-code agreeing (issue measurements).
 public class CompareArgumentTests : BaseVBTestFixture
 {
     [Theory]
+    [InlineData("InStr(1, \"abc\", \"B\", 3)", "2", 0)]
+    [InlineData("InStr(1, \"abc\", \"B\", 4)", "2", 0)]
+    [InlineData("InStr(1, \"abc\", \"B\", 1033)", "2", 0)]
+    [InlineData("InStr(1, \"abc\", \"B\", 3000)", "0", 5)]
     [InlineData("InStr(1, \"abc\", \"B\", 2)", "0", 5)]
     [InlineData("InStr(5, \"abc\", \"x\", 2)", "0", 5)]
     [InlineData("InStr(1, \"a\", \"long\", 2)", "0", 5)]
@@ -84,34 +88,26 @@ public class CompareArgumentTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("InStr(1, \"abc\", \"B\", 3)")]
     [InlineData("InStrRev(\"\", \"x\", -1, 3)")]
     [InlineData("Split(\"\", \",\", -1, 3)")]
     [InlineData("Split(\"abc\", \",\", 0, 3)")]
     [InlineData("Replace(\"\", \"a\", \"b\", 1, -1, 3)")]
     [InlineData("Replace(\"abc\", \"a\", \"b\", 1, 0, 3)")]
-    [InlineData("StrComp(\"a\", \"a\", 3)")]
-    [InlineData("InStr(1, \"abc\", \"B\", 4)")]
     [InlineData("InStrRev(\"\", \"x\", -1, 4)")]
     [InlineData("Split(\"\", \",\", -1, 4)")]
     [InlineData("Split(\"abc\", \",\", 0, 4)")]
     [InlineData("Replace(\"\", \"a\", \"b\", 1, -1, 4)")]
     [InlineData("Replace(\"abc\", \"a\", \"b\", 1, 0, 4)")]
-    [InlineData("StrComp(\"a\", \"a\", 4)")]
-    [InlineData("InStr(1, \"abc\", \"B\", 1033)")]
     [InlineData("InStrRev(\"\", \"x\", -1, 1033)")]
     [InlineData("Split(\"\", \",\", -1, 1033)")]
     [InlineData("Split(\"abc\", \",\", 0, 1033)")]
     [InlineData("Replace(\"\", \"a\", \"b\", 1, -1, 1033)")]
     [InlineData("Replace(\"abc\", \"a\", \"b\", 1, 0, 1033)")]
-    [InlineData("StrComp(\"a\", \"a\", 1033)")]
-    [InlineData("InStr(1, \"abc\", \"B\", 3000)")]
     [InlineData("InStrRev(\"\", \"x\", -1, 3000)")]
     [InlineData("Split(\"\", \",\", -1, 3000)")]
     [InlineData("Split(\"abc\", \",\", 0, 3000)")]
     [InlineData("Replace(\"\", \"a\", \"b\", 1, -1, 3000)")]
     [InlineData("Replace(\"abc\", \"a\", \"b\", 1, 0, 3000)")]
-    [InlineData("StrComp(\"a\", \"a\", 3000)")]
     public async Task Locale_compare_is_refused_when_validation_is_needed(string expression)
     {
         var run = () => Run($"Dim result As Variant\nresult = {expression}\n");

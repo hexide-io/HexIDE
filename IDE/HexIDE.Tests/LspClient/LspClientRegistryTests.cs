@@ -59,6 +59,28 @@ public class LspClientRegistryTests
 
     private static LspRange Span(int line) => new(new Position(line, 0), new Position(line, 1));
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InlayHintsUseFirstNonemptyProvider(bool topIsEmpty)
+    {
+        var high = FakeServer(capabilitiesJson: "{\"inlayHintProvider\":true}");
+        var low = FakeServer(capabilitiesJson: "{\"inlayHintProvider\":true}");
+        var range = new LspRange(new Position(0, 0), new Position(0, 23));
+        var first = new InlayHint(new Position(0, 18), JsonDocument.Parse("\"[first:]\"").RootElement.Clone()) { Kind = 2 };
+        var second = new InlayHint(new Position(0, 21), JsonDocument.Parse("\"[second:]\"").RootElement.Clone()) { Kind = 2 };
+        high.RequestInlayHintsAsync(Vb6Doc, range, Arg.Any<CancellationToken>()).Returns(topIsEmpty ? [] : [first, second]);
+        low.RequestInlayHintsAsync(Vb6Doc, range, Arg.Any<CancellationToken>()).Returns([second]);
+        await using var sut = Registry(Registration("low", low), Registration("high", high, priority: 10));
+        await sut.OpenDocumentAsync(Vb6Doc, "    total = AddUp(1, 2)", TestContext.Current.CancellationToken);
+
+        InlayHint[] expected = topIsEmpty ? [second] : [first, second];
+        (await sut.RequestInlayHintsAsync(Vb6Doc, range, TestContext.Current.CancellationToken))
+            .Should().Equal(expected);
+        if (!topIsEmpty)
+            await low.DidNotReceive().RequestInlayHintsAsync(Vb6Doc, range, Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task UserRestartKeepsLoadedRegistrationAfterConfigurationFileChanges()
     {

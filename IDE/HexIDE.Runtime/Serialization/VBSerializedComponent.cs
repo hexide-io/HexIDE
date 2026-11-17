@@ -4,9 +4,12 @@ namespace HexIDE.Runtime.Serialization;
 
 public class VBSerializedComponent
 {
+    public int BeginLine { get; set; }
     public string Type { get; set; } = "";
     public string Name { get; set; } = "";
     public Dictionary<string, object> Properties { get; } = new Dictionary<string, object>();
+    // Assignments in source order, including duplicates (#4096). Properties remains the final-value bag.
+    public List<KeyValuePair<string, object>> PropertyAssignments { get; } = new();
     public List<VBSerializedComponent> SubComponents { get; } = new List<VBSerializedComponent>();
 
     // Raw lines for each property entry, in file order.

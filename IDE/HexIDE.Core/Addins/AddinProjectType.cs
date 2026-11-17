@@ -33,7 +33,8 @@ public sealed record AddinProjectType(string Title)
     /// stays open, that its membership or references changed. One that throws leaves nothing opened, and its message is
     /// shown. The token is cancelled if the type is taken out before the read ends, as when the add-in is unloaded.
     /// </summary>
-    public required Func<string, IAddinProjectChanges, CancellationToken, Task<AddinProjectContent>> OpenAsync { get; init; }
+    /// <remarks>Needed unless the type has a <see cref="Format"/>, which reads its projects whole instead.</remarks>
+    public Func<string, IAddinProjectChanges, CancellationToken, Task<AddinProjectContent>>? OpenAsync { get; init; }
 
     /// <summary>
     /// What reads the forms, UserControls and PropertyPages its projects list, each from its file's text and companion. Needed
@@ -87,6 +88,24 @@ public sealed record AddinProjectType(string Title)
     /// </para>
     /// </remarks>
     public HexIDE.IDE.IProjectFileWriter? ProjectFile { get; init; }
+
+    /// <summary>
+    /// What reads and renders this type's projects whole: the project file, its groups, its members, the prefixes and
+    /// companions of its code, and the read-only regions in it. <see cref="OpenAsync"/>, <see cref="Forms"/> and
+    /// <see cref="ProjectFile"/> are unused when it's set (#3411 slice 10).
+    /// </summary>
+    /// <remarks>
+    /// Accepted only from HexIDE's own, first-party types for now: it runs at every open, save, dirty check, recovery capture
+    /// and close of every project of the type, and a type from any other add-in that has one is refused when it's
+    /// registered (#4132). Its read-only regions are its <see cref="HexIDE.IDE.IProjectFileFormat.Regions"/>.
+    /// </remarks>
+    public HexIDE.IDE.IProjectFileFormat? Format { get; init; }
+
+    /// <summary>
+    /// The project group files its <see cref="Format"/> reads, such as <c>"*.vbg"</c>, in the form <see cref="FileNames"/>
+    /// takes. Only a type with a format has any.
+    /// </summary>
+    public IReadOnlyList<string> GroupFileNames { get; init; } = [];
 }
 
 /// <summary>What a project file holds, as the add-in read it.</summary>

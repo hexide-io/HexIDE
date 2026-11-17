@@ -33,18 +33,28 @@ The design is in [`design/white-label.md`](design/white-label.md).
 | `tagline` | No | Shown under the name in About, and in `--help`. |
 | `copyright` | No | Your copyright line in About. |
 | `credits` | No | Up to 32 entries, shown in About **after** HexIDE's own. |
-| `logo` | No | A PNG of up to 1024×1024 pixels, inside the installation folder, for About, New Project and the window icon. |
+| `logo` | No | A PNG of up to 1024×1024 pixels, inside the installation folder, written with `/`, for About, New Project and the window icon. |
 | `links` | No | `home`, `support` and `repository`, each an absolute `https` URL. Home and support appear in Help under your product's name when supplied; the home entry is labeled “Home Page”, distinct from the existing repository web entry. Without `repository`, that web entry keeps HexIDE's name and opens HexIDE's repository. |
 | `defaultProfile` | No | The profile used when the command line names none: a profile's name, or a folder inside the installation written with `/`, such as `branding/profile`. A profile sets your theme, keymap and defaults, and never your identity. `--profile`, including `--profile none`, still wins. [Your default profile](#your-default-profile) says what the folder holds. |
 
 A member that isn't in this table stops the IDE from starting. So does anything else wrong with the file: the IDE
 reports the file and the problem, and doesn't fall back to being HexIDE, because that would open HexIDE's settings
 and recovery files inside your product. `--help` still answers on a broken installation, and exits with code 2.
+All startup refusals a person reads use the operating system’s language before settings load (#4065), including
+the descriptor’s detailed reasons, command-line flag errors and native dialog caption. Field names, paths, sizes
+and limits stay unchanged. With `--help`, a broken installation prints the localized refusal before the help
+text. Descriptor exceptions keep their English messages for programs and logs.
 
 Logo capture checks every PNG chunk's length and CRC, the header's format, and the final IEND. Its IDAT
 stream must inflate to exactly the scanline bytes required by the dimensions, including Adam7 passes.
 Validation runs before the UI toolkit starts, within the existing 1 MiB file and 1024×1024 pixel limits;
 a corrupt logo refuses startup with both the descriptor and logo file named (#4063).
+
+A running program belongs to its author, not to the IDE's brand. In every distribution, a form with
+no `Icon` line uses the runner's neutral `form.ico` at F5, with or without a brand logo, just as in its
+made EXE (#4187). This is HexIDE's choice: the default is big only; a form's own icon and `Icon = (None)`
+keep their existing behaviour. The IDE keeps its own or the brand's icon. The measured VB6 behaviour is in
+[the form-icon oracle](vb6-fidelity-oracle/a-forms-window-icon-no-icon-line.md).
 
 ## Translating your tagline and credits
 
@@ -123,7 +133,11 @@ names the profile and the file. The rules are in
 - **It grants no trust.** The add-in trust root and the first-party key don't change, and About keeps showing them.
   The lines that name them can't be relabeled either: About's provenance and signing-key labels, and the add-in trust
   inspector's root, trust-anchor and first-party rows. A profile, including your `defaultProfile`, and a user's
-  translation override of them are ignored and logged, as for the credits (#4060).
+  translation override of them are ignored and logged, as for the credits (#4060). Nor can your profile change
+  what tells a person whether to trust an add-in: the consent dialog's verdicts, warnings and buttons, the
+  revocation and signing lines, and the add-in page's trust and consent status (#4121). Only a user's own
+  translation of those applies. A translation file copied into the user's own translations folder counts as the
+  user's; a pack you distribute goes through the package tier, which refuses a third party's text for these (#4181).
 - **Engine statements keep HexIDE's name.** Messages about what the interpreter or serializer implements,
   including unsupported components and faithful-save refusals, describe the engine in every distribution (#4061).
 - **Compatibility names don't change.** Assembly names, protocol and tool ids, `HEXIDE_*` environment variables,
@@ -155,6 +169,8 @@ exist. The result is built beside it and moved into place only when it's complet
 | Its copyright | Your `copyright`, or stock's if you have none. |
 | Its version numbers | The stock build's, because that's the code it holds. |
 | `app\brand.json`, your logo and a `defaultProfile` folder | Copied from beside your `brand.json`. |
+| The setup program's icon and publisher | Your `logo`, at the same four sizes, and your `name`. |
+| The setup program's copyright and home/support links | Your `copyright`, `links.home` and `links.support`, when supplied. |
 | `installer\brand.iss` | Compile it with [Inno Setup](https://jrsoftware.org/isinfo.php)'s `ISCC` to make your setup program. |
 
 The installer's AppId is a GUID derived from your `id`, so an upgrade finds the installed product and it installs
@@ -269,7 +285,3 @@ names. It also stops if macOS doesn't accept the executable's signature or the `
 needs in order to run them at all and which identify nobody. Signing with your own Developer ID and notarizing are
 yours to do, and [the macOS signing notes](macos-signing.md) describe what that takes. The tool never touches a key
 or a trust anchor, and there's no update service.
-
-## Not done yet
-
-Some diagnostics written in English. See the issues linked from #2042.

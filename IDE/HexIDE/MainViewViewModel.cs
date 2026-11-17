@@ -117,6 +117,7 @@ public partial class MainViewViewModel : ObservableObject
     public DelegateCommand RunToCursorCommand { get; }
     public DelegateCommand SetNextStatementCommand { get; }
     public DelegateCommand ShowNextStatementCommand { get; }
+    public DelegateCommand OpenCallStackCommand { get; }
     public DelegateCommand EditWatchCommand { get; }
     public DelegateCommand SaveFormCommand { get; }
     public DelegateCommand RemoveDocumentCommand { get; }
@@ -271,6 +272,8 @@ public partial class MainViewViewModel : ObservableObject
         RemoveDocumentCommand.RaiseCanExecutedChanged();
     }
 
+    internal CodeEditorViewModel? ActiveCodeDocument => documentDockService.ActiveDocument as CodeEditorViewModel;
+
     private async Task RemoveActiveDocument()
     {
         if (RemovableDocument is not { } document) return;
@@ -308,6 +311,7 @@ public partial class MainViewViewModel : ObservableObject
 
     private readonly AddinToolWindowService _addinToolWindowService;
 
+    internal event Action? PauseFocusRequested;
     internal event Action<IDockable, bool>? KeyboardFocusRequested;
 
     public class DockFactory : Factory
@@ -496,15 +500,41 @@ public partial class MainViewViewModel : ObservableObject
             public ToolHostWindow(DockFactory factory)
             {
                 this.factory = factory;
+                BrandAssets.ApplyWindowIcon(this);
                 PositionChanged += (_, _) => Dispatcher.UIThread.Post(RememberNormalBounds);
                 SizeChanged += (_, _) => Dispatcher.UIThread.Post(RememberNormalBounds);
+                AddHandler(PointerPressedEvent, OnTitlePressed, Avalonia.Interactivity.RoutingStrategies.Tunnel);
                 // The pane's close box runs its tool command; Dock's extra host-close handler
                 // would return the tool first and clear the command parameter (#3770, Dock#1109).
-                LayoutUpdated += (_, _) =>
+                LayoutUpdated += (_, _) => UpdateChrome();
+                PropertyChanged += (_, e) =>
                 {
-                    foreach (var chrome in this.GetVisualDescendants().OfType<Dock.Avalonia.Controls.ToolChromeControl>())
-                        DetachGrip(chrome);
+                    if (e.Property == IsActiveProperty) UpdateChrome();
                 };
+            }
+
+            private void UpdateChrome()
+            {
+                foreach (var chrome in this.GetVisualDescendants().OfType<Dock.Avalonia.Controls.ToolChromeControl>())
+                {
+                    DetachGrip(chrome);
+                    chrome.Classes.Set("floatingHostActive", IsActive);
+                }
+            }
+
+            private void OnTitlePressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+            {
+                if (e.ClickCount != 2 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+                for (var visual = e.Source as Visual; visual != null && visual != this; visual = visual.GetVisualParent())
+                {
+                    if (visual is Button) return;
+                    if (visual is Control { Name: "PART_Grip" })
+                    {
+                        e.Handled = true;
+                        Dispatcher.UIThread.Post(Close);
+                        return;
+                    }
+                }
             }
 
             private void UpdateTitle(object? sender = null, PropertyChangedEventArgs? e = null)
@@ -705,6 +735,17 @@ public partial class MainViewViewModel : ObservableObject
             if (window != null)
                 window.Title = dockable is IDock dock ? dock.ActiveDockable?.Title ?? dockable.Title : dockable.Title;
             return window;
+        }
+
+        public override void PinDockable(IDockable dockable)
+        {
+            // Dock's pin command handles auto-hide; floating tools return through the saved home slots.
+            if (FindRoot(dockable, _ => true)?.Window?.Host is ToolHostWindow host)
+            {
+                host.Close();
+                return;
+            }
+            base.PinDockable(dockable);
         }
 
         public override bool OnWindowClosing(IDockWindow? window)
@@ -1727,7 +1768,11 @@ public partial class MainViewViewModel : ObservableObject
             () => externalDebugger is not null && !projectRunnerService.IsRunning);
         // When the interpreter breaks, bring the offending form/module's code editor forward. The editor view then
         // paints the amber current-statement bar and scrolls to it (it reads the controller's CurrentStop on open).
-        debugController.Stopped += info => RevealBreak(info.Module);
+        debugController.Stopped += info =>
+        {
+            if (info.Reason == StopReason.Pause) PauseFocusRequested?.Invoke();
+            if (info.HasStatement) RevealBreak(info.Module);
+        };
         StatusBar = statusBarService;
         debugController.Stopped += _ => Dispatcher.UIThread.Post(UpdateRunState);
         debugController.Continued += () => Dispatcher.UIThread.Post(UpdateRunState);
@@ -1841,7 +1886,7 @@ public partial class MainViewViewModel : ObservableObject
 
         // Route `Debug.Print` output from the running program into the Immediate pane (VB6's Immediate window), as it is
         // written, so a line a statement left open shows at once and the next Debug.Print continues it (#1380).
-        VBDebugConsole.Written += text =>
+        RunningProgram.Current.Written += text =>
         {
             Dispatcher.UIThread.Post(() =>
                 Immediate.Document.Insert(Immediate.Document.TextLength, text.Replace("\r\n", "\n")));
@@ -1952,14 +1997,15 @@ public partial class MainViewViewModel : ObservableObject
 
         bool HasActiveCodeWindow() => documentDockService.ActiveDocument is CodeEditorViewModel;
         ToggleBreakpointCommand = new DelegateCommand(ToggleBreakpoint, HasActiveCodeWindow);
-        RunToCursorCommand = new DelegateCommand(RunToCursor, HasActiveCodeWindow);
-        SetNextStatementCommand = new DelegateCommand(SetNextStatement, () => ExternalDebugger?.IsActive == true || (HasActiveCodeWindow() && debugController.CurrentStop is not null));
-        ShowNextStatementCommand = new DelegateCommand(ShowNextStatement, () => ExternalDebugger?.IsActive == true || debugController.CurrentStop is not null);
+        RunToCursorCommand = new DelegateCommand(RunToCursor, () => HasActiveCodeWindow() && debugController.CurrentStop is not { HasStatement: false });
+        SetNextStatementCommand = new DelegateCommand(SetNextStatement, () => ExternalDebugger?.IsActive == true || (HasActiveCodeWindow() && debugController.CurrentStop is { HasStatement: true }));
+        ShowNextStatementCommand = new DelegateCommand(ShowNextStatement, () => ExternalDebugger?.IsActive == true || debugController.CurrentStop is { HasStatement: true });
+        OpenCallStackCommand = new DelegateCommand(OpenCallStackTool, () => ExternalDebugger?.IsActive == true || debugController.CurrentStop is not { HasStatement: false });
         EditWatchCommand = new DelegateCommand(EditWatch, () => Watches.SelectedRow is not null);
 
         // Routed commands listen to CommandManager, not to the delegate behind their binding.
         foreach (var command in new[] { ToggleBreakpointCommand, RunToCursorCommand, SetNextStatementCommand,
-                     ShowNextStatementCommand, EditWatchCommand, SaveProjectAsCommand })
+                     ShowNextStatementCommand, OpenCallStackCommand, EditWatchCommand, SaveProjectAsCommand })
             command.CanExecuteChanged += (_, _) => Avalonia.Labs.Input.CommandManager.InvalidateRequerySuggested();
 
         if (externalDebugger is not null)
@@ -1967,16 +2013,22 @@ public partial class MainViewViewModel : ObservableObject
             {
                 SetNextStatementCommand.RaiseCanExecutedChanged();
                 ShowNextStatementCommand.RaiseCanExecutedChanged();
+                OpenCallStackCommand.RaiseCanExecutedChanged();
+                RunToCursorCommand.RaiseCanExecutedChanged();
             };
         debugController.Stopped += _ =>
         {
             SetNextStatementCommand.RaiseCanExecutedChanged();
             ShowNextStatementCommand.RaiseCanExecutedChanged();
+            OpenCallStackCommand.RaiseCanExecutedChanged();
+            RunToCursorCommand.RaiseCanExecutedChanged();
         };
         debugController.Continued += () =>
         {
             SetNextStatementCommand.RaiseCanExecutedChanged();
             ShowNextStatementCommand.RaiseCanExecutedChanged();
+            OpenCallStackCommand.RaiseCanExecutedChanged();
+            RunToCursorCommand.RaiseCanExecutedChanged();
         };
         Watches.ObservePropertyChanged(x => x.SelectedRow)
             .Subscribe(_ => EditWatchCommand.RaiseCanExecutedChanged());
@@ -2426,7 +2478,7 @@ public partial class MainViewViewModel : ObservableObject
                 editorService.NavigateTo(location.Uri, location.Line, 1);
             return;
         }
-        if (debugController.CurrentStop is { } stop)
+        if (debugController.CurrentStop is { HasStatement: true } stop)
             RevealBreak(stop.Module);
     }
 

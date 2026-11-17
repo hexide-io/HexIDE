@@ -300,4 +300,31 @@ public class SaveRecordsTheHeaderTests : IDisposable
         form.DesignerText.Should().Be(asRead);
         File.Exists(form.AbsolutePath).Should().BeFalse();
     }
+    // Measured load-error save protection: #4096, issuecomment-6915523429.
+    [Theory]
+    [InlineData("ClientHeight = 2000\r\nClientHeight = abc", false)]
+    [InlineData("Height = 2147483584", true)]
+    [InlineData("Height = 3.7E+18", true)]
+    [InlineData("Left = 2147483648", true)]
+    [InlineData("ClientHeight = 3.7E+18", false)]
+    // A negative Height on a form's control recovers as zero and saves through Save As (#4179); this service's
+    // picker answers with the original path, which re-prompts without end, so that row lives in #4179's tests.
+    public async Task DamagedPropertySaveLeavesOriginalBytes(string properties, bool button)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { AbsolutePath = Path.Join(dir, "Test.vbp") };
+        loaded.Add(project);
+        var source = "VERSION 5.00\r\nBegin VB.Form Form1\r\n"
+            + (button ? "Begin VB.CommandButton Command1\r\n" + properties + "\r\nEnd\r\n" : properties + "\r\n")
+            + "End\r\nAttribute VB_Name = \"Form1\"\r\n";
+        var form = new FormDeserializer().Deserialize(project, source, NullSink.Instance)!;
+        form.AbsolutePath = Path.Join(dir, "Form1.frm");
+        project.AddForm(form);
+        File.WriteAllText(form.AbsolutePath, source);
+        var original = File.ReadAllBytes(form.AbsolutePath);
+
+        (await MakeService().SaveForm(form, saveAs: false)).Should().BeFalse();
+
+        File.ReadAllBytes(form.AbsolutePath).Should().Equal(original);
+    }
+
 }

@@ -23,7 +23,10 @@ public partial class ProjectService
             return false;
         form.UpdateCode(fresh.Code);
         form.UpdateComponents(fresh.Components);
+        var loadedWithErrors = form.LoadedWithErrors;
         form.AdoptFidelityState(fresh);
+        // A backup renders recovered zeroes, but does not replace the original on disk (#4179).
+        form.LoadedWithErrors |= loadedWithErrors;
         return true;
     }
 
@@ -160,7 +163,10 @@ public partial class ProjectService
             }
 
             var errorSink = new DeserializeErrorSink(localization);
-            var (project, _, _, _) = await format.ReadProjectAsync(renderedAt, HostAnsi, (path, bytes) =>
+            // Read back by the type that reads the file the backup was rendered as, as it was opened.
+            var type = contributed.Find(renderedAt);
+            var own = type?.Type.Format ?? format;
+            var (project, _, _, _) = await own.ReadProjectAsync(renderedAt, HostAnsi, (path, bytes) =>
             {
                 if (!put.Contains(Path.GetFullPath(path)))
                     baselineStore.Record(path, bytes);
@@ -181,7 +187,7 @@ public partial class ProjectService
                         part.AbsolutePath = null;
                 }, encoding => module.TextEncoding = encoding, module.Name);
 
-            project.Format = format;
+            Adopt(project, type, own);
             SnapshotRenderBaselines(project);
             projectManager.AddProject(project);
             EnsureGroupIfMultiple();

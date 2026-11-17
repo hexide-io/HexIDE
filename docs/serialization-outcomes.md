@@ -36,10 +36,22 @@ be gone from your working tree.
 **Any finding in category 3 is a launch blocker regardless of how narrow it looks.** Issue #22 (menu
 shortcuts) is the canonical example: the form still opens perfectly in HexIDE.
 
+## Recovered load errors
+
+| Input | Load and run | Save |
+|---|---|---|
+| A control's negative Width or Height | Reads 0, with `Line N: Property Width/Height in Control could not be set.` at the control's Begin line; the designer remains editable and F5 runs | Save, Save Project and Save Project Group ask for a new form path. Cancellation writes nothing; noninteractive in-place writes refuse. After Save As, normal saves resume. The original bytes and modification time stay unchanged. |
+
+Measured in VB6 SP6's IDE: [oracle PR #4350](https://github.com/hexide-io/HexIDE/pull/4350),
+recorded in [#4179's revised decision](https://github.com/hexide-io/HexIDE/issues/4179).
+Zero and small sizes and negative positions retain their existing behaviour; size floors are separate.
+This recovery uses `FormDefinition.LoadedWithErrors`, independently of the read-only faithful-save gate.
+
 ## Target per format
 
 | Format | Target | Why |
 |---|---|---|
+| `.vbg` | **1**, or **0** for mixed project kinds | Only `.vbp` members are safe: VB6 opens other extensions as code modules ([oracle PR #4308](https://github.com/hexide-io/HexIDE/pull/4308)). Mixed-group saves refuse before writing anything, pending #1206’s workspace descriptor |
 | `.vbp` | **1** | Small key=value file; humans read its diffs |
 | `.frm` / `.ctl` designer block | **1** | See "diffs are the real requirement" below. 2 is an interim state, not a resting place |
 | `.cls` / `.bas` headers | **1** | These carry Instancing semantics; preserving what was read is both easier and safer than regenerating |

@@ -440,6 +440,8 @@ public class VBArray
     internal string? DeclaredClass { get; set; }
     internal int? FixedStringWidth { get; set; }
 
+    internal AutoNew? AutoNew { get; set; }
+
     // Dynamic (`Dim a()`, ReDim, Array()/Split()/Filter()) vs fixed (`Dim a(N)`). Only Erase distinguishes them:
     // a dynamic array is freed (undimensioned), a fixed one keeps its bounds and resets elements. Default dynamic;
     // the fixed-`Dim` declaration sites flip it to false.
@@ -661,6 +663,15 @@ public class VBArray
         }
 
         return ((Vb6Value)arr).ViewedAs(DeclaredClass);
+    }
+
+    // Expression reads make an untouched element (#4150). Stores, enumeration and inspection use GetValue.
+    internal Vb6Value ReadValue(IReadOnlyList<int> index)
+    {
+        var value = GetValue(index);
+        if (value.Value is null && AutoNew is { } autoNew)
+            throw new AutoInstanceNeeded(this, index.ToArray(), autoNew);
+        return value;
     }
 
     public void SetValue(IReadOnlyList<int> index, Vb6Value val)

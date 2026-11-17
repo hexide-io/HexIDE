@@ -103,6 +103,35 @@ public sealed class DistributionDescriptorTests
     }
 
     [Fact]
+    public void A_logo_with_a_backslash_is_refused_before_reading_the_asset()
+    {
+        var readAsset = Substitute.For<Func<string, byte[]>>();
+        readAsset(Arg.Any<string>()).Returns(Png());
+        var parse = () => Parse("""{"schemaVersion":1,"id":"a","name":"A","logo":"branding\\logo.png"}""", readAsset);
+
+        parse.Should().Throw<DistributionDescriptorException>()
+            .WithMessage("brand.json: 'logo' is 'branding\\logo.png'; it must be written with '/'.");
+        readAsset.DidNotReceive()(Arg.Any<string>());
+    }
+
+    [Fact]
+    public void A_logo_with_slashes_is_read_as_written()
+    {
+        var readAsset = Substitute.For<Func<string, byte[]>>();
+        var bytes = Png();
+        readAsset("branding/logo.png").Returns(bytes);
+
+        var identity = Parse("""{"schemaVersion":1,"id":"a","name":"A","logo":"branding/logo.png"}""", readAsset);
+
+        using var logo = identity.OpenLogo();
+        logo.Should().NotBeNull();
+        using var copy = new MemoryStream();
+        logo!.CopyTo(copy);
+        copy.ToArray().Should().Equal(bytes);
+        readAsset.Received(1)("branding/logo.png");
+    }
+
+    [Fact]
     public void Everything_a_descriptor_may_say_is_captured()
     {
         var identity = Parse("""
@@ -413,21 +442,43 @@ public sealed class DistributionDescriptorTests
     public void Help_names_the_brand_and_drops_HexIDEs_mark()
     {
         var help = ServerOptions.HelpText(new ConsoleTarget(false, 120),
-            new DistributionIdentity("acme", "Acme Studio", "For widgets"));
+            new DistributionIdentity("acme", "Acme Studio", "For widgets"), "Acme.IDE");
 
+        help.Should().Contain("Acme.IDE [options]");
         help.Should().Contain("Acme Studio - For widgets").And.Contain("An argument Acme Studio does not");
         help.Should().NotContain("open, cross-platform IDE").And.NotContain("docs/command-line.md");
         help.Should().NotContain("_-----------_");
     }
 
-    [Fact]
-    public void Stock_help_is_unchanged()
+    [Theory]
+    [InlineData("HexIDE")]
+    [InlineData("HexIDE.Desktop")]
+    public void Stock_help_names_the_running_executable(string invocation)
     {
-        var help = ServerOptions.HelpText(new ConsoleTarget(false, 120), DistributionIdentity.Stock);
+        var help = ServerOptions.HelpText(new ConsoleTarget(false, 120), DistributionIdentity.Stock, invocation);
 
-        help.Should().Contain("HexIDE - an open, cross-platform IDE").And.Contain("HexIDE.Desktop [options]");
+        help.Should().Contain("HexIDE - an open, cross-platform IDE").And.Contain($"{invocation} [options]");
         help.Should().Contain("_-----------_").And.Contain("docs/command-line.md");
     }
+
+    [Theory]
+    [InlineData("C:/x/HexIDE.exe", true, "HexIDE")]
+    [InlineData("C:/x/HexIDE.Desktop.exe", true, "HexIDE.Desktop")]
+    [InlineData("C:/x/HexIDE.EXE", true, "HexIDE")]
+    [InlineData("/x/HexIDE.Desktop", false, "HexIDE.Desktop")]
+    [InlineData("/x/Acme.IDE", false, "Acme.IDE")]
+    [InlineData("/x/Acme.exe", false, "Acme.exe")]
+    [InlineData("C:/x/Acme.IDE", true, "Acme.IDE")]
+    [InlineData(null, true, "HexIDE")]
+    [InlineData(null, false, "HexIDE")]
+    [InlineData("", false, "HexIDE")]
+    public void Invocation_name_strips_only_a_Windows_exe_suffix(string? path, bool isWindows, string expected) =>
+        ServerOptions.InvocationName(path, isWindows, "HexIDE").Should().Be(expected);
+
+    // A brand's fallback is its own name, never HexIDE's (#4175 review).
+    [Fact]
+    public void Invocation_name_falls_back_to_the_brand_name() =>
+        ServerOptions.InvocationName(null, true, "Acme Studio").Should().Be("Acme Studio");
 
     [Fact]
     public void The_product_name_replaces_HexIDE_in_the_IDEs_own_strings()

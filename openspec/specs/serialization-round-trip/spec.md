@@ -71,6 +71,19 @@ See the [VB6 measurements](../../../docs/vb6-fidelity-oracle/a-project-groups-fi
 With a startup project, the writer SHALL emit `VBGROUP 5.0` and each project in group order, using
 `StartupProject=` for startup and `Project=` for every other member, with CR LF line endings.
 Groups without startup SHALL retain their prior output pending measurement.
+Only `.vbp` paths SHALL be listed, case-insensitively; pathless members are skipped.
+A mixed-group save SHALL refuse before any write, including a member's Save As in a saved `.vbg`.
+
+#### Scenario: A group holds another project kind
+- **GIVEN** a group holding A.vbp and Other.rdproj
+- **WHEN** the group is saved, including its first save
+- **THEN** the save refuses, naming Other with its file name and explaining VB6's code-module interpretation
+- **AND** no file is written and the group retains its members, order and startup project
+- **AND** a member's Save Project As to a non-`.vbp` path with a saved `.vbg` holder refuses the same way
+
+Measured in [oracle PR #4308](https://github.com/hexide-io/HexIDE/pull/4308): VB6 opens other extensions
+as code modules and refuses a trailing section in a `.vbg`. A separate mixed-workspace descriptor awaits #1206.
+
 
 #### Scenario: Saving a group whose startup is second
 - **GIVEN** projects A and B in order, with B as startup
@@ -756,6 +769,19 @@ SHALL follow the record of the project being opened. Source bytes SHALL NOT gain
 Whether VB6's File → Save Project retains the section is unmeasured; `/make` accepting trailing sections
 does not establish save behaviour.
 
+The same trailing `[HexIDE]` section SHALL store a project's VBA7 target as `VbaBitness=32` or
+`VbaBitness=64` (#4245). The loader SHALL expose it on the Core project definition. No key SHALL be
+written for the default VB6 target, so an otherwise unchanged VB6 project retains its bytes. Changing
+or clearing the target SHALL replace or remove its previous key while retaining encoding records and
+unknown keys. A `VbaBitness` value other than 32 or 64 SHALL read as no target and SHALL be written back
+verbatim. This is HexIDE metadata, not a claim about VBA's native project format.
+
+#### Scenario: A VBA7 target survives a fresh open
+- **GIVEN** a project whose VBA7 target is 64-bit
+- **WHEN** it is saved and freshly opened
+- **THEN** its trailing `[HexIDE]` section has `VbaBitness=64` and the project retains that target
+- **AND** a project with no target writes no bitness key
+
 #### Scenario: An edit removes the UTF-8 signature
 - **GIVEN** a BOM-less UTF-8 module holding `' café 日本`
 - **WHEN** its code becomes `' café` and the project is saved and freshly opened
@@ -1160,6 +1186,77 @@ file without a question. An unchanged disk file SHALL save without a conflict qu
 - **GIVEN** an opened `.vbp` with no local project edit and different bytes now on disk
 - **WHEN** the user saves the project
 - **THEN** the external project bytes survive without a conflict question
+
+### Requirement: Damaged modelled property lines SHALL protect the original
+
+The reader SHALL apply repeated modelled designer properties in file order, comparing names without
+regard to case. Readable duplicates SHALL save as a single line holding the winning value. If a
+repeated property has an unreadable value, the reader SHALL keep the readable value and mark the form
+unfaithful to save with a cause naming the property.
+
+A twip measurement whose value converted to Single is at least 2^31, or a negative `Height` on anything but
+a control of a form, SHALL be
+left as if that line were absent and SHALL mark the form unfaithful to save with a cause naming the
+property and value. Save SHALL refuse these forms before writing the original. These rules follow
+[the #4096 measurements](https://github.com/hexide-io/HexIDE/issues/4096#issuecomment-6915523429);
+the upper bound shares the reader's geometry path, while the negative rule applies only to `Height`.
+VB6 keeps the form editable and opens Save As after load errors. HexIDE protects the original through
+its existing read-only gate; a load-error recovery Save As flow remains outside this requirement.
+A negative `Width` or `Height` on a form's control follows the next requirement instead (#4179).
+
+#### Scenario: A readable duplicate
+
+- **GIVEN** `ClientHeigHt = 3000` followed by `ClientHeight = 4000`
+- **WHEN** the form is loaded and saved twice
+- **THEN** its height holds 4000 twips and each save writes one `ClientHeight` line
+- **AND** the two saves are byte-identical
+
+#### Scenario: A failed line does not replace a readable value
+
+- **GIVEN** `ClientHeight = 2000` followed by `ClientHeight = abc`
+- **WHEN** the form is loaded
+- **THEN** its height holds 2000 twips and the form is unfaithful to save
+- **AND** Save refuses without changing the original bytes
+
+#### Scenario: A measurement cannot be set
+
+- **GIVEN** a CommandButton with `Height = 3.7E+18`
+- **WHEN** the form is loaded
+- **THEN** the button's Height is left as if the line were absent
+- **AND** the form is unfaithful to save and Save leaves the original bytes unchanged
+
+### Requirement: Recover negative control sizes without overwriting the source
+
+Negative control sizes SHALL load as zero with a Begin-line diagnostic, keeping forms editable and
+runnable. Saves MUST protect the source and use Save As until a new file has been written.
+
+Source: [VB6 SP6 IDE measurements, oracle PR #4350](https://github.com/hexide-io/HexIDE/pull/4350),
+[#4179 revised decision](https://github.com/hexide-io/HexIDE/issues/4179).
+
+#### Scenario: Opening a negative size
+- **WHEN** a Label or CommandButton has Width or Height -150 in a form file
+- **THEN** that size reads zero and the localized diagnostic is `Line {0}: Property {1} in {2} could not be set.`, naming the property, control and one-based Begin line
+- **AND** the form opens for editing
+
+#### Scenario: Running without opening the designer
+- **WHEN** F5 runs that project, whether or not its designer was opened
+- **THEN** Form_Load reads the recovered sizes as zero without a host exception
+
+#### Scenario: Saving the recovered form
+- **WHEN** Save, Save Project or Save Project Group would overwrite that form's source
+- **THEN** the form's Save As picker asks for a new path
+- **AND** accepting a new path writes zero there and leaves the original untouched
+- **AND** later saves use the new path without another picker
+
+#### Scenario: Cancelling or saving without a picker
+- **WHEN** the picker is cancelled
+- **THEN** nothing is written for that form
+- **WHEN** a noninteractive save would overwrite its source
+- **THEN** it refuses with an English sentence naming the form
+
+#### Scenario: Zero sizes and negative positions
+- **WHEN** a form contains zero or positive control sizes, or negative Left/Top positions
+- **THEN** loading retains the existing behaviour without a size-load diagnostic
 
 ## Out of Scope
 - **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are

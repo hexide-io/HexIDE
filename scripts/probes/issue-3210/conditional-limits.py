@@ -5,7 +5,7 @@ here = pathlib.Path(__file__).resolve().parent
 resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
 env = dict(os.environ, DOTNET_TieredCompilation='0', GLIBC_TUNABLES='glibc.pthread.stack_cache_size=0')
 env['PATH'] = ':'.join(p for p in env['PATH'].split(':') if not p.startswith('/mnt/'))
-dll = here / 'bin/Debug/net10.0/StackProbe.dll'
+dll = here / 'bin/Debug/net11.0/StackProbe.dll'
 with (here / 'round3-conditional-limits.csv').open('w', newline='') as output:
     writer = csv.writer(output, lineterminator='\n')
     writer.writerow(['stage', 'shape', 'stack_bytes', 'last_recognized', 'first_refused', 'refusal'])

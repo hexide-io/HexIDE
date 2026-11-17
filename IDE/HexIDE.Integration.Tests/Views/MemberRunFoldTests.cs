@@ -133,7 +133,7 @@ public class MemberRunFoldTests : IDisposable
         var (_, editor) = Show(vm);
         RunFold(editor, "Public Sub Form_Load()")!.IsFolded.Should().BeTrue();
 
-        navigate!(new CreateOrNavigateToSubEvent(form, "Form_Load"));
+        navigate!(new CreateOrNavigateToSubEvent(form, "Form_Load", "Form", "Load"));
         Dispatcher.UIThread.RunJobs();
 
         editor.CaretOffset.Should().Be(editor.Document.Text.IndexOf("    Debug.Print 1", StringComparison.Ordinal));

@@ -182,6 +182,46 @@ public class RunFaultTests
         return printed;
     }
 
+    // #4179 / oracle PR #4350: F5 runs even when the designer has never been opened.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Negative_saved_sizes_run_as_zero(bool openDesigner)
+    {
+        var frm = FormWithButton.Replace("Command1", "Command2")
+            .Replace("Width           =   1215", "Width           =   -150")
+            .Replace("End\r\nAttribute", "Begin VB.Label Label1\r\nWidth = -150\r\nEnd\r\nEnd\r\nAttribute");
+        var run = FormProject("Private Sub Form_Load()\r\nDebug.Print CStr(Command2.Width) & \" \" & CStr(Label1.Width)\r\nEnd Sub\r\n", frm);
+        using var designer = openDesigner ? new HexIDE.VisualDesigner.FormEditViewModel(
+            new HexIDE.VisualDesigner.ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(), new ComponentRegistry(),
+                Substitute.For<ILocalizationService>()), new EventBus(), Substitute.For<HexIDE.Projects.IProjectService>(),
+            Substitute.For<IEditorService>(), run.WindowManager, Substitute.For<ISettingsService>(),
+            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(run.Project.Forms.Single()) : null;
+        if (designer is not null)
+        {
+            designer.IsReadOnly.Should().BeFalse();
+            var view = new HexIDE.VisualDesigner.FormEditView { DataContext = designer };
+            view.Measure(new Avalonia.Size(900, 700));
+            view.Arrange(new Avalonia.Rect(0, 0, 900, 700));
+        }
+        var printed = Printed(out var sink);
+        VBDebugConsole.Output += sink;
+        try
+        {
+            var window = Start(run, printed);
+            run.StartFailed.Should().BeEmpty();
+            run.RunFailed.Should().BeEmpty();
+            printed.Should().Equal("0 0");
+            window.Close();
+            Pump();
+        }
+        finally
+        {
+            VBDebugConsole.Output -= sink;
+            run.Runner.EndProject();
+        }
+    }
+
     // A never-called handler must not stop Form_Load; reaching Print uses Me.Print's refusal (#993).
     [AvaloniaTheory]
     [InlineData("Print \"hello\"")]
@@ -577,16 +617,18 @@ public class RunFaultTests
     {
         // The pre-pass runs while the interpreter is built. That used to happen outside the run's try, after
         // the debugger was reset to Running and the project claimed, so this left both that way (#590's shape).
-        // The sample is a declaration the pre-pass still refuses: an array As New (PrePass.cs). It was a
-        // fixed-length String, which #179 implemented, so this test had pinned a gap rather than the start path.
-        var run = SubMainProject("Dim s(1) As New Collection\r\n\r\nSub Main()\r\n    Debug.Print \"never\"\r\nEnd Sub\r\n");
+        // The sample is a declaration the pre-pass still refuses: an indexed Property Set in a standard module
+        // (PrePass.ParsePropertyMutator). It was a fixed-length String until #179, then an array As New until
+        // #4150, each implemented in turn. When this one is, pick another the pre-pass refuses.
+        var run = SubMainProject("Public Property Set Many(i As Integer, o As Object)\r\nEnd Property\r\n\r\n"
+            + "Sub Main()\r\n    Debug.Print \"never\"\r\nEnd Sub\r\n");
 
         run.Runner.RunProject(run.Project);
 
         // Before pumping: run_project reads StartFailed as raised before the start call returns, so a report that
         // arrived on a later dispatcher pass would leave it answering that the program ran.
         run.StartFailed.Should().ContainSingle("reported before the start call returns, as the form path does")
-            .Which.Should().StartWith("Not implemented yet: ").And.Contain("As New");
+            .Which.Should().StartWith("Not implemented yet: ").And.Contain("Property Set 'Many'");
         AssertNothingIsRunning(run);
 
         Pump();
