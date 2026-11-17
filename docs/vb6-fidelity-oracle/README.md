@@ -11,6 +11,7 @@ date functions; graphics) should extend it the same way.
 > language reference alone would have shipped several wrong behaviours (see *Assumptions overturned* below).
 
 - [A UserControl's focus and access keys](usercontrol-focus-and-keys.md) — #1631 part B, SP6 native and p-code, real keystrokes.
+- [Ambient's LocaleID under other user locales, and DisplayName on a control-array element (2026-11-16, #4149, SP6)](ambients-localeid-and-a-control-array-elements-displayname.md#ambients-localeid-under-other-user-locales-and-displayname-on-a-control-array-element-2026-11-16-4149-sp6)
 - [A UserControl’s extender members at run time](usercontrol-extender-members.md) — #1631 part A, SP6 native and p-code; includes the supervisor’s handle decision.
 - [Key events](key-events.md) — #2325, real input, SP6 native and p-code.
 - [A Timer’s default Interval](timer-default-interval.md) — #2068, SP6 native and p-code.
@@ -460,6 +461,7 @@ added afterwards.
 - [`Class_Terminate` lifecycle (interpreter-advanced Phase 4.2)](class_terminate-lifecycle.md#class_terminate-lifecycle-interpreter-advanced-phase-42)
 - [Custom events — `Event` / `RaiseEvent` / `WithEvents` (interpreter-advanced Phase 5)](custom-events--event--raiseevent--withevents.md#custom-events--event--raiseevent--withevents-interpreter-advanced-phase-5)
 - [`End` fires no `Class_Terminate` (interpreter-debugger reset)](end-fires-no-class_terminate.md#end-fires-no-class_terminate-interpreter-debugger-reset)
+- [When a Sub Main program returns: the order objects terminate in (2026-11-16, #1490)](end-fires-no-class_terminate.md#when-a-sub-main-program-returns-the-order-objects-terminate-in-2026-11-16-1490)
 - [Relational comparison + `ChDir`/`ChDrive` (2026-08-03 gap-audit fixes)](relational-comparison--chdirchdrive.md#relational-comparison--chdirchdrive-2026-08-03-gap-audit-fixes)
 - [Control arrays (2026-08-10)](control-arrays.md#control-arrays-2026-08-10)
 - [Option buttons — `Value` is a Boolean, and the group can be empty (2026-08-22, #95)](option-buttons--value-is-a-boolean-and-the-group-can-be-empty.md#option-buttons--value-is-a-boolean-and-the-group-can-be-empty-2026-08-22-95)
@@ -546,6 +548,7 @@ added afterwards.
 - [A ListBox's Scroll event: what raises it, and what doesn't (2026-11-06, #3275)](a-listboxs-scroll-event.md#a-listboxs-scroll-event-what-raises-it-and-what-doesnt-2026-11-06-3275)
 - [A MultiSelect list's TopIndex, and TopIndex before the form is shown (2026-11-15, #3986)](a-listboxs-scroll-event.md#a-multiselect-lists-topindex-and-topindex-before-the-form-is-shown-2026-11-15-3986)
 - [A ListBox's Page Up, Selected and Text, checkboxes and columns (2026-11-16, #3986)](a-listboxs-page-up-checkboxes-and-columns.md#a-listboxs-page-up-selected-and-text-checkboxes-and-columns-2026-11-16-3986)
+- [Selected on a MultiSelect ListBox scrolls the item into view (2026-11-16, #4229, SP6 native and p-code)](selected-on-a-multiselect-listbox-scrolls-the-item-into-view.md#selected-on-a-multiselect-listbox-scrolls-the-item-into-view-2026-11-16-4229-sp6-native-and-p-code)
 - [One handler at a time (2026-10-14, #766)](one-handler-at-a-time.md#one-handler-at-a-time-2026-10-14-766)
 - [Unload Me (2026-10-14, #973)](unload-me.md#unload-me-2026-10-14-973)
 - [Overflow edges (2026-10-14, #234)](overflow-edges.md#overflow-edges-2026-10-14-234)
@@ -561,6 +564,7 @@ added afterwards.
 - [Menus at run time, and the menu bar (2026-10-17, #1126, #1127)](menus-at-run-time-and-the-menu-bar.md#menus-at-run-time-and-the-menu-bar-2026-10-17-1126-1127)
 - [When a menu's Click is raised (2026-10-22, #1344)](when-a-menus-click-is-raised.md#when-a-menus-click-is-raised-2026-10-22-1344)
 - [Choosing a menu item leaves Checked to the program (2026-10-18, #1158; measured by #1159)](choosing-a-menu-item-leaves-checked-to-the-program.md#choosing-a-menu-item-leaves-checked-to-the-program-2026-10-18-1158-measured-by-1159)
+- [What VB6 writes for a menu in a .frm (2026-11-16, #4141, IDE)](what-vb6-writes-for-a-menu-in-a-frm.md#what-vb6-writes-for-a-menu-in-a-frm-2026-11-16-4141-ide)
 - [SetFocus (2026-10-15, #1061)](setfocus.md#setfocus-2026-10-15-1061)
 - [The Line control (2026-10-15, #163)](the-line-control.md#the-line-control-2026-10-15-163)
 - [Sequential files (2026-10-17, #1145)](sequential-files.md#sequential-files-2026-10-17-1145)
@@ -621,6 +625,7 @@ added afterwards.
 - [Write # and Input # (2026-10-23, #1521)](write--and-input.md#write--and-input--2026-10-23-1521)
 - [Make Project Group (2026-10-23, #746, design-time, IDE, release build)](make-project-group.md#make-project-group-2026-10-23-746-design-time-ide-release-build)
 - [A project group's file, as VB6 writes it (2026-11-14, #579, design-time, IDE, SP6)](a-project-groups-file-as-vb6-writes-it.md#a-project-groups-file-as-vb6-writes-it-2026-11-14-579-design-time-ide-sp6)
+- [A project group naming a file that isn't a .vbp (2026-11-16, #4051, design-time, IDE, SP6)](a-project-group-naming-a-file-that-isnt-a-vbp.md#a-project-group-naming-a-file-that-isnt-a-vbp-2026-11-16-4051-design-time-ide-sp6)
 - [How a running form stacks its controls (2026-10-23, #1497, IDE, release build)](how-a-running-form-stacks-its-controls.md#how-a-running-form-stacks-its-controls-2026-10-23-1497-ide-release-build)
 - [Too few arguments to an intrinsic (2026-10-23, #1512)](too-few-arguments-to-an-intrinsic.md#too-few-arguments-to-an-intrinsic-2026-10-23-1512)
 - [Print # and the ANSI best fit (2026-10-23, #1511)](print--and-the-ansi-best-fit.md#print--and-the-ansi-best-fit-2026-10-23-1511)
@@ -633,6 +638,7 @@ added afterwards.
 - [Where the arrow keys go from a button (2026-10-23, #1625)](where-the-arrow-keys-go-from-a-button.md#where-the-arrow-keys-go-from-a-button-2026-10-23-1625)
 - [Conditional compilation (2026-10-23, #1112)](conditional-compilation.md#conditional-compilation-2026-10-23-1112)
 - [LongLong and LongPtr in 64-bit VBA7 (2026-11-14, #1548)](longlong-and-longptr-in-64-bit-vba7.md#longlong-and-longptr-in-64-bit-vba7-2026-11-14-1548), measured in Excel's VBA7, not vb6.exe
+- [VBA7's 64-bit syntax in vb6.exe, in active code (2026-11-16, #1548, SP6)](vba7s-64-bit-syntax-in-vb6exe.md#vba7s-64-bit-syntax-in-vb6exe-in-active-code-2026-11-16-1548-sp6)
 - [A form's Width and Height: the frame round its client area (2026-10-23, #1072)](a-forms-width-and-height-the-frame-round-its-client-area.md#a-forms-width-and-height-the-frame-round-its-client-area-2026-10-23-1072)
 - [A form's window styles: BorderStyle, ControlBox, MinButton and MaxButton (2026-10-23, #1575)](a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton.md#a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton-2026-10-23-1575)
 - [A form's window icon: no Icon line, (None), and an icon of its own (2026-10-24, #1594, SP6)](a-forms-window-icon-no-icon-line.md#a-forms-window-icon-no-icon-line-none-and-an-icon-of-its-own-2026-10-24-1594-sp6)
@@ -696,6 +702,7 @@ added afterwards.
 - [A UDT copied whole, and arrays of a UDT (#178)](a-udt-copied-whole-and-arrays-of-a-udt.md)
 - [A UDT copied whole, and arrays of a UDT (2026-10-26, #178)](a-udt-copied-whole-and-arrays-of-a-udt.md#a-udt-copied-whole-and-arrays-of-a-udt-2026-10-26-178)
 - [A breakpoint on a procedure's End line or its header (2026-10-26, #2172, IDE)](a-breakpoint-on-a-procedures-end-line-or-its-header.md#a-breakpoint-on-a-procedures-end-line-or-its-header-2026-10-26-2172-ide)
+- [Break on an idle program, and a step off the end of an event handler (2026-11-16, #4261, IDE)](break-on-an-idle-program-and-a-step-off-an-event-handler.md#break-on-an-idle-program-and-a-step-off-the-end-of-an-event-handler-2026-11-16-4261-ide)
 - [A multiple selection in the designer, and Align (2026-10-26, #2181, design-time, IDE)](a-multiple-selection-in-the-designer-and-align.md#a-multiple-selection-in-the-designer-and-align-2026-10-26-2181-design-time-ide)
 - [A UserControl's own properties at run time (2026-10-26, #1631)](a-usercontrols-own-properties-at-run-time.md#a-usercontrols-own-properties-at-run-time-2026-10-26-1631)
 - [Ambient, at design time and at run time (2026-11-16, #4149, design-time, IDE, SP6)](a-usercontrols-own-properties-at-run-time.md#ambient-at-design-time-and-at-run-time-2026-11-16-4149-design-time-ide-sp6)
@@ -708,6 +715,8 @@ added afterwards.
 - [In-box controls: the TreeView (2026-10-27, #1086)](in-box-controls-the-treeview.md#in-box-controls-the-treeview-2026-10-27-1086)
 - [In-box controls: the CommonDialog (2026-10-27, #1084)](in-box-controls-the-commondialog.md#in-box-controls-the-commondialog-2026-10-27-1084)
 - [In-box controls: the SSTab (2026-10-27, #1090)](in-box-controls-the-sstab.md#in-box-controls-the-sstab-2026-10-27-1090)
+- [The SSTab: TabPicture at run time (2026-11-16, #3426, SP6)](in-box-controls-the-sstab.md#tabpicture-at-run-time-2026-11-16-3426-sp6)
+- [A control assigned to an SSTab's TabPicture (2026-11-16, #3426, SP6 native and p-code)](a-control-assigned-to-an-sstabs-tabpicture.md#a-control-assigned-to-an-sstabs-tabpicture-2026-11-16-3426-sp6-native-and-p-code)
 - [A control's Enabled inside a disabled container (2026-10-27)](a-controls-enabled-inside-a-disabled-container.md#a-controls-enabled-inside-a-disabled-container-2026-10-27)
 - [In-box controls: the MSFlexGrid (2026-10-27, #1099)](in-box-controls-the-msflexgrid.md#in-box-controls-the-msflexgrid-2026-10-27-1099)
 - [In-box controls: the RichTextBox (2026-10-27, #1100)](in-box-controls-the-richtextbox.md#in-box-controls-the-richtextbox-2026-10-27-1100)
@@ -736,6 +745,8 @@ added afterwards.
 - [LSet and RSet into a String (2026-10-28, #2517)](lset-and-rset-into-a-string.md#lset-and-rset-into-a-string-2026-10-28-2517)
 - [LSet between two user-defined types (2026-10-28, #2518)](lset-between-two-user-defined-types.md#lset-between-two-user-defined-types-2026-10-28-2518)
 - [Fixed-length Strings (2026-11-15, #179)](fixed-length-strings.md#fixed-length-strings-2026-11-15-179)
+- [LSet between UDTs: Alignment, the other types, and what doesn't compile (2026-11-16, #2518)](lset-between-two-user-defined-types.md#alignment-the-other-types-and-what-doesnt-compile-2026-11-16-2518)
+- [A nested user-defined type is a record of its own (2026-11-16, #2518)](a-nested-user-defined-type-is-a-record-of-its-own.md#a-nested-user-defined-type-is-a-record-of-its-own-2026-11-16-2518)
 - [CallByName (2026-10-28, #2519)](callbyname.md#callbyname-2026-10-28-2519)
 - [CVErr and the Error subtype (2026-10-28, #2520)](cverr-and-the-error-subtype.md#cverr-and-the-error-subtype-2026-10-28-2520)
 - [Reset and FileAttr (2026-10-28, #2521)](reset-and-fileattr.md#reset-and-fileattr-2026-10-28-2521)

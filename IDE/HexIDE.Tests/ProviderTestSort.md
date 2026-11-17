@@ -52,6 +52,7 @@ A test that reaches the provider only at run time, through the application's com
 | `IDE/Vb6ToolchainDiagnosticsTests.cs` | split |
 | `Infrastructure/ArchiveFileToolsTests.cs` | split |
 | `Infrastructure/BreakpointConditionToolTests.cs` | split |
+| `Infrastructure/ControlArrayIndexTests.cs` | split |
 | `Infrastructure/ConversationExportSafetyTests.cs` | split |
 | `Infrastructure/DesignerSizeTests.cs` | split |
 | `Infrastructure/DocumentTabsModifiedTests.cs` | split |
@@ -60,6 +61,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Infrastructure/FormatSelectionTests.cs` | split |
 | `Infrastructure/GroupDiagnosticProjectTests.cs` | split |
 | `Infrastructure/ImplicitDocumentNamingTests.cs` | split |
+| `Infrastructure/InterpreterSeamTests.cs` | split |
 | `Infrastructure/LspRowsNoteTests.cs` | split |
 | `Infrastructure/NoRunEngineReplyTests.cs` | split |
 | `Infrastructure/ProjectWriteSafetyTests.cs` | split |
@@ -67,6 +69,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Infrastructure/SetLockKeyTests.cs` | split |
 | `Infrastructure/ShutdownIdeTests.cs` | split |
 | `Infrastructure/SplitDocumentTabsTests.cs` | split |
+| `Infrastructure/WaylandStartupTests.cs` | split |
 | `Infrastructure/WorkingCopyReplyTests.cs` | split |
 | `LspClient/BundledServerRespectsTheIdesRegionsTests.cs` | split |
 | `LspClient/DocumentVersionOnTheWireTests.cs` | split |
@@ -118,6 +121,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/UnsavedChangesPromptTests.cs` | split |
 | `Projects/UnsavedMemberRefusalTests.cs` | split |
 | `Projects/UserControlSaveRoundTripTests.cs` | split |
+| `Projects/Vb6ProjectTypeTests.cs` | split |
 | `Projects/WriteAtSaveTests.cs` | split |
 | `Recovery/RecoveryOffersTests.cs` | split |
 | `Recovery/UnsavedWorkCaptureTests.cs` | split |

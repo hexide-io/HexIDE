@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Net.Sockets;
 using HexIDE.IDE;
@@ -222,7 +223,8 @@ public partial class MenuViewModel : ObservableObject
     public MenuViewModel(ComponentInstance menu)
     {
         Menu = menu;
-        index = menu.GetPropertyOrDefault(MenuComponentClass.IndexProperty);
+        // Index is the preserved .frm line every control shares (#4284), not a menu property of its own.
+        index = PropertyText.ArrayIndexOf(menu);
         shortcut = menu.GetPropertyOrDefault(MenuComponentClass.ShortcutProperty) ?? "";
         helpContextID = menu.GetPropertyOrDefault(VBProperties.HelpContextIDProperty);
         negotiatePosition = menu.GetPropertyOrDefault(MenuComponentClass.NegotiatePositionProperty);
@@ -235,7 +237,7 @@ public partial class MenuViewModel : ObservableObject
     }
 
     internal bool HasChanges => Menu is null
-        || index != Menu.GetPropertyOrDefault(MenuComponentClass.IndexProperty)
+        || index != PropertyText.ArrayIndexOf(Menu)
         || shortcut != Menu.GetPropertyOrDefault(MenuComponentClass.ShortcutProperty)
         || helpContextID != Menu.GetPropertyOrDefault(VBProperties.HelpContextIDProperty)
         || negotiatePosition != Menu.GetPropertyOrDefault(MenuComponentClass.NegotiatePositionProperty)
@@ -254,7 +256,8 @@ public partial class MenuViewModel : ObservableObject
                 menu.SetProperty(property, value);
         }
 
-        SetIfChanged(MenuComponentClass.IndexProperty, index);
+        if (index != PropertyText.ArrayIndexOf(menu))
+            menu.SetUntypedProperty(VBProperties.DesignIndexProperty, index?.ToString(CultureInfo.InvariantCulture) ?? "");
         SetIfChanged(MenuComponentClass.ShortcutProperty, shortcut);
         SetIfChanged(VBProperties.HelpContextIDProperty, helpContextID);
         SetIfChanged(MenuComponentClass.NegotiatePositionProperty, negotiatePosition);

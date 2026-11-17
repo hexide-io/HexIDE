@@ -48,6 +48,7 @@ public static class Program
 
         using var input = Console.OpenStandardInput();
         var one = new byte[1];
+        int? heldLaunch = null;
         int? heldVariables = null;
         int? heldEvaluation = null;
         string callerValue = "42";
@@ -72,6 +73,24 @@ public static class Program
             catch (EndOfStreamException) { return 0; }
             using var request = JsonDocument.Parse(body);
             if (mode == "silent") continue;
+            if (mode.StartsWith("launch-refuse-", StringComparison.Ordinal))
+            {
+                var command = request.RootElement.GetProperty("command").GetString();
+                var sequence = request.RootElement.GetProperty("seq").GetInt32();
+                if (command == "launch") { heldLaunch = sequence; continue; }
+                if (command == mode["launch-refuse-".Length..])
+                {
+                    await Send(new { seq = 4, type = "response", request_seq = heldLaunch,
+                        command = "launch", success = false, message = "fixture launch refusal" });
+                    continue; // The refused adapter never answers this configuration request.
+                }
+                object reply = command == "initialize"
+                    ? new { supportsConfigurationDoneRequest = true, exceptionBreakpointFilters = new[] { new { filter = "all", @default = true } } }
+                    : new { };
+                await Send(new { seq = 2, type = "response", request_seq = sequence, command, success = true, body = reply });
+                if (command == "initialize") await Send(new { seq = 3, type = "event", @event = "initialized" });
+                continue;
+            }
             if (mode is "exception" or "exception-no-terminate")
             {
                 // A program that prints, then stops at an unhandled error. Continuing re-runs the failing line and stops

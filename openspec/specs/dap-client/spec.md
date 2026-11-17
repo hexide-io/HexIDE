@@ -208,6 +208,15 @@ configures source breakpoints and advertised default exception filters, and send
 when supported. It SHALL permit launch responses to follow configuration and release ownership on startup
 failure or cancellation within a bounded startup deadline.
 
+#### Scenario: Launch refused during configuration
+- **WHEN** launch fails while a configuration request is unanswered
+- **THEN** the client SHALL fail startup with the launch error without waiting for that request's deadline,
+  release ownership, and send no further configuration requests
+
+#### Scenario: Early successful launch response
+- **WHEN** launch succeeds before configuration completes
+- **THEN** the client SHALL finish the same configuration sequence
+
 #### Scenario: Deferred launch response
 - **WHEN** the adapter sends initialized but defers its launch response until configurationDone
 - **THEN** the client configures breakpoints and completes the handshake without waiting for launch first

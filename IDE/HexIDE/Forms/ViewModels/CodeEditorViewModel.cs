@@ -1841,7 +1841,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (await TryRunClientCommandAsync(command)) return null;
             if (action.CanExecute?.Invoke(command) != true || action.Execute is not { } execute)
                 return string.Format(localization.GetString("Str.CodeEditor.QuickFix.UnsupportedCommand"), command.CommandName);
-            await execute(command, ct);
+            try { await execute(command, ct); }
+            catch (HexIDE.Addins.AddinCommandException ex) { return ex.Message; }
         }
         return null;
     }
@@ -2233,8 +2234,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     internal async Task RunCodeLensAsync(Command command)
     {
-        if (!await TryRunClientCommandAsync(command))
-            await lspClient.ExecuteCommandAsync(command.CommandName, command.Arguments);
+        try
+        {
+            if (!await TryRunClientCommandAsync(command))
+                await lspClient.ExecuteCodeLensCommandAsync(command);
+        }
+        catch (HexIDE.Addins.AddinCommandException ex)
+        {
+            statusBarService.SetTemporaryMessage(ex.Message, TimeSpan.FromSeconds(10));
+        }
     }
 
     private async Task<bool> TryRunClientCommandAsync(Command command)

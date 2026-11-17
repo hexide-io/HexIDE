@@ -204,7 +204,6 @@ public class SSTabRuntimeTests : WindowTestFixture
     [InlineData("Caption = 1")]
     [InlineData("Tabs = 0")]
     [InlineData("x = SSTab1.hWnd")]
-    [InlineData("x = SSTab1.TabPicture(0)")]
     public async Task UnimplementedMembersAndUnmeasuredConversionsRefuse(string statement)
     {
         var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form);

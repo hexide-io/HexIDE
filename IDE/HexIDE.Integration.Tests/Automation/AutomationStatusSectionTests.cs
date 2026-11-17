@@ -43,7 +43,7 @@ public class AutomationStatusSectionTests : IDisposable
         return (status, section);
     }
 
-    private const string Build = @"%USERPROFILE%\src\HexIDE\IDE\HexIDE.Desktop\bin\Debug\net10.0";
+    private const string Build = @"%USERPROFILE%\src\HexIDE\IDE\HexIDE.Desktop\bin\Debug\net11.0";
 
     private static string Shown(AutomationStatusSection section) =>
         section.GetVisualDescendants().OfType<TextBlock>().Single().Text!;

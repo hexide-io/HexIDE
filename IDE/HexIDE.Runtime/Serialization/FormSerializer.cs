@@ -307,12 +307,6 @@ public class FormSerializer
                         vb.WriteRawProperty(prop.Name, shortcut);
                     continue;
                 }
-                if (prop == MenuComponentClass.IndexProperty)
-                {
-                    if (value is int index)
-                        vb.WriteProperty(prop.Name, typeof(int), index);
-                    continue;
-                }
                 if (prop == MenuComponentClass.NegotiatePositionProperty)
                 {
                     if (value is int position && position != 0)
@@ -412,7 +406,10 @@ public class FormSerializer
             if (instance.BaseClass.Properties.Any(p =>
                     string.Equals(p.Name, raw.Name, StringComparison.OrdinalIgnoreCase) && instance.TryGetBoxedProperty(p, out _)))
                 continue;
-            vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList());
+            if (raw.EditedValue is { } editedValue)
+                vb.WriteRawProperty(raw.Name, editedValue);
+            else
+                vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList());
         }
     }
 

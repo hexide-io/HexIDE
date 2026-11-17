@@ -1,6 +1,7 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Wayland;
 using Serilog;
 
 namespace HexIDE.Startup;
@@ -14,6 +15,21 @@ internal static class DisplayBackend
             "wayland" => "wayland",
             _ => "x11"
         };
+
+    internal static int Run(string selection, Func<int> start, Func<string, string> formatFailure, Action<string> logFailure)
+    {
+        try
+        {
+            return HexIDE.Runtime.UiThread.Run(start);
+        }
+        catch (AvaloniaWaylandException ex) when (OperatingSystem.IsLinux() && selection == "wayland")
+        {
+            var message = formatFailure(ex.Message);
+            Console.Error.WriteLine(message);
+            logFailure(message);
+            return 2;
+        }
+    }
 
     internal static AppBuilder UseDisplayBackend(this AppBuilder builder, string? argument = null, ILogger? logger = null)
     {

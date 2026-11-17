@@ -51,6 +51,23 @@ public class MenuPropertyPersistenceTests
         Save(loaded).Should().Be(saved);
     }
 
+    [Fact]
+    public void Index_set_in_the_editor_is_the_shared_Index_and_is_written_in_the_measured_order()
+    {
+        // Index is every control's preserved line (#4284), so the editor reads and writes it through DesignIndexProperty.
+        var form = Read(" HelpContextID = 7\n NegotiatePosition = 2\n Shortcut = ^O");
+        var item = form.Components.Single(c => c.BaseClass is MenuComponentClass);
+        var editor = new MenuViewModel(item) { Index = 3 };
+        editor.Apply(item);
+        item.GetBoxedPropertyOrDefault(VBProperties.DesignIndexProperty).Should().Be("3");
+        var text = Save(form);
+        text.Should().Contain("Index           =   3");
+        new[] { "HelpContextID", "Index", "NegotiatePosition", "Shortcut" }
+            .Select(n => text.IndexOf(n, StringComparison.Ordinal)).Should().BeInAscendingOrder();
+        item.SetUntypedProperty(VBProperties.DesignIndexProperty, "5");
+        new MenuViewModel(item).Index.Should().Be(5);
+    }
+
     [Theory]
     [InlineData("Shortcut", "^O", "")]
     [InlineData("HelpContextID", "7", 0)]
