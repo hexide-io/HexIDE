@@ -1,4 +1,4 @@
-# shutdown_ide can kill the MCP server and leave the IDE running
+# shutdown_ide can kill the MCP server and leave the IDE running — **CLOSED** (#644, 2026-11-16)
 
 **Symptom.** `shutdown_ide` replied `Unable to connect. Is the computer able to access the url?`. The
 process was still alive afterwards with its window intact (`MainWindowTitle` unchanged), but `/health` now
@@ -24,3 +24,18 @@ for HTTP response completion, and server/context cleanup waits for desktop `Exit
 cancellable `ShutdownRequested` event. Headless regression coverage checks response ordering and the
 exit subscription. The original trigger remains unknown; keep this entry open until a running IDE check
 confirms a complete reply followed by exit, and a cancelled close leaves `/health` and tools working.
+
+**Live check, 2026-11-16** (hexide-mcp, Windows, a Debug build of main `80cd5151a` with #4031's driver change, which doesn't
+touch shutdown). It confirms both halves the entry was held open for:
+- **A complete reply, then exit.** `shutdown_ide {}` on a fresh `--newproject` IDE, three times. Each reply arrived whole
+  (`{"requested":true,"projectStopped":false,"dialogsClosed":0,…}`), and within 2 s `/health` stopped answering and
+  the process, checked by its PID, was gone.
+- **A cancelled close leaves the server working.** With Form1's designer tab `isModified: true`,
+  `shutdown_ide {"force": false}` replied, and the save-changes dialog opened. `interact` on its `Button[Cancel]`
+  closed it, and the IDE stayed up: `/health` answered `ok` with the same PID, `get_project_info` and
+  `get_document_tabs` answered, and Form1 still read `isModified: true`. A second `force: false` close, answered
+  `Button[No]`, exited at once.
+
+The original trigger of 2026-09-22 was never found, so this closes on the hardened ordering holding, not on a cause.
+The replies left something to say: #4079 records that they don't mention discarded edits, or a save prompt that
+waits.

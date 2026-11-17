@@ -56,7 +56,7 @@ public partial class NewProjectViewModel : ObservableObject, IDialog
         {
             if (SelectedTemplate?.Supported == false)
             {
-                windowManager.MessageBox(string.Format(_localization.GetString("Str.NewProject.Msg.VersionDoesNotSupport"), SelectedTemplate.DisplayName), "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Information);
+                windowManager.MessageBox(string.Format(_localization.GetString("Str.NewProject.Msg.VersionDoesNotSupport"), SelectedTemplate.DisplayName), Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Information);
                 return;
             }
             ResultFilePath = null;

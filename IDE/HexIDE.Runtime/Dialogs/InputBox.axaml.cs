@@ -20,6 +20,17 @@ public partial class InputBox : UserControl
         Loaded += OnLoaded;
     }
 
+    /// <summary>
+    /// Gives the window a program's InputBox is shown in the system message box's title bar: no minimize or maximize
+    /// box, and no icon (#4099). Call it before the window is shown. Avalonia sets a window's icon as it shows it, so
+    /// chrome applied once the box was in a shown window, as it first was, left HexIDE's icon in place.
+    /// </summary>
+    public void ApplyProgramChrome(Window window)
+    {
+        if (IsProgramDialog)
+            ProgramDialogChrome.Apply(window);
+    }
+
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
         // The IDE installs Str.* resources; the standalone runner keeps the English fallback.

@@ -75,7 +75,7 @@ public class VBListBox : ListBox
                 e.Handled = true;
                 list.ExecuteSub(ComponentBaseClass.ClickEvent);
             }
-            else if (!list.IsMultiSelect && e.Key is Key.Down or Key.Up or Key.PageDown or Key.Home or Key.End)
+            else if (!list.IsMultiSelect && e.Key is Key.Down or Key.Up or Key.PageDown or Key.PageUp or Key.Home or Key.End)
             {
                 // An item keeps the focus after a click. Take navigation before its ScrollViewer takes paging.
                 list.OnKeyDown(e);
@@ -323,11 +323,16 @@ public class VBListBox : ListBox
         if (IsMultiSelect || e.Handled)
             return;
         var before = SelectedIndex;
-        var scrollKey = e.Key is Key.Down or Key.Up or Key.PageDown or Key.Home or Key.End;
+        var scrollKey = e.Key is Key.Down or Key.Up or Key.PageDown or Key.PageUp or Key.Home or Key.End;
         var top = scrollKey && RowHeight() > 0 ? TopIndex : (int?)null;
-        if (e.Key == Key.PageDown && top is not null && ItemCount > 0)
+        if (e.Key is Key.PageDown or Key.PageUp && top is not null && ItemCount > 0)
         {
-            SelectedIndex = Math.Min(ItemCount - 1, SelectedIndex + Math.Max(1, (int)Math.Floor(Scroll!.Viewport.Height / RowHeight()) - 1));
+            var page = Math.Max(1, (int)Math.Floor(Scroll!.Viewport.Height / RowHeight()) - 1);
+            // Both keys move the selection a page, the rows shown less one, from wherever it is; the view then scrolls
+            // the least it can to show it. The top row plays no part (measured, #3986).
+            SelectedIndex = e.Key == Key.PageUp
+                ? Math.Max(0, SelectedIndex - page)
+                : Math.Min(ItemCount - 1, SelectedIndex + page);
             e.Handled = true;
         }
         else
@@ -336,7 +341,7 @@ public class VBListBox : ListBox
         {
             ScrollIntoView(SelectedIndex);
             UpdateLayout();
-            if (e.Key == Key.PageDown)
+            if (e.Key is Key.PageDown or Key.PageUp)
                 ContainerFromIndex(SelectedIndex)?.Focus(NavigationMethod.Unspecified);
         }
         var scrolled = top is not null && TopIndex != top;
@@ -433,8 +438,19 @@ public class VBListBox : ListBox
         if (IsMultiSelect)
             focusIndex = index;
         else
-            SelectedIndex = index;
+            SelectFromCode(index);
         this.ExecuteSub(ComponentBaseClass.ClickEvent);
+    }
+
+    private void SelectFromCode(int index)
+    {
+        SelectedIndex = index;
+        if (index >= 0)
+        {
+            // Code selection exposes the new top row inside Click, without Scroll (#3986).
+            ScrollIntoView(index);
+            UpdateLayout();
+        }
     }
 
     /// <summary>
@@ -477,7 +493,8 @@ public class VBListBox : ListBox
             for (var i = 0; i < ItemCount && index < 0; i++)
                 if (string.Equals(Items[i] as string, text, StringComparison.OrdinalIgnoreCase))
                     index = i;
-            SelectedIndex = index;
+            if (index != SelectedIndex)
+                SelectFromCode(index);
         }
         this.ExecuteSub(ComponentBaseClass.ClickEvent);
     }

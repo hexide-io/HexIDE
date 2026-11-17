@@ -13,6 +13,7 @@ internal static class IdeDialogChrome
         window.CanMinimize = false;
         window.ShowInTaskbar = false;
         window.Classes.Add("ideDialog");
+        BrandAssets.ApplyWindowIcon(window);
         window.Loaded += (_, _) => Dispatcher.UIThread.Post(() =>
         {
             if (!window.IsVisible)

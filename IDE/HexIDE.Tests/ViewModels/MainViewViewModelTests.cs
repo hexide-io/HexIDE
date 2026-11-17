@@ -240,6 +240,24 @@ public class MainViewViewModelTests
         group.ActiveDockable.Should().BeSameAs(pane);
     }
 
+    [AvaloniaFact]
+    public async Task TypeHierarchyRerunsReuseTheImmediateGroupPane()
+    {
+        var client = Substitute.For<ILspClient>();
+        client.FindTypeHierarchyAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Position>(), Arg.Any<CancellationToken>())
+            .Returns(new TypeHierarchyResult([], []));
+        var pane = new TypeHierarchyToolViewModel(client, Substitute.For<IEditorService>(), _localization);
+        var shell = Build(_runnerService, typeHierarchy: pane);
+        await pane.SearchAsync("untitled:P/Module1.bas", new(0, 0), TestContext.Current.CancellationToken);
+        var group = (Dock.Model.Controls.IToolDock)pane.Owner!;
+        pane.Owner.Should().BeSameAs(shell.Immediate.Owner);
+        group.Alignment.Should().Be(Dock.Model.Core.Alignment.Bottom);
+        await pane.SearchAsync("untitled:P/Module1.bas", new(1, 0), TestContext.Current.CancellationToken);
+        pane.Owner.Should().BeSameAs(group);
+        group.VisibleDockables!.Count(d => ReferenceEquals(d, pane)).Should().Be(1);
+        group.ActiveDockable.Should().BeSameAs(pane);
+    }
+
     [AvaloniaTheory]
     [InlineData(null)]
     [InlineData(ModuleKind.StandardModule)]
@@ -330,7 +348,7 @@ public class MainViewViewModelTests
         FindReferencesToolViewModel? references = null, CallHierarchyToolViewModel? hierarchy = null,
         IWindowStateService? windowState = null, AddinToolWindowService? tools = null,
         HexIDE.Runtime.Debugging.IDebugController? debug = null, IFocusedProjectUtil? focus = null,
-        ILogFolderOpener? logFolderOpener = null)
+        ILogFolderOpener? logFolderOpener = null, TypeHierarchyToolViewModel? typeHierarchy = null)
     {
         projects ??= _projectService;
         var mockDocDock = dock ?? Substitute.For<IDocumentDockService>();
@@ -430,7 +448,7 @@ public class MainViewViewModelTests
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             debug ?? _debugController,
             new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc),
-            logFolderOpener: logFolderOpener, recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references, callHierarchy: hierarchy);
+            logFolderOpener: logFolderOpener, recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references, callHierarchy: hierarchy, typeHierarchy: typeHierarchy);
     }
 
     private sealed class RequeryProbe : IDisposable

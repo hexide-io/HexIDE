@@ -58,6 +58,10 @@ public class ExecutionState
         return identity;
     }
 
+    private readonly Dictionary<int, int> fixedStringWidths = new();
+    internal int? FixedStringWidthOf(int location) => fixedStringWidths.TryGetValue(location, out var width) ? width : null;
+    internal void MarkFixedString(int location, int width) => fixedStringWidths[location] = width;
+
     private int nextFreeLocation = 0;
 
     public int Alloc(Vb6Value value) => Alloc(value, null);
@@ -245,6 +249,7 @@ public class ExecutionState
         unmeasuredInputs.Remove(location);
         variableIdentities.Remove(location);
         declaredTypes.Remove(location);
+        fixedStringWidths.Remove(location);
         declaredClasses.Remove(location);
         variantLocations.Remove(location);
         declaredArrayLocations.Remove(location);
