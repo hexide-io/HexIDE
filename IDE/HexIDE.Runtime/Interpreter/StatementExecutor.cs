@@ -569,7 +569,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         //
         // The platform guard is FORWARD-LOOKING, not currently required, and that is worth stating precisely
         // because the obvious guess is wrong. Measured both ways: CA1416 does NOT fire for this call in a plain
-        // net10.0 library, which is what HexIDE.Runtime targets today; it fires only when the project itself
+        // net10.0 library (HexIDE.Runtime's target when measured); it fires only when the project itself
         // targets browser, where it is an ERROR under TreatWarningsAsErrors. So the guard costs nothing now and
         // is what keeps this compiling if the Browser aspiration ever multi-targets the runtime. It also spares
         // WASM an exception per call. The analyzer recognises this guard form; the bare call it does not.
@@ -2119,6 +2119,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (value.Type == Vb6Value.ValueType.Object && (intoArray || IsBareUdtArrayField(context.implicitCallStmt_InStmt())))
             return value;   // ArrayStore refuses it
 
+        // SSTab picture puts accept the object through Let too (#3426 / #4297).
+        if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } pictureCall
+            && pictureCall.iCS_S_VariableOrProcedureCall() is { } pictureLead
+            && pictureCall.iCS_S_MemberCall() is [var pictureMember]
+            && UdtFieldName(pictureMember).ToLowerInvariant() is "picture" or "tabpicture"
+            && interpreter.ExecutionContext.TryInspectVariable(currentEnv, pictureLead.GetText(), out var pictureTarget)
+            && pictureTarget.Value is VBSSTab)
+            return value;
+
         // BuddyControl is a Variant which accepts a control reference even through Let (#1093).
         if (value.Value is Control
             && context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } buddyCall
@@ -2300,7 +2309,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 || member.iCS_S_ProcedureOrArrayCall() is not { } call || call.argsCall().Length != 1)
                 return null;
             var indices = await expressionExecutor.ResolveSubscripts(await expressionExecutor.EvaluateCallArgs(call.argsCall(0)));
-            try { root = array.GetValue(indices); }
+            try { root = await expressionExecutor.ReadArrayElement(array, indices); }
             catch (IndexOutOfRangeException)
             {
                 throw new VBRunTimeException(context, VBStandardError.SubscriptOutOfRange);
@@ -2960,7 +2969,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var holder = await expressionExecutor.EvaluateCallOrElement(call, groups[0]) as Vb6Value?
             ?? throw new NotImplementedException($"storing into {call.GetText()} is not implemented (#1476)");
         foreach (var subscripts in middle)
-            holder = ExpressionExecutor.IndexResult(holder, subscripts, call);
+            holder = await expressionExecutor.IndexResult(holder, subscripts, call);
         if (holder.Value is not VBArray inner)
         {
             // `a(0)(1) = 5` with `a` an Integer array does not compile: "Type mismatch" (measured). A Variant holding no array
@@ -3076,6 +3085,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var (found, oldValue) = await interpreter.ReadVariable(currentEnv, name);
         if (!found || !currentEnv.TryGetVariableLocation(name, out var slot))
             throw new NotImplementedException("LSet/RSet into an undeclared target is not implemented");
+        if (!right && oldValue.Value is VbUdt targetUdt)
+        {
+            var sourceValue = await expressionExecutor.EvaluateScalar(source);
+            if (sourceValue.Value is not VbUdt sourceUdt)
+                throw new NotImplementedException("LSet between a Type and this source type is not implemented (#2518)");
+            var resultUdt = VbUdtLayout.Overlay(targetUdt, sourceUdt);
+            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, Vb6Value.NewUdt(resultUdt));
+            return ControlFlow.Nothing;
+        }
         var declared = interpreter.ExecutionContext.State.DeclaredTypeOf(slot);
         if (declared is not null && declared != Vb6Value.ValueType.String
             || oldValue.Type != Vb6Value.ValueType.String && oldValue.Type != Vb6Value.ValueType.Integer)
@@ -3786,7 +3804,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     throw TabStripMembers.Refused("WithEvents");
                 if (VBProps.GetIndex(heldControl) is not null)
                     throw new VBRunTimeException(context, VBStandardError.ThisComponentDoesntSupportTheSetOfEvents);
-                evtRoot = evtListener.FormWindow as IModuleExecutionRoot
+                evtRoot = FormRoot.Execution(evtListener.FormWindow)
                     ?? throw new NotImplementedException($"A class's WithEvents {id} holding a control is not implemented (#1556)");
             }
 
@@ -3901,13 +3919,23 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 var member = UdtFieldName(setMembers[0]);
                 UserControlMembers.Check(target, member);
-                if (setControl is VBPictureBox && member.Equals("Picture", StringComparison.OrdinalIgnoreCase))
+                if (setControl is VBPictureBox or VBImage && member.Equals("Picture", StringComparison.OrdinalIgnoreCase))
                 {
                     AvaloniaInteroperability.TrySet(setControl, VBProperties.PictureProperty, value);
                     return ControlFlow.Nothing;
                 }
                 if (UserControlContainers.TrySet(setControl, member, value))
                     return ControlFlow.Nothing;
+            }
+            if (setLead && target.Value is VBSSTab setTab && membersCall.iCS_S_MemberCall() is { Length: 1 } sstabMembers)
+            {
+                var name = UdtFieldName(sstabMembers[0]);
+                if (SSTabMembers.IsIndexed(name) && sstabMembers[0].iCS_S_ProcedureOrArrayCall() is { } indexed)
+                {
+                    SSTabMembers.WriteIndexed(setTab, name, await expressionExecutor.EvaluateCallArgs(indexed.argsCall(0)), value);
+                    return default;
+                }
+                if (SSTabMembers.TrySet(setTab, name, value)) return default;
             }
             if (setLead && target.Value is VBStatusBar or StatusBarPanel or StatusBarPanels)
             {
@@ -4081,7 +4109,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             || !IndexesControlArray(indexed))
         {
             var target = await expressionExecutor.EvaluateValue(context.valueStmt());
-            if (target.Value is VbObject { FormWindow: IModuleExecutionRoot root })
+            if (target.Value is VbObject form && FormRoot.Execution(form.FormWindow) is { } root)
             {
                 await root.UnloadAsync(1);
                 return ControlFlow.Nothing;
@@ -4179,8 +4207,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (varOrProcCall?.dictionaryCallStmt() != null)
                 throw new NotImplementedException();
             // `ReDim b(1) As New C1`, each element made on its first use (measured, #435), is an array of objects.
-            if (redim.asTypeClause()?.NEW() != null)
-                throw new NotImplementedException("An array declared As New is not implemented (#1482)");
+            var autoNewClass = redim.asTypeClause() is { } newClause && newClause.NEW() != null
+                ? AutoNewClass(newClause) : null;
 
             var variableName = varOrProcCall?.ambiguousIdentifier().GetText() ?? fieldTarget!.Name;
             RefuseConstantTarget(variableName, "Expected array");
@@ -4259,6 +4287,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 else
                     result = bounds is null ? new Vb6Value(type) : new Vb6Value(type, bounds);
                 ((VBArray)result.Value!).DeclaredClass = objectClass;
+                ((VBArray)result.Value!).AutoNew = autoNewClass is not null
+                    ? new AutoNew(autoNewClass, variableName) : (value.Value as VBArray)?.AutoNew;
                 return result;
             }
 
@@ -4456,7 +4486,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // has nothing to coerce and the NAME is the whole of its declared type (see ExecutionState).
                 string? declaredClass = null;
                 // `Dim o As New C1`, `Dim c As New Collection`: Nothing until its first use makes the object (#435).
-                string? autoNew = asType?.NEW() != null ? AutoNewClass(asType, isArray) : null;
+                string? autoNew = asType?.NEW() != null ? AutoNewClass(asType) : null;
                 if (isArray && asType?.type()?.complexType() is { } arrayElement
                     && SplitTypeName(arrayElement.GetText()) is var arrayName
                     && interpreter.TryResolveType(arrayName.Name, currentModule, arrayName.Qualifier, out var arrayDef))
@@ -4571,6 +4601,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     var arrayType = new Vb6Value.ValueType(value.Type, true);
                     value = dimensions != null ? new Vb6Value(arrayType, dimensions) : new Vb6Value(arrayType);
                     ((VBArray)value.Value!).DeclaredClass = declaredClass;
+                    ((VBArray)value.Value!).AutoNew = autoNew is null ? null : new AutoNew(autoNew, subStmt.ambiguousIdentifier().GetText());
                     declaredClass = null;
                     if (dimensions != null) ((VBArray)value.Value!).IsDynamic = false;
                 }
@@ -4583,7 +4614,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 interpreter.ExecutionContext.AllocVariable(currentEnv, localName, value, declared, declaredClass);
                 if (!isArray && fixedWidth is { } widthToKeep && currentEnv.TryGetOwnVariableLocation(localName, out var stringLoc))
                     interpreter.ExecutionContext.State.MarkFixedString(stringLoc, widthToKeep);
-                if (autoNew is not null && currentEnv.TryGetOwnVariableLocation(localName, out var autoNewLoc))
+                if (!isArray && autoNew is not null && currentEnv.TryGetOwnVariableLocation(localName, out var autoNewLoc))
                     interpreter.ExecutionContext.State.MarkAutoNew(autoNewLoc, autoNew, localName);
                 if (isArray && currentEnv.TryGetVariableLocation(localName, out var arrayLoc))
                 {
@@ -4615,11 +4646,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// runs, as measured: a scalar, a Variant or Object is "Syntax error", and a UDT or an Enum "Invalid use of New
     /// keyword".
     /// </summary>
-    private string AutoNewClass(VB6Parser.AsTypeClauseContext asType, bool isArray)
+    private string AutoNewClass(VB6Parser.AsTypeClauseContext asType)
     {
         if (asType.type()?.baseType() is { } baseType)
-            return baseType.COLLECTION() != null && !isArray ? "Collection"
-                : baseType.COLLECTION() != null ? throw ArrayAsNew()
+            return baseType.COLLECTION() != null ? "Collection"
                 : throw new VBCompileErrorException("Syntax error");
         var typeText = asType.type()?.complexType()?.GetText() ?? throw new VBCompileErrorException("Syntax error");
         var (qualifier, typeName) = SplitTypeName(typeText);
@@ -4635,10 +4665,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new NotImplementedException($"As New {typeText} is not implemented: New makes a class's object or a Collection here (#435)");
         else
             throw new VBCompileErrorException("User-defined type not defined: " + typeName);
-        return isArray ? throw ArrayAsNew() : made;
-
-        static NotImplementedException ArrayAsNew() =>
-            new("An array declared As New is not implemented (#1482)");
+        return made;
     }
 
     /// <summary>

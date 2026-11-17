@@ -562,3 +562,23 @@ tells the two apart: 42 is greater than 5 as a number, and "42" is less than "5"
 **In HexIDE.** A typed number against a String raises 13 in HexIDE today, whether or not a default member is involved
 (#211). Until that is fixed, #174 refuses a default member's value compared with a String, untrappably, so that no
 program runs on with an answer VB6 would not give.
+
+### Through an `As Object` variable (2026-11-16, #174's review)
+
+**The question.** The rows above measure the Variant holder `ov` as the late-bound case. The brief for #174's round six
+took an `As Object` variable to behave the same way without measuring it, and the round built on that.
+
+**The probe.** vb6.exe SP6, `/make`, native and p-code agreeing in every row. `ob As Object` holds a Widget whose default
+member is `Value` returning 42, or a String "42" where noted. `ov` and `w` repeat two rows above as controls.
+
+| Holder | Default member | Comparison | VB6 |
+|---|---|---|---|
+| `ob As Object` | Function `As Long` | `ob > "5"`, `ob = "abc"`, `ob = "42"`, `"5" < ob`, `ob = "42.0"` | False, False (no 13), True, False, **False** |
+| `ob As Object` | Function `As String` | `ob = 42`, `ob > 5`, `ob > "5"` | True, True, False |
+| `ov`, a Variant | Function `As Long` | `ov > "5"` | False |
+| `w As Widget` | Function `As Long` | `w > "5"` | True |
+
+**Readings.** **An `As Object` variable is late-bound, and compares as the Variant holder does.** A number read through
+it against a String compares as text, so `"42" = "42.0"` is False where the typed `w = "42.0"` above is True, and
+`"abc"` gives False with no 13. A String member read through it against a number converts, as a Variant String does
+against a typed number. The brief's extrapolation held, and it's now a measurement.

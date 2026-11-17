@@ -38,6 +38,7 @@ edit.separator11
 edit.find
 edit.title
 edit.callhierarchy
+edit.typehierarchy
 edit.findnext
 edit.replace
 edit.separator17
@@ -59,6 +60,8 @@ edit.bookmarks.next
 edit.bookmarks.previous
 edit.bookmarks.separator3
 edit.bookmarks.clearall
+edit.refactor
+edit.sourceactions
 view
 view.code
 view.object

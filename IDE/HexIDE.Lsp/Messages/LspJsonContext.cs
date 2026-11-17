@@ -3,6 +3,8 @@ using HexIDE.Lsp.Messages;
 
 namespace HexIDE.Lsp;
 
+[JsonSerializable(typeof(TypeHierarchyItem[]))]
+[JsonSerializable(typeof(TypeHierarchyParams))]
 [JsonSerializable(typeof(CallHierarchyItem[]))]
 [JsonSerializable(typeof(CallHierarchyCallsParams))]
 [JsonSerializable(typeof(CallHierarchyIncomingCall[]))]
@@ -42,6 +44,7 @@ namespace HexIDE.Lsp;
 // which a source-generated resolver cannot deserialize into one class. Reading the raw element is the same
 // treatment `documentSymbol` and `definition` already get, for the same reason.
 [JsonSerializable(typeof(DocumentDiagnosticParams))]
+[JsonSerializable(typeof(WorkspaceDiagnosticParams))]
 [JsonSerializable(typeof(TextDocumentPositionParams))]
 [JsonSerializable(typeof(HexIDE.Lsp.Messages.Range))]
 [JsonSerializable(typeof(HoverResult))]

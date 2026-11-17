@@ -133,10 +133,12 @@ public class NumericFormatFunctionsTests : BaseVBTestFixture
     [InlineData("FormatNumber")]
     [InlineData("FormatCurrency")]
     [InlineData("FormatPercent")]
-    public async Task UnmeasuredNamesRefuse(string function)
+    // Named and positional twins agree, measured in #4145.
+    public async Task NamedExpressionWithOptionalsOmittedEqualsPositional(string function)
     {
-        Func<Task> run = () => Run($"Debug.Print {function}(Expression:=1)\n");
-        await run.Should().ThrowAsync<NotImplementedException>();
+        await Run($"Debug.Print {function}(Expression:=1)\nDebug.Print {function}(1)\n");
+        debug.Should().HaveCount(2);
+        debug[0].Should().Be(debug[1]);
     }
 
     [Theory]

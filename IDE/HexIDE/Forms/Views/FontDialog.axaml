@@ -2,49 +2,95 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:HexIDE.Converters"
              xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
              mc:Ignorable="d" d:DesignWidth="460" d:DesignHeight="320"
              x:DataType="vm:FontDialogViewModel"
              x:Class="HexIDE.Forms.Views.FontDialog"
              Width="460">
-    <Grid Margin="8" RowDefinitions="Auto,*,Auto,Auto">
+    <Grid Margin="8" RowDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto">
 
         <!-- Column header labels -->
         <Grid Grid.Row="0" ColumnDefinitions="*,160,80" Margin="0,0,0,4">
-            <TextBlock Text="{DynamicResource Str.Dialog.Font.Label.Font}" Margin="4,0" />
-            <TextBlock Text="{DynamicResource Str.Dialog.Font.Label.FontStyle}" Grid.Column="1" Margin="4,0" />
-            <TextBlock Text="{DynamicResource Str.Dialog.Font.Label.Size}" Grid.Column="2" Margin="4,0" />
+            <Label Target="{CompiledBinding #FontNameBox}" Padding="0" Margin="4,0">
+                <AccessText x:Name="FontCaption" Text="{DynamicResource Str.Dialog.Font.Label.Font}" />
+            </Label>
+            <Label Target="{CompiledBinding #FontStyleBox}" Grid.Column="1" Padding="0" Margin="4,0">
+                <AccessText x:Name="StyleCaption" Text="{DynamicResource Str.Dialog.Font.Label.FontStyle}" />
+            </Label>
+            <Label Target="{CompiledBinding #FontSizeBox}" Grid.Column="2" Padding="0" Margin="4,0">
+                <AccessText x:Name="SizeCaption" Text="{DynamicResource Str.Dialog.Font.Label.Size}" />
+            </Label>
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,160,80" Margin="0,0,0,4">
+            <TextBox x:Name="FontNameBox" Text="{CompiledBinding FamilyText}" AutomationProperties.LabeledBy="{CompiledBinding #FontCaption}"
+                     AutomationProperties.Name="{CompiledBinding #FontCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" Margin="4,0" />
+            <TextBox x:Name="FontStyleBox" Grid.Column="1" Text="{CompiledBinding StyleText}" AutomationProperties.LabeledBy="{CompiledBinding #StyleCaption}"
+                     AutomationProperties.Name="{CompiledBinding #StyleCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" Margin="4,0" />
+            <TextBox x:Name="FontSizeBox" Grid.Column="2" Text="{CompiledBinding SizeText}"
+                     AutomationProperties.LabeledBy="{CompiledBinding #SizeCaption}"
+                     AutomationProperties.Name="{CompiledBinding #SizeCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" Margin="4,0" />
         </Grid>
 
         <!-- Selection lists -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,160,80" Height="160" Margin="0,0,0,8">
-            <ListBox ItemsSource="{CompiledBinding FontFamilies}"
+        <Grid Grid.Row="2" ColumnDefinitions="*,160,80" Height="160" Margin="0,0,0,8">
+            <ListBox x:Name="FontList" AutomationProperties.LabeledBy="{CompiledBinding #FontCaption}"
+                     AutomationProperties.Name="{CompiledBinding #FontCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" ItemsSource="{CompiledBinding FontFamilies}"
                      SelectedItem="{CompiledBinding SelectedFamily}"
                      Margin="4,0" />
-            <ListBox Grid.Column="1" ItemsSource="{CompiledBinding FontStyles}"
+            <ListBox AutomationProperties.LabeledBy="{CompiledBinding #StyleCaption}"
+                     AutomationProperties.Name="{CompiledBinding #StyleCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" Grid.Column="1" ItemsSource="{CompiledBinding FontStyles}"
                      SelectedItem="{CompiledBinding SelectedStyle}"
                      Margin="4,0" />
-            <ListBox Grid.Column="2" ItemsSource="{CompiledBinding FontSizes}"
-                     SelectedItem="{CompiledBinding SelectedSize}"
+            <ListBox x:Name="SizeList" Focusable="True" AutomationProperties.LabeledBy="{CompiledBinding #SizeCaption}"
+                     AutomationProperties.Name="{CompiledBinding #SizeCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" Grid.Column="2" ItemsSource="{CompiledBinding FontSizes}"
+                     SelectedItem="{CompiledBinding SelectedSizeItem}"
                      Margin="4,0" />
         </Grid>
 
+        <!-- Effects -->
+        <StackPanel Grid.Row="3" Margin="4,0,4,8" Spacing="4" IsVisible="{CompiledBinding CanEditEffects}">
+            <TextBlock Text="{DynamicResource Str.Dialog.Font.Effects}" />
+            <CheckBox x:Name="StrikeoutBox" IsChecked="{CompiledBinding Strikethrough}"
+                      AutomationProperties.Name="{CompiledBinding #StrikeoutCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}">
+                <AccessText x:Name="StrikeoutCaption" Text="{DynamicResource Str.Dialog.Font.Strikeout}" />
+            </CheckBox>
+            <CheckBox x:Name="UnderlineBox" IsChecked="{CompiledBinding Underline}"
+                      AutomationProperties.Name="{CompiledBinding #UnderlineCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}">
+                <AccessText x:Name="UnderlineCaption" Text="{DynamicResource Str.Dialog.Font.Underline}" />
+            </CheckBox>
+        </StackPanel>
+
         <!-- Preview panel -->
-        <Border Grid.Row="2" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+        <Border Grid.Row="4" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                 BorderThickness="1" Height="60" Margin="4,0,4,8" Padding="6">
-            <TextBlock Text="AaBbCcDdEe 0123"
+            <TextBlock x:Name="SamplePreview" Text="AaBbCcDdEe 0123"
                        FontFamily="{CompiledBinding PreviewFontFamily}"
                        FontStyle="{CompiledBinding PreviewFontStyle}"
                        FontWeight="{CompiledBinding PreviewFontWeight}"
                        FontSize="{CompiledBinding PreviewFontSize}"
+                       TextDecorations="{CompiledBinding PreviewTextDecorations}"
                        VerticalAlignment="Center"
                        TextTrimming="CharacterEllipsis" />
         </Border>
 
+        <StackPanel Grid.Row="5" Margin="4,0,4,8" Spacing="4" IsVisible="{CompiledBinding CanEditCharset}">
+            <Label Target="{CompiledBinding #ScriptBox}" Padding="0">
+                <AccessText x:Name="ScriptCaption" Text="{DynamicResource Str.Dialog.Font.Label.Script}" />
+            </Label>
+            <ComboBox x:Name="ScriptBox" PlaceholderText="{DynamicResource Str.Shell.NotImplemented}" SelectedIndex="{CompiledBinding SelectedScriptIndex}"
+                      AutomationProperties.LabeledBy="{CompiledBinding #ScriptCaption}"
+                      AutomationProperties.Name="{CompiledBinding #ScriptCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}"
+                      HorizontalAlignment="Stretch">
+                <ComboBoxItem Content="{DynamicResource Str.Dialog.Font.Script.Western}" />
+            </ComboBox>
+        </StackPanel>
+
         <!-- Buttons -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"
+        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right"
                     Spacing="8" Margin="0,0,4,4">
-            <Button Content="{DynamicResource Str.Dialog.Font.Button.Ok}" MinWidth="75" Click="OkClick" />
+            <Button x:Name="OkButton" Content="{DynamicResource Str.Dialog.Font.Button.Ok}" MinWidth="75" IsDefault="True" Click="OkClick" />
             <Button Content="{DynamicResource Str.Dialog.Font.Button.Cancel}" MinWidth="75" Click="CancelClick" IsCancel="True" />
         </StackPanel>
     </Grid>

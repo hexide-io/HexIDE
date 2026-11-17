@@ -504,6 +504,7 @@ public partial class CodeEditorView : UserControl
                 ScheduleFolding(vm);
             };
             vm.Settings.PropertyChanged += _inlaySettingsChanged;
+            vm.Analysis.Refreshed += OnAnalysisRefreshed;
             // Attach LSP text marker service (squiggles) and diagnostics colorizer (red text)
             _markerService = new LspTextMarkerService(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_markerService);
@@ -638,14 +639,17 @@ public partial class CodeEditorView : UserControl
             }
 
             // Hover tooltip
-            ToolTip.SetPlacement(TextEditor, PlacementMode.Pointer);
-            ToolTip.SetShowDelay(TextEditor, 0);
-            ToolTip.SetServiceEnabled(TextEditor, false);
             TextEditor.PointerMoved += OnPointerMoved;
             TextEditor.PointerExited += OnPointerExited;
 
             _languageFeatures = new EditorLanguageFeatures(TextEditor.TextArea, vm,
                 new CodeWindowCompletionRules(this, vm), DismissHover, window => _completionWindow = window, handleInput: false);
+            _languageFeatures.AttachHover(TextEditor, () => _markerService?.Markers ?? [], vm.DiagnosticContent, uri =>
+            {
+                if (uri.IsFile) vm.OpenHoverFile(uri);
+                else if (uri.Scheme is "http" or "https" && TopLevel.GetTopLevel(this) is { } top)
+                    _ = top.Launcher.LaunchUriAsync(uri);
+            }, () => _hoverCts?.Cancel(), handlePointer: false);
 
             // IntelliSense completion
             TextEditor.TextArea.TextEntered  += OnTextEntered;
@@ -799,6 +803,7 @@ public partial class CodeEditorView : UserControl
                 _watchedDocument = null;
             }
             vm.LanguageServerStateChanged -= OnLanguageServerStateChanged;
+            vm.Analysis.Refreshed -= OnAnalysisRefreshed;
             if (_fontSettingsChanged is not null) vm.Settings.PropertyChanged -= _fontSettingsChanged;
             _fontSettingsChanged = null;
             if (_inlaySettingsChanged is not null)
@@ -1396,6 +1401,15 @@ public partial class CodeEditorView : UserControl
         }
     }
 
+    private void OnAnalysisRefreshed(object? sender, EventArgs args)
+    {
+        if (DataContext is not CodeEditorViewModel vm) return;
+        ++_semanticVersion;
+        if (_semanticColorizer is not null) _semanticColorizer.Tokens = [];
+        TextEditor.TextArea.TextView.Redraw();
+        ScheduleFolding(vm);
+    }
+
     private void ScheduleFolding(CodeEditorViewModel vm)
     {
         ++_inlayRevision;
@@ -1683,12 +1697,8 @@ public partial class CodeEditorView : UserControl
         else CloseTip();
     }
 
-    private async Task CloseRichTipAfterExitAsync(ToolTip tip)
-    {
-        await Task.Delay(200);
-        if (ReferenceEquals(ToolTip.GetTip(TextEditor), tip) && !tip.IsPointerOver && !TextEditor.IsPointerOver)
-            CloseTip();
-    }
+    private Task CloseRichTipAfterExitAsync(ToolTip tip)
+        => _languageFeatures?.Hover?.CloseRichTipAfterExitAsync(tip) ?? Task.CompletedTask;
 
     public void TriggerQuickInfo()
     {
@@ -1763,73 +1773,11 @@ public partial class CodeEditorView : UserControl
         TextEditor.Focus();
     }
 
-    private async Task HoverAfterDelayAsync(CodeEditorViewModel vm, Position pos, CancellationToken token)
-    {
-        try
-        {
-            await Task.Delay(400, token);
-            await ShowHoverAsync(vm, pos, token, vm.Settings.AutoQuickInfo);
-        }
-        catch (OperationCanceledException) { }
-    }
+    private Task HoverAfterDelayAsync(CodeEditorViewModel vm, Position pos, CancellationToken token)
+        => _languageFeatures?.Hover?.ShowAfterDelayAsync(pos, token, () => vm.Settings.AutoQuickInfo) ?? Task.CompletedTask;
 
-    private async Task ShowHoverAsync(CodeEditorViewModel vm, Position pos, CancellationToken token, bool requestQuickInfo = true)
-    {
-        try
-        {
-            ShowDiagnosticTip(pos, null);
-            var result = requestQuickInfo
-                ? await vm.RequestHoverAsync(pos, token) : null;
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (token.IsCancellationRequested) return;
-                ShowDiagnosticTip(pos, result?.Contents);
-            });
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            Log.Debug("[hover] {ErrorMessage}", ex.Message);
-        }
-    }
-
-    private void ShowDiagnosticTip(Position pos, MarkupContent? quickInfo)
-    {
-        var offset = TextEditor.Document.GetOffset(pos.Line + 1, pos.Character + 1);
-        if (DataContext is not CodeEditorViewModel vm) return;
-        var markers = _markerService?.Markers.Where(m => offset >= m.StartOffset && offset < m.EndOffset).ToArray() ?? [];
-        if (quickInfo?.Kind != "markdown" && !markers.Any(m => m.RelatedInformation is { Length: > 0 }))
-        {
-            var parts = markers.Select(m => string.IsNullOrEmpty(m.Source) ? m.Message : $"{m.Source}: {m.Message}").ToList();
-            if (!string.IsNullOrEmpty(quickInfo?.Value)) parts.Add(quickInfo.Value);
-            if (parts.Count == 0) { CloseTip(); return; }
-            ToolTip.SetTip(TextEditor, string.Join(Environment.NewLine + Environment.NewLine, parts));
-            ToolTip.SetIsOpen(TextEditor, true);
-            return;
-        }
-        var panel = new StackPanel { Spacing = 8 };
-        if (_markerService is { } service)
-        {
-            foreach (var marker in service.Markers)
-                if (offset >= marker.StartOffset && offset < marker.EndOffset)
-                    panel.Children.Add(vm.DiagnosticContent(marker));
-        }
-        if (quickInfo is { Value.Length: > 0 })
-            panel.Children.Add(HoverContentView.Render(quickInfo, TextEditor, uri =>
-            {
-                if (uri.IsFile) vm.OpenHoverFile(uri);
-                else if (uri.Scheme is "http" or "https" && TopLevel.GetTopLevel(this) is { } top)
-                    _ = top.Launcher.LaunchUriAsync(uri);
-            }));
-        if (panel.Children.Count == 0) { CloseTip(); return; }
-        var richTip = new ToolTip { Content = panel };
-        richTip.PointerEntered += (_, _) => _hoverCts?.Cancel();
-        richTip.PointerExited += (_, _) => _ = CloseRichTipAfterExitAsync(richTip);
-        // Replacing the tip instance does not update the popup that is already open.
-        ToolTip.SetIsOpen(TextEditor, false);
-        ToolTip.SetTip(TextEditor, richTip);
-        ToolTip.SetIsOpen(TextEditor, true);
-    }
+    private Task ShowHoverAsync(CodeEditorViewModel vm, Position pos, CancellationToken token, bool requestQuickInfo = true)
+        => _languageFeatures?.Hover?.ShowAsync(pos, token, requestQuickInfo) ?? Task.CompletedTask;
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -2944,6 +2892,19 @@ public partial class CodeEditorView : UserControl
                 TextEditor.TextArea.Caret.Column - 1)).ListenErrors();
     }
 
+    private void CanShowTypeHierarchy(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is CodeEditorViewModel { CanShowTypeHierarchy: true };
+        e.Handled = true;
+    }
+
+    private void TypeHierarchyExecuted(object? sender, Avalonia.Labs.Input.ExecutedRoutedEventArgs e)
+    {
+        if (DataContext is CodeEditorViewModel vm)
+            vm.ShowTypeHierarchyAsync(new Position(TextEditor.TextArea.Caret.Line - 1,
+                TextEditor.TextArea.Caret.Column - 1)).ListenErrors();
+    }
+
     private void CanRunCodeLens(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
     {
         e.CanExecute = codeLenses?.CommandsOnLine(TextEditor.TextArea.Caret.Line).Length > 0;
@@ -3114,6 +3075,61 @@ public partial class CodeEditorView : UserControl
         }
     }
 
+    private async void OnCodeActionsOpened(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is MenuItem menu && ReferenceEquals(e.Source, menu) && DataContext is CodeEditorViewModel vm)
+            await LoadCodeActionsAsync(menu, vm, ReferenceEquals(menu, SourceActionsMenu) ? "source" : "refactor");
+    }
+
+    internal static async Task LoadCodeActionsAsync(MenuItem menu, CodeEditorViewModel vm, string kind)
+    {
+        menu.Items.Clear();
+        menu.Items.Add(new MenuItem { Header = vm.NoCodeActionsMenuLabel, IsEnabled = false });
+        try
+        {
+            var actions = await vm.RequestCodeActionsAsync(vm.SelectionLength > 0 ? vm.SelectionStart : vm.CaretOffset,
+                vm.SelectionLength, [kind]);
+            menu.Items.Clear();
+            // Asked with `only`, so an action without a kind is one the server filtered for this menu: RDCore, for one,
+            // sends every action with the first kind the client declares, which here is "" (#4256).
+            var filtered = actions.Where(a => a.Kind == kind || a.Kind?.StartsWith(kind + ".", StringComparison.Ordinal) == true
+                || string.IsNullOrEmpty(a.Kind) && !a.IsQuickFix);
+            // As Quick Fixes lays out: server, then the actions it sent, titled as sent. A kind is an identifier
+            // ("refactor.extract.method"), not a label, and the server's title already says what the action does.
+            {
+                foreach (var group in filtered.GroupBy(a => a.Server))
+                {
+                    var server = new MenuItem { Header = group.First().ServerDisplayName ?? group.Key };
+                    foreach (var action in group)
+                    {
+                        var item = new MenuItem
+                        {
+                            Header = action.DisabledReason is { } reason ? $"{action.Title} — {reason}" : action.Title,
+                            IsEnabled = action.DisabledReason is null
+                        };
+                        item.Click += async (_, _) =>
+                        {
+                            try
+                            {
+                                if (await vm.ApplyCodeActionAsync(action) is { } refusal) await vm.ShowRefusalAsync(refusal);
+                            }
+                            catch (Exception ex) { await vm.ShowRefusalAsync(ex.Message); }
+                        };
+                        server.Items.Add(item);
+                    }
+                    menu.Items.Add(server);
+                }
+            }
+            if (menu.Items.Count == 0)
+                menu.Items.Add(new MenuItem { Header = vm.NoCodeActionsMenuLabel, IsEnabled = false });
+        }
+        catch (Exception ex)
+        {
+            menu.Items.Clear();
+            menu.Items.Add(new MenuItem { Header = ex.Message, IsEnabled = false });
+        }
+    }
+
     // ── Rename symbol (F2) ────────────────────────────────────────────────────
 
     public void RenameSymbol()
@@ -3152,52 +3168,13 @@ public partial class CodeEditorView : UserControl
 
     private void FormatSelectionExecuted(object? sender, Avalonia.Labs.Input.ExecutedRoutedEventArgs e) => _ = FormatSelectionAsync();
 
-    internal async Task FormatSelectionAsync()
-    {
-        if (DataContext is not CodeEditorViewModel { CanFormatSelection: true } vm) return;
-        var start = vm.Document.GetLocation(vm.SelectionStart);
-        var end = vm.Document.GetLocation(vm.SelectionStart + vm.SelectionLength);
-        var range = new HexIDE.Lsp.Messages.Range(new Position(start.Line - 1, start.Column - 1),
-            new Position(end.Line - 1, end.Column - 1));
-        try
-        {
-            await vm.FlushDocumentAsync();
-            var edits = await vm.RequestRangeFormattingAsync(range);
-            if (edits.Length == 0) return;
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => vm.ApplyFormatting(edits));
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            Log.Debug("[rangeFormatting] {ErrorMessage}", ex.Message);
-        }
-    }
-
-    // ── Format document (Shift+Alt+F) ─────────────────────────────────────────
+    internal Task FormatSelectionAsync()
+        => DataContext is CodeEditorViewModel { CanFormatSelection: true } vm && _languageFeatures is { } features
+            ? features.FormatAsync(true, edits => vm.ApplyFormatting(edits), () => false) : Task.CompletedTask;
 
     public void FormatDocument()
     {
-        if (DataContext is not CodeEditorViewModel vm) return;
-        _ = FormatDocumentAsync(vm);
-    }
-
-    private async Task FormatDocumentAsync(CodeEditorViewModel vm)
-    {
-        try
-        {
-            await vm.FlushDocumentAsync();
-            var edits = await vm.RequestFormattingAsync();
-
-            if (edits.Length == 0) return;
-
-            // Through the view model's guarded path, which Format on Save shares, never onto the document as
-            // sent: a whole-document answer would otherwise rewrite the header (#273 phase 3).
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => vm.ApplyFormatting(edits));
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            Log.Debug("[formatting] {ErrorMessage}", ex.Message);
-        }
+        if (DataContext is CodeEditorViewModel vm && _languageFeatures is { } features)
+            _ = features.FormatAsync(false, edits => vm.ApplyFormatting(edits), () => false);
     }
 }

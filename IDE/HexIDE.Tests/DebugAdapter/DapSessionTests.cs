@@ -91,14 +91,17 @@ public class DapSessionTests
         session.IsCurrent(update.Snapshot.Stop).Should().BeTrue();
     }
 
-    [Fact]
-    public async Task Configures_before_awaiting_launch_and_preserves_breakpoint_verification()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Configures_before_awaiting_launch_and_preserves_breakpoint_verification(bool earlyLaunch)
     {
         await using var peer = new Peer();
         await using var session = new DapSession(peer.Client);
         var pending = session.LaunchAsync("external", Args, [new("/workspace/Module1.bas", [4])], Token);
         await peer.Reply(await peer.Receive(), """{"supportsConfigurationDoneRequest":true,"exceptionBreakpointFilters":[{"filter":"unhandled","default":true},{"filter":"all","default":false}],"future":42}""");
         var launch = await peer.Receive();
+        if (earlyLaunch) await peer.Reply(launch);
         await peer.Send("""{"seq":2,"type":"event","event":"initialized"}""");
         var bp = await peer.Receive();
         bp.GetProperty("command").GetString().Should().Be("setBreakpoints");
@@ -113,7 +116,7 @@ public class DapSessionTests
         var done = await peer.Receive();
         done.GetProperty("command").GetString().Should().Be("configurationDone");
         await peer.Reply(done);
-        await peer.Reply(launch);
+        if (!earlyLaunch) await peer.Reply(launch);
         var results = await pending.WaitAsync(Patience, Token);
         results[0].Body!.Value.GetProperty("breakpoints")[0].GetProperty("verified").GetBoolean().Should().BeFalse();
         session.Capabilities.GetProperty("future").GetInt32().Should().Be(42);
@@ -348,19 +351,40 @@ public class DapSessionTests
         peer.Client.Completion.IsCompleted.Should().BeTrue();
     }
 
-    [Fact]
-    public async Task Output_is_preserved_and_queue_overflow_faults_instead_of_losing_state()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Output_flood_backpressures_until_reader_resumes_and_inspection_completes(bool disposeWhileFull)
     {
-        await using var peer = new Peer();
-        await using var session = new DapSession(peer.Client, updateCapacity: 1);
-        await peer.Send("""{"seq":1,"type":"event","event":"output","body":{"category":"stdout","output":"hello\n"}}""");
-        var output = await Until(session, u => u.Event?.Event == "output");
-        output.Event!.Body!.Value.GetProperty("output").GetString().Should().Be("hello\n");
-        await peer.Send("""{"seq":2,"type":"event","event":"thread"}""");
-        await peer.Send("""{"seq":3,"type":"event","event":"thread"}""");
-        await session.Completion.WaitAsync(Patience, Token);
-        session.Snapshot.State.Should().Be(DapSessionState.Faulted);
-        session.Snapshot.Failure.Should().BeOfType<IOException>();
+        await using var session = DapSession.Start(new("dotnet")
+        {
+            Arguments = [typeof(Dap.TestAdapter.Program).Assembly.Location, "event-flood"],
+            ShutdownTimeout = TimeSpan.FromSeconds(1),
+        });
+        await session.LaunchAsync("external", Args, [], Token);
+        var stop = (await Until(session, u => u.Event?.Event == "stopped")).Snapshot.Stop!;
+        var inspection = session.StackTraceAsync(stop, 1, Token);
+        // Stop draining long enough to fill both bounded queues, with the reply behind the flood.
+        await Task.Delay(500, Token);
+        session.Snapshot.State.Should().Be(DapSessionState.Stopped);
+        session.Completion.IsCompleted.Should().BeFalse();
+        if (disposeWhileFull)
+        {
+            await session.DisposeAsync().AsTask().WaitAsync(Patience, Token);
+            await ((Func<Task>)(() => inspection)).Should().ThrowAsync<IOException>();
+            session.Snapshot.State.Should().Be(DapSessionState.Ended);
+            return;
+        }
+        var text = new System.Text.StringBuilder();
+        for (var i = 0; i < 10_000; i++)
+        {
+            var update = await Until(session, u => u.Event?.Event == "output");
+            update.Snapshot.State.Should().Be(DapSessionState.Stopped);
+            text.Append(update.Event!.Body!.Value.GetProperty("output").GetString());
+        }
+        text.ToString().Should().Be(string.Concat(Enumerable.Range(0, 10_000).Select(i => $"line {i}\n")));
+        (await inspection.WaitAsync(Patience, Token)).Body!.Value.GetProperty("stackFrames").GetArrayLength().Should().Be(2);
+        session.Snapshot.State.Should().Be(DapSessionState.Stopped);
     }
 
     [Fact]

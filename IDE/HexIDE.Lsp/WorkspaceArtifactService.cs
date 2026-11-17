@@ -102,7 +102,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
     private async Task PrepareAsync(LanguageServerRegistration server, ISet<string>? changed,
         CancellationToken cancellationToken)
     {
-        if (server.ProjectImport is not null) return;
+        if (server.ProjectImport is not null && changed is not null) return;
         if (server.WorkspaceArtifactRefused)
             Note(server, "Workspace artefact declaration refused, so no file is generated: see the configuration "
                 + "problems in Tools > Language Servers.");
@@ -119,7 +119,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
-                    if (await WriteAsync(server, spec, project)) changed?.Add(server.Id);
+                    if (await WriteAsync(server, spec, project, seed: server.ProjectImport is not null)) changed?.Add(server.Id);
                 }
                 catch (Exception ex)
                 {
@@ -170,7 +170,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
 
     /// <returns>Whether the file on disk changed: written new or different, or taken back.</returns>
     private async Task<bool> WriteAsync(LanguageServerRegistration server, WorkspaceArtifactSpec spec,
-        WorkspaceArtifactContext project)
+        WorkspaceArtifactContext project, bool seed = false)
     {
         var target = SafePath(project.WorkspaceRoot, spec.RelativePath);
         if (target is null)
@@ -179,7 +179,12 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
             Note(server, $"Refused workspace artefact path {spec.RelativePath}.");
             return false;
         }
-        if (!OwnsOrAbsent(target))
+        // A seed never touches a file that is there, HexIDE's or not: that is the ordinary case once a project has
+        // been opened, so it is not a problem to note, and asking consent to write a file it will not write would
+        // prompt on every session's first start. The atomic move below still guards the race.
+        if (seed && (File.Exists(target) || Directory.Exists(target)))
+            return false;
+        if (!seed && !OwnsOrAbsent(target))
         {
             _log.LogInformation("Leaving existing workspace artefact {Path} alone for {Server}.", target, server.Id);
             Note(server, $"Leaving existing workspace artefact {spec.RelativePath} alone: not owned by HexIDE.");
@@ -189,7 +194,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         var content = provider.Produce(project with { Settings = spec.Settings });
         // Empty is nothing to describe too, so HexIDE never owns an empty file: see OwnsOrAbsent.
         if (string.IsNullOrEmpty(content))
-            return File.Exists(target) && Relinquish(server, spec, project, target);
+            return !seed && File.Exists(target) && Relinquish(server, spec, project, target);
         var consentRoot = Resolve(Path.GetFullPath(project.WorkspaceRoot));
         if (!await _consent.AllowAsync(server.Id, server.DisplayName, consentRoot, target, spec))
         {
@@ -211,7 +216,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
             Note(server, "Refused workspace artefact path: links changed during consent.");
             return false;
         }
-        if (!OwnsOrAbsent(target))
+        if (!seed && !OwnsOrAbsent(target))
         {
             Note(server, $"Leaving existing workspace artefact {spec.RelativePath} alone: changed during consent.");
             return false;
@@ -224,7 +229,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         }
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         // Deny other readers/writers while checking ownership; allow replacement on Windows.
-        using var owned = File.Exists(target)
+        using var owned = !seed && File.Exists(target)
             ? new FileStream(target, FileMode.Open, FileAccess.ReadWrite, FileShare.Delete) : null;
         if (owned is not null)
         {
@@ -255,9 +260,21 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
             // the ownership lock is let go only now: the race left is the replace call itself.
             var replacing = owned is not null;
             owned?.Dispose();
-            File.Move(temporary, target, overwrite: replacing);
+            // First-open bridge until RDCore re-reads the language after import (#3317): seed only an
+            // absent file, atomically, and leave ownership to the importing server.
+            try { File.Move(temporary, target, overwrite: replacing); }
+            catch (IOException) when (seed && (File.Exists(target) || Directory.Exists(target)))
+            {
+                return false;
+            }
         }
         finally { File.Delete(temporary); }
+        if (seed)
+        {
+            _lastNote.Remove(server.Id);
+            FileChanged?.Invoke(target, 1);
+            return true;
+        }
         _hashes[target] = Convert.ToHexString(SHA256.HashData(bytes));
         _lastNote.Remove(server.Id);
         SaveOwnership();

@@ -131,6 +131,8 @@
                                           ExecutingCommand="{CompiledBinding #Root.ClearAllBookmarks}" />
                     <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CallHierarchyCommand}"
                                           CanExecute="CanShowCallHierarchy" Executed="CallHierarchyExecuted" />
+                    <input:CommandBinding Command="{x:Static vb:ApplicationCommands.TypeHierarchyCommand}"
+                                          CanExecute="CanShowTypeHierarchy" Executed="TypeHierarchyExecuted" />
                     <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RunCodeLensCommand}"
                                           CanExecute="CanRunCodeLens"
                                           ExecutingCommand="{CompiledBinding #Root.RunCodeLens}" />
@@ -191,6 +193,7 @@
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.FindReferences}" Command="{x:Static vb:ApplicationCommands.FindReferencesCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.CallHierarchy}" Command="{x:Static vb:ApplicationCommands.CallHierarchyCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.TypeHierarchy}" Command="{x:Static vb:ApplicationCommands.TypeHierarchyCommand}" />
                         <MenuItem Header="{DynamicResource Str.Editor.RunCodeLens}" Command="{x:Static vb:ApplicationCommands.RunCodeLensCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDefinition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToImplementation}" Command="{x:Static vb:ApplicationCommands.GoToImplementationCommand}" />
@@ -199,6 +202,12 @@
                         <MenuItem x:Name="QuickFixesMenu" Header="{DynamicResource Str.CodeEditor.QuickFix.Title}"
                                   SubmenuOpened="OnQuickFixesOpened">
                             <MenuItem Header="{DynamicResource Str.CodeEditor.Context.NoQuickFix}" IsEnabled="False" />
+                        </MenuItem>
+                        <MenuItem x:Name="RefactorMenu" Header="{DynamicResource Str.CodeEditor.Refactor}" SubmenuOpened="OnCodeActionsOpened">
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.NoCodeActions}" IsEnabled="False" />
+                        </MenuItem>
+                        <MenuItem x:Name="SourceActionsMenu" Header="{DynamicResource Str.CodeEditor.SourceActions}" SubmenuOpened="OnCodeActionsOpened">
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.NoCodeActions}" IsEnabled="False" />
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Rename}"        Command="{x:Static vb:ApplicationCommands.RenameSymbolCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ExpandSelection}" Command="{x:Static vb:ApplicationCommands.ExpandSelectionCommand}" />

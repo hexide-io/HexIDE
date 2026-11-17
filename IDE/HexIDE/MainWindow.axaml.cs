@@ -12,8 +12,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        if (HexIDE.IDE.BrandAssets.WindowIcon is { } brandIcon)
-            Icon = brandIcon;
+        HexIDE.IDE.BrandAssets.ApplyWindowIcon(this);
 
         // this is required to make commands work without focusing the MainView first
         CommandManager.SetCommandBindings(this, CommandManager.GetCommandBindings(MainView));

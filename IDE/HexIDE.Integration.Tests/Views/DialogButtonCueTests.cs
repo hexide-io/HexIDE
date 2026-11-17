@@ -215,7 +215,7 @@ public class DialogButtonCueTests
     public void DialogFactoryExcludesProgramDialogs(bool program)
     {
         var manager = new WindowManager(Substitute.For<HexIDE.Localization.ILocalizationService>());
-        var window = manager.MakeDialogWindow("Title", program ? new HexIDE.Runtime.Dialogs.MessageBox { IsProgramDialog = true }
+        var window = manager.MakeDialogWindow("Title", program ? new HexIDE.Runtime.Dialogs.MessageBox()
             : new HexIDE.Dialogs.MessageBox());
         try { window.Classes.Contains("ideDialog").Should().Be(!program); }
         finally { window.Close(); }
@@ -248,7 +248,7 @@ public class DialogButtonCueTests
             ("TrustChainView", null, "first"),
             ("MenuEditorView", null, "text"),
             ("AboutDialog", null, "first"),
-            ("FontDialog", null, "first"),
+            ("FontDialog", "Str.Dialog.Font.Button.Ok", "text"),
             ("ColorDialog", "Str.Dialog.MessageBox.Button.Ok", "default"),
             ("PrintDialog", "Str.Dialog.MessageBox.Button.Ok", "default"),
             ("InputBox", null, "text"),

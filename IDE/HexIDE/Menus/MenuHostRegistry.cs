@@ -24,6 +24,7 @@ internal static class MenuHostRegistry
             ["application.BreakProjectCommand"] = new("{x:Static vb:ApplicationCommands.BreakProjectCommand}", ApplicationCommands.BreakProjectCommand, null),
             ["application.BringToFrontCommand"] = new("{x:Static vb:ApplicationCommands.BringToFrontCommand}", ApplicationCommands.BringToFrontCommand, null),
             ["application.CallHierarchyCommand"] = new("{x:Static vb:ApplicationCommands.CallHierarchyCommand}", ApplicationCommands.CallHierarchyCommand, null),
+            ["application.TypeHierarchyCommand"] = new("{x:Static vb:ApplicationCommands.TypeHierarchyCommand}", ApplicationCommands.TypeHierarchyCommand, null),
             ["application.CenterHorizontallyCommand"] = new("{x:Static vb:ApplicationCommands.CenterHorizontallyCommand}", ApplicationCommands.CenterHorizontallyCommand, null),
             ["application.CenterVerticallyCommand"] = new("{x:Static vb:ApplicationCommands.CenterVerticallyCommand}", ApplicationCommands.CenterVerticallyCommand, null),
             ["application.ClearAllBookmarksCommand"] = new("{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}", ApplicationCommands.ClearAllBookmarksCommand, null),
@@ -147,6 +148,8 @@ internal static class MenuHostRegistry
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["add-ins"] = "AddInsMenuItem",
+            ["refactor"] = "RefactorMenu",
+            ["source-actions"] = "SourceActionsMenu",
             ["closed-documents"] = "{CompiledBinding ClosedDocumentMenuItems}",
             ["panel-layouts"] = "PanelLayoutsMenuItem",
             ["recent-projects"] = "{CompiledBinding RecentProjects}",

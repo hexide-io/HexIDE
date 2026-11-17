@@ -8,4 +8,6 @@ public sealed record OfferedCodeAction(string Server, string Title, string? Disa
     Func<Command, CancellationToken, Task>? Execute = null,
     Func<string, RenameDocumentSnapshot?>? DocumentFor = null,
     Func<Command, bool>? CanExecute = null,
-    string? ServerDisplayName = null);
+    string? ServerDisplayName = null,
+    string? Kind = null,
+    bool IsQuickFix = false);

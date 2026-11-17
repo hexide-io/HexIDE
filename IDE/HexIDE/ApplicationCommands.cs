@@ -75,6 +75,7 @@ public class ApplicationCommands
     public static readonly RoutedCommand PreviousBookmarkCommand = new RoutedCommand(nameof(PreviousBookmarkCommand));
     public static readonly RoutedCommand ClearAllBookmarksCommand = new RoutedCommand(nameof(ClearAllBookmarksCommand), new KeyGesture(Key.F2, GetPlatformCommandKey() | KeyModifiers.Shift));
     public static readonly RoutedCommand CallHierarchyCommand = new RoutedCommand(nameof(CallHierarchyCommand));
+    public static readonly RoutedCommand TypeHierarchyCommand = new RoutedCommand(nameof(TypeHierarchyCommand));
     public static readonly RoutedCommand RunCodeLensCommand = new RoutedCommand(nameof(RunCodeLensCommand));
     public static readonly RoutedCommand FindReferencesCommand = new RoutedCommand(nameof(FindReferencesCommand), new KeyGesture(Key.F12, KeyModifiers.Shift));
     // F12 beside VB6's Shift+F2: both have always worked here, so Default.json can't document this one in its single slot.

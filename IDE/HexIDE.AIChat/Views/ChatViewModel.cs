@@ -15,7 +15,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     /// Which privacy notice the acknowledgement file records. The first wrote "shown"; change this whenever what
     /// the notice discloses grows, so that everyone is told once more.
     /// </summary>
-    internal const string EgressNoticeVersion = "whole-file";
+    internal const string EgressNoticeVersion = "project-tool-reads";
 
     private readonly IHexIdeHost _host;
     private readonly ChatSession _session;
@@ -30,6 +30,11 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     private CancellationTokenSource? _responseCancellation;
     private bool _reloadSettingsPending;
     private bool _egressNoticeShown;
+    /// <summary>The notice version and host the person chose Send for this session (#4230), as <see cref="EgressKey"/>.</summary>
+    private string? _egressConfirmedFor;
+    private ChatMessageViewModel? _pendingEgress;
+    /// <summary>The notice version and host the pending prompt named, which is what its Send confirms.</summary>
+    private string? _pendingEgressFor;
     private ChatMessageViewModel? _activeStream;
 
     /// <summary>Notes for the assistant written while it was responding, held until a user message may come next.</summary>
@@ -113,6 +118,25 @@ public sealed class ChatViewModel : INotifyPropertyChanged
             return;
         }
 
+        // An endpoint off this machine waits for Send on the privacy notice before anything leaves, once per notice
+        // version and host (#4230): consent to one service doesn't carry over to another. The message stays in the
+        // box; the notice's Send runs this again.
+        if (!localEndpoint && !IsEgressConfirmed())
+        {
+            var key = EgressKey();
+            if (_pendingEgress is { IsAwaitingDecision: true } pending && Messages.Contains(pending))
+            {
+                if (_pendingEgressFor == key) return;
+                // The endpoint changed while the prompt was open. Its Send would confirm a host it no longer names.
+                DeclineEgress(pending);
+            }
+            _pendingEgress = new ChatMessageViewModel("assistant",
+                EgressNoticeText() + " " + ChatStrings.GetString("Str.AIChat.EgressConfirm"), isEgressConfirmation: true);
+            _pendingEgressFor = key;
+            Messages.Add(_pendingEgress);
+            return;
+        }
+
         using var cancellation = new CancellationTokenSource();
         _responseCancellation = cancellation;
         InputText   = string.Empty;
@@ -183,6 +207,8 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     {
         _session.SaveTo(_historyPath);
         Messages.Clear();
+        _pendingEgress = null;
+        _pendingEgressFor = null;
     }
 
     /// <summary>
@@ -452,7 +478,8 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     /// 3.19). A form's designer block goes too, and with it its captions, menu text and the names of the binary
     /// files beside it, which "code" would not lead anyone to expect. So the acknowledgement records which notice
     /// was shown, and a developer who saw only the old one is shown the new one once: more now leaves the machine
-    /// than they were told.
+    /// than they were told. The project-tool-reads notice also names other loaded-project files, file lists
+    /// and diagnostics read by tools without approval (#4131).
     /// </remarks>
     internal void MaybeShowEgressNotice()
     {
@@ -466,16 +493,87 @@ public sealed class ChatViewModel : INotifyPropertyChanged
         }
         catch { /* unreadable: show the notice, which errs on the side of telling */ }
 
+        Messages.Add(new ChatMessageViewModel("assistant", EgressNoticeText(), isStatusLine: true));
+
+        try { File.WriteAllText(ackPath, EgressNoticeVersion); } catch { /* best-effort */ }
+    }
+
+    /// <summary>The privacy notice for the configured endpoint, with the tip about a key kept in a file.</summary>
+    private string EgressNoticeText()
+    {
         var host = Uri.TryCreate(_settings.BaseUrl, UriKind.Absolute, out var u) ? u.Host : _settings.BaseUrl;
         var tip = _settings.ApiKeyIsFromPlaintextFile()
             ? " " + ChatStrings.GetString("Str.AIChat.PrivacyKeyTip")
             : "";
+        return string.Format(ChatStrings.GetString("Str.AIChat.PrivacyNotice"), host) + tip;
+    }
 
-        Messages.Add(new ChatMessageViewModel("assistant",
-            string.Format(ChatStrings.GetString("Str.AIChat.PrivacyNotice"), host) + tip,
-            isStatusLine: true));
+    /// <summary>
+    /// Whether the person chose Send on this version of the notice for the endpoint's host (#4230). It's a file of its
+    /// own: <c>.ai-egress-ack</c> only records that the notice was shown, which a local endpoint does without asking,
+    /// and that isn't consent to send anywhere else. A different host, or a revised notice, asks again.
+    /// </summary>
+    internal bool IsEgressConfirmed()
+    {
+        var key = EgressKey();
+        if (_egressConfirmedFor == key) return true;
+        try
+        {
+            var path = Path.Combine(_settingsDir, EgressConfirmedFileName);
+            return File.Exists(path) && File.ReadAllText(path).Trim() == key;
+        }
+        catch { return false; /* unreadable: ask, which errs on the side of asking */ }
+    }
 
-        try { File.WriteAllText(ackPath, EgressNoticeVersion); } catch { /* best-effort */ }
+    internal const string EgressConfirmedFileName = ".ai-egress-confirmed";
+
+    /// <summary>
+    /// What a confirmation is for: the notice version and the endpoint's host, one per line. The host is the one the
+    /// notice names, lower-cased by <see cref="Uri"/>; an endpoint that doesn't parse is kept as written.
+    /// </summary>
+    internal string EgressKey() => EgressKeyFor(_settings.BaseUrl);
+
+    /// <inheritdoc cref="EgressKey"/>
+    internal static string EgressKeyFor(string baseUrl)
+    {
+        var host = Uri.TryCreate(baseUrl, UriKind.Absolute, out var u) ? u.Host : baseUrl.Trim();
+        return EgressNoticeVersion + "\n" + host;
+    }
+
+    /// <summary>The notice's Send: records the choice for the host it named, then sends what is in the box now.</summary>
+    internal async Task ConfirmEgressAsync(ChatMessageViewModel confirmation)
+    {
+        if (!confirmation.IsEgressConfirmation || !confirmation.IsAwaitingDecision) return;
+        // The prompt confirms the host it named. If the endpoint has changed since, SendAsync asks again.
+        var key = ReferenceEquals(_pendingEgress, confirmation) && _pendingEgressFor is { } named ? named : EgressKey();
+        confirmation.Approve();
+        if (ReferenceEquals(_pendingEgress, confirmation))
+        {
+            _pendingEgress = null;
+            _pendingEgressFor = null;
+        }
+        // Held for this session even where the file can't be written, so Send can't ask again in a loop.
+        _egressConfirmedFor = key;
+        _egressNoticeShown = true;
+        try
+        {
+            File.WriteAllText(Path.Combine(_settingsDir, EgressConfirmedFileName), key);
+            File.WriteAllText(Path.Combine(_settingsDir, ".ai-egress-ack"), EgressNoticeVersion);
+        }
+        catch { /* best-effort: asked again next session */ }
+        await SendAsync();
+    }
+
+    /// <summary>The notice's Cancel: nothing is sent, and the message stays in the box.</summary>
+    internal void DeclineEgress(ChatMessageViewModel confirmation)
+    {
+        if (!confirmation.IsEgressConfirmation || !confirmation.IsAwaitingDecision) return;
+        confirmation.Reject();
+        if (ReferenceEquals(_pendingEgress, confirmation))
+        {
+            _pendingEgress = null;
+            _pendingEgressFor = null;
+        }
     }
 
     // ── compaction ───────────────────────────────────────────────────────────

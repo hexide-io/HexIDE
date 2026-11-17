@@ -23,8 +23,15 @@ public class ResetFileAttrTests : BaseVBTestFixture, IDisposable
     [InlineData("3, 1", 4L)]
     [InlineData("4, 1", 32L)]
     [InlineData("1", 2L)]
+    [InlineData("FileNumber:=1", 2L)]
     [InlineData("1.6, 1", 8L)]
     [InlineData("\"1\", 1", 2L)]
+    [InlineData("1, \"1\"", 2L)]
+    [InlineData("1, CCur(1)", 2L)]
+    [InlineData("1, CDec(1)", 2L)]
+    [InlineData("1, CSng(1)", 2L)]
+    [InlineData("1, CByte(1)", 2L)]
+    [InlineData("1, 1.4", 2L)]
     public async Task FileAttr_returns_a_Long_mode(string arguments, long expected)
     {
         await Run(OpenFour + $"\nDebug.Print FileAttr({arguments})\nDebug.Print TypeName(FileAttr({arguments}))\nClose");
@@ -39,28 +46,29 @@ public class ResetFileAttrTests : BaseVBTestFixture, IDisposable
     [InlineData("9, 1", 52L)]
     [InlineData("0, 1", 52L)]
     [InlineData("Null, 1", 94L)]
+    [InlineData("1, True", 5L)]
+    [InlineData("1, Empty", 5L)]
+    [InlineData("1, -1", 5L)]
+    [InlineData("1, 0.5", 5L)]
+    [InlineData("1, 1.5", 5L)]
+    [InlineData("1, 1.6", 5L)]
+    [InlineData("1, 2.5", 5L)]
+    [InlineData("1, Null", 94L)]
+    [InlineData("1, \"x\"", 13L)]
     public async Task FileAttr_reports_the_measured_error(string arguments, long expected)
     {
         await Run(OpenFour + $"\nOn Error Resume Next\nDebug.Print FileAttr({arguments})\nDebug.Print Err.Number\nClose");
         AssertDebugLog([new Vb6Value(expected)]);
     }
 
+    // Additional rows measured in #4145, native and p-code agreeing.
     [Fact]
-    public async Task Input_mode_refuses_an_unmeasured_value()
+    public async Task Input_mode_returns_one()
     {
         var path = Path.Combine(dir, "input.txt");
         File.WriteAllText(path, "");
-        Func<Task> run = () => Run($"Open \"{path}\" For Input As #1\nDebug.Print FileAttr(1, 1)");
-        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*Input*unmeasured*");
-    }
-
-    [Theory]
-    [InlineData("FileNumber:=1")]
-    [InlineData("1, \"1\"")]
-    public async Task Unmeasured_arguments_refuse(string arguments)
-    {
-        Func<Task> run = () => Run($"Debug.Print FileAttr({arguments})");
-        await run.Should().ThrowAsync<NotImplementedException>();
+        await Run($"Open \"{path}\" For Input As #1\nDebug.Print FileAttr(1, 1)\nClose");
+        AssertDebugLog([new Vb6Value(1L)]);
     }
 
     [Fact]

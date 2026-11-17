@@ -31,7 +31,9 @@ public class MessageBoxHostTests
 
     private static void Press(MessageBox box, string label)
     {
-        var button = box.GetVisualDescendants().OfType<Button>().Single(b => Equals(b.Content, label));
+        // On Windows the captions are the platform's, with its mnemonic as an access key ("_No"); #4250.
+        var button = box.GetVisualDescendants().OfType<Button>()
+            .Single(b => b.Content is string text && text.Replace("_", "") == label);
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Dispatcher.UIThread.RunJobs();
     }

@@ -93,7 +93,11 @@ not selected expressions or member chains. While the external program runs, hove
 quick info.
 
 This integration inspects one stopped program thread. It does not implement thread selection,
-restart or Run To Cursor. Sources without a saved file path cannot receive external breakpoints.
+or restart. Run To Cursor while stopped adds a temporary breakpoint at the saved source's cursor
+line and continues. The next stop, wherever it occurs, removes that temporary breakpoint, as do
+session end and failures. User breakpoints and conditions stay intact. If the adapter refuses the
+line or moves it, the command reports that reason without continuing. Sources without a saved file
+path cannot receive external breakpoints or Run To Cursor targets.
 
 The adapter determines which operations it can perform. RDCore `84278aea` advertised goto targets and
 conditional breakpoints and applied saved edits in the measurements recorded in [#2914](https://github.com/hexide-io/HexIDE/issues/2914):
@@ -142,8 +146,16 @@ Breakpoints stay on the line numbers they were set on. An edit that adds or remo
 on a different statement.
 
 During an external run, `get_debug_state` reports the adapter's state and `stop_project` stops it.
-The inspection tools (`get_locals`, `get_call_stack`, the watch tools and `evaluate`) still refuse
-external sessions; use the IDE's inspection windows through generic MCP UI interaction instead.
+The inspection tools (`get_locals`, `get_call_stack`, the watch tools and `evaluate`) use the same
+external data and evaluation as the IDE windows (#4305). Stop first with `break_program` or a
+breakpoint; a running inspection reply explains this. Locals and watches use the selected frame,
+whose adapter name is their context. There is no interpreter project identity for an external frame;
+call-stack module fields are source paths, absent when the adapter supplies none. External watches
+are Expression watches in the external Watch window; break-condition watches are refused.
+`evaluate` sends the line to the adapter's Immediate/REPL path, so its syntax and result are the adapter's.
+`set_breakpoints` replaces the editor's external set for a saved document, preserving omitted conditions;
+`clear_all_breakpoints` clears that external set, and `get_breakpoints` reads it. Replies await adapter acknowledgement and report verified,
+relocated or unverified lines, refusal messages and conditions an adapter cannot honour.
 
 See [the measured external adapter setup](dap-adapter-smoke.md) for a reproducible workspace and platform.
 
@@ -153,8 +165,9 @@ stack, then report the top frame's source path and line, running, or ended. An a
 includes its message and says whether stopped inspection was kept. `set_next_statement` uses
 `gotoTargets` then `goto` when supported, resolving its module name to the saved document's file
 path; an unsaved target is refused. The interpreter's top-level-statement restriction does not
-apply to the adapter. `run_to_cursor` refuses external sessions because the external route has
-no one-shot breakpoint support; set a breakpoint in the editor and continue instead.
+apply to the adapter. `run_to_cursor` requires a stopped session and a saved target document.
+It uses the temporary breakpoint route described above, reports the actual stop, and says when
+execution stopped before reaching the cursor target.
 
 If an adapter does not answer **End** and must be killed after cleanup waits, Immediate shows one
 localized notice with its name and elapsed wait in seconds. Any nonempty standard-error tail follows
@@ -192,23 +205,26 @@ The project is described to the add-in as `IProjectAccess` describes it, with it
 startup form's name, or null.
 
 Nothing runs because an add-in is installed or a project opens. Whether a launch runs the project is asked as the Run menu
-opens and when a run of it starts. For whether F5 can start a project the user chose the launch for, its answer is kept
+opens and when a run of it starts. For whether F5 can start an add-in project with its chosen or default launch, its answer is kept
 until what it is told of the project changes (its name, file, startup object, references, or its members and their names
 and files), so it is never asked at each edit. Its configuration is asked for only when a run of it starts. That is under
 the session's cancellation, and End before the session has started ends it even if the add-in never looks at its token.
 The session is then the same as a launch file's: one at a time, with the project's saved gutter marks, and conditions
 refused in the configuration.
 
-**What F5 runs.** F5 runs the project in the IDE until its user chooses otherwise. **Run > F5 Runs** lists In the IDE
+**What F5 runs.** F5 defaults to the interpreter for projects it runs. For a project opened by an add-in,
+F5 defaults to that same add-in's first registered debug launch, when it offers one that runs the project (#4111).
+The status bar names that launch and points to Run > F5 Runs once per project in a session. An explicit user choice,
+including In the IDE, always wins. **Run > F5 Runs** lists In the IDE
 and each contributed launch that runs the startup project, with the current choice checked. The choice is per project
 and per user, kept in the `.user.hexproj` sidecar as `runWith` by the add-in's id and the launch's title; choosing In the
-IDE removes it. **Run > Start Once With** runs a launch once without changing what F5 runs, and is shown while an add-in
-offers a launch for the startup project. F5 Runs is also shown while the project has a choice whose launch is gone.
+IDE records an empty `runWith` value. An absent `runWith` leaves the default in effect. **Run > Start Once With**
+runs a launch once without changing what F5 runs, and is shown while an add-in offers a launch for the startup project. F5 Runs is also shown while the project has a choice whose launch is gone.
 
 If the chosen launch is gone, because its add-in was removed or turned off, or no longer runs the project, F5 runs the
 project in the IDE and the status bar says so. The choice stays, for when the add-in is back, and shows under F5 Runs as
 not available, beside In the IDE, which sets it back. Only F5 and **Run > Start** follow the choice: stepping in from idle
-(F8), Run To Cursor, Restart and Start With Full Compile run in the IDE, whatever F5 runs.
+(F8), Run To Cursor from idle, Restart and Start With Full Compile run in the IDE, whatever F5 runs.
 
 Disposing the handle `RegisterDebugLaunch` returns takes the launch out, as do a failed initialisation of its add-in,
 turning the add-in off and revoking its consent. A run starts only while the add-in may start what it contributed,
