@@ -100,7 +100,7 @@ public class FormSerializer
                 while (preservedIndex < preserved.Count && before[preservedIndex] <= childIndex)
                     WriteVerbatimBlock(preserved[preservedIndex++]);
                 if (childIndex < children.Count)
-                    WriteComponentTree(children[childIndex]);
+                    WriteComponentTree(children[childIndex], container.BaseClass is MenuComponentClass);
             }
         }
 
@@ -114,7 +114,7 @@ public class FormSerializer
 
         // Begin/End maintain the indent level themselves, so recursing here is all the nesting needs:
         // VB6's three-space step per level falls out of it.
-        void WriteComponentTree(ComponentInstance component)
+        void WriteComponentTree(ComponentInstance component, bool isSubMenu)
         {
             if (!written.Add(component))
                 throw new InvalidOperationException(
@@ -125,7 +125,7 @@ public class FormSerializer
             var inBox = component.BaseClass as InBoxComponentClass;
             vb.Begin(inBox?.TypeNameOf(component) ?? component.BaseClass.VBTypeName, component.GetPropertyOrDefault(VBProperties.NameProperty)!);
             vb.BeginSortedProperties();
-            WriteAllProperties(vb, component, citations);
+            WriteAllProperties(vb, component, citations, isSubMenu);
             vb.EndSortedProperties();
             if (component.BaseClass is RichTextBoxComponentClass)
                 RichTextBoxPersistence.Write(vb, component, citations);
@@ -281,7 +281,7 @@ public class FormSerializer
         WriteOuter("Width", VBProperties.WidthProperty, outerRect.WidthOffsetTwips);
     }
 
-    private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance, CompanionCitations citations)
+    private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance, CompanionCitations citations, bool isSubMenu = false)
     {
         var inBox = instance.BaseClass as InBoxComponentClass;
         var userControl = instance.BaseClass as UserControlComponentClass;
@@ -296,6 +296,36 @@ public class FormSerializer
         {
             if (Omit(prop.Name) || prop == VBProperties.NameProperty)
                 continue;
+
+            if (instance.BaseClass is MenuComponentClass)
+            {
+                var value = instance.GetBoxedPropertyOrDefault(prop);
+                if (prop == MenuComponentClass.ShortcutProperty)
+                {
+                    var shortcut = VBMenuShortcut.Canonicalize(value as string ?? "");
+                    if (shortcut.Length > 0)
+                        vb.WriteRawProperty(prop.Name, shortcut);
+                    continue;
+                }
+                if (prop == MenuComponentClass.IndexProperty)
+                {
+                    if (value is int index)
+                        vb.WriteProperty(prop.Name, typeof(int), index);
+                    continue;
+                }
+                if (prop == MenuComponentClass.NegotiatePositionProperty)
+                {
+                    if (value is int position && position != 0)
+                        vb.WriteRawProperty(prop.Name, position.ToString(CultureInfo.InvariantCulture)
+                            + (position is >= 1 and <= 3 ? "  '" + new[] { "", "Left", "Middle", "Right" }[position] : ""));
+                    continue;
+                }
+                if (prop == VBProperties.WindowListProperty && isSubMenu)
+                    continue;
+                if ((prop == VBProperties.EnabledProperty || prop == VBProperties.VisibleProperty) && Equals(value, true)
+                    || prop == VBProperties.HelpContextIDProperty && Equals(value, 0))
+                    continue;
+            }
 
             // An in-box control's own properties go in the run after its extender's (#1082).
             if (inBox is not null && inBox.OwnProperties.Contains(prop))

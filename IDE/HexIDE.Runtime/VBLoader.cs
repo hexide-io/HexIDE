@@ -372,6 +372,11 @@ public class VBLoader
     // never match.
     private static bool TryParseControlArrayIndex(ComponentInstance component, out int index)
     {
+        if (component.BaseClass is MenuComponentClass && component.GetPropertyOrDefault(MenuComponentClass.IndexProperty) is { } menuIndex)
+        {
+            index = menuIndex;
+            return true;
+        }
         foreach (var raw in component.UnknownRawPropertyLines)
         {
             var line = raw.Trim();

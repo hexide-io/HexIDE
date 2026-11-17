@@ -1694,8 +1694,16 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     public async Task EditMenu()
     {
         var vm = new MenuEditorViewModel(this, localization);
-        if (!await windowManager.ShowDialog(vm))
+        if (!await windowManager.ShowDialog(vm) || !vm.HasChanges)
             return;
+
+        if (!vm.HasLayoutChanges)
+        {
+            foreach (var item in vm.ItemsToApply)
+                item.Apply(item.Menu!);
+            CommitLayout();
+            return;
+        }
 
         foreach (var deleted in vm.Deleted)
         {
@@ -1705,7 +1713,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
         List<ComponentInstanceViewModel> topLevel = new();
         Stack<(int level, ComponentInstance component)> stack = new();
-        foreach (var menuViewModel in vm.FlatMenu)
+        foreach (var menuViewModel in vm.ItemsToApply)
         {
             if (menuViewModel.Menu != null)
             {
@@ -1714,7 +1722,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                     subItems.Clear();
             }
         }
-        foreach (var menuViewModel in vm.FlatMenu)
+        foreach (var menuViewModel in vm.ItemsToApply)
         {
             var menu = menuViewModel.Menu;
             if (menu == null)
