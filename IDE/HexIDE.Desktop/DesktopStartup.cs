@@ -29,6 +29,7 @@ internal static class DesktopStartup
         // hard-false), so a distributed binary cannot enter developer mode at all.
 #if DEBUG
         HexIDE.Static.DeveloperMode = ServerOptions.DeveloperMode;
+        HexIDE.Static.WithoutVb6 = ServerOptions.NoVb6;
 
         // Before any project is read, because a document takes the host code page when it is created.
         if (ServerOptions.AnsiCodePage is { } codePage)

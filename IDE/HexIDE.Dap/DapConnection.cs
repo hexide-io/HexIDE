@@ -275,4 +275,25 @@ public sealed class DapConnection : IAsyncDisposable
         Close(null);
         await _reader.ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Ends what this side sends, so the adapter reads end of input, and goes on reading what it still writes until it
+    /// closes its output or <paramref name="drain"/> passes; then closes the connection. An adapter may write after its
+    /// last response: debugpy answers <c>disconnect</c> and then sends a <c>debugpySockets</c> event. Closing the read
+    /// side on the response made that write fail with a broken pipe, and debugpy exit 1 (#3894).
+    /// </summary>
+    public async Task CloseAfterDrainAsync(TimeSpan drain)
+    {
+        // A duplex stream can't be half-closed, so it closes as before.
+        if (!ReferenceEquals(_input, _output))
+        {
+            await _writer.WaitAsync().ConfigureAwait(false);
+            try { _output.Dispose(); }
+            catch (IOException) { }
+            finally { _writer.Release(); }
+            try { await _reader.WaitAsync(drain).ConfigureAwait(false); }
+            catch (TimeoutException) { }
+        }
+        await DisposeAsync().ConfigureAwait(false);
+    }
 }

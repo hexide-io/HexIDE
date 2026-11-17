@@ -23,6 +23,74 @@ public partial class WindowsDateLocaleTests : BaseVBTestFixture
         reads.Should().Be(1);
     }
 
+    // #4378: synthetic reader data tests NLS plumbing, not new VB6 measurements.
+    [Theory]
+    [InlineData(false, "en-GB")]
+    [InlineData(true, "en-gb")]
+    [InlineData(true, "en-US")]
+    public void Designators_obey_the_user_override_rule(bool useUserOverride, string userName)
+    {
+        var culture = new CultureInfo("en-GB", useUserOverride);
+        var isUser = useUserOverride && userName == "en-gb";
+        WindowsDateLocale.Apply(culture, userName, (_, type) =>
+            (type & 0x7fffffffu) is 0x28 or 0x29
+                ? ((type & 0x80000000u) == 0 ? "user" : "default") : "fixture");
+        culture.DateTimeFormat.AMDesignator.Should().Be(isUser ? "user" : "default");
+        culture.DateTimeFormat.PMDesignator.Should().Be(isUser ? "user" : "default");
+    }
+
+    [Fact]
+    public void Empty_Nls_designators_stay_empty()
+    {
+        var dates = (DateTimeFormatInfo)CultureInfo.InvariantCulture.DateTimeFormat.Clone();
+        WindowsDateLocale.Apply(dates, type => type is 0x28 or 0x29 ? "" : "fixture",
+            () => throw new InvalidOperationException());
+        dates.AMDesignator.Should().BeEmpty();
+        dates.PMDesignator.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Empty_Nls_designators_leave_a_twelve_hour_pattern_its_own()
+    {
+        // tzm-Latn-DZ: NLS has no designators beside its own 24-hour "H:mm:ss", which isn't taken, while .NET's
+        // pattern is "h:mm:ss tt". Taking the empty ones wrote 23:59:59 as "11:59:59 ", which reads back as morning.
+        var dates = (DateTimeFormatInfo)CultureInfo.InvariantCulture.DateTimeFormat.Clone();
+        dates.LongTimePattern = "h:mm:ss tt";
+        dates.AMDesignator = "am";
+        dates.PMDesignator = "pm";
+        WindowsDateLocale.Apply(dates, type => type is 0x28 or 0x29 ? "" : "fixture",
+            () => throw new InvalidOperationException());
+        dates.AMDesignator.Should().Be("am");
+        dates.PMDesignator.Should().Be("pm");
+    }
+
+    [Theory]
+    [InlineData("h:mm:ss tt", true)]
+    [InlineData("tt h:mm", true)]
+    [InlineData("HH:mm:ss", false)]
+    [InlineData("H:mm' Uhr'", false)]
+    [InlineData("H:mm 'at'", false)]
+    [InlineData("H:mm \"at\"", false)]
+    [InlineData("H:mm \\t", false)]
+    [InlineData("'it''s' h tt", true)]
+    public void A_pattern_writes_a_designator_only_through_an_unquoted_t(string pattern, bool writes) =>
+        WindowsDateLocale.WritesDesignator(pattern).Should().Be(writes);
+
+    [Theory]
+    [InlineData("en-GB")]
+    [InlineData("de-DE")]
+    public async Task Designator_output_matches_Windows_data(string name)
+    {
+        // #4378: data plumbing; only en-GB is measured against vb6.exe.
+        using var locale = VbLocale.Use(new CultureInfo(name, false));
+        var entry = WindowsDateTable.Data.GetProperty("locales").GetProperty(name);
+        var am = OperatingSystem.IsWindows() ? NativePattern(name, 0x28) : entry.GetProperty("amDesignator").GetString()!;
+        var pm = OperatingSystem.IsWindows() ? NativePattern(name, 0x29) : entry.GetProperty("pmDesignator").GetString()!;
+        await Run("Debug.Print Format$(TimeSerial(9, 0, 0), \"AMPM\")\n" +
+                  "Debug.Print Format$(TimeSerial(13, 0, 0), \"AMPM\")\n");
+        AssertDebugLog([new Vb6Value(am), new Vb6Value(pm)]);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -41,7 +109,7 @@ public partial class WindowsDateLocaleTests : BaseVBTestFixture
     }
 
     [Fact]
-    public void Nls_fields_map_to_the_date_format_without_changing_time_or_calendar()
+    public void Nls_fields_map_to_the_date_format_without_changing_time_patterns_or_calendar()
     {
         var dates = (DateTimeFormatInfo)CultureInfo.InvariantCulture.DateTimeFormat.Clone();
         var calendar = dates.Calendar;
@@ -51,6 +119,8 @@ public partial class WindowsDateLocaleTests : BaseVBTestFixture
         dates.ShortDatePattern.Should().Be("'field1F'");
         dates.LongDatePattern.Should().Be("'field20'");
         dates.DateSeparator.Should().Be("'field1D'");
+        dates.AMDesignator.Should().Be("'field28'");
+        dates.PMDesignator.Should().Be("'field29'");
         for (var i = 0; i < 12; i++)
         {
             dates.MonthNames[i].Should().Be($"'field{0x38 + i:X}'");

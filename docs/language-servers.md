@@ -624,6 +624,9 @@ its own helper processes, which find .NET through `DOTNET_ROOT` or the default l
 PATH. Put it on the entry rather than on HexIDE's own environment: a `DOTNET_ROOT` without the runtime
 HexIDE itself needs stops HexIDE from starting, with .NET's "install .NET" message.
 
+For servers contributed by an add-in, settings live in the user's settings and can be reset on the
+add-in's Options page; see [contributed server settings](lsp-client.md#contributed-server-settings).
+
 **Server settings.** Put the server's settings section inside `settings` (#4255). RDCore asks for the
 `rdcore` section, so this turns off its block-end inlay hints (`[Main]` after `End Sub`) and keeps the
 others:

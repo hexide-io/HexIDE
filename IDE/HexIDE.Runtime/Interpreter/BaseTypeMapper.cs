@@ -11,6 +11,10 @@ namespace HexIDE.Runtime.Interpreter;
 /// </summary>
 public static class BaseTypeMapper
 {
+    internal static Vb6Value.ValueType? Vba64Type(string? name, bool isVba64) =>
+        isVba64 && (string.Equals(name, "LongLong", System.StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "LongPtr", System.StringComparison.OrdinalIgnoreCase)) ? Vb6Value.ValueType.LongLong : null;
+
     public static Vb6Value.ValueType? Map(VB6Parser.BaseTypeContext? baseType)
     {
         if (baseType == null) return null;
@@ -33,6 +37,7 @@ public static class BaseTypeMapper
     /// </summary>
     public static Vb6Value.ValueType Map(VB6Parser.TypeHintContext typeHint) => typeHint switch
     {
+        _ when typeHint.LONGLONGCHAR() != null => Vb6Value.ValueType.LongLong,
         _ when typeHint.PERCENT() != null => Vb6Value.ValueType.Integer,
         _ when typeHint.AMPERSAND() != null => Vb6Value.ValueType.Long,
         _ when typeHint.EXCLAMATIONMARK() != null => Vb6Value.ValueType.Single,

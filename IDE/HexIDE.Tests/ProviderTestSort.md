@@ -35,6 +35,7 @@ A test that reaches the provider only at run time, through the application's com
 | `DebugAdapter/VbaBitnessEngineTests.cs` | split |
 | `Debugging/BreakpointServiceTests.cs` | split |
 | `IDE/CodePrefixEquivalenceTests.cs` | split |
+| `IDE/CodeTrustTests.cs` | split |
 | `IDE/DirtyDetectorTests.cs` | split |
 | `IDE/DocumentContentTests.cs` | split |
 | `IDE/EditorServiceNavigationTests.cs` | split |
@@ -78,6 +79,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/NegativeSizeSaveTests.cs` | split |
 | `Projects/PackageEncodingTests.cs` | split |
 | `Projects/ProjectFileFormatSeamTests.cs` | split |
+| `Projects/ProjectFilePickerTests.cs` | split |
 | `Projects/ProjectFormatPerProjectTests.cs` | split |
 | `Projects/ProjectLoadWarningTests.cs` | split |
 | `Projects/ProjectTextReadTests.cs` | provider |

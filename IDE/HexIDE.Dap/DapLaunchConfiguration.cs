@@ -29,9 +29,9 @@ public sealed record DapLaunchConfiguration
                 ++entry;
                 if (breakpoint.ValueKind != JsonValueKind.Object) continue;
                 foreach (var property in breakpoint.EnumerateObject())
-                    if (property.Name.Equals("condition", StringComparison.OrdinalIgnoreCase) ||
+                    if ((property.Name.Equals("condition", StringComparison.OrdinalIgnoreCase) ||
                         property.Name.Equals("hitCondition", StringComparison.OrdinalIgnoreCase) ||
-                        property.Name.Equals("logMessage", StringComparison.OrdinalIgnoreCase))
+                        property.Name.Equals("logMessage", StringComparison.OrdinalIgnoreCase)) && property.Value.ValueKind != JsonValueKind.String)
                         throw new DapBreakpointConditionException(file, entry, property.Name);
             }
         }

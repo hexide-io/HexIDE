@@ -31,16 +31,17 @@ The examples use the release executable, `HexIDE` (`HexIDE.exe` on Windows); a b
 | `--developer-mode` | — | Turns on session developer mode. **Debug builds only** — see below. |
 | `--ansi-code-page` | a Windows code page number, such as `932` | Reads and writes VB6 sources as a machine whose ANSI code page is that one would. **Debug builds only** — see below. |
 | `--dpi-unaware` | — | Runs the IDE at scale 1 on a Windows display scaled above 100%, so a layout can be checked as a 100% display shows it. Windows only. **Debug builds only** — see below. |
+| `--no-vb6` | — | Leaves VB6's type unregistered. **Debug builds only** — see below. |
 | *(positional)* | a path to an existing project file | Opens through the same project-type lookup as File → Open Project, including add-in types, instead of showing the startup dialog; a `.twinproj` opens read-only. Absolute paths are accepted, including Unix paths beginning `/`; relative paths are relative to where you ran HexIDE from. |
 
 ## The ones that behave differently in a distributed build
 
 This asymmetry is deliberate and it is easy to read the wrong way round.
 
-**`--server-port`, `--session`, `--developer-mode`, `--ansi-code-page` and `--dpi-unaware` are inert in a release build.** The automation
+**`--server-port`, `--session`, `--developer-mode`, `--ansi-code-page`, `--dpi-unaware` and `--no-vb6` are inert in a release build.** The automation
 server is compiled out entirely, and developer mode is hard-disabled, so a distributed binary opens no port
 and cannot be put into developer mode however it is launched. Nor can it be told to read files as another
-machine would: what a release reads a file as is what the machine it runs on reads it as. None of the five
+machine would: what a release reads a file as is what the machine it runs on reads it as. None of the six
 errors; each simply does nothing.
 
 **`--capture-lsp` is not.** The protocol capture ships in release builds, because the people it is for are
@@ -65,6 +66,10 @@ looks blurred there, and `get_window_state` says so. It gives scale 1 and nothin
 no other scale, so there is no way to show 150% on a display at 100%. `AVALONIA_GLOBAL_SCALE_FACTOR` is read only
 by Avalonia's X11 platform. On Linux and macOS the flag stops HexIDE starting, with exit code 2, rather than run at the
 display's own scale and look as though it had worked.
+
+**`--no-vb6` starts with no project type installed.** It leaves VB6's type, templates and member
+format unregistered so the no-provider paths can be checked, while normal user launches stay unchanged.
+With it, `--newproject` fails until [#4275](https://github.com/hexide-io/HexIDE/issues/4275).
 
 **`--user-data-dir` keeps a session away from your real settings.** Everything HexIDE stores per user
 lives in one directory — `settings.json`, the window layout, recent projects, [`lsp-servers.json`](language-servers.md),

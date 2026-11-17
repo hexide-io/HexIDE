@@ -20,9 +20,13 @@
   pending measurements. LocaleID reads 1033 whatever the user locale, as measured, and refuses where the system
   locale or an interface language isn't US English, or off Windows, because which of those VB6 follows is unmeasured
   ([#4266](https://github.com/hexide-io/HexIDE/issues/4266)). A refusal or error raised while a form loads its
-  UserControls is reported as any event's is (#4266). AmbientChanged for form colour changes remains unmeasured.
+  UserControls is reported as any event's is (#4266). AmbientChanged for form colour changes remains unmeasured ([#4448](https://github.com/hexide-io/HexIDE/issues/4448)).
   The remaining UserControl surface and designer/file editing are later work. Part C supplies Container assignment and Count, bottom Align, transparent BackStyle, and measured focus/lifecycle ordering. Align assignments other than 2, BackStyle reads (whose return subtype is unmeasured here), ContainedControls operations other than Count, and PropertyBag operations are still refused. Unmeasured conversions of
   AccessKeys are explicitly refused, rather than assigned invented VB6 semantics.
+  [#4337](https://github.com/hexide-io/HexIDE/issues/4337) also attaches runtime-loaded array elements,
+  with measured Initialize/Resize/ReadProperties, deferred Show, and index-ordered form teardown;
+  PropertyBag operations remain refused, and standalone element Unload and missing saved custom
+  properties have no additional measured semantics.
 - **Clipboard text is now partial (#1156):** Clear, SetText, GetText and GetFormat(vbCFText) use the host clipboard.
   Image/data methods, non-text format queries and RTF/Link text are deferred and explicitly refused. VB6 preserves
   other formats on SetText; the Avalonia host snapshots readable non-text formats and writes them back with the
@@ -41,6 +45,30 @@ It never copies VB6's silent tail loss. "Statement too complex" is not predicted
 not a general rule. The interpreter is unchanged, including #1930's Error 28 guard. The seven deep-chain corpus
 rows (2466, 3139, 3665, 4040, 5891, 6045, 6112) pin that guard in `ExpressionDepthGuardTests`, not VB6 behaviour;
 VB6 refuses those modules before running them. No language-support inventory counts change.
+
+## 64-bit VBA7 integers (#1548)
+
+[#4302](https://github.com/hexide-io/HexIDE/issues/4302) implements the Excel x64 rows recorded in that issue
+(measuring PR #3965): LongLong/LongPtr declarations, conversions, arithmetic, Variant overflow, literals,
+comparison and formatting, plus DefLngLng/DefLngPtr. VB6 keeps the measured unknown-name errors
+(measuring PR #4247), at execution where necessary, and user-defined names still win.
+
+Still unmeasured and explicitly refused under #1548: 32-bit VBA7; LongLong array bounds and For counters;
+Len/LenB/Get/Put of a UDT containing LongLong; and conversions to LongLong from source types other than
+Integer, Long, Byte, LongLong, Single, Double and measured decimal/hexadecimal strings. Named arguments
+and unmeasured argument counts for the conversions also refuse under #1548. These are missing
+measurements, not a language-analysis boundary. Intrinsic arguments containing LongLong are limited to the
+measured first-argument calls listed in MISSING_LANGUAGE; other intrinsics/positions, LenB of a Variant,
+and other conversions still refuse under #1548. The review measurements in [#4302](https://github.com/hexide-io/HexIDE/issues/4302)
+(oracle PR #4383) add Decimal division, Date multiplication, rounded integer/bitwise partners,
+Or/Xor/Eqv/Imp/Not, minimum-value overflow errors, and Abs/Int/Fix/Sgn. Comparisons use exact integer
+or Decimal domains, or Double for Single/Double/String/Date; Currency comparisons and LongLong
+Select Case selectors remain refused. Out-of-range integer/bitwise operand coercions, bitwise Date/Empty partners, and out-of-range or unmeasured `^`
+literal forms and a `^` read on a name declared as another type remain refused under #1548.
+Adjacent `^` is a type character in 64-bit projects and an operator in VB6; after `)` it stays an
+operator (reasoned, unmeasured). The bundled LSP grammar's VBA7 syntax/diagnostics follow-up is #4365.
+
+## Slot lifetime (#79)
 
 ## Slot lifetime (#79, #4375)
 

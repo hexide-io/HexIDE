@@ -20,6 +20,7 @@ without changing the value; see [Windows path syntax](language-servers.md#a-work
 For *configuring* a server, see [`language-servers.md`](./language-servers.md). For the third-party servers
 the test suite drives, see [`foreign-language-servers.md`](./foreign-language-servers.md).
 For the separate DAP client’s independent session checks, see [foreign debug adapters](foreign-debug-adapters.md).
+Launch-file breakpoint options and their DAP capability gating are described in [external debug sessions](debug-launch.md) (#4143); they do not change the LSP client contract.
 A pinned foreign-server download with a checksum mismatch fails an ordinary guard test even outside CI;
 the affected protocol tests skip visibly with a checksum-specific reason (#487).
 
@@ -1131,6 +1132,31 @@ assertion would be guarding against nothing.
 
 ---
 
+### Contributed server settings
+
+An add-in's contributed servers keep their settings in the user's `settings.json`, under
+`languageServerSettings` keyed by server id (#4307). A profile's settings-defaults payload may supply
+objects under that same key. Resolution is per id: a user's object replaces the profile's object whole,
+otherwise the profile supplies the default, otherwise the add-in's own entry `settings` (#4255) applies,
+otherwise settings are absent. Writes never change a profile
+or use an add-in's data folder. Profile settings defaults were already read for other settings; this
+adds the server-settings key to that existing path.
+
+`IAddinServerConnection.GetSettings()` returns this connection's resolved object or `null`.
+`SetSettingsAsync(JsonElement, CancellationToken)` accepts only an object, saves it in the user's layer,
+and uses the registry's existing settings-update path to send `workspace/didChangeConfiguration` when
+changed. A connection has no server-id argument and cannot write another server's settings. After removal,
+a write throws `ObjectDisposedException` without saving. `workspace/configuration` resolves these objects
+through the same section and dotted-path reader as file entries; missing paths return `null`.
+
+Tools → Options → Add-Ins → the add-in lists its servers by display name with read-only, indented JSON.
+A profile-supplied object is labelled **(default)** and absent settings **(none)**. **Reset** is enabled
+only with a user object: it removes that object immediately, independently of Options' OK/Cancel,
+and notifies a running server with its fallback (the profile object, then the entry's, or `{}` when none exists).
+Scripted peers in `AddinServerRegistrationTests` check configuration answers and received notifications;
+`OptionsViewIntegrationTests` checks the rendered JSON and Reset button. The live RDCore add-in check
+follows once it calls `SetSettingsAsync`.
+
 ### Add-in server trust
 
 Add-in-contributed servers re-check the contributing add-in’s enabled state, consent and active
@@ -1333,10 +1359,16 @@ connection is not classified as that failure. This adds no retry and does not es
 intermittent SIGPIPE.
 
 The in-memory pairs in `ServerApplyEditTests`, `TheTapStaysOutOfTheWayTests` and
-`RequestFailureLoggingTests` share `WireDiagnosis` (#3520, #3908, #3677). A connection drop during a test
+`RequestFailureLoggingTests` share `WireDiagnosis` (#3520, #3908, #3677).
+`SilentServerTests` also taps every reconnect and diagnoses its 20-second waits (#4446), excluding
+intentional handshake abandonment, stop and stand-in closure from unexpected-drop failures. A connection drop during a test
 fails with a `#3520:` diagnosis: elapsed time, test-token and thread-pool state, disconnect reasons,
 client logs and the last 4 KB read by each stand-in. The snapshot precedes deliberate teardown; it adds
 no retry and does not identify the cause of the intermittent CI drops by itself.
+`BundledServerRespectsTheIdesRegionsTests` captures the real server conversation for publish waits
+(#4430, #4446). A timeout or captured process failure includes methods, directions, outcomes and
+details, client logs and process liveness; exit notices retain the exit code. These failures use the
+same `#3520:` prefix and keep the existing deadlines.
 
 The untitled-document tests drain and poll for clangd's URI refusal, with a five-second deadline, before
 asserting on standard error (#2269). Diagnostics arriving does not mean the independent stderr reader
