@@ -1782,7 +1782,9 @@ public partial class ProjectService : IProjectService
             var errorSink = new DeserializeErrorSink(localization);
             var reader = FormFormatOf(module.Owner);
             var companion = await ReadCompanion(path, reader);
-            var fresh = reader.ReadDesignerPart(module.Owner, source, companion, errorSink);
+            if (companion is { } readCompanion)
+                RecordRead(readCompanion.Path, readCompanion.Bytes);
+            var fresh = reader.ReadDesignerPart(module.Owner, source, companion?.Bytes, errorSink);
             if (fresh != null)
             {
                 // StripHeader above is a no-op for these kinds, so Code still holds the whole file.
@@ -2356,7 +2358,7 @@ public partial class ProjectService : IProjectService
         // Form text before companion: the .frm's cited offsets partition the .frx.
         var reader = FormFormatOf(project);
         var companion = await ReadCompanion(absolutePath, reader);
-        var form = reader.ReadForm(project, source, companion, new DeserializeErrorSink(localization));
+        var form = reader.ReadForm(project, source, companion?.Bytes, new DeserializeErrorSink(localization));
         if (form == null)
             return Adopted<FormDefinition>.Unreadable();
 
@@ -2369,6 +2371,8 @@ public partial class ProjectService : IProjectService
         // Recorded only once the parse succeeded. A baseline for a form that was never added would leave
         // the dirty check answering about a file the project does not carry.
         RecordRead(absolutePath, bytes);
+        if (companion is { } readCompanion)
+            RecordRead(readCompanion.Path, readCompanion.Bytes);
         form.AbsolutePath = absolutePath;
         form.TextEncoding = sourceEncoding;
         project.AddForm(form);
@@ -2407,7 +2411,9 @@ public partial class ProjectService : IProjectService
         {
             var reader = FormFormatOf(project);
             var companion = await ReadCompanion(absolutePath, reader);
-            var formPart = reader.ReadDesignerPart(project, source, companion, new DeserializeErrorSink(localization));
+            if (companion is { } readCompanion)
+                RecordRead(readCompanion.Path, readCompanion.Bytes);
+            var formPart = reader.ReadDesignerPart(project, source, companion?.Bytes, new DeserializeErrorSink(localization));
             if (formPart != null)
             {
                 formPart.AbsolutePath = absolutePath;
@@ -2807,18 +2813,17 @@ public partial class ProjectService : IProjectService
     }
 
     /// <summary>
-    /// Reads the companion binary beside a designer file, if it has one, and records it. Always route companion
+    /// Reads the companion binary beside a designer file, if it has one. Always route companion
     /// reads through here — hardcoding ".frx" silently drops UserControl and PropertyPage resources, and the save
-    /// path then deletes the companion it never read.
+    /// path then deletes the companion it never read. It records nothing: each caller records the companion with
+    /// <see cref="RecordRead"/> once the file it belongs to has been accepted, so a refused file leaves no baseline (#4476).
     /// </summary>
-    private async Task<byte[]?> ReadCompanion(string sourceFilePath, IFormFileReader reader)
+    private async Task<(string Path, byte[] Bytes)?> ReadCompanion(string sourceFilePath, IFormFileReader reader)
     {
         if (reader.CompanionPath(sourceFilePath) is not { } companionPath || !File.Exists(companionPath))
             return null;
 
-        var bytes = await File.ReadAllBytesAsync(companionPath);
-        RecordRead(companionPath, bytes);
-        return bytes;
+        return (companionPath, await File.ReadAllBytesAsync(companionPath));
     }
 
     // Instance (not static) so each atomic write records a baseline. Recording the just-written
