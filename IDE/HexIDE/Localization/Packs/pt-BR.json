@@ -185,6 +185,7 @@
     "Str.AIChat.PrivacyNotice": "ℹ Privacidade: suas mensagens, o conteúdo do arquivo ativo (em um formulário, também o layout e as legendas) e seus diagnósticos são enviados para {0}, um serviço de terceiros configurado nas definições do chat de IA. Também são enviados, sem pedir aprovação, o conteúdo de qualquer outro arquivo dos projetos carregados que o assistente leia com suas ferramentas, as listas de arquivos dos projetos e os diagnósticos de qualquer arquivo.",
     "Str.AIChat.PrivacyKeyTip": "Dica: defina a variável de ambiente HEXIDE_AI_API_KEY para evitar salvar sua chave API em um arquivo.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Os projetos {0} compartilham a pasta {1}; apenas {2} é gravado ou importado.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "Não é possível salvar {0} como grupo de projetos: o VB6 abriria {1} como módulos de código, não como projetos. Remova-os do grupo ou salve cada projeto separadamente. Nada foi gravado.",
     "Str.PropDesc.Index": "Índice do elemento da matriz de controles, ou vazio para um controle simples."
   }
 }

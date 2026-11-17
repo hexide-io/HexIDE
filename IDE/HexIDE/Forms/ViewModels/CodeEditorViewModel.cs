@@ -192,6 +192,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private DocumentSymbol[]? _symbols;
     public IReadOnlyList<DocumentSymbol> OutlineSymbols => _symbols ?? [];
     private int symbolRefreshVersion;
+    // The symbol request still waiting, and the text it was asked for, by URI and checkpoint (#4162).
+    private CancellationTokenSource? symbolsRequest;
+    private (string Uri, ITextSourceVersion? Checkpoint)? symbolsWaiting;
+
+    private void CancelSymbolRequest()
+    {
+        if (symbolsRequest is not { } waiting) return;
+        symbolsRequest = null;
+        symbolsWaiting = null;
+        waiting.Cancel();
+        waiting.Dispose();
+    }
 
     /// <summary>
     /// This document's conversation with the language layer, shared with the carried-file editor.
@@ -310,13 +322,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 else
                 {
                     Log.Debug("CodeEditorViewModel: 'Sub {SubName}' not found, creating event stub", e.Sub);
-                    // Private, as VB6 writes an event procedure (measured, #1532). Add Procedure's own default is Public.
-                    AddProcedureViewModel vm = new AddProcedureViewModel();
-                    vm.IsPublic = false;
-                    vm.IsSub = true;
-                    vm.Name = e.Sub;
-                    var code = vm.GenerateCode();
-                    InsertAtEnd(code.beginCode, code.endCode);
+                    InsertEventHandlerStub(e.ObjectName, e.EventName);
                 }
                 FocusWindowRequest?.Invoke();
             }
@@ -1261,16 +1267,42 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     internal async Task RefreshSymbolsAsync()
     {
-        var version = ++symbolRefreshVersion;
         if (!lspClient.IsRunning || LiveDocumentUri is not { } uri)
         {
+            ++symbolRefreshVersion;
+            CancelSymbolRequest();
             _symbols = [];
             OnPropertyChanged(nameof(OutlineSymbols));
             return;
         }
+        // Every diagnostics publish, from any server, refreshes, so with two servers publishing for one edit the
+        // highest-priority one was asked for the same symbols two or three times over, each a second or more in a large
+        // module, and only the last answer was used (#4162). A request for this text that is still waiting answers this
+        // refresh too; one for older text is cancelled, so the server stops working on it. Once an answer is in, a later
+        // publish asks again, as before: a fresh diagnostic set is still the sign the server has re-read the document.
+        var checkpoint = Document.Version;
+        if (symbolsWaiting is { } waiting && waiting.Uri == uri && ReferenceEquals(waiting.Checkpoint, checkpoint)) return;
+        var version = ++symbolRefreshVersion;
+        CancelSymbolRequest();
+        var request = symbolsRequest = new CancellationTokenSource();
+        symbolsWaiting = (uri, checkpoint);
         var text = Document.Text;
-        await FlushDocumentAsync();
-        var symbols = await lspClient.RequestDocumentSymbolsAsync(uri);
+        DocumentSymbol[] symbols;
+        try
+        {
+            await FlushDocumentAsync(request.Token);
+            symbols = await lspClient.RequestDocumentSymbolsAsync(uri, request.Token);
+        }
+        catch (OperationCanceledException) when (request.IsCancellationRequested) { return; }
+        finally
+        {
+            if (ReferenceEquals(symbolsRequest, request))
+            {
+                symbolsWaiting = null;
+                symbolsRequest = null;
+                request.Dispose();
+            }
+        }
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             if (version != symbolRefreshVersion || LiveDocumentUri != uri || text != Document.Text) return;
@@ -1817,6 +1849,27 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (diagnostics.Length == 0) return [];
         await FlushDocumentAsync(ct);
         return await lspClient.RequestCodeActionsAsync(uri, diagnostics[0].Range, diagnostics, ct);
+    }
+
+    internal string NoCodeActionsMenuLabel => localization.GetString("Str.CodeEditor.NoCodeActions");
+
+    internal async Task<OfferedCodeAction[]> RequestCodeActionsAsync(int offset, int length, string[]? only,
+        CancellationToken ct = default)
+    {
+        if (LiveDocumentUri is not { } uri || session is null) return [];
+        Position At(int at)
+        {
+            var location = Document.GetLocation(at);
+            return new Position(location.Line - 1, location.Column - 1);
+        }
+        static int Compare(Position a, Position b) => a.Line != b.Line ? a.Line.CompareTo(b.Line) : a.Character.CompareTo(b.Character);
+        var range = new HexIDE.Lsp.Messages.Range(At(offset), At(offset + length));
+        var diagnostics = session.Diagnostics.Where(d => length == 0
+            ? Compare(d.Range.Start, range.Start) <= 0 && (Compare(range.Start, d.Range.End) < 0 || d.Range.Start == range.Start && d.Range.End == range.Start)
+            : Compare(d.Range.Start, range.End) < 0 && (Compare(range.Start, d.Range.End) < 0
+                || d.Range.Start == d.Range.End && d.Range.Start == range.Start)).ToArray();
+        await FlushDocumentAsync(ct);
+        return await lspClient.RequestCodeActionsAsync(uri, range, diagnostics, only, ct);
     }
 
     internal async Task<string?> ApplyCodeActionAsync(OfferedCodeAction action, CancellationToken ct = default)
@@ -2623,11 +2676,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
         var sb = new StringBuilder();
         sb.Append($"Private Sub {objectName}_{eventName}(");
+        var element = component?.IsControlArrayElement == true;
+        if (element) sb.Append("Index As Integer");
         if (ev is not null)
         {
             for (int i = 0; i < ev.Arguments.Length; i++)
             {
-                if (i > 0) sb.Append(", ");
+                if (i > 0 || element) sb.Append(", ");
                 sb.Append($"{ev.Arguments[i].DefaultName} As {ev.Arguments[i].Type}");
             }
         }

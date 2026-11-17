@@ -1444,7 +1444,8 @@ public record CodeActionParams(
 
 public record CodeActionContext(
     [property: JsonPropertyName("diagnostics")] Diagnostic[] Diagnostics,
-    [property: JsonPropertyName("triggerKind")] int TriggerKind = 1);
+    [property: JsonPropertyName("triggerKind")] int TriggerKind = 1,
+    [property: JsonPropertyName("only"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string[]? Only = null);
 
 public record CodeActionClientCapabilities(
     [property: JsonPropertyName("codeActionLiteralSupport")] CodeActionLiteralSupport CodeActionLiteralSupport,

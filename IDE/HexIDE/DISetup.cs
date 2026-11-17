@@ -163,8 +163,9 @@ public partial class DISetup
                 ctx.Inject<IComponentRegistry>(out var componentRegistry);
                 ctx.Inject<HexIDE.Language.IReadOnlyRegionWriter>(out var regionWriter);
                 ctx.Inject<IDocumentDockService>(out var documents);
+                ctx.Inject<AddinProjectTemplateService>(out var templates);
                 return new ProjectService(regionWriter, newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, format, componentRegistry, archives, lspClient,
-                    contributed, documents);
+                    contributed, documents, templates);
             })
             .Bind().As(Singleton).To<ArchiveProjectService>()
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()
@@ -385,7 +386,11 @@ public partial class DISetup
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
             // Pin production constructors: path/snapshot overloads are test seams, not dependencies.
             // Profiles
-            .Bind<IProfileService>().As(Singleton).To(_ => new ProfileService())
+            .Bind<IProfileService>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<AddinProjectTemplateService>(out var templates);
+                return new ProfileService(templates);
+            })
             // Theming
             .Bind<IThemeService>().As(Singleton).To(_ => new ThemeService())
             // Keymaps
@@ -410,7 +415,13 @@ public partial class DISetup
             .Bind().As(Singleton).To<AddinDiagnosticsService>()
             .Bind().As(Singleton).To<LanguageServerMessageReporter>()
             .Bind().As(Singleton).To<AddinCommandService>()
-            .Bind().As(Singleton).To<AddinProjectTemplateService>()
+            // The templates project types offer: VB6's first, as its type offers them (#3411 slice 10b), then add-ins'.
+            .Bind().As(Singleton).To(_ =>
+            {
+                var templates = new AddinProjectTemplateService();
+                HexIDE.Projects.Vb6ProjectType.RegisterTemplates(templates);
+                return templates;
+            })
             // The project types add-ins contribute, which Open Project and the recent list open as projects, with VB6's own
             // registered first, as a first-party type reading through the IDE's format (#3411 slice 10b).
             .Bind().As(Singleton).To(ctx =>

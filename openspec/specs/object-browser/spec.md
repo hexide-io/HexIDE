@@ -11,6 +11,26 @@ which is why VB6 gave it a dedicated key.
 
 ## Requirements
 
+### Requirement: Library selection survives removal and reopening
+When a selected library is removed, the browser SHALL select All Libraries and keep its class list,
+member list and navigation history consistent with that selection. During File > Open Project or Reload
+from Disk, it SHALL restore a returning library with the same name and kind (project or reference).
+Remembered selection SHALL expire when the reload finishes or the developer selects another library.
+This is HexIDE's selection policy (#4101), not a measured claim about VB6.
+
+#### Scenario: A selected reference is removed
+- **WHEN** the selected reference library is removed
+- **THEN** All Libraries is selected and its classes are shown
+- **AND** removed classes and members cannot be revisited through history
+
+#### Scenario: Reopening restores a library that still exists
+- **WHEN** a project is reopened with the selected project or reference library still present
+- **THEN** the library of the same name and kind is selected again
+
+#### Scenario: A removed reference returns later
+- **WHEN** reopening finishes without the selected reference and that reference is added later
+- **THEN** All Libraries remains selected
+
 ### Requirement: The browser SHALL show everything visible to the project
 The browser SHALL present the project's own forms, modules and classes, the runtime control library, the
 built-in language functions, and the types in any referenced library, and SHALL allow narrowing to one
@@ -63,6 +83,20 @@ A class with no member list SHALL remain listed and show a localized message
 in its members pane explaining that its type library is required. Both paths SHALL label HexIDE-only
 members with the localized origin description.
 
+Third-party component libraries named on project lines or in form headers SHALL also be listed, once per
+project, and loaded by GUID and version through the same service. Each SHALL use its type library's
+metadata name, or its OCX file name without the extension and a metadata-unavailable entry when the
+metadata can't be read (#4037).
+
+#### Scenario: A third-party component with readable metadata
+- **WHEN** a project names a third-party library only as a component
+- **THEN** its type-library name, classes and members are available through the shared service
+- **AND** loading requires no file path
+
+#### Scenario: A third-party component without readable metadata
+- **WHEN** a component's library is unregistered or the platform cannot read its metadata
+- **THEN** it remains listed under its OCX file name without its extension, with a metadata-unavailable entry
+
 #### Scenario: A component-only library without a registered OCX
 - **GIVEN** the project names MSCOMCTL.OCX only on an `Object=` line
 - **WHEN** its type-library metadata is unavailable
@@ -106,7 +140,8 @@ member signature without an icon prefix.
 
 ### Requirement: Selecting a type SHALL show its members, and selecting a member SHALL describe it
 Selecting a type SHALL list its members; selecting a member SHALL show its signature and what it belongs to,
-along with any description available for it.
+along with any description available for it. The owning-type label SHALL be localized, with the library
+and class names substituted into the selected language’s format.
 
 The two-step shape is the whole interaction: narrow to a type, scan its members, read one. The description
 is what makes the last step worth taking — a member name alone rarely answers the question, and the

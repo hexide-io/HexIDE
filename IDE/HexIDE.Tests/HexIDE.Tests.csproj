@@ -18,6 +18,8 @@
         <PackageReference Include="Avalonia.Headless" />
         <PackageReference Include="Avalonia.Headless.XUnit" />
         <PackageReference Include="AwesomeAssertions" />
+        <!-- CI's ViewModel step names what was running when a run is too slow or hangs (#2128). -->
+        <PackageReference Include="Microsoft.Testing.Extensions.HangDump" />
         <PackageReference Include="NSubstitute" />
         <PackageReference Include="xunit.v3" />
         <PackageReference Include="xunit.analyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
@@ -35,6 +37,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="../HexIDE.Office/HexIDE.Office.csproj" />
         <ProjectReference Include="../HexIDE.Lsp.TestHost/HexIDE.Lsp.TestHost.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\HexIDE.Dap\HexIDE.Dap.csproj" />
         <ProjectReference Include="..\HexIDE.Lsp.TestServer\HexIDE.Lsp.TestServer.csproj" />

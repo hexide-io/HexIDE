@@ -30,6 +30,22 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Control event declarations are checked when a form starts
+
+Before a form's declarations or Initialize run, the interpreter SHALL compare its collected control event Subs with the control class's event argument counts, plus one for an array element. An element's first parameter SHALL be ByRef Integer by effective type, including suffixes and DefType. Names and the event's own argument types/passing SHALL NOT be checked.
+
+
+#### Scenario: An element retains a scalar handler
+Measurements: [#4205](https://github.com/hexide-io/HexIDE/issues/4205), oracle PR #4358.
+- **WHEN** execution enters a form with `Command1` carrying `Index = 0` and `Sub Command1_Click()`
+- **THEN** it raises `Procedure declaration does not match description of event or procedure having the same name` as a compile error before the form's own code runs
+- **AND** the error carries the form module and the handler declaration's line, and the log names the procedure
+
+#### Scenario: A renamed or implicitly Integer index parameter
+- **WHEN** the element's Click handler takes `i As Integer`, `Index%`, or `Index` under `DefInt I`, by reference
+- **THEN** the handler accepts the event and receives Integer 0 when that element is clicked
+
+
 ### Requirement: Source-class default members SHALL resolve at async value boundaries
 
 The engine SHALL collect the name and kind of a source class's default member and read its Function,
@@ -1858,6 +1874,17 @@ changes only selection SHALL raise Click alone. Wheel input and ListIndex assign
 Page Down SHALL move keyboard focus to the selected item so subsequent arrow navigation continues
 from it (#3275). Native-message Scroll delivery remains pending (#3986).
 
+A TopIndex assignment after ListIndex or Selected in the same execution SHALL remain in effect after
+queued dispatcher work runs (#4229, measured in the issue). Code selection before the form is shown
+SHALL bring the selected item into view when it is shown unless a later TopIndex assignment supersedes that scroll.
+On a MultiSelect list, `Selected(i) = True` SHALL bring the item into view the same way, the least scroll that shows
+it, and SHALL NOT raise Scroll (measured on vb6.exe, #4229).
+
+#### Scenario: TopIndex follows code selection
+- **WHEN** a 60-item list showing 11 rows executes `ListIndex = 50` then `TopIndex = 20`
+- **THEN** after dispatcher processing ListIndex remains 50 and TopIndex remains 20
+- **AND** only the TopIndex assignment raises Scroll
+
 #### Scenario: Page Down followed by Up with item focus
 - **WHEN** an item has keyboard focus and Page Down changes the selection, followed by Up
 - **THEN** Page Down gives its selected item keyboard focus
@@ -2014,3 +2041,31 @@ report "Expected: end of statement".
 - **WHEN** Mid, LSet or RSet writes a fixed-length scalar String
 - **THEN** it retains its declared width
 - **AND** both LSet and RSet retain the leftmost characters of an overlong source
+
+### Requirement: LSet between plain-data user-defined types
+
+The interpreter SHALL execute `LSet target = source` between named plain-data UDT variables by
+copying the smaller in-memory size and preserving the target tail, using the layout and encodings
+measured in [#2518](https://github.com/hexide-io/HexIDE/issues/2518) (native and p-code, including
+measuring PR #4241).
+
+#### Scenario: Fields follow the measured in-memory layout
+- **WHEN** a UDT is copied
+- **THEN** fields retain declaration order and align to their size capped at four bytes
+- **AND** Integer and Boolean align to two, and fixed Strings store UTF-16 code units inline
+- **AND** fixed arrays lie inline, a nested UDT is a record of its own, aligned to its largest field and with its size
+  rounded up before the next field, each UDT size rounds up to its largest alignment, and padding starts zero
+- **AND** copied padding remains available to subsequent LSet operations
+- **AND** numbers use little-endian encodings, including Currency's scaled 64-bit integer and Date's Double serial
+
+#### Scenario: A short source preserves the target tail
+- **WHEN** a three-Long target holding 7, 8, 9 receives a one-Long source holding 5
+- **THEN** the target holds 5, 8, 9
+
+#### Scenario: Pointer-containing UDTs are refused at execution
+- **WHEN** either UDT contains a variable String, Variant, dynamic array or Object
+- **THEN** the executed statement raises error 13
+
+#### Scenario: Noncanonical Boolean bits cannot be represented
+- **WHEN** copying bytes would put `01 00` into a Boolean field
+- **THEN** the statement explicitly refuses as not implemented rather than normalising the bits

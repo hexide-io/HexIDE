@@ -44,6 +44,8 @@ public class VBLoader
         VBProgram? program = null,
         VBWindowContext? windowContext = null)
     {
+        if (windowContext is not null)
+            windowContext.FormDefinition = element;
         var runtimeBlocks = element.Components.Where(c => c.BaseClass is FormComponentClass)
             .SelectMany(c => c.PreservedChildSubtrees)
             .Select(block => (block.Text, Component: (Components.InBox.ToolbarComponentClass.ReadForRuntime(block.Text)
@@ -1091,7 +1093,7 @@ public class VBLoader
         // closed when the run ends so a box still open goes with it, as one over a form does.
         startupWindow = null;
         var owner = new Window();
-        var program = new VBProgram(project, new VBWindowContext(new StandaloneStandardLib(owner)), debugController, OpenWindow);
+        var program = new VBProgram(project, new VBWindowContext(new StandaloneStandardLib(owner, HexIDE.IDE.Distribution.DisplayName)), debugController, OpenWindow);
         program.Interpreter.FindStartupSubMain();
         return RunThenClose(RunSubMain(program, token), owner);
 
