@@ -474,6 +474,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Semua Pustaka>",
     "Str.Tool.ObjectBrowser.MembersOf": "Anggota '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Anggota tidak dapat dicantumkan tanpa pustaka tipe dari pustaka ini.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Metadata tipe tidak tersedia)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Tutup Penjelajah Objek",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Penjelajah Objek",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Buka Definisi",

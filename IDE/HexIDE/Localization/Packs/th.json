@@ -398,6 +398,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<ทุกไลบรารี>",
     "Str.Tool.ObjectBrowser.MembersOf": "สมาชิกของ '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "ไม่สามารถแสดงรายการสมาชิกได้หากไม่มีไลบรารีชนิดของไลบรารีนี้",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(ไม่มีเมทาดาทาของชนิด)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "ปิดตัวเรียกดูวัตถุ",
     "Str.Tool.ObjectBrowser.Chrome.Title": "ตัวเรียกดูวัตถุ",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "ไปที่นิยาม",

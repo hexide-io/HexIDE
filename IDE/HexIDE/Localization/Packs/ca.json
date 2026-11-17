@@ -426,6 +426,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Totes les biblioteques>",
     "Str.Tool.ObjectBrowser.MembersOf": "Membres de «{0}»",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "No es poden llistar els membres sense la biblioteca de tipus d’aquesta biblioteca.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Metadades de tipus no disponibles)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Tanca l'examinador d'objectes",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Examinador d'objectes",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Ves a la definició",

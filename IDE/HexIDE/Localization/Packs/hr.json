@@ -460,6 +460,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Sve biblioteke>",
     "Str.Tool.ObjectBrowser.MembersOf": "Članovi objekta '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Članovi se ne mogu navesti bez biblioteke tipova ove biblioteke.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Metapodaci o tipovima nisu dostupni)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Zatvori preglednik objekata",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Preglednik objekata",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Idi na definiciju",

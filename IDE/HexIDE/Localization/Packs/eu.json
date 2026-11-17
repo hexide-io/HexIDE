@@ -398,6 +398,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Liburutegi guztiak>",
     "Str.Tool.ObjectBrowser.MembersOf": "'{0}' objektuaren kideak",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Ezin dira kideak zerrendatu liburutegi honen mota-liburutegirik gabe.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Moten metadatuak ez daude erabilgarri)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Itxi objektu-arakatzailea",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektu-arakatzailea",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Joan definiziora",

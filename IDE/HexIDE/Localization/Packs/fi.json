@@ -440,6 +440,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Kaikki kirjastot>",
     "Str.Tool.ObjectBrowser.MembersOf": "Kohteen '{0}' jäsenet",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Jäseniä ei voi luetella ilman tämän kirjaston tyyppikirjastoa.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Tyyppien metatietoja ei ole saatavilla)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Sulje objektiselain",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektiselain",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Siirry määritykseen",

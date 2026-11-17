@@ -468,6 +468,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<كل المكتبات>",
     "Str.Tool.ObjectBrowser.MembersOf": "أعضاء '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "لا يمكن سرد الأعضاء دون مكتبة الأنواع الخاصة بهذه المكتبة.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(بيانات النوع الوصفية غير متاحة)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "إغلاق مستعرض الكائنات",
     "Str.Tool.ObjectBrowser.Chrome.Title": "مستعرض الكائنات",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "الانتقال إلى التعريف",

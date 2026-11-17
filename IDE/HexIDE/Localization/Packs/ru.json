@@ -440,6 +440,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Все библиотеки>",
     "Str.Tool.ObjectBrowser.MembersOf": "Члены '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Невозможно перечислить члены без библиотеки типов этой библиотеки.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Метаданные типов недоступны)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Закрыть обозреватель объектов",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Обозреватель объектов",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Перейти к определению",

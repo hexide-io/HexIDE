@@ -468,6 +468,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Toutes les bibliothèques>",
     "Str.Tool.ObjectBrowser.MembersOf": "Membres de '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Les membres ne peuvent pas être répertoriés sans la bibliothèque de types de cette bibliothèque.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Métadonnées de type indisponibles)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Fermer l'Explorateur d'objets",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Explorateur d'objets",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Atteindre la définition",

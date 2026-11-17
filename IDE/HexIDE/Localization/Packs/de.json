@@ -468,6 +468,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Alle Bibliotheken>",
     "Str.Tool.ObjectBrowser.MembersOf": "Mitglieder von '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Ohne die Typbibliothek dieser Bibliothek können die Member nicht aufgelistet werden.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Typmetadaten nicht verfügbar)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Objektkatalog schließen",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektkatalog",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Gehe zu Definition",
