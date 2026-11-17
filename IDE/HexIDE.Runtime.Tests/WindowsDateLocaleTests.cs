@@ -49,6 +49,33 @@ public partial class WindowsDateLocaleTests : BaseVBTestFixture
         dates.PMDesignator.Should().BeEmpty();
     }
 
+    [Fact]
+    public void Empty_Nls_designators_leave_a_twelve_hour_pattern_its_own()
+    {
+        // tzm-Latn-DZ: NLS has no designators beside its own 24-hour "H:mm:ss", which isn't taken, while .NET's
+        // pattern is "h:mm:ss tt". Taking the empty ones wrote 23:59:59 as "11:59:59 ", which reads back as morning.
+        var dates = (DateTimeFormatInfo)CultureInfo.InvariantCulture.DateTimeFormat.Clone();
+        dates.LongTimePattern = "h:mm:ss tt";
+        dates.AMDesignator = "am";
+        dates.PMDesignator = "pm";
+        WindowsDateLocale.Apply(dates, type => type is 0x28 or 0x29 ? "" : "fixture",
+            () => throw new InvalidOperationException());
+        dates.AMDesignator.Should().Be("am");
+        dates.PMDesignator.Should().Be("pm");
+    }
+
+    [Theory]
+    [InlineData("h:mm:ss tt", true)]
+    [InlineData("tt h:mm", true)]
+    [InlineData("HH:mm:ss", false)]
+    [InlineData("H:mm' Uhr'", false)]
+    [InlineData("H:mm 'at'", false)]
+    [InlineData("H:mm \"at\"", false)]
+    [InlineData("H:mm \\t", false)]
+    [InlineData("'it''s' h tt", true)]
+    public void A_pattern_writes_a_designator_only_through_an_unquoted_t(string pattern, bool writes) =>
+        WindowsDateLocale.WritesDesignator(pattern).Should().Be(writes);
+
     [Theory]
     [InlineData("en-GB")]
     [InlineData("de-DE")]

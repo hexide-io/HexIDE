@@ -22,3 +22,9 @@ with the same calendar and user-override rules as dates. The en-GB `AMPM` result
 [#4378](https://github.com/hexide-io/HexIDE/issues/4378): `12:00:01 PM`.
 Other locales follow the documented system-data source, not new VB6 measurements; VB6's output
 with empty designators, and CStr/no-mask time output in twelve-hour locales, remain unmeasured.
+
+Windows pairs its designators with its own time format, `LOCALE_STIMEFORMAT`, which HexIDE doesn't take yet: the time
+pattern is .NET's. So an empty pair is taken only where .NET's time patterns write no designator. Of 605 locales, 48
+have empty designators, and one, tzm-Latn-DZ, has them beside a .NET pattern of `h:mm:ss tt`, where Windows' own is
+`H:mm:ss`. That locale keeps .NET's designators, so `CStr` writes `11:59:59` and a designator where Windows writes
+`23:59:59`. Taking the time format as well is #4463.
