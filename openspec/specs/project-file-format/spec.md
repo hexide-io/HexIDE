@@ -22,6 +22,17 @@ be the suggested name. Form and module file names and Add File SHALL use the own
 - **THEN** the picker offers that type's names and format's extensions
 - **AND** Add File offers the form extension followed by each module kind's extension
 
+### Requirement: Add File SHALL classify a picked file using the owning format
+Add File SHALL compare a picked file's extension without regard to case against the project's format's `FormExtension`
+and each module kind's `MemberExtension`. A match SHALL join as that form or module kind. An unmatched or extensionless
+file SHALL join as a related document (#4423).
+
+#### Scenario: A format names class modules xcls
+- **GIVEN** the focused project's format names forms `xfrm` and class modules `xcls`
+- **WHEN** Add File picks `C.XCLS`
+- **THEN** the file joins as a class module
+- **AND** `notes.md` and `C.cls` would join as related documents
+
 ### Requirement: A group picker SHALL name the type that writes the group
 A group SHALL offer the type that reads its existing path, or VB6's registered type. A new group SHALL use the first loaded
 project's type with `GroupFileNames`, then VB6's registered type. With no group writer, saving the group SHALL show a
