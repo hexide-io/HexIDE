@@ -780,6 +780,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE se ukončilo bez uložení této práce. Obnovte ji a pokračujte tam, kde jste skončili, nebo ji zahoďte. Tlačítko „Rozhodnout později“ ji ponechá na později v nabídce Soubor pod položkou Obnovit neuloženou práci.",
     "Str.Dialog.Recovery.List": "Neuložená práce",
     "Str.Dialog.Recovery.NeverSaved": "Nikdy neuloženo",
+    "Str.Dialog.Recovery.WaitingForType": "Čeká se na typ projektu, který umí číst {0}.",
     "Str.Dialog.Recovery.From": "Z {0}",
     "Str.Dialog.Recovery.MovedFrom": "Přesunuto z {0}",
     "Str.Dialog.Recovery.BackedUp": "Zálohováno {0}",

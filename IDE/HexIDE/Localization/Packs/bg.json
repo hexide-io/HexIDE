@@ -784,6 +784,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE е затворен, без да запише тази работа. Възстановете я, за да продължите оттам, докъдето сте стигнали, или я отхвърлете. „Решение по-късно“ я запазва за по-късно във „Възстановяване на незаписана работа“ от менюто „Файл“.",
     "Str.Dialog.Recovery.List": "Незаписана работа",
     "Str.Dialog.Recovery.NeverSaved": "Никога не е записвано",
+    "Str.Dialog.Recovery.WaitingForType": "Изчаква се тип проект, който чете {0}.",
     "Str.Dialog.Recovery.From": "От {0}",
     "Str.Dialog.Recovery.MovedFrom": "Преместено от {0}",
     "Str.Dialog.Recovery.BackedUp": "Архивирано на {0}",

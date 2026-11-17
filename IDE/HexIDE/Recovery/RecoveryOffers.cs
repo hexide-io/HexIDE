@@ -53,6 +53,7 @@ public sealed class RecoveryOffers : IRecoveryOffers
     private readonly IDocumentDockService dock;
     private readonly IFileBaselineStore baselineStore;
     private readonly IClock clock;
+    private readonly ContributedProjects contributed;
     private readonly FileReloader reloader;
     private readonly IEditorService editors;
     private readonly List<Waiting> waiting = [];
@@ -61,9 +62,10 @@ public sealed class RecoveryOffers : IRecoveryOffers
     public RecoveryOffers(IRecoveryService recovery, IProjectService projects, IProjectManager projectManager,
         IWindowManager windowManager, ILocalizationService localization, IDocumentDockService dock,
         IFileBaselineStore baselineStore, IClock clock, IEventBus eventBus, IStatusBarService statusBar,
-        IHeaderRefresher headerRefresher, IEditorService editors)
+        IHeaderRefresher headerRefresher, IEditorService editors, ContributedProjects contributed)
     {
         this.editors = editors;
+        this.contributed = contributed;
         this.recovery = recovery;
         this.projects = projects;
         this.projectManager = projectManager;
@@ -82,7 +84,7 @@ public sealed class RecoveryOffers : IRecoveryOffers
     public async Task<bool> OfferAtStartAsync()
     {
         Detect();
-        var atStart = waiting.Where(w => w.Record.Path is null || w.Record.Scratch).ToList();
+        var atStart = waiting.Where(w => (w.Record.Path is null || w.Record.Scratch) && CanRestore(w.Record)).ToList();
 
         // A scratch project counts as unsaved whatever it holds (#2678), so a killed --newproject run leaves a
         // backup even when nothing was edited. One its files on disk already hold, byte for byte, is not offered.
@@ -171,7 +173,7 @@ public sealed class RecoveryOffers : IRecoveryOffers
         if (project.AbsolutePath is not { } path || waiting.Count == 0)
             return;
         var hash = baselineStore.TryGet(path)?.Hash;
-        var matches = waiting.Where(w => w.Record.Path is { } old
+        var matches = waiting.Where(w => CanRestore(w.Record) && w.Record.Path is { } old
             && (SamePath(old, path) || !File.Exists(old) && hash is not null && w.Record.ProjectFileHash == hash)).ToList();
 
         // A backup that says nothing the opened project doesn't already is not offered, and goes. A tick inside a
@@ -247,6 +249,13 @@ public sealed class RecoveryOffers : IRecoveryOffers
         return restored;
     }
 
+    private bool CanRestore(RecoveryRun.ProjectRecord record)
+    {
+        if (record.Path is { } path && !record.Scratch)
+            return contributed.Find(path) is not null;
+        return string.IsNullOrEmpty(record.RenderedAt) || contributed.Find(record.RenderedAt)?.Type.Format is not null;
+    }
+
     private RecoveryItemViewModel Describe(Waiting w, ProjectDefinition? opened)
     {
         var record = w.Record;
@@ -265,7 +274,12 @@ public sealed class RecoveryOffers : IRecoveryOffers
             changed.Count > 0
                 ? string.Format(localization.GetString("Str.Dialog.Recovery.ChangedOnDisk"), string.Join(", ", changed))
                 : null,
-            w);
+            w)
+        {
+            WaitingForType = CanRestore(record) ? null
+                : string.Format(localization.GetString("Str.Dialog.Recovery.WaitingForType"),
+                    Path.GetFileName(record.Path is not null && !record.Scratch ? record.Path : record.RenderedAt)),
+        };
     }
 
     // A backed-up document whose file has changed on disk since the backup: restoring puts the backup in the IDE

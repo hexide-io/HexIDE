@@ -752,6 +752,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE закрылся, не сохранив эту работу. Восстановите её, чтобы продолжить с того места, где вы остановились, или отбросьте. Кнопка «Решить позже» оставит её на потом в пункте «Восстановить несохранённую работу» меню «Файл».",
     "Str.Dialog.Recovery.List": "Несохранённая работа",
     "Str.Dialog.Recovery.NeverSaved": "Не сохранялся",
+    "Str.Dialog.Recovery.WaitingForType": "Ожидание типа проекта, который читает {0}.",
     "Str.Dialog.Recovery.From": "Из {0}",
     "Str.Dialog.Recovery.MovedFrom": "Перемещён из {0}",
     "Str.Dialog.Recovery.BackedUp": "Резервная копия: {0}",

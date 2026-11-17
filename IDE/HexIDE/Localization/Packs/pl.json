@@ -786,6 +786,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE zostało zamknięte bez zapisania tej pracy. Przywróć ją, aby kontynuować od miejsca, w którym skończono, lub ją odrzuć. „Zdecyduj później” zachowuje ją na później w poleceniu Odzyskaj niezapisaną pracę w menu Plik.",
     "Str.Dialog.Recovery.List": "Niezapisana praca",
     "Str.Dialog.Recovery.NeverSaved": "Nigdy nie zapisano",
+    "Str.Dialog.Recovery.WaitingForType": "Oczekiwanie na typ projektu, który odczytuje {0}.",
     "Str.Dialog.Recovery.From": "Z {0}",
     "Str.Dialog.Recovery.MovedFrom": "Przeniesiono z {0}",
     "Str.Dialog.Recovery.BackedUp": "Kopia zapasowa z {0}",

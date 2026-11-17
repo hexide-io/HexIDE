@@ -786,6 +786,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE ditutup tanpa menyimpan pekerjaan ini. Pulihkan untuk melanjutkan dari tempat Anda berhenti, atau buang. \"Putuskan Nanti\" menyimpannya untuk nanti, di Pulihkan Pekerjaan yang Belum Disimpan pada menu Berkas.",
     "Str.Dialog.Recovery.List": "Pekerjaan yang belum disimpan",
     "Str.Dialog.Recovery.NeverSaved": "Belum pernah disimpan",
+    "Str.Dialog.Recovery.WaitingForType": "Menunggu jenis proyek yang dapat membaca {0}.",
     "Str.Dialog.Recovery.From": "Dari {0}",
     "Str.Dialog.Recovery.MovedFrom": "Dipindahkan dari {0}",
     "Str.Dialog.Recovery.BackedUp": "Dicadangkan {0}",

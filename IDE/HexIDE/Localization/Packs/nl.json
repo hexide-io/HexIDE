@@ -786,6 +786,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE is afgesloten zonder dit werk op te slaan. Herstel het om verder te gaan waar u gebleven was, of verwijder het. Met ‘Later beslissen’ blijft het bewaard voor later, onder Niet-opgeslagen werk herstellen in het menu Bestand.",
     "Str.Dialog.Recovery.List": "Niet-opgeslagen werk",
     "Str.Dialog.Recovery.NeverSaved": "Nooit opgeslagen",
+    "Str.Dialog.Recovery.WaitingForType": "Wachten op een projecttype dat {0} kan lezen.",
     "Str.Dialog.Recovery.From": "Uit {0}",
     "Str.Dialog.Recovery.MovedFrom": "Verplaatst uit {0}",
     "Str.Dialog.Recovery.BackedUp": "Reservekopie van {0}",

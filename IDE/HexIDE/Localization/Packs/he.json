@@ -814,6 +814,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE נסגר בלי לשמור את העבודה הזו. שחזר אותה כדי להמשיך מהמקום שבו הפסקת, או מחק אותה. \"החלטה מאוחר יותר\" שומר אותה למועד מאוחר יותר, תחת שחזור עבודה שלא נשמרה בתפריט קובץ.",
     "Str.Dialog.Recovery.List": "עבודה שלא נשמרה",
     "Str.Dialog.Recovery.NeverSaved": "לא נשמר מעולם",
+    "Str.Dialog.Recovery.WaitingForType": "ממתין לסוג פרויקט שקורא את {0}.",
     "Str.Dialog.Recovery.From": "מתוך {0}",
     "Str.Dialog.Recovery.MovedFrom": "הועבר מ-{0}",
     "Str.Dialog.Recovery.BackedUp": "גובה ב-{0}",

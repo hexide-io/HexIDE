@@ -756,6 +756,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE lan hau gorde gabe itxi zen. Leheneratu utzitako lekutik jarraitzeko edo baztertu. Erabaki geroago aukerak gerorako mantentzen du, Fitxategia menuko Berreskuratu gorde gabeko lana aukeran.",
     "Str.Dialog.Recovery.List": "Gorde gabeko lana",
     "Str.Dialog.Recovery.NeverSaved": "Inoiz gorde gabea",
+    "Str.Dialog.Recovery.WaitingForType": "{0} irakurtzen duen proiektu mota baten zain.",
     "Str.Dialog.Recovery.From": "Jatorria: {0}",
     "Str.Dialog.Recovery.MovedFrom": "Hemendik mugitua: {0}",
     "Str.Dialog.Recovery.BackedUp": "Babeskopia: {0}",

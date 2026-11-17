@@ -818,6 +818,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE je zatvoren bez spremanja ovog rada. Vratite ga da biste nastavili gdje ste stali ili ga odbacite. Odluči kasnije čuva ga za kasnije pod Oporavi nespremljeni rad u izborniku Datoteka.",
     "Str.Dialog.Recovery.List": "Nespremljeni rad",
     "Str.Dialog.Recovery.NeverSaved": "Nikad spremljeno",
+    "Str.Dialog.Recovery.WaitingForType": "Čeka se vrsta projekta koja čita {0}.",
     "Str.Dialog.Recovery.From": "Iz {0}",
     "Str.Dialog.Recovery.MovedFrom": "Premješteno iz {0}",
     "Str.Dialog.Recovery.BackedUp": "Sigurnosna kopija: {0}",

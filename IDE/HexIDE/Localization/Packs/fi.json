@@ -752,6 +752,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE sulkeutui tallentamatta tätä työtä. Palauta se jatkaaksesi siitä, mihin jäit, tai hylkää se. ”Päätä myöhemmin” säilyttää sen myöhempää varten kohdassa Palauta tallentamaton työ Tiedosto-valikossa.",
     "Str.Dialog.Recovery.List": "Tallentamaton työ",
     "Str.Dialog.Recovery.NeverSaved": "Ei koskaan tallennettu",
+    "Str.Dialog.Recovery.WaitingForType": "Odotetaan projektityyppiä, joka lukee tiedoston {0}.",
     "Str.Dialog.Recovery.From": "Kohteesta {0}",
     "Str.Dialog.Recovery.MovedFrom": "Siirretty kohteesta {0}",
     "Str.Dialog.Recovery.BackedUp": "Varmuuskopioitu {0}",

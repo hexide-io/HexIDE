@@ -756,6 +756,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE sulgus seda tööd salvestamata. Taasta see, et pooleli jäänud kohast jätkata, või hülga see. „Otsusta hiljem” säilitab selle hilisemaks menüü Fail käsu „Taasta salvestamata töö” all.",
     "Str.Dialog.Recovery.List": "Salvestamata töö",
     "Str.Dialog.Recovery.NeverSaved": "Pole kunagi salvestatud",
+    "Str.Dialog.Recovery.WaitingForType": "Oodatakse projektitüüpi, mis loeb faili {0}.",
     "Str.Dialog.Recovery.From": "Asukohast {0}",
     "Str.Dialog.Recovery.MovedFrom": "Teisaldatud asukohast {0}",
     "Str.Dialog.Recovery.BackedUp": "Varundatud {0}",

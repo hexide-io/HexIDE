@@ -790,6 +790,7 @@
     "Str.Dialog.Recovery.Prompt": "A HexIDE a munka mentése nélkül zárult be. Állítsa helyre a folytatáshoz, vagy vesse el. A Döntés később megőrzi későbbre, a Fájl menü Mentetlen munka helyreállítása pontjában.",
     "Str.Dialog.Recovery.List": "Mentetlen munka",
     "Str.Dialog.Recovery.NeverSaved": "Még nem volt mentve",
+    "Str.Dialog.Recovery.WaitingForType": "Várakozás egy olyan projekttípusra, amely beolvassa ezt: {0}.",
     "Str.Dialog.Recovery.From": "Forrás: {0}",
     "Str.Dialog.Recovery.MovedFrom": "Áthelyezve innen: {0}",
     "Str.Dialog.Recovery.BackedUp": "Biztonsági mentés: {0}",

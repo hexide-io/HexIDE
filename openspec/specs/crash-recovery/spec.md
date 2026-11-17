@@ -109,6 +109,24 @@ its files. A never-saved project has nothing to open, so start is its only chanc
 - **WHEN** such a project's files on disk already hold, byte for byte, everything its backup does
 - **THEN** nothing is offered, and the backup is deleted
 
+### Requirement: A backup SHALL wait for a project type that can restore it
+The IDE SHALL check registered project types by the saved project's path, or by the rendered file name for an
+unsaved or scratch project. An unsaved or scratch project SHALL require a type with a format. A backup for which
+no such type is registered SHALL be kept without being offered at start or on project open, including when its
+scratch files already hold it. The pending-work dialog SHALL list it with a localized waiting explanation,
+disable Restore and keep Discard available. The record format SHALL remain unchanged; an empty rendered file
+name on an unsaved or scratch record SHALL retain its existing offer behavior (#4276).
+
+#### Scenario: The type returns
+- **WHEN** a never-saved project's backup waits because its type is not registered
+- **AND** the type is registered on a later start
+- **THEN** the backup is offered and can be restored
+
+#### Scenario: Pending work without its type
+- **WHEN** the developer opens Recover Unsaved Work with a backup whose type is not registered
+- **THEN** the backup is listed as waiting for a type that reads its file name
+- **AND** Restore is disabled, Discard is enabled, and showing the dialog resolves nothing
+
 ### Requirement: Restoring a saved project SHALL bring back its documents
 Restoring a saved project's work SHALL put each backed-up document's content in place of what was opened, unsaved, and
 SHALL add back any document the project no longer holds. Its other settings, such as its startup object, SHALL NOT be

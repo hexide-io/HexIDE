@@ -756,6 +756,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE s-a închis fără a salva acest lucru. Restabilește-l pentru a continua de unde ai rămas sau renunță la el. Decide mai târziu îl păstrează pentru mai târziu, în Recuperează lucrul nesalvat din meniul Fișier.",
     "Str.Dialog.Recovery.List": "Lucru nesalvat",
     "Str.Dialog.Recovery.NeverSaved": "Niciodată salvat",
+    "Str.Dialog.Recovery.WaitingForType": "Se așteaptă un tip de proiect care poate citi {0}.",
     "Str.Dialog.Recovery.From": "Din {0}",
     "Str.Dialog.Recovery.MovedFrom": "Mutat din {0}",
     "Str.Dialog.Recovery.BackedUp": "Copie de siguranță din {0}",

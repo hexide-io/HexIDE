@@ -780,6 +780,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE s'est fermé sans enregistrer ce travail. Restaurez-le pour reprendre là où vous en étiez, ou abandonnez-le. « Décider plus tard » le conserve pour plus tard, sous Récupérer le travail non enregistré dans le menu Fichier.",
     "Str.Dialog.Recovery.List": "Travail non enregistré",
     "Str.Dialog.Recovery.NeverSaved": "Jamais enregistré",
+    "Str.Dialog.Recovery.WaitingForType": "En attente d’un type de projet capable de lire {0}.",
     "Str.Dialog.Recovery.From": "De {0}",
     "Str.Dialog.Recovery.MovedFrom": "Déplacé depuis {0}",
     "Str.Dialog.Recovery.BackedUp": "Sauvegardé le {0}",

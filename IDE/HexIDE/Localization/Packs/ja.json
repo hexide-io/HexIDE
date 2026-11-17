@@ -814,6 +814,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE はこの作業を保存せずに終了しました。復元して中断したところから続けるか、破棄してください。[後で決める] を選ぶと、[ファイル] メニューの [保存されていない作業の回復] に残しておけます。",
     "Str.Dialog.Recovery.List": "保存されていない作業",
     "Str.Dialog.Recovery.NeverSaved": "一度も保存されていません",
+    "Str.Dialog.Recovery.WaitingForType": "{0} を読み取れるプロジェクトの種類を待っています。",
     "Str.Dialog.Recovery.From": "{0} から",
     "Str.Dialog.Recovery.MovedFrom": "{0} から移動",
     "Str.Dialog.Recovery.BackedUp": "{0} にバックアップ",

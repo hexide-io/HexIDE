@@ -752,6 +752,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE bu çalışmayı kaydetmeden kapandı. Kaldığınız yerden devam etmek için geri yükleyin ya da atın. \"Sonra Karar Ver\", çalışmayı daha sonrası için Dosya menüsündeki Kaydedilmemiş Çalışmayı Kurtar altında saklar.",
     "Str.Dialog.Recovery.List": "Kaydedilmemiş çalışma",
     "Str.Dialog.Recovery.NeverSaved": "Hiç kaydedilmedi",
+    "Str.Dialog.Recovery.WaitingForType": "{0} dosyasını okuyabilen bir proje türü bekleniyor.",
     "Str.Dialog.Recovery.From": "Kaynak: {0}",
     "Str.Dialog.Recovery.MovedFrom": "Şuradan taşındı: {0}",
     "Str.Dialog.Recovery.BackedUp": "Yedeklendi: {0}",

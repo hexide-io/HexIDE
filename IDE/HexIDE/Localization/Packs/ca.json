@@ -784,6 +784,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE s'ha tancat sense desar aquesta feina. Restaureu-la per continuar on éreu o descarteu-la. Decideix més tard la conserva per a més endavant, a Recupera la feina no desada del menú Fitxer.",
     "Str.Dialog.Recovery.List": "Feina no desada",
     "Str.Dialog.Recovery.NeverSaved": "No s'ha desat mai",
+    "Str.Dialog.Recovery.WaitingForType": "S’espera un tipus de projecte que llegeixi {0}.",
     "Str.Dialog.Recovery.From": "De {0}",
     "Str.Dialog.Recovery.MovedFrom": "Mogut des de {0}",
     "Str.Dialog.Recovery.BackedUp": "Còpia de seguretat de {0}",

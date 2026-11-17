@@ -786,6 +786,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE ble lukket uten å lagre dette arbeidet. Gjenopprett det for å fortsette der du slapp, eller forkast det. «Bestem senere» tar vare på det til senere, under Gjenopprett ulagret arbeid på Fil-menyen.",
     "Str.Dialog.Recovery.List": "Ulagret arbeid",
     "Str.Dialog.Recovery.NeverSaved": "Aldri lagret",
+    "Str.Dialog.Recovery.WaitingForType": "Venter på en prosjekttype som kan lese {0}.",
     "Str.Dialog.Recovery.From": "Fra {0}",
     "Str.Dialog.Recovery.MovedFrom": "Flyttet fra {0}",
     "Str.Dialog.Recovery.BackedUp": "Sikkerhetskopiert {0}",

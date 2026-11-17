@@ -780,6 +780,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE 關閉時未儲存此工作。您可以還原它，從上次中斷處繼續，也可以將其捨棄。選擇「稍後決定」會將其保留到以後，位於「檔案」功能表的「復原未儲存的工作」中。",
     "Str.Dialog.Recovery.List": "未儲存的工作",
     "Str.Dialog.Recovery.NeverSaved": "從未儲存",
+    "Str.Dialog.Recovery.WaitingForType": "正在等待可讀取 {0} 的專案類型。",
     "Str.Dialog.Recovery.From": "來自 {0}",
     "Str.Dialog.Recovery.MovedFrom": "已從 {0} 移動",
     "Str.Dialog.Recovery.BackedUp": "備份於 {0}",

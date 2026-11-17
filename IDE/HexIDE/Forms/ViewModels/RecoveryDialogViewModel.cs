@@ -37,7 +37,7 @@ public sealed class RecoveryDialogViewModel : ObservableObject, IDialog
         this.discard = discard;
         Items = new ObservableCollection<RecoveryItemViewModel>(items);
         selectedItem = Items.Count > 0 ? Items[0] : null;
-        RestoreCommand = new DelegateCommand(() => RestoreSelectedAsync().ListenErrors(), () => selectedItem is not null && !busy);
+        RestoreCommand = new DelegateCommand(() => RestoreSelectedAsync().ListenErrors(), () => selectedItem is { CanRestore: true } && !busy);
         DiscardCommand = new DelegateCommand(() => DiscardSelectedAsync().ListenErrors(), () => selectedItem is not null && !busy);
         LaterCommand = new DelegateCommand(() => CloseRequested?.Invoke(false), () => !busy);
     }
@@ -68,7 +68,7 @@ public sealed class RecoveryDialogViewModel : ObservableObject, IDialog
     public DelegateCommand LaterCommand { get; }
 
     /// <summary>What <see cref="RestoreCommand"/> does, for a caller that needs to know when it has finished.</summary>
-    internal Task RestoreSelectedAsync() => Act(restore);
+    internal Task RestoreSelectedAsync() => selectedItem is { CanRestore: true } ? Act(restore) : Task.CompletedTask;
 
     /// <summary>What <see cref="DiscardCommand"/> does, for a caller that needs to know when it has finished.</summary>
     internal Task DiscardSelectedAsync() => Act(discard);
@@ -115,8 +115,15 @@ public sealed class RecoveryDialogViewModel : ObservableObject, IDialog
 /// <param name="Key">The caller's own handle on the work.</param>
 public sealed record RecoveryItemViewModel(string Name, string Origin, string BackedUp, string? ChangedOnDisk, object Key)
 {
+    /// <summary>Why the backup waits for its project type, or null when it can be restored.</summary>
+    public string? WaitingForType { get; init; }
+
+    public bool CanRestore => WaitingForType is null;
+
     /// <summary>What a screen reader announces for the row: everything it shows, in order.</summary>
-    public string AccessibleName => ChangedOnDisk is null
+    public string AccessibleName => WaitingForType is { } reason ? $"{Details}, {reason}" : Details;
+
+    private string Details => ChangedOnDisk is null
         ? $"{Name}, {Origin}, {BackedUp}"
         : $"{Name}, {Origin}, {BackedUp}, {ChangedOnDisk}";
 

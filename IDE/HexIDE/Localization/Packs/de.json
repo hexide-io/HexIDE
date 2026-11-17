@@ -780,6 +780,7 @@
     "Str.Dialog.Recovery.Prompt": "HexIDE wurde beendet, ohne diese Arbeit zu speichern. Stellen Sie sie wieder her, um dort weiterzumachen, wo Sie aufgehört haben, oder verwerfen Sie sie. „Später entscheiden“ bewahrt sie für später auf, unter Nicht gespeicherte Arbeit wiederherstellen im Menü Datei.",
     "Str.Dialog.Recovery.List": "Nicht gespeicherte Arbeit",
     "Str.Dialog.Recovery.NeverSaved": "Nie gespeichert",
+    "Str.Dialog.Recovery.WaitingForType": "Wartet auf einen Projekttyp, der {0} lesen kann.",
     "Str.Dialog.Recovery.From": "Aus {0}",
     "Str.Dialog.Recovery.MovedFrom": "Verschoben aus {0}",
     "Str.Dialog.Recovery.BackedUp": "Gesichert am {0}",
