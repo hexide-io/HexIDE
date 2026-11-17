@@ -341,6 +341,7 @@ public class ShippedPackParityTests
             var translated = bulgarian.Strings[key];
             translated.Should().NotBeNullOrWhiteSpace(key);
             translated.Replace("VB6_EXE", "").Replace("VB_Name", "").Replace("HEXIDE_AI_API_KEY", "")
+                .Replace("HEXIDE_PLATFORM", "")
                 .Should().NotContain("_", key);
             System.Text.RegularExpressions.Regex.Matches(translated, @"\{\d+[^}]*\}")
                 .Select(m => m.Value).Should().BeEquivalentTo(

@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index는 0~32767의 정수 또는 빈 값이어야 합니다.",
     "Str.ControlArray.DuplicateIndex": "'{0}'에 이미 Index {1}이(가) 있습니다. 다른 Index를 선택하세요.",
     "Str.ControlArray.ClearRefused": "'{0}'의 이름이 같은 동안에는 Index를 지울 수 없습니다.",
-    "Str.ControlArray.UnindexedSibling": "'{0}'의 이름이 같고 Index가 없습니다. 먼저 해당 Index를 설정하세요."
+    "Str.ControlArray.UnindexedSibling": "'{0}'의 이름이 같고 Index가 없습니다. 먼저 해당 Index를 설정하세요.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland에 의해 네이티브 Wayland가 요청되었지만 Wayland 디스플레이에 연결할 수 없습니다: {0}. 대신 --platform x11 또는 --platform auto로 시작하세요.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland에 의해 네이티브 Wayland가 요청되었지만 Wayland 디스플레이에 연결할 수 없습니다: {0}. HEXIDE_PLATFORM을 x11 또는 auto로 설정하거나 설정을 해제하세요."
   }
 }

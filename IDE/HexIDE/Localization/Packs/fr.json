@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index doit être un entier de 0 à 32767, ou vide.",
     "Str.ControlArray.DuplicateIndex": "« {0} » possède déjà l’Index {1}. Choisissez un autre Index.",
     "Str.ControlArray.ClearRefused": "Impossible de vider Index tant que « {0} » porte le même nom.",
-    "Str.ControlArray.UnindexedSibling": "« {0} » porte le même nom et n’a pas d’Index. Définissez d’abord son Index."
+    "Str.ControlArray.UnindexedSibling": "« {0} » porte le même nom et n’a pas d’Index. Définissez d’abord son Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland imposait Wayland natif, mais aucun affichage Wayland n’a pu être joint : {0}. Démarrez plutôt avec --platform x11 ou --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland imposait Wayland natif, mais aucun affichage Wayland n’a pu être joint : {0}. Définissez HEXIDE_PLATFORM sur x11 ou auto, ou supprimez la variable."
   }
 }

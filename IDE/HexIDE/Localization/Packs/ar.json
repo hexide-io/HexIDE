@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "يجب أن يكون Index عدداً صحيحاً من 0 إلى 32767، أو فارغاً.",
     "Str.ControlArray.DuplicateIndex": "يحتوي '{0}' بالفعل على Index بقيمة {1}. اختر Index آخر.",
     "Str.ControlArray.ClearRefused": "لا يمكن مسح Index ما دام '{0}' يحمل الاسم نفسه.",
-    "Str.ControlArray.UnindexedSibling": "يحمل '{0}' الاسم نفسه وليس له Index. عيّن Index له أولاً."
+    "Str.ControlArray.UnindexedSibling": "يحمل '{0}' الاسم نفسه وليس له Index. عيّن Index له أولاً.",
+    "Str.Startup.WaylandUnavailableArgument": "كان Wayland الأصلي مطلوبًا بواسطة --platform wayland، ولكن تعذّر الوصول إلى أي شاشة Wayland: {0}. ابدأ باستخدام --platform x11 أو --platform auto بدلاً من ذلك.",
+    "Str.Startup.WaylandUnavailableEnvironment": "كان Wayland الأصلي مطلوبًا بواسطة HEXIDE_PLATFORM=wayland، ولكن تعذّر الوصول إلى أي شاشة Wayland: {0}. اضبط HEXIDE_PLATFORM على x11 أو auto، أو ألغِ تعيينه."
   }
 }

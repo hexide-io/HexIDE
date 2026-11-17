@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index måste vara ett heltal från 0 till 32767, eller tomt.",
     "Str.ControlArray.DuplicateIndex": "'{0}' har redan Index {1}. Välj ett annat Index.",
     "Str.ControlArray.ClearRefused": "Index kan inte rensas medan '{0}' har samma namn.",
-    "Str.ControlArray.UnindexedSibling": "'{0}' har samma namn och saknar Index. Ange dess Index först."
+    "Str.ControlArray.UnindexedSibling": "'{0}' har samma namn och saknar Index. Ange dess Index först.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland krävde inbyggt Wayland, men ingen Wayland-skärm kunde nås: {0}. Starta med --platform x11 eller --platform auto i stället.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland krävde inbyggt Wayland, men ingen Wayland-skärm kunde nås: {0}. Sätt HEXIDE_PLATFORM till x11 eller auto, eller ta bort variabeln."
   }
 }

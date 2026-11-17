@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index mora biti celo število od 0 do 32767 ali prazen.",
     "Str.ControlArray.DuplicateIndex": "'{0}' že ima Index {1}. Izberite drug Index.",
     "Str.ControlArray.ClearRefused": "Vrednosti Index ni mogoče počistiti, dokler ima '{0}' isto ime.",
-    "Str.ControlArray.UnindexedSibling": "'{0}' ima isto ime in nima vrednosti Index. Najprej nastavite njegov Index."
+    "Str.ControlArray.UnindexedSibling": "'{0}' ima isto ime in nima vrednosti Index. Najprej nastavite njegov Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland je zahteval izvorni Wayland, vendar ni bilo mogoče doseči zaslona Wayland: {0}. Namesto tega zaženite z --platform x11 ali --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland je zahteval izvorni Wayland, vendar ni bilo mogoče doseči zaslona Wayland: {0}. Nastavite HEXIDE_PLATFORM na x11 ali auto ali odstranite spremenljivko."
   }
 }

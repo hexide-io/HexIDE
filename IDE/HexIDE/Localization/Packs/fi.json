@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index-arvon on oltava kokonaisluku väliltä 0–32767 tai tyhjä.",
     "Str.ControlArray.DuplicateIndex": "Kohteella '{0}' on jo Index {1}. Valitse toinen Index.",
     "Str.ControlArray.ClearRefused": "Index-arvoa ei voi tyhjentää, kun kohteella '{0}' on sama nimi.",
-    "Str.ControlArray.UnindexedSibling": "Kohteella '{0}' on sama nimi eikä Index-arvoa. Aseta ensin sen Index."
+    "Str.ControlArray.UnindexedSibling": "Kohteella '{0}' on sama nimi eikä Index-arvoa. Aseta ensin sen Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland vaati natiivia Waylandia, mutta Wayland-näyttöön ei saatu yhteyttä: {0}. Käynnistä sen sijaan valinnalla --platform x11 tai --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland vaati natiivia Waylandia, mutta Wayland-näyttöön ei saatu yhteyttä: {0}. Aseta HEXIDE_PLATFORM arvoon x11 tai auto tai poista muuttuja."
   }
 }

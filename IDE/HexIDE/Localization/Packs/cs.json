@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index musí být celé číslo od 0 do 32767 nebo prázdný.",
     "Str.ControlArray.DuplicateIndex": "'{0}' už má Index {1}. Zvolte jiný Index.",
     "Str.ControlArray.ClearRefused": "Index nelze vymazat, dokud má '{0}' stejný název.",
-    "Str.ControlArray.UnindexedSibling": "'{0}' má stejný název a nemá Index. Nejprve nastavte jeho Index."
+    "Str.ControlArray.UnindexedSibling": "'{0}' má stejný název a nemá Index. Nejprve nastavte jeho Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland vyžaduje nativní Wayland, ale nebylo možné připojit se k displeji Wayland: {0}. Spusťte místo toho s --platform x11 nebo --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland vyžaduje nativní Wayland, ale nebylo možné připojit se k displeji Wayland: {0}. Nastavte HEXIDE_PLATFORM na x11 nebo auto, nebo proměnnou zrušte."
   }
 }

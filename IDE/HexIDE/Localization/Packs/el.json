@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Το Index πρέπει να είναι ακέραιος από 0 έως 32767 ή κενό.",
     "Str.ControlArray.DuplicateIndex": "Το '{0}' έχει ήδη Index {1}. Επιλέξτε άλλο Index.",
     "Str.ControlArray.ClearRefused": "Δεν είναι δυνατή η εκκαθάριση του Index όσο το '{0}' έχει το ίδιο όνομα.",
-    "Str.ControlArray.UnindexedSibling": "Το '{0}' έχει το ίδιο όνομα και δεν έχει Index. Ορίστε πρώτα το Index του."
+    "Str.ControlArray.UnindexedSibling": "Το '{0}' έχει το ίδιο όνομα και δεν έχει Index. Ορίστε πρώτα το Index του.",
+    "Str.Startup.WaylandUnavailableArgument": "Το --platform wayland απαίτησε εγγενές Wayland, αλλά δεν ήταν δυνατή η σύνδεση με οθόνη Wayland: {0}. Ξεκινήστε με --platform x11 ή --platform auto αντί αυτού.",
+    "Str.Startup.WaylandUnavailableEnvironment": "Το HEXIDE_PLATFORM=wayland απαίτησε εγγενές Wayland, αλλά δεν ήταν δυνατή η σύνδεση με οθόνη Wayland: {0}. Ορίστε το HEXIDE_PLATFORM σε x11 ή auto, ή καταργήστε τη μεταβλητή."
   }
 }

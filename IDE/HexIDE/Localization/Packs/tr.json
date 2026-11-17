@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index 0 ile 32767 arasında bir tam sayı veya boş olmalıdır.",
     "Str.ControlArray.DuplicateIndex": "'{0}' zaten Index {1} değerine sahip. Başka bir Index seçin.",
     "Str.ControlArray.ClearRefused": "'{0}' aynı ada sahipken Index temizlenemez.",
-    "Str.ControlArray.UnindexedSibling": "'{0}' aynı ada sahip ve Index değeri yok. Önce onun Index değerini ayarlayın."
+    "Str.ControlArray.UnindexedSibling": "'{0}' aynı ada sahip ve Index değeri yok. Önce onun Index değerini ayarlayın.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland yerel Wayland gerektiriyordu, ancak hiçbir Wayland ekranına ulaşılamadı: {0}. Bunun yerine --platform x11 veya --platform auto ile başlatın.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland yerel Wayland gerektiriyordu, ancak hiçbir Wayland ekranına ulaşılamadı: {0}. HEXIDE_PLATFORM değerini x11 veya auto olarak ayarlayın ya da değişkeni kaldırın."
   }
 }

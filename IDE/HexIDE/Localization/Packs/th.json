@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index ต้องเป็นจำนวนเต็มตั้งแต่ 0 ถึง 32767 หรือว่าง",
     "Str.ControlArray.DuplicateIndex": "'{0}' มี Index {1} อยู่แล้ว เลือก Index อื่น",
     "Str.ControlArray.ClearRefused": "ล้าง Index ไม่ได้ขณะที่ '{0}' มีชื่อเดียวกัน",
-    "Str.ControlArray.UnindexedSibling": "'{0}' มีชื่อเดียวกันและไม่มี Index ตั้งค่า Index ของตัวควบคุมนั้นก่อน"
+    "Str.ControlArray.UnindexedSibling": "'{0}' มีชื่อเดียวกันและไม่มี Index ตั้งค่า Index ของตัวควบคุมนั้นก่อน",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland กำหนดให้ใช้ Wayland แบบเนทีฟ แต่ไม่สามารถเชื่อมต่อจอแสดงผล Wayland ได้: {0}. ให้เริ่มด้วย --platform x11 หรือ --platform auto แทน",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland กำหนดให้ใช้ Wayland แบบเนทีฟ แต่ไม่สามารถเชื่อมต่อจอแสดงผล Wayland ได้: {0}. ตั้งค่า HEXIDE_PLATFORM เป็น x11 หรือ auto หรือยกเลิกการตั้งค่า"
   }
 }

@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index turi būti sveikasis skaičius nuo 0 iki 32767 arba tuščias.",
     "Str.ControlArray.DuplicateIndex": "„{0}“ jau turi Index {1}. Pasirinkite kitą Index.",
     "Str.ControlArray.ClearRefused": "Index negalima išvalyti, kol „{0}“ turi tą patį pavadinimą.",
-    "Str.ControlArray.UnindexedSibling": "„{0}“ turi tą patį pavadinimą ir neturi Index. Pirmiausia nustatykite jo Index."
+    "Str.ControlArray.UnindexedSibling": "„{0}“ turi tą patį pavadinimą ir neturi Index. Pirmiausia nustatykite jo Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland reikalauja vietinio Wayland, bet nepavyko pasiekti jokio Wayland ekrano: {0}. Vietoj to paleiskite su --platform x11 arba --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland reikalauja vietinio Wayland, bet nepavyko pasiekti jokio Wayland ekrano: {0}. Nustatykite HEXIDE_PLATFORM į x11 arba auto, arba pašalinkite kintamąjį."
   }
 }

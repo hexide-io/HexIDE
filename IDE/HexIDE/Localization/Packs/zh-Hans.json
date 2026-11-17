@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index 必须是 0 到 32767 的整数，或留空。",
     "Str.ControlArray.DuplicateIndex": "“{0}”已有 Index {1}。请选择其他 Index。",
     "Str.ControlArray.ClearRefused": "“{0}”具有相同名称时，无法清空 Index。",
-    "Str.ControlArray.UnindexedSibling": "“{0}”具有相同名称且没有 Index。请先设置其 Index。"
+    "Str.ControlArray.UnindexedSibling": "“{0}”具有相同名称且没有 Index。请先设置其 Index。",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland 要求使用原生 Wayland，但无法连接到 Wayland 显示：{0}。 请改用 --platform x11 或 --platform auto 启动。",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland 要求使用原生 Wayland，但无法连接到 Wayland 显示：{0}。 请将 HEXIDE_PLATFORM 设为 x11 或 auto，或取消设置该变量。"
   }
 }

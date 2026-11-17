@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index musi być liczbą całkowitą od 0 do 32767 lub pusty.",
     "Str.ControlArray.DuplicateIndex": "'{0}' ma już Index {1}. Wybierz inny Index.",
     "Str.ControlArray.ClearRefused": "Nie można wyczyścić Index, dopóki '{0}' ma tę samą nazwę.",
-    "Str.ControlArray.UnindexedSibling": "'{0}' ma tę samą nazwę i nie ma Index. Najpierw ustaw jego Index."
+    "Str.ControlArray.UnindexedSibling": "'{0}' ma tę samą nazwę i nie ma Index. Najpierw ustaw jego Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland wymagał natywnego Wayland, ale nie można połączyć się z żadnym wyświetlaczem Wayland: {0}. Uruchom z --platform x11 lub --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland wymagał natywnego Wayland, ale nie można połączyć się z żadnym wyświetlaczem Wayland: {0}. Ustaw HEXIDE_PLATFORM na x11 lub auto albo usuń tę zmienną."
   }
 }

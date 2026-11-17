@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index должен быть целым числом от 0 до 32767 или пустым.",
     "Str.ControlArray.DuplicateIndex": "У «{0}» уже есть Index {1}. Выберите другой Index.",
     "Str.ControlArray.ClearRefused": "Нельзя очистить Index, пока «{0}» имеет то же имя.",
-    "Str.ControlArray.UnindexedSibling": "«{0}» имеет то же имя и не имеет Index. Сначала задайте его Index."
+    "Str.ControlArray.UnindexedSibling": "«{0}» имеет то же имя и не имеет Index. Сначала задайте его Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland потребовал собственный Wayland, но подключиться к дисплею Wayland не удалось: {0}. Запустите с --platform x11 или --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland потребовал собственный Wayland, но подключиться к дисплею Wayland не удалось: {0}. Задайте HEXIDE_PLATFORM значение x11 или auto либо удалите переменную."
   }
 }

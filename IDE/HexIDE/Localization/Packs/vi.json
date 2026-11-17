@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index phải là số nguyên từ 0 đến 32767, hoặc để trống.",
     "Str.ControlArray.DuplicateIndex": "'{0}' đã có Index {1}. Hãy chọn Index khác.",
     "Str.ControlArray.ClearRefused": "Không thể xóa Index khi '{0}' có cùng tên.",
-    "Str.ControlArray.UnindexedSibling": "'{0}' có cùng tên và không có Index. Hãy đặt Index cho điều khiển đó trước."
+    "Str.ControlArray.UnindexedSibling": "'{0}' có cùng tên và không có Index. Hãy đặt Index cho điều khiển đó trước.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland yêu cầu Wayland gốc, nhưng không thể kết nối với màn hình Wayland nào: {0}. Hãy khởi động bằng --platform x11 hoặc --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland yêu cầu Wayland gốc, nhưng không thể kết nối với màn hình Wayland nào: {0}. Đặt HEXIDE_PLATFORM thành x11 hoặc auto, hoặc bỏ đặt biến này."
   }
 }

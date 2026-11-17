@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index 0 eta 32767 arteko osoko zenbakia edo hutsa izan behar da.",
     "Str.ControlArray.DuplicateIndex": "'{0}' kontrolak badu Index {1}. Aukeratu beste Index bat.",
     "Str.ControlArray.ClearRefused": "Ezin da Index hustu '{0}' kontrolak izen bera duen bitartean.",
-    "Str.ControlArray.UnindexedSibling": "'{0}' kontrolak izen bera du eta ez du Index baliorik. Ezarri haren Index lehenik."
+    "Str.ControlArray.UnindexedSibling": "'{0}' kontrolak izen bera du eta ez du Index baliorik. Ezarri haren Index lehenik.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland aukerak Wayland natiboa eskatu du, baina ezin izan da Wayland pantailarik atzitu: {0}. Abiarazi --platform x11 edo --platform auto erabiliz.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland aukerak Wayland natiboa eskatu du, baina ezin izan da Wayland pantailarik atzitu: {0}. Ezarri HEXIDE_PLATFORM aldagaiaren balioa x11 edo auto gisa, edo kendu aldagaia."
   }
 }

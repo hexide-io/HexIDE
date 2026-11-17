@@ -1329,6 +1329,8 @@
     "Str.ControlArray.InvalidIndex": "Index harus berupa bilangan bulat dari 0 hingga 32767, atau kosong.",
     "Str.ControlArray.DuplicateIndex": "'{0}' sudah memiliki Index {1}. Pilih Index lain.",
     "Str.ControlArray.ClearRefused": "Index tidak dapat dikosongkan selama '{0}' memiliki nama yang sama.",
-    "Str.ControlArray.UnindexedSibling": "'{0}' memiliki nama yang sama dan tidak memiliki Index. Tetapkan Index-nya terlebih dahulu."
+    "Str.ControlArray.UnindexedSibling": "'{0}' memiliki nama yang sama dan tidak memiliki Index. Tetapkan Index-nya terlebih dahulu.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland mengharuskan Wayland native, tetapi tidak ada tampilan Wayland yang dapat dijangkau: {0}. Mulai dengan --platform x11 atau --platform auto sebagai gantinya.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland mengharuskan Wayland native, tetapi tidak ada tampilan Wayland yang dapat dijangkau: {0}. Atur HEXIDE_PLATFORM ke x11 atau auto, atau hapus variabel tersebut."
   }
 }
