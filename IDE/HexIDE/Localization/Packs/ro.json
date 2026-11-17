@@ -2,6 +2,7 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Linia {0}: proprietatea {1} din {2} nu a putut fi setată.",
     "Str.Menu.Edit.Refactor": "Refact_orizare",
     "Str.Menu.Edit.SourceActions": "Ac_țiuni pentru codul sursă",
     "Str.CodeEditor.Refactor": "Refactorizare",

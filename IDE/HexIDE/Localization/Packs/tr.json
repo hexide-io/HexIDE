@@ -2,6 +2,7 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Satır {0}: {2} içindeki {1} özelliği ayarlanamadı.",
     "Str.Menu.Edit.Refactor": "Ye_niden düzenle",
     "Str.Menu.Edit.SourceActions": "Kaynak eyle_mleri",
     "Str.CodeEditor.Refactor": "Yeniden düzenle",

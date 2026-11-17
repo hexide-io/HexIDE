@@ -2,6 +2,7 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Línea {0}: no se pudo establecer la propiedad {1} en {2}.",
     "Str.Menu.Edit.Refactor": "Re_factorizar",
     "Str.Menu.Edit.SourceActions": "Acc_iones de código fuente",
     "Str.CodeEditor.Refactor": "Refactori_zar",

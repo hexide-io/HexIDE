@@ -2,6 +2,7 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Γραμμή {0}: δεν ήταν δυνατός ο ορισμός της ιδιότητας {1} στο {2}.",
     "Str.Menu.Edit.Refactor": "Αναδόμηση",
     "Str.Menu.Edit.SourceActions": "Ενέργειες πηγαίου κώδικα",
     "Str.CodeEditor.Refactor": "Αναδόμηση",

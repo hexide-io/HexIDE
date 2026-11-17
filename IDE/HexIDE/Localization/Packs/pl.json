@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Wiersz {0}: nie można ustawić właściwości {1} w {2}.",
     "Str.Menu.Edit.Refactor": "_Refaktoryzacja",
     "Str.Menu.Edit.SourceActions": "Akcje kodu _źródłowego",
     "Str.CodeEditor.Refactor": "Refaktoryzacja",

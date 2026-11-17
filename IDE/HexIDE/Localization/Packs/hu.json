@@ -2,6 +2,7 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "{0}. sor: a(z) {2} {1} tulajdonságát nem sikerült beállítani.",
     "Str.Menu.Edit.Refactor": "_Refaktorálás",
     "Str.Menu.Edit.SourceActions": "_Forrásműveletek",
     "Str.CodeEditor.Refactor": "Refaktor_álás",

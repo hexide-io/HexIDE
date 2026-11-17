@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "第 {0} 行：无法设置 {2} 的属性 {1}。",
     "Str.Menu.Edit.Refactor": "重构",
     "Str.Menu.Edit.SourceActions": "源代码操作",
     "Str.CodeEditor.Refactor": "重构",

@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Строка {0}: не удалось задать свойство {1} в {2}.",
     "Str.Menu.Edit.Refactor": "Рефакторинг",
     "Str.Menu.Edit.SourceActions": "Действия с исходным кодом",
     "Str.CodeEditor.Refactor": "Рефакторинг",

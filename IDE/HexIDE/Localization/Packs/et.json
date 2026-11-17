@@ -2,6 +2,7 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Rida {0}: omadust {1} elemendis {2} ei saanud määrata.",
     "Str.Menu.Edit.Refactor": "_Refaktoreeri",
     "Str.Menu.Edit.SourceActions": "L_ähtekoodi toimingud",
     "Str.CodeEditor.Refactor": "Refaktoreeri",

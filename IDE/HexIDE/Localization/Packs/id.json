@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Baris {0}: properti {1} di {2} tidak dapat ditetapkan.",
     "Str.Menu.Edit.Refactor": "Re_faktor",
     "Str.Menu.Edit.SourceActions": "Ti_ndakan kode sumber",
     "Str.CodeEditor.Refactor": "Refaktor",

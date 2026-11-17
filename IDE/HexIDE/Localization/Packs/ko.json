@@ -2,6 +2,7 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "줄 {0}: {2}의 {1} 속성을 설정할 수 없습니다.",
     "Str.Menu.Edit.Refactor": "리팩터링",
     "Str.Menu.Edit.SourceActions": "소스 작업",
     "Str.CodeEditor.Refactor": "리팩터링",

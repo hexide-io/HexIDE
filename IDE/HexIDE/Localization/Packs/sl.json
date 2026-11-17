@@ -2,6 +2,7 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Vrstica {0}: lastnosti {1} v {2} ni bilo mogoče nastaviti.",
     "Str.Menu.Edit.Refactor": "Pre_oblikovanje kode",
     "Str.Menu.Edit.SourceActions": "De_janja izvorne kode",
     "Str.CodeEditor.Refactor": "Preoblikovanje kode",

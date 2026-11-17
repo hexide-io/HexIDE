@@ -2,6 +2,7 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Line {0}: Property {1} in {2} could not be set.",
     "Str.Menu.Edit.Refactor": "Refactor",
     "Str.Menu.Edit.SourceActions": "Source Actions",
     "Str.CodeEditor.Refactor": "Refactor",

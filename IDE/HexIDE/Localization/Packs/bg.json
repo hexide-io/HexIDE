@@ -2,6 +2,7 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Ред {0}: свойството {1} в {2} не можа да бъде зададено.",
     "Str.Menu.Edit.Refactor": "Рефакториране",
     "Str.Menu.Edit.SourceActions": "Действия с изходния код",
     "Str.CodeEditor.Refactor": "Рефакториране",

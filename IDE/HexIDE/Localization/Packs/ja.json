@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "行 {0}: {2} のプロパティ {1} を設定できませんでした。",
     "Str.Menu.Edit.Refactor": "リファクタリング",
     "Str.Menu.Edit.SourceActions": "ソースアクション",
     "Str.CodeEditor.Refactor": "リファクタリング",

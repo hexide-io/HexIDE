@@ -2,6 +2,7 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Línia {0}: no s’ha pogut definir la propietat {1} de {2}.",
     "Str.Menu.Edit.Refactor": "Refact_oritza",
     "Str.Menu.Edit.SourceActions": "Acc_ions del codi font",
     "Str.CodeEditor.Refactor": "Refactorit_za",

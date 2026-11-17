@@ -2,6 +2,7 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Řádek {0}: vlastnost {1} v {2} se nepodařilo nastavit.",
     "Str.Menu.Edit.Refactor": "R_efaktoring",
     "Str.Menu.Edit.SourceActions": "_Akce zdrojového kódu",
     "Str.CodeEditor.Refactor": "Refaktorin_g",

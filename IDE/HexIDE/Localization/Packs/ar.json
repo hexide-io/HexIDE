@@ -2,6 +2,7 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "السطر {0}: تعذر تعيين الخاصية {1} في {2}.",
     "Str.Menu.Edit.Refactor": "إعادة الهيكلة",
     "Str.Menu.Edit.SourceActions": "إجراءات المصدر",
     "Str.CodeEditor.Refactor": "إعادة الهيكلة",

@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Рядок {0}: не вдалося встановити властивість {1} у {2}.",
     "Str.Menu.Edit.Refactor": "Рефакторинг",
     "Str.Menu.Edit.SourceActions": "Дії з вихідним кодом",
     "Str.CodeEditor.Refactor": "Рефакторинг",

@@ -2,6 +2,7 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "{0}. lerroa: ezin izan da {2} elementuaren {1} propietatea ezarri.",
     "Str.Menu.Edit.Refactor": "Birfaktorizat_u",
     "Str.Menu.Edit.SourceActions": "Iturburu-ekintzak",
     "Str.CodeEditor.Refactor": "Birfaktorizatu",

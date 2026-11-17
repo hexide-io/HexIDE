@@ -2,6 +2,7 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "บรรทัด {0}: ไม่สามารถตั้งค่าคุณสมบัติ {1} ใน {2} ได้",
     "Str.Menu.Edit.Refactor": "ปรับโครงสร้าง",
     "Str.Menu.Edit.SourceActions": "การดำเนินการกับซอร์สโค้ด",
     "Str.CodeEditor.Refactor": "ปรับโครงสร้าง",

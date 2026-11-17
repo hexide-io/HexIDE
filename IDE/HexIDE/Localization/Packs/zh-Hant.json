@@ -2,6 +2,7 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "第 {0} 行：無法設定 {2} 的屬性 {1}。",
     "Str.Menu.Edit.Refactor": "重構",
     "Str.Menu.Edit.SourceActions": "原始碼動作",
     "Str.CodeEditor.Refactor": "重構",

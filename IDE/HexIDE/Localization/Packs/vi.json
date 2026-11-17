@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Dòng {0}: không thể đặt thuộc tính {1} trong {2}.",
     "Str.Menu.Edit.Refactor": "T_ái cấu trúc",
     "Str.Menu.Edit.SourceActions": "Tha_o tác mã nguồn",
     "Str.CodeEditor.Refactor": "T_ái cấu trúc",

@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "שורה {0}: לא ניתן להגדיר את המאפיין {1} ב־{2}.",
     "Str.Menu.Edit.Refactor": "ארגון קוד מחדש",
     "Str.Menu.Edit.SourceActions": "פעולות קוד מקור",
     "Str.CodeEditor.Refactor": "ארגון קוד מחדש",

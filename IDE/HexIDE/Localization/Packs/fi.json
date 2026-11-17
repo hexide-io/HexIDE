@@ -2,6 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Rivi {0}: ominaisuutta {1} kohteessa {2} ei voitu asettaa.",
     "Str.Menu.Edit.Refactor": "_Refaktoroi",
     "Str.Menu.Edit.SourceActions": "L_ähdekooditoiminnot",
     "Str.CodeEditor.Refactor": "Re_faktoroi",
