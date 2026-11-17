@@ -424,6 +424,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Todas as bibliotecas>",
     "Str.Tool.ObjectBrowser.MembersOf": "Membros de '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Non se poden listar os membros sen a biblioteca de tipos desta biblioteca.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Metadatos de tipo non dispoñibles)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Pechar o explorador de obxectos",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Explorador de obxectos",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Ir á definición",

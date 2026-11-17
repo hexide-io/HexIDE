@@ -466,6 +466,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<所有程式庫>",
     "Str.Tool.ObjectBrowser.MembersOf": "'{0}' 的成員",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "沒有此程式庫的型別程式庫，無法列出成員。",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "（型別中繼資料無法使用）",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "關閉物件瀏覽器",
     "Str.Tool.ObjectBrowser.Chrome.Title": "物件瀏覽器",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "移至定義",
