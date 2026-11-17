@@ -91,6 +91,7 @@ public class FormDeserializer
         Components.InBox.ProgressBarComponentClass.Instance,
         Components.InBox.FlexGridComponentClass.Instance,
         Components.InBox.ListViewComponentClass.Instance,
+        Components.InBox.SliderComponentClass.Instance,
         Components.InBox.TabStripComponentClass.Instance,
         Components.InBox.StatusBarComponentClass.Instance,
         Components.InBox.ImageListComponentClass.Instance,
@@ -320,7 +321,13 @@ public class FormDeserializer
             // Known properties whose value could not be read, kept as raw lines below.
             var unparsedKnownNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var serializedProperty in serializedComponent.Properties)
+            var assignments = serializedComponent.PropertyAssignments.Count > 0
+                ? serializedComponent.PropertyAssignments
+                : serializedComponent.Properties.ToList();
+            var duplicatedNames = assignments.GroupBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
+                .Where(group => group.Count() > 1).Select(group => group.Key)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var serializedProperty in assignments)
             {
                 // One spelling, before anything compares it. VB6 reads a property name in any case: measured,
                 // `caption`, `TEXT` and `backcolor` on controls, and on a form's own root `clientwidth`,
@@ -328,6 +335,19 @@ public class FormDeserializer
                 // exact spellings, so a lowercase `width` on the root used to miss the outer-rectangle branch and
                 // bind as the client width once property lookup ignored case (#819).
                 var propertyName = CanonicalPropertyName(serializedProperty.Key, componentClass);
+
+                // VB6 reads measurements as Single and refuses >= 2^31; only Height's negative
+                // refusal is measured (#4096, issuecomment-6915523429). Leave refused lines unset.
+                if (propertyName is "Left" or "Top" or "Width" or "Height"
+                        or "ClientLeft" or "ClientTop" or "ClientWidth" or "ClientHeight"
+                    && (parent is null || componentClass.PropertiesByName.ContainsKey(propertyName))
+                    && TryReadNumber(serializedProperty.Value, out var measurement)
+                    && ((float)measurement >= 2147483648f || propertyName == "Height" && (float)measurement < 0))
+                {
+                    form.MarkUnfaithfulToSave(UnfaithfulSaveCause.RefusedMeasurement,
+                        FormattableString.Invariant($"Property {serializedProperty.Key} in {serializedComponent.Name} could not be set to {serializedProperty.Value}."));
+                    continue;
+                }
 
                 // The two rectangles. A designer root records its CLIENT rectangle as Client*, and may
                 // record its OUTER window rectangle beside it as the plain four — Dialog.frm is the file
@@ -405,6 +425,9 @@ public class FormDeserializer
                     // Kept as written, so a save puts it back rather than losing it: a palette colour
                     // (&H02C0C0C0&) is a value VB6 accepts that HexIDE cannot hold yet (#786).
                     unparsedKnownNames.Add(serializedProperty.Key);
+                    if (duplicatedNames.Contains(serializedProperty.Key))
+                        form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreadableDuplicateProperty,
+                            $"Property {serializedProperty.Key} in {serializedComponent.Name} has an unreadable duplicate value.");
                 }
                 if (propertyClass.PropertyType == typeof(string))
                 {
@@ -740,6 +763,12 @@ public class FormDeserializer
             form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent,
                 $"it references companion binary content HexIDE cannot re-emit "
                 + $"({capturedBlobs.Count} of {citedBlobCount} blob(s) reached the model)");
+
+        // A NUL in the designer text is damage: VB6 doesn't write one there, and the writer marks its companion citations
+        // with NULs, so a save with a citation to place refused it, after the user had edited (#4096). Said at open instead.
+        if (designerText.Contains('\0'))
+            form.MarkUnfaithfulToSave(UnfaithfulSaveCause.NulInDesignerText,
+                "its designer text holds a NUL character, which a save can't write back beside its companion citations");
 
         // Rendering also serves dirty checks; only the save path may refuse missing extents (#1631).
         if (components.Any(c => c.BaseClass is UserControlComponentClass uc && uc.Setting("InvisibleAtRuntime")

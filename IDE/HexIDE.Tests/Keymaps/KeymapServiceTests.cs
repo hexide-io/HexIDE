@@ -53,7 +53,8 @@ public sealed class KeymapServiceTests : IDisposable
                 if (name == nameof(ApplicationCommands.ToggleFoldCommand))
                     expected = [];
             }
-            CommandKeyMapping.Table[name].Gestures.Should().Equal(expected, "{0} must match Default.json", name);
+            CommandKeyMapping.Table[name].Gestures.Where(g => name != nameof(ApplicationCommands.BreakProjectCommand)
+                || g.Key != Key.Cancel).Should().Equal(expected, "{0} must match Default.json", name);
         }
     }
 
@@ -152,7 +153,13 @@ public sealed class KeymapServiceTests : IDisposable
 
         service.ActiveKeymap.Should().Be("Default");
         foreach (var (name, command) in CommandKeyMapping.Table)
-            command.Gestures.Should().Equal(_gestures[name]);
+        {
+            var expected = _gestures[name].ToList();
+            if (OperatingSystem.IsWindows() && name == nameof(ApplicationCommands.BreakProjectCommand)
+                && !expected.Any(g => g.Key == Key.Cancel))
+                expected.Add(new KeyGesture(Key.Cancel, expected.Single(g => g.Key == Key.Pause).KeyModifiers));
+            command.Gestures.Should().Equal(expected);
+        }
     }
 
     private void WriteOverrides(string bindings)
@@ -261,6 +268,59 @@ public sealed class KeymapServiceTests : IDisposable
         {
             Static.IsRecoveryMode = previous;
         }
+    }
+
+    [AvaloniaFact]
+    public void BreakHasOneDisplayBindingAndWindowsAliasFollowsOverrides()
+    {
+        var service = new KeymapService(_directory, isWindows: true);
+        service.Apply("Default");
+        var pause = ApplicationCommands.BreakProjectCommand.Gestures[0];
+        var expected = OperatingSystem.IsMacOS() ? new[] { pause }
+            : new[] { pause, new KeyGesture(Key.Cancel, pause.KeyModifiers) };
+        ApplicationCommands.BreakProjectCommand.Gestures.Should().Equal(expected);
+        service.GetPackBindings("Default")["BreakProjectCommand"].Should().Equal(pause);
+        var settings = Substitute.For<ISettingsService>();
+        settings.ActiveKeymap.Returns("Default");
+        new KeymapPageViewModel(settings, service).Commands.Single(c => c.Id == "BreakProjectCommand")
+            .Gesture.Should().Be(new KeyGesture(Key.Cancel, pause.KeyModifiers).ToString().Replace("Cancel", "Break"));
+
+        WriteOverrides("\"BreakProjectCommand\":\"F12\"");
+        service.RefreshOverrides();
+        ApplicationCommands.BreakProjectCommand.Gestures.Should().Equal(new KeyGesture(Key.F12));
+        WriteOverrides("\"BreakProjectCommand\":\"\"");
+        service.RefreshOverrides();
+        ApplicationCommands.BreakProjectCommand.Gestures.Should().BeEmpty();
+        WriteOverrides("");
+        service.RefreshOverrides();
+        ApplicationCommands.BreakProjectCommand.Gestures.Should().Equal(expected);
+        var recreated = new KeymapService(_directory, isWindows: true);
+        recreated.Apply("Default");
+        recreated.GetPackBindings("Default")["BreakProjectCommand"].Should().Equal(pause);
+        service.Apply("VB6");
+        ApplicationCommands.BreakProjectCommand.Gestures.Should().Equal(expected);
+    }
+
+    [AvaloniaFact]
+    public void OnlyThePauseKeyItself_IsShownAsBreak()
+    {
+        var service = new KeymapService(_directory, isWindows: true);
+        WriteOverrides("\"BreakProjectCommand\":\"Ctrl+MediaPlayPause\"");
+        service.Apply("Default");
+        var settings = Substitute.For<ISettingsService>();
+        settings.ActiveKeymap.Returns("Default");
+
+        new KeymapPageViewModel(settings, service).Commands.Single(c => c.Id == "BreakProjectCommand")
+            .Gesture.Should().Be("Ctrl+MediaPlayPause", "MediaPlayPause names another key, which isn't Break");
+    }
+
+    [AvaloniaFact]
+    public void NonWindowsBreakRetainsOnlyPause()
+    {
+        var service = new KeymapService(_directory, isWindows: false);
+        service.Apply("Default");
+        ApplicationCommands.BreakProjectCommand.Gestures.Should().Equal(
+            service.GetPackBindings("Default")["BreakProjectCommand"]);
     }
 
     private const string Pack = """

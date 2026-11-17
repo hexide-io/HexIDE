@@ -15,6 +15,13 @@
                       SelectedItem="{CompiledBinding SelectedTheme}"
                       HorizontalAlignment="Left"
                       MinWidth="160">
+                <ComboBox.Styles>
+                    <!-- Named by the text the row shows, not the pack id the item holds (#4176). -->
+                    <Style Selector="ComboBoxItem" x:DataType="x:String">
+                        <Setter Property="AutomationProperties.Name"
+                                Value="{CompiledBinding ., Converter={x:Static converters:ShownItemNameConverter.Instance}}" />
+                    </Style>
+                </ComboBox.Styles>
                 <ComboBox.ItemTemplate>
                     <DataTemplate x:DataType="x:String">
                         <Grid>

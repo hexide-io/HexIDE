@@ -9,7 +9,7 @@ namespace HexIDE.Tests.Infrastructure;
 public class ProgramHostSeamTests
 {
     private static readonly Regex Forbidden = new(
-        @"\b(ILocalizationService|HexIDE\.Localization|OpenFilePickerAsync|SaveFilePickerAsync)\b|windowManager\.(MessageBox|InputBox|ShowPrintDialog|ShowColorDialog|ShowFontDialog)");
+        @"\b(MDIWindow|MDIHostPanel|IWindowManager|ShowManagedWindow|ActivateMDIForm|ActionObserver|DelegateCommand|ILocalizationService|HexIDE\.Localization|OpenFilePickerAsync|SaveFilePickerAsync)\b|windowManager\.(MessageBox|InputBox|ShowPrintDialog|ShowColorDialog|ShowFontDialog)");
 
     [Fact]
     public void Run_engine_shows_program_dialogs_and_gets_failure_texts_through_Core()
@@ -21,5 +21,15 @@ public class ProgramHostSeamTests
         ProductSource.FilesMatching(Forbidden)
             .Where(file => Path.GetFileName(file) == "InterpreterRunEngine.cs")
             .Should().BeEmpty();
+    }
+    [Fact]
+    public void Program_host_and_file_picker_mapping_do_not_name_the_runtime()
+    {
+        // #4139: the IDE must retain its picker mapping when the run engine moves out.
+        ProductSource.FilesMatching(new Regex(@"\bHexIDE\.Runtime\b"))
+            .Where(file => Path.GetFileName(file) is "ProgramHost.cs" or "ProgramFileDialogOptions.cs")
+            .Should().BeEmpty();
+        File.Exists(Path.Combine(RepoTree.Root(), "IDE", "HexIDE", "IDE", "ProgramFileDialogOptions.cs"))
+            .Should().BeTrue();
     }
 }

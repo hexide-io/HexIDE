@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -10,7 +11,7 @@ using HexIDE.Automation;
 using HexIDE.Debugging;
 using HexIDE.Events;
 using HexIDE.IDE;
-using HexIDE.Localization;
+using HexIDE.Keymaps;using HexIDE.Localization;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Debugging;
@@ -30,6 +31,75 @@ namespace HexIDE.Integration.Tests.Automation;
 /// </remarks>
 public class ProgramWaitTests
 {
+    [AvaloniaFact]
+    public void The_contract_recognises_the_running_form_and_ignores_the_IDE_window()
+    {
+        using var run = Start("Private Sub Command1_Click()\nEnd Sub");
+        IRunningProgram program = new InterpreterRunningProgram();
+        program.Form(run.Window)!.Window.Should().BeSameAs(run.Window);
+        program.Form(run.Window)!.IsRunning.Should().BeTrue();
+        program.Form(run.Window)!.Name.Should().Be("Form1");
+        program.Form(new Window()).Should().BeNull();
+        program.Form(new object()).Should().BeNull();
+        var named = new Window();
+        VBProps.SetName(named, "NameMetadata");
+        program.Form(named)!.IsRunning.Should().BeFalse();
+        program.Form(named)!.Name.Should().Be("NameMetadata");
+    }
+
+    [AvaloniaFact]
+    public async Task The_contract_observes_input_settling_on_the_dispatcher()
+    {
+        using var run = Start("Private Sub Command1_Click()\nText1.Text = \"done\"\nEnd Sub");
+        IRunningProgram program = new InterpreterRunningProgram();
+        var activity = program.Activity(run.Window)!;
+        var before = activity.Live.ToArray();
+        var watch = run.Watch();
+        var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+        outcome.Success.Should().BeTrue(outcome.Error);
+        run.Text.Should().Be("done");
+        activity.IsIdle.Should().BeTrue();
+        activity.BusySince(before).Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public async Task The_contract_delivers_text_printed_by_input()
+    {
+        using var run = Start("Private Sub Command1_Click()\nDebug.Print \"contract output\"\nEnd Sub");
+        IRunningProgram program = new InterpreterRunningProgram();
+        var written = new System.Text.StringBuilder();
+        void Printed(string text) => written.Append(text);
+        program.Written += Printed;
+        try
+        {
+            var watch = run.Watch();
+            await UiAutomationDriver.WaitForProgramAsync(watch, UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null), TimeSpan.FromSeconds(30));
+            written.ToString().ReplaceLineEndings("\n").Should().Be("contract output\n");
+        }
+        finally { program.Written -= Printed; }
+    }
+
+    [AvaloniaFact]
+    public async Task The_contract_has_empty_answers_without_a_running_program()
+    {
+        IRunningProgram program = new InterpreterRunningProgram();
+        var window = new Window();
+        program.Form(window).Should().BeNull();
+        program.Activity(window).Should().BeNull();
+        program.Activity(null).Should().BeNull();
+        var written = new System.Text.StringBuilder();
+        void Printed(string text) => written.Append(text);
+        program.Written += Printed;
+        try
+        {
+            var outcome = new InteractOutcome(true, "test", "unchanged", null);
+            (await UiAutomationDriver.WaitForProgramAsync(null, outcome)).Should().Be(outcome);
+            written.Length.Should().Be(0);
+        }
+        finally { program.Written -= Printed; }
+    }
+
     private const string Caption = "ProgramWaitTests";
 
     private sealed class NullSink : IDeserializeErrorSink
@@ -424,6 +494,55 @@ public class ProgramWaitTests
         }
     }
 
+    // Pause is portable; the Windows Cancel mapping is also exercised on Linux using the Windows policy.
+    public static TheoryData<Key> BreakKeys => OperatingSystem.IsMacOS()
+        ? new() { Key.Pause } : new() { Key.Cancel, Key.Pause };
+
+    [AvaloniaTheory]
+    [MemberData(nameof(BreakKeys))]
+    public async Task Break_key_reaches_a_running_DoEvents_loop_from_the_IDE(Key key)
+    {
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
+        var shell = ToolbarAutomationNameTests.ShowMainView();
+        var main = (MainView)shell.Content!;
+        main.DataContext = composition.Root;
+        var original = ApplicationCommands.BreakProjectCommand.Gestures.ToArray();
+        try
+        {
+            new KeymapService(System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString()), isWindows: true)
+                .Apply("Default");
+            using var run = Start("""
+                Private Sub Command1_Click()
+                    Do
+                        DoEvents
+                    Loop
+                End Sub
+                """, timeSliceMs: null, composition: composition);
+            UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null).Success.Should().BeTrue();
+            await Task.Delay(100);
+            run.Controller.State.Should().Be(DebugState.Running);
+            main.Focus();
+            main.RaiseEvent(new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent, Key = key,
+                KeyModifiers = ApplicationCommands.CopyCommand.Gestures[0].KeyModifiers
+            });
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
+            while (run.Controller.State != DebugState.Paused && elapsed.Elapsed < TimeSpan.FromSeconds(10))
+                await Task.Delay(10);
+            run.Controller.State.Should().Be(DebugState.Paused);
+        }
+        finally
+        {
+            ApplicationCommands.BreakProjectCommand.Gestures.Clear();
+            foreach (var gesture in original) ApplicationCommands.BreakProjectCommand.Gestures.Add(gesture);
+            shell.Close();
+            foreach (var project in composition.DocumentDockService.OpenDocuments.Select(d => d.OpenDocument?.Project).Distinct().ToArray())
+                if (project is not null) composition.EventBus.Publish(new HexIDE.Events.ProjectUnloadedEvent(project));
+        }
+    }
+
     // A handler that loops on DoEvents is the program's message loop: what an action sets off runs inside it.
     [AvaloniaFact]
     public async Task A_handler_looping_on_DoEvents_does_not_hold_a_reply_to_the_limit()
@@ -535,7 +654,7 @@ public class ProgramWaitTests
         {
             var watch = run.Watch()!;
             var deadline = System.Diagnostics.Stopwatch.StartNew();
-            while (watch.Pump.AtDoEvents.Count > 0)
+            while (run.Window.Events.AtDoEvents.Count > 0)
             {
                 deadline.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10), "the loop spends most of its time between DoEvents");
                 await Task.Delay(1);
@@ -656,13 +775,13 @@ public class ProgramWaitTests
         {
             var watch = run.Watch()!;
             var deadline = System.Diagnostics.Stopwatch.StartNew();
-            while (watch.Pump.AtDoEvents.Count > 0)
+            while (run.Window.Events.AtDoEvents.Count > 0)
             {
                 deadline.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
                 await Task.Delay(1);
                 watch = run.Watch()!;
             }
-            watch.Pump.IsIdle.Should().BeFalse();
+            run.Window.Events.IsIdle.Should().BeFalse();
             var outcome = SetTextForWait(run.Named("Text1"), "done");
             outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
 
@@ -693,16 +812,16 @@ public class ProgramWaitTests
         {
             var watch = run.Watch()!;
             var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
-            watch.Pump.Raise("Timer1_Timer", async () =>
+            run.Window.Events.Raise("Timer1_Timer", async () =>
             {
                 while (!stop)
-                    await watch.Pump.DoEvents();
+                    await run.Window.Events.DoEvents();
             }, HexIDE.Runtime.EventCoalescing.Timer);
             outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(2));
 
             outcome.Success.Should().BeTrue(outcome.Error);
             outcome.Detail.Should().Be("invoked Button 'Command1'");
-            watch.Pump.Busy.Should().Contain("Timer1_Timer", "the tick's loop runs on");
+            run.Window.Events.Busy.Should().Contain("Timer1_Timer", "the tick's loop runs on");
         }
         finally { stop = true; }
     }
@@ -812,7 +931,7 @@ public class ProgramWaitTests
             Pump();
 
             shown.Should().NotBeNull("the click reaches the call to a Sub that does not exist");
-            run.Window.Events!.IsIdle.Should().BeTrue();
+            run.Window.Events.IsIdle.Should().BeTrue();
             outcome.Detail.Should().Be("invoked Button 'Command1'");
             OpenDialogs.Note(dialogs, OpenWindows()).Should()
                 .Contain($"'HexIDE', a modal dialog over the running form '{Caption}', opened during this call");

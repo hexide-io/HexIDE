@@ -110,7 +110,7 @@ conditional breakpoints and applied saved edits in the measurements recorded in 
 - **Breakpoint conditions** come from **Condition…** on a breakpoint's gutter context menu. They are sent
   only when the adapter advertises `supportsConditionalBreakpoints`. Otherwise the breakpoint still stops
   every time, and Immediate explains this once per session. Launch-file `condition`, `hitCondition` and
-  `logMessage` remain refused before launch (#2914).
+  `logMessage` remain refused before launch (#4143).
 - **Edits reach the program only through the adapter.** HexIDE sends nothing when you edit. An adapter that
   reads the saved sources when the program resumes, as RDCore's does, runs an edit you saved while stopped,
   so save before you step. Ctrl+S saves the module you are in (#244), and **Save Project** saves them all.
@@ -146,8 +146,20 @@ Breakpoints stay on the line numbers they were set on. An edit that adds or remo
 on a different statement.
 
 During an external run, `get_debug_state` reports the adapter's state and `stop_project` stops it.
-The inspection tools (`get_locals`, `get_call_stack`, the watch tools and `evaluate`) still refuse
-external sessions; use the IDE's inspection windows through generic MCP UI interaction instead.
+The inspection tools (`get_locals`, `get_call_stack`, the watch tools and `evaluate`) use the same
+external data and evaluation as the IDE windows (#4305). Stop first with `break_program` or a
+breakpoint; a running inspection reply explains this. Locals and watches use the selected frame,
+whose adapter name is their context. There is no interpreter project identity for an external frame;
+call-stack module fields are source paths, absent when the adapter supplies none. External watches
+are Expression watches in the external Watch window; break-condition watches are refused.
+`evaluate` sends the line to the adapter's Immediate/REPL path using its syntax. Its result contains
+printed output followed by any response text, preserving the adapter's spacing and newlines. Output
+read before the response is included even if its UI delivery is queued. An adapter refusal returns
+`success: false` with its message as `error`. The tool doesn't write that message to the Immediate
+window; a line typed there still shows the adapter's error in the window (#4323).
+`set_breakpoints` replaces the editor's external set for a saved document, preserving omitted conditions;
+`clear_all_breakpoints` clears that external set, and `get_breakpoints` reads it. Replies await adapter acknowledgement and report verified,
+relocated or unverified lines, refusal messages and conditions an adapter cannot honour.
 
 See [the measured external adapter setup](dap-adapter-smoke.md) for a reproducible workspace and platform.
 

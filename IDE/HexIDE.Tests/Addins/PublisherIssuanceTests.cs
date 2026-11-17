@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Text.Json;
 using HexIDE.AddinPacker;
 using HexIDE.Addins;
 
@@ -22,7 +23,7 @@ public sealed class PublisherIssuanceTests : IDisposable
     public void Dispose() => Directory.Delete(_root, true);
 
     private (int ExitCode, string Message) Issue(string id = "org.example.publisher", string name = "Example Publisher",
-        string? intermediateKey = null, string? rootKey = null, string? publicKey = null)
+        string? intermediateKey = null, string? rootKey = null, string? publicKey = null, string? namespaces = null)
     {
         var start = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var arg in new[] { typeof(PackageSigner).Assembly.Location, "sign-publisher",
@@ -31,6 +32,11 @@ public sealed class PublisherIssuanceTests : IDisposable
                      "--intermediate", Trust, "--publisher-id", id, "--display-name", name,
                      "--public-key", publicKey ?? Path.Combine(_root, "publisher.pub"), "--out", Output })
             start.ArgumentList.Add(arg);
+        if (namespaces is not null)
+        {
+            start.ArgumentList.Add("--namespaces");
+            start.ArgumentList.Add(namespaces);
+        }
         using var process = Process.Start(start)!;
         var stdout = process.StandardOutput.ReadToEnd();
         var stderr = process.StandardError.ReadToEnd();
@@ -58,6 +64,94 @@ public sealed class PublisherIssuanceTests : IDisposable
         if (tamper) File.AppendAllText(Path.Combine(package, "publisher.json"), " ");
         PackageVerification.Verify(package, File.ReadAllText(Path.Combine(Trust, "hexide-root.pub")))
             .Verdict.Should().Be(tamper ? PackageVerdict.Untrusted : PackageVerdict.Verified);
+    }
+
+    // #4258 part D: the namespaces a publisher is issued come only from its signed record.
+    private PackageVerificationResult PackAndVerify(Action<string>? alterPackage = null)
+    {
+        foreach (var name in new[] { "publisher.json", "publisher.sig" })
+            File.Copy(Path.Combine(Output, name), Path.Combine(Trust, name), true);
+        File.Copy(Path.Combine(_root, "publisher.key"), Path.Combine(Trust, "firstparty.key"), true);
+        var src = Path.Combine(_root, "src");
+        Directory.CreateDirectory(src);
+        File.WriteAllText(Path.Combine(src, "entry.dll"), "payload");
+        var package = Path.Combine(_root, "package");
+        PackageSigner.Pack(new PackRequest { SrcDir = src, OutDir = package, TrustDir = Trust,
+            Id = "example", Title = "Example", Version = "1.0", Entry = "entry.dll" });
+        alterPackage?.Invoke(package);
+        return PackageVerification.Verify(package, File.ReadAllText(Path.Combine(Trust, "hexide-root.pub")));
+    }
+
+    [Fact]
+    public void Issued_namespaces_reach_the_verified_result()
+    {
+        var issued = Issue(namespaces: "rdcore., rdcore.extra.");
+        issued.ExitCode.Should().Be(0, issued.Message);
+        var result = PackAndVerify();
+        result.Verdict.Should().Be(PackageVerdict.Verified);
+        result.PublisherNamespaces.Should().Equal("rdcore.", "rdcore.extra.");
+    }
+
+    [Fact]
+    public void A_record_without_namespaces_verifies_with_none()
+    {
+        Issue().ExitCode.Should().Be(0);
+        File.ReadAllText(Path.Combine(Output, "publisher.json")).Should().NotContain("namespaces",
+            "a record without the field stays byte-for-byte as before");
+        var result = PackAndVerify();
+        result.Verdict.Should().Be(PackageVerdict.Verified);
+        result.PublisherNamespaces.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("hexide.")]
+    [InlineData("HexIDE.tools.")]
+    [InlineData("rdcore")]
+    [InlineData("rdcore/")]
+    [InlineData(".rdcore.")]
+    public void A_namespace_that_cannot_be_issued_is_refused(string ns)
+    {
+        var issued = Issue(namespaces: ns);
+        issued.ExitCode.Should().NotBe(0);
+        issued.Message.Should().Contain($"'{ns}' is not a namespace that can be issued");
+        File.Exists(Path.Combine(Output, "publisher.json")).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Namespaces_added_to_a_signed_record_make_it_untrusted()
+    {
+        Issue(namespaces: "rdcore.").ExitCode.Should().Be(0);
+        var result = PackAndVerify(package =>
+        {
+            var path = Path.Combine(package, "publisher.json");
+            File.WriteAllText(path, File.ReadAllText(path).Replace("\"rdcore.\"", "\"rdcore.\", \"other.\""));
+        });
+        result.Verdict.Should().Be(PackageVerdict.Untrusted);
+        result.PublisherNamespaces.Should().BeNull();
+    }
+
+    [Fact]
+    public void A_signed_record_claiming_hexide_grants_only_its_other_namespaces()
+    {
+        // The issuer refuses it, so sign one by hand with the intermediate's key, as a mis-issuing intermediate could.
+        using var publisher = PackageCrypto.ImportPublicKey(File.ReadAllText(Path.Combine(_root, "publisher.pub")).Trim());
+        var record = new PublisherRecord
+        {
+            PublisherId = "org.example.publisher",
+            DisplayName = "Example Publisher",
+            PublicKey = PackageCrypto.ExportPublicKey(publisher),
+            IntermediateId = JsonSerializer.Deserialize(File.ReadAllBytes(Path.Combine(Trust, "intermediate.json")),
+                AddinJsonContext.Default.IntermediateRecord)!.IntermediateId,
+            Namespaces = ["hexide.", "hexide.chat.", "rdcore.", "not a namespace"],
+        };
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(record, AddinJsonContext.Default.PublisherRecord);
+        using var intermediate = PackageCrypto.ImportPrivateKey(File.ReadAllText(Path.Combine(Trust, "intermediate.key")).Trim());
+        Directory.CreateDirectory(Output);
+        File.WriteAllBytes(Path.Combine(Output, "publisher.json"), bytes);
+        File.WriteAllText(Path.Combine(Output, "publisher.sig"), PackageCrypto.Sign(intermediate, bytes));
+        var result = PackAndVerify();
+        result.Verdict.Should().Be(PackageVerdict.Verified);
+        result.PublisherNamespaces.Should().Equal("rdcore.");
     }
 
     [Theory]

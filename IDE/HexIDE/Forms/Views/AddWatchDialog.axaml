@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:HexIDE.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
@@ -15,19 +16,31 @@
             <TextBox Classes="dialogInitialFocus" Text="{CompiledBinding Expression, Mode=TwoWay}" AcceptsReturn="False" />
         </StackPanel>
 
-        <StackPanel Orientation="Horizontal" Spacing="6">
+        <!-- An external session's watch takes the selected frame's context, shown as it was before #4354. -->
+        <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{CompiledBinding !AllowsContextSelection}">
             <TextBlock Text="{DynamicResource Str.Dialog.AddWatch.Context}" />
-            <TextBlock Text="{CompiledBinding Context}" FontWeight="Bold" />
+            <TextBlock Name="FixedContext" Text="{CompiledBinding Context}" FontWeight="Bold" />
+        </StackPanel>
+
+        <StackPanel Spacing="4" IsVisible="{CompiledBinding AllowsContextSelection}">
+            <TextBlock Text="{DynamicResource Str.Dialog.AddWatch.Module}" />
+            <ComboBox Name="ModulePicker" ItemsSource="{CompiledBinding Modules}" SelectedItem="{CompiledBinding SelectedModule, Mode=TwoWay}" HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:WatchContextModule"><TextBlock Text="{CompiledBinding Name}" /></DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Text="{DynamicResource Str.Dialog.AddWatch.Procedure}" />
+            <ComboBox Name="ProcedurePicker" ItemsSource="{CompiledBinding Procedures}" SelectedItem="{CompiledBinding SelectedProcedure, Mode=TwoWay}" HorizontalAlignment="Stretch" />
         </StackPanel>
 
         <StackPanel Spacing="4">
             <TextBlock Text="{DynamicResource Str.Dialog.AddWatch.WatchType}" FontWeight="Bold" />
-            <RadioButton GroupName="watchType" IsChecked="{CompiledBinding IsExpression, Mode=TwoWay}"
+            <controls:IdeRadioButton GroupName="watchType" IsChecked="{CompiledBinding IsExpression, Mode=TwoWay}"
                          Content="{DynamicResource Str.Dialog.AddWatch.Type.Expression}" />
-            <RadioButton GroupName="watchType" IsChecked="{CompiledBinding IsBreakWhenTrue, Mode=TwoWay}"
+            <controls:IdeRadioButton GroupName="watchType" IsChecked="{CompiledBinding IsBreakWhenTrue, Mode=TwoWay}"
                          IsEnabled="{CompiledBinding AllowsBreakConditions}"
                          Content="{DynamicResource Str.Dialog.AddWatch.Type.BreakTrue}" />
-            <RadioButton GroupName="watchType" IsChecked="{CompiledBinding IsBreakWhenChanged, Mode=TwoWay}"
+            <controls:IdeRadioButton GroupName="watchType" IsChecked="{CompiledBinding IsBreakWhenChanged, Mode=TwoWay}"
                          IsEnabled="{CompiledBinding AllowsBreakConditions}"
                          Content="{DynamicResource Str.Dialog.AddWatch.Type.BreakChanged}" />
         </StackPanel>

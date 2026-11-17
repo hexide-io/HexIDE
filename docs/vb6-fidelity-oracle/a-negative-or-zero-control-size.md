@@ -45,8 +45,10 @@ The same answers came before and after `Form1.Show`, where both were asked.
 - **`Move` with a negative size is Err 5, not 380,** and moves nothing. That matches what #1071 measured for a Label's
   Move ([Move, ScaleWidth and ScaleHeight](move-scalewidth-and-scaleheight.md)), which noted that `Width = -10` was a
   different question it hadn't asked. This page asks it: a different error number.
-- **A `.frm` holding a negative Width doesn't load at all,** so `/make` fails. A HexIDE that writes one has produced a
-  project VB6 itself can't open.
+- **A `.frm` holding a negative Width fails `/make`.** A HexIDE that writes one has produced a project VB6 can't
+  build. This bullet first said such a form "doesn't load at all", from `/make` alone. VB6's own IDE overturned
+  that: it loads the form with the width reading 0, and runs it
+  ([below](#the-same-frm-in-vb6s-ide-2026-11-16-4179)).
 - **Zero and small sizes are accepted and then raised to a floor:** 75 wide and 195 high for a CommandButton, which
   are 5 and 13 pixels here, and 15 by 15 for a Label, one pixel. Whether the floors are VB6's own or Windows' minimum
   for the window, and whether they scale with dpi, wasn't measured. The Label is windowless, which suggests at least
@@ -60,3 +62,42 @@ The same answers came before and after `Form1.Show`, where both were asked.
 **The probe's form,** for repeating it. `Command1` was 1215 × 495; `Command2` was 1215 wide, or -150 for the load
 rows; `Command3` was 1215 wide with `Height = 0`; `Label1` was 1215 × 255, or -150 wide for the load rows; and `Line1`
 ran from (120, 2400) to (1200, 2400). The statements are the tables' own, each followed by a read of the property.
+
+### The same `.frm` in VB6's IDE (2026-11-16, #4179)
+
+**Asked because** `/make` only says the build fails. HexIDE opens and runs a project in its IDE, so what decides its
+behaviour is what VB6's own IDE does with that file: open it or not, run it or not, and save it how.
+
+**How.** `vb6.exe Neg.vbp` on the `Win10` guest's desktop, driven by mouse and keys and read by screenshot. `NegForm.frm`
+held, in this order, `Label1` (1215 → **-150** wide, 255 high), `Command3` (1215 wide, `Height = 0`) and `Command2`
+(**-150** wide, 495 high), each control's `Begin` line at lines 11, 19 and 27 and its `Width` line six lines later.
+`Form_Load` wrote `Command2.Width`, `Label1.Width` and `Command3.Height` to a file. A p-code project
+(`CompilationType=-1`), and the same VB6.EXE 6.00.9782 (SP6).
+
+| Step | What VB6's IDE did |
+|---|---|
+| Open the project | Opened with **no message**, and wrote no `NegForm.log`. The form isn't read until something needs it. |
+| Open the form's designer | "Errors during load. Refer to '…\NegForm.log' for details", with OK and Help. The log: `Line 11: Property Width in Label1 could not be set.` and `Line 27: Property Width in Command2 could not be set.` |
+| OK | The designer opened holding all three controls. The toolbar read Command2 at 120, 480, size **0 × 495**, and Label1 at 120, 1800, **0 × 255**. |
+| F5 | **Ran.** `Form_Load` wrote `C2W=0 L1W=0 C3H=0`. |
+| F5 straight after opening, the designer never opened | The same "Errors during load" box, over the IDE in `[run]`. After OK the program **ran**, writing `C2W=0 L1W=0 C3H=0` again, and the same two log lines. |
+| Ctrl+S on that form, after the run | **Save File As**, suggesting `NegForm` in the IDE's current folder, not the form's own. |
+| Saved as `NegSaved.frm` | Both widths written as **`Width = 0`**. The Project window then named `NegSaved.frm`; the `.vbp` wasn't saved. `NegForm.frm` kept its bytes and time. |
+| **Control:** the same form with every width 1215, designer opened, Ctrl+S | **No dialog.** Saved in place, over `CleanForm.frm`. |
+| **`Height` instead:** the same form with every width 1215, and `Height = -150` on Label1 and Command2; F5 straight after opening | The same box. The log: `Line 11: Property Height in Label1 could not be set.` and `Line 27: Property Height in Command2 could not be set.` After OK the program **ran**, reading `Command2.Height` **0**, `Label1.Height` **0** and `Command2.Width` 1215. |
+
+**What this settles:**
+- **The line a load error names is the control's `Begin` line,** not the line of the property it couldn't set: 11
+  and 27 here, where the `Width` lines were 17 and 33. The competing reading, the property's own line, was what this
+  probe was laid out to tell apart. The earlier row's `Line 34` and `Line 18` came from a different layout and weren't
+  re-read against it.
+- **VB6's IDE loads the form anyway, with the size it couldn't set reading 0.** Not the default (1215), and not the
+  value in the file. It then runs, and the program sees 0.
+- **A form loaded with errors is never saved over itself.** Ctrl+S on it goes to Save As, and a clean form's Ctrl+S
+  doesn't, so it's the load error that does it. What Save As writes is the 0 the form holds.
+- **Not about the error:** both saves wrote the controls in a different order from the file's (Command3, Command2,
+  Label1, where the file had Label1, Command3, Command2) and put a space after each `Begin` line. The clean save did
+  both too, so neither comes from the load error. Why that order wasn't measured.
+- **`Height` behaves as `Width` does:** the same `Begin` line, the same 0, and the same run.
+- **Not measured:** whether the IDE asks again on a second F5 in the same session, and Save As after a negative
+  `Height` (only the `Width` form was saved).

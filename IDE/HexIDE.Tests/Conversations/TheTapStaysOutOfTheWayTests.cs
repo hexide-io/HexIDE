@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using HexIDE.Conversations;
 using HexIDE.Lsp;
+using HexIDE.Tests.LspClient;
 using Nerdbank.Streams;
 using StreamJsonRpc;
 
@@ -26,12 +27,15 @@ public class TheTapStaysOutOfTheWayTests : IAsyncDisposable
 {
     private readonly List<IDisposable> _disposables = [];
     private ConversationLog? _log;
+    private readonly WireDiagnosis _diagnosis = new(TestContext.Current.CancellationToken);
 
     public async ValueTask DisposeAsync()
     {
+        var dropped = _diagnosis.HasDropped ? _diagnosis.Diagnosis("a connection dropped during the test") : null;
         foreach (var d in _disposables) { try { d.Dispose(); } catch { /* teardown */ } }
         if (_log is not null) await _log.DisposeAsync();
         GC.SuppressFinalize(this);
+        if (dropped is not null) throw new InvalidOperationException(dropped);
     }
 
     private sealed class Echo
@@ -47,13 +51,16 @@ public class TheTapStaysOutOfTheWayTests : IAsyncDisposable
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
 
+        var remote = _diagnosis.TapPeer(serverSide);
         var peer = new JsonRpc(
-            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), new Echo());
+            new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()), new Echo());
+        _diagnosis.Watch(peer, "stand-in", 1);
         peer.StartListening();
         _disposables.Add(peer);
 
         var tapped = new CapturingFormatter(new SystemTextJsonFormatter(), log, "vb6");
         var client = new JsonRpc(new HeaderDelimitedMessageHandler(clientSide, clientSide, tapped));
+        _diagnosis.Watch(client, "client", 1);
         client.StartListening();
         _disposables.Add(client);
         return client;
@@ -85,7 +92,7 @@ public class TheTapStaysOutOfTheWayTests : IAsyncDisposable
         for (var round = 0; round < 40 && _log.QueueDropped == 0; round++)
         {
             var calls = new List<Task<int>>(PerRound);
-            for (var i = 0; i < PerRound; i++) calls.Add(client.InvokeAsync<int>("echo", sent + i));
+            for (var i = 0; i < PerRound; i++) calls.Add(_diagnosis.Call(client.InvokeAsync<int>("echo", sent + i)));
 
             // Every one of them, not merely the batch: a capture that waited would stall an arbitrary
             // member of the batch, and a timeout here is the shape that failure takes.
@@ -112,7 +119,7 @@ public class TheTapStaysOutOfTheWayTests : IAsyncDisposable
         _log = new ConversationLog();
         var client = Connect(_log);
 
-        for (var i = 0; i < 200; i++) await client.NotifyAsync("note", i);
+        for (var i = 0; i < 200; i++) await _diagnosis.Call(client.NotifyAsync("note", i));
         await _log.DrainAsync();
 
         var notes = _log.Snapshot("vb6")
@@ -135,7 +142,7 @@ public class TheTapStaysOutOfTheWayTests : IAsyncDisposable
         _log.Arm("vb6", true);
 
         var clock = Stopwatch.StartNew();
-        for (var i = 0; i < 200; i++) await client.InvokeAsync<int>("echo", i);
+        for (var i = 0; i < 200; i++) await _diagnosis.Call(client.InvokeAsync<int>("echo", i));
         clock.Stop();
 
         clock.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(20),
@@ -156,10 +163,10 @@ public class TheTapStaysOutOfTheWayTests : IAsyncDisposable
         var client = Connect(_log);
         _log.Arm("vb6", true);
 
-        await client.InvokeAsync<int>("echo", 1);
+        await _diagnosis.Call(client.InvokeAsync<int>("echo", 1));
         await _log.DisposeAsync();
 
-        var after = await client.InvokeAsync<int>("echo", 2).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        var after = await _diagnosis.Call(client.InvokeAsync<int>("echo", 2)).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         after.Should().Be(2, "a capture that has gone away must not take the language service with it");
     }
 
@@ -179,7 +186,7 @@ public class TheTapStaysOutOfTheWayTests : IAsyncDisposable
 
         try
         {
-            for (var i = 0; i < 1000; i++) await client.NotifyAsync("note", i);
+            for (var i = 0; i < 1000; i++) await _diagnosis.Call(client.NotifyAsync("note", i));
         }
         finally
         {
@@ -211,7 +218,7 @@ public class TheTapStaysOutOfTheWayTests : IAsyncDisposable
         _log = new ConversationLog(queueDepth: 1);
         var client = Connect(_log);
 
-        for (var i = 0; i < 100; i++) await client.NotifyAsync("note", i);
+        for (var i = 0; i < 100; i++) await _diagnosis.Call(client.NotifyAsync("note", i));
         await _log.DisposeAsync();
 
         await _log.DrainAsync().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);

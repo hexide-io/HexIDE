@@ -5,7 +5,7 @@ using HexIDE.AddinPacker;
 //           [--capability <identifier> ...] [--logo <file.png>] [--min-hexide-version <version>]`
 if (args.Length == 0)
 {
-    Console.Error.WriteLine("usage: genkeys <outDir> | sign-publisher --root-public-key .. --intermediate-key .. --intermediate .. --publisher-id .. --display-name .. --public-key .. --out .. | pack --src .. --out .. --id .. --title .. --version .. --entry .. --trust ..");
+    Console.Error.WriteLine("usage: genkeys <outDir> | sign-publisher --root-public-key .. --intermediate-key .. --intermediate .. --publisher-id .. --display-name .. --public-key .. --out .. [--namespaces rdcore.,..] | pack --src .. --out .. --id .. --title .. --version .. --entry .. --trust ..");
     Console.Error.WriteLine("       genkeys-release --root-out .. --intermediate-out .. --firstparty-out .. --public-out ..");
     Console.Error.WriteLine("         --intermediate-id .. --intermediate-name .. --firstparty-id .. --firstparty-name ..");
     return 1;
@@ -39,13 +39,17 @@ try
             var po = ParseOptions(args.AsSpan(1));
             string[] publisherOptions = ["root-public-key", "intermediate-key", "intermediate", "publisher-id",
                 "display-name", "public-key", "out"];
-            if (args.Length != 1 + publisherOptions.Length * 2
-                || po.Count != publisherOptions.Length
-                || po.Any(pair => !publisherOptions.Contains(pair.Key, StringComparer.OrdinalIgnoreCase) || pair.Value.Count != 1))
-                throw new ArgumentException("sign-publisher requires each of --root-public-key, --intermediate-key, --intermediate, --publisher-id, --display-name, --public-key and --out exactly once");
+            // --namespaces is optional: a comma-separated list such as "rdcore." (#4258).
+            var withNamespaces = po.ContainsKey("namespaces") ? 1 : 0;
+            if (args.Length != 1 + (publisherOptions.Length + withNamespaces) * 2
+                || po.Count != publisherOptions.Length + withNamespaces
+                || po.Any(pair => !(publisherOptions.Contains(pair.Key, StringComparer.OrdinalIgnoreCase)
+                    || string.Equals(pair.Key, "namespaces", StringComparison.OrdinalIgnoreCase)) || pair.Value.Count != 1))
+                throw new ArgumentException("sign-publisher requires each of --root-public-key, --intermediate-key, --intermediate, --publisher-id, --display-name, --public-key and --out exactly once, and takes --namespaces at most once");
             PackageSigner.SignPublisher(Required(po, "root-public-key"), Required(po, "intermediate-key"),
                 Required(po, "intermediate"), Required(po, "publisher-id"), Required(po, "display-name"),
-                Required(po, "public-key"), Required(po, "out"));
+                Required(po, "public-key"), Required(po, "out"),
+                withNamespaces == 1 ? Required(po, "namespaces").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) : null);
             return 0;
 
         case "sign-revocations":

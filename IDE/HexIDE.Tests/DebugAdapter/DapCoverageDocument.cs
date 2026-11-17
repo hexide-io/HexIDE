@@ -17,7 +17,8 @@ internal static class DapCoverageDocument
         // Fail closed if reverse dispatch changes: generic rejection is not reverse-request support.
         if (!Regex.IsMatch(connection, """case "request":\s*var reverseCommand = Text\(message, "command"\);\s*RecordFrame\(\);\s*await RejectReverseRequestAsync\(sequence, reverseCommand\)\.ConfigureAwait\(false\);\s*break;"""))
             throw new InvalidDataException("Reverse-request dispatch changed; update coverage extraction.");
-        var requests = Matches(session, "(?:Request|Inspect|RequestAsync|ResumeCoreAsync)\\([^;]*?\"(?<name>[a-zA-Z]+)\"");
+        // Configure sends a startup request while watching launch for a refusal (#4160).
+        var requests = Matches(session, "(?:Request|Inspect|RequestAsync|ResumeCoreAsync|Configure)\\([^;]*?\"(?<name>[a-zA-Z]+)\"");
         // ResumeAsync validates its dynamic command against this literal pattern before forwarding it.
         var resume = Regex.Match(session, "command is not \\((?<commands>[^)]+)\\)");
         if (!resume.Success) throw new InvalidDataException("Resume command validation changed; update coverage extraction.");

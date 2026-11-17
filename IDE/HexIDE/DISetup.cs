@@ -70,7 +70,8 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Runtime.Debugging.IDebugController>(out var debugger);
                 ctx.Inject<IWindowManager>(out var windows);
                 ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
-                return new WatchesToolViewModel(localization, watches, debugger, windows, external);
+                ctx.Inject<WatchDialogContextSource>(out var contexts);
+                return new WatchesToolViewModel(localization, watches, debugger, windows, external) { DialogContextSource = contexts };
             })
             .Bind().As(Singleton).To<CallStackToolViewModel>()
             .Bind().As(Singleton).To<RecentEditHistory>()
@@ -114,6 +115,7 @@ public partial class DISetup
             .Bind().As(Singleton).To<EditorService>()
             .Bind().As(Singleton).To<DockFactoryReference>()
             .Bind<IProgramHost>().As(Singleton).To<ProgramHost>()
+            .Bind<IRunningProgram>().As(Singleton).To<InterpreterRunningProgram>()
             .Bind<IRunEngine>().As(Singleton).To<InterpreterRunEngine>()
             .Bind<HexIDE.Language.IConditionalCodeReader>().As(Singleton)
                 .To<HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode>()
@@ -162,8 +164,9 @@ public partial class DISetup
                 ctx.Inject<IComponentRegistry>(out var componentRegistry);
                 ctx.Inject<HexIDE.Language.IReadOnlyRegionWriter>(out var regionWriter);
                 ctx.Inject<IDocumentDockService>(out var documents);
+                ctx.Inject<AddinProjectTemplateService>(out var templates);
                 return new ProjectService(regionWriter, newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, format, componentRegistry, archives, lspClient,
-                    contributed, documents);
+                    contributed, documents, templates);
             })
             .Bind().As(Singleton).To<ArchiveProjectService>()
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()
@@ -384,7 +387,11 @@ public partial class DISetup
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
             // Pin production constructors: path/snapshot overloads are test seams, not dependencies.
             // Profiles
-            .Bind<IProfileService>().As(Singleton).To(_ => new ProfileService())
+            .Bind<IProfileService>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<AddinProjectTemplateService>(out var templates);
+                return new ProfileService(templates);
+            })
             // Theming
             .Bind<IThemeService>().As(Singleton).To(_ => new ThemeService())
             // Keymaps
@@ -409,9 +416,22 @@ public partial class DISetup
             .Bind().As(Singleton).To<AddinDiagnosticsService>()
             .Bind().As(Singleton).To<LanguageServerMessageReporter>()
             .Bind().As(Singleton).To<AddinCommandService>()
-            .Bind().As(Singleton).To<AddinProjectTemplateService>()
-            // The project types add-ins contribute, which Open Project and the recent list open as projects.
-            .Bind().As(Singleton).To<HexIDE.Projects.ContributedProjects>()
+            // The templates project types offer: VB6's first, as its type offers them (#3411 slice 10b), then add-ins'.
+            .Bind().As(Singleton).To(_ =>
+            {
+                var templates = new AddinProjectTemplateService();
+                HexIDE.Projects.Vb6ProjectType.RegisterTemplates(templates);
+                return templates;
+            })
+            // The project types add-ins contribute, which Open Project and the recent list open as projects, with VB6's own
+            // registered first, as a first-party type reading through the IDE's format (#3411 slice 10b).
+            .Bind().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IProjectFileFormat>(out var format);
+                var types = new HexIDE.Projects.ContributedProjects();
+                HexIDE.Projects.Vb6ProjectType.Register(types, format);
+                return types;
+            })
             .Bind().As(Singleton).To<AddinOptionsService>()
             .Bind<IPackageVerifier>().As(Singleton).To<PackageVerifier>()
             .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To(ctx =>
@@ -425,6 +445,7 @@ public partial class DISetup
                 return new AddinRegistry(verifier, settings, developerMode, windows, localization);
             })
             .Bind<IHexIdeHost>().As(Singleton).To<HexIdeHost>()
+            .Root<IRunningProgram>("RunningProgram")
             .Root<MainViewViewModel>("Root")
             .Root<ILspClient>("LspClient")
             // The conversation record. A root because the automation tools read it directly, and Pure.DI

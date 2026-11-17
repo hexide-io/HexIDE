@@ -11,7 +11,7 @@ import subprocess
 
 root = Path(__file__).resolve().parents[3]
 source = root / 'IDE/HexIDE.Lsp/VBLspClient.cs'
-outputs = [root / f'IDE/{project}/bin/Debug/net10.0' for project in
+outputs = [root / f'IDE/{project}/bin/Debug/net11.0' for project in
            ('HexIDE.Lsp', 'HexIDE.Tests', 'HexIDE.Integration.Tests')]
 original = {source: source.read_bytes()}
 for output in outputs:

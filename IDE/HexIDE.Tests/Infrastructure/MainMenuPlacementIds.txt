@@ -60,6 +60,8 @@ edit.bookmarks.next
 edit.bookmarks.previous
 edit.bookmarks.separator3
 edit.bookmarks.clearall
+edit.refactor
+edit.sourceactions
 view
 view.code
 view.object

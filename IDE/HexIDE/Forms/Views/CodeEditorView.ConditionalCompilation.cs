@@ -16,13 +16,12 @@ namespace HexIDE.Forms.Views;
 
 public partial class CodeEditorView
 {
-    // VBA's constants, not measured here: there is no VBA oracle. Preview only (#1113). Microsoft's page calls them
-    // True, but VB6 measures 1 where its own documentation says True, and so does #1691's, so 1 it is.
+    // The 32-bit set remains an unmeasured preview (#1113); 64-bit is row K recorded in #4245.
     private static readonly IReadOnlyDictionary<string, object?> Vba32BuiltIns =
         new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) { ["VBA6"] = 1, ["VBA7"] = 1, ["Win32"] = 1 };
 
     private static readonly IReadOnlyDictionary<string, object?> Vba64BuiltIns =
-        new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) { ["VBA6"] = 1, ["VBA7"] = 1, ["Win32"] = 1, ["Win64"] = 1 };
+        new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) { ["VBA6"] = 1, ["VBA7"] = 1, ["Win32"] = 1, ["Win64"] = 1, ["Win16"] = 0, ["Mac"] = 0 };
 
     private readonly DispatcherTimer _conditionalTimer = new() { Interval = TimeSpan.FromMilliseconds(200) };
     private InactiveCodeColorizer? _inactiveColorizer;

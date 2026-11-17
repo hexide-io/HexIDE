@@ -6,6 +6,9 @@ namespace HexIDE.Addins;
 /// <summary>The add-in a contribution came from: its manifest id, which stays the same, and its title, for display.</summary>
 internal readonly record struct AddinOrigin(string Id, string Title, bool IsFirstParty = false, bool IsDeveloperUnsigned = false)
 {
+    /// <summary>The namespaces the add-in's verified publisher record issues, or null when it carries none (#4258).</summary>
+    public string[]? PublisherNamespaces { get; init; }
+
     /// <summary>
     /// The add-in an assembly belongs to, by the load context the registry loaded it into, whose manifest names it. An
     /// assembly in no add-in's context, the host's own or a test's, is named by its simple name.
@@ -18,8 +21,9 @@ internal readonly record struct AddinOrigin(string Id, string Title, bool IsFirs
     {
         if (AssemblyLoadContext.GetLoadContext(assembly) is AddinLoadContext { AddinId: { Length: > 0 } id })
         {
-            var title = registry.GetAll().FirstOrDefault(addin => string.Equals(addin.Id, id, StringComparison.OrdinalIgnoreCase))?.Title;
-            return new AddinOrigin(id, string.IsNullOrWhiteSpace(title) ? id : title);
+            var info = registry.GetAll().FirstOrDefault(addin => string.Equals(addin.Id, id, StringComparison.OrdinalIgnoreCase));
+            var title = info?.Title;
+            return new AddinOrigin(id, string.IsNullOrWhiteSpace(title) ? id : title) { PublisherNamespaces = info?.PublisherNamespaces };
         }
 
         var name = assembly.GetName().Name ?? "An add-in";

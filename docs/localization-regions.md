@@ -26,6 +26,10 @@ Japanese (`ja`) and both Chinese scripts (`zh-Hans`, `zh-Hant`) preserve English
 in parenthesized Latin suffixes, stored as `(_F)` so Avalonia underlines the letter (#41).
 Literal underscores in identifiers such as `VB6_EXE` and `VB_Name` remain unchanged.
 
+`ShippedJsonUniquenessTests` checks raw UTF-8 JSON in every shipped pack, including region
+variants, for repeated property names (#4342). Its combined failure lists each file, object path,
+key and both line numbers; presence checks alone cannot detect last-value-wins merges.
+
 ## How packs and regions work
 
 - **Pack ids are BCP-47** — a neutral language (`en`, `fr`, `zh-Hans`) or `language-REGION` (`en-GB`,

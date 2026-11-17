@@ -41,7 +41,7 @@ internal sealed class ProgramPrinted
             if (attached) return;
             attached = true;
         }
-        HexIDE.Runtime.VBDebugConsole.Written += Append;
+        RunningProgram.Current.Written += Append;
         FollowRuns(runner);
     }
 

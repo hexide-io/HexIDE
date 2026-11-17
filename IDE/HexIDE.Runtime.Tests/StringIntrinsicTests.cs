@@ -7,7 +7,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// StrComp, StrConv, Environ, Switch and Error (#1560), as vb6.exe measured them. Rows left out, with the issue each
-/// waits on or why: strcomp-3 (#881), strconv-from-unicode (#1510), strconv-from-unicode-e (#1510), strconv-from-unicode-unmapped (#1510), strconv-from-unicode-empty (#1510), strconv-roundtrip (#1510), strconv-unicode-of-string (#1510), strconv-unicode-odd (#1510), strconv-unicode-high (#1510), strconv-from-then-len (#1510), strconv-type-from (#1510), text-strcomp-default (#1572), text-strcomp-B-a (#1572), environ-order-inversions (it describes the host), environ-count-below-200 (it describes the host).
+/// waits on or why: strcomp-3 (Windows locale path covered in LocaleCompareTests, #4151), strconv-from-unicode (#1510), strconv-from-unicode-e (#1510), strconv-from-unicode-unmapped (#1510), strconv-from-unicode-empty (#1510), strconv-roundtrip (#1510), strconv-unicode-of-string (#1510), strconv-unicode-odd (#1510), strconv-unicode-high (#1510), strconv-from-then-len (#1510), strconv-type-from (#1510), text-strcomp-default (#1572), text-strcomp-B-a (#1572), environ-order-inversions (it describes the host), environ-count-below-200 (it describes the host).
 /// </summary>
 public class StringIntrinsicTests : BaseVBTestFixture
 {

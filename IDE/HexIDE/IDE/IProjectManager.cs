@@ -12,6 +12,11 @@ public interface IProjectManager : INotifyPropertyChanged
     public event Action<ProjectDefinition>? ProjectLoaded;
     public event Action<ProjectDefinition>? ProjectUnloaded;
 
+    public event Action? ReloadStarted;
+    public event Action? ReloadFinished;
+    /// <summary>Bounds an unload/open operation, including cancellation or failure, for consumers preserving UI state.</summary>
+    IDisposable BeginReload();
+
     public ProjectDefinition? StartupProject { get; set; }
     public ProjectGroupDefinition? CurrentGroup { get; set; }
 
