@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
@@ -34,6 +35,7 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
 
     /// <summary>The form's Controls collection, which an element loaded or unloaded at run time joins or leaves (#1060).</summary>
     internal FormControls? FormControls { get; set; }
+    internal VBProgram? Program { get; set; }
 
     // The array each element is in, so a statement given the element itself, `Unload c`, can find it (#1060).
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, ControlArrayGroup> owners = new();
@@ -84,7 +86,7 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
     /// <summary>VB6 <c>Load Command1(i)</c> — create a new element by cloning the lowest-index element's properties,
     /// forced to <c>Visible=False</c> (oracle: a loaded control starts hidden). Err 360 if the index already
     /// exists.</summary>
-    public void Load(int index)
+    public async Task Load(int index)
     {
         if (elements.ContainsKey(index))
             throw new VBRunTimeException(VBStandardError.ObjectAlreadyLoaded);            // 360
@@ -100,6 +102,26 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
         // cloned with it. Pinned as a test rather than asserted as correct — what VB6 does when you Load a
         // new element of a Frame array is an open oracle question (see the change's open list).
         var control = ((ComponentBaseClass)tmpl.BaseClass).Instantiate(tmpl);
+        control.IsVisible = false;
+        VBProps.SetName(control, Name);
+        VBProps.SetIndex(control, index);
+        VBProps.SetRunTimeId(control);
+        elements[index] = control;
+        owners.AddOrUpdate(control, this);
+        hosts[index] = parent;
+        FormControls?.Loaded(control);
+        if (control is VBUserControl userControl && Program is { } program)
+        {
+            // #4337: Initialize, Resize (with extender Width 0), ReadProperties all run inside Load.
+            control.Width = 0;
+            AvaloniaInterop.UserControlMembers.Configure(control);
+            if (elements.TryGetValue(templateIndex, out var templateElement) && templateElement is VBUserControl attachedTemplate)
+                userControl.AttachLike(attachedTemplate, program, tmpl.BaseClass.ClassName);
+            else
+                userControl.Attach(program, tmpl.BaseClass.ClassName, null, Name, false);
+            parent.Children.Add(control);
+            await userControl.StartLoaded();
+        }
         Canvas.SetLeft(control, tmpl.GetPropertyOrDefault(VBProperties.LeftProperty));
         Canvas.SetTop(control, tmpl.GetPropertyOrDefault(VBProperties.TopProperty));
         control.Width = tmpl.GetPropertyOrDefault(VBProperties.WidthProperty);
@@ -109,15 +131,10 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
             line.Resolve(scale);
         // Under every control of its plane already there, where VB6 puts a loaded CommandButton (measured, #1497).
         ControlStacking.PlaceUnder(control, ((ComponentBaseClass)tmpl.BaseClass).IsWindowless, parent);
-        control.IsVisible = false;                                                        // oracle: loaded → hidden
-        VBProps.SetName(control, Name);
-        VBProps.SetIndex(control, index);
-        VBProps.SetRunTimeId(control);
-        parent.Children.Add(control);
-        elements[index] = control;
-        owners.AddOrUpdate(control, this);
-        hosts[index] = parent;
-        FormControls?.Loaded(control);
+        if (control.Parent is null)
+            parent.Children.Add(control);
+        if (control is VBUserControl loaded)
+            loaded.WatchLoadedVisibility();
     }
 
     // A new element of a menu control array, copied from the first as it stands, and placed in its menu after the

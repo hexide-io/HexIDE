@@ -135,4 +135,88 @@ public partial class UserControlKeyTests
         run.Context.FormInstance!.Controls!.All.Select(VBProps.GetName).Should().Equal("Text1", "Command1", "ucPlain", "uc1");
     }
 
+    // #4337: vb6.exe SP6 native/p-code measurements in the issue's first comment (oracle PR #4341).
+    private static string ArrayBlock => Block("P.Dial", "uc1", 1, extra: "Index = 0\nValue = 42");
+    private const string ArrayCode = "Private id As Integer\n"
+        + "Private Sub UserControl_Initialize()\nid = Form1.Current\nDebug.Print \"initialize\" & id\nEnd Sub\n"
+        + "Private Sub UserControl_InitProperties()\nDebug.Print \"initproperties\"\nEnd Sub\n"
+        + "Private Sub UserControl_Resize()\nDebug.Print \"resize\" & id\nIf id <> 0 Then Debug.Print Form1.uc1(id).Width\nEnd Sub\n"
+        + "Private Sub UserControl_ReadProperties(PropBag As PropertyBag)\nDebug.Print \"read\" & id\nEnd Sub\n"
+        + "Private Sub UserControl_AccessKeyPress(KeyAscii As Integer)\nDebug.Print \"key\" & id\nEnd Sub\n"
+        + "Private Sub UserControl_Show()\nDebug.Print \"show\" & id\nEnd Sub\n"
+        + "Private Sub UserControl_Hide()\nDebug.Print \"hide\" & id\nEnd Sub\n"
+        + "Private Sub UserControl_Terminate()\nDebug.Print \"terminate\" & id\nEnd Sub\n";
+
+    [AvaloniaFact]
+    public async Task Loaded_UserControl_attaches_the_same_module_with_its_own_instance()
+    {
+        using var run = new Run("", blocks: ArrayBlock, formCode: "Public Current As Integer\n", controlCode: ArrayCode);
+        run.Lib.Printed.Clear();
+        await run.Code("Current = 1\nLoad uc1(1)\n");
+        var elements = run.Context.FormInstance!.Controls!.All.OfType<VBUserControl>().ToArray();
+        elements[1].AccessKey(113);
+        elements[0].AccessKey(113);
+        run.Lib.Printed.Select(v => v.Value).Should().EndWith(new object[] { "key1", "key0" });
+    }
+
+    [AvaloniaFact]
+    public async Task Loaded_UserControl_runs_Initialize_Resize_ReadProperties_inside_Load()
+    {
+        using var run = new Run("", blocks: ArrayBlock, formCode: "Public Current As Integer\n", controlCode: ArrayCode);
+        run.Lib.Printed.Clear();
+        await run.Code("Current = 1\nLoad uc1(1)\nDebug.Print \"returned\"\n");
+        run.Lib.Printed.Select(v => v.Value).Should().Equal("initialize1", "resize1", 0f, "read1", "returned");
+    }
+
+    // A loaded element is attached as its template was (#4149's Ambient): it reads the form's BackColor, measured in #4149,
+    // which an element attached with no form would refuse.
+    [AvaloniaFact]
+    public async Task Loaded_UserControl_reads_Ambient_from_its_templates_form()
+    {
+        using var run = new Run("", blocks: ArrayBlock, formSettings: "BackColor = &H00C0FFFF&\n",
+            controlCode: "Private Sub UserControl_ReadProperties(PropBag As PropertyBag)\nDebug.Print CStr(Ambient.BackColor)\nEnd Sub\n");
+        run.Lib.Printed.Clear();
+        await run.Code("Load uc1(1)\n");
+        run.Lib.Printed.Should().Equal(new Vb6Value("12648447"));
+    }
+
+    [AvaloniaFact]
+    public async Task Loaded_UserControl_has_the_templates_geometry_and_starts_hidden()
+    {
+        using var run = new Run("", blocks: ArrayBlock, formCode: "Public Current As Integer\n", controlCode: ArrayCode);
+        run.Lib.Printed.Clear();
+        await run.Code("Current = 1\nLoad uc1(1)\nDebug.Print uc1(1).Width\nDebug.Print uc1(1).Height\nDebug.Print uc1(1).Top\nDebug.Print uc1(1).Visible\n");
+        run.Lib.Printed.Select(v => v.Value).Should().Equal("initialize1", "resize1", 0f, "read1", 1200f, 375f, 600f, false);
+    }
+
+    [AvaloniaFact]
+    public void Loaded_UserControls_show_in_index_order_before_Activate()
+    {
+        using var run = new Run("", blocks: ArrayBlock, controlCode: ArrayCode, activate: true,
+            formCode: "Public Current As Integer\nPrivate Sub Form_Load()\nCurrent = 2\nLoad uc1(2)\nuc1(2).Visible = True\nCurrent = 1\nLoad uc1(1)\nuc1(1).Visible = True\nCurrent = 3\nLoad uc1(3)\nDebug.Print \"loaded\"\nEnd Sub\nPrivate Sub Form_Activate()\nDebug.Print \"activate\"\nEnd Sub\n");
+        run.Lib.Printed.Select(v => v.Value).Should().EndWith(new object[] { "loaded", "show0", "show1", "show2", "activate" });
+    }
+
+    [AvaloniaFact]
+    public void Loaded_UserControl_Show_waits_until_the_Visible_statement_returns()
+    {
+        using var run = new Run("", blocks: ArrayBlock, controlCode: ArrayCode,
+            formCode: "Public Current As Integer\nPrivate Sub Probe()\nCurrent = 1\nLoad uc1(1)\nuc1(1).Visible = True\nDebug.Print \"returned\"\nEnd Sub\n");
+        run.Lib.Printed.Clear();
+        run.Context.ExecuteSub("Probe");
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        run.Lib.Printed.Select(v => v.Value).Should().Equal("initialize1", "resize1", 0f, "read1", "returned", "show1");
+    }
+
+    [AvaloniaFact]
+    public void Loaded_UserControl_Unload_Me_includes_elements_in_index_order()
+    {
+        using var run = new Run("", blocks: ArrayBlock, controlCode: ArrayCode,
+            formCode: "Public Current As Integer\nPrivate Sub Probe()\nCurrent = 2\nLoad uc1(2)\nCurrent = 1\nLoad uc1(1)\nUnload Me\nEnd Sub\nPrivate Sub Form_Unload(Cancel As Integer)\nDebug.Print \"unload\"\nEnd Sub\n");
+        run.Lib.Printed.Clear();
+        run.Context.ExecuteSub("Probe");
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        run.Lib.Printed.Select(v => v.Value).Should().EndWith(new object[] { "unload", "hide0", "terminate0", "hide1", "terminate1", "hide2", "terminate2" });
+    }
+
 }

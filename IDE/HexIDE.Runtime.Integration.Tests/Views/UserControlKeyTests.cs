@@ -43,6 +43,8 @@ public partial class UserControlKeyTests
     private sealed class RunWindow : Window, IModuleExecutionRoot
     {
         internal VBWindowContext? Context;
+        public Task<bool> UnloadAsync(int mode) => Context!.UnloadAsync(mode);
+        public EventPump? Events => Context?.Events;
         public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null) => Context?.ExecuteSub(name, args);
     }
 
@@ -55,7 +57,7 @@ public partial class UserControlKeyTests
         internal readonly List<Exception> Faults = [];
         internal readonly List<VBRunTimeException> RunTimeErrors = [];
         internal Control Named(string name) => Window.GetLogicalDescendants().OfType<Control>().Single(c => VBProps.GetName(c) == name);
-        internal Run(string settings, string formCode = "", string controlCode = "", string child = "", bool plain = false, string? blocks = null, string formSettings = "")
+        internal Run(string settings, string formCode = "", string controlCode = "", string child = "", bool plain = false, string? blocks = null, bool activate = false, string formSettings = "")
         {
             var project = new ProjectDefinition(VBProjectType.EXE, "P");
             var ctl = new FormDeserializer().Deserialize(project,
@@ -96,7 +98,14 @@ public partial class UserControlKeyTests
             var started = Context.StartAsync().GetAwaiter().GetResult();
             if (Faults.Count == 0)
                 started.Should().BeTrue();
+            if (activate)
+                Window.Activated += (_, _) => Context.Program!.Activated(Context);
             Window.Show();
+            if (activate)
+            {
+                Window.Activate();
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            }
             Context.ShowControls();
         }
         internal void Key(Key key, KeyModifiers modifiers = KeyModifiers.None)
