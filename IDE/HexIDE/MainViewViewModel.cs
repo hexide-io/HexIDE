@@ -2558,11 +2558,12 @@ public partial class MainViewViewModel : ObservableObject
             AllowMultiple = true,
             FileTypeFilter =
             [
-                new FilePickerFileType("VB6 Files")
+                new FilePickerFileType(localization.GetString("Str.FilePicker.MemberFiles"))
                 {
-                    Patterns = ["*.bas", "*.cls", "*.frm", "*.ctl", "*.pag"],
+                    Patterns = ["*." + ProjectFormats.Of(p).FormExtension,
+                        .. Enum.GetValues<ModuleKind>().Select(kind => "*." + ProjectFormats.Of(p).MemberExtension(kind)).Distinct()],
                 },
-                new FilePickerFileType("All Files") { Patterns = ["*.*"] },
+                new FilePickerFileType(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] },
             ],
         });
 

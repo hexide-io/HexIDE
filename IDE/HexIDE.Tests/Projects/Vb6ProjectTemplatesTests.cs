@@ -133,7 +133,7 @@ public sealed class Vb6ProjectTemplatesTests
         var sidecar = Substitute.For<IUserSidecarService>();
         var service = new ProjectService(            () => throw new InvalidOperationException("no new-project dialog here"), windows, Substitute.For<IEventBus>(), projects,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(),
-            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(),             new ComponentRegistry(), contributed: Types(withAddin: true));
+            new LocalizationService(), Substitute.For<IHeaderRefresher>(),             new ComponentRegistry(), contributed: Types(withAddin: true));
 
         var open = () => service.OpenProject();
 
