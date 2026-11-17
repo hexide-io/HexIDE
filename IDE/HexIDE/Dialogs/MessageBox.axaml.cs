@@ -19,6 +19,9 @@ public partial class MessageBox : UserControl
     /// <summary>Which button, counted from 0, is the default: the one Enter presses, which has the focus.</summary>
     public int DefaultButton { get; set; }
 
+    /// <summary>Whether the box asks the person a security question, which automation must not coach (#1121).</summary>
+    public bool IsSecurityPrompt { get; set; }
+
     public event Action<MessageBoxResult>? AcceptRequest;
 
     /// <summary>

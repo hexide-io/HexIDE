@@ -45,5 +45,11 @@ public enum MessageBoxLayout
     /// <c>vbDefaultButton2</c> makes it. For a question whose safe answer is the second, such as No to running code
     /// from outside this computer (#1121). The IDE's own boxes read it; a program's box ignores it.
     /// </summary>
-    SecondButtonDefault = 4
+    SecondButtonDefault = 4,
+
+    /// <summary>
+    /// Not a layout: the box asks the person a security question, such as whether to run code from outside this
+    /// computer (#1121). Automation describes such a box as the person's decision and never says how to answer it.
+    /// </summary>
+    SecurityPrompt = 8
 }

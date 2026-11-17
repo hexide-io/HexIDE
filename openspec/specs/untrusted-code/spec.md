@@ -102,10 +102,14 @@ itself.
 
 ### Requirement: Automation SHALL be told a start is waiting on the person
 A tool that starts a run SHALL reply, while the question is up, that the run has not started, that a security prompt is
-open, which files it names, and that the answer is the person's: the run starts by itself if they allow it, and nothing
-runs if they decline. The reply SHALL NOT say how to answer the prompt, so that it never coaches an automated caller
-towards allowing downloaded code on the person's behalf.
+open, which files it names, and that the answer is the person's. No reply SHALL say how to answer the prompt, so that
+nothing coaches an automated caller towards allowing downloaded code on the person's behalf. That holds for the start's
+own reply, for the note any tool adds about an open dialog, and for a refusal because the prompt holds the window.
 
 #### Scenario: run_project on a downloaded project
 - **WHEN** `run_project` starts a project with a downloaded module
 - **THEN** the reply names the module, says the decision is the person's, and doesn't say how to answer the prompt
+
+#### Scenario: Another tool while the prompt is open
+- **WHEN** any tool's reply notes the open trust prompt, or refuses because it holds the window
+- **THEN** it says the prompt is the person's decision, and not that `interact` answers it

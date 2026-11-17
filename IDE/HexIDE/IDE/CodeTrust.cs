@@ -122,7 +122,7 @@ public sealed class CodeTrust
             // itself, so a name must never be able to read as the question's opening (#1121 review).
             var answer = await windows.MessageBox(string.Format(localization.GetString("Str.CodeTrust.Prompt"), Shown(name, MostOfAName), list),
                 localization.GetString("Str.CodeTrust.Caption"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
-                layout: MessageBoxLayout.SecondButtonDefault);
+                layout: MessageBoxLayout.SecondButtonDefault | MessageBoxLayout.SecurityPrompt);
             if (answer != MessageBoxResult.Yes)
             {
                 Serilog.Log.Information("Not run: running {Name}, whose code came from outside this computer, was declined", name);

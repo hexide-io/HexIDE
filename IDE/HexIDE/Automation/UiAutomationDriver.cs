@@ -986,8 +986,8 @@ public static class UiAutomationDriver
             foreach (var blocked in blocking)
                 OpenDialogs.NamedInReply(blocked);
             return $"'{subject}' is in a window a modal dialog has disabled: {OpenDialogs.DescriptionOf(dialog)}. "
-                   + $"No person could use it, so '{verb}' was refused and nothing was done. Answer the dialog first: "
-                   + "dump_visual_tree with 'window' set to its title shows it, and interact answers it";
+                   + $"No person could use it, so '{verb}' was refused and nothing was done. "
+                   + OpenDialogs.HowToAnswer(dialog, "Answer the dialog first");
         }
         if (control.IsEffectivelyEnabled && window is not { IsEffectivelyEnabled: false })
             return null;
@@ -4229,8 +4229,8 @@ public static class UiAutomationDriver
         foreach (var dialog in open.Where(d => OpenDialogs.Blocks(d, window)))
             OpenDialogs.NamedInReply(dialog);
         return $"{OpenDialogs.DescriptionOf(holding)}, a modal dialog over {OpenDialogs.OwnerOf(holding)}, is open and waits for an answer, so "
-            + $"a person's keys would go to it, not to {what}; nothing was {done}. Answer it first: dump_visual_tree with "
-            + "'window' set to its title shows it, and interact answers it";
+            + $"a person's keys would go to it, not to {what}; nothing was {done}. "
+            + OpenDialogs.HowToAnswer(holding, "Answer it first");
     }
 
     /// <summary>The code editor's text area behind a surface, when it is one.</summary>

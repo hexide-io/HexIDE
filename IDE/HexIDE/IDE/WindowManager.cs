@@ -220,7 +220,11 @@ public class WindowManager : IWindowManager
     private Task<MessageBoxResult> ShowDesktopMessageBox(IClassicDesktopStyleApplicationLifetime desktop, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner,
         MessageBoxLayout layout = MessageBoxLayout.None)
     {
-        var messageBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon, DefaultButton = DefaultButtonOf(layout) };
+        var messageBox = new MessageBox
+        {
+            Text = text, Buttons = buttons, Icon = icon, DefaultButton = DefaultButtonOf(layout),
+            IsSecurityPrompt = layout.HasFlag(MessageBoxLayout.SecurityPrompt),
+        };
         var window = MakeDialogWindow(caption, messageBox);
         return messageBox.ShowAndWait(window, owner ?? GetTopWindow(desktop));
     }
@@ -238,6 +242,7 @@ public class WindowManager : IWindowManager
                 Buttons = buttons,
                 Icon = icon,
                 DefaultButton = DefaultButtonOf(layout),
+                IsSecurityPrompt = layout.HasFlag(MessageBoxLayout.SecurityPrompt),
             };
             var task = ShowManagedWindow(out var window, caption, messageBox, false);
 

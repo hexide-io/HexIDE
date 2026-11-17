@@ -86,7 +86,7 @@ public class RunWithTests : IAsyncDisposable
         runner.StartDefaultProject();
 
         await windows.Received(1).MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>(),
-            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), MessageBoxLayout.SecondButtonDefault);
+            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), MessageBoxLayout.SecondButtonDefault | MessageBoxLayout.SecurityPrompt);
         if (starts)
             (await _asked.Task.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken)).ProjectName.Should().Be("Invoices");
         else

@@ -88,7 +88,7 @@ public class Vb6ToolchainDiagnosticsTests
     private StubbedBuild BuildAsking(MessageBoxResult answer)
     {
         _windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>(),
-            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), MessageBoxLayout.SecondButtonDefault).Returns(answer);
+            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), MessageBoxLayout.SecondButtonDefault | MessageBoxLayout.SecurityPrompt).Returns(answer);
         var strings = Localization();
         var trust = new CodeTrust(_windows, strings, path => string.Equals(path, Form1Path, StringComparison.OrdinalIgnoreCase));
         return (StubbedBuild)WithVb6ExePath(() => new StubbedBuild(
@@ -104,7 +104,7 @@ public class Vb6ToolchainDiagnosticsTests
 
         build.Builds.Should().Be(0);
         await _windows.Received(1).MessageBox(Arg.Any<string>(), "Str.CodeTrust.Caption", MessageBoxButtons.YesNo,
-            MessageBoxIcon.Warning, Arg.Any<Avalonia.Controls.Window?>(), false, MessageBoxLayout.SecondButtonDefault);
+            MessageBoxIcon.Warning, Arg.Any<Avalonia.Controls.Window?>(), false, MessageBoxLayout.SecondButtonDefault | MessageBoxLayout.SecurityPrompt);
     }
 
     [Fact]
