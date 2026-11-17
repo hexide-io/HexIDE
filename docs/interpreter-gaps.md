@@ -43,9 +43,11 @@ aliases never belong to the callee. Freed slot numbers are not reused, and exhau
 Debugger inspection treats freed slots as out of scope.
 
 Instance fields and instance Statics still retain their storage after termination ([#4375](https://github.com/hexide-io/HexIDE/issues/4375)). Freeing them
-waits until member accesses on terminated instances have been counted across the Runtime suite, Battleship and
-the #2067 sweep, as #79's design note requires. The per-call copy of the module environment that #79 also found
-was removed by #2120.
+waits until member accesses on terminated instances have been counted, as #79's design note requires: one is a
+holder HexIDE missed, and freeing would turn it into a crash. #4375's in-tree count, on 2026-11-17, found none across
+the Runtime and Runtime integration suites, Battleship and the IDE suite with its 36-project corpus. The #2067 sweep
+of third-party projects is still uncounted: it runs strangers' code, so it needs a container or a throwaway VM.
+The per-call copy of the module environment that #79 also found was removed by #2120.
 
 ## App logging (#2552)
 
