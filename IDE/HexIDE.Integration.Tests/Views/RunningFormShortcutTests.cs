@@ -38,7 +38,9 @@ public class RunningFormShortcutTests
             IdeDialogOwnershipTests.Activate(form);
             debug.Reset();
             input.Focus().Should().BeTrue();
-            var gesture = ApplicationCommands.BreakProjectCommand.Gestures.Single();
+            // The declared gesture. On Windows the keymap appends Ctrl+Cancel, Windows' name for Ctrl+Break, and that
+            // stays on the static command for the rest of the run.
+            var gesture = ApplicationCommands.BreakProjectCommand.Gestures.First();
             var reply = UiAutomationDriver.PressKey(input, gesture.Key.ToString(), gesture.KeyModifiers.ToString());
             reply.Success.Should().BeTrue(reply.Error);
             reply.Mechanism.Should().Be("window-input");
@@ -82,7 +84,7 @@ public class RunningFormShortcutTests
             form.Show();
             IdeDialogOwnershipTests.Activate(form);
             input.Focus().Should().BeTrue();
-            var gesture = command.Gestures.Single();
+            var gesture = command.Gestures.First(); // the declared one; see Break_key_then_statement_gate_activates_ide
             var reply = UiAutomationDriver.PressKey(input, gesture.Key.ToString(), gesture.KeyModifiers.ToString());
             reply.Success.Should().BeTrue(reply.Error);
             reply.Mechanism.Should().Be("window-input");
