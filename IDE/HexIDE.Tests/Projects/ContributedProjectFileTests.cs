@@ -180,6 +180,17 @@ public sealed class ContributedProjectFileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task A_contributed_project_reads_its_plain_modules_through_the_IDE_s_format_and_keeps_its_own_forms_and_file()
+    {
+        using var type = Contribute();
+        var project = await Opened();
+
+        project.Format.Should().BeOfType<Vb6ProjectFileFormat>("its plain modules are read and rendered as before #4053");
+        project.FormFormat.Should().BeOfType<ContributedFormFormat>();
+        project.ProjectFileWriter.Should().NotBeNull();
+    }
+
+    [AvaloniaFact]
     public async Task Properties_applied_in_the_dialog_are_saved_where_the_writer_carries_them()
     {
         _writer.Carries |= ProjectFileParts.Properties;
@@ -661,7 +672,8 @@ public sealed class ContributedProjectFileTests : IDisposable
 
     [Fact]
     public void No_product_code_renders_a_project_file_past_its_project_s_writer() =>
-        ProductSource.FilesMatching(new Regex(@"\b_?format\s*\.\s*RenderProject\b"),
+        // Through the injected format, or through a project's own (#4053).
+        ProductSource.FilesMatching(new Regex(@"(\b_?format|\bFormatOf\([^)]*\)|\bProjectFormats\.Of\([^)]*\))\s*\.\s*RenderProject\b"),
                 // The one call, which a project's writer goes before, and the language server's text, which is a .vbp's only.
                 "ProjectService.ProjectFile.cs", "ProjectLspWorkspace.cs")
             .Should().BeEmpty("a project an add-in opened has its file written by that add-in's writer, or by nothing");

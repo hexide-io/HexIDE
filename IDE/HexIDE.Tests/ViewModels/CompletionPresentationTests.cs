@@ -89,4 +89,51 @@ public class CompletionPresentationTests
             Application.Current.Styles.Remove(theme);
         }
     }
+
+    // #3613: ordinal order lists `Xor` ahead of `x`, and a first-prefix rule selected it, so Space wrote `Xor` over a
+    // typed, declared `x`. A whole-word match, ignoring case, now comes first; the old rule decides the rest.
+    [AvaloniaTheory]
+    [InlineData("x", "Xor,x", null, "x")]
+    [InlineData("X", "Xor,x", null, "x")]
+    [InlineData("tot", "Total,tot", null, "tot")]
+    [InlineData("tot", "total", null, "total")]
+    [InlineData("x", "xa,x", "xa", "x")]
+    [InlineData("x", "X,x", null, "X")]
+    [InlineData("x", "X,x", "x", "x")]
+    [InlineData("xo", "Xor,x", null, "Xor")]
+    [InlineData("zq", "Xor,x", null, null)]
+    [InlineData("", "Xor,x", null, null)]
+    public void WholeWordMatchIsSelectedAheadOfAnEarlierPrefixMatch(string word, string labels, string? preselect, string? selected)
+    {
+        var theme = new Avalonia.Themes.Simple.SimpleTheme();
+        var editorTheme = new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://AvaloniaEdit/"))
+        {
+            Source = new Uri("avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml")
+        };
+        Application.Current!.Styles.Add(theme);
+        Application.Current.Styles.Add(editorTheme);
+        var editor = new TextEditor { Text = word };
+        editor.CaretOffset = word.Length;
+        var host = new Window { Content = editor, Width = 500, Height = 300 };
+        host.Show();
+        var popup = new CompletionWindow(editor.TextArea);
+        try
+        {
+            host.UpdateLayout();
+            var items = labels.Split(',')
+                .Select(label => new CompletionItem(label, CompletionItemKind.Variable) { Preselect = label == preselect ? true : null })
+                .ToArray();
+            CodeEditorView.FillCompletionList(popup, items, (_, _) => false);
+            popup.Show();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            (popup.CompletionList.SelectedItem?.ToString()).Should().Be(selected);
+        }
+        finally
+        {
+            popup.Close();
+            host.Close();
+            Application.Current.Styles.Remove(editorTheme);
+            Application.Current.Styles.Remove(theme);
+        }
+    }
 }

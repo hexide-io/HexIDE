@@ -1,13 +1,14 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:HexIDE.Controls"
              xmlns:tools="clr-namespace:HexIDE.Tools"
              x:Class="HexIDE.Tools.CallHierarchyToolView"
              x:DataType="tools:CallHierarchyToolViewModel">
     <DockPanel>
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8">
-            <RadioButton Content="{DynamicResource Str.Tool.CallHierarchy.CallsTo}" GroupName="CallHierarchyMode"
+            <controls:IdeRadioButton Content="{DynamicResource Str.Tool.CallHierarchy.CallsTo}" GroupName="CallHierarchyMode"
                          IsChecked="{CompiledBinding !CallsFrom, Mode=TwoWay}" />
-            <RadioButton Content="{DynamicResource Str.Tool.CallHierarchy.CallsFrom}" GroupName="CallHierarchyMode"
+            <controls:IdeRadioButton Content="{DynamicResource Str.Tool.CallHierarchy.CallsFrom}" GroupName="CallHierarchyMode"
                          IsChecked="{CompiledBinding CallsFrom, Mode=TwoWay}"
                          AutomationProperties.AutomationId="CallHierarchy.CallsFrom" />
         </StackPanel>

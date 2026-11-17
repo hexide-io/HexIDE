@@ -27,3 +27,30 @@ So `End` is the same wherever it is reached, and it is not an unload. HexIDE's `
 the statement, suppresses `Class_Terminate` through its own `Ending` flag (which also works with no debugger
 attached), and in the IDE ends the run as the End command does, reporting nothing.
 
+### When a Sub Main program returns: the order objects terminate in (2026-11-16, #1490)
+
+**The question.** `End` fires no Terminate, as above. A program that ends by returning from Sub Main terminates what it still
+holds (#1490). In what order?
+
+**The probe.** A Sub Main program ends by returning. Each object of class `C1` appends `term <name>` from its `Class_Terminate`, and Form1's `Form_Terminate` does the same. Setup makes them in this order, then returns:
+
+| Made | Object | Held by |
+|---|---|---|
+| 1 | `Module1.x` | a local, then stored in Module1's `x` only after #8 |
+| 2 | `Module1.b` | Module1's `b`, declared second |
+| 3 | `Module1.a` | Module1's `a`, declared first |
+| 4 | `ModB.qb` | ModB's private variable |
+| 5 | `ModA.pa` | ModA's **Public** variable, set from Module1 |
+| 6 | `ModA.qa` | ModA's private variable |
+| 7 | `ModB.pb` | ModB's Public variable, set from Module1 |
+| 8 | `Static s` | a Static in a Module1 Sub |
+| then | Form1 | `Load Form1`, then `Unload Form1`, so the default instance stays |
+
+**The order it ended in:** Static s (8), ModB.pb (7), ModA.qa (6), ModA.pa (5), ModB.qb (4), Module1.a (3), Module1.b (2), Module1.x (1), and then Form1.
+
+**The rule: objects terminate in reverse order of creation, and the form's default instance after all of them.**
+- **Neither module nor the project's listing matters.** The run was repeated with ModA and ModB swapped in the `.vbp`, with the same order.
+- **Neither declaration order nor kind of variable matters:** module-level, Public, private or Static.
+- **What isn't a candidate rule:** reverse order of assignment into the variables. `Module1.x` was made first but stored last, and it terminated last.
+
+Built native and p-code, each with the modules in both listing orders. All four runs ended identically.

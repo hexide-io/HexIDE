@@ -54,14 +54,26 @@ becomes ready, without requiring the developer to reselect a library.
 The browser SHALL list in-box component libraries from project lines and form headers, once per project
 alongside matching references, using each library's own name and existing alphabetical ordering. It SHALL
 follow component, form and project removals. Loading SHALL use the type-library service, falling back to
-the registry's supplied controls and members. Both paths SHALL label HexIDE-only members with the
-localized origin description.
+the library's declared class names (including its control catalogue), each once, and existing component or
+library-class member tables. Fallback properties SHALL use their code names and omit designer-only rows. Component lookup SHALL use
+the runtime's shared catalogue of modelled in-box controls, including those outside the toolbox.
+A class with no member list SHALL remain listed and show a localized message
+in its members pane explaining that its type library is required. Both paths SHALL label HexIDE-only
+members with the localized origin description.
 
 #### Scenario: A component-only library without a registered OCX
 - **GIVEN** the project names MSCOMCTL.OCX only on an `Object=` line
 - **WHEN** its type-library metadata is unavailable
 - **THEN** MSComctlLib is selectable, with ProgressBar and its Increment member
 - **AND** Increment is described as HexIDE's own extension
+- **AND** TreeView, TabStrip, Toolbar, Node and ListItem are listed as classes (#4029)
+- **AND** TreeView supplies its component properties and events
+- **AND** its Name property is listed as `Name`, with no parenthesized designer rows
+
+#### Scenario: A declared class has no member list
+- **WHEN** a library's type metadata is unavailable and a declared class has no existing member list
+- **THEN** selecting that class shows one localized line explaining that its type library is required
+- **AND** the browser invents no members
 
 #### Scenario: Type metadata is available
 - **WHEN** a component library's type metadata can be read

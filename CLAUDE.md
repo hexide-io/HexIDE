@@ -736,8 +736,10 @@ semantic rename, find-all-references, workspace symbol resolution, or a code-fix
 Producing and analysing a proper **AST is the exclusive job of a real language engine**, delivered over the
 replaceable LSP/backend seam.
 
-**Why + consequences:** this keeps HexIDE a shell + demonstrator, not a half-built compiler frontend — no
-farm-bet re-implementation of semantic analysis, and a genuinely replaceable backend. It is *why* the
+**Why + consequences:** this keeps HexIDE's own VB-family tooling to syntax and execution, not a half-built
+compiler frontend: no farm-bet re-implementation of semantic analysis, and a genuinely replaceable backend. It
+limits what HexIDE *analyses*, not the standing of its interpreter, which is a peer engine within these bounds.
+It is *why* the
 Option-Explicit undeclared-variable check is **default-off** (it needs a symbol table = semantic analysis;
 see `VbDiagnosticsProvider.EnableUndeclaredVariableCheck`) and why the modernisation catalog's "Language
 intelligence" rows are marked as belonging to that engine rather than to HexIDE. If a task needs a bound

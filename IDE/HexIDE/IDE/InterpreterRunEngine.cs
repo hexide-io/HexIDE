@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -10,7 +9,6 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using HexIDE.Controls;
 using HexIDE.Events;
-using HexIDE.Localization;
 using HexIDE.Runtime;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.BuiltinControls;
@@ -27,20 +25,20 @@ namespace HexIDE.IDE;
 public sealed class InterpreterRunEngine : IRunEngine
 {
     private readonly IWindowManager windowManager;
-    private readonly ILocalizationService localization;
+    private readonly IProgramHost programHost;
     private readonly IDebugGate debugController;
     private Func<RunFailure, Task<bool>>? haltHost;
 
-    public InterpreterRunEngine(IWindowManager windowManager, ILocalizationService localization, IDebugGate debugController)
+    public InterpreterRunEngine(IWindowManager windowManager, IProgramHost programHost, IDebugGate debugController)
     {
         this.windowManager = windowManager;
-        this.localization = localization;
+        this.programHost = programHost;
         this.debugController = debugController;
         // A running program's CommonDialog shows the IDE's own dialogs (#1084), whichever window the form runs in.
-        HostDialogs.File = request => MDIStandaloneStandardLib.ShowFileDialog(windowManager, request);
-        HostDialogs.Print = windowManager.ShowPrintDialog;
-        HostDialogs.Color = windowManager.ShowColorDialog;
-        HostDialogs.Font = initial => MDIStandaloneStandardLib.ShowFontDialog(windowManager, initial);
+        HostDialogs.File = programHost.FileDialog;
+        HostDialogs.Print = programHost.PrintDialog;
+        HostDialogs.Color = programHost.ColorDialog;
+        HostDialogs.Font = programHost.FontDialog;
 
         VBWindowContext.RunTimeError += (_, e) => ErrorMet?.Invoke(new RunFailure(RunErrorText.For(e), ErrorLocation.Of(e)));
 
@@ -161,7 +159,7 @@ public sealed class InterpreterRunEngine : IRunEngine
             // Building the program parses every module and runs the pre-pass over it, which throws for a syntax error,
             // naming its module, and for a declaration it cannot take. It is a start that never became a run, and is
             // reported the way the form path reports one (#590).
-            var context = new VBWindowContext(new MDIStandaloneStandardLib(windowManager));
+            var context = new VBWindowContext(new MDIStandaloneStandardLib(programHost));
             program = new VBProgram(project, context, debugController,
                 Static.SingleView ? OpenInBrowser : VBLoader.OpenWindow);
             // A missing or ambiguous Main is found here, before anything runs, so it too is a start that never became a
@@ -225,7 +223,7 @@ public sealed class InterpreterRunEngine : IRunEngine
         var described = Describe(e);
         return formName is null
             ? described
-            : string.Format(localization.GetString("Str.ProjectRunner.StartupFormFailedToLoad"), formName, described);
+            : programHost.StartupFormFailedToLoad(formName, described);
     }
 
     private string Describe(Exception e) => e switch
@@ -236,7 +234,7 @@ public sealed class InterpreterRunEngine : IRunEngine
     };
 
     private string DescribeFault(Exception e) =>
-        RunErrorText.ForFault(e, localization.GetString("Str.ProjectRunner.NotImplementedYet"));
+        RunErrorText.ForFault(e, programHost.NotImplementedYet);
 
     private sealed class Run(Func<Task<RunFailure?>> toEnd, Action end) : IEngineRun
     {
@@ -308,7 +306,7 @@ public sealed class InterpreterRunEngine : IRunEngine
     // As FormComponentClass.InstantiateWindow builds a desktop one, the menu bar included (#1127).
     private VBMDIFormRuntime InstantiateWindow(ComponentInstance instance, bool menuBar)
     {
-        var form = new VBMDIFormRuntime(windowManager)
+        var form = new VBMDIFormRuntime(windowManager, programHost)
         {
             Title = instance.GetPropertyOrDefault(VBProperties.CaptionProperty) ?? "",
             Width = instance.GetPropertyOrDefault(VBProperties.WidthProperty),
@@ -348,10 +346,10 @@ public sealed class InterpreterRunEngine : IRunEngine
         // The window's time in the host, from its first show until it closes.
         private Task? inHost;
 
-        public VBMDIFormRuntime(IWindowManager windowManager)
+        public VBMDIFormRuntime(IWindowManager windowManager, IProgramHost programHost)
         {
             this.windowManager = windowManager;
-            windowContext = new VBWindowContext(new MDIStandaloneStandardLib(windowManager)) { Window = this };
+            windowContext = new VBWindowContext(new MDIStandaloneStandardLib(programHost)) { Window = this };
             // Held by a modal form, the window takes no input of its own (#822), and a press on it brings the modal form
             // forward instead.
             foreach (var input in new RoutedEvent[] { KeyDownEvent, KeyUpEvent, TextInputEvent, PointerReleasedEvent, PointerWheelChangedEvent })
@@ -480,11 +478,11 @@ public sealed class InterpreterRunEngine : IRunEngine
 
     public class MDIStandaloneStandardLib : IBasicStandardLibrary
     {
-        private readonly IWindowManager windowManager;
+        private readonly IProgramHost programHost;
 
-        public MDIStandaloneStandardLib(IWindowManager windowManager)
+        public MDIStandaloneStandardLib(IProgramHost programHost)
         {
-            this.windowManager = windowManager;
+            this.programHost = programHost;
         }
 
         public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
@@ -492,12 +490,12 @@ public sealed class InterpreterRunEngine : IRunEngine
 
         public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxLayout layout)
         {
-            return await windowManager.MessageBox(text, caption, buttons, icon, isProgramDialog: true, layout: layout);
+            return await programHost.MsgBox(text, caption, buttons, icon, layout);
         }
 
         public async Task<string?> InputBox(string prompt, string? title, string defaultText)
         {
-            return await windowManager.InputBox(prompt, title, defaultText, isProgramDialog: true);
+            return await programHost.InputBox(prompt, title, defaultText);
         }
 
         // The Immediate window shows the text, not the typed values (#1380).
@@ -522,50 +520,13 @@ public sealed class InterpreterRunEngine : IRunEngine
         /// A CommonDialog's Open or Save As (#1084), through the IDE's own pickers, so an automation client answers one
         /// with answer_next_file_dialog as it answers the IDE's.
         /// </summary>
-        public Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) => ShowFileDialog(windowManager, request);
+        public Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) => programHost.FileDialog(request);
 
-        public Task<bool> ShowPrintDialog() => windowManager.ShowPrintDialog();
+        public Task<bool> ShowPrintDialog() => programHost.PrintDialog();
 
-        public Task<int?> ShowColorDialog(int initial) => windowManager.ShowColorDialog(initial);
+        public Task<int?> ShowColorDialog(int initial) => programHost.ColorDialog(initial);
 
-        public Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) => ShowFontDialog(windowManager, initial);
+        public Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) => programHost.FontDialog(initial);
 
-        internal static async Task<VbFileDialogAnswer?> ShowFileDialog(IWindowManager windowManager, VbFileDialogRequest request)
-        {
-#if DEBUG
-            // An armed answer stands for a name typed with the filter left as the program set it.
-            int? scriptedIndex = HexIDE.IDE.ScriptedFileDialogs.Pending > 0 && request.FilterIndex >= 1 ? request.FilterIndex : null;
-#else
-            int? scriptedIndex = null;
-#endif
-            var start = Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime { MainWindow: { } main }
-                        && TopLevel.GetTopLevel(main)?.StorageProvider is { } provider
-                ? await VbFileDialogOptions.StartFolder(provider, request)
-                : null;
-            if (request.Save)
-            {
-                var path = await windowManager.SaveFilePickerAsync(VbFileDialogOptions.Save(request, start));
-                return path is null ? null : new VbFileDialogAnswer(path, scriptedIndex);
-            }
-            var paths = await windowManager.OpenFilePickerAsync(VbFileDialogOptions.Open(request, start));
-            return paths is { Count: > 0 }
-                ? new VbFileDialogAnswer(paths[0], scriptedIndex, paths.Skip(1).ToArray())
-                : null;
-        }
-
-        /// <summary>A CommonDialog's ShowFont (#1084), through the IDE's font dialog.</summary>
-        internal static async Task<VbFontChoice?> ShowFontDialog(IWindowManager windowManager, VbFontChoice initial)
-        {
-            var start = initial.Name.Length == 0
-                ? null
-                : new FontDialogResult(new Avalonia.Media.FontFamily(initial.Name),
-                    initial.Italic ? Avalonia.Media.FontStyle.Italic : Avalonia.Media.FontStyle.Normal,
-                    initial.Bold ? Avalonia.Media.FontWeight.Bold : Avalonia.Media.FontWeight.Normal, initial.Size);
-            var chosen = await windowManager.ShowFontDialog(start);
-            return chosen is null
-                ? null
-                : new VbFontChoice(chosen.Family.Name, (float)chosen.Size, chosen.Weight >= Avalonia.Media.FontWeight.Bold,
-                    chosen.Style != Avalonia.Media.FontStyle.Normal);
-        }
     }
 }

@@ -4,6 +4,26 @@ namespace HexIDE.Tests;
 
 public class ProgramParityTests
 {
+    [Fact]
+    public async Task Adapter_flood_before_resume_reply_does_not_block_the_parity_reader()
+    {
+        var adapter = Path.ChangeExtension(typeof(Dap.TestAdapter.Program).Assembly.Location, OperatingSystem.IsWindows() ? ".exe" : null);
+        await RunTool("""
+            {"modules":[{"name":"Module1","kind":"startup","source":"","wrapped":"Public Sub HexDumpMain()\nEnd Sub"}],"printed":[]}
+            """, ["--timeout", "10"], new()
+        {
+            ["HEXIDE_PARITY_ADAPTER"] = adapter,
+            ["HEXIDE_DAP_FIXTURE_MODE"] = "event-flood",
+        }, (results, _) =>
+        {
+            var engine = JsonNode.Parse(results[1])!["engine"]!;
+            engine["timedOut"]!.GetValue<bool>().Should().BeFalse();
+            engine["failure"]?.GetValue<string>().Should().BeNull();
+            engine["stdout"]!.GetValue<string>().Should().Be(
+                string.Concat(Enumerable.Range(0, 10_000).Select(i => $"line {i}\n")) + "42\n");
+        });
+    }
+
     [Theory]
     [InlineData("fixture-global", "Debug.Print il", "[\"il\"]")]
     [InlineData("form-header", "  VERSION 5.00\r\nBegin VB.Form Form1\r\nEnd", "[]")]

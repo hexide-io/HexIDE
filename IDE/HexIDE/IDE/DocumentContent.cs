@@ -43,6 +43,8 @@ public static class DocumentContent
         IProjectFileFormat format, IReadOnlyRegionReader reader)
     {
         if (editor is not null) return editor.CodeWindowText;
+        format = ProjectFormats.Of(document.Project, format);
+        reader = ProjectFormats.ReaderOf(document.Project, reader);
         var prefix = document.Module is { } module ? format.CodePrefix(module) : format.CodePrefix(document.Form!);
         var text = prefix + (document.Module?.Code ?? document.Form!.Code);
         return new CodeWindowText(text, prefix.Length, reader.Regions(text, prefix.Length));
@@ -79,6 +81,9 @@ public static class DocumentContent
         if (editor is not null)
             return editor.ReplaceContent(incoming);
 
+        format = ProjectFormats.Of(document.Project, format);
+        reader = ProjectFormats.ReaderOf(document.Project, reader);
+        rules = ProjectFormats.RulesOf(document.Project, rules);
         var prefix = document.Module is { } module ? format.CodePrefix(module) : format.CodePrefix(document.Form!);
         var whole = prefix + (document.Module?.Code ?? document.Form!.Code);
         Action<string> update = document.Module is { } target ? target.UpdateCode : document.Form!.UpdateCode;
@@ -97,6 +102,8 @@ public static class DocumentContent
     public static (CodeWindowText Text, TextRegion Region)? LeftOutLeadingRegion(DocumentIdentity document, string incoming,
         IProjectFileFormat format, IReadOnlyRegionReader reader)
     {
+        format = ProjectFormats.Of(document.Project, format);
+        reader = ProjectFormats.ReaderOf(document.Project, reader);
         var text = TextOf(document, null, format, reader);
         return new CodeWindowText(incoming, 0, reader.Regions(incoming, 0)).LeadingRegion is null
             && text.LeadingRegion is { } leading && leading.End > text.PrefixLength
