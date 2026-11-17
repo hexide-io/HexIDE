@@ -22,6 +22,19 @@ public partial class ProjectManager : IProjectManager
     public event Action<ProjectDefinition>? ProjectLoaded;
     public event Action<ProjectDefinition>? ProjectUnloaded;
 
+    public event Action? ReloadStarted;
+    public event Action? ReloadFinished;
+    private int reloadDepth;
+
+    public IDisposable BeginReload()
+    {
+        if (reloadDepth++ == 0) ReloadStarted?.Invoke();
+        return new HexIDE.Utils.ActionDisposable(() =>
+        {
+            if (--reloadDepth == 0) ReloadFinished?.Invoke();
+        });
+    }
+
     [Notify] private ProjectDefinition? startupProject;
     [Notify] private ProjectGroupDefinition? currentGroup;
 

@@ -177,8 +177,13 @@ more statements), an error between procedures, or an Option line directly before
 still mask later errors and procedures. `Sync` retains ANTLR's default behaviour; overriding it introduced
 a false error in VB6's Tip of the Day template.
 
-`Declare PtrSafe` is accepted in active code too (#1548), with existing types. `LongPtr`, `LongLong` and
-their conversion functions remain follow-up work; this adds no external API execution.
+The server accepts VBA7's `DefLngLng`, `DefLngPtr`, integer literals with a `^` suffix and declarations
+such as `Dim x^` ([#4365](https://github.com/hexide-io/HexIDE/issues/4365), measured VBA7 rows from #4302).
+`LongLong` and `LongPtr` type names, conversion calls and `Declare PtrSafe` also parse. This is syntax
+acceptance in every file: the server does not know project bitness and performs no type, range or
+external API execution check. Existing exponentiation, including `2^3` and `x^2`, is preserved. 64-bit VBA7
+refuses those two forms as syntax errors (measured, #4383), but VB6 and 32-bit VBA read them as exponentiation, and the
+server can't tell which a file is.
 
 An empty `If True Then:` line is accepted without requiring `End If` (#223); the following line is
 an independent statement. Both grammars also accept leading empty colon statements and labels before
@@ -335,10 +340,12 @@ change, and other requests (including formatting) still wait for that change's a
   Comment forms follow the measured [Rem rules](vb6-fidelity-oracle/line-continuations-and-statement-separators.md)
   and [continued comments across CR/LF/CRLF](vb6-fidelity-oracle/a-lone-cr-or-lf-in-vb6-source.md).
 - A bare `Rem` at the caret and a member such as `x.Rem ` remain code for completion (#3577).
-- ◐ Outside free text, the full list comes back regardless of cursor context.
+- After a dot, including a partially typed member name, completion returns an empty list (#3613).
+  Requests at either the word start or the caret are covered. Elsewhere outside free text, including
+  after `!`, the full list comes back.
 - ■ No member-access completion (`obj.`), no type-aware filtering, no symbols from other project files. Each
   needs binding: resolving what `obj` *is*, or what type is expected here, is the relationship between two
-  symbols rather than a list of them.
+  symbols rather than a list of them. Members come from a binding server such as RDCore.
 
 **Depth: 🔧 Wired**
 

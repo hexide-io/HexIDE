@@ -9,6 +9,30 @@ namespace HexIDE.Runtime.Tests;
 
 public class SerializationRoundTripTests
 {
+    [Theory]
+    [InlineData("Other.rdproj")]
+    [InlineData(@"nested\Other.RDPROJ")]
+    public void Group_WriterRefusesNonVbpMembers(string member)
+    {
+        var project = MakeProject();
+        project.AbsolutePath = member;
+        var serialize = () => new GroupSerializer().Serialize(Path.Combine(TestDir, "G.vbg"), [project], project);
+        serialize.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Group_WriterChecksPlannedPathsAndSkipsPathlessMembers()
+    {
+        var project = MakeProject();
+        var pathless = new ProjectDefinition(VBProjectType.EXE, "Unsaved");
+        var serialize = () => new GroupSerializer().Serialize(Path.Combine(TestDir, "G.vbg"), [project, pathless], project,
+            pathOf: _ => @"nested\Other.rdproj");
+        serialize.Should().Throw<ArgumentException>();
+        new GroupSerializer().Serialize(Path.Combine(TestDir, "G.vbg"), [project, pathless], project,
+            pathOf: p => ReferenceEquals(p, project) ? Path.Combine(TestDir, "Upper.VBP") : null)
+            .Should().Be("VBGROUP 5.0\r\nStartupProject=Upper.VBP\r\n");
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     // Use an OS-native temp directory so Path.GetDirectoryName / Path.GetRelativePath behave on every

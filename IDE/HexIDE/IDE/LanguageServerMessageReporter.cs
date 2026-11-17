@@ -59,10 +59,15 @@ public sealed class LanguageServerMessageReporter : IDisposable
         // stops a runaway one from filling it — neither is sanitisation, because nothing here interprets
         // the string; it is only ever displayed.
         var text = p.LocalizationKey is { } key ? _localization.GetString(key) : p.Message;
-        if (p.ServerDisplayName is { } name) text = string.Format(text, name);
+        if (p.ServerDisplayName is { } name) text = string.Format(text, name, p.CommandTitle);
         text = Flatten(text);
         if (text.Length == 0) return;
 
+        if (p.CommandTitle is not null)
+        {
+            _statusBar.SetTemporaryMessage(text, DwellFor(p.Type));
+            return;
+        }
         var formatKey = p.IsEditRefusal ? "Str.Lsp.EditNotApplied"
             : p.Type == LspMessageType.Error ? "Str.Lsp.ServerError" : "Str.Lsp.ServerMessage";
         _statusBar.SetTemporaryMessage(string.Format(_localization.GetString(formatKey), text), DwellFor(p.Type));

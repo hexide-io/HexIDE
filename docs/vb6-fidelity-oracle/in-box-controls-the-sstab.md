@@ -462,6 +462,49 @@ change of tab.
 
   It has been checked against those two forms only.
 
+### TabPicture at run time (2026-11-16, #3426, SP6)
+
+**The question.** HexIDE stopped on any run-time `TabPicture(n)` (#3426). What does a tab's picture read as, what does it
+take, and what does the strip draw?
+
+Measured on vb6.exe SP6, native and p-code, which agree on every row. The probe used an SSTab (TABCTL32.OCX 1.1) with `Tabs = 3`, and a 16 by 16 pixel PictureBox with `AutoRedraw`, whose `.Image` was the picture assigned. One more run, in the IDE, looked at the strip.
+
+#### Reading
+
+| Read | Result |
+|---|---|
+| `TabPicture(0)`, never set | a **Picture object** with `Handle` 0 and `Type` 0 (vbPicTypeNone). Never Nothing. |
+| `v = TabPicture(0)`, into a Variant | Long 0, the Handle: the default member |
+| `TabPicture(3)` with `Tabs = 3`, and `TabPicture(-1)` | **381**, "Invalid property array index" |
+| `TabPicture(1.6)`, `TabPicture("1")` | read as indexes 2 and 1 |
+
+#### Assigning
+
+| Assignment | Result |
+|---|---|
+| `Set TabPicture(0) = Picture1.Image` | taken: Handle non-zero, Type 1 (bitmap) |
+| `TabPicture(0) = Picture1.Image`, Let | **taken**, as Set |
+| `Set TabPicture(0) = Nothing` | no error. **Reads back as an empty Picture**, Handle 0, not Nothing |
+| `Set TabPicture(0) = LoadPicture()` | empty, as Nothing |
+| `TabPicture(0) = "x"` through an `As Object` reference | **13** |
+| `TabPicture(0) = 5`, the same | **13** |
+| `Set TabPicture(0) = Form1` | **13** |
+| `Set TabPicture(0) = Picture1`, the PictureBox | no error, reads empty. Picture1's own `Picture` was empty, so this doesn't show whether it took that default property. |
+| `TabPicture(3)` or `TabPicture(-1)` assigned | **381** |
+| `Set TabPicture(2.5) = …` | no error, at index 2: rounded half to even, as CInt |
+| `TabPicture(0) = "x"`, early-bound on the control | a **compile error**, "Type mismatch" |
+
+#### The object and the strip
+
+- **The same object comes back.** `Set TabPicture(1) = a` then `TabPicture(1) Is a` is True, and two reads are `Is` each other.
+- **It's a reference, not a copy.** In the IDE run, `TabPicture(0)` was set from `Picture1.Image` while the PictureBox was red, and `TabPicture(2)` after it was redrawn blue. **Both tabs drew blue.** The tab shows what the picture holds when it's painted.
+- **On the strip:**
+  - each picture is drawn at its own pixel size, 16 wide and 15 visible at `TabHeight` 520, left of the caption;
+  - the picture and caption are centred on the tab together;
+  - a tab without a picture is unchanged.
+- **`SSTab.Picture` is the current tab's `TabPicture`.** With `Tab = 0`, `Picture` reads `TabPicture(0)`'s object. Setting `Picture` with `Tab = 2` sets `TabPicture(2)`.
+- **Reducing `Tabs` drops the pictures beyond it.** With `TabPicture(2)` set, `Tabs = 2` makes `TabPicture(2)` raise 381. `Tabs = 3` again reads it back empty.
+
 ### In HexIDE
 
 HexIDE runs the SSTab (#1090). Forms VB6 designed load their pages and the tab rows draw. Clicks, the arrows, Ctrl+Tab

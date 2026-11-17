@@ -17,7 +17,7 @@ public class NewProjectViewModelTests
     {
         _recentProjects.GetRecent().Returns(new List<string>());
         _settingsService.PromptForProjectOnStartup.Returns(true);
-        _profile.AvailableProjectTypes.Returns(new List<IProjectTemplate>(IProjectTemplate.Templates));
+        _profile.AvailableProjectTypes.Returns(new List<IProjectTemplate>(Vb6ProjectType.Templates));
         _localization.GetString("Str.NewProject.Msg.Title").Returns("New Project");
         _localization.GetString("Str.NewProject.Msg.VersionDoesNotSupport").Returns("Your HexIDE version doesn't support {0}");
         _localization.GetString("Str.ProjectType.ActiveXEXE").Returns("localized ActiveX EXE");
@@ -47,8 +47,8 @@ public class NewProjectViewModelTests
     {
         var sut = CreateSut();
 
-        sut.Templates.Should().HaveCount(IProjectTemplate.Templates.Length);
-        sut.Templates[0].Name.Should().Be(IProjectTemplate.Templates[0].Name);
+        sut.Templates.Should().HaveCount(Vb6ProjectType.Templates.Length);
+        sut.Templates[0].Name.Should().Be(Vb6ProjectType.Templates[0].Name);
     }
 
     [AvaloniaFact]

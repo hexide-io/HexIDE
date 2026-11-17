@@ -19,6 +19,8 @@ public sealed class VBSSTab : Decorator, IVBContainerControl
     private readonly List<bool> enabled = [true, true, true];
     private readonly List<bool> visible = [true, true, true];
 
+    private readonly List<PanelPicture> pictures = [new([]), new([]), new([])];
+
     private readonly SSTabStrip strip;
     static VBSSTab()
     {
@@ -173,12 +175,14 @@ public sealed class VBSSTab : Decorator, IVBContainerControl
                 captions.Add($"Tab {captions.Count}");
                 enabled.Add(true);
                 visible.Add(true);
+                pictures.Add(new PanelPicture([]));
             }
             if (captions.Count > value)
             {
                 captions.RemoveRange(value, captions.Count - value);
                 enabled.RemoveRange(value, enabled.Count - value);
                 visible.RemoveRange(value, visible.Count - value);
+                pictures.RemoveRange(value, pictures.Count - value);
             }
             MoveChildren(Pages.RecordedChildren.Where(c => ChildHost.Children.Contains(c)),
                 (Rows - oldRows) * Math.Round(TabHeight), TabOrientation);
@@ -262,6 +266,9 @@ public sealed class VBSSTab : Decorator, IVBContainerControl
         if (index < 0 || index >= Tabs)
             throw new VBRunTimeException(VBStandardError.InvalidPropertyArrayIndex);
     }
+
+    internal PanelPicture TabPicture(int index) { CheckIndex(index); return pictures[index]; }
+    internal void TabPicture(int index, PanelPicture value) { CheckIndex(index); pictures[index] = value; strip.Refresh(); }
 
     public string Caption(int index) { CheckIndex(index); return captions[index]; }
     public void Caption(int index, string value) { CheckIndex(index); captions[index] = value; strip.Refresh(); }

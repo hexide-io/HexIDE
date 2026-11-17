@@ -68,6 +68,8 @@ public sealed class VBLspClient : ILspClient
     /// </summary>
     private sealed record CapabilitySnapshot(JsonElement Value);
     private volatile bool _stopping;
+    private EventHandler<JsonRpcDisconnectedEventArgs>? _rpcDisconnected;
+    private Action? _recordStoppingDisconnection;
     private Task _reconnectTask = Task.CompletedTask;   // the running reconnect loop (or completed)
     private CancellationTokenSource? _reconnectCts;
 
@@ -92,6 +94,8 @@ public sealed class VBLspClient : ILspClient
     private int _connection;
 
     public event EventHandler? CodeLensRefreshRequested;
+    public event EventHandler? InlayHintRefreshRequested;
+    public event EventHandler? SemanticTokensRefreshRequested;
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<string>? DocumentRetired;
     public event EventHandler<ShowMessageParams>? MessageShown;
@@ -246,6 +250,9 @@ public sealed class VBLspClient : ILspClient
         public readonly int Connection = connection;
         public readonly Func<string, RenameDocumentSnapshot?> DocumentFor = documentFor;
         public Task? Pending;
+        public bool Claimed;
+        public string? Title;
+        public CancellationToken Lifetime;
     }
     private long _commandOrder;
     private readonly ConcurrentDictionary<UserCommand, byte> _userCommands = new();
@@ -461,7 +468,22 @@ public sealed class VBLspClient : ILspClient
         foreach (var (name, answer) in _claimed)
             rpc.AddLocalRpcMethod(ClaimedMethod.Answer, new ClaimedMethod(name, answer, _logger),
                 new JsonRpcMethodAttribute(name) { UseSingleObjectParameterDeserialization = true });
-        rpc.Disconnected += OnRpcDisconnected;
+        var disconnectionRecorded = 0;
+        void RecordDisconnection(string detail, bool fault)
+        {
+            if (Interlocked.Exchange(ref disconnectionRecorded, 1) == 0)
+                Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null, detail, fault: fault);
+        }
+        _recordStoppingDisconnection = () => RecordDisconnection("disconnected: shutting down", false);
+        _rpcDisconnected = (sender, e) =>
+        {
+            var stopping = _stopping;
+            RecordDisconnection(stopping
+                ? "disconnected: shutting down"
+                : $"disconnected: {e.Reason} ({e.Description ?? "no description"})", !stopping);
+            OnRpcDisconnected(sender, e);
+        };
+        rpc.Disconnected += _rpcDisconnected;
         _rpc = rpc;
         rpc.StartListening();
 
@@ -591,20 +613,13 @@ public sealed class VBLspClient : ILspClient
         _initializeAnswered = false;
         ClearProgress();
         _initialized = false;
+        ClearWorkspaceDiagnosticState();
         _capabilities = null;
         _warnedCapabilities.Clear();
         _semanticWarnings.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
-
-        // Before the stopping check, deliberately. A deliberate shutdown and a server that fell over are
-        // the two things a reader most needs told apart, and only one of them is worth alarm.
-        Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null,
-            _stopping
-                ? "disconnected: shutting down"
-                : $"disconnected: {e.Reason} ({e.Description ?? "no description"})",
-            fault: !_stopping);
 
         RaiseStateChanged();
         if (_stopping) return;
@@ -671,7 +686,12 @@ public sealed class VBLspClient : ILspClient
         _rpc = null;
         if (rpc is not null)
         {
-            rpc.Disconnected -= OnRpcDisconnected;
+            // Teardown can beat the transport's disconnect callback, including after a shutdown reply.
+            // Both paths share a per-connection latch so the timeline has exactly one disconnection.
+            if (_stopping) _recordStoppingDisconnection?.Invoke();
+            rpc.Disconnected -= _rpcDisconnected;
+            _rpcDisconnected = null;
+            _recordStoppingDisconnection = null;
             rpc.Dispose();
             EndConnectionRequests();
         }
@@ -724,7 +744,7 @@ public sealed class VBLspClient : ILspClient
                     Implementation: new NavigationClientCapabilities(),
                     TypeDefinition: new NavigationClientCapabilities(),
                     InlayHint: new InlayHintClientCapabilities(),
-                    CodeAction: new CodeActionClientCapabilities(new(new(["quickfix"])), ResolveSupport: new(["edit"])),
+                    CodeAction: new CodeActionClientCapabilities(new(new(["", "quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports", "source.fixAll"])), ResolveSupport: new(["edit"])),
                     SelectionRange: new SelectionRangeClientCapabilities(),
                     Rename: new RenameClientCapabilities(),
                     CallHierarchy: EmptyParams.Instance,
@@ -750,6 +770,8 @@ public sealed class VBLspClient : ILspClient
                     WorkspaceEdit: new WorkspaceEditClientCapabilities(),
                     Diagnostics: new WorkspaceDiagnosticsClientCapabilities(),
                     CodeLens: new WorkspaceCodeLensClientCapabilities(),
+                    InlayHint: new WorkspaceInlayHintClientCapabilities(),
+                    SemanticTokens: new WorkspaceSemanticTokensClientCapabilities(),
                     FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
                 Window: new WindowClientCapabilities(ShowDocument: new ShowDocumentClientCapabilities(),
@@ -836,6 +858,7 @@ public sealed class VBLspClient : ILspClient
         _writtenOpens = new();
         Interlocked.Increment(ref _connection);
         _initialized = true;
+        PullWorkspaceDiagnosticsInBackground();
         NoteHandshake();
         _logger.LogInformation("LSP server initialized: {Server}",
             _identity is { Name: { Length: > 0 } n }
@@ -1116,10 +1139,14 @@ public sealed class VBLspClient : ILspClient
         if (_writtenOpens.TryRemove(uri, out var written)) written.TrySetCanceled();
         ForgetPullState(uri);
         var rpc = _rpc;
-        if (rpc is null || !_initialized || !ServerCapabilities.AcceptsOpenClose(_capabilities?.Value)) return;
-        var p = new DidCloseTextDocumentParams(new TextDocumentIdentifier(uri));
-        try { await rpc.NotifyWithParameterObjectAsync("textDocument/didClose", p); }
-        catch (Exception ex) { WarnRequestFailedOnce("textDocument/didClose", ex, cancellationToken); }
+        if (rpc is null || !_initialized) return;
+        if (ServerCapabilities.AcceptsOpenClose(_capabilities?.Value))
+        {
+            var p = new DidCloseTextDocumentParams(new TextDocumentIdentifier(uri));
+            try { await rpc.NotifyWithParameterObjectAsync("textDocument/didClose", p); }
+            catch (Exception ex) { WarnRequestFailedOnce("textDocument/didClose", ex, cancellationToken); }
+        }
+        PullWorkspaceDiagnosticsInBackground(coalesce: true);
     }
 
     // ── Diagnostics this server will only give when asked ────────────────────────────────────────────
@@ -1130,7 +1157,7 @@ public sealed class VBLspClient : ILspClient
     // had to know how its diagnostics were obtained would be the seam leaking.
 
     /// <summary>What the server called its last answer about each document, so it can say "still true".</summary>
-    private readonly ConcurrentDictionary<string, string> _pullResultIds = new();
+    private readonly ConcurrentDictionary<string, string> _pullResultIds = new(LspDocumentUri.Comparer);
 
     /// <summary>
     /// How many times this client has asked about each document. A request carries the value it saw, and
@@ -1226,14 +1253,19 @@ public sealed class VBLspClient : ILspClient
 
     private void ForgetPullState(string uri)
     {
-        // The result identifier goes, because it names an answer about a document this client has stopped
-        // tracking. The two COUNTERS stay, and that is deliberate: resetting them makes a reopened document
+        // Without workspace diagnostics, the result identifier goes when this client stops tracking the
+        // document. The two COUNTERS stay, and that is deliberate: resetting them makes a reopened document
         // start at generation 1 again, so an answer still in flight from before the close — which carries a
         // higher number — outranks every fresh answer that follows it, and the reopened document shows
         // pre-close diagnostics until the counter climbs back past it. Monotonic per document for the life
         // of the connection costs two integers per file ever opened and has no such window.
         lock (_pullPublishGate)
         {
+            if (ServerCapabilities.OffersWorkspaceDiagnostics(AdvertisedCapabilities))
+            {
+                _workspaceDiagnosticUris.Add(uri);
+                return;
+            }
             _pullResultIds.TryRemove(uri, out _);
 
             // Nothing else would. A push server clears a document by publishing an empty set for it, and a
@@ -1242,6 +1274,82 @@ public sealed class VBLspClient : ILspClient
             if (CanServeQuietly("diagnosticProvider"))
                 _diagnosticLifecycle.Publish(uri, () =>
                     RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, [])));
+        }
+    }
+
+    private CancellationTokenSource? _workspaceDiagnosticCancellation;
+    private readonly HashSet<string> _workspaceDiagnosticUris = new(LspDocumentUri.Comparer);
+
+    private void ClearWorkspaceDiagnosticState()
+    {
+        lock (_pullPublishGate)
+        {
+            _workspaceDiagnosticCancellation?.Cancel();
+            foreach (var uri in _workspaceDiagnosticUris) _pullResultIds.TryRemove(uri, out _);
+            _workspaceDiagnosticUris.Clear();
+        }
+    }
+
+    private void PullWorkspaceDiagnosticsInBackground(bool coalesce = false)
+    {
+        if (!_initialized || !ServerCapabilities.OffersWorkspaceDiagnostics(AdvertisedCapabilities)) return;
+        lock (_pullPublishGate)
+        {
+            _workspaceDiagnosticCancellation?.Cancel();
+            var cancellation = new CancellationTokenSource();
+            _workspaceDiagnosticCancellation = cancellation;
+            _ = PullWorkspaceDiagnosticsAsync(cancellation, coalesce);
+        }
+    }
+
+    private async Task PullWorkspaceDiagnosticsAsync(CancellationTokenSource cancellation, bool coalesce)
+    {
+        var rpc = _rpc;
+        var connection = Volatile.Read(ref _connection);
+        try
+        {
+            if (rpc is null) return;
+            if (coalesce) await Task.Delay(50, cancellation.Token);
+            var parameters = new WorkspaceDiagnosticParams(
+                ServerCapabilities.DiagnosticIdentifier(AdvertisedCapabilities),
+                _pullResultIds.Select(p => new PreviousResultId(p.Key, p.Value)).ToArray());
+            var raw = await InvokeRequestAsync<JsonElement?>(rpc, "workspace/diagnostic", parameters,
+                cancellation.Token);
+            lock (_pullPublishGate)
+            {
+                if (cancellation.IsCancellationRequested || !_initialized || !ReferenceEquals(rpc, _rpc)
+                    || connection != Volatile.Read(ref _connection)
+                    || raw is not { ValueKind: JsonValueKind.Object } report
+                    || !report.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+                    return;
+                var seen = new HashSet<string>(LspDocumentUri.Comparer);
+                foreach (var item in items.EnumerateArray())
+                {
+                    if (!item.TryGetProperty("uri", out var value) || value.GetString() is not { } uri) continue;
+                    seen.Add(uri);
+                    if (_openDocuments.Keys.Any(open => LspDocumentUri.AreSame(open, uri))) continue;
+                    ApplyDiagnosticReport(uri, item);
+                }
+                foreach (var uri in _workspaceDiagnosticUris.Except(seen, LspDocumentUri.Comparer).ToArray())
+                {
+                    if (_openDocuments.Keys.Any(open => LspDocumentUri.AreSame(open, uri))) continue;
+                    _pullResultIds.TryRemove(uri, out _);
+                    _diagnosticLifecycle.Publish(uri, () => RaisePublishDiagnostics(DiagnosticOwner.LanguageServer,
+                        new PublishDiagnosticsParams(uri, [])));
+                }
+                _workspaceDiagnosticUris.Clear();
+                _workspaceDiagnosticUris.UnionWith(seen);
+            }
+        }
+        catch (Exception ex) { WarnRequestFailedOnce("workspace/diagnostic", ex, cancellation.Token); }
+        finally
+        {
+            lock (_pullPublishGate)
+            {
+                if (ReferenceEquals(_workspaceDiagnosticCancellation, cancellation))
+                    _workspaceDiagnosticCancellation = null;
+                cancellation.Dispose();
+            }
         }
     }
 
@@ -1316,9 +1424,8 @@ public sealed class VBLspClient : ILspClient
         // on top of it (#503). See _pullPublishGate.
         lock (_pullPublishGate)
         {
-            // Closed while we were asking. Nothing may be published for a document the editor has let go — the
-            // close already cleared it, and putting marks back afterwards would leave them with nothing that
-            // could ever remove them.
+            // Per-document answers lose authority on close: workspace reports now own the URI,
+            // or the close has already cleared its marks.
             if (!_openDocuments.ContainsKey(uri)) return;
 
             // Already overtaken: something newer is on screen, so this answer describes text nobody is looking
@@ -2013,8 +2120,11 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public Task<OfferedCodeAction[]> RequestCodeActionsAsync(string uri, HexIDE.Lsp.Messages.Range range, Diagnostic[] diagnostics,
+        CancellationToken cancellationToken = default) => RequestCodeActionsAsync(uri, range, diagnostics, null, cancellationToken);
+
     public async Task<OfferedCodeAction[]> RequestCodeActionsAsync(string uri, HexIDE.Lsp.Messages.Range range, Diagnostic[] diagnostics,
-        CancellationToken cancellationToken = default)
+        string[]? only, CancellationToken cancellationToken = default)
     {
         if (_rpc is not { } rpc || !_initialized || !CanServe("codeActionProvider")) return [];
         var documentFor = SnapshotSentDocuments();
@@ -2041,12 +2151,14 @@ public sealed class VBLspClient : ILspClient
                 async (cmd, ct) =>
                 {
                     if (!ReferenceEquals(rpc, _rpc)) return;
-                    await ExecuteCommandAsync(cmd.CommandName, cmd.Arguments, ct);
-                }, documentFor, cmd => ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, cmd.CommandName));
+                    await ExecuteCodeLensCommandAsync(cmd with { Title = title }, ct);
+                }, documentFor, cmd => ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, cmd.CommandName) || _claimedCommands.ContainsKey(cmd.CommandName),
+                Kind: payload.TryGetProperty("kind", out var kind) ? kind.GetString() : null,
+                IsQuickFix: payload.TryGetProperty("diagnostics", out var fixes) && fixes.ValueKind == JsonValueKind.Array && fixes.GetArrayLength() > 0);
         }
 
         var response = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/codeAction",
-            new CodeActionParams(new(uri), range, new(diagnostics)), cancellationToken, documentUri: uri);
+            new CodeActionParams(new(uri), range, new(diagnostics, Only: only)), cancellationToken, documentUri: uri);
         return response is { ValueKind: JsonValueKind.Array } actions ? actions.EnumerateArray().Select(a => Read(a, true)).ToArray() : [];
     }
 
@@ -2303,6 +2415,87 @@ public sealed class VBLspClient : ILspClient
     public void Claim(IReadOnlyDictionary<string, HexIDE.Addins.AddinServerMethod> methods) =>
         _claimed = new Dictionary<string, HexIDE.Addins.AddinServerMethod>(methods, StringComparer.Ordinal);
 
+    private IReadOnlyDictionary<string, HexIDE.Addins.AddinClientCommand> _claimedCommands =
+        new Dictionary<string, HexIDE.Addins.AddinClientCommand>(StringComparer.Ordinal);
+
+    /// <summary>Copies the contributing add-in's checked client-side command claims before the client starts.</summary>
+    public void ClaimCommands(IReadOnlyDictionary<string, HexIDE.Addins.AddinClientCommand> commands) =>
+        _claimedCommands = new Dictionary<string, HexIDE.Addins.AddinClientCommand>(commands, StringComparer.Ordinal);
+
+    internal bool HasClaimedCommand(string command) => _claimedCommands.ContainsKey(command);
+
+    private readonly CancellationTokenSource _commandLifetime = new();
+    private Func<CancellationToken> _addinLifetime = () => default;
+    internal void SetCommandLifetime(Func<CancellationToken> lifetime) => _addinLifetime = lifetime;
+
+    public async Task ExecuteCodeLensCommandAsync(Command command, CancellationToken cancellationToken = default)
+    {
+        if (ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, command.CommandName))
+            await ExecuteCommandAsync(command.CommandName, command.Arguments, cancellationToken);
+        else if (_claimedCommands.TryGetValue(command.CommandName, out var handler) && IsRunning && !_stopping)
+        {
+            using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _addinLifetime(), _commandLifetime.Token);
+            var running = new UserCommand(Interlocked.Increment(ref _commandOrder),
+                Volatile.Read(ref _connection), SnapshotSentDocuments())
+            { Claimed = true, Title = command.Title, Lifetime = lifetime.Token };
+            // Publish the task before the handler can run: completion closes the window even if our continuation waits.
+            var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var pending = Task.Run(async () =>
+            {
+                await start.Task.ConfigureAwait(false);
+                lifetime.Token.ThrowIfCancellationRequested();
+                var handling = handler(command.Arguments, lifetime.Token);
+                Volatile.Write(ref running.Pending, handling);
+                await handling.ConfigureAwait(false);
+            }, CancellationToken.None);
+            running.Pending = pending;
+            _userCommands.TryAdd(running, 0);
+            start.SetResult();
+            try { await pending.ConfigureAwait(false); }
+            catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "The add-in's command '{Command}' failed.", command.CommandName);
+                throw new HexIDE.Addins.AddinCommandException(ex.Message);
+            }
+            finally { _userCommands.TryRemove(running, out _); }
+        }
+    }
+
+    internal Task<ApplyWorkspaceEditResult> ApplyClaimedEditAsync(WorkspaceEdit edit, CancellationToken ct) =>
+        ApplyUserEditAsync(edit, ct, claimedOnly: true);
+
+    private async Task<ApplyWorkspaceEditResult> ApplyUserEditAsync(WorkspaceEdit edit, CancellationToken ct, bool claimedOnly = false)
+    {
+        ApplyWorkspaceEditResult Refuse(string reason, string? key = null)
+        {
+            RaiseMessageShown(new ShowMessageParams(LspMessageType.Warning, reason)
+                { LocalizationKey = key, IsEditRefusal = true });
+            return new(false, reason);
+        }
+        var running = _userCommands.Keys
+            .Where(command => command.Connection == Volatile.Read(ref _connection)
+                && (!claimedOnly || command.Claimed) && !command.Lifetime.IsCancellationRequested
+                && Volatile.Read(ref command.Pending) is not { IsCompleted: true })
+            .OrderBy(command => command.Order).FirstOrDefault();
+        if (_stopping || running is null)
+            return Refuse(HexIDE.IDE.Distribution.DisplayName + " applies a server's edits only while a command the user started is running.", "Str.Lsp.EditRequiresUserCommand");
+        if (_applyEdit is not { } apply)
+            return Refuse("No workspace editor is available.", "Str.Lsp.NoWorkspaceEditor");
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct, running.Lifetime);
+        var refusal = await apply(edit, target =>
+            (edit.DocumentChanges is { } changes
+                ? changes.Any(change => change.TextDocument is { Version: null } document
+                    && LspDocumentUri.AreSame(document.Uri, target))
+                : edit.Changes?.Keys.Any(uri => LspDocumentUri.AreSame(uri, target)) == true)
+                ? running.DocumentFor(target) : SentDocumentSnapshot(target), lifetime.Token);
+        if (refusal is not null) return Refuse(refusal);
+        if (running.Claimed)
+            RaiseMessageShown(new ShowMessageParams(LspMessageType.Info, "")
+                { LocalizationKey = "Str.Lsp.EditedByCommand", ServerDisplayName = _connectionId ?? _languageId, CommandTitle = running.Title });
+        return new(true);
+    }
+
     /// <summary>
     /// Sends a request an add-in owns over this connection, and returns the server's result as it was sent. Captured as
     /// any other request is.
@@ -2477,6 +2670,8 @@ public sealed class VBLspClient : ILspClient
         if (_settings is not null) _settings.PropertyChanged -= OnSettingsChanged;
         ClearProgress();
         _stopping = true;
+        ClearWorkspaceDiagnosticState();
+        await _commandLifetime.CancelAsync();
         // Safe even if the reconnect loop already disposed the CTS in its finally.
         try { _reconnectCts?.Cancel(); } catch (ObjectDisposedException) { }
 
@@ -2527,6 +2722,7 @@ public sealed class VBLspClient : ILspClient
         await _transport.DisposeAsync();
         _transport.Notice -= OnTransportNotice;
         _initialized = false;
+        ClearWorkspaceDiagnosticState();
         _capabilities = null;
         _identity = null;
         _warnedCapabilities.Clear();
@@ -2569,6 +2765,7 @@ public sealed class VBLspClient : ILspClient
     {
         EndConnectionRequests();
         _initialized = false;
+        ClearWorkspaceDiagnosticState();
         _capabilities = null;
         _warnedCapabilities.Clear();
         _semanticWarnings.Clear();
@@ -2794,32 +2991,8 @@ public sealed class VBLspClient : ILspClient
         }
 
         [JsonRpcMethod("workspace/applyEdit", UseSingleObjectParameterDeserialization = true)]
-        public async Task<ApplyWorkspaceEditResult> OnApplyEdit(ApplyWorkspaceEditParams p, CancellationToken cancellationToken)
-        {
-            ApplyWorkspaceEditResult Refuse(string reason, string? localizationKey = null)
-            {
-                OnShowMessage(new ShowMessageParams(LspMessageType.Warning, reason) { LocalizationKey = localizationKey, IsEditRefusal = true });
-                return new(false, reason);
-            }
-
-            // Inspect the wire request's task: the UI continuation can still be queued after its answer.
-            var running = _client._userCommands.Keys
-                .Where(command => command.Connection == Volatile.Read(ref _client._connection)
-                    && Volatile.Read(ref command.Pending) is not { IsCompleted: true })
-                .OrderBy(command => command.Order).FirstOrDefault();
-            if (running is null)
-                return Refuse(HexIDE.IDE.Distribution.DisplayName + " applies a server's edits only while a command the user started is running.", "Str.Lsp.EditRequiresUserCommand");
-            if (_client._applyEdit is not { } apply)
-                return Refuse("No workspace editor is available.", "Str.Lsp.NoWorkspaceEditor");
-            // Versioned edits retain the latest-sent check; unversioned edits use the oldest command.
-            var refusal = await apply(p.Edit, target =>
-                (p.Edit.DocumentChanges is { } changes
-                    ? changes.Any(change => change.TextDocument is { Version: null } document
-                        && LspDocumentUri.AreSame(document.Uri, target))
-                    : p.Edit.Changes?.Keys.Any(uri => LspDocumentUri.AreSame(uri, target)) == true)
-                    ? running.DocumentFor(target) : _client.SentDocumentSnapshot(target), cancellationToken);
-            return refusal is null ? new(true) : Refuse(refusal);
-        }
+        public Task<ApplyWorkspaceEditResult> OnApplyEdit(ApplyWorkspaceEditParams p, CancellationToken cancellationToken) =>
+            _client.ApplyUserEditAsync(p.Edit, cancellationToken);
 
         [JsonRpcMethod("window/showDocument", UseSingleObjectParameterDeserialization = true)]
         public async Task<ShowDocumentResult> OnShowDocument(ShowDocumentParams p, CancellationToken cancellationToken) =>
@@ -2862,6 +3035,14 @@ public sealed class VBLspClient : ILspClient
             }
         }
 
+        [JsonRpcMethod("workspace/inlayHint/refresh")]
+        public void OnInlayHintRefresh() =>
+            _client.InlayHintRefreshRequested?.Invoke(_client, EventArgs.Empty);
+
+        [JsonRpcMethod("workspace/semanticTokens/refresh")]
+        public void OnSemanticTokensRefresh() =>
+            _client.SemanticTokensRefreshRequested?.Invoke(_client, EventArgs.Empty);
+
         [JsonRpcMethod("workspace/codeLens/refresh")]
         public void OnCodeLensRefresh() =>
             _client.CodeLensRefreshRequested?.Invoke(_client, EventArgs.Empty);
@@ -2878,8 +3059,8 @@ public sealed class VBLspClient : ILspClient
         /// them.
         ///
         /// <para>
-        /// Every open document is asked about afresh, and the result identifiers are dropped first: holding
-        /// them would invite the server to answer "unchanged" against the very answers being invalidated.
+        /// Every open document is asked about afresh. Workspace-capable connections retain result IDs
+        /// for the workspace request; other connections discard them before the per-document re-pull.
         /// </para>
         ///
         /// <para>
@@ -2897,7 +3078,9 @@ public sealed class VBLspClient : ILspClient
         {
             _client._serverRefreshesDiagnostics = true;
             _client._logger.LogDebug("The server asked for diagnostics to be refreshed; re-requesting.");
-            _client._pullResultIds.Clear();
+            _client.PullWorkspaceDiagnosticsInBackground();
+            if (!ServerCapabilities.OffersWorkspaceDiagnostics(_client.AdvertisedCapabilities))
+                _client._pullResultIds.Clear();
             foreach (var uri in _client._openDocuments.Keys)
                 _client.PullDiagnosticsInBackground(uri);
         }

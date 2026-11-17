@@ -163,7 +163,7 @@ public class MainViewViewModelTests
         _projectManager.LoadedProjects.Returns(loaded);
         _projectManager.When(m => m.UnloadAllProjects()).Do(_ => loaded.Clear());
         var profile = Substitute.For<IProfileService>();
-        profile.AvailableProjectTypes.Returns(new[] { IProjectTemplate.StandardEXE });
+        profile.AvailableProjectTypes.Returns(new[] { Vb6ProjectType.StandardExe });
         _recentProjects.GetRecent().Returns(new List<string>());
         var dialogs = new List<string>();
         _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(ci =>
@@ -203,7 +203,7 @@ public class MainViewViewModelTests
         else
         {
             loaded.Should().BeEmpty();
-            _projectManager.Received(1).NewProject(IProjectTemplate.StandardEXE, "Project1", Arg.Any<Action<ProjectDefinition>>());
+            _projectManager.Received(1).NewProject(Vb6ProjectType.StandardExe, "Project1", Arg.Any<Action<ProjectDefinition>>());
         }
     }
 

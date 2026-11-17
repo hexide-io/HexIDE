@@ -475,6 +475,49 @@ public class CodeEditorPopupTests : IDisposable
         CodeEditorView.OpenPopupsOf(editor).Should().BeEmpty();
     }
 
+    // #4189: RDCore's item exactly as captured from RDCore 3cab50ab, with its ranges made for the position HexIDE asked at, the
+    // word start. The insert range stops there, ahead of what was typed, and applied as sent the item went in front of it:
+    // `x x` and `totaltot`. The last row's insert range already reaches the caret, so nothing about it changes.
+    private const string RdcoreItem = """
+        [{"label":"LABEL","kind":6,"detail":"DETAIL","sortText":"000LABEL","textEdit":{"newText":"LABEL","insert":{"start":{"line":LINE,"character":ASKED},"end":{"line":LINE,"character":INSERT_END}},"replace":{"start":{"line":LINE,"character":ASKED},"end":{"line":LINE,"character":REPLACE_END}}},"data":{"$$__handler_id__$$":"a2702fea-0de4-4e02-8cfe-f47ee0c71978"}}]
+        """;
+
+    [AvaloniaTheory]
+    [InlineData("x", "x", "x As Object", Key.Space, false, "x ")]
+    [InlineData("tot", "total", "total As Long", Key.Tab, false, "total")]
+    [InlineData("tot", "total", "total As Long", Key.Tab, true, "total")]
+    public void An_insert_range_that_stops_where_HexIDE_asked_still_replaces_the_typed_word(
+        string typed, string label, string detail, Key key, bool insertReachesCaret, string expected)
+    {
+        Position? asked = null;
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            var at = asked = call.Arg<Position>();
+            var json = RdcoreItem.Replace("LABEL", label).Replace("DETAIL", detail)
+                .Replace("LINE", at.Line.ToString(CultureInfo.InvariantCulture))
+                .Replace("ASKED", at.Character.ToString(CultureInfo.InvariantCulture))
+                .Replace("INSERT_END", (at.Character + (insertReachesCaret ? typed.Length : 0)).ToString(CultureInfo.InvariantCulture))
+                .Replace("REPLACE_END", (at.Character + typed.Length).ToString(CultureInfo.InvariantCulture));
+            return Task.FromResult(JsonSerializer.Deserialize(json, LspJsonContext.Default.CompletionItemArray)!);
+        });
+        var (window, view, editor) = Show();
+        editor.Text = typed;
+        editor.CaretOffset = typed.Length;
+        view.TriggerCompletion();
+        Pump();
+        asked.Should().Be(new Position(0, 0), "the code window asks at the word start (#3340)");
+        CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Single().CompletionList.SelectedItem
+            .Should().BeOfType<VbCompletionData>().Which.Text.Should().Be(label);
+
+        window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
+        if (key == Key.Space) window.KeyTextInput(" ");
+        window.KeyRelease(key, RawInputModifiers.None, PhysicalKey.None, null);
+        Pump();
+
+        editor.Text.Should().Be(expected);
+        editor.CaretOffset.Should().Be(expected.Length);
+    }
+
     [AvaloniaFact]
     public void Typing_after_a_bare_dot_selects_the_matching_item()
     {

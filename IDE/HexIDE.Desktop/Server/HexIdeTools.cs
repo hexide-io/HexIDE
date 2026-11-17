@@ -190,7 +190,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             note = null;
         else if (analysed.Length > 0)
             note = $"No diagnostics: {(analysed.Length == 1 ? "the analysed document is" : $"all {analysed.Length} analysed documents are")} "
-                   + "clean. Only open documents are analysed.";
+                   + "clean. Closed modules are included when a server offers workspace diagnostics.";
         else
             note = "Nothing has been analysed: no document is open, and only open documents are. open_file a form "
                    + "or module, then ask again.";
@@ -683,7 +683,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName,
         [Description("The control: its name, or for an element of a control array name(index), such as lblTitle(1), "
-                     + "with the 'index' get_form_controls lists for it. A bare array name is refused, naming the indexes, "
+                     + "with the 'index' get_form_controls lists for it. A bare array name with several elements is refused, naming the indexes, "
                      + "since the save would write to a guess.")]
         string controlName, string property,
         [Description("The value as the Properties window shows it: text, a number with '.' for decimals, True or False, "
@@ -696,7 +696,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "value's reply says why where it can, and lists what that property takes. Left, Top, Width and "
                      + "Height are in the unit the Properties window shows them in, which get_form_controls' row for "
                      + "each names: twips, or the container's ScaleMode. Not the pixels of get_form_controls' summary "
-                     + "or of move_control. '(None)' clears a picture.")]
+                     + "or of move_control. '(None)' clears a picture. Index takes an integer from 0 to 32767 to create "
+                     + "or move an array element; empty clears its only element. Duplicate indexes and clearing with "
+                     + "same-name siblings are refused.")]
         string value, string? project = null,
         CancellationToken ct = default)
     {
@@ -772,10 +774,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // As the Properties window shows them, case and the parentheses of '(Name)' aside: a caller writes
             // 'Name', and was told the property did not exist. (#494)
             var propClass = control.BaseClass.PropertiesByName.GetValueOrDefault(property)
-                ?? control.BaseClass.Properties.FirstOrDefault(p => string.Equals(
+                ?? PropertyText.InWindowOrder(control.BaseClass).FirstOrDefault(p => string.Equals(
                        p.Name.Trim('(', ')'), property.Trim('(', ')'), StringComparison.OrdinalIgnoreCase));
             if (propClass is null)
                 return (null, null, $"Property '{property}' not found on {control.BaseClass.VBTypeName}");
+
+            if (propClass == VBProperties.DesignIndexProperty)
+            {
+                if (HexIDE.VisualDesigner.ControlArrayIndex.RefusalFor(control, value, components) is { } indexRefusal)
+                    return (null, null, indexRefusal.English);
+            }
 
             // Any spelling the Properties window shows for a value; colours and enums were refused outright. (#641)
             // With the value it holds, so a font given in part keeps the rest (#952).
@@ -849,6 +857,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                            + DesignPositions.Unit(form, control, propClass)
                          : PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)))
                      + ".";
+            if (propClass == VBProperties.DesignIndexProperty)
+                stored = PropertyText.ArrayIndexOf(control) is { } nowIndex
+                    ? $"'{control.GetPropertyOrDefault(VBProperties.NameProperty)}' is now element {nowIndex} "
+                      + $"of array '{control.GetPropertyOrDefault(VBProperties.NameProperty)}'; address it as {PropertyText.AddressedName(control)}."
+                    : $"'{PropertyText.AddressedName(control)}' is now a plain control (Index cleared).";
             foreach (var change in consequences)
                 stored += $" Its {change.Property.Name} is now {PropertyText.Display(change.After)}, was "
                           + $"{PropertyText.Display(change.Before)}, as VB6's designer changes it with {propClass.Name.Trim('(', ')')}.";
@@ -1300,7 +1313,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_window_state")]
-    [Description("Returns a window's state (Maximized/Normal/Minimized) and the reported position and client size in every state: the IDE's own window unless 'window' names another, such as a running form. x and y are in screen pixels and width and height in device-independent pixels, as set_window_state takes them; 'outer' (the whole window, on Windows with its invisible resize border), 'frame' (as drawn) and 'client' give each edge on the screen in device-independent pixels, with 'scale' beside them, and 'units' says so in the reply. On native Wayland, which has no window positions, the position fields are left out and 'note' says why. 'name' is what to pass as 'window' to reach the same window again.")]
+    [Description("Returns a window's state (Maximized/Normal/Minimized) and the reported position and client size in every state: the IDE's own window unless 'window' names another, such as a running form. x and y are in screen pixels and width and height in device-independent pixels, as set_window_state takes them; 'outer' (the whole window, on Windows with its invisible resize border), 'frame' (as drawn) and 'client' give each edge on the screen in device-independent pixels, with 'scale' beside them, and 'units' says so in the reply. On native Wayland, which has no window positions, the position fields are left out and 'note' says why. 'isActive' reports platform activation. 'name' is what to pass as 'window' to reach the same window again.")]
     public async Task<WindowStateResult> GetWindowStateAsync(
         [Description(WindowStateParameter)] string? window = null, CancellationToken ct = default)
     {
@@ -1347,7 +1360,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         var main = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
         return target == main ? "ide"
-            : HexIDE.Runtime.BuiltinControls.VBProps.GetName(target) is { Length: > 0 } form ? form
+            : RunningProgram.Current.Form(target)?.Name is { Length: > 0 } form ? form
             : DescribeWindow(target);
     }
 
@@ -1376,7 +1389,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             ? WindowRect.Of(window.PointToScreen(new Avalonia.Point(0, 0)), size, scale) : null;
         return new WindowStateResult(state, positioned ? pos.X : null, positioned ? pos.Y : null, (int)size.Width, (int)size.Height, name,
             Scale: Math.Round(scale, 3), Outer: outer, Frame: frame, Client: client, Units: WindowStateUnits,
-            Note: ServerOptions.DpiUnaware ? DpiUnawareNote : positioned ? null : NoPositionNote);
+            Note: ServerOptions.DpiUnaware ? DpiUnawareNote : positioned ? null : NoPositionNote, IsActive: window.IsActive);
     }
 
     /// <summary>What get_window_state says on native Wayland, where the numbers it leaves out don't exist (#3576).</summary>
@@ -1434,18 +1447,22 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     };
 
     [McpServerTool(Name = "set_window_state")]
-    [Description("Sets a window to Maximized, Normal, or Minimized, the IDE's own unless 'window' names another, and replies with the resulting state, position and size as get_window_state reports them. Another window, such as a running form, changes as a click on its minimize, maximize or restore box would, so its Resize runs, and the reply waits for the program as interact's does. It is refused where a person couldn't do the same: no such box, a fixed border for a resize, a disabled window, or one under a modal dialog. Waits up to 1 s for the state, then up to 1 s for any requested move/resize; if unconfirmed, success is false and note explains how to re-read, or, on an X11 display with no window manager, that a minimize or maximize can never be applied there. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied after a confirmed restore; each is optional, and one left out keeps its current value. `x` and `y` are screen pixels and `width` and `height` the client area in device-independent pixels, as get_window_state reports them. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds, as `x` and `y` are on native Wayland, where only the compositor places a window. An invalid argument is refused before anything changes. A timed-out request may still be applied later.")]
+    [Description("Changes a window's 'state' (Maximized, Normal, Minimized), or activates it with 'activate': true. Both are optional; pass at least one. Omitted 'state' leaves it unchanged. 'window' defaults to the IDE; a name reaches a floating tool, dialog or running form. Activation only switches between HexIDE windows while one is already active; on Windows the foreground must also belong to this process. It never takes foreground from another application. A blocking modal dialog is refused and named, including over the IDE. Waits up to 1 s for activation; 'window' reports the target's isActive and 'previouslyActive' names the window active before and its current isActive. An unconfirmed activation reports success false, with a reason. The reply includes state, position and size as get_window_state does. Another window changes as its caption boxes or frame would, so a running form's Resize runs and the reply waits for the program as interact does. Missing boxes, a fixed border for a resize, and disabled windows are refused. Waits up to 1 s for state and 1 s for geometry; unconfirmed requests report success false and how to re-read, or explain that an X11 display has no window manager. With state Normal, 'x', 'y', 'width' and 'height' apply after restore; omitted values stay as they are. x/y are screen pixels; width/height are client DIPs and must be positive. Geometry requires Normal (explicit or current). A position on no screen is refused with screen bounds, as x/y are on native Wayland, where only the compositor places windows. Arguments and activation eligibility are checked before anything changes. A timed-out request may still apply later.")]
     public async Task<WindowStateChangeResult> SetWindowStateAsync(
-        string state,
+        string? state = null,
         // Defaults, not just nullable types: a nullable parameter with no default is required in the schema,
         // so the "optional" the description promised was refused on the wire. (#582)
         int? x = null, int? y = null, int? width = null, int? height = null,
         [Description(WindowStateParameter)] string? window = null,
+        bool activate = false,
         CancellationToken ct = default)
     {
         UiAutomationDriver.ProgramWatch? watch = null;
         Avalonia.Controls.Window? acted = null;
         string? actedName = null;
+        Avalonia.Controls.Window? previouslyActive = null;
+        WindowActivationState? Previous() => previouslyActive is null ? null
+            : new(StateNameOf(previouslyActive), previouslyActive.IsActive);
         var result = await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             var (resolved, name, resolveError) = ResolveStateWindow(window);
@@ -1453,8 +1470,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return new WindowStateChangeResult(false, resolveError, null);
             var main = resolved == (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
 
-            var target = state.ToLowerInvariant() switch
+            if (state is null && !activate)
+                return new WindowStateChangeResult(false, "Pass 'state' (Maximized, Normal or Minimized), or activate: true. Nothing was changed.", null);
+            var target = state?.ToLowerInvariant() switch
             {
+                null => resolved.WindowState,
                 "maximized" => Avalonia.Controls.WindowState.Maximized,
                 "minimized" => Avalonia.Controls.WindowState.Minimized,
                 "normal"    => Avalonia.Controls.WindowState.Normal,
@@ -1463,6 +1483,23 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
             if (target is null)
                 return new WindowStateChangeResult(false, $"Unknown state '{state}' — use Maximized, Normal, or Minimized", null);
+
+            if (activate)
+            {
+                previouslyActive = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+                    ?.Windows.FirstOrDefault(w => w.IsVisible && w.IsActive);
+                if (previouslyActive is null)
+                    return new WindowStateChangeResult(false,
+                        $"No HexIDE window is active, so activating '{name}' would take the foreground from another application, which this tool doesn't do.", null);
+                // Avalonia keeps a window active while the desktop is locked, when Windows has no foreground window at all.
+                if (!WindowActivation.OwnsForeground(resolved))
+                    return new WindowStateChangeResult(false,
+                        $"'{StateNameOf(previouslyActive)}' is active among HexIDE's windows, but the foreground window isn't HexIDE's: "
+                        + $"another application holds it, or none does, as while the desktop is locked. Activating '{name}' would take "
+                        + "the foreground, which this tool doesn't do.", null);
+                if (UiAutomationDriver.WindowRefusal(resolved, "set_window_state", name) is { } blocked)
+                    return new WindowStateChangeResult(false, blocked, null);
+            }
 
             // Everything is checked before anything changes. A negative size used to throw out of the tool, which
             // reached the caller as a bare "An error occurred invoking"; x without y was dropped with success; and
@@ -1478,7 +1515,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return new WindowStateChangeResult(false, noMove, null);
             // Another window is changed as a person changes it, so what a person couldn't do is refused (#2357). The IDE's
             // own is set as it always was.
-            if (!main && (WindowBoxRefusal(resolved, name!, target.Value, width is not null || height is not null)
+            if (!main && ((state is not null || geometry
+                              ? WindowBoxRefusal(resolved, name!, target.Value, width is not null || height is not null) : null)
                           ?? UiAutomationDriver.WindowRefusal(resolved, "set_window_state", name)) is { } refusal)
                 return new WindowStateChangeResult(false, refusal, null);
 
@@ -1502,22 +1540,40 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (!main)
                 watch = UiAutomationDriver.WatchProgram(resolved, () => ctx.DebugController.CurrentStop);
             (acted, actedName) = (resolved, name);
-            var applied = await HexIDE.Automation.WindowChange.ApplyAsync(resolved, target.Value, x, y, width, height, ct);
-            if (applied)
-                return new WindowStateChangeResult(true, null, WindowStateOf(resolved, name!), WindowSizeNote(resolved, width, height));
-            var (error, note) = Unconfirmed(target.Value, X11WindowManager.IsRunning());
-            return new WindowStateChangeResult(false, error, WindowStateOf(resolved, name!), note);
+            var applied = state is null && !geometry
+                || await HexIDE.Automation.WindowChange.ApplyAsync(resolved, target.Value, x, y, width, height, ct);
+            if (!applied)
+            {
+                var (error, note) = Unconfirmed(target.Value, X11WindowManager.IsRunning());
+                return new WindowStateChangeResult(false, error, WindowStateOf(resolved, name!), note, Previous());
+            }
+            if (activate)
+            {
+                // State confirmation can yield to real input: check foreground ownership again before activating.
+                if (!(Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)!
+                        .Windows.Any(w => w.IsVisible && w.IsActive) || !WindowActivation.OwnsForeground(resolved))
+                    return new WindowStateChangeResult(false,
+                        "HexIDE lost activation before the activation request; no activation was requested. Re-read with get_window_state.",
+                        WindowStateOf(resolved, name!), PreviouslyActive: Previous());
+                resolved.Activate();
+                if (!await WindowChange.WaitAsync(() => resolved.IsActive, ct))
+                    return new WindowStateChangeResult(false,
+                        "The platform did not confirm activation within 1 s. Re-read with get_window_state; the request may still apply later.",
+                        WindowStateOf(resolved, name!), PreviouslyActive: Previous());
+            }
+            return new WindowStateChangeResult(true, null, WindowStateOf(resolved, name!), WindowSizeNote(resolved, width, height), Previous());
         });
         if (watch is null || acted is null)
             return result;
 
         // Waited off the UI thread, as interact's is, then read again: the program's Resize may move or size the form.
         var waited = await UiAutomationDriver.WaitForProgramAsync(watch, new InteractOutcome(true, "window", "", null), ct: ct);
-        var after = await Dispatcher.UIThread.InvokeAsync(() => WindowStateOf(acted, actedName!));
+        var after = await Dispatcher.UIThread.InvokeAsync(() => (Window: WindowStateOf(acted, actedName!), Previous: Previous()));
         var programNote = waited.Detail is { Length: > 0 } detail ? ProgramNote(detail) : null;
         return result with
         {
-            Window = after,
+            Window = after.Window,
+            PreviouslyActive = after.Previous,
             Note = result.Note is null ? programNote : programNote is null ? result.Note : result.Note + " " + programNote,
         };
     }
@@ -2025,7 +2081,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     // ---- Debugger ----
 
     [McpServerTool(Name = "get_breakpoints")]
-    [Description("Returns the breakpoint line numbers for a form or module, named by its own VB6 name in any loaded project (case does not matter). Lines are 1-based and counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. Empty array if none. The optional conditions map gives each conditional line's expression, keyed by line number; it is absent when all breakpoints are unconditional. The note names conditional lines. A condition is a VB expression evaluated in the line's procedure each time it is reached, pausing when True. The reply's 'project' and 'document' name it as the IDE spells them, and 'uri' is the name a language server knows it by: its file: URI, or untitled:<project>/<name>.<ext> while it has no file, as get_diagnostics reports it.")]
+    [Description("Returns the breakpoint line numbers for a form or module, named by its own VB6 name in any loaded project (case does not matter). Lines are 1-based and counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. Empty array if none. The optional conditions map gives each conditional line's expression, keyed by line number; it is absent when all breakpoints are unconditional. The note names conditional lines. A condition is a VB expression evaluated in the line's procedure each time it is reached, pausing when True. The reply's 'project' and 'document' name it as the IDE spells them, and 'uri' is the name a language server knows it by: its file: URI, or untitled:<project>/<name>.<ext> while it has no file, as get_diagnostics reports it. In an external debug session it reads the session's breakpoints, which set_breakpoints edits, and the note says what the adapter verified, moved or refused.")]
     public async Task<BreakpointsResult> GetBreakpointsAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -2033,6 +2089,20 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             var lookup = ResolveDocument(name, project);
             if (lookup.Document is not { } document)
                 return new BreakpointsResult(null, null, null, [], lookup.Error);
+
+            // An external session's breakpoints are the editor's set for it, the one set_breakpoints edits (#4305).
+            if (ctx.RootViewModel.ExternalDebugger is { IsActive: true } external && document.AbsolutePath is not null)
+            {
+                var uri = DocumentWireName.For(document);
+                var points = external.GetBreakpoints(uri);
+                var requested = points.Select(point => point.RequestedLine).ToArray();
+                var externalConditions = requested
+                    .Select(line => (Line: line, Condition: external.GetCondition(uri, line)))
+                    .Where(pair => pair.Condition is not null)
+                    .ToDictionary(pair => pair.Line, pair => pair.Condition!);
+                return new BreakpointsResult(document.Project.Name, document.Name, uri, requested, null,
+                    externalConditions.Count == 0 ? null : externalConditions, ExternalBreakpointNote(points));
+            }
 
             var lines = ctx.BreakpointService.GetBreakpoints(document);
             var conditions = BreakpointConditions(document, lines);
@@ -2042,15 +2112,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "set_breakpoints")]
-    [Description("Replaces all breakpoints for a form or module with the supplied 1-based line numbers, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Named by its own VB6 name in any loaded project (case does not matter); pass `project` to say which when a group holds two of one name. Pass an empty array to clear them. Optional `conditions` maps line numbers to expressions, e.g. {\"6\":\"i = 3\"} with lines [6]. Omitted keys keep existing conditions; explicit blank expressions clear them. Conditions are VB expressions evaluated in the line's procedure each time it is reached, pausing when True. A condition key absent from lines is refused with nothing changed. A line the document does not have is refused, and so is a new breakpoint on a line of the header or of a member's Attribute lines, which never run; then nothing is changed, and the reply says where the code starts. Takes effect immediately if that project is the one running. The note names conditions set or cleared and reports what the document holds afterwards, and 'project' and 'document' name it as the IDE spells them.")]
+    [Description("Replaces all breakpoints for a form or module with the supplied 1-based line numbers, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Named by its own VB6 name in any loaded project (case does not matter); pass `project` to say which when a group holds two of one name. Pass an empty array to clear them. Optional `conditions` maps line numbers to expressions, e.g. {\"6\":\"i = 3\"} with lines [6]. Omitted keys keep existing conditions; explicit blank expressions clear them. Conditions are VB expressions evaluated in the line's procedure each time it is reached, pausing when True. A condition key absent from lines is refused with nothing changed. A line the document does not have is refused, and so is a new breakpoint on a line of the header or of a member's Attribute lines, which never run; then nothing is changed, and the reply says where the code starts. Takes effect immediately if that project is the one running. The note names conditions set or cleared and reports what the document holds afterwards, and 'project' and 'document' name it as the IDE spells them. In an external debug session it edits the session's breakpoints as the editor does, and the note reports what the adapter verified, moved or refused; condition syntax is the adapter's, and conditions it doesn't support are reported.")]
     public async Task<MutateResult> SetBreakpointsAsync(string name, int[] lines, string? project = null,
         [Description("Optional map from breakpoint line number to condition expression; keys must also appear in lines. Omitted keys keep old conditions; explicit blank expressions clear them.")] Dictionary<int, string>? conditions = null,
         CancellationToken ct = default)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
-                return new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"), ctx.ProjectRunnerService.CodeEditNote()?.TrimStart());
             var lookup = ResolveDocument(name, project);
             if (lookup.Document is not { } document)
                 return new MutateResult(false, lookup.Error);
@@ -2064,6 +2132,25 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 if (missing.Length > 0)
                     return Naming(new MutateResult(false,
                         $"Condition line(s) {string.Join(", ", missing)}: not a breakpoint in lines. Nothing changed."), document);
+            }
+
+            if (ctx.RootViewModel.ExternalDebugger is { IsActive: true } external)
+            {
+                if (document.AbsolutePath is null)
+                    return Naming(new MutateResult(false, "The document must be saved before setting external breakpoints."), document);
+                var uri = DocumentWireName.For(document);
+                var failures = new List<string>();
+                void Failed(string message) => failures.Add(message);
+                external.Failed += Failed;
+                try { await external.ReplaceBreakpointsAsync(uri, lines, conditions); }
+                catch (Exception exception) { return Naming(new MutateResult(false, exception.Message), document); }
+                finally { external.Failed -= Failed; }
+                if (!external.CanEditBreakpoints) return Naming(new MutateResult(false, "External session ended before breakpoint replacement completed."), document);
+                var points = external.GetBreakpoints(uri);
+                var externalNote = ExternalBreakpointNote(points);
+                if (!external.SupportsConditionalBreakpoints && lines.Any(line => external.GetCondition(uri, line) is not null))
+                    externalNote += " The adapter does not support conditions; these breakpoints are unconditional in this session.";
+                return Naming(new MutateResult(failures.Count == 0, failures.Count == 0 ? null : string.Join(" ", failures), externalNote), document);
             }
 
             var changes = new List<string>();
@@ -2102,13 +2189,27 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         conditions is null ? null : $"Conditional breakpoint lines: {string.Join(", ", conditions.Keys)}.";
 
     [McpServerTool(Name = "clear_all_breakpoints")]
-    [Description("Removes every breakpoint the IDE holds, in EVERY loaded project rather than only the startup one. With a group open that is more than it sounds; to clear one document, call set_breakpoints with an empty array. The reply's 'note' says how many breakpoints were cleared, in how many documents.")]
+    [Description("Removes every breakpoint the IDE holds, in EVERY loaded project rather than only the startup one. With a group open that is more than it sounds; to clear one document, call set_breakpoints with an empty array. The reply's 'note' says how many breakpoints were cleared, in how many documents. In an external debug session it clears the session's breakpoints through the adapter instead.")]
     public async Task<MutateResult> ClearAllBreakpointsAsync(CancellationToken ct)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
-                return new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"));
+            if (ctx.RootViewModel.ExternalDebugger is { IsActive: true } external)
+            {
+                var failures = new List<string>();
+                void Failed(string message) => failures.Add(message);
+                external.Failed += Failed;
+                try
+                {
+                    await external.ClearAllBreakpointsAsync();
+                    if (!external.CanEditBreakpoints) return new MutateResult(false, "External session ended before breakpoint clearing completed.");
+                    return failures.Count == 0
+                        ? new MutateResult(true, null, "External breakpoint set is empty.")
+                        : new MutateResult(false, string.Join(" ", failures), "The adapter refused to clear its breakpoints; unverified rows remain in the editor.");
+                }
+                catch (Exception exception) { return new MutateResult(false, exception.Message); }
+                finally { external.Failed -= Failed; }
+            }
             var before = ctx.BreakpointService.All();
             var lines = before.Values.Sum(l => l.Count);
             ctx.BreakpointService.ClearAll();
@@ -2205,7 +2306,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var stopped = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnStopped(StoppedInfo info) => stopped.TrySetResult(info);
         int? errorBefore = null;
-        HexIDE.Runtime.EventPump? pump = null;
+        IProgramActivity? pump = null;
         IReadOnlyCollection<object> liveBefore = [];
 
         var refused = await Dispatcher.UIThread.InvokeAsync(() =>
@@ -2273,7 +2374,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             ct.ThrowIfCancellationRequested();
             var frame = external.Frames.FirstOrDefault();
             var location = frame.ValueKind == System.Text.Json.JsonValueKind.Object &&
-                frame.TryGetProperty("source", out var source) && source.TryGetProperty("path", out var path) &&
+                frame.TryGetProperty("source", out var source) && source.ValueKind == System.Text.Json.JsonValueKind.Object && source.TryGetProperty("path", out var path) &&
                 frame.TryGetProperty("line", out var line)
                     ? $"{path.GetString()} line {line.GetInt32()}" : null;
             var state = !external.IsActive || external.State is HexIDE.Dap.DapSessionState.Ended or HexIDE.Dap.DapSessionState.Faulted
@@ -2541,13 +2642,33 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_locals")]
-    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'project' is the running project holding the context's module. 'context' is the Module.Procedure header; each row has hasChildren and, down to `maxDepth`, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root). A row with 'repeats' opens an object already open above it, such as a Timer's Parent under Me, so its children are left out.")]
+    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'project' is the running project holding the context's module. 'context' is the Module.Procedure header; each row has hasChildren and, down to `maxDepth`, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root). A row with 'repeats' opens an object already open above it, such as a Timer's Parent under Me, so its children are left out. In a stopped external debug session it reads the selected adapter frame: 'context' is the frame's name and 'project' is absent. While one runs, the reply says how to stop it.")]
     public async Task<LocalsResult> GetLocalsAsync(int maxDepth = 3, CancellationToken ct = default)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
-                return new LocalsResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"), null, null);
+            if (ctx.RootViewModel.ExternalDebugger is { IsActive: true } external)
+            {
+                if (ExternalInspectionRefusal(external) is { } refusal)
+                    return new LocalsResult(false, refusal, null, null);
+                var stop = external.Stop!;
+                var version = external.WatchVersion;
+                var remoteBudget = new[] { MaxLocalsNodes };
+                var remoteRows = new List<LocalsRow>();
+                try
+                {
+                    foreach (var variable in external.Variables)
+                    {
+                        if (remoteBudget[0]-- <= 0) break;
+                        remoteRows.Add(await MapExternalLocal(external, stop, variable, Math.Clamp(maxDepth, 1, 8), remoteBudget, []));
+                    }
+                    if (!external.IsCurrent(stop) || external.WatchVersion != version)
+                        return new LocalsResult(false, "External frame changed; call get_locals again while stopped.", null, null);
+                    return new LocalsResult(true, null, external.SelectedFrame?.GetProperty("name").GetString(), remoteRows.ToArray(),
+                        Note: "External context is the adapter frame name; no interpreter project or Module.Procedure context is supplied.");
+                }
+                catch (Exception exception) { return new LocalsResult(false, exception.Message, null, null); }
+            }
             var scope = ctx.DebugController.GetLocals();
             if (scope is null)
                 return new LocalsResult(false, NotPausedRefusal("there are no locals to read"), null, null);
@@ -2556,6 +2677,36 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             var rows = scope.Locals.Select(n => MapLocalsNode(n, cap, 1, budget)).ToArray();
             return new LocalsResult(true, null, scope.Context, rows, ctx.ProjectRunnerService.RunningProject?.Name);
         });
+    }
+
+    private static string? ExternalInspectionRefusal(HexIDE.Debugging.ExternalDebugService external)
+        => external.Stop is null || !external.IsCurrent(external.Stop)
+            ? "The external session is running or starting; use break_program or a breakpoint to stop it before inspecting."
+            : !external.CanEvaluate ? "External inspection is not ready; wait for the stopped frame to load and retry." : null;
+
+    private static string ExternalBreakpointNote(IReadOnlyList<HexIDE.Debugging.ExternalBreakpoint> points)
+        => points.Count == 0 ? "External breakpoint set is empty." : string.Join(" ", points.Select(point =>
+            $"Requested line {point.RequestedLine}: " + (point.Pending ? "pending" : point.Verified ? "verified" : "unverified") +
+            (point.Line is { } line ? $", adapter line {line}" : "") +
+            (point.Message.Length > 0 ? $", {point.Message}" : "") + "."));
+
+    private static async Task<LocalsRow> MapExternalLocal(HexIDE.Debugging.ExternalDebugService external,
+        HexIDE.Dap.DapStop stop, HexIDE.Debugging.ExternalVariable variable, int depth, int[] budget, HashSet<int> ancestors)
+    {
+        var repeats = variable.Reference != 0 && ancestors.Contains(variable.Reference);
+        LocalsRow[]? children = null;
+        if (variable.Reference != 0 && !repeats && depth > 1 && budget[0] > 0)
+        {
+            var branch = new HashSet<int>(ancestors) { variable.Reference };
+            var rows = new List<LocalsRow>();
+            foreach (var child in await external.LoadVariablesAsync(stop, variable.Reference))
+            {
+                if (budget[0]-- <= 0) break;
+                rows.Add(await MapExternalLocal(external, stop, child, depth - 1, budget, branch));
+            }
+            children = rows.ToArray();
+        }
+        return new LocalsRow(variable.Name, variable.Value, variable.Type, variable.Reference != 0, children, repeats);
     }
 
     // Bound the eager depth-projection: even with the per-array element cap + depth cap, a pathologically wide
@@ -2583,7 +2734,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_call_stack")]
-    [Description("Returns the call stack at the current break — the chain of running procedure activations, current/deepest frame first, each with proc, module, and 1-based line counted from the top of the file, header included, as the code window and set_breakpoints number it. Consecutive frames with identical proc, module and line collapse into one row with count (1 for a single frame). totalFrames is the full depth before collapsing. `maxFrames` limits collapsed rows, default 200; a note reports omitted rows and how to ask for more. 'project' is the running project, which holds every frame's module. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false with an empty list.")]
+    [Description("Returns the call stack at the current break — the chain of running procedure activations, current/deepest frame first, each with proc, module, and 1-based line counted from the top of the file, header included, as the code window and set_breakpoints number it. Consecutive frames with identical proc, module and line collapse into one row with count (1 for a single frame). totalFrames is the full depth before collapsing. `maxFrames` limits collapsed rows, default 200; a note reports omitted rows and how to ask for more. 'project' is the running project, which holds every frame's module. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false with an empty list. In a stopped external debug session the frames carry the adapter's names and source paths, one row each, and fields the adapter leaves out are absent, 'project' included. While one runs, the reply says how to stop it.")]
     public async Task<CallStackResult> GetCallStackAsync(
         [Description("Maximum collapsed rows to return, deepest first. Positive integer; default 200. Increase it to see rows omitted by the limit.")] int maxFrames = 200,
         CancellationToken ct = default)
@@ -2592,8 +2743,18 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return new CallStackResult(false, "maxFrames must be a positive integer.", []);
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
-                return new CallStackResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"), []);
+            if (ctx.RootViewModel.ExternalDebugger is { IsActive: true } external)
+            {
+                if (ExternalInspectionRefusal(external) is { } refusal)
+                    return new CallStackResult(false, refusal, []);
+                var remoteRows = external.Frames.Take(maxFrames).Select(frame => new CallStackFrameRow(
+                    frame.GetProperty("name").GetString() ?? "",
+                    frame.TryGetProperty("source", out var source) && source.ValueKind == System.Text.Json.JsonValueKind.Object && source.TryGetProperty("path", out var path) ? path.GetString() : null,
+                    frame.TryGetProperty("line", out var line) ? line.GetInt32() : null)).ToArray();
+                return new CallStackResult(true, null, remoteRows, TotalFrames: external.Frames.Count,
+                    Note: "External frames use adapter procedure names and source paths; project is unavailable. " +
+                        (external.Frames.Count > remoteRows.Length ? $"{external.Frames.Count - remoteRows.Length} rows omitted; increase maxFrames to {external.Frames.Count}." : ""));
+            }
             if (ctx.DebugController.State != HexIDE.Runtime.Debugging.DebugState.Paused)
                 return new CallStackResult(
                     false, NotPausedRefusal("there is no call stack to read"), System.Array.Empty<CallStackFrameRow>());
@@ -2621,13 +2782,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
     [McpServerTool(Name = "add_watch")]
     [DescribesEnum(typeof(HexIDE.Debugging.WatchType))]
-    [Description("Adds a watch expression to the Watches window. `watchType` is one of Expression (default; display the value), BreakWhenTrue (breaks at each statement while the expression is true), or BreakWhenChanged (breaks when its value changes); all three show their value while paused. Matched without regard to case. Any other value is refused and nothing is added, rather than quietly becoming an Expression watch. Returns the full watch list, after adding or not. 'project' names the running project in which expressions are evaluated; context is the stored Module.Procedure header, or (All Procedures).")]
+    [Description("Adds a watch expression to the Watches window. `watchType` is one of Expression (default; display the value), BreakWhenTrue (breaks at each statement while the expression is true), or BreakWhenChanged (breaks when its value changes); all three show their value while paused. Matched without regard to case. Any other value is refused and nothing is added, rather than quietly becoming an Expression watch. Returns the full watch list, after adding or not. 'project' names the running project in which expressions are evaluated; context is the stored Module.Procedure header, or (All Procedures). In an external debug session only Expression watches can be added, to the session's Watch window, and their values need a stopped frame.")]
     public async Task<WatchesResult> AddWatchAsync(string expression, string? watchType = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
-                return new WatchesResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"), []);
+            var external = ctx.RootViewModel.ExternalDebugger;
             // An unrecognised value is REFUSED. It used to become Expression, so a misspelt BreakWhenTrue gave a
             // watch that never breaks, reported as though the call had done what was asked. (#546) Null and
             // empty still mean the documented default.
@@ -2646,6 +2806,19 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                             "BreakWhenTrue or BreakWhenChanged.",
                 };
 
+            if (external is { IsActive: true })
+            {
+                if (watchKind != HexIDE.Debugging.WatchType.Expression)
+                    return (await BuildWatchesResult()) with
+                    {
+                        Success = false,
+                        Error = "External sessions support Expression watches only; no watch was added.",
+                    };
+                var contextName = external.SelectedFrame?.GetProperty("name").GetString() ?? HexIDE.Debugging.WatchExpression.AllProceduresContext;
+                ctx.RootViewModel.Watches.ExternalService.Add(new HexIDE.Debugging.WatchExpression(expression, watchKind, contextName));
+                var added = await BuildWatchesResult();
+                return added with { Note = $"Added external Expression watch '{expression}'. " + added.Note };
+            }
             var context = ctx.DebugController.GetLocals()?.Context ?? HexIDE.Debugging.WatchExpression.AllProceduresContext;
             ctx.RootViewModel.Watches.Service.Add(new HexIDE.Debugging.WatchExpression(expression, watchKind, context));
             return await BuildWatchesResult();
@@ -2654,15 +2827,40 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
     [McpServerTool(Name = "get_watches")]
     [DescribesEnum(typeof(HexIDE.Debugging.WatchType))]
-    [Description("Returns every watch (expression, watch type, stored Module.Procedure context or (All Procedures)) and its current value/type. 'project' names the running project in which expressions are evaluated, absent when no project is running. Values are live only while paused (get_debug_state.state == Paused); otherwise value is '<Out of context>'. 'watchType' is Expression (display only), BreakWhenTrue or BreakWhenChanged, matching the three choices in the Add Watch dialog.")]
+    [Description("Returns every watch (expression, watch type, stored Module.Procedure context or (All Procedures)) and its current value/type. 'project' names the running project in which expressions are evaluated, absent when no project is running. Values are live only while paused (get_debug_state.state == Paused); otherwise value is '<Out of context>'. 'watchType' is Expression (display only), BreakWhenTrue or BreakWhenChanged, matching the three choices in the Add Watch dialog. In an external debug session it evaluates the session's Watch window in the selected adapter frame: 'context' is the frame's name and 'project' is absent. While one runs, the reply says how to stop it.")]
     public async Task<WatchesResult> GetWatchesAsync(CancellationToken ct = default)
         => await Dispatcher.UIThread.InvokeAsync(BuildWatchesResult);
 
     // Snapshot the watch list, evaluating each against the paused frame (live only while Paused).
     private async Task<WatchesResult> BuildWatchesResult()
     {
-        if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
-            return new WatchesResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"), []);
+        if (ctx.RootViewModel.ExternalDebugger is { IsActive: true } external)
+        {
+            if (ExternalInspectionRefusal(external) is { } refusal)
+                return new WatchesResult(false, refusal,
+                    ctx.RootViewModel.Watches.ExternalService.Watches.Select(watch => new WatchRow(
+                        watch.Expression, watch.Type.ToString(), watch.Context, "<Out of context>", "", false)).ToArray(),
+                    Note: "Watch definitions are retained in the external Watch window; the returned rows have no live values.");
+            var remoteRows = new List<WatchRow>();
+            var stop = external.Stop!;
+            var frame = external.SelectedFrame!.Value;
+            foreach (var watch in ctx.RootViewModel.Watches.ExternalService.Watches.ToArray())
+            {
+                try
+                {
+                    var value = await external.EvaluateWatchAsync(stop, frame.GetProperty("id").GetInt32(), watch.Expression);
+                    remoteRows.Add(new WatchRow(watch.Expression, watch.Type.ToString(), frame.GetProperty("name").GetString() ?? "",
+                        value.Value, value.Type, true));
+                }
+                catch (Exception exception)
+                {
+                    if (!external.IsCurrent(stop) || external.SelectedFrame?.GetProperty("id").GetInt32() != frame.GetProperty("id").GetInt32())
+                        return new WatchesResult(false, "External frame changed; call get_watches again while stopped.", []);
+                    remoteRows.Add(new WatchRow(watch.Expression, watch.Type.ToString(), frame.GetProperty("name").GetString() ?? "", exception.Message, "", false));
+                }
+            }
+            return new WatchesResult(true, null, remoteRows.ToArray(), Note: "External watches evaluate in the selected adapter frame; context is its name, and project is unavailable.");
+        }
         var rows = new List<WatchRow>();
         foreach (var w in ctx.RootViewModel.Watches.Service.Watches)
         {
@@ -2675,11 +2873,23 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "evaluate")]
-    [Description("Runs an Immediate-window line against the paused frame. A leading ?/Print/Debug.Print EVALUATES and returns what the VB6 Immediate window prints for it, Print formatting and all: \"?count\" gives \" 42 \", a number with a space where its sign would go and one after, and \"?a; b\" or \"?a, b\" prints the list as Debug.Print does. A bare expression returns the value alone (\"count\" gives \"42\"); use it, or add_watch and get_watches, to compare values. A BARE assignment or Set (e.g. \"count = 7\", \"Set obj = Nothing\") is EXECUTED and mutates the paused frame (returns empty) — whereas \"?count = 7\" compares. User Sub/Function calls are still rejected (they would deadlock the paused gate). Valid only while paused (get_debug_state.state == Paused). Returns the formatted result / empty (for a statement) / a VB6-style error message.")]
+    [Description("Runs an Immediate-window line against the paused frame. A leading ?/Print/Debug.Print EVALUATES and returns what the VB6 Immediate window prints for it, Print formatting and all: \"?count\" gives \" 42 \", a number with a space where its sign would go and one after, and \"?a; b\" or \"?a, b\" prints the list as Debug.Print does. A bare expression returns the value alone (\"count\" gives \"42\"); use it, or add_watch and get_watches, to compare values. A BARE assignment or Set (e.g. \"count = 7\", \"Set obj = Nothing\") is EXECUTED and mutates the paused frame (returns empty) — whereas \"?count = 7\" compares. User Sub/Function calls are still rejected (they would deadlock the paused gate). Valid only while paused (get_debug_state.state == Paused). Returns the formatted result / empty (for a statement) / a VB6-style error message. In an external debug session the line goes to the adapter's Immediate (REPL) evaluation, using the adapter's syntax. The result contains printed output followed by response text; an adapter refusal returns success: false with its message as error. While one runs, the reply says how to stop it.")]
     public async Task<EvaluateResult> EvaluateAsync(string expression, CancellationToken ct = default)
     {
-        if (await Dispatcher.UIThread.InvokeAsync(() => ctx.RootViewModel.ExternalDebugger?.IsActive == true))
-            return new EvaluateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"), null);
+        var externalReply = await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            if (ctx.RootViewModel.ExternalDebugger is not { IsActive: true } external) return null;
+            if (ExternalInspectionRefusal(external) is { } refusal) return new EvaluateResult(false, refusal, null);
+            try
+            {
+                var value = await external.EvaluateAsync(expression);
+                return value.Expired ? new EvaluateResult(false, "External frame changed; evaluate again while stopped.", null)
+                    : value.Error is { } error ? new EvaluateResult(false, error, null)
+                    : new EvaluateResult(true, null, value.PrintedOutput + value.Text);
+            }
+            catch (Exception exception) { return new EvaluateResult(false, exception.Message, null); }
+        });
+        if (externalReply is not null) return externalReply;
         string? result = await Dispatcher.UIThread.InvokeAsync(() => ctx.DebugController.EvaluateAsync(expression));
         return result is null
             ? new EvaluateResult(false, await Dispatcher.UIThread.InvokeAsync(() => NotPausedRefusal("there is no frame to evaluate against")), null)
@@ -2714,15 +2924,17 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
     [McpServerTool(Name = "shutdown_ide")]
     [Description("Shuts down the HexIDE application cleanly, triggering all shutdown handlers. " +
-                 "Stops a running project and closes any dialogs still open first; floating IDE tools stay floating. Otherwise the app " +
+                 "With force=true, stops a running project and closes any dialogs still open first; floating IDE tools stay floating. Otherwise the app " +
                  "keeps running (its shutdown mode is last-window-close) and the next build fails on a " +
                  "file lock. The reply says what was torn down; it CANNOT confirm the process exited, " +
                  "because the reply has to be sent before it does — poll /health until it stops " +
-                 "answering for that. " +
+                 "answering for that when no save prompt is waiting. " +
                  "`force` (default true) skips the save-changes prompt and DISCARDS unsaved edits — " +
                  "without it that prompt would block the shutdown and wedge automation. " +
                  "Pass force=false to get exactly what a user closing the window sees, including the " +
-                 "prompt; the IDE then stays up if the user cancels.")]
+                 "prompt; the IDE then stays up if the user cancels. The reply lists discardedDocuments " +
+                 "as project/document names (project-file edits use the project name), empty when none were discarded. " +
+                 "With force=false and unsaved work, the note names it and directs you to dump_visual_tree then interact to answer the prompt.")]
     public async Task<ShutdownResult> ShutdownIdeAsync(bool force = true, CancellationToken ct = default)
     {
         var response = httpContextAccessor?.HttpContext?.Response
@@ -2730,8 +2942,24 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
         // Tear down synchronously so the reply says what happened. The main window stays open until the
         // response completes: merely posting its close can still end the process before the reply is sent.
-        var (projectStopped, dialogsClosed) = await Dispatcher.UIThread.InvokeAsync(() =>
-            IdeShutdown.Prepare(ctx, force));
+        var (projectStopped, dialogsClosed, unsaved) = await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            ctx.EventBus.Publish(new HexIDE.Events.ApplyAllUnsavedChangesEvent());
+            var documents = new List<string>();
+            foreach (var project in ctx.ProjectManager.LoadedProjects)
+            {
+                if (ctx.ProjectService.HasUnsavedChanges(project))
+                    documents.Add(project.Name);
+                foreach (var form in project.Forms)
+                    if (ctx.ProjectService.HasUnsavedChanges(form))
+                        documents.Add($"{project.Name}/{form.Name}");
+                foreach (var module in project.Modules)
+                    if (ctx.ProjectService.HasUnsavedChanges(module))
+                        documents.Add($"{project.Name}/{module.Name}");
+            }
+            var prepared = IdeShutdown.Prepare(ctx, force);
+            return (prepared.ProjectStopped, prepared.DialogsClosed, documents.ToArray());
+        });
 
         response.OnCompleted(() =>
         {
@@ -2739,8 +2967,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return Task.CompletedTask;
         });
 
-        return new ShutdownResult(true, projectStopped, dialogsClosed,
-            "Shutdown requested. Poll /health until it stops answering to confirm the process exited.");
+        var note = !force && unsaved.Length > 0
+            ? $"A save-changes prompt will open and wait for: {string.Join(", ", unsaved)}. " +
+              "Use dump_visual_tree {window: \"auto\"}, then interact on Yes, No or Cancel. Cancel keeps the IDE running."
+            : (force ? unsaved.Length > 0
+                ? "Discarded unsaved changes to: " + string.Join(", ", unsaved) + ". "
+                : "Discarded no unsaved changes. " : "") +
+              "Shutdown requested. Poll /health until it stops answering to confirm the process exited.";
+        return new ShutdownResult(true, projectStopped, dialogsClosed, note, force ? unsaved : []);
     }
 
     private static readonly (string Name, int MinimumSelection, Func<HexIDE.VisualDesigner.FormEditViewModel, Action> Of)[] FormatCommands =
@@ -3310,11 +3544,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails without it, with no fallback to reflection: choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input where a real press would land, moving there first unless already there, so MouseMove precedes MouseDown, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Code replies name line/column, project/document, breakpoint/bookmark, or a covering header/control and covered line. Every verb except invoke_command/set_property refuses a disabled target, naming a disabling container or blocking dialog to answer first, and one not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Document saves wait up to 2 s and report completion or still running, and any answer still armed. Find controls with dump_visual_tree/inspect_element. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
+    [Description("Drives 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. Provider actions require their reported provider; choose invoke_command/set_property explicitly for reflection. click needs no provider: it moves there unless already there (MouseMove before MouseDown), then presses, releasing 50 ms later as separate input so the press handler runs first. It waits up to 1 s for a drawn frame to hit-test; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. A click that leaves its window inactive names the window still active and points to set_window_state with activate true. Code replies name line/column, project/document, breakpoint/bookmark, or a covering header/control and covered line. Every verb except invoke_command/set_property refuses a disabled target, naming a disabling container or blocking dialog to answer first, and one not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Document saves wait up to 2 s and report completion or still running, and any answer still armed. Find controls with dump_visual_tree/inspect_element. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree, including ContextMenu/Flyout segments for attached popups.")]
         string target,
-        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node; with 'value', a row out of view is scrolled to first; a dropdown's items exist only while it is open, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add a multi-select list item or remove a list/tree item without replacing the selection; the reply names the primary, on a designer the last control added); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; to drags, and hold stops before letting go; any control, a Label or a form's area included); release (let go of that held button); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way); wheel (turn the mouse wheel over the target as a person does, so its own wheel handling runs; the reply says what moved); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; not the IDE's main window).")]
+        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node; with 'value', a row out of view is scrolled to first; with 'value' on a closed ComboBox, opens the list first and closes it after selecting or a miss; an already-open list closes on selection as a click does); add_to_selection / remove_from_selection (add a multi-select list item or remove a list/tree item without replacing the selection; the reply names the primary, on a designer the last control added); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; to drags, and hold stops before letting go; any control, a Label or a form's area included); release (let go of that held button); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way); wheel (turn the mouse wheel over the target as a person does, so its own wheel handling runs; the reply says what moved); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; not the IDE's main window).")]
         string action,
         [Description("For set_value: text; set_range_value: number; scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: Command runs the target’s resolved Command with its CommandParameter, checking CanExecute; otherwise the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. For wheel: up, down, left or right, then notches (default 1) and an optional x,y, as 'down 3'. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by spaces, as in '10,5 right double' or 'double'; append to x,y or to <path>:x,y to drag (paste a dump_visual_tree path, including spaces); release coordinates are relative to that control, or the target without a path; to cannot accompany double; add hold to a drag to stop before its release, with the button still down at the to point until action release. While it is held, every reply's heldButton says where, a snapshot or a dump shows the drag in progress, click, double_click and hover are refused, and keys still go. For release: x,y relative to the target, or <path>:x,y, moves the held button there first; with no value it lets go where it is held. Code windows, text and margins also take 1-based line:N or line:N,col:M for click/double_click; off-screen lines scroll into view; invalid lines report the line count. With no call for 120 s a hold is abandoned; heldButton says how, and the next reply what it did.")]
         string? value = null,
@@ -4682,9 +4916,9 @@ internal record MutateResult(
 /// <summary>
 /// What <c>shutdown_ide</c> tore down on the way out. <see cref="Requested"/> is deliberately not
 /// "succeeded": the reply has to be sent before the process exits, so no in-process result can honestly
-/// claim it did. Poll <c>/health</c> for that.
+/// claim it did. Poll <c>/health</c> for that when no save prompt is waiting.
 /// </summary>
-internal record ShutdownResult(bool Requested, bool ProjectStopped, int DialogsClosed, string Note);
+internal record ShutdownResult(bool Requested, bool ProjectStopped, int DialogsClosed, string Note, string[] DiscardedDocuments);
 
 /// <param name="Project">The project the file was added to, by its own name.</param>
 /// <param name="Document">The new document's name.</param>
@@ -4695,7 +4929,7 @@ internal record AddFileResult(
 /// <c>Error</c> says why no window was read.</summary>
 internal record WindowStateResult(string State, int? X, int? Y, int Width, int Height, string? Name = null, string? Error = null,
     double? Scale = null, WindowRect? Outer = null, WindowRect? Frame = null, WindowRect? Client = null, string? Units = null,
-    string? Note = null);
+    string? Note = null, bool IsActive = false);
 
 /// <summary>A rectangle on the screen in device-independent pixels, to a tenth (#2454).</summary>
 internal record WindowRect(double X, double Y, double Width, double Height)
@@ -4710,7 +4944,10 @@ internal record WindowRect(double X, double Y, double Width, double Height)
 }
 
 /// <summary>What <c>set_window_state</c> did: the window's state afterwards, as <c>get_window_state</c> reports it.</summary>
-internal record WindowStateChangeResult(bool Success, string? Error, WindowStateResult? Window, string? Note = null);
+internal record WindowStateChangeResult(bool Success, string? Error, WindowStateResult? Window, string? Note = null,
+    WindowActivationState? PreviouslyActive = null);
+
+internal record WindowActivationState(string Name, bool IsActive);
 
 internal record ToolWindowInfo(string Name, bool Visible);
 
@@ -4762,7 +4999,7 @@ internal record DebugStateResult(
     bool Running, string State, string? StopReason, string? Module, int? Line, string? Project = null,
     string? AdapterStopReason = null, string? Note = null);
 
-internal record LocalsResult(bool Success, string? Error, string? Context, LocalsRow[]? Locals, string? Project = null);
+internal record LocalsResult(bool Success, string? Error, string? Context, LocalsRow[]? Locals, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? Project = null, string? Note = null);
 
 /// <param name="Repeats">The row opens an object already open above it, such as a Timer's Parent under Me, so its
 /// children, the same tree again, are left out (#2329). Absent otherwise.</param>
@@ -4775,13 +5012,15 @@ internal record EvaluateResult(bool Success, string? Error, string? Result);
 /// <param name="Project">
 /// The running project, by name. A run is one project, so every frame's module is in it.
 /// </param>
-internal record CallStackResult(bool Success, string? Error, CallStackFrameRow[] Frames, string? Project = null,
+internal record CallStackResult(bool Success, string? Error, CallStackFrameRow[] Frames, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? Project = null,
     int TotalFrames = 0, string? Note = null);
 
-internal record CallStackFrameRow(string Proc, string Module, int Line, int Count = 1);
+internal record CallStackFrameRow(string Proc,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? Module,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] int? Line, int Count = 1);
 
 /// <param name="Note">Says that no run engine runs the startup project, so the values stay out of context (#3514). Absent otherwise.</param>
-internal record WatchesResult(bool Success, string? Error, WatchRow[] Watches, string? Project = null, string? Note = null);
+internal record WatchesResult(bool Success, string? Error, WatchRow[] Watches, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? Project = null, string? Note = null);
 
 internal record WatchRow(string Expression, string WatchType, string Context, string Value, string Type, bool Ok);
 

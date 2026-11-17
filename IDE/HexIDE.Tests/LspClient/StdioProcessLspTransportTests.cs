@@ -68,6 +68,60 @@ public class StdioProcessLspTransportTests
     private static string AnUnsavedProjectsScratchPath() =>
         Path.Combine(Path.GetTempPath(), $"hexide_Project1_{Guid.NewGuid():N}");
 
+    public static bool OnUnix => OperatingSystem.IsLinux() || OperatingSystem.IsMacOS();
+
+    [Theory(Skip = "The guard is used on Unix.", SkipUnless = nameof(OnUnix))]
+    [InlineData(false, "tree-clean")]
+    [InlineData(false, "tree")]
+    [InlineData(true, "tree")]
+    public async Task ExitAndDisposalEndDescendantsWithinTheDeadline(bool pipe, string mode)
+    {
+        var token = TestContext.Current.CancellationToken;
+        var server = typeof(global::HexIDE.Lsp.TestServer.Program).Assembly.Location;
+        var info = new LspServerInfo("dotnet", "", Path.GetTempPath(), ArgumentList: [server, mode]);
+        var name = $"h4152-{Guid.NewGuid():N}"[..20];
+        await using ILspTransport sut = pipe
+            ? new NamedPipeLspTransport(name, NamedPipeRole.Listen,
+                Substitute.For<ILogger<NamedPipeLspTransport>>(),
+                new NamedPipeLaunch("dotnet", "", ArgumentList: [server, mode, name]))
+            : new StdioProcessLspTransport(info, _logger);
+        var childReady = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var notices = new System.Collections.Concurrent.ConcurrentQueue<TransportNotice>();
+        sut.Notice += (_, notice) =>
+        {
+            notices.Enqueue(notice);
+            if (notice.Text.StartsWith("child:", StringComparison.Ordinal))
+                childReady.TrySetResult(int.Parse(notice.Text[6..]));
+        };
+        using var handler = (HeaderDelimitedMessageHandler)(await sut.ConnectAsync(Formatter(), token))!;
+        using var rpc = new JsonRpc(handler);
+        rpc.StartListening();
+        using var child = System.Diagnostics.Process.GetProcessById(
+            await childReady.Task.WaitAsync(TimeSpan.FromSeconds(10), token));
+        child.HasExited.Should().BeFalse();
+        // Assert the actual shutdown reply before timing exit through transport disposal.
+        var reply = await rpc.InvokeAsync<System.Text.Json.JsonElement>("shutdown")
+            .WaitAsync(TimeSpan.FromSeconds(10), token);
+        reply.ValueKind.Should().Be(System.Text.Json.JsonValueKind.Null);
+        sut.ShutdownCompleted();
+        var elapsed = System.Diagnostics.Stopwatch.StartNew();
+        await rpc.NotifyAsync("exit");
+        await sut.DisposeAsync();
+        var disposed = elapsed.Elapsed;
+        // 500 ms scheduling margin over the two-second total; clean exit has a tighter
+        // 1.5 s ceiling so restoring the guard's fixed two-second delay fails too.
+        var bound = TimeSpan.FromSeconds(mode == "tree-clean" ? 1.5 : 2.5);
+        while (!child.HasExited && elapsed.Elapsed < bound)
+            await Task.Delay(10, token);
+        elapsed.Stop();
+        TestContext.Current.TestOutputHelper!.WriteLine(
+            $"{(pipe ? "pipe" : "stdio")} {mode}: exit to disposed {disposed.TotalMilliseconds:F0} ms; child ended by {elapsed.Elapsed.TotalMilliseconds:F0} ms");
+        child.HasExited.Should().BeTrue("teardown must end descendants within the same bound");
+        elapsed.Elapsed.Should().BeLessThan(bound);
+        if (mode == "tree-clean")
+            notices.Should().Contain(n => n.Text == "process exited with code 0" && !n.Fault);
+    }
+
     [Fact]
     public async Task DisposalWaitsForTheKilledProcessToExit()
     {

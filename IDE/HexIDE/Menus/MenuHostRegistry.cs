@@ -148,6 +148,8 @@ internal static class MenuHostRegistry
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["add-ins"] = "AddInsMenuItem",
+            ["refactor"] = "RefactorMenu",
+            ["source-actions"] = "SourceActionsMenu",
             ["closed-documents"] = "{CompiledBinding ClosedDocumentMenuItems}",
             ["panel-layouts"] = "PanelLayoutsMenuItem",
             ["recent-projects"] = "{CompiledBinding RecentProjects}",
