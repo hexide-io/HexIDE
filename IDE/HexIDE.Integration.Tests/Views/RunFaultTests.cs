@@ -182,6 +182,46 @@ public class RunFaultTests
         return printed;
     }
 
+    // #4179 / oracle PR #4350: F5 runs even when the designer has never been opened.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Negative_saved_sizes_run_as_zero(bool openDesigner)
+    {
+        var frm = FormWithButton.Replace("Command1", "Command2")
+            .Replace("Width           =   1215", "Width           =   -150")
+            .Replace("End\r\nAttribute", "Begin VB.Label Label1\r\nWidth = -150\r\nEnd\r\nEnd\r\nAttribute");
+        var run = FormProject("Private Sub Form_Load()\r\nDebug.Print CStr(Command2.Width) & \" \" & CStr(Label1.Width)\r\nEnd Sub\r\n", frm);
+        using var designer = openDesigner ? new HexIDE.VisualDesigner.FormEditViewModel(
+            new HexIDE.VisualDesigner.ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(), new ComponentRegistry(),
+                Substitute.For<ILocalizationService>()), new EventBus(), Substitute.For<HexIDE.Projects.IProjectService>(),
+            Substitute.For<IEditorService>(), run.WindowManager, Substitute.For<ISettingsService>(),
+            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(run.Project.Forms.Single()) : null;
+        if (designer is not null)
+        {
+            designer.IsReadOnly.Should().BeFalse();
+            var view = new HexIDE.VisualDesigner.FormEditView { DataContext = designer };
+            view.Measure(new Avalonia.Size(900, 700));
+            view.Arrange(new Avalonia.Rect(0, 0, 900, 700));
+        }
+        var printed = Printed(out var sink);
+        VBDebugConsole.Output += sink;
+        try
+        {
+            var window = Start(run, printed);
+            run.StartFailed.Should().BeEmpty();
+            run.RunFailed.Should().BeEmpty();
+            printed.Should().Equal("0 0");
+            window.Close();
+            Pump();
+        }
+        finally
+        {
+            VBDebugConsole.Output -= sink;
+            run.Runner.EndProject();
+        }
+    }
+
     // A never-called handler must not stop Form_Load; reaching Print uses Me.Print's refusal (#993).
     [AvaloniaTheory]
     [InlineData("Print \"hello\"")]

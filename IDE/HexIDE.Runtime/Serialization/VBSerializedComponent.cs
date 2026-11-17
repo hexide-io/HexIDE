@@ -4,6 +4,7 @@ namespace HexIDE.Runtime.Serialization;
 
 public class VBSerializedComponent
 {
+    public int BeginLine { get; set; }
     public string Type { get; set; } = "";
     public string Name { get; set; } = "";
     public Dictionary<string, object> Properties { get; } = new Dictionary<string, object>();

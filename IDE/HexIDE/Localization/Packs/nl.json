@@ -2,6 +2,7 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Regel {0}: eigenschap {1} in {2} kon niet worden ingesteld.",
     "Str.Startup.ProjectFileArgument": "projectbestand",
     "Str.ProjectFile.ReplaceModel": "Het toepassen van de projectbestandstekst vervangt niet-opgeslagen projectinstellingen voor {0}. Doorgaan?",
     "Str.MemberOrigin.HexIde": "HexIDE-uitbreiding; niet beschikbaar in VB6.",

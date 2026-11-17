@@ -2,6 +2,7 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "{0}. sor: a(z) {2} {1} tulajdonságát nem sikerült beállítani.",
     "Str.Startup.ProjectFileArgument": "projektfájl",
     "Str.ProjectFile.ReplaceModel": "A projektfájl szövegének alkalmazása felülírja a(z) {0} projekt nem mentett beállításait. Folytatja?",
     "Str.MemberOrigin.HexIde": "HexIDE-bővítmény; a VB6-ban nem érhető el.",

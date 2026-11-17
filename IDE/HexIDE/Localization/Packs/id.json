@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Baris {0}: properti {1} di {2} tidak dapat ditetapkan.",
     "Str.Startup.ProjectFileArgument": "berkas proyek",
     "Str.ProjectFile.ReplaceModel": "Menerapkan teks berkas proyek akan mengganti pengaturan proyek {0} yang belum disimpan. Lanjutkan?",
     "Str.MemberOrigin.HexIde": "Ekstensi HexIDE; tidak tersedia di VB6.",

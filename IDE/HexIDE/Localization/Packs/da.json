@@ -2,6 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Linje {0}: Egenskaben {1} i {2} kunne ikke angives.",
     "Str.Startup.ProjectFileArgument": "projektfil",
     "Str.ProjectFile.ReplaceModel": "Anvendelse af projektfilens tekst erstatter ikke-gemte projektindstillinger for {0}. Fortsæt?",
     "Str.MemberOrigin.HexIde": "HexIDE-udvidelse; ikke tilgængelig i VB6.",

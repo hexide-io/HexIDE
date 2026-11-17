@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "שורה {0}: לא ניתן להגדיר את המאפיין {1} ב־{2}.",
     "Str.Startup.ProjectFileArgument": "קובץ פרויקט",
     "Str.ProjectFile.ReplaceModel": "החלת טקסט קובץ הפרויקט תחליף הגדרות פרויקט שלא נשמרו עבור {0}. להמשיך?",
     "Str.AIChat.Title": "צ׳אט בינה מלאכותית",

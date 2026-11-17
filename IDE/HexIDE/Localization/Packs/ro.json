@@ -2,6 +2,7 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Linia {0}: proprietatea {1} din {2} nu a putut fi setată.",
     "Str.Startup.ProjectFileArgument": "fișier de proiect",
     "Str.ProjectFile.ReplaceModel": "Aplicarea textului fișierului de proiect va înlocui setările nesalvate ale proiectului {0}. Continuați?",
     "Str.MemberOrigin.HexIde": "Extensie HexIDE; indisponibilă în VB6.",

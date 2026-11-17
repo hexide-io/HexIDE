@@ -2,6 +2,7 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Zeile {0}: Die Eigenschaft {1} in {2} konnte nicht festgelegt werden.",
     "Str.Startup.ProjectFileArgument": "Projektdatei",
     "Str.ProjectFile.ReplaceModel": "Das Anwenden des Projektdateitexts ersetzt ungespeicherte Projekteinstellungen für {0}. Fortfahren?",
     "Str.AIChat.Title": "KI-Chat",

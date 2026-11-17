@@ -2,6 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Rivi {0}: ominaisuutta {1} kohteessa {2} ei voitu asettaa.",
     "Str.Startup.ProjectFileArgument": "projektitiedosto",
     "Str.ProjectFile.ReplaceModel": "Projektitiedoston tekstin käyttäminen korvaa projektin {0} tallentamattomat asetukset. Jatketaanko?",
     "Str.MemberOrigin.HexIde": "HexIDE-laajennus; ei käytettävissä VB6:ssa.",

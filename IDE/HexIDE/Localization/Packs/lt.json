@@ -2,6 +2,7 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "{0} eilutė: nepavyko nustatyti {2} ypatybės {1}.",
     "Str.Startup.ProjectFileArgument": "projekto failas",
     "Str.ProjectFile.ReplaceModel": "Pritaikius projekto failo tekstą bus pakeistos neįrašytos projekto {0} nuostatos. Tęsti?",
     "Str.MemberOrigin.HexIde": "HexIDE plėtinys; VB6 nepasiekiamas.",

@@ -399,6 +399,15 @@ public class FormDeserializer
                     continue; // unknown property — preserved verbatim by OrderedRawProperties loop below
 
                 var val = serializedProperty.Value;
+                // VB6 IDE load errors recover the size as zero, and require Save As (#4179, oracle PR #4350).
+                if (rootComponent.Type == "VB.Form" && parent is not null && TryReadNumber(val, out var size)
+                    && DesignerSizeValidation.Refuses(propertyClass, size))
+                {
+                    val = 0;
+                    form.LoadedWithErrors = true;
+                    errorSink.LogError("Str.ProjectLoad.PropertyNotSet", "Line {0}: Property {1} in {2} could not be set.",
+                        serializedComponent.BeginLine, propertyName, serializedComponent.Name);
+                }
                 void InvalidValue()
                 {
                     errorSink.LogError("Str.ProjectLoad.InvalidValue", "Property {0} in {1} had an invalid value.", serializedProperty.Key, serializedComponent.Name);

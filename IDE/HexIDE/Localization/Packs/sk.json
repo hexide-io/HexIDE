@@ -2,6 +2,7 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Riadok {0}: vlastnosť {1} v {2} sa nepodarilo nastaviť.",
     "Str.Startup.ProjectFileArgument": "súbor projektu",
     "Str.ProjectFile.ReplaceModel": "Použitie textu súboru projektu nahradí neuložené nastavenia projektu {0}. Pokračovať?",
     "Str.MemberOrigin.HexIde": "Rozšírenie HexIDE; vo VB6 nie je dostupné.",

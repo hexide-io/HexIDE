@@ -2,6 +2,7 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Satır {0}: {2} içindeki {1} özelliği ayarlanamadı.",
     "Str.Startup.ProjectFileArgument": "proje dosyası",
     "Str.ProjectFile.ReplaceModel": "Proje dosyası metnini uygulamak, {0} için kaydedilmemiş proje ayarlarını değiştirecek. Devam edilsin mi?",
     "Str.MemberOrigin.HexIde": "HexIDE uzantısı; VB6 içinde kullanılamaz.",

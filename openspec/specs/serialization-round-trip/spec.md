@@ -1161,6 +1161,39 @@ file without a question. An unchanged disk file SHALL save without a conflict qu
 - **WHEN** the user saves the project
 - **THEN** the external project bytes survive without a conflict question
 
+### Requirement: Recover negative control sizes without overwriting the source
+
+Negative control sizes SHALL load as zero with a Begin-line diagnostic, keeping forms editable and
+runnable. Saves MUST protect the source and use Save As until a new file has been written.
+
+Source: [VB6 SP6 IDE measurements, oracle PR #4350](https://github.com/hexide-io/HexIDE/pull/4350),
+[#4179 revised decision](https://github.com/hexide-io/HexIDE/issues/4179).
+
+#### Scenario: Opening a negative size
+- **WHEN** a Label or CommandButton has Width or Height -150 in a form file
+- **THEN** that size reads zero and the localized diagnostic is `Line {0}: Property {1} in {2} could not be set.`, naming the property, control and one-based Begin line
+- **AND** the form opens for editing
+
+#### Scenario: Running without opening the designer
+- **WHEN** F5 runs that project, whether or not its designer was opened
+- **THEN** Form_Load reads the recovered sizes as zero without a host exception
+
+#### Scenario: Saving the recovered form
+- **WHEN** Save, Save Project or Save Project Group would overwrite that form's source
+- **THEN** the form's Save As picker asks for a new path
+- **AND** accepting a new path writes zero there and leaves the original untouched
+- **AND** later saves use the new path without another picker
+
+#### Scenario: Cancelling or saving without a picker
+- **WHEN** the picker is cancelled
+- **THEN** nothing is written for that form
+- **WHEN** a noninteractive save would overwrite its source
+- **THEN** it refuses with an English sentence naming the form
+
+#### Scenario: Zero sizes and negative positions
+- **WHEN** a form contains zero or positive control sizes, or negative Left/Top positions
+- **THEN** loading retains the existing behaviour without a size-load diagnostic
+
 ## Out of Scope
 - **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
   carried, never read.

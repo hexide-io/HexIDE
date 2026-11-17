@@ -2,6 +2,7 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "{0}. rinda: neizdevās iestatīt {2} rekvizītu {1}.",
     "Str.Startup.ProjectFileArgument": "projekta fails",
     "Str.ProjectFile.ReplaceModel": "Lietojot projekta faila tekstu, tiks aizstāti projekta {0} nesaglabātie iestatījumi. Vai turpināt?",
     "Str.MemberOrigin.HexIde": "HexIDE paplašinājums; nav pieejams VB6.",

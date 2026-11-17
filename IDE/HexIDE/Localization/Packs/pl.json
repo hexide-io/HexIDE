@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Wiersz {0}: nie można ustawić właściwości {1} w {2}.",
     "Str.Startup.ProjectFileArgument": "plik projektu",
     "Str.ProjectFile.ReplaceModel": "Zastosowanie tekstu pliku projektu zastąpi niezapisane ustawienia projektu {0}. Kontynuować?",
     "Str.MemberOrigin.HexIde": "Rozszerzenie HexIDE; niedostępne w VB6.",

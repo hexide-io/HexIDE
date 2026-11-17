@@ -2,6 +2,7 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.PropertyNotSet": "Rida {0}: omadust {1} elemendis {2} ei saanud määrata.",
     "Str.Startup.ProjectFileArgument": "projektifail",
     "Str.ProjectFile.ReplaceModel": "Projektifaili teksti rakendamine asendab projekti {0} salvestamata sätted. Kas jätkata?",
     "Str.MemberOrigin.HexIde": "HexIDE laiendus; pole VB6-s saadaval.",

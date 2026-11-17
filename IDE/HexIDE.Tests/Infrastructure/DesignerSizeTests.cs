@@ -96,8 +96,8 @@ public class DesignerSizeTests
             {
                 if (route != "grid")
                 {
-                    error.Should().Contain("Invalid property value").And.Contain("589")
-                        .And.Contain("refuses to load a .frm");
+                    error.Should().Contain("Invalid property value").And.Contain("4179")
+                        .And.Contain("reads a negative saved control size as 0");
                     error.Should().Contain(route == "add" ? "No control was created" : "remains at");
                 }
                 control.Instance.GetPropertyOrDefault(property).Should().Be(before);

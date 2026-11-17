@@ -5,6 +5,7 @@ using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Runtime.Debugging;
+using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
@@ -27,8 +28,7 @@ public class StartupFormFailsToLoadTests
         public void LogError(string _) { }
     }
 
-    // A negative Width is what #589 lets through the designer tools; Avalonia refuses it when the control is
-    // placed, which is the failure this test needs. Any exception while building the form takes the same path.
+    // Negative saved widths now recover at read (#4179, VB6 IDE measurements in oracle PR #4350).
     private static string FormWithButtonWidth(int width) =>
         "VERSION 5.00\r\n"
       + "Begin VB.Form Form1 \r\n"
@@ -64,7 +64,9 @@ public class StartupFormFailsToLoadTests
     [AvaloniaFact]
     public void A_form_that_cannot_be_built_leaves_nothing_running_and_says_why()
     {
-        var (runner, controller, project) = Build(width: -300);
+        var (runner, controller, project) = Build(width: 1215);
+        // Deliberately corrupt the model, bypassing file recovery and designer validation, to retain #590's guard.
+        project.Forms[0].Components[1].SetProperty(VBProperties.WidthProperty, -20d);
         var reported = new List<string>();
         runner.StartFailed += reported.Add;
 
@@ -76,6 +78,27 @@ public class StartupFormFailsToLoadTests
         runner.RunningProject.Should().BeNull("a project that never started must not stay claimed");
         controller.State.Should().Be(DebugState.Stopped);
         controller.IsSessionActive.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void A_negative_saved_width_recovers_to_zero_and_runs()
+    {
+        // #4179 / oracle PR #4350: a saved negative size is a recovered load error, not a failed F5.
+        var (runner, controller, project) = Build(width: -150);
+        var reported = new List<string>();
+        runner.StartFailed += reported.Add;
+        try
+        {
+            runner.RunProject(project);
+            project.Forms[0].Components[1].GetPropertyOrDefault(VBProperties.WidthProperty).Should().Be(0);
+            reported.Should().BeEmpty();
+            runner.IsRunning.Should().BeTrue();
+            controller.IsSessionActive.Should().BeTrue();
+        }
+        finally
+        {
+            runner.EndProject();
+        }
     }
 
     [AvaloniaFact]

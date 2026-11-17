@@ -74,8 +74,10 @@ public class VbFrmFormatDeserializer
             // Walked with offsets rather than a StringReader, so the boundary between the two halves is a
             // character position in the ORIGINAL text. Both halves are then slices of the input and every
             // terminator is the file's own. See the remarks on Code.
+            var lineNumber = 0;
             foreach (var (rawLine, lineEnd) in LinesWithEnds(input))
             {
+                lineNumber++;
                 var line = rawLine.Trim();
 
                 if (line.StartsWith("VERSION"))
@@ -150,6 +152,7 @@ public class VbFrmFormatDeserializer
                 else if (line.StartsWith("Begin"))
                 {
                     var component = ParseBegin(line);
+                    component.BeginLine = lineNumber;
                     if (componentStack.Count == 0)
                         rootComponent = component;
                     else
