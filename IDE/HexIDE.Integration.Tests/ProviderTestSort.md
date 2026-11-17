@@ -15,6 +15,7 @@ A test that reaches the provider only at run time, through the application's com
 | File | Label |
 |---|---|
 | `Automation/ActiveDocumentDumpTests.cs` | split |
+| `Automation/AddWatchAccessorContextTests.cs` | split |
 | `Automation/AutomationNameGuardTests.cs` | split |
 | `Automation/BoundControlCommandTests.cs` | split |
 | `Automation/BreakpointByNameTests.cs` | split |
