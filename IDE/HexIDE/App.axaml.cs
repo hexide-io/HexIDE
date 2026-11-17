@@ -35,6 +35,7 @@ public partial class App : Application
         CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
         CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
         LoadMarkup();
+        Name = IDE.Distribution.DisplayName;
     }
 
     internal void LoadMarkup() => AvaloniaXamlLoader.Load(this);

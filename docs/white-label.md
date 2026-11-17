@@ -276,6 +276,7 @@ and the input is never changed.
 The bundle identifier is `io.hexide.distribution.<id>`, so it installs alongside HexIDE and can't be stock's. It comes
 from `id`, so don't change that once you've shipped. To install the product, move the `.app` to `Applications`, and to
 remove it, delete the `.app`. Each user's settings and logs stay where macOS keeps them for the `id`.
+The app menu and Dock show your `name`.
 
 The run stops if your name can't be a bundle's name, or if the build is missing `LICENSE` or `THIRD-PARTY-NOTICES.md`.
 Every other file is copied unchanged, including the helper programs such as `HexIDE.VbLspServer`, which keep their
