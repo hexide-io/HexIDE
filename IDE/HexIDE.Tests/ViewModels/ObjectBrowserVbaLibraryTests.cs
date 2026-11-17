@@ -75,11 +75,11 @@ public class ObjectBrowserVbaLibraryTests
     }
 
     // Which thread owns the dispatcher depends on which test touched it first, so a switch the view model posted when
-    // raised elsewhere passed alone and failed in a full run (#4382). This raises it where the dispatcher can't be owned.
-    [Fact]
+    // raised elsewhere passed alone and failed in a full run (#4382). The headless session's thread owns it here, so the
+    // thread this starts never can.
+    [AvaloniaFact]
     public void A_language_switch_is_handled_on_the_thread_that_raises_it()
     {
-        _ = Avalonia.Threading.Dispatcher.UIThread;
         var owner = true;
         Exception? failure = null;
         var thread = new Thread(() =>
