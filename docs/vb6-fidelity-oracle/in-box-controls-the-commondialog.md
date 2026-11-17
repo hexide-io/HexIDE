@@ -271,7 +271,9 @@ Native code and p-code logged the same lines.
 
 `CallByName cd1, "Color", VbLet, -1` raised **6**, as the late-bound assignment does.
 
-**A reading that fits every row above, not otherwise checked:** each path converts first, early-bound to a Long and late-bound to an unsigned Long, raising that conversion's error. **Then the control refuses `&HFFFFFFFF` with 380** on both. `&H80000000` and `&H80000005` are taken.
+**Early-bound reads as a Long store followed by a check:** each row converts as an assignment to a Long would, raising that conversion's error. **Then the control refuses -1, `&HFFFFFFFF`, with 380**. `&H80000000` and `&H80000005` are taken.
+
+**Late-bound, no rule I would defend fits every row.** An unsigned conversion would explain `-1` overflowing, `True` and `4294967295#` reaching the control as `&HFFFFFFFF` and refused, and `2147483653#` being taken. But `&H80000005`, a negative Long, was taken where the negative Integer `-1` overflowed. A row that would discriminate, `o.Color = -1&`, is unmeasured.
 
 **HelpContext is a Long on both paths,** VarType 3 late-bound too. The default is 0. Assignments:
 - `"9"` gives 9;
