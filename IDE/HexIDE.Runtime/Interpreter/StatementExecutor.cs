@@ -3048,7 +3048,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         // Otherwise a control-array element, Load Command1(i): the only other thing Load loads.
         var (group, index) = await ResolveControlArrayTarget(context.valueStmt(), "Load");
-        group.Load(index);   // Err 360 if the element already exists
+        await group.Load(index);   // Err 360 if the element already exists
         return ControlFlow.Nothing;
     }
 
