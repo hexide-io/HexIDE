@@ -168,6 +168,18 @@ public partial class UserControlKeyTests
         run.Lib.Printed.Select(v => v.Value).Should().Equal("initialize1", "resize1", 0f, "read1", "returned");
     }
 
+    // A loaded element is attached as its template was (#4149's Ambient): it reads the form's BackColor, measured in #4149,
+    // which an element attached with no form would refuse.
+    [AvaloniaFact]
+    public async Task Loaded_UserControl_reads_Ambient_from_its_templates_form()
+    {
+        using var run = new Run("", blocks: ArrayBlock, formSettings: "BackColor = &H00C0FFFF&\n",
+            controlCode: "Private Sub UserControl_ReadProperties(PropBag As PropertyBag)\nDebug.Print CStr(Ambient.BackColor)\nEnd Sub\n");
+        run.Lib.Printed.Clear();
+        await run.Code("Load uc1(1)\n");
+        run.Lib.Printed.Should().Equal(new Vb6Value("12648447"));
+    }
+
     [AvaloniaFact]
     public async Task Loaded_UserControl_has_the_templates_geometry_and_starts_hidden()
     {

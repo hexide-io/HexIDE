@@ -37,6 +37,13 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
         ambient = new Ambient(this);
     }
 
+    /// <summary>
+    /// Attaches an array element made by <c>Load</c> (#4337) as its template was attached: the same form, extender name and
+    /// right-to-left, since it sits in the template's container. Ambient.DisplayName reads the element's own index.
+    /// </summary>
+    internal void AttachLike(VBUserControl template, VBProgram program, string moduleName) =>
+        Attach(program, moduleName, template.ambientForm, template.ambientName, template.ambientRightToLeft);
+
     internal void Attach(VBProgram program, string moduleName, VbObject? form, string name, bool rightToLeft)
     {
         if (!program.Interpreter.Modules.TryGet(moduleName, out var module))

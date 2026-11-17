@@ -115,7 +115,10 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
             // #4337: Initialize, Resize (with extender Width 0), ReadProperties all run inside Load.
             control.Width = 0;
             AvaloniaInterop.UserControlMembers.Configure(control);
-            userControl.Attach(program, tmpl.BaseClass.ClassName);
+            if (elements.TryGetValue(templateIndex, out var templateElement) && templateElement is VBUserControl attachedTemplate)
+                userControl.AttachLike(attachedTemplate, program, tmpl.BaseClass.ClassName);
+            else
+                userControl.Attach(program, tmpl.BaseClass.ClassName, null, Name, false);
             parent.Children.Add(control);
             await userControl.StartLoaded();
         }
