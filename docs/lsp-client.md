@@ -182,6 +182,9 @@ System default uses the localization service's system resolution; pseudo-locales
 A language change takes effect on the next connection: reconnect the server to send the new locale.
 Changing the UI language does not automatically restart servers (#2210).
 
+A connection records one `disconnected:` lifecycle entry even when client teardown finishes before
+the transport reports its hangup. A disconnection during client shutdown is not a fault (#4273).
+
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
 Once `shutdown` is sent, the common outbound RPC gate permits no request or notification but `exit`, including
