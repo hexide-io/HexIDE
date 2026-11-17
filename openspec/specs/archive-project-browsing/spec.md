@@ -6,12 +6,41 @@ Allow offline inspection of archive projects without modifying project content o
 ## Requirements
 
 ### Requirement: Open archive projects independently of VB6 models
-The IDE MUST route supported archive project paths to the archive reader from normal project opening and recent-project reopening. It MUST show the stored hierarchy and a persistent read-only indication without registering VB6 modules or attaching a language server.
+The IDE MUST route supported archive project paths to the archive reader from normal project opening and recent-project reopening. It MUST show the stored hierarchy and a persistent read-only indication without registering VB6 modules. Text previews MAY attach language servers by extension under opaque archive-entry URIs.
 
 #### Scenario: Open an archive project
 - **WHEN** a user opens a supported archive project
 - **THEN** Project Explorer shows its ordered hierarchy separately from VB6 projects
 - **AND** the project path is available for recent-project reopening
+
+### Requirement: Name archive text to language servers
+An available text preview MUST use
+`archive-entry:/<percent-encoded segments>?container=<percent-encoded file URI>`.
+Entry segments MUST compare ordinally; the container MUST compare as a host file path, ignoring case on Windows.
+The entry's extension MUST determine server routing.
+
+#### Scenario: A source name contains a space and a hash
+- **WHEN** a text entry named `Module # 1.twin` opens with a server claiming `.twin`
+- **THEN** didOpen names `Module%20%23%201.twin` under the archive-entry scheme and carries its text
+
+### Requirement: Maintain read-only archive document sessions
+Servers claiming the entry's extension MUST receive its text on open and a close when the tab closes.
+Read-only entries MUST NOT send changes. Published diagnostics MUST reach the matching tab, including
+when a server changes the container drive letter's case on Windows. Reload MUST recreate the session and markers.
+
+#### Scenario: Reload an open text entry
+- **WHEN** a validated replacement updates an open entry
+- **THEN** its old session closes and a new session opens with the replacement text
+- **AND** diagnostics reach the new buffer while edits remain refused
+
+### Requirement: Record archive document conversations
+Protocol recording and inspection MUST retain the archive-entry URI as sent.
+Pseudonymised exports MUST redact entry and container names, and their disclosure preview MUST name the entry without its container query.
+
+#### Scenario: Inspect and export an entry's open notification
+- **WHEN** the user inspects and exports the recorded didOpen
+- **THEN** inspection shows its wire URI and export replaces its entry and container names with pseudonyms
+- **AND** the disclosure preview shows the entry name
 
 ### Requirement: Inspect content without mutations
 Known text documents MUST support Find and copy. Editing and replacement MUST NOT change their buffers or source bytes. Unsupported text previews MUST show an explanatory status. Entry metadata and hidden entries MUST be available through explicit inspection controls. The Project Explorer's Show hidden archive entries toggle MUST be visible only when an archive root or node is selected.

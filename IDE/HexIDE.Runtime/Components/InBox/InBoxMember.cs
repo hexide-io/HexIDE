@@ -1,6 +1,6 @@
 namespace HexIDE.Runtime.Components.InBox;
 
-/// <summary>Where a member of an in-box control comes from (#1082): which of its libraries declare it, or HexIDE.</summary>
+/// <summary>Where a control member comes from: VB6, an in-box library (#1082), or HexIDE (#1116).</summary>
 /// <remarks>Flags, because the two questions are apart: a 5.0 save reads which versions have the member, and a strict VB6
 /// mode, which doesn't exist yet and belongs with profiles, would read whether it is HexIDE's own.</remarks>
 [Flags]
@@ -13,6 +13,8 @@ public enum MemberOrigin
     Version6 = 2,
     /// <summary>HexIDE's own, which no VB6 library has.</summary>
     HexIde = 4,
+    /// <summary>A member of a VB6 intrinsic control.</summary>
+    VB6 = 8,
 }
 
 /// <summary>What kind of member it is.</summary>
@@ -24,8 +26,8 @@ public enum MemberKind
 }
 
 /// <summary>
-/// One of an in-box control's own members, as its type libraries declare it (#1082): not the extender's, which VB adds to
-/// every control.
+/// A declared control member and its origin (#1082, #1116). In-box tables list own members; migrated intrinsic tables
+/// also include the implemented extender surface.
 /// </summary>
 /// <param name="IsFrmProperty">Whether its value is written in a <c>.frm</c>. A HexIDE member never is, or the form would stop
 /// being one VB6 can open.</param>

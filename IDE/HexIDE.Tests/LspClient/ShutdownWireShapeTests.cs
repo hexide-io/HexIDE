@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using HexIDE.Conversations;
 using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
@@ -94,7 +95,8 @@ public class ShutdownWireShapeTests : IAsyncDisposable
     private async Task<VBLspClient> ConnectedAsync(
         bool answerShutdown = true, bool answerInitialize = true, bool leaveServerRunning = false,
         Func<string>? locale = null, bool callHierarchy = true, string? hierarchyResult = null, bool hierarchyError = false, string rangeProvider = "true", bool configured = false, string? options = null,
-        string onTypeProvider = "null", bool answerOnType = true)
+        string onTypeProvider = "null", bool answerOnType = true, ConversationLog? capture = null, bool textSync = false,
+        bool typeHierarchy = true)
     {
         var (clientSide, duplexServer) = FullDuplexStream.CreatePair();
         // Short enough for macOS, whose temp directory leaves 43 characters for a pipe name (PipeNameLimit).
@@ -143,11 +145,12 @@ public class ShutdownWireShapeTests : IAsyncDisposable
                     // result ends in three consecutive closing braces, which no $$"""...""" form accepts.
                     var head = "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText() + ",\"result\":";
                     var reply = m.GetString() == "initialize"
-                        ? head + "{\"capabilities\":{\"callHierarchyProvider\":" + (callHierarchy ? "{}" : "false") + ",\"documentFormattingProvider\":true,\"documentRangeFormattingProvider\":" + rangeProvider + ",\"documentOnTypeFormattingProvider\":" + onTypeProvider + "},\"serverInfo\":"
+                        ? head + "{\"capabilities\":{" + (textSync ? "\"textDocumentSync\":{\"openClose\":true,\"change\":1}," : "") + "\"typeHierarchyProvider\":" + (typeHierarchy ? "{}" : "false") + ",\"callHierarchyProvider\":" + (callHierarchy ? "{}" : "false") + ",\"documentFormattingProvider\":true,\"documentRangeFormattingProvider\":" + rangeProvider + ",\"documentOnTypeFormattingProvider\":" + onTypeProvider + "},\"serverInfo\":"
                                + "{\"name\":\"wire-probe\",\"version\":\"1.0.0\"}}}"
                         : head + "null}";
                     if (m.GetString() is "textDocument/prepareCallHierarchy" or
-                        "callHierarchy/incomingCalls" or "callHierarchy/outgoingCalls")
+                        "callHierarchy/incomingCalls" or "callHierarchy/outgoingCalls" or
+                        "textDocument/prepareTypeHierarchy" or "typeHierarchy/supertypes" or "typeHierarchy/subtypes")
                     {
                         if (hierarchyError)
                             reply = "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText()
@@ -180,12 +183,43 @@ public class ShutdownWireShapeTests : IAsyncDisposable
                     "transport":"pipe","pipeName":"{{pipeName}}"{{optionsMember}}}]}
                     """)!.Servers!)
                 .Single().CreateClient()
-            : new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6", locale: locale);
+            : new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6", locale: locale, capture: capture, connectionId: "wire-probe");
         _disposables.Add(client);
         _starting = client.StartAsync();
         if (answerInitialize) await _starting;
         else await _initializeSeen.Task.WaitAsync(TimeSpan.FromSeconds(10), _cts.Token);
         return client;
+    }
+
+    [AvaloniaFact]
+    public async Task Archive_entry_open_and_close_carry_the_opaque_uri_on_the_wire()
+    {
+        await using var capture = new ConversationLog();
+        capture.Arm("wire-probe", true);
+        var client = await ConnectedAsync(capture: capture, textSync: true);
+        var uri = LspDocumentUri.ForFile(Path.Combine(Path.GetTempPath(), "Demo.twinproj"));
+        var expected = "archive-entry:/Sources/Module%20%23%201.twin?container=" + Uri.EscapeDataString(uri);
+        using (var session = new HexIDE.Forms.ViewModels.LspDocumentSession(client,
+                   new AvaloniaEdit.Document.TextDocument("Module Main"),
+                   ArchiveEntryUri.ForEntry(Path.Combine(Path.GetTempPath(), "Demo.twinproj"), ["Sources", "Module # 1.twin"]),
+                   postToUiThread: action => action()))
+        {
+            session.Start();
+        }
+        await client.StopAsync();
+        await ExitArrivedAsync();
+        var opened = FrameFor("textDocument/didOpen").GetProperty("params").GetProperty("textDocument");
+        opened.GetProperty("uri").GetString().Should().Be(expected);
+        opened.GetProperty("text").GetString().Should().Be("Module Main");
+        FrameFor("textDocument/didClose").GetProperty("params").GetProperty("textDocument")
+            .GetProperty("uri").GetString().Should().Be(expected);
+        FrameFor("textDocument/didChange").ValueKind.Should().Be(JsonValueKind.Undefined);
+        await capture.DrainAsync();
+        var sent = capture.Snapshot("wire-probe").Single(e => e.Method == "textDocument/didOpen");
+        sent.Direction.Should().Be(ConversationDirection.Sent);
+        using var recorded = JsonDocument.Parse(capture.Body("wire-probe", sent.Sequence)!.Head);
+        recorded.RootElement.GetProperty("params").GetProperty("textDocument").GetProperty("uri")
+            .GetString().Should().Be(expected);
     }
 
     [Theory]
@@ -290,6 +324,98 @@ public class ShutdownWireShapeTests : IAsyncDisposable
         item.Data.GetProperty("token")[1].GetString().Should().Be("opaque");
     }
 
+    [Fact]
+    public async Task TypeHierarchyCapabilityIsDeclared()
+    {
+        await ConnectedAsync();
+        FrameFor("initialize").GetProperty("params").GetProperty("capabilities")
+            .GetProperty("textDocument").TryGetProperty("typeHierarchy", out _).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PrepareTypeHierarchyCarriesCaret()
+    {
+        var client = await ConnectedAsync();
+        (await client.PrepareTypeHierarchyAsync("file:///M.bas", new Position(7, 9),
+            TestContext.Current.CancellationToken)).Should().BeEmpty();
+        var parameters = FrameFor("textDocument/prepareTypeHierarchy").GetProperty("params");
+        parameters.GetProperty("textDocument").GetProperty("uri").GetString().Should().Be("file:///M.bas");
+        parameters.GetProperty("position").GetProperty("line").GetInt32().Should().Be(7);
+        parameters.GetProperty("position").GetProperty("character").GetInt32().Should().Be(9);
+    }
+
+    [Theory]
+    [InlineData("Incoming", "supertypes", false)]
+    [InlineData("Outgoing", "subtypes", false)]
+    [InlineData("Incoming", "supertypes", true)]
+    [InlineData("Outgoing", "subtypes", true)]
+    [InlineData("Incoming", "supertypes", null)]
+    [InlineData("Outgoing", "subtypes", null)]
+    public async Task TypeHierarchyExpansionPreservesOpaqueItem(string direction, string wireMethod, bool? nullData)
+    {
+        var client = await ConnectedAsync();
+        const string json = """
+            {"name":"IShape","kind":5,"uri":"file:///M.bas",
+             "range":{"start":{"line":1,"character":0},"end":{"line":4,"character":7}},
+             "selectionRange":{"start":{"line":1,"character":4},"end":{"line":1,"character":7}},
+             "data":{"token":[1,"opaque"]},"tags":[1],"detail":"Module1"}
+            """;
+        var payload = nullData switch
+        {
+            true => json.Replace("{\"token\":[1,\"opaque\"]}", "null"),
+            null => json.Replace("\"data\":{\"token\":[1,\"opaque\"]},", ""),
+            _ => json
+        };
+        var item = JsonSerializer.Deserialize<TypeHierarchyItem>(payload)!;
+        if (direction == "Incoming")
+            (await client.RequestSupertypesAsync(item, TestContext.Current.CancellationToken)).Should().BeEmpty();
+        else
+            (await client.RequestSubtypesAsync(item, TestContext.Current.CancellationToken)).Should().BeEmpty();
+        var sent = FrameFor("typeHierarchy/" + wireMethod).GetProperty("params").GetProperty("item");
+        JsonElement.DeepEquals(sent, JsonDocument.Parse(payload).RootElement).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task TypeHierarchyWithoutProviderSendsNoRequest()
+    {
+        await using var supported = new ShutdownWireShapeTests();
+        var capable = await supported.ConnectedAsync();
+        await capable.PrepareTypeHierarchyAsync("file:///M.bas", new(0, 0), TestContext.Current.CancellationToken);
+        supported.FrameFor("textDocument/prepareTypeHierarchy").ValueKind.Should().Be(JsonValueKind.Object);
+        var client = await ConnectedAsync(typeHierarchy: false);
+        (await client.PrepareTypeHierarchyAsync("file:///M.bas", new Position(0, 0),
+            TestContext.Current.CancellationToken)).Should().BeEmpty();
+        var item = JsonSerializer.Deserialize<TypeHierarchyItem>(TypeHierarchyItemJson)!;
+        (await client.RequestSubtypesAsync(item, TestContext.Current.CancellationToken)).Should().BeEmpty();
+        (await client.RequestSupertypesAsync(item, TestContext.Current.CancellationToken)).Should().BeEmpty();
+        await client.StopAsync();
+        await ExitArrivedAsync();
+        FrameFor("textDocument/prepareTypeHierarchy").ValueKind.Should().Be(JsonValueKind.Undefined);
+        FrameFor("typeHierarchy/subtypes").ValueKind.Should().Be(JsonValueKind.Undefined);
+        FrameFor("typeHierarchy/supertypes").ValueKind.Should().Be(JsonValueKind.Undefined);
+    }
+
+    // RDCore's measured class shape and Implements results: hexide-io/HexIDE#4056.
+    private const string TypeHierarchyItemJson = """
+        {"name":"IShape","kind":5,"uri":"file:///IShape.cls",
+         "range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},
+         "selectionRange":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},
+         "data":{"token":[1,"opaque"]}}
+        """;
+
+    [Fact]
+    public async Task TypeHierarchyPrepareReadsServerItems()
+    {
+        var client = await ConnectedAsync(hierarchyResult: "[" + TypeHierarchyItemJson + "]");
+        var items = await client.PrepareTypeHierarchyAsync("file:///M.bas", new Position(1, 4),
+            TestContext.Current.CancellationToken);
+        var item = items.Should().ContainSingle().Which;
+        item.Name.Should().Be("IShape");
+        item.Kind.Should().Be(5);
+        item.SelectionRange.Start.Should().Be(new Position(0, 0));
+        item.Data.GetProperty("token")[1].GetString().Should().Be("opaque");
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -341,13 +467,62 @@ public class ShutdownWireShapeTests : IAsyncDisposable
         (await action.Should().ThrowAsync<RemoteInvocationException>()).Which.Message.Should().Contain("unavailable");
     }
 
+    [Theory]
+    [InlineData("prepare")]
+    [InlineData("incoming")]
+    [InlineData("outgoing")]
+    public async Task TypeHierarchyErrorsPropagateToCaller(string request)
+    {
+        var client = await ConnectedAsync(hierarchyError: true);
+        var root = JsonSerializer.Deserialize<TypeHierarchyItem>(TypeHierarchyItemJson)!;
+        Func<Task> action = request switch
+        {
+            "prepare" => () => client.PrepareTypeHierarchyAsync(root.Uri, new Position(1, 4),
+                TestContext.Current.CancellationToken),
+            "incoming" => () => client.RequestSupertypesAsync(root, TestContext.Current.CancellationToken),
+            _ => () => client.RequestSubtypesAsync(root, TestContext.Current.CancellationToken)
+        };
+        (await action.Should().ThrowAsync<RemoteInvocationException>()).Which.Message.Should().Contain("unavailable");
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("[]")]
+    public async Task TypeHierarchyNullAndEmptyAnswersHaveNoItems(string reply)
+    {
+        var client = await ConnectedAsync(hierarchyResult: reply);
+        var item = JsonSerializer.Deserialize<TypeHierarchyItem>(TypeHierarchyItemJson)!;
+        (await client.PrepareTypeHierarchyAsync(item.Uri, new(0, 0), TestContext.Current.CancellationToken)).Should().BeEmpty();
+        (await client.RequestSubtypesAsync(item, TestContext.Current.CancellationToken)).Should().BeEmpty();
+        (await client.RequestSupertypesAsync(item, TestContext.Current.CancellationToken)).Should().BeEmpty();
+        FrameFor("textDocument/prepareTypeHierarchy").ValueKind.Should().Be(JsonValueKind.Object);
+        FrameFor("typeHierarchy/subtypes").ValueKind.Should().Be(JsonValueKind.Object);
+        FrameFor("typeHierarchy/supertypes").ValueKind.Should().Be(JsonValueKind.Object);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task TypeHierarchyExpansionReadsMeasuredClasses(bool subtypes)
+    {
+        var reply = subtypes ? "[" + TypeHierarchyItemJson.Replace("IShape", "Circle") + ","
+            + TypeHierarchyItemJson.Replace("IShape", "Square") + "]" : "[]";
+        var client = await ConnectedAsync(hierarchyResult: reply);
+        var item = JsonSerializer.Deserialize<TypeHierarchyItem>(TypeHierarchyItemJson)!;
+        var answer = subtypes ? await client.RequestSubtypesAsync(item, TestContext.Current.CancellationToken)
+            : await client.RequestSupertypesAsync(item, TestContext.Current.CancellationToken);
+        answer.Select(i => i.Name).Should().Equal(subtypes ? ["Circle", "Square"] : Array.Empty<string>());
+        answer.Should().OnlyContain(i => i.Kind == 5);
+        FrameFor(subtypes ? "typeHierarchy/subtypes" : "typeHierarchy/supertypes").ValueKind.Should().Be(JsonValueKind.Object);
+    }
+
     private const string OnTypeProvider = """{"firstTriggerCharacter":"\n","moreTriggerCharacter":["\""]}""";
 
-    private static Task<TextEdit[]> OnType(ILspClient client, string trigger, CancellationToken ct)
+    private static Task<TextEdit[]?> OnType(ILspClient client, string trigger, CancellationToken ct)
     {
         var method = typeof(ILspClient).GetMethod("RequestOnTypeFormattingAsync");
         method.Should().NotBeNull();
-        return (Task<TextEdit[]>)method!.Invoke(client,
+        return (Task<TextEdit[]?>)method!.Invoke(client,
             ["file:///M.bas", new Position(2, 4), trigger, new FormattingOptions(8, false), ct])!;
     }
 
@@ -387,7 +562,7 @@ public class ShutdownWireShapeTests : IAsyncDisposable
     {
         var client = await ConnectedAsync(onTypeProvider: OnTypeProvider, answerOnType: false);
         (await OnType(client, "\n", TestContext.Current.CancellationToken)
-            .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken)).Should().BeEmpty();
+            .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken)).Should().BeNull();
         // Cancellation is sent asynchronously; read it before Stop can dispose the connection.
         await _cancellationSeen.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         await client.StopAsync();

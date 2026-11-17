@@ -31,8 +31,25 @@ each type's names as contributed, a whole file name as that name.
 - **WHEN** an add-in contributes a type for `*.vbp`
 - **THEN** the registration is refused
 
+### Requirement: Command-line project paths SHALL wait for add-in discovery and consent
+The command-line parser SHALL accept any plain, non-option argument naming an existing file as a project path,
+relative to the invocation directory. Consumed option values and arguments beginning with `-` SHALL retain their
+existing parsing behaviour. Startup SHALL wait for add-in discovery before choosing a reader. When no type claims
+the path, startup SHALL wait for the first-load consent pass after the main window opens, then use the shared open
+route again. A file still unclaimed SHALL receive the localized no-reader message naming the file, without showing
+the New Project dialog.
+
+#### Scenario: Consent supplies the reader
+- **WHEN** a command-line project file is unclaimed before first-load consent
+- **AND** allowing the add-in contributes a type for the file
+- **THEN** the shared open route asks that type to read the file after consent completes
+
+#### Scenario: No reader after consent
+- **WHEN** no type claims the command-line file after the consent pass
+- **THEN** a localized message names the file and the New Project dialog is not shown
+
 ### Requirement: Every project file SHALL be read through one path
-Open Project, the recent projects list and a project group SHALL read a project file the same way: by a contributed
+Open Project, a command-line project path, the recent projects list and a project group SHALL read a project file the same way: by a contributed
 type that reads it, then as a `.vbp`. Any other file SHALL be refused with a reason, never read as a `.vbp`.
 
 #### Scenario: A group lists a contributed project

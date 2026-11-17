@@ -113,6 +113,14 @@ The pane's own close box SHALL hide the tool; View SHALL reopen it docked.
 - **WHEN** the developer closes the floating window
 - **THEN** the tool reappears docked in the main window at its previous proportion
 
+#### Scenario: Dock from a floating pane
+- **WHEN** a tool pane is floating
+- **THEN** its pane menu SHALL offer Dock rather than Float
+- **AND** choosing Dock or double-clicking its title SHALL return the tools to their saved docking location,
+  or their default tool location when that docking location is unavailable
+- **AND** its title background, text and caption-button glyphs SHALL follow the floating window's activation,
+  resolved from theme resources
+
 #### Scenario: Close a floating tool from its pane
 - **WHEN** the developer clicks the tool pane's own close box inside a floating host
 - **THEN** the tool is hidden without returning to the docked workspace

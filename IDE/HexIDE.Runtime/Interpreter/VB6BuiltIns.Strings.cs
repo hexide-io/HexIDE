@@ -146,6 +146,7 @@ public partial class VB6BuiltIns
     private static Vb6Value LenB(IReadOnlyList<Vb6Value> a)
     {
         if (a[0].IsNull) return Vb6Value.Null;
+        if (a is IntrinsicArgumentValues { FixedStringByteLength: { } bytes }) return new Vb6Value(bytes);
         if (a is IntrinsicArgumentValues { LenVariableSize: { } size }) return new Vb6Value(size);
         if (a[0].Type == Vb6Value.ValueType.UserDefinedType)
             throw new NotImplementedException("LenB of a user-defined type is not implemented: it is the Type's size in memory, "

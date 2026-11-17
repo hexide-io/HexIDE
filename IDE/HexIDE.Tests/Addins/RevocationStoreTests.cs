@@ -3,6 +3,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
 using HexIDE.Addins;
+using HexIDE.IDE;
 
 namespace HexIDE.Tests.Addins;
 
@@ -52,6 +53,77 @@ public sealed class RevocationStoreTests : IDisposable
         var store = new RevocationStore(rootPub, _dir);
 
         store.IsRevoked("badhash", "p", "i", isFirstParty: false).Should().BeNull();
+    }
+
+    [Fact]
+    public void InterruptedRefreshPreservesPreviouslyCachedListOnRestart()
+    {
+        using var root = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var pub = PackageCrypto.ExportPublicKey(root);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(new RevocationList
+        {
+            IssuedUtc = "2090-01-01T00:00:00Z",
+            Revoked = new RevokedSets { ManifestHashes = ["previous"] },
+        }, RevocationJsonContext.Default.RevocationList);
+        var store = new RevocationStore(pub, _dir, (_, _) => (bytes, PackageCrypto.Sign(root, bytes)));
+        store.RefreshFromUrl("https://example.invalid/list", TimeSpan.FromSeconds(3));
+        new RevocationStore(pub, _dir).IsRevoked("previous", null, null, false).Should().Be("build revoked");
+
+        // Refuse the old second-file write; the old implementation overwrites its JSON first.
+        var sigPath = Path.Combine(_dir, "revocations-cache.sig");
+        File.WriteAllText(sigPath, PackageCrypto.Sign(root, bytes));
+        File.SetAttributes(sigPath, FileAttributes.ReadOnly);
+        bytes = JsonSerializer.SerializeToUtf8Bytes(new RevocationList
+        {
+            IssuedUtc = "2091-01-01T00:00:00Z",
+            Revoked = new RevokedSets { ManifestHashes = ["next"] },
+        }, RevocationJsonContext.Default.RevocationList);
+        InterruptedStream? interrupted = null;
+        AtomicFileWriter.OpenStream.Value = path => interrupted = new InterruptedStream(path);
+        try { store.RefreshFromUrl("https://example.invalid/list", TimeSpan.FromSeconds(3)); }
+        finally
+        {
+            AtomicFileWriter.OpenStream.Value = null;
+            File.SetAttributes(sigPath, FileAttributes.Normal);
+        }
+
+        store.IsRevoked("next", null, null, false).Should().Be("build revoked", "cache failure remains fail-open in memory");
+        new RevocationStore(pub, _dir).IsRevoked("previous", null, null, false).Should().Be("build revoked");
+        interrupted.Should().NotBeNull();
+        interrupted!.WasInterrupted.Should().BeTrue();
+    }
+
+    private sealed class InterruptedStream(string path)
+        : FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None)
+    {
+        private bool _jsonWritten;
+        public bool WasInterrupted { get; private set; }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            base.Write(buffer, offset, count);
+            _jsonWritten = true;
+        }
+
+        public override void WriteByte(byte value)
+        {
+            if (_jsonWritten)
+            {
+                WasInterrupted = true;
+                throw new IOException("Interrupted between list and signature");
+            }
+            base.WriteByte(value);
+        }
+
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            if (_jsonWritten)
+            {
+                WasInterrupted = true;
+                throw new IOException("Interrupted between list and signature");
+            }
+            base.Write(buffer);
+        }
     }
 
     private void WriteCachedList(ECDsa root, string issuedUtc, string[] hashes)

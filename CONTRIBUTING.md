@@ -141,8 +141,9 @@ but nobody will block your PR for omitting it.
 If you do use the tooling: `npm install -g @fission-ai/openspec`, then `openspec validate --specs --strict`.
 Note that it reports anonymous usage stats by default — `openspec config set telemetry.enabled false` turns
 that off. That setting is per-machine, so it does not travel with this repo. HexIDE itself sends no telemetry and
-makes no network call you have not configured: it fetches the add-in revocation list only when `RevocationListUrl`
-is set, and the AI Chat add-in and a remote language server connect only to the address you give them.
+fetches the signed add-in revocation list from `https://hexide.io/revocations.json` at startup only when
+an enabled package is not key-pinned first-party. `RevocationListUrl` overrides that address; an empty value
+disables fetching. The AI Chat add-in and a remote language server connect only to the address you give them.
 
 ## Making a change
 

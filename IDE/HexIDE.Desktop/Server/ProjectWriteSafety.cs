@@ -31,7 +31,7 @@ internal static class ProjectWriteSafety
                 return Refused($"Refused '{path}': the project has no folder. Save Project in the IDE first. Nothing was changed.");
             var paths = new List<string> { path };
             if ((document.Form is not null || document.Module?.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
-                && (document.Project.FormFormat ?? format).CompanionPath(path) is { } companion)
+                && (document.Project.FormFormat ?? HexIDE.IDE.ProjectFormats.Of(document.Project, format)).CompanionPath(path) is { } companion)
                 paths.Add(companion);
             foreach (var candidate in paths)
                 if (Refusal(root, candidate) is { } refusal)

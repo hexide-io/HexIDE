@@ -13,6 +13,19 @@ namespace HexIDE.Tests.Redaction;
 /// </remarks>
 public class ConversationRedactorTests
 {
+    [Fact]
+    public void Archive_entry_export_redacts_entry_and_nested_container()
+    {
+        const string uri = "archive-entry:/Secret/Module%20%23%201.twin?container=file%3A%2F%2F%2FC%3A%2FPrivate%2FDemo.twinproj";
+        var result = Redactor().Body("{\"uri\":\"" + uri + "\"}");
+        result.Should().Contain("archive-entry:/").And.Contain(".twin?container=file%3A")
+            .And.NotContain("Secret").And.NotContain("Module").And.NotContain("Private").And.NotContain("Demo");
+        Redactor(pseudonymise: false).Body(uri).Should().Be(uri);
+        var names = Redactor();
+        names.Uri(uri).Should().NotBe(names.Uri(uri.Replace("Secret", "%53ecret")),
+            "different wire spellings must remain visible in pseudonymised exports");
+    }
+
     private static ConversationRedactor Redactor(int seed = 11, bool pseudonymise = true) =>
         new(new Pseudonymiser(new Random(seed)), pseudonymise);
 

@@ -124,6 +124,7 @@ public sealed class WindowsRepackerTests : IDisposable
     [InlineData("revocations.sig")]
     [InlineData("revocations-cache.json")]
     [InlineData("revocations-cache.sig")]
+    [InlineData("revocations-cache.signed")]
     public void Included_protected_files_are_refused_without_output(string relative)
     {
         WriteStock();
@@ -343,6 +344,111 @@ public sealed class WindowsRepackerTests : IDisposable
         script.Should().Contain("""#define AppVersion "0.5.0" """.TrimEnd());
         script.Should().Contain("""#define AppUserModelId "HexIDE.Distribution.acme-ide" """.TrimEnd());
         script.IndexOf("#include", StringComparison.Ordinal).Should().BeGreaterThan(script.IndexOf("#define SetupBaseName", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_setup_program_gets_the_brands_metadata()
+    {
+        var brand = new DistributionIdentity("acme-ide", "Acme IDE", copyright: "© Acme",
+            homeUrl: "https://example.com/home", supportUrl: "https://example.com/support");
+        var script = InstallerInputs.Script(brand, "acme-ide.exe", "0.6.0");
+        foreach (var (key, value) in new[]
+                 {
+                     ("SetupIconFile", "brand.ico"), ("AppPublisher", "Acme IDE"), ("AppCopyright", "© Acme"),
+                     ("AppPublisherURL", "https://example.com/home"), ("AppSupportURL", "https://example.com/support")
+                 })
+        {
+            script.Should().Contain($"#define {key} \"{value}\"");
+            var shared = File.ReadAllText(Path.Combine(RepoTree.Root(), "installer", "HexIDE.iss")).ReplaceLineEndings("\n");
+            shared.Should().Contain($"#ifdef {key}\n{key}={{#{key}}}\n#endif");
+        }
+    }
+
+    [Fact]
+    public void Optional_setup_metadata_is_omitted_when_absent()
+    {
+        var script = InstallerInputs.Script(new DistributionIdentity("acme-ide", "Acme IDE"), "acme-ide.exe", "0.6.0");
+        script.Should().Contain("#define AppPublisher \"Acme IDE\"");
+        foreach (var key in new[] { "AppCopyright", "AppPublisherURL", "AppSupportURL" })
+            script.Should().NotContain("#define " + key);
+    }
+
+    [Fact]
+    public void Setup_values_escape_preprocessor_quotes_and_literal_opening_braces()
+    {
+        var brand = new DistributionIdentity("acme-ide", "Acme {app} \"IDE\"", copyright: "© {Acme} \"Ltd\"",
+            homeUrl: "https://example.com/{home}", supportUrl: "https://example.com/{support}");
+        var script = InstallerInputs.Script(brand, "acme-ide.exe", "0.6.0");
+        script.Should().Contain("#define AppName \"Acme {{app} \"\"IDE\"\"\"");
+        script.Should().Contain("#define AppPublisher \"Acme {{app} \"\"IDE\"\"\"");
+        // Measured with ISCC 6: a single "{" in AppCopyright aborts the compile with "Unknown constant".
+        script.Should().Contain("#define AppCopyright \"© {{Acme} \"\"Ltd\"\"\"");
+        script.Should().Contain("#define AppPublisherURL \"https://example.com/{{home}\"");
+        script.Should().Contain("#define AppSupportURL \"https://example.com/{{support}\"");
+    }
+
+    [Fact]
+    public void Installer_inputs_write_the_same_four_icon_frames_as_the_executable_on_every_platform()
+    {
+        var logo = Png(64, 32);
+        var brand = new DistributionIdentity("acme-ide", "Acme IDE", logo: logo);
+        var directory = Path.Combine(Output, "installer");
+        InstallerInputs.Write(directory, brand, "acme-ide.exe", FileVersionInfo.GetVersionInfo(typeof(WindowsRepacker).Assembly.Location));
+
+        var path = Path.Combine(directory, "brand.ico");
+        File.Exists(path).Should().BeTrue();
+        var ico = File.ReadAllBytes(path);
+        BinaryPrimitives.ReadUInt16LittleEndian(ico.AsSpan(2)).Should().Be(1);
+        BinaryPrimitives.ReadUInt16LittleEndian(ico.AsSpan(4)).Should().Be(4);
+        var frames = IconResources.FromLogo(logo).Where(r => r.Type == PeImage.TypeIcon).ToList();
+        var sizes = new[] { 16, 32, 48, 256 };
+        for (var i = 0; i < sizes.Length; i++)
+        {
+            var entry = ico.AsSpan(6 + i * 16, 16);
+            entry[0].Should().Be((byte)(sizes[i] == 256 ? 0 : sizes[i]));
+            entry[1].Should().Be(entry[0]);
+            var length = BinaryPrimitives.ReadInt32LittleEndian(entry[8..]);
+            var offset = BinaryPrimitives.ReadInt32LittleEndian(entry[12..]);
+            ico.AsSpan(offset, length).ToArray().Should().Equal(frames[i].Data);
+            using var bitmap = SKBitmap.Decode(ico.AsSpan(offset, length).ToArray());
+            bitmap.Width.Should().Be(sizes[i]);
+            bitmap.Height.Should().Be(sizes[i]);
+        }
+    }
+
+    [Fact]
+    public void Stock_setup_section_is_unchanged_without_brand_definitions()
+    {
+        var script = File.ReadAllText(Path.Combine(RepoTree.Root(), "installer", "HexIDE.iss")).ReplaceLineEndings("\n");
+        var section = script.Split("[Setup]\n")[1].Split("[Dirs]")[0];
+        var active = new List<string>();
+        var conditional = false;
+        foreach (var line in section.Split('\n'))
+        {
+            if (line.StartsWith("#ifdef ", StringComparison.Ordinal))
+                conditional = true;
+            else if (line == "#endif")
+                conditional = false;
+            else if (!conditional)
+                active.Add(line);
+        }
+
+        string.Join("\n", active).Trim().Should().Be("""
+            AppId={#AppId}
+            AppName={#AppName}
+            AppVersion={#AppVersion}
+            DefaultDirName={autopf}\{#AppName}
+            DefaultGroupName={#AppName}
+            PrivilegesRequired=admin
+            ArchitecturesAllowed=x64compatible
+            ArchitecturesInstallIn64BitMode=x64compatible
+            Uninstallable=yes
+            UninstallDisplayIcon={app}\{#AppExe}
+            OutputDir={#SetupOutputDir}
+            OutputBaseFilename={#SetupBaseName}
+            Compression=lzma2
+            SolidCompression=yes
+            """.ReplaceLineEndings("\n"));
     }
 
     [Fact]

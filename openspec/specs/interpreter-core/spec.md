@@ -73,6 +73,23 @@ element type with "Can't change data types of array elements". These refusals fo
 - **THEN** it raises "Can't change data types of array elements"
 - **AND** the scalar Variant control `Dim Arr` still accepts the ReDim and stores "Hello" in a `String()`
 
+### Requirement: ReDim declaring a procedure-local array
+
+A plain ReDim of a name not found during procedure execution SHALL declare a dynamic array in that
+procedure's environment, including under Option Explicit. The element type SHALL follow the As clause or type character,
+or otherwise `PrePass.DefaultTypeOf`, defaulting to Variant. ReDim Preserve of an undeclared name SHALL
+raise "Variable not defined" during execution. These behaviours are
+[measured in #1495](https://github.com/hexide-io/HexIDE/issues/1495).
+
+#### Scenario: A new array and its later resize
+- **WHEN** a procedure executes `ReDim q(2)` with no earlier declaration
+- **THEN** q is a local Variant array with upper bound 2
+- **AND** a later `ReDim q(5)` clears it and `ReDim q(3) As Long` refuses a change of element type
+
+#### Scenario: An existing module array
+- **WHEN** a procedure executes ReDim on its module's `Dim mArr() As Long`
+- **THEN** it resizes that module array instead of declaring a local
+
 ### Requirement: For Each collection references and declarations
 
 The interpreter SHALL parse a For Each collection as a reference, refusing parenthesised expressions,
@@ -1109,7 +1126,12 @@ probes and its 2026-10-27 entry "A For counter written with a type character" (#
 
 Assignments to an existing intrinsic control's Width and Height SHALL apply the minimum sizes measured in the
 oracle's "A control's position at run time" (#1029), after conversion to whole twips. Move SHALL use the same
-floors. Sizes above a floor SHALL remain unsnapped. TextBox and CommandButton floors SHALL use only the recorded
+floors. For CommandButton, TextBox and Label, the comparison SHALL round to whole pixels half up, and retain
+the assigned whole twips when the rounded size reaches the floor (#4071, oracle PRs #4069 and #4095).
+Assigning either dimension SHALL enforce both dimensions on those controls; loaded zero sizes SHALL remain
+unchanged until assignment. Negative CommandButton, Label or form Width or Height assignments SHALL raise 380, "Invalid property value",
+without changing the size; Move with a negative size SHALL raise 5 before changing any position or size.
+Other controls retain their existing floor comparison. Sizes above a floor SHALL remain unsnapped. TextBox and CommandButton floors SHALL use only the recorded
 font/border combinations, without extrapolating to other fonts. ComboBox Height assignments SHALL raise 383.
 The form's desktop-dependent floor and the absent DriveListBox, DirListBox, FileListBox and Data runtime controls
 remain outside this implementation.
@@ -1127,6 +1149,13 @@ remain outside this implementation.
 - **THEN** it reads 75 and 195
 - **WHEN** a CommandButton receives those sizes in MS Sans Serif 8.25 or Arial 14.25
 - **THEN** it reads 75 × 195 or 120 × 330 respectively
+
+#### Scenario: A CommandButton reaches its minimum after pixel rounding
+
+- **WHEN** a default CommandButton receives Width 67, then 68, and Height 187, then 188
+- **THEN** those reads are 75, 68, 195 and 188 twips respectively
+- **WHEN** a CommandButton in MS Sans Serif 24 pt receives Width 0 and Height 0
+- **THEN** it reads 240 × 555 twips, the measured 16 × 37 pixels at 96 dpi
 
 #### Scenario: Other existing controls receive tiny sizes
 
@@ -1188,6 +1217,22 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-obj
 Measured in [a form's own ActiveControl](../../../docs/vb6-fidelity-oracle/a-forms-own-activecontrol.md)
 (#2437); the choice among several shown forms follows [#3920](https://github.com/hexide-io/HexIDE/issues/3920).
 
+#### Scenario: Form visibility follows Show and Hide
+- **WHEN** a form's Visible property is set to False or True
+- **THEN** it SHALL follow Hide or Show respectively, including the active form's control focus and activation transition
+
+#### Scenario: The active form unloads with another form shown
+- **WHEN** the active form unloads while a previously active form remains shown
+- **THEN** that remaining form SHALL receive Activate and its remembered control SHALL receive GotFocus
+- **AND** the unloaded form SHALL receive neither LostFocus nor Deactivate
+
+#### Scenario: The last visible form is shown again
+- **WHEN** the last visible form is hidden and then shown again
+- **THEN** it SHALL retain its own control focus and Screen readings without Activate, GotFocus or Resize
+
+Measured in [the active form hidden by Visible](../../../docs/vb6-fidelity-oracle/a-forms-resize-activate-and-deactivate.md)
+(#3936), and run 1 of that page for Unload. Unload of the last visible form is unchanged.
+
 #### Scenario: A write to a member a program cannot write
 - **WHEN** a program writes `s.Width = 100` through `Set s = Screen`
 - **THEN** the interpreter SHALL raise 382, "'Width' property cannot be set at run time"
@@ -1240,6 +1285,21 @@ implemented. Set with no Set SHALL raise "Invalid use of property" (#977).
 - **GIVEN** Module2 declares only Property Let PW
 - **WHEN** another module executes PW = 5 or Module2.PW = 6
 - **THEN** the Let receives each value
+
+### Requirement: Indexed class property stores
+The interpreter SHALL dispatch an indexed class property assignment to Let or, for Set, to Set with the
+indexes first and the assigned value last, using the procedure parameter binder. Indexed Get SHALL receive
+its indexes through that binder. The measured cases are recorded in [#177](https://github.com/hexide-io/HexIDE/issues/177)
+(native and p-code, oracle PR #4042). Accessor signature consistency is a binding diagnostic and is not checked.
+
+#### Scenario: Indexed class value and reference stores
+- **GIVEN** CItem exposes Get Item(i As Long) As Variant, Let Item(i As Long, v As Variant), and Set Item(i As Long, v As Object)
+- **WHEN** o.Item(1) = 42 executes
+- **THEN** o.Item(1) returns 42 with TypeName Integer
+- **WHEN** Set o.Item(2) = o2 executes
+- **THEN** TypeName(o.Item(2)) is CItem and o.Item(2) Is o2 is True
+- **WHEN** o is declared As Object and o.Item(3) = "late" executes
+- **THEN** o.Item(3) returns "late"
 
 ### Requirement: Err help properties
 
@@ -1764,11 +1824,13 @@ Measured by [#3349's oracle](../../../docs/vb6-fidelity-oracle/a-public-array-in
 
 ### Requirement: ListBox TopIndex assignments report a changed top row
 
-A laid-out, single-select ListBox SHALL expose TopIndex and coerce assignments through the standard Integer store
+A populated ListBox with measurable rows SHALL expose TopIndex and coerce assignments through the standard Integer store
 (#3275, measuring PR #3286). An assignment SHALL clamp to the last page and raise Scroll once,
 synchronously, only if the resulting top row changes. The handler SHALL read the new TopIndex.
 An index below zero or at or above ListCount SHALL raise error 380 without Scroll.
-MultiSelect access and access before row layout SHALL refuse as not implemented.
+TopIndex SHALL behave identically for MultiSelect 0, 1 and 2, including on a loaded hidden form
+(#3986, measurements in oracle PR #4021). Hidden lists SHALL clamp using their actual row layout,
+raise Scroll synchronously for each move, and retain the resulting top row when shown.
 Vertical scroll-bar pointer input SHALL raise Scroll once per changed top row, including each thumb move,
 but not on release without movement. Navigation by Down, Up, Page Down, Home or End SHALL raise Click
 then Scroll when the top row changes, with the new TopIndex readable in both handlers. A key that
@@ -1819,14 +1881,23 @@ On Windows, for a locale whose default calendar is Gregorian, the interpreter SH
 short and long date patterns, date separators, month names (including genitive and abbreviated
 forms), and day names (including abbreviated forms) from Windows NLS for the program locale.
 It SHALL permit user overrides only when the culture's UseUserOverride is true and its name
-matches the Windows user's locale, and request no user overrides otherwise. Other hosts, non-Gregorian default calendars and time formats SHALL retain
-their existing behaviour (#2041; portable Windows date data is deferred to #3928).
+matches the Windows user's locale, and request no user overrides otherwise (#2041).
+Off Windows, when the .NET default calendar is Gregorian and the table's calendar is a defined
+GregorianCalendarTypes value, the interpreter SHALL use the checked-in Windows default date data,
+including era text, through the same mapping (#3928). Missing locales, non-Gregorian defaults and
+time formats SHALL retain their existing behaviour. The table SHALL record its source Windows build;
+Windows user customisations SHALL NOT travel to other hosts.
 
 For an unquoted era token in these NLS patterns, the interpreter SHALL write Windows' era
 text as a literal. This deliberately diverges from vb6.exe, which writes literal `gg`:
 HexIDE honours the locale rather than reproducing an unexpanded token (#3946;
 [measurement in #3979](https://github.com/hexide-io/HexIDE/pull/3979), oracle page
 `docs/vb6-fidelity-oracle/a-long-date-pattern-with-an-era.md`).
+
+#### Scenario: Off-Windows short date order
+- **WHEN** a program in es-US formats 31 December 2000 as Short Date off Windows
+- **THEN** it writes `12/31/2000` and CDate reads that text back as 31 December 2000
+- **AND** the output follows the Windows 10.0.26100 measurements in [#3928](https://github.com/hexide-io/HexIDE/issues/3928)
 
 #### Scenario: Windows long date with an era
 - **WHEN** a Windows program in byn-ER formats 31 December 2000 as Long Date
@@ -1871,3 +1942,54 @@ Provenance: [SP6 native and p-code measurements, #4017](https://github.com/hexid
 - **THEN** its serial is 24, representing 23 January 1900 at midnight
 - **AND** numeric strings outside the Date range raise error 13
 - **AND** `IsDate("24.0")` is False, as the String-to-Date measurements in #967 record
+
+### Requirement: Intrinsic list code-only search extensions
+Under [#1116](https://github.com/hexide-io/HexIDE/issues/1116), ListBox and every ComboBox style
+SHALL expose code-only `FindString(s [, startIndex])` and `FindStringExact(s [, startIndex])`.
+Search SHALL ignore case, match a prefix or whole item respectively, start after startIndex
+(default -1), wrap once, and return a Long index or -1. It SHALL preserve readable control
+state and saved form values.
+
+#### Scenario: Search wraps and distinguishes a prefix from a whole item
+- **GIVEN** a list containing `Alpha`, `alphabet`, `Beta`
+- **WHEN** code calls `FindString("ALP", 1)`
+- **THEN** it returns Long 0
+- **AND** `FindStringExact("ALP")` returns Long -1
+- **AND** the selection and form serialization are unchanged
+
+#### Scenario: Missing required search argument
+- **WHEN** either search method is called without its required string argument
+- **THEN** the runtime raises error 449
+
+#### Scenario: Extension origin and browser description
+- **GIVEN** either intrinsic control's member table
+- **THEN** both search methods are marked HexIde and not persisted
+- **AND** the Object Browser describes them with the shared HexIDE extension localisation key
+
+### Requirement: Fixed-length scalar String storage
+The interpreter SHALL allocate module, local and Static scalar `String * N` variables with N NUL
+characters. Each store SHALL convert to String, truncate on the right or pad on the right with spaces
+to N characters. Null SHALL raise 94 and leave the stored value unchanged. N SHALL be an integer literal
+or integer Const from 1 to 65,526; an invalid length SHALL report "Invalid length for fixed-length
+string", and a variable width SHALL report "Constant expression required".
+
+Measured native and p-code behaviour: [#179](https://github.com/hexide-io/HexIDE/issues/179), supervisor
+comment and oracle PR #4019. Array elements and Type fields SHALL retain their declared widths,
+initialise to N NULs and coerce each store. Erase SHALL reset a fixed array to NULs and plain ReDim SHALL keep
+its element width. Whole-record copies SHALL own independent fields, and Len SHALL count a fixed String
+field by its width (Integer plus String * 4 is 6). ByRef String/Variant parameters SHALL copy the padded
+value in and coerce the copy out on return. Get/Put SHALL omit length prefixes for fixed Strings and Type
+fields, using their declared widths
+([measured record rows](../../../docs/vb6-fidelity-oracle/random-and-binary-files-get-put-and-len.md)).
+Fixed-length String parameters SHALL report "Expected array"; Function and Property Get returns SHALL
+report "Expected: end of statement".
+
+#### Scenario: Padding is part of the value
+- **WHEN** a `String * 5` variable receives `"ab"`
+- **THEN** it holds `"ab   "`, differs from `"ab"`, and retains the spaces through concatenation and copies
+- **AND** Len returns Long 5 and LenB returns Integer 10
+
+#### Scenario: In-place scalar writes
+- **WHEN** Mid, LSet or RSet writes a fixed-length scalar String
+- **THEN** it retains its declared width
+- **AND** both LSet and RSet retain the leftmost characters of an overlong source

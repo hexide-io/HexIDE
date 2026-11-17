@@ -41,6 +41,7 @@ public partial class ProjectService : IProjectService
     private readonly IProjectFileFormat format;
     private readonly IComponentRegistry componentRegistry;
     private readonly IReadOnlyRegionWriter regionWriter;
+    private readonly IDocumentDockService? documents;
 
     public ProjectService(IReadOnlyRegionWriter regionWriter, Func<NewProjectViewModel> newProjectVm,
         IWindowManager windowManager,
@@ -56,8 +57,10 @@ public partial class ProjectService : IProjectService
         IComponentRegistry componentRegistry,
         ArchiveProjectService? archives = null,
         Func<ILspClient>? lspClient = null,
-        ContributedProjects? contributed = null)
+        ContributedProjects? contributed = null,
+        IDocumentDockService? documents = null)
     {
+        this.documents = documents;
         this.contributed = contributed;
         if (contributed is not null)
             contributed.TypeWithdrawn += OnTypeWithdrawn;
@@ -156,13 +159,6 @@ public partial class ProjectService : IProjectService
             ? line.Substring(file.Start, file.Length)
             : null;
 
-    /// <summary>
-    /// The project-file line for a member that did not load, so a save writes it back rather than dropping
-    /// it. In the shape VB6 requires for each kind: <c>Name; File</c> for a module or class, the bare path
-    /// for the designer kinds (see <see cref="ProjectSerializer"/>).
-    /// </summary>
-    private string ItemLineFor(ModuleKind kind, string name, string relativePath) => format.MemberLine(kind, name, relativePath);
-
     private async Task<IAddinProjectTemplate?> ChooseNewProject(bool replaceExisting)
     {
         var vm = newProjectVm();
@@ -217,6 +213,7 @@ public partial class ProjectService : IProjectService
 
     private void RecordTemplateHeaders(ProjectDefinition project)
     {
+        project.Format ??= format;
         // Only through HexIDE's own format. A project whose forms an add-in renders keeps its header for the first save,
         // so creating the project never runs the add-in's code at a new time (#885, #3666).
         if (project.FormFormat is not null)
@@ -237,6 +234,7 @@ public partial class ProjectService : IProjectService
 
     public async Task UnloadAllProjects()
     {
+        await ResolveProjectFileTabs();
         if (projectManager.LoadedProjects.Count == 0)
         {
             if (archives != null) await archives.Close();
@@ -320,6 +318,7 @@ public partial class ProjectService : IProjectService
 
     public async Task UnloadProject(ProjectDefinition project)
     {
+        project = await ResolveProjectFileTab(project);
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
         var changedFilesVm = new SaveChangesViewModel();
@@ -479,6 +478,8 @@ public partial class ProjectService : IProjectService
                 baselineStore.Record, localization);
             if (projectFileBytes is not null)
                 baselineStore.Record(projectPath, projectFileBytes);
+            // Its plain modules are read and rendered as they were before #4053; its forms and file stay its type's.
+            project.Format = format;
             projectManager.AddProject(project);
             EnsureGroupIfMultiple();
             recentProjects.Add(projectPath);
@@ -751,6 +752,7 @@ public partial class ProjectService : IProjectService
         baselineStore.Record(projectPath, projectFileBytes);
         var readByteForByte = readByteForByteList.ToList();
 
+        project.Format = format;
         projectManager.AddProject(project);
         EnsureGroupIfMultiple();
         recentProjects.Add(projectPath);
@@ -800,6 +802,7 @@ public partial class ProjectService : IProjectService
     private List<string> ReconcileDesignerNames(ProjectDefinition project)
     {
         var notices = new List<string>();
+        var writer = RegionWriterOf(project);
         foreach (var form in project.Forms)
             Reconcile(form.Name, form.Code, form.UpdateCode, form.AbsolutePath);
         foreach (var module in project.Modules)
@@ -809,7 +812,7 @@ public partial class ProjectService : IProjectService
 
         void Reconcile(string name, string code, Action<string> update, string? path)
         {
-            if (name.Length == 0 || regionWriter.NameRewrite(code, 0, name) is not { } change)
+            if (name.Length == 0 || writer?.NameRewrite(code, 0, name) is not { } change)
                 return;
             update(TextChanges.Apply(code, [change]));
             notices.Add(string.Format(localization.GetString("Str.Dialog.ConflictingNames"), path ?? name, name));
@@ -1254,9 +1257,9 @@ public partial class ProjectService : IProjectService
         _ => document.ToString() ?? "",
     };
 
-    // Whether HexIDE checks a project's file for a change made outside it before writing it.
-    private static bool ChecksOutsideChanges(ProjectDefinition project) =>
-        project.ProjectFileWriter is null or ContributedProjectFile;
+    // Whether HexIDE checks a project's file for a change made outside it before writing it: every file it writes, whoever's
+    // writer renders it (#4053).
+    private static bool ChecksOutsideChanges(ProjectDefinition project) => project.Offers.WritesProjectFile;
 
     /// <summary>
     /// Where a project file about to be written changed on disk since HexIDE last read or wrote it: left as it is where HexIDE
@@ -1278,16 +1281,21 @@ public partial class ProjectService : IProjectService
                 destinations.Remove(destination);
                 continue;
             }
-            var conflict = new FileConflictViewModel { CanCancel = true };
-            conflict.Add(Path.GetFileName(destination.Path));
-            if (!await windowManager.ShowDialog(conflict))
-                throw new OperationCanceledException();
-            if (conflict.ReloadChosen)
+            if (await ChooseProjectFileReload(destination.Path))
             {
                 await ReopenFromDisk(project, destination.Path);
                 throw new OperationCanceledException();
             }
         }
+    }
+
+    private async Task<bool> ChooseProjectFileReload(string path)
+    {
+        var conflict = new FileConflictViewModel { CanCancel = true };
+        conflict.Add(Path.GetFileName(path));
+        if (!await windowManager.ShowDialog(conflict))
+            throw new OperationCanceledException();
+        return conflict.ReloadChosen;
     }
 
     // Unknown counts as changed: without the bytes HexIDE last saw, it can't tell.
@@ -1305,8 +1313,11 @@ public partial class ProjectService : IProjectService
 
     // Reload, for a project file: its members' unsaved edits are asked about as closing asks, and the project's own changes,
     // which the user chose to lose, aren't. Then it's opened again from the file as it now is.
-    private async Task ReopenFromDisk(ProjectDefinition project, string path)
+    private async Task ReopenFromDisk(ProjectDefinition project, string path, Action? beforeReopen = null)
     {
+        if (ProjectFileTab(project) is { Applying: false, IsModified: true } tab
+            && !await ConfirmProjectFileClose(tab))
+            throw new OperationCanceledException();
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
         var changed = new SaveChangesViewModel();
         foreach (var form in project.Forms.Where(IsDirty))
@@ -1324,6 +1335,7 @@ public partial class ProjectService : IProjectService
         // In its place: a project in a group keeps its position, and its startup, and the group stays (#4009).
         using (projectManager.HoldPlace(project))
         {
+            beforeReopen?.Invoke();
             projectManager.UnloadProject(project);
             await OpenProject(path);
         }
@@ -1492,7 +1504,14 @@ public partial class ProjectService : IProjectService
 
     // What reads and renders this project's forms. Every read and render of one comes through here, so a project an add-in
     // opened never has a form read or written as a VB6 file.
-    private IFormFileFormat FormFormatOf(ProjectDefinition project) => project.FormFormat ?? format;
+    private IFormFileFormat FormFormatOf(ProjectDefinition project) => project.FormFormat ?? FormatOf(project);
+
+    // The format a project's file and members go through: its own, set by whatever opened or made it (#4053), or the IDE's
+    // for a project nothing opened. A group, and a file not yet opened, still go through the IDE's until #3411's slice 10b.
+    private IProjectFileFormat FormatOf(ProjectDefinition project) => ProjectFormats.Of(project, format);
+
+    // The writer of that format's read-only regions (#4053).
+    private IReadOnlyRegionWriter? RegionWriterOf(ProjectDefinition project) => ProjectFormats.WriterOf(project, regionWriter);
 
     /// <summary>
     /// A module's file as it would be written at <paramref name="path"/>: a UserControl's or PropertyPage's through the format
@@ -1501,7 +1520,7 @@ public partial class ProjectService : IProjectService
     private RenderedFile RenderModule(ModuleDefinition module, string path) =>
         DesignerPartOf(module) is not null
             ? CompanionHasSomewhere(module.Owner, module.Name, path, FormFormatOf(module.Owner).RenderDesignerFile(module, Path.GetFileName(path)))
-            : format.RenderModule(module, Path.GetFileName(path));
+            : FormatOf(module.Owner).RenderModule(module, Path.GetFileName(path));
 
     // An add-in's render with a companion needs somewhere that companion may go: beside the file, and on none of the project's
     // own files. Checked here, with the whole path, so a save that would put it anywhere else stops before it writes anything.
@@ -1570,7 +1589,7 @@ public partial class ProjectService : IProjectService
             await ReportReadByteForByte([Path.GetFileName(path)]);
         }
         baselineStore.Record(path, sourceBytes);
-        var (preservedHeader, reloadedBody) = format.SplitModule(source, module.Kind);
+        var (preservedHeader, reloadedBody) = FormatOf(module.Owner).SplitModule(source, module.Kind);
 
         module.TextEncoding = sourceEncoding;
         module.RecordOriginalHeader(preservedHeader);
@@ -1628,7 +1647,7 @@ public partial class ProjectService : IProjectService
                 ? string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), proposed)
             : ProjectNaming.IsProjectNameTaken(projectManager.LoadedProjects, proposed, project)
                 ? string.Format(localization.GetString("Str.Naming.Msg.ProjectNameTaken"), proposed)
-            : null, localization, generalPropertiesOnly: project.ProjectFileWriter is not null);
+            : null, localization, generalPropertiesOnly: !project.Offers.SetsTypeAndStartup);
         if (!await windowManager.ShowDialog(vm))
             return;
 
@@ -1905,6 +1924,7 @@ public partial class ProjectService : IProjectService
 
     public async Task SaveProject(ProjectDefinition project, bool saveAs)
     {
+        project = await ResolveProjectFileTab(project);
         // try/finally so the drain runs even when the batch is abandoned part-way. A dismissed picker throws
         // OperationCanceledException, which skipped the report and left every refusal banked — to surface
         // during the next unrelated save, naming files that were not in it. That is the leak #145 fixed for
@@ -1929,6 +1949,7 @@ public partial class ProjectService : IProjectService
 
     public Task SaveProjectToDirectory(ProjectDefinition project, string directory) => WithSaveRefusals(async () =>
     {
+        project = await ResolveProjectFileTab(project);
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
         // Refused before anything is written, and reported here rather than banked. This method has no drain
@@ -2182,7 +2203,7 @@ public partial class ProjectService : IProjectService
         var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // .bas/.cls: strip the VB6 header so Code is the body only (a no-op for .ctl/.pag).
-        var (preservedHeader, body) = format.SplitModule(source, kind);
+        var (preservedHeader, body) = FormatOf(project).SplitModule(source, kind);
         var name = ModuleFileFormat.ModuleNameFor(Path.GetFileNameWithoutExtension(absolutePath), preservedHeader);
 
         // Before the baseline is recorded, so a refused file leaves no trace: a baseline for a module the
@@ -2365,6 +2386,7 @@ public partial class ProjectService : IProjectService
 
     public async Task SaveAllProjects(bool saveAs)
     {
+        await ResolveProjectFileTabs();
         var files = projectManager.LoadedProjects.SelectMany(project => FilesOf(project, saveAs)).ToList();
         if (projectManager.CurrentGroup is { } group)
             files.Add((group, saveAs));
@@ -2439,7 +2461,7 @@ public partial class ProjectService : IProjectService
         // model alone, as it leaves the header. Before the repointing below, too, which is what lets the rewrite
         // tell a write to the form's own file from a write somewhere else.
         if (adoptHeader
-            && RewrittenQualifiers(form, formPath, ownCommand, format.CodePrefix(form), form.Code, rewrites) is { } requalified)
+            && RewrittenQualifiers(form, formPath, ownCommand, FormatOf(form.Owner).CodePrefix(form), form.Code, rewrites) is { } requalified)
             form.UpdateCode(requalified);
 
         var (frmText, frxContent) = RenderForm(form, formPath);
@@ -2508,7 +2530,10 @@ public partial class ProjectService : IProjectService
     private string? RewrittenQualifiers(object document, string path, bool ownCommand, string prefix, string code, SaveRewriteReport? rewrites)
     {
         var whole = prefix + code;
-        var changes = regionWriter.SaveRewrites(whole, prefix.Length);
+        var owner = document switch { FormDefinition form => form.Owner, ModuleDefinition module => module.Owner, _ => null };
+        if ((owner is null ? regionWriter : RegionWriterOf(owner)) is not { } writer)
+            return null;
+        var changes = writer.SaveRewrites(whole, prefix.Length);
         if (changes.Count == 0)
             return null;
         var written = document switch
@@ -2518,7 +2543,7 @@ public partial class ProjectService : IProjectService
             _ => throw new ArgumentException($"HexIDE does not rewrite a {document.GetType().Name}.", nameof(document)),
         };
         if (written)
-            rewrites?.Record(whole, changes, regionWriter);
+            rewrites?.Record(whole, changes, writer);
         return written ? TextChanges.Apply(whole, changes)[prefix.Length..] : null;
     }
 
@@ -2680,7 +2705,7 @@ public partial class ProjectService : IProjectService
     {
         // As SerializeFormToFile: before the render and the repointing, and not for a copy (#273 task 4.4).
         if (adoptHeader
-            && RewrittenQualifiers(module, modulePath, ownCommand, format.CodePrefix(module), module.Code, rewrites) is { } requalified)
+            && RewrittenQualifiers(module, modulePath, ownCommand, FormatOf(module.Owner).CodePrefix(module), module.Code, rewrites) is { } requalified)
             module.UpdateCode(requalified);
 
         var (text, companion) = RenderModule(module, modulePath);

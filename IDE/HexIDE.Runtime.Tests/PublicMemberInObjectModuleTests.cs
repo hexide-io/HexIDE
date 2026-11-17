@@ -76,17 +76,16 @@ public class PublicMemberInObjectModuleTests : BaseVBTestFixture
     public void Standard_module_declarations_still_load(string declaration)
         => Load(declaration, InterpreterModuleKind.Standard);
 
-    // These fixed-length strings already stop at the existing implementation gap.
+    // #179: non-Public object members and standard-module declarations now load.
     [Theory]
     [InlineData("Private S As String * 5", InterpreterModuleKind.Class)]
     [InlineData("Dim S As String * 5", InterpreterModuleKind.Class)]
     [InlineData("Private S As String * 5", InterpreterModuleKind.Form)]
     [InlineData("Dim S As String * 5", InterpreterModuleKind.Form)]
     [InlineData("Public S As String * 5", InterpreterModuleKind.Standard)]
-    public void Other_fixed_length_strings_keep_the_existing_refusal(string declaration, InterpreterModuleKind kind)
+    public void Other_fixed_length_strings_load(string declaration, InterpreterModuleKind kind)
     {
-        var load = () => Load(declaration, kind);
-        load.Should().Throw<NotImplementedException>().WithMessage("fieldLength as type not implemented");
+        Load(declaration, kind);
     }
 
     private BasicInterpreter Load(string declaration, InterpreterModuleKind kind)

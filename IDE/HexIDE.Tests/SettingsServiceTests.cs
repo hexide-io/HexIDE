@@ -29,6 +29,23 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void RevocationUrlDefaultsWhenUnsetButPreservesExplicitEmpty()
+    {
+        CreateSut().RevocationListUrl.Should().Be("https://hexide.io/revocations.json");
+        File.WriteAllText(SettingsPath, "{}");
+        CreateSut().RevocationListUrl.Should().Be("https://hexide.io/revocations.json");
+        File.WriteAllText(SettingsPath, "{\"RevocationListUrl\":null}");
+        CreateSut().RevocationListUrl.Should().Be("https://hexide.io/revocations.json");
+        var settings = CreateSut();
+        settings.RevocationListUrl = "";
+        settings.Save();
+        CreateSut().RevocationListUrl.Should().BeEmpty();
+        settings.RevocationListUrl = "https://example.invalid/custom";
+        settings.Save();
+        CreateSut().RevocationListUrl.Should().Be("https://example.invalid/custom");
+    }
+
+    [Fact]
     public void SavingRetainsPreviousDiskBytesForRecovery()
     {
         var settings = CreateSut();

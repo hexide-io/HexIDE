@@ -34,18 +34,21 @@ internal sealed class FindProjectDocuments(IDocumentDockService dock, IProjectMa
         foreach (var project in projects.LoadedProjects)
         {
             if (!allProjects && project != CurrentProject) continue;
+            // Each project's documents through its own format and regions (#4053).
+            var own = ProjectFormats.Of(project, format);
+            var reader = ProjectFormats.ReaderOf(project, regionReader);
             foreach (var module in project.Modules)
-                result.Add(Lookup(module) ?? new UnopenedDocument(format.CodePrefix(module) + module.Code,
-                    format.CodePrefix(module).Length, () => { editors.EditCode(module); return Lookup(module); },
+                result.Add(Lookup(module) ?? new UnopenedDocument(own.CodePrefix(module) + module.Code,
+                    own.CodePrefix(module).Length, () => { editors.EditCode(module); return Lookup(module); },
                     isReadOnly: () => module.FormPart is { CanSaveFaithfully: false },
-                    regionReader: regionReader));
+                    regionReader: reader));
             foreach (var form in project.Forms)
             {
                 if (project.Modules.Any(module => module.FormPart == form)) continue;
-                result.Add(Lookup(form) ?? new UnopenedDocument(format.CodePrefix(form) + form.Code,
-                    format.CodePrefix(form).Length, () => { editors.EditCode(form); return Lookup(form); },
+                result.Add(Lookup(form) ?? new UnopenedDocument(own.CodePrefix(form) + form.Code,
+                    own.CodePrefix(form).Length, () => { editors.EditCode(form); return Lookup(form); },
                     isReadOnly: () => !form.CanSaveFaithfully,
-                    regionReader: regionReader));
+                    regionReader: reader));
             }
             foreach (var related in project.RelatedDocuments)
             {

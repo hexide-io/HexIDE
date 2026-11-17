@@ -363,7 +363,7 @@ public class OptionsViewIntegrationTests
 
         locator.Build(new AddinConsentDialogViewModel("X", "1.0", "A", "Pub", Substitute.For<ILocalizationService>())).Should().BeOfType<AddinConsentDialog>();
         locator.Build(new DeveloperPageViewModel(settings)).Should().BeOfType<DeveloperPageView>();
-        locator.Build(new TrustChainViewModel(null, "x", false, true)).Should().BeOfType<TrustChainView>();
+        locator.Build(new TrustChainViewModel(null, "x", false, true, new LocalizationService())).Should().BeOfType<TrustChainView>();
 
         var languageSwitch = Substitute.For<ILanguageSwitchService>();
         languageSwitch.AvailableLanguages.Returns([new LanguageInfo("en", "English", "ltr")]);
@@ -531,7 +531,7 @@ public class OptionsViewIntegrationTests
     [AvaloniaFact]
     public void TrustChainView_RendersVerifiedChain()
     {
-        var vm = new TrustChainViewModel(SampleChain(), null, isRevoked: false, asDialog: true);
+        var vm = new TrustChainViewModel(SampleChain(), null, isRevoked: false, asDialog: true, localization: new LocalizationService());
         var snapshot = CaptureToPng(new TrustChainView { DataContext = vm }, "hexide_trustchain.png");
         new FileInfo(snapshot).Length.Should().BeGreaterThan(0);
     }
@@ -540,7 +540,7 @@ public class OptionsViewIntegrationTests
     public void TrustChainView_RendersUnavailableState()
     {
         var vm = new TrustChainViewModel(null, "No verifiable identity — unsigned developer build.",
-            isRevoked: false, asDialog: false);
+            isRevoked: false, asDialog: false, localization: new LocalizationService());
         var snapshot = CaptureToPng(new TrustChainView { DataContext = vm }, "hexide_trustchain_unavailable.png");
         new FileInfo(snapshot).Length.Should().BeGreaterThan(0);
     }

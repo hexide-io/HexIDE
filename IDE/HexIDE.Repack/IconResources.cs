@@ -59,6 +59,29 @@ internal static class IconResources
         return result;
     }
 
+    public static void WriteIcon(string path, byte[] logoPng)
+    {
+        var frames = Render(logoPng);
+        using var writer = new BinaryWriter(File.Create(path));
+        writer.Write((ushort)0);
+        writer.Write((ushort)1);
+        writer.Write((ushort)frames.Count);
+        var offset = 6 + frames.Count * 16;
+        foreach (var (size, png) in frames)
+        {
+            writer.Write((byte)(size == 256 ? 0 : size));
+            writer.Write((byte)(size == 256 ? 0 : size));
+            writer.Write((ushort)0);
+            writer.Write((ushort)1);
+            writer.Write((ushort)32);
+            writer.Write(png.Length);
+            writer.Write(offset);
+            offset += png.Length;
+        }
+        foreach (var (_, png) in frames)
+            writer.Write(png);
+    }
+
     // A logo that isn't square sits in the middle of a transparent square, and keeps its shape.
     private static byte[] Render(SKImage image, int size)
     {

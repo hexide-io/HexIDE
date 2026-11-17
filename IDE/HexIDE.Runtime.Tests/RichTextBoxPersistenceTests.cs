@@ -41,6 +41,21 @@ public class RichTextBoxPersistenceTests
         text.Should().Contain("      Enabled         =   -1  'True\r\n      ReadOnly        =   -1  'True\r\n      TextRTF");
     }
 
+    [Theory]
+    [InlineData("      HideSelection   =   -1   529992")]
+    [InlineData("      ScrollBars      =0  3")]
+    [InlineData("      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} = 3\n         Name            =   \"Arial\"\n      EndProperty")]
+    public void An_own_value_that_isnt_wholly_a_number_is_written_as_it_was_read_and_saves_the_same_twice(string properties)
+    {
+        // The writer took such a value for a default only when the whole of it was one, then rendered the number it starts
+        // with: `-1   529992` became the default `-1 'True` and the next save dropped it, and the Font block `Font = 3` (#4096).
+        var (first, companion) = new FormSerializer().Serialize(Load(Source(properties)), "Form1.frm");
+        var (second, _) = new FormSerializer().Serialize(Load(first, companion), "Form1.frm");
+
+        first.Should().Contain(properties.ReplaceLineEndings("\r\n") + "\r\n");
+        second.Should().Be(first);
+    }
+
     [Fact]
     public void Recorded_save_round_trips_both_files_byte_for_byte()
     {

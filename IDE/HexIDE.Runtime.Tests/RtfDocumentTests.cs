@@ -208,4 +208,18 @@ public class RtfDocumentTests
         Action readBinary = () => RtfDocument.Read("{\\rtf1\\bin1 {} history}");
         readBinary.Should().Throw<NotImplementedException>().WithMessage("*#1100*");
     }
+
+    // Malformed RTF that fuzzing a RichTextBox's .frx reached (#1222). Each is refused by name, as RTF the reader doesn't
+    // model is, where it used to fail inside the reader with IndexOutOfRange, Format or Overflow.
+    [Theory]
+    [InlineData("{\\rtf1{\\fonttbl{\\f0 A;}}}\\")]
+    [InlineData("{\\rtf1{\\fonttbl{\\f0 A;}}\\fs- x}")]
+    [InlineData("{\\rtf1{\\fonttbl{\\f0 A;}}\\fs99999999999 x}")]
+    [InlineData("{\\rtf1{\\fonttbl{\\f99999999999 A;}}}")]
+    [InlineData("{\\rtf1{\\fonttbl{\\f0 A;}}{\\colortbl;\\red99999999999\\green0\\blue0;}}")]
+    public void Malformed_numbers_and_a_trailing_escape_are_refused(string source)
+    {
+        var read = () => RtfDocument.Read(source);
+        read.Should().Throw<NotImplementedException>().WithMessage("*#1100*");
+    }
 }

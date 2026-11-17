@@ -12,6 +12,10 @@ namespace HexIDE.Projects;
 public sealed class Vb6ProjectFileFormat : IProjectFileFormat
 {
     /// <inheritdoc/>
+    public FormatRegions Regions { get; } =
+        new(new Vb6ReadOnlyRegionReader(), new Vb6ReadOnlyRegionWriter(), new Vb6ReadOnlyRegionRules());
+
+    /// <inheritdoc/>
     public RenderedFile RenderForm(FormDefinition form, string fileName)
     {
         var (text, companion) = new FormSerializer().Serialize(form, fileName);
@@ -56,6 +60,14 @@ public sealed class Vb6ProjectFileFormat : IProjectFileFormat
         IDeserializeErrorSink problems)
     {
         var read = await new ProjectLoader { HostAnsi = hostAnsi, FileRead = fileRead }.LoadAsync(path, problems);
+        return new(read.Project, read.Serialized.SkippedUserDocumentPaths, read.ReadByteForByte, read.ProjectFileBytes);
+    }
+
+    /// <inheritdoc/>
+    public async Task<ProjectFileRead> ReadProjectTextAsync(string path, string text, Vb6TextEncoding encoding,
+        Vb6TextEncoding hostAnsi, IDeserializeErrorSink problems)
+    {
+        var read = await new ProjectLoader { HostAnsi = hostAnsi }.LoadTextAsync(path, text, encoding, problems);
         return new(read.Project, read.Serialized.SkippedUserDocumentPaths, read.ReadByteForByte, read.ProjectFileBytes);
     }
 

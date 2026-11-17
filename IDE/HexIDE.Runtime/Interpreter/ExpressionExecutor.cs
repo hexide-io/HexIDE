@@ -108,11 +108,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var leftValue = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(leftRaw, callerFrames: stmtFrames), context[0]);
         var rightRaw = await EvaluateValue(context[1]);
         var rightValue = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(rightRaw, callerFrames: stmtFrames), context[1]);
-        // #174's round-four measurements distinguish typed defaults from late-bound values.
-        // Mixed String comparisons need #211; a guessed value or trappable 13 would let execution continue.
-        if ((leftRaw.Value is VbObject || rightRaw.Value is VbObject)
-            && (leftValue.Type == Vb6Value.ValueType.String) != (rightValue.Type == Vb6Value.ValueType.String))
-            throw new NotImplementedException("Mixed String comparison after a class default-member read requires #211 (#174).");
         if ((leftValue.Type == Vb6Value.ValueType.Error || rightValue.Type == Vb6Value.ValueType.Error)
             && leftValue.Type != rightValue.Type)
             throw new VBRunTimeException(context[0], VBStandardError.TypeMismatch);
@@ -137,6 +132,50 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         if (leftValue.Type == rightValue.Type)
             return (leftValue, rightValue);
+
+        // #211: docs/vb6-fidelity-oracle/a-string-compared-with-a-number.md. These are operator
+        // rules, deliberately separate from Select Case's conversion toward its selector.
+        var stringOnLeft = leftValue.Type == Vb6Value.ValueType.String;
+        if (stringOnLeft != (rightValue.Type == Vb6Value.ValueType.String))
+        {
+            var text = stringOnLeft ? leftValue : rightValue;
+            var number = stringOnLeft ? rightValue : leftValue;
+            if (NumericRank(number.Type) >= 0 || number.Type == Vb6Value.ValueType.Boolean || number.Type == Vb6Value.ValueType.Date)
+            {
+                if (number.Type == Vb6Value.ValueType.Decimal || (text.HeldAsVariant &&
+                    (number.Type == Vb6Value.ValueType.Currency || number.Type == Vb6Value.ValueType.Boolean || number.Type == Vb6Value.ValueType.Date)))
+                    throw new NotImplementedException("This String comparison domain is unmeasured (#211).");
+
+                if (text.HeldAsVariant && number.HeldAsVariant)
+                    return stringOnLeft ? (new Vb6Value(1), new Vb6Value(0)) : (new Vb6Value(0), new Vb6Value(1));
+                if (number.HeldAsVariant)
+                {
+                    // Option Compare Text follows the two-String path too; this rule's Text mode is unmeasured.
+                    number = VbNumeric.CoerceOnStore(number, Vb6Value.ValueType.String, context[0]);
+                    return stringOnLeft ? (text, number) : (number, text);
+                }
+
+                var target = number.Type == Vb6Value.ValueType.Currency || number.Type == Vb6Value.ValueType.Boolean || number.Type == Vb6Value.ValueType.Date
+                    ? number.Type : Vb6Value.ValueType.Double;
+                try
+                {
+                    text = VbNumeric.CoerceOnStore(text, target, context[0]);
+                }
+                catch (VBRunTimeException e) when (text.HeldAsVariant && e.Error.ErrNo == VBStandardError.TypeMismatch.ErrNo)
+                {
+                    // A nonnumeric Variant String sorts above the typed number, with no conversion error.
+                    return stringOnLeft ? (new Vb6Value(1), new Vb6Value(0)) : (new Vb6Value(0), new Vb6Value(1));
+                }
+                number = VbNumeric.CoerceOnStore(number, target, context[0]);
+                // Date ordering uses its serial; keep the existing handling of other Date pairs.
+                if (target == Vb6Value.ValueType.Date)
+                {
+                    text = new Vb6Value(AsDouble(text));
+                    number = new Vb6Value(AsDouble(number));
+                }
+                return stringOnLeft ? (text, number) : (number, text);
+            }
+        }
 
         // A Boolean beside a number takes the number's type, as that type's conversion takes it: True is -1, and for a Byte
         // 255, its bits. Measured: `True = -1`, `True < 0` and `CDbl(-1) >= True` are True, and `CByte(1) > True` is False.
@@ -244,7 +283,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBRunTimeException(context[0], VBStandardError.TypeMismatch);
         return (leftValue, rightValue);
     }
-
 
     public override Task<object?> Visit(IParseTree tree)
     {
@@ -472,12 +510,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             && values.Count == 1
             && slots[0]?.valueStmt() is { } operand)
         {
+            if (name.Equals("Len", StringComparison.OrdinalIgnoreCase) && values[0].Value is VbUdt { HasFixedStringFields: true } record)
+                result.LenVariableSize = record.FixedRecordLength();
             // Len sizes a declared scalar, but a Variant still sizes its text (#780, measured). So does LenB, and a number that is
             // not a variable is the same compile error for it (#1510, measured).
             if (TryGetArgLocation(operand) is { } location)
             {
+                if (name.Equals("LenB", StringComparison.OrdinalIgnoreCase)
+                    && interpreter.ExecutionContext.State.FixedStringWidthOf(location) == 5)
+                    // #179 measures the Integer subtype only for String * 5. Other widths keep LenB's existing path.
+                    result.FixedStringByteLength = 10;
                 var type = interpreter.ExecutionContext.State.DeclaredTypeOf(location);
-                result.LenVariableSize = type == Vb6Value.ValueType.Byte ? 1
+                result.LenVariableSize ??= type == Vb6Value.ValueType.Byte ? 1
                     : type == Vb6Value.ValueType.Integer || type == Vb6Value.ValueType.Boolean ? 2
                     : type == Vb6Value.ValueType.Long || type == Vb6Value.ValueType.Single ? 4
                     : type == Vb6Value.ValueType.Double || type == Vb6Value.ValueType.Currency || type == Vb6Value.ValueType.Date ? 8
@@ -709,7 +753,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var identifier = context.ambiguousIdentifier().GetText();
         return identifier;
     }
-
 
     // EXPRESSION
     /// <summary>
@@ -1830,6 +1873,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
         }
 
+        if (variable.Value is VBMSFlexGrid grid)
+        {
+            VBProps.RefuseIfRemoved(grid);
+            return FlexGridMembers.Read(grid, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
+        }
+
         if (variable.Value is VBTreeView capacityTree && MemberName(member).Equals("GetVisibleCount", StringComparison.OrdinalIgnoreCase))
         {
             if ((await EvaluateCallArgs(MemberArgs(member))).Count != 0) throw new NotImplementedException();
@@ -1843,6 +1892,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (variable.Value is VBSSTab tab && SSTabMembers.IsIndexed(MemberName(member))
             && MemberArgs(member) is { } tabIndexes)
             return SSTabMembers.ReadIndexed(tab, MemberName(member), await EvaluateCallArgs(tabIndexes));
+
+        if (variable.Value is ItemsControl searchList && ListMembers.IsList(searchList) && ListMembers.IsExtension(searchList, MemberName(member)))
+            return ListMembers.CallExtension(searchList, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
 
         // A list's List(i) and a ListBox's Selected(i), the control members here that take an index (#821, #1395).
         if (variable.Value is Control listControl && ListMembers.IsList(listControl) && MemberArgs(member) is { } listIndexes)
@@ -2358,8 +2410,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             : Order.GreaterOrEqual;
         var (leftValue, rightValue) = await GetTwoValuesSameTypesOrNull(context.valueStmt());
         // Two strings compare ordinally under Option Compare Binary (oracle-verified: "B" < "a", "10" < "9"), and as text
-        // under Option Compare Text. A string-vs-number pair is left to the numeric path below (numeric string coerces; a
-        // non-numeric string vs a number is Type Mismatch, both already faithful, and the same in either mode).
+        // under Option Compare Text. Mixed String/number operands were reconciled above (#211).
         if (StringCompare(leftValue, rightValue, compareText) is int sc)
             return (Vb6Value)Holds(order, sc, 0);
         if (leftValue.Type == Vb6Value.ValueType.Boolean && rightValue.Type == Vb6Value.ValueType.Boolean)
@@ -2391,8 +2442,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     // The comparison operators' order when BOTH operands are String: ordinal under Option Compare Binary (verified against
     // vb6.exe), and vb6.exe's text compare under Option Compare Text (VbTextCompare). Returns null when the pair is not two
-    // strings, so the caller falls through to the numeric path (a numeric string vs a number coerces; a non-numeric string
-    // vs a number is a Type Mismatch, both already faithful).
+    // strings, so the caller falls through to the numeric path.
     private static int? StringCompare(Vb6Value left, Vb6Value right, bool text)
         => left.Type == Vb6Value.ValueType.String && right.Type == Vb6Value.ValueType.String
             ? left.TryCompareTo(right, text)
@@ -2590,6 +2640,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             {
                 VBCommonDialog => Components.InBox.CommonDialogComponentClass.Instance.Library.Name,
                 VBProgressBar bar => bar.Library.Name,
+                VBMSFlexGrid => "MSFlexGridLib",
                 VBListView => "MSComctlLib",
                 VBToolbar => "MSComctlLib",
                 VBMonthView => "MSComCtl2",
@@ -2646,7 +2697,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         result = VbBitwise.Pack(op(leftBits, rightBits), VbBitwise.Combine(leftWidth, rightWidth));
         return true;
     }
-
 
     public override async Task<object?> VisitBlockStmt(VB6Parser.BlockStmtContext context)
     {

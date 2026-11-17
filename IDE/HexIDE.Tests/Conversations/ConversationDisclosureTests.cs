@@ -31,6 +31,22 @@ public class ConversationDisclosureTests : IAsyncDisposable
             method, null, body.Length, _capture.ShouldKeepBody(connectionId) ? body : null);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Archive_disclosure_names_entries_without_the_container_query(bool colliding)
+    {
+        _capture.Arm("vb6", true);
+        const string uri = "archive-entry:/Sources/Module%20%23%201.twin?container=file%3A%2F%2F%2FC%3A%2FDemo.twinproj";
+        Sync("textDocument/didOpen", uri, "source");
+        if (colliding) Sync("textDocument/didOpen", uri.Replace("Sources", "Other"), "other source");
+        var disclosure = await ConversationDisclosure.OfAsync(_capture);
+        disclosure.Documents.Select(d => d.Document).Should().BeEquivalentTo(colliding
+            ? new[] { "Sources/Module # 1.twin", "Other/Module # 1.twin" }
+            : new[] { "Module # 1.twin" });
+        disclosure.Documents.Should().Contain(d => d.Uri == uri);
+    }
+
     [Fact]
     public async Task AnEmptyRecordDisclosesNothing()
     {

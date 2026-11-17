@@ -75,7 +75,7 @@ public class VBListBox : ListBox
                 e.Handled = true;
                 list.ExecuteSub(ComponentBaseClass.ClickEvent);
             }
-            else if (!list.IsMultiSelect && e.Key is Key.Down or Key.Up or Key.PageDown or Key.Home or Key.End)
+            else if (!list.IsMultiSelect && e.Key is Key.Down or Key.Up or Key.PageDown or Key.PageUp or Key.Home or Key.End)
             {
                 // An item keeps the focus after a click. Take navigation before its ScrollViewer takes paging.
                 list.OnKeyDown(e);
@@ -117,13 +117,50 @@ public class VBListBox : ListBox
     {
         get
         {
-            if (IsMultiSelect)
-                throw new NotImplementedException("ListBox.TopIndex with MultiSelect is unmeasured (#3275)");
+            EnsureTopIndexLayout();
             var height = RowHeight();
             if (height <= 0 || Scroll is not { } scroll)
-                throw new NotImplementedException("ListBox.TopIndex before rows are laid out is not implemented (#3275)");
+                throw new NotImplementedException("ListBox.TopIndex cannot determine row layout (#3986)");
             return (int)Math.Floor(scroll.Offset.Y / height + 0.000001);
         }
+    }
+
+    private void EnsureTopIndexLayout()
+    {
+        UpdateLayout();
+        if (RowHeight() > 0 && Scroll is { } scroll && scroll.Viewport.Height > 0)
+            return;
+        // A loaded form need not be shown for TopIndex (#3986). Measure and arrange the list at its
+        // form dimensions so the real template supplies the same row height and viewport as when shown.
+        // Initialize from the host: its content presenter must attach the list without showing the window.
+        if (!double.IsFinite(Width) || !double.IsFinite(Height))
+            return;
+        Control root = this;
+        while (root.Parent is Control parent)
+            root = parent;
+        InitializeLayout(root);
+        InvalidateMeasure();
+        Measure(new Size(Width, Height));
+        Arrange(new Rect(Bounds.Position, DesiredSize));
+        UpdateLayout();
+    }
+
+    private static void InitializeLayout(Control control)
+    {
+        if (!control.IsInitialized)
+        {
+            control.BeginInit();
+            control.EndInit();
+        }
+        control.ApplyStyling();
+        control.ApplyTemplate();
+        // Detached presenters defer creating their child; force it before measuring the hidden form.
+        if (control is Avalonia.Controls.Presenters.ContentPresenter presenter)
+            presenter.UpdateChild();
+        foreach (var child in control.GetVisualChildren())
+            if (child is Control childControl)
+                InitializeLayout(childControl);
+        control.InvalidateMeasure();
     }
 
     private double RowHeight()
@@ -136,14 +173,12 @@ public class VBListBox : ListBox
 
     internal void SetTopIndexFromCode(int index)
     {
-        if (IsMultiSelect)
-            throw new NotImplementedException("ListBox.TopIndex with MultiSelect is unmeasured (#3275)");
         if (index < 0 || index >= ItemCount)
             throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
-        UpdateLayout();
+        EnsureTopIndexLayout();
         var height = RowHeight();
         if (height <= 0 || Scroll is not { } scroll)
-            throw new NotImplementedException("ListBox.TopIndex before rows are laid out is not implemented (#3275)");
+            throw new NotImplementedException("ListBox.TopIndex cannot determine row layout (#3986)");
         var before = TopIndex;
         var lastPage = Math.Max(0, ItemCount - (int)Math.Floor(scroll.Viewport.Height / height));
         scroll.Offset = new Vector(scroll.Offset.X, Math.Min(index, lastPage) * height);
@@ -288,11 +323,16 @@ public class VBListBox : ListBox
         if (IsMultiSelect || e.Handled)
             return;
         var before = SelectedIndex;
-        var scrollKey = e.Key is Key.Down or Key.Up or Key.PageDown or Key.Home or Key.End;
+        var scrollKey = e.Key is Key.Down or Key.Up or Key.PageDown or Key.PageUp or Key.Home or Key.End;
         var top = scrollKey && RowHeight() > 0 ? TopIndex : (int?)null;
-        if (e.Key == Key.PageDown && top is not null && ItemCount > 0)
+        if (e.Key is Key.PageDown or Key.PageUp && top is not null && ItemCount > 0)
         {
-            SelectedIndex = Math.Min(ItemCount - 1, SelectedIndex + Math.Max(1, (int)Math.Floor(Scroll!.Viewport.Height / RowHeight()) - 1));
+            var page = Math.Max(1, (int)Math.Floor(Scroll!.Viewport.Height / RowHeight()) - 1);
+            // Both keys move the selection a page, the rows shown less one, from wherever it is; the view then scrolls
+            // the least it can to show it. The top row plays no part (measured, #3986).
+            SelectedIndex = e.Key == Key.PageUp
+                ? Math.Max(0, SelectedIndex - page)
+                : Math.Min(ItemCount - 1, SelectedIndex + page);
             e.Handled = true;
         }
         else
@@ -301,7 +341,7 @@ public class VBListBox : ListBox
         {
             ScrollIntoView(SelectedIndex);
             UpdateLayout();
-            if (e.Key == Key.PageDown)
+            if (e.Key is Key.PageDown or Key.PageUp)
                 ContainerFromIndex(SelectedIndex)?.Focus(NavigationMethod.Unspecified);
         }
         var scrolled = top is not null && TopIndex != top;
@@ -398,8 +438,19 @@ public class VBListBox : ListBox
         if (IsMultiSelect)
             focusIndex = index;
         else
-            SelectedIndex = index;
+            SelectFromCode(index);
         this.ExecuteSub(ComponentBaseClass.ClickEvent);
+    }
+
+    private void SelectFromCode(int index)
+    {
+        SelectedIndex = index;
+        if (index >= 0)
+        {
+            // Code selection exposes the new top row inside Click, without Scroll (#3986).
+            ScrollIntoView(index);
+            UpdateLayout();
+        }
     }
 
     /// <summary>
@@ -442,7 +493,8 @@ public class VBListBox : ListBox
             for (var i = 0; i < ItemCount && index < 0; i++)
                 if (string.Equals(Items[i] as string, text, StringComparison.OrdinalIgnoreCase))
                     index = i;
-            SelectedIndex = index;
+            if (index != SelectedIndex)
+                SelectFromCode(index);
         }
         this.ExecuteSub(ComponentBaseClass.ClickEvent);
     }
