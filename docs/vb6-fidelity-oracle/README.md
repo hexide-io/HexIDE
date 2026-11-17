@@ -606,6 +606,7 @@ added afterwards.
 - [Where the Format commands put a control (2026-10-22, #929, design-time)](where-the-format-commands-put-a-control.md#where-the-format-commands-put-a-control-2026-10-22-929-design-time)
 - [Named arguments (2026-10-22, #1465)](named-arguments.md#named-arguments-2026-10-22-1465)
 - [The intrinsics #1465 left unmeasured, and the type library's names (2026-11-16, #4145)](named-arguments.md#the-intrinsics-1465-left-unmeasured-and-the-type-librarys-names-2026-11-16-4145)
+- [DDB's names (2026-11-17, #2524)](named-arguments.md#ddbs-names-2026-11-17-2524)
 - [The TabIndex a new or pasted control takes (2026-10-22, #925, design-time)](the-tabindex-a-new-or-pasted-control-takes.md#the-tabindex-a-new-or-pasted-control-takes-2026-10-22-925-design-time)
 - [Drawing a control into a Frame or PictureBox (2026-10-26, #2039, design-time)](drawing-a-control-into-a-frame-or-picturebox.md#drawing-a-control-into-a-frame-or-picturebox-2026-10-26-2039-design-time)
 - [Collection (2026-10-22, #1471)](collection.md#collection-2026-10-22-1471)
