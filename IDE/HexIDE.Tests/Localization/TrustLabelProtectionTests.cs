@@ -162,6 +162,110 @@ public sealed class TrustLabelProtectionTests : IDisposable
         return string.Join(" ", [Relabel, .. placeholders]);
     }
 
+    // ── #4121: what tells a person whether to trust an add-in ──────────
+
+    public static TheoryData<string, string> TrustVerdictsInEachLanguage()
+    {
+        var data = new TheoryData<string, string>();
+        foreach (var key in BrandText.TrustVerdictKeys)
+            foreach (var language in new[] { "en", "de" })
+                data.Add(key, language);
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(TrustVerdictsInEachLanguage))]
+    public void A_profile_cannot_change_a_trust_verdict(string key, string language)
+    {
+        var shipped = new LocalizationService().GetStringFrom(language, key);
+        var relabel = RelabelFor(key);
+
+        var service = new LocalizationService(Profile(new() { [language] = new() { [key] = relabel } }));
+
+        service.GetStringFrom(language, key).Should().Be(shipped).And.NotBe(relabel);
+    }
+
+    [Theory]
+    [MemberData(nameof(TrustVerdictsInEachLanguage))]
+    public void The_users_own_translation_of_a_trust_verdict_still_applies(string key, string language)
+    {
+        var mine = RelabelFor(key);
+
+        var service = new LocalizationService(Overrides(language, key, mine));
+
+        service.GetStringFrom(language, key).Should().Be(mine);
+    }
+
+    [Fact]
+    public void The_users_translation_wins_over_a_refused_profile()
+    {
+        const string key = "Str.Dialog.AddinConsent.Vm.Unsigned";
+
+        var service = new LocalizationService(Profile(new() { ["de"] = new() { [key] = "Geprüft" } }), Overrides("de", key, "MEINE ÜBERSETZUNG"));
+
+        service.GetStringFrom("de", key).Should().Be("MEINE ÜBERSETZUNG");
+    }
+
+    [Fact]
+    public void A_neutral_languages_profile_cannot_change_its_regions_verdict()
+    {
+        const string key = "Str.Dialog.AddinConsent.UnsignedWarning";
+        var shipped = new LocalizationService().GetStringFrom("fr-CA", key);
+
+        var service = new LocalizationService(Profile(new() { ["fr"] = new() { [key] = RelabelFor(key) } }));
+
+        service.GetStringFrom("fr-CA", key).Should().Be(shipped);
+    }
+
+    [Fact]
+    public void A_refused_profile_is_logged_by_name()
+    {
+        const string key = "Str.Dialog.AddinConsent.Vm.Unsigned";
+        using var log = new CapturedLog();
+
+        new LocalizationService(Profile(new() { ["de"] = new() { [key] = "Geprüft" } })).GetStringFrom("de", key);
+
+        log.Messages.Should().Contain(m => m.Contains(key, StringComparison.Ordinal)
+            && m.Contains("profile 'custom' (de)", StringComparison.Ordinal)
+            && !m.Contains("the user's translations", StringComparison.Ordinal)
+            && m.Contains("whether to trust an add-in", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Nothing_is_refused_or_logged_when_the_users_translation_wins_anyway()
+    {
+        const string key = "Str.Dialog.AddinConsent.Vm.Unsigned";
+        using var log = new CapturedLog();
+
+        new LocalizationService(Profile(new() { ["de"] = new() { [key] = "Geprüft" } }), Overrides("de", key, "Meine"))
+            .GetStringFrom("de", key).Should().Be("Meine");
+
+        log.Messages.Should().NotContain(m => m.Contains(key, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_translation_editor_keeps_trust_verdicts_editable_and_notes_the_profile_rule()
+    {
+        foreach (var key in BrandText.TrustVerdictKeys)
+        {
+            var row = new TranslationRowViewModel(key);
+            row.IsProtected.Should().BeFalse(key);
+            row.IsProtectedFromProfiles.Should().BeTrue(key);
+        }
+
+        new TranslationRowViewModel("Str.Options.Addin.Activate").IsProtectedFromProfiles.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Every_trust_verdict_is_a_shipped_key_and_none_is_also_fully_protected()
+    {
+        var english = new LocalizationService();
+        foreach (var key in BrandText.TrustVerdictKeys.Append("Str.TranslationEditor.ProtectedFromProfiles"))
+            english.GetStringFrom("en", key).Should().NotBe(key, "{0} must exist in en.json, or protecting it guards nothing", key);
+
+        BrandText.TrustVerdictKeys.Should().NotIntersectWith(BrandText.ProtectedKeys);
+    }
+
     private static IUserTranslationsService Overrides(string packId, string key, string value)
     {
         var service = Substitute.For<IUserTranslationsService>();

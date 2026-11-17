@@ -225,10 +225,14 @@ internal static partial class VbTextCompare
         private readonly int[] firstLetter;
         private string? lastValue;
         private string lastNeedle = "";
+        private readonly bool expandSharpS;
+        private readonly bool expandLigature;
 
-        public Searchable(string source)
+        public Searchable(string source, bool expandSharpS = true, bool expandLigature = true)
         {
-            hay = Fold(source, 0, out from);
+            this.expandSharpS = expandSharpS;
+            this.expandLigature = expandLigature;
+            hay = Fold(source, 0, out from, expandSharpS, expandLigature);
             // The first letter each character gives; the string's length maps to the end.
             firstLetter = new int[source.Length + 1];
             for (int c = 0, u = 0; c <= source.Length; c++)
@@ -247,7 +251,7 @@ internal static partial class VbTextCompare
                 return startIndex;
             if (!ReferenceEquals(value, lastValue))
             {
-                lastNeedle = Fold(value, 0, out _);
+                lastNeedle = Fold(value, 0, out _, expandSharpS, expandLigature);
                 lastValue = value;
             }
             var needle = lastNeedle;
@@ -296,13 +300,14 @@ internal static partial class VbTextCompare
 
     // A string as a search reads it, from the character at start: case folded, an expansion as its letters, and every other
     // character as itself. from[i] is the index of the character the i-th letter came from.
-    private static string Fold(string s, int start, out int[] from)
+    private static string Fold(string s, int start, out int[] from, bool expandSharpS = true, bool expandLigature = true)
     {
         var letters = new System.Text.StringBuilder(s.Length - start);
         var origin = new List<int>(s.Length - start);
         for (var i = start; i < s.Length; i++)
         {
-            if (LettersOf.TryGetValue(s[i], out var expansion))
+            if ((expandSharpS || s[i] != 'ß') && (expandLigature || s[i] is not ('Æ' or 'æ'))
+                && LettersOf.TryGetValue(s[i], out var expansion))
             {
                 letters.Append(expansion);
                 for (var k = 0; k < expansion.Length; k++)

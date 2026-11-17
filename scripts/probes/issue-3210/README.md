@@ -23,7 +23,7 @@ export XDG_RUNTIME_DIR="$PWD/scripts/probes/issue-3210/.scratch/xdg"
 mkdir -p "$XDG_RUNTIME_DIR"
 dotnet build scripts/probes/issue-3210/StackProbe.csproj -p:UseSharedCompilation=false
 GLIBC_TUNABLES=glibc.pthread.stack_cache_size=0 \
-  dotnet scripts/probes/issue-3210/bin/Debug/net10.0/StackProbe.dll threads
+  dotnet scripts/probes/issue-3210/bin/Debug/net11.0/StackProbe.dll threads
 python3 scripts/probes/issue-3210/measure.py
 python3 scripts/probes/issue-3210/collect-observations.py
 python3 scripts/probes/issue-3210/summarize.py

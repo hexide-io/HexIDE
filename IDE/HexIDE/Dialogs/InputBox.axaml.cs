@@ -15,6 +15,7 @@ public partial class InputBox : UserControl
     public InputBox()
     {
         InitializeComponent();
+        Classes.Add("ideDialog");
         Loaded += OnLoaded;
     }
 

@@ -8,6 +8,19 @@ namespace HexIDE.Tests.LspClient;
 
 public sealed class TypeLibraryServicePathTests
 {
+    public static bool OnWindows => OperatingSystem.IsWindows();
+
+    [Fact(Skip = "Registry type libraries require Windows.", SkipUnless = nameof(OnWindows))]
+    public async Task GuidOnlyReferenceLoadsWindowsOleAutomationLibrary()
+    {
+        var sut = new TypeLibraryService();
+        var info = await sut.GetTypeLibInfoAsync(new("{00020430-0000-0000-C000-000000000046}",
+            "2.0", 0, null, null), TestContext.Current.CancellationToken);
+        info.Should().NotBeNull();
+        info!.Name.Should().Be("stdole");
+        info.Types.Should().Contain(t => t.Name == "OLE_COLOR");
+    }
+
     [Theory]
     [InlineData(@"\\host.invalid\share\remote.tlb")]
     [InlineData("//host.invalid/share/remote.tlb")]

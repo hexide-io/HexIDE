@@ -13,25 +13,25 @@ internal static class SSTabMembers
 
     public static Vb6Value ReadIndexed(VBSSTab tab, string name, IReadOnlyList<Vb6Value> args)
     {
-        var index = Index(tab, args);
+        var index = Index(tab, name, args);
         return name.ToLowerInvariant() switch
         {
             "tabcaption" => new Vb6Value(tab.Caption(index)),
             "tabenabled" => new Vb6Value(tab.TabEnabled(index)),
             "tabvisible" => new Vb6Value(tab.TabVisible(index)),
-            _ => throw new NotImplementedException("SSTab TabPicture is not implemented"),
+            _ => new Vb6Value(tab.TabPicture(index)),
         };
     }
 
     public static void WriteIndexed(VBSSTab tab, string name, IReadOnlyList<Vb6Value> args, Vb6Value value)
     {
-        var index = Index(tab, args);
+        var index = Index(tab, name, args);
         switch (name.ToLowerInvariant())
         {
             case "tabcaption": tab.Caption(index, Text(value)); break;
             case "tabenabled": tab.TabEnabled(index, Boolean(value)); break;
             case "tabvisible": tab.TabVisible(index, Boolean(value)); break;
-            default: throw new NotImplementedException("SSTab TabPicture is not implemented");
+            default: tab.TabPicture(index, Picture(value)); break;
         }
     }
 
@@ -48,6 +48,7 @@ internal static class SSTabMembers
             case "tabs": value = new Vb6Value((short)tab.Tabs); break;
             case "tabsperrow": value = new Vb6Value((short)tab.TabsPerRow); break;
             case "rows": value = new Vb6Value((short)tab.Rows); break;
+            case "picture": value = new Vb6Value(tab.TabPicture(tab.Tab)); break;
             case "caption": value = new Vb6Value(tab.Caption(tab.Tab)); break;
             case "style": value = new Vb6Value((long)tab.VbStyle); break;
             case "taborientation": value = new Vb6Value((long)tab.TabOrientation); break;
@@ -72,6 +73,7 @@ internal static class SSTabMembers
             case "tabs": tab.Tabs = Integer(value); break;
             case "tabsperrow": tab.TabsPerRow = Choice(value, 1, 99); break;
             case "rows": throw new VBRunTimeException(VBStandardError.PropertySetCantBeUsedWithAReadOnlyProperty);
+            case "picture": tab.TabPicture(tab.Tab, Picture(value)); break;
             case "caption": tab.Caption(tab.Tab, Text(value)); break;
             case "style": tab.VbStyle = Choice(value, 0, 1); break;
             case "taborientation": tab.TabOrientation = Choice(value, 0, 3); break;
@@ -85,11 +87,32 @@ internal static class SSTabMembers
         return true;
     }
 
-    private static int Index(VBSSTab tab, IReadOnlyList<Vb6Value> args)
+    private static PanelPicture Picture(Vb6Value value)
+    {
+        if (value.Value is PanelPicture picture) return picture;
+        if (value.Type == Vb6Value.ValueType.Object && value.Value is null) return new PanelPicture([]);
+        // #3426 / #4297: controls supply a separate Picture object, not their identity.
+        if (value.Value is VBPictureBox box) return ControlPicture(box.PictureData);
+        if (value.Value is VBImage image) return ControlPicture(image.Picture);
+        if (value.Value is Control and not (VBTextBox or VBLabel or IFormView))
+            throw new NotImplementedException("SSTab picture assignment from this control is unmeasured (#3426)");
+        throw new VBRunTimeException(VBStandardError.TypeMismatch);
+    }
+
+    internal static PanelPicture ControlPicture(byte[]? bytes)
+    {
+        if (bytes is not { Length: > 0 }) return new PanelPicture([]);
+        var offset = Serialization.FrxDeserializer.PayloadOffset(bytes);
+        offset += VBImage.StdPictureHeaderLength(bytes, offset);
+        return PanelPicture.FromFile(bytes[offset..]);
+    }
+
+    private static int Index(VBSSTab tab, string name, IReadOnlyList<Vb6Value> args)
     {
         if (args.Count != 1)
             throw new NotImplementedException("SSTab indexed argument counts are not measured");
-        var index = Integer(args[0]);
+        var index = name.Equals("tabpicture", StringComparison.OrdinalIgnoreCase)
+            ? Convert.ToInt32(VB6BuiltIns.NarrowNum(args[0], Vb6Value.ValueType.Integer).Value) : Integer(args[0]);
         tab.CheckIndex(index);
         return index;
     }

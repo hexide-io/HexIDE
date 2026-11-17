@@ -52,7 +52,7 @@ public partial class UserControlKeyTests
         internal readonly Library Lib = new();
         internal readonly VBWindowContext Context;
         internal Control Named(string name) => Window.GetLogicalDescendants().OfType<Control>().Single(c => VBProps.GetName(c) == name);
-        internal Run(string settings, string formCode = "", string controlCode = "", string child = "", bool plain = false, string? blocks = null)
+        internal Run(string settings, string formCode = "", string controlCode = "", string child = "", bool plain = false, string? blocks = null, string formSettings = "")
         {
             var project = new ProjectDefinition(VBProjectType.EXE, "P");
             var ctl = new FormDeserializer().Deserialize(project,
@@ -75,12 +75,16 @@ public partial class UserControlKeyTests
             }
             var form = new FormDeserializer().Deserialize(project,
                 "VERSION 5.00\nBegin VB.Form Form1\nClientWidth = 6000\nClientHeight = 4000\n"
-                + (blocks ?? (Block("VB.TextBox", "Text1", 0) + Block("P.Dial", "uc1", 1, child)
+                + formSettings + (blocks ?? (Block("VB.TextBox", "Text1", 0) + Block("P.Dial", "uc1", 1, child)
                 + (plain ? Block("P.Plain", "ucPlain", 4) : "")
                 + Block("VB.CommandButton", "Command1", 2) + Block("VB.Label", "Label1", 3, extra: "Caption = \"&T\"")))
                 + "End\nAttribute VB_Name = \"Form1\"\n" + formCode, new Sink(), extraComponents: registry)!;
             project.AddForm(form);
-            Context = new VBWindowContext(Lib);
+            Context = new VBWindowContext(Lib) { Window = Window };
+            var root = VBLoader.FormComponentOf(form);
+            AttachedProperties.SetBackColor(Window, root.GetPropertyOrDefault(VBProperties.BackColorProperty));
+            AttachedProperties.SetForeColor(Window, root.GetPropertyOrDefault(VBProperties.ForeColorProperty));
+            AttachedProperties.SetFont(Window, root.GetPropertyOrDefault(VBProperties.FontProperty));
             Window.Context = Context;
             VBLoader.PrepareForm(form, Context, content => Window.Content = content, null);
             ContainerRuntimeHarness.MergeAppResources(Window);
