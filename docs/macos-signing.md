@@ -32,7 +32,10 @@ with an actual guarantee.
 ## The bundle is not currently sealable
 
 Before anything else: **notarisation requires a properly signed bundle, and the `.app` cannot
-currently be sealed at all.** This is a prerequisite, not a detail.
+currently be sealed at all.** This is a prerequisite, not a detail. On a Mac, the installed app and its main
+executable fail `codesign --verify` with "code has no resources but signature indicates they must be
+present", which is this; the restructure below is tracked as
+[#4495](https://github.com/hexide-io/HexIDE/issues/4495).
 
 `Contents/MacOS` holds the entire .NET publish payload — four apphost executables (`HexIDE`,
 `HexIDE.VbLspServer`, `HexIDE.AddinPacker`, `HexIDE.LspGuard`), a `*.runtimeconfig.json` beside each,
