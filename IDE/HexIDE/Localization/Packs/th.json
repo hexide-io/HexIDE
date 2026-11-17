@@ -546,6 +546,7 @@
     "Str.Options.Keymap.Pack": "แพ็ก",
     "Str.Options.Keymap.Capture": "กดปุ่มลัด (Escape เพื่อยกเลิก)",
     "Str.Options.Keymap.Conflict": "ใช้งานแล้วโดย: {0} ต้องการเก็บปุ่มลัดนี้ไว้หรือไม่?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "ไฟล์ต้องมีออบเจ็กต์ bindings",
     "Str.Options.Keymap.InvalidImport": "ไม่ได้นำเข้าการตั้งค่าทับ โปรดตรวจสอบ JSON และสตริงชุดปุ่ม: {0}",

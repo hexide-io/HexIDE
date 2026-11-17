@@ -567,6 +567,7 @@
     "Str.Options.Keymap.Pack": "الحزمة",
     "Str.Options.Keymap.Capture": "اضغط اختصارًا (Escape للإلغاء).",
     "Str.Options.Keymap.Conflict": "مستخدم بالفعل بواسطة: {0}. هل تريد الاحتفاظ بهذا الاختصار؟",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "إدخال",
     "Str.Options.Keymap.MissingBindings": "يجب أن يحتوي الملف على كائن bindings.",
     "Str.Options.Keymap.InvalidImport": "لم يتم استيراد التجاوزات. تحقق من JSON وسلاسل اختصارات المفاتيح: {0}",

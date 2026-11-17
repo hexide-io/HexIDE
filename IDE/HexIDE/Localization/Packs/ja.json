@@ -601,6 +601,7 @@
     "Str.Options.Keymap.Pack": "パック",
     "Str.Options.Keymap.Capture": "ショートカットを押してください（Escape でキャンセル）。",
     "Str.Options.Keymap.Conflict": "すでに使用されています: {0}。このショートカットを保持しますか？",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "ファイルには bindings オブジェクトが必要です。",
     "Str.Options.Keymap.InvalidImport": "上書き設定はインポートされませんでした。JSON とショートカットの文字列を確認してください: {0}",

@@ -546,6 +546,7 @@
     "Str.Options.Keymap.Pack": "Paket",
     "Str.Options.Keymap.Capture": "Pritisnite bližnjico (Escape prekliče).",
     "Str.Options.Keymap.Conflict": "Že uporablja: {0}. Ohraniti to bližnjico?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "Datoteka mora vsebovati objekt bindings.",
     "Str.Options.Keymap.InvalidImport": "Preglasitve niso bile uvožene. Preverite JSON in nize kombinacij tipk: {0}",

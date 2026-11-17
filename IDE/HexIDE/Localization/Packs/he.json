@@ -601,6 +601,7 @@
     "Str.Options.Keymap.Pack": "חבילה",
     "Str.Options.Keymap.Capture": "יש ללחוץ על קיצור מקשים (Escape לביטול).",
     "Str.Options.Keymap.Conflict": "כבר בשימוש על ידי: {0}. לשמור קיצור זה?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "הקובץ חייב להכיל אובייקט bindings.",
     "Str.Options.Keymap.InvalidImport": "ההגדרות העוקפות לא יובאו. יש לבדוק את JSON ואת מחרוזות קיצורי המקשים: {0}",

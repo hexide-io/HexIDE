@@ -567,6 +567,7 @@
     "Str.Options.Keymap.Pack": "Pack",
     "Str.Options.Keymap.Capture": "Appuyez sur un raccourci (Échap pour annuler).",
     "Str.Options.Keymap.Conflict": "Déjà utilisé par : {0}. Conserver ce raccourci ?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Entrée",
     "Str.Options.Keymap.MissingBindings": "Le fichier doit contenir un objet bindings.",
     "Str.Options.Keymap.InvalidImport": "Les personnalisations n’ont pas été importées. Vérifiez le JSON et les chaînes des raccourcis : {0}",

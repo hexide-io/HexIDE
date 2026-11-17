@@ -542,6 +542,7 @@
     "Str.Options.Keymap.Pack": "Пакет",
     "Str.Options.Keymap.Capture": "Натисніть сполучення клавіш (Escape — скасування).",
     "Str.Options.Keymap.Conflict": "Уже використовується: {0}. Зберегти це сполучення клавіш?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Ввід",
     "Str.Options.Keymap.MissingBindings": "Файл має містити об’єкт bindings.",
     "Str.Options.Keymap.InvalidImport": "Перевизначення не імпортовано. Перевірте JSON і рядки сполучень клавіш: {0}",

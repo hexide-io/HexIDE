@@ -605,6 +605,7 @@
     "Str.Options.Keymap.Pack": "Paket",
     "Str.Options.Keymap.Capture": "Pritisnite prečac (Escape odustaje).",
     "Str.Options.Keymap.Conflict": "Već koristi: {0}. Zadržati ovaj prečac?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "Datoteka mora sadržavati objekt bindings.",
     "Str.Options.Keymap.InvalidImport": "Nadjačavanja nisu uvezena. Provjerite JSON i nizove tipkovnih prečaca: {0}",

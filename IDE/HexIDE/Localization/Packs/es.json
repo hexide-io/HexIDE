@@ -567,6 +567,7 @@
     "Str.Options.Keymap.Pack": "Paquete",
     "Str.Options.Keymap.Capture": "Pulse un atajo (Escape cancela).",
     "Str.Options.Keymap.Conflict": "Ya lo utiliza: {0}. ¿Mantener este atajo?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Intro",
     "Str.Options.Keymap.MissingBindings": "El archivo debe contener un objeto bindings.",
     "Str.Options.Keymap.InvalidImport": "No se importaron las personalizaciones. Compruebe el JSON y las cadenas de los atajos: {0}",

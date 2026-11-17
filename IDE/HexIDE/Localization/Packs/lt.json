@@ -580,6 +580,7 @@
     "Str.Options.Keymap.Pack": "Paketas",
     "Str.Options.Keymap.Capture": "Paspauskite spartųjį klavišą (Escape atšaukia).",
     "Str.Options.Keymap.Conflict": "Jau naudoja: {0}. Palikti šį spartųjį klavišą?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Įvesti",
     "Str.Options.Keymap.MissingBindings": "Faile turi būti bindings objektas.",
     "Str.Options.Keymap.InvalidImport": "Pakeitimai neimportuoti. Patikrinkite JSON ir klavišų derinių eilutes: {0}",

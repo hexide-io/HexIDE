@@ -576,6 +576,7 @@
     "Str.Options.Keymap.Pack": "Pakke",
     "Str.Options.Keymap.Capture": "Trykk en hurtigtast (Escape avbryter).",
     "Str.Options.Keymap.Conflict": "Allerede brukt av: {0}. Beholde denne hurtigtasten?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "Filen må inneholde et bindings-objekt.",
     "Str.Options.Keymap.InvalidImport": "Overstyringene ble ikke importert. Kontroller JSON og strengene for tastekombinasjoner: {0}",

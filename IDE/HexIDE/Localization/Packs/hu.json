@@ -580,6 +580,7 @@
     "Str.Options.Keymap.Pack": "Csomag",
     "Str.Options.Keymap.Capture": "Nyomjon meg egy billentyűparancsot (Escape: megszakítás).",
     "Str.Options.Keymap.Conflict": "Már használja: {0}. Megtartja ezt a billentyűparancsot?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "A fájlnak tartalmaznia kell egy bindings objektumot.",
     "Str.Options.Keymap.InvalidImport": "A felülírások importálása nem sikerült. Ellenőrizze a JSON-t és a billentyűparancsok karakterláncait: {0}",

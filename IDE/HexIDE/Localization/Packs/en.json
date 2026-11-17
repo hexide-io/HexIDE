@@ -567,6 +567,7 @@
     "Str.Options.Keymap.Pack": "Pack",
     "Str.Options.Keymap.Capture": "Press a shortcut (Escape cancels).",
     "Str.Options.Keymap.Conflict": "Already used by: {0}. Keep this shortcut?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "The file must contain a bindings object.",
     "Str.Options.Keymap.InvalidImport": "Overrides were not imported. Check the JSON and gesture strings: {0}",

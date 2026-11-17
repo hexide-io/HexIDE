@@ -542,6 +542,7 @@
     "Str.Options.Keymap.Pack": "Pakke",
     "Str.Options.Keymap.Capture": "Tryk på en genvej (Escape annullerer).",
     "Str.Options.Keymap.Conflict": "Bruges allerede af: {0}. Behold denne genvej?",
+    "Str.Options.Keymap.Break": "Break",
     "Str.Options.Keymap.Enter": "Enter",
     "Str.Options.Keymap.MissingBindings": "Filen skal indeholde et bindings-objekt.",
     "Str.Options.Keymap.InvalidImport": "Tilsidesættelser blev ikke importeret. Kontrollér JSON og strengene med tastaturgenveje: {0}",
