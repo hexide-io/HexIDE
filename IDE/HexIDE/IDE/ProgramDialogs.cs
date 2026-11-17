@@ -49,6 +49,7 @@ internal static class ProgramDialogs
             string? result = null;
             var inputBox = new InputBox { IsProgramDialog = true, Prompt = prompt, Text = defaultText };
             var window = manager.MakeDialogWindow(caption, inputBox);
+            inputBox.ApplyProgramChrome(window);
             inputBox.TextRequest += r => { result = r; window.Close(); };
             await window.ShowDialog(manager.GetTopWindow(desktop));
             return result;

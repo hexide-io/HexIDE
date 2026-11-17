@@ -87,11 +87,23 @@ public static class FrxDeserializer
     }
 
     /// <summary>Every <c>"name.frx":HHHH</c> offset a designer file cites, in the order they appear.</summary>
+    /// <remarks>
+    /// Lines end where the designer reader ends them, a lone CR included (#1020), and a line holds a citation wherever
+    /// <see cref="Citation"/>, which the writer cites through, finds one. A carried line whose citation was followed by more
+    /// text, or ended by a lone CR, used to go uncounted here: the load called the form saveable, and the save then refused
+    /// it or wrote a citation the reload counted (#4096). A citation with no opening quote, which the writer leaves as it is,
+    /// still counts when it ends its line, so the count stays the larger of the two.
+    /// </remarks>
     public static IEnumerable<int> CitedOffsets(string citingSource)
     {
-        foreach (var line in citingSource.Split('\n'))
+        foreach (var line in SourceLines.Split(citingSource))
         {
             if (!IsFrxReference(line)) continue;
+            if (Citation(line) is { } citation)
+            {
+                yield return citation.Offset;
+                continue;
+            }
             var colon = line.LastIndexOf(':');
             if (colon < 0) continue;
             var hex = line[(colon + 1)..].Trim();

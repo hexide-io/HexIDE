@@ -82,6 +82,24 @@ public class ShippedPackParityTests
     }
 
     [Fact]
+    public void Upstream_statements_keep_HexIDEs_name_in_every_shipped_pack()
+    {
+        var canonical = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), "en.json")),
+            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        var keys = BrandText.UpstreamKeys;
+        var localization = new LocalizationService();
+        foreach (var language in LanguageManifest.Packs)
+        foreach (var key in keys.Where(key => canonical[key].Contains("HexIDE", StringComparison.Ordinal)))
+        {
+            var text = localization.GetStringFrom(language.Id, key);
+            text.Should().Contain("HexIDE", $"{language.Id}: {key}");
+            var strings = new Dictionary<string, string> { [key] = text };
+            BrandText.Apply(strings, "Acme");
+            strings[key].Should().Be(text, $"{language.Id}: {key}");
+        }
+    }
+
+    [Fact]
     public void NoPackHasKeysAbsentFromCanonicalEnglish()
     {
         var packs = PacksDirectory();
@@ -323,6 +341,7 @@ public class ShippedPackParityTests
             var translated = bulgarian.Strings[key];
             translated.Should().NotBeNullOrWhiteSpace(key);
             translated.Replace("VB6_EXE", "").Replace("VB_Name", "").Replace("HEXIDE_AI_API_KEY", "")
+                .Replace("HEXIDE_PLATFORM", "")
                 .Should().NotContain("_", key);
             System.Text.RegularExpressions.Regex.Matches(translated, @"\{\d+[^}]*\}")
                 .Select(m => m.Value).Should().BeEquivalentTo(
@@ -500,6 +519,7 @@ public class ShippedPackParityTests
         galician.Strings!.Where(pair => pair.Value == canonical.Strings![pair.Key])
             .Select(pair => pair.Key).Should().BeEquivalentTo(new[]
             {
+                "Str.Options.Keymap.Break", // The keyboard key label.
                 "Str.Tool.FindReferences.Error",
                 "Str.Options.Addin.Status.Incompatible",
                 "Str.CodeEditor.ViewAs.Vb6", "Str.Tool.Locals.Ellipsis",

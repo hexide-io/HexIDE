@@ -569,15 +569,62 @@ menu events are implemented;
 #2334 adds the runtime ImageList binding slice: populated-list binding, index/key Image validation (including
 Buttons.Add), unbinding/reset and the bound-list Remove/Clear lock. HotImageList and DisabledImageList read
 the measured Nothing defaults; populated-list assignments now support the measured drawing probe. Empty-list binding raises 35613; replacing a bound list resets every Image
-to Integer 0 and recomputes geometry immediately, releasing the old list's shrink lock. Negative/empty/coerced
-selectors remain unfinished. Saved top-level bars now resolve their
+to Integer 0 and recomputes geometry immediately, releasing the old list's shrink lock. The [#4147 measurements](https://github.com/hexide-io/HexIDE/issues/4147) add numeric CInt/Empty selectors, case-sensitive keys and the measured selector errors. Boolean False selectors remain refused: #4147 measured True only. Saved top-level bars now resolve their
 named populated ImageList after controls are created, including when the list follows the bar in the file,
 retaining saved Integer selectors and preserving both files byte for byte. Missing, ambiguous and wrong-type
 saved references refuse rather than guess an unmeasured result. The later #2334 drawing measurement supplies
 16 px captioned buttons at 38 px high below or 22 px right, and 32 px captioned buttons at 54 px high below
 with a 39 px minimum width; caption widths retain #2373's rule. Other populated image geometries refuse
-pending measurements. Image painting now follows #2334’s recorded offsets and paint-time UseMaskColor; populated alternate lists supply disabled images and flat-only hot images by position, and missing alternate indexes draw nothing. Alternate-list clearing/empty binding and hot/disabled rendering without an alternate list remain unmeasured. No new VB6 measurements were made. Part C verifies the existing verbatim preservation path against the saved
+pending measurements. Image painting now follows #2334’s recorded offsets and paint-time UseMaskColor; populated alternate lists supply disabled images and flat-only hot images by position, and missing alternate indexes draw nothing. [#4147](https://github.com/hexide-io/HexIDE/issues/4147) adds alternate-list clearing, shorter populated lists and the measured assignment errors (13 for Strings, 380 for empty lists, 35610 for PictureBox). HexIDE deliberately preserves the previous list after refusing PictureBox, rather than reproducing VB6’s clear-on-error side effect: under the Fidelity Principle a refused assignment should leave its target intact. Other alternate geometries and hot/disabled rendering without an alternate list remain unmeasured. No new VB6 measurements were made. Part C verifies the existing verbatim preservation path against the saved
 Toolbar form and ImageList companion byte for byte, both unchanged and after a form-caption edit, and through a
 second save. This preserves `ToolTips`, BorderStyle after `_Version`, HIMETRIC button dimensions, twips placeholder
 widths and the nested ButtonMenus without modelling or rewriting them. The runtime loading slice does not yet
 enable editing/rewriting Toolbar property bags in the designer. No new VB6 measurements were made for these portions.
+
+### A button's Image from other types, keys by case, and the Hot and Disabled lists (2026-11-16, #4147)
+
+vb6.exe SP6, `/make`, native and p-code agreeing in every row. **The setup:** a form with an MSCOMCTL `Toolbar1` and four ImageLists, and a 16-pixel PictureBox to paint squares into them at run time.
+- `ImageList1` holds 3 images, keys `Img1` to `Img3`, and is bound as `Toolbar1.ImageList`. One button was added with Image 1.
+- `ImageList2` holds 3 images, `ImageList3` holds 1, and `ImageList4` is empty.
+
+Each row set `Buttons(1).Image` to 1 first, then to the value under `On Error Resume Next`, and read it back.
+
+#### A button's Image
+
+| Set to | Error | Image afterwards |
+|---|---|---|
+| `2#`, `CSng(2)`, `CByte(2)`, `CCur(2)`, `CDec(2)` | | Integer 2 |
+| `1.6#` | | Integer 2 |
+| `2.5#` | | Integer **2**: half to even, as CInt |
+| `3E0` | | Integer 3 |
+| `0` | | Integer 0 |
+| `Empty` | | Integer 0 |
+| `True` (-1), `-1` | 35600 | Integer 1, unchanged |
+| `4`, past the 3 images | 35600 | Integer 1 |
+| `Null` | 35603 | Integer 1 |
+| `""` | 35603 | Integer 1 |
+| `"Img2"` | | String `Img2` |
+| `"IMG2"`, `"img2"` | **35601** | Integer 1: **keys are case-sensitive** |
+| `"Nope"` | 35601 | Integer 1 |
+| `"2"` | 35601 | Integer 1: a String is always a key, never an index |
+
+`Buttons.Add`'s Image argument follows the same rules: `2#` gives Integer 2, `"IMG3"` is 35601, `-1` is 35600 and `""` is 35603.
+
+#### HotImageList and DisabledImageList
+
+Each step follows the one before it, with Hot and Disabled behaving alike:
+
+| Step | Error | The list afterwards |
+|---|---|---|
+| `Set … = ImageList2` (Hot) or `ImageList3` (Disabled, 1 image against the bound list's 3) | | that list |
+| `… = "x"` | 13 | unchanged |
+| `Set … = ImageList4`, empty | **380** | unchanged |
+| `Set … = Picture1`, a PictureBox | **35610** | **Nothing**: the failed assignment clears it |
+| `Set … = Nothing` | | Nothing |
+
+- **A list with fewer images than the bound ImageList is accepted** (`ImageList3`, 1 against 3).
+- **An empty list raises 380 here.** That differs from the bound ImageList, where #2334 measured 35613.
+- **A PictureBox raises 35610 and clears the list.** That's an error that also changes state.
+- **The button's Image is untouched** by any of these.
+- **What resisted a rule:** none. The one surprise is the PictureBox row, which both raises and clears.
+- **Not measured:** how a Hot or Disabled list with fewer images draws a button whose image it lacks.

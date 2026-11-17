@@ -10,7 +10,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <!--If you are willing to use Windows/MacOS native APIs you will need to create 3 projects.
-    One for Windows with net10.0-windows TFM, one for MacOS with net10.0-macos and one with net10.0 TFM for Linux.-->
+    One for Windows with net11.0-windows TFM, one for MacOS with net11.0-macos and one with net11.0 TFM for Linux.-->
     <TargetFrameworks>$(DotNetVersionDesktop)</TargetFrameworks>
     <Nullable>enable</Nullable>
         <!-- LibraryImport-generated marshalling only; NativeInteropTests guards handwritten code. -->
@@ -109,7 +109,7 @@
   <!-- Forward slashes throughout: they are valid path separators on Windows and Linux alike, whereas a
        literal '\' is an ordinary filename char on Linux (breaks the CI Desktop build on ubuntu). -->
   <PropertyGroup>
-    <AddinPacker>$(MSBuildProjectDirectory)/../HexIDE.AddinPacker/bin/$(Configuration)/net10.0/$(RidSuffix)HexIDE.AddinPacker.dll</AddinPacker>
+    <AddinPacker>$(MSBuildProjectDirectory)/../HexIDE.AddinPacker/bin/$(Configuration)/net11.0/$(RidSuffix)HexIDE.AddinPacker.dll</AddinPacker>
     <AddinTrustDir>$(MSBuildProjectDirectory)/../HexIDE.AddinPacker/firstparty</AddinTrustDir>
   </PropertyGroup>
 
@@ -124,11 +124,11 @@
        no bundled first-party add-ins. A release build supplies the key (locally in firstparty/, or in CI
        from a secret written into the trust dir before Build), so the add-ins are signed and bundled. -->
   <Target Name="PackAIChatAddin" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and Exists('$(AddinTrustDir)/firstparty.key')">
-    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.AIChat/bin/$(Configuration)/net10.0&quot; --out &quot;$(OutDir)addins/com.hexide.aichat&quot; --id com.hexide.aichat --title &quot;AI Chat&quot; --description &quot;AI-powered VB6 coding assistant&quot; --version 1.0.0 --author HexIDE --capability project.read --capability project.write --capability program.run --capability ui.contribute --entry HexIDE.AIChat.dll --trust &quot;$(AddinTrustDir)&quot;" />
+    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.AIChat/bin/$(Configuration)/net11.0&quot; --out &quot;$(OutDir)addins/com.hexide.aichat&quot; --id com.hexide.aichat --title &quot;AI Chat&quot; --description &quot;AI-powered VB6 coding assistant&quot; --version 1.0.0 --author HexIDE --capability project.read --capability project.write --capability program.run --capability ui.contribute --entry HexIDE.AIChat.dll --trust &quot;$(AddinTrustDir)&quot;" />
   </Target>
 
   <Target Name="PackTestAddin" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and '$(Configuration)' == 'Debug' and Exists('$(AddinTrustDir)/firstparty.key')">
-    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.TestAddin/bin/$(Configuration)/net10.0&quot; --out &quot;$(OutDir)addins/com.hexide.testaddin&quot; --id com.hexide.testaddin --title TestAddin --description &quot;Phase 4 verification add-in&quot; --version 4.0.0 --author HexIDE --capability project.read --capability ui.contribute --entry HexIDE.TestAddin.dll --logo logo.png --trust &quot;$(AddinTrustDir)&quot;" />
+    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.TestAddin/bin/$(Configuration)/net11.0&quot; --out &quot;$(OutDir)addins/com.hexide.testaddin&quot; --id com.hexide.testaddin --title TestAddin --description &quot;Phase 4 verification add-in&quot; --version 4.0.0 --author HexIDE --capability project.read --capability ui.contribute --entry HexIDE.TestAddin.dll --logo logo.png --trust &quot;$(AddinTrustDir)&quot;" />
   </Target>
 
   <!-- Visibility when the key is absent: make the skip explicit rather than silent. -->

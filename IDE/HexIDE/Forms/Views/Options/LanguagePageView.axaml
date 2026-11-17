@@ -17,6 +17,13 @@
                       ItemsSource="{CompiledBinding AvailableLanguages}"
                       SelectedItem="{CompiledBinding SelectedLanguage}"
                       HorizontalAlignment="Left" Width="200">
+                <ComboBox.Styles>
+                    <Style Selector="ComboBoxItem" x:DataType="loc:LanguageInfo">
+                        <!-- The text the row shows: "System default" is translated, every other row is DisplayName. -->
+                        <Setter Property="AutomationProperties.Name"
+                                Value="{CompiledBinding ., Converter={x:Static converters:ShownItemNameConverter.Instance}}" />
+                    </Style>
+                </ComboBox.Styles>
                 <ComboBox.ItemTemplate>
                     <DataTemplate x:DataType="loc:LanguageInfo">
                         <!-- "system" is the one row whose name is itself translated, so it follows the language switch.
@@ -40,6 +47,11 @@
                       SelectedItem="{CompiledBinding SelectedRegion}"
                       IsEnabled="{CompiledBinding IsRegionEnabled}"
                       HorizontalAlignment="Left" Width="200">
+                <ComboBox.Styles>
+                    <Style Selector="ComboBoxItem" x:DataType="loc:RegionInfo">
+                        <Setter Property="AutomationProperties.Name" Value="{CompiledBinding DisplayName}" />
+                    </Style>
+                </ComboBox.Styles>
                 <ComboBox.ItemTemplate>
                     <DataTemplate x:DataType="loc:RegionInfo">
                         <TextBlock Text="{CompiledBinding DisplayName}" />

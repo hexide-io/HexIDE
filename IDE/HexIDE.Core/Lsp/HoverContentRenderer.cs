@@ -7,7 +7,8 @@ public static class HoverContentRenderer
 {
     public static IReadOnlyList<string> Formats { get; } = Array.AsReadOnly(new[] { "markdown", "plaintext" });
 
-    public sealed record Block(string Text, string? Language = null, string? ListMarker = null);
+    public sealed record Block(string Text, string? Language = null, string? ListMarker = null,
+        bool IsHeading = false, bool IsThematicBreak = false);
 
     public static IEnumerable<Block> Render(MarkupContent content)
     {
@@ -25,7 +26,9 @@ public static class HoverContentRenderer
             var fence = trimmed.StartsWith("```") ? '`' : trimmed.StartsWith("~~~") ? '~' : '\0';
             var fenceLength = fence == '\0' ? 0 : trimmed.TakeWhile(c => c == fence).Count();
             var list = System.Text.RegularExpressions.Regex.Match(line, @"^\s*([-+*]|\d+\.)\s+(.*)$");
-            if (fenceLength >= 3 || list.Success || string.IsNullOrWhiteSpace(line))
+            var heading = System.Text.RegularExpressions.Regex.Match(line, @"^\s*#{1,6}(?:[ \t]+(.*)|$)");
+            var thematicBreak = System.Text.RegularExpressions.Regex.IsMatch(line, @"^ *(?:-(?: *-){2,}|\*(?: *\*){2,}|_(?: *_){2,}) *$");
+            if (fenceLength >= 3 || heading.Success || thematicBreak || list.Success || string.IsNullOrWhiteSpace(line))
             {
                 if (paragraph.Count > 0)
                 {
@@ -44,6 +47,10 @@ public static class HoverContentRenderer
                     }
                     yield return new(string.Join("\n", code), language);
                 }
+                else if (heading.Success)
+                    yield return new(System.Text.RegularExpressions.Regex.Replace(heading.Groups[1].Value, @"[ \t]+#+[ \t]*$", "").Trim(), IsHeading: true);
+                else if (thematicBreak)
+                    yield return new("", IsThematicBreak: true);
                 else if (list.Success)
                     yield return new(list.Groups[2].Value, ListMarker: list.Groups[1].Value);
             }

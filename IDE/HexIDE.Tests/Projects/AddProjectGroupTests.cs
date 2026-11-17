@@ -19,6 +19,7 @@ public sealed class AddProjectGroupTests : IDisposable
     private readonly ProjectService service;
     private readonly ProjectToolViewModel explorer;
     private readonly ContributedProjects types = new();
+    private readonly ILocalizationService strings = Substitute.For<ILocalizationService>();
     private readonly IWindowManager windows = Substitute.For<IWindowManager>();
 
     public AddProjectGroupTests()
@@ -27,9 +28,11 @@ public sealed class AddProjectGroupTests : IDisposable
         var events = Substitute.For<IEventBus>();
         var editors = Substitute.For<IEditorService>();
         manager = new ProjectManager(editors, events, () => lsp);
-        var strings = Substitute.For<ILocalizationService>();
+        strings.GetString("Str.Dialog.ProjectGroup.OtherKindRefused").Returns("{0} refuses {1}");
         strings.GetString("Str.Tool.Project.TitleProject").Returns("Project - {0}");
         strings.GetString("Str.Tool.Project.TitleGroup").Returns("Project Group - {0}");
+        // VB6's files are read by VB6's type, which the composition registers first (#3411 slice 10b).
+        Vb6ProjectType.Register(types, new Vb6ProjectFileFormat());
         service = new ProjectService(new Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(),
             windows, events, manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
@@ -42,6 +45,31 @@ public sealed class AddProjectGroupTests : IDisposable
         var path = Path.Join(directory, name + ".vbp");
         File.WriteAllText(path, $"Type=Exe\r\nName=\"{name}\"\r\n");
         return path;
+    }
+
+    [AvaloniaFact]
+    public async Task Startup_group_open_keeps_its_name_order_startup_and_saved_path()
+    {
+        WriteProject("First");
+        WriteProject("Second");
+        var path = Path.Join(directory, "Launch.vbg");
+        var bytes = System.Text.Encoding.ASCII.GetBytes("VBGROUP 5.0\r\nProject=First.vbp\r\nStartupProject=Second.vbp\r\n");
+        File.WriteAllBytes(path, bytes);
+        var startup = new HexIDE.Desktop.StartupProjectOpen();
+        var window = new Avalonia.Controls.Window();
+        startup.Attach(window, types, () => Task.CompletedTask);
+        try
+        {
+            await startup.Open(service, path);
+            manager.CurrentGroup!.Name.Should().Be("Launch");
+            manager.CurrentGroup.AbsolutePath.Should().Be(path);
+            manager.LoadedProjects.Select(p => p.Name).Should().Equal("First", "Second");
+            manager.StartupProject!.Name.Should().Be("Second");
+            explorer.Title.Should().Be("Project Group - Launch");
+            await service.SaveAllProjects(saveAs: false);
+            File.ReadAllBytes(path).Should().Equal(bytes);
+        }
+        finally { window.Close(); }
     }
 
     [Theory]
@@ -212,6 +240,150 @@ public sealed class AddProjectGroupTests : IDisposable
         calls.Should().Be(1);
         manager.StartupProject.Should().NotBeSameAs(project);
         manager.StartupProject.Should().BeSameAs(manager.LoadedProjects.First());
+    }
+
+    [AvaloniaFact]
+    public async Task Standalone_contributed_project_saves_its_module_without_a_group_or_project_writer()
+    {
+        var code = Path.Join(directory, "Code.bas");
+        File.WriteAllText(code, "Attribute VB_Name = \"Code\"\r\nSub Main()\r\nEnd Sub\r\n");
+        var path = Path.Join(directory, "Other.rdproj");
+        File.WriteAllText(path, "other project");
+        using var registration = types.Register(new AddinProjectType("Other projects")
+        {
+            FileNames = ["*.rdproj"],
+            OpenAsync = (_, _, _) => Task.FromResult(new AddinProjectContent("Other")
+            {
+                Members = [new(code, AddinMemberKind.StandardModule)]
+            }),
+        }, new AddinOrigin("provider", "A provider"));
+        await service.OpenProject(path);
+        var project = manager.LoadedProjects.Single();
+        project.Modules.Single().UpdateCode("Sub Main()\r\nDebug.Print 4051\r\nEnd Sub\r\n");
+        var modified = File.GetLastWriteTimeUtc(path);
+
+        await service.SaveProject(project, saveAs: false);
+
+        File.ReadAllText(code).Should().Contain("Debug.Print 4051");
+        File.ReadAllText(path).Should().Be("other project");
+        File.GetLastWriteTimeUtc(path).Should().Be(modified);
+        Directory.GetFiles(directory, "*.vbg").Should().BeEmpty();
+        manager.LoadedProjects.Any(p => p.Offers.MovesProjectFile).Should().BeFalse();
+        windows.ReceivedCalls().Should().NotContain(call => call.GetMethodInfo().Name == nameof(IWindowManager.MessageBox));
+        await windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>());
+    }
+
+    // Non-.vbp lines become code modules in VB6, not projects (oracle PR #4308).
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Mixed_group_refuses_before_writing_any_file(bool existingGroup)
+    {
+        var first = WriteProject("First");
+        var groupPath = Path.Join(directory, "Outer.vbg");
+        if (existingGroup)
+        {
+            File.WriteAllText(groupPath, "VBGROUP 5.0\r\nStartupProject=First.vbp\r\n");
+            await service.OpenProject(groupPath);
+        }
+        else
+            await service.OpenProject(first);
+        using var registration = types.Register(new AddinProjectType("Other projects")
+        {
+            FileNames = ["*.rdproj"],
+            OpenAsync = (_, _, _) => Task.FromResult(new AddinProjectContent("Other")),
+        }, new AddinOrigin("provider", "A provider"));
+        var other = Path.Join(directory, "Other.rdproj");
+        File.WriteAllText(other, "other project");
+        await service.OpenProject(other);
+        var group = manager.CurrentGroup!;
+        var order = manager.LoadedProjects.ToArray();
+        var startup = manager.StartupProject;
+        var before = Directory.GetFiles(directory).ToDictionary(path => path,
+            path => (Bytes: File.ReadAllBytes(path), Modified: File.GetLastWriteTimeUtc(path)));
+        windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
+            .Returns(Task.FromResult<string?>(groupPath));
+
+        var save = () => service.SaveAllProjects(saveAs: false);
+        var refusal = (await save.Should().ThrowAsync<ProjectGroupKindRefusal>()).Which;
+
+        refusal.Group.Should().Be(group.Name);
+        refusal.Members.Should().Equal("Other (Other.rdproj)");
+        refusal.Message.Should().Contain("VB6 would open").And.Contain("as code modules");
+        foreach (var (path, snapshot) in before)
+        {
+            File.ReadAllBytes(path).Should().Equal(snapshot.Bytes);
+            File.GetLastWriteTimeUtc(path).Should().Be(snapshot.Modified);
+        }
+        File.Exists(groupPath).Should().Be(existingGroup);
+        manager.CurrentGroup.Should().BeSameAs(group);
+        manager.LoadedProjects.Should().Equal(order);
+        manager.StartupProject.Should().BeSameAs(startup);
+        group.AbsolutePath.Should().Be(existingGroup ? groupPath : null);
+        await windows.Received().MessageBox($"{group.Name} refuses Other (Other.rdproj)",
+            Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+    }
+
+    [AvaloniaFact]
+    public async Task Vbp_only_group_saves_byte_identically()
+    {
+        WriteProject("First");
+        WriteProject("Second");
+        var path = Path.Join(directory, "Outer.vbg");
+        var bytes = System.Text.Encoding.ASCII.GetBytes("VBGROUP 5.0\r\nProject=First.vbp\r\nStartupProject=Second.vbp\r\n");
+        File.WriteAllBytes(path, bytes);
+        await service.OpenProject(path);
+
+        await service.SaveAllProjects(saveAs: false);
+
+        File.ReadAllBytes(path).Should().Equal(bytes);
+        manager.CurrentGroup!.Name.Should().Be("Outer");
+        manager.CurrentGroup.AbsolutePath.Should().Be(path);
+        manager.LoadedProjects.Select(project => project.Name).Should().Equal("First", "Second");
+        manager.StartupProject!.Name.Should().Be("Second");
+    }
+
+    [AvaloniaFact]
+    public async Task Save_Project_As_checks_the_destination_and_uses_the_pseudo_pack()
+    {
+        WriteProject("First");
+        WriteProject("Second");
+        var path = Path.Join(directory, "Outer.vbg");
+        File.WriteAllText(path, "VBGROUP 5.0\r\nProject=First.vbp\r\nStartupProject=Second.vbp\r\n");
+        await service.OpenProject(path);
+        var project = manager.LoadedProjects.First();
+        var oldPath = project.AbsolutePath;
+        var group = manager.CurrentGroup;
+        var before = Directory.GetFiles(directory).ToDictionary(p => p,
+            p => (Bytes: File.ReadAllBytes(p), Modified: File.GetLastWriteTimeUtc(p)));
+        var destination = Path.Join(directory, "Renamed.rdproj");
+        windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
+            .Returns(Task.FromResult<string?>(destination));
+        var localization = new LocalizationService();
+        localization.Apply("pseudo");
+        try
+        {
+            var template = localization.GetString("Str.Dialog.ProjectGroup.OtherKindRefused");
+            template.Should().StartWith("⟦");
+            strings.GetString("Str.Dialog.ProjectGroup.OtherKindRefused").Returns(template);
+
+            var save = () => service.SaveProject(project, saveAs: true);
+            (await save.Should().ThrowAsync<ProjectGroupKindRefusal>()).Which.Members.Should().Equal("First (Renamed.rdproj)");
+
+            await windows.Received().MessageBox(string.Format(template, "Outer", "First (Renamed.rdproj)"),
+                Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+            File.Exists(destination).Should().BeFalse();
+            foreach (var (file, snapshot) in before)
+            {
+                File.ReadAllBytes(file).Should().Equal(snapshot.Bytes);
+                File.GetLastWriteTimeUtc(file).Should().Be(snapshot.Modified);
+            }
+            project.AbsolutePath.Should().Be(oldPath);
+            manager.CurrentGroup.Should().BeSameAs(group);
+            manager.LoadedProjects.Select(p => p.Name).Should().Equal("First", "Second");
+            manager.StartupProject!.Name.Should().Be("Second");
+        }
+        finally { localization.Apply("en"); }
     }
 
     public void Dispose() => Directory.Delete(directory, recursive: true);

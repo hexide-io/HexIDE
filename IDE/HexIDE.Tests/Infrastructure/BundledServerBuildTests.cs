@@ -24,14 +24,14 @@ public class BundledServerBuildTests
             Directory.CreateDirectory(client);
             File.WriteAllText(Path.Combine(server, "HexIDE.VbLspServer.csproj"), """
                 <Project Sdk="Microsoft.NET.Sdk">
-                  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+                  <PropertyGroup><TargetFramework>net11.0</TargetFramework></PropertyGroup>
                   <Target Name="WriteDependency" AfterTargets="Build">
                     <WriteLinesToFile File="$(TargetDir)LanguageServer.Framework.dll" Lines="from referenced server" Overwrite="true" />
                   </Target>
                 </Project>
                 """);
             var project = new XElement("Project", new XAttribute("Sdk", "Microsoft.NET.Sdk"),
-                new XElement("PropertyGroup", new XElement("TargetFramework", "net10.0")),
+                new XElement("PropertyGroup", new XElement("TargetFramework", "net11.0")),
                 new XElement("ItemGroup", new XElement("ProjectReference",
                     new XAttribute("Include", "../../LspServer/HexIDE.VbLspServer/HexIDE.VbLspServer.csproj"),
                     new XAttribute("ReferenceOutputAssembly", "false"),
@@ -65,7 +65,7 @@ public class BundledServerBuildTests
             process.ExitCode.Should().Be(0, (await output) + (await error));
             var buildOutput = artifactsLayout
                 ? Path.Combine(root, "outputs", "bin", "Desktop", "release")
-                : Path.Combine(client, "bin", "Release", "net10.0");
+                : Path.Combine(client, "bin", "Release", "net11.0");
             foreach (var folder in new[] { buildOutput, Path.Combine(root, "published") })
                 File.ReadAllText(Path.Combine(folder, "LanguageServer.Framework.dll")).Trim()
                     .Should().Be("from referenced server");

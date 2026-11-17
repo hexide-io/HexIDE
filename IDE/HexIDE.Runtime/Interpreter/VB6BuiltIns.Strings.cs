@@ -59,6 +59,12 @@ public partial class VB6BuiltIns
             return Vb6Value.Null;
         // 2 is refused even for empty strings; other modes need two non-empty strings (#881).
         if (compare == 2) throw InvalidCall();
+        if (first.Length > 0 && second.Length > 0 && compare >= 3)
+        {
+            if (!OperatingSystem.IsWindows())
+                throw new NotImplementedException("StrComp with a locale ID requires Windows collation (#4151).");
+            return new Vb6Value(WindowsLocaleCompare.Compare(first, second, compare));
+        }
         var text = first.Length > 0 && second.Length > 0 && IsTextCompare(compare);
         return new Vb6Value(text ? VbTextCompare.Compare(first, second) : Math.Sign(string.CompareOrdinal(first, second)));
     }
@@ -294,6 +300,18 @@ public partial class VB6BuiltIns
         // An empty string1 holds nothing, and an empty string2 is found at start, however far past the end (measured, #1567).
         if (s1.Length == 0) return new Vb6Value(0L);
         if (s2.Length == 0) return new Vb6Value((long)start);
+        // #4151: only the measured locale columns; no inferred rule for their expansions.
+        if (compare >= 3)
+        {
+            if (compare is 3000 or 4095 or 32767 or 65536 or 65535 or 999999)
+                throw InvalidCall();
+            if (compare is not (3 or 1027 or 4 or 2052 or 5 or 1029 or 7 or 1031 or 9 or 1033 or 2057 or 100 or 1024 or 2048))
+                throw new NotImplementedException($"InStr with locale ID {compare} has not been measured (#4151).");
+            var search = new VbTextCompare.Searchable(s1,
+                expandSharpS: compare is 1029 or 1031 or 1033 or 2057,
+                expandLigature: compare is 1031 or 1033 or 2057);
+            return new Vb6Value(start > s1.Length ? 0L : (long)search.IndexOf(s2, start - 1, false, out _) + 1);
+        }
         var text = IsTextCompare(compare);
         if (start > s1.Length) return new Vb6Value(0L);
         // As text a match may start or end inside an expansion: "s" is in "ß" (measured, #1567).
