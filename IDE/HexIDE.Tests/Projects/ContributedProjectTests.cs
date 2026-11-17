@@ -57,7 +57,7 @@ public sealed class ContributedProjectTests : IDisposable
         {
             "Str.Project.AlreadyOpen" => "Projet {0} déjà ouvert.",
             "Str.ContributedProject.OpenError" => "Could not open {0} with {1}: {2}",
-            "Str.ContributedProject.NoReader" => "Str.ContributedProject.NoReader {0}",
+            "Str.ContributedProject.NoLoadedReader" => "Str.ContributedProject.NoLoadedReader {0}",
             var key => key + " {0} {1}",
         });
         var dock = Substitute.For<IDocumentDockService>();
@@ -181,7 +181,7 @@ public sealed class ContributedProjectTests : IDisposable
             consent.SetResult();
             await opening;
             _loaded.Should().BeEmpty();
-            await _windows.Received(1).MessageBox("Str.ContributedProject.NoReader .rdproj",
+            await _windows.Received(1).MessageBox("Str.ContributedProject.NoLoadedReader .rdproj",
                 Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information);
         }
         finally { consent.TrySetResult(); window.Close(); }
@@ -540,7 +540,7 @@ public sealed class ContributedProjectTests : IDisposable
         await _service.OpenProject(ProjectFile);
 
         _loaded.Should().BeEmpty();
-        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.NoReader")),
+        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.NoLoadedReader")),
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 
@@ -588,7 +588,7 @@ public sealed class ContributedProjectTests : IDisposable
 
         _loaded.Should().ContainSingle().Which.ContributedBy.Should().Be("rdcore",
             "a group names a project file as Open Project does, and is read the same way");
-        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.NoReader Other.xproj"),
+        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.NoLoadedReader Other.xproj"),
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 
