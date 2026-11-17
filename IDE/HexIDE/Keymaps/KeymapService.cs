@@ -18,6 +18,7 @@ public sealed class KeymapService : IKeymapService
 
     private readonly Dictionary<string, IReadOnlyList<KeyGesture>> _defaults;
     private readonly string _overridesPath;
+    private readonly bool _isWindows;
     private Dictionary<string, IReadOnlyList<KeyGesture>>? _activeBaseline;
 
     private readonly Dictionary<string, string> _packPaths = new(StringComparer.OrdinalIgnoreCase);
@@ -30,8 +31,11 @@ public sealed class KeymapService : IKeymapService
 
     public KeymapService() : this(HexIDE.IDE.UserDataPath.For("keymaps")) { }
 
-    internal KeymapService(string packDirectory)
+    internal KeymapService(string packDirectory) : this(packDirectory, OperatingSystem.IsWindows()) { }
+
+    internal KeymapService(string packDirectory, bool isWindows)
     {
+        _isWindows = isWindows;
         _overridesPath = Path.Combine(packDirectory, "overrides", "bindings.json");
         var names = new List<string> { "Default", "VB6" };
         try
@@ -59,7 +63,10 @@ public sealed class KeymapService : IKeymapService
         // Must happen before the first Apply(), guaranteed by DI construction order.
         _defaults = new Dictionary<string, IReadOnlyList<KeyGesture>>(CommandKeyMapping.Table.Count);
         foreach (var (name, cmd) in CommandKeyMapping.Table)
-            _defaults[name] = [..cmd.Gestures];
+            _defaults[name] = name == nameof(ApplicationCommands.BreakProjectCommand)
+                ? cmd.Gestures.Where(g => g.Key != Key.Cancel || !cmd.Gestures.Contains(
+                    new KeyGesture(Key.Pause, g.KeyModifiers))).ToArray()
+                : [..cmd.Gestures];
     }
 
     internal void Apply(ProfileSnapshot profile, SettingsService settings)
@@ -250,6 +257,16 @@ public sealed class KeymapService : IKeymapService
     }
 
     private void ApplyUserOverrides()
+    {
+        ApplyUserOverridesCore();
+        // Windows sends VK_CANCEL for Ctrl+Break; keep this derived alias out of the editable baseline.
+        var gestures = ApplicationCommands.BreakProjectCommand.Gestures;
+        var cancel = new KeyGesture(Key.Cancel, KeyModifiers.Control);
+        if (_isWindows && gestures.Contains(new KeyGesture(Key.Pause, KeyModifiers.Control)) && !gestures.Contains(cancel))
+            gestures.Add(cancel);
+    }
+
+    private void ApplyUserOverridesCore()
     {
         _activeBaseline = CommandKeyMapping.Table.ToDictionary(p => p.Key,
             p => (IReadOnlyList<KeyGesture>)p.Value.Gestures.ToArray());

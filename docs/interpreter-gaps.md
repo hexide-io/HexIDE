@@ -219,8 +219,9 @@ translation: raise VB6's error number at run time instead of before it.
   ([#3349's measurements](vb6-fidelity-oracle/a-public-array-in-an-object-module.md)). HexIDE raises the
   same message when allocating instance member storage, where the declared type is already resolved.
   An unused class or form is not checked: checking at load would bind the member to a Type before execution.
-- **`LSet` between UDTs containing strings, objects or Variants** — VB6 refuses at compile time. The
-  layout-compatibility judgement is static; `LSet` itself is a deferral.
+- **`LSet` between UDTs containing variable Strings, objects, Variants or dynamic arrays** — VB6 refuses
+  at compile time; HexIDE raises 13 when the statement executes ([#2518](https://github.com/hexide-io/HexIDE/issues/2518)).
+  Fixed Strings and plain-data UDTs copy their measured in-memory layout. An unused statement is not checked.
 - **Default members of third-party COM types** — see Platform limits; the marker lives in a type library, not
   in any source HexIDE parsed. (For a `.cls` HexIDE *did* parse, collecting it is permitted — #174. The pre-pass retains its name and kind, including a property
   marked in its Let or Set and a variable marked with VB_VarUserMemId; async value reads now execute it. See
@@ -274,7 +275,12 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   and UDT-to-Variant assignments remains a divergence from the compile refusals measured for #178.
 - **`LSet` / `RSet`** — named String variables and Variants holding a String or Integer justify their text
   since #2517. Other target types, unmeasured source conversions and
-  member/indexed targets remain refused. The UDT form waits on a shared byte-layout model, tracked with `Get`/`Put`.
+  member/indexed targets remain refused.
+  `LSet` between named plain-data UDT variables now copies the measured aligned layout, including fixed Strings,
+  fixed arrays and nested types ([#2518](https://github.com/hexide-io/HexIDE/issues/2518)). Noncanonical Boolean
+  bits remain explicitly not implemented; HexIDE stores Booleans as true/false. RSet between UDTs and
+  String/UDT cross-copies remain unmeasured and refused.
+
 - **Bang access** (`obj!key`) — **done for a Collection (#1471):** `c!key` is `c("key")`, `c![a key]` brackets a key
   with spaces, `!key` works inside `With c`, and `c!key = 1` is 424 (all measured). On any other object it is still
   refused, since it is a call of that object's default member with the key as a String, and only the Collection's is

@@ -151,6 +151,18 @@ Factory gestures are the baseline, so a missing or malformed file cannot leave t
 - **THEN** Components uses the platform command modifier plus T
 - **AND** Project → Components displays that gesture
 
+### Requirement: Windows Break accepts the keyboard Cancel key
+After applying factory, profile, pack and user bindings, Break SHALL also match Control+Cancel on
+Windows whenever its effective bindings include Control+Pause. The factory Pause binding SHALL remain
+unchanged on every platform. The derived Cancel alias SHALL NOT appear as a second binding in Options or persist in
+exported overrides; Options SHALL display the Pause key as Break. Rebinding or clearing Break SHALL
+remove the derived alias.
+
+#### Scenario: Breaking a running loop from the IDE
+- **WHEN** a program is running a DoEvents loop and Control+Cancel reaches the IDE on Windows
+- **THEN** the Break command requests a pause at the next statement gate
+- **AND** Control+Pause continues to request the same pause
+
 ### Requirement: A VB6 keymap SHALL be available
 A keymap reproducing VB6's shortcuts SHALL ship.
 

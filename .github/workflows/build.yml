@@ -499,7 +499,7 @@ jobs:
           EOF
           nohup bash "$RUNNER_TEMP/memory-watchdog.sh" "$PWD/TestResults/memory-watchdog.log" > /dev/null 2>&1 &
 
-      # The Integration step's --hangdump runs createdump, which has to take the test host's task port. On GitHub's
+      # The ViewModel and Integration steps' --hangdump runs createdump, which has to take the test host's task port. On GitHub's
       # macOS image that right (system.privilege.taskport) asks for the user's password. So when a test hung, createdump
       # raised a Developer Tools Access prompt that nobody could answer, and waited on it until the step's 30 minutes
       # ran out. No dump was written and nothing was killed (#3223). Developer mode, already on in the image, does not
@@ -517,8 +517,14 @@ jobs:
       # --long-running names any test still running after two minutes, so a hang says which test it is.
       # 45, not 30: on macOS this step took 21 to 28 minutes on main on 2026-11-11, and batch 305 timed out at 30
       # with no test failing. The cap is only a backstop for a hang, so headroom costs nothing on a good run.
+      # --hangdump and 50 minutes (#2128): on macOS the step took 29 to 33 minutes on 2026-11-16 and once reached 45 while
+      # its tests were still making progress. the test runner holds the host's output until the run ends, so that step
+      # kept nothing, not even --long-running's notices. On macOS the hang-dump timer counts the whole run (#3874), so at
+      # 40 minutes it ends a slow run as well as a hung one, with a _hang.log naming what was running. Elsewhere it fires
+      # only after 40 quiet minutes. The step's 50 minutes cover the build, the run, the timeout and the dump.
       - name: Run ViewModel Tests
-        timeout-minutes: 45
+        id: viewmodel
+        timeout-minutes: 50
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
           HEXIDE_FOREIGN_LSP_NO_PATH: '1'
@@ -527,6 +533,25 @@ jobs:
         run: >-
           dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
           --minimum-expected-tests ${{ env.MIN_TESTS_IDE }} --long-running 120
+          --results-directory TestResults --report-xunit --report-xunit-filename viewmodel-results.xml
+          --hangdump --hangdump-type Heap --hangdump-timeout 40m
+
+      - name: Name a slow or hung ViewModel test
+        if: ${{ failure() && steps.viewmodel.outcome == 'failure' }}
+        shell: bash
+        run: |
+          for log in HexIDE.Tests/TestResults/*_hang.log; do
+            [ -f "$log" ] || continue
+            cat "$log"
+            echo "::error title=ViewModel test still running at the hang dump::Running when the dump was taken: $(tr -s '[:space:]' ' ' < "$log")"
+          done
+
+      # The time each class took, on every run that finishes, so a slow run on one platform can be compared with the
+      # others and with earlier runs (#2128). It goes to the job summary as well as the log.
+      - name: Report the slowest ViewModel test classes
+        if: ${{ !cancelled() && steps.viewmodel.outcome != 'skipped' }}
+        shell: pwsh
+        run: ../scripts/slowest-tests.ps1 HexIDE.Tests/TestResults/viewmodel-results.xml
 
       - name: Report resolved foreign servers
         if: always()

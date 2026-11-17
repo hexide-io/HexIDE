@@ -929,6 +929,17 @@ public partial class ProjectService : IProjectService
         {
             return await operation();
         }
+        catch (ProjectGroupKindRefusal refusal)
+        {
+            Log.Warning("Cannot save group {Group}: VB6 would open {Members} as code modules", refusal.Group, refusal.Members);
+            refusing?.Invoke(refusal.Message, interactive);
+            if (interactive)
+                await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.Dialog.ProjectGroup.OtherKindRefused"),
+                        refusal.Group, string.Join(", ", refusal.Members)),
+                    HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+            throw;
+        }
         catch (SourceEncodingRefusal refusal)
         {
             Log.Warning("Cannot save {Document} in code page {CodePage}: it holds {CodePoint}",
@@ -1400,6 +1411,14 @@ public partial class ProjectService : IProjectService
         string? PathOf(object member) => going.GetValueOrDefault(member);
 
         foreach (var destination in destinations)
+            if (destination.Document is ProjectGroupDefinition group)
+                EnsureGroupKinds(group, PathOf);
+
+        foreach (var destination in destinations.Where(d => d.Chosen))
+            if (HolderOf(destination.Document) is ProjectGroupDefinition { AbsolutePath: { } } holder)
+                EnsureGroupKinds(holder, PathOf);
+
+        foreach (var destination in destinations)
         {
             var (document, text, encoding) = destination.Document switch
             {
@@ -1421,6 +1440,16 @@ public partial class ProjectService : IProjectService
                      .Distinct(ReferenceEqualityComparer.Instance))
             if (!going.ContainsKey(holder))
                 EnsureHolderEncodable(holder, PathOf);
+    }
+
+    private void EnsureGroupKinds(ProjectGroupDefinition group, Func<object, string?> pathOf)
+    {
+        var members = projectManager.LoadedProjects
+            .Select(project => (Project: project, Path: pathOf(project) ?? project.AbsolutePath))
+            .Where(member => member.Path is { } path && !path.EndsWith(".vbp", StringComparison.OrdinalIgnoreCase))
+            .Select(member => $"{member.Project.Name} ({SerializedProject.FileNameOf(member.Path!)})").ToList();
+        if (members.Count > 0)
+            throw new ProjectGroupKindRefusal(group.Name, members);
     }
 
     /// <summary>The project a form or module is in, or the open group for a project.</summary>
@@ -2817,6 +2846,7 @@ public partial class ProjectService : IProjectService
         }
     }
 
+    public bool HasUnsavedChanges(ProjectDefinition project) => IsDirty(project);
     public bool HasUnsavedChanges(FormDefinition form) => IsDirty(form);
     public bool HasUnsavedChanges(ModuleDefinition module) => IsDirty(module);
 

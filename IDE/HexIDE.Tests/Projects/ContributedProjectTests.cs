@@ -248,6 +248,10 @@ public sealed class ContributedProjectTests : IDisposable
         File.ReadAllText(Path.Join(_dir, "src", "Main.bas")).Should().Contain("Debug.Print 1");
         File.ReadAllText(ProjectFile).Should().Be(before, "the project file is its add-in's program's to write");
         File.Exists(Path.Join(_dir, ".vbp")).Should().BeFalse();
+        Directory.GetFiles(_dir, "*.vbg").Should().BeEmpty();
+        _loaded.Any(p => p.Offers.MovesProjectFile).Should().BeFalse("Save Project As is unavailable for an OpenAsync-only type");
+        await _windows.DidNotReceive().MessageBox(Arg.Is<string>(message => message.Contains("as code modules")),
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 
     [AvaloniaFact]
