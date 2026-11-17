@@ -1,4 +1,7 @@
+using System;
 using System.Linq;
+using System.Runtime.InteropServices;
+using HexIDE.Runtime.Interpreter;
 using System.IO;
 using Avalonia.Headless;
 using Avalonia.Threading;
@@ -27,6 +30,54 @@ public class SSTabDrawingTests : WindowTestFixture
 
     private static TextBlock[] Captions(VBSSTab tab) => tab.GetVisualDescendants().OfType<TextBlock>().ToArray();
     private static Border Header(TextBlock caption) => (Border)caption.Parent!;
+
+    // #3426: native-size picture to the left, centred together; no-picture tab stays unchanged.
+    [AvaloniaTheory]
+    [InlineData(1)]
+    [InlineData(1.5)]
+    public void PicturePixelsAreLeftOfCaptionAndOtherTabsAreUnchanged(double scaling)
+    {
+        var tab = new VBSSTab(new Canvas()) { TabHeight = 35 };
+        Arrange(tab);
+        var window = hostWindow!;
+        window.SetRenderScaling(scaling);
+        Dispatcher.UIThread.RunJobs();
+        using var before = window.CaptureRenderedFrame();
+        before.Should().NotBeNull();
+        tab.TabPicture(0, PanelPicture.FromFile(SSTabPictureTests.RedBitmap()));
+        Dispatcher.UIThread.RunJobs();
+        using var after = window.CaptureRenderedFrame();
+        after.Should().NotBeNull();
+        byte[] Pixels(Avalonia.Media.Imaging.Bitmap bitmap)
+        {
+            var bytes = new byte[bitmap.PixelSize.Width * bitmap.PixelSize.Height * 4];
+            var pin = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+            try { bitmap.CopyPixels(new PixelRect(bitmap.PixelSize), pin.AddrOfPinnedObject(), bytes.Length, bitmap.PixelSize.Width * 4); }
+            finally { pin.Free(); }
+            return bytes;
+        }
+        var oldPixels = Pixels(before!);
+        var pixels = Pixels(after!);
+        var caption = Captions(tab)[0];
+        var image = tab.GetVisualDescendants().OfType<Image>().Single();
+        image.Bounds.Size.Should().Be(new Size(16, 16));
+        image.TranslatePoint(new Point(16, 0), tab)!.Value.X.Should()
+            .BeLessThanOrEqualTo(caption.TranslatePoint(default, tab)!.Value.X);
+        var group = (StackPanel)image.Parent!;
+        var groupLeft = group.TranslatePoint(default, tab)!.Value.X;
+        (groupLeft + group.Bounds.Width / 2).Should().BeApproximately(60, 1);
+        var start = image.TranslatePoint(new Point(2, 2), tab)!.Value * scaling;
+        var offset = ((int)start.Y * after!.PixelSize.Width + (int)start.X) * 4;
+        // Either BGRA or RGBA: pure red has one full colour channel and no green.
+        pixels[offset + 1].Should().Be(0);
+        Math.Max(pixels[offset], pixels[offset + 2]).Should().Be(255);
+        for (var y = 0; y < after.PixelSize.Height; y++)
+        {
+            var rowStart = (y * after.PixelSize.Width + (int)(120 * scaling)) * 4;
+            var count = (after.PixelSize.Width - (int)(120 * scaling)) * 4;
+            pixels.AsSpan(rowStart, count).ToArray().Should().Equal(oldPixels.AsSpan(rowStart, count).ToArray());
+        }
+    }
 
     [AvaloniaTheory]
     [InlineData(false)]

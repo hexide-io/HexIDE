@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -248,53 +249,70 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
 
     private async Task ReadUpdatesAsync(DapSession current)
     {
-        await foreach (var update in current.Updates.ReadAllAsync())
+        while (await current.Updates.WaitToReadAsync())
         {
-            // Start Run To Cursor's clean-up ahead of this update's dispatch, so the temporary line leaves the set before
-            // anything reacts to the stop. Never wait for its round trip here: Updates is bounded, and a reader held up
-            // by an adapter's reply lets a chatty program overflow it, which faults the session.
-            if (update.Event?.Event is "stopped" or "terminated" ||
-                update.Snapshot.State is DapSessionState.Ended or DapSessionState.Faulted)
-            {
-                var restore = update.Event?.Event == "stopped";
-                await Dispatcher.UIThread.InvokeAsync(() => { _ = RemoveCursorBreakpointAsync(current, restore); });
-            }
+            var batch = new List<DapSessionUpdate>();
+            while (current.Updates.TryRead(out var update)) batch.Add(update);
+            // Start Run To Cursor's clean-up ahead of the stop's dispatch. Never await its DAP reply:
+            // backpressure can hold that reply behind the events this reader must continue draining.
+            foreach (var update in batch)
+                if (update.Event?.Event is "stopped" or "terminated" ||
+                    update.Snapshot.State is DapSessionState.Ended or DapSessionState.Faulted)
+                {
+                    var restore = update.Event?.Event == "stopped";
+                    await Dispatcher.UIThread.InvokeAsync(() => { _ = RemoveCursorBreakpointAsync(current, restore); });
+                }
             // Capture only immutable protocol data across this dispatch.
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (session != current) return;
-                var selectedId = update.Event?.Event == "invalidated"
-                    ? SelectedFrame?.GetProperty("id").GetInt32() : null;
-                State = update.Snapshot.State;
-                var refusedResume = resumePending && State == DapSessionState.Stopped && update.Event is null;
-                if (update.Snapshot.ResumePending)
+                var text = new StringBuilder();
+                var hasOutput = false;
+                for (var index = 0; index < batch.Count; index++)
                 {
-                    // Keep completed inspection visible until execution is confirmed; pending replies are stale.
-                    if (!resumePending) { ++inspectionVersion; ++selectionVersion; }
-                }
-                else
-                {
-                    if (Stop != update.Snapshot.Stop && !refusedResume) ClearInspection();
-                    Stop = update.Snapshot.Stop;
-                }
-                resumePending = update.Snapshot.ResumePending;
-                if (Stop?.ThreadId is { } thread) ThreadId = thread;
-                if (update.Event?.Event == "output" && update.Event.Body is { } body && body.TryGetProperty("output", out var output))
-                    Output?.Invoke(output.GetString() ?? "");
-                if (update.Event?.Event == "breakpoint" && update.Event.Body is { } breakpointEvent)
-                    ApplyBreakpointEvent(breakpointEvent);
-                if (Stop is null) ClearInspection();
-                UpdateConnection();
-                Changed?.Invoke();
-                if (Stop is { } stop)
-                {
-                    if (update.Event?.Event is "stopped" or "invalidated" || refusedResume && Frames.Count == 0)
-                        _ = InspectAsync(current, stop, selectedId);
-                    else if (refusedResume && Variables.Count == 0 && SelectedFrame is { } frame)
-                        _ = RefreshSelectedFrameAsync(current, stop, frame.GetProperty("id").GetInt32());
+                    var update = batch[index];
+                    var selectedId = update.Event?.Event == "invalidated"
+                        ? SelectedFrame?.GetProperty("id").GetInt32() : null;
+                    State = update.Snapshot.State;
+                    var refusedResume = resumePending && State == DapSessionState.Stopped && update.Event is null;
+                    if (update.Snapshot.ResumePending)
+                    {
+                        // Keep completed inspection visible until execution is confirmed; pending replies are stale.
+                        if (!resumePending) { ++inspectionVersion; ++selectionVersion; }
+                    }
+                    else
+                    {
+                        if (Stop != update.Snapshot.Stop && !refusedResume) ClearInspection();
+                        Stop = update.Snapshot.Stop;
+                    }
+                    resumePending = update.Snapshot.ResumePending;
+                    if (Stop?.ThreadId is { } thread) ThreadId = thread;
+                    if (update.Event?.Event == "output" && update.Event.Body is { } body && body.TryGetProperty("output", out var output))
+                    {
+                        text.Append(output.GetString() ?? "");
+                        hasOutput = true;
+                    }
+                    if (hasOutput && (index + 1 == batch.Count || batch[index + 1].Event?.Event != "output"))
+                    {
+                        Output?.Invoke(text.ToString());
+                        text.Clear();
+                        hasOutput = false;
+                    }
+                    if (update.Event?.Event == "breakpoint" && update.Event.Body is { } breakpointEvent)
+                        ApplyBreakpointEvent(breakpointEvent);
+                    if (Stop is null) ClearInspection();
+                    UpdateConnection();
+                    Changed?.Invoke();
+                    if (Stop is { } stop)
+                    {
+                        if (update.Event?.Event is "stopped" or "invalidated" || refusedResume && Frames.Count == 0)
+                            _ = InspectAsync(current, stop, selectedId);
+                        else if (refusedResume && Variables.Count == 0 && SelectedFrame is { } frame)
+                            _ = RefreshSelectedFrameAsync(current, stop, frame.GetProperty("id").GetInt32());
+                    }
+                    if (update.Event?.Event == "terminated") _ = StopAsync();
                 }
             });
-            if (update.Event?.Event == "terminated") await StopAsync();
         }
     }
 

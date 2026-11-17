@@ -31,7 +31,6 @@ public partial class ObjectBrowserToolViewModel : Document
     private readonly ILspClient lspClient;
     private readonly IEditorService editorService;
     private readonly ITypeLibraryService typeLibraryService;
-    private readonly IFocusedProjectUtil focusedProjectUtil;
     private readonly ILanguageConnectionRegistry connections;
     private readonly ILocalizationService localization;
 
@@ -123,7 +122,6 @@ public partial class ObjectBrowserToolViewModel : Document
         this.editorService = editorService;
         this.componentRegistry = componentRegistry;
         this.typeLibraryService = typeLibraryService;
-        this.focusedProjectUtil = focusedProjectUtil;
         this.connections = connections;
         this.localization = localization;
         allLibraries = new OBLibraryViewModel(localization.GetString("Str.Tool.ObjectBrowser.AllLibraries"));
@@ -352,6 +350,12 @@ public partial class ObjectBrowserToolViewModel : Document
             if (!references.Any(library.IsNamedBy))
                 references.Add(new VbReference(library.Guid, library.Version, 0, null, library.Name));
 
+        var components = project.ObjectReferences.Concat(project.Forms.SelectMany(f => f.ObjectReferences)).ToList();
+        foreach (var component in components.Where(c => !InBox.RuntimeLibraries.All.Any(l => l.IsNamedBy(c))))
+            if (!references.Any(r => component.Names(r.Guid)))
+                references.Add(new VbReference(component.Guid, component.Version, component.Lcid, null,
+                    SerializedProject.FileNameWithoutExtensionOf(component.File)));
+
         var owned = projectReferences[project];
         foreach (var stale in owned.Where(l => !references.Contains(l.Reference!)).ToList())
         {
@@ -370,6 +374,9 @@ public partial class ObjectBrowserToolViewModel : Document
             var lib = new OBLibraryViewModel(refName, reference);
             owned.Add(lib);
             Libraries.Add(lib);
+            if (components.Any(c => c.Names(reference.Guid))
+                && !InBox.RuntimeLibraries.All.Any(l => l.IsNamedBy(reference)))
+                LoadReferenceLibraryAsync(lib, useMetadataName: true).ListenErrors();
         }
         ReorderLibraries();
     }
@@ -461,15 +468,9 @@ public partial class ObjectBrowserToolViewModel : Document
 
     private void ReorderLibraries()
     {
-        // Order: [<All Libraries>] [focused project] [everything else, alpha]
-        var focused = focusedProjectUtil.FocusedOrStartupProject != null
-            && projectToLibrary.TryGetValue(focusedProjectUtil.FocusedOrStartupProject, out var fl)
-            ? fl : null;
-
         var desired = Libraries
-            .OrderBy(l => l == allLibraries ? 0 : l == focused ? 1 : 2)
-            .ThenBy(l => l == allLibraries || l == focused
-                ? string.Empty : l.Name, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(l => l == allLibraries ? 0 : 1)
+            .ThenBy(l => l.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         for (int i = 0; i < desired.Count; i++)
@@ -642,14 +643,16 @@ public partial class ObjectBrowserToolViewModel : Document
         : keyword is null ? sym.Name
         : $"{keyword} {sym.Name}";
 
-    private async Task LoadReferenceLibraryAsync(OBLibraryViewModel lib)
+    private async Task LoadReferenceLibraryAsync(OBLibraryViewModel lib, bool useMetadataName = false)
     {
         if (lib.IsLoaded || lib.Reference == null) return;
+        lib.IsLoaded = true;
         IsLoadingMembers = true;
         try
         {
             var info = await typeLibraryService.GetTypeLibInfoAsync(lib.Reference);
-            lib.IsLoaded = true;
+            if (useMetadataName && info != null)
+                lib.Name = info.Name;
 
             if (info == null)
             {
@@ -718,7 +721,9 @@ public partial class ObjectBrowserToolViewModel : Document
             lib.Classes.Sort((a, b) =>
                 string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
 
-            if (ReferenceEquals(SelectedLibrary, lib) || SelectedLibrary == allLibraries)
+            if (useMetadataName)
+                ReorderLibraries();
+            else if (ReferenceEquals(SelectedLibrary, lib) || SelectedLibrary == allLibraries)
                 RebuildFilteredClasses();
         }
         catch (Exception ex)

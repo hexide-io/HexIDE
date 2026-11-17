@@ -22,6 +22,69 @@ public class ExternalDebugServiceTests
     }
 
     [AvaloniaFact]
+    public async Task Termination_keeps_draining_output_ahead_of_the_disconnect_reply()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-terminated-flood-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var capture = new ConversationLog();
+        var service = new ExternalDebugService(capture);
+        var output = new List<string>();
+        var failures = new List<string>();
+        service.Output += output.Add;
+        service.Failed += failures.Add;
+        var run = service.StartAsync(await Configuration(directory, "terminated-flood"));
+        try
+        {
+            await WaitFor(service, () => service.CanEvaluate);
+            await service.CommandAsync("continue");
+            await run.WaitAsync(Patience, Token);
+            failures.Should().BeEmpty();
+            string.Concat(output).Should().Be("42\n" + string.Concat(Enumerable.Range(0, 10_000).Select(i => $"line {i}\n")));
+            service.State.Should().Be(DapSessionState.Ended);
+        }
+        finally
+        {
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Output_flood_survives_a_busy_dispatcher_and_arrives_in_order_in_batches()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-flood-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var capture = new ConversationLog();
+        var service = new ExternalDebugService(capture);
+        var failures = new List<string>();
+        var output = new List<string>();
+        service.Failed += failures.Add;
+        service.Output += text =>
+        {
+            Dispatcher.UIThread.CheckAccess().Should().BeTrue();
+            if (output.Count == 0) Thread.Sleep(500); // Hold the real UI route while the adapter floods its pipe.
+            output.Add(text);
+        };
+        var run = service.StartAsync(await Configuration(directory, "event-flood"));
+        try
+        {
+            await WaitFor(service, () => failures.Count > 0 || service.CanEvaluate && service.Variables.Count > 0);
+            failures.Should().BeEmpty();
+            service.State.Should().Be(DapSessionState.Stopped);
+            string.Concat(output).Should().Be(string.Concat(Enumerable.Range(0, 10_000).Select(i => $"line {i}\n")));
+            output.Count.Should().BeLessThan(10_000, "consecutive output is coalesced within a UI dispatch");
+            service.Frames.Should().HaveCount(2, "the stackTrace reply behind the flood was consumed");
+        }
+        finally
+        {
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
     public async Task Inspection_failure_logs_the_exception_and_stack_at_debug_level()
     {
         var directory = Path.Combine(Path.GetTempPath(), "hexide-inspection-log-" + Guid.NewGuid());

@@ -61,6 +61,9 @@ internal static class ControlPositions
     /// <summary>The position in pixels for a value a program assigns, after VB6's rounding to whole twips.</summary>
     public static double ToPixels(Control control, PropertyClass property, double value)
     {
+        // Negative sizes measured for these targets in #4071; preserve other controls' validation.
+        if (IsSize(property) && control is (VBCommandButton or VBLabel or Window) && value < 0)
+            throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
         var twips = value * TwipsPerUnit(control, property);
         if (double.IsNaN(twips) || twips < int.MinValue - 0.5 || twips >= int.MaxValue + 0.5)
             throw new VBRunTimeException(VBStandardError.Overflow);
@@ -75,9 +78,36 @@ internal static class ControlPositions
         {
             if (control is VBComboBox && IsVertical(property))
                 throw new VBRunTimeException(VBStandardError.PropertySetCantBeUsedWithAReadOnlyProperty);
-            twips = Math.Max(twips, MinimumSize(control, IsVertical(property)));
+            twips = ApplyMinimum(control, IsVertical(property), twips);
         }
         return twips / VBScaleModeExtensions.PixelToTwips;
+    }
+
+    // #4071, oracle PRs #4069/#4095: compare pixels rounded half up, but retain accepted whole twips.
+    // Only CommandButton, TextBox and Label were measured for this rule; other controls keep their prior comparison.
+    private static double ApplyMinimum(Control control, bool vertical, double twips)
+    {
+        var minimum = MinimumSize(control, vertical);
+        if (control is VBCommandButton or VBTextBox or VBLabel)
+            return Math.Floor(twips / VBScaleModeExtensions.PixelToTwips + 0.5)
+                < minimum / VBScaleModeExtensions.PixelToTwips ? minimum : twips;
+        return Math.Max(twips, minimum);
+    }
+
+    public static void EnforceOtherDimension(Control control, PropertyClass assigned)
+    {
+        if (!IsSize(assigned) || control is not (VBCommandButton or VBTextBox or VBLabel))
+            return;
+        var vertical = !IsVertical(assigned);
+        var pixels = vertical ? control.Height : control.Width;
+        if (double.IsNaN(pixels))
+            return;
+        var adjusted = ApplyMinimum(control, vertical, pixels * VBScaleModeExtensions.PixelToTwips)
+            / VBScaleModeExtensions.PixelToTwips;
+        if (adjusted == pixels)
+            return;
+        if (vertical) control.Height = adjusted;
+        else control.Width = adjusted;
     }
 
     // #1029: measured floors in twips, not host font metrics. Other font/border combinations stay as they were.
@@ -88,6 +118,9 @@ internal static class ControlPositions
             && font.Charset == 0;
         var standard = plain && string.Equals(font.FontFamilyName, "MS Sans Serif", StringComparison.OrdinalIgnoreCase)
             && font.Size == 8.25;
+        // #4071 / PR #4095: measured at 96 dpi only; font derivation and other dpi remain unmeasured.
+        var large = plain && string.Equals(font.FontFamilyName, "MS Sans Serif", StringComparison.OrdinalIgnoreCase)
+            && font.Size == 24;
         var arial = plain && string.Equals(font.FontFamilyName, "Arial", StringComparison.OrdinalIgnoreCase)
             && font.Size == 14.25;
         switch (control)
@@ -100,6 +133,8 @@ internal static class ControlPositions
                 return vertical ? 450 : 240;
             case VBCommandButton when standard:
                 return vertical ? 195 : 75;
+            case VBCommandButton when large:
+                return (vertical ? 37 : 16) * VBScaleModeExtensions.PixelToTwips;
             case VBCommandButton when arial:
                 return vertical ? 330 : 120;
             case VBCheckBox or VBOptionButton:

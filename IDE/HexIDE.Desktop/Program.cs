@@ -31,11 +31,40 @@ sealed partial class Program
     }
 
     // A shortcut or Explorer gives this program no console, and on Windows a start that says nothing looks like a hang.
+    // A broken brand.json and a profile that can't be loaded both refuse the start through here.
     private static void ReportDistributionError(string message)
     {
         const uint iconError = 0x10;
         if (!ConsoleOutput.Write(message + Environment.NewLine) && OperatingSystem.IsWindows())
             ShowNativeMessageBox(0, message, "Cannot start", iconError);
+    }
+
+    /// <summary>
+    /// Loads the profile this start uses: <c>--profile</c>'s, or else the brand's <c>defaultProfile</c>.
+    /// </summary>
+    /// <returns>
+    /// False when the profile can't be loaded, after <paramref name="reportError"/> has been given the localized reason
+    /// naming the profile and its file.
+    /// </returns>
+    /// <remarks>
+    /// A refusal goes to the reporter a broken brand.json uses, not straight to the console. Started from Explorer or a
+    /// shortcut, a branded product whose default profile was missing used to exit with code 2 and show nothing (#4169).
+    /// </remarks>
+    internal static bool TryLoadProfile(Func<HexIDE.Profiles.ProfileSnapshot?> resolve, Action<string> reportError,
+        out HexIDE.Profiles.ProfileSnapshot? profile)
+    {
+        try
+        {
+            profile = resolve();
+            return true;
+        }
+        catch (HexIDE.Profiles.ProfileLoadException ex)
+        {
+            var localization = new HexIDE.Localization.LocalizationService();
+            reportError(string.Format(localization.GetStringFrom("system", "Str.Profiles.LoadError"), ex.SourceId, ex.File));
+            profile = null;
+            return false;
+        }
     }
 
     [STAThread]
@@ -121,18 +150,13 @@ sealed partial class Program
         if (ServerOptions.UserDataDirectory is { } userData)
             HexIDE.IDE.UserDataPath.RedirectTo(userData);
 
-        try
+        if (!TryLoadProfile(() => ServerOptions.ResolveProfile(invocationDirectory, HexIDE.IDE.UserDataPath.Directory),
+                ReportDistributionError, out var profile))
         {
-            HexIDE.Static.Profile = ServerOptions.ResolveProfile(invocationDirectory, HexIDE.IDE.UserDataPath.Directory);
-        }
-        catch (HexIDE.Profiles.ProfileLoadException ex)
-        {
-            var localization = new HexIDE.Localization.LocalizationService();
-            var message = string.Format(localization.GetStringFrom("system", "Str.Profiles.LoadError"), ex.SourceId, ex.File);
-            ConsoleOutput.Write(message + Environment.NewLine);
             Environment.ExitCode = 2;
             return;
         }
+        HexIDE.Static.Profile = profile;
 
         DesktopStartup.Register();
         // The lifetime returns the code the app shut down with. Discarding it made every exit 0, including
@@ -146,7 +170,20 @@ sealed partial class Program
 #endif
         // On a thread of its own, because VB code runs on the UI thread and this first thread's stack is the
         // launcher's choice, 1.5 MiB on Windows (#3228).
-        Environment.ExitCode = HexIDE.Runtime.UiThread.Run(() => builder.StartWithClassicDesktopLifetime(args));
+        Environment.ExitCode = DisplayBackend.Run(
+            DisplayBackend.Select(ServerOptions.Platform, Environment.GetEnvironmentVariable("HEXIDE_PLATFORM")),
+            () => builder.StartWithClassicDesktopLifetime(args),
+            reason => string.Format(new HexIDE.Localization.LocalizationService()
+                .GetStringFrom("system", ServerOptions.Platform != null
+                    ? "Str.Startup.WaylandUnavailableArgument"
+                    : "Str.Startup.WaylandUnavailableEnvironment"), reason),
+            message =>
+            {
+                // Setup failed before App configured logging; open and flush the normal IDE log here.
+                HexIDE.Infrastructure.LoggingSetup.Initialise();
+                Serilog.Log.Fatal("{Message:l}", message);
+                HexIDE.Infrastructure.LoggingSetup.Shutdown();
+            });
     }
 
     internal static int? RunDistributionGate(string[] args, string invocationDirectory, string installationDirectory,

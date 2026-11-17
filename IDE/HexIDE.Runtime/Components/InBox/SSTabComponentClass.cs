@@ -22,9 +22,9 @@ public sealed class SSTabComponentClass : InBoxComponentClass
         throw new NotImplementedException("SSTab extents without a saved basis are not measured");
     public override IReadOnlyList<InBoxMember> Members { get; } =
         new[] { "Tab", "Tabs", "TabsPerRow", "Rows", "Caption", "TabCaption", "TabEnabled", "TabVisible",
-                "Style", "TabOrientation", "TabHeight", "TabMaxWidth", "WordWrap", "ShowFocusRect", "Enabled" }
+                "Style", "TabOrientation", "TabHeight", "TabMaxWidth", "WordWrap", "ShowFocusRect", "Enabled", "Picture", "TabPicture" }
             .Select(n => new InBoxMember(n, MemberKind.Property, MemberOrigin.Version6, false, true))
-            .Concat(new[] { "Picture", "TabPicture", "BackColor", "ForeColor", "Font", "hWnd", "MousePointer", "MouseIcon", "OLEDropMode" }
+            .Concat(new[] { "BackColor", "ForeColor", "Font", "hWnd", "MousePointer", "MouseIcon", "OLEDropMode" }
                 .Select(n => new InBoxMember(n, MemberKind.Property, MemberOrigin.Version6, false, false)))
             .Concat(new[] { "OLEDrag", "AboutBox" }
                 .Select(n => new InBoxMember(n, MemberKind.Method, MemberOrigin.Version6, false, false)))

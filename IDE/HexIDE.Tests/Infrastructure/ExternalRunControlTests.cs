@@ -164,7 +164,11 @@ public class ExternalRunControlTests : CompositionTestBase
             // Whether the restore was still awaiting its reply as each chatter line reached the IDE. A reader that waited
             // for the restore would deliver them only after it, so every entry must be true.
             var chatter = new List<bool>();
-            heard = text => { if (text.StartsWith("chatter", StringComparison.Ordinal)) chatter.Add(external.RunToCursorPending); };
+            heard = text =>
+            {
+                foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                    if (line.StartsWith("chatter", StringComparison.Ordinal)) chatter.Add(external.RunToCursorPending);
+            };
             external.Output += heard;
             var reply = await tools.RunToCursorAsync("Callee", target, ct: TestContext.Current.CancellationToken);
             var refused = target is 10 or 20 || mode == "resume-refusal";

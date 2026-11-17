@@ -14,6 +14,27 @@ namespace HexIDE.Integration.Tests.Controls;
 public class HoverContentViewTests
 {
     [AvaloniaFact]
+    public void Heading_is_bold_without_literal_markers()
+    {
+        var panel = (StackPanel)HoverContentView.Render(new("markdown", "### function `twice`"), new TextEditor(), _ => { });
+        var text = (TextBlock)panel.Children.Single();
+        text.FontWeight.Should().Be(FontWeight.Bold);
+        text.Inlines!.OfType<Run>().Select(r => r.Text).Should().Equal("function ", "twice", "");
+    }
+
+    [AvaloniaFact]
+    public void Break_is_a_thin_separator_between_paragraphs()
+    {
+        var panel = (StackPanel)HoverContentView.Render(new("markdown", "before\n---\nafter"), new TextEditor(), _ => { });
+        panel.Children.Should().HaveCount(3);
+        var separator = panel.Children[1].Should().BeOfType<Border>().Subject;
+        separator.Height.Should().Be(1);
+        separator.Background.Should().NotBeNull();
+        ((TextBlock)panel.Children[0]).Inlines!.OfType<Run>().Single().Text.Should().Be("before");
+        ((TextBlock)panel.Children[2]).Inlines!.OfType<Run>().Single().Text.Should().Be("after");
+    }
+
+    [AvaloniaFact]
     public void Paragraphs_emphasis_inline_code_and_lists_are_controls()
     {
         var editor = new TextEditor();

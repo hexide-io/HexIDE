@@ -314,6 +314,33 @@ public class WireContractTests
         (list.GetProperty("items").GetArrayLength() == 0).Should().Be(freeText);
     }
 
+    [Theory]
+    [InlineData("Debug.Pr", 8, true)]
+    [InlineData("Debug.Pr", 6, true)] // code window requests at the word start
+    [InlineData("Debug.", 6, true)]
+    [InlineData("x.y.Pr", 6, true)]
+    [InlineData("With x\n.Pr", 3, true)]
+    [InlineData("Pr", 2, false)]
+    [InlineData("x = Pr", 6, false)]
+    [InlineData("x.Rem ", 6, false)]
+    [InlineData("rs!Fi", 5, false)]
+    public async Task Completion_is_empty_after_a_dot(string line, int character, bool empty)
+    {
+        await using var h = await StartAsync();
+        var endWith = line.StartsWith("With x", StringComparison.Ordinal) ? "\nEnd With" : "";
+        await OpenAsync(h, Uri, "Sub Foo()\n" + line + endWith + "\nEnd Sub");
+        await h.NextDiagnosticsAsync();
+        var lines = line.ReplaceLineEndings("\n").Split('\n');
+        var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, lines.Length, character));
+        list.GetProperty("isIncomplete").GetBoolean().Should().BeFalse();
+        var labels = list.GetProperty("items").EnumerateArray()
+            .Select(i => i.GetProperty("label").GetString()).ToList();
+        if (empty)
+            labels.Should().BeEmpty();
+        else
+            labels.Should().Contain("Dim").And.Contain("Foo");
+    }
+
     [Fact]
     public async Task Completion_returns_a_CompletionList_envelope()
     {

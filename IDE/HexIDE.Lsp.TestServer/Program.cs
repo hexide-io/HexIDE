@@ -16,7 +16,7 @@ public static class Program
             await Task.Delay(Timeout.Infinite);
             return 0;
         }
-        if (mode == "tree")
+        if (mode is "tree" or "tree-clean")
         {
             var start = new ProcessStartInfo("dotnet") { UseShellExecute = false };
             start.ArgumentList.Add(typeof(Program).Assembly.Location);

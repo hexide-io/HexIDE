@@ -45,7 +45,7 @@ test, naming what it tried; only an unset one on a machine without VB6 skips. CI
 still reads the repository corpora, including VB6-authored designer and member-attribute files.
 
 The run writes a per-file report to `hexide-roundtrip-report.txt` beside the test assembly
-(`AppContext.BaseDirectory`, normally `IDE/HexIDE.Runtime.Tests/bin/Debug/net10.0/`), listing
+(`AppContext.BaseDirectory`, normally `IDE/HexIDE.Runtime.Tests/bin/Debug/net11.0/`), listing
 every `DIFF`, `BLOB-LOSS` and `BLOB-DIFF` with the first few differing lines. That is the full report — the
 JSON report and the `--roundtrip` / `--corpus` / `--report` flags described here previously do not exist;
 `HexIDE.Standalone` implements exactly one non-GUI mode, `--check <project.vbp>`, which loads a project and
@@ -54,7 +54,7 @@ prints per-module results.
 The `.vbp` lane writes `hexide-vbp-report.txt` in that same assembly directory. The whole-file grammar
 lanes likewise write `hexide-whole-file-grammar-interpreter.txt` beside the runtime test assembly and
 `hexide-whole-file-grammar-lsp.txt` beside the LSP test assembly (normally
-`LspServer/HexIDE.VbLspServer.Tests/bin/Debug/net10.0/`). Each checkout and each separate
+`LspServer/HexIDE.VbLspServer.Tests/bin/Debug/net11.0/`). Each checkout and each separate
 `--artifacts-path` output keeps its own reports; look beside the assembly in the selected output directory
 when overriding the build output.
 
@@ -80,7 +80,8 @@ byte for byte after normalising only the original project's reference paths, det
 files too. Same-drive reference paths become relative; other drives and unresolved paths stay as read
 ([measured in #2274](vb6-fidelity-oracle/a-references-path-and-the-line-order-a-save-writes.md)).
 The harness uses the file's path, as HexIDE does today; it does not resolve registered libraries or
-substitute library identities. `Retained=` is untouched (#2459). Every other byte must match.
+substitute library identities. An ActiveX EXE with no `Retained=` line is expected to gain `Retained=0` between
+`Unattended=0` and `ThreadPerObject=0`, as VB6's save adds it (#2459). Every other byte must match.
 File paths compare case-insensitively on Windows and macOS, ordinally on Linux. A reported save refusal is allowed, but never
 excuses changed bytes. The original corpus is untouched. Members outside the copied project's own
 directory are refused before saving; symbolic links are rejected. This conservative safety restriction
