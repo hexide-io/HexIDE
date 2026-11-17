@@ -8,7 +8,7 @@
 > be loaded, so the project did not start. -20 is not a valid value for 'Width'. Nothing is running. …`,
 > and `get_debug_state` then reads `{"running":false,"state":"Stopped"}`. `get_debug_state` also reports
 > `Stopped` on a freshly launched IDE, where it used to report the controller's pre-session `Running`.
-> Whether a negative size should be accepted in the first place is #589, still open.
+> Negative design-time sizes are now refused by #589; see [the closed gap](589.md).
 
 **Symptom.** With the startup form holding a control whose `Width` is -20 (the entry above):
 

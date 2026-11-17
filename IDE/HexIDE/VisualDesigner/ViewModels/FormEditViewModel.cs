@@ -703,6 +703,17 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         foreach (var comp in DrawOrder(fileOrder))
             Components.Add(viewModels[comp]);
 
+        // Menus stay in the flat component list; SubItems identifies which belong under another menu.
+        TopLevelMenu.Clear();
+        var menus = AllComponents.Where(IsMenu).ToList();
+        var subItems = new HashSet<ComponentInstance>(ReferenceEqualityComparer.Instance);
+        foreach (var menu in menus)
+            if (menu.Instance.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } children)
+                subItems.UnionWith(children);
+        foreach (var menu in menus)
+            if (!subItems.Contains(menu.Instance))
+                TopLevelMenu.Add(menu);
+
         // Where each control stands against the carried ones beside it, as the file has them (#1498).
         foreach (var container in fileOrder.Where(c => c.PreservedChildSubtrees.Count > 0))
         {
@@ -1734,10 +1745,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             TopLevelMenu.Add(x);
 
         // The first of the three paths that bypass the undo stack: the menu editor adds, removes and
-        // re-parents components and pushes nothing, so nothing else would announce it. In practice the
-        // refresh usually stops at the fidelity gate — HexIDE flattens nested Begin blocks, so a form with
-        // a real menu is one it refuses to save — and that is the correct outcome rather than a missing
-        // one: the buffer keeps showing the file, which is what the save refusal protects.
+        // re-parents components and pushes nothing, so nothing else would announce it. Commit the menu
+        // tree to the model and refresh the code buffer, subject to the form's fidelity gate.
         CommitLayout();
     }
 

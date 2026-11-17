@@ -31,7 +31,7 @@ public sealed record ContributedDebugLaunch(string Key, string Origin, AddinDebu
 /// </summary>
 /// <remarks>
 /// Nothing here runs on its own: a launch is asked for its configuration only when a run of it starts, from F5 when the
-/// user chose it for the project or from its own Run menu command.
+/// project defaults to it or its user chose it, or from its own Run menu command.
 /// </remarks>
 public sealed class DebugLaunchService(ExternalDebugService debugger, ILogger<DebugLaunchService>? logger = null)
 {
@@ -94,6 +94,17 @@ public sealed class DebugLaunchService(ExternalDebugService debugger, ILogger<De
     public ContributedDebugLaunch? Find(string key)
     {
         lock (_gate) return _launches.FirstOrDefault(known => known.Key == key);
+    }
+
+    /// <summary>The effective F5 choice, without persisting a default as the user's choice.</summary>
+    public string? ChoiceFor(ProjectDefinition project, IRunChoiceStore choices) =>
+        choices.HasChoice(project) ? choices.Get(project) : DefaultFor(project)?.Key;
+
+    private ContributedDebugLaunch? DefaultFor(ProjectDefinition project)
+    {
+        if (project.Offers.Runs || project.ContributedBy is not { } origin) return null;
+        // Several launches from the project's add-in: the first registered is its default.
+        return Launches.FirstOrDefault(launch => launch.Key.StartsWith(origin + "/", StringComparison.Ordinal));
     }
 
     /// <summary>The launches that say they can run this project.</summary>
