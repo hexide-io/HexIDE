@@ -52,6 +52,110 @@ public class CodeEditorViewModelTests : IDisposable
         _sut?.Dispose();
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task WatchProceduresUseTextBeforeSymbolsArrive(bool open)
+    {
+        var module = TestHelpers.CreateModule();
+        module.Owner.AddModule(module);
+        module.UpdateCode("Sub Saved()\nEnd Sub");
+        var dock = Substitute.For<IDocumentDockService>();
+        if (open)
+        {
+            var editor = CreateSut().Initialize(module);
+            editor.Document.Text = "Sub Current()\nEnd Sub";
+            editor.CaretOffset = 0;
+            editor.OutlineSymbols.Should().BeEmpty();
+            dock.ActiveDocument.Returns(editor);
+            dock.OpenDocuments.Returns(new BaseEditorWindowViewModel[] { editor });
+        }
+        else dock.OpenDocuments.Returns(Array.Empty<BaseEditorWindowViewModel>());
+        var projects = Substitute.For<IProjectManager>();
+        projects.StartupProject.Returns(module.Owner);
+        projects.LoadedProjects.Returns(new[] { module.Owner });
+        var result = await new HexIDE.Tools.WatchDialogContextSource(dock, projects).ReadAsync("(All Procedures)");
+        result.Modules.Single().Procedures.Should().Equal(open ? "Current" : "Saved");
+        await _lspClient.DidNotReceive().RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
+    public async Task WatchListsEachAccessorApartAndSortsTheList()
+    {
+        var module = TestHelpers.CreateModule();
+        module.Owner.AddModule(module);
+        var editor = CreateSut().Initialize(module);
+        _lspClient.IsRunning.Returns(true);
+        var range = new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(1, 0));
+        _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
+            new[] { "Get", "Let", "Set" }.Select(accessor => new DocumentSymbol($"Value ({accessor})", SymbolKind.Property, range, range))
+                .Append(new DocumentSymbol("Bump", SymbolKind.Method, range, range)).ToArray());
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns(editor);
+        dock.OpenDocuments.Returns(new BaseEditorWindowViewModel[] { editor });
+        var result = await new HexIDE.Tools.WatchDialogContextSource(dock, Substitute.For<IProjectManager>()).ReadAsync("(All Procedures)");
+        // As VB6 lists them: each accessor apart as `Value(Get)`, and sorted, so a Sub declared last comes first (#4401).
+        result.Modules.Single().Procedures.Should().Equal("Bump", "Value(Get)", "Value(Let)", "Value(Set)");
+    }
+
+    [AvaloniaFact]
+    public async Task PropertyChosenThroughDialogEvaluatesInItsFrame()
+    {
+        var module = TestHelpers.CreateModule();
+        module.Owner.AddModule(module);
+        module.UpdateCode("""
+            Dim result As Long
+            result = Value
+            Property Get Value() As Long
+                Dim inner As Integer
+                inner = 49
+                Stop
+                Value = inner
+            End Property
+            Property Let Value(ByVal n As Long)
+            End Property
+            """);
+        var projects = Substitute.For<IProjectManager>();
+        projects.StartupProject.Returns(module.Owner);
+        projects.LoadedProjects.Returns(new[] { module.Owner });
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.OpenDocuments.Returns(Array.Empty<BaseEditorWindowViewModel>());
+        var context = await new HexIDE.Tools.WatchDialogContextSource(dock, projects).ReadAsync("(All Procedures)");
+        _localization.GetString("Str.Dialog.AddWatch.AllContext").Returns("(All Procedures)");
+        var store = new HexIDE.Debugging.WatchService();
+        var dialog = new AddWatchDialogViewModel(_localization, store, module.Name, "inner", modules: context.Modules);
+        dialog.Procedures.Should().Equal("(All Procedures)", "Value(Get)", "Value(Let)");
+        dialog.SelectedProcedure = dialog.Procedures[1];
+        dialog.OkCommand.Execute(null);
+        var debugger = new HexIDE.Runtime.Debugging.DebugController();
+        var interpreter = new HexIDE.Runtime.Interpreter.BasicInterpreter(
+            Substitute.For<HexIDE.Runtime.Interpreter.IBasicStandardLibrary>(),
+            new HexIDE.Runtime.Interpreter.ModuleExecutionContext(),
+            new HexIDE.Runtime.Interpreter.ExecutionEnvironment(), module.Code, module.Name) { DebugController = debugger };
+        var stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        debugger.Stopped += _ => stopped.TrySetResult();
+        var run = interpreter.Execute();
+        try
+        {
+            await stopped.Task.WaitAsync(TimeSpan.FromSeconds(15));
+            var value = await ((HexIDE.Runtime.Debugging.IDebugController)debugger)
+                .EvaluateScopedWatchAsync("inner", store.Watches.Single().Context);
+            value!.Display.Should().Be("49");
+            store.Watches.Single().Context.Should().Be($"{module.Name}.Value(Get)");
+            debugger.GetLocals()!.WatchContext.Should().Be($"{module.Name}.Value(Get)");
+            debugger.GetLocals()!.Context.Should().Be($"{module.Name}.Value", "the Locals label is unchanged");
+            var other = await ((HexIDE.Runtime.Debugging.IDebugController)debugger)
+                .EvaluateScopedWatchAsync("inner", $"{module.Name}.Value(Let)");
+            other!.Display.Should().Be("<Out of context>");
+            var spaced = await ((HexIDE.Runtime.Debugging.IDebugController)debugger)
+                .EvaluateScopedWatchAsync("inner", $"{module.Name}.Value (Get)");
+            spaced!.Display.Should().Be("<Out of context>");
+        }
+        finally { debugger.Stop(); await run; }
+    }
+
     // #4245: each new code window starts with the project's target, for both member kinds.
     [AvaloniaTheory]
     [InlineData(VbaBitness.None, 0)]
@@ -73,6 +177,7 @@ public class CodeEditorViewModelTests : IDisposable
     public async Task AddWatchInDeclarationsDefaultsToActiveModule()
     {
         _localization.GetString("Str.Dialog.AddWatch.AllContext").Returns("(All Procedures)");
+        _localization.GetString("Str.Dialog.AddWatch.AllModules").Returns("(All Modules)");
         var module = TestHelpers.CreateModule();
         module.Owner.AddModule(module);
         var editor = CreateSut().Initialize(module);
@@ -84,6 +189,7 @@ public class CodeEditorViewModelTests : IDisposable
         projects.LoadedProjects.Returns(new[] { module.Owner });
         projects.StartupProject.Returns(module.Owner);
         var other = new ModuleDefinition(module.Owner, "OtherModule", ModuleKind.ClassModule);
+        other.UpdateCode("Function Square() As Long\nEnd Function");
         module.Owner.AddModule(other);
         _lspClient.IsRunning.Returns(true);
         _lspClient.RequestDocumentSymbolsAsync(DocumentWireName.For(other), Arg.Any<CancellationToken>())
@@ -92,7 +198,7 @@ public class CodeEditorViewModelTests : IDisposable
                 new HexIDE.Lsp.Messages.Range(new Position(2, 9), new Position(2, 15)))]);
         _debugController.GetLocals().Returns(new HexIDE.Runtime.Debugging.DebugScope("Module1.Square", []));
         var watches = new HexIDE.Tools.WatchesToolViewModel(_localization, new HexIDE.Debugging.WatchService(), _debugController, _windowManager)
-        { DialogContextSource = new HexIDE.Tools.WatchDialogContextSource(dock, projects, _lspClient) };
+        { DialogContextSource = new HexIDE.Tools.WatchDialogContextSource(dock, projects) };
         await watches.OpenAddWatchDialog("modvar");
         var dialog = (AddWatchDialogViewModel)_windowManager.ReceivedCalls()
             .Single(c => c.GetMethodInfo().Name == "ShowDialog").GetArguments()[0]!;
@@ -101,15 +207,21 @@ public class CodeEditorViewModelTests : IDisposable
         watches.Rows.Single().Context.Should().Be(module.Name);
         dialog.SelectedModule!.Name.Should().Be(module.Name);
         dialog.Procedures.Should().Equal("(All Procedures)");
-        dialog.Modules.Select(m => m.Name).Should().Equal(module.Name, "OtherModule");
-        dialog.SelectedModule = dialog.Modules[1];
+        dialog.Modules.Select(m => m.Name).Should().Equal("(All Modules)", module.Name, "OtherModule");
+        dialog.SelectedModule = dialog.Modules[2];
         dialog.Procedures.Should().Equal("(All Procedures)", "Square");
         dialog.SelectedProcedure = "Square";
         dialog.OkCommand.Execute(null);
         watches.Service.Watches.Last().Context.Should().Be("OtherModule.Square");
-        dialog.SelectedModule = dialog.Modules[0];
+        dialog.SelectedModule = dialog.Modules[1];
         dialog.Procedures.Should().Equal("(All Procedures)");
         dialog.SelectedProcedure.Should().Be("(All Procedures)");
+        // (All Modules) offers (All Procedures) alone, stores its own context, and the Context column shows it blank (#4452).
+        dialog.SelectedModule = dialog.Modules[0];
+        dialog.Procedures.Should().Equal("(All Procedures)");
+        dialog.OkCommand.Execute(null);
+        watches.Service.Watches.Last().Context.Should().Be("(All Modules)");
+        watches.Rows.Last().Context.Should().BeEmpty();
     }
 
     [AvaloniaFact]

@@ -239,6 +239,12 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// </summary>
     internal ILocalizationService Localization => localization;
 
+    public string? ControlDoubleClickProcedure(ComponentInstanceViewModel control) =>
+        control.Instance.BaseClass.DesignerDoubleClickEvent is { } eventName ? $"{control.Name}_{eventName}" : null;
+
+    public void RequestControlDoubleClickCode(ComponentInstanceViewModel control) =>
+        RequestCode(ControlDoubleClickProcedure(control), control.Name, control.Instance.BaseClass.DesignerDoubleClickEvent);
+
     public ObservableCollection<ComponentInstanceViewModel> TopLevelMenu { get; } = new();
 
     public IEventBus EventBus => eventBus;

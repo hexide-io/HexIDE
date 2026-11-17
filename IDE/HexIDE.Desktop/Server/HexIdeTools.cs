@@ -26,7 +26,7 @@ namespace HexIDE.Desktop.Server;
 internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpContextAccessor = null)
 {
     [McpServerTool(Name = "get_project_info")]
-    [Description("Returns the startup project's name, path, and lists of forms, modules and carried files (RelatedDoc entries), and in 'projects' the same for every loaded project, each with 'isStartup'. With a project group open the top-level fields describe only the startup project, so read 'projects' for the rest; 'note' says when the top-level fields are not the whole picture, including when nothing is loaded or no startup project is set. It also names projects with no chosen home, even when a working-copy path exists: Save Project asks where to put them. Each project reports its own projectFile. Open archive projects are also in projects, with their container path and entries (folders and hidden entries included): /-separated, percent-escaped name segments, matched exactly by open_file. entryUris pairs each path with its opaque URI. Office documents also appear as read-only containers; their VBA modules have no language-server session. Archive entries open read-only; available twinBASIC text previews reach servers claiming their extensions under opaque archive-entry: URIs; use the container path as project to disambiguate.")]
+    [Description("Returns the startup project's name, path, and lists of forms, modules and carried files (RelatedDoc entries), and in 'projects' the same for every loaded project, each with 'isStartup'. With a project group open the top-level fields describe only the startup project, so read 'projects' for the rest; 'note' says when the top-level fields are not the whole picture, including when nothing is loaded or no startup project is set. It also names projects with no chosen home, even when a working-copy path exists: Save Project asks where to put them. Each project reports its own projectFile. Open archive projects are also in projects, with their container path and entries (folders and hidden entries included): /-separated, percent-escaped name segments, matched exactly by open_file. entryUris pairs each path with its opaque URI. Office documents also appear as read-only containers; their VBA modules reach language servers by export extension as project members. Archive entries open read-only; available twinBASIC text previews reach servers claiming their extensions under opaque archive-entry: URIs; use the container path as project to disambiguate.")]
     public async Task<ProjectInfoResult> GetProjectInfoAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -50,7 +50,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     p.Name, p.ContainerPath, false, [], [], [], p.ContainerPath,
                     ArchiveToolPaths.Entries(p.Root).Select(ArchiveToolPaths.PathOf).ToArray(),
                     ArchiveToolPaths.Entries(p.Root).Select(e => new ArchiveEntrySummary(
-                        ArchiveToolPaths.PathOf(e), ArchiveEntryUri.ForEntry(e.Identity.ContainerPath, e.Identity.Segments))).ToArray())))
+                        ArchiveToolPaths.PathOf(e), e.DocumentUri)).ToArray())))
                 .ToArray();
 
             var note = loaded.Count switch
@@ -286,7 +286,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (found.Document is not { } document)
                 return (null, null, found.Error);
             target = document;
-            if (document.Form is { CanSaveFaithfully: false })
+            if (document.Module is { CanSaveFaithfully: false } || document.Form is { CanSaveFaithfully: false })
                 return (null, null, CodeEditorViewModel.ReadOnlyWriteRefusal);
             if (ProjectWriteSafety.Prepare(document, out recoveryNote, writeAttempt) is { } safetyRefusal)
                 return (null, null, safetyRefusal);
@@ -914,7 +914,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "open_file")]
-    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it; in a split code window that is the pane last used, which is the one 'line' moves. The reply's 'area' is the document area (0 for the first, 1 for the next, in layout order). New tabs open in the area last used; an existing tab stays in its area. The reply's 'note' names the tab now active and how many are open. Pass 'line', and 'column' if wanted, to put the caret there, as the code window numbers them, so type_text and press_key act at that point with no offset to work out; the note always gives the caret's line, column and offset, even without 'line'. In the header or an Attribute line it also names the nearest editable place. Also opens archive entries by the exact paths get_project_info lists: /-separated, percent-escaped segments. Pass project as the container path, filename or stored project name. Office documents also appear as read-only containers; their VBA modules have no language-server session. Archive entries open read-only; available twinBASIC text previews reach servers claiming their extensions under opaque archive-entry: URIs; a line needs an available text preview. Also opens a project file by filename; VB6 .vbp tabs are editable, group and add-in files read-only. project selects its owner by name or path.")]
+    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it; in a split code window that is the pane last used, which is the one 'line' moves. The reply's 'area' is the document area (0 for the first, 1 for the next, in layout order). New tabs open in the area last used; an existing tab stays in its area. The reply's 'note' names the tab now active and how many are open. Pass 'line', and 'column' if wanted, to put the caret there, as the code window numbers them, so type_text and press_key act at that point with no offset to work out; the note always gives the caret's line, column and offset, even without 'line'. In the header or an Attribute line it also names the nearest editable place. Also opens archive entries by the exact paths get_project_info lists: /-separated, percent-escaped segments. Pass project as the container path, filename or stored project name. Office documents also appear as read-only containers; their VBA modules reach language servers by export extension as project members. Archive entries open read-only; available twinBASIC text previews reach servers claiming their extensions under opaque archive-entry: URIs; a line needs an available text preview. Also opens a project file by filename; VB6 .vbp tabs are editable, group and add-in files read-only. project selects its owner by name or path.")]
     public async Task<MutateResult> OpenFileAsync(
         string name, string? project = null,
         [Description("Where to put the caret: a 1-based line, counted from the top of the file with its header included, "
@@ -1103,7 +1103,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (line is { } at) CaretPlacement.Place(placedInArchive, at, column ?? 1);
             return new MutateResult(true, null,
                 TabStateNote() + (entry.Archive is null
-                    ? " This VBA module is read-only and has no language-server session. Office may run compiled p-code that differs from the stored source."
+                    ? $" This VBA module is read-only. Language servers know it as {entry.Name}{entry.LanguageServerExtension}, the name VBA's Export File gives it. Office may run compiled p-code that differs from the stored source."
                     : " This archive entry is read-only; available text previews attach language servers by extension."),
                 Project: entry.Identity.ContainerPath, Document: ArchiveToolPaths.PathOf(entry),
                 Area: ctx.DocumentDockService.ActiveTab is { } tab ? ctx.DocumentDockService.AreaOf(tab) : null);
@@ -2837,7 +2837,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 var added = await BuildWatchesResult();
                 return added with { Note = $"Added external Expression watch '{expression}'. " + added.Note };
             }
-            var context = ctx.DebugController.GetLocals()?.Context ?? HexIDE.Debugging.WatchExpression.AllProceduresContext;
+            // The paused frame as a watch context names it: Class1.X(Get) inside an accessor, which the scoped match needs (#4401).
+            var context = ctx.DebugController.GetLocals()?.WatchContext ?? HexIDE.Debugging.WatchExpression.AllProceduresContext;
             ctx.RootViewModel.Watches.Service.Add(new HexIDE.Debugging.WatchExpression(expression, watchKind, context));
             return await BuildWatchesResult();
         });

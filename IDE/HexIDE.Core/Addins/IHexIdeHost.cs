@@ -16,6 +16,13 @@ public interface IHexIdeHost
     IDiagnosticsAccess Diagnostics { get; }
     IOptionsPageContributor Options { get; }
 
+    /// <summary>
+    /// The tools and context fragments running language servers offer AI Chat (#4257). The host decides which servers
+    /// count, each tool's limits and whether a call asks first; the caller asks the person and names the server.
+    /// </summary>
+    /// <remarks>The capability design would map this to a declaration of its own; none is checked today.</remarks>
+    IServerChatTools ServerChatTools { get; }
+
     IDisposable RegisterCommand(string id, string label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null);
     IDisposable RegisterCommand(string id, AddinTitle label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null);
     /// <summary>Contributes a toolbox control until the returned handle is disposed.</summary>

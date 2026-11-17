@@ -22,6 +22,130 @@ namespace HexIDE.Tests.Projects;
 /// </summary>
 public sealed class ContributedFormTests : IDisposable
 {
+    private static string DesignerModuleText(string root, bool ocx) =>
+        "VERSION 5.00\r\n" + (ocx ? "Object = \"{00000000-0000-0000-0000-000000000000}#1.0#0\"; \"X.OCX\"\r\n" : "")
+        + $"Begin {root} Main\r\n"
+        + (root == "VB.UserControl" ? "   ClientHeight = 3600\r\n" : "   Caption = \"Main\"\r\n")
+        + "End\r\n"
+        + "Attribute VB_Name = \"Main\"\r\nAttribute VB_GlobalNameSpace = False\r\n"
+        + $"Attribute VB_Creatable = {(root == "VB.UserControl" ? "True" : "False")}\r\n"
+        + $"Attribute VB_PredeclaredId = {(root == "VB.UserControl" ? "False" : "True")}\r\n"
+        + "Attribute VB_Exposed = False\r\nOption Explicit\r\n";
+
+    // #4459's measured designer files must never pass through a code-module writer.
+    [AvaloniaTheory]
+    [InlineData("VB.Form", false)]
+    [InlineData("VB.UserControl", false)]
+    [InlineData("VB.Form", true)]
+    public async Task Designer_text_declared_as_a_module_is_preserved_and_refused(string root, bool ocx)
+    {
+        var path = Path.Join(_dir, root == "VB.UserControl" ? "Main.ctl" : "Main.frm");
+        var text = DesignerModuleText(root, ocx);
+        File.WriteAllText(path, text);
+        using var type = Contribute(null, new AddinProjectMember(path, AddinMemberKind.StandardModule));
+        var project = await Opened();
+        var before = File.ReadAllBytes(path);
+
+        await _service.SaveAllProjects(saveAs: false);
+
+        File.ReadAllBytes(path).Should().Equal(before);
+        var module = project.Modules.Single();
+        module.Kind.Should().Be(ModuleKind.StandardModule);
+        module.FormPart.Should().BeNull();
+        module.OriginalHeader.Should().BeEmpty();
+        module.Code.Should().Be(text);
+        await ToldOf(Path.GetFileName(path));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("VB.Form", false, false)]
+    [InlineData("VB.UserControl", false, false)]
+    [InlineData("VB.Form", true, false)]
+    [InlineData("VB.Form", false, true)]
+    [InlineData("VB.UserControl", false, true)]
+    [InlineData("VB.Form", true, true)]
+    public async Task Designer_text_declared_as_a_module_refuses_editor_and_server_writes(string root, bool ocx, bool server)
+    {
+        var path = Path.Join(_dir, root == "VB.UserControl" ? "Main.ctl" : "Main.frm");
+        File.WriteAllText(path, DesignerModuleText(root, ocx));
+        using var type = Contribute(null, new AddinProjectMember(path, AddinMemberKind.StandardModule));
+        var module = (await Opened()).Modules.Single();
+        var strings = new LocalizationService();
+        strings.Apply("en");
+        using var editor = new HexIDE.Forms.ViewModels.CodeEditorViewModel(_windows, Substitute.For<IEditorService>(), _service,
+            new EventBus(), Substitute.For<HexIDE.Lsp.ILspClient>(), Substitute.For<ISettingsService>(),
+            Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
+            Substitute.For<IDebugController>(), Substitute.For<IRunScope>(), strings).Initialize(module);
+        var before = editor.Document.Text;
+        var end = editor.Document.GetLocation(editor.Document.TextLength);
+        var position = new HexIDE.Lsp.Messages.Position(end.Line - 1, end.Column - 1);
+        var edit = new HexIDE.Lsp.Messages.WorkspaceEdit(new() { [editor.GetDocumentUriPublic()] =
+            [new HexIDE.Lsp.Messages.TextEdit(new(position, position), "changed")] });
+        if (server) editor.ApplyRename(edit, "", _ => new HexIDE.Lsp.RenameDocumentSnapshot(1, before)).Should().NotBeNull();
+        else editor.ReplaceContent("changed").Refusal.Should().NotBeNull();
+        editor.IsReadOnly.Should().BeTrue();
+        editor.ReadOnlyReason.Should().Contain(Path.GetFileName(path)).And.Contain("A provider");
+        editor.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task Ordinary_code_modules_remain_writable(bool cls, bool comment)
+    {
+        var path = Path.Join(_dir, cls ? "Main.cls" : "Main.bas");
+        var header = cls ? "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\n" : "";
+        var text = header + (comment ? "' comment above name\r\n" : "")
+            + "Attribute VB_Name = \"Main\"\r\nOption Explicit\r\n";
+        File.WriteAllText(path, text);
+        var original = File.ReadAllBytes(path);
+        using var type = Contribute(null, new AddinProjectMember(path,
+            cls ? AddinMemberKind.ClassModule : AddinMemberKind.StandardModule));
+        var module = (await Opened()).Modules.Single();
+
+        (await _service.SaveModule(module, saveAs: false)).Should().BeTrue();
+
+        if (!comment) File.ReadAllBytes(path).Should().Equal(original);
+        var saved = File.ReadAllText(path);
+        // #3777 moves a standard module's name above preceding comments; #4459 leaves that rule alone.
+        saved.Should().Be(comment ? "Attribute VB_Name = \"Main\"\r\n' comment above name\r\nOption Explicit\r\n" : text);
+        module.UpdateCode(module.Code + "' edit\r\n");
+        (await _service.SaveModule(module, saveAs: false)).Should().BeTrue();
+        File.ReadAllText(path).Should().EndWith("' edit\r\n");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Designer_text_declared_as_a_module_refuses_unopened_writers(bool automation)
+    {
+        File.WriteAllText(FormFile, "VERSION 5.00\r\nBegin VB.Form Main\r\nEnd\r\nAttribute VB_Name = \"Main\"\r\nOption Explicit\r\n");
+        using var type = Contribute(null, new AddinProjectMember(FormFile, AddinMemberKind.StandardModule));
+        var project = await Opened();
+        var module = project.Modules.Single();
+        var before = module.Code;
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([project]);
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.OpenDocuments.Returns([]);
+        if (automation)
+        {
+            using var context = new HexIDE.Desktop.Server.IdeContext(projects, dock, Substitute.For<HexIDE.Lsp.ILspClient>(),
+                null!, Substitute.For<IProjectRunnerService>(), _service, new EventBus(),
+                null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new LocalizationService(), null!);
+            var result = await new HexIDE.Desktop.Server.HexIdeTools(context).SetFileContentAsync("Main", "changed");
+            result.Success.Should().BeFalse();
+            result.Error.Should().Contain("cannot yet reproduce");
+            module.Code.Should().Be(before);
+        }
+        else
+        {
+            var documents = new FindProjectDocuments(dock, projects, Substitute.For<IEditorService>(), () => project);
+            documents.GetDocuments(true).Single().IsReadOnlyDocument.Should().BeTrue();
+        }
+    }
+
     private static readonly AddinOrigin Provider = new("provider", "A provider");
     private static readonly IComponentClass Root = StandInRoot();
 

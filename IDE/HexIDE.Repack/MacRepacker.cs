@@ -4,6 +4,7 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using HexIDE.IDE;
+using SkiaSharp;
 
 namespace HexIDE.Repack;
 
@@ -213,15 +214,18 @@ internal static class MacBundle
     }
 }
 
-/// <summary>The bundle's icon, made from the brand's logo.</summary>
+/// <summary>
+/// The bundle's icon, made from the brand's logo. To regenerate stock's icon, extract its ic10 PNG and pass it
+/// to FromLogo, then write the result to IDE/HexIDE/Icons/AppIcon/hexide.icns.
+/// </summary>
 internal static class MacIcon
 {
     private const int HeaderSize = 8;
 
-    // The entries stock's own icon has, all PNG, in its order.
+    // The 16- and 32-pixel entries use Apple's ARGB format; the remaining entries are PNG.
     internal static readonly (string Type, int Size)[] Entries =
     [
-        ("icp4", 16), ("icp5", 32), ("ic11", 32), ("ic12", 64), ("ic07", 128),
+        ("ic04", 16), ("ic05", 32), ("ic11", 32), ("ic12", 64), ("ic07", 128),
         ("ic13", 256), ("ic08", 256), ("ic14", 512), ("ic09", 512), ("ic10", 1024),
     ];
 
@@ -238,14 +242,43 @@ internal static class MacIcon
         foreach (var (type, size) in Entries)
         {
             var png = rendered[size];
+            var data = type is "ic04" or "ic05" ? Argb(png, size) : png;
             icon.Write(Encoding.ASCII.GetBytes(type));
-            BinaryPrimitives.WriteInt32BigEndian(length, HeaderSize + png.Length);
+            BinaryPrimitives.WriteInt32BigEndian(length, HeaderSize + data.Length);
             icon.Write(length);
-            icon.Write(png);
+            icon.Write(data);
         }
 
         var result = icon.ToArray();
         BinaryPrimitives.WriteInt32BigEndian(result.AsSpan(4), result.Length);
         return result;
     }
+    private static byte[] Argb(byte[] png, int size)
+    {
+        using var bitmap = SKBitmap.Decode(png);
+        using var output = new MemoryStream();
+        output.Write("ARGB"u8);
+        for (var channel = 0; channel < 4; channel++)
+        {
+            var pixels = new byte[size * size];
+            for (var y = 0; y < size; y++)
+            for (var x = 0; x < size; x++)
+            {
+                var color = bitmap.GetPixel(x, y);
+                pixels[y * size + x] = channel switch
+                {
+                    0 => color.Alpha, 1 => color.Red, 2 => color.Green, _ => color.Blue,
+                };
+            }
+            // Literal packets are valid for any pixels, up to 128 per packet.
+            for (var start = 0; start < pixels.Length; start += 128)
+            {
+                var count = Math.Min(128, pixels.Length - start);
+                output.WriteByte((byte)(count - 1));
+                output.Write(pixels, start, count);
+            }
+        }
+        return output.ToArray();
+    }
+
 }

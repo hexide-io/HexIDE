@@ -34,11 +34,11 @@ internal static class WindowsDateTable
 
     internal static string Read(JsonElement entry, uint type)
     {
-        if (type is 0x1d or 0x1f or 0x20 or 0x28 or 0x29)
+        if (type is 0x1d or 0x1f or 0x20 or 0x28 or 0x29 or 0x1003)
             return entry.GetProperty(type switch
             {
                 0x1d => "dateSeparator", 0x1f => "shortDate", 0x20 => "longDate",
-                0x28 => "amDesignator", _ => "pmDesignator"
+                0x28 => "amDesignator", 0x29 => "pmDesignator", _ => "timeFormat"
             }).GetString()!;
         var (first, field, fallback) = type switch
         {

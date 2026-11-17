@@ -17,17 +17,17 @@ namespace HexIDE.Tests.ViewModels;
 public class ObjectBrowserComponentLibraryTests
 {
     private static (ObjectBrowserToolViewModel Browser, IProjectManager Projects) Create(ProjectDefinition project,
-        ITypeLibraryService? types = null)
+        ITypeLibraryService? types = null, ILocalizationService? localization = null, IComponentRegistry? components = null)
     {
         var projects = Substitute.For<IProjectManager>();
         projects.LoadedProjects.Returns([project]);
         types ??= Substitute.For<ITypeLibraryService>();
-        var loc = Substitute.For<ILocalizationService>();
+        var loc = localization ?? Substitute.For<ILocalizationService>();
         loc.GetString("Str.MemberOrigin.HexIde").Returns("HexIDE extension");
         loc.GetString("Str.Tool.ObjectBrowser.MembersUnavailable").Returns("Localized unavailable members");
         loc.GetString("Str.Tool.ObjectBrowser.TypeMetadataUnavailable").Returns("Localized unavailable type metadata");
         return (new ObjectBrowserToolViewModel(projects, Substitute.For<ILspClient>(),
-            Substitute.For<IEditorService>(), new ComponentRegistry(), types,
+            Substitute.For<IEditorService>(), components ?? new ComponentRegistry(), types,
             FocusedProject(project), loc, Substitute.For<ILanguageConnectionRegistry>()), projects);
     }
 
@@ -136,6 +136,80 @@ public class ObjectBrowserComponentLibraryTests
         project.AddForm(form);
         projects.ProjectUnloaded += Raise.Event<Action<ProjectDefinition>>(project);
         browser.Libraries.Should().NotContain(l => l.Name == "VendorGrid");
+    }
+
+    // #4384 keyed the placeholder for a library whose type information can't be read; it follows a live switch too.
+    [Fact]
+    public void Live_language_switch_refreshes_the_type_metadata_placeholder()
+    {
+        var loc = Substitute.For<ILocalizationService>();
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddObjectLine(ThirdPartyLine);
+        var (browser, _) = Create(project, localization: loc);
+        var library = browser.Libraries.Single(l => l.Name == "VendorGrid");
+        browser.SelectedLibrary = library;
+        var placeholder = library.Classes.Single();
+        placeholder.Name.Should().Be("Localized unavailable type metadata");
+        loc.GetString("Str.Tool.ObjectBrowser.TypeMetadataUnavailable").Returns("Neue Metadaten-Meldung");
+
+        loc.LanguageChanged += Raise.Event<Action>();
+
+        placeholder.Name.Should().Be("Neue Metadaten-Meldung");
+        browser.SelectedLibrary.Should().BeSameAs(library);
+    }
+
+    [Fact]
+    public void Live_language_switch_refreshes_extension_in_vb_library()
+    {
+        var loc = Substitute.For<ILocalizationService>();
+        var components = Substitute.For<IComponentRegistry>();
+        components.Components.Returns([ProgressBarComponentClass.Instance]);
+        var (browser, _) = Create(new(VBProjectType.EXE, "P"), localization: loc, components: components);
+        browser.SelectedLibrary = browser.Libraries.Single(l => l.Name == "VB");
+        browser.SelectedClass = browser.SelectedLibrary.Classes.Single();
+        var member = browser.SelectedClass.Members.Single(m => m.Name == "Increment");
+        member.Description.Should().Be("HexIDE extension");
+        loc.GetString("Str.MemberOrigin.HexIde").Returns("New extension");
+
+        loc.LanguageChanged += Raise.Event<Action>();
+
+        member.Description.Should().Be("New extension");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Live_language_switch_refreshes_cached_members_and_preserves_selection(bool origin)
+    {
+        var loc = Substitute.For<ILocalizationService>();
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddObjectLine(ControlLibraries.MSComctlLib.ProjectLine);
+        var (browser, _) = Create(project, localization: loc);
+        browser.SelectedLibrary = browser.Libraries.Single(l => l.Name == "MSComctlLib");
+        browser.SelectedClass = browser.SelectedLibrary.Classes.Single(c => c.Name == (origin ? "ProgressBar" : "ButtonMenu"));
+        browser.SelectedMember = origin
+            ? browser.FilteredMembers.Single(m => m.Name == "Increment")
+            : browser.FilteredMembers.Single();
+        var library = browser.SelectedLibrary;
+        var cls = browser.SelectedClass;
+        var member = browser.SelectedMember;
+        var notifications = new System.Collections.Generic.List<string?>();
+        browser.PropertyChanged += (_, e) => notifications.Add(e.PropertyName);
+        loc.GetString(Arg.Any<string>()).Returns(ci => "New " + ci.Arg<string>());
+
+        loc.LanguageChanged += Raise.Event<Action>();
+
+        browser.SelectedLibrary.Should().BeSameAs(library);
+        browser.SelectedClass.Should().BeSameAs(cls);
+        browser.SelectedMember.Should().BeSameAs(member);
+        if (origin)
+        {
+            member.Description.Should().Be("New Str.MemberOrigin.HexIde");
+            browser.DescriptionText.Should().Be(member.Description);
+            notifications.Should().Contain(nameof(browser.DescriptionText));
+        }
+        else
+            member.Name.Should().Be("New Str.Tool.ObjectBrowser.MembersUnavailable");
     }
 
     [Fact]

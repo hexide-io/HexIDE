@@ -35,6 +35,25 @@ public partial class MainView : UserControl
     private readonly ObservableCollection<MenuItem> _projectItems = [];
     private MenuRenderer? _menuRenderer;
 
+    static MainView()
+    {
+        // Desktop forms have their own input route. Only Break crosses back into the IDE (#1297, measured SP6).
+        // Which windows are a running program's is the contract's question, not an interpreter type's (#4067).
+        InputElement.KeyDownEvent.AddClassHandler<Window>((window, e) =>
+        {
+            if (RunningProgram.Current.Form(window) is not { IsRunning: true }) return;
+            if (Static.MainView is not { } main || TopLevel.GetTopLevel(main) is not Window { IsVisible: true }) return;
+            var command = ApplicationCommands.BreakProjectCommand;
+            foreach (var gesture in command.Gestures)
+            {
+                if (!gesture.Matches(e)) continue;
+                if (command.CanExecute(null, main)) command.Execute(null, main);
+                e.Handled = true;
+                return;
+            }
+        }, RoutingStrategies.Tunnel);
+    }
+
     public MainView()
     {
         // Register shortcut tracking before markup or the renderer assigns its first command.
@@ -170,7 +189,8 @@ public partial class MainView : UserControl
         if (_projectItems.Count == 0)
         {
             var item = new MenuItem { IsEnabled = false };
-            item.Bind(HeaderedSelectingItemsControl.HeaderProperty, this.GetResourceObservable("Str.NewProject.NoTemplates"));
+            item.Bind(HeaderedSelectingItemsControl.HeaderProperty, this.GetResourceObservable(vm.ProjectTemplates.HasTemplates
+                ? "Str.NewProject.NoTemplates" : "Str.NewProject.NoInstalledTemplates"));
             _projectItems.Add(item);
         }
     }

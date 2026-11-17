@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 
 namespace HexIDE.Tests.Infrastructure;
 
@@ -12,10 +13,12 @@ public class WaylandStartupTests
     [InlineData(true, true)]
     public async Task Unavailable_display_reports_selection_source_and_respects_launcher_logging(bool standalone, bool environment)
     {
-        var directory = Path.Combine(RepoTree.Root(), "artifacts", "wayland-startup-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        // Keep the Wayland socket path below the 108-byte Unix limit, regardless of checkout depth (#4437).
+        var directory = Directory.CreateTempSubdirectory("wl-").FullName;
         try
         {
+            Encoding.UTF8.GetByteCount(Path.Combine(directory, "wayland-0")).Should().BeLessThan(108,
+                "the Unix socket path limit is 108 bytes; shorten TMPDIR");
             var launcher = standalone ? typeof(HexIDE.Standalone.Program).Assembly : typeof(HexIDE.Desktop.Program).Assembly;
             var tests = typeof(WaylandStartupTests).Assembly.Location;
             var start = new ProcessStartInfo("dotnet")

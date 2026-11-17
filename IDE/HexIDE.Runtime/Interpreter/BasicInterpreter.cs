@@ -820,7 +820,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         this.compilationConstants = compilationConstants ?? CompilationConstants.Vb6;
         BuiltIns = new VB6BuiltIns(stdLib)
         {
-            IsVba64 = IsVba64,
+            VbaBitness = VbaBitness,
             ResolveDefaultForUse = (value, use) => ResolveDefaultMember(value, use),
             AppTitle = () => App.TitleOrNull,
             ProjectResources = () => Resources,
@@ -962,7 +962,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     // What a module's #If can name besides its own #Consts: the project's arguments and the built-ins (#1112).
     private readonly CompilationConstants compilationConstants;
-    internal bool IsVba64 => compilationConstants.VbaBitness == VbaBitness.Bit64;
+    internal VbaBitness VbaBitness => compilationConstants.VbaBitness;
+    internal bool IsVba64 => VbaBitness == VbaBitness.Bit64;
 
     // Each module's conditional compilation is applied before it is parsed, so an inactive branch is never parsed, as in
     // vb6.exe, and a directive's error stops the program as it loads (#1112). The text is the parser's alone: the code
@@ -1112,6 +1113,24 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         foreach (var m in Modules.All)
             if (!m.ModuleEnv.TryGetVariableLocation(name, out _))
                 m.ModuleEnv.DefineVariable(name, slot);
+        programGlobals[name] = slot;
+    }
+
+    // The names every module is given in one shared slot (Debug, Err, App, a predeclared class), for ProjectScope.
+    private readonly Dictionary<string, int> programGlobals = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// An environment that sees only what the whole project sees: every module's Public variables and Consts and Public
+    /// Enum members, through <see cref="ProjectNames"/>, and the program's globals. No module's own Private names, and no
+    /// procedure's locals. A watch added with Module (All Modules) evaluates here: in VB6 a standard module's Public
+    /// variable is found, and a module's Private variable or a local is not, even in its own scope (measured, #4452).
+    /// </summary>
+    internal ExecutionEnvironment ProjectScope()
+    {
+        var env = new ExecutionEnvironment { ProjectNames = ProjectNames.For(null, Modules.All) };
+        foreach (var (name, slot) in programGlobals)
+            env.DefineVariable(name, slot);
+        return env;
     }
 
     private readonly List<int> predeclaredSlots = new();
@@ -1738,6 +1757,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     checkedArrayReturn)
                 {
                     IsEntry = isEntry,
+                    Accessor = proc.Accessor,
                     VariantReturn = proc.IsFunction && proc.ReturnsVariant && !proc.ReturnsObject,
                     Statics = me?.Value is VbObject instance ? instance.Statics ??= new StaticLocals() : ExecutionContext.State.ModuleStatics,
                 };

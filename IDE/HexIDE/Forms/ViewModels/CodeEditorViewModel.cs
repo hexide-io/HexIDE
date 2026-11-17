@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -174,11 +175,16 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// save the form discards code edits too. Gating only the designer would leave the more likely loss
     /// — someone typing a procedure — completely unprotected.
     /// </summary>
-    public bool IsReadOnly => formDefinition is { CanSaveFaithfully: false };
+    public bool IsModuleReadOnly => moduleDefinition is { CanSaveFaithfully: false };
+    public bool IsFormReadOnly => !IsModuleReadOnly && formDefinition is { CanSaveFaithfully: false };
+    public bool IsReadOnly => IsModuleReadOnly || IsFormReadOnly;
 
     public bool IsReadOnlyDocument => IsReadOnly;
 
-    public string? ReadOnlyReason => formDefinition?.UnfaithfulSaveReason;
+    public string? ReadOnlyReason => moduleDefinition is { CanSaveFaithfully: false } module
+        ? string.Format(localization.GetString("Str.ContributedProject.DesignerModuleReadOnly"),
+            Path.GetFileName(module.AbsolutePath) ?? module.Name, module.Owner.ContributorTitle ?? module.Owner.Name)
+        : formDefinition?.UnfaithfulSaveReason;
 
     public ObservableCollection<string> ObjectNames    { get; } = new();
     public ObservableCollection<string> ProcedureNames { get; } = new();
@@ -288,7 +294,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // Refresh the tab title (its "(Code)" suffix is localized) when the language changes. Unsubscribe on Dispose
         // (tab close) — a raw `+=` kept every closed code-editor VM (each holding a full document buffer) reachable
         // from the singleton localization service, so none were collected and a language switch replayed on all of them.
-        Action onLanguageChanged = () => Title = ComputeTitle();
+        Action onLanguageChanged = () =>
+        {
+            Title = ComputeTitle();
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(ReadOnlyReason)));
+        };
         localization.LanguageChanged += onLanguageChanged;
         AutoDispose(new ActionDisposable(() => localization.LanguageChanged -= onLanguageChanged));
 
@@ -383,6 +393,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         {
             if (formDefinition is null || !ReferenceEquals(e.Designer, formDefinition)) return;
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsReadOnly)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsFormReadOnly)));
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(ReadOnlyReason)));
         }));
         AutoDispose(this.eventBus.Subscribe<FormMovedEvent>(e =>
@@ -1173,6 +1184,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // designer block can flip the verdict while leaving the code byte-identical. The section provider
         // reads the verdict live; this is for the banner (#475).
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsReadOnly)));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsFormReadOnly)));
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(ReadOnlyReason)));
         // The tab's marker follows the model just replaced: clean after a reload from disk, edited after crash
         // recovery restores unsaved work into it (#499).
@@ -1930,7 +1942,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             var editor = identity == Identity ? this : editorService.FindOpenCode(identity);
             var module = identity.Module;
             var form = module is not null ? module.FormPart : identity.Form;
-            if (form is { CanSaveFaithfully: false }) return Refuse(target.Uri);
+            if (module is { CanSaveFaithfully: false } || form is { CanSaveFaithfully: false }) return Refuse(target.Uri);
             // The target's own project decides its prefix and its regions, and it needn't be this window's (#4053).
             var targetFormat = ProjectFormats.Of(identity.Project);
             var targetReader = ProjectFormats.ReaderOf(identity.Project);

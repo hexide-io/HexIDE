@@ -272,6 +272,14 @@ public sealed class LanguageServerEntry
     [JsonPropertyName("restartOnProjectChange")]
     public bool? RestartOnProjectChange { get; set; }
 
+    /// <summary>
+    /// Whether AI Chat may use the tools and context this server offers under <c>experimental.hexide.chatTools</c>
+    /// (#4257): <c>"hints"</c>, the default, asks before each call unless the tool says it only reads; <c>"ask"</c> asks
+    /// before every call and takes no context; <c>"off"</c> uses none. See <see cref="ServerChatToolsSetting"/>.
+    /// </summary>
+    [JsonPropertyName("chatTools")]
+    public string? ChatTools { get; set; }
+
     /// <summary>A command and argument template for importing the in-memory project.</summary>
     [JsonPropertyName("projectImport")]
     public ProjectImportEntry? ProjectImport { get; set; }

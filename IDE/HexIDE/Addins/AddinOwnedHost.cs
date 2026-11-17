@@ -15,6 +15,10 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
     public IProjectAccess Project => host.Project;
     public IDiagnosticsAccess Diagnostics => host.Diagnostics;
     public IOptionsPageContributor Options => host.Options;
+    // HexIDE's own add-ins only (#4257): the caller supplies the approval callback, so any other add-in could answer yes for
+    // the person. A developer-unsigned add-in exists only in a Debug build's developer mode, as RegisteredAddinTitle allows.
+    public IServerChatTools ServerChatTools =>
+        origin.IsFirstParty || origin.IsDeveloperUnsigned ? host.ServerChatTools : ServerChatToolsUnavailable.Instance;
     public IDisposable RegisterCommand(string id, string label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>
         host.RegisterCommand(id, label, onInvoke, gesture, canExecute);
     public IDisposable RegisterCommand(string id, AddinTitle label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>

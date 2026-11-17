@@ -54,6 +54,8 @@ public class ComboBoxComponentClass : ComponentBaseClass
             .Select(n => new InBox.InBoxMember(n, InBox.MemberKind.Method, InBox.MemberOrigin.HexIde, false, true)),
     ];
 
+    public override string? DesignerDoubleClickEvent => "Change";
+
     public override string Name => "Combo";
     public override string VBTypeName => "VB.ComboBox";
     public override (int Width, int Height) AddedSize => (1215, 315);

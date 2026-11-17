@@ -11,6 +11,17 @@ public partial class ModuleDefinition : INotifyPropertyChanged
     /// <summary>Source encoding retained through saves and path changes.</summary>
     public Vb6TextEncoding TextEncoding { get; set; } = Vb6TextEncoding.Ansi;
 
+    public string? UnfaithfulSaveReason { get; private set; }
+    public UnfaithfulSaveCause UnfaithfulSaveCauses { get; private set; }
+
+    public void MarkUnfaithfulToSave(UnfaithfulSaveCause cause, string developerReason)
+    {
+        UnfaithfulSaveCauses |= cause;
+        UnfaithfulSaveReason ??= developerReason;
+    }
+
+    public bool CanSaveFaithfully => UnfaithfulSaveCauses == UnfaithfulSaveCause.None;
+
     public ProjectDefinition Owner { get; }
     public ModuleKind Kind { get; }
 

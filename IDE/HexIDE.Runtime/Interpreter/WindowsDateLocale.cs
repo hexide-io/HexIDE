@@ -55,17 +55,9 @@ internal static partial class WindowsDateLocale
     {
         string? era = null;
         string Era() => era ??= readEra();
-        var am = read(0x28); // LOCALE_S1159
-        var pm = read(0x29); // LOCALE_S2359
-        // Windows' designators pair with Windows' own time format, which this leaves to .NET. So an empty one is taken
-        // only where .NET's time patterns don't write a designator: tzm-Latn-DZ has none in NLS, beside NLS's 24-hour
-        // "H:mm:ss", while .NET's pattern is "h:mm:ss tt", and 23:59 would be written as 11:59 (#4378).
-        if (am.Length > 0 && pm.Length > 0
-            || !WritesDesignator(dates.LongTimePattern) && !WritesDesignator(dates.ShortTimePattern))
-        {
-            dates.AMDesignator = am;
-            dates.PMDesignator = pm;
-        }
+        dates.AMDesignator = read(0x28); // LOCALE_S1159
+        dates.PMDesignator = read(0x29); // LOCALE_S2359
+        dates.LongTimePattern = ManagedPattern(read(0x1003), Era); // LOCALE_STIMEFORMAT
         dates.DateSeparator = read(0x1d); // LOCALE_SDATE
         dates.ShortDatePattern = ManagedPattern(read(0x1f), Era); // LOCALE_SSHORTDATE
         dates.LongDatePattern = ManagedPattern(read(0x20), Era); // LOCALE_SLONGDATE
@@ -83,28 +75,6 @@ internal static partial class WindowsDateLocale
         }
         dates.DayNames = days;
         dates.AbbreviatedDayNames = abbreviated;
-    }
-
-    // Whether a .NET date pattern writes an AM/PM designator: a 't' outside its quoted literals and escapes.
-    internal static bool WritesDesignator(string pattern)
-    {
-        for (var i = 0; i < pattern.Length; i++)
-        {
-            switch (pattern[i])
-            {
-                case '\\':
-                    i++;
-                    break;
-                case '\'' or '"':
-                    var quote = pattern[i];
-                    while (++i < pattern.Length && pattern[i] != quote)
-                        if (pattern[i] == '\\') i++;
-                    break;
-                case 't':
-                    return true;
-            }
-        }
-        return false;
     }
 
     // NLS doubles apostrophes inside literals; .NET escapes them, and treats backslashes as escapes.

@@ -448,7 +448,7 @@ public class MainViewViewModelTests
             debug ?? _debugController,
             new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc),
             logFolderOpener: logFolderOpener, recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references, callHierarchy: hierarchy, typeHierarchy: typeHierarchy,
-            runWith: null);
+            runWith: null, projectTemplates: new AddinProjectTemplateService());
     }
 
     private sealed class RequeryProbe : IDisposable
@@ -864,6 +864,57 @@ public class MainViewViewModelTests
         picked.FileTypeFilter![0].Patterns.Should().BeEquivalentTo(custom
             ? new[] { "*.xfrm", "*.bas", "*.xcls", "*.ctl", "*.pag" }
             : new[] { "*.frm", "*.bas", "*.cls", "*.ctl", "*.pag" });
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true, "C.xcls", ProjectFileKind.ClassModule)]
+    [InlineData(true, "C.XCLS", ProjectFileKind.ClassModule)]
+    [InlineData(true, "F.xfrm", ProjectFileKind.Form)]
+    [InlineData(true, "F.XFRM", ProjectFileKind.Form)]
+    [InlineData(true, "notes.md", ProjectFileKind.RelatedDocument)]
+    [InlineData(true, "LICENSE", ProjectFileKind.RelatedDocument)]
+    [InlineData(true, "C.cls", ProjectFileKind.RelatedDocument)]
+    [InlineData(true, "F.frm", ProjectFileKind.RelatedDocument)]
+    [InlineData(false, "F.frm", ProjectFileKind.Form)]
+    [InlineData(false, "M.bas", ProjectFileKind.StandardModule)]
+    [InlineData(false, "C.cls", ProjectFileKind.ClassModule)]
+    [InlineData(false, "U.ctl", ProjectFileKind.UserControl)]
+    [InlineData(false, "P.pag", ProjectFileKind.PropertyPage)]
+    [InlineData(false, "D.dsr", ProjectFileKind.RelatedDocument)]
+    [InlineData(false, "D.dob", ProjectFileKind.RelatedDocument)]
+    [InlineData(false, "LICENSE", ProjectFileKind.RelatedDocument)]
+    public void Add_File_classifies_with_the_focused_projects_format(bool custom, string fileName, ProjectFileKind expected)
+    {
+        var format = custom
+            ? (IProjectFileFormat)new HexIDE.Tests.Projects.ProjectFileFormatSeamTests.StandInFormat
+                { FormExtension = "xfrm", ClassExtension = "xcls" }
+            : new Vb6ProjectFileFormat();
+        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { Format = format };
+        var path = System.IO.Path.Join(System.IO.Path.GetTempPath(), fileName);
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(project);
+        _windowManager.OpenFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerOpenOptions>())
+            .Returns(Task.FromResult<IReadOnlyList<string>?>([path]));
+        _projectService.AddExistingForm(project, path).Returns(Task.FromResult(Adopted<FormDefinition>.Added(
+            new FormDefinition(project, HexIDE.Runtime.Components.FormComponentClass.Instance, "F"), "F")));
+        _projectService.AddExistingModule(project, path, Arg.Any<ModuleKind>()).Returns(call =>
+            Task.FromResult(Adopted<ModuleDefinition>.Added(new ModuleDefinition(project, "C", call.Arg<ModuleKind>()), "C")));
+        _projectService.AddExistingRelatedDocument(project, path)
+            .Returns(Task.FromResult(new RelatedDocumentDefinition(project, fileName, path)));
+
+        _sut.AddFileCommand.Execute(null);
+
+        var calls = _projectService.ReceivedCalls().Where(c => c.GetMethodInfo().Name.StartsWith("AddExisting", StringComparison.Ordinal)).ToArray();
+        calls.Should().ContainSingle();
+        calls[0].GetArguments()[0].Should().BeSameAs(project);
+        calls[0].GetArguments()[1].Should().Be(path);
+        if (expected.AsModuleKind() is { } kind)
+        {
+            calls[0].GetMethodInfo().Name.Should().Be(nameof(IProjectService.AddExistingModule));
+            calls[0].GetArguments()[2].Should().Be(kind);
+        }
+        else
+            calls[0].GetMethodInfo().Name.Should().Be(expected == ProjectFileKind.Form
+                ? nameof(IProjectService.AddExistingForm) : nameof(IProjectService.AddExistingRelatedDocument));
     }
 
     [AvaloniaFact]
@@ -1590,6 +1641,25 @@ public class MainViewViewModelTests
         _vb6Toolchain.IsAvailable.Returns(false);
 
         _sut.MakeWithVb6Command.CanExecute(null).Should().BeFalse();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void No_project_commands_do_not_dispatch_make_or_properties(bool make)
+    {
+        var previous = Static.WithoutVb6;
+        try
+        {
+            Static.WithoutVb6 = true;
+            _focusedProjectUtil.FocusedOrStartupProject.Returns((ProjectDefinition?)null);
+            _projectService.ClearReceivedCalls();
+            var command = make ? _sut.MakeProjectCommand : _sut.ProjectPropertiesCommand;
+            command.CanExecute(null).Should().BeFalse();
+            command.Execute(null);
+            _projectService.ReceivedCalls().Should().BeEmpty();
+        }
+        finally { Static.WithoutVb6 = previous; }
     }
 
     // --- Method delegation ---

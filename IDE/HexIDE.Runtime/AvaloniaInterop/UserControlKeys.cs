@@ -81,7 +81,11 @@ internal static class UserControlKeys
             {
                 // A focused button owns Enter; an open combo owns both keys (#2325, #4371).
                 if (focused is ComboBox { IsDropDownOpen: true })
+                {
+                    if (Receivers(form, e.Key).Length == 1)
+                        taken = e.Key;
                     return;
+                }
                 if (e.Key == Key.Enter && focused is VBCommandButton button)
                 {
                     e.Handled = true;
@@ -89,10 +93,7 @@ internal static class UserControlKeys
                     button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     return;
                 }
-                var receivers = form.All.Where(c =>
-                    (c is VBCommandButton command ? e.Key == Key.Enter ? command.Default : command.Cancel
-                        : e.Key == Key.Enter ? UserControlMembers.IsDefault(c) : UserControlMembers.IsCancel(c))
-                    && c.IsEffectivelyEnabled && c.IsEffectivelyVisible).Take(2).ToArray();
+                var receivers = Receivers(form, e.Key);
                 if (receivers.Length == 1)
                 {
                     e.Handled = true;
@@ -105,6 +106,11 @@ internal static class UserControlKeys
             }
         }, RoutingStrategies.Tunnel);
     }
+
+    private static Control[] Receivers(FormControls form, Key key) => form.All.Where(c =>
+        (c is VBCommandButton command ? key == Key.Enter ? command.Default : command.Cancel
+            : key == Key.Enter ? UserControlMembers.IsDefault(c) : UserControlMembers.IsCancel(c))
+        && c.IsEffectivelyEnabled && c.IsEffectivelyVisible).Take(2).ToArray();
 
     internal static void UpdateDefault(Control control)
     {

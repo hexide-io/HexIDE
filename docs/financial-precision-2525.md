@@ -27,11 +27,11 @@ seven ULPs from `409C45757D31FA2E`. Horner's nearest candidate produces
 The implementation uses the shared `FinancialNumber` for retained intermediates and Double
 spills for the cumulative powers. It matches the three exact Double results and both error-5
 rows (rate -1 and an unallocated Double array). Matching these rows does not prove a unique
-model for every input. Other array element types, scalar/Null/String/Date conversions, empty
-or multidimensional arrays, named calls, argument-count/missing-argument errors and extreme
+model for every input. Named calls use the measured parameter names (#4145). Other array element types, scalar/Null/String/Date conversions, empty
+or multidimensional arrays, argument-count/missing-argument errors and extreme
 arithmetic domains remain explicitly unimplemented.
 
-## IRR — refused
+## IRR
 
 The probe tries the Rate family requested in the supervisor's comment: a secant pair starting
 at Guess and Guess/2, stopping when the absolute residual is below 1e-7, up to 40 iterations.
@@ -48,10 +48,13 @@ candidate is Horner, mask 9 (base and sum spills), at either precision:
 For independently powered and cumulatively multiplied residuals, the closest aggregate mask
 is 45 (base, term, sum, iterate spills), producing `3FC875EFF17028DC`,
 `3FC875EFF170444E`, `3FB62D7220A36D0C` respectively at either precision.
-No result or guessed error is shipped: IRR refuses with HexIDE's not-implemented error.
-The all-positive error-5 row remains part of the unimplemented function.
+IRR now ships the 64-bit Horner mask-9 model by
+[Jen’s decision, 2026-11-17](https://github.com/hexide-io/HexIDE/issues/2525#issuecomment-6954533411).
+The all-positive error-5 row matches. Equal residuals or exhaustion of 40 iterations,
+other flows without a sign change, unsupported NPV argument shapes and arithmetic domains
+refuse as unimplemented (#2525).
 
-## MIRR — refused
+## MIRR
 
 The probe calculates positive and negative NPV separately, compounds the positive NPV to
 its terminal value, divides by the negative NPV times `1 + financeRate`, then takes the
@@ -66,40 +69,150 @@ spills):
 | MIRR(b, 0.1, 0.12) | `3FB94260ED237997` | `3FB94260ED23798E` |
 | MIRR(a, 0.1, 0.12) | `3FC477233C8903B7` | `3FC477233C8903B7` |
 
-The first result misses by nine ULPs. MIRR refuses with HexIDE's not-implemented error;
-its measured error-11 and error-5 rows remain part of the unimplemented function.
-Further arithmetic models or iteration choices are still needed; these searches are not
-an exhaustive proof that no matching model exists.
+MIRR now ships the 64-bit Horner mask-84 model by the same decision. The first result
+misses by nine ULPs. Its measured error-11 and error-5 rows match. The root uses the exact
+reciprocal exponent, expanded to 180 binary places with 160-bit retained square roots before
+rounding to 64 bits; using the Double nearest 1/5 changes the six-flow row.
+ReinvestRate -1, other flows without a sign change, unsupported NPV argument shapes and
+powers outside the supported positive-base domain refuse as unimplemented (#2525).
+Better models may replace these; this search is not proof that no matching model exists.
 
 ## Verification
 
-The final 20 new tests all fail against main's three runtime source files, then run against
-the restored implementation. Five pin the NPV measurement rows (three exact Double patterns
-and two error-5 results). Eight cover explicit refusal of every measured IRR/MIRR call;
-seven cover unsupported NPV calls. Refusal tests establish no VB6 result or error number.
+`CashFlowIntrinsicTests.Authorized_cash_flow_row` pins the five authorized model results
+above and the three measured error numbers. All eight rows fail against main’s execution
+refusals. The tests retain the measured bits alongside the model expectations; these are
+model regression tests, not claims of exact VB6 fidelity. The NPV rows remain exact.
+Unmeasured-case tests pin refusals only, establishing no VB6 value or error number.
 
-For the supervisor's live editor check, type `NPV(`, `IRR(` and `MIRR(` and confirm the
-parameter lists and Double labels appear. IRR and MIRR remain unavailable at execution.
-No live IDE verification was performed in this Linux run.
+The results at 15 significant digits (measured → computed) are:
 
-The full runtime run passed 8,462, skipped 14 and failed none (7m26s); the xUnit report
-records zero hidden errors. All 20 new tests pass and none skips. Both the prebuilt and
-rebuilt MissingLanguageDocTests runs pass all 18 cases after the guard's recount. Intrinsic
-Dies/Partial moves 10/69 to 9/70; overall 80/479 to 79/480. The inventory remains 1,185 names.
-Tree hygiene passes with nine existing nonblocking warnings. NuGet auditing was disabled
-for these runs because its global HTTP cache is read-only in this sandbox; the temporary
-HTTP cache is outside the source tree. Windows PATH entries were removed before every run.
+| Call | Measured | Computed |
+|---|---|---|
+| IRR(a) | 0.191099160089404 | 0.191099160089215 |
+| IRR(a, 0.2) | 0.191099160089389 | 0.191099160089410 |
+| IRR(b) | 0.0866309480331796 | 0.0866309480365326 |
+| MIRR(b, 0.1, 0.12) | 0.0986691073371503 | 0.0986691073371501 |
 
-The 14 skipped runtime cases provide no coverage for this change:
+The [oracle page](vb6-fidelity-oracle/npv-irr-and-mirr.md) owns the measurements;
+this note and the implementation introduce none. NPV is unchanged by this delivery.
 
-- Windows filesystem: `FileSystemTests.CurDir_uses_only_the_first_drive_character`,
-  `Windows_name_rows`, `Windows_error_rows`, `Windows_numeric_rows`, `Windows_attribute_rows`.
-- Missing VB6 templates: `Vb6TextFileTests.The_one_corpus_file_with_high_bytes_round_trips`;
-  `ClassHeaderPreservationTests.Instancing_and_data_binding_settings_survive`,
-  `A_real_vb6_class_round_trips_byte_for_byte`,
-  `A_renamed_module_retargets_VB_Name_but_keeps_everything_else`;
-  `ContainerHierarchySaveTests.RoundTrip_OfVb6sOwnNestedTemplates_ReproducesTheBeginStructure`;
-  `MenuHierarchySaveTests.Vb6sOwnMenuTemplates_AreNoLongerHeldReadOnly`,
-  `RoundTrip_OfVb6sOwnMenuTemplates_ReproducesTheMenuShape`.
-- Opt-in oracle: `Vb6OracleRoundTripTests.HexIDE_output_still_builds_in_vb6`.
-- Child-only probe: `UiThreadTests.Child_ReportsTheUiThreadsStack` (only runs through its parent test).
+The 2026-11-17 implementation check ran all 41 cash-flow tests without skips. All eight
+replacement result/error rows failed against main before implementation. The mutation-check
+tool verified green → red → green with byte-for-byte restoration: removing IRR’s sum spill
+failed three result rows; removing MIRR’s ratio spill failed two result rows. The 21 additional
+unmeasured-case tests protect refusals only; they are not counted as regression teeth or
+as evidence of VB6 semantics.
+
+Full runtime: 9,359 passed, 21 skipped, zero failures (9,380 total). Runtime integration:
+3,227 passed, two skipped, zero failures (3,229 total), after retrying an MSBuild worker failure
+with one build worker. Both xUnit reports contain zero hidden errors. MissingLanguageDocTests
+passes all 20 cases; its recount moves intrinsic Dies/Partial from 6/73 to 4/75 and overall
+62/496 to 60/498, retaining 1,185 names. Tree hygiene passes with nine nonblocking warnings.
+
+The skipped runtime cases provide no coverage here:
+
+- `MenuHierarchySaveTests.RoundTrip_OfVb6sOwnMenuTemplates_ReproducesTheMenuShape`.
+- `MenuHierarchySaveTests.Vb6sOwnMenuTemplates_AreNoLongerHeldReadOnly`.
+- `Vb6OracleRoundTripTests.HexIDE_output_still_builds_in_vb6`.
+- `LocaleCompareTests.StrComp_matches_every_measured_cell_on_Windows`.
+- `Vb6TextFileTests.The_one_corpus_file_with_high_bytes_round_trips`.
+- `VbSettingsStoreTests.A_value_another_program_wrote_that_is_not_text_reads_as_no_text`.
+- `VbSettingsStoreTests.The_registry_keeps_each_setting_as_text_as_vb6_exe_does`.
+- `DateFractionOfASecondTests.Long_date_uses_the_measured_Windows_pattern`.
+- `ShellTests.RecordsMeasuredStylesAndDefault`.
+- `UiThreadTests.Child_ReportsTheUiThreadsStack`.
+- `ContainerHierarchySaveTests.RoundTrip_OfVb6sOwnNestedTemplates_ReproducesTheBeginStructure`.
+- `FileSystemTests.Windows_name_rows`.
+- `FileSystemTests.Windows_numeric_rows`.
+- `FileSystemTests.Windows_attribute_rows`.
+- `FileSystemTests.Windows_error_rows`.
+- `FileSystemTests.CurDir_uses_only_the_first_drive_character`.
+- `WindowsDateLocaleTests.Era_date_output_matches_GetDateFormatEx_and_reads_without_a_wrong_date`.
+- `WindowsDateLocaleTests.Date_output_matches_GetDateFormatEx`.
+- `ClassHeaderPreservationTests.A_real_vb6_class_round_trips_byte_for_byte`.
+- `ClassHeaderPreservationTests.A_renamed_module_retargets_VB_Name_but_keeps_everything_else`.
+- `ClassHeaderPreservationTests.Instancing_and_data_binding_settings_survive`.
+
+These require Windows, missing VB6 templates, opt-in VB6 compilation, or the child-only
+UI-thread probe. Runtime integration skips `ToolbarCaptionTests.Windows_caption_width_follows_installed_fonts_Gdi_extent`
+and `ToolbarCaptionTests.Segoe_UI_nine_point_matches_console_measurements`: they require
+Windows GDI or the oracle’s installed font build.
+
+Full IDE suite: 9,825 passed, 70 skipped, zero failures (9,895 total, 38m30s), with zero
+hidden xUnit errors. The skipped cases require Windows/macOS, the missing VB6 template tree,
+or opt-in wire stress. They provide no coverage for this delivery.
+
+<details>
+<summary>Skipped IDE cases (70)</summary>
+
+- `Addins.PackageVerificationTests.Locked_signature_file_yields_Untrusted_not_an_exception`.
+- `IDE.EditorServiceNavigationTests.AFileUriWhoseDriveLetterTheServerNormalisedStillResolves`.
+- `Infrastructure.ProjectWriteSafetyTests.A_copy_that_cannot_be_removed_is_kept_and_named`.
+- `Infrastructure.WindowStateUnconfirmedTests.On_Windows_the_probe_does_not_guess`.
+- `LspClient.LspDocumentSessionTests.AWindowsDriveLetterInTheOtherCaseStillMatches`.
+- `LspClient.TypeLibraryNamesTests.ALocalLinkToAShareIsNotALocalPath`.
+- `LspClient.TypeLibraryServicePathTests.GuidOnlyReferenceLoadsWindowsOleAutomationLibrary`.
+- `LspClient.WireStressTests.ConcurrentConnectionsKeepEveryFrameValid`.
+- `LspClient.WorkspaceArtifactProjectTests.ALocalTypeLibraryIsNamedFromItsFile`.
+- `LspClient.WorkspaceArtifactProjectTests.TheTypeLibraryNamesOleAutomationStdole`.
+- `Processes.ChildProcessJobTests.A_closed_job_refuses_a_process`.
+- `Processes.ChildProcessJobTests.A_process_left_out_of_the_job_outlives_it`.
+- `Processes.ChildProcessJobTests.Closing_the_job_ends_the_process_put_in_it`.
+- `Profiles.ProfileContainmentTests.JunctionSwappedInAfterPreflightIsRefusedDuringRead`.
+- `Profiles.ProfileContainmentTests.JunctionEscapeIsRefused`.
+- `Profiles.ProfileReaderSafetyTests.WindowsPipeHandleIsRefused`.
+- All 3 cases in `Projects.ClassModuleSaveFidelityTests`.
+- `Projects.CompanionBinaryPreservationTests.Saving_never_shrinks_or_deletes_a_companion_it_cannot_reproduce`.
+- `Projects.CompanionBinaryPreservationTests.AFormWhoseBlobsAreAllModelled_DoesNotRaiseTheLossFlag`.
+- `Projects.CompanionBinaryPreservationTests.A_form_whose_records_HexIDE_does_not_model_saves_both_halves_as_VB6_wrote_them`.
+- `Projects.CompanionBinaryPreservationTests.Dropping_a_blob_bearing_control_keeps_both_halves_in_step`.
+- `Projects.CompanionBinaryPreservationTests.A_second_save_still_leaves_the_companion_intact`.
+- `Projects.CompanionBinaryPreservationTests.The_form_records_that_it_lost_binary_fidelity`.
+- `Projects.CompanionBinaryPreservationTests.A_form_that_reproduces_its_companion_is_never_denied_the_write`.
+- `Projects.ContributedProjectTests.A_contributed_project_already_open_is_refused_when_opened_again_with_different_drive_and_folder_case`.
+- `Projects.DuplicateProjectOpenTests.Opening_the_same_project_with_different_drive_and_folder_case_is_refused`.
+- `Projects.MadeProgramTests.A_made_program_starts_and_runs_its_Sub_Main`.
+- `Repack.LinuxRepackerTests.A_linux_build_is_refused_on_windows`.
+- `Repack.MacRepackerTests.A_mac_build_is_repacked_as_one`.
+- `Repack.MacRepackerTests.macOS_accepts_the_property_list_signature_and_icon`.
+- `Repack.MacRepackerTests.A_mac_build_is_refused_on_windows`.
+- `Repack.MacRepackerTests.A_signature_macOS_rejects_stops_the_run_and_leaves_nothing`.
+- `Repack.WindowsRepackerTests.Included_protected_files_are_refused_without_output(relative: \"revocations.json\")`.
+- `Repack.WindowsRepackerTests.Included_protected_files_are_refused_without_output(relative: \"nested/HEXIDE-FIRSTPARTY.PUB\")`.
+- `Repack.WindowsRepackerTests.Included_protected_files_are_refused_without_output(relative: \"acme-ide.exe\")`.
+- `Repack.WindowsRepackerTests.Included_protected_files_are_refused_without_output(relative: \"revocations-cache.json\")`.
+- `Repack.WindowsRepackerTests.Included_protected_files_are_refused_without_output(relative: \"LICENSE\")`.
+- `Repack.WindowsRepackerTests.Included_protected_files_are_refused_without_output(relative: \"revocations.sig\")`.
+- `Repack.WindowsRepackerTests.Included_protected_files_are_refused_without_output(relative: \"brand.json\")`.
+- `Repack.WindowsRepackerTests.Included_protected_files_are_refused_without_output(relative: \"revocations-cache.signed\")`.
+- `Repack.WindowsRepackerTests.Included_protected_files_are_refused_without_output(relative: \"hexide-root.pub\")`.
+- `Repack.WindowsRepackerTests.Included_protected_files_are_refused_without_output(relative: \"branding/logo.png\")`.
+- `Repack.WindowsRepackerTests.Included_protected_files_are_refused_without_output(relative: \"HexIDE.exe\")`.
+- `Repack.WindowsRepackerTests.Included_protected_files_are_refused_without_output(relative: \"revocations-cache.sig\")`.
+- `Repack.WindowsRepackerTests.A_repacked_executable_says_it_is_the_brand_when_Windows_reads_it`.
+- `Repack.WindowsRepackerTests.Every_file_but_the_executable_is_exactly_as_published`.
+- `Repack.WindowsRepackerTests.The_icon_is_the_brands_with_nothing_left_of_stocks`.
+- `Repack.WindowsRepackerTests.Included_files_reach_the_installable_payload_and_report`.
+- `Repack.WindowsRepackerTests.A_default_profile_folder_travels_with_the_brand`.
+- `Repack.WindowsRepackerTests.Included_output_ancestor_is_refused_before_staging`.
+- `Repack.WindowsRepackerTests.A_brand_with_no_copyright_keeps_stocks_rather_than_claiming_none`.
+- `Repack.WindowsRepackerTests.Included_missing_folder_is_refused`.
+- `Repack.WindowsRepackerTests.The_installer_inputs_are_written_beside_the_build_and_not_inside_it`.
+- `Repack.WindowsRepackerTests.A_run_that_fails_partway_leaves_nothing_behind`.
+- `Repack.WindowsRepackerTests.A_branded_process_declares_that_identity_to_Windows`.
+- `Repack.WindowsRepackerTests.The_brands_files_land_where_the_IDE_will_look_for_them`.
+- `Repack.WindowsRepackerTests.Included_links_are_refused_at_the_root_or_inside`.
+- `Repack.WindowsRepackerTests.Included_folder_below_a_link_is_allowed`.
+- `Repack.WindowsRepackerTests.A_signed_stock_executable_comes_out_unsigned_and_the_run_says_so`.
+- `Server.ProcessWindowsToolTests.A_running_process_with_no_window_is_said_to_have_none_yet`.
+- `Server.ProcessWindowsToolTests.A_minimized_program_is_read_as_minimized_and_visible`.
+- `Server.ProcessWindowsToolTests.A_window_of_a_process_the_started_one_started_is_read_through_it`.
+- `Server.ProcessWindowsToolTests.A_program_started_hidden_is_read_as_hidden_and_the_note_says_vbHide_did_it`.
+- `Sidecar.UserSidecarSaveTests.TheProjectsOwnSidecarSpelledInAnotherCaseIsStillItsOwn`.
+- `Tools.ProjectTreeBuilderTests.ForwardSlashPath_NormalizesAndNests`.
+- `Tools.ProjectTreeBuilderTests.CrossDriveMember_RendersAtRoot`.
+- `Tools.ProjectTreeBuilderTests.AMemberWithNoRelativeForm_CaptionsItsAbsoluteLocation`.
+- `UserDataPathTests.OnWindowsItIsUnderAppData`.
+
+</details>

@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using HexIDE.IDE;
+using HexIDE.Language;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Runtime.Components;
@@ -128,11 +129,7 @@ public partial class ObjectBrowserToolViewModel : Document
         this.connections = connections;
         this.localization = localization;
         allLibraries = new OBLibraryViewModel(localization.GetString("Str.Tool.ObjectBrowser.AllLibraries"));
-        localization.LanguageChanged += () =>
-        {
-            allLibraries.Name = localization.GetString("Str.Tool.ObjectBrowser.AllLibraries");
-            OnPropertyChanged(nameof(MembersHeader));
-        };
+        localization.LanguageChanged += OnLanguageChanged;
 
         SearchCommand = new DelegateCommand(Search);
         ClearSearchCommand = new DelegateCommand(() =>
@@ -189,6 +186,31 @@ public partial class ObjectBrowserToolViewModel : Document
         SelectedLibrary = allLibraries;
     }
 
+    // LocalizationService.Apply swaps Application.Resources, so LanguageChanged always arrives on the UI thread, and this
+    // handles it in place, as every other subscriber does. Posting it when raised elsewhere left a run whose test thread
+    // didn't own the dispatcher reading the old names (#4382).
+    private void OnLanguageChanged()
+    {
+        allLibraries.Name = localization.GetString("Str.Tool.ObjectBrowser.AllLibraries");
+        foreach (var library in Libraries)
+        foreach (var cls in library.Classes)
+        {
+            if (cls.NameKey is { } classKey)
+                cls.Name = localization.GetString(classKey);
+            foreach (var member in cls.Members)
+            {
+                if (member.NameKey is { } nameKey)
+                    member.Name = localization.GetString(nameKey);
+                if (member.DescriptionKey is { } descriptionKey)
+                    member.Description = localization.GetString(descriptionKey);
+            }
+        }
+        SearchStatus = string.Empty;
+        OnPropertyChanged(nameof(MembersHeader));
+        OnPropertyChanged(nameof(DescriptionText));
+        OnPropertyChanged(nameof(DescriptionMembership));
+    }
+
     private void AddVbLibrary(IComponentRegistry componentRegistry)
     {
         var lib = new OBLibraryViewModel("VB");
@@ -207,7 +229,10 @@ public partial class ObjectBrowserToolViewModel : Document
                     };
                     cls.Members.Add(new OBMemberViewModel(member.Name, kind, $"{member.Kind} {member.Name}",
                         member.Origin.HasFlag(InBox.MemberOrigin.HexIde)
-                            ? localization.GetString("Str.MemberOrigin.HexIde") : null));
+                            ? localization.GetString("Str.MemberOrigin.HexIde") : null)
+                    {
+                        DescriptionKey = member.Origin.HasFlag(InBox.MemberOrigin.HexIde) ? "Str.MemberOrigin.HexIde" : null
+                    });
                 }
             }
             else
@@ -256,9 +281,9 @@ public partial class ObjectBrowserToolViewModel : Document
                 && flag.ValueKind == JsonValueKind.True))
         {
             lib.Classes.Clear();
-            lib.Classes.Add(new OBClassViewModel(localization.GetString(running.Length == 0
-                ? "Str.Tool.ObjectBrowser.Vba.NoServer"
-                : "Str.Tool.ObjectBrowser.Vba.NoProvider"), OBClassKind.Module, "VBA") { IsStatus = true });
+            var key = running.Length == 0 ? "Str.Tool.ObjectBrowser.Vba.NoServer" : "Str.Tool.ObjectBrowser.Vba.NoProvider";
+            lib.Classes.Add(new OBClassViewModel(localization.GetString(key), OBClassKind.Module, "VBA")
+                { IsStatus = true, NameKey = key });
             return;
         }
         IsLoadingMembers = true;
@@ -270,11 +295,13 @@ public partial class ObjectBrowserToolViewModel : Document
 
             if (symbols.Length == 0)
             {
-                lib.Classes.Add(new OBClassViewModel(localization.GetString("Str.Tool.ObjectBrowser.Vba.Empty"), OBClassKind.Module, "VBA") { IsStatus = true });
+                lib.Classes.Add(new OBClassViewModel(localization.GetString("Str.Tool.ObjectBrowser.Vba.Empty"), OBClassKind.Module, "VBA")
+                    { IsStatus = true, NameKey = "Str.Tool.ObjectBrowser.Vba.Empty" });
             }
             else
             {
-                var globalsClass = new OBClassViewModel(localization.GetString("Str.Tool.ObjectBrowser.Vba.Globals"), OBClassKind.Module, "VBA");
+                var globalsClass = new OBClassViewModel(localization.GetString("Str.Tool.ObjectBrowser.Vba.Globals"), OBClassKind.Module, "VBA")
+                    { NameKey = "Str.Tool.ObjectBrowser.Vba.Globals" };
                 foreach (var sym in symbols)
                     globalsClass.Members.Add(new OBMemberViewModel(sym.Name, OBMemberKind.Method, sym.Signature, sym.Documentation));
                 lib.Classes.Add(globalsClass);
@@ -563,7 +590,7 @@ public partial class ObjectBrowserToolViewModel : Document
             return;
         }
 
-        if (lspClient.IsRunning && SelectedClass.CanNavigate)
+        if (SelectedClass.CanNavigate)
             LoadMembersAsync(SelectedClass, memberRequestVersion).ListenErrors();
     }
 
@@ -576,7 +603,17 @@ public partial class ObjectBrowserToolViewModel : Document
                 ? DocumentWireName.For(classVm.ModuleDefinition)
                 : DocumentWireName.For(classVm.FormDefinition!);
 
-            var symbols = await lspClient.RequestDocumentSymbolsAsync(uri, CancellationToken.None);
+            var symbols = lspClient.IsRunning
+                ? await lspClient.RequestDocumentSymbolsAsync(uri, CancellationToken.None) : [];
+            if (symbols.Length == 0)
+            {
+                // Keep navigation in whole-file coordinates, as for server symbols and code windows.
+                var text = classVm.ModuleDefinition is { } module
+                    ? (module.Owner.Format?.CodePrefix(module) ?? FormCodeText.Prefix(module)) + module.Code
+                    : (classVm.FormDefinition!.Owner.Format?.CodePrefix(classVm.FormDefinition)
+                        ?? FormCodeText.Prefix(classVm.FormDefinition)) + classVm.FormDefinition.Code;
+                symbols = VbFamilyDeclarationCollector.Collect(text);
+            }
             if (requestVersion != memberRequestVersion) return;
 
             classVm.Members.Clear();
@@ -719,13 +756,15 @@ public partial class ObjectBrowserToolViewModel : Document
                         }
                         if (classVm.Members.Count == 0)
                             classVm.Members.Add(new OBMemberViewModel(
-                                localization.GetString("Str.Tool.ObjectBrowser.MembersUnavailable"), OBMemberKind.Status, ""));
+                                localization.GetString("Str.Tool.ObjectBrowser.MembersUnavailable"), OBMemberKind.Status, "")
+                                { NameKey = "Str.Tool.ObjectBrowser.MembersUnavailable" });
                         lib.Classes.Add(classVm);
                     }
                 }
                 if (lib.Classes.Count == 0)
                     lib.Classes.Add(new OBClassViewModel(
-                        localization.GetString("Str.Tool.ObjectBrowser.TypeMetadataUnavailable"), OBClassKind.Module, lib.Name));
+                        localization.GetString("Str.Tool.ObjectBrowser.TypeMetadataUnavailable"), OBClassKind.Module, lib.Name)
+                        { NameKey = "Str.Tool.ObjectBrowser.TypeMetadataUnavailable" });
             }
             else
             {
@@ -772,7 +811,10 @@ public partial class ObjectBrowserToolViewModel : Document
             InBox.MemberKind.Event => OBMemberKind.Event,
             _ => OBMemberKind.Method,
         }, $"{member.Kind} {member.Name}",
-        member.Origin.HasFlag(InBox.MemberOrigin.HexIde) ? localization.GetString("Str.MemberOrigin.HexIde") : null);
+        member.Origin.HasFlag(InBox.MemberOrigin.HexIde) ? localization.GetString("Str.MemberOrigin.HexIde") : null)
+        {
+            DescriptionKey = member.Origin.HasFlag(InBox.MemberOrigin.HexIde) ? "Str.MemberOrigin.HexIde" : null
+        };
 
     private static OBClassKind MapTypeKind(TypeKind kind) => kind switch
     {

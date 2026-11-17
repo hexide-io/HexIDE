@@ -42,6 +42,8 @@
                             <TextBlock TextWrapping="Wrap" Text="{CompiledBinding BackedUp}" />
                             <TextBlock TextWrapping="Wrap" Text="{CompiledBinding ChangedOnDisk}"
                                        IsVisible="{CompiledBinding ChangedOnDisk, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            <TextBlock TextWrapping="Wrap" Text="{CompiledBinding WaitingForType}"
+                                       IsVisible="{CompiledBinding WaitingForType, Converter={x:Static ObjectConverters.IsNotNull}}" />
                         </StackPanel>
                     </DataTemplate>
                 </ListBox.ItemTemplate>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using HexIDE.Lsp;
 using HexIDE.TwinBasic;
 
 namespace HexIDE.Projects;
@@ -24,6 +25,11 @@ public class ContainerEntry
 {
     public ArchiveEntryIdentity Identity { get; }
     public string Name { get; }
+    public string? LanguageServerExtension { get; init; }
+    public string DocumentUri => ArchiveEntryUri.ForEntry(Identity.ContainerPath,
+        LanguageServerExtension is { } extension
+            ? Identity.Segments.SetItem(Identity.Segments.Length - 1, Name + extension)
+            : Identity.Segments);
     public string? CaptionKey { get; init; }
     public IReadOnlyList<ContainerEntry> Children { get; }
     public ArchiveProjectEntry? Archive { get; }

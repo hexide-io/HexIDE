@@ -270,12 +270,13 @@ and the input is never changed.
 | `<name>.app` | Your `name`. |
 | `Contents/MacOS/<id>` | Stock's `HexIDE`, renamed from your `id`. Its bytes don't change. |
 | `Contents/Info.plist` | Stock's, with the bundle's name, display name, identifier, executable and icon changed. The version numbers stay the build's. |
-| `Contents/Resources/<id>.icns` | Your `logo`, which is required here, at every size from 16 to 1024 pixels. Nothing of stock's icon stays. |
+| `Contents/Resources/<id>.icns` | Your `logo`, which is required here, at every size from 16 to 1024 pixels. The 16- and 32-pixel images use Apple's ARGB encoding (#4493). Nothing of stock's icon stays. |
 | `Contents/MacOS/brand.json`, your logo and a `defaultProfile` folder | Copied from beside your `brand.json`. |
 
 The bundle identifier is `io.hexide.distribution.<id>`, so it installs alongside HexIDE and can't be stock's. It comes
 from `id`, so don't change that once you've shipped. To install the product, move the `.app` to `Applications`, and to
 remove it, delete the `.app`. Each user's settings and logs stay where macOS keeps them for the `id`.
+The app menu and Dock show your `name`.
 
 The run stops if your name can't be a bundle's name, or if the build is missing `LICENSE` or `THIRD-PARTY-NOTICES.md`.
 Every other file is copied unchanged, including the helper programs such as `HexIDE.VbLspServer`, which keep their

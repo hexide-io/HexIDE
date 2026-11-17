@@ -10,6 +10,8 @@ public class ShapeComponentClass : ComponentBaseClass
     {
     }
 
+    public override string? DesignerDoubleClickEvent => null;
+
     public override string Name => "Shape";
     public override string VBTypeName => "VB.Shape";
     public override bool IsWindowless => true;

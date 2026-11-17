@@ -651,10 +651,15 @@ both entry names and the nested container URI.
 
 RDCore was measured on 2026-10-05 answering every request about a non-file URI empty
 ([#389](https://github.com/hexide-io/HexIDE/issues/389)). That is RDCore's to change; it was not measured again here.
-Office containers use the same entry identities in the browser and automation inventory (#4331), but
-their VBA tabs deliberately open no language-server session: the bundled VB6 grammar would reject
-VBA7 `PtrSafe` and `LongPtr`. See [Office containers](office-containers.md). Copying entries to files
-for servers that need them remains outside this change.
+Office VBA modules use the same browser identities (#4331), with an export extension appended only to the
+wire name (#4453): `.bas` for standard modules, `.cls` for class and document modules, and `.frm` for UserForms.
+For example, `/Standard/Module1` opens as `archive-entry:/Standard/Module1.bas?container=…`.
+The tab and `get_project_info` use the same URI. Modules open as project members, so a stored class needs
+no `VERSION 1.0 CLASS` header, and only servers establishing VB6 claim them. Routing still reads the extension;
+the bundled server receives `languageId` `vb6`, while other claimants receive their own configured identifier.
+Available source gets the same read-only diagnostic session as an archive preview: `didOpen`, no `didChange`,
+and `didClose` on tab/container close or reload. Locked projects expose no modules and open no sessions.
+Copying entries to files for servers that need them remains outside this change. See [Office containers](office-containers.md).
 
 **A document of the project with no file yet is named `untitled:<Project>/<Name>.<ext>`** — the
 project's name, the document's own name, and the extension its kind will be saved with: `.frm`, `.bas`, `.cls`,
@@ -1365,6 +1370,15 @@ no retry and does not identify the cause of the intermittent CI drops by itself.
 details, client logs and process liveness; exit notices retain the exit code. These failures use the
 same `#3520:` prefix and keep the existing deadlines.
 
+Transport wait failures also report `RunnerLoad` history (#4465): in-memory wire diagnoses (#4446),
+first `publishDiagnostics` waits (#4430), child-process notices (#4201), and the WebSocket listen
+handshake/frame exchange (#4462). One background thread samples every 250 ms, retaining 150 seconds
+of dispatch delay, pool threads and queue size, process CPU share, GC pauses and lock contention.
+The summary covers the wait window (capped at 150 seconds), including work still queued, and current
+minimum/available threads and processor count. The WebSocket failure names the pending step. This is
+test-only evidence for distinguishing runner starvation from transport-specific failures; it changes
+no timeout, retry or product behaviour.
+
 The untitled-document tests drain and poll for clangd's URI refusal, with a five-second deadline, before
 asserting on standard error (#2269). Diagnostics arriving does not mean the independent stderr reader
 has finished recording those lines. The ruff test checks watched-file negotiation alongside pull diagnostics (#456).
@@ -1515,6 +1529,43 @@ navigation, commands and hint text edits are not supported or advertised.
 `vb/builtinSymbols` is HexIDE's own method, not an LSP one. It is gated on the server advertising it under
 `experimental` — where the protocol says to put a method it does not define, and therefore the only thing a
 client may legitimately gate a custom method on. A server that does not advertise it is never asked.
+
+### Tools for AI Chat
+
+A server offers AI Chat tools and a context fragment by declaring (#4257):
+
+```json
+"experimental": { "hexide.chatTools": { "list": "<method>", "call": "<method>", "context": "<method>" } }
+```
+
+`list` and `call` are required and `context` is optional. The server names its own methods, so an existing
+catalogue keeps its names. The shapes follow MCP's `tools/list` and `tools/call`:
+
+| Method | Params | Result |
+|---|---|---|
+| `list` | `{}` | `{"tools": [{"name", "description", "inputSchema", "annotations": {"readOnlyHint", "destructiveHint", "hexide.runsCode"}}]}` |
+| `call` | `{"name", "arguments"}` | `{"content": [{"type": "text", "text"}], "isError"}`; a non-text part is replaced by a note |
+| `context` | `{}` | a string, or `{"text"}` |
+
+- **`hexide.runsCode` is HexIDE's own annotation**, beside MCP's two hints. A tool that sets it to anything but
+  `false` asks before every call, whatever its other hints say. A tool that runs the user's code should set it
+  `true`. A tool without it is judged by `readOnlyHint` and `destructiveHint` alone, so a server that doesn't know
+  the annotation can't mark a tool that runs code; it should leave such a tool's hints unset, which asks.
+- **A named method stays a chat request.** It is sent only to the server that named it, and only as AI Chat's
+  list, call or context request. Approval applies to a call whatever the method is called, so naming
+  `textDocument/rename` gains nothing (`ServerChatToolsTests` drives exactly that).
+- **The host decides approval.** On each call it lists that server's tools again and reads the tool's hints and
+  the entry's `chatTools` from that answer, not from what the caller passes, and refuses a name the server no
+  longer lists. Add-ins run in HexIDE's own process, so this keeps the decision in one place rather than
+  sandboxing anything.
+- **Only registrations made from a configuration entry or a consented add-in's** offer tools. A registration
+  made any other way offers nothing, whatever the person chooses. The person's choice in Options wins over the
+  entry's `chatTools` otherwise.
+- **Only HexIDE's own add-ins reach the tools** (`IHexIdeHost.ServerChatTools`): the caller supplies the approval
+  callback, so another add-in sees an empty list. A developer-unsigned add-in exists only in a Debug build's
+  developer mode.
+- Control characters and format characters (the bidirectional overrides among them) are removed from what a
+  server returns. The limits are in [`language-servers.md`](language-servers.md#tools-for-ai-chat).
 
 ---
 

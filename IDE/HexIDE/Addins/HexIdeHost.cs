@@ -30,6 +30,7 @@ internal sealed class HexIdeHost(
     public IProjectAccess Project { get; } = projectService;
     public IDiagnosticsAccess Diagnostics { get; } = diagnosticsService;
     public IOptionsPageContributor Options { get; } = optionsService;
+    public IServerChatTools ServerChatTools => languageServers.ChatTools;
 
     public IDisposable RegisterCommand(string id, string label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>
         commandService.Register(id, label, onInvoke, gesture, canExecute);

@@ -20,6 +20,8 @@ public class LabelComponentClass : ComponentBaseClass
     {
     }
 
+    public override string? DesignerDoubleClickEvent => "Click";
+
     public override string Name => "Label";
     public override string VBTypeName => "VB.Label";
     public override bool IsWindowless => true;

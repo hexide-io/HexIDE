@@ -10,6 +10,8 @@ public sealed class AddinProjectTemplateService
     /// <summary>The templates add-ins contributed, which the New Project dialog lists after the profile's.</summary>
     public IReadOnlyList<IAddinProjectTemplate> Templates => _templates;
 
+    public bool HasTemplates => _firstParty.Count > 0 || _templates.Count > 0;
+
     /// <summary>
     /// The templates HexIDE's own project types offer, each with the id a profile names it by, in the order they were
     /// registered (#3411 slice 10b). A profile chooses from these.

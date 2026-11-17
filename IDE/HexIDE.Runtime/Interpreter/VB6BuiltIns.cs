@@ -63,13 +63,14 @@ public partial class VB6BuiltIns
     private static readonly HashSet<string> LongLongInputs = new(StringComparer.OrdinalIgnoreCase)
     { "CLngLng", "CLngPtr", "CInt", "CLng", "CDbl", "CStr", "TypeName", "VarType", "Hex", "Oct", "Str", "Format", "LenB", "Abs", "Int", "Fix", "Sgn" };
 
-    internal bool IsVba64 { get; init; }
+    internal VbaBitness VbaBitness { get; init; }
 
     internal Func<Vb6Value, string, Task<Vb6Value>>? ResolveDefaultForUse { get; set; }
 
     public async Task<Vb6Value?> EvaluateBuiltInFunction(string name, List<Vb6Value> args, bool compareText = false)
     {
-        if (!IsVba64 && IsLongLongConversion(name))
+        if (IsLongLongConversion(name) && VbaBitness != VbaBitness.Bit64
+            && !(VbaBitness == VbaBitness.Bit32 && name.Equals("CLngPtr", StringComparison.OrdinalIgnoreCase)))
             return null;
         if (IsLongLongConversion(name) && args.Count != 1)
             throw new NotImplementedException("This argument count for a LongLong conversion is unmeasured (#1548)");

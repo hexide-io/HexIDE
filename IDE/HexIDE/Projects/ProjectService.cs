@@ -100,7 +100,8 @@ public partial class ProjectService : IProjectService
 
     /// <summary>
     /// What reading a file of a project records: its bytes, for the save-changes prompt and the file watcher, and its
-    /// download mark, which a save would drop (#1121).
+    /// download mark, which a save would drop (#1121). Every read goes through here, a companion's too, though CodeTrust
+    /// only asks about the files whose code runs (#4432).
     /// </summary>
     private void RecordRead(string path, byte[] bytes)
     {
@@ -234,10 +235,18 @@ public partial class ProjectService : IProjectService
     }
 
     // A service made without the IDE's templates, which only a test makes, takes VB6's, as the composition registers them.
-    public Task CreateDefaultProject() => CreateNewProject(templates is null
-        ? Vb6ProjectType.StandardExe
-        : templates.FirstPartyTemplate("standard-exe")
-          ?? throw new InvalidOperationException("No project type that's registered offers a Standard EXE template."));
+    public async Task CreateDefaultProject()
+    {
+        var template = templates is null ? Vb6ProjectType.StandardExe : templates.FirstPartyTemplate("standard-exe");
+        if (template is null)
+        {
+            await windowManager.MessageBox(
+                string.Format(localization.GetString("Str.NewProject.Msg.NoStandardExe"), HexIDE.IDE.Distribution.DisplayName),
+                HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Information);
+            return;
+        }
+        await CreateNewProject(template);
+    }
 
     public async Task CreateNewProject(IProjectTemplate template)
     {
@@ -922,6 +931,7 @@ public partial class ProjectService : IProjectService
     /// anything. The reason is a different one: VB6 and its files have nothing to do with why they aren't written.
     /// </summary>
     private readonly Dictionary<string, string?> refusedAsReadByAddin = new();
+    private readonly Dictionary<string, string> refusedDesignerModules = new();
 
     /// <summary>
     /// Bank a refusal for the current save. Only ever called by an entry point that is followed by a drain
@@ -1259,7 +1269,7 @@ public partial class ProjectService : IProjectService
     private static bool IsWritable(object document) => document switch
     {
         FormDefinition form => form.CanSaveFaithfully,
-        ModuleDefinition module => DesignerPartOf(module) is not { CanSaveFaithfully: false },
+        ModuleDefinition module => module.CanSaveFaithfully && DesignerPartOf(module) is not { CanSaveFaithfully: false },
         _ => true
     };
 
@@ -1275,6 +1285,12 @@ public partial class ProjectService : IProjectService
                 Log.Warning("Refusing to save {Form}: {Reason}", form.Name, form.UnfaithfulSaveReason);
                 RecordRefusal(form.Name);
                 RecordIfAnAddinsRefusal(form.Name, form);
+                return true;
+            case ModuleDefinition { CanSaveFaithfully: false } module:
+                Log.Warning("Refusing to write {Module}: {Reason}", module.Name, module.UnfaithfulSaveReason);
+                RecordRefusal(module.Name);
+                refusedDesignerModules[module.Name] = string.Format(localization.GetString("Str.ContributedProject.DesignerModuleReadOnly"),
+                    Path.GetFileName(module.AbsolutePath) ?? module.Name, module.Owner.ContributorTitle ?? module.Owner.Name);
                 return true;
             case ModuleDefinition module when DesignerPartOf(module) is { CanSaveFaithfully: false } designerPart:
                 Log.Warning("Refusing to write {Module}: {Reason}", module.Name, designerPart.UnfaithfulSaveReason);
@@ -1724,7 +1740,7 @@ public partial class ProjectService : IProjectService
         if (reader.CompanionPath(path) is { } companionPath && File.Exists(companionPath))
         {
             companion = await File.ReadAllBytesAsync(companionPath);
-            baselineStore.Record(companionPath, companion);
+            RecordRead(companionPath, companion);
         }
 
         var fresh = reader.ReadForm(project, source, companion, errorSink);
@@ -1766,7 +1782,9 @@ public partial class ProjectService : IProjectService
             var errorSink = new DeserializeErrorSink(localization);
             var reader = FormFormatOf(module.Owner);
             var companion = await ReadCompanion(path, reader);
-            var fresh = reader.ReadDesignerPart(module.Owner, source, companion, errorSink);
+            if (companion is { } readCompanion)
+                RecordRead(readCompanion.Path, readCompanion.Bytes);
+            var fresh = reader.ReadDesignerPart(module.Owner, source, companion?.Bytes, errorSink);
             if (fresh != null)
             {
                 // StripHeader above is a no-op for these kinds, so Code still holds the whole file.
@@ -2340,7 +2358,7 @@ public partial class ProjectService : IProjectService
         // Form text before companion: the .frm's cited offsets partition the .frx.
         var reader = FormFormatOf(project);
         var companion = await ReadCompanion(absolutePath, reader);
-        var form = reader.ReadForm(project, source, companion, new DeserializeErrorSink(localization));
+        var form = reader.ReadForm(project, source, companion?.Bytes, new DeserializeErrorSink(localization));
         if (form == null)
             return Adopted<FormDefinition>.Unreadable();
 
@@ -2353,6 +2371,8 @@ public partial class ProjectService : IProjectService
         // Recorded only once the parse succeeded. A baseline for a form that was never added would leave
         // the dirty check answering about a file the project does not carry.
         RecordRead(absolutePath, bytes);
+        if (companion is { } readCompanion)
+            RecordRead(readCompanion.Path, readCompanion.Bytes);
         form.AbsolutePath = absolutePath;
         form.TextEncoding = sourceEncoding;
         project.AddForm(form);
@@ -2391,7 +2411,9 @@ public partial class ProjectService : IProjectService
         {
             var reader = FormFormatOf(project);
             var companion = await ReadCompanion(absolutePath, reader);
-            var formPart = reader.ReadDesignerPart(project, source, companion, new DeserializeErrorSink(localization));
+            if (companion is { } readCompanion)
+                RecordRead(readCompanion.Path, readCompanion.Bytes);
+            var formPart = reader.ReadDesignerPart(project, source, companion?.Bytes, new DeserializeErrorSink(localization));
             if (formPart != null)
             {
                 formPart.AbsolutePath = absolutePath;
@@ -2518,10 +2540,16 @@ public partial class ProjectService : IProjectService
 
         // Told apart, because they're refused for different reasons, and a save of a group can reach both.
         var byAddin = refusedThisSave.Where(refusedAsReadByAddin.ContainsKey).ToList();
-        var others = refusedThisSave.Except(byAddin).ToList();
+        var others = refusedThisSave.Except(byAddin).Except(refusedDesignerModules.Keys).ToList();
         refusedThisSave.Clear();
         var addinWords = new Dictionary<string, string?>(refusedAsReadByAddin);
         refusedAsReadByAddin.Clear();
+
+        var moduleWords = refusedDesignerModules.Values.ToList();
+        refusedDesignerModules.Clear();
+        if (interactive && moduleWords.Count > 0)
+            await windowManager.MessageBox(string.Join("\n\n", moduleWords),
+                HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
 
         if (interactive && byAddin.Count > 0)
             await windowManager.MessageBox(
@@ -2785,18 +2813,17 @@ public partial class ProjectService : IProjectService
     }
 
     /// <summary>
-    /// Reads the companion binary beside a designer file, if it has one, and records it. Always route companion
+    /// Reads the companion binary beside a designer file, if it has one. Always route companion
     /// reads through here — hardcoding ".frx" silently drops UserControl and PropertyPage resources, and the save
-    /// path then deletes the companion it never read.
+    /// path then deletes the companion it never read. It records nothing: each caller records the companion with
+    /// <see cref="RecordRead"/> once the file it belongs to has been accepted, so a refused file leaves no baseline (#4476).
     /// </summary>
-    private async Task<byte[]?> ReadCompanion(string sourceFilePath, IFormFileReader reader)
+    private async Task<(string Path, byte[] Bytes)?> ReadCompanion(string sourceFilePath, IFormFileReader reader)
     {
         if (reader.CompanionPath(sourceFilePath) is not { } companionPath || !File.Exists(companionPath))
             return null;
 
-        var bytes = await File.ReadAllBytesAsync(companionPath);
-        baselineStore.Record(companionPath, bytes);
-        return bytes;
+        return (companionPath, await File.ReadAllBytesAsync(companionPath));
     }
 
     // Instance (not static) so each atomic write records a baseline. Recording the just-written

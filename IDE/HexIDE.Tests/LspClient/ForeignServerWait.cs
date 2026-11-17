@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using HexIDE.Tests.Infrastructure;
 using HexIDE.Conversations;
 
 namespace HexIDE.Tests.LspClient;
@@ -35,7 +36,9 @@ internal static class ForeignServerWait
 
             if (diagnostics.IsCompleted) return await diagnostics;
             var remaining = timeout - elapsed.Elapsed;
-            if (remaining <= TimeSpan.Zero) throw new TimeoutException();
+            if (remaining <= TimeSpan.Zero) throw new TimeoutException(
+                $"Timed out waiting for publishDiagnostics from '{connectionId}' after {timeout.TotalSeconds} s. "
+                + RunnerLoad.Describe(timeout));
             await Task.WhenAny(diagnostics, Task.Delay(
                 remaining < TimeSpan.FromMilliseconds(50) ? remaining : TimeSpan.FromMilliseconds(50),
                 TestContext.Current.CancellationToken));

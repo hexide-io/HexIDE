@@ -173,6 +173,12 @@ a mistake somewhere else. The failure is silent and it points away from the real
 - **WHEN** a procedure is added to a type and that type is selected in the browser
 - **THEN** the new procedure appears in the member list
 
+#### Scenario: A project module has no server symbols
+- **WHEN** the selected project module's server returns no symbols, or no server is running
+- **THEN** the browser SHALL list declarations from that module's loaded text using the same VB-family collector as Add Watch (#4401)
+- **AND** collected declarations SHALL use the existing symbol-to-member mapping and whole-file navigation coordinates
+- **AND** a nonempty server answer SHALL remain authoritative
+
 ### Requirement: Double-clicking a member in the project SHALL open it at its definition
 Double-clicking a member belonging to the project SHALL open its containing document and position the caret
 at that member's declaration. Double-clicking a member of an external library SHALL do nothing.
@@ -302,3 +308,17 @@ browsing a library cannot register it. This intentionally avoids VB6's unsafe re
 #### Scenario: A reference names a local file
 - **WHEN** a reference names an existing fully qualified local file accepted by the shared check
 - **THEN** the browser reads its types without registering the library
+
+### Requirement: Live localization of browser status text
+
+The browser SHALL refresh cached localized status entries, the VBA globals class name and HexIDE
+extension descriptions when the IDE language changes, on the UI thread, preserving the selected
+library and class. It SHALL clear or re-resolve the last search status without rerunning the search.
+
+#### Scenario: Switch language with a cached library selected
+- **GIVEN** a loaded reference library or VBA library with localized status text
+- **WHEN** the developer switches the IDE language
+- **THEN** every keyed status entry and extension description shows the new language immediately
+- **AND** the VBA globals name and members header use the new language
+- **AND** the selected library and class remain selected
+- **AND** the search status is cleared or translated without another search

@@ -625,6 +625,21 @@ public sealed class LanguageServerConfigLoader
                     LspTraceValue.Off, LspTraceValue.Messages, LspTraceValue.Verbose));
         }
 
+        // Reported and survivable, as trace is. An approval setting nobody can read asks before every call, which is the
+        // safe reading of a typo in it (#4257).
+        if (entry.ChatTools is { } chatTools && ServerChatToolsSetting.Parse(chatTools) is null)
+        {
+            problems.Add(new LanguageServerConfigProblem(
+                entry.Id,
+                $"'{entry.Id}' sets chatTools to '{chatTools.Trim()}', which is not one of "
+              + $"'{ServerChatToolsSetting.Hints}', '{ServerChatToolsSetting.Ask}' or '{ServerChatToolsSetting.Off}'. "
+              + "AI Chat asks before every call to this server's tools.",
+                false,
+                LanguageServerConfigProblemKind.Configuration)
+                .WithDetails("ChatTools", entry.Id!, chatTools.Trim(),
+                    ServerChatToolsSetting.Hints, ServerChatToolsSetting.Ask, ServerChatToolsSetting.Off));
+        }
+
         if (string.Equals(entry.Transport?.Trim(), "pipe", StringComparison.OrdinalIgnoreCase)
             && entry.PipeRole is { } pipeRole && !string.IsNullOrWhiteSpace(pipeRole)
             && !string.Equals(pipeRole.Trim(), "connect", StringComparison.OrdinalIgnoreCase)

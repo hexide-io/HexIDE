@@ -12,7 +12,7 @@ those changes and the tests against the measurements in [#3928](https://github.c
 These are Windows default-data measurements, not new vb6.exe measurements.
 
 On Windows the runtime still reads live NLS, including the user's settings where applicable.
-Customised Windows settings do not travel to another host. macOS preferences, time patterns (apart from designators) and
+Customised Windows settings do not travel to another host. macOS preferences, short time patterns and
 number formats are outside this table's scope. Era text uses #3946's shared mapping, including its
 documented divergence from VB6's literal `gg`.
 
@@ -23,8 +23,10 @@ with the same calendar and user-override rules as dates. The en-GB `AMPM` result
 Other locales follow the documented system-data source, not new VB6 measurements; VB6's output
 with empty designators, and CStr/no-mask time output in twelve-hour locales, remain unmeasured.
 
-Windows pairs its designators with its own time format, `LOCALE_STIMEFORMAT`, which HexIDE doesn't take yet: the time
-pattern is .NET's. So an empty pair is taken only where .NET's time patterns write no designator. Of 605 locales, 48
-have empty designators, and one, tzm-Latn-DZ, has them beside a .NET pattern of `h:mm:ss tt`, where Windows' own is
-`H:mm:ss`. That locale keeps .NET's designators, so `CStr` writes `11:59:59` and a designator where Windows writes
-`23:59:59`. Taking the time format as well is #4463.
+Windows' `LOCALE_STIMEFORMAT` supplies the long time pattern alongside its designators
+([#4463](https://github.com/hexide-io/HexIDE/issues/4463)). A comparison of the 605 table
+patterns with .NET on Linux found 162 raw differences, or 98 after the runtime's ordinary-space
+normalization. The latter include 32 changes from 12-hour to 24-hour, six in the other direction,
+43 padding changes and 17 other separator, literal or designator-position changes. These compare
+system data, including locales outside the Gregorian mapping; they are not VB6 measurements.
+VB6 itself reading `STIMEFORMAT` remains unmeasured.

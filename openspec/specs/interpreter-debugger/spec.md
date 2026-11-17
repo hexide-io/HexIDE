@@ -15,6 +15,26 @@ prompt for a reset and the execution point moves only between top-level statemen
 
 ## Requirements
 
+### Requirement: Desktop run-time dialogs and keyboard focus
+
+A run-time error dialog SHALL retain the active running form as owner and SHALL disable all existing desktop
+windows, including the IDE, until answered, restoring each window's previous enabled state afterwards.
+Opening the error SHALL NOT activate the IDE. Debug from the error and entering break mode after Ctrl+Break
+SHALL activate the IDE. With a desktop running form focused, IDE shortcuts SHALL NOT execute; Ctrl+Break
+SHALL still reach the IDE's Break command. Measured on vb6.exe SP6 in
+[issue #1297's 2026-11-16 comment](https://github.com/hexide-io/HexIDE/issues/1297).
+
+#### Scenario: Error while the running form is active
+- **WHEN** the running form is active and an unhandled run-time error opens its dialog
+- **THEN** the form owns the dialog, and the IDE is disabled without being brought forward
+- **AND** choosing Debug closes the dialog, restores enabled states and activates the IDE
+
+#### Scenario: Keys while a running form has focus
+- **WHEN** a desktop running form has focus
+- **THEN** Find and Immediate shortcuts do not open IDE windows
+- **AND** Ctrl+Break requests a pause and the IDE comes forward when the statement gate enters break mode
+
+
 ### Requirement: Failed breakpoint conditions explain the stop
 
 The interpreter SHALL pause when a breakpoint condition cannot be evaluated. The stop SHALL retain
@@ -336,6 +356,22 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **AND** changing Module SHALL refill Procedure
 - **AND** OK SHALL store `Module` for `(All Procedures)` or `Module.Procedure` for a chosen procedure, displayed verbatim in the Watches Context column
 - **AND** Edit Watch SHALL initially select and retain its stored choice, including a stored procedure the collected list does not name
+
+#### Scenario: Procedure lists without server symbols
+- **WHEN** Add Watch collects the project's procedure choices
+- **THEN** an open code window SHALL supply its outline symbols, or its current text if the outline is empty
+- **AND** an unopened module SHALL supply declarations from its loaded code without a server request
+- **AND** each Property accessor SHALL be an entry of its own, written `Name(Get)`, `Name(Let)` or `Name(Set)` as VB6 writes it, and the list SHALL be sorted rather than in source order (measured, #4401)
+- **AND** a watch stored as `Module.Name(Get)` SHALL evaluate only while that accessor runs, reading `<Out of context>` while another accessor of the same property runs (measured, #4401)
+- **AND** the shared VB-family collector SHALL collect Sub, Function, Property Get/Let/Set, Enum and Type headers without binding names or selecting conditional-compilation branches
+
+#### Scenario: A watch on (All Modules)
+- **WHEN** the developer opens Add Watch
+- **THEN** the Module list SHALL start with `(All Modules)`, which offers `(All Procedures)` alone, and SHALL default to it when no code window is active and no program is paused (measured, #4452)
+- **AND** a watch added there SHALL show a blank Context column
+- **AND** while paused it SHALL evaluate against the project's Public module-level names only, so a module's Private variable, a class's Private variable or a procedure's local SHALL read `<Expression not defined in context>`, even where the program is paused in its scope (measured, #4452)
+- **AND** that text SHALL come from a name missing as the expression is evaluated, never from checking its names up front
+- **AND** outside break mode it SHALL read `<Out of context>`, as every watch does, where VB6 evaluates it (divergence D34)
 
 #### Scenario: Adding a watch from declarations
 - **WHEN** the active code window's caret is in the module's declarations

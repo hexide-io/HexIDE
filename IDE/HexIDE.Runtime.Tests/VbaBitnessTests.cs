@@ -6,7 +6,7 @@ using HexIDE.Runtime.ProjectElements;
 namespace HexIDE.Runtime.Tests;
 
 // Measurements: https://github.com/hexide-io/HexIDE/issues/4245, Excel x64 rows K/P1/P2 (PR #3965)
-// and the issue's vb6.exe native/p-code probes. No 32-bit VBA7 values have been measured.
+// and the issue's vb6.exe native/p-code probes. 32-bit VBA7 rows: #4399 (oracle PR #4398).
 public class VbaBitnessTests : BaseVBTestFixture
 {
     private void Target(VbaBitness bitness, string? arguments = null)
@@ -57,10 +57,10 @@ public class VbaBitnessTests : BaseVBTestFixture
     }
 
     [Fact]
-    public void Unmeasured_32_bit_project_refuses_before_running()
+    public void Measured_32_bit_project_selects_its_builtins()
     {
-        Action start = () => Target(VbaBitness.Bit32);
-        start.Should().Throw<NotImplementedException>().WithMessage("32-bit VBA7 is not measured yet (#1548)");
+        Target(VbaBitness.Bit32);
+        Compilation!.BuiltIns.Should().BeSameAs(CompilationConstants.Vba32BuiltIns);
     }
 
     [Theory]

@@ -17,7 +17,7 @@ internal sealed class OfficeBrowserProject : IContainerProject
     public string Name { get; }
     public ContainerFolder Root { get; }
     public bool CanSynchronizeFolder => false;
-    public bool SupportsLanguageServers => false;
+    public bool SupportsLanguageServers => true;
     public bool IsLocked { get; }
     public string? NoticeKey => "Str.Office.SourceNotice";
     public string? BuildType => null;
@@ -45,6 +45,12 @@ internal sealed class OfficeBrowserProject : IContainerProject
                     new ContainerDocument(new ArchiveEntryIdentity(path, [id, m.Name]), m.Name)
                     {
                         Source = m.Source,
+                        LanguageServerExtension = kind switch
+                        {
+                            VbaModuleKind.Standard => ".bas",
+                            VbaModuleKind.UserForm => ".frm",
+                            _ => ".cls"
+                        },
                         IsDocument = true,
                         NoticeKey = kind == VbaModuleKind.UserForm ? "Str.Office.FormNotice" : "Str.Office.SourceNotice"
                     }).ToArray();
@@ -69,7 +75,7 @@ internal sealed class OfficeBrowserProject : IContainerProject
         Add(Root);
         // Only copied text and metadata escape the locator lifetime. Designer storage is borrowed;
         // #1114 will provide a detached representation before the browser can show the designer.
-        // VBA tabs get no language-server session yet: routing a fileless module to a server is #4453.
+        // Export extensions name fileless source to language servers without changing browser entry paths.
     }
 
     public static OfficeBrowserProject Read(string path)

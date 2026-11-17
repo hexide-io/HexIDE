@@ -29,6 +29,28 @@ namespace HexIDE.Runtime.Serialization;
 /// </remarks>
 public static class ModuleFileFormat
 {
+    /// <summary>Recognises a designer header, including OCX references before Begin (#4459).</summary>
+    public static bool IsDesignerFile(string text)
+    {
+        var versionSeen = false;
+        foreach (var line in SourceLines.Split(text))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Length == 0) continue;
+            if (!versionSeen)
+            {
+                if (!System.Text.RegularExpressions.Regex.IsMatch(trimmed,
+                    @"^VERSION [0-9]+\.[0-9]+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                    return false;
+                versionSeen = true;
+                continue;
+            }
+            if (trimmed.StartsWith("Object = ", StringComparison.OrdinalIgnoreCase)) continue;
+            return trimmed.StartsWith("Begin ", StringComparison.OrdinalIgnoreCase);
+        }
+        return false;
+    }
+
     /// <summary>
     /// The module's own name, read out of its VB6 header, falling back to the caller's name.
     ///

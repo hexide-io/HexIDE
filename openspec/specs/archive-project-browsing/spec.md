@@ -122,11 +122,41 @@ p-code differing from the stored source. UserForms MUST open code with a designe
 - **WHEN** the user opens a UserForm from the Forms folder
 - **THEN** its decoded code is shown read-only with the source/p-code and pending-designer notices
 
+### Requirement: Name Office modules for language servers
+Office source entries MUST use `archive-entry:` URIs whose last segment appends `.bas` for a standard
+module, `.cls` for a class or document module, or `.frm` for a UserForm. Browser and automation entry
+paths MUST remain unchanged, and automation's entry URI MUST equal the tab's wire URI.
+
+#### Scenario: Open a document module
+- **WHEN** the user opens `/Document/ThisWorkbook`
+- **THEN** its wire URI ends in `/Document/ThisWorkbook.cls?container=…` while its browser path stays unchanged
+
+### Requirement: Route Office modules as project members
+Office modules MUST be offered as project members to servers that establish VB6, routed by extension.
+Each server MUST receive its configured language identifier (`vb6` for the bundled server).
+
+#### Scenario: Open a class without an export header
+- **WHEN** an Office class module's stored source has no `VERSION 1.0 CLASS` header
+- **THEN** a VB6 server claiming `.cls` receives the module as a project member
+
+### Requirement: Keep Office language-server sessions read-only
+Office source tabs MUST receive the same read-only diagnostic sessions as archive previews.
+Sessions MUST send `didOpen` and `didClose`, with no `didChange`, and close on tab close, container close
+or reload. Locked projects MUST expose no source sessions.
+
+#### Scenario: Reload or close an Office source tab
+- **WHEN** an Office source tab or its container is closed, or the container is reloaded
+- **THEN** the old session sends `didClose`; a retained tab on reload opens a new session and clears old markers
+
+#### Scenario: Browse a locked Office project
+- **WHEN** an Office project is locked for viewing
+- **THEN** no module source or language-server session is exposed
+
 ### Requirement: Respect Office browser capabilities
-Office entries MUST NOT receive language-server sessions, inactive shading, Show Hidden or Synchronize
-Folder in this slice. Office node and tab focus MUST refuse implicit build and run targeting a loaded
-startup project. Opening a document MUST NOT execute its code or events.
+Office entries MUST NOT receive inactive shading, Show Hidden or Synchronize Folder. Office node and tab
+focus MUST refuse implicit build and run targeting a loaded startup project. Opening a document MUST NOT
+execute its code or events.
 
 #### Scenario: Read Office source beside a loaded startup project
 - **WHEN** an Office source tab is active
-- **THEN** no language server is contacted and implicit build and run commands are unavailable
+- **THEN** diagnostics are shown as markers and implicit build and run commands are unavailable

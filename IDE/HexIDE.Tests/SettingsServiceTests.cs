@@ -204,6 +204,20 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void ServerChatTools_RoundTrips_AndIsADetachedCopy()
+    {
+        var sut = CreateSut();
+        var chosen = new Dictionary<string, string> { ["rdcore"] = "ask", ["probe"] = "off" };
+        sut.ServerChatTools = chosen;
+        chosen["rdcore"] = "on";
+        sut.ServerChatTools["probe"] = "on";
+        sut.Save();
+
+        CreateSut().ServerChatTools.Should().BeEquivalentTo(new Dictionary<string, string> { ["rdcore"] = "ask", ["probe"] = "off" },
+            "the person's per-server choice for AI Chat tools persists, and only through the setter (#4257)");
+    }
+
+    [Fact]
     public void Load_DoesNotMarkLoadedValuesAsChanges()
     {
         File.WriteAllText(SettingsPath, """{"loadUnsignedAddins":true}""");
