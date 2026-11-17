@@ -24,7 +24,7 @@ public class CallStackReplyTests
     private static IdeContext Context(IDebugController debug, MainViewViewModel root) => new(
         Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
         null!, Substitute.For<IProjectRunnerService>(), null!, null!, null!, null!, debug, root,
-        null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+        null!, null!, null!, null!, null!, null!, null!, null!);
 
     [AvaloniaFact]
     public async Task Deep_recursion_returns_the_deepest_repeated_and_outermost_frames()

@@ -70,16 +70,14 @@ public class ControlArrayIndexTests : IDisposable
         var dock = Substitute.For<IDocumentDockService>();
         var events = new EventBus();
         using var designer = open ? new FormEditViewModel(null!, events, null!, null!, null!,
-            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form) : null;
+            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form) : null;
         dock.OpenDocuments.Returns(designer is null ? [] : [designer]);
-        var writer = new ProjectService(new Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(),
+        var writer = new ProjectService(() => throw new InvalidOperationException(),
             Substitute.For<IWindowManager>(), events, projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<HexIDE.Sidecar.IUserSidecarService>(),
-            new FileBaselineStore(), Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat(), new ComponentRegistry());
+            new FileBaselineStore(), Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), null!, null!, writer, events,
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, Substitute.For<ILocalizationService>(), null!,
-            new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, Substitute.For<ILocalizationService>(), null!);
         var tools = new HexIdeTools(context);
         var before = new FormSerializer().Serialize(form, "Form1.frm").frmText;
         var value = check switch { "move" => "7", "duplicate" or "unindexed" => "3", "clear" or "siblings" => "", _ => check };
@@ -137,9 +135,9 @@ public class ControlArrayIndexTests : IDisposable
         var dock = Substitute.For<IDocumentDockService>();
         var events = new EventBus();
         using var designer = new FormEditViewModel(null!, events, null!, null!, null!, Substitute.For<ISettingsService>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+            Substitute.For<ILocalizationService>()).Initialize(form);
         var properties = new PropertiesToolViewModel(dock, events, Substitute.For<IWindowManager>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat());
+            Substitute.For<ILocalizationService>());
         dock.ActiveDocument.Returns(designer);
         dock.PropertyChanged += Raise.Event<System.ComponentModel.PropertyChangedEventHandler>(dock,
             new System.ComponentModel.PropertyChangedEventArgs(nameof(dock.ActiveDocument)));
@@ -195,8 +193,8 @@ public class ControlArrayIndexTests : IDisposable
         var loc = Substitute.For<ILocalizationService>();
         loc.GetString(Arg.Any<string>()).Returns(c => c.Arg<string>());
         using var designer = new FormEditViewModel(null!, events, null!, null!, null!, Substitute.For<ISettingsService>(),
-            loc, new Vb6ProjectFileFormat()).Initialize(form);
-        var properties = new PropertiesToolViewModel(dock, events, windows, loc, new Vb6ProjectFileFormat());
+            loc).Initialize(form);
+        var properties = new PropertiesToolViewModel(dock, events, windows, loc);
         dock.ActiveDocument.Returns(designer);
         dock.PropertyChanged += Raise.Event<System.ComponentModel.PropertyChangedEventHandler>(dock,
             new System.ComponentModel.PropertyChangedEventArgs(nameof(dock.ActiveDocument)));

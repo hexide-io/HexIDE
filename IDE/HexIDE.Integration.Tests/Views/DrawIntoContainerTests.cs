@@ -86,7 +86,7 @@ public class DrawIntoContainerTests
             new ComponentRegistry(), Substitute.For<ILocalizationService>());
         toolbox.SelectedComponent = toolbox.Components.Single(c => c.BaseClass is CommandButtonComponentClass);
         var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
-            settings, Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+            settings, Substitute.For<ILocalizationService>()).Initialize(form);
         return (vm, form);
     }
 

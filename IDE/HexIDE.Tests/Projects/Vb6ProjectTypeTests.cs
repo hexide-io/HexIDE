@@ -153,11 +153,9 @@ public sealed class Vb6ProjectTypeTests : IDisposable
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() + " {0}");
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => throw new InvalidOperationException("no new-project dialog here"), _windows, Substitute.For<IEventBus>(),
+        return new ProjectService(            () => throw new InvalidOperationException("no new-project dialog here"), _windows, Substitute.For<IEventBus>(),
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(), sidecar,
-            new FileBaselineStore(), localization, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(),
-            new ComponentRegistry(), contributed: types);
+            new FileBaselineStore(), localization, Substitute.For<IHeaderRefresher>(),             new ComponentRegistry(), contributed: types);
     }
 
     private string Vbp()

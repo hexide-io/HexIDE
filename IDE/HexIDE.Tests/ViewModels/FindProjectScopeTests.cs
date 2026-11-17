@@ -32,7 +32,7 @@ public partial class FindReplaceViewModelTests : IDisposable
     private readonly List<ProjectDefinition> _findLoaded = [];
 
     private FindProjectDocuments ProjectDocuments() => new(_documentDockService, _findProjects,
-        _findEditors, () => _selectedFindProject, new Vb6ProjectFileFormat(), new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
+        _findEditors, () => _selectedFindProject);
 
     private FindReplaceViewModel ProjectFind()
     {
@@ -183,7 +183,7 @@ public partial class FindReplaceViewModelTests : IDisposable
         using BaseEditorWindowViewModel editor = designerActive
             ? new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
                 _findEditors, _windowManager, Substitute.For<ISettingsService>(),
-                Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form)
+                Substitute.For<ILocalizationService>()).Initialize(form)
             : CreateMockEditor("").Initialize(form);
         SetActiveEditor(editor);
         _selectedFindProject = selected;

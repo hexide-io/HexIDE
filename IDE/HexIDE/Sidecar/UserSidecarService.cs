@@ -56,8 +56,6 @@ public partial class UserSidecarService : IUserSidecarService
 
     private readonly IBookmarkService bookmarkService;
     private readonly IBreakpointService breakpointService;
-    private readonly IProjectFileFormat format;
-    private readonly HexIDE.Language.IReadOnlyRegionReader reader;
     private readonly IProjectManager projectManager;
     private readonly IRunChoiceStore? runChoices;
 
@@ -81,13 +79,11 @@ public partial class UserSidecarService : IUserSidecarService
     };
 
     public UserSidecarService(IBookmarkService bookmarkService, IBreakpointService breakpointService,
-        IProjectManager projectManager, IProjectFileFormat format, HexIDE.Language.IReadOnlyRegionReader reader, IRunChoiceStore? runChoices = null)
+        IProjectManager projectManager, IRunChoiceStore? runChoices = null)
     {
         this.bookmarkService = bookmarkService;
         this.breakpointService = breakpointService;
         this.projectManager = projectManager;
-        this.format = format;
-        this.reader = reader;
         this.runChoices = runChoices;
         // The personal-state stores persist to the same per-user sidecar, on the same debounced save.
         bookmarkService.BookmarksChanged += OnSidecarStateChanged;
@@ -452,7 +448,7 @@ public partial class UserSidecarService : IUserSidecarService
             {
                 if (!IsCollected(collected, document)
                     && AddReorderedLines(into, document, lines, first, what, path, codeRelative: true)) continue;
-                var shift = DocumentContent.TextOf(document, null, format, reader).HeaderLineCount;
+                var shift = DocumentContent.TextOf(document, null).HeaderLineCount;
                 // Check before adding, so a negative or overflowing offset cannot become a valid file line.
                 var invalid = lines.Where(line => line < first || (long)line + shift > int.MaxValue).ToList();
                 if (invalid.Count > 0)
@@ -489,7 +485,7 @@ public partial class UserSidecarService : IUserSidecarService
     {
         if (!collected && AddReorderedLines(into, document, lines, first, what, path, codeRelative: false)) return;
         var valid = WithinDocument(document, lines, first, what, path);
-        var count = DocumentContent.TextOf(document, null, format, reader).HeaderLineCount;
+        var count = DocumentContent.TextOf(document, null).HeaderLineCount;
         AddTo(into, document, valid.Where(line => line - first < count));
         AddTo(into, document, OffReadOnlyLines(document,
             valid.Where(line => line - first >= count).ToList(), first, what, path));
@@ -521,8 +517,8 @@ public partial class UserSidecarService : IUserSidecarService
             foreach (var document in byName[name])
             {
                 if (AddReorderedLines(into, document, lines, first, what, path, codeRelative: true)) continue;
-                var shift = FormCodeText.LineBreaks(document.Module is { } module ? ProjectFormats.Of(document.Project, format).CodePrefix(module)
-                    : ProjectFormats.Of(document.Project, format).CodePrefix(document.Form!));
+                var shift = FormCodeText.LineBreaks(document.Module is { } module ? ProjectFormats.Of(document.Project).CodePrefix(module)
+                    : ProjectFormats.Of(document.Project).CodePrefix(document.Form!));
                 var moving = WithinOldCode(document, lines, first, what, path).Select(line => line + shift);
                 AddTo(into, document, OffReadOnlyLines(document, moving.ToList(), first, what, path));
             }
@@ -620,7 +616,7 @@ public partial class UserSidecarService : IUserSidecarService
     private IReadOnlyList<int> WithinDocument(
         DocumentIdentity document, IReadOnlyCollection<int> lines, int first, string what, string path)
     {
-        var text = DocumentContent.TextOf(document, null, format, reader);
+        var text = DocumentContent.TextOf(document, null);
         var (kept, dropped) = MarkLineRules.Within(text, lines, first);
         if (dropped.Count > 0)
             Log.Warning("Dropped {What:l}s on {Lines} from {Path}: {Document} has {Count} line(s), numbered {First}..{Last}",
@@ -637,7 +633,7 @@ public partial class UserSidecarService : IUserSidecarService
     {
         if (lines.Count == 0) return lines;
 
-        var text = DocumentContent.TextOf(document, null, format, reader);
+        var text = DocumentContent.TextOf(document, null);
         var regions = text.Regions;
         var dropped = lines.Where(line => ReadOnlyRegions.IsReadOnlyLine(text.Text, regions, line - first + 1))
             .Distinct().ToList();
@@ -945,7 +941,7 @@ public partial class UserSidecarService : IUserSidecarService
         var map = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
         foreach (var document in DocumentLookup.DocumentsOf(project))
         {
-            var shift = DocumentContent.TextOf(document, null, format, reader).HeaderLineCount;
+            var shift = DocumentContent.TextOf(document, null).HeaderLineCount;
             var lines = getLines(document).Where(line => (line - first < shift) == header)
                 .Select(line => header ? line : line - shift).ToList();
             if (lines.Count == 0) continue;

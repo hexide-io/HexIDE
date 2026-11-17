@@ -43,7 +43,7 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
     {
         Directory.CreateDirectory(dir);
         dock.OpenDocuments.Returns(_ => open.Cast<BaseEditorWindowViewModel>().ToList());
-        refresher = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), bus, dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
+        refresher = new HeaderRefresher(bus, dock, new BreakpointService(), new BookmarkService());
     }
 
     public void Dispose()
@@ -70,8 +70,7 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
 
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => throw new InvalidOperationException("new-project dialog must not be reached"),
+        return new ProjectService(            () => throw new InvalidOperationException("new-project dialog must not be reached"),
             Substitute.For<IWindowManager>(),
             bus,
             projectManager,
@@ -80,8 +79,7 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
-            refresher,
-            new Vb6ProjectFileFormat(), new ComponentRegistry());
+            refresher, new ComponentRegistry());
     }
 
     /// <summary>A code window on the document, on the same bus as the save, and open as far as the dock knows.</summary>
@@ -95,9 +93,7 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), Substitute.For<ILocalizationService>(),
-                new Vb6ProjectFileFormat(),
-                new Vb6ReadOnlyRegionReader(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
+            Substitute.For<IRunScope>(), Substitute.For<ILocalizationService>());
         made.Add(vm);
         open.Add(vm);
         return document.Module is { } module ? vm.Initialize(module) : vm.Initialize(document.Form!);
@@ -268,7 +264,7 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
         editor.Document.Text.Should().Be(written, "the update is not something the developer can undo");
         editor.BufferBody.Should().Be(form.Code, "and it does not mark the document as edited");
         service.HasUnsavedChanges(form).Should().BeFalse();
-        new DirtyDetector(new FileBaselineStore(), service, new Vb6ProjectFileFormat())
+        new DirtyDetector(new FileBaselineStore(), service)
             .Classify(new WatchedFileTarget(form.AbsolutePath!, form, null, editor, null))
             .Should().Be(ReloadDecision.CleanReload, "an external change now would be a silent reload, not a conflict");
     }

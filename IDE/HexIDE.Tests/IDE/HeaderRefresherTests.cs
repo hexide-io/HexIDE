@@ -40,7 +40,7 @@ public class HeaderRefresherTests
     private HeaderRefresher CreateSut()
     {
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel>());
-        return new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), bus, dock, breakpoints, bookmarks, new Vb6ProjectFileFormat());
+        return new HeaderRefresher(bus, dock, breakpoints, bookmarks);
     }
 
     private const string OneLabel = """
@@ -399,7 +399,7 @@ public class HeaderRefresherTests
         var form = Deserialize(OneLabel);
         var editor = NewCodeEditor().Initialize(form);
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
-        var sut = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), bus, dock, breakpoints, bookmarks, new Vb6ProjectFileFormat());
+        var sut = new HeaderRefresher(bus, dock, breakpoints, bookmarks);
 
         sut.ApplyHeader(form, "VERSION 5.00\r\nBegin VB.Form Form1\r\nEnd\r\n");
 
@@ -418,7 +418,7 @@ public class HeaderRefresherTests
         var form = Deserialize(OneLabel);
         var editor = NewCodeEditor().Initialize(form);
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
-        var sut = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), bus, dock, breakpoints, bookmarks, new Vb6ProjectFileFormat());
+        var sut = new HeaderRefresher(bus, dock, breakpoints, bookmarks);
 
         var current = "VERSION 5.00\r\nBegin VB.Form Form1\r\n   Caption = \"x\"\r\nEnd\r\n";
         sut.ApplyHeader(form, current);
@@ -532,7 +532,7 @@ public class HeaderRefresherTests
         var form = Deserialize(FiveAttributes);
         var editor = NewCodeEditor().Initialize(form);
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
-        var sut = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), bus, dock, breakpoints, bookmarks, new Vb6ProjectFileFormat());
+        var sut = new HeaderRefresher(bus, dock, breakpoints, bookmarks);
         Rename(form, "frmOrders");
 
         sut.LayoutChanged(form);
@@ -552,7 +552,7 @@ public class HeaderRefresherTests
         module.UpdateCode("Option Explicit\r\n");
         var editor = NewCodeEditor().Initialize(module);
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
-        var sut = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), bus, dock, breakpoints, bookmarks, new Vb6ProjectFileFormat());
+        var sut = new HeaderRefresher(bus, dock, breakpoints, bookmarks);
         module.Name = "Utilities";
         editor.Document.Text.Should().StartWith("Attribute VB_Name = \"Module1\"", "nothing has told the window");
 
@@ -571,7 +571,7 @@ public class HeaderRefresherTests
         var form = Deserialize(FiveAttributes);
         using var editor = NewCodeEditor().Initialize(form);
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
-        var sut = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), bus, dock, breakpoints, bookmarks, new Vb6ProjectFileFormat());
+        var sut = new HeaderRefresher(bus, dock, breakpoints, bookmarks);
         sut.LayoutChanged(form);                  // settle the header on the serializer's own formatting
         editor.Document.UndoStack.ClearAll();
 
@@ -589,7 +589,7 @@ public class HeaderRefresherTests
         var form = Deserialize(FiveAttributes);
         using var editor = NewCodeEditor().Initialize(form);
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
-        var sut = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), bus, dock, breakpoints, bookmarks, new Vb6ProjectFileFormat());
+        var sut = new HeaderRefresher(bus, dock, breakpoints, bookmarks);
         sut.LayoutChanged(form);
         editor.Document.UndoStack.ClearAll();
         var beforeRename = editor.Document.Text;
@@ -612,7 +612,7 @@ public class HeaderRefresherTests
         var form = Deserialize(FiveAttributes);
         var editor = NewCodeEditor().Initialize(form);
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
-        var sut = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), bus, dock, breakpoints, bookmarks, new Vb6ProjectFileFormat());
+        var sut = new HeaderRefresher(bus, dock, breakpoints, bookmarks);
         var asOpened = editor.BufferBody;
 
         editor.Document.Insert(editor.Document.TextLength, "\r\nDim x As Long");
@@ -639,7 +639,7 @@ public class HeaderRefresherTests
         module.UpdateCode("Attribute VB_Name = \"ucGauge\"\r\nOption Explicit\r\n");
         var editor = NewCodeEditor().Initialize(module);
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
-        var sut = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), bus, dock, breakpoints, bookmarks, new Vb6ProjectFileFormat());
+        var sut = new HeaderRefresher(bus, dock, breakpoints, bookmarks);
 
         editor.Document.Insert(editor.Document.TextLength, "Dim x As Long\r\n");
         module.Name = "ucDial";
@@ -660,7 +660,7 @@ public class HeaderRefresherTests
         module.UpdateCode("Attribute VB_Name = \"ucGauge\"\r\nOption Explicit\r\n");
         var editor = NewCodeEditor().Initialize(module);
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
-        var sut = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), bus, dock, breakpoints, bookmarks, new Vb6ProjectFileFormat());
+        var sut = new HeaderRefresher(bus, dock, breakpoints, bookmarks);
         editor.CaretOffset = editor.Document.Text.IndexOf("Explicit", StringComparison.Ordinal);
 
         module.Name = "ucDialLonger";
@@ -834,8 +834,6 @@ public class HeaderRefresherTests
             Substitute.For<IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<IRunScope>(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(),
-                new Vb6ProjectFileFormat(),
-                new Vb6ReadOnlyRegionReader(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
+            Substitute.For<HexIDE.Localization.ILocalizationService>());
     }
 }

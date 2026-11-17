@@ -600,7 +600,7 @@ public class CodeEditorSplitTests : IDisposable
         using var context = new HexIDE.Desktop.Server.IdeContext(composition.ProjectManager,
             composition.DocumentDockService, _lspClient, composition.EditorService,
             null!, null!, null!, null!, null!, null!, (MainViewViewModel)((MainView)window.Content!).DataContext!, null!, null!, null!, null!,
-            null!, null!, composition.LocalizationService, null!, null!, new Vb6ReadOnlyRegionReader());
+            null!, null!, composition.LocalizationService, null!);
         try
         {
             return await new HexIDE.Desktop.Server.HexIdeTools(context).OpenFileAsync(name, line: line, column: column);
@@ -649,7 +649,7 @@ public class CodeEditorSplitTests : IDisposable
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             _runScope,
-            localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            localization);
     }
 
     private static ModuleDefinition AModule()
