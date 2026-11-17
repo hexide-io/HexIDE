@@ -612,6 +612,7 @@ added afterwards.
 - [Collection (2026-10-22, #1471)](collection.md#collection-2026-10-22-1471)
 - [As New (2026-10-22 and 23, #435)](as-new.md#as-new-2026-10-22-and-23-435)
 - [Where VB6's designer puts a control's block (2026-10-23, #1481, design-time)](where-vb6s-designer-puts-a-controls-block.md#where-vb6s-designer-puts-a-controls-block-2026-10-23-1481-design-time)
+- [A file that lists a windowless control first, saved by VB6's IDE (2026-11-17, #1517, IDE, SP6)](where-vb6s-designer-puts-a-controls-block.md#a-file-that-lists-a-windowless-control-first-saved-by-vb6s-ide-2026-11-17-1517-ide-sp6)
 - [A control VB6 knows and HexIDE carries stacks with the rest (2026-10-23, #1498, design-time, IDE, release build)](a-control-vb6-knows-and-hexide-carries-stacks-with-the-rest.md#a-control-vb6-knows-and-hexide-carries-stacks-with-the-rest-2026-10-23-1498-design-time-ide-release-build)
 - [Static (2026-10-23, #1491)](static.md#static-2026-10-23-1491)
 - [A Let into an object variable (2026-10-23, #1493)](a-let-into-an-object-variable.md#a-let-into-an-object-variable-2026-10-23-1493)

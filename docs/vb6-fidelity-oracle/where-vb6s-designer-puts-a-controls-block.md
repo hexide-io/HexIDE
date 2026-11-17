@@ -64,3 +64,36 @@ Picture4, Picture3.
 - A paste while a container is selected.
 - The `ZOrder` method at run time.
 
+### A file that lists a windowless control first, saved by VB6's IDE (2026-11-17, #1517, IDE, SP6)
+
+**The question.** VB6 never writes a windowless control ahead of a windowed sibling. A hand-edited file, or one another
+tool wrote, can. VB6's designer still draws such a Label under the windowed controls (#1517, seen during #1501's live
+check). What does VB6 write when it saves that form?
+
+**The probe.** Two Standard EXE forms, each opened in SP6's IDE on the guest's console. Each opened with no message.
+Nothing was changed in the designer. The save came from a code edit:
+1. select `Form1` in the Project window, then F7;
+2. Ctrl+End and Enter, type `Dim zz` and Enter;
+3. Ctrl+S.
+
+| Blocks in the file | Blocks after VB6's save |
+|---|---|
+| LabelFirst, Command1, Command2, Frame1 (Label2, Command3) | Command1, Command2, Frame1 (Command3, **Label2**), **LabelFirst** |
+| LabelA, Command1, LabelB, Command2, Shape1 | Command1, Command2, **LabelA, LabelB**, Shape1 |
+
+**What it shows:**
+- **The save moves each container's windowless controls after its windowed ones,** whatever order the file had.
+- **It keeps the file's order within each plane:** Command1 before Command2, and LabelA, LabelB, then Shape1. The second
+  form is the row that tells this apart from reversing a plane. The first form can't, because each of its containers
+  holds one windowless control.
+- **Nothing else in a moved block changes.** Every property keeps its value. The TabIndexes stay as they were, so
+  LabelFirst keeps TabIndex 0 though it's now written last.
+
+**Seen in passing:** the second form's Labels had `Caption` before `BackColor`, and VB6 wrote `BackColor` first, in its
+own order. The first form's file had VB6's order already, and that save changed no property line.
+
+**Not measured:**
+- Which of LabelA and LabelB VB6's designer draws on top, before or after the save.
+- An Image or a Line in the windowless plane.
+- The same file run, with no save.
+
