@@ -390,6 +390,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Toate bibliotecile>",
     "Str.Tool.ObjectBrowser.MembersOf": "Membrii lui „{0}”",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Membrii nu pot fi listați fără biblioteca de tipuri a acestei biblioteci.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Metadatele tipurilor nu sunt disponibile)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Închide exploratorul de obiecte",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Explorator de obiecte",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Salt la definiție",

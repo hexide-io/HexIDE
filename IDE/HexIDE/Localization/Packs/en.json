@@ -414,6 +414,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<All Libraries>",
     "Str.Tool.ObjectBrowser.MembersOf": "Members of '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Members cannot be listed without this library's type library.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Type metadata unavailable)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Close Object Browser",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Object Browser",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Go to Definition",

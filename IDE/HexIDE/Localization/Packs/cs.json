@@ -455,6 +455,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Všechny knihovny>",
     "Str.Tool.ObjectBrowser.MembersOf": "Členové '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Členy nelze vypsat bez knihovny typů této knihovny.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Metadata typů nejsou k dispozici)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Zavřít prohlížeč objektů",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Prohlížeč objektů",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Přejít na definici",

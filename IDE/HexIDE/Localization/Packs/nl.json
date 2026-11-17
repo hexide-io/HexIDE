@@ -464,6 +464,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Alle bibliotheken>",
     "Str.Tool.ObjectBrowser.MembersOf": "Leden van '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Leden kunnen niet worden weergegeven zonder de typebibliotheek van deze bibliotheek.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Typemetagegevens niet beschikbaar)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Objectbrowser sluiten",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objectbrowser",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Naar definitie gaan",

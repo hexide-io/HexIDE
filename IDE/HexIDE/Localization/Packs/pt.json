@@ -430,6 +430,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Todas as bibliotecas>",
     "Str.Tool.ObjectBrowser.MembersOf": "Membros de '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Não é possível listar os membros sem a biblioteca de tipos desta biblioteca.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Metadados de tipos indisponíveis)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Fechar o Navegador de Objetos",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Navegador de Objetos",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Ir para definição",

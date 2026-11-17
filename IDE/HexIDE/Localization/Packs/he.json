@@ -489,6 +489,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<כל הספריות>",
     "Str.Tool.ObjectBrowser.MembersOf": "חברים של '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "לא ניתן להציג את רשימת החברים ללא ספריית הטיפוסים של ספרייה זו.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(מטא־נתונים של הטיפוס אינם זמינים)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "סגור את דפדפן האובייקטים",
     "Str.Tool.ObjectBrowser.Chrome.Title": "דפדפן אובייקטים",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "עבור להגדרה",

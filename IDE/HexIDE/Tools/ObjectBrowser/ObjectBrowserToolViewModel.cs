@@ -691,7 +691,7 @@ public partial class ObjectBrowserToolViewModel : Document
                 }
                 if (lib.Classes.Count == 0)
                     lib.Classes.Add(new OBClassViewModel(
-                        "(Type metadata unavailable)", OBClassKind.Module, lib.Name));
+                        localization.GetString("Str.Tool.ObjectBrowser.TypeMetadataUnavailable"), OBClassKind.Module, lib.Name));
             }
             else
             {

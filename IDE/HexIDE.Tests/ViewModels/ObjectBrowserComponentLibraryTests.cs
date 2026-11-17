@@ -25,6 +25,7 @@ public class ObjectBrowserComponentLibraryTests
         var loc = Substitute.For<ILocalizationService>();
         loc.GetString("Str.MemberOrigin.HexIde").Returns("HexIDE extension");
         loc.GetString("Str.Tool.ObjectBrowser.MembersUnavailable").Returns("Localized unavailable members");
+        loc.GetString("Str.Tool.ObjectBrowser.TypeMetadataUnavailable").Returns("Localized unavailable type metadata");
         return (new ObjectBrowserToolViewModel(projects, Substitute.For<ILspClient>(),
             Substitute.For<IEditorService>(), new ComponentRegistry(), types,
             Substitute.For<IFocusedProjectUtil>(), loc, Substitute.For<ILanguageConnectionRegistry>()), projects);
@@ -207,6 +208,17 @@ public class ObjectBrowserComponentLibraryTests
         line.Name.Should().Be("Localized unavailable members");
         line.Kind.Should().Be(OBMemberKind.Status);
         line.Signature.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Reference_without_metadata_shows_a_localized_class_placeholder()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddReference(new(Guid.NewGuid().ToString("B"), "1.0", 0, "NOTREAL.OCX", "NOTREAL"));
+        var (browser, _) = Create(project);
+        var library = browser.Libraries.Single(l => l.Name == "NOTREAL");
+        browser.SelectedLibrary = library;
+        library.Classes.Should().ContainSingle().Which.Name.Should().Be("Localized unavailable type metadata");
     }
 
     [Fact]

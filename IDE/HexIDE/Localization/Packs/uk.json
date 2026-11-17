@@ -430,6 +430,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Усі бібліотеки>",
     "Str.Tool.ObjectBrowser.MembersOf": "Члени '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Неможливо перелічити члени без бібліотеки типів цієї бібліотеки.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Метадані типів недоступні)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Закрити оглядач об'єктів",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Оглядач об'єктів",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Перейти до визначення",
