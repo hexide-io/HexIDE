@@ -23,6 +23,10 @@ public sealed class WatchExpression
 {
     public const string AllProceduresContext = "(All Procedures)";
 
+    /// <summary>A watch added with Module (All Modules). VB6 shows its Context column blank, and evaluates it against the
+    /// project's Public module-level names only (measured, #4452). The interpreter reads the same text.</summary>
+    public const string AllModulesContext = "(All Modules)";
+
     public WatchExpression(string expression, WatchType type, string context)
     {
         Expression = expression;

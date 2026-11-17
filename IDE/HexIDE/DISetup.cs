@@ -481,7 +481,11 @@ public partial class DISetup
                     new LanguageServerConfigLoader(loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
                     configuration.Entries.Select(entry => entry.Id).OfType<string>().ToHashSet(StringComparer.Ordinal),
                     loggerFactory.CreateLogger<LanguageServerContributions>(),
-                    new LanguageServerCommandStore(), providers);
+                    new LanguageServerCommandStore(), providers)
+                {
+                    // The person's choice in Options → AI Chat Tools wins over a server's entry, an add-in's included (#4257).
+                    ChatToolsSetting = ServerChatToolsSetting.FromUserSettings(settings),
+                };
             })
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()

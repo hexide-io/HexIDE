@@ -758,24 +758,13 @@ public class VBLoader
         _ => (1200, 480),
     };
 
-    // An added ListBox's row, in pixels, by the font it takes (measured, fourteen fonts): its height is 60 twips and as many
-    // rows as fit in 480, at least one.
-    private static readonly (string Font, double Size, int Row)[] AddedListBoxRows =
-    [
-        ("MS Sans Serif", 8.25, 13), ("MS Sans Serif", 9.75, 16), ("MS Sans Serif", 12, 20), ("MS Sans Serif", 13.5, 24),
-        ("Microsoft Sans Serif", 8.25, 13), ("Tahoma", 8.25, 13), ("Tahoma", 9.75, 16), ("Verdana", 8.25, 13),
-        ("Arial", 8.25, 14), ("Arial", 9.75, 16), ("Arial", 12, 18), ("Times New Roman", 12, 19), ("Courier New", 9.75, 16),
-        ("Segoe UI", 9, 15),
-    ];
-
     private static double AddedListBoxHeight(VBFont? font)
     {
-        foreach (var (name, size, row) in AddedListBoxRows)
-            if (font is { } f && string.Equals(f.FontFamilyName, name, StringComparison.OrdinalIgnoreCase) && Math.Abs(f.Size - size) < 0.01)
-            {
-                double rowTwips = row * VBScaleModeExtensions.PixelToTwips;
-                return 60 + Math.Max(1, Math.Floor(420 / rowTwips)) * rowTwips;
-            }
+        if (ListBoxRowHeights.Find(font) is { } row)
+        {
+            double rowTwips = row * VBScaleModeExtensions.PixelToTwips;
+            return 60 + Math.Max(1, Math.Floor(420 / rowTwips)) * rowTwips;
+        }
         throw new NotImplementedException(
             $"Controls.Add of a ListBox in {font?.FontFamilyName} {font?.Size} is not implemented: its height follows its font, " +
             "and was measured for fourteen fonts, not this one (#1556)");

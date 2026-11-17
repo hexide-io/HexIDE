@@ -81,3 +81,43 @@ This was done twice, with the same result. **The control:** F5 from that break r
 - Step Out (Ctrl+Shift+F8) off the end of a handler;
 - an event with no handler between the two clicks;
 - a program whose next event is a Timer's.
+
+## Which window comes to the front: Continue, a step, and a modal form (2026-11-17, #4262, IDE)
+
+**The question.** The section above found that F8 from an idle break leaves the IDE in front and F5 brings the form
+forward. Does Shift+F8 do the same as F8? Do several steps through an event, and out of it, change that? And with a
+modal form open at the break, which window does F5 bring forward?
+
+**The probe:**
+- **The software:** VB6's IDE, SP6, on the oracle VM (Windows 10). Measured by the hexide-int session, at hexide-mcp's
+  request.
+- **The project:** a Standard EXE. Form1 has Timer1, Interval 500, whose Timer event runs `n = n + 1`, `x = n * 2` and
+  `Caption = "Form1 " & n`. Form1's Click runs `Form2.Show vbModal`.
+- **How it was read:** the foreground window by `GetForegroundWindow`'s title, the z-order by `EnumWindows`' order, and a
+  screenshot after each step.
+
+**What it showed:**
+
+| Step | Foreground after it |
+|---|---|
+| Run, Form1 active | `Form1 15` |
+| Ctrl+Break | the IDE, [break], with no execution arrow: an idle break |
+| F8 | **the IDE**. The step waited for the next tick and stopped on `Private Sub Timer1_Timer()`; Form1 stayed behind |
+| F8 five more times | the IDE after each one. After the sixth, the arrow was on the `Sub` line again, at the next tick |
+| F5 | **`Form1 40`**: Continue brought Form1 back, after the steps too |
+| Ctrl+Break again, Form1 active | the IDE, with no arrow |
+| Shift+F8 | **the IDE**, as F8: it stopped on the `Sub` line at the next tick, and Form1 stayed behind |
+| F5, a click on Form1, so modal Form2 is in front; then Ctrl+Break | the IDE. Z-order: the IDE, Form2, Form1 |
+| F5 | **`Form2`**. Z-order: Form2, Form1, the IDE |
+
+**What it shows:**
+- **A step from break mode doesn't bring the program forward; Continue does.** That held for F8 and Shift+F8, from an
+  idle Ctrl+Break, and for the step that left the event. Continue after several steps still brought the form back.
+- **With a modal form open, Continue brings the modal form forward,** with its owner directly behind it, not the
+  startup form.
+- The intermediate lines of the five F8s weren't read, only the foreground after each and the arrow after the last.
+
+**Not measured:**
+- a step that runs to completion without re-entering code, such as a program with no Timer;
+- Ctrl+F8 and Step Out;
+- Continue when the form that was active at the break has been hidden or unloaded.

@@ -20,6 +20,7 @@ public class AddExistingFileTests : IDisposable
 {
     private readonly string dir = Path.Join(Path.GetTempPath(), "hexide-addfile-" + Guid.NewGuid().ToString("N"));
     private readonly List<ProjectDefinition> loaded = new();
+    private readonly FileBaselineStore baselines = new();
 
     public AddExistingFileTests() => Directory.CreateDirectory(dir);
 
@@ -47,7 +48,7 @@ public class AddExistingFileTests : IDisposable
             Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(),
             sidecar,
-            new FileBaselineStore(),
+            baselines,
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
             Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
     }
@@ -228,6 +229,7 @@ public class AddExistingFileTests : IDisposable
         // A half-added form is worse than a refused one: the tree shows a node, the .vbp gains a Form= line,
         // and the file behind it was never understood.
         var path = Stage("Broken.frm", "this is not a form\r\n");
+        var companion = Stage("Broken.frx", "resource");
         var project = NewProject();
 
         var adopted = await MakeService().AddExistingForm(project, path);
@@ -235,6 +237,7 @@ public class AddExistingFileTests : IDisposable
         adopted.Document.Should().BeNull();
         adopted.Refusal.Should().Be(AdoptionRefusal.CouldNotRead);
         project.Forms.Should().BeEmpty();
+        baselines.TryGet(companion).Should().BeNull();
     }
 
     [Fact]
@@ -250,6 +253,7 @@ public class AddExistingFileTests : IDisposable
           + "Attribute VB_Name = \"Form1\"\r\n"
           + "Option Explicit\r\n";
         var path = Stage("Form1.frm", frm);
+        var companion = Stage("Form1.frx", "resource");
         var project = NewProject();
 
         var form = (await MakeService().AddExistingForm(project, path)).Document;
@@ -257,6 +261,22 @@ public class AddExistingFileTests : IDisposable
         form.Should().NotBeNull();
         form!.AbsolutePath.Should().Be(path);
         project.Forms.Should().ContainSingle();
+        baselines.Matches(companion, File.ReadAllBytes(companion)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AFormNamedLikeOneTheProjectAlreadyHasLeavesNoCompanionBaseline()
+    {
+        var path = Stage("Form1.frm", "VERSION 5.00\r\nBegin VB.Form Form1\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n");
+        var companion = Stage("Form1.frx", "resource");
+        var project = NewProject();
+        project.AddModule(new ModuleDefinition(project, "Form1", ModuleKind.StandardModule));
+
+        var adopted = await MakeService().AddExistingForm(project, path);
+
+        adopted.Refusal.Should().Be(AdoptionRefusal.NameTaken);
+        adopted.Document.Should().BeNull();
+        baselines.TryGet(companion).Should().BeNull();
     }
 
     /// <summary>

@@ -177,6 +177,7 @@ public class CodeEditorViewModelTests : IDisposable
     public async Task AddWatchInDeclarationsDefaultsToActiveModule()
     {
         _localization.GetString("Str.Dialog.AddWatch.AllContext").Returns("(All Procedures)");
+        _localization.GetString("Str.Dialog.AddWatch.AllModules").Returns("(All Modules)");
         var module = TestHelpers.CreateModule();
         module.Owner.AddModule(module);
         var editor = CreateSut().Initialize(module);
@@ -206,15 +207,21 @@ public class CodeEditorViewModelTests : IDisposable
         watches.Rows.Single().Context.Should().Be(module.Name);
         dialog.SelectedModule!.Name.Should().Be(module.Name);
         dialog.Procedures.Should().Equal("(All Procedures)");
-        dialog.Modules.Select(m => m.Name).Should().Equal(module.Name, "OtherModule");
-        dialog.SelectedModule = dialog.Modules[1];
+        dialog.Modules.Select(m => m.Name).Should().Equal("(All Modules)", module.Name, "OtherModule");
+        dialog.SelectedModule = dialog.Modules[2];
         dialog.Procedures.Should().Equal("(All Procedures)", "Square");
         dialog.SelectedProcedure = "Square";
         dialog.OkCommand.Execute(null);
         watches.Service.Watches.Last().Context.Should().Be("OtherModule.Square");
-        dialog.SelectedModule = dialog.Modules[0];
+        dialog.SelectedModule = dialog.Modules[1];
         dialog.Procedures.Should().Equal("(All Procedures)");
         dialog.SelectedProcedure.Should().Be("(All Procedures)");
+        // (All Modules) offers (All Procedures) alone, stores its own context, and the Context column shows it blank (#4452).
+        dialog.SelectedModule = dialog.Modules[0];
+        dialog.Procedures.Should().Equal("(All Procedures)");
+        dialog.OkCommand.Execute(null);
+        watches.Service.Watches.Last().Context.Should().Be("(All Modules)");
+        watches.Rows.Last().Context.Should().BeEmpty();
     }
 
     [AvaloniaFact]
