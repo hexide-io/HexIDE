@@ -374,6 +374,8 @@ public partial class ProjectService : IProjectService
         if (files == null || files.Count != 1)
             throw new OperationCanceledException();
 
+        using var reload = projectManager.BeginReload();
+
         // Archive projects coexist with the current workspace, as on the direct/recent open path.
         if (!string.Equals(Path.GetExtension(files[0]), ".twinproj", StringComparison.OrdinalIgnoreCase))
             await UnloadAllProjects();
@@ -1333,6 +1335,7 @@ public partial class ProjectService : IProjectService
                 await SaveSelected(changed);
         }
         // In its place: a project in a group keeps its position, and its startup, and the group stays (#4009).
+        using (projectManager.BeginReload())
         using (projectManager.HoldPlace(project))
         {
             beforeReopen?.Invoke();

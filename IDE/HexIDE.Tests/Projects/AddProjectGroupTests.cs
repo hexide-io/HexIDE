@@ -185,6 +185,45 @@ public sealed class AddProjectGroupTests : IDisposable
         File.ReadAllBytes(path).Should().Equal(groupBytes);
     }
 
+    [AvaloniaFact]
+    public async Task Object_browser_selection_survives_reload_in_a_saved_two_project_group()
+    {
+        WriteProject("First");
+        WriteProject("Second");
+        var path = Path.Join(directory, "G.vbg");
+        var bytes = System.Text.Encoding.ASCII.GetBytes("VBGROUP 5.0\r\nProject=First.vbp\r\nStartupProject=Second.vbp\r\n");
+        File.WriteAllBytes(path, bytes);
+        await service.OpenProject(path);
+        var group = manager.CurrentGroup;
+        var project = manager.LoadedProjects[0];
+        var browser = new HexIDE.Tools.ObjectBrowser.ObjectBrowserToolViewModel(manager, lsp,
+            Substitute.For<IEditorService>(), new ComponentRegistry(), Substitute.For<ITypeLibraryService>(),
+            Substitute.For<IFocusedProjectUtil>(), Substitute.For<ILocalizationService>(),
+            Substitute.For<ILanguageConnectionRegistry>());
+        browser.SelectedLibrary = browser.Libraries.Single(l => l.Name == "First");
+        await service.SaveProject(project, saveAs: false);
+        project.Description = "Ours";
+        File.AppendAllText(project.AbsolutePath!, "Title=\"Outside\"\r\n");
+        windows.ShowDialog(Arg.Any<FileConflictViewModel>()).Returns(call =>
+        {
+            call.Arg<FileConflictViewModel>().ReloadAll();
+            return true;
+        });
+
+        var save = () => service.SaveProject(project, saveAs: false);
+        await save.Should().ThrowAsync<OperationCanceledException>();
+
+        browser.SelectedLibrary.Should().NotBeNull();
+        browser.SelectedLibrary!.Name.Should().Be("First");
+        browser.Libraries.Should().Contain(browser.SelectedLibrary);
+        manager.CurrentGroup.Should().BeSameAs(group);
+        manager.LoadedProjects.Select(p => p.Name).Should().Equal("First", "Second");
+        manager.StartupProject.Should().BeSameAs(manager.LoadedProjects[1]);
+        explorer.Title.Should().Be("Project Group - G");
+        await service.SaveAllProjects(saveAs: false);
+        File.ReadAllBytes(path).Should().Equal(bytes);
+    }
+
     [AvaloniaTheory]
     [InlineData(true, false)]
     [InlineData(false, false)]
