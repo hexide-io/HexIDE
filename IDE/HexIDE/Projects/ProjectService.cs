@@ -100,7 +100,8 @@ public partial class ProjectService : IProjectService
 
     /// <summary>
     /// What reading a file of a project records: its bytes, for the save-changes prompt and the file watcher, and its
-    /// download mark, which a save would drop (#1121).
+    /// download mark, which a save would drop (#1121). Every read goes through here, a companion's too, though CodeTrust
+    /// only asks about the files whose code runs (#4432).
     /// </summary>
     private void RecordRead(string path, byte[] bytes)
     {
@@ -1724,7 +1725,7 @@ public partial class ProjectService : IProjectService
         if (reader.CompanionPath(path) is { } companionPath && File.Exists(companionPath))
         {
             companion = await File.ReadAllBytesAsync(companionPath);
-            baselineStore.Record(companionPath, companion);
+            RecordRead(companionPath, companion);
         }
 
         var fresh = reader.ReadForm(project, source, companion, errorSink);
@@ -2795,7 +2796,7 @@ public partial class ProjectService : IProjectService
             return null;
 
         var bytes = await File.ReadAllBytesAsync(companionPath);
-        baselineStore.Record(companionPath, bytes);
+        RecordRead(companionPath, bytes);
         return bytes;
     }
 

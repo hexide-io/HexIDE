@@ -343,6 +343,49 @@ public class CodeTrustTests : IDisposable
             "End Sub"));
         markedNow.Add(Path.Combine(directory, "Module1.bas"));
         var trust = Trust();
+        var (service, opened) = Service(trust);
+
+        await service.OpenProject(vbp);
+        markedNow.Clear();   // as a save leaves the file: written again, with no mark
+
+        opened().Should().NotBeNull();
+        System.IO.File.Exists(ran).Should().BeFalse("opening a project runs none of its code");
+        trust.Unapproved(opened()!).Select(file => Path.GetFileName(file.Path)).Should().Equal("Module1.bas");
+    }
+
+    // A form's companion is recorded as read like every other file, though only code is asked about (#4432). Adding an
+    // existing form reads it through ReadCompanion, and reloading the form reads it again.
+    [AvaloniaFact]
+    public async Task A_forms_companion_is_reported_to_CodeTrust_when_added_and_when_reloaded()
+    {
+        var vbp = Path.Combine(directory, "Opened.vbp");
+        System.IO.File.WriteAllText(vbp, Lines("Type=Exe", "Module=Module1; Module1.bas", "Name=`Opened`"));
+        System.IO.File.WriteAllText(Path.Combine(directory, "Module1.bas"), Lines("Attribute VB_Name = `Module1`"));
+        var frm = Path.Combine(directory, "Form2.frm");
+        System.IO.File.WriteAllText(frm, Lines(
+            "VERSION 5.00", "Begin VB.Form Form2 ", "   Caption         =   `Form2`", "   ClientHeight    =   3000",
+            "   ClientWidth     =   4000", "End", "Attribute VB_Name = `Form2`"));
+        System.IO.File.WriteAllBytes(Path.Combine(directory, "Form2.frx"), [1, 2, 3, 4]);
+        var observed = new List<string>();
+        var trust = new CodeTrust(windows, localization, path =>
+        {
+            lock (observed)
+                observed.Add(Path.GetFileName(path));
+            return false;
+        });
+        var (service, opened) = Service(trust);
+        await service.OpenProject(vbp);
+
+        var form = (await service.AddExistingForm(opened()!, frm)).Document;
+        observed.Should().Contain("Form2.frx", "adding the form reads its companion");
+        observed.Clear();
+        (await service.ReloadFormFromDisk(form!)).Should().BeTrue();
+
+        observed.Should().Contain("Form2.frx", "reloading the form reads its companion again");
+    }
+
+    private (ProjectService Service, Func<ProjectDefinition?> Opened) Service(CodeTrust trust)
+    {
         var projects = Substitute.For<IProjectManager>();
         projects.LoadedProjects.Returns([]);
         ProjectDefinition? opened = null;
@@ -356,13 +399,7 @@ public class CodeTrustTests : IDisposable
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), localization,
             new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new HexIDE.Bookmarks.BookmarkService()),
             new ComponentRegistry(), trust: trust);
-
-        await service.OpenProject(vbp);
-        markedNow.Clear();   // as a save leaves the file: written again, with no mark
-
-        opened.Should().NotBeNull();
-        System.IO.File.Exists(ran).Should().BeFalse("opening a project runs none of its code");
-        trust.Unapproved(opened!).Select(file => Path.GetFileName(file.Path)).Should().Equal("Module1.bas");
+        return (service, () => opened);
     }
 
     // A VB6 file's lines, with ` for each double quote.
