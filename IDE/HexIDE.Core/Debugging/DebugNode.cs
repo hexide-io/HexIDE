@@ -60,7 +60,13 @@ public sealed class DebugNode
 
 /// <summary>The inspectable state of one paused frame: a human-readable <see cref="Context"/> (Module.Procedure)
 /// for the pane's header, and the top-level Locals rows (the Me/module root, then the procedure's params/locals).</summary>
-public sealed record DebugScope(string Context, IReadOnlyList<DebugNode> Locals);
+public sealed record DebugScope(string Context, IReadOnlyList<DebugNode> Locals)
+{
+    /// <summary>The paused frame as a watch context names it, which Add Watch defaults to: <see cref="Context"/>, except
+    /// that a Property accessor adds its kind, as in <c>Class1.X(Get)</c> (measured, #4401). The Locals window's label
+    /// stays <see cref="Context"/>; what VB6 shows there inside an accessor is unmeasured.</summary>
+    public string WatchContext { get; init; } = Context;
+}
 
 /// <summary>One row of the Call Stack — a running procedure activation (its module, procedure name, and the 1-based
 /// line it is currently at). Front-end-agnostic (DAP <c>stackTrace</c>-shaped).</summary>

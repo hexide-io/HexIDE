@@ -341,7 +341,8 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **WHEN** Add Watch collects the project's procedure choices
 - **THEN** an open code window SHALL supply its outline symbols, or its current text if the outline is empty
 - **AND** an unopened module SHALL supply declarations from its loaded code without a server request
-- **AND** a property SHALL appear once by declared name, without the server's accessor suffix, so its stored context matches the interpreter frame (#4401)
+- **AND** each Property accessor SHALL be an entry of its own, written `Name(Get)`, `Name(Let)` or `Name(Set)` as VB6 writes it, and the list SHALL be sorted rather than in source order (measured, #4401)
+- **AND** a watch stored as `Module.Name(Get)` SHALL evaluate only while that accessor runs, reading `<Out of context>` while another accessor of the same property runs (measured, #4401)
 - **AND** the shared VB-family collector SHALL collect Sub, Function, Property Get/Let/Set, Enum and Type headers without binding names or selecting conditional-compilation branches
 
 #### Scenario: Adding a watch from declarations

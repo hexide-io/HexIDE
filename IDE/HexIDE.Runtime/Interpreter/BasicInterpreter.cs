@@ -1736,6 +1736,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     checkedArrayReturn)
                 {
                     IsEntry = isEntry,
+                    Accessor = proc.Accessor,
                     VariantReturn = proc.IsFunction && proc.ReturnsVariant && !proc.ReturnsObject,
                     Statics = me?.Value is VbObject instance ? instance.Statics ??= new StaticLocals() : ExecutionContext.State.ModuleStatics,
                 };

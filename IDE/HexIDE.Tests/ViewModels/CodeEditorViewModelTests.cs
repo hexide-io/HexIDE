@@ -82,7 +82,7 @@ public class CodeEditorViewModelTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task WatchPropertyNamesFromOutlineAreDeduplicated()
+    public async Task WatchListsEachAccessorApartAndSortsTheList()
     {
         var module = TestHelpers.CreateModule();
         module.Owner.AddModule(module);
@@ -90,14 +90,16 @@ public class CodeEditorViewModelTests : IDisposable
         _lspClient.IsRunning.Returns(true);
         var range = new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(1, 0));
         _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
-            new[] { "Get", "Let", "Set" }.Select(accessor => new DocumentSymbol($"Value ({accessor})", SymbolKind.Property, range, range)).ToArray());
+            new[] { "Get", "Let", "Set" }.Select(accessor => new DocumentSymbol($"Value ({accessor})", SymbolKind.Property, range, range))
+                .Append(new DocumentSymbol("Bump", SymbolKind.Method, range, range)).ToArray());
         await editor.RefreshSymbolsAsync();
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         var dock = Substitute.For<IDocumentDockService>();
         dock.ActiveDocument.Returns(editor);
         dock.OpenDocuments.Returns(new BaseEditorWindowViewModel[] { editor });
         var result = await new HexIDE.Tools.WatchDialogContextSource(dock, Substitute.For<IProjectManager>()).ReadAsync("(All Procedures)");
-        result.Modules.Single().Procedures.Should().Equal("Value");
+        // As VB6 lists them: each accessor apart as `Value(Get)`, and sorted, so a Sub declared last comes first (#4401).
+        result.Modules.Single().Procedures.Should().Equal("Bump", "Value(Get)", "Value(Let)", "Value(Set)");
     }
 
     [AvaloniaFact]
@@ -126,7 +128,7 @@ public class CodeEditorViewModelTests : IDisposable
         _localization.GetString("Str.Dialog.AddWatch.AllContext").Returns("(All Procedures)");
         var store = new HexIDE.Debugging.WatchService();
         var dialog = new AddWatchDialogViewModel(_localization, store, module.Name, "inner", modules: context.Modules);
-        dialog.Procedures.Should().Equal("(All Procedures)", "Value");
+        dialog.Procedures.Should().Equal("(All Procedures)", "Value(Get)", "Value(Let)");
         dialog.SelectedProcedure = dialog.Procedures[1];
         dialog.OkCommand.Execute(null);
         var debugger = new HexIDE.Runtime.Debugging.DebugController();
@@ -143,9 +145,15 @@ public class CodeEditorViewModelTests : IDisposable
             var value = await ((HexIDE.Runtime.Debugging.IDebugController)debugger)
                 .EvaluateScopedWatchAsync("inner", store.Watches.Single().Context);
             value!.Display.Should().Be("49");
-            var suffixed = await ((HexIDE.Runtime.Debugging.IDebugController)debugger)
+            store.Watches.Single().Context.Should().Be($"{module.Name}.Value(Get)");
+            debugger.GetLocals()!.WatchContext.Should().Be($"{module.Name}.Value(Get)");
+            debugger.GetLocals()!.Context.Should().Be($"{module.Name}.Value", "the Locals label is unchanged");
+            var other = await ((HexIDE.Runtime.Debugging.IDebugController)debugger)
+                .EvaluateScopedWatchAsync("inner", $"{module.Name}.Value(Let)");
+            other!.Display.Should().Be("<Out of context>");
+            var spaced = await ((HexIDE.Runtime.Debugging.IDebugController)debugger)
                 .EvaluateScopedWatchAsync("inner", $"{module.Name}.Value (Get)");
-            suffixed!.Display.Should().Be("<Out of context>");
+            spaced!.Display.Should().Be("<Out of context>");
         }
         finally { debugger.Stop(); await run; }
     }
