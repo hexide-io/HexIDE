@@ -35,16 +35,17 @@ not a general rule. The interpreter is unchanged, including #1930's Error 28 gua
 rows (2466, 3139, 3665, 4040, 5891, 6045, 6112) pin that guard in `ExpressionDepthGuardTests`, not VB6 behaviour;
 VB6 refuses those modules before running them. No language-support inventory counts change.
 
-## Slot lifetime (#79)
+## Slot lifetime (#79, #4375)
 
 Procedure activations reclaim their allocated slots after scope-exit reference releases, including on error
 unwind and failed parameter binding. Static slots pass to the run or instance and remain persistent; ByRef
 aliases never belong to the callee. Freed slot numbers are not reused, and exhausted numbering raises error 7.
 Debugger inspection treats freed slots as out of scope.
 
-Instance fields and instance Statics still retain their storage after termination. Phase 2 is deferred until
-member accesses on terminated instances have been counted across the Runtime suite, Battleship and the #2067
-sweep, as the issue's design note requires. Replacing the module-environment clone is separate performance work.
+Instance fields and instance Statics still retain their storage after termination ([#4375](https://github.com/hexide-io/HexIDE/issues/4375)). Freeing them
+waits until member accesses on terminated instances have been counted across the Runtime suite, Battleship and
+the #2067 sweep, as #79's design note requires. The per-call copy of the module environment that #79 also found
+was removed by #2120.
 
 ## App logging (#2552)
 
