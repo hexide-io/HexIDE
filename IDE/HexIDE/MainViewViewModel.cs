@@ -2608,7 +2608,7 @@ public partial class MainViewViewModel : ObservableObject
         // tabs writing to one path.
         if (TryOpenAlreadyCarried(project, path)) return;
 
-        var kind = ProjectFileClassifier.Classify(path);
+        var kind = ProjectFileClassifier.Classify(path, ProjectFormats.Of(project));
 
         if (kind == ProjectFileKind.Form)
         {
