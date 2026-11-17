@@ -35,6 +35,9 @@ type character, `DefLngPtr` and `DefLngLng`, and `PtrSafe`? The 64-bit answers a
 | D2 | `DefLngPtr A-Z`, then an undeclared `x = 5` | Long |
 | W1 | `#If Win64 ... #ElseIf VBA7 ...` | VBA7 true, **Win64 false** |
 | W2 | `#If Win32` | true |
+| W3 | `#If VBA6` | **true** |
+| W4 | `v = VBA6`, under `Option Explicit` | doesn't compile: a compiler constant isn't a name code can read (the message was hidden behind another window) |
+| W5, W6 | `#If Mac`, `#If Win16` | false, false |
 | P1 | `Private Declare Function GetTickCount Lib "kernel32" () As Long`, **without** `PtrSafe` | compiles and runs: Long |
 | P2 | the same with `PtrSafe` | Long |
 | P3 | `PtrSafe ... As LongPtr` | Long |
@@ -47,7 +50,8 @@ type character, `DefLngPtr` and `DefLngLng`, and `PtrSafe`? The 64-bit answers a
 - **`^` is only the operator here.** `5^` and `Dim z^` are syntax errors, `5^ + 1` is 5 to the power 1, and `2^3` and
   `y^2` are exponentiation, where 64-bit VBA7 refuses both.
 - **`PtrSafe` is optional:** a `Declare` without it compiles and runs, where 64-bit VBA7 refuses the module.
-- **The constants:** `VBA7` and `Win32` true, `Win64` false.
+- **The constants:** `VBA7`, `VBA6` and `Win32` true; `Win64`, `Mac` and `Win16` false. 64-bit VBA7 differs only in
+  `Win64` (row K on the 64-bit page).
 
 **Not measured:** the message for `DefLngLng`; `LongPtr` in a UDT's layout, as an array bound or a `For` counter;
 `CLngPtr` of a Currency, Decimal or Date.
