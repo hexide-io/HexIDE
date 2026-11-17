@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} загружен с ошибками, поэтому сохранить его поверх исходного файла нельзя. Выберите новое имя файла.",
     "Str.ProjectLoad.PropertyNotSet": "Строка {0}: не удалось задать свойство {1} в {2}.",
     "Str.Menu.Edit.Refactor": "Рефакторинг",
     "Str.Menu.Edit.SourceActions": "Действия с исходным кодом",

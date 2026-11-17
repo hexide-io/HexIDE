@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} 加载时出现错误，因此无法覆盖保存到原始文件。请选择新的文件名。",
     "Str.ProjectLoad.PropertyNotSet": "第 {0} 行：无法设置 {2} 的属性 {1}。",
     "Str.Menu.Edit.Refactor": "重构",
     "Str.Menu.Edit.SourceActions": "源代码操作",

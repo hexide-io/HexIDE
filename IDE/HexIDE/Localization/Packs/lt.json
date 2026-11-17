@@ -2,6 +2,7 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} įkeltas su klaidomis, todėl negalima jo įrašyti vietoje pradinio failo. Pasirinkite naują failo vardą.",
     "Str.ProjectLoad.PropertyNotSet": "{0} eilutė: nepavyko nustatyti {2} ypatybės {1}.",
     "Str.Menu.Edit.Refactor": "_Refaktorizavimas",
     "Str.Menu.Edit.SourceActions": "Pirmi_nio kodo veiksmai",

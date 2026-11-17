@@ -2,6 +2,7 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} byl načten s chybami, a proto nemůže přepsat původní soubor. Zvolte nový název souboru.",
     "Str.ProjectLoad.PropertyNotSet": "Řádek {0}: vlastnost {1} v {2} se nepodařilo nastavit.",
     "Str.Menu.Edit.Refactor": "R_efaktoring",
     "Str.Menu.Edit.SourceActions": "_Akce zdrojového kódu",

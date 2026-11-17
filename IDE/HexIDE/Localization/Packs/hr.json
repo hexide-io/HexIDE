@@ -2,6 +2,7 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} je učitan s pogreškama pa se ne može spremiti preko izvorne datoteke. Odaberite novi naziv datoteke.",
     "Str.ProjectLoad.PropertyNotSet": "Redak {0}: svojstvo {1} u {2} nije moguće postaviti.",
     "Str.Menu.Edit.Refactor": "R_efaktoriranje",
     "Str.Menu.Edit.SourceActions": "R_adnje izvornog koda",

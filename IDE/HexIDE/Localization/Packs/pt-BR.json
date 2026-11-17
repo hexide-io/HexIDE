@@ -82,6 +82,7 @@
     "Str.Dialog.ProjectProperties.General.HelpFileName": "Nome do arquivo de ajuda:",
     "Str.Dialog.ProjectProperties.General.UpgradeActiveXControls": "Atualizar controles ActiveX",
     "Str.Dialog.SaveChanges.Prompt": "Salvar alterações nos seguintes arquivos?",
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} foi carregado com erros e não pode ser salvo sobre o arquivo original. Escolha um novo nome de arquivo.",
     "Str.Dialog.Recovery.Prompt": "O HexIDE foi fechado sem salvar este trabalho. Restaure-o para continuar de onde parou, ou descarte-o. \"Decidir Depois\" o guarda para depois, em Recuperar Trabalho Não Salvo no menu Arquivo.",
     "Str.Dialog.Recovery.Failed": "Não foi possível restaurar todo o trabalho não salvo de {0}. Ele continua listado em Recuperar Trabalho Não Salvo no menu Arquivo.",
     "Str.Dialog.FileConflict.Prompt": "Estes arquivos foram alterados fora do IDE e têm alterações por salvar. Recarregá-los do disco (perdendo as suas alterações) ou manter as suas alterações?",

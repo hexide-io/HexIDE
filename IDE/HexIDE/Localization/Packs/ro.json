@@ -2,6 +2,7 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} a fost încărcat cu erori și nu poate fi salvat peste fișierul original. Alegeți un nume de fișier nou.",
     "Str.ProjectLoad.PropertyNotSet": "Linia {0}: proprietatea {1} din {2} nu a putut fi setată.",
     "Str.Menu.Edit.Refactor": "Refact_orizare",
     "Str.Menu.Edit.SourceActions": "Ac_țiuni pentru codul sursă",
