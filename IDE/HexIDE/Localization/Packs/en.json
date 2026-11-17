@@ -2,6 +2,8 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Module:",
+    "Str.Dialog.AddWatch.Procedure": "Procedure:",
     "Str.Startup.ProjectFileArgument": "project file",
     "Str.ProjectFile.ReplaceModel": "Applying the project file text will replace unsaved project settings for {0}. Continue?",
     "Str.MemberOrigin.HexIde": "HexIDE extension; not available in VB6.",

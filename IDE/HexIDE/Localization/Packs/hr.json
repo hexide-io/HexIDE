@@ -2,6 +2,8 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Modul:",
+    "Str.Dialog.AddWatch.Procedure": "Procedura:",
     "Str.Startup.ProjectFileArgument": "datoteka projekta",
     "Str.ProjectFile.ReplaceModel": "Primjena teksta projektne datoteke zamijenit će nespremljene postavke projekta {0}. Nastaviti?",
     "Str.AIChat.Title": "AI chat",

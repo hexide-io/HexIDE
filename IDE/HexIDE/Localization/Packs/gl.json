@@ -2,6 +2,8 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Módulo:",
+    "Str.Dialog.AddWatch.Procedure": "Procedemento:",
     "Str.Startup.ProjectFileArgument": "ficheiro de proxecto",
     "Str.ProjectFile.ReplaceModel": "Aplicar o texto do ficheiro do proxecto substituirá a configuración sen gardar de {0}. Continuar?",
     "Str.AIChat.Title": "Chat de IA",

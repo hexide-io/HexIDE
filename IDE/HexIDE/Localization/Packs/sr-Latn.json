@@ -2,6 +2,8 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Modul:",
+    "Str.Dialog.AddWatch.Procedure": "Procedura:",
     "Str.Startup.ProjectFileArgument": "datoteka projekta",
     "Str.ProjectFile.ReplaceModel": "Primena teksta datoteke projekta zameniće nesačuvane postavke projekta {0}. Nastaviti?",
     "Str.MemberOrigin.HexIde": "HexIDE proširenje; nije dostupno u VB6.",

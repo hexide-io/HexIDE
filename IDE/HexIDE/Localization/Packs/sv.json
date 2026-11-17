@@ -2,6 +2,8 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Modul:",
+    "Str.Dialog.AddWatch.Procedure": "Procedur:",
     "Str.Startup.ProjectFileArgument": "projektfil",
     "Str.ProjectFile.ReplaceModel": "Om projektfilens text tillämpas ersätts osparade projektinställningar för {0}. Fortsätta?",
     "Str.MemberOrigin.HexIde": "HexIDE-tillägg; inte tillgängligt i VB6.",

@@ -2,6 +2,8 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "模組:",
+    "Str.Dialog.AddWatch.Procedure": "程序:",
     "Str.Startup.ProjectFileArgument": "專案檔案",
     "Str.ProjectFile.ReplaceModel": "套用專案檔案文字將取代 {0} 尚未儲存的專案設定。是否繼續？",
     "Str.AIChat.Title": "AI 聊天",

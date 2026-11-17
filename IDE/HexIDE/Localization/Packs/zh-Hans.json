@@ -2,6 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "模块:",
+    "Str.Dialog.AddWatch.Procedure": "过程:",
     "Str.Startup.ProjectFileArgument": "项目文件",
     "Str.ProjectFile.ReplaceModel": "应用项目文件文本将替换 {0} 未保存的项目设置。是否继续？",
     "Str.AIChat.Title": "AI 聊天",

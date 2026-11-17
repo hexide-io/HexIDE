@@ -2,6 +2,8 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Modulua:",
+    "Str.Dialog.AddWatch.Procedure": "Prozedura:",
     "Str.Startup.ProjectFileArgument": "proiektu-fitxategia",
     "Str.ProjectFile.ReplaceModel": "Proiektu-fitxategiaren testua aplikatzean, {0} proiektuaren gorde gabeko ezarpenak ordeztuko dira. Jarraitu?",
     "Str.MemberOrigin.HexIde": "HexIDE hedapena; ez dago erabilgarri VB6n.",

@@ -2,6 +2,8 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Moodul:",
+    "Str.Dialog.AddWatch.Procedure": "Protseduur:",
     "Str.Startup.ProjectFileArgument": "projektifail",
     "Str.ProjectFile.ReplaceModel": "Projektifaili teksti rakendamine asendab projekti {0} salvestamata sätted. Kas jätkata?",
     "Str.MemberOrigin.HexIde": "HexIDE laiendus; pole VB6-s saadaval.",

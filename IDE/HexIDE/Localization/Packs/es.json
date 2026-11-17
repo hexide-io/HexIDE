@@ -2,6 +2,8 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Módulo:",
+    "Str.Dialog.AddWatch.Procedure": "Procedimiento:",
     "Str.Startup.ProjectFileArgument": "archivo de proyecto",
     "Str.ProjectFile.ReplaceModel": "Al aplicar el texto del archivo de proyecto se reemplazará la configuración sin guardar de {0}. ¿Continuar?",
     "Str.AIChat.Title": "Chat de IA",

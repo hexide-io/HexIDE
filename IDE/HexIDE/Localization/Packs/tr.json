@@ -2,6 +2,8 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Modül:",
+    "Str.Dialog.AddWatch.Procedure": "Yordam:",
     "Str.Startup.ProjectFileArgument": "proje dosyası",
     "Str.ProjectFile.ReplaceModel": "Proje dosyası metnini uygulamak, {0} için kaydedilmemiş proje ayarlarını değiştirecek. Devam edilsin mi?",
     "Str.MemberOrigin.HexIde": "HexIDE uzantısı; VB6 içinde kullanılamaz.",

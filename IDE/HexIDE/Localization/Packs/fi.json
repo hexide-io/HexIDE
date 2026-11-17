@@ -2,6 +2,8 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Moduuli:",
+    "Str.Dialog.AddWatch.Procedure": "Proseduuri:",
     "Str.Startup.ProjectFileArgument": "projektitiedosto",
     "Str.ProjectFile.ReplaceModel": "Projektitiedoston tekstin käyttäminen korvaa projektin {0} tallentamattomat asetukset. Jatketaanko?",
     "Str.MemberOrigin.HexIde": "HexIDE-laajennus; ei käytettävissä VB6:ssa.",

@@ -2,6 +2,8 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "모듈:",
+    "Str.Dialog.AddWatch.Procedure": "프로시저:",
     "Str.Startup.ProjectFileArgument": "프로젝트 파일",
     "Str.ProjectFile.ReplaceModel": "프로젝트 파일 텍스트를 적용하면 {0}의 저장하지 않은 프로젝트 설정이 바뀝니다. 계속하시겠습니까?",
     "Str.MemberOrigin.HexIde": "HexIDE 확장 기능이며 VB6에서는 사용할 수 없습니다.",

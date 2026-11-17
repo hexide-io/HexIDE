@@ -2,6 +2,8 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "מודול:",
+    "Str.Dialog.AddWatch.Procedure": "הליך:",
     "Str.Startup.ProjectFileArgument": "קובץ פרויקט",
     "Str.ProjectFile.ReplaceModel": "החלת טקסט קובץ הפרויקט תחליף הגדרות פרויקט שלא נשמרו עבור {0}. להמשיך?",
     "Str.AIChat.Title": "צ׳אט בינה מלאכותית",

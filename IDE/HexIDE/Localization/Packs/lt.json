@@ -2,6 +2,8 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Modulis:",
+    "Str.Dialog.AddWatch.Procedure": "Procedūra:",
     "Str.Startup.ProjectFileArgument": "projekto failas",
     "Str.ProjectFile.ReplaceModel": "Pritaikius projekto failo tekstą bus pakeistos neįrašytos projekto {0} nuostatos. Tęsti?",
     "Str.MemberOrigin.HexIde": "HexIDE plėtinys; VB6 nepasiekiamas.",

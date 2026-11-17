@@ -2,6 +2,8 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Módulo:",
+    "Str.Dialog.AddWatch.Procedure": "Procedimento:",
     "Str.Startup.ProjectFileArgument": "ficheiro de projeto",
     "Str.ProjectFile.ReplaceModel": "Aplicar o texto do ficheiro de projeto substituirá as definições não guardadas de {0}. Continuar?",
     "Str.MemberOrigin.HexIde": "Extensão do HexIDE; não disponível no VB6.",

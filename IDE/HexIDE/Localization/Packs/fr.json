@@ -2,6 +2,8 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Module :",
+    "Str.Dialog.AddWatch.Procedure": "Procédure :",
     "Str.Startup.ProjectFileArgument": "fichier projet",
     "Str.ProjectFile.ReplaceModel": "Appliquer le texte du fichier projet remplacera les paramètres non enregistrés du projet {0}. Continuer ?",
     "Str.AIChat.Title": "Chat IA",

@@ -2,6 +2,8 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "وحدة نمطية:",
+    "Str.Dialog.AddWatch.Procedure": "إجراء:",
     "Str.Startup.ProjectFileArgument": "ملف المشروع",
     "Str.ProjectFile.ReplaceModel": "سيؤدي تطبيق نص ملف المشروع إلى استبدال إعدادات المشروع غير المحفوظة لـ {0}. هل تريد المتابعة؟",
     "Str.AIChat.Title": "دردشة الذكاء الاصطناعي",

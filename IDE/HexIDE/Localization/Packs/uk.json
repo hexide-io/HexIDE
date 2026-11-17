@@ -2,6 +2,8 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Модуль:",
+    "Str.Dialog.AddWatch.Procedure": "Процедура:",
     "Str.Startup.ProjectFileArgument": "файл проєкту",
     "Str.ProjectFile.ReplaceModel": "Застосування тексту файлу проєкту замінить незбережені налаштування проєкту {0}. Продовжити?",
     "Str.MemberOrigin.HexIde": "Розширення HexIDE; недоступне у VB6.",

@@ -322,6 +322,21 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **WHEN** the developer chooses Debug ▸ Add Watch, or presses Shift+F9 with the caret on an identifier
 - **THEN** the Add Watch dialog opens, pre-filled with that identifier where one was under the caret
 
+#### Scenario: Choosing a watch context
+- **WHEN** the developer adds or edits an interpreter watch
+- **THEN** the dialog SHALL offer the project's code modules in project order and the selected module's collected procedures, preceded by `(All Procedures)`
+- **AND** changing Module SHALL refill Procedure
+- **AND** OK SHALL store `Module` for `(All Procedures)` or `Module.Procedure` for a chosen procedure, displayed verbatim in the Watches Context column
+- **AND** Edit Watch SHALL initially select and retain its stored choice, including a stored procedure the collected list does not name
+
+#### Scenario: Adding a watch from declarations
+- **WHEN** the active code window's caret is in the module's declarations
+- **THEN** Add Watch SHALL default to that module and `(All Procedures)` ([measured context](../../../docs/vb6-fidelity-oracle/a-watch-and-its-context.md), #4354)
+- **AND** with the caret inside a procedure, or no active code window, a paused program SHALL give the paused frame's `Module.Procedure` whole, which is unmeasured and retains the earlier choice
+- **AND** otherwise the unmeasured fallback SHALL choose the active module, then the project's first code module, with `(All Procedures)`
+- **AND** existing bare `(All Procedures)` watch contexts SHALL retain their existing behaviour
+- **AND** an external session's watch dialog SHALL stay expression-only, showing the selected frame's context as fixed text
+
 #### Scenario: Localizing a watch context
 - **WHEN** the IDE language changes
 - **THEN** the all-procedures context label SHALL refresh in existing Watches rows and the Add/Edit Watch dialog

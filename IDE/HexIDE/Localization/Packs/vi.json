@@ -2,6 +2,8 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Mô-đun:",
+    "Str.Dialog.AddWatch.Procedure": "Thủ tục:",
     "Str.Startup.ProjectFileArgument": "tệp dự án",
     "Str.ProjectFile.ReplaceModel": "Áp dụng văn bản tệp dự án sẽ thay thế các thiết đặt dự án chưa lưu của {0}. Tiếp tục?",
     "Str.MemberOrigin.HexIde": "Phần mở rộng HexIDE; không có trong VB6.",

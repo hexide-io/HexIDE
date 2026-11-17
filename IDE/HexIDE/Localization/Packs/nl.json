@@ -2,6 +2,8 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Module:",
+    "Str.Dialog.AddWatch.Procedure": "Procedure:",
     "Str.Startup.ProjectFileArgument": "projectbestand",
     "Str.ProjectFile.ReplaceModel": "Het toepassen van de projectbestandstekst vervangt niet-opgeslagen projectinstellingen voor {0}. Doorgaan?",
     "Str.MemberOrigin.HexIde": "HexIDE-uitbreiding; niet beschikbaar in VB6.",

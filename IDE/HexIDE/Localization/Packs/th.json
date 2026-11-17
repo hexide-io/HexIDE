@@ -2,6 +2,8 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "โมดูล:",
+    "Str.Dialog.AddWatch.Procedure": "โพรซีเยอร์:",
     "Str.Startup.ProjectFileArgument": "ไฟล์โครงการ",
     "Str.ProjectFile.ReplaceModel": "การใช้ข้อความในไฟล์โครงการจะแทนที่การตั้งค่าโครงการที่ยังไม่ได้บันทึกของ {0} ต้องการดำเนินการต่อหรือไม่",
     "Str.MemberOrigin.HexIde": "ส่วนขยายของ HexIDE; ไม่มีใน VB6",

@@ -2,6 +2,8 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Modul:",
+    "Str.Dialog.AddWatch.Procedure": "Prosedyre:",
     "Str.Startup.ProjectFileArgument": "prosjektfil",
     "Str.ProjectFile.ReplaceModel": "Bruk av prosjektfilens tekst erstatter ulagrede prosjektinnstillinger for {0}. Fortsette?",
     "Str.MemberOrigin.HexIde": "HexIDE-utvidelse; ikke tilgjengelig i VB6.",

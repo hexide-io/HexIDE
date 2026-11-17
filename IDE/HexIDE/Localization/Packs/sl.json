@@ -2,6 +2,8 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.AddWatch.Module": "Modul:",
+    "Str.Dialog.AddWatch.Procedure": "Postopek:",
     "Str.Startup.ProjectFileArgument": "projektna datoteka",
     "Str.ProjectFile.ReplaceModel": "Uveljavitev besedila projektne datoteke bo nadomestila neshranjene nastavitve projekta {0}. Želite nadaljevati?",
     "Str.MemberOrigin.HexIde": "Razširitev HexIDE; ni na voljo v VB6.",
