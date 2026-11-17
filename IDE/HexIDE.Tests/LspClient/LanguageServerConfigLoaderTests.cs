@@ -37,6 +37,24 @@ public class LanguageServerConfigLoaderTests : IDisposable
         return new LanguageServerConfigLoader(path, _logger);
     }
 
+    [Fact]
+    public void SettingsRoundTripAndRegistrationRetainServerOwnedJson()
+    {
+        var result = LoaderFor("""
+            {"version":1,"servers":[{"id":"configured","extensions":[".bas"],"languageId":"vb6",
+              "transport":"stdio","command":"example","settings":{"rdcore":{"Analysis":{"DisabledDiagnostics":["example"]}}}}]}
+            """).Load([]);
+        var entry = result.Entries.Single();
+        entry.Unrecognized.Should().BeNullOrEmpty();
+        var json = System.Text.Json.JsonSerializer.Serialize(entry, LanguageServerConfigJsonContext.Default.LanguageServerEntry);
+        var copy = System.Text.Json.JsonSerializer.Deserialize(json, LanguageServerConfigJsonContext.Default.LanguageServerEntry)!;
+        copy.Settings!.Value.GetProperty("rdcore").GetProperty("Analysis").GetProperty("DisabledDiagnostics")[0]
+            .GetString().Should().Be("example");
+        using var logs = LoggerFactory.Create(_ => { });
+        var registration = new LanguageServerRegistrationFactory(logs).Create([copy]).Single();
+        System.Text.Json.JsonElement.DeepEquals(registration.Settings!.Value, entry.Settings!.Value).Should().BeTrue();
+    }
+
     [Theory]
     [InlineData("demo-lsp", 24)]
     [InlineData("démo-lsp", 24)]

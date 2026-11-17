@@ -52,7 +52,7 @@ public class ProgramWindowTests : WindowTestFixture
     {
         var form = new FormWindow();
         form.Show();
-        var library = new StandaloneStandardLib(form);
+        var library = new StandaloneStandardLib(form, HexIDE.IDE.Distribution.DisplayName);
         Task pending = message
             ? library.MsgBox("Question", "Program", HexIDE.IDE.MessageBoxButtons.Ok, HexIDE.IDE.MessageBoxIcon.None)
             : library.InputBox("Question", "Program", "");

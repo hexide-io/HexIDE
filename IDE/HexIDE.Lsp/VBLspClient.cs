@@ -68,6 +68,8 @@ public sealed class VBLspClient : ILspClient
     /// </summary>
     private sealed record CapabilitySnapshot(JsonElement Value);
     private volatile bool _stopping;
+    private EventHandler<JsonRpcDisconnectedEventArgs>? _rpcDisconnected;
+    private Action? _recordStoppingDisconnection;
     private Task _reconnectTask = Task.CompletedTask;   // the running reconnect loop (or completed)
     private CancellationTokenSource? _reconnectCts;
 
@@ -216,10 +218,12 @@ public sealed class VBLspClient : ILspClient
         Func<ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null,
         Func<ShowMessageRequestParams, CancellationToken, Task<MessageActionItem?>>? showMessageRequest = null,
         Func<WorkspaceEdit, Func<string, RenameDocumentSnapshot?>, CancellationToken, Task<string?>>? applyEdit = null,
-        JsonElement? initializationOptions = null)
+        JsonElement? initializationOptions = null, JsonElement? serverSettings = null)
     {
         _initializationOptions = initializationOptions is { ValueKind: not (JsonValueKind.Null or JsonValueKind.Undefined) } value
             ? value.Clone() : null;
+        _serverSettings = serverSettings is { ValueKind: JsonValueKind.Object }
+            ? new ServerConfiguration(serverSettings.Value.Clone()) : null;
         _showDocument = showDocument;
         _applyEdit = applyEdit;
         _showMessageRequest = showMessageRequest;
@@ -238,6 +242,9 @@ public sealed class VBLspClient : ILspClient
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
+    private sealed record ServerConfiguration(JsonElement Value);
+    private volatile ServerConfiguration? _serverSettings;
+    private static readonly JsonElement EmptySettings = JsonSerializer.SerializeToElement(EmptyParams.Instance, LspJsonContext.Default.EmptyParams);
     private readonly JsonElement? _initializationOptions;
     private readonly Func<ShowMessageRequestParams, CancellationToken, Task<MessageActionItem?>>? _showMessageRequest;
     private readonly Func<ShowDocumentParams, CancellationToken, Task<bool>>? _showDocument;
@@ -466,7 +473,22 @@ public sealed class VBLspClient : ILspClient
         foreach (var (name, answer) in _claimed)
             rpc.AddLocalRpcMethod(ClaimedMethod.Answer, new ClaimedMethod(name, answer, _logger),
                 new JsonRpcMethodAttribute(name) { UseSingleObjectParameterDeserialization = true });
-        rpc.Disconnected += OnRpcDisconnected;
+        var disconnectionRecorded = 0;
+        void RecordDisconnection(string detail, bool fault)
+        {
+            if (Interlocked.Exchange(ref disconnectionRecorded, 1) == 0)
+                Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null, detail, fault: fault);
+        }
+        _recordStoppingDisconnection = () => RecordDisconnection("disconnected: shutting down", false);
+        _rpcDisconnected = (sender, e) =>
+        {
+            var stopping = _stopping;
+            RecordDisconnection(stopping
+                ? "disconnected: shutting down"
+                : $"disconnected: {e.Reason} ({e.Description ?? "no description"})", !stopping);
+            OnRpcDisconnected(sender, e);
+        };
+        rpc.Disconnected += _rpcDisconnected;
         _rpc = rpc;
         rpc.StartListening();
 
@@ -604,14 +626,6 @@ public sealed class VBLspClient : ILspClient
         _warnedFailures.Clear();
         _identity = null;
 
-        // Before the stopping check, deliberately. A deliberate shutdown and a server that fell over are
-        // the two things a reader most needs told apart, and only one of them is worth alarm.
-        Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null,
-            _stopping
-                ? "disconnected: shutting down"
-                : $"disconnected: {e.Reason} ({e.Description ?? "no description"})",
-            fault: !_stopping);
-
         RaiseStateChanged();
         if (_stopping) return;
         _logger.LogWarning("VB LSP connection lost: {Reason} ({Description})", e.Reason, e.Description);
@@ -677,7 +691,12 @@ public sealed class VBLspClient : ILspClient
         _rpc = null;
         if (rpc is not null)
         {
-            rpc.Disconnected -= OnRpcDisconnected;
+            // Teardown can beat the transport's disconnect callback, including after a shutdown reply.
+            // Both paths share a per-connection latch so the timeline has exactly one disconnection.
+            if (_stopping) _recordStoppingDisconnection?.Invoke();
+            rpc.Disconnected -= _rpcDisconnected;
+            _rpcDisconnected = null;
+            _recordStoppingDisconnection = null;
             rpc.Dispose();
             EndConnectionRequests();
         }
@@ -730,7 +749,7 @@ public sealed class VBLspClient : ILspClient
                     Implementation: new NavigationClientCapabilities(),
                     TypeDefinition: new NavigationClientCapabilities(),
                     InlayHint: new InlayHintClientCapabilities(),
-                    CodeAction: new CodeActionClientCapabilities(new(new(["quickfix"])), ResolveSupport: new(["edit"])),
+                    CodeAction: new CodeActionClientCapabilities(new(new(["", "quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports", "source.fixAll"])), ResolveSupport: new(["edit"])),
                     SelectionRange: new SelectionRangeClientCapabilities(),
                     Rename: new RenameClientCapabilities(),
                     CallHierarchy: EmptyParams.Instance,
@@ -2106,8 +2125,11 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public Task<OfferedCodeAction[]> RequestCodeActionsAsync(string uri, HexIDE.Lsp.Messages.Range range, Diagnostic[] diagnostics,
+        CancellationToken cancellationToken = default) => RequestCodeActionsAsync(uri, range, diagnostics, null, cancellationToken);
+
     public async Task<OfferedCodeAction[]> RequestCodeActionsAsync(string uri, HexIDE.Lsp.Messages.Range range, Diagnostic[] diagnostics,
-        CancellationToken cancellationToken = default)
+        string[]? only, CancellationToken cancellationToken = default)
     {
         if (_rpc is not { } rpc || !_initialized || !CanServe("codeActionProvider")) return [];
         var documentFor = SnapshotSentDocuments();
@@ -2135,11 +2157,13 @@ public sealed class VBLspClient : ILspClient
                 {
                     if (!ReferenceEquals(rpc, _rpc)) return;
                     await ExecuteCodeLensCommandAsync(cmd with { Title = title }, ct);
-                }, documentFor, cmd => ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, cmd.CommandName) || _claimedCommands.ContainsKey(cmd.CommandName));
+                }, documentFor, cmd => ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, cmd.CommandName) || _claimedCommands.ContainsKey(cmd.CommandName),
+                Kind: payload.TryGetProperty("kind", out var kind) ? kind.GetString() : null,
+                IsQuickFix: payload.TryGetProperty("diagnostics", out var fixes) && fixes.ValueKind == JsonValueKind.Array && fixes.GetArrayLength() > 0);
         }
 
         var response = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/codeAction",
-            new CodeActionParams(new(uri), range, new(diagnostics)), cancellationToken, documentUri: uri);
+            new CodeActionParams(new(uri), range, new(diagnostics, Only: only)), cancellationToken, documentUri: uri);
         return response is { ValueKind: JsonValueKind.Array } actions ? actions.EnumerateArray().Select(a => Read(a, true)).ToArray() : [];
     }
 
@@ -2848,12 +2872,36 @@ public sealed class VBLspClient : ILspClient
         try
         {
             await rpc.NotifyWithParameterObjectAsync("workspace/didChangeConfiguration",
-                new DidChangeConfigurationParams(EmptyParams.Instance));
+                new DidChangeConfigurationParams(EmptySettings));
         }
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Could not send workspace/didChangeConfiguration to the {Language} server", _languageId);
         }
+    }
+
+    public async Task UpdateServerSettingsAsync(JsonElement? settings)
+    {
+        var value = settings is { ValueKind: JsonValueKind.Object } ? settings.Value.Clone() : (JsonElement?)null;
+        var previous = _serverSettings?.Value;
+        if (previous.HasValue == value.HasValue
+            && (!previous.HasValue || JsonElement.DeepEquals(previous.Value, value!.Value))) return;
+        _serverSettings = value is { } json ? new ServerConfiguration(json) : null;
+        var rpc = _rpc;
+        if (IsRunning && rpc is not null)
+            await rpc.NotifyWithParameterObjectAsync("workspace/didChangeConfiguration",
+                new DidChangeConfigurationParams(value ?? EmptySettings));
+    }
+
+    private JsonElement ConfigurationSection(string? section)
+    {
+        var value = _serverSettings?.Value ?? default;
+        if (!string.IsNullOrEmpty(section))
+            foreach (var part in section.Split('.'))
+                if (value.ValueKind != JsonValueKind.Object || !value.TryGetProperty(part, out value))
+                    return JsonSerializer.SerializeToElement<int?>(null, LspJsonContext.Default.NullableInt32);
+        return value.ValueKind == JsonValueKind.Undefined
+            ? JsonSerializer.SerializeToElement<int?>(null, LspJsonContext.Default.NullableInt32) : value;
     }
 
     private WatchedFileRegistrations? _watchedFiles;
@@ -2869,9 +2917,10 @@ public sealed class VBLspClient : ILspClient
 
         [JsonRpcMethod("workspace/configuration", UseSingleObjectParameterDeserialization = true)]
         public JsonElement[] OnConfiguration(ConfigurationParams p) => p.Items.Select(item =>
-            JsonSerializer.SerializeToElement<int?>(item.Section == "editor.tabSize"
-                ? _client._settings?.TabWidth ?? HexIDE.IDE.SettingsDefaults.TabWidth
-                : null, LspJsonContext.Default.NullableInt32)).ToArray();
+            item.Section == "editor.tabSize"
+                ? JsonSerializer.SerializeToElement<int?>(_client._settings?.TabWidth ?? HexIDE.IDE.SettingsDefaults.TabWidth,
+                    LspJsonContext.Default.NullableInt32)
+                : _client.ConfigurationSection(item.Section)).ToArray();
 
         [JsonRpcMethod("textDocument/publishDiagnostics", UseSingleObjectParameterDeserialization = true)]
         public void OnPublishDiagnostics(PublishDiagnosticsParams p)

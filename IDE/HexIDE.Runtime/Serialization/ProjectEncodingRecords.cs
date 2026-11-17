@@ -4,12 +4,41 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using HexIDE.IDE;
+using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Runtime.Serialization;
 
-/// <summary>The trailing project section that disambiguates BOM-less UTF-8 after its signature is edited away.</summary>
+/// <summary>The trailing project section's source encoding records and VBA7 target (#4245).</summary>
 internal static class ProjectEncodingRecords
 {
+    public static VbaBitness ReadBitness(string? tail)
+    {
+        var inSection = false;
+        using var reader = new StringReader(tail ?? "");
+        while (reader.ReadLine() is { } line)
+        {
+            if (line.StartsWith('['))
+                inSection = line.Equals("[HexIDE]", StringComparison.OrdinalIgnoreCase);
+            else if (inSection && KnownBitness(line) is { } bitness)
+                return bitness;
+        }
+        return VbaBitness.None;
+    }
+
+    // A value HexIDE doesn't know, from a later version or a hand edit, reads as no target and is written back as it was.
+    private static VbaBitness? KnownBitness(string line)
+    {
+        var separator = line.IndexOf('=');
+        if (separator < 0 || !line[..separator].Trim().Equals("VbaBitness", StringComparison.OrdinalIgnoreCase))
+            return null;
+        return line[(separator + 1)..].Trim() switch
+        {
+            "32" => VbaBitness.Bit32,
+            "64" => VbaBitness.Bit64,
+            _ => null,
+        };
+    }
+
     public static Vb6TextEncoding? Read(string? tail, string memberPath)
     {
         var inSection = false;
@@ -32,7 +61,7 @@ internal static class ProjectEncodingRecords
         return path.Length > 0 && line[(separator + 1)..].Trim().Equals("utf-8", StringComparison.OrdinalIgnoreCase);
     }
 
-    public static string Write(string? tail, IReadOnlyList<string> paths)
+    public static string Write(string? tail, IReadOnlyList<string> paths, VbaBitness bitness)
     {
         // Keep other tools' sections verbatim, and unknown keys even in our own section.
         var result = new StringBuilder();
@@ -45,14 +74,16 @@ internal static class ProjectEncodingRecords
                 inSection = text.Equals("[HexIDE]", StringComparison.OrdinalIgnoreCase);
             if (!inSection)
                 result.Append(line);
-            else if (!text.StartsWith('[') && !TryRecord(text, out _) && text.Length > 0)
+            else if (!text.StartsWith('[') && !TryRecord(text, out _) && KnownBitness(text) is null && text.Length > 0)
                 sectionBody.Append(line);
         }
-        if (paths.Count > 0 || sectionBody.Length > 0)
+        if (paths.Count > 0 || sectionBody.Length > 0 || bitness != VbaBitness.None)
         {
             if (result.Length > 0 && result[^1] != '\n') result.Append("\r\n");
             result.Append("[HexIDE]\r\n").Append(sectionBody);
             if (sectionBody.Length > 0 && result[^1] != '\n') result.Append("\r\n");
+            if (bitness != VbaBitness.None)
+                result.Append("VbaBitness=").Append((int)bitness).Append("\r\n");
             foreach (var path in paths)
                 result.Append(path).Append("=utf-8\r\n");
         }

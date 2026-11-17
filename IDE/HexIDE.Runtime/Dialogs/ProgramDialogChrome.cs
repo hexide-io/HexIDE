@@ -30,7 +30,7 @@ internal static class ProgramDialogChrome
     internal static void Apply(Window window)
     {
         // An embedded dialog does not own its host window's caption.
-        if (window.Content is not MessageBox { IsProgramDialog: true } and not InputBox { IsProgramDialog: true })
+        if (window.Content is not MessageBox and not InputBox)
             return;
         if (OperatingSystem.IsWindows())
         {

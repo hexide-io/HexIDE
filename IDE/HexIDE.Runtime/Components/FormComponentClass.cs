@@ -83,7 +83,7 @@ public class FormComponentClass : ComponentBaseClass
         AvaloniaInterop.FormPosition.FromClient(form, instance.GetPropertyOrDefault(LeftProperty),
             instance.GetPropertyOrDefault(TopProperty), chrome, menuBar);
         chrome.Apply(form);
-        // And the icon it carries: its own, none, or the default (#1594).
+        // And the icon it carries: its own, none, or the shared neutral default (#1594, #4187).
         AvaloniaInterop.FormIcon.Read(instance).Apply(form);
         // The state the form's file gives it, which it shows in: `WindowState = 2 'Maximized` (#1152, measured). It is kept
         // as the line it was read with, so the designer and the file are unchanged.

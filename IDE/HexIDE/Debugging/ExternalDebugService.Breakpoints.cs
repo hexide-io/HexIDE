@@ -26,6 +26,7 @@ public sealed partial class ExternalDebugService
         public long Version { get; set; }
         public bool Sending { get; set; }
         public SemaphoreSlim Gate { get; } = new(1, 1);
+        public Task PendingSend { get; set; } = Task.CompletedTask;
     }
 
     private readonly Dictionary<string, BreakpointSource> breakpointSources = new(
@@ -101,6 +102,33 @@ public sealed partial class ExternalDebugService
         }
     }
 
+    /// <summary>Replaces the editor's external breakpoint set, preserving omitted conditions.</summary>
+    public async Task ReplaceBreakpointsAsync(string uri, IReadOnlyList<int> lines, IReadOnlyDictionary<int, string>? conditions)
+    {
+        if (!CanEditBreakpoints || SourcePath(uri) is not { } path)
+            throw new InvalidOperationException("External breakpoints are not editable; wait for the adapter to finish starting and use a saved document.");
+        if (!breakpointSources.TryGetValue(path, out var source))
+            breakpointSources[path] = source = new(path);
+        source.Desired = new(lines);
+        foreach (var line in source.Conditions.Keys.Except(lines).ToArray()) source.Conditions.Remove(line);
+        if (conditions is not null)
+            foreach (var (line, condition) in conditions)
+                if (string.IsNullOrWhiteSpace(condition)) source.Conditions.Remove(line);
+                else source.Conditions[line] = condition;
+        NoticeIgnoredConditions();
+        QueueBreakpoints(source);
+        await source.PendingSend;
+    }
+
+    public async Task ClearAllBreakpointsAsync()
+    {
+        if (!CanEditBreakpoints) throw new InvalidOperationException("External breakpoints are not editable; wait for the adapter to finish starting.");
+        ClearAllBreakpoints();
+        await Task.WhenAll(breakpointSources.Values.Select(source => source.PendingSend));
+    }
+
+    public bool SupportsConditionalBreakpoints => session?.Supports("supportsConditionalBreakpoints") == true;
+
     private bool conditionsNoticeShown;
 
     private void NoticeIgnoredConditions()
@@ -134,7 +162,7 @@ public sealed partial class ExternalDebugService
         source.Rows = source.Rows.Select(row => row.RequestedLine).Union(source.Desired).Order()
             .Select(line => new ExternalBreakpoint(line)).ToArray();
         Changed?.Invoke();
-        if (!source.Sending && session is { } current) _ = SendBreakpointsAsync(current, source);
+        if (!source.Sending && session is { } current) source.PendingSend = SendBreakpointsAsync(current, source);
     }
 
     private async Task SendBreakpointsAsync(DapSession current, BreakpointSource source)

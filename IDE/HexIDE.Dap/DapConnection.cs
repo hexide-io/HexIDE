@@ -42,7 +42,7 @@ public sealed class DapConnection : IAsyncDisposable
         _events = Channel.CreateBounded<DapEvent>(new BoundedChannelOptions(_options.EventCapacity)
         {
             FullMode = BoundedChannelFullMode.Wait,
-            SingleWriter = true,
+            SingleWriter = false, // The delivery barrier writes alongside the wire reader.
             AllowSynchronousContinuations = false,
         });
         _capture?.Note("DAP connection opened.");
@@ -127,6 +127,15 @@ public sealed class DapConnection : IAsyncDisposable
             // A send can fail before awaiting the reply while closure faults it concurrently.
             if (reply.Task.IsFaulted) _ = reply.Task.Exception;
         }
+    }
+
+    /// <summary>Enqueues a local barrier behind events already read, for the final consumer to acknowledge.</summary>
+    public async Task QueueDeliveryBarrierAsync()
+    {
+        var delivered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await _events.Writer.WriteAsync(new(0, "", JsonSerializer.SerializeToElement(new { }))
+            { DeliveryBarrier = delivered }, _lifetime.Token).ConfigureAwait(false);
+        await delivered.Task.WaitAsync(_lifetime.Token).ConfigureAwait(false);
     }
 
     private void ThrowIfClosed()

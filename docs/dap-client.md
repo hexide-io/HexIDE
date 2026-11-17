@@ -156,6 +156,13 @@ Frame zero is valid. The raw result preserves type, variable reference and exten
 validated before and after the request; callers must also validate their selected-frame identity before
 presenting the result. REPL evaluation has no optional capability flag and can have side effects. A failed
 or timed-out request is never retried. The IDE displays result text/errors and refreshes selected-frame locals.
+MCP `evaluate` returns output delivered during that evaluation followed by the response result, and
+reports an adapter refusal as `success: false` with its message in `error` (#4323). Output already read
+is awaited through a local delivery barrier in the connection event and session update queues, acknowledged
+after earlier updates in the same UI batch. The barrier waits for room in a full event queue and follows
+the session publication chain; session shutdown cancels the wait. The update reader only acknowledges
+delivery; it never waits for a DAP response.
+The Immediate window receives output events separately, so it still prints each event only once.
 `EvaluateWatchAsync(stop, frameId, expression)` uses `context: watch` and preserves result text, type and
 variable references. The Watches window owns a separate external list for the IDE session and discards
 replies superseded by frame/stop changes or edits. Watch requests do not refresh Locals recursively.

@@ -147,6 +147,10 @@ it.
 - **WHEN** a language server terminates unexpectedly
 - **THEN** its exit code and its final standard-error output appear in the timeline at the point it died
 
+#### Scenario: Client shutdown races a transport hangup
+- **WHEN** a server goes away while the client stops its connection
+- **THEN** the record SHALL contain exactly one non-fault `disconnected:` lifecycle entry, whether the hangup callback or client teardown finishes first
+
 #### Scenario: A pipe server explains a startup failure only on stdout
 - **WHEN** a launched named-pipe server writes to stdout and exits before creating its pipe
 - **THEN** its output appears on that connection’s timeline as StandardOutput, even though connecting fails

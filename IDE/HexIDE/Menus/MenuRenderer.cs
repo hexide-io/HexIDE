@@ -136,6 +136,23 @@ internal sealed class MenuRenderer : IDisposable
     {
         switch (provider)
         {
+            case "refactor":
+            case "source-actions":
+                item.Items.Add(new Separator());
+                item.SubmenuOpened += async (_, e) =>
+                {
+                    if (!ReferenceEquals(e.Source, item)) return;
+                    if (vm.ActiveCodeDocument is { } code)
+                        await HexIDE.Forms.Views.CodeEditorView.LoadCodeActionsAsync(item, code, provider == "refactor" ? "refactor" : "source");
+                    else
+                    {
+                        item.Items.Clear();
+                        var empty = new MenuItem { IsEnabled = false };
+                        empty.Bind(MenuItem.HeaderProperty, empty.GetResourceObservable("Str.CodeEditor.NoCodeActions"));
+                        item.Items.Add(empty);
+                    }
+                };
+                break;
             case "recent-projects":
                 item.Bind(ItemsControl.ItemsSourceProperty, Bind(v => v.RecentProjects));
                 item.ItemContainerTheme = RecentTheme();
