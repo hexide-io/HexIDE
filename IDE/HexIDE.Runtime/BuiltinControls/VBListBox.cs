@@ -53,6 +53,8 @@ public class VBListBox : ListBox
 
     static VBListBox()
     {
+        ControlKeyEvents.Attach<VBListBox>();
+        IsTextSearchEnabledProperty.OverrideDefaultValue<VBListBox>(true);
         // VB6 selects nothing for a right or middle press, where Avalonia's ListBox selects on a right one. Handled on
         // the way down, its own press handler never sees it; the mouse events take handled presses too. A left press on
         // a multi-select list is VB6's to handle, for the same reason.
@@ -194,6 +196,7 @@ public class VBListBox : ListBox
         init
         {
             multiSelect = value;
+            IsTextSearchEnabled = value == VBMultiSelect.None;
             if (value != VBMultiSelect.None)
                 SelectionMode = SelectionMode.Multiple;
         }
@@ -314,6 +317,14 @@ public class VBListBox : ListBox
         }
         // A double click's second release raises no Click (#1031).
         if (click)
+            this.ExecuteSub(ComponentBaseClass.ClickEvent);
+    }
+
+    protected override void OnTextInput(TextInputEventArgs e)
+    {
+        var before = SelectedIndex;
+        base.OnTextInput(e);
+        if (SelectedIndex != before)
             this.ExecuteSub(ComponentBaseClass.ClickEvent);
     }
 

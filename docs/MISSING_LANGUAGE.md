@@ -1166,16 +1166,21 @@ that made `vbNewLine` and `vbTab` read as the largest cliff in this inventory, w
 
 ## Keyboard events (outside the baseline inventory)
 
-Issue #2325 delivers TextBox keyboard events and Form KeyPreview for the measured
-key codes. This is not the complete keyboard-input implementation.
+Issue #2325 delivers the measured keyboard events through the form-first KeyPreview path.
+The authority is the [VB6 SP6 console measurements](vb6-fidelity-oracle/key-events-keydown-keypress-and-keyup.md),
+with native and p-code agreeing. Enter/Esc on forms holding controls and Default/Cancel properties
+remain #4371's; this is not the complete keyboard-input implementation.
 
 | Member | Status | Detail | Source |
 |---|---|---|---|
 | TextBox.KeyDown / KeyUp | Partial | #2325: letters, digits, Space, Backspace, navigation/editing keys, F1–F9/F11/F12, numeric keypad and modifier keys deliver measured KeyCode and Shift through the existing event queue, with a control-array Index where present. Enter/Esc, Tab arbitration, punctuation and F10 retain today's behavior. Host-translated keypad navigation uses the received navigation code; NumLock state translation remains the host's responsibility. Form KeyPreview interleaves form first; Form KeyCode = 0 suppresses only the control KeyDown. Nonzero KeyCode replacements are unmeasured; the control retains its original key code. | TextBoxKeyEvents.cs |
 | TextBox.KeyPress / Form.KeyPreview | Partial | #2325: KeyPress precedes Change; writable KeyAscii suppresses or replaces the character in either handler. Ctrl+A delivers 1, Backspace 8 and Ctrl+Backspace 127; both control and form handlers can swallow or replace the latter. The default Ctrl+Backspace editing action retains the host behavior (unmeasured). Non-ASCII conversion is unmeasured and retains existing input behavior. | TextBoxKeyEvents.cs; VBTextBox.cs |
 | TextBox.KeyPress non-ASCII replacement | Dies | #2325: ANSI conversion was not measured. A handler returning a KeyAscii outside ASCII is refused as not implemented; incoming non-ASCII text retains the existing input path. | VBTextBox.cs |
-| Form, ListBox and CommandButton keyboard events | Silently wrong | #2325 remaining measured work: default/cancel/navigation arbitration, empty-form events and list/button ordering. | VBLoader.cs |
-| CheckBox, OptionButton, ComboBox, scroll bars, PictureBox and UserControl keyboard events | Silently wrong | #2325's later second-slice probe measured CheckBox, OptionButton and ComboBox Styles 0 and 2 (issue comment 6445922821); their keyboard implementation remains pending. ComboBox Style 1, scroll bars, PictureBox and UserControl own key events remain unmeasured; no behavior is inferred from TextBox, and explicit not-implemented member refusals remain pending. | AttachedEvents.cs |
+| Form, ListBox and CommandButton keyboard events | Partial | #2325: empty forms raise their own measured KeyDown, KeyPress and KeyUp (Tab has no KeyUp). ListBox and CommandButton declare and deliver the three events through TextBoxKeyEvents.Deliver, with form-first KeyPreview and writable KeyAscii for typed ASCII text. List search raises Click between KeyPress and KeyUp; Space on a CommandButton clicks after KeyUp. Tab and button arrows navigate without key events. Enter/Esc on forms holding controls remain unchanged pending #4371. | ControlKeyEvents.cs; VBListBox.cs |
+| Button/list KeyPress non-ASCII replacement | Dies | #2325: a KeyAscii replacement outside ASCII refuses with NotImplementedException; incoming non-ASCII input retains the existing path. This is a program-facing English refusal, as on TextBox. | ControlKeyEvents.cs |
+| CheckBox, OptionButton and ComboBox keyboard events | Partial | #2325: all three key events are declared and delivered for the measured buttons and ComboBox Styles 0 and 2, sharing TextBox's KeyPreview and KeyAscii handling. Space raises KeyUp before a CheckBox Click and no Click on an already-selected OptionButton. Arrows navigate without button key events; a combo receiving the focus from CheckBox Down raises only KeyUp. Combo typing/search, selection and DropDown follow the measured order; open-list input keeps the same delivery path. Popup items remain part of the combo for focus events, so opening and navigating the list raises no extra GotFocus. Enter/Esc remain #4371's. | ControlKeyEvents.cs; VBComboBox.cs; AttachedEvents.cs |
+| Button/list synthesized KeyAscii replacement effects | Dies | #2325: replacing Space/Ctrl+A with another nonzero ASCII character was not measured. This refuses before the native action; the recorded original code and zero remain supported. The refusal is program-facing English. | ControlKeyEvents.cs |
+| Unmeasured keyboard input | Silently wrong | #2325: modified Enter/Esc/Tab on empty forms, ComboBox Style 1, arrows in a combo edit part with typed text, scroll bars, PictureBox, UserControl own events, auto-repeat, forms holding only nonfocusable controls and modal forms shown from key handlers have no new keyboard implementation. No VB6 value is inferred for them. | ControlKeyEvents.cs |
 
 ## List search extensions (outside the baseline inventory)
 

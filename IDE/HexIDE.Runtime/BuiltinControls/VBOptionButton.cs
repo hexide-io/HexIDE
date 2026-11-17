@@ -34,6 +34,7 @@ public class VBOptionButton : RadioButton
 
     static VBOptionButton()
     {
+        ControlKeyEvents.Attach<VBOptionButton>();
         // MouseUp follows Click, as a CheckBox's does (#974).
         AttachedEvents.AttachMouse<VBOptionButton>(AttachedEvents.DblClick.AfterMouseDown);
         // An option button that takes the focus is selected: Windows checks an automatic radio button as it is focused. By

@@ -7,6 +7,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using HexIDE.Runtime.BuiltinTypes;
+using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 
@@ -78,6 +79,7 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         // activating it brings the modal form forward instead.
         foreach (var input in new RoutedEvent[] { KeyDownEvent, KeyUpEvent, TextInputEvent, PointerPressedEvent, PointerReleasedEvent, PointerWheelChangedEvent })
             AddHandler(input, new EventHandler<RoutedEventArgs>((_, e) => e.Handled |= heldBy is not null), RoutingStrategies.Tunnel);
+        ControlKeyEvents.AttachEmptyForm(this);
         // Activating a form tells the program, which raises Activate and Deactivate (#994). A held form is never active: Windows
         // doesn't activate a disabled window, and activating it brings the modal form forward.
         Activated += (_, _) =>
