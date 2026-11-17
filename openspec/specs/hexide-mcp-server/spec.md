@@ -37,6 +37,19 @@ This separation SHALL preserve automation replies and the existing settle timing
 - **THEN** automation observes activity through the contract at the existing dispatcher priority and polling interval
 - **AND** printed text and the resulting reply retain their existing contents
 
+### Requirement: Select a closed dropdown in one call
+
+`interact` with `action: "select"` and an item value on a closed ComboBox SHALL open it through its expand provider, select through the existing item path, close it, and report that it opened the list first. A miss SHALL list available items and restore the closed state. Already-open lists SHALL retain their existing behaviour; disabled or hidden controls SHALL be refused before opening.
+
+#### Scenario: Select from a closed list
+- **WHEN** a caller selects an available item by text on a closed ComboBox
+- **THEN** the item is selected and the list is closed, with the opening reported
+
+#### Scenario: No item matches
+- **WHEN** a caller selects missing text on a closed ComboBox
+- **THEN** the refusal lists available items and the list remains closed
+
+
 ### Requirement: Discover archive projects and each project's own file
 `get_project_info` SHALL include open archive projects in `projects`, with their container path, their
 own `projectFile`, and `entries` listing stored entry paths, including folders and hidden entries.
