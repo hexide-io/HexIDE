@@ -1,6 +1,6 @@
 using HexIDE.Runtime.Serialization;
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
+using HexIDE.Tests.LspClient;
 using Nerdbank.Streams;
 using StreamJsonRpc;
 using HexIDE.Bookmarks;
@@ -30,6 +30,7 @@ public class ServerApplyEditTests : IAsyncDisposable
 
     public ServerApplyEditTests()
     {
+        diagnosis = new WireDiagnosis(timeout.Token);
         var project = TestHelpers.CreateProject();
         first = TestHelpers.CreateModule(project, "Module1");
         second = TestHelpers.CreateModule(project, "Module2");
@@ -104,92 +105,7 @@ public class ServerApplyEditTests : IAsyncDisposable
     private readonly CancellationTokenSource timeout = new(TimeSpan.FromSeconds(15));
     private EditServer server = null!;
 
-    // #3520: on CI, now and then a few of these tests find the stand-in's connection already gone, a millisecond or two
-    // in, while the test's own token is still live. Once a client's initialize frame arrived with header bytes inside
-    // its body. It hasn't reproduced off CI, so the class records what each side saw, and a test that hits it fails
-    // saying so: the stand-in's disconnect reason and exception, the last bytes it read, the client's handshake steps
-    // and log, and whether the stand-in ever received initialize.
-    private readonly long started = System.Diagnostics.Stopwatch.GetTimestamp();
-    private readonly System.Collections.Concurrent.ConcurrentQueue<string> standInDrops = new();
-    private readonly List<RecordingLogger> clientLogs = [];
-    private readonly List<ReadTap> standInReads = [];
-
-    // The stand-in's end of the pair, keeping the last bytes it read, so a frame it couldn't parse can be shown.
-    private sealed class ReadTap(Stream inner) : Stream
-    {
-        private const int Keep = 4096;
-        private readonly Queue<byte> recent = new();
-
-        public string Recent()
-        {
-            byte[] bytes;
-            lock (recent) bytes = [.. recent];
-            var text = System.Text.Encoding.UTF8.GetString(bytes);
-            return text.Replace("\r", "\\r").Replace("\n", "\\n");
-        }
-
-        private void Record(ReadOnlySpan<byte> read)
-        {
-            lock (recent)
-                foreach (var b in read)
-                {
-                    recent.Enqueue(b);
-                    if (recent.Count > Keep) recent.Dequeue();
-                }
-        }
-
-        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            var n = await inner.ReadAsync(buffer, cancellationToken);
-            Record(buffer.Span[..n]);
-            return n;
-        }
-
-        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
-            ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
-
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            var n = inner.Read(buffer, offset, count);
-            Record(buffer.AsSpan(offset, n));
-            return n;
-        }
-
-        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) =>
-            inner.WriteAsync(buffer, cancellationToken);
-        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
-            inner.WriteAsync(buffer, offset, count, cancellationToken);
-        public override void Write(byte[] buffer, int offset, int count) => inner.Write(buffer, offset, count);
-        public override Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
-        public override void Flush() => inner.Flush();
-        public override bool CanRead => inner.CanRead;
-        public override bool CanWrite => inner.CanWrite;
-        public override bool CanSeek => false;
-        public override long Length => throw new NotSupportedException();
-        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
-        public override void SetLength(long value) => throw new NotSupportedException();
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing) inner.Dispose();
-            base.Dispose(disposing);
-        }
-    }
-
-    private string Elapsed() =>
-        $"{System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F1}ms";
-
-    private sealed class RecordingLogger(ServerApplyEditTests test, int connection) : ILogger<VBLspClient>
-    {
-        public readonly System.Collections.Concurrent.ConcurrentQueue<string> Lines = new();
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter) =>
-            Lines.Enqueue($"{test.Elapsed()} client {connection} {logLevel}: {formatter(state, exception)}"
-                + (exception is null ? "" : $" {exception}"));
-    }
+    private readonly WireDiagnosis diagnosis;
 
     private string Diagnosis(string what)
     {
@@ -199,27 +115,20 @@ public class ServerApplyEditTests : IAsyncDisposable
         var clients = connections.Select((c, i) =>
             $"client {i + 1}: running={c.IsRunning}, attempt {Steps(c.LastAttempt)}, "
             + $"stand-in received initialize={stubs[i].InitializeParams.ValueKind != JsonValueKind.Undefined}");
-        var reads = standInReads.Select((tap, i) => $"stand-in {i + 1} read: <{tap.Recent()}>");
-        return $"#3520: {what} at {Elapsed()}. Test token cancelled={timeout.IsCancellationRequested}; "
-            + $"thread pool threads={ThreadPool.ThreadCount}, queued={ThreadPool.PendingWorkItemCount}. "
-            + $"{string.Join("; ", clients)}. Stand-in drops: [{string.Join(" | ", standInDrops)}]. "
-            + $"Client log: [{string.Join(" | ", clientLogs.SelectMany(l => l.Lines))}]. "
-            + $"Last bytes each stand-in read: [{string.Join(" || ", reads)}]";
+        return diagnosis.Diagnosis(what, string.Join("; ", clients));
     }
 
     private async Task<VBLspClient> ConnectAsync(bool withEditor = true)
     {
         var (local, pairEnd) = FullDuplexStream.CreatePair();
-        var remote = new ReadTap(pairEnd);
-        standInReads.Add(remote);
+        var remote = diagnosis.TapPeer(pairEnd);
         var stub = new EditServer();
         var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()), stub);
         stub.Rpc = rpc;
         peers.Add(rpc);
         stubs.Add(stub);
         var number = peers.Count;
-        rpc.Disconnected += (_, e) => standInDrops.Enqueue($"{Elapsed()} stand-in {number} {e.Reason}: {e.Description}"
-            + (e.Exception is null ? "" : $" {e.Exception}"));
+        diagnosis.Watch(rpc, "stand-in", number);
         rpc.StartListening();
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
@@ -227,13 +136,12 @@ public class ServerApplyEditTests : IAsyncDisposable
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(c => Task.FromResult<IJsonRpcMessageHandler?>(
                 new HeaderDelimitedMessageHandler(local, local, c.Arg<IJsonRpcMessageFormatter>())));
-        var log = new RecordingLogger(this, number);
-        clientLogs.Add(log);
+        var log = diagnosis.ClientLog<VBLspClient>(number);
         var connection = new VBLspClient(transport, log, "vb6",
             applyEdit: !withEditor ? null : (edit, documentFor, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
                 () => editors.ApplyWorkspaceEdit(edit, documentFor), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask());
         connections.Add(connection);
-        var before = Elapsed();
+        var before = diagnosis.Elapsed();
         await connection.StartAsync(timeout.Token);
         if (!connection.IsRunning)
             throw new InvalidOperationException(Diagnosis($"client {number} isn't running after StartAsync (began at {before})"));
@@ -954,7 +862,7 @@ public class ServerApplyEditTests : IAsyncDisposable
     {
         // Taken before teardown, which drops every stand-in on purpose. No test here drops one itself, so a drop
         // recorded by now is #3520, whatever the test then failed on.
-        var dropped = standInDrops.IsEmpty ? null : Diagnosis("a stand-in server's connection dropped during the test");
+        var dropped = !diagnosis.HasDropped ? null : Diagnosis("a stand-in server's connection dropped during the test");
         foreach (var window in windows) window.Dispose();
         foreach (var connection in connections) await connection.DisposeAsync();
         foreach (var peer in peers) peer.Dispose();
