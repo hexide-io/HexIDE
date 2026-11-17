@@ -87,7 +87,7 @@ public class VBLoader
         var arrayGroups = new Dictionary<string, ControlArrayGroup>(StringComparer.OrdinalIgnoreCase);
         foreach (var (nm, list) in componentsByName)
             if (list.Count > 1 || list.Any(c => TryParseControlArrayIndex(c, out _)))
-                arrayGroups[nm] = new ControlArrayGroup(nm);
+                arrayGroups[nm] = new ControlArrayGroup(nm) { Program = program };
 
         // What each block of the form became, for its Controls collection (#1060).
         var placed = new Dictionary<ComponentInstance, Control>();

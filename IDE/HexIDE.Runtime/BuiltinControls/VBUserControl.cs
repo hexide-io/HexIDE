@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Threading;
 using Avalonia.Controls;
 using Avalonia.Media;
 using HexIDE.Runtime.AvaloniaInterop;
@@ -48,6 +51,31 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
         var value = new Vb6Value(new RootObject(this));
         Context.ExecutionContext.AllocVariable(Context.InstanceEnv, "UserControl", value);
         Context.ExecutionContext.AllocVariable(Context.InstanceEnv, "Ambient", new Vb6Value(ambient));
+    }
+
+    internal async Task StartLoaded()
+    {
+        if (Context is not { } context)
+            return;
+        await context.ControlEvent("UserControl_Initialize");
+        await context.ControlEvent("UserControl_Resize");
+        await context.ControlEvent("UserControl_ReadProperties", [new Vb6Value(new VBWindowContext.UnimplementedPropertyBag())]);
+    }
+
+    private bool watchLoadedVisibility;
+    internal bool LoadedAtRunTime => watchLoadedVisibility;
+    internal void WatchLoadedVisibility() => watchLoadedVisibility = true;
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (watchLoadedVisibility && change.Property == IsVisibleProperty && IsVisible
+            && TopLevel.GetTopLevel(this) is Window { IsVisible: true })
+        {
+            // #4337: Show is posted, after the Visible statement returns.
+            Dispatcher.UIThread.Post(() => Context?.ExecuteSubIf("UserControl_Show", null,
+                () => IsVisible && TopLevel.GetTopLevel(this) is Window { IsVisible: true }));
+        }
     }
 
     private void ApplyBackground()

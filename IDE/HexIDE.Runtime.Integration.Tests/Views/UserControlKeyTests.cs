@@ -43,6 +43,8 @@ public partial class UserControlKeyTests
     private sealed class RunWindow : Window, IModuleExecutionRoot
     {
         internal VBWindowContext? Context;
+        public Task<bool> UnloadAsync(int mode) => Context!.UnloadAsync(mode);
+        public EventPump? Events => Context?.Events;
         public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null) => Context?.ExecuteSub(name, args);
     }
 
@@ -52,7 +54,7 @@ public partial class UserControlKeyTests
         internal readonly Library Lib = new();
         internal readonly VBWindowContext Context;
         internal Control Named(string name) => Window.GetLogicalDescendants().OfType<Control>().Single(c => VBProps.GetName(c) == name);
-        internal Run(string settings, string formCode = "", string controlCode = "", string child = "", bool plain = false, string? blocks = null)
+        internal Run(string settings, string formCode = "", string controlCode = "", string child = "", bool plain = false, string? blocks = null, bool activate = false)
         {
             var project = new ProjectDefinition(VBProjectType.EXE, "P");
             var ctl = new FormDeserializer().Deserialize(project,
@@ -80,12 +82,19 @@ public partial class UserControlKeyTests
                 + Block("VB.CommandButton", "Command1", 2) + Block("VB.Label", "Label1", 3, extra: "Caption = \"&T\"")))
                 + "End\nAttribute VB_Name = \"Form1\"\n" + formCode, new Sink(), extraComponents: registry)!;
             project.AddForm(form);
-            Context = new VBWindowContext(Lib);
+            Context = new VBWindowContext(Lib) { Window = Window };
             Window.Context = Context;
             VBLoader.PrepareForm(form, Context, content => Window.Content = content, null);
             ContainerRuntimeHarness.MergeAppResources(Window);
             Context.StartAsync().GetAwaiter().GetResult().Should().BeTrue();
+            if (activate)
+                Window.Activated += (_, _) => Context.Program!.Activated(Context);
             Window.Show();
+            if (activate)
+            {
+                Window.Activate();
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            }
             Context.ShowControls();
         }
         internal void Key(Key key, KeyModifiers modifiers = KeyModifiers.None)
