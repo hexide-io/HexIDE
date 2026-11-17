@@ -638,12 +638,19 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
 - **HexIDE:** paused watches now respect the stored module/procedure scope and read a caller's frame.
   Outside break mode all rows still show the localized out-of-context value. At design time and after
   End their type is `Empty`; while running it remains blank (running-state refresh was not measured).
-- **Why:** design-time name resolution needs collected declarations without a live interpreter frame.
-  The all-procedures placeholder still lacks a stored module
-  at design time and uses the paused module. Explicit module contexts are supported within that module.
-- **Status:** **partial**, #2290. Remaining: design-time/after-End resolution and context selection/storage.
-  Recursion, cross-module contexts, Break When types and running-state refresh were not measured and
-  keep their previous behavior.
+- **Why, design time and after End: out of bounds, by design.** With nothing running there is no frame to
+  look a name up in, so telling `<Expression not defined in context>` from `<Out of context>` means asking whether
+  the name is declared anywhere. That is the undeclared-name question the CST-not-AST boundary in CLAUDE.md walls, the
+  same one that keeps `VbScopeAnalyzer`'s Option Explicit check compiled out. Restricting it to a bare name doesn't
+  change what it asks. The pre-pass's tables can't answer it either: a procedure's locals aren't collected until it
+  runs, so a lookup there would confidently call a local undefined, which is worse than today's text. A language
+  engine over the LSP seam, such as RDCore, is where that answer would come from. Ruled on #2290, 2026-11-16.
+- **Why, the stored context:** the all-procedures placeholder still lacks a stored module at design time and uses
+  the paused module. Explicit module contexts are supported within that module. This part is in bounds and is
+  [#4354](https://github.com/hexide-io/HexIDE/issues/4354): Add Watch offers a Module and a Procedure, as VB6's does.
+- **Status:** **partial by design** for design-time and after-End name resolution (above). Context selection and
+  storage remain, as #4354. Recursion, cross-module contexts, Break When types and running-state refresh were not
+  measured and keep their previous behavior.
 
 ### D30. Locals rows beyond what is measured (#2329, #2700)
 - **VB6, measured** (hexide-int, #2289, #2329, #2700; oracle #2698 and #2702):

@@ -80,7 +80,8 @@ byte for byte after normalising only the original project's reference paths, det
 files too. Same-drive reference paths become relative; other drives and unresolved paths stay as read
 ([measured in #2274](vb6-fidelity-oracle/a-references-path-and-the-line-order-a-save-writes.md)).
 The harness uses the file's path, as HexIDE does today; it does not resolve registered libraries or
-substitute library identities. `Retained=` is untouched (#2459). Every other byte must match.
+substitute library identities. An ActiveX EXE with no `Retained=` line is expected to gain `Retained=0` between
+`Unattended=0` and `ThreadPerObject=0`, as VB6's save adds it (#2459). Every other byte must match.
 File paths compare case-insensitively on Windows and macOS, ordinally on Linux. A reported save refusal is allowed, but never
 excuses changed bytes. The original corpus is untouched. Members outside the copied project's own
 directory are refused before saving; symbolic links are rejected. This conservative safety restriction

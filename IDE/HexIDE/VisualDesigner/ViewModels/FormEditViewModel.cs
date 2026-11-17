@@ -1673,7 +1673,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             preview = FormComponentClass.Instance.InstantiateWindow(Form.Instance, VBLoader.HasMenuBar(formDefinition));
             // No SetCode, PrepareForm or Start: events have no interpreter to dispatch to (#2003).
             preview.Content = VBLoader.SpawnComponents(formDefinition, preview.Context.ExecutionContext,
-                preview.Context.RootEnv, new StandaloneStandardLib(preview));
+                preview.Context.RootEnv, new StandaloneStandardLib(preview, HexIDE.IDE.Distribution.DisplayName));
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } owner })
                 preview.Show(owner);
             else

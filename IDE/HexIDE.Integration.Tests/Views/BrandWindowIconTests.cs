@@ -49,7 +49,7 @@ public class BrandWindowIconTests
     public void A_running_programs_box_is_not_given_the_brands_icon()
     {
         var window = With(BrandLogo,
-            () => Manager().MakeDialogWindow("Title", new HexIDE.Runtime.Dialogs.MessageBox { IsProgramDialog = true }));
+            () => Manager().MakeDialogWindow("Title", new HexIDE.Runtime.Dialogs.MessageBox()));
         try { window.Icon.Should().BeNull("a program's box follows the program's rule, not the IDE's brand"); }
         finally { window.Close(); }
     }

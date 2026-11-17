@@ -549,3 +549,35 @@ or saving. Automation replies SHALL name the resulting element or plain control.
   IDE prompts remain unmeasured
 - **AND** existing event signatures and new handler stubs remain unchanged, tracked by
   [#4205](https://github.com/hexide-io/HexIDE/issues/4205); renaming to join an array remains #1397
+
+### Requirement: Designer keyboard selection follows measured tab order
+
+With at most one control selected, Tab and Shift+Tab in the designer SHALL move the selection through the
+form's controls in TabIndex order, wrapping, where every control is a top-level, visible, enabled tab stop,
+as measured in [#3399](https://github.com/hexide-io/HexIDE/issues/3399). Other forms SHALL keep their
+existing Tab behaviour until those cases are measured. Escape SHALL select the form, and focus SHALL stay
+in the designer, except while a mouse button is held: then Escape SHALL leave the selection alone, so a drag
+that is abandoned and let go where it began leaves its control where it was.
+
+#### Scenario: Creation order differs from TabIndex
+
+- **GIVEN** Command1, Text1 and Check1 created in that order with TabIndex 2, 0 and 1
+- **WHEN** Tab is pressed from the form and then repeatedly
+- **THEN** selection visits Text1, Check1, Command1 and Text1, with focus in the designer
+- **AND** Shift+Tab reverses that cycle, and Shift+Tab from the form selects Command1
+
+#### Scenario: Escape on a form with an unmeasured case
+
+- **GIVEN** a form where one control has TabStop False
+- **WHEN** a control is selected and Escape is pressed
+- **THEN** the form is selected
+
+#### Scenario: Escape during a held move
+
+- **WHEN** a control is being moved with the button held, and Escape is pressed
+- **THEN** the selection does not change, and letting go where the move began leaves the control where it was
+
+#### Scenario: The design-time caption buttons
+
+- **WHEN** focus moves through the designer
+- **THEN** the form's minimize, maximize and close buttons never take it
