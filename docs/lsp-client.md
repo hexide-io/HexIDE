@@ -1354,10 +1354,16 @@ connection is not classified as that failure. This adds no retry and does not es
 intermittent SIGPIPE.
 
 The in-memory pairs in `ServerApplyEditTests`, `TheTapStaysOutOfTheWayTests` and
-`RequestFailureLoggingTests` share `WireDiagnosis` (#3520, #3908, #3677). A connection drop during a test
+`RequestFailureLoggingTests` share `WireDiagnosis` (#3520, #3908, #3677).
+`SilentServerTests` also taps every reconnect and diagnoses its 20-second waits (#4446), excluding
+intentional handshake abandonment, stop and stand-in closure from unexpected-drop failures. A connection drop during a test
 fails with a `#3520:` diagnosis: elapsed time, test-token and thread-pool state, disconnect reasons,
 client logs and the last 4 KB read by each stand-in. The snapshot precedes deliberate teardown; it adds
 no retry and does not identify the cause of the intermittent CI drops by itself.
+`BundledServerRespectsTheIdesRegionsTests` captures the real server conversation for publish waits
+(#4430, #4446). A timeout or captured process failure includes methods, directions, outcomes and
+details, client logs and process liveness; exit notices retain the exit code. These failures use the
+same `#3520:` prefix and keep the existing deadlines.
 
 The untitled-document tests drain and poll for clangd's URI refusal, with a five-second deadline, before
 asserting on standard error (#2269). Diagnostics arriving does not mean the independent stderr reader
