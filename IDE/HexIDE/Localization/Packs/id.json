@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} dimuat dengan kesalahan sehingga tidak dapat disimpan menimpa berkas aslinya. Pilih nama berkas baru.",
     "Str.ProjectLoad.PropertyNotSet": "Baris {0}: properti {1} di {2} tidak dapat ditetapkan.",
     "Str.Menu.Edit.Refactor": "Re_faktor",
     "Str.Menu.Edit.SourceActions": "Ti_ndakan kode sumber",

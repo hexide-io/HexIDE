@@ -2,6 +2,7 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} a été chargé avec des erreurs et ne peut donc pas remplacer son fichier d’origine. Choisissez un nouveau nom de fichier.",
     "Str.ProjectLoad.PropertyNotSet": "Ligne {0} : la propriété {1} de {2} n’a pas pu être définie.",
     "Str.Menu.Edit.Refactor": "Re_factoriser",
     "Str.Menu.Edit.SourceActions": "Actions du c_ode source",

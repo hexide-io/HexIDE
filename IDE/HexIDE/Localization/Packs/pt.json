@@ -2,6 +2,7 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} foi carregado com erros, pelo que não pode ser guardado sobre o ficheiro original. Escolha um novo nome de ficheiro.",
     "Str.ProjectLoad.PropertyNotSet": "Linha {0}: não foi possível definir a propriedade {1} em {2}.",
     "Str.Menu.Edit.Refactor": "Refat_orar",
     "Str.Menu.Edit.SourceActions": "A_ções de código-fonte",

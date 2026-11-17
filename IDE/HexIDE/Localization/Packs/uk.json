@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} завантажено з помилками, тому його не можна зберегти поверх початкового файлу. Виберіть нове ім’я файлу.",
     "Str.ProjectLoad.PropertyNotSet": "Рядок {0}: не вдалося встановити властивість {1} у {2}.",
     "Str.Menu.Edit.Refactor": "Рефакторинг",
     "Str.Menu.Edit.SourceActions": "Дії з вихідним кодом",

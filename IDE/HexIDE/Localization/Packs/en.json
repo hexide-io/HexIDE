@@ -2,6 +2,7 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} loaded with errors, so it can't be saved over its original file. Choose a new file name.",
     "Str.ProjectLoad.PropertyNotSet": "Line {0}: Property {1} in {2} could not be set.",
     "Str.Menu.Edit.Refactor": "Refactor",
     "Str.Menu.Edit.SourceActions": "Source Actions",

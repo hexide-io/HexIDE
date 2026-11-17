@@ -1180,8 +1180,15 @@ public partial class ProjectService : IProjectService
                     var directory = IsScratchFile(form.Owner, form.AbsolutePath)
                         ? PickerDirectory(form.Owner, previousDirectory) : null;
                     string chosen;
-                    do { chosen = await ChooseFormPath(form, directory); }
-                    while (WouldOverwriteLoadedForm(form, chosen));
+                    while (true)
+                    {
+                        chosen = await ChooseFormPath(form, directory);
+                        if (!WouldOverwriteLoadedForm(form, chosen))
+                            break;
+                        await windowManager.MessageBox(
+                            string.Format(localization.GetString("Str.Dialog.SaveLoadedForm.ChooseNewFile"), form.Name),
+                            icon: MessageBoxIcon.Warning);
+                    }
                     return new Destination(form, chosen, Chosen: true);
                 }
                 return form.AbsolutePath is { } formPath && !saveAs && (!userSave || !IsScratchFile(form.Owner, formPath))

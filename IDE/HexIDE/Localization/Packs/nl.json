@@ -2,6 +2,7 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} is met fouten geladen en kan daarom het oorspronkelijke bestand niet overschrijven. Kies een nieuwe bestandsnaam.",
     "Str.ProjectLoad.PropertyNotSet": "Regel {0}: eigenschap {1} in {2} kon niet worden ingesteld.",
     "Str.Menu.Edit.Refactor": "Re_factoren",
     "Str.Menu.Edit.SourceActions": "Bronco_deacties",

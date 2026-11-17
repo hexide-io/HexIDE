@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} はエラーを伴って読み込まれたため、元のファイルに上書き保存できません。新しいファイル名を選択してください。",
     "Str.ProjectLoad.PropertyNotSet": "行 {0}: {2} のプロパティ {1} を設定できませんでした。",
     "Str.Menu.Edit.Refactor": "リファクタリング",
     "Str.Menu.Edit.SourceActions": "ソースアクション",

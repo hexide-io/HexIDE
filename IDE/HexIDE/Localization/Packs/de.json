@@ -2,6 +2,7 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} wurde mit Fehlern geladen und kann daher seine ursprüngliche Datei nicht überschreiben. Wählen Sie einen neuen Dateinamen.",
     "Str.ProjectLoad.PropertyNotSet": "Zeile {0}: Die Eigenschaft {1} in {2} konnte nicht festgelegt werden.",
     "Str.Menu.Edit.Refactor": "Refa_ctoring",
     "Str.Menu.Edit.SourceActions": "Quellc_odeaktionen",
