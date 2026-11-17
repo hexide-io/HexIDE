@@ -14,6 +14,10 @@ public class ExecutionEnvironment
     // differently. The copy constructor below runs this initializer too, so a clone keeps the comparer.
     public Dictionary<string, int> variableToLocation = new(StringComparer.OrdinalIgnoreCase);
 
+    internal VbObject? Instance { get; private set; }
+
+    internal void SetInstance(VbObject instance) => Instance = instance;
+
     private ExecutionEnvironment? moduleScope;
 
     internal ExecutionEnvironment ModuleScope => moduleScope ?? this;
@@ -85,7 +89,7 @@ public class ExecutionEnvironment
     internal List<int>? AllocatedSlots { get; set; }
 
     // Calls own only their parameters, locals, return name and Me; module/instance names stay in their scope.
-    internal ExecutionEnvironment CreateProcedureScope() => new() { moduleScope = this };
+    internal ExecutionEnvironment CreateProcedureScope() => new() { moduleScope = this, Instance = Instance };
 
     public ExecutionEnvironment Clone()
     {

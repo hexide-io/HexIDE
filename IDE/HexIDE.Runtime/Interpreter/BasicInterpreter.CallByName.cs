@@ -58,6 +58,7 @@ public partial class BasicInterpreter
             }
             else if (obj.ClassDef.PrePass.PublicVariables.Contains(name))
             {
+                NoteMemberAccess(obj, name);
                 var (_, field) = await ReadVariable(obj.InstanceEnv, name);
                 if (kind is 2 or 3 && memberArgs.Count == 0 && VbNumeric.IsDeclarableScalar(field.Type))
                     return field;

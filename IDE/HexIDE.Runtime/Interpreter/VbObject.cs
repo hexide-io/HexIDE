@@ -25,6 +25,7 @@ public readonly record struct EventSink(Vb6Value Listener, string VarName);
 /// </summary>
 public sealed class VbObject
 {
+    internal BasicInterpreter? Interpreter { get; init; }
     public ModuleInfo ClassDef { get; }
     public ExecutionEnvironment InstanceEnv { get; }
 
@@ -115,5 +116,6 @@ public sealed class VbObject
     {
         ClassDef = classDef;
         InstanceEnv = instanceEnv;
+        instanceEnv.SetInstance(this);
     }
 }
