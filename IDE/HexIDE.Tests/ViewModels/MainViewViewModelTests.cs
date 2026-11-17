@@ -121,10 +121,10 @@ public class MainViewViewModelTests
             }
             return Task.FromResult(true);
         });
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new System.InvalidOperationException(), _windowManager,
+        return new ProjectService(() => throw new System.InvalidOperationException(), _windowManager,
             _eventBus, _projectManager, _recentProjects, Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(), _localization,
-            Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
     }
 
     [AvaloniaFact]
@@ -178,12 +178,11 @@ public class MainViewViewModelTests
             ((HexIDE.Forms.ViewModels.SaveChangesViewModel)ci.Arg<IDialog>()).No();
             return Task.FromResult(!cancelSave);
         });
-        var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => new HexIDE.Forms.ViewModels.NewProjectViewModel(_windowManager, _recentProjects,
+        var service = new ProjectService(            () => new HexIDE.Forms.ViewModels.NewProjectViewModel(_windowManager, _recentProjects,
                 _settingsService, profile, _localization),
             _windowManager, _eventBus, _projectManager, _recentProjects,
             Substitute.For<IReferenceLibraryService>(), Substitute.For<HexIDE.Sidecar.IUserSidecarService>(),
-            new FileBaselineStore(), _localization, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
+            new FileBaselineStore(), _localization, Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
         var shell = Build(_runnerService, projects: service);
 
         Func<Task> create = shell.NewProject;
@@ -212,7 +211,7 @@ public class MainViewViewModelTests
     {
         var references = new FindReferencesToolViewModel(Substitute.For<ILspClient>(),
             Substitute.For<IEditorService>(), _projectManager,
-            Substitute.For<IDocumentDockService>(), _localization, format: new Vb6ProjectFileFormat());
+            Substitute.For<IDocumentDockService>(), _localization);
         var shell = Build(_runnerService, references: references);
         references.ShowLocations([]);
         references.Owner.Should().NotBeNull();
@@ -364,7 +363,7 @@ public class MainViewViewModelTests
         // bypass with an uninitialized instance since tests never touch it.
         var toolBox = (ToolBoxToolViewModel)RuntimeHelpers.GetUninitializedObject(typeof(ToolBoxToolViewModel));
 
-        var properties = new PropertiesToolViewModel(mockDocDock, _eventBus, _windowManager, loc, new Vb6ProjectFileFormat());
+        var properties = new PropertiesToolViewModel(mockDocDock, _eventBus, _windowManager, loc);
         var immediate = new ImmediateToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var formLayout = new FormLayoutToolViewModel(mockDocDock, _eventBus, loc);
         var locals = new LocalsToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
@@ -448,7 +447,8 @@ public class MainViewViewModelTests
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             debug ?? _debugController,
             new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc),
-            logFolderOpener: logFolderOpener, recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references, callHierarchy: hierarchy, typeHierarchy: typeHierarchy);
+            logFolderOpener: logFolderOpener, recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references, callHierarchy: hierarchy, typeHierarchy: typeHierarchy,
+            runWith: null);
     }
 
     private sealed class RequeryProbe : IDisposable
@@ -1911,7 +1911,7 @@ public class MainViewViewModelTests
             Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), breakpoints,
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<ILocalizationService>());
         if (kind is not null) return code.Initialize(module);
         var form = new FormDefinition(project, HexIDE.Runtime.Components.FormComponentClass.Instance, name);
         project.AddForm(form);

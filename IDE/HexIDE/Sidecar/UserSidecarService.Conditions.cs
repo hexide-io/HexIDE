@@ -13,7 +13,7 @@ public partial class UserSidecarService
         foreach (var document in DocumentLookup.DocumentsOf(project))
         {
             if (!owned.Contains(document.Name)) continue;
-            var shift = DocumentContent.TextOf(document, null, format, reader).HeaderLineCount;
+            var shift = DocumentContent.TextOf(document, null).HeaderLineCount;
             Apply(data.CodeBreakpointConditions, shift);
             Apply(data.HeaderBreakpointConditions, 0);
 
@@ -47,7 +47,7 @@ public partial class UserSidecarService
         var result = new Dictionary<string, Dictionary<int, string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var document in DocumentLookup.DocumentsOf(project))
         {
-            var shift = DocumentContent.TextOf(document, null, format, reader).HeaderLineCount;
+            var shift = DocumentContent.TextOf(document, null).HeaderLineCount;
             foreach (var line in breakpointService.GetBreakpoints(document))
             {
                 if ((line <= shift) != header || breakpointService.GetCondition(document, line) is not { } expression)

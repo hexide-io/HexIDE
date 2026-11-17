@@ -32,7 +32,6 @@ public partial class PropertiesToolViewModel : Tool
     public IEventBus EventBus { get; }
     private readonly IWindowManager windowManager;
     private readonly ILocalizationService localization;
-    private readonly IProjectFileFormat format;
     private ModuleDefinition? currentModule;
 
     /// <summary>
@@ -104,10 +103,8 @@ public partial class PropertiesToolViewModel : Tool
     public PropertiesToolViewModel(IDocumentDockService documentDockService,
         IEventBus eventBus,
         IWindowManager windowManager,
-        ILocalizationService localization,
-        IProjectFileFormat format)
+        ILocalizationService localization)
     {
-        this.format = format;
         EventBus = eventBus;
         this.windowManager = windowManager;
         this.localization = localization;
@@ -192,12 +189,13 @@ public partial class PropertiesToolViewModel : Tool
                             }
                         }
 
-                        foreach (var raw in component.Instance.UnknownRawProperties.Where(raw =>
+                        // A raw line is read by the format of the project the form is in; a designer showing no form has none.
+                        var rawFormat = formEditViewModel.FormDefinition is { } shown ? ProjectFormats.Of(shown.Owner) : null;
+                        foreach (var raw in rawFormat is null ? [] : component.Instance.UnknownRawProperties.Where(raw =>
                                      !properties.ContainsKey(VBProperties.DesignIndexProperty)
                                      || !raw.Name.Equals("Index", StringComparison.OrdinalIgnoreCase)))
                         {
-                            var row = new RawPropertyViewModel(raw, localization,
-                                formEditViewModel.FormDefinition is { } shown ? ProjectFormats.Of(shown.Owner, format) : format);
+                            var row = new RawPropertyViewModel(raw, localization, rawFormat!);
                             Properties.Add(row);
                             CategorizedProperties.Add(row);
                         }

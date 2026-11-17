@@ -198,10 +198,9 @@ public sealed class OfficeProjectBrowsingTests : IDisposable
         var types = new ContributedProjects();
         var format = new Vb6ProjectFileFormat();
         Vb6ProjectType.Register(types, format);
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => throw new InvalidOperationException(), windows, Substitute.For<IEventBus>(), manager, recent,
-            Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            localization, Substitute.For<IHeaderRefresher>(), format, new ComponentRegistry(), archives, contributed: types);
+        return new ProjectService(() => throw new InvalidOperationException(), windows, Substitute.For<IEventBus>(), manager,
+            recent, Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
+            localization, Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), archives, contributed: types);
     }
 
     public void Dispose()

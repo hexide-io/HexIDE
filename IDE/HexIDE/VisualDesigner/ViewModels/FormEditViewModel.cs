@@ -42,7 +42,6 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     private readonly IWindowManager windowManager;
     private readonly ISettingsService settingsService;
     private readonly ILocalizationService localization;
-    private readonly IProjectFileFormat format;
     public ToolBoxToolViewModel ToolsBoxToolViewModel { get; }
     public ISettingsService Settings => settingsService;
     protected override string ComputeTitle()
@@ -283,10 +282,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         IEditorService editorService,
         IWindowManager windowManager,
         ISettingsService settingsService,
-        ILocalizationService localization,
-        IProjectFileFormat format) : this()
+        ILocalizationService localization) : this()
     {
-        this.format = format;
         this.eventBus = eventBus;
         this.projectService = projectService;
         this.editorService = editorService;
@@ -524,7 +521,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// <summary>The children a container's block holds, in the order a save writes them, as the writer reads them.</summary>
     private IReadOnlyList<ComponentInstance> WrittenChildren(ComponentInstance container, IReadOnlyList<ComponentInstance> fileOrder) =>
         ReferenceEquals(container, Form.Instance)
-            ? (formDefinition is { } own ? ProjectFormats.Of(own.Owner, format) : format).RootChildren(fileOrder, container)
+            ? formDefinition is { } own ? ProjectFormats.Of(own.Owner).RootChildren(fileOrder, container) : container.ContainedControls
             : container.ContainedControls;
 
     /// <summary>
@@ -737,7 +734,6 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             .SetProperty(VBProperties.CaptionProperty, "Form1"));
         AllComponents.Add(Form);
         eventBus = null!;
-        format = null!;
         projectService = null!;
         editorService = null!;
         windowManager = null!;

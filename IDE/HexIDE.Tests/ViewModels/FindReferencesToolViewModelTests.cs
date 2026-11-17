@@ -36,7 +36,7 @@ public class FindReferencesToolViewModelTests
         localization.GetString("Str.Tool.FindReferences.Error").Returns("{0}: {1}");
     }
 
-    private FindReferencesToolViewModel Create() => new(client, editors, projects, documents, localization, format: new Vb6ProjectFileFormat());
+    private FindReferencesToolViewModel Create() => new(client, editors, projects, documents, localization);
     private static Location At(ModuleDefinition module) => new(DocumentWireName.For(DocumentIdentity.For(module)),
         new LspRange(new Position(FormCodeText.LineBreaks(FormCodeText.Prefix(module)), 5),
             new Position(FormCodeText.LineBreaks(FormCodeText.Prefix(module)), 10)));
@@ -54,7 +54,7 @@ public class FindReferencesToolViewModelTests
                 DocumentLanguage.Vb6, () => server)], Substitute.For<ILogger<LspClientRegistry>>());
         var uri = At(first).Uri;
         await registry.OpenDocumentAsync(uri, "code", TestContext.Current.CancellationToken);
-        var vm = new FindReferencesToolViewModel(registry, editors, projects, documents, localization, format: new Vb6ProjectFileFormat());
+        var vm = new FindReferencesToolViewModel(registry, editors, projects, documents, localization);
         vm.ShowLocations([At(second)]);
         await vm.SearchAsync(uri, new Position(0, 5), TestContext.Current.CancellationToken);
         vm.Rows.Should().ContainSingle().Which.Before.Should()

@@ -61,13 +61,12 @@ public class FormControlsSummaryTests
         var events = new EventBus();
         using var designer = open ? new HexIDE.VisualDesigner.FormEditViewModel(
             null!, events, null!, null!, null!, Substitute.For<ISettingsService>(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form) : null;
+            Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form) : null;
         dock.OpenDocuments.Returns(designer is null ? [] : [designer]);
         var writer = Substitute.For<IProjectService>();
         writer.SaveForm(form, false, interactive: false, rewrites: Arg.Any<HexIDE.Projects.SaveRewriteReport>()).Returns(true);
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
-            null!, null!, writer, events, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            null!, null!, writer, events, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
         if (check is "carried" or "array" or "indexedarray" or "readonly")
         {
@@ -187,8 +186,7 @@ public class FormControlsSummaryTests
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns([]);
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
         async Task Check(string[] names)
         {
@@ -206,7 +204,7 @@ public class FormControlsSummaryTests
         var closed = await tools.GetFormControlsAsync("Form1");
         using var designer = new HexIDE.VisualDesigner.FormEditViewModel(
             null!, Substitute.For<IEventBus>(), null!, null!, null!, Substitute.For<ISettingsService>(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+            Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form);
         dock.OpenDocuments.Returns([designer]);
         var first = designer.AllComponents.Single(c => c.Name == "Command1");
         designer.SendToBack(first);
@@ -249,12 +247,10 @@ public class FormControlsSummaryTests
         var dock = Substitute.For<IDocumentDockService>();
         var designer = open ? new HexIDE.VisualDesigner.FormEditViewModel(
             null!, Substitute.For<IEventBus>(), null!, null!, null!, Substitute.For<ISettingsService>(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form) : null;
+            Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form) : null;
         dock.OpenDocuments.Returns(designer is null ? [] : [designer]);
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-                new Vb6ProjectFileFormat(),
-                new Vb6ReadOnlyRegionReader());
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
 
         var tools = new HexIdeTools(context);
         var missing = await tools.GetFormControlsAsync("Form1", controlName: "Absent");
@@ -315,9 +311,7 @@ public class FormControlsSummaryTests
         dock.OpenDocuments.Returns([]);
         // Only these services are used by this read-only tool; the context also subscribes to diagnostics.
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-                new Vb6ProjectFileFormat(),
-                new Vb6ReadOnlyRegionReader());
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
 
         foreach (var name in new string?[] { null, "Control1" })

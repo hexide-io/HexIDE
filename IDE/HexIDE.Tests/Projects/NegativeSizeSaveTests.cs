@@ -53,7 +53,7 @@ public class NegativeSizeSaveTests : IDisposable
         var localization = Substitute.For<HexIDE.Localization.ILocalizationService>();
         localization.GetString("Str.ProjectLoad.PropertyNotSet").Returns("Line {0}: Property {1} in {2} could not be set.");
 
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
+        return new ProjectService(
             () => throw new InvalidOperationException("new-project dialog must not be reached"),
             windowManager,
             Substitute.For<IEventBus>(),
@@ -63,8 +63,8 @@ public class NegativeSizeSaveTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             localization,
-            refresher ?? new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
-            new Vb6ProjectFileFormat(), new ComponentRegistry());
+            refresher ?? new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()),
+            new ComponentRegistry());
     }
 
     private sealed class NullSink : IDeserializeErrorSink

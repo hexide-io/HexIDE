@@ -39,13 +39,11 @@ public partial class ProjectService : IProjectService
     private readonly ArchiveProjectService? archives;
     private readonly Func<ILspClient>? lspClient;
     private readonly ContributedProjects contributed;
-    private readonly IProjectFileFormat format;
     private readonly IComponentRegistry componentRegistry;
-    private readonly IReadOnlyRegionWriter regionWriter;
     private readonly IDocumentDockService? documents;
     private readonly HexIDE.Addins.AddinProjectTemplateService? templates;
 
-    public ProjectService(IReadOnlyRegionWriter regionWriter, Func<NewProjectViewModel> newProjectVm,
+    public ProjectService(Func<NewProjectViewModel> newProjectVm,
         IWindowManager windowManager,
         IEventBus eventBus,
         IProjectManager projectManager,
@@ -55,7 +53,6 @@ public partial class ProjectService : IProjectService
         IFileBaselineStore baselineStore,
         ILocalizationService localization,
         IHeaderRefresher headerRefresher,
-        IProjectFileFormat format,
         IComponentRegistry componentRegistry,
         ArchiveProjectService? archives = null,
         Func<ILspClient>? lspClient = null,
@@ -65,12 +62,10 @@ public partial class ProjectService : IProjectService
     {
         this.templates = templates;
         this.documents = documents;
-        // A ProjectService made without the IDE's project types, which only a test makes, reads VB6's files through the
-        // format it was given, registered as the composition registers VB6's type. That goes in #3411's slice 10b-3.
-        this.contributed = contributed ?? WithVb6(format);
+        // A ProjectService made without the IDE's project types, which only a test makes, has VB6's type alone, registered
+        // as the composition registers it.
+        this.contributed = contributed ?? Vb6ProjectType.Alone();
         this.contributed.TypeWithdrawn += OnTypeWithdrawn;
-        this.regionWriter = regionWriter;
-        this.format = format;
         this.componentRegistry = componentRegistry;
         this.newProjectVm = newProjectVm;
         this.windowManager = windowManager;
@@ -164,14 +159,7 @@ public partial class ProjectService : IProjectService
             ? line.Substring(file.Start, file.Length)
             : null;
 
-    private static ContributedProjects WithVb6(IProjectFileFormat format)
-    {
-        var types = new ContributedProjects();
-        Vb6ProjectType.Register(types, format);
-        return types;
-    }
-
-    // VB6's type, which makes every new project until #3411's slice 10b-2 moves the templates to it.
+    // VB6's type, which makes every new project from its templates.
     private ContributedProjectType? Vb6Type => contributed.Types.FirstOrDefault(t => t.AddinId == Vb6ProjectType.Id);
 
     // A project read or made by a type with a format of its own: that format reads and writes it from here on, and the type
@@ -246,8 +234,9 @@ public partial class ProjectService : IProjectService
 
     private void RecordTemplateHeaders(ProjectDefinition project)
     {
-        if (project.Format is null)
-            Adopt(project, Vb6Type, Vb6Type?.Type.Format ?? format);
+        // A template's project is VB6's: its templates are the ones that make them (#3411 slice 10b-2).
+        if (project.Format is null && Vb6Type is { Type.Format: { } vb6 } type)
+            Adopt(project, type, vb6);
         // Only through HexIDE's own format. A project whose forms an add-in renders keeps its header for the first save,
         // so creating the project never runs the add-in's code at a new time (#885, #3666).
         if (project.FormFormat is not null)
@@ -542,8 +531,6 @@ public partial class ProjectService : IProjectService
                 baselineStore.Record, localization);
             if (projectFileBytes is not null)
                 baselineStore.Record(projectPath, projectFileBytes);
-            // Its plain modules are read and rendered as they were before #4053; its forms and file stay its type's.
-            project.Format = format;
             projectManager.AddProject(project);
             EnsureGroupIfMultiple();
             recentProjects.Add(projectPath);
@@ -1617,14 +1604,14 @@ public partial class ProjectService : IProjectService
 
     // The format a project's file and members go through: its own, set by whatever opened or made it (#4053), or the IDE's
     // for a project nothing opened. A group, and a file not yet opened, still go through the IDE's until #3411's slice 10b.
-    private IProjectFileFormat FormatOf(ProjectDefinition project) => ProjectFormats.Of(project, format);
+    private IProjectFileFormat FormatOf(ProjectDefinition project) => ProjectFormats.Of(project);
 
     // The writer of that format's read-only regions (#4053).
-    private IReadOnlyRegionWriter? RegionWriterOf(ProjectDefinition project) => ProjectFormats.WriterOf(project, regionWriter);
+    private IReadOnlyRegionWriter? RegionWriterOf(ProjectDefinition project) => ProjectFormats.WriterOf(project);
 
     /// <summary>
     /// A module's file as it would be written at <paramref name="path"/>: a UserControl's or PropertyPage's through the format
-    /// its project's forms are read with, and any other through the IDE's own, as it was read.
+    /// its project's forms are read with, and any other through its project's format.
     /// </summary>
     private RenderedFile RenderModule(ModuleDefinition module, string path) =>
         DesignerPartOf(module) is not null
@@ -1643,7 +1630,8 @@ public partial class ProjectService : IProjectService
 
     // Through the format of the type that reads group files of this name: VB6's for a .vbg (#3411 slice 10b).
     private string RenderGroup(ProjectGroupDefinition group, string path, Func<object, string?>? pathOf) =>
-        (contributed.FindGroup(path)?.Type.Format ?? Vb6Type?.Type.Format ?? format)
+        (contributed.FindGroup(path)?.Type.Format ?? Vb6Type?.Type.Format
+            ?? throw new InvalidOperationException("No registered project type writes project groups."))
             .RenderGroup(path, projectManager.LoadedProjects, projectManager.StartupProject, group.UnknownLines, pathOf);
 
     public async Task<bool> ReloadFormFromDisk(FormDefinition form)
@@ -2658,7 +2646,7 @@ public partial class ProjectService : IProjectService
     {
         var whole = prefix + code;
         var owner = document switch { FormDefinition form => form.Owner, ModuleDefinition module => module.Owner, _ => null };
-        if ((owner is null ? regionWriter : RegionWriterOf(owner)) is not { } writer)
+        if (owner is null || RegionWriterOf(owner) is not { } writer)
             return null;
         var changes = writer.SaveRewrites(whole, prefix.Length);
         if (changes.Count == 0)

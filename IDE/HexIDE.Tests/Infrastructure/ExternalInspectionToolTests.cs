@@ -63,7 +63,7 @@ public class ExternalInspectionToolTests : CompositionTestBase
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
             null!, composition.ProjectRunnerService, null!, null!, null!, composition.BreakpointService,
             composition.DebugController, root, null!, null!, null!, null!, capture, null!,
-            composition.LocalizationService, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            composition.LocalizationService, null!);
         var tools = new HexIdeTools(context);
         var mode = running ? "conditions-running" : tool switch { "locals-tree" or "locals-depth" => "locals-tree", "stack-no-source" => "session", "set-unsupported" => "breakpoints", "evaluate-output" or "evaluate-output-delayed" or "evaluate-both" => "evaluate-output", "evaluate-refusal" => "evaluate-refusal", "clear-refused" => "breakpoints-refuse-clear", _ => "conditions" };
         var run = external.StartAsync(await ExternalDebugServiceTests.Configuration(directory, mode));

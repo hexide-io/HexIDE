@@ -252,7 +252,7 @@ public class FloatingLifecycleTests
         lifetime.MainWindow.Returns(window);
         using var context = new HexIDE.Desktop.Server.IdeContext(null!, null!, Substitute.For<HexIDE.Lsp.ILspClient>(),
             null!, Substitute.For<IProjectRunnerService>(), null!, null!, null!, null!, null!, vm,
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, null!, null!, null!, null!, null!, null!, null!);
         string? saved = null;
         var state = Substitute.For<IWindowStateService>();
         state.When(s => s.SaveLayoutManifestJson(Arg.Any<string>())).Do(call => saved = call.Arg<string>());

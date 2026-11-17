@@ -41,20 +41,20 @@ public class DesignerSizeTests
         var windows = Substitute.For<IWindowManager>();
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns("Invalid property value");
-        var service = new ProjectService(new Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(), windows, events,
+        var service = new ProjectService(() => throw new InvalidOperationException(), windows, events,
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(), localization,
-            Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
         await service.SaveProjectToDirectory(project, project.WorkingDirectory);
         try
         {
             var toolbox = new ToolBoxToolViewModel(dock, new ComponentRegistry(), localization);
             using var designer = new FormEditViewModel(toolbox, events, service, Substitute.For<IEditorService>(), windows,
-                Substitute.For<ISettingsService>(), localization, new Vb6ProjectFileFormat()).Initialize(form);
+                Substitute.For<ISettingsService>(), localization).Initialize(form);
             dock.OpenDocuments.Returns([designer]);
             using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), null!,
                 Substitute.For<IProjectRunnerService>(), service, events, null!, null!, null!, null!, null!, null!,
-                null!, null!, null!, null!, localization, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+                null!, null!, null!, null!, localization, null!);
             var tools = new HexIdeTools(context);
             var added = await tools.AddControlAsync("Form1", "CommandButton", 10, 10, 81, 33);
             added.Success.Should().BeTrue();
@@ -75,7 +75,7 @@ public class DesignerSizeTests
             else if (route == "grid")
             {
                 designer.SelectedComponent = control;
-                var grid = new PropertiesToolViewModel(dock, events, windows, localization, new Vb6ProjectFileFormat());
+                var grid = new PropertiesToolViewModel(dock, events, windows, localization);
                 dock.ActiveDocument.Returns(designer);
                 dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock, new PropertyChangedEventArgs(nameof(dock.ActiveDocument)));
                 grid.UpdateValue(property, size);

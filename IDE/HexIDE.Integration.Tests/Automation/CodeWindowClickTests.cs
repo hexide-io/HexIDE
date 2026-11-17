@@ -57,7 +57,7 @@ public class CodeWindowClickTests
             Vm = new CodeEditorViewModel(Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(),
                 Substitute.For<IProjectService>(), events, lsp, settings, Substitute.For<IStatusBarService>(),
                 new BookmarkService(), new BreakpointService(), Substitute.For<IDebugController>(), new RunScope(),
-                Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+                Substitute.For<ILocalizationService>());
             var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P3827"), "Main", ModuleKind.StandardModule);
             module.UpdateCode(string.Join("\n", Enumerable.Repeat("' abcdefghijklmnop", 120)));
             Vm.Initialize(module);

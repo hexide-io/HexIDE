@@ -28,10 +28,9 @@ public sealed class ProjectFileEditingTests : IDisposable
         documents.OpenDocuments.Returns(tabs);
         var strings = Substitute.For<ILocalizationService>();
         strings.GetString("Str.ProjectFile.ReplaceModel").Returns("Replace unsaved settings for {0}?");
-        service = new ProjectService(new Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(), windows,
+        service = new ProjectService(() => throw new InvalidOperationException(), windows,
             events, manager, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
-            Substitute.For<IUserSidecarService>(), new FileBaselineStore(), strings, Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat(), new ComponentRegistry(), documents: documents);
+            Substitute.For<IUserSidecarService>(), new FileBaselineStore(), strings, Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), documents: documents);
     }
 
     private async Task<ProjectFileDocumentViewModel> Open()

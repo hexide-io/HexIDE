@@ -68,8 +68,7 @@ public class UnsavedMemberRefusalTests : IDisposable
         var localization = Substitute.For<HexIDE.Localization.ILocalizationService>();
         localization.GetString("Str.Dialog.UnsavedMembers.NothingWritten").Returns(RefusalText);
 
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => throw new InvalidOperationException("new-project dialog must not be reached"),
+        return new ProjectService(            () => throw new InvalidOperationException("new-project dialog must not be reached"),
             windowManager,
             Substitute.For<IEventBus>(),
             projectManager,
@@ -78,8 +77,7 @@ public class UnsavedMemberRefusalTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             localization,
-            Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
     }
 
     /// <summary>A project as File ▸ New Project makes it: a <c>Form1</c> that is its startup form, and no files.</summary>

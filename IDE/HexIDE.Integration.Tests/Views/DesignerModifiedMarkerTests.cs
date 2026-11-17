@@ -32,10 +32,10 @@ public class DesignerModifiedMarkerTests
         var dir = Path.Join(Path.GetTempPath(), "hexide-marker-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         var bus = new EventBus();
-        var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), null!, Substitute.For<IWindowManager>(), bus,
+        var service = new ProjectService(null!, Substitute.For<IWindowManager>(), bus,
             Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
-            new FileBaselineStore(), Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
+            new FileBaselineStore(), Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDefinition(project, FormComponentClass.Instance, "Form1")
         {
@@ -48,7 +48,7 @@ public class DesignerModifiedMarkerTests
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
             new ComponentRegistry(), Substitute.For<ILocalizationService>());
         using var vm = new FormEditViewModel(toolbox, bus, service, null!, null!,
-            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
         var view = new FormEditView { DataContext = vm };
         var dock = new DocumentDock
         {
