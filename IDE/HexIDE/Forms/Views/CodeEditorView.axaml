@@ -203,6 +203,12 @@
                                   SubmenuOpened="OnQuickFixesOpened">
                             <MenuItem Header="{DynamicResource Str.CodeEditor.Context.NoQuickFix}" IsEnabled="False" />
                         </MenuItem>
+                        <MenuItem x:Name="RefactorMenu" Header="{DynamicResource Str.CodeEditor.Refactor}" SubmenuOpened="OnCodeActionsOpened">
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.NoCodeActions}" IsEnabled="False" />
+                        </MenuItem>
+                        <MenuItem x:Name="SourceActionsMenu" Header="{DynamicResource Str.CodeEditor.SourceActions}" SubmenuOpened="OnCodeActionsOpened">
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.NoCodeActions}" IsEnabled="False" />
+                        </MenuItem>
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Rename}"        Command="{x:Static vb:ApplicationCommands.RenameSymbolCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ExpandSelection}" Command="{x:Static vb:ApplicationCommands.ExpandSelectionCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ShrinkSelection}" Command="{x:Static vb:ApplicationCommands.ShrinkSelectionCommand}" />

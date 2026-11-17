@@ -10,10 +10,12 @@ public partial class BasicInterpreter
     // Keep the original CallArgs: RunProcedure's binder shares caller storage for ByRef parameters.
     internal async Task<Vb6Value> CallByName(IReadOnlyList<CallArg> callArgs, Stack<List<Vb6Value>>? callerFrames)
     {
+        if (NamedArguments.Any(callArgs))
+            await VB6BuiltIns.ArrangeIntrinsicArguments("CallByName", callArgs); // Measured compile error, #4145.
         foreach (var arg in callArgs)
         {
-            if (arg.Name is not null || arg.Omitted)
-                throw new NotImplementedException("CallByName named/omitted arguments are not implemented (#2519)");
+            if (arg.Omitted)
+                throw new NotImplementedException("CallByName omitted arguments are not implemented (#2519)");
         }
         if (callArgs.Count < 3)
             throw new NotImplementedException("CallByName with fewer than three arguments is not implemented (#2519)");

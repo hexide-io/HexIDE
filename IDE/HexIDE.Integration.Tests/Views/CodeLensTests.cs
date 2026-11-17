@@ -249,7 +249,7 @@ public class CodeLensTests
                 window.MouseDown(point, MouseButton.Left);
                 window.MouseUp(point, MouseButton.Left);
                 if (check == "click-server")
-                    client.Received(1).ExecuteCommandAsync("server.run", Arg.Any<System.Text.Json.JsonElement[]>(), Arg.Any<CancellationToken>());
+                    client.Received(1).ExecuteCodeLensCommandAsync(Arg.Is<Command>(c => c.CommandName == "server.run"), Arg.Any<CancellationToken>());
                 else
                     results.Rows.Should().Contain(r => r.Location == location);
                 client.DidNotReceive().FindReferencesAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());

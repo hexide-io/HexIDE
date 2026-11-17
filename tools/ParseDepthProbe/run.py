@@ -14,8 +14,8 @@ import threading
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 OUT = ROOT / 'artifacts/parse-depth'
-PROBE = ROOT / 'tools/ParseDepthProbe/bin/Debug/net10.0/ParseDepthProbe.dll'
-SERVER = ROOT / 'LspServer/HexIDE.VbLspServer/bin/Debug/net10.0/HexIDE.VbLspServer.dll'
+PROBE = ROOT / 'tools/ParseDepthProbe/bin/Debug/net11.0/ParseDepthProbe.dll'
+SERVER = ROOT / 'LspServer/HexIDE.VbLspServer/bin/Debug/net11.0/HexIDE.VbLspServer.dll'
 
 
 def wire(source, log):

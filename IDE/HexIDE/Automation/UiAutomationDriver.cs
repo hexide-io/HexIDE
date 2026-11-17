@@ -781,6 +781,8 @@ public static class UiAutomationDriver
                     return ToggleVerified(tog, LabelOf(control, peer), control is RadioButton, InProgram(control));
 
                 case "expand":
+                    if (control is Dock.Avalonia.Controls.ToolChromeControl openChrome)
+                        return ThroughToolPaneMenu(openChrome, peer, "expand", value);
                     if (control is not MenuItem && peer.GetProvider<IExpandCollapseProvider>() is { } exp)
                     {
                         if (exp.ExpandCollapseState == ExpandCollapseState.Expanded)
@@ -833,6 +835,8 @@ public static class UiAutomationDriver
                     return ThroughSoleMenuWrapper(control, peer, "expand", value) ?? Unsupported("expand");
 
                 case "collapse":
+                    if (control is Dock.Avalonia.Controls.ToolChromeControl closeChrome)
+                        return ThroughToolPaneMenu(closeChrome, peer, "collapse", value);
                     if (control is not MenuItem && peer.GetProvider<IExpandCollapseProvider>() is { } col)
                     {
                         if (col.ExpandCollapseState == ExpandCollapseState.Collapsed)
@@ -1880,6 +1884,7 @@ public static class UiAutomationDriver
             return Fail(problem);
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Fail("the control is not attached to a window, so it has no coordinates to click at");
+        var startedInactive = topLevel is Window { IsActive: false };
         // A hover left there by 'stay' ends first, as a person's pointer leaves what it was over to press elsewhere (#2562).
         EndStayingHover(topLevel);
         var local = at ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
@@ -1951,6 +1956,8 @@ public static class UiAutomationDriver
             buttonTime += buttonStep;
             return timestamp;
         }
+        var pressTarget = hit;
+        var pressWindowTitle = (topLevel as Window)?.Title ?? topLevel.GetType().Name;
         var pressTime = ButtonTimestamp();
         // Raw presses cancel the tooltip timer started by arrival and implicitly capture the hit element (#3130, #1373).
         if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse, pressTime))
@@ -2004,6 +2011,16 @@ public static class UiAutomationDriver
                 if (moveFailed is not null)
                     return new InteractOutcome(false, "pointer", null,
                         $"pressed {pressed}, and a held move threw, so the button was let go without a release: {moveFailed.Message}");
+                // A press can dock a floating tool or remove its target before the release's dispatcher turn (#4224).
+                var whichPress = second ? "second" : "first";
+                if (topLevel.PlatformImpl is null)
+                    return new InteractOutcome(true, "pointer",
+                        $"pressed {pressed}; the window '{pressWindowTitle}' closed after the {whichPress} press, "
+                        + "as a double-click on a floating title does when it docks the tool; nothing was released there", null);
+                if (!ReferenceEquals(TopLevel.GetTopLevel(pressTarget), topLevel))
+                    return new InteractOutcome(true, "pointer",
+                        $"pressed {pressed}; the target '{(pressTarget is Control target ? Describe(target) : pressTarget.GetType().Name)}' "
+                        + $"was removed after the {whichPress} press; nothing was released there", null);
                 // A control that captured the pointer on its press takes the release, as it would from a real pointer.
                 var captured = pointer.Captured is not null;
                 var releasedOn = pointer.Captured as Avalonia.Interactivity.Interactive
@@ -2026,6 +2043,14 @@ public static class UiAutomationDriver
                 var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{arrival}{(second ? secondLanding : "")}"
                     + (destination is null ? (releaseCode.Length == 0 ? "" : $"; released{releaseCode}") : $"; released at {releaseWhere}{releaseCode}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
+                if (startedInactive && topLevel is Window { IsActive: false } clickedWindow)
+                {
+                    var active = OpenWindows().FirstOrDefault(w => w.IsActive);
+                    outcome = outcome with { Detail = outcome.Detail
+                        + $"; {FormLabel(clickedWindow)} is still inactive: "
+                        + (active is null ? "no HexIDE window is active" : $"{FormLabel(active)} is still active")
+                        + ". To request activation, use set_window_state {window: <name>, activate: true}; it only switches while HexIDE is active" };
+                }
 #if DEBUG
                 return UiSaveFeedback.After(saveWatch, outcome);
 #else
@@ -2059,6 +2084,7 @@ public static class UiAutomationDriver
                 return Fail($"clicked {pressed}; the second click was not sent because the window is hidden or closed");
             if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive again)
                 return Fail($"clicked {pressed}; the second click was not sent because nothing takes the pointer at that point now");
+            pressTarget = again;
             var secondPressTime = ButtonTimestamp();
             if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse, secondPressTime))
                 again.RaiseEvent(new PointerPressedEventArgs(again, pointer, topLevel, RawPointer.InSurface(topLevel, inWindow), secondPressTime,
@@ -5373,6 +5399,28 @@ public static class UiAutomationDriver
     private static InteractOutcome Ok(string detail) => new(true, "peer", detail, null);
     private static InteractOutcome Err(string error) => new(false, "peer", null, error);
     private static InteractOutcome Unsupported(string action) => new(false, "peer", null, $"element does not support '{action}'");
+
+    private static InteractOutcome ThroughToolPaneMenu(Dock.Avalonia.Controls.ToolChromeControl chrome,
+        AutomationPeer peer, string action, string? value)
+    {
+        // Dock's peer opens ToolFlyout on the chrome itself, without the PART_Border's menu context (#4155).
+        var borders = chrome.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Name == "PART_Border" && ReferenceEquals(b.TemplatedParent, chrome)
+                && b.ContextFlyout is MenuFlyout && ReferenceEquals(b.ContextFlyout, chrome.ToolFlyout)).ToArray();
+        if (borders.Length != 1)
+            return Err($"the pane menu on '{LabelOf(chrome, peer)}' could not be reached deterministically; "
+                       + "target its None[PART_Border] child with expand or collapse");
+        var border = borders[0];
+        var flyout = border.ContextFlyout!;
+        var wasOpen = IsOpenOn(flyout, border);
+        var result = Interact(border, action, value);
+        if (!result.Success && !wasOpen) flyout.Hide();
+        return result with
+        {
+            Detail = result.Detail is { } detail
+                ? $"{detail}, the pane menu on PART_Border of '{LabelOf(chrome, peer)}'" : null,
+        };
+    }
 
     /// <summary>
     /// expand or collapse aimed at a node whose only menu is on one unnamed wrapper directly under it; null when there

@@ -411,8 +411,15 @@ public partial class DISetup
             .Bind().As(Singleton).To<LanguageServerMessageReporter>()
             .Bind().As(Singleton).To<AddinCommandService>()
             .Bind().As(Singleton).To<AddinProjectTemplateService>()
-            // The project types add-ins contribute, which Open Project and the recent list open as projects.
-            .Bind().As(Singleton).To<HexIDE.Projects.ContributedProjects>()
+            // The project types add-ins contribute, which Open Project and the recent list open as projects, with VB6's own
+            // registered first, as a first-party type reading through the IDE's format (#3411 slice 10b).
+            .Bind().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IProjectFileFormat>(out var format);
+                var types = new HexIDE.Projects.ContributedProjects();
+                HexIDE.Projects.Vb6ProjectType.Register(types, format);
+                return types;
+            })
             .Bind().As(Singleton).To<AddinOptionsService>()
             .Bind<IPackageVerifier>().As(Singleton).To<PackageVerifier>()
             .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To(ctx =>

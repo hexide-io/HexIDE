@@ -24,6 +24,9 @@ public class NativeToolRoundTests
         {
             File.WriteAllText(Path.Combine(directory, "chat-settings.json"),
                 new JsonObject { ["apiKey"] = "test-key", ["maxTurnsBeforeCompaction"] = compact ? 2 : 100 }.ToJsonString());
+            // The default endpoint is off this machine; the person already chose Send on the privacy notice (#4230).
+            File.WriteAllText(Path.Combine(directory, ChatViewModel.EgressConfirmedFileName),
+                ChatViewModel.EgressKeyFor(new ChatSettings().BaseUrl));
             var host = Substitute.For<IHexIdeHost>();
             var editor = Substitute.For<IEditorAccess>();
             host.Editor.Returns(editor);
@@ -67,6 +70,9 @@ public class NativeToolRoundTests
         try
         {
             File.WriteAllText(Path.Combine(directory, "chat-settings.json"), """{"apiKey":"test-key"}""");
+            // The default endpoint is off this machine; the person already chose Send on the privacy notice (#4230).
+            File.WriteAllText(Path.Combine(directory, ChatViewModel.EgressConfirmedFileName),
+                ChatViewModel.EgressKeyFor(new ChatSettings().BaseUrl));
             var chat = new ChatViewModel(Substitute.For<IHexIdeHost>(), directory) { InputText = "hello" };
             using var client = new ChatClient(new HttpClient(new StopHandler(reason, explanation)));
             typeof(ChatViewModel).GetField("_client", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(chat, client);

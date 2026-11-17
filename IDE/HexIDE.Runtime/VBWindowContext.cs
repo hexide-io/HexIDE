@@ -330,7 +330,7 @@ public class VBWindowContext : IModuleExecutionRoot
     /// </summary>
     public void Shown()
     {
-        if (shownSinceLoad || instance is not { FormLoaded: true } || Window is not IFormView view)
+        if (shownSinceLoad || instance is not { FormLoaded: true } || FormRoot.View(Window) is not { } view)
             return;
         ShowControls();
         shownSinceLoad = true;
@@ -347,7 +347,7 @@ public class VBWindowContext : IModuleExecutionRoot
     /// </summary>
     public void WindowResized(bool sizeSet = false, bool paintGrowth = false)
     {
-        if ((!shownSinceLoad && !sizeSet) || instance is not { FormLoaded: true } || Window is not IFormView view)
+        if ((!shownSinceLoad && !sizeSet) || instance is not { FormLoaded: true } || FormRoot.View(Window) is not { } view)
             return;
         var now = view.Extent;
         if (now == resizedAt)
@@ -497,7 +497,7 @@ public class VBWindowContext : IModuleExecutionRoot
             return false;
         // Held by a modal form, the close box is refused, as VB6's disabled window ignores a click on it: nothing is
         // raised, the window stays, and the modal form comes forward (#822).
-        if (Window is IFormView { HeldBy: { } modal })
+        if (FormRoot.View(Window) is { HeldBy: { } modal })
         {
             modal.ActivateForm();
             return true;

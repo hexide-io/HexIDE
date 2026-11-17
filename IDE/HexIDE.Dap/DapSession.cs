@@ -106,19 +106,39 @@ public sealed class DapSession : IAsyncDisposable
             if (await Task.WhenAny(ready, launch).ConfigureAwait(false) == launch)
                 await launch.ConfigureAwait(false); // observe an early refusal immediately
             await ready.ConfigureAwait(false);
+            async Task<DapResponse> Configure(string command, object configuration)
+            {
+                if (launch.IsCompleted) await launch.ConfigureAwait(false);
+                using var pendingCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+                var pending = Request(command, configuration, pendingCancellation.Token);
+                try
+                {
+                    await Task.WhenAny(pending, launch).ConfigureAwait(false);
+                    if (launch.IsCompleted) await launch.ConfigureAwait(false);
+                    return await pending.ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Settle the abandoned request without replacing the launch refusal.
+                    pendingCancellation.Cancel();
+                    try { await pending.ConfigureAwait(false); } catch { }
+                    throw;
+                }
+            }
+
             var replies = new List<DapResponse>();
             foreach (var source in sources)
-                replies.Add(await Request("setBreakpoints", new { source = new { path = source.Path },
-                    breakpoints = BreakpointArguments(source.Lines, source.Conditions) }, token).ConfigureAwait(false));
+                replies.Add(await Configure("setBreakpoints", new { source = new { path = source.Path },
+                    breakpoints = BreakpointArguments(source.Lines, source.Conditions) }).ConfigureAwait(false));
             var filters = Capabilities.TryGetProperty("exceptionBreakpointFilters", out var advertised)
                 ? advertised.EnumerateArray().Where(filter => filter.TryGetProperty("default", out var enabled) && enabled.ValueKind == JsonValueKind.True)
                     .Select(filter => filter.GetProperty("filter").GetString()).ToArray() : [];
             if (Capabilities.TryGetProperty("exceptionBreakpointFilters", out _))
-                await Request("setExceptionBreakpoints", new { filters }, token).ConfigureAwait(false);
+                await Configure("setExceptionBreakpoints", new { filters }).ConfigureAwait(false);
             lock (_sync)
                 if (_snapshot.State == DapSessionState.Starting) Change(DapSessionState.Running);
             if (Supports("supportsConfigurationDoneRequest"))
-                await Request("configurationDone", new { }, token).ConfigureAwait(false);
+                await Configure("configurationDone", new { }).ConfigureAwait(false);
             await launch.ConfigureAwait(false);
             if (Snapshot.State == DapSessionState.Faulted)
                 throw new IOException("Debug session failed during startup.", Snapshot.Failure);

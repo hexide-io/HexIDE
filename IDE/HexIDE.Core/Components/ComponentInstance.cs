@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using static HexIDE.Runtime.Components.VBProperties;
 
@@ -117,7 +118,11 @@ public partial class ComponentInstance
     /// <paramref name="Records"/> is as on <see cref="PreservedSubtree"/>: the companion records the lines cite.
     /// </summary>
     public readonly record struct UnknownRawProperty(
-        string Name, IReadOnlyList<string> Lines, IReadOnlyDictionary<int, byte[]>? Records = null);
+        string Name, IReadOnlyList<string> Lines, IReadOnlyDictionary<int, byte[]>? Records = null)
+    {
+        // An edited scalar uses the serializer’s normal property columns at its current nesting depth.
+        public string? EditedValue { get; init; }
+    }
 
     private readonly List<PreservedSubtree> preservedChildSubtrees = [];
 
@@ -150,6 +155,11 @@ public partial class ComponentInstance
 
     public ComponentInstance SetProperty<T>(PropertyClass<T> propertyClass, T? value)
     {
+        if (ReferenceEquals(propertyClass, DesignIndexProperty))
+        {
+            SetUntypedProperty(propertyClass, value);
+            return this;
+        }
         var oldValue = properties.GetValueOrDefault(propertyClass, UnsetValue.Instance);
         OnComponentPropertyChanging?.Invoke(this, propertyClass, oldValue, value);
         properties[propertyClass] = value;
@@ -159,6 +169,19 @@ public partial class ComponentInstance
 
     public void SetUntypedProperty(PropertyClass propertyClass, object? untypedValue)
     {
+        if (ReferenceEquals(propertyClass, DesignIndexProperty))
+        {
+            var text = untypedValue as string ?? "";
+            if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index))
+                text = index.ToString(CultureInfo.InvariantCulture);
+            var before = GetBoxedPropertyOrDefault(propertyClass);
+            OnComponentPropertyChanging(this, propertyClass, before, text);
+            UnknownRawProperties.RemoveAll(p => p.Name.Equals("Index", StringComparison.OrdinalIgnoreCase));
+            if (text.Length > 0)
+                UnknownRawProperties.Add(new UnknownRawProperty("Index", ["Index = " + text]) { EditedValue = text });
+            OnComponentPropertyChanged(this, propertyClass);
+            return;
+        }
         if (untypedValue == null || propertyClass.PropertyType.IsInstanceOfType(untypedValue))
         {
             if (ReferenceEquals(propertyClass, NameProperty) &&
@@ -173,6 +196,8 @@ public partial class ComponentInstance
 
     public object? GetBoxedPropertyOrDefault(PropertyClass property)
     {
+        if (property == DesignIndexProperty)
+            return PropertyText.DesignIndexText(this);
         if (properties.TryGetValue(property, out var result))
         {
             return result;
@@ -190,6 +215,11 @@ public partial class ComponentInstance
 
     public bool TryGetProperty<T>(PropertyClass<T> property, out T value)
     {
+        if (ReferenceEquals(property, DesignIndexProperty) && GetBoxedPropertyOrDefault(property) is T index)
+        {
+            value = index;
+            return true;
+        }
         if (properties.TryGetValue(property, out var result))
         {
             if (result == null)

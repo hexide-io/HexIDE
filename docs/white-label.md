@@ -123,7 +123,11 @@ names the profile and the file. The rules are in
 - **It grants no trust.** The add-in trust root and the first-party key don't change, and About keeps showing them.
   The lines that name them can't be relabeled either: About's provenance and signing-key labels, and the add-in trust
   inspector's root, trust-anchor and first-party rows. A profile, including your `defaultProfile`, and a user's
-  translation override of them are ignored and logged, as for the credits (#4060).
+  translation override of them are ignored and logged, as for the credits (#4060). Nor can your profile change
+  what tells a person whether to trust an add-in: the consent dialog's verdicts, warnings and buttons, the
+  revocation and signing lines, and the add-in page's trust and consent status (#4121). Only a user's own
+  translation of those applies. A translation file copied into the user's own translations folder counts as the
+  user's; a pack you distribute goes through the package tier, which refuses a third party's text for these (#4181).
 - **Engine statements keep HexIDE's name.** Messages about what the interpreter or serializer implements,
   including unsupported components and faithful-save refusals, describe the engine in every distribution (#4061).
 - **Compatibility names don't change.** Assembly names, protocol and tool ids, `HEXIDE_*` environment variables,
