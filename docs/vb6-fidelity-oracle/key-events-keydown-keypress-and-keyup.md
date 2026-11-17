@@ -175,6 +175,39 @@ took the key itself.
 - holding a key down for auto-repeat;
 - the key events of a modal form shown from a key handler.
 
+### An open list with one dialog button (2026-11-17, #4418)
+
+**The question.** An open dropdown list keeps Enter and Esc from the Default and Cancel buttons. With both buttons on
+the form it raised KeyDown and KeyPress and no KeyUp; with neither, the KeyUp as well (above). On a form with only one
+of the two, which decides the KeyUp: that key's own holder, or any dialog button at all?
+
+**The probe:**
+- **The form:** Combo1 (Style 2, holding `apple`, `banana` and `cherry`, ListIndex 0), Command1 and Command2, in that
+  tab order, with KeyPreview False.
+- **The modes:** A, Command1 Default and Command2 Cancel; E, Default only; C, Cancel only; D, neither. Each was set at
+  design time.
+- **The input:** the program drove itself, on the guest's console. A Timer at 600 ms set the focus to Combo1, then
+  sent `SendKeys "%{DOWN}"`, `"{ENTER}"`, `"%{DOWN}"` and `"{ESC}"`, one per tick. Before and after each of Enter and
+  Esc it read the list's state with `SendMessage(Combo1.hWnd, CB_GETDROPPEDSTATE, 0, 0)`.
+- **The builds:** native and p-code logged the same, line for line, in every mode.
+
+| Mode | Enter, list open | Esc, list open |
+|---|---|---|
+| A: Default and Cancel | KeyDown 13, KeyPress 13, **no KeyUp** | KeyDown 27, KeyPress 27, **no KeyUp** |
+| E: Default only | KeyDown 13, KeyPress 13, **no KeyUp** | KeyDown 27, KeyPress 27, **KeyUp 27** |
+| C: Cancel only | KeyDown 13, KeyPress 13, **KeyUp 13** | KeyDown 27, KeyPress 27, **no KeyUp** |
+| D: neither | KeyDown 13, KeyPress 13, KeyUp 13 | KeyDown 27, KeyPress 27, KeyUp 27 |
+
+- **In every mode the list closed** after Enter and after Esc, ListIndex stayed 0, and **no button's Click was
+  raised.** The earlier probe recorded the list closing only for Enter with both buttons.
+- **The KeyUp goes missing exactly when the form has a holder for that key.** In E, Esc raised its KeyUp although the
+  form had a Default button; in C, Enter raised its KeyUp although it had a Cancel button. So the key's own holder
+  decides, not the presence of either button.
+- Rows A and D repeat the earlier probe's, so the two probes agree where they overlap.
+
+**Unmeasured:** a Style 0 combo with one button, a holder that is disabled or hidden, and KeyPreview True with one
+button.
+
 ### The whole keyboard on a TextBox (2026-10-27)
 
 **The probe.** A form holding Text1 (TabIndex 0) and Command1 (1), with no Default or Cancel button and KeyPreview

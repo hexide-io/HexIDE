@@ -741,6 +741,7 @@ added afterwards.
 - [A watch scoped to one accessor, and a watch on (All Modules) (2026-11-17, #4401, #4452)](a-watch-and-its-context.md#a-watch-scoped-to-one-accessor-and-a-watch-on-all-modules-2026-11-17-4401-4452)
 - [In-box controls: the MonthView (2026-10-27, #1095)](in-box-controls-the-monthview.md#in-box-controls-the-monthview-2026-10-27-1095)
 - [Key events: KeyDown, KeyPress and KeyUp (2026-10-27, #2325)](key-events-keydown-keypress-and-keyup.md#key-events-keydown-keypress-and-keyup-2026-10-27-2325)
+- [An open list with one dialog button (2026-11-17, #4418)](key-events-keydown-keypress-and-keyup.md#an-open-list-with-one-dialog-button-2026-11-17-4418)
 - [In-box controls: the ImageCombo (2026-10-27, #1092)](in-box-controls-the-imagecombo.md#in-box-controls-the-imagecombo-2026-10-27-1092)
 - [In-box controls: the FlatScrollBar (2026-10-27, #1097)](in-box-controls-the-flatscrollbar.md#in-box-controls-the-flatscrollbar-2026-10-27-1097)
 - [In-box controls: the Animation (2026-10-27, #1096)](in-box-controls-the-animation.md#in-box-controls-the-animation-2026-10-27-1096)
