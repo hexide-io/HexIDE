@@ -112,6 +112,8 @@
     "Str.Profiles.SelectorRequired": "--profile reikia tiksliai vienos reikšmės: paketo vardo, katalogo kelio arba none. Patikrinkite paleidimo argumentus.",
     "Str.RevertGate.SessionOnly": "Šis kalbos pakeitimas galioja tik šiam seansui.",
     "Str.NewProject.NoTemplates": "Šis profilis nesiūlo naujo projekto šablonų. Atverkite esamą projektą.",
+    "Str.NewProject.Msg.NoStandardExe": "Programoje {0} neįdiegtas joks projekto tipas, kuriantis Standard EXE projektą, todėl programa paleista be projekto.",
+    "Str.NewProject.NoInstalledTemplates": "Nė vienas įdiegtas projekto tipas nekuria naujų projektų. Atverkite esamą projektą.",
     "Str.Dialog.About.Credits.Header": "Padėkos",
     "Str.Dialog.About.Credits.Thanks": "HexIDE kartu su žmonėmis kūrėjais kuria nepaprastos AI komandos. Nuoširdžiai dėkojame Claude by Anthropic — Claude Code seansams, kurie rašo, peržiūri ir sujungia darbą — ir Codex by OpenAI — Codex darbo srautams, kurie įgyvendina eilėje laukiančias pataisas. Jų rūpestingumas ir nenuilstamas darbas leidžia gyvuoti HexIDE.",
     "Str.Dialog.About.Provenance": "Sukurta pagal HexIDE {0}. {1}",

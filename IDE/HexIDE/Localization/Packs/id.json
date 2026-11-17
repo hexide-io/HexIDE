@@ -374,6 +374,8 @@
     "Str.Menu.Help.About": "_Tentang HexIDE...",
     "Str.Menu.GoToGithubRepo": "Buka repo github",
     "Str.NewProject.NoTemplates": "Profil ini tidak menyediakan templat proyek baru. Buka proyek yang sudah ada.",
+    "Str.NewProject.Msg.NoStandardExe": "Tidak ada jenis proyek terpasang di {0} yang membuat proyek Standard EXE, sehingga aplikasi dimulai tanpa proyek.",
+    "Str.NewProject.NoInstalledTemplates": "Tidak ada jenis proyek terpasang yang membuat proyek baru. Buka proyek yang sudah ada.",
     "Str.ProjectType.StandardEXE": "Standard EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
     "Str.ProjectType.ActiveXDLL": "ActiveX DLL",

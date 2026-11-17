@@ -374,6 +374,8 @@
     "Str.Menu.Help.About": "_Over HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ga naar github-repo",
     "Str.NewProject.NoTemplates": "Dit profiel biedt geen sjablonen voor nieuwe projecten. Open een bestaand project.",
+    "Str.NewProject.Msg.NoStandardExe": "In {0} is geen projecttype geïnstalleerd dat een Standard EXE-project maakt. Daarom is het programma zonder project gestart.",
+    "Str.NewProject.NoInstalledTemplates": "Geen van de geïnstalleerde projecttypen maakt nieuwe projecten. Open in plaats daarvan een bestaand project.",
     "Str.ProjectType.StandardEXE": "Standard EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
     "Str.ProjectType.ActiveXDLL": "ActiveX DLL",

@@ -448,7 +448,7 @@ public class MainViewViewModelTests
             debug ?? _debugController,
             new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc),
             logFolderOpener: logFolderOpener, recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references, callHierarchy: hierarchy, typeHierarchy: typeHierarchy,
-            runWith: null);
+            runWith: null, projectTemplates: new AddinProjectTemplateService());
     }
 
     private sealed class RequeryProbe : IDisposable
@@ -1590,6 +1590,25 @@ public class MainViewViewModelTests
         _vb6Toolchain.IsAvailable.Returns(false);
 
         _sut.MakeWithVb6Command.CanExecute(null).Should().BeFalse();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void No_project_commands_do_not_dispatch_make_or_properties(bool make)
+    {
+        var previous = Static.WithoutVb6;
+        try
+        {
+            Static.WithoutVb6 = true;
+            _focusedProjectUtil.FocusedOrStartupProject.Returns((ProjectDefinition?)null);
+            _projectService.ClearReceivedCalls();
+            var command = make ? _sut.MakeProjectCommand : _sut.ProjectPropertiesCommand;
+            command.CanExecute(null).Should().BeFalse();
+            command.Execute(null);
+            _projectService.ReceivedCalls().Should().BeEmpty();
+        }
+        finally { Static.WithoutVb6 = previous; }
     }
 
     // --- Method delegation ---

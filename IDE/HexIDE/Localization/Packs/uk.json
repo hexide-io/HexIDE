@@ -340,6 +340,8 @@
     "Str.Menu.Help.About": "Про HexIDE...",
     "Str.Menu.GoToGithubRepo": "Перейти до репозиторію github",
     "Str.NewProject.NoTemplates": "Цей профіль не пропонує шаблонів нових проєктів. Відкрийте наявний проєкт.",
+    "Str.NewProject.Msg.NoStandardExe": "У {0} не встановлено типу проєкту, що створює проєкт Standard EXE, тому запуск виконано без проєкту.",
+    "Str.NewProject.NoInstalledTemplates": "Жоден установлений тип проєкту не створює нових проєктів. Натомість відкрийте наявний проєкт.",
     "Str.ProjectType.StandardEXE": "Standard EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
     "Str.ProjectType.ActiveXDLL": "ActiveX DLL",

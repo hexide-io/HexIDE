@@ -340,6 +340,8 @@
     "Str.Menu.Help.About": "_Om HexIDE...",
     "Str.Menu.GoToGithubRepo": "Gå til GitHub-lager",
     "Str.NewProject.NoTemplates": "Denne profil tilbyder ingen nye projektskabeloner. Åbn et eksisterende projekt i stedet.",
+    "Str.NewProject.Msg.NoStandardExe": "{0} har ingen installeret projekttype, der opretter et Standard EXE-projekt, og startede derfor uden et projekt.",
+    "Str.NewProject.NoInstalledTemplates": "Ingen installeret projekttype opretter nye projekter. Åbn et eksisterende projekt i stedet.",
     "Str.ProjectType.StandardEXE": "Standard EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
     "Str.ProjectType.ActiveXDLL": "ActiveX DLL",

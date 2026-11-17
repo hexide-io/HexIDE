@@ -79,14 +79,14 @@ public sealed class Vb6ProjectTemplatesTests
     }
 
     [Fact]
-    public async Task With_no_Standard_EXE_registered_no_default_project_is_made()
+    public async Task No_project_is_made_without_Standard_EXE()
     {
         var projects = Substitute.For<IProjectManager>();
         projects.LoadedProjects.Returns([]);
 
         var make = () => Service(projects, new AddinProjectTemplateService()).CreateDefaultProject();
 
-        await make.Should().ThrowAsync<InvalidOperationException>();
+        await make.Should().NotThrowAsync();
         projects.DidNotReceiveWithAnyArgs().NewProject(default!, default!, default);
     }
 

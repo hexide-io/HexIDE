@@ -78,6 +78,8 @@
     "Str.Profiles.SelectorRequired": "--profile vajab täpselt üht väärtust: paketi nimi, kataloogitee või none. Kontrollige käivitusargumente.",
     "Str.RevertGate.SessionOnly": "See keelemuudatus kestab ainult selle seansi.",
     "Str.NewProject.NoTemplates": "See profiil ei paku uue projekti malle. Avage selle asemel olemasolev projekt.",
+    "Str.NewProject.Msg.NoStandardExe": "Programmis {0} pole installitud projektitüüpi, mis loob Standard EXE projekti, seega käivitati programm projektita.",
+    "Str.NewProject.NoInstalledTemplates": "Ükski installitud projektitüüp ei loo uusi projekte. Avage selle asemel olemasolev projekt.",
     "Str.Dialog.About.Credits.Header": "Tänuavaldused",
     "Str.Dialog.About.Credits.Thanks": "HexIDE-d loovad koos inimestest kaastöölistega erakordsed AI-meeskonnad. Täname südamest Claude by Anthropic — Claude Code seansse, mis kirjutavad, vaatavad üle ja ühendavad töö — ning Codex by OpenAI — Codex töövooge, mis viivad järjekorras ootavaid parandusi edasi. Nende hool ja väsimatu töö teevad HexIDE võimalikuks.",
     "Str.Dialog.About.Provenance": "Põhineb tarkvaral HexIDE {0}. {1}",

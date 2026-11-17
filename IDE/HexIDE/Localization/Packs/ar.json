@@ -368,6 +368,8 @@
     "Str.Menu.Help.About": "حول HexIDE...",
     "Str.Menu.GoToGithubRepo": "الانتقال إلى مستودع github",
     "Str.NewProject.NoTemplates": "لا يوفر ملف التعريف هذا قوالب مشاريع جديدة. افتح مشروعًا موجودًا بدلاً من ذلك.",
+    "Str.NewProject.Msg.NoStandardExe": "لا يوجد في {0} نوع مشروع مثبت ينشئ مشروع Standard EXE، لذا بدأ دون مشروع.",
+    "Str.NewProject.NoInstalledTemplates": "لا يوجد نوع مشروع مثبت ينشئ مشاريع جديدة. افتح مشروعًا موجودًا بدلاً من ذلك.",
     "Str.ProjectType.StandardEXE": "Standard EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
     "Str.ProjectType.ActiveXDLL": "ActiveX DLL",

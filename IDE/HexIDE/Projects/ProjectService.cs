@@ -234,10 +234,18 @@ public partial class ProjectService : IProjectService
     }
 
     // A service made without the IDE's templates, which only a test makes, takes VB6's, as the composition registers them.
-    public Task CreateDefaultProject() => CreateNewProject(templates is null
-        ? Vb6ProjectType.StandardExe
-        : templates.FirstPartyTemplate("standard-exe")
-          ?? throw new InvalidOperationException("No project type that's registered offers a Standard EXE template."));
+    public async Task CreateDefaultProject()
+    {
+        var template = templates is null ? Vb6ProjectType.StandardExe : templates.FirstPartyTemplate("standard-exe");
+        if (template is null)
+        {
+            await windowManager.MessageBox(
+                string.Format(localization.GetString("Str.NewProject.Msg.NoStandardExe"), HexIDE.IDE.Distribution.DisplayName),
+                HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Information);
+            return;
+        }
+        await CreateNewProject(template);
+    }
 
     public async Task CreateNewProject(IProjectTemplate template)
     {
