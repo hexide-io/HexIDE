@@ -478,6 +478,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Leden",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Klassen",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Zoekresultaten",
+    "Str.Tool.ObjectBrowser.MemberOf": "Lid van {0}.{1}",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globaal)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Er is nog geen taalserver gestart. Open een codevenster om er een te starten.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Geen actieve taalserver biedt ingebouwde symbolen aan.",

@@ -444,6 +444,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Μέλη",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Κλάσεις",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Αποτελέσματα αναζήτησης",
+    "Str.Tool.ObjectBrowser.MemberOf": "Μέλος του {0}.{1}",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Καθολικά)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Δεν έχει ξεκινήσει ακόμη κανένας διακομιστής γλώσσας. Ανοίξτε ένα παράθυρο κώδικα για να ξεκινήσει ένας.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Κανένας ενεργός διακομιστής γλώσσας δεν παρέχει ενσωματωμένα σύμβολα.",

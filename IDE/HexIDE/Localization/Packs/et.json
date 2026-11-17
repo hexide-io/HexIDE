@@ -403,6 +403,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Liikmed",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Klassid",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Otsingutulemused",
+    "Str.Tool.ObjectBrowser.MemberOf": "{0}.{1} liige",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globaalsed)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Ükski keeleserver pole veel käivitunud. Käivitamiseks ava koodiaken.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Ükski töötav keeleserver ei paku sisseehitatud sümboleid.",

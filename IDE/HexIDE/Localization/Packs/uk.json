@@ -444,6 +444,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Члени",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Класи",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Результати пошуку",
+    "Str.Tool.ObjectBrowser.MemberOf": "Член {0}.{1}",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Глобальні)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Жоден мовний сервер ще не запущено. Відкрийте вікно коду, щоб запустити його.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Жоден запущений мовний сервер не надає вбудованих символів.",

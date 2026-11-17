@@ -444,6 +444,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Üyeler",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Sınıflar",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Arama Sonuçları",
+    "Str.Tool.ObjectBrowser.MemberOf": "{0}.{1} üyesi",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Genel)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Henüz hiçbir dil sunucusu başlatılmadı. Başlatmak için bir kod penceresi açın.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Çalışan hiçbir dil sunucusu yerleşik semboller sunmuyor.",

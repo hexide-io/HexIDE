@@ -478,6 +478,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "멤버",
     "Str.Tool.ObjectBrowser.Panel.Classes": "클래스",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "검색 결과",
+    "Str.Tool.ObjectBrowser.MemberOf": "{0}.{1}의 멤버",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(전역)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "아직 시작된 언어 서버가 없습니다. 코드 창을 열어 시작하십시오.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "실행 중인 언어 서버 중 기본 제공 기호를 제공하는 서버가 없습니다.",

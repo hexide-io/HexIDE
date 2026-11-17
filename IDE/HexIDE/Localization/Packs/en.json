@@ -427,6 +427,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Members",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Classes",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Search Results",
+    "Str.Tool.ObjectBrowser.MemberOf": "Member of {0}.{1}",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globals)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "No language server has started yet. Open a code window to start one.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "No running language server offers built-in symbols.",

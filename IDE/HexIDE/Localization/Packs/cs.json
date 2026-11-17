@@ -469,6 +469,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Členové",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Třídy",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Výsledky hledání",
+    "Str.Tool.ObjectBrowser.MemberOf": "Člen {0}.{1}",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globální)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Zatím nebyl spuštěn žádný jazykový server. Spustíte jej otevřením okna kódu.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Žádný spuštěný jazykový server nenabízí vestavěné symboly.",

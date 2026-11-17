@@ -444,6 +444,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Jäsenet",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Luokat",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Hakutulokset",
+    "Str.Tool.ObjectBrowser.MemberOf": "Kohteen {0}.{1} jäsen",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globaalit)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Kielipalvelinta ei ole vielä käynnistetty. Käynnistä sellainen avaamalla koodi-ikkuna.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Yksikään käynnissä oleva kielipalvelin ei tarjoa sisäänrakennettuja symboleja.",

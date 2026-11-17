@@ -428,6 +428,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Membres",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Classes",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Resultats de la cerca",
+    "Str.Tool.ObjectBrowser.MemberOf": "Membre de {0}.{1}",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globals)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Encara no s'ha iniciat cap servidor de llenguatge. Obriu una finestra de codi per iniciar-ne un.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Cap servidor de llenguatge en execució ofereix símbols integrats.",
