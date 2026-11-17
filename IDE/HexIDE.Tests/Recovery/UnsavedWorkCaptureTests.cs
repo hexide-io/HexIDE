@@ -49,8 +49,7 @@ public sealed class UnsavedWorkCaptureTests : IDisposable
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
 
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => throw new InvalidOperationException("new-project dialog must not be reached"),
+        return new ProjectService(            () => throw new InvalidOperationException("new-project dialog must not be reached"),
             Substitute.For<IWindowManager>(),
             bus,
             projectManager,
@@ -59,8 +58,7 @@ public sealed class UnsavedWorkCaptureTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
     }
 
     /// <summary>A saved project of a form and two modules, opened and saved again so every baseline is this build's.</summary>
@@ -93,12 +91,12 @@ public sealed class UnsavedWorkCaptureTests : IDisposable
         bus, Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
         Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
         Substitute.For<IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
-        Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).Initialize(module));
+        Substitute.For<ILocalizationService>()).Initialize(module));
 
     private FormEditViewModel Designer(IProjectService service, FormDefinition form) => Made(new FormEditViewModel(
         new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(), new ComponentRegistry(),
             Substitute.For<ILocalizationService>()),
-        bus, service, null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat())
+        bus, service, null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>())
         .Initialize(form));
 
     [Fact]

@@ -17,7 +17,7 @@ public class ImplicitDocumentNamingTests
 {
     private static FormEditViewModel Designer(ProjectDefinition project) => new FormEditViewModel(
         null!, Substitute.For<IEventBus>(), null!, null!, null!, Substitute.For<ISettingsService>(),
-        Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(project.Forms[0]);
+        Substitute.For<ILocalizationService>()).Initialize(project.Forms[0]);
 
     private static HexIDE.Forms.ViewModels.CodeEditorViewModel Code(FormDefinition form)
     {
@@ -29,7 +29,7 @@ public class ImplicitDocumentNamingTests
             events, Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<ILocalizationService>());
         return vm.Initialize(form);
     }
 
@@ -47,9 +47,7 @@ public class ImplicitDocumentNamingTests
             var runner = Substitute.For<IProjectRunnerService>();
             runner.RunningProject.Returns(Second);
             Context = new IdeContext(projects, Dock, Substitute.For<ILspClient>(), Substitute.For<IEditorService>(), runner,
-                null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-                    new Vb6ProjectFileFormat(),
-                    new Vb6ReadOnlyRegionReader());
+                null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
             Tools = new HexIdeTools(Context);
         }
         public void Tabs(params IDockable[] tabs)

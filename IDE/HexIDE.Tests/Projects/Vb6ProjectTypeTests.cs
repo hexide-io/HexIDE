@@ -162,10 +162,10 @@ public sealed class Vb6ProjectTypeTests : IDisposable
         var archives = withArchives ? new ArchiveProjectService(Substitute.For<IDocumentDockService>(),
             Substitute.For<IRecentProjectsService>(), localization, _windows,
             Substitute.For<HexIDE.Language.IConditionalCodeReader>()) : null;
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
+        return new ProjectService(
             () => throw new InvalidOperationException("no new-project dialog here"), _windows, Substitute.For<IEventBus>(),
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(), sidecar,
-            new FileBaselineStore(), localization, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(),
+            new FileBaselineStore(), localization, Substitute.For<IHeaderRefresher>(),
             new ComponentRegistry(), archives: archives, contributed: types);
     }
 

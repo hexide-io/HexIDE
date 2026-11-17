@@ -39,10 +39,10 @@ public class RemoveDocumentTests : IDisposable
             }
             return Task.FromResult(true);
         });
-        service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(), windows, events, manager,
+        service = new ProjectService(() => throw new InvalidOperationException(), windows, events, manager,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
     }
 
     public void Dispose()
@@ -77,7 +77,7 @@ public class RemoveDocumentTests : IDisposable
             Substitute.For<IComponentRegistry>(),
             Substitute.For<HexIDE.Localization.ILocalizationService>());
         using var designer = new HexIDE.VisualDesigner.FormEditViewModel(toolbox, bus, service, null!, null!,
-            Substitute.For<ISettingsService>(), Substitute.For<HexIDE.Localization.ILocalizationService>(), new Vb6ProjectFileFormat())
+            Substitute.For<ISettingsService>(), Substitute.For<HexIDE.Localization.ILocalizationService>())
             .Initialize(document.Module!.FormPart!);
         var closes = 0;
         designer.CloseRequest += _ => closes++;

@@ -53,12 +53,11 @@ public sealed class Vb6ProjectTemplatesTests
     {
         var sidecar = Substitute.For<IUserSidecarService>();
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => new NewProjectViewModel(Substitute.For<IWindowManager>(), Substitute.For<IRecentProjectsService>(),
+        return new ProjectService(            () => new NewProjectViewModel(Substitute.For<IWindowManager>(), Substitute.For<IRecentProjectsService>(),
                 Substitute.For<ISettingsService>(), Substitute.For<IProfileService>(), Substitute.For<ILocalizationService>()),
             Substitute.For<IWindowManager>(), Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), Substitute.For<ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry(), templates: templates);
+            Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), templates: templates);
     }
 
     [Fact]
@@ -132,11 +131,9 @@ public sealed class Vb6ProjectTemplatesTests
         var projects = Substitute.For<IProjectManager>();
         projects.LoadedProjects.Returns([]);
         var sidecar = Substitute.For<IUserSidecarService>();
-        var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => throw new InvalidOperationException("no new-project dialog here"), windows, Substitute.For<IEventBus>(), projects,
+        var service = new ProjectService(            () => throw new InvalidOperationException("no new-project dialog here"), windows, Substitute.For<IEventBus>(), projects,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(),
-            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(),
-            new ComponentRegistry(), contributed: Types(withAddin: true));
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(),             new ComponentRegistry(), contributed: Types(withAddin: true));
 
         var open = () => service.OpenProject();
 

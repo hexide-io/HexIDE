@@ -81,6 +81,41 @@ public static class Vb6ProjectType
             templates.RegisterFirstParty(TemplateIds[i], Templates[i]);
     }
 
-    /// <summary>Registers it with <paramref name="types"/>, reading through <paramref name="format"/>.</summary>
-    public static IDisposable Register(ContributedProjects types, IProjectFileFormat format) => types.Register(For(format), Origin);
+    /// <summary>
+    /// The kinds of module its format reads, which an add-in type that opens its projects itself may hold too: every kind,
+    /// and forms. A VBA document module is a class to it.
+    /// </summary>
+    public static IReadOnlySet<ModuleKind> MemberKinds { get; } = new HashSet<ModuleKind>(Enum.GetValues<ModuleKind>());
+
+    /// <summary>
+    /// Registers it with <paramref name="types"/>, reading through <paramref name="format"/>, and that format for its members'
+    /// kinds, wherever they're held (#3411 slice 10b-3).
+    /// </summary>
+    public static IDisposable Register(ContributedProjects types, IProjectFileFormat format)
+    {
+        var type = types.Register(For(format), Origin);
+        var members = types.RegisterMembers(MemberKinds, forms: true, format, Origin);
+        return new HexIDE.Utils.ActionDisposable(() =>
+        {
+            members.Dispose();
+            type.Dispose();
+        });
+    }
+
+    /// <summary>
+    /// Registers it with <paramref name="types"/> over VB6's own format, the one place that names it: the composition's
+    /// registration, and <see cref="Alone"/>'s (#3411 slice 10b-3).
+    /// </summary>
+    public static IDisposable RegisterOwn(ContributedProjects types) => Register(types, new Vb6ProjectFileFormat());
+
+    /// <summary>
+    /// A registry holding VB6's type alone, over its own format: what a <c>ProjectService</c> made without the IDE's project
+    /// types reads with, which only a test makes. The composition registers VB6's type the same way.
+    /// </summary>
+    public static ContributedProjects Alone()
+    {
+        var types = new ContributedProjects();
+        RegisterOwn(types);
+        return types;
+    }
 }

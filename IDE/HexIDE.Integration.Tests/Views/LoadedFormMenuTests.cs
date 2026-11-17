@@ -40,8 +40,7 @@ public class LoadedFormMenuTests
         var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
             MenuForm, new Sink())!;
         return new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
-            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(),
-            new Vb6ProjectFileFormat()).Initialize(form);
+            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
     }
 
     [AvaloniaFact]

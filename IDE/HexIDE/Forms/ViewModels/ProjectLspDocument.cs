@@ -16,17 +16,15 @@ internal sealed class ProjectLspDocument : IDisposable
 {
     private static readonly ConditionalWeakTable<ILspClient, Dictionary<DocumentIdentity, ProjectLspDocument>> Held = new();
     private readonly Dictionary<DocumentIdentity, ProjectLspDocument> documents;
-    private readonly IProjectFileFormat format;
     private readonly DocumentIdentity identity;
     private readonly LspDocumentSession session;
     private readonly List<IDisposable> subscriptions = [];
     private bool disposed;
 
-    private ProjectLspDocument(ILspClient client, DocumentIdentity identity, LspDocumentSession session, IEventBus events, IProjectFileFormat format)
+    private ProjectLspDocument(ILspClient client, DocumentIdentity identity, LspDocumentSession session, IEventBus events)
     {
         documents = Held.GetOrCreateValue(client);
         this.identity = identity;
-        this.format = format;
         this.session = session;
         if (documents.TryGetValue(identity, out var previous)) previous.Dispose();
         documents[identity] = this;
@@ -50,12 +48,12 @@ internal sealed class ProjectLspDocument : IDisposable
     }
 
     public static void CloseWindow(ILspClient client, DocumentIdentity identity, LspDocumentSession session,
-        IEventBus events, IProjectFileFormat format, bool dirty)
+        IEventBus events, bool dirty)
     {
         if (dirty)
         {
             var holder = session.CreateProjectHolder();
-            _ = new ProjectLspDocument(client, identity, holder, events, format);
+            _ = new ProjectLspDocument(client, identity, holder, events);
         }
         session.Dispose();
     }
@@ -70,7 +68,7 @@ internal sealed class ProjectLspDocument : IDisposable
     {
         await session.FlushAsync();
         if (disposed) return;
-        var own = ProjectFormats.Of(identity.Project, format);
+        var own = ProjectFormats.Of(identity.Project);
         session.UpdateText(identity.Module is { } module ? own.CodePrefix(module) + module.Code : own.CodePrefix(identity.Form!) + identity.Form!.Code);
         await session.RenameAsync(DocumentWireName.For(identity));
         await session.NotifySavedAsync();

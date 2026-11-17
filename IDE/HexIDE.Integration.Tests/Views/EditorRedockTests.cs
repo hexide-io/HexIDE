@@ -72,7 +72,7 @@ public class EditorRedockTests
             Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
         module.UpdateCode("Sub Greet()\r\nEnd Sub\r\n");
@@ -250,8 +250,7 @@ public class EditorRedockTests
                     Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
                     Substitute.For<HexIDE.Debugging.IBreakpointService>(),
                     Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-                    Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<ILocalizationService>(),
-                    new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+                    Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<ILocalizationService>());
                 models.Add(vm);
                 var module = new ModuleDefinition(project, name, ModuleKind.StandardModule);
                 module.UpdateCode("Sub Greet()\r\nEnd Sub\r\n");

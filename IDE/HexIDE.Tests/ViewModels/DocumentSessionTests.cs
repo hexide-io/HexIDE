@@ -57,12 +57,10 @@ public sealed class DocumentSessionTests : IDisposable
     private CodeEditorViewModel NewCode() => new(Substitute.For<IWindowManager>(), editors, projects, bus,
         Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
         Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
-        Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<IRunScope>(), localization,
-            new Vb6ProjectFileFormat(),
-            new Vb6ReadOnlyRegionReader());
+        Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<IRunScope>(), localization);
 
     private FormEditViewModel NewDesigner() => new(null!, bus, projects, null!, null!,
-        Substitute.For<ISettingsService>(), localization, new Vb6ProjectFileFormat());
+        Substitute.For<ISettingsService>(), localization);
 
     private ProjectDefinition Project(string name = "Test")
     {

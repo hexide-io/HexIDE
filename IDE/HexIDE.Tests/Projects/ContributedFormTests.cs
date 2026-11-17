@@ -60,11 +60,10 @@ public sealed class ContributedFormTests : IDisposable
         });
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<HexIDE.Forms.ViewModels.BaseEditorWindowViewModel>());
-        _headers = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
-        _service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException("no new-project dialog"), _windows,
+        _headers = new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService());
+        _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             _events, projects, Substitute.For<IRecentProjectsService>(),
-            Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, strings, _headers,
-            new Vb6ProjectFileFormat(), new ComponentRegistry(),
+            Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, strings, _headers, new ComponentRegistry(),
             contributed: _types);
     }
 
@@ -471,7 +470,7 @@ public sealed class ContributedFormTests : IDisposable
 
         using var designer = new HexIDE.VisualDesigner.FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
             Substitute.For<IEditorService>(), Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+            Substitute.For<ILocalizationService>()).Initialize(form);
 
         designer.IsReadOnly.Should().BeTrue();
         designer.IsReadByAddin.Should().Be(ownWords);
@@ -917,7 +916,7 @@ public sealed class ContributedFormTests : IDisposable
         var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "Ledger"), [new ComponentInstance(Root, "Main")], "");
         using var designer = new HexIDE.VisualDesigner.FormEditViewModel(null!, bus, Substitute.For<IProjectService>(),
             Substitute.For<IEditorService>(), Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+            Substitute.For<ILocalizationService>()).Initialize(form);
         var raised = new List<string?>();
         designer.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
 

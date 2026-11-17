@@ -95,7 +95,7 @@ public class TabIndexAssignmentTests
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
             new ComponentRegistry(), Substitute.For<ILocalizationService>());
         var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
-            settings, Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+            settings, Substitute.For<ILocalizationService>()).Initialize(form);
         return (vm, form);
     }
 
