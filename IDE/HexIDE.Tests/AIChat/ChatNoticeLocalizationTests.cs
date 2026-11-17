@@ -24,6 +24,7 @@ public class ChatNoticeLocalizationTests
     [AvaloniaTheory]
     [InlineData("Str.AIChat.PrivacyNotice")]
     [InlineData("Str.AIChat.PrivacyKeyTip")]
+    [InlineData("Str.AIChat.PrivacyServerTools")]
     public void NoticeKeysResolveInEnglish(string key)
     {
         new LocalizationService().GetStringFrom("en", key).Should().NotBe(key).And.NotBeNullOrWhiteSpace();
@@ -47,11 +48,13 @@ public class ChatNoticeLocalizationTests
             }));
             Application.Current!.Resources["Str.AIChat.PrivacyNotice"] = "Notice {0}";
             Application.Current.Resources["Str.AIChat.PrivacyKeyTip"] = "Localized tip";
+            Application.Current.Resources["Str.AIChat.PrivacyServerTools"] = "Server tools";
             var chat = new ChatViewModel(Substitute.For<IHexIdeHost>(), directory);
 
             chat.MaybeShowEgressNotice();
 
-            chat.Messages.Single().RawContent.Should().Be("Notice privacy.example" + (fileKey ? " Localized tip" : ""));
+            chat.Messages.Single().RawContent.Should().Be("Notice privacy.example Server tools" + (fileKey ? " Localized tip" : ""),
+                "what language servers' tools return is told on every notice (#4257)");
         }
         finally
         {

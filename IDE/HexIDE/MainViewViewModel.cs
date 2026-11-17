@@ -2329,7 +2329,7 @@ public partial class MainViewViewModel : ObservableObject
     public void OpenAddInManager() => OpenOptionsAt("Str.Options.Node.AddIns");
 
     private void OpenOptionsAt(string? initialNodeKey) => windowManager.ShowDialog(new OptionsViewModel(settingsService, themeService, keymapService, languageSwitch, addinRegistry, addinOptionsService, developerModeService, localization, eventBus, initialNodeKey, windowManager,
-        projectService.ConfirmAddinWithdrawal));
+        projectService.ConfirmAddinWithdrawal, LanguageServers.ChatToolsCandidates));
 
     public void About()
     {

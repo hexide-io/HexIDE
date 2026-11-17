@@ -240,7 +240,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.Client?.DeclinedCapabilities,
             (e.Client as VBLspClient)?.OpenDocumentCount ?? 0,
             (e.Client as VBLspClient)?.SentWorkspaceRootUri,
-            e.Registration.Origin)).ToList();
+            e.Registration.Origin,
+            e.Registration.ChatTools)).ToList();
 
     /// <summary>
     /// What a connection's state is <em>now</em>, rather than what it was when something last wrote it down.
@@ -825,6 +826,31 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public async Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken ct = default) =>
         await TopClaimantAdvertisingAsync(uri, "documentFormattingProvider", ct) is { } c ? await c.RequestFormattingAsync(uri, options, ct) : [];
+
+    /// <summary>
+    /// The running servers AI Chat may take tools and a context fragment from (#4257): those whose registration allows
+    /// it and which declare <c>experimental.hexide.chatTools</c> with methods HexIDE can send.
+    /// </summary>
+    /// <remarks>
+    /// Only running servers, for the reason <see cref="RequestWorkspaceSymbolsAsync"/> gives: nothing here is a reason to
+    /// start one. Each carries the methods its own capability names, so a request can only ever go to the server that
+    /// named its method.
+    /// </remarks>
+    /// <param name="userPolicy">The person's own setting for a server, by id, which wins over its entry's; null for none.</param>
+    internal IReadOnlyList<ChatToolsServer> ChatToolsServers(Func<string, ServerChatToolsPolicy?>? userPolicy = null)
+    {
+        var found = new List<ChatToolsServer>();
+        foreach (var e in _entries)
+        {
+            var policy = ServerChatToolsSetting.Effective(e.Registration.ChatTools, userPolicy?.Invoke(e.Registration.Id));
+            if (policy == ServerChatToolsPolicy.Off) continue;
+            if (e.Client is not VBLspClient { IsRunning: true } client) continue;
+            if (ServerChatToolsCapability.Read(client.AdvertisedCapabilities) is not { } capability) continue;
+            found.Add(new ChatToolsServer(e.Registration.Id, e.Registration.DisplayName, policy, capability,
+                (method, parameters, timeout, ct) => client.SendCustomRequestAsync(method, parameters, timeout, ct)));
+        }
+        return found;
+    }
 
     /// <summary>
     /// Routed by advertised capability rather than by language, because it has no document to route by.

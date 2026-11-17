@@ -1529,6 +1529,43 @@ navigation, commands and hint text edits are not supported or advertised.
 `experimental` — where the protocol says to put a method it does not define, and therefore the only thing a
 client may legitimately gate a custom method on. A server that does not advertise it is never asked.
 
+### Tools for AI Chat
+
+A server offers AI Chat tools and a context fragment by declaring (#4257):
+
+```json
+"experimental": { "hexide.chatTools": { "list": "<method>", "call": "<method>", "context": "<method>" } }
+```
+
+`list` and `call` are required and `context` is optional. The server names its own methods, so an existing
+catalogue keeps its names. The shapes follow MCP's `tools/list` and `tools/call`:
+
+| Method | Params | Result |
+|---|---|---|
+| `list` | `{}` | `{"tools": [{"name", "description", "inputSchema", "annotations": {"readOnlyHint", "destructiveHint", "hexide.runsCode"}}]}` |
+| `call` | `{"name", "arguments"}` | `{"content": [{"type": "text", "text"}], "isError"}`; a non-text part is replaced by a note |
+| `context` | `{}` | a string, or `{"text"}` |
+
+- **`hexide.runsCode` is HexIDE's own annotation**, beside MCP's two hints. A tool that sets it to anything but
+  `false` asks before every call, whatever its other hints say. A tool that runs the user's code should set it
+  `true`. A tool without it is judged by `readOnlyHint` and `destructiveHint` alone, so a server that doesn't know
+  the annotation can't mark a tool that runs code; it should leave such a tool's hints unset, which asks.
+- **A named method stays a chat request.** It is sent only to the server that named it, and only as AI Chat's
+  list, call or context request. Approval applies to a call whatever the method is called, so naming
+  `textDocument/rename` gains nothing (`ServerChatToolsTests` drives exactly that).
+- **The host decides approval.** On each call it lists that server's tools again and reads the tool's hints and
+  the entry's `chatTools` from that answer, not from what the caller passes, and refuses a name the server no
+  longer lists. Add-ins run in HexIDE's own process, so this keeps the decision in one place rather than
+  sandboxing anything.
+- **Only registrations made from a configuration entry or a consented add-in's** offer tools. A registration
+  made any other way offers nothing, whatever the person chooses. The person's choice in Options wins over the
+  entry's `chatTools` otherwise.
+- **Only HexIDE's own add-ins reach the tools** (`IHexIdeHost.ServerChatTools`): the caller supplies the approval
+  callback, so another add-in sees an empty list. A developer-unsigned add-in exists only in a Debug build's
+  developer mode.
+- Control characters and format characters (the bidirectional overrides among them) are removed from what a
+  server returns. The limits are in [`language-servers.md`](language-servers.md#tools-for-ai-chat).
+
 ---
 
 ## Editor configuration (#2669)

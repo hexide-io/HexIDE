@@ -33,6 +33,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
     private readonly ILocalizationService _localization;
     private readonly IEventBus _eventBus;
     private readonly Func<string, Task<bool>>? _confirmAddinWithdrawal;
+    private readonly Func<IReadOnlyList<HexIDE.Lsp.ServerChatToolsCandidate>>? _serverChatTools;
     private readonly string _originalTheme;
     private readonly string _originalLanguage;
     private readonly List<IOptionsPage> _pages = [];
@@ -65,9 +66,11 @@ public partial class OptionsViewModel : ObservableObject, IDialog
                             ILanguageSwitchService languageSwitch, IAddinRegistry addinRegistry,
                             AddinOptionsService addinOptions, IDeveloperModeService devMode,
                             ILocalizationService localization, IEventBus eventBus, string? initialNodeKey = null, IWindowManager? windows = null,
-                            Func<string, Task<bool>>? confirmAddinWithdrawal = null)
+                            Func<string, Task<bool>>? confirmAddinWithdrawal = null,
+                            Func<IReadOnlyList<HexIDE.Lsp.ServerChatToolsCandidate>>? serverChatTools = null)
     {
         _confirmAddinWithdrawal = confirmAddinWithdrawal;
+        _serverChatTools = serverChatTools;
         _settings = settings;
         _themeService = themeService;
         _keymapService = keymapService;
@@ -117,6 +120,9 @@ public partial class OptionsViewModel : ObservableObject, IDialog
 
         // A leaf like any other page, so a reset there is committed on OK and forgotten on Cancel (#2073).
         RootNodes.Add(Leaf(new WorkspaceArtifactPageViewModel(_localization), "Str.LspArtifact.Title"));
+        // Whether AI Chat may use each language server's tools, over the server's own entry (#4257).
+        if (_serverChatTools is { } servers)
+            RootNodes.Add(Leaf(new ServerChatToolsPageViewModel(_settings, servers, _localization), "Str.Options.Node.ServerChatTools"));
         BuildAddinsGroup();
 
         // Developer node — last in the tree, and only when the session is in developer mode.
