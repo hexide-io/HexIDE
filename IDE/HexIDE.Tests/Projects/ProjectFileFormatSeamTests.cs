@@ -589,7 +589,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         using var editor = Window(events, new FirstLineReader());
         editor.Initialize(form);
 
-        events.Publish(new CreateOrNavigateToSubEvent(form, "Button_Click"));
+        events.Publish(new CreateOrNavigateToSubEvent(form, "Button_Click", "Button", "Click"));
 
         editor.CaretOffset.Should().BeLessThan(editor.Document.Text.IndexOf("plain", StringComparison.Ordinal));
         editor.CaretOffset.Should().BeGreaterThan(editor.Document.Text.IndexOf("Sub Button_Click", StringComparison.Ordinal));

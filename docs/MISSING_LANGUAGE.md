@@ -1229,6 +1229,13 @@ both ([#1475](https://github.com/hexide-io/HexIDE/issues/1475)).
 served from a different list (`VbKeywords.All`), and none of the thirteen appears in it. The trap is
 signature help and the Object Browser, not the completion popup.
 
+## Control-array event procedures (outside the baseline inventory)
+
+| Member or edge | Status | Detail |
+|---|---|---|
+| New event procedures | Supported | #4205: both designer double-click and procedure-list stubs prepend `Index As Integer` to the event's own arguments for an element read with Index in its `.frm`. Measured on VB6 SP6's IDE in [#4205](https://github.com/hexide-io/HexIDE/issues/4205), oracle PR #4358. Design-time Index editing remains #4284. |
+| Handler declaration mismatch | Partial | #4205: when execution enters a form, before its declarations and Initialize, event argument counts must match, including an element's leading ByRef Integer. Effective types include suffixes and module DefType; parameter names are ignored. A mismatch raises VB6's compile error at the declaration's module and line. The event's own argument types/passing, other Index values and `/make` validation remain unchanged and are not pinned by this measurement. |
+
 ## Not yet enumerated
 
 **TreeView (#1086):** Rows draw and accept pointer hits at the measured 16-pixel height;
