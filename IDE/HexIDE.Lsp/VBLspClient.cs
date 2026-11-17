@@ -68,6 +68,8 @@ public sealed class VBLspClient : ILspClient
     /// </summary>
     private sealed record CapabilitySnapshot(JsonElement Value);
     private volatile bool _stopping;
+    private EventHandler<JsonRpcDisconnectedEventArgs>? _rpcDisconnected;
+    private Action? _recordStoppingDisconnection;
     private Task _reconnectTask = Task.CompletedTask;   // the running reconnect loop (or completed)
     private CancellationTokenSource? _reconnectCts;
 
@@ -466,7 +468,22 @@ public sealed class VBLspClient : ILspClient
         foreach (var (name, answer) in _claimed)
             rpc.AddLocalRpcMethod(ClaimedMethod.Answer, new ClaimedMethod(name, answer, _logger),
                 new JsonRpcMethodAttribute(name) { UseSingleObjectParameterDeserialization = true });
-        rpc.Disconnected += OnRpcDisconnected;
+        var disconnectionRecorded = 0;
+        void RecordDisconnection(string detail, bool fault)
+        {
+            if (Interlocked.Exchange(ref disconnectionRecorded, 1) == 0)
+                Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null, detail, fault: fault);
+        }
+        _recordStoppingDisconnection = () => RecordDisconnection("disconnected: shutting down", false);
+        _rpcDisconnected = (sender, e) =>
+        {
+            var stopping = _stopping;
+            RecordDisconnection(stopping
+                ? "disconnected: shutting down"
+                : $"disconnected: {e.Reason} ({e.Description ?? "no description"})", !stopping);
+            OnRpcDisconnected(sender, e);
+        };
+        rpc.Disconnected += _rpcDisconnected;
         _rpc = rpc;
         rpc.StartListening();
 
@@ -604,14 +621,6 @@ public sealed class VBLspClient : ILspClient
         _warnedFailures.Clear();
         _identity = null;
 
-        // Before the stopping check, deliberately. A deliberate shutdown and a server that fell over are
-        // the two things a reader most needs told apart, and only one of them is worth alarm.
-        Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null,
-            _stopping
-                ? "disconnected: shutting down"
-                : $"disconnected: {e.Reason} ({e.Description ?? "no description"})",
-            fault: !_stopping);
-
         RaiseStateChanged();
         if (_stopping) return;
         _logger.LogWarning("VB LSP connection lost: {Reason} ({Description})", e.Reason, e.Description);
@@ -677,7 +686,12 @@ public sealed class VBLspClient : ILspClient
         _rpc = null;
         if (rpc is not null)
         {
-            rpc.Disconnected -= OnRpcDisconnected;
+            // Teardown can beat the transport's disconnect callback, including after a shutdown reply.
+            // Both paths share a per-connection latch so the timeline has exactly one disconnection.
+            if (_stopping) _recordStoppingDisconnection?.Invoke();
+            rpc.Disconnected -= _rpcDisconnected;
+            _rpcDisconnected = null;
+            _recordStoppingDisconnection = null;
             rpc.Dispose();
             EndConnectionRequests();
         }
