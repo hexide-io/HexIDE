@@ -41,15 +41,52 @@ internal static partial class BrandText
         "Str.Dialog.TrustChain.CompareHint",
     };
 
+    /// <summary>
+    /// What tells a person whether to trust an add-in: the consent dialog's verdicts, warnings and its Allow and Block
+    /// buttons, the trust inspector's revocation and signing lines, the unsigned add-ins notice, and Options → Add-Ins'
+    /// publisher, trust, consent and status verdicts. A profile may not change them, so a brand's <c>defaultProfile</c>
+    /// or one a package installs can't make an unsigned add-in read as verified (#4121). The user's own translations
+    /// still apply, because they change only that person's IDE. A package tier will refuse a third party's and accept
+    /// HexIDE's own first-party translations when it exists.
+    /// </summary>
+    internal static readonly IReadOnlySet<string> TrustVerdictKeys = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "Str.Dialog.AddinConsent.Title",
+        "Str.Dialog.AddinConsent.Vm.Title",
+        "Str.Dialog.AddinConsent.UnsignedWarning",
+        "Str.Dialog.AddinConsent.AccessWarning",
+        "Str.Dialog.AddinConsent.Allow",
+        "Str.Dialog.AddinConsent.Block",
+        "Str.Dialog.AddinConsent.Vm.NoVerifiableIdentity",
+        "Str.Dialog.AddinConsent.Vm.VerifiedPublisher",
+        "Str.Dialog.AddinConsent.Vm.Unsigned",
+        "Str.Dialog.TrustChain.RevokedBanner",
+        "Str.Dialog.TrustChain.SignedBy",
+        "Str.MainWindow.UnsignedAddinsNotice",
+        "Str.Options.Addin.PublisherUnsigned",
+        "Str.Options.Addin.PublisherVerified",
+        "Str.Options.Addin.TrustUnsigned",
+        "Str.Options.Addin.TrustUnverified",
+        "Str.Options.Addin.ConsentAllowed",
+        "Str.Options.Addin.ConsentBlocked",
+        "Str.Options.Addin.ConsentAwaiting",
+        "Str.Options.Addin.Status.Untrusted",
+        "Str.Options.Addin.Status.DeveloperUnsigned",
+        "Str.Options.Addin.Status.AwaitingConsent",
+        "Str.Options.Addin.Status.ConsentDenied",
+        "Str.Options.Addin.Status.Revoked",
+        "Str.Options.Addin.RevokeConsent",
+    };
+
     /// <summary>Every key that always shows the shipped pack's text: HexIDE's credits (#2746) and its trust labels.</summary>
     internal static readonly IReadOnlySet<string> ProtectedKeys =
         new HashSet<string>([UpstreamCreditsKey, .. TrustLabelKeys], StringComparer.Ordinal);
 
     /// <summary>
     /// Strings that are statements about HexIDE itself, and stay true only if they keep saying so: who built it,
-    /// whose signing keys these are, and which HexIDE version an add-in asks for.
+    /// whose signing keys these are, which HexIDE version an add-in asks for, and what its engine implements.
     /// </summary>
-    private static readonly HashSet<string> UpstreamKeys = new(StringComparer.Ordinal)
+    internal static readonly HashSet<string> UpstreamKeys = new(StringComparer.Ordinal)
     {
         UpstreamCreditsKey,
         "Str.Dialog.About.Provenance",
@@ -59,6 +96,15 @@ internal static partial class BrandText
         "Str.Dialog.About.SigningKeys.FirstPartyKey",
         "Str.Addins.Incompatible",
         "Str.TranslationEditor.ProtectedCredits",
+        "Str.MemberOrigin.HexIde",
+        "Str.Dialog.Components.NotImplemented",
+        "Str.Designer.Unmodelled.NotSupported",
+        "Str.ProjectRunner.NotImplementedYet",
+        "Str.Dialog.UnfaithfulSave.Body.One",
+        "Str.Dialog.UnfaithfulSave.Body.Many",
+        "Str.Designer.ReadOnly.Banner",
+        "Str.CodeEditor.FileNotSaved.Banner",
+        "Str.ProjectLoad.ActiveXDocuments",
         "Str.TranslationEditor.ProtectedTrust",
     };
 

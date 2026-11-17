@@ -134,6 +134,7 @@ internal static class LspRequestHandlers
         if (TryUriPos(p, out var uri, out var line, out var ch)
             && store.Source.TryGetValue(uri, out var source)
             && !HexIDE.Language.VbFreeText.ContainsPosition(source, line, ch)
+            && !IsCompletionAfterDot(source, line, ch)
             && store.DeclaredTypes.TryGetValue(uri, out var declaredTypes))
         {
             items = new List<LspCompletionItem>(VbKeywords.All.Length + declaredTypes.Count);
@@ -167,6 +168,22 @@ internal static class LspRequestHandlers
             w.WriteEndArray();
             w.WriteEndObject();
         });
+    }
+
+    private static bool IsCompletionAfterDot(string source, int line, int character)
+    {
+        var lineStart = 0;
+        for (var currentLine = 0; currentLine < line; currentLine++)
+        {
+            var (end, next) = VbTextHelpers.LineEnd(source, lineStart);
+            if (end == next) return false;
+            lineStart = next;
+        }
+        var lineEnd = VbTextHelpers.LineEnd(source, lineStart).End;
+        var wordStart = lineStart + Math.Clamp(character, 0, lineEnd - lineStart);
+        while (wordStart > lineStart && VbTextHelpers.IsIdentifierChar(source[wordStart - 1]))
+            wordStart--;
+        return wordStart > lineStart && source[wordStart - 1] == '.';
     }
 
     // ── textDocument/signatureHelp → SignatureHelp or null ──────────────────────────────────────

@@ -243,6 +243,12 @@
       },
       {
         "kind": "Command",
+        "id": "edit.typehierarchy",
+        "labelKey": "Str.Menu.Edit.TypeHierarchy",
+        "command": "application.TypeHierarchyCommand"
+      },
+      {
+        "kind": "Command",
         "id": "edit.findnext",
         "labelKey": "Str.Menu.Edit.FindNext",
         "command": "application.FindNextCommand"

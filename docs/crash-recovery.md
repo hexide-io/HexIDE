@@ -11,6 +11,7 @@ Every document with unsaved changes, whether or not it has a file yet:
 - forms, modules, classes, UserControls and property pages, as the save would write them;
 - a form's binary companion (`.frx`), so its pictures and icons come back too;
 - the project file's own text, so a document you added and never saved is still part of the project;
+- pending text typed in a VB6 `.vbp` tab, separately from the project model;
 - typing in a code window you closed without saving, and controls the designer holds but hasn't committed.
 
 The copy is taken every five seconds, and written only when it has changed, so an idle IDE doesn't touch the disk.
@@ -81,9 +82,9 @@ file. Restore only when the copy is the version you want.
 
 - **A saved project** is opened from its files as usual. Each copied document then replaces what was opened, and a
   document the project no longer lists is added back. A document whose file already holds the copy is left alone.
+- **Pending `.vbp` text** opens in the project-file tab, marked modified. It does not apply settings or write the file. Save that tab to validate and apply it through the usual outside-change and unsaved-change questions, or discard it. A copy already held by the disk is left alone.
 - **A never-saved project** comes back as it was: a project with no file, holding its documents.
-- **The project's other settings are not restored.** A changed startup object or reference is not part of the copy,
-  only the documents and which documents the project holds.
+- **The project's other settings are not restored.** Rendered settings such as a changed startup object or reference are not applied. Pending project-file text is offered as an edit for you to save or discard.
 
 ## Clearing it by hand
 

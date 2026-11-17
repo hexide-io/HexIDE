@@ -111,7 +111,7 @@ public class PropertyTextTests
 
         var rows = PropertyText.Rows(label);
 
-        rows.Select(r => r.Name).Should().Equal(LabelComponentClass.Instance.Properties.Select(p => p.Name).OrderBy(n => n));
+        rows.Select(r => r.Name).Should().Equal(LabelComponentClass.Instance.Properties.Select(p => p.Name).Append("Index").OrderBy(n => n));
         // What get_form_controls left out, and the gap had to infer from a caption.
         rows.Select(r => r.Name).Should().Contain(["Alignment", "AutoSize", "WordWrap", "BorderStyle", "UseMnemonic", "Font"]);
     }
@@ -205,7 +205,7 @@ public class PropertyTextTests
 
         foreach (var row in PropertyText.Rows(control).Where(r => r.Settable))
         {
-            var property = type.Properties.Single(p => p.Name == row.Name);
+            var property = PropertyText.InWindowOrder(type).Single(p => p.Name == row.Name);
             PropertyText.TryParse(property, row.Value, out var back).Should().BeTrue(row.Name);
             // A string or Tag never set reads as "" and sets "", which the window does too; nothing else may differ.
             var held = control.GetBoxedPropertyOrDefault(property);

@@ -21,6 +21,9 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
     private Task? _loop;
     private readonly Workspace _workspace = new();
     private bool _useImport = true;
+    private bool? _useArtifact;
+    private bool _failSeed;
+    private byte[]? _fileAtLaunch;
     private bool _failImport;
     private string _folderNotifications = "true";
     private bool _declareCommand = true;
@@ -45,12 +48,18 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
         clients.Enqueue(CreateClient());
         if (_replacement is not null) clients.Enqueue(_replacement.CreateClient(_workspace));
         using var arguments = JsonDocument.Parse("[{\"uri\":\"{uri}\",\"text\":\"{text}\",\"overwrite\":true}]");
-        var registration = new LanguageServerRegistration("probe", "Probe server", [".bas"], "vb6", () => clients.Dequeue(),
-            WorkspaceArtifact: _useImport ? new("generated.json", "probe") : null, ProjectImport: _useImport ? new("probe.import", arguments.RootElement.Clone()) : null);
+        var registration = new LanguageServerRegistration("probe", "Probe server", [".bas"], "vb6", () =>
+            {
+                var target = Path.Combine(_root, "generated.json");
+                _fileAtLaunch = File.Exists(target) ? File.ReadAllBytes(target) : null;
+                return clients.Dequeue();
+            },
+            WorkspaceArtifact: (_useArtifact ?? _useImport) ? new("generated.json", "probe") : null, ProjectImport: _useImport ? new("probe.import", arguments.RootElement.Clone()) : null);
         var providers = new WorkspaceArtifactProviderRegistry([new Provider()]);
         var consent = Substitute.For<IWorkspaceArtifactConsent>();
         consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<WorkspaceArtifactSpec>()).Returns(true);
-        var artifacts = _artifacts = new WorkspaceArtifactService(_workspace, providers, consent, NullLogger<WorkspaceArtifactService>.Instance);
+        var artifacts = _artifacts = new WorkspaceArtifactService(_workspace, providers, consent, NullLogger<WorkspaceArtifactService>.Instance, capture: _capture);
+        if (_failSeed) artifacts.WriteContent = (_, _) => throw new IOException("seed failed");
         _registry = new([registration], NullLogger<LspClientRegistry>.Instance, _workspace, artifacts: artifacts);
         _registry.MessageLogged += (_, p) => _notes.Add(p.Message);
         await _registry.OpenDocumentAsync(new Uri(Path.Combine(_root, "Caller.bas")).AbsoluteUri, "Sub Main()\r\nEnd Sub", true, _cts.Token);
@@ -212,7 +221,7 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task ConnectImportsInMemoryTextAfterInitializeInsteadOfWritingAnArtifactAndReportsNotes()
+    public async Task ConnectSeedsBeforeLaunchThenImportsInMemoryTextAfterInitializeAndReportsNotes()
     {
         await StartAsync();
         var imports = Frames("workspace/executeCommand");
@@ -229,8 +238,66 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
         initialized.Should().BeGreaterThanOrEqualTo(0);
         initialized.Should().BeLessThan(Array.FindIndex(frames,
             f => f.TryGetProperty("method", out var m) && m.GetString() == "workspace/executeCommand"));
-        File.Exists(Path.Combine(_root, "generated.json")).Should().BeFalse();
+        _fileAtLaunch.Should().Equal(Encoding.UTF8.GetBytes("{}"));
+        File.ReadAllText(Path.Combine(_root, "generated.json")).Should().Be("{}");
         _notes.Should().Contain(m => m.EndsWith("Imported project", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ExistingArtifactIsNeverReplaced()
+    {
+        var original = new byte[] { 0, 255, 13, 10, 42 };
+        Directory.CreateDirectory(_root);
+        File.WriteAllBytes(Path.Combine(_root, "generated.json"), original);
+        await StartAsync();
+        _fileAtLaunch.Should().Equal(original);
+        File.ReadAllBytes(Path.Combine(_root, "generated.json")).Should().Equal(original);
+        Frames("workspace/executeCommand").Should().ContainSingle();
+        Directory.GetFiles(_root, ".hexide-artifact-*").Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SingleDeclarationKeepsItsExistingBehaviour(bool artifactOnly)
+    {
+        _useImport = !artifactOnly;
+        _useArtifact = artifactOnly;
+        await StartAsync();
+        if (artifactOnly) _fileAtLaunch.Should().Equal(Encoding.UTF8.GetBytes("{}"));
+        else _fileAtLaunch.Should().BeNull();
+        Frames("workspace/executeCommand").Should().HaveCount(artifactOnly ? 0 : 1);
+    }
+
+    [Fact]
+    public async Task ProjectChangeImportsWithoutRewritingOrDeletingTheSeed()
+    {
+        await StartAsync();
+        _fileAtLaunch.Should().Equal(Encoding.UTF8.GetBytes("{}"));
+        var target = Path.Combine(_root, "generated.json");
+        File.WriteAllText(target, "server's file");
+        _workspace.Change();
+        await _artifacts!.PendingRegeneration.WaitAsync(_cts.Token);
+        File.ReadAllText(target).Should().Be("server's file");
+        Frames("workspace/executeCommand").Should().HaveCount(2);
+        File.Delete(target);
+        _workspace.Change();
+        await _artifacts.PendingRegeneration.WaitAsync(_cts.Token);
+        File.Exists(target).Should().BeFalse();
+        Frames("workspace/executeCommand").Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task FailedSeedIsNotedAndTheServerStillInitializesAndImports()
+    {
+        _failSeed = true;
+        await StartAsync();
+        await _capture.DrainAsync();
+        _capture.Output.Text("probe").Should().Contain("not written; launching anyway: IOException");
+        Frames("initialize").Should().ContainSingle();
+        Frames("workspace/executeCommand").Should().ContainSingle();
+        File.Exists(Path.Combine(_root, "generated.json")).Should().BeFalse();
+        Directory.GetFiles(_root, ".hexide-artifact-*").Should().BeEmpty();
     }
 
     [Theory]
