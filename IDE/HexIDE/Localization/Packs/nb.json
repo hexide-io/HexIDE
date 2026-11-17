@@ -485,6 +485,7 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "Avbryt",
     "Str.Dialog.AddWatch.AllContext": "(Alle prosedyrer)",
+    "Str.Dialog.AddWatch.AllModules": "(Alle moduler)",
     "Str.Tool.CallStack.Column.Frame": "Prosedyre",
     "Str.Tool.CallStack.Column.Line": "Linje",
     "Str.Tool.CallStack.RowName": "{0}, linje {1}",

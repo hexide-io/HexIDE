@@ -471,6 +471,7 @@
     "Str.Dialog.AddWatch.Ok": "U redu",
     "Str.Dialog.AddWatch.Cancel": "Odustani",
     "Str.Dialog.AddWatch.AllContext": "(Sve procedure)",
+    "Str.Dialog.AddWatch.AllModules": "(Svi moduli)",
     "Str.Tool.CallStack.Column.Frame": "Procedura",
     "Str.Tool.CallStack.Column.Line": "Redak",
     "Str.Tool.CallStack.RowName": "{0}, redak {1}",

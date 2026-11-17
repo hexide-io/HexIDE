@@ -21,16 +21,16 @@ public class WatchDialogContextTests
     [InlineData("Module1", true, "Module1.Helper", "Module1.Helper")]
     // Caret inside a procedure, nothing paused: the active module, with (All Procedures).
     [InlineData("Module1", true, "(All Procedures)", "Module1")]
-    // No code window active: the paused context, else the project's first code module.
+    // No code window active: the paused context; with nothing paused, (All Modules), as VB6 starts (measured, #4452).
     [InlineData(null, false, "Module2.Foo", "Module2.Foo")]
-    [InlineData(null, false, "(All Procedures)", "Module1")]
+    [InlineData(null, false, "(All Procedures)", "(All Modules)")]
     public void A_new_watch_starts_from_the_measured_default_or_mains_choice(
         string? activeModule, bool caretInProcedure, string pausedContext, string expected)
         => WatchDialogContextSource.DefaultContext(activeModule, caretInProcedure, pausedContext, Modules)
             .Should().Be(expected);
 
     [Fact]
-    public void With_no_modules_and_nothing_paused_the_placeholder_stays()
+    public void With_no_modules_and_nothing_paused_the_dialog_starts_on_all_modules()
         => WatchDialogContextSource.DefaultContext(null, false, "(All Procedures)", [])
-            .Should().Be("(All Procedures)");
+            .Should().Be("(All Modules)");
 }

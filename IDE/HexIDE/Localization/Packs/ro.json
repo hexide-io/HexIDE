@@ -409,6 +409,7 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "Anulare",
     "Str.Dialog.AddWatch.AllContext": "(Toate procedurile)",
+    "Str.Dialog.AddWatch.AllModules": "(Toate modulele)",
     "Str.Tool.CallStack.Column.Frame": "Procedură",
     "Str.Tool.CallStack.Column.Line": "Linie",
     "Str.Tool.CallStack.RowName": "{0}, linia {1}",

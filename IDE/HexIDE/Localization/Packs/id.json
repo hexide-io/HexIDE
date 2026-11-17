@@ -485,6 +485,7 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "Batal",
     "Str.Dialog.AddWatch.AllContext": "(Semua Prosedur)",
+    "Str.Dialog.AddWatch.AllModules": "(Semua Modul)",
     "Str.Tool.CallStack.Column.Frame": "Prosedur",
     "Str.Tool.CallStack.Column.Line": "Baris",
     "Str.Tool.CallStack.RowName": "{0}, baris {1}",

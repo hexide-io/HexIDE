@@ -409,6 +409,7 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "Loobu",
     "Str.Dialog.AddWatch.AllContext": "(Kõik protseduurid)",
+    "Str.Dialog.AddWatch.AllModules": "(Kõik moodulid)",
     "Str.Tool.CallStack.Column.Frame": "Protseduur",
     "Str.Tool.CallStack.Column.Line": "Rida",
     "Str.Tool.CallStack.RowName": "{0}, rida {1}",

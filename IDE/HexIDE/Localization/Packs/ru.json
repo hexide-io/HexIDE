@@ -451,6 +451,7 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "Отмена",
     "Str.Dialog.AddWatch.AllContext": "(Все процедуры)",
+    "Str.Dialog.AddWatch.AllModules": "(Все модули)",
     "Str.Tool.CallStack.Column.Frame": "Процедура",
     "Str.Tool.CallStack.Column.Line": "Строка",
     "Str.Tool.CallStack.RowName": "{0}, строка {1}",

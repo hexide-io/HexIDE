@@ -479,6 +479,7 @@
     "Str.Dialog.AddWatch.Ok": "確定",
     "Str.Dialog.AddWatch.Cancel": "取消",
     "Str.Dialog.AddWatch.AllContext": "(所有程序)",
+    "Str.Dialog.AddWatch.AllModules": "(所有模組)",
     "Str.Tool.CallStack.Column.Frame": "程序",
     "Str.Tool.CallStack.Column.Line": "行",
     "Str.Tool.CallStack.RowName": "{0}，第 {1} 行",

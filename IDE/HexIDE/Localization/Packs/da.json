@@ -451,6 +451,7 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "Annuller",
     "Str.Dialog.AddWatch.AllContext": "(Alle procedurer)",
+    "Str.Dialog.AddWatch.AllModules": "(Alle moduler)",
     "Str.Tool.CallStack.Column.Frame": "Procedure",
     "Str.Tool.CallStack.Column.Line": "Linje",
     "Str.Tool.CallStack.RowName": "{0}, linje {1}",

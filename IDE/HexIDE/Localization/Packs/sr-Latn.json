@@ -409,6 +409,7 @@
     "Str.Dialog.AddWatch.Ok": "U redu",
     "Str.Dialog.AddWatch.Cancel": "Otkaži",
     "Str.Dialog.AddWatch.AllContext": "(Sve procedure)",
+    "Str.Dialog.AddWatch.AllModules": "(Svi moduli)",
     "Str.Tool.CallStack.Column.Frame": "Procedura",
     "Str.Tool.CallStack.Column.Line": "Red",
     "Str.Tool.CallStack.RowName": "{0}, red {1}",

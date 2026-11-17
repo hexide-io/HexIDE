@@ -409,6 +409,7 @@
     "Str.Dialog.AddWatch.Ok": "ตกลง",
     "Str.Dialog.AddWatch.Cancel": "ยกเลิก",
     "Str.Dialog.AddWatch.AllContext": "(ทุกโพรซีเยอร์)",
+    "Str.Dialog.AddWatch.AllModules": "(ทุกโมดูล)",
     "Str.Tool.CallStack.Column.Frame": "โพรซีเยอร์",
     "Str.Tool.CallStack.Column.Line": "บรรทัด",
     "Str.Tool.CallStack.RowName": "{0}, บรรทัด {1}",

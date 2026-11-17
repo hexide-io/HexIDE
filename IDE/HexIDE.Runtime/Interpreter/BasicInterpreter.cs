@@ -1112,6 +1112,24 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         foreach (var m in Modules.All)
             if (!m.ModuleEnv.TryGetVariableLocation(name, out _))
                 m.ModuleEnv.DefineVariable(name, slot);
+        programGlobals[name] = slot;
+    }
+
+    // The names every module is given in one shared slot (Debug, Err, App, a predeclared class), for ProjectScope.
+    private readonly Dictionary<string, int> programGlobals = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// An environment that sees only what the whole project sees: every module's Public variables and Consts and Public
+    /// Enum members, through <see cref="ProjectNames"/>, and the program's globals. No module's own Private names, and no
+    /// procedure's locals. A watch added with Module (All Modules) evaluates here: in VB6 a standard module's Public
+    /// variable is found, and a module's Private variable or a local is not, even in its own scope (measured, #4452).
+    /// </summary>
+    internal ExecutionEnvironment ProjectScope()
+    {
+        var env = new ExecutionEnvironment { ProjectNames = ProjectNames.For(null, Modules.All) };
+        foreach (var (name, slot) in programGlobals)
+            env.DefineVariable(name, slot);
+        return env;
     }
 
     private readonly List<int> predeclaredSlots = new();

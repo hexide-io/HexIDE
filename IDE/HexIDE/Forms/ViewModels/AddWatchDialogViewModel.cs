@@ -24,6 +24,7 @@ public partial class AddWatchDialogViewModel : ObservableObject, IDialog
     private readonly WatchService _watchService;
     private readonly WatchExpression? _editing;
     private readonly string _context;
+    private readonly WatchContextModule? _allModules;
 
     public bool CanResize => false;
     public event Action<bool>? CloseRequested;
@@ -35,7 +36,15 @@ public partial class AddWatchDialogViewModel : ObservableObject, IDialog
         _watchService = watchService;
         _context = context;
         Modules = (modules ?? []).ToList();
-        var moduleName = context == WatchExpression.AllProceduresContext ? null : context.Split('.')[0];
+        AllowsContextSelection = !expressionOnly;
+        // VB6's Module list starts with (All Modules) (measured, #4452). It has no procedures of its own.
+        if (AllowsContextSelection)
+        {
+            _allModules = new WatchContextModule(localization.GetString("Str.Dialog.AddWatch.AllModules"), []);
+            Modules.Insert(0, _allModules);
+        }
+        var onAllModules = context == WatchExpression.AllModulesContext;
+        var moduleName = context == WatchExpression.AllProceduresContext || onAllModules ? null : context.Split('.')[0];
         var procedureName = context.Contains('.') ? context[(context.IndexOf('.') + 1)..] : null;
         // The stored context stays choosable when the lists can't name it, as when a module's symbols are unavailable:
         // otherwise OK on an unchanged Edit would store the module alone, dropping the watch's procedure.
@@ -44,10 +53,9 @@ public partial class AddWatchDialogViewModel : ObservableObject, IDialog
             Modules.Add(new WatchContextModule(moduleName, procedureName is null ? [] : [procedureName]));
         else if (index >= 0 && procedureName is not null && !Modules[index].Procedures.Contains(procedureName))
             Modules[index] = Modules[index] with { Procedures = [.. Modules[index].Procedures, procedureName] };
-        _selectedModule = Modules.FirstOrDefault(m => m.Name == moduleName);
+        _selectedModule = onAllModules ? _allModules : Modules.FirstOrDefault(m => !ReferenceEquals(m, _allModules) && m.Name == moduleName);
         RefillProcedures();
         _selectedProcedure = procedureName ?? AllProcedures;
-        AllowsContextSelection = !expressionOnly;
         var weak = new WeakReference<AddWatchDialogViewModel>(this);
         localization.LanguageChanged += () =>
         {
@@ -76,7 +84,8 @@ public partial class AddWatchDialogViewModel : ObservableObject, IDialog
         _editing is null ? "Str.Dialog.AddWatch.Title" : "Str.Dialog.AddWatch.EditTitle");
 
     public string Context => _context == WatchExpression.AllProceduresContext
-        ? _localization.GetString("Str.Dialog.AddWatch.AllContext") : _context;
+        ? _localization.GetString("Str.Dialog.AddWatch.AllContext")
+        : _context == WatchExpression.AllModulesContext ? _localization.GetString("Str.Dialog.AddWatch.AllModules") : _context;
     public bool AllowsBreakConditions { get; }
     public bool AllowsContextSelection { get; }
     public List<WatchContextModule> Modules { get; }
@@ -99,6 +108,7 @@ public partial class AddWatchDialogViewModel : ObservableObject, IDialog
     }
 
     private string StoredContext => !AllowsContextSelection || SelectedModule is null ? _context
+        : ReferenceEquals(SelectedModule, _allModules) ? WatchExpression.AllModulesContext
         : SelectedProcedure is null || Procedures.IndexOf(SelectedProcedure) <= 0 ? SelectedModule.Name
         : $"{SelectedModule.Name}.{SelectedProcedure}";
 

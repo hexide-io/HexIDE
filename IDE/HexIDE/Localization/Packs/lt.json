@@ -443,6 +443,7 @@
     "Str.Dialog.AddWatch.Ok": "Gerai",
     "Str.Dialog.AddWatch.Cancel": "Atsisakyti",
     "Str.Dialog.AddWatch.AllContext": "(Visos procedūros)",
+    "Str.Dialog.AddWatch.AllModules": "(Visi moduliai)",
     "Str.Tool.CallStack.Column.Frame": "Procedūra",
     "Str.Tool.CallStack.Column.Line": "Eilutė",
     "Str.Tool.CallStack.RowName": "{0}, eilutė {1}",

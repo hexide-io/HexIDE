@@ -479,6 +479,7 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "Abbrechen",
     "Str.Dialog.AddWatch.AllContext": "(Alle Prozeduren)",
+    "Str.Dialog.AddWatch.AllModules": "(Alle Module)",
     "Str.Tool.CallStack.Column.Frame": "Prozedur",
     "Str.Tool.CallStack.Column.Line": "Zeile",
     "Str.Tool.CallStack.RowName": "{0}, Zeile {1}",

@@ -66,6 +66,9 @@ public sealed class WatchDialogContextSource(IDocumentDockService dock, IProject
     {
         if ((activeModule is null || caretInProcedure) && pausedContext.Contains('.'))
             return pausedContext;
+        // With no code window active and no program paused, VB6's dialog starts on (All Modules) (measured, #4452).
+        if (activeModule is null && pausedContext == WatchExpression.AllProceduresContext)
+            return WatchExpression.AllModulesContext;
         var pausedModule = pausedContext.Split('.')[0];
         // No-active-window fallbacks are unmeasured: prefer the paused module, then the project's first code module.
         return activeModule ?? modules.FirstOrDefault(m => m.Name == pausedModule)?.Name ?? modules.FirstOrDefault()?.Name

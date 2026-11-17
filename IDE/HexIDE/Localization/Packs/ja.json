@@ -513,6 +513,7 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "キャンセル",
     "Str.Dialog.AddWatch.AllContext": "(すべてのプロシージャ)",
+    "Str.Dialog.AddWatch.AllModules": "(すべてのモジュール)",
     "Str.Tool.CallStack.Column.Frame": "プロシージャ",
     "Str.Tool.CallStack.Column.Line": "行",
     "Str.Tool.CallStack.RowName": "{0}、{1} 行目",

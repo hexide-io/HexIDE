@@ -437,6 +437,7 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "Отказ",
     "Str.Dialog.AddWatch.AllContext": "(Всички процедури)",
+    "Str.Dialog.AddWatch.AllModules": "(Всички модули)",
     "Str.Tool.CallStack.Column.Frame": "Процедура",
     "Str.Tool.CallStack.Column.Line": "Ред",
     "Str.Tool.CallStack.RowName": "{0}, ред {1}",

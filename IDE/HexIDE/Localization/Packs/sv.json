@@ -451,6 +451,7 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "Avbryt",
     "Str.Dialog.AddWatch.AllContext": "(Alla procedurer)",
+    "Str.Dialog.AddWatch.AllModules": "(Alla moduler)",
     "Str.Tool.CallStack.Column.Frame": "Procedur",
     "Str.Tool.CallStack.Column.Line": "Rad",
     "Str.Tool.CallStack.RowName": "{0}, rad {1}",

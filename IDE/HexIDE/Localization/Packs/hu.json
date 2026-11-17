@@ -443,6 +443,7 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "Mégse",
     "Str.Dialog.AddWatch.AllContext": "(Minden eljárás)",
+    "Str.Dialog.AddWatch.AllModules": "(Minden modul)",
     "Str.Tool.CallStack.Column.Frame": "Eljárás",
     "Str.Tool.CallStack.Column.Line": "Sor",
     "Str.Tool.CallStack.RowName": "{0}, {1}. sor",

@@ -409,6 +409,7 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "Zrušiť",
     "Str.Dialog.AddWatch.AllContext": "(Všetky procedúry)",
+    "Str.Dialog.AddWatch.AllModules": "(Všetky moduly)",
     "Str.Tool.CallStack.Column.Frame": "Procedúra",
     "Str.Tool.CallStack.Column.Line": "Riadok",
     "Str.Tool.CallStack.RowName": "{0}, riadok {1}",

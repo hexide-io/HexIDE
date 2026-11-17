@@ -443,6 +443,7 @@
     "Str.Dialog.AddWatch.Ok": "Labi",
     "Str.Dialog.AddWatch.Cancel": "Atcelt",
     "Str.Dialog.AddWatch.AllContext": "(Visas procedūras)",
+    "Str.Dialog.AddWatch.AllModules": "(Visi moduļi)",
     "Str.Tool.CallStack.Column.Frame": "Procedūra",
     "Str.Tool.CallStack.Column.Line": "Rinda",
     "Str.Tool.CallStack.RowName": "{0}, rinda {1}",
