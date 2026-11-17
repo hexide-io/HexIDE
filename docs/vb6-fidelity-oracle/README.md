@@ -807,3 +807,4 @@ added afterwards.
 - [The Properties window's Font dialog: its controls, typed sizes and effects (2026-11-16, #4153, design-time, IDE, SP6)](the-properties-windows-font-dialog.md#the-properties-windows-font-dialog-its-controls-typed-sizes-and-effects-2026-11-16-4153-design-time-ide-sp6)
 - [The Object Browser's library list: its order (2026-11-16, #4113, design-time, IDE, SP6)](the-object-browsers-library-list.md#the-object-browsers-library-list-its-order-2026-11-16-4113-design-time-ide-sp6)
 - [Default and Cancel buttons (2026-11-17, #4371)](default-and-cancel-buttons.md#default-and-cancel-buttons-2026-11-17-4371)
+- [App.Path and App.EXEName under F5, and in the made exe (2026-11-17, #4504, SP6)](app-path-and-exename-under-f5-and-in-the-made-exe.md#apppath-and-appexename-under-f5-and-in-the-made-exe-2026-11-17-4504)
