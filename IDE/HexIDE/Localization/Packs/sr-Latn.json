@@ -877,6 +877,8 @@
     "Str.PropDesc.StartUpPosition": "Položaj obrasca na ekranu pri prvom otvaranju.",
     "Str.PropDesc.ShowInTaskbar": "Da li se obrazac pojavljuje na traci zadataka.",
     "Str.PropDesc.TabIndex": "Položaj kontrole u redosledu tabulatora obrasca.",
+    "Str.PropDesc.Default": "Da li Enter klikne na ovo dugme.",
+    "Str.PropDesc.Cancel": "Da li Esc klikne na ovo dugme.",
     "Str.PropDesc.TabStop": "Da li korisnik može da dođe do kontrole tasterom Tab.",
     "Str.PropDesc.KeyPreview": "Da li obrazac prima događaje tastature pre svojih kontrola.",
     "Str.PropDesc.MaxButton": "Da li naslovna traka obrasca prikazuje dugme za uvećavanje.",

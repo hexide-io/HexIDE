@@ -938,6 +938,8 @@
     "Str.PropDesc.StartUpPosition": "フォームが最初に開くときの画面上の表示位置。",
     "Str.PropDesc.ShowInTaskbar": "フォームをタスクバーに表示するかどうか。",
     "Str.PropDesc.TabIndex": "フォームのタブオーダー内でのコントロールの位置。",
+    "Str.PropDesc.Default": "Enter キーでこのボタンをクリックするかどうか。",
+    "Str.PropDesc.Cancel": "Esc キーでこのボタンをクリックするかどうか。",
     "Str.PropDesc.TabStop": "Tab キーでコントロールに移動できるかどうか。",
     "Str.PropDesc.KeyPreview": "コントロールより先にフォームがキーボードイベントを受け取るかどうか。",
     "Str.PropDesc.MaxButton": "フォームのタイトルバーに最大化ボタンを表示するかどうか。",

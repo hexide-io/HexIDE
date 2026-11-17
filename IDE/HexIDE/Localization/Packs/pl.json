@@ -910,6 +910,8 @@
     "Str.PropDesc.StartUpPosition": "Gdzie formularz jest umieszczany na ekranie przy pierwszym otwarciu.",
     "Str.PropDesc.ShowInTaskbar": "Czy formularz jest widoczny na pasku zadań.",
     "Str.PropDesc.TabIndex": "Pozycja formantu w kolejności tabulacji formularza.",
+    "Str.PropDesc.Default": "Czy Enter klika ten przycisk.",
+    "Str.PropDesc.Cancel": "Czy Esc klika ten przycisk.",
     "Str.PropDesc.TabStop": "Czy do formantu można przejść klawiszem Tab.",
     "Str.PropDesc.KeyPreview": "Czy formularz otrzymuje zdarzenia klawiatury przed swoimi formantami.",
     "Str.PropDesc.MaxButton": "Czy pasek tytułu formularza zawiera przycisk Maksymalizuj.",

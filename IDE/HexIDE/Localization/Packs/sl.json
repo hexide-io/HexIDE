@@ -877,6 +877,8 @@
     "Str.PropDesc.StartUpPosition": "Mesto obrazca na zaslonu ob prvem odpiranju.",
     "Str.PropDesc.ShowInTaskbar": "Ali je obrazec prikazan v opravilni vrstici.",
     "Str.PropDesc.TabIndex": "Položaj kontrolnika v vrstnem redu tabulatorja na obrazcu.",
+    "Str.PropDesc.Default": "Ali Enter klikne ta gumb.",
+    "Str.PropDesc.Cancel": "Ali Esc klikne ta gumb.",
     "Str.PropDesc.TabStop": "Ali uporabnik lahko doseže kontrolnik s tipko Tab.",
     "Str.PropDesc.KeyPreview": "Ali obrazec prejme dogodke tipkovnice pred svojimi kontrolniki.",
     "Str.PropDesc.MaxButton": "Ali je v naslovni vrstici obrazca prikazan gumb za povečanje.",

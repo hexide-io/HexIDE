@@ -226,6 +226,10 @@ public static class VBProperties
 
     public static PropertyClass<bool> TabStopProperty = new PropertyClass<bool>("TabStop", "Whether the user can reach the control with the Tab key.", PropertyCategory.Behavior, true);
 
+    public static PropertyClass<bool> DefaultProperty = new PropertyClass<bool>("Default", "Whether Enter clicks this button.", PropertyCategory.Behavior, false);
+
+    public static PropertyClass<bool> CancelProperty = new PropertyClass<bool>("Cancel", "Whether Esc clicks this button.", PropertyCategory.Behavior, false);
+
     public static PropertyClass<bool> KeyPreviewProperty = new PropertyClass<bool>("KeyPreview", "Whether the form receives keyboard events before its controls do.", PropertyCategory.Behavior, false);
 
     public static PropertyClass<bool> MaxButtonProperty = new PropertyClass<bool>("MaxButton", "Whether the form's title bar shows a Maximize button.", PropertyCategory.Appearance, true);

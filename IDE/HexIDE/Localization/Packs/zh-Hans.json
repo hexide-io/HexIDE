@@ -904,6 +904,8 @@
     "Str.PropDesc.StartUpPosition": "窗体首次打开时在屏幕上的位置。",
     "Str.PropDesc.ShowInTaskbar": "窗体是否显示在任务栏中。",
     "Str.PropDesc.TabIndex": "控件在窗体 Tab 顺序中的位置。",
+    "Str.PropDesc.Default": "是否按 Enter 键单击此按钮。",
+    "Str.PropDesc.Cancel": "是否按 Esc 键单击此按钮。",
     "Str.PropDesc.TabStop": "用户是否可以用 Tab 键定位到控件。",
     "Str.PropDesc.KeyPreview": "窗体是否先于其控件接收键盘事件。",
     "Str.PropDesc.MaxButton": "窗体标题栏是否显示最大化按钮。",

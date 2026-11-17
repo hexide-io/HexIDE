@@ -876,6 +876,8 @@
     "Str.PropDesc.StartUpPosition": "Form ilk açıldığında ekranda nereye yerleştirileceği.",
     "Str.PropDesc.ShowInTaskbar": "Formun görev çubuğunda görünüp görünmeyeceği.",
     "Str.PropDesc.TabIndex": "Denetimin formun sekme sırasındaki konumu.",
+    "Str.PropDesc.Default": "Enter tuşunun bu düğmeye tıklayıp tıklamadığı.",
+    "Str.PropDesc.Cancel": "Esc tuşunun bu düğmeye tıklayıp tıklamadığı.",
     "Str.PropDesc.TabStop": "Kullanıcının denetime Tab tuşuyla erişip erişemeyeceği.",
     "Str.PropDesc.KeyPreview": "Formun klavye olaylarını denetimlerinden önce alıp almayacağı.",
     "Str.PropDesc.MaxButton": "Formun başlık çubuğunda Büyüt düğmesinin gösterilip gösterilmeyeceği.",

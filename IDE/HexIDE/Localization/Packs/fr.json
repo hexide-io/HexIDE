@@ -904,6 +904,8 @@
     "Str.PropDesc.StartUpPosition": "L'emplacement de la feuille à l'écran lors de sa première ouverture.",
     "Str.PropDesc.ShowInTaskbar": "Indique si la feuille apparaît dans la barre des tâches.",
     "Str.PropDesc.TabIndex": "La position du contrôle dans l'ordre de tabulation de la feuille.",
+    "Str.PropDesc.Default": "Indique si Entrée clique sur ce bouton.",
+    "Str.PropDesc.Cancel": "Indique si Échap clique sur ce bouton.",
     "Str.PropDesc.TabStop": "Indique si l'utilisateur peut atteindre le contrôle avec la touche Tab.",
     "Str.PropDesc.KeyPreview": "Indique si la feuille reçoit les événements clavier avant ses contrôles.",
     "Str.PropDesc.MaxButton": "Indique si la barre de titre de la feuille affiche un bouton Agrandir.",

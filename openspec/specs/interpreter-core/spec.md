@@ -1780,7 +1780,8 @@ letters, top-row digits, Space, navigation/editing keys, F1–F9/F11/F12 and key
 keys mapped by #2325's [keyboard sweep](https://github.com/hexide-io/HexIDE/issues/2325#issuecomment-6454480155),
 using its measured KeyCode and held-modifier Shift mask. KeyPreview SHALL retain
 the existing form-first delivery. Host-translated keypad navigation SHALL use
-the navigation key received from the host. Enter/Esc, Tab arbitration, punctuation
+the navigation key received from the host. Plain Enter/Esc SHALL deliver 13/27
+when no eligible Default/Cancel receiver takes them (#4371). Tab arbitration, punctuation
 and unmeasured combinations remain outside this additional code-mapping slice.
 
 #### Scenario: Home reaches a handler before TextBox navigation
@@ -1798,6 +1799,30 @@ and unmeasured combinations remain outside this additional code-mapping slice.
 - **AND** KeyUp still receives KeyCode 8 with Shift 2
 - **AND** the default editing action remains the host's behavior pending measurement
 
+### Requirement: CommandButton Default and Cancel
+
+CommandButton SHALL expose saved and runtime Boolean Default and Cancel properties, initially False.
+Setting either to True SHALL clear that role on the other CommandButtons of the form; the last holder
+in file order SHALL win on load. A button MAY hold both roles. An enabled, visible holder SHALL take
+plain Enter or Esc in the tunnel phase, before any control or KeyPreview key event, including KeyUp.
+Enter on a focused CommandButton SHALL click that button instead. An open ComboBox list SHALL retain
+both keys. A hidden or disabled holder SHALL retain True without taking keys. With no receiver, a
+TextBox SHALL raise KeyDown, KeyPress and KeyUp with 13 or 27, leaving single-line text unchanged;
+Enter in a multi-line box SHALL insert its CRLF. These are [#4371's measured rows](https://github.com/hexide-io/HexIDE/issues/4371),
+including oracle PR #4376, and the [key-event oracle](../../../docs/vb6-fidelity-oracle/key-events-keydown-keypress-and-keyup.md).
+A separate default-border look, nested-container roles, focus-time role changes and Properties-grid
+exclusivity remain outside this slice.
+
+#### Scenario: A dialog takes Enter before KeyPreview
+- **WHEN** a TextBox or ListBox has focus, KeyPreview is True and an eligible Default CommandButton exists
+- **THEN** Enter raises only that button's Click, with no form or control key event
+
+#### Scenario: Moving the role and disabling its holder
+- **WHEN** a program sets Command2.Default True while Command1 holds Default
+- **THEN** Command1.Default reads False and Enter clicks Command2
+- **WHEN** Command2 is disabled or hidden
+- **THEN** Command2.Default still reads True and Enter reaches the focused TextBox's key events
+
 ### Requirement: Measured keyboard events on buttons, lists and empty forms
 
 CommandButton, CheckBox, OptionButton, ListBox and ComboBox Styles 0 and 2 SHALL declare
@@ -1809,7 +1834,7 @@ printable ASCII text SHALL reach the control and its character effect. Non-ASCII
 not implemented until conversion is measured. Nonzero replacements for synthesized Space/Ctrl+A
 SHALL also refuse until their effects are measured. The authority is #2325's
 [console measurements](../../../docs/vb6-fidelity-oracle/key-events-keydown-keypress-and-keyup.md).
-Enter/Esc on forms holding controls and Default/Cancel properties remain #4371's.
+Enter and Esc on a form holding controls SHALL follow the CommandButton Default and Cancel requirement.
 
 #### Scenario: A button's Space Click follows KeyUp
 - **WHEN** Space is pressed and released on a CommandButton or CheckBox

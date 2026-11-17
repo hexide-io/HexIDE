@@ -938,6 +938,8 @@
     "Str.PropDesc.StartUpPosition": "היכן ממוקם הטופס על המסך כשהוא נפתח לראשונה.",
     "Str.PropDesc.ShowInTaskbar": "האם הטופס מופיע בשורת המשימות.",
     "Str.PropDesc.TabIndex": "מיקום הפקד בסדר ה-Tab של הטופס.",
+    "Str.PropDesc.Default": "האם Enter לוחץ על לחצן זה.",
+    "Str.PropDesc.Cancel": "האם Esc לוחץ על לחצן זה.",
     "Str.PropDesc.TabStop": "האם המשתמש יכול להגיע לפקד באמצעות מקש Tab.",
     "Str.PropDesc.KeyPreview": "האם הטופס מקבל אירועי מקלדת לפני הפקדים שבו.",
     "Str.PropDesc.MaxButton": "האם שורת הכותרת של הטופס מציגה לחצן הגדלה.",

@@ -910,6 +910,8 @@
     "Str.PropDesc.StartUpPosition": "Dove viene posizionato il form sullo schermo alla prima apertura.",
     "Str.PropDesc.ShowInTaskbar": "Se il form appare nella barra delle applicazioni.",
     "Str.PropDesc.TabIndex": "La posizione del controllo nell'ordine di tabulazione del form.",
+    "Str.PropDesc.Default": "Se Invio fa clic su questo pulsante.",
+    "Str.PropDesc.Cancel": "Se Esc fa clic su questo pulsante.",
     "Str.PropDesc.TabStop": "Se l'utente può raggiungere il controllo con il tasto Tab.",
     "Str.PropDesc.KeyPreview": "Se il form riceve gli eventi da tastiera prima dei suoi controlli.",
     "Str.PropDesc.MaxButton": "Se la barra del titolo del form mostra un pulsante di ingrandimento.",

@@ -911,6 +911,8 @@
     "Str.PropDesc.StartUpPosition": "Kur ekrane forma rodoma pirmą kartą ją atvėrus.",
     "Str.PropDesc.ShowInTaskbar": "Ar forma rodoma užduočių juostoje.",
     "Str.PropDesc.TabIndex": "Valdiklio vieta formos tabuliavimo tvarkoje.",
+    "Str.PropDesc.Default": "Ar Enter spusteli šį mygtuką.",
+    "Str.PropDesc.Cancel": "Ar Esc spusteli šį mygtuką.",
     "Str.PropDesc.TabStop": "Ar naudotojas gali pasiekti valdiklį Tab klavišu.",
     "Str.PropDesc.KeyPreview": "Ar forma gauna klaviatūros įvykius anksčiau už savo valdiklius.",
     "Str.PropDesc.MaxButton": "Ar formos antraštės juostoje rodomas išskleidimo mygtukas.",

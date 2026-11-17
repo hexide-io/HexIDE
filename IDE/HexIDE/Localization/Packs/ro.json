@@ -877,6 +877,8 @@
     "Str.PropDesc.StartUpPosition": "Locul în care este poziționat formularul pe ecran la prima deschidere.",
     "Str.PropDesc.ShowInTaskbar": "Dacă formularul apare în bara de activități.",
     "Str.PropDesc.TabIndex": "Poziția controlului în ordinea de tabulare a formularului.",
+    "Str.PropDesc.Default": "Dacă Enter face clic pe acest buton.",
+    "Str.PropDesc.Cancel": "Dacă Esc face clic pe acest buton.",
     "Str.PropDesc.TabStop": "Dacă utilizatorul poate ajunge la control cu tasta Tab.",
     "Str.PropDesc.KeyPreview": "Dacă formularul primește evenimentele de tastatură înaintea controalelor sale.",
     "Str.PropDesc.MaxButton": "Dacă bara de titlu a formularului afișează un buton de maximizare.",

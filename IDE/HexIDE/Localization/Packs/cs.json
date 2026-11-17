@@ -904,6 +904,8 @@
     "Str.PropDesc.StartUpPosition": "Kde se formulář na obrazovce umístí při prvním otevření.",
     "Str.PropDesc.ShowInTaskbar": "Zda se formulář zobrazí na hlavním panelu.",
     "Str.PropDesc.TabIndex": "Pozice prvku v pořadí procházení tabulátorem ve formuláři.",
+    "Str.PropDesc.Default": "Zda Enter klikne na toto tlačítko.",
+    "Str.PropDesc.Cancel": "Zda Esc klikne na toto tlačítko.",
     "Str.PropDesc.TabStop": "Zda se uživatel může k prvku dostat klávesou Tab.",
     "Str.PropDesc.KeyPreview": "Zda formulář přijímá klávesové události dříve než jeho prvky.",
     "Str.PropDesc.MaxButton": "Zda záhlaví formuláře zobrazuje tlačítko Maximalizovat.",
