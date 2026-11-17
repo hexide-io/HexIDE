@@ -1244,6 +1244,45 @@ answer a protocol method in its place, and the IDE's model of the connection wou
 - **WHEN** a contribution's prefix is in a namespace the protocol uses, or it claims or sends a method outside its prefix
 - **THEN** it is refused
 
+### Requirement: A contributed server's command claims SHALL be checked at registration
+A contribution MAY register a command prefix and client-side handlers. The prefix SHALL be a nonempty name
+followed by `.`, without whitespace. Prefixes under `editor.`, `vscode.` or `hexide.` SHALL be refused,
+case-insensitively. Commands SHALL be below the exact, case-sensitive prefix; claims without a prefix SHALL be
+refused. Registration SHALL copy claims before checking them and install that copy on each client it creates,
+independently of other servers.
+
+The client SHALL route offered actions and lenses to their producing connection, sending declared commands
+to the server before considering an add-in claim. Otherwise a claimed handler SHALL run on the thread pool
+with the original arguments and cancellation on contribution removal or client stop. Core client commands
+SHALL retain precedence. Handler failures SHALL be logged in full but displayed with their message only.
+
+A connection SHALL expose checked edit application only while its claimed handler task remains incomplete.
+It SHALL share the server edit applier and command-window tracking, using the snapshot at handler start
+for unversioned edits. Completion, removal and client stop SHALL close this window. Accepted edits SHALL
+mark buffers modified, use one undo step per document and display localized server and command-title
+attribution. Stale or protected targets SHALL refuse the whole edit.
+
+#### Scenario: A contribution claims a reserved command namespace
+- **WHEN** an add-in registers `HexIDE.private.` as its command prefix
+- **THEN** registration is refused before the server is added
+
+#### Scenario: The add-in changes its dictionary after registration
+- **WHEN** an add-in removes a checked command and adds an unchecked one after registering
+- **THEN** clients created for the registration retain the original claim and do not acquire the unchecked one
+
+
+#### Scenario: Two servers offer the same client command
+- **WHEN** only one server's add-in claims the command and the other server offers it in a lens or action
+- **THEN** that other server's command does not invoke the first add-in's handler
+
+#### Scenario: A claimed command applies an edit after typing
+- **WHEN** the user types after the handler started and it submits an unversioned edit
+- **THEN** the edit is refused without partial writes
+
+#### Scenario: An add-in applies an edit after its handler completes
+- **WHEN** the connection submits an edit with no claimed handler running
+- **THEN** it receives the command-required refusal
+
 ### Requirement: A document SHALL be routed by extension, and each server told the identifier it declared
 Routing SHALL key on the document's extension. Where a document is offered to more than one server, each
 server SHALL be told the language identifier **that server declared**, rather than a single identifier
@@ -2513,7 +2552,7 @@ only on their ranges; read-only region and diagnostic colours SHALL retain their
 
 An empty or failed answer SHALL leave lexical colouring, log once per document on that connection, and
 permit the next change to ask again. Invalid ranges SHALL be discarded. Responses for an earlier document
-version or detached view SHALL NOT be applied. Delta, range and refresh requests are not supported.
+version or detached view SHALL NOT be applied. Delta and range requests are not supported.
 
 Content Modified (`-32801`) replies SHALL retry with exponential backoff from 250 ms to a 4-second cap,
 without spending the per-document warning. Cancellation, a changed or closed document, or a changed
@@ -3147,3 +3186,44 @@ null server answer SHALL leave the initial indentation unchanged. Other triggers
 - **THEN** cancellation is sent and local Enter indentation is applied if the formatting guards still hold
 - **AND** no local closer or keyword correction runs as a fallback
 - **AND** one undo restores the text before Enter
+
+
+### Requirement: Workspace analysis refresh invalidates attached documents
+
+The client SHALL declare `workspace.inlayHint.refreshSupport: true` and
+`workspace.semanticTokens.refreshSupport: true` and answer both workspace refresh requests with null.
+The registry SHALL preserve the issuing connection. Open code windows and carried-file editors attached
+to that connection SHALL re-request hints and full semantic tokens. Code windows SHALL invalidate their
+cached analysis and replace the displayed hints and tokens. Refreshes SHALL coalesce per document while
+a refresh is pending; closing an editor SHALL remove its subscriptions (#4254).
+
+#### Scenario: A module changes another module's argument hints
+
+- **WHEN** a server requests inlay-hint refresh after a declaration changes
+- **THEN** each open document attached to it requests hints again without requiring an edit
+- **AND** a code window displays the updated labels
+- **AND** a document attached only to another server sends no request
+
+#### Scenario: Semantic refresh arrives in a burst
+
+- **WHEN** a server sends several semantic-token refresh requests while a document's refresh is pending
+- **THEN** each request receives null
+- **AND** that document sends one full semantic-token request for the burst
+
+### Requirement: Workspace diagnostic pull
+
+The client SHALL request `workspace/diagnostic` only when the provider declares `workspaceDiagnostics`,
+after initialization, each diagnostic refresh, and coalesced document closes. Each request SHALL carry
+the provider identifier and held result IDs, use the normal request timeout, omit partial-result tokens,
+and cancel its predecessor on the connection.
+
+#### Scenario: Closed module findings
+- **WHEN** a workspace response contains a full report for a closed URI
+- **THEN** its diagnostics and result ID replace that server's findings for the URI in the shared store
+- **AND** unchanged reports retain findings, while URIs omitted from the answer are cleared
+- **AND** reports for open documents do not replace their per-document pulls
+
+#### Scenario: Closing an editor
+- **WHEN** a document closes on a connection offering workspace diagnostics
+- **THEN** its last findings remain until a workspace answer replaces them
+- **AND** a connection without that capability retains its existing close-clearing behaviour

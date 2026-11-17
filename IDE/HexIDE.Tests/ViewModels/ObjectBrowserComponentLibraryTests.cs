@@ -27,7 +27,43 @@ public class ObjectBrowserComponentLibraryTests
         loc.GetString("Str.Tool.ObjectBrowser.MembersUnavailable").Returns("Localized unavailable members");
         return (new ObjectBrowserToolViewModel(projects, Substitute.For<ILspClient>(),
             Substitute.For<IEditorService>(), new ComponentRegistry(), types,
-            Substitute.For<IFocusedProjectUtil>(), loc, Substitute.For<ILanguageConnectionRegistry>()), projects);
+            FocusedProject(project), loc, Substitute.For<ILanguageConnectionRegistry>()), projects);
+    }
+
+    private static IFocusedProjectUtil FocusedProject(ProjectDefinition project)
+    {
+        var focused = Substitute.For<IFocusedProjectUtil>();
+        focused.FocusedOrStartupProject.Returns(project);
+        return focused;
+    }
+
+    // VB6 SP6 measurement: https://github.com/hexide-io/HexIDE/issues/4113 (#4202).
+    [Theory]
+    [InlineData("ObProbe")]
+    [InlineData("obProbe")]
+    public void Project_library_sorts_with_every_other_library_ignoring_case(string projectName)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, projectName);
+        project.AddObjectLine(ControlLibraries.MSComctlLib.ProjectLine);
+        project.AddObjectLine(ControlLibraries.RichTextLib.ProjectLine);
+        var (browser, _) = Create(project);
+
+        browser.Libraries.Skip(1).Select(l => l.Name).Should().Equal(
+            "MSComctlLib", projectName, "RichTextLib", "VB", "VBA");
+        browser.SelectedLibrary.Should().BeSameAs(browser.Libraries[0]);
+    }
+
+    [Fact]
+    public void Reordering_libraries_preserves_the_selected_library()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "ObProbe");
+        var (browser, _) = Create(project);
+        var selected = browser.Libraries.Single(l => l.Name == project.Name);
+        browser.SelectedLibrary = selected;
+
+        project.AddObjectLine(ControlLibraries.MSComctlLib.ProjectLine);
+
+        browser.SelectedLibrary.Should().BeSameAs(selected);
     }
 
     [Fact]

@@ -60,6 +60,7 @@
     "Str.Lsp.ServerMessage": "Nyelvi kiszolgáló: {0}",
     "Str.Lsp.ServerError": "Nyelvi kiszolgáló hibája: {0}",
     "Str.Lsp.EditNotApplied": "A kiszolgáló módosítása nem lett alkalmazva: {0}",
+    "Str.Lsp.EditedByCommand": "Szerkesztette: {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "A HexIDE csak a felhasználó által indított parancs futása közben alkalmazza a kiszolgáló módosításait.",
     "Str.Lsp.NoWorkspaceEditor": "Nem érhető el munkaterület-szerkesztő.",
     "Str.Menu.Edit.CallHierarchy": "H_ívási hierarchia",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.New": "Új",
     "Str.AIChat.InputPlaceholder": "Kérdezzen a kódjáról…",
     "Str.AIChat.NewTip": "Új csevegés (az előzmények megmaradnak)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "A(z) {0} projektek közös mappája {1}; csak a(z) {2} lesz kiírva vagy importálva."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "A(z) {0} projektek közös mappája {1}; csak a(z) {2} lesz kiírva vagy importálva.",
+    "Str.PropDesc.Index": "A vezérlőtömb elemének indexe, vagy üres önálló vezérlő esetén.",
+    "Str.ControlArray.InvalidIndex": "Az Index 0 és 32767 közötti egész szám vagy üres lehet.",
+    "Str.ControlArray.DuplicateIndex": "A(z) '{0}' Index értéke már {1}. Válasszon másik Index értéket.",
+    "Str.ControlArray.ClearRefused": "Az Index nem törölhető, amíg a(z) '{0}' neve azonos.",
+    "Str.ControlArray.UnindexedSibling": "A(z) '{0}' neve azonos, és nincs Index értéke. Először állítsa be az Index értékét.",
+    "Str.Startup.WaylandUnavailableArgument": "A --platform wayland natív Wayland használatát követelte meg, de nem érhető el Wayland-kijelző: {0}. Indítsa helyette a --platform x11 vagy --platform auto beállítással.",
+    "Str.Startup.WaylandUnavailableEnvironment": "A HEXIDE_PLATFORM=wayland natív Wayland használatát követelte meg, de nem érhető el Wayland-kijelző: {0}. Állítsa a HEXIDE_PLATFORM értékét x11 vagy auto értékre, vagy törölje a változót."
   }
 }

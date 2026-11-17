@@ -26,6 +26,7 @@
     "Str.Lsp.ServerMessage": "Máy chủ ngôn ngữ: {0}",
     "Str.Lsp.ServerError": "Lỗi máy chủ ngôn ngữ: {0}",
     "Str.Lsp.EditNotApplied": "Không áp dụng chỉnh sửa từ máy chủ: {0}",
+    "Str.Lsp.EditedByCommand": "Được chỉnh sửa bởi {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE chỉ áp dụng các chỉnh sửa của máy chủ khi một lệnh do người dùng khởi chạy đang thực thi.",
     "Str.Lsp.NoWorkspaceEditor": "Không có trình soạn thảo không gian làm việc nào khả dụng.",
     "Str.Menu.Edit.CallHierarchy": "Ph_ân cấp lời gọi",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.New": "Mới",
     "Str.AIChat.InputPlaceholder": "Hỏi về mã của bạn…",
     "Str.AIChat.NewTip": "Cuộc trò chuyện mới (lịch sử được giữ lại)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Các dự án {0} dùng chung thư mục {1}; chỉ {2} được ghi hoặc nhập."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Các dự án {0} dùng chung thư mục {1}; chỉ {2} được ghi hoặc nhập.",
+    "Str.PropDesc.Index": "Chỉ số phần tử mảng điều khiển, hoặc để trống cho điều khiển đơn.",
+    "Str.ControlArray.InvalidIndex": "Index phải là số nguyên từ 0 đến 32767, hoặc để trống.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' đã có Index {1}. Hãy chọn Index khác.",
+    "Str.ControlArray.ClearRefused": "Không thể xóa Index khi '{0}' có cùng tên.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' có cùng tên và không có Index. Hãy đặt Index cho điều khiển đó trước.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland yêu cầu Wayland gốc, nhưng không thể kết nối với màn hình Wayland nào: {0}. Hãy khởi động bằng --platform x11 hoặc --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland yêu cầu Wayland gốc, nhưng không thể kết nối với màn hình Wayland nào: {0}. Đặt HEXIDE_PLATFORM thành x11 hoặc auto, hoặc bỏ đặt biến này."
   }
 }

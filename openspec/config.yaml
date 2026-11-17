@@ -27,7 +27,7 @@ rules:
     - >-
       Where the code contradicts the spec because the code is defective, state the intended
       behaviour as the requirement, open an issue, and link it from a note under Purpose.
-      Matching a spec to a known bug enshrines the bug. See specs/object-browser.
+      Matching a spec to a known bug enshrines the bug. See specs/form-designer.
   change:
     - >-
       Let 'openspec archive' merge the delta into specs/. Never hand-place a change into

@@ -26,6 +26,7 @@
     "Str.Lsp.ServerMessage": "Keeleserver: {0}",
     "Str.Lsp.ServerError": "Keeleserveri viga: {0}",
     "Str.Lsp.EditNotApplied": "Serveri muudatust ei rakendatud: {0}",
+    "Str.Lsp.EditedByCommand": "Muutis {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE rakendab serveri muudatusi ainult kasutaja käivitatud käsu täitmise ajal.",
     "Str.Lsp.NoWorkspaceEditor": "Ükski tööruumi redaktor pole saadaval.",
     "Str.Menu.Edit.CallHierarchy": "K_utsete hierarhia",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.New": "Uus",
     "Str.AIChat.InputPlaceholder": "Küsi oma koodi kohta…",
     "Str.AIChat.NewTip": "Uus vestlus (ajalugu säilitatakse)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektid {0} jagavad kausta {1}; kirjutatakse või imporditakse ainult {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektid {0} jagavad kausta {1}; kirjutatakse või imporditakse ainult {2}.",
+    "Str.PropDesc.Index": "Juhtelementide massiivi elemendi indeks või tühi eraldiseisva juhtelemendi korral.",
+    "Str.ControlArray.InvalidIndex": "Index peab olema täisarv vahemikus 0 kuni 32767 või tühi.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' kasutab juba Index väärtust {1}. Valige teine Index.",
+    "Str.ControlArray.ClearRefused": "Index väärtust ei saa tühjendada, kuni '{0}' on sama nimega.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' on sama nimega ja sellel puudub Index. Määrake esmalt selle Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland nõudis natiivset Waylandi, kuid ühegi Waylandi kuvaga ei saadud ühendust: {0}. Käivitage selle asemel valikuga --platform x11 või --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland nõudis natiivset Waylandi, kuid ühegi Waylandi kuvaga ei saadud ühendust: {0}. Määrake HEXIDE_PLATFORM väärtuseks x11 või auto või eemaldage muutuja."
   }
 }

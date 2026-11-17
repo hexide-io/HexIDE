@@ -26,6 +26,7 @@
     "Str.Lsp.ServerMessage": "Jezički server: {0}",
     "Str.Lsp.ServerError": "Greška jezičkog servera: {0}",
     "Str.Lsp.EditNotApplied": "Izmena servera nije primenjena: {0}",
+    "Str.Lsp.EditedByCommand": "Izmenio {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE primenjuje izmene servera samo dok se izvršava komanda koju je pokrenuo korisnik.",
     "Str.Lsp.NoWorkspaceEditor": "Nijedan uređivač radnog prostora nije dostupan.",
     "Str.Menu.Edit.CallHierarchy": "_Hijerarhija poziva",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.New": "Novo",
     "Str.AIChat.InputPlaceholder": "Pitajte o svom kodu…",
     "Str.AIChat.NewTip": "Novo ćaskanje (istorija se čuva)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} dele fasciklu {1}; zapisuje se ili uvozi samo {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} dele fasciklu {1}; zapisuje se ili uvozi samo {2}.",
+    "Str.PropDesc.Index": "Indeks elementa niza kontrola ili prazno za samostalnu kontrolu.",
+    "Str.ControlArray.InvalidIndex": "Index mora biti ceo broj od 0 do 32767 ili prazan.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' već ima Index {1}. Izaberite drugi Index.",
+    "Str.ControlArray.ClearRefused": "Index se ne može obrisati dok '{0}' ima isti naziv.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' ima isti naziv i nema Index. Prvo postavite njegov Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland zahteva izvorni Wayland, ali nije moguće pristupiti Wayland ekranu: {0}. Umesto toga pokrenite sa --platform x11 ili --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland zahteva izvorni Wayland, ali nije moguće pristupiti Wayland ekranu: {0}. Postavite HEXIDE_PLATFORM na x11 ili auto, ili uklonite promenljivu."
   }
 }

@@ -26,6 +26,7 @@
     "Str.Lsp.ServerMessage": "Hizkuntza-zerbitzaria: {0}",
     "Str.Lsp.ServerError": "Hizkuntza-zerbitzariaren errorea: {0}",
     "Str.Lsp.EditNotApplied": "Zerbitzariaren aldaketa ez da aplikatu: {0}",
+    "Str.Lsp.EditedByCommand": "{0}(e)k editatua: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDEk zerbitzari baten aldaketak erabiltzaileak abiarazitako komando bat exekutatzen ari den bitartean soilik aplikatzen ditu.",
     "Str.Lsp.NoWorkspaceEditor": "Ez dago laneko areako editorerik erabilgarri.",
     "Str.Menu.Edit.CallHierarchy": "D_eien hierarkia",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.New": "Berria",
     "Str.AIChat.InputPlaceholder": "Galdetu zure kodeari buruz…",
     "Str.AIChat.NewTip": "Txat berria (historia gordetzen da)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "{0} proiektuek {1} karpeta partekatzen dute; {2} soilik idazten edo inportatzen da."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "{0} proiektuek {1} karpeta partekatzen dute; {2} soilik idazten edo inportatzen da.",
+    "Str.PropDesc.Index": "Kontrol-matrizeko elementuaren indizea, edo hutsik kontrol soil baterako.",
+    "Str.ControlArray.InvalidIndex": "Index 0 eta 32767 arteko osoko zenbakia edo hutsa izan behar da.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' kontrolak badu Index {1}. Aukeratu beste Index bat.",
+    "Str.ControlArray.ClearRefused": "Ezin da Index hustu '{0}' kontrolak izen bera duen bitartean.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' kontrolak izen bera du eta ez du Index baliorik. Ezarri haren Index lehenik.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland aukerak Wayland natiboa eskatu du, baina ezin izan da Wayland pantailarik atzitu: {0}. Abiarazi --platform x11 edo --platform auto erabiliz.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland aukerak Wayland natiboa eskatu du, baina ezin izan da Wayland pantailarik atzitu: {0}. Ezarri HEXIDE_PLATFORM aldagaiaren balioa x11 edo auto gisa, edo kendu aldagaia."
   }
 }

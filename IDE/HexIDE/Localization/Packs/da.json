@@ -26,6 +26,7 @@
     "Str.Lsp.ServerMessage": "Sprogserver: {0}",
     "Str.Lsp.ServerError": "Sprogserverfejl: {0}",
     "Str.Lsp.EditNotApplied": "Serverændringen blev ikke anvendt: {0}",
+    "Str.Lsp.EditedByCommand": "Redigeret af {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE anvender kun en servers ændringer, mens en kommando startet af brugeren kører.",
     "Str.Lsp.NoWorkspaceEditor": "Ingen editor til arbejdsområdet er tilgængelig.",
     "Str.Menu.Edit.CallHierarchy": "Kal_dhierarki",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.New": "Ny",
     "Str.AIChat.InputPlaceholder": "Spørg om din kode…",
     "Str.AIChat.NewTip": "Ny samtale (historikken bevares)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekterne {0} deler mappen {1}; kun {2} skrives eller importeres."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekterne {0} deler mappen {1}; kun {2} skrives eller importeres.",
+    "Str.PropDesc.Index": "Indekset for elementet i kontrolarrayet, eller tomt for en enkelt kontrol.",
+    "Str.ControlArray.InvalidIndex": "Index skal være et heltal fra 0 til 32767 eller tomt.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' har allerede Index {1}. Vælg et andet Index.",
+    "Str.ControlArray.ClearRefused": "Index kan ikke ryddes, så længe '{0}' har samme navn.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' har samme navn og intet Index. Angiv først dets Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland krævede oprindelig Wayland, men ingen Wayland-skærm kunne nås: {0}. Start med --platform x11 eller --platform auto i stedet.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland krævede oprindelig Wayland, men ingen Wayland-skærm kunne nås: {0}. Sæt HEXIDE_PLATFORM til x11 eller auto, eller fjern variablen."
   }
 }

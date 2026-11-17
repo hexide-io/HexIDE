@@ -85,6 +85,7 @@
     "Str.Lsp.ServerMessage": "שרת שפה: {0}",
     "Str.Lsp.ServerError": "שגיאת שרת שפה: {0}",
     "Str.Lsp.EditNotApplied": "עריכת השרת לא הוחלה: {0}",
+    "Str.Lsp.EditedByCommand": "נערך על ידי {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE מחיל עריכות של שרת רק בזמן הפעלת פקודה שהמשתמש יזם.",
     "Str.Lsp.NoWorkspaceEditor": "אין עורך זמין לסביבת העבודה.",
     "Str.Menu.Edit.CallHierarchy": "היררכיית קריאות",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.PrivacyNotice": "ℹ פרטיות: ההודעות שלך, תוכן הקובץ הפעיל (בטופס, גם הפריסה והכיתובים) והאבחונים שלו נשלחים אל {0} — שירות של צד שלישי שהגדרת בהגדרות צ׳אט הבינה המלאכותית. גם תוכן של כל קובץ אחר בפרויקטים הטעונים שלך שהעוזר קורא באמצעות הכלים שלו, רשימות קובצי הפרויקטים ואבחונים של כל קובץ נשלחים לשם ללא בקשת אישור.",
     "Str.AIChat.PrivacyKeyTip": "טיפ: יש להגדיר את משתנה הסביבה HEXIDE_AI_API_KEY כדי להימנע משמירת מפתח ה־API בקובץ.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "הפרויקטים {0} חולקים את התיקייה {1}; רק {2} נכתב או מיובא.",
-    "Str.MemberOrigin.HexIde": "הרחבה של HexIDE; אינה זמינה ב-VB6."
+    "Str.MemberOrigin.HexIde": "הרחבה של HexIDE; אינה זמינה ב-VB6.",
+    "Str.PropDesc.Index": "האינדקס של איבר במערך פקדים, או ריק עבור פקד יחיד.",
+    "Str.ControlArray.InvalidIndex": "Index חייב להיות מספר שלם בין 0 ל־32767, או ריק.",
+    "Str.ControlArray.DuplicateIndex": "ל־'{0}' כבר יש Index {1}. יש לבחור Index אחר.",
+    "Str.ControlArray.ClearRefused": "לא ניתן לנקות את Index כל עוד ל־'{0}' יש אותו שם.",
+    "Str.ControlArray.UnindexedSibling": "ל־'{0}' יש אותו שם ואין לו Index. יש להגדיר תחילה את ה־Index שלו.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland דרש Wayland מקורי, אך לא ניתן היה להתחבר לתצוגת Wayland: {0}. יש להפעיל עם --platform x11 או --platform auto במקום זאת.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland דרש Wayland מקורי, אך לא ניתן היה להתחבר לתצוגת Wayland: {0}. יש להגדיר את HEXIDE_PLATFORM לערך x11 או auto, או להסיר את המשתנה."
   }
 }

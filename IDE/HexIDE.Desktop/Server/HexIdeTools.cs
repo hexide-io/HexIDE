@@ -190,7 +190,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             note = null;
         else if (analysed.Length > 0)
             note = $"No diagnostics: {(analysed.Length == 1 ? "the analysed document is" : $"all {analysed.Length} analysed documents are")} "
-                   + "clean. Only open documents are analysed.";
+                   + "clean. Closed modules are included when a server offers workspace diagnostics.";
         else
             note = "Nothing has been analysed: no document is open, and only open documents are. open_file a form "
                    + "or module, then ask again.";
@@ -683,7 +683,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName,
         [Description("The control: its name, or for an element of a control array name(index), such as lblTitle(1), "
-                     + "with the 'index' get_form_controls lists for it. A bare array name is refused, naming the indexes, "
+                     + "with the 'index' get_form_controls lists for it. A bare array name with several elements is refused, naming the indexes, "
                      + "since the save would write to a guess.")]
         string controlName, string property,
         [Description("The value as the Properties window shows it: text, a number with '.' for decimals, True or False, "
@@ -696,7 +696,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "value's reply says why where it can, and lists what that property takes. Left, Top, Width and "
                      + "Height are in the unit the Properties window shows them in, which get_form_controls' row for "
                      + "each names: twips, or the container's ScaleMode. Not the pixels of get_form_controls' summary "
-                     + "or of move_control. '(None)' clears a picture.")]
+                     + "or of move_control. '(None)' clears a picture. Index takes an integer from 0 to 32767 to create "
+                     + "or move an array element; empty clears its only element. Duplicate indexes and clearing with "
+                     + "same-name siblings are refused.")]
         string value, string? project = null,
         CancellationToken ct = default)
     {
@@ -772,10 +774,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // As the Properties window shows them, case and the parentheses of '(Name)' aside: a caller writes
             // 'Name', and was told the property did not exist. (#494)
             var propClass = control.BaseClass.PropertiesByName.GetValueOrDefault(property)
-                ?? control.BaseClass.Properties.FirstOrDefault(p => string.Equals(
+                ?? PropertyText.InWindowOrder(control.BaseClass).FirstOrDefault(p => string.Equals(
                        p.Name.Trim('(', ')'), property.Trim('(', ')'), StringComparison.OrdinalIgnoreCase));
             if (propClass is null)
                 return (null, null, $"Property '{property}' not found on {control.BaseClass.VBTypeName}");
+
+            if (propClass == VBProperties.DesignIndexProperty)
+            {
+                if (HexIDE.VisualDesigner.ControlArrayIndex.RefusalFor(control, value, components) is { } indexRefusal)
+                    return (null, null, indexRefusal.English);
+            }
 
             // Any spelling the Properties window shows for a value; colours and enums were refused outright. (#641)
             // With the value it holds, so a font given in part keeps the rest (#952).
@@ -849,6 +857,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                            + DesignPositions.Unit(form, control, propClass)
                          : PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)))
                      + ".";
+            if (propClass == VBProperties.DesignIndexProperty)
+                stored = PropertyText.ArrayIndexOf(control) is { } nowIndex
+                    ? $"'{control.GetPropertyOrDefault(VBProperties.NameProperty)}' is now element {nowIndex} "
+                      + $"of array '{control.GetPropertyOrDefault(VBProperties.NameProperty)}'; address it as {PropertyText.AddressedName(control)}."
+                    : $"'{PropertyText.AddressedName(control)}' is now a plain control (Index cleared).";
             foreach (var change in consequences)
                 stored += $" Its {change.Property.Name} is now {PropertyText.Display(change.After)}, was "
                           + $"{PropertyText.Display(change.Before)}, as VB6's designer changes it with {propClass.Name.Trim('(', ')')}.";

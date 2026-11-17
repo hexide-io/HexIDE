@@ -19,6 +19,15 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>The server invalidated code lenses; sender identifies the issuing connection.</summary>
     event EventHandler? CodeLensRefreshRequested;
 
+    /// <summary>The server invalidated inlay hints; sender identifies the issuing connection.</summary>
+    event EventHandler? InlayHintRefreshRequested;
+
+    /// <summary>The server invalidated semantic tokens; sender identifies the issuing connection.</summary>
+    event EventHandler? SemanticTokensRefreshRequested;
+
+    /// <summary>Whether this document is attached to the connection issuing a refresh.</summary>
+    bool HandlesRefresh(string uri, object? sender) => ReferenceEquals(this, sender);
+
     /// <summary>Fired when the server sends textDocument/publishDiagnostics.</summary>
     event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
 
@@ -388,6 +397,10 @@ public interface ILspClient : IAsyncDisposable
         string command,
         System.Text.Json.JsonElement[]? arguments = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Runs a lens command on the connection that supplied it.</summary>
+    Task ExecuteCodeLensCommandAsync(Command command, CancellationToken cancellationToken = default) =>
+        ExecuteCommandAsync(command.CommandName, command.Arguments, cancellationToken);
 
     /// <summary>Sends vb/builtinSymbols and returns all VBA built-in function signatures, or empty.</summary>
     Task<VbaBuiltinSymbol[]> RequestBuiltinSymbolsAsync(CancellationToken cancellationToken = default);

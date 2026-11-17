@@ -60,6 +60,7 @@
     "Str.Lsp.ServerMessage": "Valodu serveris: {0}",
     "Str.Lsp.ServerError": "Valodu servera kļūda: {0}",
     "Str.Lsp.EditNotApplied": "Servera labojums netika lietots: {0}",
+    "Str.Lsp.EditedByCommand": "Rediģēja {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE lieto servera izmaiņas tikai lietotāja palaistas komandas izpildes laikā.",
     "Str.Lsp.NoWorkspaceEditor": "Nav pieejams neviens darbvietas redaktors.",
     "Str.Menu.Edit.CallHierarchy": "Izsa_ukumu hierarhija",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.New": "Jauna",
     "Str.AIChat.InputPlaceholder": "Jautājiet par savu kodu…",
     "Str.AIChat.NewTip": "Jauna saruna (vēsture tiek saglabāta)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} koplieto mapi {1}; tiek ierakstīts vai importēts tikai {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} koplieto mapi {1}; tiek ierakstīts vai importēts tikai {2}.",
+    "Str.PropDesc.Index": "Vadīklu masīva elementa indekss vai tukšs atsevišķai vadīklai.",
+    "Str.ControlArray.InvalidIndex": "Index jābūt veselam skaitlim no 0 līdz 32767 vai tukšam.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' jau ir Index {1}. Izvēlieties citu Index.",
+    "Str.ControlArray.ClearRefused": "Index nevar notīrīt, kamēr '{0}' ir tāds pats nosaukums.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' ir tāds pats nosaukums un nav Index. Vispirms iestatiet tā Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland pieprasīja vietējo Wayland, bet neizdevās sasniegt nevienu Wayland displeju: {0}. Tā vietā palaidiet ar --platform x11 vai --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland pieprasīja vietējo Wayland, bet neizdevās sasniegt nevienu Wayland displeju: {0}. Iestatiet HEXIDE_PLATFORM uz x11 vai auto, vai noņemiet mainīgo."
   }
 }

@@ -85,6 +85,7 @@
     "Str.Lsp.ServerMessage": "言語サーバー: {0}",
     "Str.Lsp.ServerError": "言語サーバーのエラー: {0}",
     "Str.Lsp.EditNotApplied": "サーバーの編集は適用されませんでした: {0}",
+    "Str.Lsp.EditedByCommand": "{0} による編集: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE は、ユーザーが開始したコマンドの実行中にのみサーバーからの編集を適用します。",
     "Str.Lsp.NoWorkspaceEditor": "利用可能なワークスペースエディターがありません。",
     "Str.Menu.Edit.CallHierarchy": "呼び出し階層(_Y)",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.PrivacyNotice": "ℹ プライバシー: メッセージ、アクティブなファイルの内容（フォームの場合はレイアウトとキャプションも）、およびその診断情報は、AI チャット設定で構成したサードパーティのサービス {0} に送信されます。アシスタントがツールで読み取る、読み込み済みプロジェクト内の他のあらゆるファイルの内容、プロジェクトのファイル一覧、およびあらゆるファイルの診断情報も、承認を求めずに送信されます。",
     "Str.AIChat.PrivacyKeyTip": "ヒント: API キーをファイルに保存しないように、環境変数 HEXIDE_AI_API_KEY を設定してください。",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "プロジェクト {0} はフォルダー {1} を共有しています。{2} のみが書き込みまたはインポートされます。",
-    "Str.MemberOrigin.HexIde": "HexIDE の拡張機能。VB6 では使用できません。"
+    "Str.MemberOrigin.HexIde": "HexIDE の拡張機能。VB6 では使用できません。",
+    "Str.PropDesc.Index": "コントロール配列要素のインデックス。単独のコントロールは空欄です。",
+    "Str.ControlArray.InvalidIndex": "Index は 0～32767 の整数、または空欄にしてください。",
+    "Str.ControlArray.DuplicateIndex": "'{0}' には既に Index {1} が設定されています。別の Index を選んでください。",
+    "Str.ControlArray.ClearRefused": "'{0}' が同じ名前である間は Index を空欄にできません。",
+    "Str.ControlArray.UnindexedSibling": "'{0}' は同じ名前で、Index がありません。先にその Index を設定してください。",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland によりネイティブ Wayland が要求されましたが、Wayland ディスプレイに接続できませんでした: {0}。 代わりに --platform x11 または --platform auto で起動してください。",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland によりネイティブ Wayland が要求されましたが、Wayland ディスプレイに接続できませんでした: {0}。 HEXIDE_PLATFORM を x11 または auto に設定するか、設定を解除してください。"
   }
 }

@@ -51,6 +51,7 @@
     "Str.Lsp.ServerMessage": "Servidor de linguaxe: {0}",
     "Str.Lsp.ServerError": "Erro do servidor de linguaxe: {0}",
     "Str.Lsp.EditNotApplied": "Non se aplicou a edición do servidor: {0}",
+    "Str.Lsp.EditedByCommand": "Editado por {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE só aplica os cambios dun servidor mentres se executa unha orde iniciada polo usuario.",
     "Str.Lsp.NoWorkspaceEditor": "Non hai ningún editor do espazo de traballo dispoñible.",
     "Str.Menu.Edit.CallHierarchy": "_Xerarquía de chamadas",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.PrivacyNotice": "ℹ Privacidade: as súas mensaxes, o contido do ficheiro activo (nun formulario, tamén a disposición e os títulos) e os seus diagnósticos envíanse a {0}, un servizo de terceiros configurado nos axustes do chat de IA. Tamén se envían alí, sen pedir aprobación, o contido de calquera outro ficheiro dos proxectos cargados que o asistente lea coas súas ferramentas, as listas de ficheiros dos proxectos e os diagnósticos de calquera ficheiro.",
     "Str.AIChat.PrivacyKeyTip": "Consello: estableza a variable de contorno HEXIDE_AI_API_KEY para evitar gardar a clave API nun ficheiro.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Os proxectos {0} comparten o cartafol {1}; só se escribe ou importa {2}.",
-    "Str.MemberOrigin.HexIde": "Extensión de HexIDE; non dispoñible en VB6."
+    "Str.MemberOrigin.HexIde": "Extensión de HexIDE; non dispoñible en VB6.",
+    "Str.PropDesc.Index": "Índice do elemento da matriz de controis, ou baleiro para un control simple.",
+    "Str.ControlArray.InvalidIndex": "Index debe ser un número enteiro de 0 a 32767, ou estar baleiro.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' xa ten Index {1}. Escolla outro Index.",
+    "Str.ControlArray.ClearRefused": "Non se pode baleirar Index mentres '{0}' teña o mesmo nome.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' ten o mesmo nome e non ten Index. Estableza primeiro o seu Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland requiría Wayland nativo, pero non se puido acceder a ningunha pantalla Wayland: {0}. Inicie con --platform x11 ou --platform auto no seu lugar.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland requiría Wayland nativo, pero non se puido acceder a ningunha pantalla Wayland: {0}. Estableza HEXIDE_PLATFORM en x11 ou auto, ou elimine a variable."
   }
 }

@@ -26,6 +26,7 @@
     "Str.Lsp.ServerMessage": "Языковой сервер: {0}",
     "Str.Lsp.ServerError": "Ошибка языкового сервера: {0}",
     "Str.Lsp.EditNotApplied": "Изменение сервера не применено: {0}",
+    "Str.Lsp.EditedByCommand": "Изменено {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE применяет изменения сервера только во время выполнения команды, запущенной пользователем.",
     "Str.Lsp.NoWorkspaceEditor": "Редактор рабочей области недоступен.",
     "Str.Menu.Edit.CallHierarchy": "Иерархия вызовов",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.New": "Новый",
     "Str.AIChat.InputPlaceholder": "Задайте вопрос о коде…",
     "Str.AIChat.NewTip": "Новый чат (история сохраняется)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Проекты {0} используют общую папку {1}; записывается или импортируется только {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Проекты {0} используют общую папку {1}; записывается или импортируется только {2}.",
+    "Str.PropDesc.Index": "Индекс элемента массива элементов управления или пустое значение для отдельного элемента.",
+    "Str.ControlArray.InvalidIndex": "Index должен быть целым числом от 0 до 32767 или пустым.",
+    "Str.ControlArray.DuplicateIndex": "У «{0}» уже есть Index {1}. Выберите другой Index.",
+    "Str.ControlArray.ClearRefused": "Нельзя очистить Index, пока «{0}» имеет то же имя.",
+    "Str.ControlArray.UnindexedSibling": "«{0}» имеет то же имя и не имеет Index. Сначала задайте его Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland потребовал собственный Wayland, но подключиться к дисплею Wayland не удалось: {0}. Запустите с --platform x11 или --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland потребовал собственный Wayland, но подключиться к дисплею Wayland не удалось: {0}. Задайте HEXIDE_PLATFORM значение x11 или auto либо удалите переменную."
   }
 }

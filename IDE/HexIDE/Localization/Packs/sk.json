@@ -26,6 +26,7 @@
     "Str.Lsp.ServerMessage": "Jazykový server: {0}",
     "Str.Lsp.ServerError": "Chyba jazykového servera: {0}",
     "Str.Lsp.EditNotApplied": "Úprava zo servera nebola použitá: {0}",
+    "Str.Lsp.EditedByCommand": "Upravil {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE použije úpravy servera iba počas vykonávania príkazu spusteného používateľom.",
     "Str.Lsp.NoWorkspaceEditor": "Nie je dostupný žiadny editor pracovného priestoru.",
     "Str.Menu.Edit.CallHierarchy": "H_ierarchia volaní",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.New": "Nový",
     "Str.AIChat.InputPlaceholder": "Spýtajte sa na svoj kód…",
     "Str.AIChat.NewTip": "Nový chat (história sa zachová)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekty {0} zdieľajú priečinok {1}; zapisuje alebo importuje sa iba {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekty {0} zdieľajú priečinok {1}; zapisuje alebo importuje sa iba {2}.",
+    "Str.PropDesc.Index": "Index prvku poľa ovládacích prvkov alebo prázdny pre samostatný prvok.",
+    "Str.ControlArray.InvalidIndex": "Index musí byť celé číslo od 0 do 32767 alebo prázdny.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' už má Index {1}. Vyberte iný Index.",
+    "Str.ControlArray.ClearRefused": "Index nemožno vymazať, kým má '{0}' rovnaký názov.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' má rovnaký názov a nemá Index. Najprv nastavte jeho Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland vyžaduje natívny Wayland, ale nebolo možné pripojiť sa k displeju Wayland: {0}. Spustite namiesto toho s --platform x11 alebo --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland vyžaduje natívny Wayland, ale nebolo možné pripojiť sa k displeju Wayland: {0}. Nastavte HEXIDE_PLATFORM na x11 alebo auto, alebo premennú odstráňte."
   }
 }

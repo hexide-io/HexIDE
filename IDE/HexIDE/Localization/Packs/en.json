@@ -52,6 +52,7 @@
     "Str.Lsp.ServerMessage": "Language server: {0}",
     "Str.Lsp.ServerError": "Language server error: {0}",
     "Str.Lsp.EditNotApplied": "Server edit not applied: {0}",
+    "Str.Lsp.EditedByCommand": "Edited by {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE applies a server's edits only while a command the user started is running.",
     "Str.Lsp.NoWorkspaceEditor": "No workspace editor is available.",
     "Str.Menu.Edit.CallHierarchy": "Call Hierarch_y",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.ApiKeyRequired": "API key required. Set the HEXIDE_AI_API_KEY environment variable, or apiKey in chat-settings.json.",
     "Str.AIChat.PrivacyNotice": "ℹ Privacy: your messages, the active file's contents (for a form, its layout and captions too), and its diagnostics are sent to {0} — a third-party service you configured in AI Chat settings. The contents of any other file in your loaded projects that the assistant reads with its tools, project file lists, and diagnostics for any file are also sent there without asking for approval.",
     "Str.AIChat.PrivacyKeyTip": "Tip: set the HEXIDE_AI_API_KEY environment variable to avoid storing your API key in a file.",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projects {0} share folder {1}; only {2} is written or imported."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projects {0} share folder {1}; only {2} is written or imported.",
+    "Str.PropDesc.Index": "The control array element's index, or empty for a plain control.",
+    "Str.ControlArray.InvalidIndex": "Index must be a whole number from 0 to 32767, or empty.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' already has Index {1}. Choose another Index.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' has the same name and no Index. Set its Index first.",
+    "Str.ControlArray.ClearRefused": "Index can't be cleared while '{0}' has the same name.",
+    "Str.Startup.WaylandUnavailableArgument": "Native Wayland was required by --platform wayland, but no Wayland display could be reached: {0}. Start with --platform x11 or --platform auto instead.",
+    "Str.Startup.WaylandUnavailableEnvironment": "Native Wayland was required by HEXIDE_PLATFORM=wayland, but no Wayland display could be reached: {0}. Set HEXIDE_PLATFORM to x11 or auto, or unset it."
   }
 }

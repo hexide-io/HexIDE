@@ -60,6 +60,7 @@
     "Str.Lsp.ServerMessage": "Serwer językowy: {0}",
     "Str.Lsp.ServerError": "Błąd serwera językowego: {0}",
     "Str.Lsp.EditNotApplied": "Nie zastosowano edycji serwera: {0}",
+    "Str.Lsp.EditedByCommand": "Edytowane przez {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE stosuje zmiany serwera tylko podczas wykonywania polecenia uruchomionego przez użytkownika.",
     "Str.Lsp.NoWorkspaceEditor": "Brak dostępnego edytora obszaru roboczego.",
     "Str.Menu.Edit.CallHierarchy": "_Hierarchia wywołań",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.New": "Nowy",
     "Str.AIChat.InputPlaceholder": "Zapytaj o swój kod…",
     "Str.AIChat.NewTip": "Nowy czat (historia zostaje zachowana)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekty {0} współdzielą folder {1}; zapisywany lub importowany jest tylko {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekty {0} współdzielą folder {1}; zapisywany lub importowany jest tylko {2}.",
+    "Str.PropDesc.Index": "Indeks elementu tablicy kontrolek lub pusty dla pojedynczej kontrolki.",
+    "Str.ControlArray.InvalidIndex": "Index musi być liczbą całkowitą od 0 do 32767 lub pusty.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' ma już Index {1}. Wybierz inny Index.",
+    "Str.ControlArray.ClearRefused": "Nie można wyczyścić Index, dopóki '{0}' ma tę samą nazwę.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' ma tę samą nazwę i nie ma Index. Najpierw ustaw jego Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland wymagał natywnego Wayland, ale nie można połączyć się z żadnym wyświetlaczem Wayland: {0}. Uruchom z --platform x11 lub --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland wymagał natywnego Wayland, ale nie można połączyć się z żadnym wyświetlaczem Wayland: {0}. Ustaw HEXIDE_PLATFORM na x11 lub auto albo usuń tę zmienną."
   }
 }

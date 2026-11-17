@@ -51,6 +51,7 @@
     "Str.Lsp.ServerMessage": "خادم اللغة: {0}",
     "Str.Lsp.ServerError": "خطأ في خادم اللغة: {0}",
     "Str.Lsp.EditNotApplied": "لم يُطبّق تعديل الخادم: {0}",
+    "Str.Lsp.EditedByCommand": "تم التعديل بواسطة {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "يطبّق HexIDE تعديلات الخادم فقط أثناء تنفيذ أمر بدأه المستخدم.",
     "Str.Lsp.NoWorkspaceEditor": "لا يتوفر محرر لمساحة العمل.",
     "Str.Menu.Edit.CallHierarchy": "التسلسل الهرمي للاستدعاءات",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.PrivacyNotice": "ℹ الخصوصية: تُرسل رسائلك ومحتويات الملف النشط (بما فيها التخطيط والتسميات التوضيحية للنموذج) وتشخيصاته إلى {0} — وهي خدمة تابعة لجهة خارجية قمت بتكوينها في إعدادات دردشة الذكاء الاصطناعي. تُرسل أيضًا إلى هذه الخدمة، دون طلب موافقتك، محتويات أي ملف آخر في مشاريعك المحمّلة يقرؤه المساعد بأدواته، وقوائم ملفات المشاريع، وتشخيصات أي ملف.",
     "Str.AIChat.PrivacyKeyTip": "نصيحة: عيّن متغير البيئة HEXIDE_AI_API_KEY لتجنب تخزين مفتاح API في ملف.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "تتشارك المشاريع {0} المجلد {1}؛ تتم كتابة أو استيراد {2} فقط.",
-    "Str.MemberOrigin.HexIde": "امتداد HexIDE؛ غير متاح في VB6."
+    "Str.MemberOrigin.HexIde": "امتداد HexIDE؛ غير متاح في VB6.",
+    "Str.PropDesc.Index": "فهرس عنصر مصفوفة عناصر التحكم، أو فارغ لعنصر تحكم منفرد.",
+    "Str.ControlArray.InvalidIndex": "يجب أن يكون Index عدداً صحيحاً من 0 إلى 32767، أو فارغاً.",
+    "Str.ControlArray.DuplicateIndex": "يحتوي '{0}' بالفعل على Index بقيمة {1}. اختر Index آخر.",
+    "Str.ControlArray.ClearRefused": "لا يمكن مسح Index ما دام '{0}' يحمل الاسم نفسه.",
+    "Str.ControlArray.UnindexedSibling": "يحمل '{0}' الاسم نفسه وليس له Index. عيّن Index له أولاً.",
+    "Str.Startup.WaylandUnavailableArgument": "كان Wayland الأصلي مطلوبًا بواسطة --platform wayland، ولكن تعذّر الوصول إلى أي شاشة Wayland: {0}. ابدأ باستخدام --platform x11 أو --platform auto بدلاً من ذلك.",
+    "Str.Startup.WaylandUnavailableEnvironment": "كان Wayland الأصلي مطلوبًا بواسطة HEXIDE_PLATFORM=wayland، ولكن تعذّر الوصول إلى أي شاشة Wayland: {0}. اضبط HEXIDE_PLATFORM على x11 أو auto، أو ألغِ تعيينه."
   }
 }

@@ -60,6 +60,7 @@
     "Str.Lsp.ServerMessage": "Server di linguaggio: {0}",
     "Str.Lsp.ServerError": "Errore del server di linguaggio: {0}",
     "Str.Lsp.EditNotApplied": "Modifica del server non applicata: {0}",
+    "Str.Lsp.EditedByCommand": "Modificato da {0}: {1}",
     "Str.Lsp.EditRequiresUserCommand": "HexIDE applica le modifiche di un server solo durante l’esecuzione di un comando avviato dall’utente.",
     "Str.Lsp.NoWorkspaceEditor": "Nessun editor dell’area di lavoro disponibile.",
     "Str.Menu.Edit.CallHierarchy": "Gerarc_hia delle chiamate",
@@ -1323,6 +1324,13 @@
     "Str.AIChat.New": "Nuova",
     "Str.AIChat.InputPlaceholder": "Chiedi informazioni sul codice…",
     "Str.AIChat.NewTip": "Nuova chat (la cronologia viene conservata)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "I progetti {0} condividono la cartella {1}; viene scritto o importato solo {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "I progetti {0} condividono la cartella {1}; viene scritto o importato solo {2}.",
+    "Str.PropDesc.Index": "Indice dell’elemento della matrice di controlli, o vuoto per un controllo semplice.",
+    "Str.ControlArray.InvalidIndex": "Index deve essere un numero intero da 0 a 32767, oppure vuoto.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' ha già Index {1}. Scegliere un altro Index.",
+    "Str.ControlArray.ClearRefused": "Impossibile svuotare Index mentre '{0}' ha lo stesso nome.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' ha lo stesso nome e non ha Index. Impostare prima il suo Index.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland richiedeva Wayland nativo, ma non è stato possibile raggiungere alcun display Wayland: {0}. Avviare invece con --platform x11 o --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland richiedeva Wayland nativo, ma non è stato possibile raggiungere alcun display Wayland: {0}. Impostare HEXIDE_PLATFORM su x11 o auto, oppure rimuovere la variabile."
   }
 }

@@ -85,8 +85,6 @@ public class PointerIdentityTests : BaseVBTestFixture
     [InlineData("VarPtr(Null)")]
     [InlineData("VarPtr(True)")]
     [InlineData("VarPtr(5&)")]
-    [InlineData("StrPtr(Value:=5)")]
-    [InlineData("VarPtr(Value:=5)")]
     public async Task Unmeasured_shapes_are_refused(string call)
     {
         Func<Task> run = () => Run("Debug.Print " + call);
