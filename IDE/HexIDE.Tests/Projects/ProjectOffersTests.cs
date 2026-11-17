@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using HexIDE.Bookmarks;
@@ -198,7 +200,19 @@ public class ProjectOffersTests : IDisposable
     }
 
     [Fact]
-    public void No_product_code_decides_by_who_opened_a_project() =>
-        ProductSource.FilesMatching(new Regex(@"\bContributedBy\s*(is\b|==|!=|:)"))
-            .Should().BeEmpty("the IDE asks what a project's type offers, and ContributedBy only names who opened it");
+    public void No_product_code_decides_capabilities_by_who_opened_a_project()
+    {
+        ProductSource.FilesMatching(new Regex(@"\bContributedBy\s*(is\b|==|!=|:)"), "DebugLaunchService.cs")
+            .Should().BeEmpty("the IDE asks what a project's type offers");
+
+        // #4111 uses ownership only to select that add-in's default launch, never to grant capabilities.
+        // Keep that exception to one read in that method, rather than exempting the whole service.
+        var source = File.ReadAllText(Path.Join(RepoTree.Root(), "IDE", "HexIDE", "Debugging", "DebugLaunchService.cs"));
+        var reads = CSharpSyntaxTree.ParseText(source, cancellationToken: TestContext.Current.CancellationToken)
+            .GetRoot(TestContext.Current.CancellationToken).DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Where(member => member.Name.Identifier.ValueText == nameof(ProjectDefinition.ContributedBy));
+        reads.Should().ContainSingle().Which.Ancestors().OfType<MethodDeclarationSyntax>()
+            .First().Identifier.ValueText.Should().Be("DefaultFor");
+    }
 }

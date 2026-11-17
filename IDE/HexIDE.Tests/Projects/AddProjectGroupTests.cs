@@ -44,6 +44,31 @@ public sealed class AddProjectGroupTests : IDisposable
         return path;
     }
 
+    [AvaloniaFact]
+    public async Task Startup_group_open_keeps_its_name_order_startup_and_saved_path()
+    {
+        WriteProject("First");
+        WriteProject("Second");
+        var path = Path.Join(directory, "Launch.vbg");
+        var bytes = System.Text.Encoding.ASCII.GetBytes("VBGROUP 5.0\r\nProject=First.vbp\r\nStartupProject=Second.vbp\r\n");
+        File.WriteAllBytes(path, bytes);
+        var startup = new HexIDE.Desktop.StartupProjectOpen();
+        var window = new Avalonia.Controls.Window();
+        startup.Attach(window, types, () => Task.CompletedTask);
+        try
+        {
+            await startup.Open(service, path);
+            manager.CurrentGroup!.Name.Should().Be("Launch");
+            manager.CurrentGroup.AbsolutePath.Should().Be(path);
+            manager.LoadedProjects.Select(p => p.Name).Should().Equal("First", "Second");
+            manager.StartupProject!.Name.Should().Be("Second");
+            explorer.Title.Should().Be("Project Group - Launch");
+            await service.SaveAllProjects(saveAs: false);
+            File.ReadAllBytes(path).Should().Equal(bytes);
+        }
+        finally { window.Close(); }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

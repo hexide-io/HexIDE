@@ -54,6 +54,7 @@ public partial class App : Application
             envLevel, Environment.Version, Environment.OSVersion);
 
         _diSetup = new DISetup();
+        RunningProgram.Current = _diSetup.RunningProgram;
         if (Static.Profile is { } profile)
         {
             ((HexIDE.Themes.ThemeService)_diSetup.ThemeService).Apply(profile, (SettingsService)_diSetup.SettingsService);
@@ -123,6 +124,7 @@ public partial class App : Application
                 {
                     Content = Static.MainView
                 };
+                HexIDE.IDE.BrandAssets.ApplyWindowIcon(desktop.MainWindow);
 
                 rootViewModel.ObservePropertyChanged(x => x.WindowTitle)
                     .Subscribe(title => desktop.MainWindow.Title = title);

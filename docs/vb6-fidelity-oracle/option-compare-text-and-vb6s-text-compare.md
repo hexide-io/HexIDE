@@ -546,6 +546,69 @@ As text, `"ss"` splits `"aßb"` at its one ß, and `"ß"` splits `"assb"` at its
 match may end: with a start of 2, `"s"` is found in the ß at 2, and `"ss"` is not found in `"sß"` with a start of 1, since
 the only match ends inside the ß.
 
+### A compare of 2 or more: StrComp and InStr with a locale ID (2026-11-16, #4151)
+
+**The question.** `IsTextCompare` refused a compare from 3 up. #881 had measured that VB6 accepts some such values and
+raises 5 for others, consistently with Windows locale IDs, but not whether a valid one compares in that locale or just
+as text.
+
+**The probe.** vb6.exe SP6, `/make`, native and p-code agreeing in every cell, under en-GB. Each call ran under
+`On Error Resume Next`, so a cell is the value, or `E5` for error 5. The strings were built with `Chr()`, cp1252.
+
+#### StrComp(a, b, compare)
+
+| a, b | 0 | 1 | 2 | 3 | 4 | 5 | 100 | 1024 | 1033 | 1031 | 1053 (sv) | 1029 (cs) | 2057 | 1041 | 999999 | -2 | 65535 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| "a", "B" | 1 | -1 | E5 | -1 | -1 | -1 | -1 | -1 | -1 | -1 | -1 | -1 | -1 | -1 | E5 | E5 | E5 |
+| "a", "A" | 1 | 0 | E5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | E5 | E5 | E5 |
+| "ä", "b" | 1 | -1 | E5 | -1 | -1 | -1 | -1 | -1 | -1 | -1 | **1** | -1 | -1 | -1 | E5 | E5 | E5 |
+| "ö", "z" | 1 | -1 | E5 | -1 | -1 | -1 | -1 | -1 | -1 | -1 | **1** | -1 | -1 | -1 | E5 | E5 | E5 |
+| "ß", "ss" | 1 | 0 | E5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | E5 | E5 | E5 |
+| "Æ", "AE" | 1 | 0 | E5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | E5 | E5 | E5 |
+| "co-op", "coop" | -1 | 1 | E5 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | E5 | E5 | E5 |
+| "ch", "d" | -1 | -1 | E5 | -1 | -1 | **1** | -1 | -1 | -1 | -1 | -1 | **1** | -1 | -1 | E5 | E5 | E5 |
+| "", "a" | -1 | -1 | E5 | -1 | -1 | -1 | -1 | -1 | -1 | -1 | -1 | -1 | -1 | -1 | **-1** | **-1** | **-1** |
+
+**The readings:**
+- **0 is binary, 1 is text, and 2 raises 5**, even with an empty argument.
+- **Any other value is a Windows locale ID, and the compare is that locale's text order.**
+  - Swedish (1053) sorts ä and ö after z.
+  - Czech (1029) sorts "ch" after "d", and so does 5, which is Czech's bare language ID.
+  - Bare IDs (3, 4, 5, 100) and 1024, the user default, are accepted.
+  - The rows from #881 already had 3, 4, 5, 1033, 2057 and 4096 accepted, and 3000, 4095, 32767 and 65536 refused with 5.
+- **An invalid ID raises 5:** 999999, -2 and 65535.
+  - **The exception:** with an empty argument StrComp returns -1 and raises nothing. 2 still raises 5 there.
+
+#### InStr(1, s, find, compare)
+
+| s, find | 0 | 1 | 2 | 3 | 1033 | 1031 | 999999 | -2 |
+|---|---|---|---|---|---|---|---|---|
+| "xxaBb", "b" | 5 | 4 | E5 | 4 | 4 | 4 | E5 | E5 |
+| "Straße", "ss" | 0 | 5 | E5 | **0** | 5 | 5 | E5 | E5 |
+| "xÆy", "ae" | 0 | 2 | E5 | **0** | 2 | 2 | E5 | E5 |
+| "co-op", "coop" | 0 | 0 | E5 | 0 | 0 | 0 | E5 | E5 |
+| "", "a" | 0 | 0 | **0** | 0 | 0 | 0 | **0** | **0** |
+
+**The expansions (ß as ss, Æ as ae) depend on the locale ID,** and I can't find the rule. Here's a wider row for the same three searches:
+
+| Search | 1 | 3 | 1027 (ca) | 4 | 2052 (zh) | 5 | 1029 (cs) | 7 | 1031 (de) | 9 | 1033 | 2057 | 100 | 1024 | 2048 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| "Straße", "ss" | 5 | 0 | 0 | 0 | 0 | 0 | 5 | 0 | 5 | 0 | 5 | 5 | 0 | 0 | 0 |
+| "xÆy", "ae" | 2 | 0 | 0 | 0 | 0 | 0 | **0** | 0 | 2 | 0 | 2 | 2 | 0 | 0 | 0 |
+| "ß", "s" | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 1 | 1 | 0 | 0 | 0 |
+
+- **Bare language IDs aren't the rule.** Catalan's full ID 1027 doesn't expand either.
+- **"Ask the default locale" isn't the rule either.** 1024 (user default) and 2048 (system default) don't expand, though 1 does.
+- **Czech expands ß but not Æ.**
+
+**StrComp, by contrast,**, treats ß and "ss" as equal under every ID in the wider row. A case-only difference is found under every valid ID.
+
+**What resisted explanation.** Which IDs make InStr read ß as ss and Æ as ae. Two candidate rules are refuted:
+- **"Only full locale IDs":** Catalan's 1027 doesn't expand, while 1029, 1031, 1033 and 2057 do.
+- **"The default locale":** 1024 and 2048 don't expand, though a compare of 1 does.
+
+Czech expands ß but not Æ. I'd not generalise past these rows.
+
 ### Scope
 
 - **Measured under en-GB only, on the characters cp1252 holds.** HexIDE applies the same rows in every locale, which is a wrong-value risk wherever Windows tailors the sort, such as Swedish å, ä and ö, or Turkish i. #1573 owes that measurement.

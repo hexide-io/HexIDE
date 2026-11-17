@@ -131,7 +131,7 @@ _Original per-item findings (retained for detail; dispositions above supersede t
   (Audit nit corrected: the cause was that `TryUnpack<TT>` has *no `string` branch*, not a numeric coincidence.)
   **String/number comparisons fixed (#211):** [measured typed/Variant rules](vb6-fidelity-oracle/a-string-compared-with-a-number.md)
   now run. Decimal/String and Variant String against Currency, Boolean or Date remain unmeasured and refuse
-  untrappably. Mixed String default-member comparisons remain refused (#174).
+  untrappably. Default-member reads retain typed/Variant origin for these comparisons (#174; [measurements](vb6-fidelity-oracle/an-object-used-as-a-value.md#a-default-members-value-compared-with-a-string-2026-11-14-174s-review)).
 - **Declare Sub/Function … Lib** — PrePass.cs:161-162 throws so any module with a `Declare` fails to load; VB6 foundational for Win32 API. Undocumented (absent from the boundary map — violates the spec's every-wall-documented rule).
 - ~~**Option Compare [Binary|Text] / Option Private Module** — PrePass.cs:46-50 throws for both (module fails to load).~~ Both load. **`Option Compare Text` is done (#1567)** for the comparison operators, `Select Case` and, with a compare of 1, InStr, InStrRev, Replace, Split, Filter and a Collection's keys, all through `VbTextCompare`, whose rows are vb6.exe's measured order. A string function given no compare takes the module's mode too (#1572). Two things remain:
   - **Other locales are a wrong-value risk, not just a gap.** The rows were measured under en-GB and are applied in every locale. Where Windows tailors the sort, such as Swedish å, ä and ö, or Turkish i, HexIDE would give en-GB's answer and nothing would say so (#1573).

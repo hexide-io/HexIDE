@@ -269,7 +269,8 @@ public partial class UserSidecarService : IUserSidecarService
                     state.Owed |= MigrateLoadedNames(project, data, owned);
                     var (migrated, consumed, consumedFile) = Apply(project, data, path, owned);
                     // The file's choice unless the user made one while it was read, as a mark made meanwhile is kept.
-                    if (runChoices?.Get(project) is null) runChoices?.Set(project, data.RunWith);
+                    if (runChoices?.HasChoice(project) == false && data.RunWith is { } stored)
+                        runChoices.Set(project, stored.Length == 0 ? null : stored);
                     state.Read = migrated;
                     if (!consumed.IsEmpty || !consumedFile.IsEmpty)
                     {
@@ -767,7 +768,7 @@ public partial class UserSidecarService : IUserSidecarService
             // and labelling it with this build's version would misdescribe it.
             var version = Math.Max(source?.Version ?? CurrentVersion, CurrentVersion);
             var extra = source?.Extra is { Count: > 0 } unrecognised ? unrecognised : null;
-            var runWith = runChoices is null ? source?.RunWith : runChoices.Get(project);
+            var runWith = runChoices is null ? source?.RunWith : runChoices.Get(project) ?? (runChoices.HasChoice(project) ? "" : null);
 
             // A sidecar is created only when there is something to record, and content this build does not
             // understand is something, as are the entries it keeps without understanding where they go. One that
@@ -1081,7 +1082,7 @@ internal class UserSidecarData
     [JsonPropertyName("breakpoints")]
     public Dictionary<string, List<int>>? Breakpoints { get; set; }
 
-    /// <summary>What F5 runs for the project, for this user: a contributed launch's key; absent for the interpreter.</summary>
+    /// <summary>What F5 runs for the project, for this user: a launch's key, empty for an explicit interpreter choice, absent for the default.</summary>
     [JsonPropertyName("runWith")]
     public string? RunWith { get; set; }
 

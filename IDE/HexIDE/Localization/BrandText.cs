@@ -84,9 +84,9 @@ internal static partial class BrandText
 
     /// <summary>
     /// Strings that are statements about HexIDE itself, and stay true only if they keep saying so: who built it,
-    /// whose signing keys these are, and which HexIDE version an add-in asks for.
+    /// whose signing keys these are, which HexIDE version an add-in asks for, and what its engine implements.
     /// </summary>
-    private static readonly HashSet<string> UpstreamKeys = new(StringComparer.Ordinal)
+    internal static readonly HashSet<string> UpstreamKeys = new(StringComparer.Ordinal)
     {
         UpstreamCreditsKey,
         "Str.Dialog.About.Provenance",
@@ -96,6 +96,15 @@ internal static partial class BrandText
         "Str.Dialog.About.SigningKeys.FirstPartyKey",
         "Str.Addins.Incompatible",
         "Str.TranslationEditor.ProtectedCredits",
+        "Str.MemberOrigin.HexIde",
+        "Str.Dialog.Components.NotImplemented",
+        "Str.Designer.Unmodelled.NotSupported",
+        "Str.ProjectRunner.NotImplementedYet",
+        "Str.Dialog.UnfaithfulSave.Body.One",
+        "Str.Dialog.UnfaithfulSave.Body.Many",
+        "Str.Designer.ReadOnly.Banner",
+        "Str.CodeEditor.FileNotSaved.Banner",
+        "Str.ProjectLoad.ActiveXDocuments",
         "Str.TranslationEditor.ProtectedTrust",
     };
 

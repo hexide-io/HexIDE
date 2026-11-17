@@ -51,7 +51,13 @@ public class WorkflowActionTests
         docs.Should().Contain("runs-on: ubuntu-latest");
         builds.Should().Contain("runs-on: ${{ matrix.runner }}");
 
-        var names = Regex.Matches(builds, @"\{ name: ([\w-]+), runner: ([\w-]+) \}");
+        // The matrix is a JSON list chosen by event (#4218): all three platforms for a push or a merge batch, Windows alone
+        // for a pull request's own run. The docs-only job stands in for every platform of the full list.
+        builds.Should().Contain("(github.event_name != 'pull_request' || startsWith(github.head_ref, 'batch/'))");
+        var lists = Regex.Matches(builds, @"'(\[\{""name"".*?\}\])'").Select(match => match.Groups[1].Value).ToArray();
+        lists.Should().HaveCount(2, "the full list and the pull request's own list");
+        Regex.Matches(lists[1], @"""name"":""([\w-]+)""").Select(match => match.Groups[1].Value).Should().Equal("windows");
+        var names = Regex.Matches(lists[0], @"\{""name"":""([\w-]+)"",""runner"":""([\w-]+)""\}");
         names.Select(match => match.Groups[1].Value).Should().BeEquivalentTo(new[] { "windows", "macos", "windows-arm" });
         foreach (Match name in names)
         {
@@ -74,7 +80,7 @@ public class WorkflowActionTests
 
         build.Should().Contain("continue-on-error: ${{ matrix.name == 'windows-arm' }}");
         build.Should().Contain("fail-fast: false");
-        build.Should().Contain("- { name: windows-arm, runner: windows-11-arm }");
+        build.Should().Contain("{\"name\":\"windows-arm\",\"runner\":\"windows-11-arm\"}");
         build.Should().Contain("name: Publish the standalone runner (for the made-program test)\n        if: runner.os == 'Windows'");
         build.Should().Contain("HEXIDE_REQUIRE_MADE_PROGRAM: ${{ runner.os == 'Windows' && '1' || '0' }}");
         build.Should().Contain("HEXIDE_REQUIRE_FOREIGN_LSP: '1'");

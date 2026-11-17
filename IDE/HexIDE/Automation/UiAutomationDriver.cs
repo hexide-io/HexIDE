@@ -1858,6 +1858,19 @@ public static class UiAutomationDriver
     /// <see cref="FinishAsync"/> raises as input of its own, after whatever the press set off has run.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Windows hands a mirrored window (WS_EX_LAYOUTRTL) its mouse messages with client x measured from the right edge.
+    /// A click is raised at the layout point, past that, so it reaches the named control whether or not the window
+    /// un-mirrors a real mouse's messages, and the reply says so (#4102).
+    /// </summary>
+    internal const string MirroredPressNote = "; this window is mirrored (WS_EX_LAYOUTRTL), and the press was raised at the "
+        + "layout point, past Windows' mirroring: a real mouse here arrives with its client x measured from the right edge, "
+        + "so it reaches the same control only if the window un-mirrors its input";
+
+    private static string MirroredPress(TopLevel topLevel) =>
+        topLevel is Window window && NativeWindowFrame.Read(window).ExStyle is { } ex && (ex & 0x00400000) != 0
+            ? MirroredPressNote : "";
+
     private static InteractOutcome DoClick(Control control, string? value)
     {
         static InteractOutcome Fail(string error) => new(false, "pointer", null, error);
@@ -1955,6 +1968,7 @@ public static class UiAutomationDriver
                 ? $"; ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) is outside '{Describe(control)}', which is "
                   + $"{control.Bounds.Width.ToString("0.#", CultureInfo.InvariantCulture)} × {control.Bounds.Height.ToString("0.#", CultureInfo.InvariantCulture)}, and the press landed on '{Describe(landed)}'"
                 : $"; the press landed on '{Describe(landed)}', which covers the target there";
+        landing += MirroredPress(topLevel);
         var holding = keys == KeyModifiers.None ? "" : " holding " + string.Join(" and ",
             new[] { (KeyModifiers.Shift, "shift"), (KeyModifiers.Control, "ctrl"), (KeyModifiers.Alt, "alt") }
                 .Where(k => keys.HasFlag(k.Item1)).Select(k => k.Item2));
@@ -2449,7 +2463,7 @@ public static class UiAutomationDriver
     public sealed class ProgramWatch
     {
         internal ProgramWatch(
-            HexIDE.Runtime.EventPump pump, Window? form, HashSet<Window> before, Func<HexIDE.Runtime.Debugging.StoppedInfo?> paused)
+            IProgramActivity pump, Window? form, HashSet<Window> before, Func<HexIDE.Runtime.Debugging.StoppedInfo?> paused)
         {
             Pump = pump;
             WaitingOnWindowBefore = pump.IsWaitingOnWindow;
@@ -2460,7 +2474,7 @@ public static class UiAutomationDriver
             Paused = paused;
         }
 
-        internal HexIDE.Runtime.EventPump Pump { get; }
+        internal IProgramActivity Pump { get; }
         internal Window? Form { get; }
         internal HashSet<Window> Before { get; }
         // An old window can hold the program only if a walk was waiting on a window before the action.
@@ -2595,18 +2609,23 @@ public static class UiAutomationDriver
     }
 
     /// <summary>The program behind a running form or a box raised by its MsgBox or InputBox call.</summary>
-    internal static (HexIDE.Runtime.EventPump Pump, Window? Form)? ProgramOf(Window window)
+    internal static (IProgramActivity Pump, Window? Form)? ProgramOf(Window window)
     {
-        if (window is HexIDE.Runtime.IModuleExecutionRoot { Events: { } events })
-            return (events, window);
-        if (!HexIDE.IDE.ProgramDialogs.IsProgramBox(window.Content))
-            return null;
-        for (var at = window.Owner as Window; at is not null; at = at.Owner as Window)
-            if (at is HexIDE.Runtime.IModuleExecutionRoot { Events: { } ownerEvents })
-                return (ownerEvents, at);
-        return OpenWindows().FirstOrDefault(w => w is HexIDE.Runtime.IModuleExecutionRoot { Events: not null }) is { } form
-            ? (((HexIDE.Runtime.IModuleExecutionRoot)form).Events!, form)
-            : null;
+        var activity = RunningProgram.Current.Activity(window);
+        if (activity is null) return null;
+        var form = RunningProgram.Current.Form(window) is { IsRunning: true, Window: Window running } ? running : null;
+        if (form is null)
+        {
+            for (var at = window.Owner as Window; at is not null; at = at.Owner as Window)
+                if (RunningProgram.Current.Form(at) is { IsRunning: true } && RunningProgram.Current.Activity(at) is not null)
+                {
+                    form = at;
+                    break;
+                }
+            form ??= OpenWindows().FirstOrDefault(w => RunningProgram.Current.Form(w) is { IsRunning: true }
+                && RunningProgram.Current.Activity(w) is not null);
+        }
+        return (activity, form);
     }
 
     // The windows open now. A host without a desktop lifetime, the headless one the tests run in, keeps no list of them,
@@ -2646,7 +2665,7 @@ public static class UiAutomationDriver
     private static Window? DialogOf(ProgramWatch watch) =>
         OpenWindows().Where(w => !watch.Before.Contains(w))
             .Concat((watch.Form?.OwnedWindows ?? []).OrderBy(w => OpenDialogs.IsBox(w.Content) ? 0 : 1))
-            .FirstOrDefault(w => w.IsVisible && w != watch.Form && w is not HexIDE.Runtime.IModuleExecutionRoot
+            .FirstOrDefault(w => w.IsVisible && w != watch.Form && RunningProgram.Current.Form(w) is not { IsRunning: true }
                                  && (watch.WaitingOnWindowBefore || !watch.Before.Contains(w)));
 
     /// <summary>
@@ -2654,10 +2673,10 @@ public static class UiAutomationDriver
     /// a program can't change, with its caption beside it where that differs: <c>Form2 ("Second")</c> (#2720).
     /// </summary>
     private static List<string> OpenedForms(ProgramWatch watch) =>
-        [.. OpenWindows().Where(w => w is HexIDE.Runtime.IModuleExecutionRoot && !watch.Before.Contains(w)).Select(FormLabel)];
+        [.. OpenWindows().Where(w => RunningProgram.Current.Form(w) is { IsRunning: true } && !watch.Before.Contains(w)).Select(FormLabel)];
 
     private static string FormLabel(Window form) =>
-        HexIDE.Runtime.BuiltinControls.VBProps.GetName(form) is not { Length: > 0 } name ? $"'{form.Title}'"
+        RunningProgram.Current.Form(form)?.Name is not { Length: > 0 } name ? $"'{form.Title}'"
         : string.Equals(name, form.Title, StringComparison.OrdinalIgnoreCase) ? name
         : $"{name} (\"{form.Title}\")";
 
@@ -2666,8 +2685,7 @@ public static class UiAutomationDriver
         names.Count == 1 ? names[0] : $"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}";
 
     /// <summary>The running program's event pump, read from any of its open forms, or null when none is open.</summary>
-    internal static HexIDE.Runtime.EventPump? RunningPump() =>
-        OpenWindows().OfType<HexIDE.Runtime.IModuleExecutionRoot>().Select(r => r.Events).FirstOrDefault(e => e is not null);
+    internal static IProgramActivity? RunningPump() => RunningProgram.Current.Activity(null);
 
     // `click`'s value: an optional point, a button and the keys held, in any order (ClickValue).
     private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out bool twice, out string? destination, out bool hold, out string problem)
@@ -5689,7 +5707,7 @@ public static class UiAutomationDriver
     private static bool IsProgramControl(Control control) =>
         HexIDE.Runtime.BuiltinControls.VBProps.GetName(control) is not null
         && control is not (HexIDE.Runtime.BuiltinControls.VBTimer or HexIDE.Runtime.BuiltinControls.VBCommonDialog)
-        && control.FindLogicalAncestorOfType<HexIDE.Runtime.IModuleExecutionRoot>() is not null;
+        && control.GetLogicalAncestors().Any(a => RunningProgram.Current.Form(a) is { IsRunning: true });
 
     private static UiNode BareNode(MeaningfulChild node, string path, object? parentContext) =>
         MakeNode(node, path, [], parentContext);
@@ -5805,7 +5823,7 @@ public static class UiAutomationDriver
                 continue;
             // The loader keeps an empty hidden bar even on a form declaring no menus (#3276).
             if (v is Menu { ItemCount: 0, IsVisible: false } menu
-                && menu.FindAncestorOfType<HexIDE.Runtime.VBFormRuntime>() is not null)
+                && menu.GetVisualAncestors().Any(a => a is Window && RunningProgram.Current.Form(a) is { IsRunning: true }))
                 continue;
             if (v is Popup popup)
             {

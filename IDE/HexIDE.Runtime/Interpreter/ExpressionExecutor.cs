@@ -108,11 +108,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var leftValue = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(leftRaw, callerFrames: stmtFrames), context[0]);
         var rightRaw = await EvaluateValue(context[1]);
         var rightValue = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(rightRaw, callerFrames: stmtFrames), context[1]);
-        // #174's round-four measurements distinguish typed defaults from late-bound values.
-        // Mixed String comparisons need #211; a guessed value or trappable 13 would let execution continue.
-        if ((leftRaw.Value is VbObject || rightRaw.Value is VbObject)
-            && (leftValue.Type == Vb6Value.ValueType.String) != (rightValue.Type == Vb6Value.ValueType.String))
-            throw new NotImplementedException("Mixed String comparison after a class default-member read requires #211 (#174).");
         if ((leftValue.Type == Vb6Value.ValueType.Error || rightValue.Type == Vb6Value.ValueType.Error)
             && leftValue.Type != rightValue.Type)
             throw new VBRunTimeException(context[0], VBStandardError.TypeMismatch);
