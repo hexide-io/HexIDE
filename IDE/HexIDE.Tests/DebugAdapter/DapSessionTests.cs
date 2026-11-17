@@ -47,6 +47,50 @@ public class DapSessionTests
         await pending.WaitAsync(Patience, Token);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Evaluate_delivery_waits_for_a_full_event_queue_or_fails_when_session_ends(bool endSession)
+    {
+        await using var peer = new Peer(new() { EventCapacity = 1 });
+        await using var session = new DapSession(peer.Client, updateCapacity: 1);
+        var stop = await Stop(peer, session);
+        var evaluation = session.EvaluateAsync(stop, 0, "? output", Token);
+        await peer.Reply(await peer.Receive(), """{"result":""}""");
+        await evaluation.WaitAsync(Patience, Token);
+        // One update occupies the session queue, one publication waits for room, and one event
+        // fills the wire queue. Count confirms backpressure before the barrier is requested.
+        for (var i = 0; i < 3; i++)
+            await peer.Send(JsonSerializer.Serialize(new { seq = 20 + i, type = "event", @event = "output", body = new { output = i.ToString(System.Globalization.CultureInfo.InvariantCulture) } }));
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Token);
+        deadline.CancelAfter(Patience);
+        while (!peer.Client.Events.TryPeek(out var queued) || queued.Sequence != 22)
+            await Task.Delay(10, deadline.Token);
+        session.Updates.Count.Should().Be(1);
+        peer.Client.Events.Count.Should().Be(1);
+        var delivery = session.WaitForDeliveryAsync();
+        delivery.IsCompleted.Should().BeFalse("a full queue must backpressure the barrier");
+        if (endSession)
+        {
+            await session.DisposeAsync().AsTask().WaitAsync(Patience, Token);
+            await ((Func<Task>)(() => delivery.WaitAsync(Patience, Token))).Should().ThrowAsync<IOException>();
+            return;
+        }
+        var printed = new System.Text.StringBuilder();
+        while (true)
+        {
+            var update = await session.Updates.ReadAsync(deadline.Token);
+            if (update.Event?.DeliveryBarrier is { } delivered)
+            {
+                printed.ToString().Should().Be("012");
+                delivered.TrySetResult();
+                break;
+            }
+            if (update.Event?.Event == "output") printed.Append(update.Event.Body!.Value.GetProperty("output").GetString());
+        }
+        await delivery.WaitAsync(Patience, Token);
+    }
+
     [Fact]
     public async Task Initialize_advertises_invalidated_events()
     {
@@ -91,14 +135,17 @@ public class DapSessionTests
         session.IsCurrent(update.Snapshot.Stop).Should().BeTrue();
     }
 
-    [Fact]
-    public async Task Configures_before_awaiting_launch_and_preserves_breakpoint_verification()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Configures_before_awaiting_launch_and_preserves_breakpoint_verification(bool earlyLaunch)
     {
         await using var peer = new Peer();
         await using var session = new DapSession(peer.Client);
         var pending = session.LaunchAsync("external", Args, [new("/workspace/Module1.bas", [4])], Token);
         await peer.Reply(await peer.Receive(), """{"supportsConfigurationDoneRequest":true,"exceptionBreakpointFilters":[{"filter":"unhandled","default":true},{"filter":"all","default":false}],"future":42}""");
         var launch = await peer.Receive();
+        if (earlyLaunch) await peer.Reply(launch);
         await peer.Send("""{"seq":2,"type":"event","event":"initialized"}""");
         var bp = await peer.Receive();
         bp.GetProperty("command").GetString().Should().Be("setBreakpoints");
@@ -113,7 +160,7 @@ public class DapSessionTests
         var done = await peer.Receive();
         done.GetProperty("command").GetString().Should().Be("configurationDone");
         await peer.Reply(done);
-        await peer.Reply(launch);
+        if (!earlyLaunch) await peer.Reply(launch);
         var results = await pending.WaitAsync(Patience, Token);
         results[0].Body!.Value.GetProperty("breakpoints")[0].GetProperty("verified").GetBoolean().Should().BeFalse();
         session.Capabilities.GetProperty("future").GetInt32().Should().Be(42);

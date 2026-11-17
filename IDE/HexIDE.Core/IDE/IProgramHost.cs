@@ -4,16 +4,19 @@ namespace HexIDE.IDE;
 
 /// <summary>
 /// What a run engine asks of the IDE that hosts a running program (#4066, step 2a of the run side of #3411's split): the
-/// CommonDialog's dialogs, a program's MsgBox and InputBox, and the engine's two failure texts. The form host, operation
-/// 1, follows in #4068.
+/// single-view form window, CommonDialog's dialogs, a program's MsgBox and InputBox, and the engine's two failure texts
+/// (#4068 completes operation 1).
 /// </summary>
 /// <remarks>
-/// An engine outside this repository inherits exactly this surface, so it stays to these operations: no window, service
+/// An engine outside this repository inherits exactly this surface, so it stays to these operations: no other window, service
 /// locator, event bus or localization lookup (the supervisor's condition on #3411's shape). A new need is a new operation
 /// with its own case, not a passthrough.
 /// </remarks>
 public interface IProgramHost
 {
+    /// <summary>Make the host window for one form. The runtime receives only that form's own window.</summary>
+    IHostedForm CreateForm(HostedFormRequest request);
+
     /// <summary>A CommonDialog's ShowOpen or ShowSave. Null when cancelled.</summary>
     Task<VbFileDialogAnswer?> FileDialog(VbFileDialogRequest request);
 

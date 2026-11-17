@@ -79,6 +79,7 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 #### Scenario: Breaking into a running program
 - **WHEN** the developer presses Ctrl+Break, or chooses Run ▸ Break, while the project is running
 - **THEN** the program suspends at the next executed statement and enters break mode
+- **AND** between events it enters break mode immediately with no current statement
 
 #### Scenario: Breaking a DoEvents loop from the IDE
 - **WHEN** a running form has focus and its event handler loops with `DoEvents`
@@ -91,10 +92,17 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 - **THEN** the program resumes, the current-statement bar clears, the inspection windows blank, and any frozen event handlers are released
 
 #### Scenario: A step returns to event idle
-- **WHEN** Step Into, Over or Out returns from the outermost event handler without another stop
-- **THEN** the pending step clears and the shell shows running mode
-- **AND** the current-statement bar clears, inspection windows blank, and frozen event handlers are released
-- **AND** Break is available again and the next unrelated event runs without the leftover step
+- **WHEN** Step Into or Step Over runs off the outermost event handler
+- **THEN** break-mode chrome clears and frozen events are released
+- **AND** the step remains armed for the next event's handler declaration, before any statement executes
+- **AND** events raised inside the still-running chain retain its stepping depth rules
+
+#### Scenario: Stepping from idle break mode
+- **WHEN** a program is paused between events with no current statement
+- **THEN** Continue resumes with no step armed
+- **AND** Step Into and Step Over resume with a step armed for the next handler's declaration
+- **AND** stepping from that declaration stops at the first statement with the handler on the call stack
+- **AND** Show Next Statement, Set Next Statement, Step Out, Run To Cursor and Call Stack are disabled until a statement exists
 
 #### Scenario: Ending the run from break mode
 - **WHEN** the developer chooses End while paused
@@ -321,6 +329,21 @@ Watches persist an expression across breaks, so the developer does not re-type i
 #### Scenario: Adding a watch
 - **WHEN** the developer chooses Debug ▸ Add Watch, or presses Shift+F9 with the caret on an identifier
 - **THEN** the Add Watch dialog opens, pre-filled with that identifier where one was under the caret
+
+#### Scenario: Choosing a watch context
+- **WHEN** the developer adds or edits an interpreter watch
+- **THEN** the dialog SHALL offer the project's code modules in project order and the selected module's collected procedures, preceded by `(All Procedures)`
+- **AND** changing Module SHALL refill Procedure
+- **AND** OK SHALL store `Module` for `(All Procedures)` or `Module.Procedure` for a chosen procedure, displayed verbatim in the Watches Context column
+- **AND** Edit Watch SHALL initially select and retain its stored choice, including a stored procedure the collected list does not name
+
+#### Scenario: Adding a watch from declarations
+- **WHEN** the active code window's caret is in the module's declarations
+- **THEN** Add Watch SHALL default to that module and `(All Procedures)` ([measured context](../../../docs/vb6-fidelity-oracle/a-watch-and-its-context.md), #4354)
+- **AND** with the caret inside a procedure, or no active code window, a paused program SHALL give the paused frame's `Module.Procedure` whole, which is unmeasured and retains the earlier choice
+- **AND** otherwise the unmeasured fallback SHALL choose the active module, then the project's first code module, with `(All Procedures)`
+- **AND** existing bare `(All Procedures)` watch contexts SHALL retain their existing behaviour
+- **AND** an external session's watch dialog SHALL stay expression-only, showing the selected frame's context as fixed text
 
 #### Scenario: Localizing a watch context
 - **WHEN** the IDE language changes

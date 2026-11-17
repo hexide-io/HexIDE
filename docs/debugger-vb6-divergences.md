@@ -96,19 +96,24 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 
 ## Stepping
 
-### D4. Step Into past the end of a procedure returns to the caller; a top-level handler disarms
-- **VB6:** stepping off the end of a proc returns to the caller (breaking there while stepping); off the end of the
-  outermost event handler clears the step and the next event runs free.
-- **HexIDE:** matches this. Step is a one-shot: off the end of a NESTED proc it breaks at the caller's next statement
-  (Step Into always breaks at the next executed statement); off the end of the OUTERMOST event handler it is
-  **disarmed at the event-dispatch boundary** (`VBWindowContext.ExecuteSub`), so it does NOT leak into the next event.
-- **History:** from Phase 2 through the first P5 cut the one-shot instead **carried** into the next event's first
-  statement (a documented divergence — the faithful proc-end-clear had introduced 7 defects in the Phase-2 review, so
-  it was removed). The v2·P5 dispatch-idle disarm restored the VB6 behaviour after both P5 adversarial reviewers
-  independently flagged the leak (a Step Over leaving `target=1` fired on *every* subsequent event).
-- **Status:** **resolved (v2·P5)**. Matches VB6's "next event runs free." **#2320:** returning to idle also
-  publishes Continued and releases frozen events, so the shell leaves break mode (title, current-line bar,
-  inspection windows and command availability). VB6's title and toolbar at this point remain unmeasured.
+### D4. A step carries from an outermost event into the next event
+- **VB6:** Step Into and Step Over remain armed when the outermost event handler returns: the IDE shows [run], and
+  the next event breaks at its handler's declaration line before any statement runs. Break while idle enters break
+  mode at once, with no current statement. Continue clears the step; Into/Over resume and arm it for the next event.
+  Measured in the VB6 IDE on 2026-11-16, in [#4261's comments](https://github.com/hexide-io/HexIDE/issues/4261) and the
+  oracle's [Break on an idle program, and a step off the end of an event handler](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md)
+  (oracle PR #4270), also #4269. VB6's toolbar at that point remains unmeasured.
+- **HexIDE:** matches these measured positions, including the declaration's current-statement bar and live handler
+  frame. Idle Break has no bar or frame: Show/Set Next Statement, Step Out, Run To Cursor and Call Stack are disabled.
+- **History:** from Phase 2 through the first P5 cut the one-shot step **carried** into the next event's first
+  statement (a documented divergence: the faithful proc-end-clear had introduced 7 defects in the Phase-2 review, so
+  it was removed). The v2·P5 dispatch-idle disarm then cleared it at idle, on what was taken to be VB6's behaviour,
+  after both P5 adversarial reviewers flagged the leak (a Step Over leaving `target=1` fired on *every* subsequent
+  event). That rule was never measured, and #4270 overturned it. The disarm had protected against stale depth targets
+  and nested events stealing a step. Into/Over now carry only after the outermost chain returns; events raised within
+  that chain retain the existing depth rule. #2320's clearing of break-mode chrome and release of frozen events at
+  idle remains in place.
+- **Status:** **resolved (#4261, #4269)**. Step Out across idle and startup Main's step positions remain unmeasured and keep their previous behavior. Startup `Sub Main` stepping is also unmeasured here and keeps its existing statement positions.
 
 ### D5. Step Over / Step Out (v2·P5)
 - **VB6:** Shift+F8 (Step Over — run a called proc to completion, break at the next statement in the current frame),
@@ -117,7 +122,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   activation is pushed, NOT the live stack size — so an overlapping re-entrant event frame can't inflate it): Step
   Over breaks when the executing frame's depth ≤ the armed depth (a called Sub runs to completion; a non-call
   statement is same-depth so it behaves like Step Into — matches VB6); Step Out breaks when depth < the armed depth
-  (the proc returned). A never-consumed step is disarmed at the event-dispatch boundary (see D4). Module top-level
+  (the proc returned). Into/Over carry across the outermost event-dispatch boundary (D4); Out retains its previous disarm. Module top-level
   code has depth 0 (below any proc), so Step Over from top-level does not descend into a callee and Step Out from a
   top-level-called proc reaches the top-level caller.
 - **Why per-frame (not live count):** the first P5 cut read the live `ActivationStack.Count` with a `Max(1, …)`
@@ -632,12 +637,19 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
 - **HexIDE:** paused watches now respect the stored module/procedure scope and read a caller's frame.
   Outside break mode all rows still show the localized out-of-context value. At design time and after
   End their type is `Empty`; while running it remains blank (running-state refresh was not measured).
-- **Why:** design-time name resolution needs collected declarations without a live interpreter frame.
-  The all-procedures placeholder still lacks a stored module
-  at design time and uses the paused module. Explicit module contexts are supported within that module.
-- **Status:** **partial**, #2290. Remaining: design-time/after-End resolution and context selection/storage.
-  Recursion, cross-module contexts, Break When types and running-state refresh were not measured and
-  keep their previous behavior.
+- **Why, design time and after End: out of bounds, by design.** With nothing running there is no frame to
+  look a name up in, so telling `<Expression not defined in context>` from `<Out of context>` means asking whether
+  the name is declared anywhere. That is the undeclared-name question the CST-not-AST boundary in CLAUDE.md walls, the
+  same one that keeps `VbScopeAnalyzer`'s Option Explicit check compiled out. Restricting it to a bare name doesn't
+  change what it asks. The pre-pass's tables can't answer it either: a procedure's locals aren't collected until it
+  runs, so a lookup there would confidently call a local undefined, which is worse than today's text. A language
+  engine over the LSP seam, such as RDCore, is where that answer would come from. Ruled on #2290, 2026-11-16.
+- **Why, the stored context:** the all-procedures placeholder still lacks a stored module at design time and uses
+  the paused module. Explicit module contexts are supported within that module. This part is in bounds and is
+  [#4354](https://github.com/hexide-io/HexIDE/issues/4354): Add Watch offers a Module and a Procedure, as VB6's does.
+- **Status:** **partial by design** for design-time and after-End name resolution (above). Context selection and
+  storage remain, as #4354. Recursion, cross-module contexts, Break When types and running-state refresh were not
+  measured and keep their previous behavior.
 
 ### D30. Locals rows beyond what is measured (#2329, #2700)
 - **VB6, measured** (hexide-int, #2289, #2329, #2700; oracle #2698 and #2702):

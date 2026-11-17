@@ -70,7 +70,8 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Runtime.Debugging.IDebugController>(out var debugger);
                 ctx.Inject<IWindowManager>(out var windows);
                 ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
-                return new WatchesToolViewModel(localization, watches, debugger, windows, external);
+                ctx.Inject<WatchDialogContextSource>(out var contexts);
+                return new WatchesToolViewModel(localization, watches, debugger, windows, external) { DialogContextSource = contexts };
             })
             .Bind().As(Singleton).To<CallStackToolViewModel>()
             .Bind().As(Singleton).To<RecentEditHistory>()
@@ -163,8 +164,9 @@ public partial class DISetup
                 ctx.Inject<IComponentRegistry>(out var componentRegistry);
                 ctx.Inject<HexIDE.Language.IReadOnlyRegionWriter>(out var regionWriter);
                 ctx.Inject<IDocumentDockService>(out var documents);
+                ctx.Inject<AddinProjectTemplateService>(out var templates);
                 return new ProjectService(regionWriter, newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, format, componentRegistry, archives, lspClient,
-                    contributed, documents);
+                    contributed, documents, templates);
             })
             .Bind().As(Singleton).To<ArchiveProjectService>()
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()
@@ -239,15 +241,27 @@ public partial class DISetup
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
                 ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
                 var logger = loggerFactory.CreateLogger<LanguageServerConfigLoader>();
-                return new LanguageServerEditorStore(LanguageServerConfigLoader.DefaultFilePath(),
+                ctx.Inject<ILspClient>(out var router);
+                var store = new LanguageServerEditorStore(LanguageServerConfigLoader.DefaultFilePath(),
                     LanguageServerDefaults.For(locator, logger), logger, new LanguageServerCommandStore(), providers);
+                store.Reloaded += async entries =>
+                {
+                    try
+                    {
+                        foreach (var entry in entries)
+                            if (entry.Id is { } id)
+                                await ((LspClientRegistry)router).UpdateServerSettingsAsync(id, entry.Settings);
+                    }
+                    catch (Exception ex) { logger.LogWarning(ex, "Could not update language server settings."); }
+                };
+                return store;
             })
             // The configuration, read exactly once for the session.
             //
             // It used to be read inside the router's own factory, which was fine until the capture needed
             // its limits: the capture is constructed first, so it would have had to read the file a second
             // time and the two reads could disagree about what the user wrote. One binding, two consumers.
-            // Changes still take effect on restart, so nothing here resolves it later.
+            // Connection changes still take effect on restart; the entry store reloads server settings separately.
             .Bind<LanguageServerConfigResult>().As(Singleton).To(ctx =>
             {
                 ctx.Inject<ILspServerLocator>(out var locator);
@@ -385,7 +399,11 @@ public partial class DISetup
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
             // Pin production constructors: path/snapshot overloads are test seams, not dependencies.
             // Profiles
-            .Bind<IProfileService>().As(Singleton).To(_ => new ProfileService())
+            .Bind<IProfileService>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<AddinProjectTemplateService>(out var templates);
+                return new ProfileService(templates);
+            })
             // Theming
             .Bind<IThemeService>().As(Singleton).To(_ => new ThemeService())
             // Keymaps
@@ -410,9 +428,22 @@ public partial class DISetup
             .Bind().As(Singleton).To<AddinDiagnosticsService>()
             .Bind().As(Singleton).To<LanguageServerMessageReporter>()
             .Bind().As(Singleton).To<AddinCommandService>()
-            .Bind().As(Singleton).To<AddinProjectTemplateService>()
-            // The project types add-ins contribute, which Open Project and the recent list open as projects.
-            .Bind().As(Singleton).To<HexIDE.Projects.ContributedProjects>()
+            // The templates project types offer: VB6's first, as its type offers them (#3411 slice 10b), then add-ins'.
+            .Bind().As(Singleton).To(_ =>
+            {
+                var templates = new AddinProjectTemplateService();
+                HexIDE.Projects.Vb6ProjectType.RegisterTemplates(templates);
+                return templates;
+            })
+            // The project types add-ins contribute, which Open Project and the recent list open as projects, with VB6's own
+            // registered first, as a first-party type reading through the IDE's format (#3411 slice 10b).
+            .Bind().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IProjectFileFormat>(out var format);
+                var types = new HexIDE.Projects.ContributedProjects();
+                HexIDE.Projects.Vb6ProjectType.Register(types, format);
+                return types;
+            })
             .Bind().As(Singleton).To<AddinOptionsService>()
             .Bind<IPackageVerifier>().As(Singleton).To<PackageVerifier>()
             .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To(ctx =>

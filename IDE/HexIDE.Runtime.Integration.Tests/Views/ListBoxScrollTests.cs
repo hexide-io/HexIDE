@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -15,6 +16,8 @@ using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 using HexIDE.Integration.Tests;
 using HexIDE.Integration.Tests.Views;
 
@@ -60,9 +63,11 @@ public class ListBoxScrollTests : WindowTestFixture
         }
     }
 
-    private static async Task<(Recorder Recorder, ModuleExecutionContext Ctx, ExecutionEnvironment Env)> Loaded(string setup, double? fontSize = null)
+    private static async Task<(Recorder Recorder, ModuleExecutionContext Ctx, ExecutionEnvironment Env)> Loaded(string setup, double? fontSize = null, int multiSelect = 0)
     {
-        var (root, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(FormWithList);
+        var form = FormWithList.Replace("Begin VB.ListBox List1",
+            $"Begin VB.ListBox List1\n              MultiSelect = {multiSelect}");
+        var (root, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(form);
         var recorder = new Recorder { Child = root, List = (VBListBox)ContainerRuntimeHarness.Child(canvas, "List1") };
         var window = new Window { Content = recorder, Width = 400, Height = 300 };
         ContainerRuntimeHarness.MergeAppResources(window);
@@ -174,7 +179,8 @@ public class ListBoxScrollTests : WindowTestFixture
         var window = (Window)TopLevel.GetTopLevel(recorder.List)!;
         window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
         Dispatcher.UIThread.RunJobs();
-        recorder.Calls.Should().Equal($"List1_Click top={expected}", $"List1_Scroll top={expected}");
+        // #2325's key-events oracle: KeyDown now precedes the existing Click/Scroll path.
+        recorder.Calls.Should().Equal("List1_KeyDown", $"List1_Click top={expected}", $"List1_Scroll top={expected}");
     }
 
     [AvaloniaTheory]
@@ -189,7 +195,7 @@ public class ListBoxScrollTests : WindowTestFixture
         recorder.Calls.Clear();
         ((Window)TopLevel.GetTopLevel(recorder.List)!).KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
         Dispatcher.UIThread.RunJobs();
-        recorder.Calls.Should().Equal(click ? new[] { $"List1_Click top={top}" } : System.Array.Empty<string>());
+        recorder.Calls.Should().Equal(click ? new[] { "List1_KeyDown", $"List1_Click top={top}" } : new[] { "List1_KeyDown" });
     }
 
     [AvaloniaTheory]
@@ -267,10 +273,7 @@ public class ListBoxScrollTests : WindowTestFixture
         var (recorder, ctx, env) = await Loaded(SixtyItems);
         // As vb6.exe was driven: focus on the list first, then the selection and the top row, then the key.
         recorder.List!.Focus(NavigationMethod.Pointer).Should().BeTrue();
-        // Two runs: HexIDE scrolls to a new selection a dispatcher turn later, which would undo a TopIndex assigned in
-        // the same run (#4229). VB6 keeps it, and these rows need the selection out of view.
-        await After(recorder, ctx, env, $"List1.ListIndex = {selection}\r\n");
-        await After(recorder, ctx, env, $"List1.TopIndex = {top}\r\n");
+        await After(recorder, ctx, env, $"List1.ListIndex = {selection}\r\nList1.TopIndex = {top}\r\n");
         var list = recorder.List!;
         list.TopIndex.Should().Be(top);
         var rows = (int)System.Math.Floor(list.Scroll!.Viewport.Height / list.ContainerFromIndex(top)!.Bounds.Height);
@@ -298,6 +301,130 @@ public class ListBoxScrollTests : WindowTestFixture
             expected.Add($"List1_Scroll index={expectedSelection} top={expectedTop}");
         expected.Add($"KeyUp index={expectedSelection} top={expectedTop}");
         recorder.States.Should().Equal(expected);
+    }
+
+    // #4229, measured on vb6.exe SP6; oracle measuring PR #4208.
+    [AvaloniaTheory]
+    [InlineData(2, 20, false)]
+    [InlineData(50, 20, false)]
+    [InlineData(40, 0, false)]
+    [InlineData(2, 20, true)]
+    [InlineData(50, 20, true)]
+    [InlineData(40, 0, true)]
+    public async Task TopIndex_after_code_selection_survives_the_dispatcher(int selection, int top, bool selected)
+    {
+        var (recorder, ctx, env) = await Loaded(SixtyItems);
+        var assignment = selected ? $"List1.Selected({selection}) = True" : $"List1.ListIndex = {selection}";
+        await After(recorder, ctx, env, $"{assignment}\r\nList1.TopIndex = {top}\r\n");
+        recorder.List!.TopIndex.Should().Be(top);
+        recorder.List.ListIndex.Should().Be(selection);
+        recorder.Calls.Where(c => c.StartsWith("List1_Scroll", System.StringComparison.Ordinal))
+            .Should().Equal($"List1_Scroll top={top}");
+        recorder.Calls.Count(c => c.StartsWith("List1_Click", System.StringComparison.Ordinal)).Should().Be(1);
+    }
+
+    // Preserve the explicit focus scrolling used by the measured Simple/Extended arrow-key paths (#1413).
+    [AvaloniaTheory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task Multiselect_arrows_keep_the_focused_item_in_view(int multiSelect)
+    {
+        var (recorder, _, _) = await Loaded(SixtyItems, multiSelect: multiSelect);
+        var list = recorder.List!;
+        list.Focus().Should().BeTrue();
+        var window = (Window)TopLevel.GetTopLevel(list)!;
+        for (var i = 0; i < 11; i++)
+        {
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            window.KeyRelease(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Dispatcher.UIThread.RunJobs();
+        }
+        list.ListIndex.Should().Be(11);
+        list.TopIndex.Should().BeGreaterThan(0);
+        window.FocusManager!.GetFocusedElement().Should().BeSameAs(list.ContainerFromIndex(11));
+    }
+
+    // Selected(i) = True on a MultiSelect list scrolls the least it can to show the item, as on a single-select one, with
+    // no Scroll (measured on vb6.exe SP6, native and p-code, #4229; the oracle's
+    // selected-on-a-multiselect-listbox-scrolls-the-item-into-view.md).
+    [AvaloniaTheory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task Multiselect_Selected_brings_the_item_into_view_without_Scroll(int multiSelect)
+    {
+        var (recorder, ctx, env) = await Loaded(SixtyItems, multiSelect: multiSelect);
+        var list = recorder.List!;
+
+        var below = await After(recorder, ctx, env, "List1.Selected(50) = True\r\n");
+        list.TopIndex.Should().Be(40);
+        list.ListIndex.Should().Be(50);
+        below.Should().ContainSingle(c => c.StartsWith("List1_Click", System.StringComparison.Ordinal))
+            .And.NotContain(c => c.StartsWith("List1_Scroll", System.StringComparison.Ordinal));
+
+        await After(recorder, ctx, env, "List1.TopIndex = 45\r\n");
+        recorder.Calls.Clear();
+        var above = await After(recorder, ctx, env, "List1.Selected(2) = True\r\n");
+        list.TopIndex.Should().Be(2);
+        list.ListIndex.Should().Be(2);
+        list.SelectedCount.Should().Be(2);
+        above.Should().NotContain(c => c.StartsWith("List1_Scroll", System.StringComparison.Ordinal));
+    }
+
+    // A list's members, #821: selection follows its item without Click. No new TopIndex value is assumed here.
+    [AvaloniaTheory]
+    [InlineData("List1.AddItem \"inserted\", 0", 6)]
+    [InlineData("List1.RemoveItem 0", 4)]
+    [InlineData("List1.RemoveItem 5", -1)]
+    public async Task Item_changes_preserve_selection_without_Click_or_Scroll(string statement, int selection)
+    {
+        var (recorder, ctx, env) = await Loaded(SixtyItems);
+        await After(recorder, ctx, env, "List1.ListIndex = 5\r\n");
+        recorder.Calls.Clear();
+        (await After(recorder, ctx, env, statement + "\r\n")).Should().BeEmpty();
+        recorder.List!.ListIndex.Should().Be(selection);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task Selection_in_Form_Load_is_in_view_unless_TopIndex_follows(bool assignTop, bool insert)
+    {
+        // #4229: item 50 has TopIndex 40 on the measured 11-row list. Fit the host font as in Loaded.
+        var (recorder, _, _) = await Loaded(SixtyItems);
+        var height = (recorder.List!.Height * 15).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var source = FormWithList.Replace("1200", height) + "\r\nPrivate Sub Form_Load()\r\n"
+            + SixtyItems + "List1.ListIndex = 50\r\n"
+            + (insert ? "List1.AddItem \"inserted\", 0\r\n" : "")
+            + (assignTop ? "List1.TopIndex = 20\r\n" : "") + "End Sub\r\n";
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project, source.ReplaceLineEndings("\r\n"), new NullSink())!;
+        project.AddForm(form);
+        using var cancel = new CancellationTokenSource();
+        try
+        {
+            _ = VBLoader.RunForm(form, cancel.Token, out var window);
+            Dispatcher.UIThread.RunJobs();
+            window.IsVisible.Should().BeTrue();
+            var list = window.GetVisualDescendants().OfType<VBListBox>().Single();
+            list.ListIndex.Should().Be(insert ? 51 : 50);
+            if (insert)
+                list.TopIndex.Should().BeInRange(list.ListIndex - 10, list.ListIndex, "the selection still follows its item into view");
+            else
+                list.TopIndex.Should().Be(assignTop ? 20 : 40);
+            if (!assignTop)
+                list.ContainerFromIndex(list.ListIndex).Should().NotBeNull();
+        }
+        finally
+        {
+            cancel.Cancel();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    private sealed class NullSink : IDeserializeErrorSink
+    {
+        public void LogError(string message) => throw new System.InvalidOperationException(message);
     }
 
     // #3986: code selection scrolls before Click, without Scroll.

@@ -79,6 +79,8 @@ public sealed class HighContrastPackTests
     }
 
     [AvaloniaTheory]
+    [InlineData("Abyss", "Placeholder")]
+    [InlineData("Abyss", "ScrollBar")]
     [InlineData("HighContrastLight", "LineNumbers")]
     [InlineData("HighContrastLight", "Placeholder")]
     [InlineData("HighContrastLight", "Tab")]
@@ -116,7 +118,8 @@ public sealed class HighContrastPackTests
                 var composite = Color.FromRgb((byte)(ink.R * alpha + background.R * (1 - alpha)),
                     (byte)(ink.G * alpha + background.G * (1 - alpha)),
                     (byte)(ink.B * alpha + background.B * (1 - alpha)));
-                SyntaxHighlightingTheme.ContrastRatio(composite, background).Should().BeGreaterThanOrEqualTo(7);
+                SyntaxHighlightingTheme.ContrastRatio(composite, background).Should()
+                    .BeGreaterThanOrEqualTo(id.StartsWith("HighContrast", StringComparison.Ordinal) ? 7 : 4.5);
             }
             if (part == "Tab")
             {

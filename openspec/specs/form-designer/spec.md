@@ -48,8 +48,9 @@ Matching SHALL use a case-insensitive substring of the property name, independen
 
 ### Requirement: Unmodelled properties remain visible and read-only
 
-The Properties window SHALL append every raw property carried by the selected modelled component after
-its modelled properties in both tabs, as greyed read-only rows included in name filtering. Text values
+The Properties window SHALL append every raw property carried by the selected modelled component
+that has no editable design-time adapter after its modelled properties in both tabs, as greyed
+read-only rows included in name filtering. Text values
 SHALL retain the file's textual representation; a property with a binary record or companion citation
 SHALL show a localized `(binary)` marker instead. Displaying these rows SHALL NOT alter the saved form
 or companion bytes. This is the presentation contract decided in [#158](https://github.com/hexide-io/HexIDE/issues/158).
@@ -514,3 +515,84 @@ This rendering substitution SHALL NOT change Caption/Text readback or permit set
 - **THEN** the displayed text contains U+1F4A3 followed by U+263A
 - **AND** the access-key underline follows the two-unit U+1F4A3 and marks U+263A
 - **AND** Caption still reads `M&J`
+
+### Requirement: Edit a control array's design-time Index
+
+The Properties window and `set_control_property` SHALL share an editable Index for each modelled
+control. Edits SHALL support undo and form save/load. Invalid edits SHALL be refused before mutation
+or saving. Automation replies SHALL name the resulting element or plain control.
+
+#### Scenario: Create and move a one-element array
+- **WHEN** a plain control's initially empty Index is set to an integer from 0 through 32767
+- **THEN** it becomes that element of the array bearing its name
+- **AND WHEN** Index is changed to another free value in that range
+- **THEN** the element moves and the saved form reloads with its new Index
+- **AND** new and moved Index lines use the serializer’s normal property indentation and value columns;
+  untouched VB6-written array lines are preserved verbatim
+
+#### Scenario: Refuse an invalid array edit
+- **WHEN** Index is set to -1, 32768, non-integer text, or an index a same-name sibling holds
+- **THEN** the edit is refused without changing the model or saving
+- **AND** the Properties window gives localized instructions without measurement notes, distinguishing
+  a sibling holding the same Index from a same-name sibling with no Index
+- **AND** automation refusals explain the VB6 file-load rule measured in
+  [#2701 / measuring PR #4074](https://github.com/hexide-io/HexIDE/issues/2701), for the
+  [control-array oracle](../../../docs/vb6-fidelity-oracle/control-arrays.md)
+
+#### Scenario: Clear an element
+- **WHEN** a lone element's Index is cleared
+- **THEN** it becomes a plain control and undo restores its Index
+- **BUT WHEN** same-name siblings remain
+- **THEN** clearing is refused with a localized instruction naming the sibling
+- **AND** this rule is reasoned from the indexed-first mixed form measurement (missing-Index log, plain
+  control outside the array, Index raises 343), not measured VB6 IDE behaviour; reverse file order and
+  IDE prompts remain unmeasured
+- **AND** existing event signatures and new handler stubs remain unchanged, tracked by
+  [#4205](https://github.com/hexide-io/HexIDE/issues/4205); renaming to join an array remains #1397
+
+### Requirement: Designer keyboard selection follows measured tab order
+
+Tab and Shift+Tab in the designer SHALL move the selection through every control with a TabIndex in
+pure TabIndex order across the whole form, wrapping without including the form. TabStop, Visible, Enabled
+and containment SHALL NOT exclude a control or group it with its container; Labels and containers are
+stops too, as measured in [#4211](https://github.com/hexide-io/HexIDE/issues/4211). With several controls
+selected, traversal SHALL start from the primary (last selected) control and produce a single selection.
+Escape SHALL select the form, and focus SHALL stay
+in the designer, except while a mouse button is held: then Escape SHALL leave the selection alone, so a drag
+that is abandoned and let go where it began leaves its control where it was.
+
+#### Scenario: Creation order differs from TabIndex
+
+- **GIVEN** Command1, Text1 and Check1 created in that order with TabIndex 2, 0 and 1
+- **WHEN** Tab is pressed from the form and then repeatedly
+- **THEN** selection visits Text1, Check1, Command1 and Text1, with focus in the designer
+- **AND** Shift+Tab reverses that cycle, and Shift+Tab from the form selects Command1
+
+#### Scenario: Children precede their Frame by TabIndex
+
+- **GIVEN** Command1 (0), Text2 inside Frame1 (1), Text1 (2), Frame1 (3), Command3 (4), Command2 inside Frame1 (5), Label1 (6), hidden Check1 (7) and disabled Option1 (8), with Text1's TabStop False
+- **WHEN** Tab is pressed repeatedly from the form
+- **THEN** each control is selected in that order and the cycle wraps to Command1
+- **AND** Shift+Tab traverses the reverse order
+
+#### Scenario: Tab replaces a multiple selection
+
+- **GIVEN** Command3 (8) then Text1 (1) selected, with Text1 primary
+- **WHEN** Tab is pressed
+- **THEN** Check1 (2) alone is selected
+
+#### Scenario: Escape on a form with TabStop False
+
+- **GIVEN** a form where one control has TabStop False
+- **WHEN** a control is selected and Escape is pressed
+- **THEN** the form is selected
+
+#### Scenario: Escape during a held move
+
+- **WHEN** a control is being moved with the button held, and Escape is pressed
+- **THEN** the selection does not change, and letting go where the move began leaves the control where it was
+
+#### Scenario: The design-time caption buttons
+
+- **WHEN** focus moves through the designer
+- **THEN** the form's minimize, maximize and close buttons never take it
