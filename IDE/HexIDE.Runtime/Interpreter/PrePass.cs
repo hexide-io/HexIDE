@@ -32,6 +32,8 @@ public class PrePass : VB6BaseVisitor<object?>
     /// <summary>True for a class or a form: an object module, where VB6 refuses some Public members outright.</summary>
     public bool ObjectModule { get; init; }
 
+    public VbaBitness VbaBitness { get; init; }
+
     internal const string PublicMemberOfObjectModule =
         "Constants, fixed-length strings, arrays, user-defined types and Declare statements not allowed as Public members of object modules";
     // Each module-level Const by name: its declaration, and whether another module can see it (Public or Global; one
@@ -366,12 +368,9 @@ public class PrePass : VB6BaseVisitor<object?>
                 {
                     // `Dim o As New C1` holds Nothing until its first use (#435). The module's Dim statement, which runs
                     // when the module starts, marks the slot; what it refuses (a scalar, a UDT) it refuses there. An
-                    // array, each element made on its own first use (measured), is refused here, for a class as for a
-                    // Collection.
+                    // array carries that mark on its element storage (#4150).
                     if (subStmt.asTypeClause().NEW() != null)
                     {
-                        if (isArray)
-                            throw new NotImplementedException("An array declared As New is not implemented (#1482)");
                         objectSlot = true;
                     }
                     else if (subStmt.asTypeClause().fieldLength() != null && subStmt.asTypeClause().type()?.baseType()?.STRING() is null)
@@ -470,6 +469,15 @@ public class PrePass : VB6BaseVisitor<object?>
         // CALL to it raises the clean "Sub or Function not defined" error. This lets a module that merely declares
         // an API (a near-universal pattern in real VB6) load and run its non-API code.
     {
+        // #4245: only active declarations reach this walk, as inactive code is never parsed. vb6.exe refuses an active
+        // PtrSafe with "Expected: Sub or Function" (measured, native and p-code). 64-bit VBA7 refuses a Declare without
+        // PtrSafe (Excel x64, row P1) but its message wasn't read: this text is HexIDE's wording, not VBA's, until it
+        // is measured. It is the engine's own English, as its other compile errors are (#3687).
+        if (VbaBitness == VbaBitness.None && context.PTRSAFE() != null)
+            throw new VBCompileErrorException("Expected: Sub or Function");
+        if (VbaBitness == VbaBitness.Bit64 && context.PTRSAFE() == null)
+            throw new VBCompileErrorException(
+                $"Declare '{context.ambiguousIdentifier().GetText()}' requires PtrSafe in 64-bit VBA7");
         if (ObjectModule && context.visibility()?.PUBLIC() != null)
             throw new VBCompileErrorException(PublicMemberOfObjectModule);
         declared = true;

@@ -85,6 +85,7 @@
             </ListBox.ItemTemplate>
             <ListBox.ItemContainerTheme>
                 <ControlTheme TargetType="ListBoxItem">
+                    <Setter Property="AutomationProperties.Name" Value="{CompiledBinding Color, Converter={x:Static converters:VBColorDescriptionConverter.Instance}}" x:DataType="tools:ColorPaletteViewModel" />
                     <Setter Property="ClipToBounds" Value="False" />
                     <Setter Property="Margin" Value="0,0,1,1" />
                     <Setter Property="Template">

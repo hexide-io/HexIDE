@@ -113,7 +113,10 @@ The session has a single launch and cannot be restarted. Dispose it and create a
 `LaunchAsync(adapterId, arguments, breakpoints, token)` sends initialize with one-based coordinates and
 native paths, starts launch, waits for initialized, replaces each supplied source's breakpoints, selects
 advertised default exception filters, and sends configurationDone only when supported. It awaits the launch
-response **after** configuration, since adapters may defer that response. Initialized may arrive before the
+response **after** configuration, since adapters may defer that response. During every configuration
+request it also watches for launch failure: a refusal immediately faults startup with the adapter
+message, releases ownership, and prevents further configuration requests (#4160). An early successful
+launch response does not skip or reorder configuration. Initialized may arrive before the
 initialize response. All startup work shares a 60-second deadline (configurable for a supplied connection),
 in addition to the wire request limits. Failed/cancelled startup releases the owned connection/process.
 The returned breakpoint responses retain verified flags, relocated lines and adapter messages.
@@ -153,6 +156,13 @@ Frame zero is valid. The raw result preserves type, variable reference and exten
 validated before and after the request; callers must also validate their selected-frame identity before
 presenting the result. REPL evaluation has no optional capability flag and can have side effects. A failed
 or timed-out request is never retried. The IDE displays result text/errors and refreshes selected-frame locals.
+MCP `evaluate` returns output delivered during that evaluation followed by the response result, and
+reports an adapter refusal as `success: false` with its message in `error` (#4323). Output already read
+is awaited through a local delivery barrier in the connection event and session update queues, acknowledged
+after earlier updates in the same UI batch. The barrier waits for room in a full event queue and follows
+the session publication chain; session shutdown cancels the wait. The update reader only acknowledges
+delivery; it never waits for a DAP response.
+The Immediate window receives output events separately, so it still prints each event only once.
 `EvaluateWatchAsync(stop, frameId, expression)` uses `context: watch` and preserves result text, type and
 variable references. The Watches window owns a separate external list for the IDE session and discards
 replies superseded by frame/stop changes or edits. Watch requests do not refresh Locals recursively.

@@ -41,6 +41,7 @@ internal static class FormMembers
             || !VB6FormMembers.TryGet(name, out member))
             return false;
         form = owner;
+        owner.Interpreter?.NoteMemberAccess(owner, name);
         return true;
     }
 

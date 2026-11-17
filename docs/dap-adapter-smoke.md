@@ -168,8 +168,10 @@ On Windows, 2026-10-18, the same RDCore revision and nested-call sample were dri
   evidence; the real-adapter sample above contains scalar locals.
 
 Screenshots checked the visible expression/value/type/context layout; structured inspection checked values,
-radio-button enabled states and fetched children. A clipped Call Stack selection automation issue found
-in this run is tracked in #1182; keyboard selection reached the intended frame.
+radio-button enabled states and fetched children. The clipped Call Stack selection automation issue found
+in this run led to selection readback: `select` now refuses a selection the list or debugger did not
+retain (#1182, PR #1239), guarded by `SelectVerifiedTests`. The original clipping cause was not
+reproduced; keyboard selection reached the intended frame in this run.
 
 ### External hover acceptance
 
@@ -212,7 +214,7 @@ already built.
 
    ```text
    dotnet build IDE/HexIDE.Runtime.Tests/
-   HEXIDE_DUMP_PROGRAMS=corpus-1 dotnet IDE/HexIDE.Runtime.Tests/bin/Debug/net10.0/HexIDE.Runtime.Tests.dll -culture en-US
+   HEXIDE_DUMP_PROGRAMS=corpus-1 dotnet IDE/HexIDE.Runtime.Tests/bin/Debug/net11.0/HexIDE.Runtime.Tests.dll -culture en-US
    ```
 
 2. Run it. Set `HEXIDE_PARITY_ADAPTER` to the adapter executable and `RDCORE_PLATFORM_ROOT` as above, then:

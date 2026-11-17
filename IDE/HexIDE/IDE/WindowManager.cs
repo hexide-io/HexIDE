@@ -338,10 +338,19 @@ public class WindowManager : IWindowManager
         return result;
     }
 
+    internal FontDialog CreateFontDialog(FontDialogViewModel vm)
+    {
+        var dialog = new FontDialog { DataContext = vm };
+        dialog.ShowSizeError = async key => await MessageBox(_localization.GetString(key),
+            _localization.GetString("Str.WindowManager.FontTitle"), MessageBoxButtons.Ok, MessageBoxIcon.None,
+            TopLevel.GetTopLevel(dialog) as Window);
+        return dialog;
+    }
+
     public async Task<FontDialogResult?> ShowFontDialog(FontDialogResult? initial = null, bool isProgramDialog = false)
     {
         var vm = new FontDialogViewModel(initial);
-        var dialog = new FontDialog { DataContext = vm };
+        var dialog = CreateFontDialog(vm);
         FontDialogResult? result = null;
 
         if (Static.SingleView)

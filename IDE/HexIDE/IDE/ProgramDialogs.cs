@@ -13,7 +13,7 @@ internal static class ProgramDialogs
     internal static bool IsRuntimeBox(object? content) => content is MessageBox or InputBox;
     internal static bool IsRuntimeMessageBox(object? content) => content is MessageBox;
     internal static bool IsProgramBox(object? content) =>
-        content is MessageBox { IsProgramDialog: true } or InputBox { IsProgramDialog: true };
+        content is MessageBox or InputBox;
 
     internal static async Task<string?> ShowInputBox(WindowManager manager, string prompt, string? caption, string defaultText)
     {
@@ -22,7 +22,6 @@ internal static class ProgramDialogs
         {
             var inputBox = new InputBox
             {
-                IsProgramDialog = true,
                 Prompt = prompt,
                 Text = defaultText
             };
@@ -47,7 +46,7 @@ internal static class ProgramDialogs
         else if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             string? result = null;
-            var inputBox = new InputBox { IsProgramDialog = true, Prompt = prompt, Text = defaultText };
+            var inputBox = new InputBox { Prompt = prompt, Text = defaultText };
             var window = manager.MakeDialogWindow(caption, inputBox);
             inputBox.ApplyProgramChrome(window);
             inputBox.TextRequest += r => { result = r; window.Close(); };
@@ -60,7 +59,7 @@ internal static class ProgramDialogs
 
     private static Task<MessageBoxResult> ShowProgramDesktopMessageBox(WindowManager manager, IClassicDesktopStyleApplicationLifetime desktop, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner, MessageBoxLayout layout)
     {
-        var messageBox = new MessageBox { IsProgramDialog = true, Text = text, Buttons = buttons, Icon = icon, Layout = layout };
+        var messageBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon, Layout = layout };
         var window = manager.MakeDialogWindow(caption, messageBox);
         return messageBox.ShowAndWait(window, owner ?? manager.GetTopWindow(desktop));
     }
@@ -72,7 +71,6 @@ internal static class ProgramDialogs
         {
             var messageBox = new MessageBox
             {
-                IsProgramDialog = true,
                 Text = text,
                 Buttons = buttons,
                 Icon = icon,

@@ -1673,7 +1673,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             preview = FormComponentClass.Instance.InstantiateWindow(Form.Instance, VBLoader.HasMenuBar(formDefinition));
             // No SetCode, PrepareForm or Start: events have no interpreter to dispatch to (#2003).
             preview.Content = VBLoader.SpawnComponents(formDefinition, preview.Context.ExecutionContext,
-                preview.Context.RootEnv, new StandaloneStandardLib(preview));
+                preview.Context.RootEnv, new StandaloneStandardLib(preview, HexIDE.IDE.Distribution.DisplayName));
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } owner })
                 preview.Show(owner);
             else
@@ -1750,18 +1750,18 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         CommitLayout();
     }
 
-    public void RequestCode(string? subName)
+    public void RequestCode(string? subName, string? objectName, string? eventName)
     {
         Log.Debug("FormEditViewModel: RequestCode({SubName}) for form {FormName}", subName ?? "(null)", formDefinition?.Name);
         editorService.EditCode(formDefinition);
-        if (subName == null)
+        if (subName is null || objectName is null || eventName is null)
             return;
 
         // this is a hack, the following line can be executed only after the window is created, it should be solved in a better way.
         DispatcherTimer.RunOnce(() => LoggedTimerCallback.Run("designer code navigation", () =>
         {
             Log.Debug("FormEditViewModel: Dispatching CreateOrNavigateToSubEvent({SubName})", subName);
-            eventBus.Publish(new CreateOrNavigateToSubEvent(formDefinition!, subName));
+            eventBus.Publish(new CreateOrNavigateToSubEvent(formDefinition!, subName, objectName, eventName));
         }), TimeSpan.FromMilliseconds(16));
     }
 }

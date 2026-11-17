@@ -653,6 +653,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
 
     public async ValueTask DisposeAsync()
     {
+        var disposal = Stopwatch.StartNew();
         var pipe = _pipe;
         var process = _process;
         _pipe = null;
@@ -699,7 +700,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
                     PublishNotice(new TransportNotice(TransportNoticeKind.Lifecycle,
                         "process killed after waiting for exit"));
                 }
-                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
+                await process.WaitForExitAsync().WaitAsync(LaunchedServerGuard.ReapTimeout(disposal));
             }
         }
         catch { /* already gone */ }

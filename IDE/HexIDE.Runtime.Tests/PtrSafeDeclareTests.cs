@@ -1,4 +1,6 @@
+using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 
 namespace HexIDE.Runtime.Tests;
 
@@ -11,13 +13,16 @@ public class PtrSafeDeclareTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value("called")]);
     }
 
-    // #1548's first slice: accept the VBA7 modifier, retaining Declare's existing no-op behaviour.
+    // #4245, Excel x64 row P2: PtrSafe compiles; calling the native API remains deferred.
     [Theory]
     [InlineData("Private Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long")]
     [InlineData("Public Declare PtrSafe Sub Sleep Lib \"kernel32\" (ByVal milliseconds As Long)")]
     [InlineData("declare ptrsafe function GetTickCount lib \"kernel32\" () as long")]
     public async Task APtrSafeDeclarationDoesNotPreventTheModuleFromRunning(string declaration)
     {
+        Compilation = CompilationConstants.ForProject(
+            new ProjectDefinition(VBProjectType.EXE, "Test")
+            { VbaBitness = VbaBitness.Bit64 });
         await RunModules("Main", ("Module1", declaration + "\nSub Main()\nDebug.Print \"loaded\"\nEnd Sub\n"));
         AssertDebugLog([new Vb6Value("loaded")]);
     }

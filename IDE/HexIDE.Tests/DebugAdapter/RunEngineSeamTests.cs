@@ -178,7 +178,7 @@ public class RunEngineSeamTests
     [AvaloniaFact]
     public void The_interpreter_runs_what_the_type_offers_to_run_whoever_opened_it()
     {
-        var engine = new InterpreterRunEngine(Substitute.For<IWindowManager>(), Substitute.For<IProgramHost>(), _debugger);
+        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), _debugger);
 
         engine.Runs(_project).Should().BeTrue();
         engine.Runs(new ProjectDefinition(VBProjectType.EXE, "Theirs") { ContributedBy = "com.example.addin" }).Should().BeTrue();
@@ -189,7 +189,7 @@ public class RunEngineSeamTests
     [AvaloniaFact]
     public void The_interpreter_refuses_a_project_with_no_startup_object_before_it_is_claimed()
     {
-        var engine = new InterpreterRunEngine(Substitute.For<IWindowManager>(), Substitute.For<IProgramHost>(), _debugger);
+        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), _debugger);
 
         engine.RefusesToStart(_project).Should().NotBeNullOrEmpty("the test project has no startup form");
     }
@@ -223,7 +223,7 @@ public class RunEngineSeamTests
     public void The_interpreter_halts_only_while_it_has_a_host_to_ask()
     {
         var controller = new DebugController();
-        var engine = new InterpreterRunEngine(Substitute.For<IWindowManager>(), Substitute.For<IProgramHost>(), controller);
+        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), controller);
 
         controller.CanHalt.Should().BeFalse("with nobody to ask, the error unwinds to be reported");
         engine.HaltHost = _ => Task.FromResult(true);
@@ -236,7 +236,7 @@ public class RunEngineSeamTests
     public async Task The_interpreter_asks_its_host_in_the_words_of_the_dialog_and_passes_on_the_answer()
     {
         var controller = new DebugController();
-        var engine = new InterpreterRunEngine(Substitute.For<IWindowManager>(), Substitute.For<IProgramHost>(), controller);
+        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), controller);
         var asked = new List<RunFailure>();
         engine.HaltHost = failure =>
         {
@@ -273,7 +273,7 @@ public class RunEngineSeamTests
 
     private static List<RunFailure> ErrorsMetRunning(string body)
     {
-        var engine = new InterpreterRunEngine(Substitute.For<IWindowManager>(), Substitute.For<IProgramHost>(), new DebugController());
+        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), new DebugController());
         var met = new List<RunFailure>();
         engine.ErrorMet += met.Add;
         var form = new VBWindowContext(Substitute.For<IBasicStandardLibrary>());

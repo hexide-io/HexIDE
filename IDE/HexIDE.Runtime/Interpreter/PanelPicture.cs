@@ -11,7 +11,7 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
 
     internal byte[] FileBytes { get; }
 
-    private PanelPicture(byte[] file, bool resourceIcon = false)
+    internal PanelPicture(byte[] file, bool resourceIcon = false)
     {
         FileBytes = file;
         bitmap = new(() =>
@@ -113,7 +113,12 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
     public bool TryGetProperty(string name, out Vb6Value value)
     {
         value = default;
-        // Native handles and the rest of StdPicture remain refused (#2626).
+        // Empty Type is measured by #3426; native handles remain refused (#2626).
+        if (FileBytes.Length == 0 && name.Equals("Type", StringComparison.OrdinalIgnoreCase))
+        {
+            value = new Vb6Value((short)0);
+            return true;
+        }
         if (Bitmap is { } decoded)
         {
             if (name.Equals("Type", StringComparison.OrdinalIgnoreCase))

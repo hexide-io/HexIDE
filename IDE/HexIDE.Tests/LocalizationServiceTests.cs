@@ -14,6 +14,17 @@ public class LocalizationServiceTests
 
     private static LocalizationService CreateSut() => new();
 
+    [AvaloniaFact]
+    public void NoProjectReader_English_ReportsOnlyWhatHexIDEKnows()
+    {
+        var text = string.Format(CreateSut().GetStringFrom("en", "Str.ContributedProject.NoLoadedReader"), "notes.txt", ".vbp, .vbg, .twinproj");
+
+        text.Should().NotContain("is opened by an add-in")
+            .And.Contain("can't open notes.txt as a project")
+            .And.Contain(".vbp").And.Contain(".vbg").And.Contain(".twinproj")
+            .And.Contain("no loaded project type reads it");
+    }
+
     [AvaloniaTheory]
     [InlineData("zz")]
     [InlineData("zz-ZZ")]
@@ -386,7 +397,8 @@ public class LocalizationServiceTests
             }
             // These underscores belong to identifiers, not access keys (#41).
             if (key is "Str.Vb6Toolchain.Vb6NotFound" or "Str.Dialog.ConflictingNames"
-                or "Str.AIChat.ApiKeyRequired" or "Str.AIChat.PrivacyKeyTip")
+                or "Str.AIChat.ApiKeyRequired" or "Str.AIChat.PrivacyKeyTip"
+                or "Str.Startup.WaylandUnavailableEnvironment")
                 continue;
             var marker = value.IndexOf('_');
             if (marker < 0) continue;
@@ -1099,6 +1111,7 @@ public class LocalizationServiceTests
             value.Replace("VB_Name", "", StringComparison.Ordinal)
                 .Replace("VB6_EXE", "", StringComparison.Ordinal)
                 .Replace("HEXIDE_AI_API_KEY", "", StringComparison.Ordinal)
+                .Replace("HEXIDE_PLATFORM", "", StringComparison.Ordinal)
                 .Should().NotContain("_", key);
         }
     }

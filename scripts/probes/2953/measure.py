@@ -38,7 +38,7 @@ def measure(revision):
     run_env["DOTNET_JitStdOutFile"] = str(logs / f"{sha}.jit")
     Path(run_env["DOTNET_JitStdOutFile"]).unlink(missing_ok=True)
     result = subprocess.run(
-        ["dotnet", "scripts/probes/2953/bin/Debug/net10.0/StackProbe.dll"],
+        ["dotnet", "scripts/probes/2953/bin/Debug/net11.0/StackProbe.dll"],
         env=run_env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120)
     (logs / f"{sha}.log").write_text(result.stdout)
     depths = re.findall(r"^DEPTH (\d+) first-failure (\d+)$", result.stdout, re.M)

@@ -1,0 +1,275 @@
+[
+  {
+    "module": "C1",
+    "member": "Ping",
+    "line": 0,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.ForcedMethodAccess_IsCountedOnce",
+    "count": 1
+  },
+  {
+    "module": "C1",
+    "member": "field",
+    "line": 3,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.ImplicitFieldRead_AndWrite_AreCountedAfterAStaleMethodCall",
+    "count": 1
+  },
+  {
+    "module": "C1",
+    "member": "field",
+    "line": 4,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.ImplicitFieldRead_AndWrite_AreCountedAfterAStaleMethodCall",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member0",
+    "line": 1,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member1",
+    "line": 2,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member10",
+    "line": 11,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member11",
+    "line": 12,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member12",
+    "line": 13,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member13",
+    "line": 14,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member14",
+    "line": 15,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member15",
+    "line": 16,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member16",
+    "line": 17,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member17",
+    "line": 18,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member18",
+    "line": 19,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member19",
+    "line": 20,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member2",
+    "line": 3,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member20",
+    "line": 21,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member21",
+    "line": 22,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member22",
+    "line": 23,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member23",
+    "line": 24,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member24",
+    "line": 25,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member3",
+    "line": 4,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member4",
+    "line": 5,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member5",
+    "line": 6,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member6",
+    "line": 7,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member7",
+    "line": 8,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member8",
+    "line": 9,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Caller",
+    "member": "member9",
+    "line": 10,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.RetainsOnlyTheFirstTwentySites_ButCountsEveryHit",
+    "count": 1
+  },
+  {
+    "module": "Form1",
+    "member": "Ping",
+    "line": 0,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.FormTerminate_IsExempt_ButALaterCallOnThatInstanceIsCounted",
+    "count": 1
+  },
+  {
+    "module": "Module1",
+    "member": "P",
+    "line": 1,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.OtherMemberRoutes_AreCountedOnce(code: \"Debug.Print stale.P\", cls: \"Public Property Get P() As Long\\nP = 1\\nEnd Proper\"\u00b7\u00b7\u00b7, member: \"P\")",
+    "count": 1
+  },
+  {
+    "module": "Module1",
+    "member": "P",
+    "line": 1,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.OtherMemberRoutes_AreCountedOnce(code: \"Set stale.P = Nothing\", cls: \"Public Property Set P(ByVal o As Object)\\nEnd Prop\"\u00b7\u00b7\u00b7, member: \"P\")",
+    "count": 1
+  },
+  {
+    "module": "Module1",
+    "member": "P",
+    "line": 1,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.OtherMemberRoutes_AreCountedOnce(code: \"stale.P = 2\", cls: \"Public Property Let P(ByVal n As Long)\\nEnd Proper\"\u00b7\u00b7\u00b7, member: \"P\")",
+    "count": 1
+  },
+  {
+    "module": "Module1",
+    "member": "Ping",
+    "line": 1,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.ForcedAccess_RecordsTheSite(code: \"Call stale.Ping()\", member: \"Ping\", line: 1)",
+    "count": 1
+  },
+  {
+    "module": "Module1",
+    "member": "Ping",
+    "line": 1,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.ForcedAccess_RecordsTheSite(code: \"stale.Ping\", member: \"Ping\", line: 1)",
+    "count": 1
+  },
+  {
+    "module": "Module1",
+    "member": "Ping",
+    "line": 1,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.ImplicitFieldRead_AndWrite_AreCountedAfterAStaleMethodCall",
+    "count": 1
+  },
+  {
+    "module": "Module1",
+    "member": "child",
+    "line": 1,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.OtherMemberRoutes_AreCountedOnce(code: \"Set stale.child = Nothing\", cls: \"Public child As Object\", member: \"child\")",
+    "count": 1
+  },
+  {
+    "module": "Module1",
+    "member": "field",
+    "line": 1,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.ForcedAccess_RecordsTheSite(code: \"Debug.Print stale.field\", member: \"field\", line: 1)",
+    "count": 1
+  },
+  {
+    "module": "Module1",
+    "member": "field",
+    "line": 1,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.ForcedAccess_RecordsTheSite(code: \"stale.field = 3\", member: \"field\", line: 1)",
+    "count": 1
+  },
+  {
+    "module": "Module1",
+    "member": "field",
+    "line": 1,
+    "test": "HexIDE.Runtime.Tests.TerminatedMemberAccessTests.OtherMemberRoutes_AreCountedOnce(code: \"Debug.Print CallByName(stale, \\\"field\\\", 2)\", cls: \"Public field As Long\", member: \"field\")",
+    "count": 1
+  }
+]

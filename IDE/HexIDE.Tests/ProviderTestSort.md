@@ -35,7 +35,9 @@ A test that reaches the provider only at run time, through the application's com
 | `Corpus/ProjectSmokeServiceTests.cs` | split |
 | `DebugAdapter/DebuggerCompositionTests.cs` | split |
 | `DebugAdapter/RunEngineSeamTests.cs` | split |
+| `DebugAdapter/RunFormIconTests.cs` | split |
 | `DebugAdapter/RunWithTests.cs` | split |
+| `DebugAdapter/VbaBitnessEngineTests.cs` | split |
 | `Debugging/BreakpointServiceTests.cs` | split |
 | `IDE/CodePrefixEquivalenceTests.cs` | split |
 | `IDE/DirtyDetectorTests.cs` | split |
@@ -52,14 +54,17 @@ A test that reaches the provider only at run time, through the application's com
 | `IDE/Vb6ToolchainDiagnosticsTests.cs` | split |
 | `Infrastructure/ArchiveFileToolsTests.cs` | split |
 | `Infrastructure/BreakpointConditionToolTests.cs` | split |
+| `Infrastructure/ControlArrayIndexTests.cs` | split |
 | `Infrastructure/ConversationExportSafetyTests.cs` | split |
 | `Infrastructure/DesignerSizeTests.cs` | split |
 | `Infrastructure/DocumentTabsModifiedTests.cs` | split |
+| `Infrastructure/ExternalInspectionToolTests.cs` | split |
 | `Infrastructure/ExternalRunControlTests.cs` | split |
 | `Infrastructure/FormControlsSummaryTests.cs` | split |
 | `Infrastructure/FormatSelectionTests.cs` | split |
 | `Infrastructure/GroupDiagnosticProjectTests.cs` | split |
 | `Infrastructure/ImplicitDocumentNamingTests.cs` | split |
+| `Infrastructure/InterpreterSeamTests.cs` | split |
 | `Infrastructure/LspRowsNoteTests.cs` | split |
 | `Infrastructure/NoRunEngineReplyTests.cs` | split |
 | `Infrastructure/ProjectWriteSafetyTests.cs` | split |
@@ -67,6 +72,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Infrastructure/SetLockKeyTests.cs` | split |
 | `Infrastructure/ShutdownIdeTests.cs` | split |
 | `Infrastructure/SplitDocumentTabsTests.cs` | split |
+| `Infrastructure/WaylandStartupTests.cs` | split |
 | `Infrastructure/WorkingCopyReplyTests.cs` | split |
 | `LspClient/BundledServerRespectsTheIdesRegionsTests.cs` | split |
 | `LspClient/DocumentVersionOnTheWireTests.cs` | split |
@@ -118,6 +124,8 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/UnsavedChangesPromptTests.cs` | split |
 | `Projects/UnsavedMemberRefusalTests.cs` | split |
 | `Projects/UserControlSaveRoundTripTests.cs` | split |
+| `Projects/Vb6ProjectTemplatesTests.cs` | split |
+| `Projects/Vb6ProjectTypeTests.cs` | split |
 | `Projects/WriteAtSaveTests.cs` | split |
 | `Recovery/RecoveryOffersTests.cs` | split |
 | `Recovery/UnsavedWorkCaptureTests.cs` | split |
@@ -136,6 +144,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Serialization/SafeImageDecoderTests.cs` | provider |
 | `Serialization/ToolbarSerializationTests.cs` | provider |
 | `Serialization/VbNameRetargetTests.cs` | provider |
+| `Serialization/VbaBitnessPersistenceTests.cs` | provider |
 | `Sidecar/SidecarMigrationTests.cs` | split |
 | `Sidecar/UserSidecarBreakpointTests.cs` | split |
 | `Sidecar/UserSidecarSaveTests.cs` | split |

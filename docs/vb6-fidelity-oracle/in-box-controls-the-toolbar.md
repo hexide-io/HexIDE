@@ -569,14 +569,13 @@ menu events are implemented;
 #2334 adds the runtime ImageList binding slice: populated-list binding, index/key Image validation (including
 Buttons.Add), unbinding/reset and the bound-list Remove/Clear lock. HotImageList and DisabledImageList read
 the measured Nothing defaults; populated-list assignments now support the measured drawing probe. Empty-list binding raises 35613; replacing a bound list resets every Image
-to Integer 0 and recomputes geometry immediately, releasing the old list's shrink lock. Negative/empty/coerced
-selectors remain unfinished. Saved top-level bars now resolve their
+to Integer 0 and recomputes geometry immediately, releasing the old list's shrink lock. The [#4147 measurements](https://github.com/hexide-io/HexIDE/issues/4147) add numeric CInt/Empty selectors, case-sensitive keys and the measured selector errors. Boolean False selectors remain refused: #4147 measured True only. Saved top-level bars now resolve their
 named populated ImageList after controls are created, including when the list follows the bar in the file,
 retaining saved Integer selectors and preserving both files byte for byte. Missing, ambiguous and wrong-type
 saved references refuse rather than guess an unmeasured result. The later #2334 drawing measurement supplies
 16 px captioned buttons at 38 px high below or 22 px right, and 32 px captioned buttons at 54 px high below
 with a 39 px minimum width; caption widths retain #2373's rule. Other populated image geometries refuse
-pending measurements. Image painting now follows #2334’s recorded offsets and paint-time UseMaskColor; populated alternate lists supply disabled images and flat-only hot images by position, and missing alternate indexes draw nothing. Alternate-list clearing/empty binding and hot/disabled rendering without an alternate list remain unmeasured. No new VB6 measurements were made. Part C verifies the existing verbatim preservation path against the saved
+pending measurements. Image painting now follows #2334’s recorded offsets and paint-time UseMaskColor; populated alternate lists supply disabled images and flat-only hot images by position, and missing alternate indexes draw nothing. [#4147](https://github.com/hexide-io/HexIDE/issues/4147) adds alternate-list clearing, shorter populated lists and the measured assignment errors (13 for Strings, 380 for empty lists, 35610 for PictureBox). HexIDE deliberately preserves the previous list after refusing PictureBox, rather than reproducing VB6’s clear-on-error side effect: under the Fidelity Principle a refused assignment should leave its target intact. Other alternate geometries and hot/disabled rendering without an alternate list remain unmeasured. No new VB6 measurements were made. Part C verifies the existing verbatim preservation path against the saved
 Toolbar form and ImageList companion byte for byte, both unchanged and after a form-caption edit, and through a
 second save. This preserves `ToolTips`, BorderStyle after `_Version`, HIMETRIC button dimensions, twips placeholder
 widths and the nested ButtonMenus without modelling or rewriting them. The runtime loading slice does not yet
