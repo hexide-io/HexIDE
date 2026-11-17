@@ -469,6 +469,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "De här formulären sparades inte, eftersom HexIDE ännu inte kan återge dem exakt:\n\n{0}\n\nFilerna på disken är oförändrade. Att spara dem skulle ändra formulären omärkligt — Visual Basic 6 öppnar resultaten utan att klaga, och det är just det som gör skadan lätt att missa — så HexIDE låter dem vara i stället för att skada dem.",
     "Str.Designer.ReadOnly.Banner": "Skrivskyddad — HexIDE kan ännu inte återge det här formuläret exakt, så det skulle ändras om det sparades. Du kan visa och köra det, men ändringar sparas inte.",
     "Str.ContributedProject.FormReadOnly": "Skrivskyddad — tillägget som läste detta kan inte skriva tillbaka det, så ändringar i det sparas inte.",
+    "Str.ContributedProject.DesignerModuleReadOnly": "Skrivskyddad — {1} angav '{0}' som en kodmodul, men det är en designerfil och kan inte sparas säkert.",
     "Str.ContributedProject.RenderRefused": "Ingenting skrevs. {1} kunde inte skriva {0}, så sparandet avbröts innan någon fil ändrades.",
     "Str.ContributedProject.SavedInPlace": "{0} sparas där det öppnades, eftersom {1} bara skriver projektfilen där.",
     "Str.ContributedProject.MemberOverProjectFile": "Ingenting skrevs. {0} skulle ha sparats över {1}, projektets egen fil, så sparandet avbröts innan någon fil ändrades.",

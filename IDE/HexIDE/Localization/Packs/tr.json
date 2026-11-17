@@ -469,6 +469,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "Bu formlar kaydedilmedi, çünkü HexIDE onları henüz aslına sadık biçimde yeniden üretemiyor:\n\n{0}\n\nDiskteki dosyaları değişmedi. Kaydedilmeleri formları sessizce değiştirirdi; Visual Basic 6 sonuçları hiçbir hata vermeden açar, hasarın kolayca gözden kaçmasının nedeni de budur. Bu yüzden HexIDE, formlara zarar vermek yerine onları olduğu gibi bırakıyor.",
     "Str.Designer.ReadOnly.Banner": "Salt okunur — HexIDE bu formu henüz aslına sadık biçimde yeniden üretemiyor, dolayısıyla kaydedilmesi onu değiştirirdi. Formu görüntüleyebilir ve çalıştırabilirsiniz, ancak değişiklikler kaydedilmeyecek.",
     "Str.ContributedProject.FormReadOnly": "Salt okunur — bunu okuyan eklenti onu geri yazamıyor; bu nedenle üzerindeki değişiklikler kaydedilmeyecek.",
+    "Str.ContributedProject.DesignerModuleReadOnly": "Salt okunur — {1}, '{0}' dosyasını kod modülü olarak listeledi, ancak bu bir tasarımcı dosyasıdır ve güvenle kaydedilemez.",
     "Str.ContributedProject.RenderRefused": "Hiçbir şey yazılmadı. {1}, {0} öğesini yazamadı; bu nedenle kaydetme, herhangi bir dosya değişmeden önce durduruldu.",
     "Str.ContributedProject.SavedInPlace": "{1} proje dosyasını yalnızca açıldığı konuma yazdığı için {0} bu konuma kaydedilir.",
     "Str.ContributedProject.MemberOverProjectFile": "Hiçbir şey yazılmadı. {0}, projenin kendi dosyası olan {1} üzerine kaydedilecekti; bu nedenle kaydetme, herhangi bir dosya değişmeden önce durduruldu.",

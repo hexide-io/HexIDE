@@ -1258,6 +1258,24 @@ Source: [VB6 SP6 IDE measurements, oracle PR #4350](https://github.com/hexide-io
 - **WHEN** a form contains zero or positive control sizes, or negative Left/Top positions
 - **THEN** loading retains the existing behaviour without a size-load diagnostic
 
+### Requirement: Designer text declared as a code module
+A code module recognized as designer text SHALL retain its whole source without splitting a header and
+carry `DesignerFileAsModule`. All save and edit paths SHALL refuse it without changing its declared kind.
+Its localized refusal SHALL name the file and the project or add-in that declared it
+([#4459](https://github.com/hexide-io/HexIDE/issues/4459)).
+
+#### Scenario: A contributed project lists a form as a module
+- **WHEN** a contributed module starts with a non-blank `VERSION n.nn` line without `CLASS`, then zero or more `Object = ` lines, then `Begin ` (ignoring blank lines)
+- **THEN** its code window shows the original source, read-only, and Save, Save As, typing, server workspace edits, project-wide replacement and automation writes refuse it, leaving its bytes unchanged
+
+#### Scenario: A VB6 project lists a designer file as Module
+- **WHEN** a `.vbp` lists a designer file under `Module=`
+- **THEN** its save and edit paths refuse it without reclassifying it as a form
+
+#### Scenario: An ordinary class module
+- **WHEN** the first non-blank line is `VERSION 1.0 CLASS`
+- **THEN** the existing module header split and writable save path remain available
+
 ## Out of Scope
 - **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
   carried, never read.

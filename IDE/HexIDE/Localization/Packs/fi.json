@@ -469,6 +469,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "Näitä lomakkeita ei tallennettu, koska HexIDE ei vielä pysty toistamaan niitä uskollisesti:\n\n{0}\n\nLevyllä olevat tiedostot ovat ennallaan. Tallentaminen muuttaisi lomakkeita huomaamattomasti — Visual Basic 6 avaa tulokset valittamatta, ja juuri siksi vahinko jää helposti huomaamatta — joten HexIDE jättää ne mieluummin rauhaan kuin vahingoittaa niitä.",
     "Str.Designer.ReadOnly.Banner": "Vain luku — HexIDE ei vielä pysty toistamaan tätä lomaketta uskollisesti, joten tallentaminen muuttaisi sitä. Voit tarkastella lomaketta ja suorittaa sen, mutta muutoksia ei tallenneta.",
     "Str.ContributedProject.FormReadOnly": "Vain luku — apuohjelma, joka luki tämän, ei pysty kirjoittamaan sitä takaisin, joten siihen tehtyjä muutoksia ei tallenneta.",
+    "Str.ContributedProject.DesignerModuleReadOnly": "Vain luku — {1} luetteli tiedoston '{0}' koodimoduulina, mutta se on suunnittelutiedosto eikä sitä voi tallentaa turvallisesti.",
     "Str.ContributedProject.RenderRefused": "Mitään ei kirjoitettu. {1} ei pystynyt kirjoittamaan kohdetta {0}, joten tallennus pysähtyi ennen kuin mikään tiedosto muuttui.",
     "Str.ContributedProject.SavedInPlace": "{0} tallennetaan avaussijaintiinsa, koska {1} kirjoittaa sen projektitiedoston vain sinne.",
     "Str.ContributedProject.MemberOverProjectFile": "Mitään ei kirjoitettu. {0} olisi tallennettu tiedoston {1}, projektin oman tiedoston, päälle, joten tallennus pysähtyi ennen kuin mikään tiedosto muuttui.",

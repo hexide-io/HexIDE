@@ -427,6 +427,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "Ti obrazci niso bili shranjeni, ker jih HexIDE še ne more zvesto poustvariti:\n\n{0}\n\nNjihove datoteke na disku so nespremenjene. Shranjevanje bi obrazce tiho spremenilo — Visual Basic 6 odpre rezultate brez opozorila, zato škodo zlahka spregledamo — zato jih HexIDE pusti nedotaknjene.",
     "Str.Designer.ReadOnly.Banner": "Samo za branje — HexIDE tega obrazca še ne more zvesto poustvariti, zato bi ga shranjevanje spremenilo. Lahko si ga ogledate in zaženete, vendar spremembe ne bodo shranjene.",
     "Str.ContributedProject.FormReadOnly": "Samo za branje — dodatek, ki je to prebral, tega ne more zapisati nazaj, zato spremembe ne bodo shranjene.",
+    "Str.ContributedProject.DesignerModuleReadOnly": "Samo za branje — {1} je navedel '{0}' kot modul kode, vendar je to datoteka oblikovalnika in je ni mogoče varno shraniti.",
     "Str.ContributedProject.RenderRefused": "Nič ni bilo zapisano. {1} ni mogel zapisati {0}, zato se je shranjevanje ustavilo, preden se je spremenila katera koli datoteka.",
     "Str.ContributedProject.SavedInPlace": "{0} se shrani tam, kjer je bil odprt, ker {1} njegovo projektno datoteko zapisuje samo tja.",
     "Str.ContributedProject.MemberOverProjectFile": "Nič ni bilo zapisano. {0} bi bil shranjen čez {1}, lastno datoteko projekta, zato se je shranjevanje ustavilo, preden se je spremenila katera koli datoteka.",

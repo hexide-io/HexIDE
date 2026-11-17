@@ -454,6 +454,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "These forms were not saved, because HexIDE cannot yet reproduce them faithfully:\n\n{0}\n\nTheir files on disk are unchanged. Saving them would change the forms silently — Visual Basic 6 opens the results without complaining, which is what makes the damage easy to miss — so HexIDE leaves them alone rather than damage them.",
     "Str.Designer.ReadOnly.Banner": "Read-only — HexIDE cannot yet reproduce this form faithfully, so saving it would change it. You can view and run it, but changes will not be saved.",
     "Str.ContributedProject.FormReadOnly": "Read-only — the add-in that read this can't write it back, so changes to it won't be saved.",
+    "Str.ContributedProject.DesignerModuleReadOnly": "Read-only — {1} listed '{0}' as a code module, but it is a designer file and cannot be saved safely.",
     "Str.ContributedProject.RenderRefused": "Nothing was written. {1} couldn't write {0}, so the save stopped before any file changed.",
     "Str.ContributedProject.SavedInPlace": "{0} is saved where it was opened, because {1} writes its project file only there.",
     "Str.ContributedProject.MemberOverProjectFile": "Nothing was written. {0} would have been saved over {1}, the project's own file, so the save stopped before any file changed.",
