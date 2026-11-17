@@ -2,6 +2,7 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} je učitan sa greškama pa ne može da se sačuva preko izvorne datoteke. Izaberite novo ime datoteke.",
     "Str.ProjectLoad.PropertyNotSet": "Red {0}: svojstvo {1} u {2} nije moguće postaviti.",
     "Str.Menu.Edit.Refactor": "R_efaktorisanje",
     "Str.Menu.Edit.SourceActions": "R_adnje izvornog koda",

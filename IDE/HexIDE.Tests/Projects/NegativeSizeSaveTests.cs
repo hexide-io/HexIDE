@@ -51,6 +51,7 @@ public class NegativeSizeSaveTests : IDisposable
                 Path.Join(dir, ci.Arg<Avalonia.Platform.Storage.FilePickerSaveOptions>().SuggestedFileName)));
 
         var localization = Substitute.For<HexIDE.Localization.ILocalizationService>();
+        localization.GetString("Str.Dialog.SaveLoadedForm.ChooseNewFile").Returns("Localized warning for {0}: choose another file.");
         localization.GetString("Str.ProjectLoad.PropertyNotSet").Returns("Line {0}: Property {1} in {2} could not be set.");
 
         return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
@@ -265,8 +266,53 @@ public class NegativeSizeSaveTests : IDisposable
             .Returns(Task.FromResult<string?>(Path.Join(dir, ".", "Form1.frm")), Task.FromResult<string?>(copy));
         await service.SaveForm(form, false);
         await picker.Received(2).SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        await picker.Received(1).MessageBox("Localized warning for Form1: choose another file.", icon: MessageBoxIcon.Warning);
+        Received.InOrder(() =>
+        {
+            _ = picker.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+            _ = picker.MessageBox("Localized warning for Form1: choose another file.", icon: MessageBoxIcon.Warning);
+            _ = picker.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        });
         File.ReadAllText(path).Should().Be(original);
         File.Exists(copy).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Choosing_a_new_path_shows_no_warning()
+    {
+        var (_, form, original) = Load();
+        var path = form.AbsolutePath!;
+        var service = MakeService();
+        var copy = Path.Join(dir, "Recovered.frm");
+        picker.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>())
+            .Returns(Task.FromResult<string?>(copy));
+
+        (await service.SaveForm(form, false)).Should().BeTrue();
+
+        await picker.DidNotReceiveWithAnyArgs().MessageBox("");
+        await picker.Received(1).SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        File.ReadAllText(path).Should().Be(original);
+        File.Exists(copy).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Cancelling_the_picker_shows_no_warning_and_writes_nothing()
+    {
+        var (_, form, original) = Load();
+        var path = form.AbsolutePath!;
+        var service = MakeService();
+        picker.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>())
+            .Returns(Task.FromResult<string?>(null));
+
+        var save = () => service.SaveForm(form, false);
+        await save.Should().ThrowAsync<OperationCanceledException>();
+
+        await picker.DidNotReceiveWithAnyArgs().MessageBox("");
+        await picker.Received(1).SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        File.ReadAllText(path).Should().Be(original);
+        Directory.GetFiles(dir).Should().Equal(path);
+        form.AbsolutePath.Should().Be(path);
+        form.LoadedWithErrors.Should().BeTrue();
     }
 
     [Fact]

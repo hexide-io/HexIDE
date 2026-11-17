@@ -2,6 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} è stato caricato con errori e non può quindi sovrascrivere il file originale. Scegliere un nuovo nome di file.",
     "Str.ProjectLoad.PropertyNotSet": "Riga {0}: impossibile impostare la proprietà {1} in {2}.",
     "Str.Menu.Edit.Refactor": "Re_factoring",
     "Str.Menu.Edit.SourceActions": "A_zioni sul codice sorgente",

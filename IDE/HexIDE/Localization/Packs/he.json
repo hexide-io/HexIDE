@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} נטען עם שגיאות, ולכן לא ניתן לשמור אותו על גבי הקובץ המקורי. יש לבחור שם קובץ חדש.",
     "Str.ProjectLoad.PropertyNotSet": "שורה {0}: לא ניתן להגדיר את המאפיין {1} ב־{2}.",
     "Str.Menu.Edit.Refactor": "ארגון קוד מחדש",
     "Str.Menu.Edit.SourceActions": "פעולות קוד מקור",
