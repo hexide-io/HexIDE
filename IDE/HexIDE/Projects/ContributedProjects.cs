@@ -439,12 +439,16 @@ public sealed partial class ContributedProjects
             throw new MemberNameTakenException(string.Format(localization.GetString("Str.ContributedProject.NameTaken"),
                 Path.GetFileName(member.Path), name, project.Name));
         fileRead?.Invoke(member.Path, bytes);
-        var (header, body) = ModuleFileFormat.SplitHeader(read.Text, kind);
+        var designerAsModule = ModuleFileFormat.IsDesignerFile(read.Text);
+        var (header, body) = designerAsModule ? ("", read.Text) : ModuleFileFormat.SplitHeader(read.Text, kind);
         var module = new ModuleDefinition(project, name, kind)
         {
             AbsolutePath = member.Path,
             TextEncoding = read.Encoding,
         };
+        if (designerAsModule)
+            module.MarkUnfaithfulToSave(UnfaithfulSaveCause.DesignerFileAsModule,
+                $"{project.ContributorTitle} listed '{member.Path}' as a code module, but it is a designer file.");
         module.RecordOriginalHeader(header);
         module.UpdateCode(body);
         project.AddModule(module);

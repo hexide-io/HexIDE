@@ -406,6 +406,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "Inprimaki hauek ez dira gorde, HexIDEk oraindik ezin dituelako zehaztasunez erreproduzitu:\n\n{0}\n\nDiskoko fitxategiak ez dira aldatu. Gordetzeak inprimakiak isilean aldatuko lituzke — Visual Basic 6k emaitzak kexatu gabe irekitzen ditu, eta horregatik erraza da kaltea ez nabaritzea —; beraz, HexIDEk bere horretan uzten ditu, kaltetu beharrean.",
     "Str.Designer.ReadOnly.Banner": "Irakurtzeko soilik: HexIDEk oraindik ezin du inprimaki hau zehaztasunez erreproduzitu, eta gordetzeak aldatu egingo luke. Ikusi eta exekutatu dezakezu, baina aldaketak ez dira gordeko.",
     "Str.ContributedProject.FormReadOnly": "Irakurtzeko soilik — hau irakurri zuen gehigarriak ezin du berriro idatzi, beraz, bertako aldaketak ez dira gordeko.",
+    "Str.ContributedProject.DesignerModuleReadOnly": "Irakurtzeko soilik — {1}(e)k '{0}' kode-modulu gisa zerrendatu du, baina diseinatzaile-fitxategia da eta ezin da segurtasunez gorde.",
     "Str.ContributedProject.RenderRefused": "Ez da ezer idatzi. {1}(e)k ezin izan du {0} idatzi, beraz, gordetzea gelditu egin da fitxategirik aldatu aurretik.",
     "Str.ContributedProject.SavedInPlace": "{0} ireki zen tokian gordetzen da, {1}(e)k proiektu-fitxategia han bakarrik idazten duelako.",
     "Str.ContributedProject.MemberOverProjectFile": "Ez da ezer idatzi. {0} {1}(r)en gainean gordeko zen, hau da, proiektuaren beraren fitxategiaren gainean; beraz, gordetzea gelditu egin da fitxategirik aldatu aurretik.",

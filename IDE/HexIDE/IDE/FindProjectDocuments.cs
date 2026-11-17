@@ -37,7 +37,7 @@ internal sealed class FindProjectDocuments(IDocumentDockService dock, IProjectMa
             foreach (var module in project.Modules)
                 result.Add(Lookup(module) ?? new UnopenedDocument(format.CodePrefix(module) + module.Code,
                     format.CodePrefix(module).Length, () => { editors.EditCode(module); return Lookup(module); },
-                    isReadOnly: () => module.FormPart is { CanSaveFaithfully: false },
+                    isReadOnly: () => !module.CanSaveFaithfully || module.FormPart is { CanSaveFaithfully: false },
                     regionReader: regionReader));
             foreach (var form in project.Forms)
             {

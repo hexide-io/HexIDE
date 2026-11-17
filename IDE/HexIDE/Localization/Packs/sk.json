@@ -406,6 +406,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "Tieto formuláre neboli uložené, pretože ich HexIDE zatiaľ nedokáže verne reprodukovať:\n\n{0}\n\nIch súbory na disku sa nezmenili. Uloženie by formuláre nepozorovane zmenilo — Visual Basic 6 otvorí výsledky bez upozornenia, preto sa poškodenie ľahko prehliadne — a tak ich HexIDE ponechá bez zmien, aby ich nepoškodilo.",
     "Str.Designer.ReadOnly.Banner": "Iba na čítanie — HexIDE zatiaľ nedokáže tento formulár verne reprodukovať a uloženie by ho zmenilo. Môžete ho prezerať a spustiť, zmeny sa však neuložia.",
     "Str.ContributedProject.FormReadOnly": "Iba na čítanie — doplnok, ktorý toto načítal, to nedokáže zapísať späť, takže zmeny sa neuložia.",
+    "Str.ContributedProject.DesignerModuleReadOnly": "Iba na čítanie — {1} uvádza '{0}' ako modul kódu, ale ide o súbor návrhára, ktorý nemožno bezpečne uložiť.",
     "Str.ContributedProject.RenderRefused": "Nič sa nezapísalo. {1} nedokázal zapísať {0}, takže ukladanie sa zastavilo skôr, ako sa zmenil akýkoľvek súbor.",
     "Str.ContributedProject.SavedInPlace": "{0} sa ukladá tam, odkiaľ bol otvorený, pretože {1} zapisuje súbor projektu iba tam.",
     "Str.ContributedProject.MemberOverProjectFile": "Nič sa nezapísalo. {0} by sa uložil cez {1}, vlastný súbor projektu, takže ukladanie sa zastavilo skôr, ako sa zmenil akýkoľvek súbor.",

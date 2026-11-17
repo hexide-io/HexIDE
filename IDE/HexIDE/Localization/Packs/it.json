@@ -479,6 +479,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "Questi form non sono stati salvati perché HexIDE non è ancora in grado di riprodurli fedelmente:\n\n{0}\n\nI relativi file su disco sono invariati. Salvarli modificherebbe i form in modo silenzioso — Visual Basic 6 apre i risultati senza segnalare nulla, ed è per questo che il danno passa facilmente inosservato — quindi HexIDE li lascia intatti anziché danneggiarli.",
     "Str.Designer.ReadOnly.Banner": "Sola lettura — HexIDE non è ancora in grado di riprodurre fedelmente questo form, quindi salvarlo lo altererebbe. Puoi visualizzarlo ed eseguirlo, ma le modifiche non verranno salvate.",
     "Str.ContributedProject.FormReadOnly": "Sola lettura — il componente aggiuntivo che lo ha letto non può riscriverlo, quindi le modifiche non verranno salvate.",
+    "Str.ContributedProject.DesignerModuleReadOnly": "Sola lettura — {1} ha elencato '{0}' come modulo di codice, ma è un file di progettazione e non può essere salvato in sicurezza.",
     "Str.ContributedProject.RenderRefused": "Non è stato scritto nulla. {1} non è riuscito a scrivere {0}, quindi il salvataggio si è interrotto prima che qualsiasi file cambiasse.",
     "Str.ContributedProject.SavedInPlace": "{0} viene salvato dove è stato aperto, perché {1} scrive il suo file di progetto solo lì.",
     "Str.ContributedProject.MemberOverProjectFile": "Non è stato scritto nulla. {0} sarebbe stato salvato sopra {1}, il file del progetto stesso, quindi il salvataggio si è interrotto prima che qualsiasi file cambiasse.",

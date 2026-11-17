@@ -36,6 +36,20 @@ be gone from your working tree.
 **Any finding in category 3 is a launch blocker regardless of how narrow it looks.** Issue #22 (menu
 shortcuts) is the canonical example: the form still opens perfectly in HexIDE.
 
+## Designer files declared as code modules
+
+A code module whose first non-blank line is `VERSION n.nn` (without `CLASS`), followed by
+zero or more `Object = ` references and then `Begin `, carries
+`UnfaithfulSaveCause.DesignerFileAsModule`. Both contributed projects and `.vbp` module entries retain
+the whole file as code, with no split header, and hold it read-only. Saves, including Save As, refuse
+before writing; editor input, server workspace edits, project-wide replacement and automation writes
+refuse too. The reason names the file and the project or add-in that declared it a code module.
+
+This moves the measured form and UserControl damage from outcome 4 to outcome 0
+([#4459, measurements and decision](https://github.com/hexide-io/HexIDE/issues/4459)). A contributed
+member keeps the kind its add-in declared; declaring the correct designer kind belongs to that add-in.
+Ordinary `.bas` and `VERSION 1.0 CLASS` files retain their header split and writable save path.
+
 ## Target per format
 
 | Format | Target | Why |
@@ -158,7 +172,7 @@ scheduled as **feature work with a fidelity dividend**, not as fidelity debt nob
 | 1 | Byte comparison after load+save | `SerializationCorpusTests.Forms_and_controls_round_trip_byte_for_byte` |
 | 2 | Every offset the form cites resolves to a record, and that record is unchanged | `SerializationCorpusTests.Every_companion_offset_cited_by_a_form_resolves_to_a_blob` |
 | 4 | Load failure on our own output | Implicit — a failed re-read |
-| 0 | Deliberate refusal | `FormDefinition.CanSaveFaithfully`, consulted before a save |
+| 0 | Deliberate refusal | `FormDefinition.CanSaveFaithfully` and `ModuleDefinition.CanSaveFaithfully`, consulted before a save |
 | **3** | **Only the oracle can see this** | `Vb6OracleRoundTripTests` — round-trip through HexIDE, then `vb6.exe /make` |
 
 **Category 3 is the only outcome we cannot detect by reasoning about our own code.** Every other check is

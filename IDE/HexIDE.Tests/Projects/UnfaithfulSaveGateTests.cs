@@ -26,6 +26,35 @@ namespace HexIDE.Tests.Projects;
 /// </summary>
 public class UnfaithfulSaveGateTests : IDisposable
 {
+    // #4459: a Module= declaration must not let the module writer reorder designer text.
+    [Theory]
+    [InlineData("VB.Form", false)]
+    [InlineData("VB.UserControl", false)]
+    [InlineData("VB.Form", true)]
+    public async Task Designer_text_listed_as_a_vbp_module_is_never_written(string root, bool ocx)
+    {
+        var text = "VERSION 5.00\r\n" + (ocx ? "Object = \"X\"; \"X.OCX\"\r\n" : "")
+            + $"Begin {root} Form1\r\n   Caption = \"Form1\"\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\nOption Explicit\r\n";
+        var path = Path.Join(dir, "Form1.frm");
+        File.WriteAllText(path, text);
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nModule=Listed; Form1.frm\r\nName=\"Test\"\r\n");
+        var svc = MakeService();
+        await svc.OpenProject(vbp);
+        loaded.Single().Modules.Single().Name.Should().Be("Form1");
+        var before = File.ReadAllBytes(path);
+
+        await svc.SaveAllProjects(saveAs: false);
+
+        File.ReadAllBytes(path).Should().Equal(before);
+        var module = loaded.Single().Modules.Single();
+        module.OriginalHeader.Should().BeEmpty();
+        module.Code.Should().Be(text);
+        warningsShown.Should().Be(1);
+        (await svc.SaveModule(module, saveAs: true)).Should().BeFalse();
+        await lastWindowManager!.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+    }
+
     private readonly string dir = Path.Join(Path.GetTempPath(), "hexide-gate-" + Guid.NewGuid().ToString("N"));
 
     public UnfaithfulSaveGateTests() => Directory.CreateDirectory(dir);

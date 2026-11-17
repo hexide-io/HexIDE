@@ -440,6 +440,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "Šīs formas netika saglabātas, jo HexIDE vēl nevar tās precīzi atveidot:\n\n{0}\n\nTo faili diskā nav mainīti. Saglabāšana nemanāmi mainītu formas — Visual Basic 6 atver rezultātus bez iebildumiem, tāpēc bojājumus viegli nepamanīt. Tādēļ HexIDE atstāj tās neskartas.",
     "Str.Designer.ReadOnly.Banner": "Tikai lasāma — HexIDE vēl nevar precīzi atveidot šo formu, tāpēc saglabāšana to mainītu. Varat to skatīt un palaist, bet izmaiņas netiks saglabātas.",
     "Str.ContributedProject.FormReadOnly": "Tikai lasāms — papildinājums, kas to nolasīja, nevar to ierakstīt atpakaļ, tāpēc izmaiņas netiks saglabātas.",
+    "Str.ContributedProject.DesignerModuleReadOnly": "Tikai lasāms — {1} norādīja '{0}' kā koda moduli, taču tas ir noformētāja fails, kuru nevar droši saglabāt.",
     "Str.ContributedProject.RenderRefused": "Nekas netika ierakstīts. {1} nevarēja ierakstīt {0}, tāpēc saglabāšana tika apturēta, pirms mainījās kāds fails.",
     "Str.ContributedProject.SavedInPlace": "{0} tiek saglabāts tur, kur tas tika atvērts, jo {1} tā projekta failu raksta tikai tur.",
     "Str.ContributedProject.MemberOverProjectFile": "Nekas netika ierakstīts. {0} tiktu saglabāts pāri {1}, paša projekta failam, tāpēc saglabāšana tika apturēta, pirms mainījās kāds fails.",
