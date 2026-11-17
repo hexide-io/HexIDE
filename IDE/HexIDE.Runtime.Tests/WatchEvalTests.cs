@@ -133,6 +133,67 @@ public class WatchEvalTests : BaseVBTestFixture
         }
     }
 
+    // A watch scoped to another module (measured, #4481): paused in Module2's Helper, called from Class1's Let, the Let's
+    // and the class's watches read that frame, one level down across modules; paused in Module1 with neither on the
+    // stack, they read <Out of context>. A standard module's watch is live at both, with its module off the stack.
+    [Theory]
+    [InlineData("v", "Class1.X(Let)", false, "5", "Long")]
+    [InlineData("m", "Class1", false, "0", "Long")]
+    [InlineData("g", "Module2", false, "7", "Long")]
+    [InlineData("v", "Class1.X(Let)", true, "<Out of context>", "Empty")]
+    [InlineData("m", "Class1", true, "<Out of context>", "Empty")]
+    [InlineData("g", "Module2", true, "7", "Long")]
+    public async Task StoredWatch_ScopedToAnotherModule_ReadsThatModulesFrame(string expression, string context,
+        bool inFormLoad, string display, string type)
+    {
+        var (vb, dbg) = NewDebuggableProject("""
+            Form_Load
+            Sub Form_Load()
+                g = 7
+                Dim c As New Class1
+                c.X = 5
+                Stop
+            End Sub
+            """,
+            [("Module2", """
+                Public g As Long
+                Public Sub Helper()
+                    Stop
+                End Sub
+                """)],
+            [("Class1", """
+                Private m As Long
+                Public Property Let X(ByVal v As Long)
+                    Helper
+                    m = v
+                End Property
+                """)]);
+        var stopped = NextStop(dbg);
+        var run = vb.Execute();
+        await stopped.Guarded();
+        try
+        {
+            dbg.GetLocals()!.Context.Should().Be("Module2.Helper");
+            if (inFormLoad)
+            {
+                stopped = NextStop(dbg);
+                dbg.Continue();
+                await stopped.Guarded();
+                dbg.GetLocals()!.Context.Should().Be("Module1.Form_Load");
+            }
+            var result = await ((IDebugController)dbg).EvaluateScopedWatchAsync(expression, context);
+            result.Should().NotBeNull();
+            result!.Display.Should().Be(display);
+            result.TypeName.Should().Be(type);
+            result.Ok.Should().Be(type != "Empty");
+        }
+        finally
+        {
+            dbg.Stop();
+            await run.Guarded();
+        }
+    }
+
     // docs/vb6-fidelity-oracle/a-watch-and-its-context.md, "A watch scoped to one accessor, and a watch on (All Modules)"
     // (#4452): such a watch sees the project's Public module-level names only, wherever the program is paused. A standard
     // module's Private variable, a class's Private variable and a local are not defined there, even in their own scope.

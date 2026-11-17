@@ -660,13 +660,16 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   the paused module. Explicit module contexts are supported within that module. This part is in bounds and is
   [#4354](https://github.com/hexide-io/HexIDE/issues/4354): Add Watch offers a Module and a Procedure, as VB6's does.
 - **Status:** **partial by design** for design-time and after-End name resolution (above). Context selection and
-  storage remain, as #4354. Recursion, cross-module contexts, Break When types and running-state refresh were not
-  measured and keep their previous behavior.
+  storage remain, as #4354. Cross-module contexts are measured and followed since #4481: a procedure's or class's watch
+  reads its frame below the paused one in any module, and a standard module's watch is live wherever the program is
+  paused. Recursion, frames more than one level down across modules, Break When types and running-state refresh were
+  not measured and keep their previous behavior.
 
-### D34. A watch on (All Modules) doesn't evaluate in design mode (#4452)
+### D34. A watch on (All Modules), or on a standard module, doesn't evaluate in design mode (#4452, #4481)
 - **VB6:** a watch added with Module (All Modules) evaluates in design mode as well as at a break. Before the program
-  runs, a standard module's `Public g As Long` reads 0 / Long and `1 + 1` reads 2 / Integer, while every watch scoped
-  to a module or procedure reads `<Out of context>` (measured on #4452, hexide-int, vb6.exe SP6;
+  runs, a standard module's `Public g As Long` reads 0 / Long and `1 + 1` reads 2 / Integer (measured on #4452). So does
+  a watch scoped to a standard module: `g` at `Module1` reads 0 / Long (measured on #4481). A watch scoped to a class
+  or to a procedure reads `<Out of context>` (hexide-int, vb6.exe SP6;
   [the oracle page](vb6-fidelity-oracle/a-watch-and-its-context.md)).
 - **HexIDE:** while paused it evaluates as VB6's does, against the project's Public module-level names only. Outside
   break mode it reads `<Out of context>`, like every other watch.
