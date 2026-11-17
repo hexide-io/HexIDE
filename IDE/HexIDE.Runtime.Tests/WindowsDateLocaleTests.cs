@@ -23,6 +23,47 @@ public partial class WindowsDateLocaleTests : BaseVBTestFixture
         reads.Should().Be(1);
     }
 
+    // #4378: synthetic reader data tests NLS plumbing, not new VB6 measurements.
+    [Theory]
+    [InlineData(false, "en-GB")]
+    [InlineData(true, "en-gb")]
+    [InlineData(true, "en-US")]
+    public void Designators_obey_the_user_override_rule(bool useUserOverride, string userName)
+    {
+        var culture = new CultureInfo("en-GB", useUserOverride);
+        var isUser = useUserOverride && userName == "en-gb";
+        WindowsDateLocale.Apply(culture, userName, (_, type) =>
+            (type & 0x7fffffffu) is 0x28 or 0x29
+                ? ((type & 0x80000000u) == 0 ? "user" : "default") : "fixture");
+        culture.DateTimeFormat.AMDesignator.Should().Be(isUser ? "user" : "default");
+        culture.DateTimeFormat.PMDesignator.Should().Be(isUser ? "user" : "default");
+    }
+
+    [Fact]
+    public void Empty_Nls_designators_stay_empty()
+    {
+        var dates = (DateTimeFormatInfo)CultureInfo.InvariantCulture.DateTimeFormat.Clone();
+        WindowsDateLocale.Apply(dates, type => type is 0x28 or 0x29 ? "" : "fixture",
+            () => throw new InvalidOperationException());
+        dates.AMDesignator.Should().BeEmpty();
+        dates.PMDesignator.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("en-GB")]
+    [InlineData("de-DE")]
+    public async Task Designator_output_matches_Windows_data(string name)
+    {
+        // #4378: data plumbing; only en-GB is measured against vb6.exe.
+        using var locale = VbLocale.Use(new CultureInfo(name, false));
+        var entry = WindowsDateTable.Data.GetProperty("locales").GetProperty(name);
+        var am = OperatingSystem.IsWindows() ? NativePattern(name, 0x28) : entry.GetProperty("amDesignator").GetString()!;
+        var pm = OperatingSystem.IsWindows() ? NativePattern(name, 0x29) : entry.GetProperty("pmDesignator").GetString()!;
+        await Run("Debug.Print Format$(TimeSerial(9, 0, 0), \"AMPM\")\n" +
+                  "Debug.Print Format$(TimeSerial(13, 0, 0), \"AMPM\")\n");
+        AssertDebugLog([new Vb6Value(am), new Vb6Value(pm)]);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -41,7 +82,7 @@ public partial class WindowsDateLocaleTests : BaseVBTestFixture
     }
 
     [Fact]
-    public void Nls_fields_map_to_the_date_format_without_changing_time_or_calendar()
+    public void Nls_fields_map_to_the_date_format_without_changing_time_patterns_or_calendar()
     {
         var dates = (DateTimeFormatInfo)CultureInfo.InvariantCulture.DateTimeFormat.Clone();
         var calendar = dates.Calendar;
@@ -51,6 +92,8 @@ public partial class WindowsDateLocaleTests : BaseVBTestFixture
         dates.ShortDatePattern.Should().Be("'field1F'");
         dates.LongDatePattern.Should().Be("'field20'");
         dates.DateSeparator.Should().Be("'field1D'");
+        dates.AMDesignator.Should().Be("'field28'");
+        dates.PMDesignator.Should().Be("'field29'");
         for (var i = 0; i < 12; i++)
         {
             dates.MonthNames[i].Should().Be($"'field{0x38 + i:X}'");
