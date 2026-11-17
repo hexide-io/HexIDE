@@ -79,6 +79,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/NegativeSizeSaveTests.cs` | split |
 | `Projects/PackageEncodingTests.cs` | split |
 | `Projects/ProjectFileFormatSeamTests.cs` | split |
+| `Projects/ProjectFilePickerTests.cs` | split |
 | `Projects/ProjectFormatPerProjectTests.cs` | split |
 | `Projects/ProjectLoadWarningTests.cs` | split |
 | `Projects/ProjectTextReadTests.cs` | provider |

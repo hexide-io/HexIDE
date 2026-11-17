@@ -839,6 +839,33 @@ public class MainViewViewModelTests
         return project;
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Add_File_offers_the_focused_projects_extensions(bool custom)
+    {
+        var format = custom
+            ? (IProjectFileFormat)new HexIDE.Tests.Projects.ProjectFileFormatSeamTests.StandInFormat
+                { FormExtension = "xfrm", ClassExtension = "xcls" }
+            : new Vb6ProjectFileFormat();
+        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { Format = format };
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(project);
+        Avalonia.Platform.Storage.FilePickerOpenOptions? picked = null;
+        _windowManager.OpenFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerOpenOptions>()).Returns(call =>
+        {
+            picked = call.Arg<Avalonia.Platform.Storage.FilePickerOpenOptions>();
+            return Task.FromResult<IReadOnlyList<string>?>(null);
+        });
+
+        _sut.AddFileCommand.Execute(null);
+
+        picked.Should().NotBeNull();
+        picked!.AllowMultiple.Should().BeTrue();
+        picked.FileTypeFilter![0].Patterns.Should().BeEquivalentTo(custom
+            ? new[] { "*.xfrm", "*.bas", "*.xcls", "*.ctl", "*.pag" }
+            : new[] { "*.frm", "*.bas", "*.cls", "*.ctl", "*.pag" });
+    }
+
     [AvaloniaFact]
     public void Add_File_warns_when_the_file_joined_read_byte_for_byte()
     {
