@@ -35,6 +35,9 @@ public sealed class DapSession : IAsyncDisposable
     private readonly TaskCompletionSource _initialized = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Channel<DapSessionUpdate> _updates;
     private readonly TimeSpan _startupTimeout;
+    // How long a disconnect goes on reading an adapter process's output after its reply; null for a bare connection,
+    // whose stream may never close. A process's output ends when it exits (#3894).
+    private TimeSpan? DisconnectDrain { get; init; }
     private readonly Task _events;
     private Task? _dispose;
     private readonly CancellationTokenSource _lifetime = new();
@@ -61,7 +64,8 @@ public sealed class DapSession : IAsyncDisposable
     public static DapSession Start(DapProcessOptions options)
     {
         var process = DapProcess.Start(options);
-        return new(process.Connection, process, null, 256) { ProcessCompletion = process.Completion };
+        return new(process.Connection, process, null, 256)
+            { ProcessCompletion = process.Completion, DisconnectDrain = options.ShutdownTimeout };
     }
 
     public Guid Id { get; } = Guid.NewGuid();
@@ -333,7 +337,9 @@ public sealed class DapSession : IAsyncDisposable
             await Request("disconnect", new { terminateDebuggee = true }, token).ConfigureAwait(false);
             // The reply can overtake events still passing from Events to Updates. A clean disconnect
             // drains those before disposal cancels blocked publications; consumers keep reading meanwhile.
-            await _connection.DisposeAsync().ConfigureAwait(false);
+            // An adapter process may still write after the reply, so its output is read to its end first (#3894).
+            if (DisconnectDrain is { } drain) await _connection.CloseAfterDrainAsync(drain).ConfigureAwait(false);
+            else await _connection.DisposeAsync().ConfigureAwait(false);
             await _events.WaitAsync(token).ConfigureAwait(false);
         }
         finally { await DisposeAsync().ConfigureAwait(false); }
