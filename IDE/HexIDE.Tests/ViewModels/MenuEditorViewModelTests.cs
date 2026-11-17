@@ -179,8 +179,8 @@ public class MenuEditorViewModelTests
         using var designer = new FormEditViewModel(null!, events, Substitute.For<IProjectService>(),
             Substitute.For<IEditorService>(), windows, Substitute.For<ISettingsService>(),
             Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
-        // Loading the designer's menu tree is #4140's separate change.
-        designer.TopLevelMenu.Add(designer.AllComponents.Single(c => c.Instance == menu));
+        // Initialize loads the form's menu tree (#4140), so the editor opens on it.
+        designer.TopLevelMenu.Should().ContainSingle(c => c.Instance == menu);
         var serializer = new FormSerializer();
         var before = serializer.Serialize(form, "Form1.frm").frmText;
         var writes = new List<string>();
