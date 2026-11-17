@@ -464,6 +464,7 @@ added afterwards.
 - [When a Sub Main program returns: the order objects terminate in (2026-11-16, #1490)](end-fires-no-class_terminate.md#when-a-sub-main-program-returns-the-order-objects-terminate-in-2026-11-16-1490)
 - [Relational comparison + `ChDir`/`ChDrive` (2026-08-03 gap-audit fixes)](relational-comparison--chdirchdrive.md#relational-comparison--chdirchdrive-2026-08-03-gap-audit-fixes)
 - [Control arrays (2026-08-10)](control-arrays.md#control-arrays-2026-08-10)
+- [Event procedures for an array element, in VB6's IDE (2026-11-16, #4205)](control-arrays.md#event-procedures-for-an-array-element-in-vb6s-ide-2026-11-16-4205)
 - [Option buttons — `Value` is a Boolean, and the group can be empty (2026-08-22, #95)](option-buttons--value-is-a-boolean-and-the-group-can-be-empty.md#option-buttons--value-is-a-boolean-and-the-group-can-be-empty-2026-08-22-95)
 - [Two controls of one name (2026-10-12, #854)](two-controls-of-one-name.md#two-controls-of-one-name-2026-10-12-854)
 - [A form-based game's runtime surface (2026-10-12)](a-form-based-games-runtime-surface.md#a-form-based-games-runtime-surface-2026-10-12)
