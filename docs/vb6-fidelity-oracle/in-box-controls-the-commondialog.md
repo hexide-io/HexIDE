@@ -241,6 +241,7 @@ Native code and p-code logged the same lines.
 | Use | Early-bound (`cd1.Color`, `t.Color`) | Late-bound (`o.Color`, `vv.Color`, `CallByName`) |
 |---|---|---|
 | `v = …`, then `VarType(v)` | 3, value -2147483643 | **19**; `CDbl(v)` is 2147483653 |
+| `VarType(…)`, directly | **3**, with Color 255 too | **19** |
 | `TypeName(…)`, `IsNumeric(…)` | `Long`, True | **458**; IsNumeric False |
 | `… + 1` | -2147483642, a Long | **458** |
 | `… * 2` | **6**, overflow | **458**, with Color 255 |
@@ -249,33 +250,35 @@ Native code and p-code logged the same lines.
 | `CLng(…)`, or stored in a Long | -2147483643 | -2147483643: it wraps, with no overflow |
 | stored in a Double, or a String | -2147483643 | 2147483653 |
 | stored in an Integer or a Byte, Color 255 | 255 | 255 (Integer) |
-| `… & ""` | `-2147483643` | `255`, with Color 255 |
+| `… & ""`, `CStr(…)` | `-2147483643`; `CStr` with Color 255 is `255` | `255`, with Color 255 |
 
 **Assigning Color:**
 
 | Assigned | Early-bound | Late-bound |
 |---|---|---|
 | `-1` | **380**, unchanged | **6** |
-| `True` | **380** | |
+| `True` | **380** | **380** |
 | `4294967295#` | **6** | **380** |
 | `4294967296#` | 6 | |
 | `&H80000005` | taken; reads -2147483643 | taken |
-| `2147483653#` | | taken; reads back as `&H80000005` |
+| `2147483653#` | **6** | taken; reads back as `&H80000005` |
 | `-2147483648#` | taken | |
-| `"255"`, `"&HFF"` | 255 | |
-| `1.5`, `2.5` | 2, 2: rounded half to even | |
+| `"255"`, `"&HFF"` | 255 | `"255"` gives 255 |
+| `1.5`, `2.5` | 2, 2: rounded half to even | `1.5` gives 2 |
 | `Empty` | 0 | |
-| `Null` | **94** | |
-| `"abc"` | **13** | |
+| `Null` | **94** | **13** |
+| `"abc"` | **13** | **13** |
 
-So each path converts first, early-bound to a Long and late-bound to an unsigned Long, raising that conversion's overflow. **Then the control refuses `&HFFFFFFFF` with 380** on both. `&H80000000` and `&H80000005` are taken.
+`CallByName cd1, "Color", VbLet, -1` raised **6**, as the late-bound assignment does.
+
+**A reading that fits every row above, not otherwise checked:** each path converts first, early-bound to a Long and late-bound to an unsigned Long, raising that conversion's error. **Then the control refuses `&HFFFFFFFF` with 380** on both. `&H80000000` and `&H80000005` are taken.
 
 **HelpContext is a Long on both paths,** VarType 3 late-bound too. The default is 0. Assignments:
 - `"9"` gives 9;
 - `1.5` and `2.5` give 2 and 2;
 - `-1` and `True` both give -1, taken;
 - `2147483647` is taken;
-- `2147483648#` raises **6**;
+- `2147483648#` raises **6**, late-bound too;
 - `Null` raises **94**, and `"abc"` **13**;
 - `Empty` gives 0.
 
@@ -285,6 +288,8 @@ So each path converts first, early-bound to a Long and late-bound to an unsigned
 - `0.4`, `"0"`, `Empty`, `True`, `6.6` (7), `7.4` (7), `"7"` and `32767` each raise **380**;
 - `32768`, `-32769` and `2147483648#` raise **6**;
 - `Null` raises **94**, and `"abc"` **13**.
+
+Late-bound, `0.4` raised **380** and `32768` **6**, as early-bound.
 
 **A CommonDialog can be a control array:**
 - `cd(0).Index` is 0, and `Load cd(1)` works;
@@ -301,8 +306,8 @@ So each path converts first, early-bound to a Long and late-bound to an unsigned
 - `Parent` is the form, and `Tag` and `Name` read.
 
 **Unmeasured:**
-- a late-bound Color assigned `True`, `"255"` or `1.5`, and `2147483653#` assigned early-bound;
 - which other values the control refuses besides `&HFFFFFFFF`;
+- Null assigned late-bound to HelpContext and Action;
 - an Action that converts to 1 to 6 from a non-integer: reasoned to open that dialog, not probed.
 
 ### The saved files
