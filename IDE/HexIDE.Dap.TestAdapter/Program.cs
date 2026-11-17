@@ -91,7 +91,7 @@ public static class Program
                 if (command == "initialize") await Send(new { seq = 3, type = "event", @event = "initialized" });
                 continue;
             }
-            if (mode is "exception" or "exception-no-terminate")
+            if (mode is "exception" or "exception-no-terminate" or "disconnect-late-event")
             {
                 // A program that prints, then stops at an unhandled error. Continuing re-runs the failing line and stops
                 // there again, as an engine following VBA's F5 does.
@@ -117,6 +117,15 @@ public static class Program
                     await Send(new { seq = 33, type = "event", @event = "stopped",
                         body = new { threadId = 1, reason = "exception", description = "Division by zero" } });
                 if (command == "terminate") await Send(new { seq = 34, type = "event", @event = "terminated" });
+                if (command == "disconnect" && mode == "disconnect-late-event")
+                {
+                    // As debugpy 1.8.22 does: it answers disconnect, then reports its sockets in one more event (#3894).
+                    // The pause lets a client that closes its end on the reply do so first, as it did on CI. .NET's console
+                    // stream drops a write to a closed pipe silently, so the client's capture is what shows it arrived.
+                    await Task.Delay(TimeSpan.FromMilliseconds(300));
+                    await Send(new { seq = 35, type = "event", @event = "debugpySockets", body = new { sockets = Array.Empty<object>() } });
+                    return 0;
+                }
                 if (command == "disconnect") return 0;
                 continue;
             }

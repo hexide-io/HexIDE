@@ -137,6 +137,14 @@ consumer continues reading updates; a `terminated` event during that wait leaves
 checks this order with a held response and observes stdin EOF only after the reply. Cancellation,
 timeout and transport failure still permit bounded cleanup without a response (#3894).
 
+For an adapter process, the reply doesn't end what it writes. debugpy answers `disconnect` and then sends a
+`debugpySockets` event. So `DisconnectAsync` closes stdin after the reply and goes on reading the adapter's stdout
+until the adapter closes it, for at most `ShutdownTimeout`, before disposal closes the rest. It used to close stdout
+on the reply too, and when that won the race, debugpy's late write failed with a broken pipe and it exited 1 (#3894).
+`DapProcessTests.Disconnect_reads_what_the_adapter_writes_after_its_reply` checks that an event written 300 ms after
+the reply still reaches the capture. A session over a bare connection closes on the reply as before, since its
+stream may never end.
+
 Stopped snapshots carry a session-specific `DapStop`. Pass it to Threads/StackTrace/Scopes/VariablesAsync.
 The raw response retains thread/frame IDs (including frame zero), source paths/references, variable
 references and unknown fields. Reads reject a stop that expired before or during the request. Call
