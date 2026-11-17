@@ -26,7 +26,7 @@ public class ComboBoxComponentClass : ComponentBaseClass
         AppearanceProperty,
         TabStopProperty,
         TabIndexProperty,
-        ToolTipTextProperty], [ChangeEvent, ClickEvent, DblClickEvent, DropDownEvent, GotFocusEvent, LostFocusEvent])
+        ToolTipTextProperty], [ChangeEvent, ClickEvent, DblClickEvent, DropDownEvent, GotFocusEvent, LostFocusEvent, KeyDownEvent, KeyPressEvent, KeyUpEvent])
     {
         Members = CreateMembers();
     }
@@ -53,6 +53,8 @@ public class ComboBoxComponentClass : ComponentBaseClass
         .. new[] { "FindString", "FindStringExact" }
             .Select(n => new InBox.InBoxMember(n, InBox.MemberKind.Method, InBox.MemberOrigin.HexIde, false, true)),
     ];
+
+    public override string? DesignerDoubleClickEvent => "Change";
 
     public override string Name => "Combo";
     public override string VBTypeName => "VB.ComboBox";

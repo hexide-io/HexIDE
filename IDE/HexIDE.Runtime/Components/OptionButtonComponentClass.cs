@@ -20,9 +20,11 @@ public class OptionButtonComponentClass : ComponentBaseClass
         OptionValueProperty,
         AppearanceProperty,
         TabStopProperty,
-        TabIndexProperty], [ClickEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+        TabIndexProperty], [ClickEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent, KeyDownEvent, KeyPressEvent, KeyUpEvent])
     {
     }
+
+    public override string? DesignerDoubleClickEvent => "Click";
 
     public override string Name => "Option";
     public override string VBTypeName => "VB.OptionButton";

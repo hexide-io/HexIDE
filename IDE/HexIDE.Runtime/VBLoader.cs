@@ -26,7 +26,7 @@ namespace HexIDE.Runtime;
 public class VBLoader
 {
     /// <summary>
-    /// The icon a form with no Icon line runs with, where the host has one: the made program's runner gives its own. Null
+    /// The icon a form with no Icon line runs with: the runner and IDE give the neutral window icon (#4187). Null
     /// leaves Avalonia's, the executable's icon on Windows (#1594).
     /// </summary>
     public static Avalonia.Controls.WindowIcon? DefaultFormIcon { get; set; }
@@ -44,6 +44,8 @@ public class VBLoader
         VBProgram? program = null,
         VBWindowContext? windowContext = null)
     {
+        if (windowContext is not null)
+            windowContext.FormDefinition = element;
         var runtimeBlocks = element.Components.Where(c => c.BaseClass is FormComponentClass)
             .SelectMany(c => c.PreservedChildSubtrees)
             .Select(block => (block.Text, Component: (Components.InBox.ToolbarComponentClass.ReadForRuntime(block.Text)
@@ -87,7 +89,7 @@ public class VBLoader
         var arrayGroups = new Dictionary<string, ControlArrayGroup>(StringComparer.OrdinalIgnoreCase);
         foreach (var (nm, list) in componentsByName)
             if (list.Count > 1 || list.Any(c => TryParseControlArrayIndex(c, out _)))
-                arrayGroups[nm] = new ControlArrayGroup(nm);
+                arrayGroups[nm] = new ControlArrayGroup(nm) { Program = program };
 
         // What each block of the form became, for its Controls collection (#1060).
         var placed = new Dictionary<ComponentInstance, Control>();
@@ -318,6 +320,13 @@ public class VBLoader
                 if (control.Parent is Panel parent)
                     ControlStacking.PlaceOver(control, ControlStacking.IsWindowless(control), parent);
         var controls = new FormControls(fileOrder.OrderBy(AvaloniaInterop.UserControlMembers.Windowless), arrayGroups) { Form = form };
+        // #4371 / oracle PR #4376: the last holder in file order wins, independently for each role.
+        var defaultButton = fileOrder.OfType<VBCommandButton>().LastOrDefault(button => button.Default);
+        var cancelButton = fileOrder.OfType<VBCommandButton>().LastOrDefault(button => button.Cancel);
+        if (defaultButton is not null)
+            defaultButton.Default = true;
+        if (cancelButton is not null)
+            cancelButton.Cancel = true;
         foreach (var (block, control) in dialogs)
             if (control is VBUpDown upDown && RuntimeControlBlock(block, "MSComCtl2.UpDown") is { } saved)
                 upDown.LoadBuddy(saved.Properties, controls);
@@ -1091,7 +1100,7 @@ public class VBLoader
         // closed when the run ends so a box still open goes with it, as one over a form does.
         startupWindow = null;
         var owner = new Window();
-        var program = new VBProgram(project, new VBWindowContext(new StandaloneStandardLib(owner)), debugController, OpenWindow);
+        var program = new VBProgram(project, new VBWindowContext(new StandaloneStandardLib(owner, HexIDE.IDE.Distribution.DisplayName)), debugController, OpenWindow);
         program.Interpreter.FindStartupSubMain();
         return RunThenClose(RunSubMain(program, token), owner);
 

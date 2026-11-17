@@ -13,6 +13,9 @@ namespace HexIDE.Addins;
 /// </remarks>
 public delegate Task<JsonElement?> AddinServerMethod(JsonElement? parameters, CancellationToken cancellationToken);
 
+/// <summary>A handler for a client-side command supplied by the contributing server.</summary>
+public delegate Task AddinClientCommand(JsonElement[]? arguments, CancellationToken cancellationToken);
+
 /// <summary>
 /// A language server an add-in contributes (#457): what an <c>lsp-servers.json</c> entry holds, and what a file cannot
 /// hold — a gate before the server starts, and the methods of its own the add-in and the server exchange.
@@ -85,6 +88,15 @@ public sealed record AddinLanguageServer(LanguageServerEntry Entry)
     /// the server calls that nothing claims gets <em>Method not found</em>, as any unknown method does.
     /// </summary>
     public IReadOnlyDictionary<string, AddinServerMethod> ServerMethods { get; init; } = new Dictionary<string, AddinServerMethod>();
+
+    /// <summary>
+    /// The prefix of client-side commands the add-in claims, such as <c>"myserver."</c>. It must be a name followed by
+    /// <c>.</c>, without whitespace, outside the reserved <c>editor.</c>, <c>vscode.</c> and <c>hexide.</c> namespaces.
+    /// </summary>
+    public string? CommandPrefix { get; init; }
+
+    /// <summary>The client-side commands under <see cref="CommandPrefix"/> that this server's add-in handles.</summary>
+    public IReadOnlyDictionary<string, AddinClientCommand> ClientCommands { get; init; } = new Dictionary<string, AddinClientCommand>();
 }
 
 /// <summary>
@@ -93,8 +105,19 @@ public sealed record AddinLanguageServer(LanguageServerEntry Entry)
 /// </summary>
 public interface IAddinServerConnection : IDisposable
 {
+    /// <summary>Reads this server's resolved settings, or null when none exist.</summary>
+    JsonElement? GetSettings();
+
+    /// <summary>Stores this server's object in the user's settings and notifies its running server.</summary>
+    /// <exception cref="ArgumentException">Settings is not a JSON object.</exception>
+    /// <exception cref="ObjectDisposedException">The server has been taken out.</exception>
+    Task SetSettingsAsync(JsonElement settings, CancellationToken cancellationToken = default);
+
     /// <summary>The id the server was registered under.</summary>
     string Id { get; }
+
+    /// <summary>Applies a checked workspace edit while this connection's claimed command is running.</summary>
+    Task<HexIDE.Lsp.Messages.ApplyWorkspaceEditResult> ApplyEditAsync(HexIDE.Lsp.Messages.WorkspaceEdit edit, CancellationToken cancellationToken);
 
     /// <summary>Whether the server is running now. It starts on the first document it claims, not when it is registered.</summary>
     bool IsRunning { get; }
@@ -122,3 +145,6 @@ public interface IAddinServerConnection : IDisposable
     /// <exception cref="InvalidOperationException">The server is not running.</exception>
     Task NotifyAsync(string method, JsonElement? parameters = null, CancellationToken cancellationToken = default);
 }
+
+/// <summary>A contributed command failed; only its message is presented to the user.</summary>
+public sealed class AddinCommandException(string message) : Exception(message);

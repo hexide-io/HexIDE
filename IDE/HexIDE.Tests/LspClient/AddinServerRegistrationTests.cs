@@ -1,4 +1,5 @@
 using System.IO.Pipes;
+using Avalonia.Headless.XUnit;
 using System.Text.Json;
 using HexIDE.Addins;
 using HexIDE.Conversations;
@@ -45,7 +46,7 @@ public class AddinServerRegistrationTests : IDisposable
     }
 
     private LanguageServerContributions Contributions(LspClientRegistry router, params string[] configured) =>
-        new(router, new LanguageServerRegistrationFactory(_loggerFactory),
+        new(Substitute.For<HexIDE.IDE.ISettingsService>(), router, new LanguageServerRegistrationFactory(_loggerFactory),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
             configured.ToHashSet(StringComparer.Ordinal),
             _loggerFactory.CreateLogger<LanguageServerContributions>());
@@ -59,6 +60,140 @@ public class AddinServerRegistrationTests : IDisposable
     /// <summary>A pipe of a test's own, named to fit every host's budget.</summary>
     internal static string PipeName() => "hexide-addin-" + Guid.NewGuid().ToString("N")[..8];
 
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [Trait("Issue", "4307")]
+    public async Task ContributedSettingsAreStoredAnsweredIsolatedAndResetInOptions(bool profileDefault, bool stored)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-addin-settings-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            HexIDE.Profiles.ProfileSnapshot? profile = null;
+            if (profileDefault)
+            {
+                File.WriteAllText(Path.Combine(directory, "profile.json"),
+                    """{"schemaVersion":1,"id":"settings","settingsDefaults":"defaults.json"}""");
+                File.WriteAllText(Path.Combine(directory, "defaults.json"),
+                    """{"languageServerSettings":{"one":{"rdcore":{"enabled":true}}}}""");
+                profile = new HexIDE.Profiles.ProfileResolver(directory, directory).Resolve(directory);
+            }
+            var settings = new HexIDE.IDE.SettingsService(Path.Combine(directory, "settings.json"), profile);
+            if (stored) settings.SetLanguageServerSettings("one", JsonDocument.Parse("""{"rdcore":{"enabled":false}}""").RootElement);
+            var name = PipeName();
+            var otherName = PipeName();
+            var server = new ProbeServer();
+            var otherServer = new ProbeServer();
+            await using var pipe = new ProbePipe(name, () => server);
+            await using var otherPipe = new ProbePipe(otherName, () => otherServer);
+            await using var router = Router();
+            var contributions = new LanguageServerContributions(settings, router,
+                new LanguageServerRegistrationFactory(_loggerFactory),
+                new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
+                new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>());
+            await using var connection = contributions.Register(new AddinLanguageServer(PipeEntry("one", name)), "Same title");
+            await using var other = contributions.Register(new AddinLanguageServer(PipeEntry("two", otherName)), "Same title");
+            var options = new HexIDE.Addins.AddinOptionsService();
+            options.TrackServer("owner", "First server", connection);
+            options.TrackServer("another-owner", "Other server", other);
+            using var page = new HexIDE.Forms.ViewModels.Options.AddinOptionsPageViewModel(
+                Substitute.For<IAddinRegistry>(), new AddinInfo("/addin", "Same title", "", "1", "", Id: "owner"),
+                settings: settings, servers: options.ServersFor("owner"));
+            page.Servers.Should().ContainSingle().Which.Name.Should().Be("First server");
+            var row = page.Servers[0];
+            row.ResetCommand.CanExecute(null).Should().Be(stored);
+            row.IsDefault.Should().Be(profileDefault && !stored);
+            row.IsNone.Should().Be(!profileDefault && !stored);
+            await router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
+            await Task.WhenAll(server.Initialized, otherServer.Initialized).WaitAsync(TimeSpan.FromSeconds(30), Token);
+            async Task<JsonElement> Ask(ProbePipe target) => await target.Latest.InvokeWithParameterObjectAsync<JsonElement>(
+                "workspace/configuration", JsonDocument.Parse("""{"items":[{"section":"rdcore"},{"section":"rdcore.enabled"},{"section":"rdcore.missing"}]}""").RootElement, Token);
+            var initial = await Ask(pipe);
+            if (stored) initial[0].GetProperty("enabled").GetBoolean().Should().BeFalse();
+            else if (profileDefault) initial[1].GetBoolean().Should().BeTrue();
+            else initial[0].ValueKind.Should().Be(JsonValueKind.Null);
+            using (var value = JsonDocument.Parse("""{"rdcore":{"enabled":false,"written":true}}"""))
+                await connection.SetSettingsAsync(value.RootElement, Token);
+            var notification = await server.Configuration.Reader.ReadAsync(Token).AsTask().WaitAsync(TimeSpan.FromSeconds(30), Token);
+            notification.GetProperty("settings").GetProperty("rdcore").GetProperty("enabled").GetBoolean().Should().BeFalse();
+            var answer = await Ask(pipe);
+            answer[0].GetProperty("enabled").GetBoolean().Should().BeFalse();
+            answer[1].GetBoolean().Should().BeFalse();
+            answer[2].ValueKind.Should().Be(JsonValueKind.Null);
+            await connection.SetSettingsAsync(connection.GetSettings()!.Value, Token);
+            await Ask(pipe);
+            server.Configuration.Reader.TryRead(out _).Should().BeFalse("an unchanged object sends no notification");
+            connection.GetSettings()!.Value.GetProperty("rdcore").GetProperty("enabled").GetBoolean().Should().BeFalse();
+            new HexIDE.IDE.SettingsService(Path.Combine(directory, "settings.json")).HasLanguageServerSettings("one").Should().BeTrue();
+            row.Json.ReplaceLineEndings("\n").Should().Be("{\n  \"rdcore\": {\n    \"enabled\": false,\n    \"written\": true\n  }\n}");
+            row.ResetCommand.CanExecute(null).Should().BeTrue();
+            (await Ask(otherPipe))[0].ValueKind.Should().Be(JsonValueKind.Null);
+            otherServer.Configuration.Reader.TryRead(out _).Should().BeFalse();
+            await row.ResetCommand.ExecuteAsync(null);
+            var reset = (await server.Configuration.Reader.ReadAsync(Token).AsTask().WaitAsync(TimeSpan.FromSeconds(30), Token)).GetProperty("settings");
+            if (profileDefault) reset.GetProperty("rdcore").GetProperty("enabled").GetBoolean().Should().BeTrue();
+            else reset.EnumerateObject().Should().BeEmpty();
+            settings.HasLanguageServerSettings("one").Should().BeFalse();
+            row.ResetCommand.CanExecute(null).Should().BeFalse();
+            var fallback = await Ask(pipe);
+            if (profileDefault) fallback[1].GetBoolean().Should().BeTrue();
+            else fallback[0].ValueKind.Should().Be(JsonValueKind.Null);
+            if (profileDefault)
+            {
+                // Reset notifies even when removing the user object leaves the resolved value unchanged.
+                await connection.SetSettingsAsync(connection.GetSettings()!.Value, Token);
+                await Ask(pipe);
+                server.Configuration.Reader.TryRead(out _).Should().BeFalse();
+                await row.ResetCommand.ExecuteAsync(null);
+                (await server.Configuration.Reader.ReadAsync(Token).AsTask().WaitAsync(TimeSpan.FromSeconds(30), Token))
+                    .GetProperty("settings").GetProperty("rdcore").GetProperty("enabled").GetBoolean().Should().BeTrue();
+            }
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("null")]
+    [InlineData("4")]
+    [Trait("Issue", "4307")]
+    public async Task InvalidOrDisposedSettingsWritesNeverPersistOrNotify(string invalid)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-addin-settings-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var path = Path.Combine(directory, "settings.json");
+            var settings = new HexIDE.IDE.SettingsService(path);
+            var server = new ProbeServer();
+            var name = PipeName();
+            await using var pipe = new ProbePipe(name, () => server);
+            await using var router = Router();
+            var contributions = new LanguageServerContributions(settings, router,
+                new LanguageServerRegistrationFactory(_loggerFactory),
+                new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
+                new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>());
+            var connection = contributions.Register(new AddinLanguageServer(PipeEntry("one", name)), "Owner");
+            await router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
+            await server.Initialized.WaitAsync(TimeSpan.FromSeconds(30), Token);
+            var write = () => connection.SetSettingsAsync(JsonDocument.Parse(invalid).RootElement, Token);
+            await write.Should().ThrowAsync<ArgumentException>();
+            // The reply is a wire barrier: no configuration notification reached the server before it.
+            await pipe.Latest.InvokeWithParameterObjectAsync<JsonElement>("workspace/configuration",
+                JsonDocument.Parse("""{"items":[{}]}""").RootElement, Token);
+            server.Configuration.Reader.TryRead(out _).Should().BeFalse();
+            File.Exists(path).Should().BeFalse();
+            await connection.DisposeAsync();
+            var disposed = () => connection.SetSettingsAsync(JsonDocument.Parse("{}").RootElement, Token);
+            await disposed.Should().ThrowAsync<ObjectDisposedException>();
+            File.Exists(path).Should().BeFalse();
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
     [Fact]
     public void TheseTestsPipeNames_FitTheBudgetTheGuardAllowsOnMacOS_AndHere()
     {
@@ -67,6 +202,48 @@ public class AddinServerRegistrationTests : IDisposable
         name.Length.Should().BeLessThanOrEqualTo(PipeNameLimit.UnixMaxFor(MacTempPath),
             "on macOS a named pipe is a socket under a long temp path, and the guard refuses a name past its budget");
         PipeNameLimit.IsTooLong(name).Should().BeFalse();
+    }
+
+    [Fact]
+    [Trait("Issue", "4307")]
+    public async Task TheAddinsOwnEntrySettingsAreTheLastFallback()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-addin-settings-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var settings = new HexIDE.IDE.SettingsService(Path.Combine(directory, "settings.json"));
+            var name = PipeName();
+            var server = new ProbeServer();
+            await using var pipe = new ProbePipe(name, () => server);
+            await using var router = Router();
+            var contributions = new LanguageServerContributions(settings, router,
+                new LanguageServerRegistrationFactory(_loggerFactory),
+                new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
+                new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>());
+            var entry = PipeEntry("one", name);
+            entry.Settings = JsonDocument.Parse("""{"rdcore":{"fromEntry":true}}""").RootElement.Clone();
+            await using var connection = contributions.Register(new AddinLanguageServer(entry), "Owner");
+            connection.GetSettings()!.Value.GetProperty("rdcore").GetProperty("fromEntry").GetBoolean().Should().BeTrue();
+            await router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
+            await server.Initialized.WaitAsync(TimeSpan.FromSeconds(30), Token);
+            async Task<JsonElement> Ask() => await pipe.Latest.InvokeWithParameterObjectAsync<JsonElement>(
+                "workspace/configuration", JsonDocument.Parse("""{"items":[{"section":"rdcore"}]}""").RootElement, Token);
+            (await Ask())[0].GetProperty("fromEntry").GetBoolean().Should().BeTrue("the entry's object answers when the user has none");
+            using (var value = JsonDocument.Parse("""{"rdcore":{"fromUser":true}}"""))
+                await connection.SetSettingsAsync(value.RootElement, Token);
+            (await server.Configuration.Reader.ReadAsync(Token).AsTask().WaitAsync(TimeSpan.FromSeconds(30), Token))
+                .GetProperty("settings").GetProperty("rdcore").TryGetProperty("fromUser", out _).Should().BeTrue();
+            (await Ask())[0].TryGetProperty("fromEntry", out _).Should().BeFalse("the user's object replaces the entry's whole");
+            await connection.ResetSettingsAsync();
+            (await server.Configuration.Reader.ReadAsync(Token).AsTask().WaitAsync(TimeSpan.FromSeconds(30), Token))
+                .GetProperty("settings").GetProperty("rdcore").GetProperty("fromEntry").GetBoolean().Should().BeTrue("a reset falls back to the entry");
+            (await Ask())[0].GetProperty("fromEntry").GetBoolean().Should().BeTrue();
+        }
+        finally
+        {
+            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
+        }
     }
 
     private static LanguageServerEntry PipeEntry(string id, string pipeName) => new()
@@ -520,7 +697,7 @@ public class AddinServerRegistrationTests : IDisposable
     {
         var clock = new ManualClock();
         var router = Router();
-        var contributions = new LanguageServerContributions(router, new LanguageServerRegistrationFactory(_loggerFactory),
+        var contributions = new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), router, new LanguageServerRegistrationFactory(_loggerFactory),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
             new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>(), clock: clock);
         var told = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -570,7 +747,7 @@ public class AddinServerRegistrationTests : IDisposable
         var clock = new ManualClock();
         var logged = new RecordingLogger<LanguageServerContributions>();
         var router = Router();
-        var contributions = new LanguageServerContributions(router, new LanguageServerRegistrationFactory(_loggerFactory),
+        var contributions = new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), router, new LanguageServerRegistrationFactory(_loggerFactory),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
             new HashSet<string>(StringComparer.Ordinal), logged, clock: clock);
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -720,6 +897,70 @@ public class AddinServerRegistrationTests : IDisposable
         router.Connections.Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData("probe")]
+    [InlineData(".")]
+    [InlineData("probe .")]
+    [InlineData("editor.")]
+    [InlineData("EDITOR.private.")]
+    [InlineData("vscode.")]
+    [InlineData("VSCode.private.")]
+    [InlineData("hexide.")]
+    [InlineData("HexIDE.private.")]
+    public void AnInvalidOrReservedCommandPrefix_IsRefused(string prefix)
+    {
+        var router = Router();
+        var registering = () => Contributions(router).Register(
+            new AddinLanguageServer(PipeEntry("probe", "unused")) { CommandPrefix = prefix }, "My Add-in");
+
+        registering.Should().Throw<ArgumentException>();
+        router.Connections.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(null, "probe.run")]
+    [InlineData("probe.", "other.run")]
+    [InlineData("probe.", "probe.")]
+    [InlineData("probe.", "Probe.run")]
+    public void ACommandWithoutItsPrefix_IsRefused(string? prefix, string command)
+    {
+        var router = Router();
+        var registering = () => Contributions(router).Register(new AddinLanguageServer(PipeEntry("probe", "unused"))
+        {
+            CommandPrefix = prefix,
+            ClientCommands = new Dictionary<string, AddinClientCommand> { [command] = (_, _) => Task.CompletedTask },
+        }, "My Add-in");
+
+        registering.Should().Throw<ArgumentException>();
+        router.Connections.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CommandClaims_AreCopiedAtRegistration_AndBelongToThatConnectionOnly()
+    {
+        var pipeName = PipeName();
+        await using var pipe = new ProbePipe(pipeName, () => new ProbeServer());
+        var (contributions, router) = WiredContributions();
+        var commands = new Dictionary<string, AddinClientCommand> { ["probe.run"] = (_, _) => Task.CompletedTask };
+        await using var connection = contributions.Register(new AddinLanguageServer(PipeEntry("probe", pipeName))
+        {
+            CommandPrefix = "probe.",
+            ClientCommands = commands,
+        }, "My Add-in");
+
+        commands.Clear();
+        commands["other.run"] = (_, _) => Task.CompletedTask;
+        await router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
+
+        var client = (VBLspClient)connection.Client!;
+        client.HasClaimedCommand("probe.run").Should().BeTrue();
+        client.HasClaimedCommand("other.run").Should().BeFalse();
+        client.HasClaimedCommand("Probe.run").Should().BeFalse();
+        await using var other = new VBLspClient(Substitute.For<ILspTransport>(),
+            _loggerFactory.CreateLogger<VBLspClient>(), "markdown");
+        other.HasClaimedCommand("probe.run").Should().BeFalse();
+    }
+
     /// <summary>
     /// Every method of the Language Server Protocol 3.17, its requests and its notifications, as its meta-model lists
     /// them. <c>initialize</c>, <c>initialized</c>, <c>shutdown</c> and <c>exit</c> have no namespace, and a prefix,
@@ -807,6 +1048,86 @@ public class AddinServerRegistrationTests : IDisposable
         await sending.Should().ThrowAsync<ArgumentException>();
     }
 
+    // ── #4258 part D: prefixes bound to the publisher's issued namespaces ───────────────────────
+
+    private static AddinLanguageServer Prefixed(string id, string? messagePrefix, string? commandPrefix) =>
+        new(PipeEntry(id, "unused"))
+        {
+            MessagePrefix = messagePrefix,
+            CommandPrefix = commandPrefix,
+            ClientCommands = commandPrefix is null
+                ? new Dictionary<string, AddinClientCommand>()
+                : new Dictionary<string, AddinClientCommand> { [commandPrefix + "go"] = (_, _) => Task.CompletedTask },
+        };
+
+    [Theory]
+    [InlineData("rdcore/", "rdcore.")]
+    [InlineData("rdcore/sub/", "rdcore.sub.")]
+    [InlineData("rdcore/", null)]
+    [InlineData(null, "rdcore.")]
+    [InlineData(null, null)]
+    public void PrefixesUnderAnIssuedNamespaceAreAccepted(string? messagePrefix, string? commandPrefix)
+    {
+        var router = Router();
+        using var connection = Contributions(router).Register(Prefixed("probe", messagePrefix, commandPrefix), "My Add-in",
+            "com.example.addin", ["rdcore."]);
+        connection.Id.Should().Be("probe");
+        router.ConfigurationProblems.Should().NotContain(p => p.Message.Contains("names no namespaces"));
+    }
+
+    [Theory]
+    [InlineData("other/", null, "message prefix 'other/'")]
+    [InlineData(null, "other.", "command prefix 'other.'")]
+    [InlineData("rdcore/", "other.", "command prefix 'other.'")]
+    [InlineData("rdcorex/", null, "message prefix 'rdcorex/'")]
+    [InlineData(null, "rdcorex.", "command prefix 'rdcorex.'")]
+    public void APrefixOutsideTheIssuedNamespacesIsRefusedNamingBoth(string? messagePrefix, string? commandPrefix, string named)
+    {
+        var router = Router();
+        var registering = () => Contributions(router).Register(Prefixed("probe", messagePrefix, commandPrefix), "My Add-in",
+            "com.example.addin", ["rdcore.", "tools."]);
+        registering.Should().Throw<ArgumentException>()
+            .Which.Message.Should().Contain(named).And.Contain("'rdcore.', 'tools.'");
+        router.Connections.Should().NotContain(c => c.Id == "probe", "nothing is added");
+    }
+
+    [Fact]
+    public void ARecordThatIssuesNothingAllowsNoPrefix()
+    {
+        var registering = () => Contributions(Router()).Register(Prefixed("probe", "rdcore/", null), "My Add-in",
+            "com.example.addin", []);
+        registering.Should().Throw<ArgumentException>().Which.Message.Should().Contain("(none)");
+    }
+
+    [Theory]
+    [InlineData("hexide/", null)]
+    [InlineData("HexIDE/tools/", null)]
+    [InlineData(null, "hexide.")]
+    [InlineData(null, "hexide.chat.")]
+    public void HexideStaysReservedWhateverTheRecordSays(string? messagePrefix, string? commandPrefix)
+    {
+        var registering = () => Contributions(Router()).Register(Prefixed("probe", messagePrefix, commandPrefix), "My Add-in",
+            "com.example.addin", ["hexide."]);
+        registering.Should().Throw<ArgumentException>().Which.Message.Should().Contain("reserved");
+    }
+
+    [Fact]
+    public void WithoutIssuedNamespacesTodaysRuleAppliesWithOneNoticePerAddin()
+    {
+        var router = Router();
+        var contributions = Contributions(router);
+        using var first = contributions.Register(Prefixed("probe", "rdcore/", "rdcore."), "My Add-in", "com.example.addin");
+        router.ConfigurationProblems.Should().ContainSingle(p => p.EntryId == "probe" && p.Message.Contains("names no namespaces"))
+            .Which.Message.Should().Contain("'rdcore/' and 'rdcore.'").And.Contain("My Add-in");
+        router.ConfigurationProblems.Single(p => p.EntryId == "probe").EntryRejected.Should().BeFalse("it is a notice, never a refusal");
+
+        using var second = contributions.Register(Prefixed("probe2", "other/", null), "My Add-in", "com.example.addin");
+        router.ConfigurationProblems.Should().NotContain(p => p.EntryId == "probe2", "one notice for each add-in");
+
+        using var another = contributions.Register(Prefixed("probe3", "third/", null), "Another", "com.example.another");
+        router.ConfigurationProblems.Should().ContainSingle(p => p.EntryId == "probe3" && p.Message.Contains("names no namespaces"));
+    }
+
     // ── the channel, on the wire ────────────────────────────────────────────────────────────────
 
     // A server of the add-in's: it echoes a request of its own, takes a notification of its own, and asks the client a
@@ -816,12 +1137,28 @@ public class AddinServerRegistrationTests : IDisposable
         private readonly TaskCompletionSource<JsonElement> _noted = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _initialized = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+        public System.Threading.Channels.Channel<JsonElement> Configuration { get; } =
+            System.Threading.Channels.Channel.CreateUnbounded<JsonElement>();
+
+        [JsonRpcMethod("workspace/didChangeConfiguration", UseSingleObjectParameterDeserialization = true)]
+        public void OnConfiguration(JsonElement parameters) => Configuration.Writer.TryWrite(parameters.Clone());
+
         public Task<JsonElement> Noted => _noted.Task;
         public Task Initialized => _initialized.Task;
 
         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
         public JsonElement Initialize(JsonElement _) => JsonDocument.Parse(
-            """{"capabilities":{"textDocumentSync":{"openClose":true,"change":1}}}""").RootElement.Clone();
+            """{"capabilities":{"textDocumentSync":{"openClose":true,"change":1},"codeActionProvider":true,"codeLensProvider":{},"executeCommandProvider":{"commands":["probe.declared"]}}}""").RootElement.Clone();
+
+        [JsonRpcMethod("textDocument/codeAction", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Actions(JsonElement _) => JsonDocument.Parse("""[{"title":"Run","command":"probe.run","arguments":[{"n":42},"text"]},{"title":"Declared","command":"probe.declared"}]""").RootElement.Clone();
+
+        [JsonRpcMethod("textDocument/codeLens", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Lenses(JsonElement _) => JsonDocument.Parse("""[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"command":{"title":"Run","command":"probe.run"}}]""").RootElement.Clone();
+
+        public JsonElement? Executed;
+        [JsonRpcMethod("workspace/executeCommand", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement? Execute(JsonElement parameters) { Executed = parameters.Clone(); return null; }
 
         [JsonRpcMethod("initialized", UseSingleObjectParameterDeserialization = true)]
         public void OnInitialized(JsonElement _)
@@ -878,7 +1215,7 @@ public class AddinServerRegistrationTests : IDisposable
 
         await using var capture = new ConversationLog(armEveryConnection: true);
         var router = Router();
-        var contributions = new LanguageServerContributions(router, new LanguageServerRegistrationFactory(_loggerFactory, capture: capture),
+        var contributions = new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), router, new LanguageServerRegistrationFactory(_loggerFactory, capture: capture),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
             new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>());
         var asked = new TaskCompletionSource<JsonElement?>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -941,7 +1278,7 @@ public class AddinServerRegistrationTests : IDisposable
         await using var pipe = new ProbePipe(pipeName, () => new ProbeServer());
         await using var capture = new ConversationLog(armEveryConnection: true);
         var router = Router();
-        var contributions = new LanguageServerContributions(router, new LanguageServerRegistrationFactory(_loggerFactory, capture: capture),
+        var contributions = new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), router, new LanguageServerRegistrationFactory(_loggerFactory, capture: capture),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
             new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>());
         await using var connection = contributions.Register(
@@ -967,6 +1304,100 @@ public class AddinServerRegistrationTests : IDisposable
         export.Messages.Should().Contain("probe/echo", "the add-in's own messages are in the export");
         export.Messages.Should().NotContain("quintana").And.NotContain("InvoiceLedger").And.NotContain("Fixtures",
             "a file an add-in's message names is the user's, as one in textDocument/didOpen is");
+    }
+
+    [Fact]
+    public async Task ClaimedActionsRunWithOriginalArgumentsOnPool_DeclaredActionsStayOnWire()
+    {
+        var pipeName = PipeName();
+        var server = new ProbeServer();
+        await using var pipe = new ProbePipe(pipeName, () => server);
+        var (contributions, router) = WiredContributions();
+        JsonElement[]? received = null;
+        SynchronizationContext? context = new SynchronizationContext();
+        var declaredCalls = 0;
+        IAddinServerConnection? added = null;
+        ApplyWorkspaceEditResult? during = null;
+        await using var connection = contributions.Register(new AddinLanguageServer(PipeEntry("probe", pipeName))
+        {
+            CommandPrefix = "probe.",
+            ClientCommands = new Dictionary<string, AddinClientCommand>
+            {
+                ["probe.run"] = async (args, ct) =>
+                {
+                    received = args;
+                    context = SynchronizationContext.Current;
+                    during = await added!.ApplyEditAsync(new WorkspaceEdit(), ct);
+                },
+                ["probe.declared"] = (_, _) => { declaredCalls++; return Task.CompletedTask; },
+            },
+        }, "My Add-in");
+        added = connection;
+        const string uri = "file:///c:/p/README.md";
+        await router.OpenDocumentAsync(uri, "# hi", Token);
+        var actions = await connection.Client!.RequestCodeActionsAsync(uri, new(new(0, 0), new(0, 1)), [], Token);
+        var action = actions[0];
+        action.CanExecute!(action.Command!).Should().BeTrue();
+        await action.Execute!(action.Command!, Token);
+        received.Should().HaveCount(2);
+        received![0].GetProperty("n").GetInt32().Should().Be(42);
+        received[1].GetString().Should().Be("text");
+        context.Should().BeNull();
+        during!.FailureReason.Should().Be("No workspace editor is available.", "the handler was authorized and reached the shared applier check");
+        var outside = await connection.ApplyEditAsync(new WorkspaceEdit(), Token);
+        outside.FailureReason.Should().Contain("command the user started");
+        await actions[1].Execute!(actions[1].Command!, Token);
+        server.Executed!.Value.GetProperty("command").GetString().Should().Be("probe.declared");
+        declaredCalls.Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LensCommandsStayWithTheirProducingConnection_AndRemovalCancelsHandler(bool stopClient)
+    {
+        var firstPipe = PipeName();
+        var secondPipe = PipeName();
+        await using var pipe = new ProbePipe(firstPipe, () => new ProbeServer());
+        await using var otherPipe = new ProbePipe(secondPipe, () => new ProbeServer());
+        var (contributions, router) = WiredContributions();
+        var started = new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var calls = 0;
+        var connection = contributions.Register(new AddinLanguageServer(PipeEntry("probe", firstPipe))
+        {
+            CommandPrefix = "probe.",
+            ClientCommands = new Dictionary<string, AddinClientCommand>
+            {
+                ["probe.run"] = async (_, token) =>
+                {
+                    Interlocked.Increment(ref calls);
+                    started.TrySetResult(token);
+                    await Task.Delay(Timeout.InfiniteTimeSpan, token);
+                },
+            },
+        }, "My Add-in");
+        await using var cleanup = connection;
+        await using var other = contributions.Register(new AddinLanguageServer(PipeEntry("other", secondPipe)), "Other Add-in");
+        const string uri = "file:///c:/p/README.md";
+        await router.OpenDocumentAsync(uri, "# hi", Token);
+        var lenses = await router.RequestCodeLensesAsync(uri, Token);
+        lenses.Should().HaveCount(2);
+        var otherActions = await other.Client!.RequestCodeActionsAsync(uri, new(new(0, 0), new(0, 1)), [], Token);
+        otherActions[0].CanExecute!(otherActions[0].Command!).Should().BeFalse();
+        await otherActions[0].Execute!(otherActions[0].Command!, Token);
+        calls.Should().Be(0);
+        await router.ExecuteCodeLensCommandAsync(lenses[1].Command!, Token);
+        calls.Should().Be(0);
+        var running = router.ExecuteCodeLensCommandAsync(lenses[0].Command!, Token);
+        var token = await started.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        if (stopClient) await connection.Client!.StopAsync();
+        else await connection.DisposeAsync();
+        token.IsCancellationRequested.Should().BeTrue();
+        await FluentActions.Awaiting(() => running).Should().ThrowAsync<OperationCanceledException>();
+        calls.Should().Be(1);
+        var refused = await connection.ApplyEditAsync(new WorkspaceEdit(), Token);
+        refused.Applied.Should().BeFalse();
+        refused.FailureReason.Should().Contain("command the user started");
     }
 
     // Accepts each connection HexIDE makes to the pipe, a restart's included, each with a server of its own.
@@ -1007,7 +1438,7 @@ public class AddinServerRegistrationTests : IDisposable
     private (LanguageServerContributions Contributions, LspClientRegistry Router) WiredContributions(ILspWorkspace? workspace = null)
     {
         var router = new LspClientRegistry([], _loggerFactory.CreateLogger<LspClientRegistry>(), workspace);
-        return (new LanguageServerContributions(router, new LanguageServerRegistrationFactory(_loggerFactory),
+        return (new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), router, new LanguageServerRegistrationFactory(_loggerFactory),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
             new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>()), router);
     }

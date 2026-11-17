@@ -9,11 +9,20 @@ public sealed class CompilationConstants
 {
     /// <summary>
     /// vb6.exe's built-ins, measured: <c>Win32</c> is 1, and <c>Win32 = True</c> false, and <c>Win16</c> is 0. <c>VBA6</c>,
-    /// <c>VBA7</c>, <c>Win64</c> and <c>Mac</c> are not defined, so they read 0. Every personality takes these for now: VBA's
-    /// documented set (<c>VBA7</c> = 1) would select declarations HexIDE cannot parse (#1548), and is used only for the
-    /// editor preview (#1113).
+    /// <c>VBA7</c>, <c>Win64</c> and <c>Mac</c> are not defined, so they read 0. Projects without a VBA7 target take
+    /// these built-ins (#4245).
     /// </summary>
     public static readonly IReadOnlyDictionary<string, Vb6Value> Vb6BuiltIns = Variants(("Win16", 0), ("Win32", 1));
+
+    // Excel x64 row K, recorded in #4245 (oracle measuring PR #3965).
+    public static readonly IReadOnlyDictionary<string, Vb6Value> Vba64BuiltIns =
+        Variants(("VBA6", 1), ("VBA7", 1), ("Win32", 1), ("Win64", 1), ("Win16", 0), ("Mac", 0));
+
+    // Excel x86 W1–W6, issue #4399 (oracle measuring PR #4398).
+    public static readonly IReadOnlyDictionary<string, Vb6Value> Vba32BuiltIns =
+        Variants(("VBA6", 1), ("VBA7", 1), ("Win32", 1), ("Win64", 0), ("Win16", 0), ("Mac", 0));
+
+    public VbaBitness VbaBitness { get; init; }
 
     /// <summary>A program with no project arguments, under VB6's built-ins.</summary>
     public static readonly CompilationConstants Vb6 = new(CompilationArguments.None);
@@ -44,8 +53,13 @@ public sealed class CompilationConstants
     /// </summary>
     public bool NullIsUndetermined { get; init; }
 
-    /// <summary>A project's constants: its <c>CondComp</c>, or vb6.exe's refusal of it, under VB6's built-ins.</summary>
-    public static CompilationConstants ForProject(ProjectDefinition project) => new(CompilationArguments.ForProject(project));
+    /// <summary>A project's constants: its <c>CondComp</c> and the built-ins its VBA7 target selects (#4245).</summary>
+    public static CompilationConstants ForProject(ProjectDefinition project) => project.VbaBitness switch
+    {
+        VbaBitness.Bit32 => new(CompilationArguments.ForProject(project), Vba32BuiltIns) { VbaBitness = VbaBitness.Bit32 },
+        VbaBitness.Bit64 => new(CompilationArguments.ForProject(project), Vba64BuiltIns) { VbaBitness = VbaBitness.Bit64 },
+        _ => new(CompilationArguments.ForProject(project)),
+    };
 
     /// <summary>An argument's or a built-in's value, as the Variant a constant is.</summary>
     internal bool TryGet(string name, out Vb6Value value)

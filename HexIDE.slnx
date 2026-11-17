@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/IDE/">
+    <Project Path="IDE/HexIDE.Office/HexIDE.Office.csproj" />
     <Project Path="IDE/HexIDE.Core/HexIDE.Core.csproj" />
     <Project Path="IDE/HexIDE.TwinBasic/HexIDE.TwinBasic.csproj" />
     <Project Path="IDE/HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj" />
@@ -31,6 +32,5 @@
     <File Path="README.md" />
     <File Path="docs/lsp-client.md" />
     <File Path="docs/lsp-server-features.md" />
-    <File Path="docs/ROADMAP.md" />
   </Folder>
 </Solution>

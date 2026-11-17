@@ -633,7 +633,7 @@ public class FormInstanceTests
     [InlineData(true)]
     public void Step_Into_from_design_mode_breaks_on_the_first_statement_of_the_start(bool hasInitialize)
     {
-        // VB6 breaks on the first executable line, never on a declaration. The start is one dispatch now: a step armed
+        // Start-and-step breaks on the first executable line, not its declaration. The start is one dispatch now: a step armed
         // before it reaches Initialize's first statement, or Load's when there is no Initialize, and a step off the end
         // of Initialize goes on into Load. Each piece was a dispatch of its own, and the first one's end disarmed the
         // step, so the run went straight through (#656, #1010 review).

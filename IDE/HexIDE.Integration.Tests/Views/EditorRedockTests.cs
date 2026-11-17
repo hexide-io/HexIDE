@@ -11,6 +11,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.Folding;
+using AvaloniaEdit.Rendering;
 using HexIDE.Controls;
 using Dock.Avalonia.Controls;
 using Dock.Model.Core;
@@ -71,7 +72,7 @@ public class EditorRedockTests
             Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
         module.UpdateCode("Sub Greet()\r\nEnd Sub\r\n");
@@ -149,6 +150,20 @@ public class EditorRedockTests
             var lensRequests = server.Count("textDocument/codeLens");
             await rpc.InvokeWithParameterObjectAsync<object?>("workspace/codeLens/refresh", null, cancellation);
             await Until(() => server.Count("textDocument/codeLens") > lensRequests);
+            if (method is "textDocument/inlayHint" or "textDocument/semanticTokens/full")
+            {
+                var refresh = method == "textDocument/inlayHint"
+                    ? "workspace/inlayHint/refresh" : "workspace/semanticTokens/refresh";
+                var requests = server.Count(method);
+                server.HintLabel = "caption";
+                server.TokenColumn = 1;
+                for (var i = 0; i < 4; i++)
+                    (await rpc.InvokeAsync<JsonElement?>(refresh)).Should().BeNull();
+                await Until(() => server.Count(method) > requests);
+                await Settle();
+                server.Count(method).Should().Be(requests + 1, "a refresh burst is coalesced per document");
+                CheckAnswers();
+            }
             host.GetVisualDescendants().OfType<CodeEditorView>().Should().ContainSingle();
 
             window.Content = null;
@@ -167,9 +182,14 @@ public class EditorRedockTests
             var editor = view.FindControl<TextEditor>("TextEditor")!;
             var textView = editor.TextArea.TextView;
             view.GetVisualDescendants().OfType<Button>().Should().Contain(b => Equals(b.Content, "1 reference"));
-            textView.LineTransformers.OfType<SemanticTokensColorizer>().Single().Tokens.Should().ContainSingle();
-            textView.BackgroundRenderers.OfType<InlayHintRenderer>().Single().Placements(textView)
-                .Should().Contain(p => p.Text == "hint");
+            textView.LineTransformers.OfType<SemanticTokensColorizer>().Single().Tokens.Should().ContainSingle()
+                .Which.Start.Should().Be(vm.Document.GetOffset(2, server.TokenColumn + 1));
+            textView.ElementGenerators.OfType<InlayHintRenderer>().Should().ContainSingle();
+            textView.EnsureVisualLines();
+            textView.VisualLines.SelectMany(line => line.Elements).OfType<InlineObjectElement>()
+                .Select(element => element.Element).OfType<StackPanel>()
+                .SelectMany(panel => panel.Children.OfType<TextBlock>())
+                .Should().Contain(label => label.Text == server.HintLabel);
             ((FoldingManager)textView.GetService(typeof(FoldingManager))!).AllFoldings.Should().ContainSingle();
         }
 
@@ -197,11 +217,143 @@ public class EditorRedockTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData("workspace/inlayHint/refresh", "textDocument/inlayHint", true)]
+    [InlineData("workspace/inlayHint/refresh", "textDocument/inlayHint", false)]
+    [InlineData("workspace/semanticTokens/refresh", "textDocument/semanticTokens/full", true)]
+    public async Task Analysis_refresh_reasks_each_attached_document_only_once(string refresh, string method, bool showHints)
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        var servers = new List<JsonRpc>();
+        var models = new List<IDisposable>();
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-refresh-" + Guid.NewGuid().ToString("N"));
+        System.IO.Directory.CreateDirectory(directory);
+        var first = new Server();
+        var other = new Server();
+        first.ReleaseAnswers();
+        other.ReleaseAnswers();
+        var client = Connect(first);
+        var otherClient = Connect(other);
+        await using var registry = new LspClientRegistry([
+            new LanguageServerRegistration("first", "First", [".bas"], DocumentLanguage.Vb6, () => client),
+            new LanguageServerRegistration("other", "Other", [".md"], "markdown", () => otherClient),
+        ], Substitute.For<ILogger<LspClientRegistry>>());
+        var settings = Substitute.For<ISettingsService>();
+        settings.ShowInlayHints.Returns(showHints);
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        try
+        {
+            foreach (var name in new[] { "Module1", "Module2" })
+            {
+                var vm = new CodeEditorViewModel(Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(),
+                    Substitute.For<IProjectService>(), new EventBus(), registry, settings,
+                    Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
+                    Substitute.For<HexIDE.Debugging.IBreakpointService>(),
+                    Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
+                    Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<ILocalizationService>());
+                models.Add(vm);
+                var module = new ModuleDefinition(project, name, ModuleKind.StandardModule);
+                module.UpdateCode("Sub Greet()\r\nEnd Sub\r\n");
+                vm.Initialize(module);
+                await vm.Analysis.Hints(cancellation);
+                await vm.Analysis.Tokens(cancellation);
+            }
+            foreach (var name in new[] { "carried.bas", "other.md" })
+            {
+                var path = System.IO.Path.Combine(directory, name);
+                System.IO.File.WriteAllText(path, "Sub Greet()\r\nEnd Sub\r\n");
+                models.Add(new RelatedDocumentEditorViewModel(registry, Substitute.For<IWindowManager>(),
+                    Substitute.For<ILocalizationService>(), settings).Initialize(new RelatedDocumentDefinition(project, name, path)));
+            }
+            await Until(() => other.Count("textDocument/didOpen") == 1 && first.Count("textDocument/didOpen") == 3);
+            var before = first.Count(method);
+            var requestedBefore = first.RequestUris(method);
+            var unrelated = other.Count(method);
+            var semanticBefore = first.Count("textDocument/semanticTokens/full");
+            var expected = !showHints && method == "textDocument/inlayHint" ? 0 : 2;
+            // Hold replies so refreshes arriving during a request also have to coalesce.
+            first.HoldAnswers();
+            for (var i = 0; i < 4; i++)
+                (await servers[0].InvokeAsync<JsonElement?>(refresh)).Should().BeNull();
+            await Until(() => first.Count("textDocument/semanticTokens/full") >= semanticBefore + 2);
+            for (var i = 0; i < 4; i++)
+                (await servers[0].InvokeAsync<JsonElement?>(refresh)).Should().BeNull();
+            await Task.Delay(700, cancellation);
+            Dispatcher.UIThread.RunJobs();
+            first.Count(method).Should().Be(before + expected);
+            other.Count(method).Should().Be(unrelated, "the other server's document is unrelated");
+            var uris = first.RequestUris("textDocument/semanticTokens/full");
+            uris.Should().Contain("untitled:P/Module1.bas");
+            uris.Should().Contain("untitled:P/Module2.bas");
+            // A carried file's view draws diagnostics only, no hints or tokens, so a refresh doesn't ask for them.
+            uris.Should().NotContain(LspDocumentUri.ForFile(System.IO.Path.Combine(directory, "carried.bas")));
+            first.RequestUris(method).Should().NotContain(LspDocumentUri.ForFile(System.IO.Path.Combine(directory, "carried.bas")));
+            if (expected > 0)
+            {
+                foreach (var uri in new[] { "untitled:P/Module1.bas", "untitled:P/Module2.bas" })
+                    first.RequestUris(method).Count(value => value == uri).Should().Be(
+                        requestedBefore.Count(value => value == uri) + 1, "each document is requested once");
+            }
+            first.ReleaseAnswers();
+            await Task.Delay(100, cancellation);
+            foreach (var model in models) model.Dispose();
+            models.Clear();
+            before = first.Count(method);
+            (await servers[0].InvokeAsync<JsonElement?>(refresh)).Should().BeNull();
+            await Task.Delay(700, cancellation);
+            Dispatcher.UIThread.RunJobs();
+            first.Count(method).Should().Be(before, "closed editors unsubscribe");
+        }
+        finally
+        {
+            first.ReleaseAnswers();
+            foreach (var model in models) model.Dispose();
+            foreach (var rpc in servers) rpc.Dispose();
+            System.IO.Directory.Delete(directory, true);
+        }
+
+        VBLspClient Connect(Server server)
+        {
+            var (clientSide, serverSide) = FullDuplexStream.CreatePair();
+            var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
+            servers.Add(rpc);
+            rpc.StartListening();
+            var transport = Substitute.For<ILspTransport>();
+            transport.IsAlive.Returns(true);
+            transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
+                .Returns(call => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(
+                    clientSide, clientSide, call.Arg<IJsonRpcMessageFormatter>())));
+            var connected = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6);
+            return connected;
+        }
+
+        async Task Until(Func<bool> ready)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(10);
+            while (!ready() && DateTime.UtcNow < deadline)
+            {
+                Dispatcher.UIThread.RunJobs();
+                await Task.Delay(20, cancellation);
+            }
+            ready().Should().BeTrue("the expected document requests must arrive on the wire");
+        }
+    }
+
     private sealed class Server
     {
         private readonly ConcurrentDictionary<string, int> counts = new();
-        private readonly TaskCompletionSource answers = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private TaskCompletionSource answers = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public void HoldAnswers() => answers = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly ConcurrentDictionary<string, ConcurrentBag<string>> requestUris = new();
+        public string[] RequestUris(string method) => requestUris.GetOrAdd(method, _ => new()).ToArray();
+        private void SeenDocument(string method, JsonElement p)
+        {
+            requestUris.GetOrAdd(method, _ => new()).Add(p.GetProperty("textDocument").GetProperty("uri").GetString()!);
+            Seen(method);
+        }
         public void ReleaseAnswers() => answers.TrySetResult();
+        public string HintLabel { get; set; } = "hint";
+        public int TokenColumn { get; set; }
         public string? LastChange { get; private set; }
         public int Count(string method) => counts.GetValueOrDefault(method);
         private void Seen(string method) => counts.AddOrUpdate(method, 1, (_, count) => count + 1);
@@ -247,18 +399,18 @@ public class EditorRedockTests
             } });
         }
         [JsonRpcMethod("textDocument/semanticTokens/full", UseSingleObjectParameterDeserialization = true)]
-        public async Task<JsonElement> Tokens(JsonElement _)
+        public async Task<JsonElement> Tokens(JsonElement p)
         {
-            Seen("textDocument/semanticTokens/full");
+            SeenDocument("textDocument/semanticTokens/full", p);
             await answers.Task;
-            return JsonSerializer.SerializeToElement(new { data = new[] { 1, 0, 3, 0, 0 } });
+            return JsonSerializer.SerializeToElement(new { data = new[] { 1, TokenColumn, 3, 0, 0 } });
         }
         [JsonRpcMethod("textDocument/inlayHint", UseSingleObjectParameterDeserialization = true)]
-        public async Task<JsonElement> Hints(JsonElement _)
+        public async Task<JsonElement> Hints(JsonElement p)
         {
-            Seen("textDocument/inlayHint");
+            SeenDocument("textDocument/inlayHint", p);
             await answers.Task;
-            return JsonSerializer.SerializeToElement(new[] { new { position = new { line = 1, character = 0 }, label = "hint" } });
+            return JsonSerializer.SerializeToElement(new[] { new { position = new { line = 1, character = 0 }, label = HintLabel } });
         }
         [JsonRpcMethod("textDocument/foldingRange", UseSingleObjectParameterDeserialization = true)]
         public async Task<JsonElement> Folds(JsonElement _)

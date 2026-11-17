@@ -24,7 +24,7 @@ public class FormatSelectionTests
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
             new ComponentRegistry(), Substitute.For<ILocalizationService>());
         return new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
-            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
     }
 
     [AvaloniaTheory]
@@ -83,15 +83,22 @@ public class FormatSelectionTests
         CommandManager.RequerySuggested += OnRequery;
         try
         {
+            var collect = true;
             foreach (var count in new[] { 0, 1, 2, 1, 0 })
             {
                 notifications.Clear();
                 requeried = false;
                 vm.SetSelectedComponents(controls.Take(count));
-                // A full-suite GC used to collect CommandManager's unowned weak-handler wrapper (#2267).
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                GC.Collect();
+                // A full-suite GC used to collect CommandManager's unowned weak-handler wrapper (#2267). One full
+                // collection with a requery pending proves the wrapper survives. Collecting at every step added only
+                // time: on a macOS runner with a 2 to 3 GB heap, the nine cases took 31 to 84 s each (#2128).
+                if (collect)
+                {
+                    collect = false;
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    GC.Collect();
+                }
                 Dispatcher.UIThread.RunJobs();
                 predicate!.Invoke(vm, [null]).Should().Be(count >= 2);
                 notifications.Should().Contain(nameof(vm.SelectedComponents));
@@ -135,9 +142,7 @@ public class FormatSelectionTests
         var dock = Substitute.For<IDocumentDockService>();
         dock.ActiveDocument.Returns(vm);
         using var context = new IdeContext(Substitute.For<IProjectManager>(), dock, Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-                new Vb6ProjectFileFormat(),
-                new Vb6ReadOnlyRegionReader());
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
         var controls = vm.AllComponents.Where(c => c.Name.StartsWith("Command")).ToArray();
         for (var count = 0; count < minimum; count++)

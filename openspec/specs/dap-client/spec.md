@@ -208,6 +208,15 @@ configures source breakpoints and advertised default exception filters, and send
 when supported. It SHALL permit launch responses to follow configuration and release ownership on startup
 failure or cancellation within a bounded startup deadline.
 
+#### Scenario: Launch refused during configuration
+- **WHEN** launch fails while a configuration request is unanswered
+- **THEN** the client SHALL fail startup with the launch error without waiting for that request's deadline,
+  release ownership, and send no further configuration requests
+
+#### Scenario: Early successful launch response
+- **WHEN** launch succeeds before configuration completes
+- **THEN** the client SHALL finish the same configuration sequence
+
 #### Scenario: Deferred launch response
 - **WHEN** the adapter sends initialized but defers its launch response until configurationDone
 - **THEN** the client configures breakpoints and completes the handshake without waiting for launch first
@@ -494,14 +503,40 @@ event for its new location, with the same inspection lifetime rules as other res
 - **WHEN** a goto, continue or step request is refused without an adapter stopped event
 - **THEN** the IDE SHALL retain the editor caret and scroll position alongside the stopped inspection
 
-### Requirement: Explicit refusal of external breakpoint conditions
-The IDE SHALL reject a launch breakpoint entry containing `condition`, `hitCondition` or `logMessage` before starting an adapter, with a
-localized diagnostic naming the launch file and one-based breakpoint entry. It SHALL NOT expose the
-serializer's internal type name for this refusal. The diagnostic SHALL direct users to Condition… in the gutter menu.
+### Requirement: Launch breakpoint options
+The IDE SHALL accept optional `condition`, `hitCondition` and `logMessage` strings on launch-file breakpoint
+entries, applying each to every line. Non-string values, including null, SHALL be refused before starting
+an adapter using the existing localized diagnostic naming the file and one-based entry. A launch-file
+condition SHALL take precedence over a gutter condition on the same line for that session (#4143).
 
-#### Scenario: A condition is present
-- **WHEN** a launch breakpoint entry contains condition, hitCondition or logMessage, including a null value
-- **THEN** no adapter starts and Immediate identifies the unsupported option, file and entry
+#### Scenario: Launch condition precedence
+- **WHEN** a launch entry and gutter mark have conditions on the same line
+- **THEN** initial and live setBreakpoints requests use the launch condition, including after a gutter condition edit
+
+#### Scenario: Invalid launch option type
+- **WHEN** a launch breakpoint option has a non-string value
+- **THEN** no adapter starts and Immediate identifies the file and one-based entry
+
+### Requirement: Launch breakpoint option capabilities
+The IDE SHALL gate `condition`, `hitCondition` and `logMessage` on `supportsConditionalBreakpoints`,
+`supportsHitConditionalBreakpoints` and `supportsLogPoints`, respectively. It SHALL omit each unsupported
+field while keeping the breakpoint and supported fields, explaining each omission once per session in
+localized Immediate output. Live updates and Run To Cursor cleanup SHALL preserve options on retained
+user breakpoints (#4143).
+
+#### Scenario: Supported launch options
+- **WHEN** a launch entry contains string breakpoint options and the adapter advertises their capabilities
+- **THEN** initial and subsequent setBreakpoints requests carry those options on each retained line
+
+#### Scenario: Unsupported launch options
+- **WHEN** the adapter does not advertise one of the requested breakpoint capabilities
+- **THEN** the corresponding field is omitted, the breakpoint remains and one notice names the ignored field
+- **AND** repeated breakpoint updates do not repeat that notice during the session
+
+#### Scenario: Run To Cursor and removal
+- **WHEN** Run To Cursor adds and removes its temporary breakpoint
+- **THEN** retained user breakpoint options remain intact and the temporary breakpoint has no options
+- **AND** removing a user breakpoint and re-adding it does not restore that breakpoint's launch options
 
 ### Requirement: External run state in the IDE chrome
 The IDE SHALL derive the title tag and status message from the external session while it is active,
@@ -556,11 +591,10 @@ glyph and a tooltip showing its expression and adapter verification/message (#29
 
 ### Requirement: Conditional breakpoint capability and fallback
 The IDE SHALL include breakpoint conditions in initial and live `setBreakpoints` requests only when the
-adapter advertises `supportsConditionalBreakpoints`. Without that capability it SHALL send line-only
-breakpoints and explain once per session in localized Immediate output that conditions are ignored and
-stops are unconditional. Interpreter runs SHALL evaluate conditions in the executing frame using the
+adapter advertises `supportsConditionalBreakpoints`. Without that capability it SHALL omit the condition from
+breakpoints and explain once per session in localized Immediate output that conditions are ignored. Interpreter runs SHALL evaluate conditions in the executing frame using the
 read-only watch evaluator, stop only for true results, and stop with the expression and error in Immediate
-when evaluation fails. Launch-file conditions SHALL remain refused.
+when evaluation fails. Launch-file conditions SHALL follow the launch breakpoint options requirement.
 
 #### Scenario: Capable adapter
 - **WHEN** an IDE breakpoint with a condition is sent to a capable adapter
@@ -568,7 +602,7 @@ when evaluation fails. Launch-file conditions SHALL remain refused.
 
 #### Scenario: Incapable adapter
 - **WHEN** a run first receives a conditional breakpoint without condition evaluation support
-- **THEN** it keeps the unconditional breakpoint and emits one localized notice for that run
+- **THEN** it keeps the breakpoint without the condition and emits one localized notice for that run
 
 #### Scenario: Interpreter condition
 - **WHEN** an interpreter breakpoint has a condition

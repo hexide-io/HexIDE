@@ -20,10 +20,14 @@ public class CommandButtonComponentClass : ComponentBaseClass
         PictureProperty,
         EnabledProperty,
         TabStopProperty,
+        DefaultProperty,
+        CancelProperty,
         TabIndexProperty,
-        ToolTipTextProperty], [ClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+        ToolTipTextProperty], [ClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent, KeyDownEvent, KeyPressEvent, KeyUpEvent])
     {
     }
+
+    public override string? DesignerDoubleClickEvent => "Click";
 
     public override string Name => "Command";
     public override string VBTypeName => "VB.CommandButton";
@@ -32,6 +36,8 @@ public class CommandButtonComponentClass : ComponentBaseClass
     {
         return new VBCommandButton()
         {
+            Default = instance.GetPropertyOrDefault(DefaultProperty),
+            Cancel = instance.GetPropertyOrDefault(CancelProperty),
             Content = instance.GetPropertyOrDefault(CaptionProperty),
             [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(BackColorProperty),
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),

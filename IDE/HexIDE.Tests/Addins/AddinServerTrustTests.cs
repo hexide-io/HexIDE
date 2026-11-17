@@ -49,12 +49,10 @@ public sealed class AddinServerTrustTests : IDisposable
         _events = new AddinEventService(projects, runner, new EventBus());
         _diagnostics = new AddinDiagnosticsService(_router, projects);
         _host = new HexIdeHost(new AddinMenuService(), new AddinToolWindowService(), _events, _registry,
-            new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), projects,
-                format: new Vb6ProjectFileFormat(),
-                reader: new Vb6ReadOnlyRegionReader()),
+            new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), projects),
             new AddinProjectService(projects), _diagnostics, new AddinCommandService(), new AddinProjectTemplateService(),
             new AddinOptionsService(), new ComponentRegistry(), runner,
-            new LanguageServerContributions(_router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
+            new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance), [],
                 NullLogger<LanguageServerContributions>.Instance),
             new HexIDE.Debugging.DebugLaunchService(new HexIDE.Debugging.ExternalDebugService(new HexIDE.Conversations.ConversationLog())),

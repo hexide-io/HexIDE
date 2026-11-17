@@ -869,8 +869,8 @@ public class DateFractionOfASecondTests : BaseVBTestFixture
             "02/01/100 | 0:0:0 d2 m1 y100 w7 | 0100-01-02 00:00:00 | kept True | err 0");
     }
 
-    // Left out: Format$(d, "hh:nn:ss AMPM") -> 12:00:01 PM | err 0, #2040, the AMPM token.
-    [WindowsOnlyFact]
+    // On Windows from NLS, and elsewhere from the generated table of Windows' locale data (#2041, #3928).
+    [Fact]
     public async Task Long_date_uses_the_measured_Windows_pattern()
     {
         await RunInEnGb(Prelude + "\nDebug.Print Format$(e, \"Long Date\")");
@@ -880,6 +880,7 @@ public class DateFractionOfASecondTests : BaseVBTestFixture
     // As measured, the expression vb6.exe ran; as run here, with each serial vb6.exe logged compared as the Double it names.
     public static TheoryData<string, string, string> Cases => new()
     {
+        { "Format$(d, \"hh:nn:ss AMPM\")", "Format$(d, \"hh:nn:ss AMPM\")", "12:00:01 PM | err 0" },
         { "Bits(CDbl(DateAdd(\"s\", 0, d))) & \" \" & Bits(CDbl(d))", "IIf(CDbl(DateAdd(\"s\", 0, d)) = 0.5000069444444445#, \"3FE0000E90452D49\", \"MISMATCH\") & \" \" & IIf(CDbl(d) = 0.5000069444444445#, \"3FE0000E90452D49\", \"MISMATCH\")", "3FE0000E90452D49 3FE0000E90452D49 | err 0" },
         { "CStr(DateAdd(\"s\", 1, d))", "CStr(DateAdd(\"s\", 1, d))", "12:00:02 | err 0" },
         { "Bits(CDbl(DateAdd(\"s\", 1, d)))", "IIf(CDbl(DateAdd(\"s\", 1, d)) = 0.5000185185185185#, \"3FE00026D60DCE17\", \"MISMATCH\")", "3FE00026D60DCE17 | err 0" },

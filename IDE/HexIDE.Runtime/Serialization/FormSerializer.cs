@@ -100,7 +100,7 @@ public class FormSerializer
                 while (preservedIndex < preserved.Count && before[preservedIndex] <= childIndex)
                     WriteVerbatimBlock(preserved[preservedIndex++]);
                 if (childIndex < children.Count)
-                    WriteComponentTree(children[childIndex]);
+                    WriteComponentTree(children[childIndex], container.BaseClass is MenuComponentClass);
             }
         }
 
@@ -114,7 +114,7 @@ public class FormSerializer
 
         // Begin/End maintain the indent level themselves, so recursing here is all the nesting needs:
         // VB6's three-space step per level falls out of it.
-        void WriteComponentTree(ComponentInstance component)
+        void WriteComponentTree(ComponentInstance component, bool isSubMenu)
         {
             if (!written.Add(component))
                 throw new InvalidOperationException(
@@ -125,7 +125,7 @@ public class FormSerializer
             var inBox = component.BaseClass as InBoxComponentClass;
             vb.Begin(inBox?.TypeNameOf(component) ?? component.BaseClass.VBTypeName, component.GetPropertyOrDefault(VBProperties.NameProperty)!);
             vb.BeginSortedProperties();
-            WriteAllProperties(vb, component, citations);
+            WriteAllProperties(vb, component, citations, isSubMenu);
             vb.EndSortedProperties();
             if (component.BaseClass is RichTextBoxComponentClass)
                 RichTextBoxPersistence.Write(vb, component, citations);
@@ -281,7 +281,7 @@ public class FormSerializer
         WriteOuter("Width", VBProperties.WidthProperty, outerRect.WidthOffsetTwips);
     }
 
-    private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance, CompanionCitations citations)
+    private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance, CompanionCitations citations, bool isSubMenu = false)
     {
         var inBox = instance.BaseClass as InBoxComponentClass;
         var userControl = instance.BaseClass as UserControlComponentClass;
@@ -296,6 +296,30 @@ public class FormSerializer
         {
             if (Omit(prop.Name) || prop == VBProperties.NameProperty)
                 continue;
+
+            if (instance.BaseClass is MenuComponentClass)
+            {
+                var value = instance.GetBoxedPropertyOrDefault(prop);
+                if (prop == MenuComponentClass.ShortcutProperty)
+                {
+                    var shortcut = VBMenuShortcut.Canonicalize(value as string ?? "");
+                    if (shortcut.Length > 0)
+                        vb.WriteRawProperty(prop.Name, shortcut);
+                    continue;
+                }
+                if (prop == MenuComponentClass.NegotiatePositionProperty)
+                {
+                    if (value is int position && position != 0)
+                        vb.WriteRawProperty(prop.Name, position.ToString(CultureInfo.InvariantCulture)
+                            + (position is >= 1 and <= 3 ? "  '" + new[] { "", "Left", "Middle", "Right" }[position] : ""));
+                    continue;
+                }
+                if (prop == VBProperties.WindowListProperty && isSubMenu)
+                    continue;
+                if ((prop == VBProperties.EnabledProperty || prop == VBProperties.VisibleProperty) && Equals(value, true)
+                    || prop == VBProperties.HelpContextIDProperty && Equals(value, 0))
+                    continue;
+            }
 
             // An in-box control's own properties go in the run after its extender's (#1082).
             if (inBox is not null && inBox.OwnProperties.Contains(prop))
@@ -382,7 +406,10 @@ public class FormSerializer
             if (instance.BaseClass.Properties.Any(p =>
                     string.Equals(p.Name, raw.Name, StringComparison.OrdinalIgnoreCase) && instance.TryGetBoxedProperty(p, out _)))
                 continue;
-            vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList());
+            if (raw.EditedValue is { } editedValue)
+                vb.WriteRawProperty(raw.Name, editedValue);
+            else
+                vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList());
         }
     }
 
@@ -461,6 +488,8 @@ public class FormSerializer
         || inBox is ImageListComponentClass && name.Equals("Images", StringComparison.OrdinalIgnoreCase)
         || inBox.CarriedOwnProperties.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
         || inBox.CarriedPropertyOrder.Contains(name, StringComparer.OrdinalIgnoreCase)
+        || inBox is SliderComponentClass && (SliderComponentClass.FileProperties.Contains(name, StringComparer.OrdinalIgnoreCase)
+            || name.Equals("Text", StringComparison.OrdinalIgnoreCase))
         // An own property whose saved value couldn't be read is kept as its line, and goes back in the own run (#1222).
         || inBox.OwnProperties.Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
@@ -493,6 +522,34 @@ public class FormSerializer
 
         var readX = Carried("_ExtentX");
         var readY = Carried("_ExtentY");
+        // Slider's own properties remain view-only. Preserve even file-only values that the runtime clamps or
+        // ignores; missing extents likewise stay missing until a measured resize supplies new ones (#1091).
+        if (inBox is SliderComponentClass)
+        {
+            var basis = instance.GetPropertyOrDefault(InBoxComponentClass.ExtentBasisProperty);
+            var unchangedSize = basis is not null
+                && basis.Width == instance.GetPropertyOrDefault(VBProperties.WidthProperty)
+                && basis.Height == instance.GetPropertyOrDefault(VBProperties.HeightProperty);
+            if (!unchangedSize)
+            {
+                var resized = inBox.ExtentsToWrite(instance, ValueOf(readX), ValueOf(readY));
+                vb.WriteProperty("_ExtentX", typeof(int), resized.X);
+                vb.WriteProperty("_ExtentY", typeof(int), resized.Y);
+            }
+            if (!unchangedSize && Carried("_Version") is null)
+                vb.WriteProperty("_Version", typeof(int), inBox.LibraryOf(instance).PersistedVersion);
+            foreach (var raw in instance.UnknownRawProperties)
+            {
+                if (raw.Name.Equals("Text", StringComparison.OrdinalIgnoreCase) || !IsOwnRunLine(inBox, raw.Name))
+                    continue;
+                if (!unchangedSize && (raw.Name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase)
+                    || raw.Name.Equals("_ExtentY", StringComparison.OrdinalIgnoreCase)))
+                    continue;
+                WriteCarried(raw);
+            }
+            return;
+        }
+
         var extents = inBox.ExtentsToWrite(instance, ValueOf(readX), ValueOf(readY));
         if (ValueOf(readX) == extents.X && ValueOf(readY) == extents.Y)
         {

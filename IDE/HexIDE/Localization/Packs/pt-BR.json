@@ -2,6 +2,20 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.Office.ProjectFiles": "Arquivos de projeto e do Office",
+    "Str.Office.AllFiles": "Todos os arquivos",
+    "Str.Office.SourceNotice": "Somente leitura. O código exibido é o código-fonte armazenado no documento. O Office executa o p-code compilado armazenado ao lado quando a versão corresponde, portanto o código executado pode ser diferente.",
+    "Str.Office.FormNotice": "Somente leitura. O código exibido é o código-fonte armazenado no documento. O Office executa o p-code compilado armazenado ao lado quando a versão corresponde, portanto o código executado pode ser diferente. O designer de formulários ainda não está disponível aqui.",
+    "Str.Office.LockedMessage": "O projeto VBA está bloqueado e não é possível exibir seu código.",
+    "Str.Startup.WaylandUnavailableArgument": "--platform wayland exigia Wayland nativo, mas não foi possível acessar nenhuma tela Wayland: {0}. Inicie com --platform x11 ou --platform auto.",
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland exigia Wayland nativo, mas não foi possível acessar nenhuma tela Wayland: {0}. Defina HEXIDE_PLATFORM como x11 ou auto, ou remova a variável.",
+    "Str.FilePicker.ProjectFiles": "Arquivos de projeto",
+    "Str.FilePicker.FormFiles": "Arquivos de formulário",
+    "Str.FilePicker.ModuleFiles": "Arquivos de módulo",
+    "Str.FilePicker.MemberFiles": "Arquivos de membros",
+    "Str.FilePicker.AllFiles": "Todos os arquivos",
+    "Str.FilePicker.SaveProjectGroupAs": "Salvar grupo de projetos como",
+    "Str.FilePicker.NoGroupWriter": "Nenhum tipo de projeto registrado pode salvar este grupo de projetos. Nada foi escrito.",
     "Str.ProjectFile.ReplaceModel": "Aplicar o texto do arquivo de projeto substituirá as configurações não salvas de {0}. Continuar?",
     "Str.Menu.Help.LogFolder": "Abrir pasta de _registros do HexIDE",
     "Str.Help.LogFolder.OpenFailed": "Não foi possível abrir a pasta de registros. Você pode abri-la manualmente: {0}",
@@ -52,6 +66,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "Estes formulários não foram salvos, porque o HexIDE ainda não os consegue reproduzir fielmente:\n\n{0}\n\nOs respectivos arquivos no disco permanecem inalterados. Salvá-los alteraria os formulários de forma silenciosa — o Visual Basic 6 abre os resultados sem se queixar, e é por isso que os danos passam facilmente despercebidos — pelo que o HexIDE os deixa intactos em vez de os danificar.",
     "Str.Designer.ReadOnly.Banner": "Só de leitura — o HexIDE ainda não consegue reproduzir este formulário fielmente, pelo que salvá-lo iria alterá-lo. Pode vê-lo e executá-lo, mas as alterações não serão salvas.",
     "Str.ContributedProject.FormReadOnly": "Somente leitura — o suplemento que leu isto não consegue gravá-lo de volta, portanto as alterações não serão salvas.",
+    "Str.ContributedProject.DesignerModuleReadOnly": "Somente leitura — {1} listou '{0}' como módulo de código, mas é um arquivo do designer e não pode ser salvo com segurança.",
     "Str.ContributedProject.RenderRefused": "Nada foi gravado. {1} não conseguiu gravar {0}, portanto o salvamento parou antes que qualquer arquivo fosse alterado.",
     "Str.ContributedProject.SavedInPlace": "{0} é salvo onde foi aberto, porque {1} grava seu arquivo de projeto apenas nesse local.",
     "Str.ContributedProject.MemberOverProjectFile": "Nada foi gravado. {0} seria salvo por cima de {1}, o próprio arquivo do projeto, portanto o salvamento parou antes que qualquer arquivo fosse alterado.",
@@ -80,6 +95,7 @@
     "Str.Dialog.ProjectProperties.General.HelpFileName": "Nome do arquivo de ajuda:",
     "Str.Dialog.ProjectProperties.General.UpgradeActiveXControls": "Atualizar controles ActiveX",
     "Str.Dialog.SaveChanges.Prompt": "Salvar alterações nos seguintes arquivos?",
+    "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} foi carregado com erros e não pode ser salvo sobre o arquivo original. Escolha um novo nome de arquivo.",
     "Str.Dialog.Recovery.Prompt": "O HexIDE foi fechado sem salvar este trabalho. Restaure-o para continuar de onde parou, ou descarte-o. \"Decidir Depois\" o guarda para depois, em Recuperar Trabalho Não Salvo no menu Arquivo.",
     "Str.Dialog.Recovery.Failed": "Não foi possível restaurar todo o trabalho não salvo de {0}. Ele continua listado em Recuperar Trabalho Não Salvo no menu Arquivo.",
     "Str.Dialog.FileConflict.Prompt": "Estes arquivos foram alterados fora do IDE e têm alterações por salvar. Recarregá-los do disco (perdendo as suas alterações) ou manter as suas alterações?",
@@ -182,6 +198,8 @@
     "Str.Dock.ToolTabStripItemDockAsDocument": "Acoplar como documento em aba",
     "Str.AIChat.PrivacyNotice": "ℹ Privacidade: suas mensagens, o conteúdo do arquivo ativo (em um formulário, também o layout e as legendas) e seus diagnósticos são enviados para {0}, um serviço de terceiros configurado nas definições do chat de IA. Também são enviados, sem pedir aprovação, o conteúdo de qualquer outro arquivo dos projetos carregados que o assistente leia com suas ferramentas, as listas de arquivos dos projetos e os diagnósticos de qualquer arquivo.",
     "Str.AIChat.PrivacyKeyTip": "Dica: defina a variável de ambiente HEXIDE_AI_API_KEY para evitar salvar sua chave API em um arquivo.",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Os projetos {0} compartilham a pasta {1}; apenas {2} é gravado ou importado."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Os projetos {0} compartilham a pasta {1}; apenas {2} é gravado ou importado.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "Não é possível salvar {0} como grupo de projetos: o VB6 abriria {1} como módulos de código, não como projetos. Remova-os do grupo ou salve cada projeto separadamente. Nada foi gravado.",
+    "Str.PropDesc.Index": "Índice do elemento da matriz de controles, ou vazio para um controle simples."
   }
 }

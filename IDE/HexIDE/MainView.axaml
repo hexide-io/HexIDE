@@ -47,7 +47,7 @@
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenWatchesCommand}"
                               ExecutingCommand="{CompiledBinding OpenWatchesTool}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenCallStackCommand}"
-                              ExecutingCommand="{CompiledBinding OpenCallStackTool}" />
+                              ExecutingCommand="{CompiledBinding OpenCallStackCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenColorPaletteCommand}"
                               ExecutingCommand="{CompiledBinding OpenColorPaletteTool}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ReopenClosedDocumentCommand}"
@@ -75,7 +75,7 @@
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveAsCommand}"
                               ExecutingCommand="{CompiledBinding SaveFormAsCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveProjectCommand}"
-                              ExecutingCommand="{CompiledBinding SaveProject}" />
+                              ExecutingCommand="{CompiledBinding SaveProjectCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveProjectAsCommand}"
                               ExecutingCommand="{CompiledBinding SaveProjectAsCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenProjectCommand}"

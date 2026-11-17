@@ -26,7 +26,7 @@ public class ListBoxComponentClass : ComponentBaseClass
         AppearanceProperty,
         TabStopProperty,
         TabIndexProperty,
-        ToolTipTextProperty], [ClickEvent, ScrollEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+        ToolTipTextProperty], [ClickEvent, ScrollEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent, KeyDownEvent, KeyPressEvent, KeyUpEvent])
     {
         Members = CreateMembers();
     }
@@ -49,6 +49,8 @@ public class ListBoxComponentClass : ComponentBaseClass
         .. new[] { "FindString", "FindStringExact" }
             .Select(n => new InBox.InBoxMember(n, InBox.MemberKind.Method, InBox.MemberOrigin.HexIde, false, true)),
     ];
+
+    public override string? DesignerDoubleClickEvent => "Click";
 
     public override string Name => "List";
     public override string VBTypeName => "VB.ListBox";

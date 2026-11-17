@@ -18,6 +18,7 @@ namespace HexIDE.Recovery;
 ///     run.json                         the run, and the manifest of its latest capture
 ///     s7/                              that capture's files; older ones go once run.json names a newer one
 ///       p1/Project1.vbp                a project file, when a save would change it
+///       p1/edit/Project1.vbp           pending project-file tab text, separate from the rendered file
 ///       p1/d2/Form1.frm, Form1.frx     a document under the file name a save would give it, with its companion
 /// </code>
 /// <para>
@@ -101,6 +102,9 @@ public sealed class RecoveryRun
                     ? WriteText(projectFolder, SafeName(file.FileName, "project.vbp"), file.Text)
                     : null;
 
+                var projectFileEdit = project.ProjectFileEdit is { } edit
+                    ? WriteText(projectFolder + "/edit", SafeName(edit.FileName, "project.vbp"), edit.Text)
+                    : null;
                 var documents = new List<DocumentRecord>();
                 for (var d = 0; d < project.Documents.Count; d++)
                 {
@@ -119,7 +123,7 @@ public sealed class RecoveryRun
 
                 records.Add(new(project.Name, project.Path, project.ProjectFileHash,
                     project.Encoding.CodePage, project.Encoding.Utf8Bom, projectFile, documents, project.RenderedAt,
-                    project.Scratch));
+                    project.Scratch, projectFileEdit));
             }
         }
 
@@ -181,6 +185,7 @@ public sealed class RecoveryRun
             Add(project.RenderedAt);
             Add(project.Scratch.ToString());
             AddFile(project.ProjectFile);
+            AddFile(project.ProjectFileEdit);
             hash.AppendData(BitConverter.GetBytes(project.Documents.Count));
             foreach (var document in project.Documents)
             {
@@ -256,7 +261,7 @@ public sealed class RecoveryRun
     /// <summary>A project in <see cref="RunRecord"/>. File paths are relative to the run's folder, with <c>/</c> between segments.</summary>
     internal sealed record ProjectRecord(
         string Name, string? Path, string? ProjectFileHash, int CodePage, bool Utf8Bom, string? ProjectFile,
-        IReadOnlyList<DocumentRecord> Documents, string RenderedAt = "", bool Scratch = false);
+        IReadOnlyList<DocumentRecord> Documents, string RenderedAt = "", bool Scratch = false, string? ProjectFileEdit = null);
 
     /// <summary>A form or module in <see cref="ProjectRecord"/>; <see cref="File"/> is null when it had nothing unsaved.</summary>
     internal sealed record DocumentRecord(

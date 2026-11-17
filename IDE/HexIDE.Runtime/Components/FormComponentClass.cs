@@ -38,7 +38,7 @@ public class FormComponentClass : ComponentBaseClass
     /// The event whose procedure the designer writes when its background is double-clicked: a form's Load (#1532), a
     /// UserControl's Initialize and a PropertyPage's SelectionChanged (measured, #1632).
     /// </summary>
-    public virtual string DesignerDoubleClickEvent => "Load";
+    public override string DesignerDoubleClickEvent => "Load";
 
     private static readonly EventClass[] RootEvents = [KeyDownEvent, KeyPressEvent, KeyUpEvent, ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent];
 
@@ -83,7 +83,7 @@ public class FormComponentClass : ComponentBaseClass
         AvaloniaInterop.FormPosition.FromClient(form, instance.GetPropertyOrDefault(LeftProperty),
             instance.GetPropertyOrDefault(TopProperty), chrome, menuBar);
         chrome.Apply(form);
-        // And the icon it carries: its own, none, or the default (#1594).
+        // And the icon it carries: its own, none, or the shared neutral default (#1594, #4187).
         AvaloniaInterop.FormIcon.Read(instance).Apply(form);
         // The state the form's file gives it, which it shows in: `WindowState = 2 'Maximized` (#1152, measured). It is kept
         // as the line it was read with, so the designer and the file are unchanged.

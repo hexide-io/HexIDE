@@ -25,13 +25,14 @@ It does not exist until you create it or save an entry in the window. **Deleting
 to undo an experiment that went wrong: the bundled server is compiled in, so no edit to this file can
 leave you without VB6 support permanently.
 
-Changes take effect on restart. Data applies live in HexIDE — themes, keymaps, languages — and code does
-not; a language server is a process, so it belongs to the second group.
+Connection changes take effect on IDE restart. Server-owned `settings` apply as soon as an entry is
+saved in Language & Debug Servers, without restarting the server. An edit made to the file outside
+HexIDE applies at the next start, or when an entry is next saved in that window.
 
 Each server row offers **Restart**, including a stopped or failed server. It stops that entry if
 necessary, starts it with the registration loaded when HexIDE started, and sends it the open documents
 it claims. Other entries keep running. The protocol inspector records that you requested the restart.
-Restart does not reload `lsp-servers.json`; configuration edits still take effect when HexIDE next starts.
+Restart does not reload `lsp-servers.json`; connection edits still take effect when HexIDE next starts.
 
 ## Editing in the window
 
@@ -55,7 +56,7 @@ a field preserves its value. The form shows the full
 command with arguments and environment, resolving pipe placeholders against the current project. Without
 a project folder, workspace placeholders stay visible with an explanation. Nothing starts from the form.
 **Save** is consent to the displayed command and remembers its command identity, including arguments and
-environment. Changes take effect on restart.
+environment. Connection changes take effect on IDE restart; `settings` changes apply on Save.
 
 A bundled entry is read-only. Customize writes only the fields changed from its defaults, plus its id;
 normal layering rules still apply. Saving patches only changed values: other entries, unknown fields,
@@ -120,6 +121,7 @@ and the JSON path. Non-ASCII text before the fault counts as characters, rather 
 | `websocketRole` | for `websocket` | `connect` (default) dials the server; `listen` waits for the server to dial HexIDE. |
 | `displayName` | no | Shown wherever servers are listed. Defaults to the id. |
 | `initializationOptions` | no | Server-specific JSON passed unchanged in the `initialize` request. Omitted or null means the field is absent from the handshake; an empty object is sent as `{}`. |
+| `settings` | no | Server-owned JSON object. `workspace/configuration` resolves sections by dotted path; empty or absent sections return the whole object. Missing paths return `null`; `editor.tabSize` always comes from Tab Width. Saving or reloading entries sends changed settings to that server only. |
 | `trace` | no | How much this server should say about its own work: `off` (default), `messages` or `verbose`. It travels in the handshake, so it sets what the server *starts* at; changing it on a running server is a separate thing the IDE does for you. Misspell it and the server still starts, with tracing off and a warning. |
 | `priority` | no | Breaks ties for features that cannot merge two answers, such as formatting and rename. Higher wins. The bundled server sits *below* the default, so your own server wins without you having to know this field exists. |
 | `enabled` | no | `false` switches an entry off entirely — no process, no registration. |
@@ -621,6 +623,25 @@ its default location, add `"environment": { "DOTNET_ROOT": "<that folder>" }` to
 its own helper processes, which find .NET through `DOTNET_ROOT` or the default location, never through
 PATH. Put it on the entry rather than on HexIDE's own environment: a `DOTNET_ROOT` without the runtime
 HexIDE itself needs stops HexIDE from starting, with .NET's "install .NET" message.
+
+For servers contributed by an add-in, settings live in the user's settings and can be reset on the
+add-in's Options page; see [contributed server settings](lsp-client.md#contributed-server-settings).
+
+**Server settings.** Put the server's settings section inside `settings` (#4255). RDCore asks for the
+`rdcore` section, so this turns off its block-end inlay hints (`[Main]` after `End Sub`) and keeps the
+others:
+
+```json
+"settings": { "rdcore": { "InlayHints": { "BlockEnds": false } } }
+```
+
+That shape was measured against RDCore `3cab50ab`, whose other hint kinds under `InlayHints` are
+`Arguments`, `NextVariables`, `ImplicitModifiers` and `ImplicitTypes`. The setting names are RDCore's,
+so check them against the RDCore build in use.
+
+The Language & Debug Servers entry editor accepts this object as raw JSON. Saving an edit sends
+`workspace/didChangeConfiguration` with the new object to this server only, and RDCore then asks for its
+section again. Connection fields still require an IDE restart.
 
 HexIDE writes RDCore's `.rdproj` before RDCore starts, only when the folder has none and artefact
 consent is granted; the import then rewrites it as RDCore's own file. This is a first-open bridge until

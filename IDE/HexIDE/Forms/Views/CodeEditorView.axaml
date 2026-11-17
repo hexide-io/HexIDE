@@ -23,13 +23,25 @@
              New words take a new key, because pack parity checks only that a key is present. -->
         <Border x:Name="ReadOnlyBanner"
                 DockPanel.Dock="Top"
-                IsVisible="{CompiledBinding IsReadOnly}"
+                IsVisible="{CompiledBinding IsFormReadOnly}"
                 Background="{DynamicResource WarningBannerBackgroundBrush}"
                 BorderBrush="{DynamicResource WarningBannerBorderBrush}"
                 BorderThickness="0,0,0,1"
                 Padding="8,5"
                 Margin="0,0,0,2">
             <TextBlock Text="{DynamicResource Str.CodeEditor.FileNotSaved.Banner}"
+                       Foreground="{DynamicResource WarningBannerForegroundBrush}"
+                       TextWrapping="Wrap" />
+        </Border>
+        <Border x:Name="DesignerModuleReadOnlyBanner"
+                DockPanel.Dock="Top"
+                IsVisible="{CompiledBinding IsModuleReadOnly}"
+                Background="{DynamicResource WarningBannerBackgroundBrush}"
+                BorderBrush="{DynamicResource WarningBannerBorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="8,5"
+                Margin="0,0,0,2">
+            <TextBlock Text="{CompiledBinding ReadOnlyReason}"
                        Foreground="{DynamicResource WarningBannerForegroundBrush}"
                        TextWrapping="Wrap" />
         </Border>
@@ -202,6 +214,12 @@
                         <MenuItem x:Name="QuickFixesMenu" Header="{DynamicResource Str.CodeEditor.QuickFix.Title}"
                                   SubmenuOpened="OnQuickFixesOpened">
                             <MenuItem Header="{DynamicResource Str.CodeEditor.Context.NoQuickFix}" IsEnabled="False" />
+                        </MenuItem>
+                        <MenuItem x:Name="RefactorMenu" Header="{DynamicResource Str.CodeEditor.Refactor}" SubmenuOpened="OnCodeActionsOpened">
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.NoCodeActions}" IsEnabled="False" />
+                        </MenuItem>
+                        <MenuItem x:Name="SourceActionsMenu" Header="{DynamicResource Str.CodeEditor.SourceActions}" SubmenuOpened="OnCodeActionsOpened">
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.NoCodeActions}" IsEnabled="False" />
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Rename}"        Command="{x:Static vb:ApplicationCommands.RenameSymbolCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ExpandSelection}" Command="{x:Static vb:ApplicationCommands.ExpandSelectionCommand}" />

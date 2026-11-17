@@ -17,6 +17,8 @@ public class TimerComponentClass : ComponentBaseClass
         HeightProperty.OverrideDefault<TimerComponentClass>(28);
     }
 
+    public override string? DesignerDoubleClickEvent => "Timer";
+
     public override string Name => "Timer";
     public override string VBTypeName => "VB.Timer";
 

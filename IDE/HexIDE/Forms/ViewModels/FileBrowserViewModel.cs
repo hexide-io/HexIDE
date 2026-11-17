@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using HexIDE.Utils;
+using HexIDE.Localization;
 using PropertyChanged.SourceGenerator;
 
 namespace HexIDE.Forms.ViewModels;
@@ -20,20 +21,35 @@ public partial class FileBrowserViewModel : ObservableObject
 
     public ObservableCollection<FileSystemEntryViewModel> Entries { get; } = new();
 
-    public string[] FileTypeFilters { get; } =
-    [
-        "Project Files (*.vbp, *.vbg, *.twinproj)",
-        "All Files (*.*)"
-    ];
+    private readonly ILocalizationService localization;
+    [Notify] private string[] fileTypeFilters = [];
 
-    private static readonly string[] s_vbpPatterns = ["*.vbp", "*.vbg", "*.twinproj"];
+    // The files the registered project types read (#3411 slice 10b), as whoever shows the browser says, or VB6's and the
+    // containers' until it does.
+    private string[] _projectPatterns = [];
     private static readonly string[] s_allPatterns = ["*.*"];
+
+    /// <summary>The project files the first filter offers: those the registered project types read.</summary>
+    public void OfferProjects(IReadOnlyList<string> patterns)
+    {
+        _projectPatterns = [.. patterns];
+        FileTypeFilters =
+        [
+            $"{localization.GetString("Str.Office.ProjectFiles")} ({string.Join(", ", _projectPatterns)})",
+            $"{localization.GetString("Str.Office.AllFiles")} (*.*)"
+        ];
+        // Not while the constructor sets the first patterns, before it has a folder to list.
+        if (currentDirectory is not null)
+            RefreshEntries();
+    }
 
     public DelegateCommand NavigateUpCommand { get; }
     public DelegateCommand NavigateBackCommand { get; }
 
-    public FileBrowserViewModel()
+    public FileBrowserViewModel(ILocalizationService localization)
     {
+        this.localization = localization;
+        OfferProjects(["*.vbp", "*.vbg", .. HexIDE.Projects.ArchiveProjectService.FilePatterns]);
         // Start in Documents or user profile
         var startDir = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
         if (string.IsNullOrEmpty(startDir))
@@ -99,7 +115,7 @@ public partial class FileBrowserViewModel : ObservableObject
 
     private string[] GetActivePatterns()
     {
-        return SelectedFilterIndex == 0 ? s_vbpPatterns : s_allPatterns;
+        return SelectedFilterIndex == 0 ? _projectPatterns : s_allPatterns;
     }
 
     private void RefreshEntries()

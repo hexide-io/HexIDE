@@ -68,9 +68,7 @@ public class CaretPlacementTests : IDisposable
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
-            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(),
-                new Vb6ProjectFileFormat(),
-                new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
+            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>());
         made.Add(vm);
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", kind);
         module.UpdateCode(code);
@@ -111,7 +109,7 @@ public class CaretPlacementTests : IDisposable
         lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
             lsp, new PublishDiagnosticsParams(vm.GetDocumentUriPublic(), []));
         Dispatcher.UIThread.RunJobs();
-        await lsp.Received().RequestDocumentSymbolsAsync(vm.GetDocumentUriPublic());
+        await lsp.Received().RequestDocumentSymbolsAsync(vm.GetDocumentUriPublic(), Arg.Any<CancellationToken>());
         var typed = await UiAutomationDriver.TypeKeysAsync(editor, "Debug.Print \"loaded\"");
         Dispatcher.UIThread.RunJobs();
 
@@ -148,9 +146,7 @@ public class CaretPlacementTests : IDisposable
             : vm.Document.GetLineByNumber(5).Offset + 2;
         vm.CaretOffset = offset;
         using var context = new HexIDE.Desktop.Server.IdeContext(projects, dock, lsp, editors,
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-                new Vb6ProjectFileFormat(),
-                new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var tools = new HexIDE.Desktop.Server.HexIdeTools(context);
 
         var reply = await tools.OpenFileAsync("Module1");

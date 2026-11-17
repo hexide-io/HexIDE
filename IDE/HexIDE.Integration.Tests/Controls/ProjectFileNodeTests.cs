@@ -93,10 +93,10 @@ public sealed class ProjectFileNodeTests
             var events = new EventBus();
             var editors = Substitute.For<IEditorService>();
             var manager = new ProjectManager(editors, events);
-            var service = new ProjectService(new Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(),
+            var service = new ProjectService(() => throw new InvalidOperationException(),
                 Substitute.For<IWindowManager>(), events, manager, Substitute.For<IRecentProjectsService>(),
                 Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-                Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
+                Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
             if (groupFile)
             {
                 var groupPath = Path.Join(directory, "Group.vbg");

@@ -147,7 +147,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
             group.Add(Group("Str.Options.Node.NoAddins", overview));
         foreach (var info in addins)
         {
-            var page = new AddinOptionsPageViewModel(_addinRegistry, info, _addinOptions.GetFactoryFor(info.AssemblyPath), _confirmAddinWithdrawal, _localization);
+            var page = new AddinOptionsPageViewModel(_addinRegistry, info, _addinOptions.GetFactoryFor(info.AssemblyPath), _confirmAddinWithdrawal, _localization, _settings, _addinOptions.ServersFor(info.Id));
             _addinPages.Add(page);
             // Add-in node label is the add-in's own name — not localized (no key).
             group.Add(string.IsNullOrWhiteSpace(info.Title)

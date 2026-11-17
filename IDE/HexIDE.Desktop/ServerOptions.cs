@@ -89,6 +89,9 @@ internal static class ServerOptions
     /// node + the dev-gated capabilities, and shows the title-bar suffix).</summary>
     public static bool DeveloperMode { get; private set; }
 
+    /// <summary><c>--no-vb6</c>: start with VB6's project type unregistered. Debug builds only.</summary>
+    public static bool NoVb6 { get; private set; }
+
     /// <summary><c>--capture-lsp</c>: arm the protocol capture for every connection before any of them is
     /// made, so a conversation is recorded in full from the first handshake.</summary>
     /// <remarks>
@@ -243,6 +246,10 @@ internal static class ServerOptions
                 return true;
             }),
 
+        new("no-vb6", null,
+            new HexIDE.Localization.LocalizationService().GetStringFrom("en", "Str.Startup.NoVb6Summary"),
+            _ => { NoVb6 = true; return false; }),
+
         new("developer-mode", null,
             "Turn on session developer mode. Debug builds only.",
             _ => { DeveloperMode = true; return false; }),
@@ -310,14 +317,25 @@ internal static class ServerOptions
     /// into bands — note that between about 94 and 120 columns the option lines do not themselves wrap,
     /// so those rows are a real cost rather than a free one.
     /// </remarks>
-    public static string HelpText(ConsoleTarget target) => HelpText(target, Distribution.Current);
+    public static string HelpText(ConsoleTarget target)
+    {
+        var identity = Distribution.Current;
+        return HelpText(target, identity,
+            InvocationName(Environment.ProcessPath, OperatingSystem.IsWindows(), identity.IsStock ? "HexIDE" : identity.Name));
+    }
 
-    internal static string HelpText(ConsoleTarget target, DistributionIdentity identity)
+    // With no process path, a brand falls back to its own name: a branded --help must never name HexIDE (#4175 review).
+    internal static string InvocationName(string? processPath, bool isWindows, string fallback)
+    {
+        var name = Path.GetFileName(processPath);
+        if (string.IsNullOrEmpty(name))
+            return fallback;
+        return isWindows && name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
+    }
+
+    internal static string HelpText(ConsoleTarget target, DistributionIdentity identity, string invocation)
     {
         var width = Options.Max(o => Spelling(o).Length);
-        var invocation = identity.IsStock
-            ? "HexIDE.Desktop"
-            : Path.GetFileNameWithoutExtension(Environment.ProcessPath) ?? identity.Name;
         var heading = identity.IsStock
             ? "HexIDE - an open, cross-platform IDE for Visual Basic 6 & VBA."
             : identity.Tagline is { } tagline ? $"{identity.Name} - {tagline}" : identity.Name;

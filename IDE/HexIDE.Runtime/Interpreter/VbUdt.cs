@@ -45,6 +45,9 @@ public sealed class UdtTypeDef
 public sealed class VbUdt
 {
     public string TypeName { get; }
+
+    // LSet also copies padding; field stores overwrite their bytes when the layout is next written.
+    internal byte[]? LsetBytes { get; set; }
     private readonly Dictionary<string, Vb6Value> fields;
 
     // How a read of each field reads (#987, measured): a field declared with a scalar type is typed (`u.n * 7000` with
@@ -126,6 +129,15 @@ public sealed class VbUdt
 
     internal int? FixedStringWidthOf(string field) => fixedStringWidths.TryGetValue(field, out var width) ? width : null;
 
+    internal bool HasLongLongFields => typedFields.Values.Any(type => type == Vb6Value.ValueType.LongLong)
+        || fields.Values.Any(value => value.Value is VbUdt nested && nested.HasLongLongFields);
+
+    internal void RefuseUnmeasuredLongLongLayout()
+    {
+        if (HasLongLongFields)
+            throw new NotImplementedException("The layout of a Type containing LongLong is unmeasured (#1548)");
+    }
+
     internal bool HasFixedStringFields => fixedStringWidths.Count > 0
         || fields.Values.Any(value => value.Value is VbUdt nested && nested.HasFixedStringFields);
 
@@ -171,7 +183,10 @@ public sealed class VbUdt
         var copy = new Dictionary<string, Vb6Value>(fields.Comparer);
         foreach (var (name, value) in fields)
             copy[name] = CloneValue(value);
-        return new VbUdt(TypeName, copy, typedFields, variantFields, autoNewFields, objectFields, fixedStringWidths);
+        return new VbUdt(TypeName, copy, typedFields, variantFields, autoNewFields, objectFields, fixedStringWidths)
+        {
+            LsetBytes = LsetBytes is null ? null : (byte[])LsetBytes.Clone(),
+        };
     }
 }
 

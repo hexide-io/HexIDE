@@ -93,4 +93,24 @@ public class DesignerRootEventsTests
         PropertyPageRootClass.Instance.DesignerDoubleClickEvent.Should().Be("SelectionChanged");
         FormComponentClass.Instance.DesignerDoubleClickEvent.Should().Be("Load", "a form's is Load, as #1532 measured");
     }
+
+    // VB6 SP6 pointer measurements: oracle PR #4460, recorded in #4411.
+    [Theory]
+    [InlineData(typeof(PictureBoxComponentClass), "Click")]
+    [InlineData(typeof(LabelComponentClass), "Click")]
+    [InlineData(typeof(CommandButtonComponentClass), "Click")]
+    [InlineData(typeof(CheckBoxComponentClass), "Click")]
+    [InlineData(typeof(OptionButtonComponentClass), "Click")]
+    [InlineData(typeof(ListBoxComponentClass), "Click")]
+    [InlineData(typeof(ImageComponentClass), "Click")]
+    [InlineData(typeof(TextBoxComponentClass), "Change")]
+    [InlineData(typeof(ComboBoxComponentClass), "Change")]
+    [InlineData(typeof(HScrollBarComponentClass), "Change")]
+    [InlineData(typeof(VScrollBarComponentClass), "Change")]
+    [InlineData(typeof(FrameComponentClass), "DragDrop")]
+    [InlineData(typeof(TimerComponentClass), "Timer")]
+    [InlineData(typeof(ShapeComponentClass), null)]
+    [InlineData(typeof(LineComponentClass), null)]
+    public void A_control_declares_its_measured_double_click_event(Type type, string? expected) =>
+        ((ComponentBaseClass)Activator.CreateInstance(type)!).DesignerDoubleClickEvent.Should().Be(expected);
 }

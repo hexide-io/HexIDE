@@ -121,10 +121,10 @@ public class MainViewViewModelTests
             }
             return Task.FromResult(true);
         });
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new System.InvalidOperationException(), _windowManager,
+        return new ProjectService(() => throw new System.InvalidOperationException(), _windowManager,
             _eventBus, _projectManager, _recentProjects, Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(), _localization,
-            Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
     }
 
     [AvaloniaFact]
@@ -163,7 +163,7 @@ public class MainViewViewModelTests
         _projectManager.LoadedProjects.Returns(loaded);
         _projectManager.When(m => m.UnloadAllProjects()).Do(_ => loaded.Clear());
         var profile = Substitute.For<IProfileService>();
-        profile.AvailableProjectTypes.Returns(new[] { IProjectTemplate.StandardEXE });
+        profile.AvailableProjectTypes.Returns(new[] { Vb6ProjectType.StandardExe });
         _recentProjects.GetRecent().Returns(new List<string>());
         var dialogs = new List<string>();
         _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(ci =>
@@ -178,12 +178,11 @@ public class MainViewViewModelTests
             ((HexIDE.Forms.ViewModels.SaveChangesViewModel)ci.Arg<IDialog>()).No();
             return Task.FromResult(!cancelSave);
         });
-        var service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => new HexIDE.Forms.ViewModels.NewProjectViewModel(_windowManager, _recentProjects,
+        var service = new ProjectService(            () => new HexIDE.Forms.ViewModels.NewProjectViewModel(_windowManager, _recentProjects,
                 _settingsService, profile, _localization),
             _windowManager, _eventBus, _projectManager, _recentProjects,
             Substitute.For<IReferenceLibraryService>(), Substitute.For<HexIDE.Sidecar.IUserSidecarService>(),
-            new FileBaselineStore(), _localization, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
+            new FileBaselineStore(), _localization, Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
         var shell = Build(_runnerService, projects: service);
 
         Func<Task> create = shell.NewProject;
@@ -203,7 +202,7 @@ public class MainViewViewModelTests
         else
         {
             loaded.Should().BeEmpty();
-            _projectManager.Received(1).NewProject(IProjectTemplate.StandardEXE, "Project1", Arg.Any<Action<ProjectDefinition>>());
+            _projectManager.Received(1).NewProject(Vb6ProjectType.StandardExe, "Project1", Arg.Any<Action<ProjectDefinition>>());
         }
     }
 
@@ -212,7 +211,7 @@ public class MainViewViewModelTests
     {
         var references = new FindReferencesToolViewModel(Substitute.For<ILspClient>(),
             Substitute.For<IEditorService>(), _projectManager,
-            Substitute.For<IDocumentDockService>(), _localization, format: new Vb6ProjectFileFormat());
+            Substitute.For<IDocumentDockService>(), _localization);
         var shell = Build(_runnerService, references: references);
         references.ShowLocations([]);
         references.Owner.Should().NotBeNull();
@@ -364,7 +363,7 @@ public class MainViewViewModelTests
         // bypass with an uninitialized instance since tests never touch it.
         var toolBox = (ToolBoxToolViewModel)RuntimeHelpers.GetUninitializedObject(typeof(ToolBoxToolViewModel));
 
-        var properties = new PropertiesToolViewModel(mockDocDock, _eventBus, _windowManager, loc, new Vb6ProjectFileFormat());
+        var properties = new PropertiesToolViewModel(mockDocDock, _eventBus, _windowManager, loc);
         var immediate = new ImmediateToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var formLayout = new FormLayoutToolViewModel(mockDocDock, _eventBus, loc);
         var locals = new LocalsToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
@@ -448,7 +447,8 @@ public class MainViewViewModelTests
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             debug ?? _debugController,
             new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc),
-            logFolderOpener: logFolderOpener, recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references, callHierarchy: hierarchy, typeHierarchy: typeHierarchy);
+            logFolderOpener: logFolderOpener, recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references, callHierarchy: hierarchy, typeHierarchy: typeHierarchy,
+            runWith: null, projectTemplates: new AddinProjectTemplateService());
     }
 
     private sealed class RequeryProbe : IDisposable
@@ -837,6 +837,84 @@ public class MainViewViewModelTests
             .Returns(Task.FromResult<IReadOnlyList<string>?>([path]));
         _projectService.AddExistingModule(project, path, ModuleKind.StandardModule).Returns(Task.FromResult(adopted));
         return project;
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Add_File_offers_the_focused_projects_extensions(bool custom)
+    {
+        var format = custom
+            ? (IProjectFileFormat)new HexIDE.Tests.Projects.ProjectFileFormatSeamTests.StandInFormat
+                { FormExtension = "xfrm", ClassExtension = "xcls" }
+            : new Vb6ProjectFileFormat();
+        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { Format = format };
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(project);
+        Avalonia.Platform.Storage.FilePickerOpenOptions? picked = null;
+        _windowManager.OpenFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerOpenOptions>()).Returns(call =>
+        {
+            picked = call.Arg<Avalonia.Platform.Storage.FilePickerOpenOptions>();
+            return Task.FromResult<IReadOnlyList<string>?>(null);
+        });
+
+        _sut.AddFileCommand.Execute(null);
+
+        picked.Should().NotBeNull();
+        picked!.AllowMultiple.Should().BeTrue();
+        picked.FileTypeFilter![0].Patterns.Should().BeEquivalentTo(custom
+            ? new[] { "*.xfrm", "*.bas", "*.xcls", "*.ctl", "*.pag" }
+            : new[] { "*.frm", "*.bas", "*.cls", "*.ctl", "*.pag" });
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true, "C.xcls", ProjectFileKind.ClassModule)]
+    [InlineData(true, "C.XCLS", ProjectFileKind.ClassModule)]
+    [InlineData(true, "F.xfrm", ProjectFileKind.Form)]
+    [InlineData(true, "F.XFRM", ProjectFileKind.Form)]
+    [InlineData(true, "notes.md", ProjectFileKind.RelatedDocument)]
+    [InlineData(true, "LICENSE", ProjectFileKind.RelatedDocument)]
+    [InlineData(true, "C.cls", ProjectFileKind.RelatedDocument)]
+    [InlineData(true, "F.frm", ProjectFileKind.RelatedDocument)]
+    [InlineData(false, "F.frm", ProjectFileKind.Form)]
+    [InlineData(false, "M.bas", ProjectFileKind.StandardModule)]
+    [InlineData(false, "C.cls", ProjectFileKind.ClassModule)]
+    [InlineData(false, "U.ctl", ProjectFileKind.UserControl)]
+    [InlineData(false, "P.pag", ProjectFileKind.PropertyPage)]
+    [InlineData(false, "D.dsr", ProjectFileKind.RelatedDocument)]
+    [InlineData(false, "D.dob", ProjectFileKind.RelatedDocument)]
+    [InlineData(false, "LICENSE", ProjectFileKind.RelatedDocument)]
+    public void Add_File_classifies_with_the_focused_projects_format(bool custom, string fileName, ProjectFileKind expected)
+    {
+        var format = custom
+            ? (IProjectFileFormat)new HexIDE.Tests.Projects.ProjectFileFormatSeamTests.StandInFormat
+                { FormExtension = "xfrm", ClassExtension = "xcls" }
+            : new Vb6ProjectFileFormat();
+        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { Format = format };
+        var path = System.IO.Path.Join(System.IO.Path.GetTempPath(), fileName);
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(project);
+        _windowManager.OpenFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerOpenOptions>())
+            .Returns(Task.FromResult<IReadOnlyList<string>?>([path]));
+        _projectService.AddExistingForm(project, path).Returns(Task.FromResult(Adopted<FormDefinition>.Added(
+            new FormDefinition(project, HexIDE.Runtime.Components.FormComponentClass.Instance, "F"), "F")));
+        _projectService.AddExistingModule(project, path, Arg.Any<ModuleKind>()).Returns(call =>
+            Task.FromResult(Adopted<ModuleDefinition>.Added(new ModuleDefinition(project, "C", call.Arg<ModuleKind>()), "C")));
+        _projectService.AddExistingRelatedDocument(project, path)
+            .Returns(Task.FromResult(new RelatedDocumentDefinition(project, fileName, path)));
+
+        _sut.AddFileCommand.Execute(null);
+
+        var calls = _projectService.ReceivedCalls().Where(c => c.GetMethodInfo().Name.StartsWith("AddExisting", StringComparison.Ordinal)).ToArray();
+        calls.Should().ContainSingle();
+        calls[0].GetArguments()[0].Should().BeSameAs(project);
+        calls[0].GetArguments()[1].Should().Be(path);
+        if (expected.AsModuleKind() is { } kind)
+        {
+            calls[0].GetMethodInfo().Name.Should().Be(nameof(IProjectService.AddExistingModule));
+            calls[0].GetArguments()[2].Should().Be(kind);
+        }
+        else
+            calls[0].GetMethodInfo().Name.Should().Be(expected == ProjectFileKind.Form
+                ? nameof(IProjectService.AddExistingForm) : nameof(IProjectService.AddExistingRelatedDocument));
     }
 
     [AvaloniaFact]
@@ -1565,6 +1643,25 @@ public class MainViewViewModelTests
         _sut.MakeWithVb6Command.CanExecute(null).Should().BeFalse();
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void No_project_commands_do_not_dispatch_make_or_properties(bool make)
+    {
+        var previous = Static.WithoutVb6;
+        try
+        {
+            Static.WithoutVb6 = true;
+            _focusedProjectUtil.FocusedOrStartupProject.Returns((ProjectDefinition?)null);
+            _projectService.ClearReceivedCalls();
+            var command = make ? _sut.MakeProjectCommand : _sut.ProjectPropertiesCommand;
+            command.CanExecute(null).Should().BeFalse();
+            command.Execute(null);
+            _projectService.ReceivedCalls().Should().BeEmpty();
+        }
+        finally { Static.WithoutVb6 = previous; }
+    }
+
     // --- Method delegation ---
 
     [AvaloniaFact]
@@ -1911,7 +2008,7 @@ public class MainViewViewModelTests
             Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), breakpoints,
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<ILocalizationService>());
         if (kind is not null) return code.Initialize(module);
         var form = new FormDefinition(project, HexIDE.Runtime.Components.FormComponentClass.Instance, name);
         project.AddForm(form);

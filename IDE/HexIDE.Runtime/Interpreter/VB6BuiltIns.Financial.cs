@@ -13,8 +13,99 @@ public partial class VB6BuiltIns
             d[name] = (_, a, _) => FinancialAdditional(a, name);
         d["PV"] = (_, a, _) => Financial(a, "PV");
         d["NPV"] = (_, a, _) => FinancialNpv(a);
-        foreach (var name in new[] { "IRR", "MIRR" })
-            d[name] = (_, _, _) => throw new NotImplementedException($"{name}: no precision model matches every measured row (#2525)");
+        d["IRR"] = (_, a, _) => FinancialCashFlow(a, false);
+        d["MIRR"] = (_, a, _) => FinancialCashFlow(a, true);
+    }
+
+    private static Vb6Value FinancialCashFlow(IReadOnlyList<Vb6Value> args, bool modified)
+    {
+        string name = modified ? "MIRR" : "IRR";
+        NotImplementedException Unmeasured() => new($"{name}: this argument or arithmetic domain is unmeasured (#2525)");
+        int required = modified ? 3 : 1;
+        if (args.Count < required || args.Count > (modified ? 3 : 2) || !Supplied(args, 0))
+            throw Unmeasured();
+        if (args[0].Value is not VBArray array || array.ElementType != Vb6Value.ValueType.Double
+            || !array.IsDefined || array.Rank != 1 || array.Length() == 0)
+            throw Unmeasured();
+        var rates = new double[modified ? 2 : 1];
+        if (!modified) rates[0] = 0.1;
+        for (int i = 1; i < args.Count; i++)
+        {
+            if (!Supplied(args, i))
+            {
+                if (modified) throw Unmeasured();
+                continue;
+            }
+            if (args[i].IsNull || args[i].Value is VbDate
+                || !Vb6Value.TryNumericToDouble(args[i], out rates[i - 1]) || !double.IsFinite(rates[i - 1]))
+                throw Unmeasured();
+        }
+        var flows = new List<FinancialNumber>();
+        bool positive = false, negative = false, zero = false;
+        foreach (var value in array.EnumerateElements())
+        {
+            double flow = (double)value.Value!;
+            if (!double.IsFinite(flow)) throw Unmeasured();
+            positive |= flow > 0;
+            negative |= flow < 0;
+            zero |= flow == 0;
+            flows.Add(FinancialNumber.FromDouble(flow));
+        }
+        FinancialNumber Extended(FinancialNumber value) => value.RoundSignificand(64);
+        FinancialNumber DoubleSpill(FinancialNumber value)
+        {
+            double result = value.ToDouble();
+            if (!double.IsFinite(result)) throw Unmeasured();
+            return FinancialNumber.FromDouble(result);
+        }
+        // #2525's authorized closest models: Horner mask 9 for IRR, mask 84 for MIRR.
+        FinancialNumber Residual(FinancialNumber rate, int sign = 0)
+        {
+            var basis = modified ? Extended(1 + rate) : DoubleSpill(1 + rate);
+            if (basis.ToDouble() == 0) throw Unmeasured();
+            FinancialNumber total = 0;
+            for (int i = flows.Count - 1; i >= 0; i--)
+            {
+                var value = flows[i];
+                if (sign != 0 && Math.Sign(value.ToDouble()) != sign) value = 0;
+                var sum = modified ? Extended(total + value) : DoubleSpill(total + value);
+                total = modified ? DoubleSpill(sum / basis) : Extended(sum / basis);
+            }
+            return total;
+        }
+        if (!modified)
+        {
+            if (positive && !negative && !zero) throw InvalidCall();
+            if (!positive || !negative) throw Unmeasured();
+            var x = FinancialNumber.FromDouble(rates[0]);
+            var y = x / 2;
+            for (int i = 0; i < 40; i++)
+            {
+                var a = Extended(Residual(x));
+                var b = Extended(Residual(y));
+                if (Math.Abs(b.ToDouble()) < 1e-7) return new Vb6Value(y.ToDouble());
+                if ((a - b).ToDouble() == 0) throw Unmeasured();
+                var next = Extended(y - b * (y - x) / (b - a));
+                x = y;
+                y = next;
+            }
+            throw Unmeasured();
+        }
+        if (rates[1] == -1) throw Unmeasured();
+        if (rates[0] == -1) throw InvalidCall();
+        if (positive && !negative && !zero) throw new VBRunTimeException(VBStandardError.DivisionByZero);
+        if (!positive || !negative || flows.Count < 2 || flows.Count > 10000) throw Unmeasured();
+        var finance = FinancialNumber.FromDouble(rates[0]);
+        var reinvest = FinancialNumber.FromDouble(rates[1]);
+        var neg = Residual(finance, -1);
+        var pos = Residual(reinvest, 1);
+        if ((1 + reinvest).ToDouble() <= 0) throw Unmeasured();
+        var terminal = DoubleSpill((1 + reinvest).Pow(flows.Count));
+        var denominator = Extended(-neg * (1 + finance));
+        if (denominator.ToDouble() == 0) throw Unmeasured();
+        var ratio = DoubleSpill(pos * terminal / denominator);
+        var root = Extended(ratio.PowReciprocal(flows.Count - 1));
+        return new Vb6Value(DoubleSpill(root - 1).ToDouble());
     }
 
     private static Vb6Value FinancialNpv(IReadOnlyList<Vb6Value> args)

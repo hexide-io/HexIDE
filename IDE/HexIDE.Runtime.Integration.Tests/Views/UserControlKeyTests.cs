@@ -22,12 +22,12 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 // #1631 part B, vb6.exe SP6 native and p-code, real input: issuecomment-6425849231.
 public partial class UserControlKeyTests
 {
-    private sealed class Sink : IDeserializeErrorSink
+    internal sealed class Sink : IDeserializeErrorSink
     {
         public void LogError(string error) => throw new InvalidOperationException(error);
     }
 
-    private sealed class Library : IBasicStandardLibrary
+    internal sealed class Library : IBasicStandardLibrary
     {
         internal readonly List<Vb6Value> Printed = [];
         internal Action? BeforePrint;
@@ -40,19 +40,24 @@ public partial class UserControlKeyTests
         public Task<string?> InputBox(string prompt, string? title, string defaultText) => throw new NotImplementedException();
     }
 
-    private sealed class RunWindow : Window, IModuleExecutionRoot
+    internal sealed class RunWindow : Window, IModuleExecutionRoot
     {
         internal VBWindowContext? Context;
+        public Task<bool> UnloadAsync(int mode) => Context!.UnloadAsync(mode);
+        public EventPump? Events => Context?.Events;
         public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null) => Context?.ExecuteSub(name, args);
     }
 
-    private sealed class Run : IDisposable
+    internal sealed class Run : IDisposable
     {
         internal readonly RunWindow Window = new() { Width = 500, Height = 400 };
         internal readonly Library Lib = new();
         internal readonly VBWindowContext Context;
+        // What the run reported, as the IDE hears it: a fault (a refusal) or a run-time error (#4266).
+        internal readonly List<Exception> Faults = [];
+        internal readonly List<VBRunTimeException> RunTimeErrors = [];
         internal Control Named(string name) => Window.GetLogicalDescendants().OfType<Control>().Single(c => VBProps.GetName(c) == name);
-        internal Run(string settings, string formCode = "", string controlCode = "", string child = "", bool plain = false, string? blocks = null, string formSettings = "")
+        internal Run(string settings, string formCode = "", string controlCode = "", string child = "", bool plain = false, string? blocks = null, bool activate = false, string formSettings = "")
         {
             var project = new ProjectDefinition(VBProjectType.EXE, "P");
             var ctl = new FormDeserializer().Deserialize(project,
@@ -81,6 +86,8 @@ public partial class UserControlKeyTests
                 + "End\nAttribute VB_Name = \"Form1\"\n" + formCode, new Sink(), extraComponents: registry)!;
             project.AddForm(form);
             Context = new VBWindowContext(Lib) { Window = Window };
+            VBWindowContext.Faulted += OnFaulted;
+            VBWindowContext.RunTimeError += OnRunTimeError;
             var root = VBLoader.FormComponentOf(form);
             AttachedProperties.SetBackColor(Window, root.GetPropertyOrDefault(VBProperties.BackColorProperty));
             AttachedProperties.SetForeColor(Window, root.GetPropertyOrDefault(VBProperties.ForeColorProperty));
@@ -88,8 +95,17 @@ public partial class UserControlKeyTests
             Window.Context = Context;
             VBLoader.PrepareForm(form, Context, content => Window.Content = content, null);
             ContainerRuntimeHarness.MergeAppResources(Window);
-            Context.StartAsync().GetAwaiter().GetResult().Should().BeTrue();
+            var started = Context.StartAsync().GetAwaiter().GetResult();
+            if (Faults.Count == 0)
+                started.Should().BeTrue();
+            if (activate)
+                Window.Activated += (_, _) => Context.Program!.Activated(Context);
             Window.Show();
+            if (activate)
+            {
+                Window.Activate();
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            }
             Context.ShowControls();
         }
         internal void Key(Key key, KeyModifiers modifiers = KeyModifiers.None)
@@ -103,10 +119,26 @@ public partial class UserControlKeyTests
                 await new StatementExecutor(Context.Interpreter!, Context.InstanceEnv, Context.FormInstance!.ClassDef)
                     .Visit(Context.Interpreter!.TryParseStatement(line)!);
         }
-        public void Dispose() { Context.Program?.Abandon(); Window.Close(); }
+        private void OnFaulted(VBWindowContext context, Exception e)
+        {
+            if (ReferenceEquals(context, Context))
+                Faults.Add(e);
+        }
+        private void OnRunTimeError(VBWindowContext context, VBRunTimeException e)
+        {
+            if (ReferenceEquals(context, Context))
+                RunTimeErrors.Add(e);
+        }
+        public void Dispose()
+        {
+            VBWindowContext.Faulted -= OnFaulted;
+            VBWindowContext.RunTimeError -= OnRunTimeError;
+            Context.Program?.Abandon();
+            Window.Close();
+        }
     }
 
-    private static string Block(string type, string name, int tab, string child = "", string extra = "") =>
+    internal static string Block(string type, string name, int tab, string child = "", string extra = "") =>
         $"Begin {type} {name}\nHeight = 375\nWidth = 1200\nTop = {tab * 600}\nLeft = 120\nTabIndex = {tab}\n{extra}\n{child}\nEnd\n";
 
     // VB6 SP6 native/p-code: #1631, issuecomment-6425849231.

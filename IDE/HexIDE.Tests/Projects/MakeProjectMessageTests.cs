@@ -17,11 +17,10 @@ public class MakeProjectMessageTests
     private readonly ILocalizationService localization = Substitute.For<ILocalizationService>();
 
     private ProjectService Service() => new(
-        new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
         () => throw new InvalidOperationException(), windows, events, Substitute.For<IProjectManager>(),
         Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
         Substitute.For<IUserSidecarService>(), new FileBaselineStore(), localization,
-        Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
+        Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
 
     [Fact]
     public async Task No_startup_project_uses_the_localized_message()

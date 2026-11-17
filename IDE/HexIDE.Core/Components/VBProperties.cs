@@ -9,6 +9,10 @@ public static class VBProperties
     // this merges nothing that was apart.
     public static Dictionary<string, List<PropertyClass>> PropertiesByName { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    // Design-time adapter over the preserved .frm line; never a run-time class property.
+    public static readonly PropertyClass<string> DesignIndexProperty = new("Index",
+        "The control array element's index, or empty for a plain control.", PropertyCategory.Misc, "");
+
     public static PropertyClass<string> NameProperty = new PropertyClass<string>("(Name)", "The identifier used to refer to this object in code.", PropertyCategory.Misc);
 
     public static PropertyClass<double> LeftProperty = new PropertyClass<double>("Left", "The distance from the inside-left of the container to the control's left edge.", PropertyCategory.Position, 0);
@@ -221,6 +225,10 @@ public static class VBProperties
     public static PropertyClass<int> TabIndexProperty = new PropertyClass<int>("TabIndex", "The control's position in the form's tab order.", PropertyCategory.Behavior);
 
     public static PropertyClass<bool> TabStopProperty = new PropertyClass<bool>("TabStop", "Whether the user can reach the control with the Tab key.", PropertyCategory.Behavior, true);
+
+    public static PropertyClass<bool> DefaultProperty = new PropertyClass<bool>("Default", "Whether Enter clicks this button.", PropertyCategory.Behavior, false);
+
+    public static PropertyClass<bool> CancelProperty = new PropertyClass<bool>("Cancel", "Whether Esc clicks this button.", PropertyCategory.Behavior, false);
 
     public static PropertyClass<bool> KeyPreviewProperty = new PropertyClass<bool>("KeyPreview", "Whether the form receives keyboard events before its controls do.", PropertyCategory.Behavior, false);
 

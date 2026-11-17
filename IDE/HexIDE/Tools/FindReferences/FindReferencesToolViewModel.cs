@@ -24,7 +24,6 @@ public sealed record ReferenceRow(Location? Location, string Module, string Befo
 
 public partial class FindReferencesToolViewModel : ResultsToolViewModel
 {
-    private readonly IProjectFileFormat format;
     private readonly ILspClient client;
     private readonly IEditorService editors;
     private readonly IProjectManager projects;
@@ -37,9 +36,8 @@ public partial class FindReferencesToolViewModel : ResultsToolViewModel
     [Notify] private ReferenceRow? selectedRow;
 
     public FindReferencesToolViewModel(ILspClient client, IEditorService editors,
-        IProjectManager projects, IDocumentDockService documents, ILocalizationService localization, IProjectFileFormat format)
+        IProjectManager projects, IDocumentDockService documents, ILocalizationService localization)
     {
-        this.format = format;
         this.client = client;
         this.editors = editors;
         this.projects = projects;
@@ -105,8 +103,8 @@ public partial class FindReferencesToolViewModel : ResultsToolViewModel
             Rows.Add(new(null, name, "", "", ""));
             var open = documents.OpenDocuments.OfType<CodeEditorViewModel>()
                 .FirstOrDefault(e => LspDocumentUri.AreSame(e.GetDocumentUriPublic(), group.Key));
-            var text = open?.Document.Text ?? (member?.Module is { } module ? ProjectFormats.Of(module.Owner, format).CodePrefix(module) + module.Code
-                : member?.Form is { } form ? ProjectFormats.Of(form.Owner, format).CodePrefix(form) + form.Code : "");
+            var text = open?.Document.Text ?? (member?.Module is { } module ? ProjectFormats.Of(module.Owner).CodePrefix(module) + module.Code
+                : member?.Form is { } form ? ProjectFormats.Of(form.Owner).CodePrefix(form) + form.Code : "");
             var document = new TextDocument(text);
             foreach (var location in group.OrderBy(l => l.Range.Start.Line).ThenBy(l => l.Range.Start.Character))
             {

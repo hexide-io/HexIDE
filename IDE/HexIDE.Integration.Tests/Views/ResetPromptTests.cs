@@ -97,7 +97,7 @@ public class ResetPromptTests : IDisposable
         var vm = new CodeEditorViewModel(
             windowManager, Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
-            debugController, new RunScope(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
+            debugController, new RunScope(), Substitute.For<ILocalizationService>());
         made.Add(vm);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         return vm.Initialize(new FormDeserializer().Deserialize(project, Frm, NullSink.Instance)!);
@@ -444,7 +444,7 @@ public class ResetPromptTests : IDisposable
         Show(vm);
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { vm });
-        using var refresher = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
+        using var refresher = new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService());
         var form = vm.FormDefinition!;
         var code = vm.BufferBody;
 

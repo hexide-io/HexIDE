@@ -214,9 +214,17 @@ public class WindowManager : IWindowManager
         }
     }
 
-    private Task<MessageBoxResult> ShowDesktopMessageBox(IClassicDesktopStyleApplicationLifetime desktop, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner)
+    // Only the default button is read from the layout: the IDE's own boxes are laid out as the IDE lays them out.
+    private static int DefaultButtonOf(MessageBoxLayout layout) => layout.HasFlag(MessageBoxLayout.SecondButtonDefault) ? 1 : 0;
+
+    private Task<MessageBoxResult> ShowDesktopMessageBox(IClassicDesktopStyleApplicationLifetime desktop, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner,
+        MessageBoxLayout layout = MessageBoxLayout.None)
     {
-        var messageBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon };
+        var messageBox = new MessageBox
+        {
+            Text = text, Buttons = buttons, Icon = icon, DefaultButton = DefaultButtonOf(layout),
+            IsSecurityPrompt = layout.HasFlag(MessageBoxLayout.SecurityPrompt),
+        };
         var window = MakeDialogWindow(caption, messageBox);
         return messageBox.ShowAndWait(window, owner ?? GetTopWindow(desktop));
     }
@@ -232,7 +240,9 @@ public class WindowManager : IWindowManager
             {
                 Text = text,
                 Buttons = buttons,
-                Icon = icon
+                Icon = icon,
+                DefaultButton = DefaultButtonOf(layout),
+                IsSecurityPrompt = layout.HasFlag(MessageBoxLayout.SecurityPrompt),
             };
             var task = ShowManagedWindow(out var window, caption, messageBox, false);
 
@@ -256,7 +266,7 @@ public class WindowManager : IWindowManager
         {
             // A person's close answers as Windows' does, or is refused where the box has none, and a box hidden with
             // its owner keeps waiting (see ShowAndWait).
-            return await ShowDesktopMessageBox(desktop, text, caption, buttons, icon, owner);
+            return await ShowDesktopMessageBox(desktop, text, caption, buttons, icon, owner, layout);
         }
         else
             throw new NotImplementedException();
@@ -328,10 +338,19 @@ public class WindowManager : IWindowManager
         return result;
     }
 
+    internal FontDialog CreateFontDialog(FontDialogViewModel vm)
+    {
+        var dialog = new FontDialog { DataContext = vm };
+        dialog.ShowSizeError = async key => await MessageBox(_localization.GetString(key),
+            _localization.GetString("Str.WindowManager.FontTitle"), MessageBoxButtons.Ok, MessageBoxIcon.None,
+            TopLevel.GetTopLevel(dialog) as Window);
+        return dialog;
+    }
+
     public async Task<FontDialogResult?> ShowFontDialog(FontDialogResult? initial = null)
     {
         var vm = new FontDialogViewModel(initial);
-        var dialog = new FontDialog { DataContext = vm };
+        var dialog = CreateFontDialog(vm);
         FontDialogResult? result = null;
 
         if (Static.SingleView)

@@ -12,7 +12,7 @@ public sealed class ArchiveEntryIdentity : IEquatable<ArchiveEntryIdentity>
     public static StringComparer ContainerPathComparer { get; } =
         HexIDE.IO.HostFilePath.Comparer;
 
-    internal ArchiveEntryIdentity(string containerPath, ImmutableArray<string> segments)
+    public ArchiveEntryIdentity(string containerPath, ImmutableArray<string> segments)
     {
         ContainerPath = containerPath;
         Segments = segments;

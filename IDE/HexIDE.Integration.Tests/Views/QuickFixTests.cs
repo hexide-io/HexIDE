@@ -48,9 +48,7 @@ public class QuickFixTests : IDisposable
         settings.TabWidth.Returns(4);
         vm = new CodeEditorViewModel(messages, editors, Substitute.For<IProjectService>(),
             Substitute.For<IEventBus>(), client, settings, Substitute.For<IStatusBarService>(), new BookmarkService(),
-            new BreakpointService(), Substitute.For<IDebugController>(), new RunScope(), localization,
-                new Vb6ProjectFileFormat(),
-                new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
+            new BreakpointService(), Substitute.For<IDebugController>(), new RunScope(), localization);
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", ModuleKind.StandardModule);
         module.AbsolutePath = OperatingSystem.IsWindows() ? @"C:\HexIDE-quick-fix\Module1.bas"
             : Path.Combine(Path.GetTempPath(), "HexIDE-quick-fix", "Module1.bas");
@@ -218,9 +216,7 @@ public class QuickFixTests : IDisposable
     {
         using var target = new CodeEditorViewModel(messages, editors, Substitute.For<IProjectService>(),
             Substitute.For<IEventBus>(), client, vm.Settings, Substitute.For<IStatusBarService>(), new BookmarkService(),
-            new BreakpointService(), Substitute.For<IDebugController>(), new RunScope(), new LocalizationService(),
-                new Vb6ProjectFileFormat(),
-                new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(), regionRules: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
+            new BreakpointService(), Substitute.For<IDebugController>(), new RunScope(), new LocalizationService());
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "Other"), "Other", ModuleKind.StandardModule);
         module.UpdateCode("Public Sub OtherName()\r\nEnd Sub\r\n");
         target.Initialize(module);
@@ -270,6 +266,160 @@ public class QuickFixTests : IDisposable
         (await vm.ApplyCodeActionAsync(action, ct)).Should().BeNull();
         peer.Order.Should().Equal("didChange", "executeCommand");
         peer.ServerHadTheEdit.Should().BeTrue();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RefactorWithoutDiagnosticsRequestsTheSelectionOrCaretAndResolvesOneUndoStep(bool selection)
+    {
+        var peer = new RefactorPeer { Edit = Edit() };
+        var (local, remote) = FullDuplexStream.CreatePair();
+        using var server = new JsonRpc(new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()), peer);
+        server.StartListening();
+        var transport = Substitute.For<ILspTransport>();
+        transport.IsAlive.Returns(true);
+        transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(local, local, call.Arg<IJsonRpcMessageFormatter>())));
+        await using var wire = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6");
+        await using var registry = new LspClientRegistry([
+            new LanguageServerRegistration("scripted", "Scripted server", [".bas"], "vb6", () => wire)],
+            Substitute.For<ILogger<LspClientRegistry>>());
+        await registry.OpenDocumentAsync(uri, before, ct);
+        client.RequestCodeActionsAsync(uri, Arg.Any<HexIDE.Lsp.Messages.Range>(), Arg.Any<Diagnostic[]>(), Arg.Any<string[]?>(), Arg.Any<CancellationToken>())
+            .Returns(call => registry.RequestCodeActionsAsync(uri, call.Arg<HexIDE.Lsp.Messages.Range>(), call.Arg<Diagnostic[]>(), call.Arg<string[]?>(), ct));
+        client.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(client, new PublishDiagnosticsParams(uri, []));
+        Dispatcher.UIThread.RunJobs();
+        editor.Select(editor.CaretOffset, selection ? 5 : 0);
+        var start = vm.Document.GetLocation(editor.SelectionStart);
+        var end = vm.Document.GetLocation(editor.SelectionStart + editor.SelectionLength);
+        var refactor = view.FindControl<MenuItem>("RefactorMenu")!;
+        editor.ContextFlyout!.ShowAt(editor);
+        refactor.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent));
+        for (var i = 0; i < 200 && peer.Request is null; i++) await Task.Delay(10, ct);
+        for (var i = 0; i < 200 && refactor.Items[0] is MenuItem { IsEnabled: false }; i++) await Task.Delay(10, ct);
+        peer.Request.Should().NotBeNull();
+        var request = peer.Request!.Value;
+        request.GetProperty("range").Deserialize<HexIDE.Lsp.Messages.Range>().Should().Be(
+            new HexIDE.Lsp.Messages.Range(new(start.Line - 1, start.Column - 1), new(end.Line - 1, end.Column - 1)));
+        request.GetProperty("context").GetProperty("diagnostics").GetArrayLength().Should().Be(0);
+        request.GetProperty("context").GetProperty("only").EnumerateArray().Select(k => k.GetString()).Should().Equal("refactor");
+        var serverMenu = (MenuItem)refactor.Items[0]!;
+        serverMenu.Header.Should().Be("Scripted server");
+        var item = (MenuItem)serverMenu.Items[0]!;
+        item.Header.Should().Be("Extract method");
+        item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        for (var i = 0; i < 200 && vm.Document.Text == before; i++) await Task.Delay(10, ct);
+        peer.Resolved!.Value.GetProperty("data").GetProperty("id").GetInt32().Should().Be(42);
+        vm.Document.Text.Should().Contain("Sub Welcome()").And.Contain("    Welcome");
+        vm.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before);
+
+        await registry.InjectDiagnosticsAsync(uri, [diagnostic], "scripted");
+        client.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(client, new PublishDiagnosticsParams(uri, [diagnostic]));
+        Dispatcher.UIThread.RunJobs();
+        editor.CaretOffset = vm.Document.GetOffset(diagnostic.Range.Start.Line + 1, diagnostic.Range.Start.Character + 1);
+        client.RequestCodeActionsAsync(uri, Arg.Any<HexIDE.Lsp.Messages.Range>(), Arg.Any<Diagnostic[]>(), Arg.Any<CancellationToken>())
+            .Returns(call => registry.RequestCodeActionsAsync(uri, call.Arg<HexIDE.Lsp.Messages.Range>(), call.Arg<Diagnostic[]>(), ct));
+        peer.Request = null;
+        menu.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent));
+        for (var i = 0; i < 200 && peer.Request is null; i++) await Task.Delay(10, ct);
+        peer.Request!.Value.GetProperty("range").Deserialize<HexIDE.Lsp.Messages.Range>().Should().Be(diagnostic.Range);
+        peer.Request.Value.GetProperty("context").GetProperty("diagnostics").GetArrayLength().Should().Be(1);
+    }
+
+    [AvaloniaFact]
+    public async Task SourceActionsRequestOnlySourceAndRefactorFiltersKindsAndDisabledActions()
+    {
+        var actions = new[]
+        {
+            Action() with { Kind = "refactor.rewrite", Title = "Rewrite" },
+            Action(disabled: "Save first") with { Kind = "source.sortMembers", Title = "Sort" },
+            Action() with { Kind = "quickfix", Title = "Fix" },
+            Action() with { Title = "Unclassified" },
+            Action() with { Title = "Diagnostic fix", IsQuickFix = true }
+        };
+        client.RequestCodeActionsAsync(uri, Arg.Any<HexIDE.Lsp.Messages.Range>(), Arg.Any<Diagnostic[]>(), Arg.Any<string[]?>(), Arg.Any<CancellationToken>()).Returns(actions);
+        var source = view.FindControl<MenuItem>("SourceActionsMenu")!;
+        source.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent));
+        await client.Received(1).RequestCodeActionsAsync(uri, Arg.Any<HexIDE.Lsp.Messages.Range>(), Arg.Any<Diagnostic[]>(),
+            Arg.Is<string[]?>(only => only != null && only.Length == 1 && only[0] == "source"), Arg.Any<CancellationToken>());
+        var sourceItems = ((MenuItem)source.Items[0]!).Items.Cast<MenuItem>().ToArray();
+        sourceItems.Select(m => m.Header).Should().Equal("Sort — Save first", "Unclassified");
+        var item = sourceItems[0];
+        item.IsEnabled.Should().BeFalse();
+        var refactor = view.FindControl<MenuItem>("RefactorMenu")!;
+        refactor.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent));
+        // Server, then its actions as sent: refactor kinds and unclassified non-fixes, no quick fixes, no kind headers.
+        ((MenuItem)refactor.Items.Single()!).Items.Cast<MenuItem>().Select(m => m.Header).Should().Equal("Rewrite", "Unclassified");
+    }
+
+    [AvaloniaFact]
+    public async Task EachMenuShowsTheUnkindedActionsTheServerFilteredForIt()
+    {
+        // RDCore's shape: every action carries the first kind the client declares (""), but it honours `only`.
+        client.RequestCodeActionsAsync(uri, Arg.Any<HexIDE.Lsp.Messages.Range>(), Arg.Any<Diagnostic[]>(),
+                Arg.Is<string[]?>(only => only != null && only.SequenceEqual(new[] { "source" })), Arg.Any<CancellationToken>())
+            .Returns([Action() with { Kind = "", Title = "Sort procedures by kind, then by name" }]);
+        client.RequestCodeActionsAsync(uri, Arg.Any<HexIDE.Lsp.Messages.Range>(), Arg.Any<Diagnostic[]>(),
+                Arg.Is<string[]?>(only => only != null && only.SequenceEqual(new[] { "refactor" })), Arg.Any<CancellationToken>())
+            .Returns([Action() with { Kind = "", Title = "Move 'Zeta' down" }]);
+        var source = view.FindControl<MenuItem>("SourceActionsMenu")!;
+        source.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent));
+        for (var i = 0; i < 200 && source.Items[0] is MenuItem { IsEnabled: false }; i++) await Task.Delay(10, ct);
+        ((MenuItem)source.Items.Single()!).Items.Cast<MenuItem>().Select(m => m.Header)
+            .Should().Equal("Sort procedures by kind, then by name");
+        var refactor = view.FindControl<MenuItem>("RefactorMenu")!;
+        refactor.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent));
+        for (var i = 0; i < 200 && refactor.Items[0] is MenuItem { IsEnabled: false }; i++) await Task.Delay(10, ct);
+        ((MenuItem)refactor.Items.Single()!).Items.Cast<MenuItem>().Select(m => m.Header)
+            .Should().Equal("Move 'Zeta' down");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(-2, 3, true)]
+    [InlineData(0, 0, true)]
+    [InlineData(5, 5, false)]
+    public async Task SelectionIncludesOnlyOverlappingDiagnostics(int startDelta, int endDelta, bool included)
+    {
+        var start = diagnostic.Range.Start;
+        var overlap = new Diagnostic(new(new(start.Line, start.Character + startDelta),
+            new(start.Line, start.Character + endDelta)), "overlap");
+        client.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(client, new PublishDiagnosticsParams(uri, [overlap]));
+        Dispatcher.UIThread.RunJobs();
+        editor.Select(editor.CaretOffset, 5);
+        var source = view.FindControl<MenuItem>("SourceActionsMenu")!;
+        source.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent));
+        await client.Received(1).RequestCodeActionsAsync(uri, Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Is<Diagnostic[]>(ds => ds.Length == (included ? 1 : 0)), Arg.Any<string[]?>(), Arg.Any<CancellationToken>());
+    }
+
+    private sealed class RefactorPeer
+    {
+        public WorkspaceEdit? Edit;
+        public JsonElement? Request, Resolved;
+        [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Initialize(JsonElement _) => JsonSerializer.SerializeToElement(new
+        {
+            capabilities = new { textDocumentSync = 1, codeActionProvider = new { resolveProvider = true } }
+        });
+        [JsonRpcMethod("initialized")] public void Initialized(JsonElement _) { }
+        [JsonRpcMethod("textDocument/didOpen")] public void Open(JsonElement _) { }
+        [JsonRpcMethod("textDocument/didChange")] public void Change(JsonElement _) { }
+        [JsonRpcMethod("textDocument/codeAction", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Actions(JsonElement p)
+        {
+            Request = p.Clone();
+            return JsonSerializer.SerializeToElement(new[] { new { title = "Extract method", kind = "refactor.extract.method", data = new { id = 42 } } });
+        }
+        [JsonRpcMethod("codeAction/resolve", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Resolve(JsonElement p)
+        {
+            Resolved = p.Clone();
+            return JsonSerializer.SerializeToElement(new { title = "Extract method", edit = Edit });
+        }
+        [JsonRpcMethod("shutdown")] public object? Shutdown() => null;
+        [JsonRpcMethod("exit")] public void Exit() { }
     }
 
     private sealed class OrderingPeer

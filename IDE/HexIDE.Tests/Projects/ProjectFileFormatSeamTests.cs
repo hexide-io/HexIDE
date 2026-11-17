@@ -23,7 +23,7 @@ namespace HexIDE.Tests.Projects;
 /// VB6 reader could take, and the stand-in's renders are nothing a VB6 writer would produce, so each assertion can only pass
 /// by way of the interface.
 /// </summary>
-public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
+public class ProjectFileFormatSeamTests : CompositionTestBase
 {
     private readonly string _dir = Path.Join(Path.GetTempPath(), "hexide-format-" + Guid.NewGuid().ToString("N"));
     private readonly List<ProjectDefinition> _loaded = [];
@@ -37,6 +37,9 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
 
     public ProjectFileFormatSeamTests()
     {
+        // A project carries its format (#3411 slice 10b-3), so every project here carries the stand-in: guarded by the prefix
+        // reader, and written by VB6's writer unless a test says otherwise.
+        _format.Regions = new FormatRegions(new PrefixReader(), new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), new NoRules());
         Directory.CreateDirectory(_dir);
         _vbp = Path.Join(_dir, "Test.vbp");
         _frm = Path.Join(_dir, "Form1.frm");
@@ -54,10 +57,22 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         });
     }
 
-    public void Dispose()
+    public override async ValueTask DisposeAsync()
     {
         try { Directory.Delete(_dir, recursive: true); } catch (IOException) { /* best effort */ }
-        GC.SuppressFinalize(this);
+        await base.DisposeAsync();
+    }
+
+    private ProjectDefinition Under(ProjectDefinition project)
+    {
+        project.Format = _format;
+        return project;
+    }
+
+    private ModuleDefinition Under(ModuleDefinition module)
+    {
+        Under(module.Owner);
+        return module;
     }
 
     private ProjectService Service(IReadOnlyRegionWriter? writer = null)
@@ -67,10 +82,14 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns("{0}");
-        return new ProjectService(writer ?? new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException("no new-project dialog here"), _windows,
+        _format.Regions = _format.Regions! with { Writer = writer ?? new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter() };
+        // VB6's type, registered with the stand-in format, as the composition registers it with its own.
+        var types = new ContributedProjects();
+        Vb6ProjectType.Register(types, _format);
+        return new ProjectService(() => throw new InvalidOperationException("no new-project dialog here"), _windows,
             Substitute.For<IEventBus>(), _projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, localization,
-            Substitute.For<IHeaderRefresher>(), format: _format, new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: types);
     }
 
     private async Task<ProjectService> Opened(string? path = null)
@@ -84,6 +103,39 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         .Where(call => call.GetMethodInfo().Name == nameof(IWindowManager.MessageBox))
         .Select(call => (string)call.GetArguments()[0]!)
         .ToList();
+
+    [Fact]
+    public void New_member_names_avoid_the_formats_extensions_on_disk()
+    {
+        _format.FormExtension = "xfrm";
+        _format.ClassExtension = "xcls";
+        var project = Under(new ProjectDefinition(VBProjectType.EXE, "Ledger") { AbsolutePath = _vbp });
+        File.WriteAllText(Path.Join(_dir, "Form1.xfrm"), "occupied");
+        File.WriteAllText(Path.Join(_dir, "Class1.xcls"), "occupied");
+        var service = Service();
+
+        service.NextFreeFormName(project).Should().Be("Form2");
+        service.NextFreeModuleName(project, ModuleKind.ClassModule).Should().Be("Class2");
+    }
+
+    [Fact]
+    public async Task Generated_member_files_use_the_formats_extensions()
+    {
+        _format.FormExtension = "xfrm";
+        _format.ClassExtension = "xcls";
+        var project = Under(new ProjectDefinition(VBProjectType.EXE, "Ledger"));
+        project.AddForm(new FormDefinition(project, FormComponentClass.Instance, "Screen"));
+        project.AddModule(new ModuleDefinition(project, "Logic", ModuleKind.ClassModule));
+        _loaded.Add(project);
+        var service = Service();
+
+        var recovery = service.CaptureUnsavedWork().Single();
+        recovery.Documents.Select(document => document.Content!.FileName).Should().BeEquivalentTo("Screen.xfrm", "Logic.xcls");
+        await service.SaveProjectToDirectory(project, _dir);
+
+        File.ReadAllText(Path.Join(_dir, "Screen.xfrm")).Should().Contain("as Screen.xfrm");
+        File.ReadAllText(Path.Join(_dir, "Logic.xcls")).Should().Contain("as Logic.xcls");
+    }
 
     [Fact]
     public async Task A_project_is_what_the_format_read()
@@ -324,7 +376,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         var form = _loaded.Single().Forms.Single();
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel>());
-        using var refresher = new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), new EventBus(), dock, new BreakpointService(), new BookmarkService(), _format);
+        using var refresher = new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService());
 
         refresher.LayoutChanged(form);
 
@@ -336,12 +388,12 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     [InlineData("two", ReloadDecision.Conflict)]
     public void An_unopened_module_is_compared_with_the_file_as_the_format_renders_it(string stamp, ReloadDecision expected)
     {
-        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", ModuleKind.StandardModule);
+        var module = new ModuleDefinition(Under(new ProjectDefinition(VBProjectType.EXE, "P")), "Module1", ModuleKind.StandardModule);
         var baseline = new FileBaselineStore();
         baseline.Record(_bas, "module Module1 as Module1.bas: one");
         _format.Stamp = stamp;
 
-        new DirtyDetector(baseline, Substitute.For<IProjectService>(), _format)
+        new DirtyDetector(baseline, Substitute.For<IProjectService>())
             .Classify(new WatchedFileTarget(_bas, null, module, null, null))
             .Should().Be(expected);
     }
@@ -349,9 +401,9 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     [AvaloniaFact]
     public async Task A_language_servers_project_text_is_what_the_format_rendered()
     {
-        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { AbsolutePath = _vbp };
+        var project = Under(new ProjectDefinition(VBProjectType.EXE, "Test") { AbsolutePath = _vbp });
         _projects.LoadedProjects.Returns([project]);
-        var workspace = new ProjectLspWorkspace(() => _projects, _format);
+        var workspace = new ProjectLspWorkspace(() => _projects);
 
         var text = await workspace.Projects.Single().ProjectText!(TestContext.Current.CancellationToken);
 
@@ -362,14 +414,14 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     [Fact]
     public void A_tools_write_protects_the_companion_the_format_names()
     {
-        var project = TestHelpers.CreateProjectWithForm("Project1");
+        var project = Under(TestHelpers.CreateProjectWithForm("Project1"));
         project.AbsolutePath = _vbp;
         var form = project.Forms[0];
         form.AbsolutePath = _frm;
         var companion = Path.ChangeExtension(_frm, ".standin");
         File.WriteAllBytes(companion, [1, 2, 3]);
 
-        ProjectWriteSafety.Prepare(DocumentIdentity.For(form), _format, out var note).Should().BeNull();
+        ProjectWriteSafety.Prepare(DocumentIdentity.For(form), out var note).Should().BeNull();
 
         note.Should().Contain(companion);
         Directory.GetFiles(_dir, "Form1.standin.hexide-recovery-*").Should().ContainSingle();
@@ -411,8 +463,8 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         bookmarks.SetBookmarks(document, [4]);
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel>());
-        using var refresher = new HeaderRefresher(new Vb6ReadOnlyRegionWriter(), new EventBus(), dock,
-            breakpoints, bookmarks, _format);
+        using var refresher = new HeaderRefresher(new EventBus(), dock,
+            breakpoints, bookmarks);
 
         refresher.ApplyHeader(form, "new\r\nnew\r\n");
 
@@ -426,14 +478,15 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     public void A_closed_modules_name_is_in_the_place_the_format_says(bool carriesName, ModuleKind kind)
     {
         _format.CarriesName = carriesName;
-        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "New", kind);
+        var module = new ModuleDefinition(Under(new ProjectDefinition(VBProjectType.EXE, "P")), "New", kind);
         module.UpdateCode("title Old");
         var writer = Substitute.For<IReadOnlyRegionWriter>();
         writer.NameRewrite("title Old", 0, "New").Returns(new TextChange(6, 3, "New"));
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel>());
-        using var refresher = new HeaderRefresher(writer, new EventBus(), dock, new BreakpointService(),
-            new BookmarkService(), _format);
+        _format.Regions = _format.Regions! with { Writer = writer };
+        using var refresher = new HeaderRefresher(new EventBus(), dock, new BreakpointService(),
+            new BookmarkService());
 
         refresher.NameChanged(DocumentIdentity.For(module));
 
@@ -443,23 +496,26 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     [AvaloniaFact]
     public void An_open_modules_rename_refreshes_the_formats_prefix_when_it_carries_the_name()
     {
-        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Old", ModuleKind.UserControl);
+        var module = new ModuleDefinition(Under(new ProjectDefinition(VBProjectType.EXE, "P")), "Old", ModuleKind.UserControl);
         using var editor = new CodeEditorViewModel(_windows, Substitute.For<IEditorService>(),
             Substitute.For<IProjectService>(), new EventBus(), Substitute.For<ILspClient>(),
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(), new BookmarkService(),
             new BreakpointService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), new LocalizationService(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<IRunScope>(), new LocalizationService());
         editor.Initialize(module);
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
-        using var refresher = new HeaderRefresher(Substitute.For<IReadOnlyRegionWriter>(), new EventBus(), dock,
-            new BreakpointService(), new BookmarkService(), _format);
+        _format.Regions = _format.Regions! with { Writer = Substitute.For<IReadOnlyRegionWriter>() };
+        using var refresher = new HeaderRefresher(new EventBus(), dock,
+            new BreakpointService(), new BookmarkService());
         module.Name = "New";
 
         refresher.NameChanged(DocumentIdentity.For(module));
 
         editor.Document.Text.Should().Be(_format.CodePrefix(module) + module.Code);
     }
+
+    private sealed class NoRules : IReadOnlyRegionRules;
 
     private sealed class PrefixReader : IReadOnlyRegionReader
     {
@@ -475,18 +531,22 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         }
     }
 
-    private CodeEditorViewModel Window(EventBus? events = null, IReadOnlyRegionReader? reader = null) => new(_windows, Substitute.For<IEditorService>(),
+    private CodeEditorViewModel Window(EventBus? events = null, IReadOnlyRegionReader? reader = null)
+    {
+        _format.Regions = _format.Regions! with { Reader = reader ?? new PrefixReader() };
+        return new(_windows, Substitute.For<IEditorService>(),
         Substitute.For<IProjectService>(), events ?? new EventBus(), Substitute.For<ILspClient>(),
         Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(), new BookmarkService(),
         new BreakpointService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-        Substitute.For<IRunScope>(), new LocalizationService(), _format, reader ?? new PrefixReader());
+        Substitute.For<IRunScope>(), new LocalizationService());
+    }
 
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
     public void A_code_window_and_its_undo_use_the_formats_prefix(bool moduleFile)
     {
-        var project = TestHelpers.CreateProjectWithForm("P");
+        var project = Under(TestHelpers.CreateProjectWithForm("P"));
         var module = TestHelpers.CreateModule(project, "Item");
         var form = project.Forms.Single();
         using var editor = Window();
@@ -508,7 +568,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     [InlineData(true)]
     public void Closed_text_and_project_find_use_the_formats_prefix(bool moduleFile)
     {
-        var project = TestHelpers.CreateProjectWithForm("P");
+        var project = Under(TestHelpers.CreateProjectWithForm("P"));
         var module = TestHelpers.CreateModule(project, "Item");
         project.AddModule(module);
         var form = project.Forms.Single();
@@ -520,22 +580,22 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         dock.OpenDocuments.Returns([]);
         _projects.LoadedProjects.Returns([project]);
 
-        DocumentContent.Read(document, null, _format, new PrefixReader()).Should().Be(expected);
-        var find = new FindProjectDocuments(dock, _projects, Substitute.For<IEditorService>(), () => project,
-            _format, new PrefixReader());
+        DocumentContent.Read(document, null).Should().Be(expected);
+        var find = new FindProjectDocuments(dock, _projects, Substitute.For<IEditorService>(), () => project);
         find.GetDocuments(false).Should().Contain(d => d.Document.Text == expected);
     }
 
     [Fact]
     public void A_closed_write_uses_the_formats_prefix()
     {
-        var module = TestHelpers.CreateModule();
+        var module = Under(TestHelpers.CreateModule());
         module.UpdateCode("plain old");
         var rules = Substitute.For<IReadOnlyRegionRules>();
         var prefix = _format.CodePrefix(module);
         rules.Replace(prefix + module.Code, prefix.Length, "plain new").Returns(new ContentReplacement(prefix + "plain new", null, true));
 
-        DocumentContent.Write(DocumentIdentity.For(module), null, "plain new", rules, _format, reader: new PrefixReader()).Refusal.Should().BeNull();
+        _format.Regions = _format.Regions! with { Rules = rules };
+        DocumentContent.Write(DocumentIdentity.For(module), null, "plain new").Refusal.Should().BeNull();
 
         module.Code.Should().Be("plain new");
         rules.Received(1).Replace(prefix + "plain old", prefix.Length, "plain new");
@@ -546,12 +606,12 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     [InlineData(true)]
     public void Mark_lines_use_the_reader_on_open_and_closed_documents(bool open)
     {
-        var module = TestHelpers.CreateModule();
+        var module = Under(TestHelpers.CreateModule());
         module.UpdateCode("title\r\nplain\r\nsealed\r\nlast\r\n");
         using var editor = Window();
         editor.Initialize(module);
 
-        var text = DocumentContent.TextOf(DocumentIdentity.For(module), open ? editor : null, _format, new PrefixReader());
+        var text = DocumentContent.TextOf(DocumentIdentity.For(module), open ? editor : null);
 
         text.HeaderLineCount.Should().Be(2);
         MarkLineRules.Refusal(text, "P/Item", [1], [], 1, "breakpoint").Should().Contain("code starts at 3");
@@ -565,10 +625,10 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     public void The_omitted_leading_text_is_decided_by_the_reader_and_the_formats_name_rule(bool carriesName)
     {
         _format.CarriesName = carriesName;
-        var module = TestHelpers.CreateModule(kind: ModuleKind.UserControl);
+        var module = Under(TestHelpers.CreateModule(kind: ModuleKind.UserControl));
         module.UpdateCode("title\r\nplain\r\n");
 
-        DocumentContent.LeftOutLeadingRegion(DocumentIdentity.For(module), "plain\r\n", _format, new PrefixReader()).HasValue
+        DocumentContent.LeftOutLeadingRegion(DocumentIdentity.For(module), "plain\r\n").HasValue
             .Should().Be(!carriesName);
     }
 
@@ -581,7 +641,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     [AvaloniaFact]
     public void Event_navigation_starts_after_the_readers_leading_region()
     {
-        var project = TestHelpers.CreateProjectWithForm("P");
+        var project = Under(TestHelpers.CreateProjectWithForm("P"));
         var form = project.Forms.Single();
         _format.Stamp = "one\r\nSub Button_Click()\r\nEnd Sub\r\n";
         form.UpdateCode("plain\r\nSub Button_Click()\r\nEnd Sub\r\n");
@@ -589,7 +649,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         using var editor = Window(events, new FirstLineReader());
         editor.Initialize(form);
 
-        events.Publish(new CreateOrNavigateToSubEvent(form, "Button_Click"));
+        events.Publish(new CreateOrNavigateToSubEvent(form, "Button_Click", "Button", "Click"));
 
         editor.CaretOffset.Should().BeLessThan(editor.Document.Text.IndexOf("plain", StringComparison.Ordinal));
         editor.CaretOffset.Should().BeGreaterThan(editor.Document.Text.IndexOf("Sub Button_Click", StringComparison.Ordinal));
@@ -598,16 +658,16 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     [Fact]
     public async Task Reload_moves_marks_by_the_formats_prefix_change()
     {
-        var form = TestHelpers.CreateProjectWithForm("P").Forms.Single();
+        var form = Under(TestHelpers.CreateProjectWithForm("P")).Forms.Single();
         var marks = new BreakpointService();
         var document = DocumentIdentity.For(form);
         marks.SetDocument(document, [5]);
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns([]);
-        using var refresher = new HeaderRefresher(new Vb6ReadOnlyRegionWriter(), new EventBus(), dock,
-            marks, new BookmarkService(), _format);
+        using var refresher = new HeaderRefresher(new EventBus(), dock,
+            marks, new BookmarkService());
         var reloader = new FileReloader(Substitute.For<IProjectService>(), new EventBus(),
-            Substitute.For<IStatusBarService>(), new LocalizationService(), refresher, _format);
+            Substitute.For<IStatusBarService>(), new LocalizationService(), refresher);
 
         await reloader.ReplaceAsync(new WatchedFileTarget("Item.frm", form, null, null, null), () =>
         {
@@ -621,7 +681,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     [Fact]
     public void References_in_closed_documents_read_the_formats_prefix()
     {
-        var project = TestHelpers.CreateProjectWithForm("P");
+        var project = Under(TestHelpers.CreateProjectWithForm("P"));
         var module = TestHelpers.CreateModule(project, "Item");
         project.AddModule(module);
         module.UpdateCode("plain module");
@@ -629,7 +689,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns([]);
         var results = new HexIDE.Tools.FindReferencesToolViewModel(Substitute.For<ILspClient>(),
-            Substitute.For<IEditorService>(), _projects, dock, new LocalizationService(), _format);
+            Substitute.For<IEditorService>(), _projects, dock, new LocalizationService());
 
         results.ShowLocations([new HexIDE.Lsp.Messages.Location(DocumentWireName.For(DocumentIdentity.For(module)),
             new HexIDE.Lsp.Messages.Range(new(0, 0), new(0, 6)))]);
@@ -644,7 +704,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     public async Task Sidecar_marks_and_conditions_use_the_readers_leading_region(int version)
     {
         _format.Stamp = "one\r\nextra";
-        var project = TestHelpers.CreateProjectWithForm("P");
+        var project = Under(TestHelpers.CreateProjectWithForm("P"));
         project.AbsolutePath = _vbp;
         var module = TestHelpers.CreateModule(project, "Item");
         module.AbsolutePath = _bas;
@@ -657,7 +717,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
             """.Replace("VERSION", version.ToString(System.Globalization.CultureInfo.InvariantCulture))
             .Replace("KEY", key).Replace("MARKS", marks));
         var breakpoints = new BreakpointService();
-        var sidecar = new UserSidecarService(new BookmarkService(), breakpoints, _projects, _format, new PrefixReader())
+        var sidecar = new UserSidecarService(new BookmarkService(), breakpoints, _projects)
             { Debounce = _ => Task.CompletedTask };
 
         await sidecar.LoadAsync(project);
@@ -680,7 +740,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     [InlineData(true, false)]
     public async Task A_tools_omission_note_uses_the_formats_phrase(bool open, bool words)
     {
-        var project = TestHelpers.CreateProjectWithForm("P");
+        var project = Under(TestHelpers.CreateProjectWithForm("P"));
         var form = project.Forms.Single();
         project.AbsolutePath = _vbp;
         form.AbsolutePath = _frm;
@@ -698,10 +758,11 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         rules.DescribeRegions(_format.CodePrefix(form) + form.Code, _format.CodePrefix(form).Length,
             Arg.Is<IReadOnlyList<TextRegion>>(r => r.Count == 1 && r[0].Start == 0 && r[0].End == (_format.CodePrefix(form) + "title\r\n").Length))
             .Returns(words ? "the title block" : null);
+        _format.Regions = _format.Regions! with { Rules = rules };
         using var context = new IdeContext(_projects, dock, Substitute.For<ILspClient>(), null!,
             Substitute.For<IProjectRunnerService>(), service, new EventBus(), new BookmarkService(),
             new BreakpointService(), null!, null!, null!, null!, null!, null!, null!, null!, new LocalizationService(),
-            null!, _format, new PrefixReader(), rules);
+            null!);
 
         var result = await new HexIdeTools(context).SetFileContentAsync(form.Name, "plain\r\n");
 
@@ -714,7 +775,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     [InlineData(true)]
     public async Task Tool_reads_and_breakpoints_consult_the_format_and_reader(bool open)
     {
-        var project = TestHelpers.CreateProjectWithForm("P");
+        var project = Under(TestHelpers.CreateProjectWithForm("P"));
         var form = project.Forms.Single();
         form.UpdateCode("title\r\nplain\r\nsealed\r\nlast\r\n");
         _projects.LoadedProjects.Returns([project]);
@@ -726,7 +787,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
         using var context = new IdeContext(_projects, dock, Substitute.For<ILspClient>(), null!,
             Substitute.For<IProjectRunnerService>(), Substitute.For<IProjectService>(), new EventBus(),
             new BookmarkService(), breakpoints, null!, Composition.Root, null!, null!, null!, null!, null!, null!,
-            new LocalizationService(), null!, _format, new PrefixReader());
+            new LocalizationService(), null!);
         var tools = new HexIdeTools(context);
 
         (await tools.GetFileContentAsync(form.Name)).Content.Should().Be(_format.CodePrefix(form) + form.Code);
@@ -741,7 +802,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     [InlineData(true)]
     public void A_rename_reads_a_closed_targets_prefix_from_the_format(bool moduleFile)
     {
-        var project = TestHelpers.CreateProjectWithForm("P");
+        var project = Under(TestHelpers.CreateProjectWithForm("P"));
         var form = project.Forms.Single();
         var module = TestHelpers.CreateModule(project, "Item");
         var identity = moduleFile ? DocumentIdentity.For(module) : DocumentIdentity.For(form);
@@ -757,7 +818,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
             new EventBus(), Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(),
             Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<IRunScope>(),
-            new LocalizationService(), _format, new PrefixReader());
+            new LocalizationService());
         source.Initialize(sourceModule);
         var edit = new HexIDE.Lsp.Messages.WorkspaceEdit(new()
         {
@@ -797,14 +858,39 @@ public class ProjectFileFormatSeamTests : CompositionTestBase, IDisposable
     }
 
     [Fact]
-    public void Only_the_composition_root_chooses_the_format()
+    public void Only_VB6_s_format_and_type_name_its_format_and_regions()
     {
-        ProductSource.FilesMatching(new Regex(@"\bVb6ProjectFileFormat\b"), "Vb6ProjectFileFormat.cs", "DISetup.cs")
-            .Should().BeEmpty("a class is given its format, so that one binding decides it");
+        // A project's format is its own, set by the type that opened or made it (#3411 slice 10b-3), so only VB6's type, which
+        // registers its format, and the format itself name them.
+        ProductSource.FilesMatching(new Regex(@"\b(Vb6ProjectFileFormat|Vb6ReadOnlyRegion(Reader|Writer|Rules))\b"),
+                "Vb6ProjectFileFormat.cs", "Vb6ProjectType.cs")
+            .Should().BeEmpty("a project's format comes from its type, registered once, and nothing is handed VB6's");
+    }
+
+    [Fact]
+    public void No_product_constructor_takes_a_format_or_a_region_service()
+    {
+        // These are handed the one project's format or reader by whatever made them, which got it from the project.
+        string[] handedPerProject = ["FormatRegions", "CodeWindowReadOnlySections", "UnopenedDocument", "RawPropertyViewModel"];
+        Type[] services = [typeof(IProjectFileFormat), typeof(IReadOnlyRegionReader), typeof(IReadOnlyRegionWriter), typeof(IReadOnlyRegionRules)];
+        var takers = new[] { typeof(ProjectService).Assembly, typeof(IProjectFileFormat).Assembly, typeof(IdeContext).Assembly }
+            .SelectMany(assembly => assembly.GetTypes())
+            .Where(type => !handedPerProject.Contains(type.Name))
+            .Where(type => type.GetConstructors(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic
+                    | System.Reflection.BindingFlags.Instance)
+                .Any(constructor => constructor.GetParameters().Any(parameter => services.Contains(parameter.ParameterType))))
+            .Select(type => type.FullName)
+            .ToList();
+
+        takers.Should().BeEmpty("a project's format and regions come from the project (#3411 slice 10b-3), never from what built a class");
     }
 
     internal sealed class StandInFormat : IProjectFileFormat
     {
+        public string FormExtension { get; set; } = "frm";
+        public string? ClassExtension { get; set; }
+        public string MemberExtension(ModuleKind kind) => kind == ModuleKind.ClassModule && ClassExtension is not null
+            ? ClassExtension : new Vb6ProjectFileFormat().MemberExtension(kind);
         public FormatRegions? Regions { get; set; }
 
         public string CodePrefix(FormDefinition form) => $"prefix of {form.Name}: {Stamp}\r\n";
@@ -898,16 +984,17 @@ public class ProjectFileFormatCompositionTests : CompositionTestBase
         owner.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(owner);
 
     [AvaloniaFact]
-    public void Everything_that_renders_gets_the_same_format()
+    public void The_composition_reads_VB6_s_projects_groups_and_members_through_one_VB6_format()
     {
+        // Nothing is handed a format any more (#3411 slice 10b-3): each project carries its type's. So the one format is the
+        // one VB6's registration gives its projects, its groups and the members of a project whose type has none.
         var composition = Composition;
         _ = composition.Root;
-        var format = Field(composition.ProjectService, "format");
+        var types = (ContributedProjects)Field(composition.ProjectService, "contributed")!;
+        var format = types.Find("P.vbp")!.Type.Format;
 
         format.Should().BeOfType<Vb6ProjectFileFormat>();
-        Field(Field(composition.ProjectService, "headerRefresher")!, "format").Should().BeSameAs(format);
-        Field(composition.LspWorkspace, "_format").Should().BeSameAs(format);
-        Field(Field(composition.FileWatcherService, "dirtyDetector")!, "_format").Should().BeSameAs(format);
-        Field(((Func<FormEditViewModel>)Field(composition.EditorService, "formEditViewModelFactory")!)(), "format").Should().BeSameAs(format);
+        types.FindGroup("G.vbg")!.Type.Format.Should().BeSameAs(format);
+        types.FormatForMembers(new ProjectDefinition(VBProjectType.EXE, "P")).Should().BeSameAs(format);
     }
 }

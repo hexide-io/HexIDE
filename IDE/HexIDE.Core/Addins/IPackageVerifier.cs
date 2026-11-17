@@ -42,6 +42,11 @@ public sealed record PackageVerificationResult(
     /// Null for untrusted or incompatible packages; legacy absence differs from an explicit empty list.</summary>
     public AddinCapabilityDeclaration? VerifiedDeclaration { get; init; }
 
+    /// <summary>The namespaces the verified publisher record issues (<see cref="HexIDE.Addins.PublisherNamespaces"/>), set
+    /// only on a <see cref="PackageVerdict.Verified"/> result. Null when the record carries no list (records issued before
+    /// the field existed); empty when it carries one that grants nothing.</summary>
+    public string[]? PublisherNamespaces { get; init; }
+
     /// <summary>SHA-256 (lower-case hex) of the raw <c>addin.json</c> bytes — a stable content identity
     /// for the package, used as the consent key. Null only when the manifest could not be read. Because
     /// the manifest lists the version and every file hash, any change to the package changes this.</summary>

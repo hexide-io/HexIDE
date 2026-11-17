@@ -117,10 +117,12 @@ public partial class MainViewViewModel : ObservableObject
     public DelegateCommand RunToCursorCommand { get; }
     public DelegateCommand SetNextStatementCommand { get; }
     public DelegateCommand ShowNextStatementCommand { get; }
+    public DelegateCommand OpenCallStackCommand { get; }
     public DelegateCommand EditWatchCommand { get; }
     public DelegateCommand SaveFormCommand { get; }
     public DelegateCommand RemoveDocumentCommand { get; }
     public DelegateCommand SaveFormAsCommand { get; }
+    public DelegateCommand SaveProjectCommand { get; }
     public DelegateCommand SaveProjectAsCommand { get; }
 
     public DelegateCommand StartDefaultProjectCommand { get; }
@@ -271,6 +273,8 @@ public partial class MainViewViewModel : ObservableObject
         RemoveDocumentCommand.RaiseCanExecutedChanged();
     }
 
+    internal CodeEditorViewModel? ActiveCodeDocument => documentDockService.ActiveDocument as CodeEditorViewModel;
+
     private async Task RemoveActiveDocument()
     {
         if (RemovableDocument is not { } document) return;
@@ -301,6 +305,7 @@ public partial class MainViewViewModel : ObservableObject
     public ISettingsService Settings => settingsService;
 
     public IProfileService Profile { get; }
+    public AddinProjectTemplateService ProjectTemplates { get; }
 
     internal AddinMenuService AddinMenuService { get; }
 
@@ -308,6 +313,7 @@ public partial class MainViewViewModel : ObservableObject
 
     private readonly AddinToolWindowService _addinToolWindowService;
 
+    internal event Action? PauseFocusRequested;
     internal event Action<IDockable, bool>? KeyboardFocusRequested;
 
     public class DockFactory : Factory
@@ -1690,11 +1696,13 @@ public partial class MainViewViewModel : ObservableObject
         // Not optional, like the two above: each optional parameter here doubles Pure.DI's search for the graph, and one
         // more took it past its 16,384-iteration limit (DIE031).
         TypeHierarchyToolViewModel? typeHierarchy,
-        HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
-        HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
-        RunWithMenuViewModel? runWith = null,
-        ILogFolderOpener? logFolderOpener = null)
+        HexIDE.Debugging.ExternalDebugService? externalDebugger,
+        HexIDE.Recovery.IRecoveryOffers? recoveryOffers,
+        RunWithMenuViewModel? runWith,
+        ILogFolderOpener? logFolderOpener,
+        AddinProjectTemplateService projectTemplates)
     {
+        ProjectTemplates = projectTemplates;
         logFolderOpener ??= new PlatformLogFolderOpener();
         OpenLogFolderCommand = new DelegateCommand(() => OpenLogFolderAsync(windowManager, localization, logFolderOpener).ListenErrors());
         RunWith = runWith;
@@ -1764,7 +1772,11 @@ public partial class MainViewViewModel : ObservableObject
             () => externalDebugger is not null && !projectRunnerService.IsRunning);
         // When the interpreter breaks, bring the offending form/module's code editor forward. The editor view then
         // paints the amber current-statement bar and scrolls to it (it reads the controller's CurrentStop on open).
-        debugController.Stopped += info => RevealBreak(info.Module);
+        debugController.Stopped += info =>
+        {
+            if (info.Reason == StopReason.Pause) PauseFocusRequested?.Invoke();
+            if (info.HasStatement) RevealBreak(info.Module);
+        };
         StatusBar = statusBarService;
         debugController.Stopped += _ => Dispatcher.UIThread.Post(UpdateRunState);
         debugController.Continued += () => Dispatcher.UIThread.Post(UpdateRunState);
@@ -1914,6 +1926,9 @@ public partial class MainViewViewModel : ObservableObject
         RemoveDocumentCommand = new DelegateCommand(() => RemoveActiveDocument().ListenErrors(),
             () => RemovableDocument != null);
         ProjectExplorer.ObservePropertyChanged(x => x.SelectedItem).Subscribe(_ => UpdateRemoveDocumentMenu());
+        SaveProjectCommand = new DelegateCommand(SaveProject, () => projectManager.LoadedProjects.Count > 0);
+        projectManager.ProjectLoaded += _ => SaveProjectCommand.RaiseCanExecutedChanged();
+        projectManager.ProjectUnloaded += _ => SaveProjectCommand.RaiseCanExecutedChanged();
         SaveProjectAsCommand = new DelegateCommand(SaveProjectAs,
             () => projectManager.LoadedProjects.Any(project => project.Offers.MovesProjectFile));
         projectManager.ProjectLoaded += _ => SaveProjectAsCommand.RaiseCanExecutedChanged();
@@ -1948,9 +1963,17 @@ public partial class MainViewViewModel : ObservableObject
             () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.SetsReferences: true });
         ProjectComponentsCommand = new DelegateCommand(() => projectService.EditProjectComponents(FocusedProjectUtil.FocusedOrStartupProject!),
             () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.SetsComponents: true });
-        ProjectPropertiesCommand = new DelegateCommand(() => projectService.EditProjectProperties(FocusedProjectUtil.FocusedOrStartupProject!),
+        ProjectPropertiesCommand = new DelegateCommand(() =>
+            {
+                if (FocusedProjectUtil.FocusedOrStartupProject is { } project)
+                    projectService.EditProjectProperties(project).ListenErrors();
+            },
             () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.SetsProperties: true });
-        MakeProjectCommand = new DelegateCommand(() => projectService.MakeProject(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
+        MakeProjectCommand = new DelegateCommand(() =>
+            {
+                if (FocusedProjectUtil.FocusedOrStartupProject is { } project)
+                    projectService.MakeProject(project).ListenErrors();
+            },
             () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.Makes: true });
         RemoveProjectCommand = new DelegateCommand(() => projectService.UnloadProject(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
             () => FocusedProjectUtil.FocusedOrStartupProject != null);
@@ -1989,14 +2012,15 @@ public partial class MainViewViewModel : ObservableObject
 
         bool HasActiveCodeWindow() => documentDockService.ActiveDocument is CodeEditorViewModel;
         ToggleBreakpointCommand = new DelegateCommand(ToggleBreakpoint, HasActiveCodeWindow);
-        RunToCursorCommand = new DelegateCommand(RunToCursor, HasActiveCodeWindow);
-        SetNextStatementCommand = new DelegateCommand(SetNextStatement, () => ExternalDebugger?.IsActive == true || (HasActiveCodeWindow() && debugController.CurrentStop is not null));
-        ShowNextStatementCommand = new DelegateCommand(ShowNextStatement, () => ExternalDebugger?.IsActive == true || debugController.CurrentStop is not null);
+        RunToCursorCommand = new DelegateCommand(RunToCursor, () => HasActiveCodeWindow() && debugController.CurrentStop is not { HasStatement: false });
+        SetNextStatementCommand = new DelegateCommand(SetNextStatement, () => ExternalDebugger?.IsActive == true || (HasActiveCodeWindow() && debugController.CurrentStop is { HasStatement: true }));
+        ShowNextStatementCommand = new DelegateCommand(ShowNextStatement, () => ExternalDebugger?.IsActive == true || debugController.CurrentStop is { HasStatement: true });
+        OpenCallStackCommand = new DelegateCommand(OpenCallStackTool, () => ExternalDebugger?.IsActive == true || debugController.CurrentStop is not { HasStatement: false });
         EditWatchCommand = new DelegateCommand(EditWatch, () => Watches.SelectedRow is not null);
 
         // Routed commands listen to CommandManager, not to the delegate behind their binding.
         foreach (var command in new[] { ToggleBreakpointCommand, RunToCursorCommand, SetNextStatementCommand,
-                     ShowNextStatementCommand, EditWatchCommand, SaveProjectAsCommand })
+                     ShowNextStatementCommand, OpenCallStackCommand, EditWatchCommand, SaveProjectCommand, SaveProjectAsCommand })
             command.CanExecuteChanged += (_, _) => Avalonia.Labs.Input.CommandManager.InvalidateRequerySuggested();
 
         if (externalDebugger is not null)
@@ -2004,16 +2028,22 @@ public partial class MainViewViewModel : ObservableObject
             {
                 SetNextStatementCommand.RaiseCanExecutedChanged();
                 ShowNextStatementCommand.RaiseCanExecutedChanged();
+                OpenCallStackCommand.RaiseCanExecutedChanged();
+                RunToCursorCommand.RaiseCanExecutedChanged();
             };
         debugController.Stopped += _ =>
         {
             SetNextStatementCommand.RaiseCanExecutedChanged();
             ShowNextStatementCommand.RaiseCanExecutedChanged();
+            OpenCallStackCommand.RaiseCanExecutedChanged();
+            RunToCursorCommand.RaiseCanExecutedChanged();
         };
         debugController.Continued += () =>
         {
             SetNextStatementCommand.RaiseCanExecutedChanged();
             ShowNextStatementCommand.RaiseCanExecutedChanged();
+            OpenCallStackCommand.RaiseCanExecutedChanged();
+            RunToCursorCommand.RaiseCanExecutedChanged();
         };
         Watches.ObservePropertyChanged(x => x.SelectedRow)
             .Subscribe(_ => EditWatchCommand.RaiseCanExecutedChanged());
@@ -2463,7 +2493,7 @@ public partial class MainViewViewModel : ObservableObject
                 editorService.NavigateTo(location.Uri, location.Line, 1);
             return;
         }
-        if (debugController.CurrentStop is { } stop)
+        if (debugController.CurrentStop is { HasStatement: true } stop)
             RevealBreak(stop.Module);
     }
 
@@ -2477,6 +2507,9 @@ public partial class MainViewViewModel : ObservableObject
             FileTypeFilter = [new Avalonia.Platform.Storage.FilePickerFileType("JSON") { Patterns = ["*.json"] }],
         });
         if (paths?.FirstOrDefault() is not { } file || projectRunnerService.IsRunning) return;
+        // A launch file names the program it starts, so a downloaded one is asked about as a downloaded project is (#1121).
+        if (!await projectRunnerService.MayRunFileAsync(file))
+            return;
         OpenImmediateTool();
         await ExternalDebugger.StartAsync(file);
     }
@@ -2543,11 +2576,12 @@ public partial class MainViewViewModel : ObservableObject
             AllowMultiple = true,
             FileTypeFilter =
             [
-                new FilePickerFileType("VB6 Files")
+                new FilePickerFileType(localization.GetString("Str.FilePicker.MemberFiles"))
                 {
-                    Patterns = ["*.bas", "*.cls", "*.frm", "*.ctl", "*.pag"],
+                    Patterns = ["*." + ProjectFormats.Of(p).FormExtension,
+                        .. Enum.GetValues<ModuleKind>().Select(kind => "*." + ProjectFormats.Of(p).MemberExtension(kind)).Distinct()],
                 },
-                new FilePickerFileType("All Files") { Patterns = ["*.*"] },
+                new FilePickerFileType(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] },
             ],
         });
 
@@ -2574,7 +2608,7 @@ public partial class MainViewViewModel : ObservableObject
         // tabs writing to one path.
         if (TryOpenAlreadyCarried(project, path)) return;
 
-        var kind = ProjectFileClassifier.Classify(path);
+        var kind = ProjectFileClassifier.Classify(path, ProjectFormats.Of(project));
 
         if (kind == ProjectFileKind.Form)
         {

@@ -76,7 +76,10 @@ public class UiSaveAnswerTimingTests
         var composition = owned.Composition;
         var root = composition.Root;
         var project = new ProjectDefinition(VBProjectType.EXE, "Timing");
-        if (opensPicker) composition.ProjectManager.AddProject(project);
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-save-4275-" + Guid.NewGuid().ToString("N"));
+        // Save Project is disabled with no project; a saved project exercises a save with no picker.
+        if (!opensPicker) await composition.ProjectService.SaveProjectToDirectory(project, directory);
+        composition.ProjectManager.AddProject(project);
         var window = ToolbarAutomationNameTests.ShowMainView();
         var main = window.Content.Should().BeOfType<MainView>().Which;
         main.DataContext = root;
@@ -96,7 +99,7 @@ public class UiSaveAnswerTimingTests
             {
                 // The same resolution and Execute as invoke_menu_item, without a transport or desktop lifetime.
                 var menu = window.GetVisualDescendants().OfType<Menu>().First();
-                var found = MenuPath.Resolve(menu.Items, opensPicker ? "File/Save Project As..." : "File/Save Project");
+                var found = MenuPath.Resolve(menu.Items, opensPicker ? "File/Save Project As..." : "File/Save Timing");
                 found.Error.Should().BeNull();
                 found.Command.Should().NotBeNull();
                 found.Command!.CanExecute(found.CommandParameter).Should().BeTrue();
@@ -125,6 +128,7 @@ public class UiSaveAnswerTimingTests
             ScriptedFileDialogs.Clear();
             composition.ProjectManager.UnloadAllProjects();
             window.Close();
+            if (System.IO.Directory.Exists(directory)) System.IO.Directory.Delete(directory, true);
         }
     }
 
@@ -166,7 +170,7 @@ public class UiSaveAnswerTimingTests
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), composition.ProjectService,
             composition.EventBus, lsp, settings, Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<IBreakpointService>(), Substitute.For<IDebugController>(), new RunScope(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<ILocalizationService>());
         if (kind == "module") vm.Initialize(module);
         else vm.Initialize(form);
         var view = new CodeEditorView { DataContext = vm };
@@ -191,8 +195,7 @@ public class UiSaveAnswerTimingTests
         var previousLifetime = lifetimeField.GetValue(Avalonia.Application.Current!);
         lifetimeField.SetValue(Avalonia.Application.Current!, lifetime);
         using var context = new IdeContext(null!, null!, lsp, null!, null!, null!, null!, null!, null!,
-            Substitute.For<IDebugController>(), null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<IDebugController>(), null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
         window.Show();
         Dispatcher.UIThread.RunJobs();

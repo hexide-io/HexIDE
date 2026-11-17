@@ -40,8 +40,7 @@ public class LoadedFormMenuTests
         var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
             MenuForm, new Sink())!;
         return new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
-            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(),
-            new Vb6ProjectFileFormat()).Initialize(form);
+            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
     }
 
     [AvaloniaFact]
@@ -63,8 +62,11 @@ public class LoadedFormMenuTests
 
         var editor = new MenuEditorViewModel(vm);
 
-        editor.FlatMenu.Select(c => c.Name).Should().Equal("mnuFile", "mnuOpen", "mnuMRU");
-        editor.FlatMenu.Select(c => c.Indent).Should().Equal(0, 1, 1);
+        editor.ItemsToApply.Select(c => c.Name).Should().Equal("mnuFile", "mnuOpen", "mnuMRU");
+        editor.ItemsToApply.Select(c => c.Indent).Should().Equal(0, 1, 1);
+        // The editor keeps one blank row after the last item, which is never written to the form (#4141).
+        editor.FlatMenu.Should().HaveCount(4);
+        editor.FlatMenu[^1].Caption.Should().BeEmpty();
     }
 
     [AvaloniaFact]

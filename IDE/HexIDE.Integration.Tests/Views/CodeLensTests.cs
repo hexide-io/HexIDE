@@ -53,7 +53,7 @@ public class CodeLensTests
         var documents = Substitute.For<IDocumentDockService>();
         documents.OpenDocuments.Returns([]);
         var editors = Substitute.For<IEditorService>();
-        var results = new FindReferencesToolViewModel(client, editors, projects, documents, localization, format: new Vb6ProjectFileFormat());
+        var results = new FindReferencesToolViewModel(client, editors, projects, documents, localization);
         var settings = Substitute.For<ISettingsService>();
         settings.TabWidth.Returns(4);
         typeof(ISettingsService).GetProperty("ShowCodeLenses")?.SetValue(settings, check != "off");
@@ -63,7 +63,7 @@ public class CodeLensTests
             Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
         module.UpdateCode(check == "viewport"
@@ -249,7 +249,7 @@ public class CodeLensTests
                 window.MouseDown(point, MouseButton.Left);
                 window.MouseUp(point, MouseButton.Left);
                 if (check == "click-server")
-                    client.Received(1).ExecuteCommandAsync("server.run", Arg.Any<System.Text.Json.JsonElement[]>(), Arg.Any<CancellationToken>());
+                    client.Received(1).ExecuteCodeLensCommandAsync(Arg.Is<Command>(c => c.CommandName == "server.run"), Arg.Any<CancellationToken>());
                 else
                     results.Rows.Should().Contain(r => r.Location == location);
                 client.DidNotReceive().FindReferencesAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());

@@ -41,6 +41,16 @@ on every host, including Windows path spellings on Unix. It MUST read bundles wi
 - **WHEN** a referenced file or its ancestor inside the bundle is a symbolic link
 - **THEN** loading is refused with the source and referenced filename identified
 
+### Requirement: Profiles can supply contributed server settings defaults
+The allowlist SHALL include `languageServerSettings`, an object keyed by server id whose values are
+JSON objects. Resolution SHALL select each id's whole user object before its profile default, without
+deep merging or persisting unedited defaults.
+
+#### Scenario: A user's server override is removed
+- **WHEN** a user removes their object for a server with a profile default
+- **THEN** that server resolves the profile's whole default object
+- **AND** overrides for other server ids and the profile's files remain untouched
+
 ### Requirement: Settings defaults preserve explicit user choices
 The settings reader SHALL accept defaults from a validated profile snapshot, layering host defaults,
 explicitly present profile defaults and explicitly present saved user properties in that order. It
@@ -183,6 +193,20 @@ from the profile service. The flyout SHALL disable unsupported templates. With n
 surface SHALL show a localized explanation directing the user to open an existing project, and the
 dialog SHALL keep its New action disabled. Existing and Recent project opening SHALL remain available.
 Add-in templates SHALL retain their existing separate contribution to the New Project dialog.
+The empty-state explanation SHALL distinguish no registered first-party or add-in templates from
+registered templates excluded by the profile.
+
+#### Scenario: No project templates installed
+- **WHEN** neither a first-party project type nor an add-in has registered a template
+- **THEN** the New tab and the New Project flyout explain that no installed project type makes new projects
+- **AND** they direct the user to open an existing project
+
+#### Scenario: Default project unavailable
+- **WHEN** a startup hook requests a default project and no registered first-party Standard EXE template exists
+- **THEN** the IDE shows a localized message naming the distribution and creates no project
+- **AND** both saved and unsaved default-project launch modes leave the IDE running with the existing workspace unchanged
+- **AND** an empty workspace remains empty; a restored group retains its name, project order, startup project and saved path
+- **AND** Save Project, Save Project As, Make, Start, Add Form, Add Module, Add Class Module and Project Properties are disabled
 
 #### Scenario: Reduced profile on both surfaces
 - **WHEN** the selected profile is `vba`

@@ -6,8 +6,12 @@
              xmlns:converters="clr-namespace:HexIDE.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="visualDesigner:MenuEditorViewModel"
-             x:Class="HexIDE.VisualDesigner.MenuEditorView">
+             x:Class="HexIDE.VisualDesigner.MenuEditorView"
+             x:Name="Editor"
+             BlankItemName="{DynamicResource Str.Dialog.MenuEditor.Blank}"
+             ItemLevelFormat="{DynamicResource Str.Dialog.MenuEditor.ItemLevel}">
     <UserControl.Resources>
+        <converters:MenuItemNameConverter x:Key="MenuItemNameConverter" />
         <converters:StringMultiplierConverter x:Key="IndentConverter" String="...." />
     </UserControl.Resources>
     <UserControl.Styles>
@@ -28,61 +32,73 @@
                     <ColumnDefinition Width="Auto" MinWidth="75" />
                 </Grid.ColumnDefinitions>
 
-                <Label Content="{DynamicResource Str.Dialog.MenuEditor.Caption}" Grid.Row="0" Grid.Column="0"/>
-                <TextBox Grid.Row="0" Grid.Column="1" Text="{CompiledBinding SelectedMenu.Caption}" />
-                <Button Content="{DynamicResource Str.Dialog.MenuEditor.OK}" Command="{CompiledBinding Accept}" Grid.Row="0" Grid.Column="3" />
+                <Label x:Name="CaptionLabel" Target="{CompiledBinding #CaptionField}" Grid.Row="0" Grid.Column="0"><AccessText x:Name="CaptionCaption" Text="{DynamicResource Str.Dialog.MenuEditor.Caption}" /></Label>
+                <TextBox x:Name="CaptionField" Classes="dialogInitialFocus" AutomationProperties.Name="{CompiledBinding #CaptionCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" TabIndex="0" Grid.Row="0" Grid.Column="1" Text="{CompiledBinding SelectedMenu.Caption}" />
+                <Button x:Name="OKButton" TabIndex="18" Content="{DynamicResource Str.Dialog.MenuEditor.OK}" Command="{CompiledBinding Accept}" Grid.Row="0" Grid.Column="3" />
 
-                <Label Content="{DynamicResource Str.Dialog.MenuEditor.Name}" Grid.Row="2" Grid.Column="0"/>
-                <TextBox Grid.Row="2" Grid.Column="1" Text="{CompiledBinding SelectedMenu.Name}"/>
-                <Button Content="{DynamicResource Str.Dialog.MenuEditor.Cancel}" Command="{CompiledBinding Cancel}" Grid.Row="2" Grid.Column="3" IsCancel="True" />
+                <Label x:Name="NameLabel" Target="{CompiledBinding #NameField}" Grid.Row="2" Grid.Column="0"><AccessText x:Name="NameCaption" Text="{DynamicResource Str.Dialog.MenuEditor.Name}" /></Label>
+                <TextBox x:Name="NameField" AutomationProperties.Name="{CompiledBinding #NameCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" TabIndex="1" Grid.Row="2" Grid.Column="1" Text="{CompiledBinding SelectedMenu.Name}"/>
+                <Button x:Name="CancelButton" TabIndex="19" Content="{DynamicResource Str.Dialog.MenuEditor.Cancel}" Command="{CompiledBinding Cancel}" Grid.Row="2" Grid.Column="3" IsCancel="True" />
 
-                <Label Content="{DynamicResource Str.Dialog.MenuEditor.Index}" Grid.Row="4" Grid.Column="0"/>
+                <Label x:Name="IndexLabel" Target="{CompiledBinding #IndexField}" Grid.Row="4" Grid.Column="0"><AccessText x:Name="IndexCaption" Text="{DynamicResource Str.Dialog.MenuEditor.Index}" /></Label>
                 <DockPanel Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" LastChildFill="False">
-                    <TextBox Width="40" />
-                    <ComboBox DockPanel.Dock="Right" SelectedIndex="0" Width="125">
-                        <ComboBoxItem Content="{DynamicResource Str.Dialog.MenuEditor.Shortcut.None}" />
+                    <TextBox x:Name="IndexField" AutomationProperties.Name="{CompiledBinding #IndexCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" TabIndex="2" Text="{CompiledBinding SelectedMenu.Index}" Width="40" />
+                    <ComboBox x:Name="ShortcutField" AutomationProperties.Name="{CompiledBinding #ShortcutCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" TabIndex="3" DockPanel.Dock="Right" MinWidth="125"
+                              ItemsSource="{CompiledBinding Shortcuts}" SelectedValueBinding="{CompiledBinding Value, DataType=visualDesigner:MenuEditorViewModel+Choice}"
+                              SelectedValue="{CompiledBinding SelectedMenu.Shortcut, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate><DataTemplate x:DataType="visualDesigner:MenuEditorViewModel+Choice"><TextBlock Text="{CompiledBinding Label}" /></DataTemplate></ComboBox.ItemTemplate>
                     </ComboBox>
-                    <Label Content="{DynamicResource Str.Dialog.MenuEditor.Shortcut}" Margin="0,0,15,0" DockPanel.Dock="Right"/>
+                    <Label x:Name="ShortcutLabel" Target="{CompiledBinding #ShortcutField}" Margin="0,0,15,0" DockPanel.Dock="Right"><AccessText x:Name="ShortcutCaption" Text="{DynamicResource Str.Dialog.MenuEditor.Shortcut}" /></Label>
                 </DockPanel>
             </Grid>
             <Grid ColumnDefinitions="*,*,*,*">
-                <Label Content="{DynamicResource Str.Dialog.MenuEditor.HelpContextID}" Grid.Column="0"/>
-                <TextBox Grid.Column="1" />
-                <Label Content="{DynamicResource Str.Dialog.MenuEditor.NegotiatePosition}" Grid.Column="2"/>
-                <ComboBox Grid.Column="3" SelectedIndex="0">
+                <Label x:Name="HelpContextIDLabel" Target="{CompiledBinding #HelpContextIDField}" Grid.Column="0"><AccessText x:Name="HelpContextIDCaption" Text="{DynamicResource Str.Dialog.MenuEditor.HelpContextID}" /></Label>
+                <TextBox x:Name="HelpContextIDField" AutomationProperties.Name="{CompiledBinding #HelpContextIDCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" TabIndex="4" Grid.Column="1" Text="{CompiledBinding SelectedMenu.HelpContextID}" />
+                <Label x:Name="NegotiatePositionLabel" Target="{CompiledBinding #NegotiatePositionField}" Grid.Column="2"><AccessText x:Name="NegotiatePositionCaption" Text="{DynamicResource Str.Dialog.MenuEditor.NegotiatePosition}" /></Label>
+                <ComboBox x:Name="NegotiatePositionField" AutomationProperties.Name="{CompiledBinding #NegotiatePositionCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" TabIndex="5" Grid.Column="3" SelectedIndex="{CompiledBinding SelectedMenu.NegotiatePosition}">
                     <ComboBoxItem Content="{DynamicResource Str.Dialog.MenuEditor.NegotiatePosition.None}" />
+                    <ComboBoxItem Content="{DynamicResource Str.Dialog.MenuEditor.NegotiatePosition.Left}" />
+                    <ComboBoxItem Content="{DynamicResource Str.Dialog.MenuEditor.NegotiatePosition.Middle}" />
+                    <ComboBoxItem Content="{DynamicResource Str.Dialog.MenuEditor.NegotiatePosition.Right}" />
                 </ComboBox>
             </Grid>
             <Grid ColumnDefinitions="*,*,*,*">
-                <CheckBox Content="{DynamicResource Str.Dialog.MenuEditor.Checked}" IsChecked="{CompiledBinding SelectedMenu.IsChecked}" Grid.Column="0" />
-                <CheckBox Content="{DynamicResource Str.Dialog.MenuEditor.Enabled}" IsChecked="{CompiledBinding SelectedMenu.IsEnable}" Grid.Column="1" />
-                <CheckBox Content="{DynamicResource Str.Dialog.MenuEditor.Visible}" IsChecked="{CompiledBinding SelectedMenu.IsVisible}" Grid.Column="2" />
-                <CheckBox Content="{DynamicResource Str.Dialog.MenuEditor.WindowList}" IsChecked="{CompiledBinding SelectedMenu.IsWindowsList}" Grid.Column="3" />
+                <visualDesigner:MenuEditorCheckBox x:Name="CheckedField" TabIndex="6" Content="{DynamicResource Str.Dialog.MenuEditor.Checked}" IsChecked="{CompiledBinding SelectedMenu.IsChecked}" Grid.Column="0" />
+                <visualDesigner:MenuEditorCheckBox x:Name="EnabledField" TabIndex="7" Content="{DynamicResource Str.Dialog.MenuEditor.Enabled}" IsChecked="{CompiledBinding SelectedMenu.IsEnable}" Grid.Column="1" />
+                <visualDesigner:MenuEditorCheckBox x:Name="VisibleField" TabIndex="8" Content="{DynamicResource Str.Dialog.MenuEditor.Visible}" IsChecked="{CompiledBinding SelectedMenu.IsVisible}" Grid.Column="2" />
+                <visualDesigner:MenuEditorCheckBox x:Name="WindowListField" TabIndex="9" Content="{DynamicResource Str.Dialog.MenuEditor.WindowList}" IsChecked="{CompiledBinding SelectedMenu.IsWindowsList}" Grid.Column="3" />
             </Grid>
             <Separator />
             <Grid ColumnDefinitions="18,5,18,5,18,5,18,14,Auto,7,Auto,7,Auto" Margin="9,0">
 
-                <Button Grid.Column="0" Padding="0" Command="{CompiledBinding MoveLeft}">
-                    <Path Data="{StaticResource Geo.Left}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="9" Height="9" />
-                </Button>
-                <Button Grid.Column="2" Padding="0" Command="{CompiledBinding MoveRight}">
-                    <Path Data="{StaticResource Geo.Right}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="9" Height="9" />
-                </Button>
-                <Button Grid.Column="4" Padding="0" Command="{CompiledBinding MoveUp}">
-                    <Path Data="{StaticResource Geo.Up}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="9" Height="9" />
-                </Button>
-                <Button Grid.Column="6" Padding="0" Command="{CompiledBinding MoveDown}">
-                    <Path Data="{StaticResource Geo.Bottom}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="9" Height="9" />
-                </Button>
-                <Button Grid.Column="8" MinWidth="68" Command="{CompiledBinding Next}" Content="{DynamicResource Str.Dialog.MenuEditor.Next}" />
-                <Button Grid.Column="10" MinWidth="68" Command="{CompiledBinding Insert}" Content="{DynamicResource Str.Dialog.MenuEditor.Insert}" />
-                <Button Grid.Column="12" MinWidth="68" Command="{CompiledBinding Delete}" Content="{DynamicResource Str.Dialog.MenuEditor.Delete}" />
+                <visualDesigner:MenuEditorButton x:Name="LeftButton" TabIndex="10" AutomationProperties.Name="{DynamicResource Str.Dialog.MenuEditor.Left}" Grid.Column="0" Padding="0" Command="{CompiledBinding MoveLeft}">
+                    <Grid><Path Data="{StaticResource Geo.Left}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="9" Height="9" /><AccessText Text="{DynamicResource Str.Dialog.MenuEditor.LeftKey}" Opacity="0" Width="0" /></Grid>
+                </visualDesigner:MenuEditorButton>
+                <visualDesigner:MenuEditorButton x:Name="RightButton" TabIndex="11" AutomationProperties.Name="{DynamicResource Str.Dialog.MenuEditor.Right}" Grid.Column="2" Padding="0" Command="{CompiledBinding MoveRight}">
+                    <Grid><Path Data="{StaticResource Geo.Right}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="9" Height="9" /><AccessText Text="{DynamicResource Str.Dialog.MenuEditor.RightKey}" Opacity="0" Width="0" /></Grid>
+                </visualDesigner:MenuEditorButton>
+                <visualDesigner:MenuEditorButton x:Name="UpButton" TabIndex="12" AutomationProperties.Name="{DynamicResource Str.Dialog.MenuEditor.Up}" Grid.Column="4" Padding="0" Command="{CompiledBinding MoveUp}">
+                    <Grid><Path Data="{StaticResource Geo.Up}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="9" Height="9" /><AccessText Text="{DynamicResource Str.Dialog.MenuEditor.UpKey}" Opacity="0" Width="0" /></Grid>
+                </visualDesigner:MenuEditorButton>
+                <visualDesigner:MenuEditorButton x:Name="DownButton" TabIndex="13" AutomationProperties.Name="{DynamicResource Str.Dialog.MenuEditor.Down}" Grid.Column="6" Padding="0" Command="{CompiledBinding MoveDown}">
+                    <Grid><Path Data="{StaticResource Geo.Bottom}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="9" Height="9" /><AccessText Text="{DynamicResource Str.Dialog.MenuEditor.DownKey}" Opacity="0" Width="0" /></Grid>
+                </visualDesigner:MenuEditorButton>
+                <visualDesigner:MenuEditorButton x:Name="NextButton" TabIndex="14" IsDefault="True" Grid.Column="8" MinWidth="68" Command="{CompiledBinding Next}" Content="{DynamicResource Str.Dialog.MenuEditor.Next}" />
+                <visualDesigner:MenuEditorButton x:Name="InsertButton" TabIndex="15" Grid.Column="10" MinWidth="68" Command="{CompiledBinding Insert}" Content="{DynamicResource Str.Dialog.MenuEditor.Insert}" />
+                <visualDesigner:MenuEditorButton x:Name="DeleteButton" TabIndex="16" Grid.Column="12" MinWidth="68" Command="{CompiledBinding Delete}" Content="{DynamicResource Str.Dialog.MenuEditor.Delete}" />
             </Grid>
-            <ListBox Margin="3,0" Height="147" SelectedItem="{CompiledBinding SelectedMenu, Mode=TwoWay}"
+            <ListBox x:Name="MenuList" TabIndex="17" AutomationProperties.Name="{DynamicResource Str.Dialog.MenuEditor.Title}" Margin="3,0" Height="147" SelectedItem="{CompiledBinding SelectedMenu, Mode=TwoWay}"
                      ItemsSource="{CompiledBinding FlatMenu}">
                 <ListBox.Styles>
                     <Style Selector="ListBoxItem" x:DataType="visualDesigner:MenuViewModel">
-                        <Setter Property="AutomationProperties.Name" Value="{CompiledBinding Caption}" />
+                        <Setter Property="AutomationProperties.Name">
+                            <MultiBinding Converter="{StaticResource MenuItemNameConverter}">
+                                <Binding Path="Caption" />
+                                <Binding Path="Indent" />
+                                <Binding Path="#Editor.BlankItemName" />
+                                <Binding Path="#Editor.ItemLevelFormat" />
+                            </MultiBinding>
+                        </Setter>
                     </Style>
                 </ListBox.Styles>
                 <ListBox.ItemTemplate>

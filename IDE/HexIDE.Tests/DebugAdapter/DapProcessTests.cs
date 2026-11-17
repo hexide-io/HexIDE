@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using HexIDE.Dap;
+using HexIDE.Conversations;
+using System.Text.Json;
 
 namespace HexIDE.Tests.DebugAdapter;
 
@@ -16,6 +18,56 @@ public class DapProcessTests
     private static async Task Ready(DapProcess adapter) =>
         (await adapter.Connection.Events.ReadAsync(TestToken).AsTask().WaitAsync(Patience, TestToken))
         .Event.Should().Be("ready");
+
+    [Theory]
+    [InlineData("setBreakpoints")]
+    [InlineData("setExceptionBreakpoints")]
+    [InlineData("configurationDone")]
+    public async Task Launch_refusal_interrupts_unanswered_configuration(string command)
+    {
+        await using var log = new ConversationLog();
+        await using var session = DapSession.Start(Options("launch-refuse-" + command) with
+        {
+            Capture = new(log, "dap:refused"),
+        });
+        Func<Task> start = () => session.LaunchAsync("fixture", JsonSerializer.SerializeToElement(new { }),
+            [new("/workspace/Module1.bas", [4]), new("/workspace/Module2.bas", [5])], TestToken)
+            .WaitAsync(TimeSpan.FromSeconds(5), TestToken);
+        var failure = await start.Should().ThrowAsync<DapRequestException>().WithMessage("*fixture launch refusal*");
+        session.Snapshot.State.Should().Be(DapSessionState.Faulted);
+        session.Snapshot.Failure.Should().BeSameAs(failure.Which);
+        await log.DrainAsync();
+        var requests = log.Snapshot("dap:refused").Where(e => e.Kind == ConversationEntryKind.Request
+            && e.Direction == ConversationDirection.Sent).Select(e => e.Method).ToArray();
+        requests.Should().Equal(command switch
+        {
+            "setBreakpoints" => ["initialize", "launch", "setBreakpoints"],
+            "setExceptionBreakpoints" => ["initialize", "launch", "setBreakpoints", "setBreakpoints", "setExceptionBreakpoints"],
+            _ => ["initialize", "launch", "setBreakpoints", "setBreakpoints", "setExceptionBreakpoints", "configurationDone"],
+        });
+        (await session.ProcessCompletion!).ExitCode.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Disconnect_reads_what_the_adapter_writes_after_its_reply()
+    {
+        // debugpy answers disconnect and then sends one more event (#3894). Closing the adapter's output on the reply made
+        // that write fail with a broken pipe, and debugpy exit 1. The fixture writes the same event after a pause, and
+        // the capture shows whether it was still read.
+        await using var log = new ConversationLog();
+        await using var session = DapSession.Start(Options("disconnect-late-event") with { Capture = new(log, "dap:late") });
+        await session.LaunchAsync("fixture", JsonSerializer.SerializeToElement(new { }), [], TestToken)
+            .WaitAsync(Patience, TestToken);
+        await session.DisconnectAsync(TestToken).WaitAsync(Patience, TestToken);
+        var result = await session.ProcessCompletion!.WaitAsync(Patience, TestToken);
+        result.ExitCode.Should().Be(0);
+        result.ForcedTermination.Should().BeFalse("the adapter exits by itself once its input ends");
+        session.Snapshot.State.Should().Be(DapSessionState.Ended);
+        await log.DrainAsync();
+        log.Snapshot("dap:late").Should().Contain(e => e.Kind == ConversationEntryKind.Notification
+            && e.Direction == ConversationDirection.Received && e.Method == "debugpySockets",
+            "the adapter's output stays open, and read, until the adapter closes it");
+    }
 
     [Fact]
     public async Task Launch_preserves_argument_boundaries_working_directory_and_environment()

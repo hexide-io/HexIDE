@@ -15,7 +15,8 @@ using HexIDE.Localization;
 namespace HexIDE.Debugging;
 
 public sealed record ExternalVariable(string Name, string Value, string Type, int Reference);
-public sealed record ExternalEvaluation(string Text, bool Expired = false);
+// Immediate receives Output events separately; automation also needs their text in its reply.
+public sealed record ExternalEvaluation(string Text, bool Expired = false, string? Error = null, string PrintedOutput = "");
 
 /// <summary>One external run. Public state and events belong to the UI thread; wire reads never block it.</summary>
 public sealed partial class ExternalDebugService(ConversationLog capture, ILocalizationService? localization = null, IBreakpointService? breakpoints = null)
@@ -190,9 +191,9 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
         {
             State = DapSessionState.Faulted;
             var strings = localization ?? new LocalizationService();
-            Failed?.Invoke(exception.Option.Equals("condition", StringComparison.OrdinalIgnoreCase)
-                ? string.Format(strings.GetString("Str.Debug.External.BreakpointConditionUnsupported"), exception.File, exception.Entry)
-                : string.Format(strings.GetString("Str.Debug.External.BreakpointOptionUnsupported"), exception.Option, exception.File, exception.Entry));
+            // Every option is supported now (#4143): only a value that isn't a string is refused.
+            Failed?.Invoke(string.Format(strings.GetString("Str.Debug.External.BreakpointOptionNotText"),
+                exception.Option, exception.File, exception.Entry));
         }
         catch (Exception exception)
         {
@@ -256,8 +257,9 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
             // Start Run To Cursor's clean-up ahead of the stop's dispatch. Never await its DAP reply:
             // backpressure can hold that reply behind the events this reader must continue draining.
             foreach (var update in batch)
-                if (update.Event?.Event is "stopped" or "terminated" ||
-                    update.Snapshot.State is DapSessionState.Ended or DapSessionState.Faulted)
+                if (update.Event?.DeliveryBarrier is null &&
+                    (update.Event?.Event is "stopped" or "terminated" ||
+                     update.Snapshot.State is DapSessionState.Ended or DapSessionState.Faulted))
                 {
                     var restore = update.Event?.Event == "stopped";
                     await Dispatcher.UIThread.InvokeAsync(() => { _ = RemoveCursorBreakpointAsync(current, restore); });
@@ -271,6 +273,14 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
                 for (var index = 0; index < batch.Count; index++)
                 {
                     var update = batch[index];
+                    if (update.Event?.DeliveryBarrier is { } delivered)
+                    {
+                        // Wire events and session publications stay ordered under backpressure. All
+                        // earlier updates have now reached the UI, even if evaluate replied first.
+                        // Acknowledge only: this reader must never await a DAP response (#4249).
+                        delivered.TrySetResult();
+                        continue;
+                    }
                     var selectedId = update.Event?.Event == "invalidated"
                         ? SelectedFrame?.GetProperty("id").GetInt32() : null;
                     State = update.Snapshot.State;
@@ -394,12 +404,16 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
             throw new InvalidOperationException("No stopped external frame is available for evaluation.");
         var version = selectionVersion;
         var frameId = frame.GetProperty("id").GetInt32();
+        var printed = new StringBuilder();
+        void CollectOutput(string text) { if (session == current) printed.Append(text); }
+        Output += CollectOutput;
         IsEvaluating = true;
         Changed?.Invoke();
         bool IsSelected() => session == current && current.IsCurrent(stop) && selectionVersion == version;
         try
         {
             string text;
+            string? error = null;
             try
             {
                 var reply = await current.EvaluateAsync(stop, frameId, expression);
@@ -407,16 +421,23 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
             }
             catch (Exception exception)
             {
-                text = exception.Message;
+                text = error = exception.Message;
             }
+            try
+            {
+                if (session == current && current.Snapshot.State is not (DapSessionState.Ended or DapSessionState.Faulted))
+                    await current.WaitForDeliveryAsync();
+            }
+            catch (System.IO.IOException) when (!IsSelected()) { }
             // REPL statements can mutate variables even when they ultimately fail. Refresh whichever
             // frame is now selected, but never publish the old reply as that frame's evaluation.
             if (session == current && current.IsCurrent(stop) && SelectedFrame is { } selected)
                 await RefreshSelectedFrameAsync(current, stop, selected.GetProperty("id").GetInt32());
-            return IsSelected() ? new(text) : new("", Expired: true);
+            return IsSelected() ? new(text, Error: error, PrintedOutput: printed.ToString()) : new("", Expired: true);
         }
         finally
         {
+            Output -= CollectOutput;
             if (session == current) { IsEvaluating = false; Changed?.Invoke(); }
         }
     }

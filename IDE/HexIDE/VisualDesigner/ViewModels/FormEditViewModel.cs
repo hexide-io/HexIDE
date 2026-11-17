@@ -42,7 +42,6 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     private readonly IWindowManager windowManager;
     private readonly ISettingsService settingsService;
     private readonly ILocalizationService localization;
-    private readonly IProjectFileFormat format;
     public ToolBoxToolViewModel ToolsBoxToolViewModel { get; }
     public ISettingsService Settings => settingsService;
     protected override string ComputeTitle()
@@ -240,6 +239,12 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// </summary>
     internal ILocalizationService Localization => localization;
 
+    public string? ControlDoubleClickProcedure(ComponentInstanceViewModel control) =>
+        control.Instance.BaseClass.DesignerDoubleClickEvent is { } eventName ? $"{control.Name}_{eventName}" : null;
+
+    public void RequestControlDoubleClickCode(ComponentInstanceViewModel control) =>
+        RequestCode(ControlDoubleClickProcedure(control), control.Name, control.Instance.BaseClass.DesignerDoubleClickEvent);
+
     public ObservableCollection<ComponentInstanceViewModel> TopLevelMenu { get; } = new();
 
     public IEventBus EventBus => eventBus;
@@ -283,10 +288,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         IEditorService editorService,
         IWindowManager windowManager,
         ISettingsService settingsService,
-        ILocalizationService localization,
-        IProjectFileFormat format) : this()
+        ILocalizationService localization) : this()
     {
-        this.format = format;
         this.eventBus = eventBus;
         this.projectService = projectService;
         this.editorService = editorService;
@@ -524,7 +527,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// <summary>The children a container's block holds, in the order a save writes them, as the writer reads them.</summary>
     private IReadOnlyList<ComponentInstance> WrittenChildren(ComponentInstance container, IReadOnlyList<ComponentInstance> fileOrder) =>
         ReferenceEquals(container, Form.Instance)
-            ? (formDefinition is { } own ? ProjectFormats.Of(own.Owner, format) : format).RootChildren(fileOrder, container)
+            ? formDefinition is { } own ? ProjectFormats.Of(own.Owner).RootChildren(fileOrder, container) : container.ContainedControls
             : container.ContainedControls;
 
     /// <summary>
@@ -737,7 +740,6 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             .SetProperty(VBProperties.CaptionProperty, "Form1"));
         AllComponents.Add(Form);
         eventBus = null!;
-        format = null!;
         projectService = null!;
         editorService = null!;
         windowManager = null!;
@@ -1673,7 +1675,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             preview = FormComponentClass.Instance.InstantiateWindow(Form.Instance, VBLoader.HasMenuBar(formDefinition));
             // No SetCode, PrepareForm or Start: events have no interpreter to dispatch to (#2003).
             preview.Content = VBLoader.SpawnComponents(formDefinition, preview.Context.ExecutionContext,
-                preview.Context.RootEnv, new StandaloneStandardLib(preview));
+                preview.Context.RootEnv, new StandaloneStandardLib(preview, HexIDE.IDE.Distribution.DisplayName));
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } owner })
                 preview.Show(owner);
             else
@@ -1694,8 +1696,16 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     public async Task EditMenu()
     {
         var vm = new MenuEditorViewModel(this, localization);
-        if (!await windowManager.ShowDialog(vm))
+        if (!await windowManager.ShowDialog(vm) || !vm.HasChanges)
             return;
+
+        if (!vm.HasLayoutChanges)
+        {
+            foreach (var item in vm.ItemsToApply)
+                item.Apply(item.Menu!);
+            CommitLayout();
+            return;
+        }
 
         foreach (var deleted in vm.Deleted)
         {
@@ -1705,7 +1715,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
         List<ComponentInstanceViewModel> topLevel = new();
         Stack<(int level, ComponentInstance component)> stack = new();
-        foreach (var menuViewModel in vm.FlatMenu)
+        foreach (var menuViewModel in vm.ItemsToApply)
         {
             if (menuViewModel.Menu != null)
             {
@@ -1714,7 +1724,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                     subItems.Clear();
             }
         }
-        foreach (var menuViewModel in vm.FlatMenu)
+        foreach (var menuViewModel in vm.ItemsToApply)
         {
             var menu = menuViewModel.Menu;
             if (menu == null)
@@ -1750,18 +1760,18 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         CommitLayout();
     }
 
-    public void RequestCode(string? subName)
+    public void RequestCode(string? subName, string? objectName, string? eventName)
     {
         Log.Debug("FormEditViewModel: RequestCode({SubName}) for form {FormName}", subName ?? "(null)", formDefinition?.Name);
         editorService.EditCode(formDefinition);
-        if (subName == null)
+        if (subName is null || objectName is null || eventName is null)
             return;
 
         // this is a hack, the following line can be executed only after the window is created, it should be solved in a better way.
         DispatcherTimer.RunOnce(() => LoggedTimerCallback.Run("designer code navigation", () =>
         {
             Log.Debug("FormEditViewModel: Dispatching CreateOrNavigateToSubEvent({SubName})", subName);
-            eventBus.Publish(new CreateOrNavigateToSubEvent(formDefinition!, subName));
+            eventBus.Publish(new CreateOrNavigateToSubEvent(formDefinition!, subName, objectName, eventName));
         }), TimeSpan.FromMilliseconds(16));
     }
 }

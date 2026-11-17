@@ -18,7 +18,7 @@ public class ClipboardTests
         window.Show();
         try
         {
-            var host = new StandaloneStandardLib(window);
+            var host = new StandaloneStandardLib(window, HexIDE.IDE.Distribution.DisplayName);
             await host.Clipboard.Clear();
             var context = new ModuleExecutionContext();
             var env = new ExecutionEnvironment();
@@ -64,7 +64,7 @@ public class ClipboardTests
         window.Show();
         try
         {
-            var host = new StandaloneStandardLib(window);
+            var host = new StandaloneStandardLib(window, HexIDE.IDE.Distribution.DisplayName);
             await host.Clipboard.Clear();
             (await host.Clipboard.GetText()).Should().BeNull();
             await host.Clipboard.SetText("");

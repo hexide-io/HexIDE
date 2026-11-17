@@ -63,6 +63,39 @@ public class RunWithTests : IAsyncDisposable
             },
         }, "com.rdcore.hexide", "RDCore for HexIDE");
 
+    // An add-in's launch runs the project's code too, so downloaded code is asked about first, as F5 is (#1121).
+    [AvaloniaTheory]
+    [InlineData(MessageBoxResult.No, false)]
+    [InlineData(MessageBoxResult.Yes, true)]
+    public async Task An_add_in_s_launch_of_downloaded_code_asks_first_and_starts_only_on_a_Yes(MessageBoxResult answer, bool starts)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Invoices") { AbsolutePath = Path.Combine(Path.GetTempPath(), "Invoices.vbp") };
+        var windows = Substitute.For<IWindowManager>();
+        windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(),
+            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>()).Returns(answer);
+        var strings = Substitute.For<ILocalizationService>();
+        strings.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        var trust = new CodeTrust(windows, strings, path => path == project.AbsolutePath);
+        _projects.StartupProject.Returns(project);
+        var runner = TestRunners.WithEngine(_engine, Substitute.For<IEventBus>(), _projects, strings,
+            Substitute.For<IDebugController>(), Substitute.For<IBreakpointService>(), new WatchService(), new RunScope(),
+            new ExternalDebugService(_log), debugLaunches: _launches, runChoices: _choices, statusBar: _status, trust: trust);
+        Contribute();
+        _choices.Set(project, Key);
+
+        runner.StartDefaultProject();
+
+        await windows.Received(1).MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>(),
+            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), MessageBoxLayout.SecondButtonDefault | MessageBoxLayout.SecurityPrompt);
+        if (starts)
+            (await _asked.Task.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken)).ProjectName.Should().Be("Invoices");
+        else
+        {
+            await Task.Delay(200, TestContext.Current.CancellationToken);
+            _asked.Task.IsCompleted.Should().BeFalse("a No starts nothing");
+        }
+    }
+
     [AvaloniaFact]
     public void F5_runs_the_interpreter_though_an_add_in_offers_a_launch_until_the_user_chooses_it()
     {

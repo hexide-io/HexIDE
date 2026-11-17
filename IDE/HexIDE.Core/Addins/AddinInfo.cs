@@ -21,6 +21,10 @@ public record AddinInfo(
     /// <summary>Verified build declaration for consent/disclosure consumers, not host-use telemetry.</summary>
     public AddinCapabilityDeclaration? VerifiedDeclaration { get; init; }
 
+    /// <summary>The namespaces its verified publisher record issues (<see cref="PublisherNamespaces"/>); null when the record
+    /// carries none, or the add-in isn't verified.</summary>
+    public string[]? PublisherNamespaces { get; init; }
+
     public AddinMessage? LoadError { get; init; }
 
     public AddinMessage? CompatibilityMessage { get; init; }

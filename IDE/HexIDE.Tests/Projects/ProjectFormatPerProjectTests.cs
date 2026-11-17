@@ -35,6 +35,9 @@ public sealed class ProjectFormatPerProjectTests : IDisposable
 
     public ProjectFormatPerProjectTests()
     {
+        // Nothing is injected any more (#3411 slice 10b-3). What a project with no format of its own would get is the test
+        // fixtures' fallback, so it throws here: anything that reached past a project's own format fails.
+        ProjectFormats.TestFixturesOnlyFallback = new ThrowingFormat();
         Directory.CreateDirectory(_dir);
         _standIn.Regions = new FormatRegions(_standInReader, _standInWriter, new NoRules());
         _vbProject = Project("Vb", _vb6, "Public Sub Shown()\r\nAttribute Shown.VB_Description = \"kept\"\r\nEnd Sub\r\n");
@@ -44,6 +47,7 @@ public sealed class ProjectFormatPerProjectTests : IDisposable
 
     public void Dispose()
     {
+        HexIDE.Tests.Infrastructure.TestFixturesOnlyFormat.Set();
         try { Directory.Delete(_dir, recursive: true); } catch (IOException) { /* best effort */ }
     }
 
@@ -75,25 +79,23 @@ public sealed class ProjectFormatPerProjectTests : IDisposable
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns("{0}");
-        return new ProjectService(new ThrowingWriter(), () => throw new InvalidOperationException("no new-project dialog here"),
+        return new ProjectService(() => throw new InvalidOperationException("no new-project dialog here"),
             _windows, Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), localization,
-            Substitute.For<IHeaderRefresher>(), new ThrowingFormat(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
     }
 
     private HeaderRefresher Refresher(params BaseEditorWindowViewModel[] open)
     {
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(open.ToList());
-        return new HeaderRefresher(new ThrowingWriter(), new EventBus(), dock, new BreakpointService(), new BookmarkService(),
-            new ThrowingFormat());
+        return new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService());
     }
 
     private CodeEditorViewModel Window() => new(_windows, Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
         new EventBus(), Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
         new BookmarkService(), new BreakpointService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-        Substitute.For<IRunScope>(), new LocalizationService(), new ThrowingFormat(), new ThrowingReader(),
-        regionRules: new ThrowingRules(), regionWriter: new ThrowingWriter());
+        Substitute.For<IRunScope>(), new LocalizationService());
 
     private static ModuleDefinition ModuleOf(ProjectDefinition project) => project.Modules.Single();
 
@@ -122,7 +124,7 @@ public sealed class ProjectFormatPerProjectTests : IDisposable
         var baselines = new FileBaselineStore();
         baselines.Record(module.AbsolutePath!, project.Format!.RenderModule(module, "Module1.bas").Text);
 
-        new DirtyDetector(baselines, Substitute.For<IProjectService>(), new ThrowingFormat())
+        new DirtyDetector(baselines, Substitute.For<IProjectService>())
             .Classify(new WatchedFileTarget(module.AbsolutePath!, null, module, null, null))
             .Should().Be(ReloadDecision.CleanReload);
     }
@@ -234,6 +236,8 @@ public sealed class ProjectFormatPerProjectTests : IDisposable
 
     private sealed class ThrowingFormat : IProjectFileFormat
     {
+        public string FormExtension => throw Asked("form extension");
+        public string MemberExtension(ModuleKind kind) => throw Asked("member extension");
         public FormatRegions? Regions => throw Asked("format's regions");
         public RenderedFile RenderForm(FormDefinition form, string fileName) => throw Asked("format");
         public RenderedFile RenderModule(ModuleDefinition module, string fileName) => throw Asked("format");

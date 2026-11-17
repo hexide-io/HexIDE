@@ -77,7 +77,7 @@ public class HoverStayTests
         await using var owned = new RealComposition();
         using var context = new IdeContext(null!, null!, Substitute.For<ILspClient>(),
             null!, null!, null!, null!, null!, null!, Substitute.For<IDebugController>(), null!, null!, null!, null!,
-            null!, owned.Composition.Capture, null!, null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            null!, owned.Composition.Capture, null!, null!, null!);
         var tools = new HexIdeTools(context);
         var button = TippedButton("Add", "Add Form");
         ToolTip.SetShowDelay(button, 100);

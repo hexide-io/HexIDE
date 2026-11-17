@@ -18,6 +18,20 @@ public static class AvaloniaInteroperability
 {
     private static List<IAvaloniaBinding> bindings = new();
 
+    // A PictureBox's or Image's Picture reads as one object until the picture is assigned again: `Picture1.Picture Is
+    // Picture1.Picture` and the Image's are True (measured, native and p-code, #4297's probe). An SSTab tab given the
+    // control copies it into an object of its own, which is why `TabPicture(0) Is Picture1.Picture` is False.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control,
+        System.Runtime.CompilerServices.StrongBox<(byte[]? Bytes, PanelPicture? Picture)>> controlPictures = new();
+
+    private static PanelPicture PictureOf(Control control, byte[]? bytes)
+    {
+        var held = controlPictures.GetOrCreateValue(control);
+        if (held.Value.Picture is null || !ReferenceEquals(held.Value.Bytes, bytes))
+            held.Value = (bytes, SSTabMembers.ControlPicture(bytes));
+        return held.Value.Picture!;
+    }
+
     private static Dictionary<PropertyClass, List<IAvaloniaBinding>> bindingsByProperty = new();
 
     // VB6 coerces any numeric to a numeric property (e.g. `Command1.Left = 100` assigns an Integer to the Double
@@ -145,6 +159,7 @@ public static class AvaloniaInteroperability
         RegisterTabOrder<VBFrame>(tabStop: false);
         RegisterTabOrder<VBLabel>(tabStop: false);
         RegisterTabOrder<VBProgressBar>(tabStop: false);
+        RegisterTabOrder<VBSlider>(tabStop: true);
         RegisterTabOrder<VBUpDown>(tabStop: true);
         RegisterTabOrder<VBAnimation>(tabStop: true);
         RegisterTabOrder<VBDTPicker>(tabStop: true);
@@ -170,6 +185,9 @@ public static class AvaloniaInteroperability
         // raises error 461, which is the whole interface of an option button unreachable from VB6 code.
         Register<VBOptionButton, VBAppearance>(VBProperties.AppearanceProperty, VBOptionButton.AppearanceProperty);
         Register<VBOptionButton, bool>(VBProperties.OptionValueProperty, VBOptionButton.ValueProperty);
+
+        Register<VBCommandButton, bool>(VBProperties.DefaultProperty, button => button.Default, (button, value) => button.Default = value);
+        Register<VBCommandButton, bool>(VBProperties.CancelProperty, button => button.Cancel, (button, value) => button.Cancel = value);
 
         Register<VBCommandButton, bool>(VBProperties.CommandValueProperty, _ => false, (button, value) =>
         {
@@ -282,6 +300,11 @@ public static class AvaloniaInteroperability
             && !pictureBox.AutoSize && ReferenceEquals(property, VBProperties.AutoSizeProperty)
             && ConvertForAssignment(property, value) is true)
             throw UnmeasuredAssignment(property, value);
+        if (control is VBImage image && ReferenceEquals(property, VBProperties.PictureProperty) && value.Value is PanelPicture imagePicture)
+        {
+            image.Picture = imagePicture.FileBytes;
+            return true;
+        }
         if (control is VBPictureBox box && ReferenceEquals(property, VBProperties.PictureProperty))
         {
             if (value.Value is not PanelPicture picture)
@@ -538,6 +561,11 @@ public static class AvaloniaInteroperability
             value = new Vb6Value(ControlFont.Get(c));
             return true;
         }
+        if (ReferenceEquals(property, VBProperties.PictureProperty) && c is VBPictureBox or VBImage)
+        {
+            value = new Vb6Value(PictureOf(c, c is VBPictureBox box ? box.PictureData : ((VBImage)c).Picture));
+            return true;
+        }
         // Only the read is measured for Shape (#2070); keep its unmeasured assignment behaviour unchanged.
         if (c is VBShape shape && ReferenceEquals(property, VBProperties.BackColorProperty))
         {
@@ -556,7 +584,7 @@ public static class AvaloniaInteroperability
         }
         // A form a modal form holds reads Enabled False (measured, #822). The hold is apart from its own Enabled, which is
         // what it reads once the modal form has gone.
-        if (c is IFormView { HeldBy: not null } && ReferenceEquals(property, VBProperties.EnabledProperty))
+        if (FormRoot.View(c) is { HeldBy: not null } && ReferenceEquals(property, VBProperties.EnabledProperty))
         {
             value = new Vb6Value(false);
             return true;

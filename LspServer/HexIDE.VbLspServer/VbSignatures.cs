@@ -21,18 +21,18 @@ internal static class VbSignatures
     private static readonly Dictionary<string, SignatureEntry[]> _table =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            // Financial positional surface (#2523); these display names do not enable named runtime calls.
-            ["NPer"] = [new SignatureEntry("NPer(Rate, Pmt, PV, [FV], [Type]) As Double", ["Rate", "Pmt", "PV", "FV", "Type"])],
-            ["IPmt"] = [new SignatureEntry("IPmt(Rate, Per, NPer, PV, [FV], [Type]) As Double", ["Rate", "Per", "NPer", "PV", "FV", "Type"])],
-            ["PPmt"] = [new SignatureEntry("PPmt(Rate, Per, NPer, PV, [FV], [Type]) As Double", ["Rate", "Per", "NPer", "PV", "FV", "Type"])],
-            ["Rate"] = [new SignatureEntry("Rate(NPer, Pmt, PV, [FV], [Type], [Guess]) As Double", ["NPer", "Pmt", "PV", "FV", "Type", "Guess"])],
+            // Financial names measured in #4145.
+            ["NPer"] = [new SignatureEntry("NPer(Rate, Pmt, PV, [FV], [Due]) As Double", ["Rate", "Pmt", "PV", "FV", "Due"])],
+            ["IPmt"] = [new SignatureEntry("IPmt(Rate, Per, NPer, PV, [FV], [Due]) As Double", ["Rate", "Per", "NPer", "PV", "FV", "Due"])],
+            ["PPmt"] = [new SignatureEntry("PPmt(Rate, Per, NPer, PV, [FV], [Due]) As Double", ["Rate", "Per", "NPer", "PV", "FV", "Due"])],
+            ["Rate"] = [new SignatureEntry("Rate(NPer, Pmt, PV, [FV], [Due], [Guess]) As Double", ["NPer", "Pmt", "PV", "FV", "Due", "Guess"])],
             ["NPV"] = [new SignatureEntry("NPV(Rate, ValueArray) As Double", ["Rate", "ValueArray"])],
             ["IRR"] = [new SignatureEntry("IRR(ValueArray, [Guess]) As Double", ["ValueArray", "Guess"])],
             ["MIRR"] = [new SignatureEntry("MIRR(ValueArray, FinanceRate, ReinvestRate) As Double", ["ValueArray", "FinanceRate", "ReinvestRate"])],
-            ["Pmt"] = [new SignatureEntry("Pmt(Rate, NPer, PV, [FV], [Type]) As Double", ["Rate", "NPer", "PV", "FV", "Type"])],
-            ["FV"] = [new SignatureEntry("FV(Rate, NPer, Pmt, [PV], [Type]) As Double", ["Rate", "NPer", "Pmt", "PV", "Type"])],
-            ["PV"] = [new SignatureEntry("PV(Rate, NPer, Pmt, [FV], [Type]) As Double", ["Rate", "NPer", "Pmt", "FV", "Type"])],
-            // Filesystem positional surface (#1561); runtime named arguments await measurement.
+            ["Pmt"] = [new SignatureEntry("Pmt(Rate, NPer, PV, [FV], [Due]) As Double", ["Rate", "NPer", "PV", "FV", "Due"])],
+            ["FV"] = [new SignatureEntry("FV(Rate, NPer, Pmt, [PV], [Due]) As Double", ["Rate", "NPer", "Pmt", "PV", "Due"])],
+            ["PV"] = [new SignatureEntry("PV(Rate, NPer, Pmt, [FV], [Due]) As Double", ["Rate", "NPer", "Pmt", "FV", "Due"])],
+            // Filesystem names measured in #4145.
             ["CurDir"] = [new SignatureEntry("CurDir([Drive]) As String", ["Drive"])],
             ["Dir"] = [new SignatureEntry("Dir([PathName], [Attributes]) As String", ["PathName", "Attributes"])],
             ["FileLen"] = [new SignatureEntry("FileLen(PathName) As Long", ["PathName"])],
@@ -220,13 +220,16 @@ internal static class VbSignatures
             ],
             ["FormatDateTime"] =
             [
-                new SignatureEntry("FormatDateTime(Date, [NamedFormat]) As String", ["Date", "NamedFormat"],
+                new SignatureEntry("FormatDateTime(Expression, [NamedFormat]) As String", ["Expression", "NamedFormat"],
                     "Formats a date or time using the program's locale and the selected named format.")
             ],
 
             // Type conversion
             ["CStr"]  = [new SignatureEntry("CStr(Expression) As String",  ["Expression"], "Converts an expression to String.")],
             ["CInt"]  = [new SignatureEntry("CInt(Expression) As Integer", ["Expression"], "Converts an expression to Integer.")],
+            // #4302 measures positional conversions only; these labels do not enable named calls.
+            ["CLngLng"] = [new SignatureEntry("CLngLng(Expression) As LongLong", ["Expression"])],
+            ["CLngPtr"] = [new SignatureEntry("CLngPtr(Expression)", ["Expression"])],
             ["CLng"]  = [new SignatureEntry("CLng(Expression) As Long",    ["Expression"], "Converts an expression to Long.")],
             ["CDbl"]  = [new SignatureEntry("CDbl(Expression) As Double",  ["Expression"], "Converts an expression to Double.")],
             ["CSng"]  = [new SignatureEntry("CSng(Expression) As Single",  ["Expression"], "Converts an expression to Single.")],
@@ -248,6 +251,7 @@ internal static class VbSignatures
             ["Int"]  = [new SignatureEntry("Int(Number) As Integer", ["Number"], "Returns the integer portion of a number.")],
             ["Fix"]  = [new SignatureEntry("Fix(Number) As Integer", ["Number"], "Returns the integer portion of a number (truncates toward zero).")],
             ["Round"] = [new SignatureEntry("Round(Number, [NumDigitsAfterDecimal As Long]) As Variant", ["Number", "NumDigitsAfterDecimal"], "Rounds a number to a number of decimal places, a half to the even digit.")],
+            ["DDB"]  = [new SignatureEntry("DDB(Cost, Salvage, Life, Period, [Factor]) As Double", ["Cost", "Salvage", "Life", "Period", "Factor"], "Returns double-declining-balance depreciation for one period.")],
             ["SLN"]  = [new SignatureEntry("SLN(Cost, Salvage, Life) As Double", ["Cost", "Salvage", "Life"], "Returns straight-line depreciation for one period.")],
             ["SYD"]  = [new SignatureEntry("SYD(Cost, Salvage, Life, Period) As Double", ["Cost", "Salvage", "Life", "Period"], "Returns sum-of-years depreciation for the given period.")],
             ["Sqr"]  = [new SignatureEntry("Sqr(Number) As Double",  ["Number"], "Returns the square root of a number.")],
@@ -328,10 +332,10 @@ internal static class VbSignatures
             ["IsNull"]    = [new SignatureEntry("IsNull(Expression) As Boolean",  ["Expression"], "Returns True if the expression evaluates to Null.")],
             ["IsEmpty"]   = [new SignatureEntry("IsEmpty(Expression) As Boolean", ["Expression"], "Returns True if the variable has been initialized.")],
             ["IsObject"]  = [new SignatureEntry("IsObject(Expression) As Boolean",["Expression"], "Returns True if the variable is an object reference.")],
-            // Descriptive positional label; VB6's parameter name and named calls remain unmeasured (#2622).
-            ["ObjPtr"]    = [new SignatureEntry("ObjPtr(object) As Long", ["object"], "Returns an object's identity; Nothing has identity zero. Named arguments are not implemented.")],
-            ["StrPtr"]    = [new SignatureEntry("StrPtr(expression) As Long", ["expression"], "Returns a String buffer's identity; vbNullString has identity zero. Named arguments are not implemented.")],
-            ["VarPtr"]    = [new SignatureEntry("VarPtr(expression) As Long", ["expression"], "Returns a variable's identity. Named arguments are not implemented.")],
+            // Pointer parameter names measured in #4145.
+            ["ObjPtr"]    = [new SignatureEntry("ObjPtr(Ptr) As Long", ["Ptr"], "Returns an object's identity; Nothing has identity zero.")],
+            ["StrPtr"]    = [new SignatureEntry("StrPtr(Ptr) As Long", ["Ptr"], "Returns a String buffer's identity; vbNullString has identity zero.")],
+            ["VarPtr"]    = [new SignatureEntry("VarPtr(Ptr) As Long", ["Ptr"], "Returns a variable's identity.")],
             ["IsArray"]   = [new SignatureEntry("IsArray(VarName) As Boolean",    ["VarName"],    "Returns True if the variable is an array.")],
             ["IsDate"]    = [new SignatureEntry("IsDate(Expression) As Boolean",  ["Expression"], "Returns True if the expression can be converted to a date.")],
             ["IsNumeric"] = [new SignatureEntry("IsNumeric(Expression) As Boolean",["Expression"],"Returns True if the expression can be evaluated as a number.")],
@@ -353,8 +357,8 @@ internal static class VbSignatures
             ["IMEStatus"]    = [new SignatureEntry("IMEStatus() As Long", [], "Returns zero when no input method editor is available.")],
             ["DoEvents"]     = [new SignatureEntry("DoEvents() As Integer", [], "Lets waiting events run before the program goes on.")],
             ["FreeFile"]     = [new SignatureEntry("FreeFile([RangeNumber As Integer]) As Integer", ["RangeNumber"], "Returns the next file number free for Open.")],
-            // Positional labels only: FileAttr's named arguments have not been measured (#2521).
-            ["FileAttr"]     = [new SignatureEntry("FileAttr(number, [attribute = 1]) As Long", ["number", "attribute"], "Returns an open file's mode. Only attribute 1 is supported; Input mode is unmeasured.")],
+            // FileAttr names and Input mode measured in #4145.
+            ["FileAttr"]     = [new SignatureEntry("FileAttr(FileNumber, [ReturnType = 1]) As Long", ["FileNumber", "ReturnType"], "Returns an open file's mode. ReturnType 1 returns the mode; other values raise error 5.")],
             ["EOF"]          = [new SignatureEntry("EOF(FileNumber As Integer) As Boolean", ["FileNumber"], "Returns whether a file has been read to its end.")],
             ["LOF"]          = [new SignatureEntry("LOF(FileNumber As Integer) As Long", ["FileNumber"], "Returns the length of an open file in bytes.")],
             ["Loc"]          = [new SignatureEntry("Loc(FileNumber As Integer) As Long", ["FileNumber"], "Returns the position in an open file, in 128-byte blocks for a sequential one.")],

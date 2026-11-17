@@ -66,7 +66,7 @@ public class CodeEditorSymbolRefreshIntegrationTests
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<HexIDE.Debugging.IRunScope>(),
-            localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            localization);
     }
 
     private static ModuleDefinition AModule()

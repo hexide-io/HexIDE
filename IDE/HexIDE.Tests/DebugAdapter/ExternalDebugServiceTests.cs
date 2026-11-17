@@ -22,6 +22,39 @@ public class ExternalDebugServiceTests
     }
 
     [AvaloniaFact]
+    public async Task Evaluate_returns_output_printed_while_the_dispatcher_is_busy()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-evaluate-flood-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var capture = new ConversationLog();
+        var service = new ExternalDebugService(capture);
+        var output = new List<string>();
+        var run = service.StartAsync(await Configuration(directory, "evaluate-output"));
+        try
+        {
+            await WaitFor(service, () => service.CanEvaluate && service.Variables.Count > 0);
+            service.Output += text =>
+            {
+                Dispatcher.UIThread.CheckAccess().Should().BeTrue();
+                if (output.Count == 0) Thread.Sleep(500); // Exercise #4249's busy-dispatcher route.
+                output.Add(text);
+            };
+            var result = await service.EvaluateAsync("? flood").WaitAsync(Patience, Token);
+            var expected = string.Concat(Enumerable.Range(0, 10_000).Select(i => $"line {i}\n"));
+            result.PrintedOutput.Should().Be(expected);
+            result.Error.Should().BeNull();
+            string.Concat(output).Should().Be(expected);
+            output.Count.Should().BeLessThan(10_000);
+        }
+        finally
+        {
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
     public async Task Termination_keeps_draining_output_ahead_of_the_disconnect_reply()
     {
         var directory = Path.Combine(Path.GetTempPath(), "hexide-terminated-flood-" + Guid.NewGuid());
@@ -183,6 +216,147 @@ public class ExternalDebugServiceTests
     }
 
     [AvaloniaTheory]
+    [InlineData("condition", "conditions", true, "launch value")]
+    [InlineData("condition", "launch-options-all", true, "launch value")]
+    [InlineData("hitCondition", "hit-conditions", true, "launch value")]
+    [InlineData("logMessage", "log-points", true, "launch value")]
+    [InlineData("condition", "breakpoints", false, "launch value")]
+    [InlineData("hitCondition", "breakpoints", false, "launch value")]
+    [InlineData("logMessage", "breakpoints", false, "launch value")]
+    [InlineData("condition", "conditions", true, "")]
+    [InlineData("hitCondition", "hit-conditions", true, "")]
+    [InlineData("logMessage", "log-points", true, " ")]
+    public async Task Launch_breakpoint_options_survive_updates_and_are_capability_gated_on_wire(string option, string mode, bool capable, string expression)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-launch-options-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var module = TestHelpers.CreateModule();
+        module.AbsolutePath = Path.Combine(directory, "Module1.bas");
+        var document = HexIDE.Runtime.ProjectElements.DocumentIdentity.For(module);
+        var store = new BreakpointService();
+        store.SetDocument(document, [6]);
+        store.SetCondition(document, 6, "gutter");
+        await using var log = new ConversationLog { ArmsEveryConnection = true };
+        var strings = Substitute.For<ILocalizationService>();
+        var noticeKey = option switch
+        {
+            "condition" => "Str.Debug.Conditions.AdapterIgnored",
+            "hitCondition" => "Str.Debug.HitConditions.AdapterIgnored",
+            _ => "Str.Debug.LogPoints.AdapterIgnored",
+        };
+        strings.GetString(noticeKey).Returns("ignored " + option);
+        var service = new ExternalDebugService(log, strings, store);
+        var failures = new List<string>();
+        service.Failed += failures.Add;
+        var output = new List<string>();
+        service.Output += output.Add;
+        try
+        {
+            var file = await Configuration(directory, mode, [new(module.AbsolutePath, [6, 8])]);
+            var json = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(file, Token))!;
+            foreach (var field in new[] { "condition", "hitCondition", "logMessage" })
+                json["breakpoints"]![0]![field] = expression;
+            await File.WriteAllTextAsync(file, json.ToJsonString(), Token);
+            for (var iteration = 0; iteration < 2; ++iteration)
+            {
+                var run = service.StartAsync(file);
+                await WaitFor(service, () => failures.Count > 0 || service.CanEditBreakpoints && service.Variables.Count > 0);
+                failures.Should().BeEmpty();
+                var uri = new Uri(module.AbsolutePath).AbsoluteUri;
+                if (option == "condition")
+                {
+                    service.GetCondition(uri, 6).Should().Be(expression);
+                    service.SetCondition(uri, 6, "edited gutter");
+                    await WaitFor(service, () => service.GetBreakpoints(uri).All(row => !row.Pending));
+                    service.GetCondition(uri, 6).Should().Be(expression);
+                }
+                service.ToggleBreakpoint(uri, 9).Should().BeTrue();
+                await WaitFor(service, () => service.GetBreakpoints(uri).Count == 3 && service.GetBreakpoints(uri).All(row => !row.Pending));
+                await log.DrainAsync();
+                var frames = log.Snapshot(service.Connection!.Id)
+                    .Where(row => row.Method == "setBreakpoints" && row.Kind == ConversationEntryKind.Request).ToArray();
+                frames.Should().HaveCount(option == "condition" ? 3 : 2);
+                foreach (var entry in frames)
+                {
+                    using var frame = JsonDocument.Parse(log.Body(service.Connection.Id, entry.Sequence)!.Head);
+                    var items = frame.RootElement.GetProperty("arguments").GetProperty("breakpoints");
+                    foreach (var line in new[] { 6, 8 })
+                    {
+                        var item = items.EnumerateArray().Single(value => value.GetProperty("line").GetInt32() == line);
+                        foreach (var field in new[] { "condition", "hitCondition", "logMessage" })
+                        {
+                            var supported = mode == "launch-options-all" || capable && field == option;
+                            if (supported) item.GetProperty(field).GetString().Should().Be(expression);
+                            else item.TryGetProperty(field, out _).Should().BeFalse();
+                        }
+                    }
+                }
+                output.Count(value => value == "ignored " + option + "\n").Should().Be(capable ? 0 : iteration + 1);
+                await service.StopAsync();
+                await run.WaitAsync(Patience, Token);
+            }
+        }
+        finally { await service.StopAsync(); Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Launch_breakpoint_options_survive_cursor_cleanup_and_are_forgotten_when_breakpoints_are_removed(bool clearAll)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-cursor-options-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "source.bas");
+        var uri = new Uri(path).AbsoluteUri;
+        await using var log = new ConversationLog { ArmsEveryConnection = true };
+        var service = new ExternalDebugService(log);
+        var failures = new List<string>();
+        service.Failed += failures.Add;
+        try
+        {
+            var file = await Configuration(directory, "cursor-options", [new(path, [6])]);
+            var json = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(file, Token))!;
+            foreach (var field in new[] { "condition", "hitCondition", "logMessage" })
+                json["breakpoints"]![0]![field] = field;
+            await File.WriteAllTextAsync(file, json.ToJsonString(), Token);
+            var run = service.StartAsync(file);
+            await WaitFor(service, () => failures.Count > 0 || service.CanRunToCursor && service.Variables.Count > 0);
+            failures.Should().BeEmpty();
+            var stop = service.Stop;
+            await service.RunToCursorAsync(uri, 19);
+            await WaitFor(service, () => service.CanRunToCursor && service.Stop != stop && !service.RunToCursorPending);
+            if (clearAll) service.ClearAllBreakpoints();
+            else service.ToggleBreakpoint(uri, 6).Should().BeTrue();
+            await WaitFor(service, () => service.GetBreakpoints(uri).Count == 0);
+            service.ToggleBreakpoint(uri, 6).Should().BeTrue();
+            await WaitFor(service, () => service.GetBreakpoints(uri).Count == 1 && !service.GetBreakpoints(uri)[0].Pending);
+            await log.DrainAsync();
+            var frames = log.Snapshot(service.Connection!.Id)
+                .Where(row => row.Method == "setBreakpoints" && row.Kind == ConversationEntryKind.Request)
+                .Select(row => JsonDocument.Parse(log.Body(service.Connection.Id, row.Sequence)!.Head)).ToArray();
+            try
+            {
+                frames.Should().HaveCount(5);
+                for (var index = 0; index < 3; ++index)
+                {
+                    var items = frames[index].RootElement.GetProperty("arguments").GetProperty("breakpoints");
+                    items.GetArrayLength().Should().Be(index == 1 ? 2 : 1);
+                    foreach (var field in new[] { "condition", "hitCondition", "logMessage" })
+                        items[0].GetProperty(field).GetString().Should().Be(field);
+                    if (index == 1) items[1].EnumerateObject().Select(property => property.Name).Should().Equal("line");
+                }
+                frames[3].RootElement.GetProperty("arguments").GetProperty("breakpoints").GetArrayLength().Should().Be(0);
+                frames[4].RootElement.GetProperty("arguments").GetProperty("breakpoints")[0]
+                    .EnumerateObject().Select(property => property.Name).Should().Equal("line");
+            }
+            finally { foreach (var frame in frames) frame.Dispose(); }
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+        }
+        finally { await service.StopAsync(); Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTheory]
     [InlineData("goto")]
     [InlineData("goto-empty")]
     [InlineData("goto-refuse")]
@@ -244,7 +418,10 @@ public class ExternalDebugServiceTests
     }
 
     [AvaloniaTheory]
-    [InlineData("\"i = 3\"")]
+    [InlineData("42")]
+    [InlineData("true")]
+    [InlineData("[]")]
+    [InlineData("{} ")]
     [InlineData("null")]
     public async Task Breakpoint_condition_is_refused_before_launch_with_localized_file_and_entry(string condition)
     {
@@ -252,7 +429,7 @@ public class ExternalDebugServiceTests
         Directory.CreateDirectory(directory);
         await using var log = new ConversationLog();
         var localization = Substitute.For<ILocalizationService>();
-        localization.GetString("Str.Debug.External.BreakpointConditionUnsupported").Returns("conditions unavailable: {0}, entry {1}");
+        localization.GetString("Str.Debug.External.BreakpointOptionNotText").Returns("{0} not text: {1}, entry {2}");
         var service = new ExternalDebugService(log, localization);
         var failures = new List<string>();
         service.Failed += failures.Add;
@@ -265,7 +442,7 @@ public class ExternalDebugServiceTests
                                 {"path":"second.bas","lines":[2],"condition":CONDITION}]}
                 """.Replace("CONDITION", condition), Token);
             await service.StartAsync(file).WaitAsync(Patience, Token);
-            failures.Should().Equal($"conditions unavailable: {file}, entry 2");
+            failures.Should().Equal($"condition not text: {file}, entry 2");
             service.Connection.Should().BeNull();
             service.IsActive.Should().BeFalse();
         }
@@ -279,7 +456,7 @@ public class ExternalDebugServiceTests
     [InlineData("hitCondition", "de")]
     [InlineData("logMessage", "en")]
     [InlineData("logMessage", "de")]
-    public async Task Unsupported_breakpoint_option_is_localized_before_launch(string option, string language)
+    public async Task A_breakpoint_option_that_is_not_a_string_is_refused_before_launch_localized(string option, string language)
     {
         var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-option-" + Guid.NewGuid());
         Directory.CreateDirectory(directory);
@@ -295,16 +472,12 @@ public class ExternalDebugServiceTests
             await File.WriteAllTextAsync(file, """
                 {"executable":"must-not-start","adapterId":"fixture","launch":{},
                  "breakpoints":[{"path":"first.bas","lines":[1]},
-                                {"path":"second.bas","lines":[2],"OPTION":"3"}]}
+                                {"path":"second.bas","lines":[2],"OPTION":3}]}
                 """.Replace("OPTION", option), Token);
             await service.StartAsync(file).WaitAsync(Patience, Token);
-            var expected = option == "condition"
-                ? language == "de"
-                    ? $"Legen Sie Bedingungen über Bedingung… im Kontextmenü der Haltepunktleiste fest. Datei '{file}', Haltepunkteintrag 2."
-                    : $"Set conditions with Condition… in the breakpoint gutter menu. File '{file}', breakpoint entry 2."
-                : language == "de"
-                    ? $"Die Haltepunktoption '{option}' wird für externe Sitzungen noch nicht unterstützt. Datei '{file}', Haltepunkteintrag 2. Legen Sie Bedingungen über Bedingung… im Kontextmenü der Haltepunktleiste fest."
-                    : $"Breakpoint option '{option}' isn't supported for external sessions yet. File '{file}', breakpoint entry 2. Set conditions with Condition… in the breakpoint gutter menu.";
+            var expected = language == "de"
+                ? $"Haltepunkteintrag 2 in '{file}': '{option}' muss eine Zeichenfolge sein."
+                : $"Breakpoint entry 2 in '{file}': '{option}' must be a string.";
             failures.Should().Equal(expected);
             service.Connection.Should().BeNull();
             service.IsActive.Should().BeFalse();

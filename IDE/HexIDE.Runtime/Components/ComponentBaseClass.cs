@@ -48,6 +48,9 @@ public abstract class ComponentBaseClass : IDesignerComponentClass
 
     public IReadOnlyList<EventClass> Events { get; }
 
+    // Unmeasured controls keep their first event until measured (#4411).
+    public virtual string? DesignerDoubleClickEvent => Events.FirstOrDefault()?.Name;
+
     public abstract string Name { get; }
     public abstract string VBTypeName { get; }
     public string ClassName => VBTypeName[(VBTypeName.LastIndexOf('.') + 1)..];

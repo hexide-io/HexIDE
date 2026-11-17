@@ -56,7 +56,7 @@ public class ServerApplyEditFocusTests
             Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
         editors = new EditorService(dock, NewEditor, () => throw new InvalidOperationException(),
             () => throw new InvalidOperationException(), () => throw new InvalidOperationException(), () => manager, localization);
         try
@@ -81,11 +81,11 @@ public class ServerApplyEditFocusTests
             var edit = new WorkspaceEdit(new() { [b.GetDocumentUriPublic()] =
                 [new TextEdit(new(new(position.Line - 1, position.Column - 1),
                     new(position.Line - 1, position.Column + 4)), "Welcome")] });
-            client.ExecuteCommandAsync("test.edit", Arg.Any<System.Text.Json.JsonElement[]>(), Arg.Any<CancellationToken>())
+            client.ExecuteCodeLensCommandAsync(Arg.Is<Command>(c => c.CommandName == "test.edit"), Arg.Any<CancellationToken>())
                 .Returns(_ =>
                 {
                     editors.ApplyWorkspaceEdit(edit, _ => null).Should().BeNull();
-                    return Task.FromResult<System.Text.Json.JsonElement?>(null);
+                    return Task.CompletedTask;
                 });
             await a.RunCodeLensAsync(new Command("Edit", "test.edit"));
             await Settle();

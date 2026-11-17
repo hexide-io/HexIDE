@@ -24,6 +24,8 @@ public class LineComponentClass : ComponentBaseClass
     {
     }
 
+    public override string? DesignerDoubleClickEvent => null;
+
     public override string Name => "Line";
     public override string VBTypeName => "VB.Line";
     public override bool IsWindowless => true;

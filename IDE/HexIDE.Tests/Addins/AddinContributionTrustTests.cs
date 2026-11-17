@@ -61,7 +61,7 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() switch
         {
             "Str.Addins.DebugLaunchRefused" => "Debug adapter launch refused for add-in '{0}'.",
-            "Str.ContributedProject.NoReader" => "Str.ContributedProject.NoReader {0}",
+            "Str.ContributedProject.NoTypeLoaded" => "Str.ContributedProject.NoTypeLoaded {0}",
             "Str.Debug.RunWith.Unavailable" => "{0} isn't available",
             var key => key + " {0} {1}",
         });
@@ -93,12 +93,10 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
         _events = new AddinEventService(_projects, runner, new EventBus());
         _diagnostics = new AddinDiagnosticsService(_router, _projects);
         _host = new HexIdeHost(new AddinMenuService(), new AddinToolWindowService(), _events, _registry,
-            new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), _projects,
-                format: new Vb6ProjectFileFormat(),
-                reader: new Vb6ReadOnlyRegionReader()),
+            new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), _projects),
             new AddinProjectService(_projects), _diagnostics, new AddinCommandService(), new AddinProjectTemplateService(),
             new AddinOptionsService(), new ComponentRegistry(), runner,
-            new LanguageServerContributions(_router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
+            new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance), [],
                 NullLogger<LanguageServerContributions>.Instance),
             _launches, _types);
@@ -268,7 +266,7 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
 
         _types.Types.Should().BeEmpty();
         _opens.Should().Be(0, "the add-in is not asked to read it");
-        await _windows.Received(1).MessageBox("Str.ContributedProject.NoReader .rdproj",
+        await _windows.Received(1).MessageBox("Str.ContributedProject.NoTypeLoaded .rdproj",
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 
@@ -279,17 +277,16 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
         var strings = Substitute.For<ILocalizationService>();
         strings.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() switch
         {
-            "Str.ContributedProject.NoReader" => "Str.ContributedProject.NoReader {0}",
+            "Str.ContributedProject.NoTypeLoaded" => "Str.ContributedProject.NoTypeLoaded {0}",
             var key => key + " {0} {1}",
         });
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<HexIDE.Forms.ViewModels.BaseEditorWindowViewModel>());
         _projects.LoadedProjects.Returns([]);
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException("no new-project dialog"), _windows,
+        return new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             Substitute.For<IEventBus>(), _projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
-            new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
-            new Vb6ProjectFileFormat(), new ComponentRegistry(),
+            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), new ComponentRegistry(),
             contributed: _types);
     }
 }

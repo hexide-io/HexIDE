@@ -14,7 +14,7 @@ internal static class TestRunners
         ArchiveProjectService? archives = null, DebugLaunchService? debugLaunches = null, IRunChoiceStore? runChoices = null,
         IStatusBarService? statusBar = null) =>
         new(eventBus, projectManager, localization, debugController, breakpointService, watchService, runScope,
-            new InterpreterRunEngine(windowManager, new ProgramHost(windowManager, localization), debugController), externalDebugger, archives, debugLaunches,
+            new InterpreterRunEngine(new ProgramHost(windowManager, localization), debugController), externalDebugger, archives, debugLaunches,
             runChoices, statusBar);
 
     /// <summary>
@@ -25,7 +25,7 @@ internal static class TestRunners
         ILocalizationService localization, IDebugController debugController, IBreakpointService breakpointService,
         WatchService watchService, RunScope runScope, ExternalDebugService? externalDebugger = null,
         ArchiveProjectService? archives = null, DebugLaunchService? debugLaunches = null, IRunChoiceStore? runChoices = null,
-        IStatusBarService? statusBar = null) =>
+        IStatusBarService? statusBar = null, CodeTrust? trust = null) =>
         new(eventBus, projectManager, localization, debugController, breakpointService, watchService, runScope, engine,
-            externalDebugger, archives, debugLaunches, runChoices, statusBar);
+            externalDebugger, archives, debugLaunches, runChoices, statusBar, trust);
 }

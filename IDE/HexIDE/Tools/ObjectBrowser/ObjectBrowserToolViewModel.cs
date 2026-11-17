@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using HexIDE.IDE;
+using HexIDE.Language;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Runtime.Components;
@@ -31,7 +32,6 @@ public partial class ObjectBrowserToolViewModel : Document
     private readonly ILspClient lspClient;
     private readonly IEditorService editorService;
     private readonly ITypeLibraryService typeLibraryService;
-    private readonly IFocusedProjectUtil focusedProjectUtil;
     private readonly ILanguageConnectionRegistry connections;
     private readonly ILocalizationService localization;
 
@@ -39,6 +39,9 @@ public partial class ObjectBrowserToolViewModel : Document
     private readonly Dictionary<ProjectDefinition, List<OBLibraryViewModel>> projectReferences = new();
     private OBLibraryViewModel? vbaLibrary;
     private readonly OBLibraryViewModel allLibraries;
+
+    private OBLibraryViewModel? libraryBeforeReload;
+    private bool removingLibrary;
 
     public ObservableCollection<OBLibraryViewModel> Libraries { get; } = new();
 
@@ -84,7 +87,7 @@ public partial class ObjectBrowserToolViewModel : Document
     public string DescriptionSignature => selectedMember?.Signature ?? string.Empty;
 
     public string DescriptionMembership => selectedMember != null && selectedClass != null
-        ? $"Member of {selectedClass.LibraryName}.{selectedClass.Name}"
+        ? string.Format(localization.GetString("Str.Tool.ObjectBrowser.MemberOf"), selectedClass.LibraryName, selectedClass.Name)
         : string.Empty;
 
     public string DescriptionText => selectedMember?.Description ?? string.Empty;
@@ -123,7 +126,6 @@ public partial class ObjectBrowserToolViewModel : Document
         this.editorService = editorService;
         this.componentRegistry = componentRegistry;
         this.typeLibraryService = typeLibraryService;
-        this.focusedProjectUtil = focusedProjectUtil;
         this.connections = connections;
         this.localization = localization;
         allLibraries = new OBLibraryViewModel(localization.GetString("Str.Tool.ObjectBrowser.AllLibraries"));
@@ -147,6 +149,8 @@ public partial class ObjectBrowserToolViewModel : Document
         CloseCommand = new DelegateCommand(Close);
 
         connections.ConnectionsChanged += OnConnectionsChanged;
+        projectManager.ReloadStarted += OnReloadStarted;
+        projectManager.ReloadFinished += OnReloadFinished;
         projectManager.ProjectLoaded += OnProjectLoaded;
         projectManager.ProjectUnloaded += OnProjectUnloaded;
         focusedProjectUtil.ObservePropertyChanged(x => x.FocusedOrStartupProject)
@@ -154,6 +158,7 @@ public partial class ObjectBrowserToolViewModel : Document
 
         this.ObservePropertyChanged(x => x.SelectedLibrary).Subscribe(_ =>
         {
+            if (!removingLibrary) libraryBeforeReload = null;
             if (SelectedLibrary is { IsLoaded: false })
             {
                 if (SelectedLibrary == vbaLibrary)
@@ -286,6 +291,37 @@ public partial class ObjectBrowserToolViewModel : Document
         finally { IsLoadingMembers = false; }
     }
 
+    private void OnReloadStarted()
+    {
+        libraryBeforeReload = SelectedLibrary is { } lib
+            && (lib.Reference != null || projectToLibrary.ContainsValue(lib)) ? lib : null;
+    }
+
+    private void OnReloadFinished()
+    {
+        var previous = libraryBeforeReload;
+        libraryBeforeReload = null;
+        if (previous == null || Libraries.Contains(previous)) return;
+        var candidates = previous.Reference != null
+            ? Libraries.Where(l => l.Reference != null)
+            : projectToLibrary.Values;
+        SelectedLibrary = candidates.FirstOrDefault(l =>
+            l.Name.Equals(previous.Name, StringComparison.OrdinalIgnoreCase)) ?? allLibraries;
+    }
+
+    private void RemoveLibrary(OBLibraryViewModel library)
+    {
+        // Move the selection before the bound ComboBox removes its selected item.
+        removingLibrary = true;
+        try
+        {
+            if (SelectedLibrary == library) SelectedLibrary = allLibraries;
+            PruneHistory(c => library.Classes.Contains(c));
+            Libraries.Remove(library);
+        }
+        finally { removingLibrary = false; }
+    }
+
     private void OnProjectLoaded(ProjectDefinition project) => AddProjectLibrary(project);
 
     private void OnProjectUnloaded(ProjectDefinition project)
@@ -299,17 +335,13 @@ public partial class ObjectBrowserToolViewModel : Document
         project.ObjectReferencesChanged -= RefreshReferenceLibraries;
         foreach (var referenceLibrary in projectReferences[project])
         {
-            PruneHistory(c => referenceLibrary.Classes.Contains(c));
-            Libraries.Remove(referenceLibrary);
-            if (SelectedLibrary == referenceLibrary) SelectedLibrary = null;
+            RemoveLibrary(referenceLibrary);
         }
         projectReferences.Remove(project);
         foreach (var form in project.Forms) form.PropertyChanged -= OnMemberChanged;
         foreach (var module in project.Modules) module.PropertyChanged -= OnMemberChanged;
-        PruneHistory(c => lib.Classes.Contains(c));
-        Libraries.Remove(lib);
+        RemoveLibrary(lib);
         projectToLibrary.Remove(project);
-        if (SelectedLibrary == lib) SelectedLibrary = null;
         ReorderLibraries();
     }
 
@@ -352,13 +384,17 @@ public partial class ObjectBrowserToolViewModel : Document
             if (!references.Any(library.IsNamedBy))
                 references.Add(new VbReference(library.Guid, library.Version, 0, null, library.Name));
 
+        var components = project.ObjectReferences.Concat(project.Forms.SelectMany(f => f.ObjectReferences)).ToList();
+        foreach (var component in components.Where(c => !InBox.RuntimeLibraries.All.Any(l => l.IsNamedBy(c))))
+            if (!references.Any(r => component.Names(r.Guid)))
+                references.Add(new VbReference(component.Guid, component.Version, component.Lcid, null,
+                    SerializedProject.FileNameWithoutExtensionOf(component.File)));
+
         var owned = projectReferences[project];
         foreach (var stale in owned.Where(l => !references.Contains(l.Reference!)).ToList())
         {
-            PruneHistory(c => stale.Classes.Contains(c));
-            Libraries.Remove(stale);
+            RemoveLibrary(stale);
             owned.Remove(stale);
-            if (SelectedLibrary == stale) SelectedLibrary = null;
         }
         foreach (var reference in references)
         {
@@ -370,6 +406,9 @@ public partial class ObjectBrowserToolViewModel : Document
             var lib = new OBLibraryViewModel(refName, reference);
             owned.Add(lib);
             Libraries.Add(lib);
+            if (components.Any(c => c.Names(reference.Guid))
+                && !InBox.RuntimeLibraries.All.Any(l => l.IsNamedBy(reference)))
+                LoadReferenceLibraryAsync(lib, useMetadataName: true).ListenErrors();
         }
         ReorderLibraries();
     }
@@ -461,15 +500,9 @@ public partial class ObjectBrowserToolViewModel : Document
 
     private void ReorderLibraries()
     {
-        // Order: [<All Libraries>] [focused project] [everything else, alpha]
-        var focused = focusedProjectUtil.FocusedOrStartupProject != null
-            && projectToLibrary.TryGetValue(focusedProjectUtil.FocusedOrStartupProject, out var fl)
-            ? fl : null;
-
         var desired = Libraries
-            .OrderBy(l => l == allLibraries ? 0 : l == focused ? 1 : 2)
-            .ThenBy(l => l == allLibraries || l == focused
-                ? string.Empty : l.Name, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(l => l == allLibraries ? 0 : 1)
+            .ThenBy(l => l.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         for (int i = 0; i < desired.Count; i++)
@@ -531,7 +564,7 @@ public partial class ObjectBrowserToolViewModel : Document
             return;
         }
 
-        if (lspClient.IsRunning && SelectedClass.CanNavigate)
+        if (SelectedClass.CanNavigate)
             LoadMembersAsync(SelectedClass, memberRequestVersion).ListenErrors();
     }
 
@@ -544,7 +577,17 @@ public partial class ObjectBrowserToolViewModel : Document
                 ? DocumentWireName.For(classVm.ModuleDefinition)
                 : DocumentWireName.For(classVm.FormDefinition!);
 
-            var symbols = await lspClient.RequestDocumentSymbolsAsync(uri, CancellationToken.None);
+            var symbols = lspClient.IsRunning
+                ? await lspClient.RequestDocumentSymbolsAsync(uri, CancellationToken.None) : [];
+            if (symbols.Length == 0)
+            {
+                // Keep navigation in whole-file coordinates, as for server symbols and code windows.
+                var text = classVm.ModuleDefinition is { } module
+                    ? (module.Owner.Format?.CodePrefix(module) ?? FormCodeText.Prefix(module)) + module.Code
+                    : (classVm.FormDefinition!.Owner.Format?.CodePrefix(classVm.FormDefinition)
+                        ?? FormCodeText.Prefix(classVm.FormDefinition)) + classVm.FormDefinition.Code;
+                symbols = VbFamilyDeclarationCollector.Collect(text);
+            }
             if (requestVersion != memberRequestVersion) return;
 
             classVm.Members.Clear();
@@ -642,14 +685,16 @@ public partial class ObjectBrowserToolViewModel : Document
         : keyword is null ? sym.Name
         : $"{keyword} {sym.Name}";
 
-    private async Task LoadReferenceLibraryAsync(OBLibraryViewModel lib)
+    private async Task LoadReferenceLibraryAsync(OBLibraryViewModel lib, bool useMetadataName = false)
     {
         if (lib.IsLoaded || lib.Reference == null) return;
+        lib.IsLoaded = true;
         IsLoadingMembers = true;
         try
         {
             var info = await typeLibraryService.GetTypeLibInfoAsync(lib.Reference);
-            lib.IsLoaded = true;
+            if (useMetadataName && info != null)
+                lib.Name = info.Name;
 
             if (info == null)
             {
@@ -691,7 +736,7 @@ public partial class ObjectBrowserToolViewModel : Document
                 }
                 if (lib.Classes.Count == 0)
                     lib.Classes.Add(new OBClassViewModel(
-                        "(Type metadata unavailable)", OBClassKind.Module, lib.Name));
+                        localization.GetString("Str.Tool.ObjectBrowser.TypeMetadataUnavailable"), OBClassKind.Module, lib.Name));
             }
             else
             {
@@ -718,7 +763,9 @@ public partial class ObjectBrowserToolViewModel : Document
             lib.Classes.Sort((a, b) =>
                 string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
 
-            if (ReferenceEquals(SelectedLibrary, lib) || SelectedLibrary == allLibraries)
+            if (useMetadataName)
+                ReorderLibraries();
+            else if (ReferenceEquals(SelectedLibrary, lib) || SelectedLibrary == allLibraries)
                 RebuildFilteredClasses();
         }
         catch (Exception ex)

@@ -56,7 +56,6 @@ public class CallByNameTests : BaseVBTestFixture
     [InlineData("CallByName(k, \"Item\")")]
     [InlineData("CallByName(k, 1, VbGet)")]
     [InlineData("CallByName(k, \"Item\", 1#, \"ka\")")]
-    [InlineData("CallByName(k, ProcName:=\"Item\", CallType:=VbMethod, Args:=\"ka\")")]
     public async Task UnsupportedShape_Refuses(string expression)
     {
         var run = () => Run("Dim k As New Collection\nDebug.Print " + expression + "\n");

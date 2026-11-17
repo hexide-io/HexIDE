@@ -59,10 +59,21 @@ public partial class VB6BuiltIns
     /// <summary>The program's open files (#1145), which FreeFile and EOF read and the file statements use.</summary>
     internal VbFiles Files { get; } = new();
 
+    // #4302 measures these LongLong inputs only. Other intrinsic uses need #1548's oracle rows.
+    private static readonly HashSet<string> LongLongInputs = new(StringComparer.OrdinalIgnoreCase)
+    { "CLngLng", "CLngPtr", "CInt", "CLng", "CDbl", "CStr", "TypeName", "VarType", "Hex", "Oct", "Str", "Format", "LenB", "Abs", "Int", "Fix", "Sgn" };
+
+    internal VbaBitness VbaBitness { get; init; }
+
     internal Func<Vb6Value, string, Task<Vb6Value>>? ResolveDefaultForUse { get; set; }
 
     public async Task<Vb6Value?> EvaluateBuiltInFunction(string name, List<Vb6Value> args, bool compareText = false)
     {
+        if (IsLongLongConversion(name) && VbaBitness != VbaBitness.Bit64
+            && !(VbaBitness == VbaBitness.Bit32 && name.Equals("CLngPtr", StringComparison.OrdinalIgnoreCase)))
+            return null;
+        if (IsLongLongConversion(name) && args.Count != 1)
+            throw new NotImplementedException("This argument count for a LongLong conversion is unmeasured (#1548)");
         CheckIntrinsicArgumentCount(name, args);
 
         // An unknown name is not a built-in, and its callers say so loudly ("Sub or Function not defined", or not
@@ -83,6 +94,11 @@ public partial class VB6BuiltIns
                 arg = await resolve(arg, name.Equals("Format", StringComparison.OrdinalIgnoreCase) ? "Format"
                     : name.Equals("Abs", StringComparison.OrdinalIgnoreCase) ? "Abs" : name);
             args[i] = ArgumentAsUsed(name, i, arg);
+            if (args[i].Type == Vb6Value.ValueType.LongLong
+                && (i != 0 || !LongLongInputs.Contains(name)
+                    || name.Equals("LenB", StringComparison.OrdinalIgnoreCase)
+                        && args is not IntrinsicArgumentValues { LenVariableSize: 8 }))
+                throw new NotImplementedException($"Use of LongLong by {name} in this argument is unmeasured (#1548)");
         }
 
         // The two async builtins await the standard library; every other builtin is in the sync registry.
@@ -237,10 +253,9 @@ public partial class VB6BuiltIns
         d["FileAttr"] = (self, a, _) =>
         {
             var number = Convert.ToInt32(NarrowNum(a[0], Vb6Value.ValueType.Integer).Value);
-            if (Supplied(a, 1) && a[1].Type != Vb6Value.ValueType.Integer
-                && a[1].Type != Vb6Value.ValueType.Long && a[1].Type != Vb6Value.ValueType.Byte)
-                throw new NotImplementedException("FileAttr attribute conversion is not implemented: its VB6 behaviour is unmeasured (#2521)");
-            return new Vb6Value(self.Files.FileAttr(number, Supplied(a, 1) ? Convert.ToInt64(a[1].Value) : 1));
+            // ReturnType converts as CInt, including banker's rounding (#4145).
+            return new Vb6Value(self.Files.FileAttr(number, Supplied(a, 1)
+                ? Convert.ToInt64(NarrowNum(a[1], Vb6Value.ValueType.Integer).Value) : 1));
         };
         d["EOF"] = (self, a, _) => new Vb6Value(self.Files.Eof(AsInt(a[0])));
         // LOF, Loc and Seek are Longs, and Input a String (measured, #1645). Input's file number may be written #n: the

@@ -113,7 +113,10 @@ The session has a single launch and cannot be restarted. Dispose it and create a
 `LaunchAsync(adapterId, arguments, breakpoints, token)` sends initialize with one-based coordinates and
 native paths, starts launch, waits for initialized, replaces each supplied source's breakpoints, selects
 advertised default exception filters, and sends configurationDone only when supported. It awaits the launch
-response **after** configuration, since adapters may defer that response. Initialized may arrive before the
+response **after** configuration, since adapters may defer that response. During every configuration
+request it also watches for launch failure: a refusal immediately faults startup with the adapter
+message, releases ownership, and prevents further configuration requests (#4160). An early successful
+launch response does not skip or reorder configuration. Initialized may arrive before the
 initialize response. All startup work shares a 60-second deadline (configurable for a supplied connection),
 in addition to the wire request limits. Failed/cancelled startup releases the owned connection/process.
 The returned breakpoint responses retain verified flags, relocated lines and adapter messages.
@@ -134,6 +137,14 @@ consumer continues reading updates; a `terminated` event during that wait leaves
 checks this order with a held response and observes stdin EOF only after the reply. Cancellation,
 timeout and transport failure still permit bounded cleanup without a response (#3894).
 
+For an adapter process, the reply doesn't end what it writes. debugpy answers `disconnect` and then sends a
+`debugpySockets` event. So `DisconnectAsync` closes stdin after the reply and goes on reading the adapter's stdout
+until the adapter closes it, for at most `ShutdownTimeout`, before disposal closes the rest. It used to close stdout
+on the reply too, and when that won the race, debugpy's late write failed with a broken pipe and it exited 1 (#3894).
+`DapProcessTests.Disconnect_reads_what_the_adapter_writes_after_its_reply` checks that an event written 300 ms after
+the reply still reaches the capture. A session over a bare connection closes on the reply as before, since its
+stream may never end.
+
 Stopped snapshots carry a session-specific `DapStop`. Pass it to Threads/StackTrace/Scopes/VariablesAsync.
 The raw response retains thread/frame IDs (including frame zero), source paths/references, variable
 references and unknown fields. Reads reject a stop that expired before or during the request. Call
@@ -153,6 +164,13 @@ Frame zero is valid. The raw result preserves type, variable reference and exten
 validated before and after the request; callers must also validate their selected-frame identity before
 presenting the result. REPL evaluation has no optional capability flag and can have side effects. A failed
 or timed-out request is never retried. The IDE displays result text/errors and refreshes selected-frame locals.
+MCP `evaluate` returns output delivered during that evaluation followed by the response result, and
+reports an adapter refusal as `success: false` with its message in `error` (#4323). Output already read
+is awaited through a local delivery barrier in the connection event and session update queues, acknowledged
+after earlier updates in the same UI batch. The barrier waits for room in a full event queue and follows
+the session publication chain; session shutdown cancels the wait. The update reader only acknowledges
+delivery; it never waits for a DAP response.
+The Immediate window receives output events separately, so it still prints each event only once.
 `EvaluateWatchAsync(stop, frameId, expression)` uses `context: watch` and preserves result text, type and
 variable references. The Watches window owns a separate external list for the IDE session and discards
 replies superseded by frame/stop changes or edits. Watch requests do not refresh Locals recursively.
@@ -283,6 +301,13 @@ dotnet test IDE/HexIDE.Tests -- --filter-class "*DapConnectionTests"
 dotnet test IDE/HexIDE.Tests -- --filter-class "*DapProcessTests"
 ```
 
+Launch-file breakpoint entries accept `condition`, `hitCondition` and `logMessage` strings (#4143).
+Each is sent only with the corresponding adapter capability; unsupported fields are omitted with one
+localized notice per field per session, keeping the breakpoint. Launch conditions take precedence over
+gutter conditions. `ExternalDebugServiceTests` captures the requests to `HexIDE.Dap.TestAdapter` and checks
+initial/live wire fields, capability omissions, notice lifetime, Run To Cursor preservation and removal.
+See [external debug sessions](debug-launch.md) for the launch format.
+
 The opt-in [real adapter smoke](dap-adapter-smoke.md) launches a separately installed adapter and its real
 components. It is not downloaded or run by ordinary CI; the smoke executable is built with the IDE solution.
 
@@ -290,7 +315,7 @@ components. It is not downloaded or run by ordinary CI; the smoke executable is 
 
 - Rich launch settings UI and workspace preparation, including any VB6 project conversion.
 - Multi-thread inspection.
-- Command-specific MCP routing and conditional/hit-count breakpoints.
+- Command-specific MCP inspection and gutter editing for hit conditions and log messages.
 - External break-condition watches, dynamic capabilities and further capability-dependent UI.
 - Automated acquisition and cross-platform real-adapter acceptance in CI.
 - An add-in contributing a debug adapter, [#891](https://github.com/hexide-io/HexIDE/issues/891). An add-in can already

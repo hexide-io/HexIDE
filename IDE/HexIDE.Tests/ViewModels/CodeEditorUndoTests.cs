@@ -54,9 +54,7 @@ public class CodeEditorUndoTests : IDisposable
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<ILocalizationService>(),
-                new Vb6ProjectFileFormat(),
-                new Vb6ReadOnlyRegionReader(), regionWriter: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter());
+            Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<ILocalizationService>());
         made.Add(vm);
         return vm.Initialize(module);
     }

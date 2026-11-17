@@ -13,7 +13,7 @@ internal static class DesignerRootEvents
     private static readonly EventClass AmbientChangedEvent = new EventClass("AmbientChanged", new EventClassArgument("PropertyName", "String"));
     private static readonly EventClass AsyncReadCompleteEvent = new EventClass("AsyncReadComplete", new EventClassArgument("AsyncProp", "AsyncProperty"));
     private static readonly EventClass AsyncReadProgressEvent = new EventClass("AsyncReadProgress", new EventClassArgument("AsyncProp", "AsyncProperty"));
-    private static readonly EventClass DragDropEvent = new EventClass("DragDrop", new EventClassArgument("Source", "Control"), new EventClassArgument("X", "Single"), new EventClassArgument("Y", "Single"));
+    internal static readonly EventClass DragDropEvent = new EventClass("DragDrop", new EventClassArgument("Source", "Control"), new EventClassArgument("X", "Single"), new EventClassArgument("Y", "Single"));
     private static readonly EventClass DragOverEvent = new EventClass("DragOver", new EventClassArgument("Source", "Control"), new EventClassArgument("X", "Single"), new EventClassArgument("Y", "Single"), new EventClassArgument("State", "Integer"));
     private static readonly EventClass EnterFocusEvent = new EventClass("EnterFocus");
     private static readonly EventClass ExitFocusEvent = new EventClass("ExitFocus");

@@ -5,6 +5,26 @@ namespace HexIDE.Runtime.Tests;
 // vb6.exe SP6, native and p-code: https://github.com/hexide-io/HexIDE/issues/2524.
 public class DepreciationTests : BaseVBTestFixture
 {
+    // Oracle: docs/vb6-fidelity-oracle/ddb-sln-and-syd.md.
+    [Theory]
+    [InlineData("DDB(2400, 300, 10 * 365, 1)", "3FF50A8542A150A8")]
+    [InlineData("DDB(2400, 300, 10 * 12, 1)", "4044000000000000")]
+    [InlineData("DDB(2400, 300, 10, 1)", "407E000000000000")]
+    [InlineData("DDB(2400, 300, 10, 2, 1.5)", "4073200000000000")]
+    // Measured: 40361F5F40D83797. Jen approved the closest model, #2524 issuecomment-6954532512.
+    [InlineData("DDB(2400, 300, 10, 10)", "40361F5F40D83791")]
+    [InlineData("DDB(2400, 300, 10, 2.5)", "4075775C544FF263")]
+    [InlineData("DDB(2400, 3000, 10, 1)", "C082C00000000000")]
+    public async Task Ddb_approved_model_returns_Double_bits(string expression, string bits)
+    {
+        await Run($"Debug.Print {expression}\n");
+        debug.Should().ContainSingle();
+        debug[0].Type.Should().Be(Vb6Value.ValueType.Double);
+        BitConverter.DoubleToUInt64Bits((double)debug[0].Value!).ToString("X16").Should().Be(bits);
+        if (expression == "DDB(2400, 300, 10, 10)")
+            written.ToString().Trim().Should().Be("22.1225472000002");
+    }
+
     [Theory]
     [InlineData("SLN(30000, 7500, 10)", "40A1940000000000")]
     [InlineData("SLN(30000, 7500, -2)", "C0C5F90000000000")]
@@ -20,6 +40,9 @@ public class DepreciationTests : BaseVBTestFixture
     }
 
     [Theory]
+    [InlineData("DDB(2400, 300, 10, 11)")]
+    [InlineData("DDB(2400, 300, 10, 0)")]
+    [InlineData("DDB(2400, 300, 0, 1)")]
     [InlineData("SLN(30000, 7500, 0)")]
     [InlineData("SYD(30000, 7500, 10, 11)")]
     [InlineData("SYD(30000, 7500, 10, 0)")]
@@ -30,6 +53,8 @@ public class DepreciationTests : BaseVBTestFixture
     }
     // This is HexIDE's refusal contract, not a claim about VB6's unmeasured argument diagnostics.
     [Theory]
+    [InlineData("DDB(2400, 300, 10)")]
+    [InlineData("DDB(2400, 300, 10, 1, 2, 3)")]
     [InlineData("SLN(30000, 7500)")]
     [InlineData("SLN(30000, 7500, 10, 1)")]
     [InlineData("SYD(30000, 7500, 10)")]
@@ -40,4 +65,14 @@ public class DepreciationTests : BaseVBTestFixture
         await run.Should().ThrowAsync<NotImplementedException>();
     }
 
+    // HexIDE refuses FinancialNumber.Pow's unmeasured domains, without guessing a VB6 value.
+    [Theory]
+    [InlineData("DDB(2400, 300, 10, 1, 10)")]
+    [InlineData("DDB(2400, 300, 10, 1, 11)")]
+    [InlineData("DDB(2400, 300, 10002, 10002)")]
+    public async Task Ddb_unmeasured_power_domain_is_refused(string expression)
+    {
+        Func<Task> run = () => Run($"Debug.Print {expression}\n");
+        await run.Should().ThrowAsync<NotImplementedException>();
+    }
 }

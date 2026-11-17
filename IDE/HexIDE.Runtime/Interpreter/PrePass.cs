@@ -32,6 +32,8 @@ public class PrePass : VB6BaseVisitor<object?>
     /// <summary>True for a class or a form: an object module, where VB6 refuses some Public members outright.</summary>
     public bool ObjectModule { get; init; }
 
+    public VbaBitness VbaBitness { get; init; }
+
     internal const string PublicMemberOfObjectModule =
         "Constants, fixed-length strings, arrays, user-defined types and Declare statements not allowed as Public members of object modules";
     // Each module-level Const by name: its declaration, and whether another module can see it (Public or Global; one
@@ -152,11 +154,16 @@ public class PrePass : VB6BaseVisitor<object?>
     /// </summary>
     public override object? VisitDeftypeStmt(VB6Parser.DeftypeStmtContext context)
     {
+        if (context.DEFLNGLNG() != null && VbaBitness != VbaBitness.Bit64
+            || context.DEFLNGPTR() != null && VbaBitness == VbaBitness.None)
+            throw new VBCompileErrorException("Invalid outside procedure");
         if (declared)
             throw new VBCompileErrorException("Deftype statements must precede declarations");
         var type = context.DEFBOOL() != null ? Vb6Value.ValueType.Boolean
             : context.DEFBYTE() != null ? Vb6Value.ValueType.Byte
             : context.DEFINT() != null ? Vb6Value.ValueType.Integer
+            : context.DEFLNGPTR() != null && VbaBitness == VbaBitness.Bit32 ? Vb6Value.ValueType.Long
+            : context.DEFLNGLNG() != null || context.DEFLNGPTR() != null ? Vb6Value.ValueType.LongLong
             : context.DEFLNG() != null ? Vb6Value.ValueType.Long
             : context.DEFCUR() != null ? Vb6Value.ValueType.Currency
             : context.DEFSNG() != null ? Vb6Value.ValueType.Single
@@ -467,6 +474,15 @@ public class PrePass : VB6BaseVisitor<object?>
         // CALL to it raises the clean "Sub or Function not defined" error. This lets a module that merely declares
         // an API (a near-universal pattern in real VB6) load and run its non-API code.
     {
+        // #4245: only active declarations reach this walk, as inactive code is never parsed. vb6.exe refuses an active
+        // PtrSafe with "Expected: Sub or Function" (measured, native and p-code). 64-bit VBA7 refuses a Declare without
+        // PtrSafe (Excel x64, row P1) but its message wasn't read: this text is HexIDE's wording, not VBA's, until it
+        // is measured. It is the engine's own English, as its other compile errors are (#3687).
+        if (VbaBitness == VbaBitness.None && context.PTRSAFE() != null)
+            throw new VBCompileErrorException("Expected: Sub or Function");
+        if (VbaBitness == VbaBitness.Bit64 && context.PTRSAFE() == null)
+            throw new VBCompileErrorException(
+                $"Declare '{context.ambiguousIdentifier().GetText()}' requires PtrSafe in 64-bit VBA7");
         if (ObjectModule && context.visibility()?.PUBLIC() != null)
             throw new VBCompileErrorException(PublicMemberOfObjectModule);
         declared = true;
@@ -725,7 +741,7 @@ public class PrePass : VB6BaseVisitor<object?>
         var name = context.ambiguousIdentifier().GetText();
         DeclareModuleName(name, accessor: "Get");
         var args = ParseParams(context.argList());
-        var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
+        var returnUdt = NamedType(context.asTypeClause());
         // `Property Get P$()` returns a String, as a Function's character declares its return. Unlike a Function's, it
         // compiles beside an As clause too, and the As clause is the type: `Q$() As Long` returns a Long (measured, #742).
         var (returnType, returnsVariant, returnsObject) = context.typeHint() is { } hint && context.asTypeClause() is null
@@ -734,7 +750,7 @@ public class PrePass : VB6BaseVisitor<object?>
         GetOrAddProperty(name).Get = CheckedLocals(new ProcedureInfo(name, true, args,
             returnUdt != null && !returnType.IsArray ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
-            returnsVariant, returnsObject) { Declaration = context });
+            returnsVariant, returnsObject) { Declaration = context, Accessor = "Get" });
         NoteDefaultMember(context.block(), DefaultMemberKind.Property);
         return default;
     }
@@ -772,7 +788,8 @@ public class PrePass : VB6BaseVisitor<object?>
         if (args.Count != 1 && !(args.Count > 1 && (kind == "Let" ? allowIndexedLet : allowIndexedSet)))
             throw new NotImplementedException(
                 $"Property {kind} '{name}' must take exactly one (value) parameter — parameterized properties are not supported");
-        return CheckedLocals(new ProcedureInfo(name, false, args, Vb6Value.ValueType.EmptyVariant, block, IsPrivate(visibility)));
+        return CheckedLocals(new ProcedureInfo(name, false, args, Vb6Value.ValueType.EmptyVariant, block, IsPrivate(visibility))
+            { Accessor = kind });
     }
 
     public override object? VisitTypeStmt(VB6Parser.TypeStmtContext context)
@@ -820,7 +837,9 @@ public class PrePass : VB6BaseVisitor<object?>
                 fields.Add(new UdtField(fieldName, null, null, asType.type().GetText()));
                 continue;
             }
-            if (asType.type().complexType() is not null || asType.type().baseType()?.OBJECT() is not null
+            if (BaseTypeMapper.VbaType(asType.type().GetText(), VbaBitness) is { } wide)
+                fields.Add(new UdtField(fieldName, wide, null, IsArray: isArray, Bounds: bounds));
+            else if (asType.type().complexType() is not null || asType.type().baseType()?.OBJECT() is not null
                 || asType.type().baseType()?.COLLECTION() is not null)
                 fields.Add(new UdtField(fieldName, null, asType.type().GetText(), IsArray: isArray, Bounds: bounds));   // nested UDT, Enum or object type, resolved at NewUdt
             else
@@ -841,7 +860,7 @@ public class PrePass : VB6BaseVisitor<object?>
         var name = context.ambiguousIdentifier().GetText();
         // A complexType return (`As Employee`) is the generic UDT ValueType here; the concrete name is carried
         // separately so the return slot can be seeded with a real UDT at call time.
-        var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
+        var returnUdt = NamedType(context.asTypeClause());
         // `Function F%()` returns an Integer, and `& ! # @ $` a Long, Single, Double, Currency and String, ahead of a DefType
         // for the name's letter. A character and an As clause together are VB6's compile error (measured, #740).
         var hint = context.typeHint();
@@ -906,7 +925,7 @@ public class PrePass : VB6BaseVisitor<object?>
                 IsArray: arg.LPAREN() != null,
                 ReadsAsVariant: arg.LPAREN() == null
                     && (defaultType is null ? DeclaresVariant(arg.asTypeClause()) : defaultType == Vb6Value.ValueType.Object),
-                TypeName: arg.asTypeClause()?.type()?.complexType()?.GetText(),
+                TypeName: NamedType(arg.asTypeClause()),
                 DeclaredObject: arg.LPAREN() == null
                     && (DeclaresObject(arg.asTypeClause()) || defaultType == Vb6Value.ValueType.Object)));
         }
@@ -925,8 +944,12 @@ public class PrePass : VB6BaseVisitor<object?>
 
     // Maps an `As <type>` clause to a base ValueType, or null when absent / complex / unknown (params and
     // return types are left untyped in that case for now — the wider type system is a later phase).
-    private static Vb6Value.ValueType? ExtractBaseType(VB6Parser.AsTypeClauseContext? asType)
-        => BaseTypeMapper.Map(asType?.type()?.baseType());
+    private Vb6Value.ValueType? ExtractBaseType(VB6Parser.AsTypeClauseContext? asType)
+        => BaseTypeMapper.VbaType(asType?.type()?.complexType()?.GetText(), VbaBitness)
+            ?? BaseTypeMapper.Map(asType?.type()?.baseType());
+
+    private string? NamedType(VB6Parser.AsTypeClauseContext? asType) =>
+        ExtractBaseType(asType) is null ? asType?.type()?.complexType()?.GetText() : null;
 
     // A Function's or Property Get's return type, an array where the clause says so: `As Long()` returns a Long() (measured,
     // #975: TypeName "Long()", and one that never assigns its name returns an empty one, UBound raising 9). It was read as
@@ -942,7 +965,7 @@ public class PrePass : VB6BaseVisitor<object?>
             DeclaresObject(asType) || asType?.type() is { } type && type.LPAREN() == null && type.baseType()?.COLLECTION() != null);
     }
 
-    private static Vb6Value.ValueType ReturnTypeOf(VB6Parser.AsTypeClauseContext? asType)
+    private Vb6Value.ValueType ReturnTypeOf(VB6Parser.AsTypeClauseContext? asType)
     {
         if (asType?.fieldLength() is not null && asType.type()?.baseType()?.STRING() is not null)
             throw new VBCompileErrorException("Expected: end of statement");
@@ -953,6 +976,6 @@ public class PrePass : VB6BaseVisitor<object?>
     }
 
     // A named element type is resolved at the call, once the project's classes are known (#999).
-    private static Vb6Value.ValueType? CheckedArrayReturnOf(VB6Parser.AsTypeClauseContext? asType)
+    private Vb6Value.ValueType? CheckedArrayReturnOf(VB6Parser.AsTypeClauseContext? asType)
         => asType?.type()?.LPAREN() != null && asType.type().complexType() is null ? ReturnTypeOf(asType) : null;
 }

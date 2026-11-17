@@ -43,7 +43,7 @@ public sealed class SplitDocumentTabsTests
         projects.LoadedProjects.Returns([]);
         using var context = new IdeContext(projects, service, Substitute.For<ILspClient>(), null!,
             Substitute.For<IProjectRunnerService>(), null!, null!, null!, null!, null!, null!, null!, null!,
-            null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            null!, null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
 
         var reply = JsonSerializer.SerializeToElement(await tools.GetDocumentTabsAsync(TestContext.Current.CancellationToken), ReplyJson.Options);
@@ -170,7 +170,7 @@ public sealed class SplitDocumentTabsTests
         projects.LoadedProjects.Returns([project]);
         using var context = new IdeContext(projects, service, Substitute.For<ILspClient>(), editors,
             Substitute.For<IProjectRunnerService>(), null!, null!, null!, null!, null!, null!, null!, null!,
-            null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            null!, null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
 
         var result = designer ? await tools.ViewDesignerAsync(project.Forms[0].Name)

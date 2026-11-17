@@ -20,9 +20,11 @@ public class CheckBoxComponentClass : ComponentBaseClass
         CheckValueProperty,
         AppearanceProperty,
         TabStopProperty,
-        TabIndexProperty], [ClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+        TabIndexProperty], [ClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent, KeyDownEvent, KeyPressEvent, KeyUpEvent])
     {
     }
+
+    public override string? DesignerDoubleClickEvent => "Click";
 
     public override string Name => "Check";
     public override string VBTypeName => "VB.CheckBox";

@@ -4,6 +4,7 @@ using System.Net.WebSockets;
 using System.Text;
 using StreamJsonRpc.Protocol;
 using HexIDE.Lsp;
+using HexIDE.Tests.Infrastructure;
 using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
 
@@ -41,7 +42,18 @@ public class WebSocketLspTransportTests
     }
 
     [Fact]
-    public async Task ListenRole_AcceptsIncomingSocketAndWritesBareJsonFrame()
+    public Task ListenRole_AcceptsIncomingSocketAndWritesBareJsonFrame() =>
+        ListenExchange(TimeSpan.FromSeconds(5), sendReply: true);
+
+    [Fact]
+    public async Task ListenRole_AReplyThatNeverArrivesNamesThePendingReadAndRunnerLoad()
+    {
+        var act = () => ListenExchange(TimeSpan.FromSeconds(5), sendReply: false);
+        await act.Should().ThrowAsync<TimeoutException>()
+            .WithMessage("*the reply read after 5 s*runner load over the last 5 s:*");
+    }
+
+    private async Task ListenExchange(TimeSpan timeout, bool sendReply)
     {
         using var port = new TcpListener(IPAddress.Loopback, 0);
         port.Start();
@@ -49,25 +61,38 @@ public class WebSocketLspTransportTests
         port.Stop();
         await using var sut = new WebSocketLspTransport(endpoint, _logger, WebSocketRole.Listen);
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        cts.CancelAfter(TimeSpan.FromSeconds(5));
+        cts.CancelAfter(timeout);
         var connecting = sut.ConnectAsync(new SystemTextJsonFormatter(), cts.Token);
         using var peer = new ClientWebSocket();
-        await peer.ConnectAsync(new Uri(endpoint), cts.Token);
-        var handler = await connecting;
-        handler.Should().NotBeNull();
-        using var rpc = new JsonRpc(handler!);
-        sut.IsAlive.Should().BeTrue();
-        await handler!.WriteAsync(new JsonRpcRequest { RequestId = new RequestId(1), Method = "hexide/ping" }, cts.Token);
-        var buffer = new byte[4096];
-        var frame = await peer.ReceiveAsync(new ArraySegment<byte>(buffer), cts.Token);
-        frame.MessageType.Should().Be(WebSocketMessageType.Text);
-        frame.EndOfMessage.Should().BeTrue();
-        Encoding.UTF8.GetString(buffer, 0, frame.Count).Should().Contain("hexide/ping").And.NotContain("Content-Length");
-        await peer.SendAsync(Encoding.UTF8.GetBytes("""{"jsonrpc":"2.0","id":1,"result":"pong"}"""),
-            WebSocketMessageType.Text, true, cts.Token);
-        var reply = (await handler.ReadAsync(cts.Token)).Should().BeAssignableTo<JsonRpcResult>().Subject;
-        reply.RequestId.Should().Be(new RequestId(1));
-        peer.Abort();
+        var step = "the peer connect";
+        try
+        {
+            await peer.ConnectAsync(new Uri(endpoint), cts.Token);
+            step = "the accept";
+            var handler = await connecting;
+            cts.Token.ThrowIfCancellationRequested();
+            handler.Should().NotBeNull();
+            using var rpc = new JsonRpc(handler!);
+            sut.IsAlive.Should().BeTrue();
+            step = "the frame receive";
+            await handler!.WriteAsync(new JsonRpcRequest { RequestId = new RequestId(1), Method = "hexide/ping" }, cts.Token);
+            var buffer = new byte[4096];
+            var frame = await peer.ReceiveAsync(new ArraySegment<byte>(buffer), cts.Token);
+            frame.MessageType.Should().Be(WebSocketMessageType.Text);
+            frame.EndOfMessage.Should().BeTrue();
+            Encoding.UTF8.GetString(buffer, 0, frame.Count).Should().Contain("hexide/ping").And.NotContain("Content-Length");
+            step = "the reply read";
+            if (sendReply) await peer.SendAsync(Encoding.UTF8.GetBytes("""{"jsonrpc":"2.0","id":1,"result":"pong"}"""),
+                WebSocketMessageType.Text, true, cts.Token);
+            var reply = (await handler.ReadAsync(cts.Token)).Should().BeAssignableTo<JsonRpcResult>().Subject;
+            reply.RequestId.Should().Be(new RequestId(1));
+            peer.Abort();
+        }
+        catch (Exception ex) when (cts.IsCancellationRequested)
+        {
+            throw new TimeoutException($"Timed out during {step} after {timeout.TotalSeconds} s. "
+                + RunnerLoad.Describe(timeout), ex);
+        }
     }
 
     [Theory]

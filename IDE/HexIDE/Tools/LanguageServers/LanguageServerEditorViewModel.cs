@@ -70,7 +70,7 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
 
     private static readonly HashSet<string> JsonFields = new(StringComparer.Ordinal)
     {
-        "extensions", "arguments", "environment", "initializationOptions", "priority", "enabled",
+        "extensions", "arguments", "environment", "initializationOptions", "settings", "priority", "enabled",
         "capture.envelopeEntries", "capture.prologueEntries", "capture.payloadBytesPerConnection", "capture.frameBytes",
         "workspaceArtifact.settings", "workspaceArtifact.restartOnChange", "projectImport.arguments",
     };
@@ -94,7 +94,7 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
         foreach (var name in new[]
         {
             "id", "extensions", "languageId", "transport", "command", "arguments", "environment",
-            "workingDirectory", "pipeName", "pipeRole", "endpoint", "tcpRole", "websocketRole", "displayName", "initializationOptions", "trace",
+            "workingDirectory", "pipeName", "pipeRole", "endpoint", "tcpRole", "websocketRole", "displayName", "initializationOptions", "settings", "trace",
             "priority", "enabled", "capture.envelopeEntries", "capture.prologueEntries", "capture.payloadBytesPerConnection",
             "capture.frameBytes", "workspaceArtifact.path", "workspaceArtifact.provider", "workspaceArtifact.settings",
             "workspaceArtifact.restartOnChange", "projectImport.command", "projectImport.arguments",

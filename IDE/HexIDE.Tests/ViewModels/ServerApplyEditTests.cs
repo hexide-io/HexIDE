@@ -1,6 +1,6 @@
 using HexIDE.Runtime.Serialization;
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
+using HexIDE.Tests.LspClient;
 using Nerdbank.Streams;
 using StreamJsonRpc;
 using HexIDE.Bookmarks;
@@ -30,6 +30,7 @@ public class ServerApplyEditTests : IAsyncDisposable
 
     public ServerApplyEditTests()
     {
+        diagnosis = new WireDiagnosis(timeout.Token);
         var project = TestHelpers.CreateProject();
         first = TestHelpers.CreateModule(project, "Module1");
         second = TestHelpers.CreateModule(project, "Module2");
@@ -73,9 +74,7 @@ public class ServerApplyEditTests : IAsyncDisposable
         Substitute.For<IWindowManager>(), editors, projects, Substitute.For<IEventBus>(), client,
         Substitute.For<ISettingsService>(), status, Substitute.For<IBookmarkService>(),
         Substitute.For<HexIDE.Debugging.IBreakpointService>(),
-        Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(), localization,
-            new Vb6ProjectFileFormat(),
-            new Vb6ReadOnlyRegionReader());
+        Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
 
     private CodeEditorViewModel Open(ModuleDefinition module)
     {
@@ -100,16 +99,34 @@ public class ServerApplyEditTests : IAsyncDisposable
 
     private readonly List<VBLspClient> connections = [];
     private readonly List<JsonRpc> peers = [];
+    private readonly List<EditServer> stubs = [];
     private readonly CancellationTokenSource timeout = new(TimeSpan.FromSeconds(15));
     private EditServer server = null!;
 
+    private readonly WireDiagnosis diagnosis;
+
+    private string Diagnosis(string what)
+    {
+        static string Steps(LanguageConnectionAttempt? attempt) => attempt is null ? "none"
+            : $"reached {attempt.ReachedStage}: " + string.Join(", ", attempt.Steps.Select(s =>
+                $"{s.Stage} {s.Outcome} at {s.At?.TotalMilliseconds:F1}ms{(s.Detail is null ? "" : $" ({s.Detail})")}"));
+        var clients = connections.Select((c, i) =>
+            $"client {i + 1}: running={c.IsRunning}, attempt {Steps(c.LastAttempt)}, "
+            + $"stand-in received initialize={stubs[i].InitializeParams.ValueKind != JsonValueKind.Undefined}");
+        return diagnosis.Diagnosis(what, string.Join("; ", clients));
+    }
+
     private async Task<VBLspClient> ConnectAsync(bool withEditor = true)
     {
-        var (local, remote) = FullDuplexStream.CreatePair();
+        var (local, pairEnd) = FullDuplexStream.CreatePair();
+        var remote = diagnosis.TapPeer(pairEnd);
         var stub = new EditServer();
         var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()), stub);
         stub.Rpc = rpc;
         peers.Add(rpc);
+        stubs.Add(stub);
+        var number = peers.Count;
+        diagnosis.Watch(rpc, "stand-in", number);
         rpc.StartListening();
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
@@ -117,11 +134,15 @@ public class ServerApplyEditTests : IAsyncDisposable
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(c => Task.FromResult<IJsonRpcMessageHandler?>(
                 new HeaderDelimitedMessageHandler(local, local, c.Arg<IJsonRpcMessageFormatter>())));
-        var connection = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6",
+        var log = diagnosis.ClientLog<VBLspClient>(number);
+        var connection = new VBLspClient(transport, log, "vb6",
             applyEdit: !withEditor ? null : (edit, documentFor, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
                 () => editors.ApplyWorkspaceEdit(edit, documentFor), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask());
         connections.Add(connection);
+        var before = diagnosis.Elapsed();
         await connection.StartAsync(timeout.Token);
+        if (!connection.IsRunning)
+            throw new InvalidOperationException(Diagnosis($"client {number} isn't running after StartAsync (began at {before})"));
         server = stub;
         client = connection;
         return connection;
@@ -717,11 +738,90 @@ public class ServerApplyEditTests : IAsyncDisposable
         b.IsModified.Should().BeTrue();
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task ClaimedCommandEditsUseCheckedSnapshotAndCloseWithHandler(bool typeDuringHandler, bool action)
+    {
+        var connection = await ConnectAsync();
+        var a = Open(first);
+        await a.FlushDocumentAsync();
+        var before = a.Document.Text;
+        a.Document.UndoStack.ClearAll();
+        var edit = new WorkspaceEdit(new() { [UriOf(first)] = TwoEdits(a.Document) });
+        ApplyWorkspaceEditResult? answer = null;
+        localization.GetString("Str.Lsp.EditedByCommand").Returns("Edited by {0}: {1}");
+        using var reporter = new LanguageServerMessageReporter(connection, status, localization);
+        connection.ClaimCommands(new Dictionary<string, HexIDE.Addins.AddinClientCommand>
+        {
+            ["test.claimed"] = async (_, ct) =>
+            {
+                if (typeDuringHandler)
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+                    {
+                        a.Document.Insert(a.Document.TextLength, "' typed during command\r\n");
+                        await a.FlushDocumentAsync();
+                    });
+                answer = await connection.ApplyClaimedEditAsync(edit, ct);
+            },
+        });
+        if (action)
+        {
+            server.ActionCommand = "test.claimed";
+            var offered = (await connection.RequestCodeActionsAsync(UriOf(first), new(new(1, 0), new(1, 1)), [], timeout.Token)).Single();
+            (await a.ApplyCodeActionAsync(offered, timeout.Token)).Should().BeNull();
+        }
+        else await a.RunCodeLensAsync(new Command("Extract Method", "test.claimed"));
+        answer.Should().NotBeNull();
+        answer!.Applied.Should().Be(!typeDuringHandler);
+        if (typeDuringHandler)
+        {
+            answer.FailureReason.Should().Contain("changed since the server read it");
+            a.Document.Text.Should().Contain("Sub Greet()");
+        }
+        else
+        {
+            a.IsModified.Should().BeTrue();
+            status.Received().SetTemporaryMessage(action ? "Edited by vb6: Edit" : "Edited by vb6: Extract Method", TimeSpan.FromSeconds(5));
+            AssertUndoRedo(a.Document, before);
+        }
+        var outside = await connection.ApplyClaimedEditAsync(edit, timeout.Token);
+        outside.Applied.Should().BeFalse();
+        outside.FailureReason.Should().Contain("command the user started");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ClaimedCommandFailureShowsOnlyItsMessage(bool lens)
+    {
+        var connection = await ConnectAsync();
+        var a = Open(first);
+        connection.ClaimCommands(new Dictionary<string, HexIDE.Addins.AddinClientCommand>
+        {
+            ["test.claimed"] = (_, _) => throw new InvalidOperationException("add-in message"),
+        });
+        if (lens)
+        {
+            await a.RunCodeLensAsync(new Command("Fail", "test.claimed"));
+            status.Received().SetTemporaryMessage("add-in message", TimeSpan.FromSeconds(10));
+        }
+        else
+        {
+            server.ActionCommand = "test.claimed";
+            var action = (await connection.RequestCodeActionsAsync(UriOf(first), new(new(1, 0), new(1, 1)), [], timeout.Token)).Single();
+            (await a.ApplyCodeActionAsync(action, timeout.Token)).Should().Be("add-in message");
+        }
+    }
+
     private sealed class EditServer
     {
         public JsonRpc Rpc = null!;
         public JsonElement InitializeParams;
         public JsonElement EditAnswer;
+        public string ActionCommand = "test.edit";
         public Func<Task<JsonElement>>? DuringCommand;
         public Func<Task<WorkspaceEdit>>? DuringRename;
         public readonly TaskCompletionSource TypedChange = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -745,7 +845,7 @@ public class ServerApplyEditTests : IAsyncDisposable
         [JsonRpcMethod("textDocument/codeLens", UseSingleObjectParameterDeserialization = true)]
         public JsonElement Lenses(JsonElement p) => JsonDocument.Parse("""[{"range":{"start":{"line":1,"character":0},"end":{"line":1,"character":0}},"command":{"title":"Edit","command":"test.edit"}}]""").RootElement.Clone();
         [JsonRpcMethod("textDocument/codeAction", UseSingleObjectParameterDeserialization = true)]
-        public JsonElement Actions(JsonElement p) => JsonDocument.Parse("""[{"title":"Edit","command":"test.edit"}]""").RootElement.Clone();
+        public JsonElement Actions(JsonElement p) => JsonSerializer.SerializeToElement(new[] { new { title = "Edit", command = ActionCommand } });
         [JsonRpcMethod("textDocument/rename", UseSingleObjectParameterDeserialization = true)]
         public Task<WorkspaceEdit> Rename(JsonElement p) => DuringRename!();
         [JsonRpcMethod("workspace/executeCommand", UseSingleObjectParameterDeserialization = true)]
@@ -758,9 +858,13 @@ public class ServerApplyEditTests : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        // Taken before teardown, which drops every stand-in on purpose. No test here drops one itself, so a drop
+        // recorded by now is #3520, whatever the test then failed on.
+        var dropped = !diagnosis.HasDropped ? null : Diagnosis("a stand-in server's connection dropped during the test");
         foreach (var window in windows) window.Dispose();
         foreach (var connection in connections) await connection.DisposeAsync();
         foreach (var peer in peers) peer.Dispose();
         timeout.Dispose();
+        if (dropped is not null) throw new InvalidOperationException(dropped);
     }
 }

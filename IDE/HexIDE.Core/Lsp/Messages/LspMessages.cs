@@ -178,6 +178,9 @@ public record ShowMessageParams(
     public bool IsEditRefusal { get; init; }
 
     [JsonIgnore]
+    public string? CommandTitle { get; init; }
+
+    [JsonIgnore]
     public string? ServerDisplayName { get; init; }
 }
 
@@ -353,7 +356,7 @@ public record ConfigurationParams([property: JsonPropertyName("items")] Configur
 public record ConfigurationItem(
     [property: JsonPropertyName("scopeUri")] string? ScopeUri = null,
     [property: JsonPropertyName("section")] string? Section = null);
-public record DidChangeConfigurationParams([property: JsonPropertyName("settings")] EmptyParams Settings);
+public record DidChangeConfigurationParams([property: JsonPropertyName("settings")] JsonElement Settings);
 
 /// <summary>
 /// What the client can do at workspace scope.
@@ -390,6 +393,10 @@ public record WorkspaceClientCapabilities(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceEditClientCapabilities? WorkspaceEdit = null,
     [property: JsonPropertyName("codeLens")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceCodeLensClientCapabilities? CodeLens = null,
+    [property: JsonPropertyName("inlayHint")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceInlayHintClientCapabilities? InlayHint = null,
+    [property: JsonPropertyName("semanticTokens")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceSemanticTokensClientCapabilities? SemanticTokens = null,
     [property: JsonPropertyName("didChangeWatchedFiles")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DidChangeWatchedFilesClientCapabilities? DidChangeWatchedFiles = null);
 
@@ -401,6 +408,12 @@ public record WorkspaceEditClientCapabilities(
     [property: JsonPropertyName("documentChanges")] bool DocumentChanges = true);
 
 public record WorkspaceCodeLensClientCapabilities(
+    [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
+
+public record WorkspaceInlayHintClientCapabilities(
+    [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
+
+public record WorkspaceSemanticTokensClientCapabilities(
     [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
 
 public record WorkspaceDiagnosticsClientCapabilities(
@@ -730,12 +743,6 @@ public record ServerCapabilities(
     /// <summary>
     /// True when the server offers whole-workspace diagnostics as well as per-document ones.
     /// </summary>
-    /// <remarks>
-    /// Read but not yet acted on: <c>workspace/diagnostic</c> is a separate request with its own progress and
-    /// partial-result machinery, and is deliberately out of scope (hexide-io/HexIDE#284). Present so that the
-    /// question "does this server offer it" is answerable from the capability rather than by guessing, and so
-    /// a server offering it is not silently assumed to be offering nothing.
-    /// </remarks>
     public static bool OffersWorkspaceDiagnostics(System.Text.Json.JsonElement? capabilities) =>
         capabilities is { } caps
         && caps.ValueKind == System.Text.Json.JsonValueKind.Object
@@ -1410,6 +1417,13 @@ public record InlayHint(
     [property: JsonPropertyName("position")] Position Position,
     [property: JsonPropertyName("label")] System.Text.Json.JsonElement Label)
 {
+    [JsonPropertyName("kind")]
+    public int? Kind { get; init; }
+    [JsonPropertyName("paddingLeft")]
+    public bool PaddingLeft { get; init; }
+    [JsonPropertyName("paddingRight")]
+    public bool PaddingRight { get; init; }
+
     [JsonIgnore]
     public string Text => Label.ValueKind == System.Text.Json.JsonValueKind.String
         ? Label.GetString() ?? ""
@@ -1437,7 +1451,8 @@ public record CodeActionParams(
 
 public record CodeActionContext(
     [property: JsonPropertyName("diagnostics")] Diagnostic[] Diagnostics,
-    [property: JsonPropertyName("triggerKind")] int TriggerKind = 1);
+    [property: JsonPropertyName("triggerKind")] int TriggerKind = 1,
+    [property: JsonPropertyName("only"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string[]? Only = null);
 
 public record CodeActionClientCapabilities(
     [property: JsonPropertyName("codeActionLiteralSupport")] CodeActionLiteralSupport CodeActionLiteralSupport,
@@ -1528,3 +1543,12 @@ public record TypeHierarchyItem(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] JsonElement Data = default);
 
 public record TypeHierarchyParams([property: JsonPropertyName("item")] TypeHierarchyItem Item);
+
+public record PreviousResultId(
+    [property: JsonPropertyName("uri")] string Uri,
+    [property: JsonPropertyName("value")] string Value);
+
+public record WorkspaceDiagnosticParams(
+    [property: JsonPropertyName("identifier")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Identifier,
+    [property: JsonPropertyName("previousResultIds")] PreviousResultId[] PreviousResultIds);

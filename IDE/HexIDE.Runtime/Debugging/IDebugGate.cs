@@ -26,10 +26,15 @@ public interface IDebugGate : IDebugController
     /// taken while the run was live tells it the run it belongs to has gone.</summary>
     int Session { get; }
 
-    /// <summary>Called by the interpreter when the outermost activation unwinds — a dispatch (event-handler chain)
-    /// has returned to idle. Disarms any step that was armed but never consumed, so a leftover Step Into/Over/Out
-    /// can't spuriously break the NEXT, unrelated event. A no-op unless a step is armed and the state is Running.</summary>
-    void NotifyDispatchIdle();
+    /// <summary>A dispatch begins, including one nested in the running handler chain.</summary>
+    void NotifyDispatchStarted() { }
+
+    /// <summary>A dispatch returned. Event handlers carry Into/Over to the next event's declaration; startup Main keeps its statement positions.</summary>
+    void NotifyDispatchIdle(bool carryStep = true);
+
+    /// <summary>A procedure's declaration, before any statement runs.</summary>
+    ValueTask OnProcedureEntryAsync(int line, string module, IDebugFrame frame)
+        => OnBreakpointPositionAsync(line, module, frame);
 
     /// <summary>The cooperative pause-gate — the interpreter awaits this before executing each statement. Fast,
     /// synchronous, and allocation-free on the hot path (no breakpoint here, not stepping, not paused); it only

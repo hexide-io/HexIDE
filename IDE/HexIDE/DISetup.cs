@@ -59,8 +59,22 @@ public partial class DISetup
             .Bind<FindReferencesToolViewModel>().As(Singleton).To<FindReferencesToolViewModel>()
             .Bind<CallHierarchyToolViewModel>().As(Singleton).To<CallHierarchyToolViewModel>()
             .Bind<TypeHierarchyToolViewModel>().As(Singleton).To<TypeHierarchyToolViewModel>()
-            .Bind().As(Singleton).To<ImmediateToolViewModel>()
-            .Bind().As(Singleton).To<LocalsToolViewModel>()
+            .Bind().As(Singleton).To(ctx =>
+            {
+                // Built here, not composed: its optional debugger would double Pure.DI's search, which is at its limit (#4204).
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<HexIDE.Runtime.Debugging.IDebugController>(out var debugger);
+                ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
+                return new ImmediateToolViewModel(localization, debugger, external);
+            })
+            .Bind().As(Singleton).To(ctx =>
+            {
+                // Built here, not composed: its optional debugger would double Pure.DI's search, which is at its limit (#4204).
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<HexIDE.Runtime.Debugging.IDebugController>(out var debugger);
+                ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
+                return new LocalsToolViewModel(localization, debugger, external);
+            })
             .Bind().As(Singleton).To<OutlineToolViewModel>()
             .Bind<WatchesToolViewModel>().As(Singleton).To(ctx =>
             {
@@ -70,9 +84,17 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Runtime.Debugging.IDebugController>(out var debugger);
                 ctx.Inject<IWindowManager>(out var windows);
                 ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
-                return new WatchesToolViewModel(localization, watches, debugger, windows, external);
+                ctx.Inject<WatchDialogContextSource>(out var contexts);
+                return new WatchesToolViewModel(localization, watches, debugger, windows, external) { DialogContextSource = contexts };
             })
-            .Bind().As(Singleton).To<CallStackToolViewModel>()
+            .Bind().As(Singleton).To(ctx =>
+            {
+                // Built here, not composed: its optional debugger would double Pure.DI's search, which is at its limit (#4204).
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<HexIDE.Runtime.Debugging.IDebugController>(out var debugger);
+                ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
+                return new CallStackToolViewModel(localization, debugger, external);
+            })
             .Bind().As(Singleton).To<RecentEditHistory>()
             .Bind().As(Singleton).To<RecentEditsToolViewModel>()
             .Bind<CodeEditorViewModel>().To(ctx =>
@@ -95,34 +117,73 @@ public partial class DISetup
                 ctx.Inject<RecentEditHistory>(out var recentEdits);
                 ctx.Inject<HexIDE.Language.IConditionalCodeReader>(out var conditionalCode);
                 ctx.Inject<HexIDE.Language.IBracketReader>(out var brackets);
-                ctx.Inject<HexIDE.Language.IReadOnlyRegionReader>(out var regionReader);
-                ctx.Inject<HexIDE.Language.IReadOnlyRegionRules>(out var regionRules);
-                ctx.Inject<HexIDE.Language.IReadOnlyRegionWriter>(out var regionWriter);
-                ctx.Inject<IProjectFileFormat>(out var format);
                 return new CodeEditorViewModel(windows, editors, projects, events, lsp, settings, status,
-                    bookmarks, breakpoints, debugger, run, localization, format, regionReader, external, stack, recentEdits, conditionalCode, brackets,
-                    regionRules, regionWriter);
+                    bookmarks, breakpoints, debugger, run, localization, external, stack, recentEdits, conditionalCode, brackets);
             })
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
             .Bind().As(Singleton).To<TranslationEditorViewModel>()
-            .Bind().As(Singleton).To<LanguageServersToolViewModel>()
-            .Bind().As(Singleton).To<HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel>()
+            .Bind().As(Singleton).To(ctx =>
+            {
+                // Built here, not composed: its optional parameters would double Pure.DI's search, which is at its limit (#4204).
+                ctx.Inject<ILanguageConnectionRegistry>(out var registry);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<ConversationLog>(out var capture);
+                ctx.Inject<IEventBus>(out var events);
+                ctx.Inject<HexIDE.Redaction.Pseudonymiser>(out var pseudonyms);
+                ctx.Inject<IProjectManager>(out var projects);
+                ctx.Inject<LanguageServerEditorStore>(out var editorStore);
+                ctx.Inject<ILspWorkspace>(out var workspace);
+                return new LanguageServersToolViewModel(registry, localization, capture, events, pseudonyms, projects, editorStore, workspace);
+            })
+            .Bind().As(Singleton).To(ctx =>
+            {
+                // Built here, not composed: its optional parameters would double Pure.DI's search, which is at its limit (#4204).
+                ctx.Inject<ILanguageConnectionRegistry>(out var registry);
+                ctx.Inject<ILspClient>(out var client);
+                ctx.Inject<IDocumentDockService>(out var documents);
+                ctx.Inject<IEditorService>(out var editors);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<IProjectManager>(out var projects);
+                return new HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel(registry, client, documents, editors, localization, projects);
+            })
             .Bind().As(Singleton).To<HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel>()
             .Bind().As(Singleton).To<WindowManager>()
-            .Bind().As(Singleton).To<ProjectManager>()
-            .Bind().As(Singleton).To<EditorService>()
+            .Bind().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<ILocalizationService>(out var localization);
+                return new CodeTrust(windows, localization);
+            })
+            .Bind().As(Singleton).To(ctx =>
+            {
+                // Built here, not composed: its optional parameters would double Pure.DI's search, which is at its limit (#4204).
+                ctx.Inject<IEditorService>(out var editorService);
+                ctx.Inject<IEventBus>(out var eventBus);
+                ctx.Inject<Func<ILspClient>>(out var lspClient);
+                return new ProjectManager(editorService, eventBus, lspClient);
+            })
+            .Bind().As(Singleton).To(ctx =>
+            {
+                // Built here, not composed: its optional parameters would double Pure.DI's search, which is at its limit (#4204).
+                ctx.Inject<IDocumentDockService>(out var documentDock);
+                ctx.Inject<Func<CodeEditorViewModel>>(out var codeEditors);
+                ctx.Inject<Func<RelatedDocumentEditorViewModel>>(out var relatedDocuments);
+                ctx.Inject<Func<ProjectDocumentViewModel>>(out var projectDocuments);
+                ctx.Inject<Func<FormEditViewModel>>(out var formEditors);
+                ctx.Inject<Func<IProjectManager>>(out var projectManager);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<IEventBus>(out var events);
+                ctx.Inject<Func<IProjectService>>(out var projects);
+                return new EditorService(documentDock, codeEditors, relatedDocuments, projectDocuments, formEditors, projectManager, localization, events, projects);
+            })
             .Bind().As(Singleton).To<DockFactoryReference>()
             .Bind<IProgramHost>().As(Singleton).To<ProgramHost>()
             .Bind<IRunningProgram>().As(Singleton).To<InterpreterRunningProgram>()
             .Bind<IRunEngine>().As(Singleton).To<InterpreterRunEngine>()
             .Bind<HexIDE.Language.IConditionalCodeReader>().As(Singleton)
                 .To<HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode>()
-            .Bind<IProjectFileFormat>().As(Singleton).To<HexIDE.Projects.Vb6ProjectFileFormat>()
             .Bind<HexIDE.Language.IBracketReader>().As(Singleton).To<HexIDE.Runtime.Interpreter.InterpreterBrackets>()
-            .Bind<HexIDE.Language.IReadOnlyRegionReader>().As(Singleton).To<HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader>()
-            .Bind<HexIDE.Language.IReadOnlyRegionWriter>().As(Singleton).To<HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter>()
-            .Bind<HexIDE.Language.IReadOnlyRegionRules>().As(Singleton).To<HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
             .Bind().As(Singleton).To<MainViewViewModel.DockFactory>()
             .Bind().As(Singleton).To<EventBus>()
@@ -141,8 +202,21 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Debugging.DebugLaunchService>(out var debugLaunches);
                 ctx.Inject<HexIDE.Debugging.IRunChoiceStore>(out var runChoices);
                 ctx.Inject<IStatusBarService>(out var statusBar);
+                ctx.Inject<CodeTrust>(out var trust);
                 return new ProjectRunnerService(eventBus, projectManager, localization, debugController, breakpointService, watchService, runScope, runEngine, externalDebugger, archives,
-                    debugLaunches, runChoices, statusBar);
+                    debugLaunches, runChoices, statusBar, trust);
+            })
+            .Bind<NewProjectViewModel>().To(ctx =>
+            {
+                // Built here, not composed: its optional template service would double Pure.DI's search (#4204). A new one
+                // each time, as before.
+                ctx.Inject<IWindowManager>(out var windowManager);
+                ctx.Inject<IRecentProjectsService>(out var recentProjects);
+                ctx.Inject<ISettingsService>(out var settings);
+                ctx.Inject<IProfileService>(out var profiles);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<AddinProjectTemplateService>(out var templates);
+                return new NewProjectViewModel(windowManager, recentProjects, settings, profiles, localization, templates);
             })
             .Bind().As(Singleton).To(ctx =>
             {
@@ -159,14 +233,24 @@ public partial class DISetup
                 ctx.Inject<ArchiveProjectService>(out var archives);
                 ctx.Inject<Func<ILspClient>>(out var lspClient);
                 ctx.Inject<HexIDE.Projects.ContributedProjects>(out var contributed);
-                ctx.Inject<IProjectFileFormat>(out var format);
                 ctx.Inject<IComponentRegistry>(out var componentRegistry);
-                ctx.Inject<HexIDE.Language.IReadOnlyRegionWriter>(out var regionWriter);
                 ctx.Inject<IDocumentDockService>(out var documents);
-                return new ProjectService(regionWriter, newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, format, componentRegistry, archives, lspClient,
-                    contributed, documents);
+                ctx.Inject<AddinProjectTemplateService>(out var templates);
+                ctx.Inject<CodeTrust>(out var trust);
+                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, componentRegistry, archives, lspClient,
+                    contributed, documents, templates, trust);
             })
-            .Bind().As(Singleton).To<ArchiveProjectService>()
+            .Bind().As(Singleton).To(ctx =>
+            {
+                // Built here, not composed: its optional parameters would double Pure.DI's search, which is at its limit (#4204).
+                ctx.Inject<IDocumentDockService>(out var dock);
+                ctx.Inject<IRecentProjectsService>(out var recent);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<HexIDE.Language.IConditionalCodeReader>(out var conditionalCode);
+                ctx.Inject<Func<ILspClient>>(out var lspClient);
+                return new ArchiveProjectService(dock, recent, localization, windows, conditionalCode, lspClient);
+            })
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()
             // One per session, and it must be the same one everywhere: it holds no state itself, but the
             // three refresh triggers reach it through three different dependents (the save path, the file
@@ -198,7 +282,14 @@ public partial class DISetup
             .Bind<HexIDE.Debugging.IRunScope>().Bind().As(Singleton).To<HexIDE.Debugging.RunScope>()
             .Bind<HexIDE.Runtime.Debugging.IDebugController>().Bind<HexIDE.Runtime.Debugging.IDebugGate>().As(Singleton)
                 .To<HexIDE.Runtime.Debugging.DebugController>()
-            .Bind().As(Singleton).To<HexIDE.Debugging.ExternalDebugService>()
+            .Bind().As(Singleton).To(ctx =>
+            {
+                // Built here, not composed: its optional parameters would double Pure.DI's search, which is at its limit (#4204).
+                ctx.Inject<ConversationLog>(out var capture);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<HexIDE.Debugging.IBreakpointService>(out var breakpoints);
+                return new HexIDE.Debugging.ExternalDebugService(capture, localization, breakpoints);
+            })
             .Bind<HexIDE.Debugging.IRunChoiceStore>().As(Singleton).To<HexIDE.Debugging.RunChoiceStore>()
             // Bound, so the main view's optional parameter is given it rather than its default.
             .Bind().As(Singleton).To<HexIDE.Forms.ViewModels.RunWithMenuViewModel>()
@@ -216,9 +307,7 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Debugging.IBreakpointService>(out var breakpoints);
                 ctx.Inject<IProjectManager>(out var projectManager);
                 ctx.Inject<HexIDE.Debugging.IRunChoiceStore>(out var runChoices);
-                ctx.Inject<IProjectFileFormat>(out var format);
-                ctx.Inject<HexIDE.Language.IReadOnlyRegionReader>(out var reader);
-                return new UserSidecarService(bookmarks, breakpoints, projectManager, format, reader, runChoices);
+                return new UserSidecarService(bookmarks, breakpoints, projectManager, runChoices);
             })
             .Bind<IFindReplaceService>().As(Singleton).To<FindReplaceService>()
             .Bind().As(Singleton).To(ctx =>
@@ -239,15 +328,27 @@ public partial class DISetup
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
                 ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
                 var logger = loggerFactory.CreateLogger<LanguageServerConfigLoader>();
-                return new LanguageServerEditorStore(LanguageServerConfigLoader.DefaultFilePath(),
+                ctx.Inject<ILspClient>(out var router);
+                var store = new LanguageServerEditorStore(LanguageServerConfigLoader.DefaultFilePath(),
                     LanguageServerDefaults.For(locator, logger), logger, new LanguageServerCommandStore(), providers);
+                store.Reloaded += async entries =>
+                {
+                    try
+                    {
+                        foreach (var entry in entries)
+                            if (entry.Id is { } id)
+                                await ((LspClientRegistry)router).UpdateServerSettingsAsync(id, entry.Settings);
+                    }
+                    catch (Exception ex) { logger.LogWarning(ex, "Could not update language server settings."); }
+                };
+                return store;
             })
             // The configuration, read exactly once for the session.
             //
             // It used to be read inside the router's own factory, which was fine until the capture needed
             // its limits: the capture is constructed first, so it would have had to read the file a second
             // time and the two reads could disagree about what the user wrote. One binding, two consumers.
-            // Changes still take effect on restart, so nothing here resolves it later.
+            // Connection changes still take effect on restart; the entry store reloads server settings separately.
             .Bind<LanguageServerConfigResult>().As(Singleton).To(ctx =>
             {
                 ctx.Inject<ILspServerLocator>(out var locator);
@@ -374,7 +475,8 @@ public partial class DISetup
                 ctx.Inject<LanguageServerConfigResult>(out var configuration);
                 ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
-                return new LanguageServerContributions(
+                ctx.Inject<ISettingsService>(out var settings);
+                return new LanguageServerContributions(settings,
                     (LspClientRegistry)router, factory,
                     new LanguageServerConfigLoader(loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
                     configuration.Entries.Select(entry => entry.Id).OfType<string>().ToHashSet(StringComparer.Ordinal),
@@ -385,7 +487,11 @@ public partial class DISetup
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
             // Pin production constructors: path/snapshot overloads are test seams, not dependencies.
             // Profiles
-            .Bind<IProfileService>().As(Singleton).To(_ => new ProfileService())
+            .Bind<IProfileService>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<AddinProjectTemplateService>(out var templates);
+                return new ProfileService(templates);
+            })
             // Theming
             .Bind<IThemeService>().As(Singleton).To(_ => new ThemeService())
             // Keymaps
@@ -402,17 +508,46 @@ public partial class DISetup
             // Developer mode (session state from --developer-mode)
             .Bind<IDeveloperModeService>().As(Singleton).To<DeveloperModeService>()
             // Add-ins
-            .Bind().As(Singleton).To<AddinMenuService>()
-            .Bind().As(Singleton).To<AddinToolWindowService>()
+            .Bind().As(Singleton).To(ctx =>
+            {
+                // Built here, not composed: its optional parameters would double Pure.DI's search, which is at its limit (#4204).
+                ctx.Inject<ILocalizationService>(out var localization);
+                return new AddinMenuService(localization);
+            })
+            .Bind().As(Singleton).To(ctx =>
+            {
+                // Built here, not composed: its optional parameters would double Pure.DI's search, which is at its limit (#4204).
+                ctx.Inject<ILocalizationService>(out var localization);
+                return new AddinToolWindowService(localization);
+            })
             .Bind().As(Singleton).To<AddinEventService>()
             .Bind().As(Singleton).To<AddinEditorService>()
             .Bind().As(Singleton).To<AddinProjectService>()
             .Bind().As(Singleton).To<AddinDiagnosticsService>()
             .Bind().As(Singleton).To<LanguageServerMessageReporter>()
-            .Bind().As(Singleton).To<AddinCommandService>()
-            .Bind().As(Singleton).To<AddinProjectTemplateService>()
-            // The project types add-ins contribute, which Open Project and the recent list open as projects.
-            .Bind().As(Singleton).To<HexIDE.Projects.ContributedProjects>()
+            .Bind().As(Singleton).To(ctx =>
+            {
+                // Built here, not composed: its optional parameters would double Pure.DI's search, which is at its limit (#4204).
+                ctx.Inject<ILocalizationService>(out var localization);
+                return new AddinCommandService(localization);
+            })
+            // The templates project types offer: VB6's first, as its type offers them (#3411 slice 10b), then add-ins'.
+            .Bind().As(Singleton).To(_ =>
+            {
+                var templates = new AddinProjectTemplateService();
+                if (!Static.WithoutVb6) HexIDE.Projects.Vb6ProjectType.RegisterTemplates(templates);
+                return templates;
+            })
+            // The project types add-ins contribute, which Open Project and the recent list open as projects, with VB6's own
+            // registered first, as a first-party type reading through the IDE's format (#3411 slice 10b).
+            .Bind().As(Singleton).To(ctx =>
+            {
+                // VB6's projects are a project type like an add-in's, registered first, with the format only its type names
+                // (#3411 slice 10b).
+                var types = new HexIDE.Projects.ContributedProjects();
+                if (!Static.WithoutVb6) HexIDE.Projects.Vb6ProjectType.RegisterOwn(types);
+                return types;
+            })
             .Bind().As(Singleton).To<AddinOptionsService>()
             .Bind<IPackageVerifier>().As(Singleton).To<PackageVerifier>()
             .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To(ctx =>
@@ -450,9 +585,6 @@ public partial class DISetup
             .Root<IDocumentDockService>("DocumentDockService")
             .Root<IProjectRunnerService>("ProjectRunnerService")
             .Root<IProjectService>("ProjectService")
-            .Root<HexIDE.Language.IReadOnlyRegionReader>("ReadOnlyRegionReader")
-            .Root<HexIDE.Language.IReadOnlyRegionRules>("ReadOnlyRegionRules")
-            .Root<IProjectFileFormat>("ProjectFileFormat")
             .Root<IEventBus>("EventBus")
             .Root<IUserSidecarService>("UserSidecarService")
             .Root<IFileWatcherService>("FileWatcherService")

@@ -39,7 +39,8 @@ public interface IRecoveryOffers
 /// </para>
 /// <para>
 /// <b>A saved project's own settings are not restored.</b> Its backed-up project file says which documents it held,
-/// and a document missing since is added back. A changed startup object or reference is not re-applied.
+/// and a document missing since is added back. A changed startup object or reference is not re-applied. Pending
+/// project-file text comes back only as a tab edit for the developer to save or discard.
 /// </para>
 /// </remarks>
 public sealed class RecoveryOffers : IRecoveryOffers
@@ -52,15 +53,19 @@ public sealed class RecoveryOffers : IRecoveryOffers
     private readonly IDocumentDockService dock;
     private readonly IFileBaselineStore baselineStore;
     private readonly IClock clock;
+    private readonly ContributedProjects contributed;
     private readonly FileReloader reloader;
+    private readonly IEditorService editors;
     private readonly List<Waiting> waiting = [];
     private bool detected;
 
     public RecoveryOffers(IRecoveryService recovery, IProjectService projects, IProjectManager projectManager,
         IWindowManager windowManager, ILocalizationService localization, IDocumentDockService dock,
         IFileBaselineStore baselineStore, IClock clock, IEventBus eventBus, IStatusBarService statusBar,
-        IHeaderRefresher headerRefresher, IProjectFileFormat format)
+        IHeaderRefresher headerRefresher, IEditorService editors, ContributedProjects contributed)
     {
+        this.editors = editors;
+        this.contributed = contributed;
         this.recovery = recovery;
         this.projects = projects;
         this.projectManager = projectManager;
@@ -69,7 +74,7 @@ public sealed class RecoveryOffers : IRecoveryOffers
         this.dock = dock;
         this.baselineStore = baselineStore;
         this.clock = clock;
-        reloader = new FileReloader(projects, eventBus, statusBar, localization, headerRefresher, format);
+        reloader = new FileReloader(projects, eventBus, statusBar, localization, headerRefresher);
         eventBus.Subscribe<ProjectOpenedEvent>(e => OfferForAsync(e.Project).ListenErrors());
     }
 
@@ -79,7 +84,7 @@ public sealed class RecoveryOffers : IRecoveryOffers
     public async Task<bool> OfferAtStartAsync()
     {
         Detect();
-        var atStart = waiting.Where(w => w.Record.Path is null || w.Record.Scratch).ToList();
+        var atStart = waiting.Where(w => (w.Record.Path is null || w.Record.Scratch) && CanRestore(w.Record)).ToList();
 
         // A scratch project counts as unsaved whatever it holds (#2678), so a killed --newproject run leaves a
         // backup even when nothing was edited. One its files on disk already hold, byte for byte, is not offered.
@@ -107,7 +112,8 @@ public sealed class RecoveryOffers : IRecoveryOffers
             return false;
         }
         if (backup.Path is not { } projectPath
-            || backup.ProjectFile is { } projectFile && !Holds(projectPath, projectFile.Text, backup.Encoding))
+            || backup.ProjectFile is { } projectFile && !Holds(projectPath, projectFile.Text, backup.Encoding)
+            || backup.ProjectFileEdit is { } edit && !Holds(projectPath, edit.Text, backup.Encoding))
             return false;
         foreach (var document in backup.Documents)
         {
@@ -167,7 +173,7 @@ public sealed class RecoveryOffers : IRecoveryOffers
         if (project.AbsolutePath is not { } path || waiting.Count == 0)
             return;
         var hash = baselineStore.TryGet(path)?.Hash;
-        var matches = waiting.Where(w => w.Record.Path is { } old
+        var matches = waiting.Where(w => CanRestore(w.Record) && w.Record.Path is { } old
             && (SamePath(old, path) || !File.Exists(old) && hash is not null && w.Record.ProjectFileHash == hash)).ToList();
 
         // A backup that says nothing the opened project doesn't already is not offered, and goes. A tick inside a
@@ -194,7 +200,9 @@ public sealed class RecoveryOffers : IRecoveryOffers
         {
             return true; // offered, and the restore says it can't be read
         }
-        return backup.Documents.Any(document => Find(project, document) switch
+        return backup.ProjectFileEdit is { } edit && project.AbsolutePath is { } projectPath
+            && !Holds(projectPath, edit.Text, project.TextEncoding)
+            || backup.Documents.Any(document => Find(project, document) switch
         {
             null => document.Content is not null || document.Path is { } path && File.Exists(path),
             FormDefinition form => document.Content is { } content && !projects.RecoveredMatches(form, content),
@@ -241,6 +249,13 @@ public sealed class RecoveryOffers : IRecoveryOffers
         return restored;
     }
 
+    private bool CanRestore(RecoveryRun.ProjectRecord record)
+    {
+        if (record.Path is { } path && !record.Scratch)
+            return contributed.Find(path) is not null;
+        return string.IsNullOrEmpty(record.RenderedAt) || contributed.Find(record.RenderedAt)?.Type.Format is not null;
+    }
+
     private RecoveryItemViewModel Describe(Waiting w, ProjectDefinition? opened)
     {
         var record = w.Record;
@@ -252,18 +267,32 @@ public sealed class RecoveryOffers : IRecoveryOffers
         var backedUp = string.Format(localization.GetString("Str.Dialog.Recovery.BackedUp"),
             w.Run.SavedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "");
         var changed = record.Documents.Where(ChangedSince).Select(d => d.Name).ToList();
+        if (record.ProjectFileEdit is not null && record.Path is { } projectPath
+            && ChangedSince(projectPath, record.ProjectFileHash))
+            changed.Add(Path.GetFileName(projectPath));
         return new RecoveryItemViewModel(record.Name, origin, backedUp,
             changed.Count > 0
                 ? string.Format(localization.GetString("Str.Dialog.Recovery.ChangedOnDisk"), string.Join(", ", changed))
                 : null,
-            w);
+            w)
+        {
+            WaitingForType = CanRestore(record) ? null
+                : string.Format(localization.GetString("Str.Dialog.Recovery.WaitingForType"),
+                    Path.GetFileName(record.Path is not null && !record.Scratch ? record.Path : record.RenderedAt)),
+        };
     }
 
     // A backed-up document whose file has changed on disk since the backup: restoring puts the backup in the IDE
     // over a newer file, which the next save would then replace (task 2.4).
     private static bool ChangedSince(RecoveryRun.DocumentRecord document)
     {
-        if (document is not { File: not null, Path: { } path, DiskHash: { } hash } || !File.Exists(path))
+        return document is { File: not null, Path: { } path }
+            && ChangedSince(path, document.DiskHash);
+    }
+
+    private static bool ChangedSince(string path, string? hash)
+    {
+        if (hash is null || !File.Exists(path))
             return false;
         try
         {
@@ -338,6 +367,17 @@ public sealed class RecoveryOffers : IRecoveryOffers
     private async Task<bool> OverlayAsync(ProjectDefinition project, UnsavedProject backup)
     {
         var whole = true;
+        if (backup.ProjectFileEdit is { } edit && project.AbsolutePath is { } projectPath
+            && !Holds(projectPath, edit.Text, project.TextEncoding))
+        {
+            editors.EditProjectFile(new ProjectFileSource(project));
+            var tab = dock.OpenDocuments.OfType<ProjectFileDocumentViewModel>()
+                .FirstOrDefault(tab => tab.Source.Owner == project);
+            if (tab is { IsReadOnlyDocument: false })
+                tab.Document.Text = edit.Text;
+            else
+                whole = false;
+        }
         foreach (var document in backup.Documents)
         {
             var target = Find(project, document);

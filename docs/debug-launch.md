@@ -32,10 +32,12 @@ file. The executable must be a file path, not a shell command or a PATH lookup. 
 strings; no shell expansion or variable substitution occurs. Argument contents and launch properties are
 adapter-specific and passed unchanged, so use absolute workspace paths there. Environment entries override
 inherited variables; a null value removes a variable. Lines are one-based and include source file headers.
-Unknown top-level properties and invalid breakpoint lines are rejected. A breakpoint entry containing
-`condition`, `hitCondition` or `logMessage` is refused before the adapter starts, with a localized diagnostic naming the launch file and
-the one-based breakpoint entry. Set conditions through **Condition…** in the gutter context menu; hit conditions and log messages remain unsupported. Configuration failures appear in
-the Immediate window. The initial set combines explicitly listed breakpoints with saved IDE gutter marks and their conditions.
+Unknown top-level properties and invalid breakpoint lines are rejected. Each breakpoint entry accepts optional
+`condition`, `hitCondition` and `logMessage` strings, applying to every line in that entry. Any other value,
+null included, is refused before the adapter starts, with a message naming the option, the file and the entry.
+Configuration failures appear in the Immediate window. The initial set combines explicitly listed breakpoints
+with saved IDE gutter marks and their conditions. A launch-file condition wins over a gutter condition on the
+same line for that session, including subsequent gutter condition edits (#4143).
 External breakpoint edits are session-only and never rewrite the launch file or saved IDE marks.
 
 During the session:
@@ -108,9 +110,12 @@ conditional breakpoints and applied saved edits in the measurements recorded in 
   Empty targets or a refused request report the adapter's message in Immediate and retain inspection and
   the current line, without moving the caret or scrolling the editor on refusal. A successful move displays the location from the following `stopped` event (#2914).
 - **Breakpoint conditions** come from **Condition…** on a breakpoint's gutter context menu. They are sent
-  only when the adapter advertises `supportsConditionalBreakpoints`. Otherwise the breakpoint still stops
-  every time, and Immediate explains this once per session. Launch-file `condition`, `hitCondition` and
-  `logMessage` remain refused before launch (#2914).
+  only when the adapter advertises `supportsConditionalBreakpoints`. Otherwise the condition is omitted,
+  and Immediate explains this once per session. Launch entries also accept `condition`,
+  `hitCondition` and `logMessage`; the latter two require `supportsHitConditionalBreakpoints` and
+  `supportsLogPoints`, respectively. Each unsupported field is left out while the breakpoint remains,
+  with one localized notice per field per session naming what was ignored. Supported fields survive live
+  breakpoint updates and Run To Cursor cleanup ([#4143](https://github.com/hexide-io/HexIDE/issues/4143)).
 - **Edits reach the program only through the adapter.** HexIDE sends nothing when you edit. An adapter that
   reads the saved sources when the program resumes, as RDCore's does, runs an edit you saved while stopped,
   so save before you step. Ctrl+S saves the module you are in (#244), and **Save Project** saves them all.
@@ -146,8 +151,20 @@ Breakpoints stay on the line numbers they were set on. An edit that adds or remo
 on a different statement.
 
 During an external run, `get_debug_state` reports the adapter's state and `stop_project` stops it.
-The inspection tools (`get_locals`, `get_call_stack`, the watch tools and `evaluate`) still refuse
-external sessions; use the IDE's inspection windows through generic MCP UI interaction instead.
+The inspection tools (`get_locals`, `get_call_stack`, the watch tools and `evaluate`) use the same
+external data and evaluation as the IDE windows (#4305). Stop first with `break_program` or a
+breakpoint; a running inspection reply explains this. Locals and watches use the selected frame,
+whose adapter name is their context. There is no interpreter project identity for an external frame;
+call-stack module fields are source paths, absent when the adapter supplies none. External watches
+are Expression watches in the external Watch window; break-condition watches are refused.
+`evaluate` sends the line to the adapter's Immediate/REPL path using its syntax. Its result contains
+printed output followed by any response text, preserving the adapter's spacing and newlines. Output
+read before the response is included even if its UI delivery is queued. An adapter refusal returns
+`success: false` with its message as `error`. The tool doesn't write that message to the Immediate
+window; a line typed there still shows the adapter's error in the window (#4323).
+`set_breakpoints` replaces the editor's external set for a saved document, preserving omitted conditions;
+`clear_all_breakpoints` clears that external set, and `get_breakpoints` reads it. Replies await adapter acknowledgement and report verified,
+relocated or unverified lines, refusal messages and conditions an adapter cannot honour.
 
 See [the measured external adapter setup](dap-adapter-smoke.md) for a reproducible workspace and platform.
 
@@ -181,7 +198,7 @@ renames and header shifts. They join the launch file's initial source breakpoint
 external session follows the existing session-only breakpoint behavior.
 
 A capable adapter receives the expression with `setBreakpoints`. An adapter without conditional breakpoint
-support receives only the line. Interpreter runs also stop unconditionally: conditions are not evaluated
+support receives no condition; any supported launch hit condition or log message still applies. Interpreter runs also stop unconditionally: conditions are not evaluated
 there yet. Immediate reports either fallback once per session, including when the first condition is added
 while running.
 
