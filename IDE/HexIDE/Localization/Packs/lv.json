@@ -444,6 +444,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Dalībnieki",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Klases",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Meklēšanas rezultāti",
+    "Str.Tool.ObjectBrowser.MemberOf": "{0}.{1} dalībnieks",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globālie)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Vēl nav palaists neviens valodu serveris. Atveriet koda logu, lai to palaistu.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Neviens palaistais valodu serveris nepiedāvā iebūvētos simbolus.",

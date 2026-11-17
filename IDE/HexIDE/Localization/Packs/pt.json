@@ -452,6 +452,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Membros",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Classes",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Resultados da Pesquisa",
+    "Str.Tool.ObjectBrowser.MemberOf": "Membro de {0}.{1}",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globais)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Ainda não foi iniciado nenhum servidor de linguagem. Abra uma janela de código para iniciar um.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Nenhum servidor de linguagem em execução oferece símbolos internos.",

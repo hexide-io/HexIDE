@@ -438,6 +438,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Членове",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Класове",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Резултати от търсенето",
+    "Str.Tool.ObjectBrowser.MemberOf": "Член на {0}.{1}",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Глобални)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Все още няма стартиран езиков сървър. Отворете прозорец с код, за да стартирате такъв.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Нито един работещ езиков сървър не предлага вградени символи.",

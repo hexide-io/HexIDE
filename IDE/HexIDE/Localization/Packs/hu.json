@@ -444,6 +444,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Tagok",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Osztályok",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Keresési eredmények",
+    "Str.Tool.ObjectBrowser.MemberOf": "{0}.{1} tagja",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globális elemek)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Még nem indult nyelvi kiszolgáló. Az indításhoz nyisson meg egy kódablakot.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Egyik futó nyelvi kiszolgáló sem kínál beépített szimbólumokat.",

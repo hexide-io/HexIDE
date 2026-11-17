@@ -444,6 +444,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Nariai",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Klasės",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Paieškos rezultatai",
+    "Str.Tool.ObjectBrowser.MemberOf": "{0}.{1} narys",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globalieji)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Dar nepaleistas nė vienas kalbos serveris. Atverkite kodo langą, kad jį paleistumėte.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Nė vienas veikiantis kalbos serveris neteikia įtaisytųjų simbolių.",

@@ -452,6 +452,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "Medlemmar",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Klasser",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Sökresultat",
+    "Str.Tool.ObjectBrowser.MemberOf": "Medlem i {0}.{1}",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(Globala)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "Ingen språkserver har startats ännu. Öppna ett kodfönster för att starta en.",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "Ingen språkserver som körs erbjuder inbyggda symboler.",
