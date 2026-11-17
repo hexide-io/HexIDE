@@ -328,14 +328,34 @@ public class DapConnectionTests
         (await peer.Client.Completion.WaitAsync(Patience, TestContext.Current.CancellationToken)).Should().BeOfType<InvalidDataException>();
     }
 
-    [Fact]
-    public async Task Event_backlog_closes_instead_of_silently_dropping_state()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Event_backlog_waits_for_the_consumer_and_resumes_in_order(bool disposeWhileFull)
     {
         await using var peer = new Peer(new() { EventCapacity = 1 });
-        await peer.Send("""{"seq":1,"type":"event","event":"stopped"}""");
-        await peer.Send("""{"seq":2,"type":"event","event":"terminated"}""");
-        var failure = (await peer.Client.Completion.WaitAsync(Patience, TestContext.Current.CancellationToken)).Should().BeOfType<IOException>().Which;
-        failure.Message.Should().Contain("event queue");
+        for (var i = 0; i < 20; i++)
+            await peer.Send($$$"""{"seq":{{{i}}},"type":"event","event":"output","body":{"output":"line {{{i}}}"}}""");
+        var pending = peer.Request("stackTrace");
+        await peer.Reply(await peer.Receive(), """{"stackFrames":[]}""");
+        await Task.Delay(200, TestContext.Current.CancellationToken);
+        peer.Client.Completion.IsCompleted.Should().BeFalse();
+        pending.IsCompleted.Should().BeFalse("the reply is behind events awaiting room");
+        if (disposeWhileFull)
+        {
+            await peer.Client.DisposeAsync().AsTask().WaitAsync(Patience, TestContext.Current.CancellationToken);
+            (await peer.Client.Completion).Should().BeNull();
+            await ((Func<Task>)(() => pending)).Should().ThrowAsync<IOException>();
+            return;
+        }
+        for (var i = 0; i < 20; i++)
+        {
+            var message = await peer.Client.Events.ReadAsync(TestContext.Current.CancellationToken).AsTask()
+                .WaitAsync(Patience, TestContext.Current.CancellationToken);
+            message.Body!.Value.GetProperty("output").GetString().Should().Be($"line {i}");
+        }
+        (await pending.WaitAsync(Patience, TestContext.Current.CancellationToken)).Body!.Value
+            .GetProperty("stackFrames").GetArrayLength().Should().Be(0);
     }
 
     private sealed class BlockingOutput(bool failOnDisposal = false) : Stream

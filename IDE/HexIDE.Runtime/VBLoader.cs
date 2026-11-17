@@ -111,7 +111,10 @@ public class VBLoader
                 AvaloniaInterop.UserControlMembers.Configure(control);
             }
             if (control is VBUserControl userControl && program is not null)
-                userControl.Attach(program, component.BaseClass.ClassName);
+                userControl.Attach(program, component.BaseClass.ClassName,
+                    (component.Container is null || ReferenceEquals(component.Container, FormComponentOf(element))) && element.RootVBTypeName == "VB.Form" ? form : null,
+                    component.GetPropertyOrDefault(VBProperties.NameProperty) ?? "",
+                    RawDouble(FormComponentOf(element), "RightToLeft") is { } rtl && rtl != 0);
             if (component.GetPropertyOrDefault(VBProperties.NameProperty) is not { } name)
                 return;
 

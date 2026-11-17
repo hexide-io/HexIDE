@@ -114,7 +114,10 @@ public class VbFrmFormatDeserializer
                     if (_openBlocks.Count > 0)
                         _openBlocks.Peek().Fields[property] = block.Fields;
                     else
+                    {
                         componentStack.Peek().Properties[property] = block.Fields;
+                        componentStack.Peek().PropertyAssignments.Add(new(property, block.Fields));
+                    }
 
                     _openBlocks.Push(block);
                 }
@@ -234,7 +237,9 @@ public class VbFrmFormatDeserializer
         if (string.IsNullOrEmpty(propertyName) || string.IsNullOrEmpty(valueText))
             return;
 
-        serializedComponent.Properties[propertyName] = ParseValue(valueText);
+        var value = ParseValue(valueText);
+        serializedComponent.Properties[propertyName] = value;
+        serializedComponent.PropertyAssignments.Add(new(propertyName, value));
     }
 
     private object ParseValue(string valueText)

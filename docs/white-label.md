@@ -3,8 +3,8 @@
 HexIDE is MIT-licensed, and an adopter can ship it as another product without a fork. Put a `brand.json` beside
 the executable, and that installation becomes your product: its own name, logo, credits and per-user state.
 
-This is the first slice of [#2042](https://github.com/hexide-io/HexIDE/issues/2042). The design is in
-[`design/white-label.md`](design/white-label.md). The file's schema is provisional until that design is accepted.
+The schema was accepted on 2026-11-09 as part of [#2042](https://github.com/hexide-io/HexIDE/issues/2042).
+The design is in [`design/white-label.md`](design/white-label.md).
 
 ## The file
 
@@ -33,9 +33,9 @@ This is the first slice of [#2042](https://github.com/hexide-io/HexIDE/issues/20
 | `tagline` | No | Shown under the name in About, and in `--help`. |
 | `copyright` | No | Your copyright line in About. |
 | `credits` | No | Up to 32 entries, shown in About **after** HexIDE's own. |
-| `logo` | No | A PNG of up to 1024×1024 pixels, inside the installation folder, for About, New Project and the window icon. |
+| `logo` | No | A PNG of up to 1024×1024 pixels, inside the installation folder, written with `/`, for About, New Project and the window icon. |
 | `links` | No | `home`, `support` and `repository`, each an absolute `https` URL. Home and support appear in Help under your product's name when supplied; the home entry is labeled “Home Page”, distinct from the existing repository web entry. Without `repository`, that web entry keeps HexIDE's name and opens HexIDE's repository. |
-| `defaultProfile` | No | The profile used when the command line names none: a profile's name, or a folder inside the installation written with `/`, such as `branding/profile`. A profile sets your theme, keymap and defaults, and never your identity. `--profile`, including `--profile none`, still wins. |
+| `defaultProfile` | No | The profile used when the command line names none: a profile's name, or a folder inside the installation written with `/`, such as `branding/profile`. A profile sets your theme, keymap and defaults, and never your identity. `--profile`, including `--profile none`, still wins. [Your default profile](#your-default-profile) says what the folder holds. |
 
 A member that isn't in this table stops the IDE from starting. So does anything else wrong with the file: the IDE
 reports the file and the problem, and doesn't fall back to being HexIDE, because that would open HexIDE's settings
@@ -71,6 +71,51 @@ The same text limits apply to translations: 300 characters on one line for a tag
 credit with newlines allowed. Empty translations are refused. `--help` continues to use the plain `text`
 fallback, since it runs before the user's language settings are loaded.
 
+## Your default profile
+
+A profile is a folder holding a `profile.json`. Put yours beside `brand.json`, for example as
+`branding/profile/profile.json`, and name the folder in `defaultProfile`. This one offers two project types in New
+Project, and starts without the New Project dialog:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "acme",
+  "projectTypes": ["standard-exe", "activex-dll"],
+  "settingsDefaults": "defaults.json"
+}
+```
+
+with `defaults.json` in the same folder:
+
+```json
+{ "promptForProjectOnStartup": false, "tabWidth": 2 }
+```
+
+| Member | Required | Meaning |
+|---|---|---|
+| `schemaVersion` | Yes | Must be `1`. |
+| `id` | Yes | Lower-case letters, digits and hyphens, starting with a letter, and not `none`. |
+| `projectTypes` | No | What New Project and Add Project offer, in this order. Any of `standard-exe`, `activex-exe`, `activex-dll`, `activex-control`, `application-wizard`, `wizard-manager`, `data-project` and `enterprise-controls`. |
+| `menuVisibility` | No | `project.references` and `tools.references`, each `true` or `false`: which menu offers References. |
+| `toolbarVisibility` | No | `standard`, `edit`, `debug` and `form-editor`, each `true` or `false`. |
+| `settingsDefaults` | No | A file of starting settings, described below. |
+| `theme` | No | A theme file, in the format of the built-in packs in `IDE/HexIDE/Themes/Packs`. |
+| `keymap` | No | A keymap file, in the format of the built-in packs in `IDE/HexIDE/Keymaps/Packs`. |
+| `languageOverrides` | No | An object from a language id, such as `fr`, to a file of strings in the format of the language packs in `IDE/HexIDE/Localization/Packs`. It changes the wording of a language the IDE ships, and can't add one. |
+
+Every file a profile names is a path inside its folder. A `settingsDefaults` file may set:
+- the numbers `tabWidth`, `gridWidth` and `gridHeight`;
+- the names `activeTheme`, `activeKeymap` and `activeLanguage`;
+- `true` or `false` for `requireVariableDeclaration`, `autoListMembers`, `autoQuickInfo`, `autoIndent`,
+  `formatOnSave`, `showGrid`, `alignToGrid`, `promptForProjectOnStartup`, `isStandardToolbarVisible`,
+  `isEditToolbarVisible`, `isDebugToolbarVisible`, `isFormEditorToolbarVisible` and `isMinimapVisible`.
+
+A profile sets where each user starts, and anything a user has chosen and saved wins over it. A member or setting
+not listed here, or a file the profile can't read, stops the IDE from starting with exit code 2, and the refusal
+names the profile and the file. The rules are in
+[`openspec/specs/profiles/spec.md`](../openspec/specs/profiles/spec.md).
+
 ## What it doesn't do
 
 - **HexIDE's credits stay.** You can add to them, and nothing removes, replaces or hides them. A translation
@@ -78,7 +123,13 @@ fallback, since it runs before the user's language settings are loaded.
 - **It grants no trust.** The add-in trust root and the first-party key don't change, and About keeps showing them.
   The lines that name them can't be relabeled either: About's provenance and signing-key labels, and the add-in trust
   inspector's root, trust-anchor and first-party rows. A profile, including your `defaultProfile`, and a user's
-  translation override of them are ignored and logged, as for the credits (#4060).
+  translation override of them are ignored and logged, as for the credits (#4060). Nor can your profile change
+  what tells a person whether to trust an add-in: the consent dialog's verdicts, warnings and buttons, the
+  revocation and signing lines, and the add-in page's trust and consent status (#4121). Only a user's own
+  translation of those applies. A translation file copied into the user's own translations folder counts as the
+  user's; a pack you distribute goes through the package tier, which refuses a third party's text for these (#4181).
+- **Engine statements keep HexIDE's name.** Messages about what the interpreter or serializer implements,
+  including unsupported components and faithful-save refusals, describe the engine in every distribution (#4061).
 - **Compatibility names don't change.** Assembly names, protocol and tool ids, `HEXIDE_*` environment variables,
   and what's written into projects stay as they are, so existing clients and projects keep working.
 - **`--user-data-dir` still wins** over the folder `id` chooses. Pointing two products at one directory opts out of
@@ -95,7 +146,9 @@ cd IDE
 dotnet run --project HexIDE.Repack -- --input <unpacked release> --brand <path to brand.json> --output <new directory>
 ```
 
-`--input` is a published x64 build, such as an unpacked `hexide-windows-amd64-selfcontained.zip`. `--output` must not
+`--input` is a published x64 build, such as an unpacked `hexide-windows-amd64-selfcontained.zip`. Use the
+self-contained build if you'll ship the setup program. The framework-dependent `hexide-windows-amd64.zip` repacks
+too, but the setup program checks for no .NET runtime, so on a machine without .NET 10 your product won't start. `--output` must not
 exist. The result is built beside it and moved into place only when it's complete, and the input is never changed.
 
 | In the output | Comes from |
@@ -106,6 +159,8 @@ exist. The result is built beside it and moved into place only when it's complet
 | Its copyright | Your `copyright`, or stock's if you have none. |
 | Its version numbers | The stock build's, because that's the code it holds. |
 | `app\brand.json`, your logo and a `defaultProfile` folder | Copied from beside your `brand.json`. |
+| The setup program's icon and publisher | Your `logo`, at the same four sizes, and your `name`. |
+| The setup program's copyright and home/support links | Your `copyright`, `links.home` and `links.support`, when supplied. |
 | `installer\brand.iss` | Compile it with [Inno Setup](https://jrsoftware.org/isinfo.php)'s `ISCC` to make your setup program. |
 
 The installer's AppId is a GUID derived from your `id`, so an upgrade finds the installed product and it installs

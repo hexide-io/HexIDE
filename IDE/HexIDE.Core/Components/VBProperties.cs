@@ -9,6 +9,10 @@ public static class VBProperties
     // this merges nothing that was apart.
     public static Dictionary<string, List<PropertyClass>> PropertiesByName { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    // Design-time adapter over the preserved .frm line; never a run-time class property.
+    public static readonly PropertyClass<string> DesignIndexProperty = new("Index",
+        "The control array element's index, or empty for a plain control.", PropertyCategory.Misc, "");
+
     public static PropertyClass<string> NameProperty = new PropertyClass<string>("(Name)", "The identifier used to refer to this object in code.", PropertyCategory.Misc);
 
     public static PropertyClass<double> LeftProperty = new PropertyClass<double>("Left", "The distance from the inside-left of the container to the control's left edge.", PropertyCategory.Position, 0);
