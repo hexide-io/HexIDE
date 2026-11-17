@@ -114,6 +114,8 @@ internal static class ProfileBundleLoader
             var kind = property.Value.ValueKind;
             var valid = property.Name switch
             {
+                "languageServerSettings" => property.Value.ValueKind == JsonValueKind.Object
+                    && property.Value.EnumerateObject().All(server => server.Value.ValueKind == JsonValueKind.Object),
                 "tabWidth" or "gridWidth" or "gridHeight" =>
                     kind == JsonValueKind.Number && property.Value.TryGetInt32(out _),
                 "activeTheme" or "activeKeymap" or "activeLanguage" => kind == JsonValueKind.String,

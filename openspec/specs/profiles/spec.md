@@ -41,6 +41,16 @@ on every host, including Windows path spellings on Unix. It MUST read bundles wi
 - **WHEN** a referenced file or its ancestor inside the bundle is a symbolic link
 - **THEN** loading is refused with the source and referenced filename identified
 
+### Requirement: Profiles can supply contributed server settings defaults
+The allowlist SHALL include `languageServerSettings`, an object keyed by server id whose values are
+JSON objects. Resolution SHALL select each id's whole user object before its profile default, without
+deep merging or persisting unedited defaults.
+
+#### Scenario: A user's server override is removed
+- **WHEN** a user removes their object for a server with a profile default
+- **THEN** that server resolves the profile's whole default object
+- **AND** overrides for other server ids and the profile's files remain untouched
+
 ### Requirement: Settings defaults preserve explicit user choices
 The settings reader SHALL accept defaults from a validated profile snapshot, layering host defaults,
 explicitly present profile defaults and explicitly present saved user properties in that order. It

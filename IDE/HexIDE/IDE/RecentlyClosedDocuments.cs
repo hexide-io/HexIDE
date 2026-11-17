@@ -8,6 +8,7 @@ using HexIDE.Forms.ViewModels;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.VisualDesigner;
 using HexIDE.TwinBasic;
+using HexIDE.Projects;
 
 namespace HexIDE.IDE;
 
@@ -89,7 +90,7 @@ public sealed class RecentlyClosedDocuments : IDisposable
             entries.Remove(entry);
     }
 
-    internal void RefreshArchive(ArchiveProjectSnapshot snapshot)
+    internal void RefreshArchive(IContainerProject snapshot)
     {
         foreach (var entry in entries.Where(e => e.Archive is { } archive &&
                      ArchiveEntryIdentity.ContainerPathComparer.Equals(archive.Entry.Identity.ContainerPath, snapshot.ContainerPath)).ToArray())

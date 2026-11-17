@@ -10,6 +10,28 @@ specified in `contributed-projects`, and what the code window does with read-onl
 
 ## Requirements
 
+### Requirement: File pickers SHALL use the owning type's file names and format's extensions
+Save As SHALL offer the project's type's `FileNames`, matching its contributor and format when one contributor registers
+several types. The first pattern SHALL supply the default extension and suggested name; a whole-name entry SHALL itself
+be the suggested name. Form and module file names and Add File SHALL use the owning format's `FormExtension` and
+`MemberExtension`. Picker labels and titles SHALL be localized (#4243).
+
+#### Scenario: A type with its own extensions
+- **GIVEN** a type naming `*.xproj` and `*.xgrp`, whose format names forms `xfrm` and class modules `xcls`
+- **WHEN** the user chooses Save As or Add File for that project's members
+- **THEN** the picker offers that type's names and format's extensions
+- **AND** Add File offers the form extension followed by each module kind's extension
+
+### Requirement: A group picker SHALL name the type that writes the group
+A group SHALL offer the type that reads its existing path, or VB6's registered type. A new group SHALL use the first loaded
+project's type with `GroupFileNames`, then VB6's registered type. With no group writer, saving the group SHALL show a
+localized refusal before writing anything (#4243).
+
+#### Scenario: A provider without group file names comes first
+- **GIVEN** the first loaded project's type has no group file names and VB6's type is registered
+- **WHEN** the user saves a new group
+- **THEN** its picker offers the first loaded type with group file names, or VB6's names if none has them
+
 ### Requirement: A project's files SHALL be read and rendered only through the project file format
 The IDE SHALL read a project's file, its group's file and its members, and SHALL render each of them, only through the
 project file format (`IProjectFileFormat`), bound once where the IDE is composed (#3564). No other part of the IDE SHALL

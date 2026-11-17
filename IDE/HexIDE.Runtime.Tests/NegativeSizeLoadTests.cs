@@ -20,6 +20,24 @@ public class NegativeSizeLoadTests
         }
     }
 
+    // #4422 / #4096 issuecomment-6915523429: Single >= 2^31 recovers to zero in the IDE.
+    [Theory]
+    [InlineData("2147483584")]
+    [InlineData("2147483647")]
+    [InlineData("3.7E+18")]
+    [InlineData("1E+30")]
+    public void Too_large_Height_recovers_to_zero_and_reports_the_control_begin(string value)
+    {
+        var sink = new Sink();
+        var source = $"VERSION 5.00\nBegin VB.Form Form1\nBegin VB.CommandButton Command1\nHeight = {value}\nEnd\nEnd\n";
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), source, sink)!;
+        form.Components[1].GetPropertyOrDefault(VBProperties.HeightProperty).Should().Be(0);
+        form.LoadedWithErrors.Should().BeTrue();
+        form.CanSaveFaithfully.Should().BeTrue();
+        sink.Errors.Should().Equal("Line 3: Property Height in Command1 could not be set.");
+        sink.Keys.Should().Equal("Str.ProjectLoad.PropertyNotSet");
+    }
+
     [Theory]
     [InlineData("Width")]
     [InlineData("Height")]

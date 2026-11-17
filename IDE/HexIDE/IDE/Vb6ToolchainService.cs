@@ -57,8 +57,12 @@ public class Vb6ToolchainService : IVb6ToolchainService
     public string? Vb6ExePath { get; }
     public bool IsAvailable => Vb6ExePath != null;
 
-    public Vb6ToolchainService(ILspClient lspClient, IEventBus eventBus, IWindowManager windowManager, ILocalizationService localization)
+    private readonly CodeTrust trust;
+
+    public Vb6ToolchainService(ILspClient lspClient, IEventBus eventBus, IWindowManager windowManager, ILocalizationService localization,
+        CodeTrust trust)
     {
+        this.trust = trust;
         this.lspClient = lspClient;
         this.eventBus = eventBus;
         this.windowManager = windowManager;
@@ -200,6 +204,9 @@ public class Vb6ToolchainService : IVb6ToolchainService
 
     public async Task RunWithVb6Async(ProjectDefinition project)
     {
+        // VB6 runs the code it makes, so code from outside this computer is asked about first, as F5 asks (#1121).
+        if (trust.Unapproved(project) is { Count: > 0 } files && !await trust.AskAsync(project.Name, files))
+            return;
         var success = await MakeWithVb6Async(project);
         if (!success)
             return;
