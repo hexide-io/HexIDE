@@ -1,3 +1,5 @@
+using HexIDE.IDE;
+
 namespace HexIDE.Runtime.ProjectElements;
 
 /// <summary>What a file picked through Add File becomes when it joins a project.</summary>
@@ -18,7 +20,7 @@ public enum ProjectFileKind
 /// <para>
 /// This is the "decide by extension, offer related as non-default" half of Add File. It is deliberately
 /// separate from <c>SerializedProject.IsVb6CodeFile</c>, which answers a different question about a
-/// different situation, and the two disagree on purpose — see <see cref="Classify"/>.
+/// different situation, and the two disagree on purpose — see <see cref="Classify(string)"/>.
 /// </para>
 /// </summary>
 public static class ProjectFileClassifier
@@ -59,6 +61,20 @@ public static class ProjectFileClassifier
     {
         var extension = System.IO.Path.GetExtension(path);
         return ByExtension.TryGetValue(extension, out var kind) ? kind : ProjectFileKind.RelatedDocument;
+    }
+
+    /// <summary>The kind a picked file joins as, using the owning project's format's extensions.</summary>
+    public static ProjectFileKind Classify(string path, IProjectFileFormat format)
+    {
+        var extension = System.IO.Path.GetExtension(path);
+        if (extension.Length == 0) return ProjectFileKind.RelatedDocument;
+        if (string.Equals(extension, "." + format.FormExtension, StringComparison.OrdinalIgnoreCase))
+            return ProjectFileKind.Form;
+        foreach (var kind in Enum.GetValues<ProjectFileKind>())
+            if (kind.AsModuleKind() is { } moduleKind &&
+                string.Equals(extension, "." + format.MemberExtension(moduleKind), StringComparison.OrdinalIgnoreCase))
+                return kind;
+        return ProjectFileKind.RelatedDocument;
     }
 
     /// <summary>The <see cref="ModuleKind"/> for a kind that is a module, or null for a form or related document.</summary>

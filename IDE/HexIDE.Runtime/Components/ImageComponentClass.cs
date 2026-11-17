@@ -33,6 +33,8 @@ public class ImageComponentClass : ComponentBaseClass
     {
     }
 
+    public override string? DesignerDoubleClickEvent => "Click";
+
     public override string Name => "Image";
     public override string VBTypeName => "VB.Image";
     public override bool IsWindowless => true;

@@ -43,7 +43,8 @@ public class ForeignServerWaitTests
         var pending = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         var act = () => ForeignServerWait.ForDiagnostics(
             pending.Task, capture, "foreign", TimeSpan.FromMilliseconds(100));
-        await act.Should().ThrowAsync<TimeoutException>();
+        await act.Should().ThrowAsync<TimeoutException>()
+            .WithMessage("*publishDiagnostics*foreign*0.1 s*runner load over the last 0.1 s:*");
     }
 
     [Fact]

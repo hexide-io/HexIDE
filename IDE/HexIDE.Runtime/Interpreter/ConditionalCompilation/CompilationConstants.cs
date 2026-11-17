@@ -18,6 +18,10 @@ public sealed class CompilationConstants
     public static readonly IReadOnlyDictionary<string, Vb6Value> Vba64BuiltIns =
         Variants(("VBA6", 1), ("VBA7", 1), ("Win32", 1), ("Win64", 1), ("Win16", 0), ("Mac", 0));
 
+    // Excel x86 W1–W6, issue #4399 (oracle measuring PR #4398).
+    public static readonly IReadOnlyDictionary<string, Vb6Value> Vba32BuiltIns =
+        Variants(("VBA6", 1), ("VBA7", 1), ("Win32", 1), ("Win64", 0), ("Win16", 0), ("Mac", 0));
+
     public VbaBitness VbaBitness { get; init; }
 
     /// <summary>A program with no project arguments, under VB6's built-ins.</summary>
@@ -52,7 +56,7 @@ public sealed class CompilationConstants
     /// <summary>A project's constants: its <c>CondComp</c> and the built-ins its VBA7 target selects (#4245).</summary>
     public static CompilationConstants ForProject(ProjectDefinition project) => project.VbaBitness switch
     {
-        VbaBitness.Bit32 => throw new NotImplementedException("32-bit VBA7 is not measured yet (#1548)"),
+        VbaBitness.Bit32 => new(CompilationArguments.ForProject(project), Vba32BuiltIns) { VbaBitness = VbaBitness.Bit32 },
         VbaBitness.Bit64 => new(CompilationArguments.ForProject(project), Vba64BuiltIns) { VbaBitness = VbaBitness.Bit64 },
         _ => new(CompilationArguments.ForProject(project)),
     };

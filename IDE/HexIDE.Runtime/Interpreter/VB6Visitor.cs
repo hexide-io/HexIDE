@@ -155,7 +155,7 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
         throw new Exception("Type mismatch");
     }
 
-    public Vb6Value.ValueType ExtractType(VB6Parser.AsTypeClauseContext? asTypeClause, bool isArray, bool isVba64 = false)
+    public Vb6Value.ValueType ExtractType(VB6Parser.AsTypeClauseContext? asTypeClause, bool isArray, VbaBitness bitness = VbaBitness.None)
     {
         Vb6Value.ValueType type = Vb6Value.ValueType.EmptyVariant;
         if (asTypeClause != null)
@@ -164,7 +164,7 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
                 throw new NotImplementedException("An array declared As New is not implemented (#1482)");
             if (asTypeClause.fieldLength() != null && asTypeClause.type()?.baseType()?.STRING() is null)
                 throw new NotImplementedException("fieldLength as type not implemented");
-            if (BaseTypeMapper.Vba64Type(asTypeClause.type().complexType()?.GetText(), isVba64) is { } wide)
+            if (BaseTypeMapper.VbaType(asTypeClause.type().complexType()?.GetText(), bitness) is { } wide)
                 type = wide;
             else if (asTypeClause.type().complexType() != null)
                 // A UDT/Enum param or return type — one generic UDT ValueType (the concrete identity is on the

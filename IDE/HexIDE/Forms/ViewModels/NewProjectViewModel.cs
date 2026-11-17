@@ -35,6 +35,7 @@ public partial class NewProjectViewModel : ObservableObject, IDialog
     public string? ResultFilePath { get; private set; }
 
     public bool HasNoTemplates => Templates.Count == 0;
+    public bool HasNoInstalledTemplates { get; }
 
     public ObservableCollection<ProjectTemplateViewModel> Templates { get; } = new();
     public ObservableCollection<RecentProjectEntryViewModel> RecentProjects { get; } = new();
@@ -51,6 +52,7 @@ public partial class NewProjectViewModel : ObservableObject, IDialog
         _settingsService = settingsService;
         _localization = localization;
         FileBrowser = new FileBrowserViewModel(localization);
+        HasNoInstalledTemplates = addinProjectTemplateService is { HasTemplates: false };
         DontShowOnStartup = !settingsService.PromptForProjectOnStartup;
         // New tab
         OkNew = new DelegateCommand(() =>

@@ -25,6 +25,8 @@ public interface IComponentClass
     IReadOnlyList<PropertyClass> Properties { get; }
     IReadOnlyDictionary<string, PropertyClass> PropertiesByName { get; }
     IReadOnlyList<EventClass> Events { get; }
+    // Unmeasured component implementations retain the first event (#4411).
+    string? DesignerDoubleClickEvent => Events.Count > 0 ? Events[0].Name : null;
 
     /// <summary>
     /// What VB6's designer changes along with <paramref name="property"/>, which has just been set on

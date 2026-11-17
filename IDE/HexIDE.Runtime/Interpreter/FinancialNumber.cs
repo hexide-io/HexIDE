@@ -100,6 +100,39 @@ internal readonly struct FinancialNumber
             : new(RoundQuotient(numerator, denominator << -shift) << -shift, BigInteger.One);
     }
 
+    public FinancialNumber RoundSignificand(int precision)
+    {
+        if (numerator.IsZero) return this;
+        var magnitude = BigInteger.Abs(numerator);
+        int shift = precision - 1 - BinaryExponent(magnitude, denominator);
+        return shift >= 0
+            ? new(numerator.Sign * RoundQuotient(magnitude << shift, denominator), BigInteger.One << shift)
+            : new((numerator.Sign * RoundQuotient(magnitude, denominator << -shift)) << -shift, BigInteger.One);
+    }
+
+    public FinancialNumber PowReciprocal(int divisor)
+    {
+        if (numerator.Sign <= 0 || divisor < 1 || divisor > 10000)
+            throw new NotImplementedException("This MIRR power domain is unmeasured (#2525)");
+        if (divisor == 1) return this;
+        FinancialNumber result = 1;
+        var root = this;
+        int remainder = 1;
+        // Expand the exact reciprocal, rather than its nearest Double (notably 1/5).
+        // 180 binary places exceed the 160 retained bits and the final 64-bit rounding.
+        for (int i = 0; i < 180 && remainder != 0; i++)
+        {
+            root = root.Sqrt();
+            remainder *= 2;
+            if (remainder >= divisor)
+            {
+                result = (result * root).RoundSignificand(160);
+                remainder -= divisor;
+            }
+        }
+        return result;
+    }
+
     public FinancialNumber Log()
     {
         if (numerator.Sign <= 0)

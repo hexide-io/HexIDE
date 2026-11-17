@@ -20,6 +20,45 @@ operations do.
 
 ## Requirements
 
+### Requirement: A control designer double-click writes its measured default event
+
+The designer SHALL use the declared default event independently of event-list order, matching the
+[VB6 SP6 measurements in #4411](https://github.com/hexide-io/HexIDE/issues/4411) from
+[oracle PR #4460](https://github.com/hexide-io/HexIDE/pull/4460).
+
+#### Scenario: Double-click a measured in-box control
+
+- **WHEN** a control in this table is double-clicked
+- **THEN** the code window opens its named handler, creating it if absent
+
+| Controls | Event |
+|---|---|
+| PictureBox, Label, CommandButton, CheckBox, OptionButton, ListBox, Image | Click |
+| TextBox, ComboBox, HScrollBar, VScrollBar | Change |
+| Frame | DragDrop(Source As Control, X As Single, Y As Single) |
+| Timer | Timer |
+| Shape, Line | None: open code without creating a handler |
+
+#### Scenario: An unmeasured control or control-array element
+
+- **WHEN** a control outside the measured table is double-clicked
+- **THEN** its first-event behavior is retained pending measurement
+- **WHEN** a control-array element's handler is created
+- **THEN** its existing `Index As Integer` argument is retained pending measurement
+- **AND** runtime DragDrop delivery is unchanged
+
+#### Scenario: Double-click a TextBox
+
+- **WHEN** the user double-clicks Text1 in the designer
+- **THEN** the code window opens Text1_Change, creating its stub if absent, even if KeyDown is listed first
+
+#### Scenario: Double-click a Frame or Shape
+
+- **WHEN** the user double-clicks Frame1
+- **THEN** the code window creates or navigates to Frame1_DragDrop with the measured arguments
+- **WHEN** the user double-clicks Shape1
+- **THEN** the code window opens without creating an event handler
+
 ### Requirement: Refuse negative designer control sizes
 
 The Properties window and `add_control`, `move_control` and `set_control_property` SHALL refuse a
