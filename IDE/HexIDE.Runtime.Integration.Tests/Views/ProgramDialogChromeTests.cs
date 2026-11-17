@@ -17,7 +17,7 @@ public class ProgramDialogChromeTests
     {
         var owner = new Window();
         owner.Show();
-        var library = new StandaloneStandardLib(owner);
+        var library = new StandaloneStandardLib(owner, HexIDE.IDE.Distribution.DisplayName);
         Task answer = input ? library.InputBox("probe", "caption", "")
             : library.MsgBox("probe", "caption", MessageBoxButtons.Ok, MessageBoxIcon.None);
         var window = owner.OwnedWindows.Single();
@@ -34,23 +34,21 @@ public class ProgramDialogChromeTests
         await answer;
     }
     [AvaloniaTheory]
-    [InlineData(true, true)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    [InlineData(false, false)]
-    public async Task Caption_policy_follows_the_program_box_when_its_owner_is_hidden(bool program, bool visible)
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Caption_policy_follows_the_program_box_when_its_owner_is_hidden(bool visible)
     {
         var owner = new Window();
         if (visible)
             owner.Show();
-        var box = new MessageBox { IsProgramDialog = program };
+        var box = new MessageBox();
         var original = new Window { Content = box };
         var answer = box.ShowAndWait(original, owner);
         var shown = (Window)TopLevel.GetTopLevel(box)!;
         try
         {
-            shown.CanMinimize.Should().Be(!program);
-            shown.CanMaximize.Should().Be(!program && visible, "the replacement window already has CanResize = false");
+            shown.CanMinimize.Should().BeFalse();
+            shown.CanMaximize.Should().BeFalse();
         }
         finally
         {
@@ -62,7 +60,7 @@ public class ProgramDialogChromeTests
     [AvaloniaFact]
     public void An_embedded_program_input_box_does_not_change_its_hosts_caption()
     {
-        var input = new HexIDE.Runtime.Dialogs.InputBox { IsProgramDialog = true };
+        var input = new HexIDE.Runtime.Dialogs.InputBox();
         var window = new Window { Content = new Border { Child = input } };
         try
         {

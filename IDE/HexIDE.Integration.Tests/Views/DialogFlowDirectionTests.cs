@@ -50,8 +50,8 @@ public class DialogFlowDirectionTests
             Control content = dialog switch
             {
                 "About" => new AboutDialog { DataContext = new AboutDialogViewModel(new AboutDialogOptions { Title = "HexIDE" }, localization) },
-                "Input" => isProgramDialog ? new HexIDE.Runtime.Dialogs.InputBox { IsProgramDialog = true } : new InputBox(),
-                "Message" => isProgramDialog ? new HexIDE.Runtime.Dialogs.MessageBox { IsProgramDialog = true } : new MessageBox(),
+                "Input" => isProgramDialog ? new HexIDE.Runtime.Dialogs.InputBox() : new InputBox(),
+                "Message" => isProgramDialog ? new HexIDE.Runtime.Dialogs.MessageBox() : new MessageBox(),
                 "Font" => new FontDialog { DataContext = new FontDialogViewModel(null) },
                 "Color" => new ColorDialog(0),
                 "Print" => new PrintDialog(),
