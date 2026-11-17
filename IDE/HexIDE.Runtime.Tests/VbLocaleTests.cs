@@ -405,9 +405,8 @@ public class VbLocaleTests : BaseVBTestFixture
     [Fact]
     public async Task Formats_ttttt_is_the_locales_long_time()
     {
-        // A pattern of its own, because de-DE's long time is the invariant one and could not tell the two apart.
-        var dotted = (CultureInfo)DeDe.Clone();
-        dotted.DateTimeFormat.LongTimePattern = "HH.mm.ss";
+        // #4463: Windows' jv-Latn-ID long time uses dots, unlike the invariant pattern.
+        var dotted = new CultureInfo("jv-Latn-ID", false);
 
         await RunWith(dotted, CultureInfo.InvariantCulture, "Debug.Print Format(#10:30:00 PM#, \"ttttt\")\n");
 
