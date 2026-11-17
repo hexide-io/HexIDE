@@ -150,3 +150,53 @@ the source. Rows d use `Dim x As LongLong: x = 3` (or `Dim y As Long`, or `Dim z
 
 **Not measured:** `2^ 3` and `2 ^3`; `^` after a name whose declared type isn't LongLong (`y^ + 1` with y a Long); 32-bit
 VBA7, where `^` should be the operator only.
+
+### Every operator with every operand type (2026-11-17, #4302)
+
+**The question.** The table above measured `+` with each type, but `*`, `/`, `\`, `Mod` and the bitwise operators only
+with two LongLongs, and comparison only with a Double. What do the other pairs give?
+
+**The probe:** the same Excel x64, one module whose functions evaluate each row under `On Error Resume Next` into a
+Variant and log `TypeName` and value, or the error. The left operand is `CLngLng(7)` (LL), the other `CByte(2)`,
+`True`, `CInt(2)`, `CLng(2)`, `CLngLng(2)`, `CSng(2)`, `CDbl(2)`, `CCur(2)`, `CDec(2)`, `CDate(2)`, `"2"` or `Empty`,
+in both orders for the arithmetic operators.
+
+**Result types,** both orders alike except where shown:
+
+| Other operand | `+`, `-` | `*` | `/` | `\`, `Mod` | `And`, `Or`, `Xor`, `Eqv`, `Imp` |
+|---|---|---|---|---|---|
+| Byte, Boolean, Integer, Long, LongLong | LongLong | LongLong | Double | LongLong | LongLong |
+| Single, Double, String | Double | Double | Double | LongLong | LongLong |
+| Currency | Currency | Currency | **Double** | LongLong | LongLong |
+| Decimal | Decimal | Decimal | **Decimal** (3.5; 0.2857142857142857142857142857) | LongLong | LongLong |
+| Date | **Date** (`LL + CDate(2)` 08/01/1900, `LL - CDate(2)` 04/01/1900, `CDate(2) - LL` 25/12/1899) | **Double** | Double | LongLong | not measured |
+| Empty | LongLong | LongLong 0 | `LL / Empty` **err 11**; `Empty / LL` Double 0 | `LL \ Empty`, `LL Mod Empty` err 11; Empty on the left 0 | not measured |
+
+Values were the arithmetic ones throughout (`LL * True` is -7, `LL And True` 7, `LL Or True` -1, `LL Xor True` -8,
+`LL Eqv CLng(2)` -6). `Not CLngLng(7)` is -8 and `Not CLngLng(-1)` 0, both LongLong.
+
+**A non-integral operand is rounded half to even first,** as for Long: `LL Or CDbl(2.5)` 7, `LL And CDbl(2.5)` 2,
+`LL \ CDbl(2.5)` 3, `LL Mod CSng(2.5)` 1, `LL \ "2.5"` 3, all LongLong.
+
+**At the minimum value,** `-9223372036854775808`: negating it, `\ -1`, `Mod -1`, `* -1`, `- 1` and `Abs` all raise **6**.
+
+**Comparison:**
+
+| Row | Expression | Result |
+|---|---|---|
+| | `CLngLng(2) = ` each operand above | True, except `True` (False) and `Empty` (False) |
+| | `CLngLng(1) < ` each | True, except `True` and `Empty` (False) |
+| | `CLngLng(0) = Empty` | True |
+| | `CLngLng(2) = Null` | Null |
+| | `CLngLng(5) < "10"` | **True**: compared as numbers, not as text |
+| big1 | `CLngLng("9007199254740993") = CLngLng("9007199254740992")` | **False**: exact |
+| big2 | `CLngLng("9007199254740993") = CDec("9007199254740992")` | **False**: exact, through the Decimal |
+| big3 | `CLngLng("9007199254740993") = CDbl(9007199254740992#)` | True: through the Double (A20) |
+| big4 | `CLngLng("9007199254740993") = "9007199254740992"` | **True**: through the Double |
+| big5 | `CLngLng("9007199254740993") = CSng(9007199254740992#)` | True |
+| big6 | `CLngLng("900719925474099") = CCur("900719925474099")` | True; doesn't tell Currency's domain from the Double's |
+
+**`TypeName` of the integer functions:** `Abs`, `Int` and `Fix` of a LongLong are LongLong; `Sgn` is Integer.
+
+**Not measured:** a comparison that would tell Currency's domain from the Double's; the bitwise operators with a Date or
+Empty; conversions of a LongLong by `CSng`, `CCur`, `CDec`, `CBool`, `CDate` and `CVar`; `Select Case` on a LongLong.
