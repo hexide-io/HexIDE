@@ -86,7 +86,7 @@ public partial class ObjectBrowserToolViewModel : Document
     public string DescriptionSignature => selectedMember?.Signature ?? string.Empty;
 
     public string DescriptionMembership => selectedMember != null && selectedClass != null
-        ? $"Member of {selectedClass.LibraryName}.{selectedClass.Name}"
+        ? string.Format(localization.GetString("Str.Tool.ObjectBrowser.MemberOf"), selectedClass.LibraryName, selectedClass.Name)
         : string.Empty;
 
     public string DescriptionText => selectedMember?.Description ?? string.Empty;
