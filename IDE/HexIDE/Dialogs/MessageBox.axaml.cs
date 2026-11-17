@@ -16,6 +16,12 @@ public partial class MessageBox : UserControl
     public MessageBoxButtons Buttons { get; set; } = MessageBoxButtons.Ok;
     public MessageBoxIcon Icon { get; set; } = MessageBoxIcon.None;
 
+    /// <summary>Which button, counted from 0, is the default: the one Enter presses, which has the focus.</summary>
+    public int DefaultButton { get; set; }
+
+    /// <summary>Whether the box asks the person a security question, which automation must not coach (#1121).</summary>
+    public bool IsSecurityPrompt { get; set; }
+
     public event Action<MessageBoxResult>? AcceptRequest;
 
     public static MessageBoxResult? AnswerOnClose(MessageBoxButtons buttons) =>
@@ -148,10 +154,15 @@ public partial class MessageBox : UserControl
             // Use the active language pack, with the existing English fallback.
             var caption = this.TryFindResource($"Str.Dialog.MessageBox.Button.{result}", out var value)
                 && value is string translated ? translated : label;
-            var btn = new Button { Content = caption, MinWidth = 75, IsDefault = PART_Buttons.Children.Count == 0 };
+            var btn = new Button { Content = caption, MinWidth = 75, IsDefault = PART_Buttons.Children.Count == DefaultButton };
             btn.Click += (_, _) => AcceptRequest?.Invoke(captured);
             PART_Buttons.Children.Add(btn);
         }
+
+        // A default other than the first takes the focus too: a focused button answers Enter itself, so Enter would
+        // otherwise press the first button whatever the default.
+        if (DefaultButton > 0 && DefaultButton < PART_Buttons.Children.Count)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => PART_Buttons.Children[DefaultButton].Focus());
     }
 
     public static Control BuildIconElement(MessageBoxIcon icon)

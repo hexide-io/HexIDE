@@ -35,6 +35,7 @@ A test that reaches the provider only at run time, through the application's com
 | `DebugAdapter/VbaBitnessEngineTests.cs` | split |
 | `Debugging/BreakpointServiceTests.cs` | split |
 | `IDE/CodePrefixEquivalenceTests.cs` | split |
+| `IDE/CodeTrustTests.cs` | split |
 | `IDE/DirtyDetectorTests.cs` | split |
 | `IDE/DocumentContentTests.cs` | split |
 | `IDE/EditorServiceNavigationTests.cs` | split |

@@ -1252,10 +1252,23 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         {
             ctx.ProjectRunnerService.StartFailed -= OnFailed;
         }
+        if (failure is null && ctx.ProjectRunnerService.AskingToRun is { Count: > 0 } asking)
+            return new MutateResult(false, AskingToRunReply(asking));
         return failure is null
             ? null
             : new MutateResult(false, HexIDE.IDE.MessageText.StartFailedReply(failure));
     }
+
+    /// <summary>
+    /// What a start that stopped to ask answers (#1121): a security prompt is open, what it names, and that the answer is
+    /// the person's. It describes the prompt and doesn't say how to answer it: a consent prompt mustn't coach an automated
+    /// caller towards approving downloaded code on the person's behalf (#1121 review).
+    /// </summary>
+    internal static string AskingToRunReply(IReadOnlyList<HexIDE.IDE.UntrustedFile> asking) =>
+        "Not started: a security prompt is open, asking the person whether to run code that came from outside this computer ("
+        + string.Join(", ", asking.Select(file => $"{System.IO.Path.GetFileName(file.Path)}, {(file.Origin == HexIDE.IDE.CodeOrigin.OfficeDocument ? "from an Office document" : "marked as downloaded")}"))
+        + "). Whether to run it is their security decision. The run starts by itself if they allow it; if they decline, "
+        + "nothing runs, and the next start asks again.";
 
     /// <summary>
     /// Why the startup project can't start, for a tool that found it can't. The reason used to be inferred from the
