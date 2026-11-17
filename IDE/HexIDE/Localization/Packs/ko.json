@@ -175,6 +175,7 @@
     "Str.TranslationEditor.PlaceholderError": "편집이 거부되었습니다. 원본과 동일한 {0}, {1} … 자리 표시자를 유지해야 합니다.",
     "Str.TranslationEditor.ProtectedCredits": "HexIDE의 감사 문구는 여기에서 바꿀 수 없습니다. HexIDE 기반 제품은 내용을 추가만 할 수 있습니다.",
     "Str.TranslationEditor.ProtectedTrust": "HexIDE 서명 키의 레이블은 여기에서 바꿀 수 없습니다. HexIDE 기반 제품은 이 키를 자신의 것으로 표시할 수 없습니다.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "이 줄은 추가 기능을 신뢰할 수 있는지 알려 주므로 프로필에서 변경할 수 없습니다. 직접 만든 번역은 계속 적용됩니다.",
     "Str.TranslationEditor.Tooltip.Override": "재정의: {0}",
     "Str.TranslationEditor.Tooltip.Fallback": "기울임꼴 텍스트는 영어 대체 텍스트를 나타냅니다.",
     "Str.TranslationEditor.Tooltip.None": "(없음)",

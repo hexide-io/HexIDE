@@ -511,6 +511,7 @@
     "Str.TranslationEditor.PlaceholderError": "Sprememba je zavrnjena: ohraniti mora ista nadomestna mesta {0}, {1} … kot izvirnik.",
     "Str.TranslationEditor.ProtectedCredits": "Zahval HexIDE tukaj ni mogoče zamenjati. Izdelek, zgrajen na HexIDE, jih lahko le dopolni.",
     "Str.TranslationEditor.ProtectedTrust": "Oznak ključev za podpisovanje HexIDE tukaj ni mogoče zamenjati. Izdelek, zgrajen na HexIDE, teh ključev ne more predstaviti kot svojih.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Profil te vrstice ne more spremeniti, ker vam pove, ali lahko zaupate dodatku. Vaš lastni prevod še vedno velja.",
     "Str.TranslationEditor.Tooltip.Override": "prilagoditev: {0}",
     "Str.TranslationEditor.Tooltip.Fallback": "Ležeče besedilo označuje nadomestno besedilo v angleščini.",
     "Str.TranslationEditor.Tooltip.None": "(brez)",

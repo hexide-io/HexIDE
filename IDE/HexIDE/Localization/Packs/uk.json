@@ -141,6 +141,7 @@
     "Str.TranslationEditor.PlaceholderError": "Зміну відхилено: вона має зберігати ті самі заповнювачі {0}, {1} …, що й оригінал.",
     "Str.TranslationEditor.ProtectedCredits": "Подяки HexIDE тут не можна замінити. Продукт на основі HexIDE може лише доповнити їх.",
     "Str.TranslationEditor.ProtectedTrust": "Назви ключів підпису HexIDE тут не можна замінити. Продукт на основі HexIDE не може видавати ці ключі за свої.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Профіль не може змінити цей рядок, бо він повідомляє, чи можна довіряти надбудові. Ваш власний переклад і далі застосовується.",
     "Str.TranslationEditor.Tooltip.Override": "перевизначення: {0}",
     "Str.TranslationEditor.Tooltip.Fallback": "Курсив позначає підстановку англійського тексту.",
     "Str.TranslationEditor.Tooltip.None": "(немає)",

@@ -536,6 +536,7 @@
     "Str.TranslationEditor.PlaceholderError": "Edició rebutjada: cal mantenir els mateixos marcadors {0}, {1}… que a l'original.",
     "Str.TranslationEditor.ProtectedCredits": "Els agraïments d'HexIDE no es poden substituir aquí. Un producte basat en HexIDE només hi pot afegir.",
     "Str.TranslationEditor.ProtectedTrust": "Les etiquetes de les claus de signatura d'HexIDE no es poden substituir aquí. Un producte basat en HexIDE no pot presentar aquestes claus com a pròpies.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Un perfil no pot canviar aquesta línia, perquè us indica si us podeu fiar d'un complement. La vostra pròpia traducció continua aplicant-se.",
     "Str.TranslationEditor.Tooltip.Override": "Personalització: {0}",
     "Str.TranslationEditor.Tooltip.Fallback": "El text en cursiva indica un valor alternatiu en anglès.",
     "Str.TranslationEditor.Tooltip.None": "(cap)",

@@ -511,6 +511,7 @@
     "Str.TranslationEditor.PlaceholderError": "Muudatus lükati tagasi: see peab säilitama samad {0}, {1} … kohatäited nagu originaal.",
     "Str.TranslationEditor.ProtectedCredits": "HexIDE enda tänusõnu ei saa siin asendada. HexIDE-l põhinev toode saab neile ainult lisada.",
     "Str.TranslationEditor.ProtectedTrust": "HexIDE allkirjastamisvõtmete silte ei saa siin asendada. HexIDE-l põhinev toode ei saa neid võtmeid enda omadena esitada.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Profiil ei saa seda rida muuta, sest see ütleb teile, kas lisandmoodulit saab usaldada. Teie enda tõlge kehtib endiselt.",
     "Str.TranslationEditor.Tooltip.Override": "kohandus: {0}",
     "Str.TranslationEditor.Tooltip.Fallback": "Kaldkiri tähistab ingliskeelset asendusteksti.",
     "Str.TranslationEditor.Tooltip.None": "(puudub)",

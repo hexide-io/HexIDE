@@ -536,6 +536,7 @@
     "Str.TranslationEditor.PlaceholderError": "Редакцията е отхвърлена: трябва да се запазят същите заместители {0}, {1} … като в оригинала.",
     "Str.TranslationEditor.ProtectedCredits": "Благодарностите на HexIDE не могат да бъдат заменени тук. Продукт, изграден върху HexIDE, може само да добавя към тях.",
     "Str.TranslationEditor.ProtectedTrust": "Етикетите на ключовете за подписване на HexIDE не могат да бъдат заменени тук. Продукт, изграден върху HexIDE, не може да представя тези ключове като свои.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Профил не може да промени този ред, защото той ви казва дали да се доверите на добавка. Вашият собствен превод все пак се прилага.",
     "Str.TranslationEditor.Tooltip.Override": "замяна: {0}",
     "Str.TranslationEditor.Tooltip.Fallback": "Курсивът обозначава резервен текст на английски.",
     "Str.TranslationEditor.Tooltip.None": "(няма)",

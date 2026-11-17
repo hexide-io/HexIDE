@@ -166,6 +166,7 @@
     "Str.TranslationEditor.PlaceholderError": "Bearbeitung abgelehnt: Sie muss dieselben Platzhalter {0}, {1} … wie das Original beibehalten.",
     "Str.TranslationEditor.ProtectedCredits": "Die Danksagung von HexIDE kann hier nicht überschrieben werden. Ein auf HexIDE basierendes Produkt kann sie nur ergänzen.",
     "Str.TranslationEditor.ProtectedTrust": "Die Beschriftungen der Signaturschlüssel von HexIDE können hier nicht überschrieben werden. Ein auf HexIDE basierendes Produkt kann diese Schlüssel nicht als eigene ausgeben.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Ein Profil kann diese Zeile nicht ändern, weil sie Ihnen sagt, ob Sie einem Add-in vertrauen können. Ihre eigene Übersetzung gilt weiterhin.",
     "Str.TranslationEditor.Tooltip.Override": "Überschreibung: {0}",
     "Str.TranslationEditor.Tooltip.Fallback": "Kursiver Text kennzeichnet einen englischen Rückfallwert.",
     "Str.TranslationEditor.Tooltip.None": "(keine)",

@@ -166,6 +166,7 @@
     "Str.TranslationEditor.PlaceholderError": "Edición rechazada: debe conservar los mismos marcadores de posición {0}, {1} … que el original.",
     "Str.TranslationEditor.ProtectedCredits": "Los créditos de HexIDE no se pueden reemplazar aquí. Un producto basado en HexIDE solo puede añadir otros.",
     "Str.TranslationEditor.ProtectedTrust": "Las etiquetas de las claves de firma de HexIDE no se pueden reemplazar aquí. Un producto basado en HexIDE no puede presentar esas claves como propias.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Un perfil no puede cambiar esta línea, porque indica si puede confiar en un complemento. Su propia traducción sigue aplicándose.",
     "Str.TranslationEditor.Tooltip.Override": "modificación: {0}",
     "Str.TranslationEditor.Tooltip.Fallback": "El texto en cursiva indica un valor de respaldo en inglés.",
     "Str.TranslationEditor.Tooltip.None": "(ninguna)",

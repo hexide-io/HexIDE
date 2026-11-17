@@ -175,6 +175,7 @@
     "Str.TranslationEditor.PlaceholderError": "Modifica rifiutata: deve mantenere gli stessi segnaposto {0}, {1} … dell'originale.",
     "Str.TranslationEditor.ProtectedCredits": "I ringraziamenti di HexIDE non possono essere sostituiti qui. Un prodotto basato su HexIDE può solo aggiungerne altri.",
     "Str.TranslationEditor.ProtectedTrust": "Le etichette delle chiavi di firma di HexIDE non possono essere sostituite qui. Un prodotto basato su HexIDE non può presentare quelle chiavi come proprie.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Un profilo non può modificare questa riga, perché indica se fidarsi di un componente aggiuntivo. La tua traduzione continua ad applicarsi.",
     "Str.TranslationEditor.Tooltip.Override": "sostituzione: {0}",
     "Str.TranslationEditor.Tooltip.Fallback": "Il testo in corsivo indica un valore di ripiego in inglese.",
     "Str.TranslationEditor.Tooltip.None": "(nessuna)",

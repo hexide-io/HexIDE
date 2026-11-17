@@ -511,6 +511,7 @@
     "Str.TranslationEditor.PlaceholderError": "Izmena je odbijena: mora da zadrži iste oznake mesta {0}, {1} … kao original.",
     "Str.TranslationEditor.ProtectedCredits": "Zahvalnice HexIDE-a ne mogu se ovde zameniti. Proizvod zasnovan na HexIDE-u može samo da ih dopuni.",
     "Str.TranslationEditor.ProtectedTrust": "Oznake ključeva za potpisivanje HexIDE-a ne mogu se ovde zameniti. Proizvod zasnovan na HexIDE-u ne može te ključeve da predstavi kao svoje.",
+    "Str.TranslationEditor.ProtectedFromProfiles": "Profil ne može da promeni ovaj red jer vam govori da li možete da verujete dodatku. Vaš sopstveni prevod i dalje važi.",
     "Str.TranslationEditor.Tooltip.Override": "izmenjeni prevod: {0}",
     "Str.TranslationEditor.Tooltip.Fallback": "Kurziv označava zamenski tekst na engleskom.",
     "Str.TranslationEditor.Tooltip.None": "(nema)",
