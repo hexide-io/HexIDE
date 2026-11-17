@@ -429,6 +429,23 @@ public class FormDeserializer
                         form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreadableDuplicateProperty,
                             $"Property {serializedProperty.Key} in {serializedComponent.Name} has an unreadable duplicate value.");
                 }
+                if (componentClass is MenuComponentClass
+                    && (propertyClass == VBProperties.HelpContextIDProperty || propertyClass == MenuComponentClass.NegotiatePositionProperty))
+                {
+                    // Keep other spellings raw; NegotiatePosition's trailing enum comment is measured (#4141).
+                    var lines = serializedComponent.OrderedRawProperties
+                        .Where(p => p.Name.Equals(serializedProperty.Key, StringComparison.OrdinalIgnoreCase))
+                        .SelectMany(p => p.RawLines).ToArray();
+                    var numberText = lines.Length == 1 ? lines[0][(lines[0].IndexOf('=') + 1)..].Trim() : "";
+                    var comment = propertyClass == MenuComponentClass.NegotiatePositionProperty ? numberText.IndexOf('\'') : -1;
+                    if (comment >= 0)
+                        numberText = numberText[..comment].TrimEnd();
+                    if (lines.Length == 1 && int.TryParse(numberText, out var number))
+                        instance.SetUntypedProperty(propertyClass, number);
+                    else
+                        InvalidValue();
+                    continue;
+                }
                 if (propertyClass.PropertyType == typeof(string))
                 {
                     if (val is not string)
@@ -436,7 +453,8 @@ public class FormDeserializer
                         InvalidValue();
                         continue;
                     }
-                    instance.SetUntypedProperty(propertyClass, val);
+                    instance.SetUntypedProperty(propertyClass, propertyClass == MenuComponentClass.ShortcutProperty
+                        ? VBMenuShortcut.Canonicalize((string)val) : val);
                 }
                 else if (propertyClass.PropertyType == typeof(bool))
                 {

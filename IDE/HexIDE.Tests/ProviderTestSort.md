@@ -140,6 +140,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Serialization/MemberAttributeQualifiersTests.cs` | provider |
 | `Serialization/MemberDeclarationsTests.cs` | provider |
 | `Serialization/MemberRunsTests.cs` | provider |
+| `Serialization/MenuPropertyPersistenceTests.cs` | split |
 | `Serialization/ReadOnlyRegionsTests.cs` | provider |
 | `Serialization/SafeImageDecoderTests.cs` | provider |
 | `Serialization/ToolbarSerializationTests.cs` | provider |
@@ -171,6 +172,8 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/MarkOnReadOnlyLineTests.cs` | split |
 | `ViewModels/MemberAttributesFollowARenameTests.cs` | split |
 | `ViewModels/MemberRunFollowsItsLineTests.cs` | split |
+| `ViewModels/MenuEditorInteractionTests.cs` | split |
+| `ViewModels/MenuEditorViewModelTests.cs` | split |
 | `ViewModels/ModuleRenameTests.cs` | split |
 | `ViewModels/ObjectBrowserComponentLibraryTests.cs` | split |
 | `ViewModels/ObjectBrowserExtensionTests.cs` | split |
