@@ -211,3 +211,28 @@ it SHALL refuse explicitly where any of them differs, and off Windows.
 - **WHEN** a UserControl reads Ambient.LocaleID with the user locale en-GB and the system locale and interface
   languages US English
 - **THEN** it reads 1033
+
+### Requirement: A loaded UserControl array element SHALL run its own code
+
+For templates with saved custom properties, loaded array elements SHALL attach their own module
+instance and run Initialize, Resize and ReadProperties inside Load, never InitProperties. They SHALL copy the template geometry and start
+hidden. Show SHALL be deferred, and form teardown SHALL include loaded elements in index order.
+Measured: [#4337](https://github.com/hexide-io/HexIDE/issues/4337), native and p-code (oracle PR #4341).
+
+#### Scenario: Loading a hidden array element
+- **WHEN** a program loads a new UserControl array element from a template with saved custom properties
+- **THEN** its own Initialize, Resize with extender Width zero, and ReadProperties run before Load returns
+- **AND** ReadProperties receives the same PropertyBag surface as a design-time element, with operations still unimplemented
+- **AND** the resulting element has the template's saved Width, Height and Top and Visible False
+
+#### Scenario: Showing loaded elements before the form appears
+- **WHEN** loaded elements are made visible before the form shows
+- **THEN** Show runs in index order with the other elements before Form_Activate
+
+#### Scenario: Showing a loaded element on a visible form
+- **WHEN** the program sets the loaded element's Visible to True on a showing form
+- **THEN** Show waits until that statement has returned
+
+#### Scenario: Unloading the form with loaded elements
+- **WHEN** a program executes Unload Me
+- **THEN** Form_Unload runs before each element's Hide and Terminate, in index order

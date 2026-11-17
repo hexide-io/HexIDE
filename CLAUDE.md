@@ -46,10 +46,9 @@ cd LspServer && dotnet build HexIDE.VbLspServer/
 `pwsh scripts/test.ps1 IDE/HexIDE.Integration.Tests/ -- --hangdump --hangdump-timeout 20m`. Set it well above
 the suite's length, as a budget for the whole run. The timer is meant to count only quiet time, minutes in
 which no test starts or finishes, and on Windows it does (#2618). But on macOS it fired 10 to 11 minutes into
-healthy runs once the suite outgrew it (#3874). Only the two headless suites,
-`HexIDE.Integration.Tests` and `HexIDE.Runtime.Integration.Tests`, reference
-`Microsoft.Testing.Extensions.HangDump` today. Another project rejects the option until it has the
-package, with its licence line.
+healthy runs once the suite outgrew it (#3874). The two headless suites and `HexIDE.Tests` (#2128)
+reference `Microsoft.Testing.Extensions.HangDump` today. Another project rejects the option until it has
+the package, with its licence line.
 
 CI runs three build jobs in `.github/workflows/build.yml`: `build-ide` (Linux, working dir `IDE/`), `build-ide-desktop` (a Windows, Windows-on-Arm and macOS matrix, also in `IDE/`) and `build-lsp-server` (working dir `LspServer/`), alongside two guard jobs.
 

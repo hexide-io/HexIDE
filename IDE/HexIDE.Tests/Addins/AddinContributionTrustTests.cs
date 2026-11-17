@@ -96,7 +96,7 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
             new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), _projects),
             new AddinProjectService(_projects), _diagnostics, new AddinCommandService(), new AddinProjectTemplateService(),
             new AddinOptionsService(), new ComponentRegistry(), runner,
-            new LanguageServerContributions(_router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
+            new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance), [],
                 NullLogger<LanguageServerContributions>.Instance),
             _launches, _types);

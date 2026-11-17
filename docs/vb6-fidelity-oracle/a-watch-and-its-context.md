@@ -77,3 +77,63 @@ What does the Watches window show while that procedure is paused, while another 
 - the same procedure twice on the call stack;
 - the two Break When watch types;
 - a watch whose context is another module.
+
+## Add Watch's Module and Procedure lists, for a property (2026-11-17, #4401)
+
+**The question.** What does Add Watch's Procedure list offer for a class with a property: one entry per property, or
+one per Property procedure? And what does the Context column then read?
+
+**The probe:**
+- **The software:** VB6's IDE, SP6, on the oracle VM (Windows 10). Measured by the hexide-int session, at
+  hexide-mcp's request.
+- **The project:** a Standard EXE holding Form1 and Class1. Class1:
+
+  ```vb
+  Private m As Long
+
+  Public Property Get X() As Long
+      X = m
+  End Property
+
+  Public Property Let X(ByVal v As Long)
+      m = v
+  End Property
+
+  Public Sub Bump()
+      m = m + 1
+  End Sub
+  ```
+
+- **The steps:** in design mode, Debug, Add Watch, with no code window open. Module set to Class1, then the Procedure
+  list read. Expression `X`, Procedure set to each property entry in turn, then OK, and the Watches window read.
+- **How it was read and driven:** the list items by window message (`CB_GETLBTEXT`) and from a screenshot of the open
+  list, which agree. The choices were made by window message (`CB_SETCURSEL`, with `CBN_SELCHANGE` sent to the dialog)
+  and OK by `BM_CLICK`; a screenshot of the filled dialog shows the state a person's choice leaves.
+
+**What it showed:**
+
+| What | Measured |
+|---|---|
+| Module list | `(All Modules)`, `Class1`, `Form1` |
+| Module, with no code window open | `(All Modules)` |
+| Procedure list, Module `(All Modules)` | `(All Procedures)` only |
+| Procedure list, Module `Class1` | `(All Procedures)`, `Bump`, `X(Get)`, `X(Let)`, in that order |
+| Procedure, by default | `(All Procedures)` |
+| Context column, Procedure `X(Get)` | `Class1.X(Get)` |
+| Context column, Procedure `X(Let)` | `Class1.X(Let)` |
+| Value and Type, in design mode | `<Out of context>`, `Empty` |
+
+**What it shows:**
+- **A property's procedures are separate entries,** each the name with its kind in parentheses and no space:
+  `X(Get)`, `X(Let)`. A Sub is its plain name. The Context column carries the same text after the module.
+- **The guesses this overturns.** #4401's brief assumed a property is listed once, by its name. The bundled language
+  server names the same procedures `X (Get)` and `X (Let)`, with a space, and HexIDE's Add Watch lists those names
+  (2026-11-17, #4401).
+- **Add Watch can watch every module.** The Module list starts with `(All Modules)`, which is the default with no code
+  window open; with the caret in a module's declarations it is that module (the section above).
+
+**Unmeasured:**
+- what the Context column reads for a watch added with Module `(All Modules)`;
+- a `Property Set`;
+- whether a watch scoped to `X(Get)` evaluates while paused in `X(Let)`;
+- Procedure's default with the caret inside a procedure.

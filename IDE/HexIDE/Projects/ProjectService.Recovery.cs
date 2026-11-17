@@ -170,7 +170,7 @@ public partial class ProjectService
             var (project, _, _, _) = await own.ReadProjectAsync(renderedAt, HostAnsi, (path, bytes) =>
             {
                 if (!put.Contains(Path.GetFullPath(path)))
-                    baselineStore.Record(path, bytes);
+                    RecordRead(path, bytes);
             }, errorSink);
 
             project.AbsolutePath = null;

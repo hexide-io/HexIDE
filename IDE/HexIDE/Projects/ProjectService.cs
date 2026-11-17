@@ -1,3 +1,4 @@
+using HexIDE.Office;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -57,9 +58,11 @@ public partial class ProjectService : IProjectService
         Func<ILspClient>? lspClient = null,
         ContributedProjects? contributed = null,
         IDocumentDockService? documents = null,
-        HexIDE.Addins.AddinProjectTemplateService? templates = null)
+        HexIDE.Addins.AddinProjectTemplateService? templates = null,
+        CodeTrust? trust = null)
     {
         this.templates = templates;
+        this.trust = trust;
         this.documents = documents;
         // A ProjectService made without the IDE's project types, which only a test makes, has VB6's type alone, registered
         // as the composition registers it.
@@ -85,6 +88,25 @@ public partial class ProjectService : IProjectService
     /// Western host every byte decodes, so a file the code page cannot read is only reachable by setting it.
     /// </summary>
     internal Vb6TextEncoding HostAnsi { get; set; } = Vb6TextEncoding.Ansi;
+
+    private readonly CodeTrust? trust;
+
+    // A file saved under a new name holds the code that came with the old one's mark, for this session (#1121).
+    private void Saved(string? from, string to)
+    {
+        if (from is not null)
+            trust?.Moved(from, to);
+    }
+
+    /// <summary>
+    /// What reading a file of a project records: its bytes, for the save-changes prompt and the file watcher, and its
+    /// download mark, which a save would drop (#1121).
+    /// </summary>
+    private void RecordRead(string path, byte[] bytes)
+    {
+        baselineStore.Record(path, bytes);
+        trust?.Observe(path);
+    }
 
     private Task<(string Text, byte[] Bytes, Vb6TextEncoding Encoding, bool ByteForByte)> ReadSourceAsync(
         string path, Vb6TextEncoding? lastReadIn = null) =>
@@ -242,10 +264,10 @@ public partial class ProjectService : IProjectService
             return;
         foreach (var form in project.Forms)
             form.RecordDesignerText(FormCodeText.DesignerHalfOf(
-                RenderForm(form, form.Name + ".frm").Text, form.Code));
+                RenderForm(form, form.Name + "." + ProjectFormats.Of(form.Owner).FormExtension).Text, form.Code));
         foreach (var module in project.Modules)
             DesignerPartOf(module)?.RecordDesignerText(FormCodeText.DesignerHalfOf(
-                RenderModule(module, module.Name + "." + ModuleExtension(module.Kind)).Text, module.Code));
+                RenderModule(module, module.Name + "." + ProjectFormats.Of(module.Owner).MemberExtension(module.Kind)).Text, module.Code));
     }
 
     private void EnsureGroupIfMultiple()
@@ -381,18 +403,18 @@ public partial class ProjectService : IProjectService
         var whole = contributed.Types.Where(type => type.Type.Format is not null).ToList();
         var types = contributed.Types.Where(type => type.Type.Format is null).ToList();
         static IReadOnlyList<string> Picked(ContributedProjectType type) => type.Type.FileNames;
-        static IEnumerable<FilePickerFileType> Apart(ContributedProjectType type) => type.Type.GroupFileNames.Count > 0
-            ? [new("Project Group") { Patterns = type.Type.GroupFileNames }, new("Project") { Patterns = Picked(type) }]
+        IEnumerable<FilePickerFileType> Apart(ContributedProjectType type) => type.Type.GroupFileNames.Count > 0
+            ? [new(localization.GetString("Str.FilePicker.ProjectGroup")) { Patterns = type.Type.GroupFileNames }, new(localization.GetString("Str.FilePicker.Project")) { Patterns = Picked(type) }]
             : [new(type.Type.Title) { Patterns = Picked(type) }];
         var files = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Open Project",
+            Title = localization.GetString("Str.FilePicker.OpenProject"),
             FileTypeFilter =
             [
-                new("Project Files") { Patterns = contributed.OpenablePatterns },
+                new(localization.GetString("Str.FilePicker.ProjectFiles")) { Patterns = contributed.OpenablePatterns },
                 .. whole.SelectMany(Apart),
                 .. types.Select(type => new FilePickerFileType(type.Type.Title) { Patterns = Picked(type) }),
-                new("All Files")     { Patterns = ["*.*"] }
+                new(localization.GetString("Str.FilePicker.AllFiles"))     { Patterns = ["*.*"] }
             ],
             AllowMultiple = false
         });
@@ -403,7 +425,7 @@ public partial class ProjectService : IProjectService
         using var reload = projectManager.BeginReload();
 
         // Archive projects coexist with the current workspace, as on the direct/recent open path.
-        if (!ArchiveProjectService.Reservation.Covers(files[0]))
+        if (!ArchiveProjectService.Covers(files[0]))
             await UnloadAllProjects();
 
         await OpenProject(files[0]);
@@ -411,13 +433,17 @@ public partial class ProjectService : IProjectService
 
     public async Task OpenProject(string projectPath)
     {
-        if (archives is not null && ArchiveProjectService.Reservation.Covers(projectPath))
+        if (archives is not null && ArchiveProjectService.Covers(projectPath))
         {
             try
             {
                 await archives.Open(projectPath);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            catch (OfficeProjectMissingException)
+            {
+                await windowManager.MessageBox(string.Format(localization.GetString("Str.Office.NoProject"), Path.GetFileName(projectPath)), icon: MessageBoxIcon.Information);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OfficeFileException)
             {
                 Log.Error(ex, "Error opening archive project {ProjectPath}", projectPath);
                 await windowManager.MessageBox(
@@ -523,9 +549,9 @@ public partial class ProjectService : IProjectService
             }
 
             (project, problems) = await contributed!.BuildAsync(projectPath, content, type, HostAnsi,
-                baselineStore.Record, localization);
+                RecordRead, localization);
             if (projectFileBytes is not null)
-                baselineStore.Record(projectPath, projectFileBytes);
+                RecordRead(projectPath, projectFileBytes);
             projectManager.AddProject(project);
             EnsureGroupIfMultiple();
             recentProjects.Add(projectPath);
@@ -646,7 +672,7 @@ public partial class ProjectService : IProjectService
         object? added;
         try
         {
-            added = await contributed!.AddMemberAsync(project, member, HostAnsi, baselineStore.Record, localization);
+            added = await contributed!.AddMemberAsync(project, member, HostAnsi, RecordRead, localization);
         }
         catch (ContributedProjects.MemberNameTakenException ex)
         {
@@ -728,6 +754,8 @@ public partial class ProjectService : IProjectService
 
     private void MoveBaselines(string from, string to)
     {
+        // Code saved under a new name is still the code that came with the old one's mark, for this session (#1121).
+        trust?.Moved(from, to);
         if (renderBaselines.Remove(from, out var rendered))
             renderBaselines[to] = rendered;
         if (baselineStore.TryGet(from) is { } onDisk)
@@ -793,9 +821,9 @@ public partial class ProjectService : IProjectService
         // The load itself is shared with the Standalone host a made program runs in (#1062). What the IDE adds is its own
         // record of what it read, which the save-changes prompt and the file watcher compare against.
         var (project, skippedDocuments, readByteForByteList, projectFileBytes) =
-            await own.ReadProjectAsync(projectPath, HostAnsi, baselineStore.Record, errorSink);
+            await own.ReadProjectAsync(projectPath, HostAnsi, RecordRead, errorSink);
         // The project file too, as a save records it: crash recovery matches a moved project by it (#499).
-        baselineStore.Record(projectPath, projectFileBytes);
+        RecordRead(projectPath, projectFileBytes);
         var readByteForByte = readByteForByteList.ToList();
 
         Adopt(project, type, own);
@@ -1072,6 +1100,12 @@ public partial class ProjectService : IProjectService
                 : file)
             .DistinctBy(file => file.Document, ReferenceEqualityComparer.Instance)];
 
+        if (files.Any(file => file.Document is ProjectGroupDefinition group && GroupType(group.AbsolutePath) is null))
+        {
+            await windowManager.MessageBox(localization.GetString("Str.FilePicker.NoGroupWriter"), icon: MessageBoxIcon.Warning);
+            throw new OperationCanceledException();
+        }
+
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
         var destinations = new List<Destination>();
@@ -1157,8 +1191,15 @@ public partial class ProjectService : IProjectService
                     var directory = IsScratchFile(form.Owner, form.AbsolutePath)
                         ? PickerDirectory(form.Owner, previousDirectory) : null;
                     string chosen;
-                    do { chosen = await ChooseFormPath(form, directory); }
-                    while (WouldOverwriteLoadedForm(form, chosen));
+                    while (true)
+                    {
+                        chosen = await ChooseFormPath(form, directory);
+                        if (!WouldOverwriteLoadedForm(form, chosen))
+                            break;
+                        await windowManager.MessageBox(
+                            string.Format(localization.GetString("Str.Dialog.SaveLoadedForm.ChooseNewFile"), form.Name),
+                            icon: MessageBoxIcon.Warning);
+                    }
                     return new Destination(form, chosen, Chosen: true);
                 }
                 return form.AbsolutePath is { } formPath && !saveAs && (!userSave || !IsScratchFile(form.Owner, formPath))
@@ -1258,41 +1299,71 @@ public partial class ProjectService : IProjectService
             ? Path.GetDirectoryName(path)
             : previousDirectory;
 
-    private async Task<string> ChooseFormPath(FormDefinition form, string? directory) =>
-        await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
-        {
-            DefaultExtension = "frm",
-            SuggestedFileName = form.Name + ".frm",
-            FileTypeChoices = [new("Form Files") { Patterns = ["*.frm"] }, new("All Files") { Patterns = ["*.*"] }]
-        }, directory) ?? throw new OperationCanceledException();
-
-    private async Task<string> ChooseModulePath(ModuleDefinition module, string? directory)
+    private async Task<string> ChooseFormPath(FormDefinition form, string? directory)
     {
-        var ext = ModuleExtension(module.Kind);
-        return await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
+        var ext = ProjectFormats.Of(form.Owner).FormExtension;
+        return await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             DefaultExtension = ext,
-            SuggestedFileName = module.Name + "." + ext,
-            FileTypeChoices = [new("Module Files") { Patterns = [$"*.{ext}"] }, new("All Files") { Patterns = ["*.*"] }]
+            SuggestedFileName = form.Name + "." + ext,
+            FileTypeChoices = [new(localization.GetString("Str.FilePicker.FormFiles")) { Patterns = [$"*.{ext}"] },
+                new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
         }, directory) ?? throw new OperationCanceledException();
     }
 
-    private async Task<string> ChooseProjectPath(ProjectDefinition project, string? directory) =>
-        await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
+    private async Task<string> ChooseModulePath(ModuleDefinition module, string? directory)
+    {
+        var ext = ProjectFormats.Of(module.Owner).MemberExtension(module.Kind);
+        return await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            DefaultExtension = "vbp",
-            SuggestedFileName = project.Name + ".vbp",
-            FileTypeChoices = [new("Project Files") { Patterns = ["*.vbp"] }, new("All Files") { Patterns = ["*.*"] }]
+            DefaultExtension = ext,
+            SuggestedFileName = module.Name + "." + ext,
+            FileTypeChoices = [new(localization.GetString("Str.FilePicker.ModuleFiles")) { Patterns = [$"*.{ext}"] },
+                new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
         }, directory) ?? throw new OperationCanceledException();
+    }
 
-    private async Task<string> ChooseGroupPath(ProjectGroupDefinition group) =>
-        await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions
+    private ContributedProjectType? TypeOf(ProjectDefinition project)
+    {
+        var owner = project.ContributedBy;
+        return contributed.Types.FirstOrDefault(type => type.AddinId == owner
+                && ReferenceEquals(type.Type.Format, project.Format))
+            ?? contributed.Types.FirstOrDefault(type => type.AddinId == owner)
+            ?? (owner is null ? Vb6Type : null);
+    }
+
+    private ContributedProjectType? GroupType(string? path) =>
+        path is not null ? contributed.FindGroup(path) ?? Vb6Type
+            : projectManager.LoadedProjects.Select(TypeOf).FirstOrDefault(type => type?.Type.GroupFileNames.Count > 0) ?? Vb6Type;
+
+    private static (string? Extension, string Name) PickerName(string pattern, string name) =>
+        pattern.StartsWith("*.", StringComparison.Ordinal) ? (pattern[2..], name + pattern[1..]) : (null, pattern);
+
+    private async Task<string> ChooseProjectPath(ProjectDefinition project, string? directory)
+    {
+        var patterns = TypeOf(project)!.Type.FileNames;
+        var (extension, name) = PickerName(patterns[0], project.Name);
+        return await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Save Project Group As",
-            DefaultExtension = "vbg",
-            FileTypeChoices = [new FilePickerFileType("Project Group") { Patterns = ["*.vbg"] }],
-            SuggestedFileName = group.Name
+            DefaultExtension = extension,
+            SuggestedFileName = name,
+            FileTypeChoices = [new(localization.GetString("Str.FilePicker.ProjectFiles")) { Patterns = patterns },
+                new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
+        }, directory) ?? throw new OperationCanceledException();
+    }
+
+    private async Task<string> ChooseGroupPath(ProjectGroupDefinition group)
+    {
+        var patterns = GroupType(group.AbsolutePath)!.Type.GroupFileNames;
+        var (extension, name) = PickerName(patterns[0], group.Name);
+        return await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = localization.GetString("Str.FilePicker.SaveProjectGroupAs"),
+            DefaultExtension = extension,
+            FileTypeChoices = [new(localization.GetString("Str.FilePicker.ProjectGroup")) { Patterns = patterns }],
+            SuggestedFileName = name
         }) ?? throw new OperationCanceledException();
+    }
 
     /// <summary>
     /// Refuses, with an <see cref="UnsavedMemberRefusal"/> for the first project in order, unless every project
@@ -1625,7 +1696,7 @@ public partial class ProjectService : IProjectService
 
     // Through the format of the type that reads group files of this name: VB6's for a .vbg (#3411 slice 10b).
     private string RenderGroup(ProjectGroupDefinition group, string path, Func<object, string?>? pathOf) =>
-        (contributed.FindGroup(path)?.Type.Format ?? Vb6Type?.Type.Format
+        (GroupType(path)?.Type.Format
             ?? throw new InvalidOperationException("No registered project type writes project groups."))
             .RenderGroup(path, projectManager.LoadedProjects, projectManager.StartupProject, group.UnknownLines, pathOf);
 
@@ -1647,7 +1718,7 @@ public partial class ProjectService : IProjectService
             Log.Warning("Reload: {Path} could not be read in code page {CodePage}; read byte for byte", path, HostAnsi.CodePage);
             await ReportReadByteForByte([Path.GetFileName(path)]);
         }
-        baselineStore.Record(path, sourceBytes);
+        RecordRead(path, sourceBytes);
 
         byte[]? companion = null;
         if (reader.CompanionPath(path) is { } companionPath && File.Exists(companionPath))
@@ -1682,7 +1753,7 @@ public partial class ProjectService : IProjectService
             Log.Warning("Reload: {Path} could not be read in code page {CodePage}; read byte for byte", path, HostAnsi.CodePage);
             await ReportReadByteForByte([Path.GetFileName(path)]);
         }
-        baselineStore.Record(path, sourceBytes);
+        RecordRead(path, sourceBytes);
         var (preservedHeader, reloadedBody) = FormatOf(module.Owner).SplitModule(source, module.Kind);
 
         module.TextEncoding = sourceEncoding;
@@ -1847,9 +1918,9 @@ public partial class ProjectService : IProjectService
         // own name is not in its text, so the name the program will give it is not needed yet.
         EnsureEncodable([
             .. projectDefinition.Forms.Select(form =>
-                new Destination(form, Path.Join(tempPath, Path.ChangeExtension(form.Name, "frm")))),
+                new Destination(form, Path.Join(tempPath, form.Name + "." + ProjectFormats.Of(form.Owner).FormExtension))),
             .. projectDefinition.Modules.Select(module =>
-                new Destination(module, Path.Join(tempPath, module.Name + "." + ModuleExtension(module.Kind)))),
+                new Destination(module, Path.Join(tempPath, module.Name + "." + ProjectFormats.Of(module.Owner).MemberExtension(module.Kind)))),
             new Destination(projectDefinition, Path.Join(tempPath, projectDefinition.Name + ".vbp"))
         ]);
 
@@ -1858,7 +1929,7 @@ public partial class ProjectService : IProjectService
         {
             DefaultExtension = OperatingSystem.IsWindows() ? "exe" : "",
             SuggestedFileName = projectDefinition.Name + (OperatingSystem.IsWindows() ? ".exe" : ""),
-            FileTypeChoices = OperatingSystem.IsWindows() ? [new("Windows EXE") { Patterns = ["*.exe"] }] : [new("All Files") { Patterns = ["*.*"] }]
+            FileTypeChoices = OperatingSystem.IsWindows() ? [new("Windows EXE") { Patterns = ["*.exe"] }] : [new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
         });
 
         if (exePath == null)
@@ -1922,7 +1993,7 @@ public partial class ProjectService : IProjectService
         try
         {
             foreach (var form in projectDefinition.Forms)
-                if (!SerializeFormToFile(form, Path.Join(tempPath, Path.ChangeExtension(form.Name, "frm")),
+                if (!SerializeFormToFile(form, Path.Join(tempPath, form.Name + "." + ProjectFormats.Of(form.Owner).FormExtension),
                         adoptHeader: false))
                     refused.Add(form.Name);
 
@@ -1933,7 +2004,7 @@ public partial class ProjectService : IProjectService
             // to put a file, and a module that has never been saved still belongs in the package.
             foreach (var module in projectDefinition.Modules)
             {
-                module.AbsolutePath = Path.Join(tempPath, module.Name + "." + ModuleExtension(module.Kind));
+                module.AbsolutePath = Path.Join(tempPath, module.Name + "." + ProjectFormats.Of(module.Owner).MemberExtension(module.Kind));
                 // announceSave: false — this writes a COPY into a temporary directory and restores every
                 // AbsolutePath in the finally below. The developer's files are untouched, so announcing a
                 // save here would report one that never happened, and point a server at a path that is
@@ -2067,9 +2138,9 @@ public partial class ProjectService : IProjectService
         // to this directory", so the project genuinely lives there afterwards.
         List<Destination> files =
         [
-            .. project.Forms.Select(form => new Destination(form, Path.Join(directory, form.Name + ".frm"))),
+            .. project.Forms.Select(form => new Destination(form, Path.Join(directory, form.Name + "." + ProjectFormats.Of(form.Owner).FormExtension))),
             .. project.Modules.Select(module =>
-                new Destination(module, Path.Join(directory, module.Name + "." + ModuleExtension(module.Kind)))),
+                new Destination(module, Path.Join(directory, module.Name + "." + ProjectFormats.Of(module.Owner).MemberExtension(module.Kind)))),
             new Destination(project, Path.Join(directory, project.Name + ".vbp"))
         ];
         EnsureEncodable(files);
@@ -2115,11 +2186,11 @@ public partial class ProjectService : IProjectService
     });
 
     public string NextFreeFormName(ProjectDefinition project) =>
-        ProjectNaming.NextFreeName(project, "Form", name => IsFileInTheWay(project, name + ".frm"));
+        ProjectNaming.NextFreeName(project, "Form", name => IsFileInTheWay(project, name + "." + ProjectFormats.Of(project).FormExtension));
 
     public string NextFreeModuleName(ProjectDefinition project, ModuleKind kind) =>
         ProjectNaming.NextFreeName(project, ModulePrefix(kind),
-            name => IsFileInTheWay(project, name + "." + ModuleExtension(kind)));
+            name => IsFileInTheWay(project, name + "." + ProjectFormats.Of(project).MemberExtension(kind)));
 
     /// <summary>
     /// Whether something is already where a new member's file, <paramref name="fileName"/> in the project's folder,
@@ -2173,11 +2244,11 @@ public partial class ProjectService : IProjectService
         {
             var form = FormDefinition.NewForm(project, FormComponentClass.Instance, name);
             form.TextEncoding = HostAnsi;
-            EnsureNewMemberEncodable(project, form, name + ".frm");
+            EnsureNewMemberEncodable(project, form, name + "." + ProjectFormats.Of(project).FormExtension);
             // No file until the project is saved, as in VB6 (#489, #500). The header its first save will write is
             // rendered now and held, so the code window shows what the file will say, and the next refresh has the
             // header it replaces to compare against, as the project template does (#885).
-            form.RecordDesignerText(FormCodeText.DesignerHalfOf(RenderForm(form, name + ".frm").Text, form.Code));
+            form.RecordDesignerText(FormCodeText.DesignerHalfOf(RenderForm(form, name + "." + ProjectFormats.Of(project).FormExtension).Text, form.Code));
             project.AddForm(form);
             return Task.FromResult(form);
         }, interactive);
@@ -2220,7 +2291,7 @@ public partial class ProjectService : IProjectService
     /// </summary>
     private ModuleDefinition AddNewModuleToProject(ProjectDefinition project, ModuleDefinition module)
     {
-        var fileName = module.Name + "." + ModuleExtension(module.Kind);
+        var fileName = module.Name + "." + ProjectFormats.Of(module.Owner).MemberExtension(module.Kind);
         EnsureNewMemberEncodable(project, module, fileName);
         // The header the code window will show, rendered as the first save will write it and held from now, as a
         // new form's and a template member's are (#885). Without it a brand-new UserControl or PropertyPage opens
@@ -2281,7 +2352,7 @@ public partial class ProjectService : IProjectService
 
         // Recorded only once the parse succeeded. A baseline for a form that was never added would leave
         // the dirty check answering about a file the project does not carry.
-        baselineStore.Record(absolutePath, bytes);
+        RecordRead(absolutePath, bytes);
         form.AbsolutePath = absolutePath;
         form.TextEncoding = sourceEncoding;
         project.AddForm(form);
@@ -2305,7 +2376,7 @@ public partial class ProjectService : IProjectService
         if (CheckAdoptedName(project, name) is var refusal && refusal != AdoptionRefusal.None)
             return Adopted<ModuleDefinition>.Refused(refusal, name);
 
-        baselineStore.Record(absolutePath, bytes);
+        RecordRead(absolutePath, bytes);
         var module = new ModuleDefinition(project, name, kind)
         {
             AbsolutePath = absolutePath,
@@ -2594,6 +2665,7 @@ public partial class ProjectService : IProjectService
         // Neither is correct, but a crash should fail towards the one the developer is told about.
         WriteCompanionBinary(formPath, frxContent, form);
         AtomicWriteText(formPath, frmText, encodedText);
+        Saved(form.AbsolutePath, formPath);
         form.AbsolutePath = formPath;
         if (adoptHeader)
             form.LoadedWithErrors = false;
@@ -2752,15 +2824,6 @@ public partial class ProjectService : IProjectService
         renderBaselines[targetPath] = FileHasher.Hash(content);
     }
 
-    /// <summary>The file extension VB6 gives a module of this kind.</summary>
-    private static string ModuleExtension(ModuleKind kind) => kind switch
-    {
-        ModuleKind.ClassModule  => "cls",
-        ModuleKind.UserControl  => "ctl",
-        ModuleKind.PropertyPage => "pag",
-        _                       => "bas"
-    };
-
     /// <summary>What VB6 numbers a new module of this kind after: <c>Module1</c>, <c>Class1</c> and so on.</summary>
     private static string ModulePrefix(ModuleKind kind) => kind switch
     {
@@ -2826,6 +2889,7 @@ public partial class ProjectService : IProjectService
         if (DesignerPartOf(module) is { } designerPart)
             WriteCompanionBinary(modulePath, companion, designerPart);
         AtomicWriteText(modulePath, text, encodedText);
+        Saved(module.AbsolutePath, modulePath);
         module.AbsolutePath = modulePath;
         // Both halves are the one file, as every load gives them (#474).
         if (DesignerPartOf(module) is { } written)
@@ -2865,6 +2929,7 @@ public partial class ProjectService : IProjectService
         // pinned here, before its own path moves, or the next save would read its kept lines from the new one (#737).
         if (definition.AbsolutePath is { } previous)
             definition.ItemLinesDirectory ??= Path.GetDirectoryName(previous);
+        Saved(definition.AbsolutePath, projectPath);
         definition.AbsolutePath = projectPath;
     }
 
@@ -2936,7 +3001,7 @@ public partial class ProjectService : IProjectService
             var documents = new List<HexIDE.Recovery.UnsavedDocument>();
             foreach (var form in project.Forms)
             {
-                var fileName = form.AbsolutePath is { } path ? Path.GetFileName(path) : form.Name + ".frm";
+                var fileName = form.AbsolutePath is { } path ? Path.GetFileName(path) : form.Name + "." + ProjectFormats.Of(form.Owner).FormExtension;
                 documents.Add(new(form.Name, "Form", form.AbsolutePath, form.TextEncoding,
                     CopyOf(form, form.Owner, fileName, () => IsDirty(form), () => RenderForm(form, fileName)), DiskHashOf(form.AbsolutePath)));
             }
@@ -2944,7 +3009,7 @@ public partial class ProjectService : IProjectService
             {
                 var fileName = module.AbsolutePath is { } path
                     ? Path.GetFileName(path)
-                    : module.Name + "." + ModuleExtension(module.Kind);
+                    : module.Name + "." + ProjectFormats.Of(module.Owner).MemberExtension(module.Kind);
                 documents.Add(new(module.Name, module.Kind.ToString(), module.AbsolutePath, module.TextEncoding,
                     CopyOf(module, module.Owner, fileName, () => IsDirty(module), () => RenderModule(module, fileName)), DiskHashOf(module.AbsolutePath)));
             }
@@ -2965,9 +3030,9 @@ public partial class ProjectService : IProjectService
             var directory = Path.GetDirectoryName(projectPath) ?? "";
             string? PathOf(object member) => member switch
             {
-                FormDefinition { AbsolutePath: null } form => Path.Combine(directory, form.Name + ".frm"),
+                FormDefinition { AbsolutePath: null } form => Path.Combine(directory, form.Name + "." + ProjectFormats.Of(form.Owner).FormExtension),
                 ModuleDefinition { AbsolutePath: null } module =>
-                    Path.Combine(directory, module.Name + "." + ModuleExtension(module.Kind)),
+                    Path.Combine(directory, module.Name + "." + ProjectFormats.Of(module.Owner).MemberExtension(module.Kind)),
                 _ => null,
             };
 

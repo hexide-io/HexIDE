@@ -105,6 +105,39 @@ public class ProjectFileFormatSeamTests : CompositionTestBase
         .ToList();
 
     [Fact]
+    public void New_member_names_avoid_the_formats_extensions_on_disk()
+    {
+        _format.FormExtension = "xfrm";
+        _format.ClassExtension = "xcls";
+        var project = Under(new ProjectDefinition(VBProjectType.EXE, "Ledger") { AbsolutePath = _vbp });
+        File.WriteAllText(Path.Join(_dir, "Form1.xfrm"), "occupied");
+        File.WriteAllText(Path.Join(_dir, "Class1.xcls"), "occupied");
+        var service = Service();
+
+        service.NextFreeFormName(project).Should().Be("Form2");
+        service.NextFreeModuleName(project, ModuleKind.ClassModule).Should().Be("Class2");
+    }
+
+    [Fact]
+    public async Task Generated_member_files_use_the_formats_extensions()
+    {
+        _format.FormExtension = "xfrm";
+        _format.ClassExtension = "xcls";
+        var project = Under(new ProjectDefinition(VBProjectType.EXE, "Ledger"));
+        project.AddForm(new FormDefinition(project, FormComponentClass.Instance, "Screen"));
+        project.AddModule(new ModuleDefinition(project, "Logic", ModuleKind.ClassModule));
+        _loaded.Add(project);
+        var service = Service();
+
+        var recovery = service.CaptureUnsavedWork().Single();
+        recovery.Documents.Select(document => document.Content!.FileName).Should().BeEquivalentTo("Screen.xfrm", "Logic.xcls");
+        await service.SaveProjectToDirectory(project, _dir);
+
+        File.ReadAllText(Path.Join(_dir, "Screen.xfrm")).Should().Contain("as Screen.xfrm");
+        File.ReadAllText(Path.Join(_dir, "Logic.xcls")).Should().Contain("as Logic.xcls");
+    }
+
+    [Fact]
     public async Task A_project_is_what_the_format_read()
     {
         _format.Skipped = ["Doc1.dob"];
@@ -854,6 +887,10 @@ public class ProjectFileFormatSeamTests : CompositionTestBase
 
     internal sealed class StandInFormat : IProjectFileFormat
     {
+        public string FormExtension { get; set; } = "frm";
+        public string? ClassExtension { get; set; }
+        public string MemberExtension(ModuleKind kind) => kind == ModuleKind.ClassModule && ClassExtension is not null
+            ? ClassExtension : new Vb6ProjectFileFormat().MemberExtension(kind);
         public FormatRegions? Regions { get; set; }
 
         public string CodePrefix(FormDefinition form) => $"prefix of {form.Name}: {Stamp}\r\n";

@@ -23,7 +23,7 @@ grammar VB6;
 
 @lexer::members {
     // Whether the character just before the current token ends a word: a letter, a digit or an underscore. Called
-    // only from the predicate at the right edge of IDENTIFIER_CONTINUATION, after the whole token has matched.
+    // from right-edge predicates after the whole token has matched (IDENTIFIER_CONTINUATION and LONGLONGCHAR).
     private bool WordEndsBeforeToken()
     {
         var before = TokenStartCharIndex - 1;
@@ -31,9 +31,13 @@ grammar VB6;
         var c = InputStream.LA(before - InputStream.Index);
         return char.IsLetterOrDigit((char)c) || c == '_';
     }
+
+    public bool IsVba64 { get; set; }
+
 }
 
 @parser::members {
+    public bool IsVba64 { get; set; }
     // Keep inline-If branches and a continued Debug.Print statement outside the preceding list.
     // Both refusals are measured in corpus/conformance/results.json.
     private bool OutputAdjacentAhead()
@@ -481,7 +485,7 @@ declareStmt
    ;
 
 deftypeStmt
-   : (DEFBOOL | DEFBYTE | DEFINT | DEFLNG | DEFCUR | DEFSNG | DEFDBL | DEFDEC | DEFDATE | DEFSTR | DEFOBJ | DEFVAR) WS letterrange (WS? COMMA WS? letterrange)*
+   : (DEFBOOL | DEFBYTE | DEFINT | DEFLNGLNG | DEFLNGPTR | DEFLNG | DEFCUR | DEFSNG | DEFDBL | DEFDEC | DEFDATE | DEFSTR | DEFOBJ | DEFVAR) WS letterrange (WS? COMMA WS? letterrange)*
    ;
 
 deleteSettingStmt
@@ -1170,7 +1174,8 @@ type
    ;
 
 typeHint
-   : AMPERSAND
+   : LONGLONGCHAR
+   | AMPERSAND
    | AT
    | DOLLAR
    | EXCLAMATIONMARK
@@ -1220,6 +1225,8 @@ ambiguousKeyword
    | DEFDATE
    | DEFDEC
    | DEFINT
+   | DEFLNGLNG
+   | DEFLNGPTR
    | DEFLNG
    | DEFOBJ
    | DEFSNG
@@ -1553,6 +1560,9 @@ DEFINT
    : D E F I N T
    ;
 
+
+DEFLNGLNG : D E F L N G L N G;
+DEFLNGPTR : D E F L N G P T R;
 
 DEFLNG
    : D E F L N G
@@ -2404,6 +2414,11 @@ PLUS_EQ
    ;
 
 
+LONGLONGCHAR
+   : '^' {IsVba64 && WordEndsBeforeToken()}?
+   ;
+
+
 POW
    : '^'
    ;
@@ -2471,7 +2486,7 @@ fragment DATEMERIDIEM : (A | P) M?;
 
 
 HEXLITERAL
-   : '&H' [0-9A-F] + (AMPERSAND | PERCENT)?
+   : '&H' [0-9A-F] + (AMPERSAND | PERCENT | LONGLONGSUFFIX)?
    ;
 
 
@@ -2481,7 +2496,7 @@ HEXLITERAL
 // is then two literals side by side, which the parser refuses, as vb6.exe does.
 // Leading signs are operators (#1073); exponent signs remain part of the literal.
 INTEGERLITERAL
-   : ('0' .. '9') + (('e' | 'E' | 'd' | 'D') (PLUS | MINUS)? INTEGERLITERAL)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
+   : ('0' .. '9') + (('e' | 'E' | 'd' | 'D') (PLUS | MINUS)? INTEGERLITERAL)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT | LONGLONGSUFFIX)?
    ;
 
 
@@ -2765,4 +2780,8 @@ fragment Y
 
 fragment Z
    : ('z' | 'Z')
+   ;
+
+fragment LONGLONGSUFFIX
+   : '^' {IsVba64}?
    ;

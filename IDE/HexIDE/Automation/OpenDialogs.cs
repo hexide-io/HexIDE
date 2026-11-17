@@ -68,9 +68,31 @@ public static class OpenDialogs
             + (!watch.Before.Contains(d) ? "opened during this call and waits for an answer"
                 : Blocks(d, watch.Target) ? "is still open and waits for an answer"
                     + (acted ? "; this call reached past it, as a person could not" : "")
-                : "is open and waits for an answer"));
-        return string.Join("; ", parts) + "; dump_visual_tree with 'window' set to its title shows it, and interact answers it.";
+                : "is open and waits for an answer")
+            + (IsSecurityPrompt(d) ? "; " + SecurityPromptNote : ""));
+        // A security prompt's answer is the person's, so the note never says how to give it (#1121 review).
+        return string.Join("; ", parts) + (named.All(IsSecurityPrompt) ? "."
+            : named.Any(IsSecurityPrompt) ? "; dump_visual_tree with 'window' set to its title shows any other, and interact answers it."
+            : "; dump_visual_tree with 'window' set to its title shows it, and interact answers it.");
     }
+
+    /// <summary>
+    /// What a tool says of a security prompt in place of how to answer it: that it asks the person, and that the answer is
+    /// theirs. A consent prompt must never coach an automated caller towards approving on the person's behalf (#1121).
+    /// </summary>
+    public const string SecurityPromptNote =
+        "it is a security prompt asking the person whether to run code from outside this computer, and the answer is their decision";
+
+    /// <summary>Whether <paramref name="dialog"/> asks the person a security question (#1121).</summary>
+    public static bool IsSecurityPrompt(Window dialog) => dialog.Content is HexIDE.Dialogs.MessageBox { IsSecurityPrompt: true };
+
+    /// <summary>
+    /// How a refusal tells its caller to deal with <paramref name="dialog"/> before trying again: where to find it and that
+    /// interact answers it, or, for a security prompt, that the answer is the person's (#1121).
+    /// </summary>
+    public static string HowToAnswer(Window dialog, string answerFirst) => IsSecurityPrompt(dialog)
+        ? char.ToUpperInvariant(SecurityPromptNote[0]) + SecurityPromptNote[1..]
+        : answerFirst + ": dump_visual_tree with 'window' set to its title shows it, and interact answers it";
 
     // Read the same live controls and automation names a tree dump exposes, including disabled choices. The note, the
     // program wait, keyboard typing's stop, the key refusal and close's refusal name a waiting dialog through this, since
