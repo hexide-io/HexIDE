@@ -1884,6 +1884,7 @@ public static class UiAutomationDriver
             return Fail(problem);
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Fail("the control is not attached to a window, so it has no coordinates to click at");
+        var startedInactive = topLevel is Window { IsActive: false };
         // A hover left there by 'stay' ends first, as a person's pointer leaves what it was over to press elsewhere (#2562).
         EndStayingHover(topLevel);
         var local = at ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
@@ -2042,6 +2043,14 @@ public static class UiAutomationDriver
                 var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{arrival}{(second ? secondLanding : "")}"
                     + (destination is null ? (releaseCode.Length == 0 ? "" : $"; released{releaseCode}") : $"; released at {releaseWhere}{releaseCode}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
+                if (startedInactive && topLevel is Window { IsActive: false } clickedWindow)
+                {
+                    var active = OpenWindows().FirstOrDefault(w => w.IsActive);
+                    outcome = outcome with { Detail = outcome.Detail
+                        + $"; {FormLabel(clickedWindow)} is still inactive: "
+                        + (active is null ? "no HexIDE window is active" : $"{FormLabel(active)} is still active")
+                        + ". To request activation, use set_window_state {window: <name>, activate: true}; it only switches while HexIDE is active" };
+                }
 #if DEBUG
                 return UiSaveFeedback.After(saveWatch, outcome);
 #else

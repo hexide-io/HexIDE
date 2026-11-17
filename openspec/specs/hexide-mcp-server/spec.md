@@ -2218,3 +2218,22 @@ If the menu part cannot be reached deterministically, it SHALL refuse and name `
 - **THEN** the pane menu opens with Float, Dock as Tabbed Document and Close, and the reply identifies the menu
 - **AND** collapsing the same title bar closes the menu, or says there is nothing to close
 - **AND** no unreported popup is left to intercept the next pointer press
+
+### Requirement: Explicit activation SHALL stay within an already active HexIDE process
+
+`set_window_state` SHALL accept optional `state` (default null) and `activate` (default false) on the wire.
+With neither a state nor activation it SHALL refuse with instructions. Activation SHALL be refused before
+any mutation when no HexIDE window is active, or, on Windows, when the foreground window belongs to another
+process. A modal covering the target SHALL be named and refused, including when the target is the IDE.
+The tool SHALL wait at most one second for platform activation and report the target's `isActive` and the
+previously active window's name and current `isActive`; a timeout SHALL not claim success.
+
+#### Scenario: Switching from a floating tool to the IDE
+- **WHEN** a HexIDE floating window is active and `set_window_state(window: "ide", activate: true)` is called
+- **THEN** the IDE's platform activation is requested without changing its state
+- **AND** the reply reports whether the IDE activated and whether the floating window is still active
+
+#### Scenario: A click does not activate its window
+- **WHEN** `interact` presses on an inactive window and that window remains inactive after release
+- **THEN** its reply SHALL say activation did not move, name any window still active, and point to
+  `set_window_state` with `activate: true`
