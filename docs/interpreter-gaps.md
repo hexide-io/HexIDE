@@ -232,6 +232,7 @@ Real, hard, and **not** the language-analysis boundary. `CLAUDE.md` is explicit 
 excluded — it is in scope but Windows-gated"*, so filing these as CST-vs-AST walls misdescribed them and
 made them look permanent in a way they are not.
 
+- **Locale compare platform limit ([#4151](https://github.com/hexide-io/HexIDE/issues/4151))** — StrComp with a compare of 3 or above uses Windows locale validation and collation on Windows and explicitly refuses elsewhere; ICU is not Windows collation. InStr implements only the locale IDs measured in #4151, including their distinct ß and Æ expansion choices, on every platform. Other IDs remain refused. Other expansion characters are unmeasured for these IDs and retain the existing text-search behaviour. InStrRev, Replace, Split and Filter retain their existing locale-ID refusals: they were not measured here. Measurements belong to [the oracle page](vb6-fidelity-oracle/option-compare-text-and-vb6s-text-compare.md), measuring PR #4188; the issue records the tables pending that PR.
 - **`CreateObject` / `GetObject`, library-qualified `New`** (`New Excel.Application`) — needs COM activation.
 - **Default members and bang access on a COM receiver** (`rs!Field` on an ADO Recordset) — the default member
   is declared in a type library. The same syntax over a HexIDE-parsed class is a deferral (#174, #173).
