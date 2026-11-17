@@ -1334,6 +1334,7 @@
     "Str.AIChat.InputPlaceholder": "Pitajte o svom kodu…",
     "Str.AIChat.NewTip": "Novo ćaskanje (istorija se čuva)",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} dele fasciklu {1}; zapisuje se ili uvozi samo {2}.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} nije moguće sačuvati kao grupu projekata: VB6 bi otvorio {1} kao module koda, a ne kao projekte. Uklonite ih iz grupe ili sačuvajte svaki projekat zasebno. Ništa nije upisano.",
     "Str.PropDesc.Index": "Indeks elementa niza kontrola ili prazno za samostalnu kontrolu.",
     "Str.ControlArray.InvalidIndex": "Index mora biti ceo broj od 0 do 32767 ili prazan.",
     "Str.ControlArray.DuplicateIndex": "'{0}' već ima Index {1}. Izaberite drugi Index.",

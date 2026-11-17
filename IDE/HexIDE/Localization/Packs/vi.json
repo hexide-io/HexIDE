@@ -1334,6 +1334,7 @@
     "Str.AIChat.InputPlaceholder": "Hỏi về mã của bạn…",
     "Str.AIChat.NewTip": "Cuộc trò chuyện mới (lịch sử được giữ lại)",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Các dự án {0} dùng chung thư mục {1}; chỉ {2} được ghi hoặc nhập.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "Không thể lưu {0} dưới dạng nhóm dự án: VB6 sẽ mở {1} dưới dạng mô-đun mã, không phải dự án. Hãy xóa chúng khỏi nhóm hoặc lưu riêng từng dự án. Không có gì được ghi.",
     "Str.PropDesc.Index": "Chỉ số phần tử mảng điều khiển, hoặc để trống cho điều khiển đơn.",
     "Str.ControlArray.InvalidIndex": "Index phải là số nguyên từ 0 đến 32767, hoặc để trống.",
     "Str.ControlArray.DuplicateIndex": "'{0}' đã có Index {1}. Hãy chọn Index khác.",

@@ -1334,6 +1334,7 @@
     "Str.AIChat.InputPlaceholder": "Vprašajte o svoji kodi…",
     "Str.AIChat.NewTip": "Nov klepet (zgodovina se ohrani)",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} si delijo mapo {1}; zapiše ali uvozi se samo {2}.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} ni mogoče shraniti kot skupino projektov: VB6 bi odprl {1} kot module kode, ne kot projekte. Odstranite jih iz skupine ali shranite vsak projekt posebej. Nič ni bilo zapisano.",
     "Str.PropDesc.Index": "Indeks elementa polja kontrolnikov ali prazno za samostojen kontrolnik.",
     "Str.ControlArray.InvalidIndex": "Index mora biti celo število od 0 do 32767 ali prazen.",
     "Str.ControlArray.DuplicateIndex": "'{0}' že ima Index {1}. Izberite drug Index.",

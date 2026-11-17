@@ -1334,6 +1334,7 @@
     "Str.AIChat.PrivacyKeyTip": "ヒント: API キーをファイルに保存しないように、環境変数 HEXIDE_AI_API_KEY を設定してください。",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "プロジェクト {0} はフォルダー {1} を共有しています。{2} のみが書き込みまたはインポートされます。",
     "Str.MemberOrigin.HexIde": "HexIDE の拡張機能。VB6 では使用できません。",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} をプロジェクトグループとして保存できません。VB6 は {1} をプロジェクトではなくコードモジュールとして開きます。グループから削除するか、各プロジェクトを個別に保存してください。何も書き込まれませんでした。",
     "Str.PropDesc.Index": "コントロール配列要素のインデックス。単独のコントロールは空欄です。",
     "Str.ControlArray.InvalidIndex": "Index は 0～32767 の整数、または空欄にしてください。",
     "Str.ControlArray.DuplicateIndex": "'{0}' には既に Index {1} が設定されています。別の Index を選んでください。",

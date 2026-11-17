@@ -1334,6 +1334,7 @@
     "Str.AIChat.PrivacyKeyTip": "Съвет: задайте променливата на средата HEXIDE_AI_API_KEY, за да избегнете съхраняването на API ключа във файл.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Проектите {0} споделят папка {1}; записва се или се импортира само {2}.",
     "Str.MemberOrigin.HexIde": "Разширение на HexIDE; не е налично във VB6.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} не може да се запише като група проекти: VB6 би отворил {1} като модули с код, а не като проекти. Премахнете ги от групата или запишете всеки проект поотделно. Нищо не е записано.",
     "Str.PropDesc.Index": "Индексът на елемента в масива от контроли или празно за самостоятелна контрола.",
     "Str.ControlArray.InvalidIndex": "Index трябва да е цяло число от 0 до 32767 или празно.",
     "Str.ControlArray.DuplicateIndex": "„{0}“ вече има Index {1}. Изберете друг Index.",

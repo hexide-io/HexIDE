@@ -1334,6 +1334,7 @@
     "Str.AIChat.InputPlaceholder": "Задайте вопрос о коде…",
     "Str.AIChat.NewTip": "Новый чат (история сохраняется)",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Проекты {0} используют общую папку {1}; записывается или импортируется только {2}.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "Невозможно сохранить {0} как группу проектов: VB6 откроет {1} как модули кода, а не как проекты. Удалите их из группы или сохраните каждый проект отдельно. Ничего не записано.",
     "Str.PropDesc.Index": "Индекс элемента массива элементов управления или пустое значение для отдельного элемента.",
     "Str.ControlArray.InvalidIndex": "Index должен быть целым числом от 0 до 32767 или пустым.",
     "Str.ControlArray.DuplicateIndex": "У «{0}» уже есть Index {1}. Выберите другой Index.",

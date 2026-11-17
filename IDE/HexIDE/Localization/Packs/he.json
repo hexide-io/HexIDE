@@ -1334,6 +1334,7 @@
     "Str.AIChat.PrivacyKeyTip": "טיפ: יש להגדיר את משתנה הסביבה HEXIDE_AI_API_KEY כדי להימנע משמירת מפתח ה־API בקובץ.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "הפרויקטים {0} חולקים את התיקייה {1}; רק {2} נכתב או מיובא.",
     "Str.MemberOrigin.HexIde": "הרחבה של HexIDE; אינה זמינה ב-VB6.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "לא ניתן לשמור את {0} כקבוצת פרויקטים: VB6 יפתח את {1} כמודולי קוד ולא כפרויקטים. יש להסיר אותם מהקבוצה או לשמור כל פרויקט בנפרד. דבר לא נכתב.",
     "Str.PropDesc.Index": "האינדקס של איבר במערך פקדים, או ריק עבור פקד יחיד.",
     "Str.ControlArray.InvalidIndex": "Index חייב להיות מספר שלם בין 0 ל־32767, או ריק.",
     "Str.ControlArray.DuplicateIndex": "ל־'{0}' כבר יש Index {1}. יש לבחור Index אחר.",

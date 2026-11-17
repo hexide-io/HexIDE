@@ -1334,6 +1334,7 @@
     "Str.AIChat.InputPlaceholder": "ถามเกี่ยวกับโค้ดของคุณ…",
     "Str.AIChat.NewTip": "แชตใหม่ (ประวัติจะถูกเก็บไว้)",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "โครงการ {0} ใช้โฟลเดอร์ {1} ร่วมกัน จะเขียนหรือนำเข้าเฉพาะ {2} เท่านั้น",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "ไม่สามารถบันทึก {0} เป็นกลุ่มโครงการได้: VB6 จะเปิด {1} เป็นโมดูลโค้ด ไม่ใช่โครงการ ให้นำออกจากกลุ่มหรือบันทึกแต่ละโครงการแยกกัน ไม่มีการเขียนข้อมูลใดๆ",
     "Str.PropDesc.Index": "ดัชนีของสมาชิกอาร์เรย์ตัวควบคุม หรือเว้นว่างสำหรับตัวควบคุมเดี่ยว",
     "Str.ControlArray.InvalidIndex": "Index ต้องเป็นจำนวนเต็มตั้งแต่ 0 ถึง 32767 หรือว่าง",
     "Str.ControlArray.DuplicateIndex": "'{0}' มี Index {1} อยู่แล้ว เลือก Index อื่น",

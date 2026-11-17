@@ -1334,6 +1334,7 @@
     "Str.AIChat.PrivacyKeyTip": "提示：請設定 HEXIDE_AI_API_KEY 環境變數，以避免將 API 金鑰儲存在檔案中。",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "專案 {0} 共用資料夾 {1}；僅寫入或匯入 {2}。",
     "Str.MemberOrigin.HexIde": "HexIDE 擴充功能；VB6 中無法使用。",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "無法將 {0} 儲存為專案群組：VB6 會將 {1} 作為程式碼模組而非專案開啟。請將它們從群組中移除，或分別儲存每個專案。未寫入任何內容。",
     "Str.PropDesc.Index": "控制項陣列元素的索引；獨立控制項則為空。",
     "Str.ControlArray.InvalidIndex": "Index 必須是 0 到 32767 的整數，或留空。",
     "Str.ControlArray.DuplicateIndex": "「{0}」已有 Index {1}。請選擇其他 Index。",

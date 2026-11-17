@@ -1334,6 +1334,7 @@
     "Str.AIChat.InputPlaceholder": "Küsi oma koodi kohta…",
     "Str.AIChat.NewTip": "Uus vestlus (ajalugu säilitatakse)",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektid {0} jagavad kausta {1}; kirjutatakse või imporditakse ainult {2}.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} ei saa salvestada projektirühmana: VB6 avaks {1} koodimoodulitena, mitte projektidena. Eemaldage need rühmast või salvestage iga projekt eraldi. Midagi ei kirjutatud.",
     "Str.PropDesc.Index": "Juhtelementide massiivi elemendi indeks või tühi eraldiseisva juhtelemendi korral.",
     "Str.ControlArray.InvalidIndex": "Index peab olema täisarv vahemikus 0 kuni 32767 või tühi.",
     "Str.ControlArray.DuplicateIndex": "'{0}' kasutab juba Index väärtust {1}. Valige teine Index.",

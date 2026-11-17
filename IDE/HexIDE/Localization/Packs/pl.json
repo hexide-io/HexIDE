@@ -1334,6 +1334,7 @@
     "Str.AIChat.InputPlaceholder": "Zapytaj o swój kod…",
     "Str.AIChat.NewTip": "Nowy czat (historia zostaje zachowana)",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekty {0} współdzielą folder {1}; zapisywany lub importowany jest tylko {2}.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "Nie można zapisać {0} jako grupy projektów: VB6 otworzyłby {1} jako moduły kodu, a nie projekty. Usuń je z grupy lub zapisz każdy projekt osobno. Nic nie zapisano.",
     "Str.PropDesc.Index": "Indeks elementu tablicy kontrolek lub pusty dla pojedynczej kontrolki.",
     "Str.ControlArray.InvalidIndex": "Index musi być liczbą całkowitą od 0 do 32767 lub pusty.",
     "Str.ControlArray.DuplicateIndex": "'{0}' ma już Index {1}. Wybierz inny Index.",

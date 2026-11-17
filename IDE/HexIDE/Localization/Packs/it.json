@@ -1334,6 +1334,7 @@
     "Str.AIChat.InputPlaceholder": "Chiedi informazioni sul codice…",
     "Str.AIChat.NewTip": "Nuova chat (la cronologia viene conservata)",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "I progetti {0} condividono la cartella {1}; viene scritto o importato solo {2}.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "Impossibile salvare {0} come gruppo di progetti: VB6 aprirebbe {1} come moduli di codice, non come progetti. Rimuoverli dal gruppo o salvare ogni progetto separatamente. Non è stato scritto nulla.",
     "Str.PropDesc.Index": "Indice dell’elemento della matrice di controlli, o vuoto per un controllo semplice.",
     "Str.ControlArray.InvalidIndex": "Index deve essere un numero intero da 0 a 32767, oppure vuoto.",
     "Str.ControlArray.DuplicateIndex": "'{0}' ha già Index {1}. Scegliere un altro Index.",

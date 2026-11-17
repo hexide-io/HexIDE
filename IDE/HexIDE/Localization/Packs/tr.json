@@ -1334,6 +1334,7 @@
     "Str.AIChat.InputPlaceholder": "Kodunuz hakkında soru sorun…",
     "Str.AIChat.NewTip": "Yeni sohbet (geçmiş korunur)",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "{0} projeleri {1} klasörünü paylaşıyor; yalnızca {2} yazılır veya içe aktarılır.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} proje grubu olarak kaydedilemiyor: VB6, {1} öğelerini proje olarak değil, kod modülleri olarak açar. Bunları gruptan kaldırın veya her projeyi ayrı ayrı kaydedin. Hiçbir şey yazılmadı.",
     "Str.PropDesc.Index": "Denetim dizisi öğesinin dizini; tek denetim için boş bırakılır.",
     "Str.ControlArray.InvalidIndex": "Index 0 ile 32767 arasında bir tam sayı veya boş olmalıdır.",
     "Str.ControlArray.DuplicateIndex": "'{0}' zaten Index {1} değerine sahip. Başka bir Index seçin.",

@@ -1334,6 +1334,7 @@
     "Str.AIChat.PrivacyNotice": "ℹ Privacy: your messages, the active file's contents (for a form, its layout and captions too), and its diagnostics are sent to {0} — a third-party service you configured in AI Chat settings. The contents of any other file in your loaded projects that the assistant reads with its tools, project file lists, and diagnostics for any file are also sent there without asking for approval.",
     "Str.AIChat.PrivacyKeyTip": "Tip: set the HEXIDE_AI_API_KEY environment variable to avoid storing your API key in a file.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projects {0} share folder {1}; only {2} is written or imported.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} can't be saved as a project group: VB6 would open {1} as code modules, not as projects. Remove them from the group, or save each project on its own. Nothing was written.",
     "Str.PropDesc.Index": "The control array element's index, or empty for a plain control.",
     "Str.ControlArray.InvalidIndex": "Index must be a whole number from 0 to 32767, or empty.",
     "Str.ControlArray.DuplicateIndex": "'{0}' already has Index {1}. Choose another Index.",

@@ -1334,6 +1334,7 @@
     "Str.AIChat.PrivacyKeyTip": "Conseil : définissez la variable d’environnement HEXIDE_AI_API_KEY pour éviter de stocker votre clé API dans un fichier.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Les projets {0} partagent le dossier {1} ; seul {2} est écrit ou importé.",
     "Str.MemberOrigin.HexIde": "Extension HexIDE ; non disponible dans VB6.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "Impossible d’enregistrer {0} comme groupe de projets : VB6 ouvrirait {1} comme modules de code et non comme projets. Retirez-les du groupe ou enregistrez chaque projet séparément. Rien n’a été écrit.",
     "Str.PropDesc.Index": "Indice de l’élément du tableau de contrôles, ou vide pour un contrôle simple.",
     "Str.ControlArray.InvalidIndex": "Index doit être un entier de 0 à 32767, ou vide.",
     "Str.ControlArray.DuplicateIndex": "« {0} » possède déjà l’Index {1}. Choisissez un autre Index.",

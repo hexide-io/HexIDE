@@ -1334,6 +1334,7 @@
     "Str.AIChat.InputPlaceholder": "Klauskite apie savo kodą…",
     "Str.AIChat.NewTip": "Naujas pokalbis (istorija išsaugoma)",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektai {0} bendrina aplanką {1}; įrašomas arba importuojamas tik {2}.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} negalima įrašyti kaip projektų grupės: VB6 atvertų {1} kaip kodo modulius, o ne projektus. Pašalinkite juos iš grupės arba įrašykite kiekvieną projektą atskirai. Nieko neįrašyta.",
     "Str.PropDesc.Index": "Valdiklių masyvo elemento indeksas arba tuščia atskiram valdikliui.",
     "Str.ControlArray.InvalidIndex": "Index turi būti sveikasis skaičius nuo 0 iki 32767 arba tuščias.",
     "Str.ControlArray.DuplicateIndex": "„{0}“ jau turi Index {1}. Pasirinkite kitą Index.",

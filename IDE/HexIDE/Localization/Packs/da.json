@@ -1334,6 +1334,7 @@
     "Str.AIChat.InputPlaceholder": "Spørg om din kode…",
     "Str.AIChat.NewTip": "Ny samtale (historikken bevares)",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekterne {0} deler mappen {1}; kun {2} skrives eller importeres.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} kan ikke gemmes som en projektgruppe: VB6 ville åbne {1} som kodemoduler, ikke som projekter. Fjern dem fra gruppen, eller gem hvert projekt for sig. Intet blev skrevet.",
     "Str.PropDesc.Index": "Indekset for elementet i kontrolarrayet, eller tomt for en enkelt kontrol.",
     "Str.ControlArray.InvalidIndex": "Index skal være et heltal fra 0 til 32767 eller tomt.",
     "Str.ControlArray.DuplicateIndex": "'{0}' har allerede Index {1}. Vælg et andet Index.",

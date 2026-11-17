@@ -1334,6 +1334,7 @@
     "Str.AIChat.InputPlaceholder": "Jautājiet par savu kodu…",
     "Str.AIChat.NewTip": "Jauna saruna (vēsture tiek saglabāta)",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} koplieto mapi {1}; tiek ierakstīts vai importēts tikai {2}.",
+    "Str.Dialog.ProjectGroup.OtherKindRefused": "{0} nevar saglabāt kā projektu grupu: VB6 atvērtu {1} kā koda moduļus, nevis projektus. Noņemiet tos no grupas vai saglabājiet katru projektu atsevišķi. Nekas netika ierakstīts.",
     "Str.PropDesc.Index": "Vadīklu masīva elementa indekss vai tukšs atsevišķai vadīklai.",
     "Str.ControlArray.InvalidIndex": "Index jābūt veselam skaitlim no 0 līdz 32767 vai tukšam.",
     "Str.ControlArray.DuplicateIndex": "'{0}' jau ir Index {1}. Izvēlieties citu Index.",
