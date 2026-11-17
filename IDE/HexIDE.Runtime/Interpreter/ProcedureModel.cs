@@ -37,6 +37,13 @@ public sealed record ProcedureInfo(
 {
     public Antlr4.Runtime.ParserRuleContext? Declaration { get; init; }
 
+    /// <summary>
+    /// <c>Get</c>, <c>Let</c> or <c>Set</c> for a Property procedure, null for a Sub or Function. Each accessor is a
+    /// context of its own: VB6's Add Watch lists them as <c>X(Get)</c> and <c>X(Let)</c>, and a watch scoped to one reads
+    /// <c>&lt;Out of context&gt;</c> while the other runs (measured, #4401).
+    /// </summary>
+    public string? Accessor { get; init; }
+
     private IReadOnlyList<VB6Parser.VariableSubStmtContext>? declaredLocals;
 
     /// <summary>

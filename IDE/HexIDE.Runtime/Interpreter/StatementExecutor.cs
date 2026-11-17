@@ -52,6 +52,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// A handler further down the stack never sees an error raised above an entry (measured, #1011).</summary>
     internal bool IsEntry { get; init; }
 
+    /// <summary>The Property accessor this activation runs, <c>Get</c>, <c>Let</c> or <c>Set</c>; null otherwise.</summary>
+    internal string? Accessor { get; init; }
+
+    // This activation's procedure as a watch context names it: `X` for a Sub or Function, `X(Get)` for an accessor,
+    // as VB6's Add Watch and Context column write it (measured, #4401).
+    private string? ContextProcedure => procName is not null && Accessor is not null ? $"{procName}({Accessor})" : procName;
+
     // Whether a run-time error raised in this activation now would be trapped by it. Nothing is while its handler runs,
     // whatever On Error the handler has said since: the error goes to the caller (measured, #877).
     private bool Traps => errorMode != ErrorMode.None && !inHandler;
@@ -109,7 +116,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// <summary>The debugger's view of THIS activation's Locals (see <see cref="Debugging.DebugInspector"/>) —
     /// called by the controller only while this frame is the one paused at a break.</summary>
     Debugging.DebugScope Debugging.IDebugFrame.GetLocals()
-        => Debugging.DebugInspector.Build(currentEnv, currentModule, interpreter, procName);
+    {
+        var scope = Debugging.DebugInspector.Build(currentEnv, currentModule, interpreter, procName);
+        return Accessor is null || procName is null ? scope : scope with { WatchContext = $"{currentModule.Name}.{ContextProcedure}" };
+    }
 
     /// <summary>Handle an Immediate-window line against THIS paused frame. A leading <c>?</c>/<c>Print</c>/
     /// <c>Debug.Print</c> forces EXPRESSION evaluation (print the result). A BARE assignment or <c>Set</c> is
@@ -234,7 +244,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var matches = new List<StatementExecutor>();
             for (var i = index; i >= 0; i--)
                 if (string.Equals(stack[i].currentModule.Name, module, StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(stack[i].procName, procedure, StringComparison.OrdinalIgnoreCase))
+                    && string.Equals(stack[i].ContextProcedure, procedure, StringComparison.OrdinalIgnoreCase))
                     matches.Add(stack[i]);
             if (matches.Count == 0)
                 return ContextError("<Out of context>");
