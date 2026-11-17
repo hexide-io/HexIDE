@@ -1750,18 +1750,18 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         CommitLayout();
     }
 
-    public void RequestCode(string? subName)
+    public void RequestCode(string? subName, string? objectName, string? eventName)
     {
         Log.Debug("FormEditViewModel: RequestCode({SubName}) for form {FormName}", subName ?? "(null)", formDefinition?.Name);
         editorService.EditCode(formDefinition);
-        if (subName == null)
+        if (subName is null || objectName is null || eventName is null)
             return;
 
         // this is a hack, the following line can be executed only after the window is created, it should be solved in a better way.
         DispatcherTimer.RunOnce(() => LoggedTimerCallback.Run("designer code navigation", () =>
         {
             Log.Debug("FormEditViewModel: Dispatching CreateOrNavigateToSubEvent({SubName})", subName);
-            eventBus.Publish(new CreateOrNavigateToSubEvent(formDefinition!, subName));
+            eventBus.Publish(new CreateOrNavigateToSubEvent(formDefinition!, subName, objectName, eventName));
         }), TimeSpan.FromMilliseconds(16));
     }
 }

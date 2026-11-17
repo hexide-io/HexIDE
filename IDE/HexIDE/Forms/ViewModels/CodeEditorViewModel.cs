@@ -310,13 +310,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 else
                 {
                     Log.Debug("CodeEditorViewModel: 'Sub {SubName}' not found, creating event stub", e.Sub);
-                    // Private, as VB6 writes an event procedure (measured, #1532). Add Procedure's own default is Public.
-                    AddProcedureViewModel vm = new AddProcedureViewModel();
-                    vm.IsPublic = false;
-                    vm.IsSub = true;
-                    vm.Name = e.Sub;
-                    var code = vm.GenerateCode();
-                    InsertAtEnd(code.beginCode, code.endCode);
+                    InsertEventHandlerStub(e.ObjectName, e.EventName);
                 }
                 FocusWindowRequest?.Invoke();
             }
@@ -2613,11 +2607,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
         var sb = new StringBuilder();
         sb.Append($"Private Sub {objectName}_{eventName}(");
+        var element = component?.IsControlArrayElement == true;
+        if (element) sb.Append("Index As Integer");
         if (ev is not null)
         {
             for (int i = 0; i < ev.Arguments.Length; i++)
             {
-                if (i > 0) sb.Append(", ");
+                if (i > 0 || element) sb.Append(", ");
                 sb.Append($"{ev.Arguments[i].DefaultName} As {ev.Arguments[i].Type}");
             }
         }

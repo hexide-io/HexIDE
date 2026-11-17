@@ -26,6 +26,9 @@ public class VBWindowContext : IModuleExecutionRoot
     internal void CloseFiles() => interpreter?.BuiltIns.Files.CloseAll();
     private VbObject? instance;
     private bool formDeclarationsRun;
+    internal ProjectElements.FormDefinition? FormDefinition { get; set; }
+    private bool handlersChecked;
+
     // Set once StartAsync begins. A started form's declarations run there and nowhere else, so an event can never run
     // them late, after Load has used the variables they would re-create (#1010 review).
     private bool started;
@@ -111,6 +114,7 @@ public class VBWindowContext : IModuleExecutionRoot
         };
         instance = null;
         formDeclarationsRun = false;
+        handlersChecked = false;
         // What `App` reports. Null means no project behind this run (a bare context), and App then reports
         // empty rather than inventing an identity.
         if (appInfo is not null)
@@ -579,11 +583,43 @@ public class VBWindowContext : IModuleExecutionRoot
 
     private async Task EnsureDeclarations()
     {
+        CheckControlHandlers();
         await interpreter!.RunModuleDeclarations();
         if (formDeclarationsRun)
             return;
         formDeclarationsRun = true;
         await interpreter.RunFormDeclarations(EnsureInstance());
+    }
+
+    // Checked on entry to this form, before declarations or Initialize, on both startup paths (#4205).
+    private void CheckControlHandlers()
+    {
+        if (handlersChecked || FormDefinition is null)
+            return;
+        var module = EnsureInstance().ClassDef;
+        foreach (var component in FormDefinition.Components)
+        {
+            if (component.BaseClass is Components.FormComponentClass)
+                continue;
+            var name = component.GetPropertyOrDefault(Components.VBProperties.NameProperty);
+            foreach (var ev in component.BaseClass.Events)
+            {
+                if (!module.PrePass.Procedures.TryGetValue($"{name}_{ev.Name}", out var procedure) || procedure.IsFunction)
+                    continue;
+                var element = component.IsControlArrayElement;
+                var parameters = procedure.Parameters;
+                if (parameters.Count == ev.Arguments.Length + (element ? 1 : 0)
+                    && (!element || parameters[0].DeclaredType == Vb6Value.ValueType.Integer && parameters[0].ByRef))
+                    continue;
+                var line = procedure.Declaration?.Start.Line ?? 1;
+                var error = new VBCompileErrorException(
+                    "Procedure declaration does not match description of event or procedure having the same name") { Line = line };
+                HexIDE.IDE.ErrorLocation.Note(error, module.Name, line);
+                Log.Error("Event procedure {Procedure} in {Module}, line {Line}: {Message}", procedure.Name, module.Name, line, error.Message);
+                throw error;
+            }
+        }
+        handlersChecked = true;
     }
 
     public void ExecuteKeyboardEvent(string name, IReadOnlyList<Vb6Value> args, int writable, Action<int> completed)
