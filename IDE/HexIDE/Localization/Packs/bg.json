@@ -51,6 +51,7 @@
     "Str.Dock.ToolTabs": "Раздели на инструменти",
     "Str.AIChat.Refusal": "Доставчикът отказа тази заявка.",
     "Str.AIChat.TokenLimit": "Отговорът достигна лимита за токени и е непълен.",
+    "Str.Startup.NoVb6Summary": "Стартиране без регистриран тип проект VB6. Само за компилации Debug.",
     "Str.Startup.PlatformSummary": "Само Linux. Графична среда: x11 (по подразбиране), auto или wayland.",
     "Str.Shell.NotImplemented": "Тази функция все още не е реализирана",
     "Str.AIChat.Stop": "Спри",

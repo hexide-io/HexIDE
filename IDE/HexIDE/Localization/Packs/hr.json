@@ -85,6 +85,7 @@
     "Str.Dock.ToolTabStripItemClose": "_Zatvori",
     "Str.AIChat.Refusal": "Pružatelj je odbio ovaj zahtjev.",
     "Str.AIChat.TokenLimit": "Odgovor je dosegnuo ograničenje tokena i nije potpun.",
+    "Str.Startup.NoVb6Summary": "Pokreni bez registracije vrste projekta VB6. Samo međuverzije Debug.",
     "Str.Startup.PlatformSummary": "Samo Linux. Pozadina prikaza: x11 (zadano), auto ili wayland.",
     "Str.Shell.NotImplemented": "Ova značajka još nije implementirana",
     "Str.AIChat.Stop": "Zaustavi",

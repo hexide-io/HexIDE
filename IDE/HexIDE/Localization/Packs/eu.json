@@ -23,6 +23,7 @@
     "Str.AIChat.Menu": "AA _txata",
     "Str.AIChat.Refusal": "Hornitzaileak eskaera hau baztertu du.",
     "Str.AIChat.TokenLimit": "Erantzuna tokenen mugara iritsi da eta osatu gabe dago.",
+    "Str.Startup.NoVb6Summary": "Hasi VB6 proiektu mota erregistratu gabe. Debug konpilazioetan soilik.",
     "Str.Startup.PlatformSummary": "Linux soilik. Pantaila-motorra: x11 (lehenetsia), auto edo wayland.",
     "Str.Shell.NotImplemented": "Eginbide hau oraindik ez dago inplementatuta",
     "Str.AIChat.Stop": "Gelditu",

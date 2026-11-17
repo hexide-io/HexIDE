@@ -51,6 +51,7 @@
     "Str.Dock.ToolTabs": "工具索引標籤",
     "Str.AIChat.Refusal": "供應商拒絕了此請求。",
     "Str.AIChat.TokenLimit": "回覆已達到權杖上限，內容不完整。",
+    "Str.Startup.NoVb6Summary": "啟動時不註冊 VB6 專案類型。僅限 Debug 組建。",
     "Str.Startup.PlatformSummary": "僅限 Linux。顯示後端：x11（預設）、auto 或 wayland。",
     "Str.Shell.NotImplemented": "此功能尚未實作",
     "Str.AIChat.Stop": "停止",

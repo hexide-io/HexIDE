@@ -23,6 +23,7 @@
     "Str.AIChat.Menu": "AI _ćaskanje",
     "Str.AIChat.Refusal": "Pružalac je odbio ovaj zahtev.",
     "Str.AIChat.TokenLimit": "Odgovor je dostigao ograničenje tokena i nije potpun.",
+    "Str.Startup.NoVb6Summary": "Pokreni bez registrovanja tipa projekta VB6. Samo Debug verzije.",
     "Str.Startup.PlatformSummary": "Samo Linux. Sistem prikaza: x11 (podrazumevano), auto ili wayland.",
     "Str.Shell.NotImplemented": "Ova funkcija još nije implementirana",
     "Str.AIChat.Stop": "Zaustavi",

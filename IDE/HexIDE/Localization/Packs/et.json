@@ -23,6 +23,7 @@
     "Str.AIChat.Menu": "AI-_vestlus",
     "Str.AIChat.Refusal": "Teenusepakkuja keeldus sellest päringust.",
     "Str.AIChat.TokenLimit": "Vastus jõudis tokenite piiranguni ja on mittetäielik.",
+    "Str.Startup.NoVb6Summary": "Käivita VB6 projektitüüpi registreerimata. Ainult Debug-järgud.",
     "Str.Startup.PlatformSummary": "Ainult Linux. Kuvamootor: x11 (vaikimisi), auto või wayland.",
     "Str.Shell.NotImplemented": "See funktsioon pole veel teostatud",
     "Str.AIChat.Stop": "Peata",

@@ -23,6 +23,7 @@
     "Str.AIChat.Menu": "_Trò chuyện AI",
     "Str.AIChat.Refusal": "Nhà cung cấp đã từ chối yêu cầu này.",
     "Str.AIChat.TokenLimit": "Phản hồi đã đạt giới hạn token và chưa hoàn tất.",
+    "Str.Startup.NoVb6Summary": "Khởi động mà không đăng ký loại dự án VB6. Chỉ dành cho bản dựng Debug.",
     "Str.Startup.PlatformSummary": "Chỉ Linux. Hệ thống hiển thị: x11 (mặc định), auto hoặc wayland.",
     "Str.Shell.NotImplemented": "Tính năng này chưa được triển khai",
     "Str.AIChat.Stop": "Dừng",

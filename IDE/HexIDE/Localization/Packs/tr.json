@@ -23,6 +23,7 @@
     "Str.AIChat.Menu": "AI _Sohbet",
     "Str.AIChat.Refusal": "Sağlayıcı bu isteği reddetti.",
     "Str.AIChat.TokenLimit": "Yanıt belirteç sınırına ulaştı ve tamamlanamadı.",
+    "Str.Startup.NoVb6Summary": "VB6 proje türünü kaydetmeden başlat. Yalnızca Debug derlemeleri.",
     "Str.Startup.PlatformSummary": "Yalnızca Linux. Görüntü altyapısı: x11 (varsayılan), auto veya wayland.",
     "Str.Shell.NotImplemented": "Bu özellik henüz uygulanmadı",
     "Str.AIChat.Stop": "Durdur",

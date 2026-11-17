@@ -51,6 +51,7 @@
     "Str.Dock.ToolTabs": "علامات تبويب الأدوات",
     "Str.AIChat.Refusal": "رفض مزود الخدمة هذا الطلب.",
     "Str.AIChat.TokenLimit": "بلغ الرد حد الرموز وهو غير مكتمل.",
+    "Str.Startup.NoVb6Summary": "البدء دون تسجيل نوع مشروع VB6. لإصدارات Debug فقط.",
     "Str.Startup.PlatformSummary": "Linux فقط. واجهة العرض: x11 (افتراضي) أو auto أو wayland.",
     "Str.Shell.NotImplemented": "لم تُنفّذ هذه الميزة بعد",
     "Str.AIChat.Stop": "إيقاف",

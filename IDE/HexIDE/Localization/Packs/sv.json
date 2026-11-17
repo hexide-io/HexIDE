@@ -23,6 +23,7 @@
     "Str.AIChat.Menu": "AI-_chatt",
     "Str.AIChat.Refusal": "Leverantören avböjde denna begäran.",
     "Str.AIChat.TokenLimit": "Svaret nådde tokengränsen och är ofullständigt.",
+    "Str.Startup.NoVb6Summary": "Starta utan att registrera VB6-projekttypen. Endast Debug-versioner.",
     "Str.Startup.PlatformSummary": "Endast Linux. Visningsmotor: x11 (standard), auto eller wayland.",
     "Str.Shell.NotImplemented": "Den här funktionen är inte implementerad ännu",
     "Str.AIChat.Stop": "Stoppa",

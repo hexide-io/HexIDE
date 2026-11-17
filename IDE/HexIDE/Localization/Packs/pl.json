@@ -57,6 +57,7 @@
     "Str.AIChat.Menu": "_Czat AI",
     "Str.AIChat.Refusal": "Dostawca odrzucił to żądanie.",
     "Str.AIChat.TokenLimit": "Odpowiedź osiągnęła limit tokenów i jest niepełna.",
+    "Str.Startup.NoVb6Summary": "Uruchom bez rejestrowania typu projektu VB6. Tylko kompilacje Debug.",
     "Str.Startup.PlatformSummary": "Tylko Linux. Mechanizm wyświetlania: x11 (domyślny), auto lub wayland.",
     "Str.Shell.NotImplemented": "Ta funkcja nie została jeszcze zaimplementowana",
     "Str.AIChat.Stop": "Zatrzymaj",

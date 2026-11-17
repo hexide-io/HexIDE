@@ -57,6 +57,7 @@
     "Str.AIChat.Menu": "AI-_csevegés",
     "Str.AIChat.Refusal": "A szolgáltató elutasította ezt a kérést.",
     "Str.AIChat.TokenLimit": "A válasz elérte a tokenkorlátot, és nem teljes.",
+    "Str.Startup.NoVb6Summary": "Indítás a VB6 projekttípus regisztrálása nélkül. Csak Debug buildek.",
     "Str.Startup.PlatformSummary": "Csak Linux. Megjelenítő: x11 (alapértelmezett), auto vagy wayland.",
     "Str.Shell.NotImplemented": "Ez a funkció még nincs megvalósítva",
     "Str.AIChat.Stop": "Leállítás",
