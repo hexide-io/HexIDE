@@ -42,6 +42,7 @@ public partial class ProjectService : IProjectService
     private readonly IComponentRegistry componentRegistry;
     private readonly IReadOnlyRegionWriter regionWriter;
     private readonly IDocumentDockService? documents;
+    private readonly HexIDE.Addins.AddinProjectTemplateService? templates;
 
     public ProjectService(IReadOnlyRegionWriter regionWriter, Func<NewProjectViewModel> newProjectVm,
         IWindowManager windowManager,
@@ -58,8 +59,10 @@ public partial class ProjectService : IProjectService
         ArchiveProjectService? archives = null,
         Func<ILspClient>? lspClient = null,
         ContributedProjects? contributed = null,
-        IDocumentDockService? documents = null)
+        IDocumentDockService? documents = null,
+        HexIDE.Addins.AddinProjectTemplateService? templates = null)
     {
+        this.templates = templates;
         this.documents = documents;
         // A ProjectService made without the IDE's project types, which only a test makes, reads VB6's files through the
         // format it was given, registered as the composition registers VB6's type. That goes in #3411's slice 10b-3.
@@ -184,6 +187,7 @@ public partial class ProjectService : IProjectService
     private async Task<IAddinProjectTemplate?> ChooseNewProject(bool replaceExisting)
     {
         var vm = newProjectVm();
+        vm.FileBrowser.OfferProjects(contributed.OpenablePatterns);
         if (!await windowManager.ShowDialog(vm))
             return null;
 
@@ -218,6 +222,12 @@ public partial class ProjectService : IProjectService
         projectManager.NewProject(template, name, RecordTemplateHeaders);
         EnsureGroupIfMultiple();
     }
+
+    // A service made without the IDE's templates, which only a test makes, takes VB6's, as the composition registers them.
+    public Task CreateDefaultProject() => CreateNewProject(templates is null
+        ? Vb6ProjectType.StandardExe
+        : templates.FirstPartyTemplate("standard-exe")
+          ?? throw new InvalidOperationException("No project type that's registered offers a Standard EXE template."));
 
     public async Task CreateNewProject(IProjectTemplate template)
     {
@@ -375,19 +385,23 @@ public partial class ProjectService : IProjectService
             throw new OperationCanceledException();
         }
 
-        // The add-ins' project types beside HexIDE's own, each with its own filter as well, and each as it was contributed:
-        // a whole file name such as ".rdproj" is offered as that name, so the picker shows no Ledger.rdproj that the type
-        // would not read.
+        // Every registered type's files, each type with its own filter as well, and each as it was contributed: a whole file
+        // name such as ".rdproj" is offered as that name, so the picker shows no Ledger.rdproj that the type would not read.
+        // A type that reads its projects whole, VB6's, offers its groups and its projects apart, as the dialog always has
+        // (#3411 slice 10b).
+        var whole = contributed.Types.Where(type => type.Type.Format is not null).ToList();
         var types = contributed.Types.Where(type => type.Type.Format is null).ToList();
         static IReadOnlyList<string> Picked(ContributedProjectType type) => type.Type.FileNames;
+        static IEnumerable<FilePickerFileType> Apart(ContributedProjectType type) => type.Type.GroupFileNames.Count > 0
+            ? [new("Project Group") { Patterns = type.Type.GroupFileNames }, new("Project") { Patterns = Picked(type) }]
+            : [new(type.Type.Title) { Patterns = Picked(type) }];
         var files = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = "Open Project",
             FileTypeFilter =
             [
-                new("Project Files") { Patterns = ["*.vbp", "*.vbg", "*.twinproj", .. types.SelectMany(Picked)] },
-                new("Project Group") { Patterns = ["*.vbg"] },
-                new("Project")       { Patterns = ["*.vbp"] },
+                new("Project Files") { Patterns = contributed.OpenablePatterns },
+                .. whole.SelectMany(Apart),
                 .. types.Select(type => new FilePickerFileType(type.Type.Title) { Patterns = Picked(type) }),
                 new("All Files")     { Patterns = ["*.*"] }
             ],
@@ -400,7 +414,7 @@ public partial class ProjectService : IProjectService
         using var reload = projectManager.BeginReload();
 
         // Archive projects coexist with the current workspace, as on the direct/recent open path.
-        if (!string.Equals(Path.GetExtension(files[0]), ".twinproj", StringComparison.OrdinalIgnoreCase))
+        if (!ArchiveProjectService.Reservation.Covers(files[0]))
             await UnloadAllProjects();
 
         await OpenProject(files[0]);
