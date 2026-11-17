@@ -58,6 +58,12 @@
     "SystemAccentColorLight1":  "#1B9EE5",
     "SystemAccentColorLight2":  "#38ADEC",
     "SystemAccentColorDark1":   "#005F9E",
-    "SystemAccentColorDark2":   "#003F6B"
+    "SystemAccentColorDark2":   "#003F6B",
+    "ThemeBackgroundBrush": "#252526",
+    "DockThemeBackgroundBrush": "#252526",
+    "DockThemeControlBackgroundBrush": "#252526",
+    "DockDocumentTabStripBackgroundBrush": "#252526",
+    "DockSurfacePanelBrush": "#252526",
+    "DockSurfaceSidebarBrush": "#252526"
   }
 }

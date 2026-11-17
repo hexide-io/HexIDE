@@ -79,3 +79,45 @@ named `Command1`, but `Command1.Count` is 1. The second button, at its own `Top`
 only `Controls(1)` reaches it. VB6 kept the control and logged it as an error, but put it outside the array. Why the
 same mistake without the first `Index` leaves `/make` hanging, presumably on a prompt nobody can see in session 0, is
 not known.
+
+### Event procedures for an array element, in VB6's IDE (2026-11-16, #4205)
+
+**Asked because** HexIDE can now make a control an array element (#2701). Its code window still writes handlers
+without `Index`, and leaves a control's existing handlers alone when it joins or leaves an array. Before HexIDE copies
+either half, what does VB6's IDE do?
+
+**How.** VB6 SP6's IDE (VB6.EXE 6.00.9782) on the `Win10` guest's desktop, driven by mouse and keys and read by
+screenshot. Each probe was a form holding one CommandButton `Command1`, in a project of its own. Each code change was
+saved with Ctrl+S and read back from the `.frm`.
+
+| Probe | What VB6's IDE did |
+|---|---|
+| `Command1` with `Index = 0` and no handlers; double-click it in the designer | Wrote `Private Sub Command1_Click(Index As Integer)`, an empty line, `End Sub` |
+| The same, then MouseDown from the code window's procedure list | Wrote `Private Sub Command1_MouseDown(Index As Integer, Button As Integer, Shift As Integer, X As Single, Y As Single)` and `End Sub`: **`Index As Integer` first, before the event's own arguments** |
+| `Command1` with no Index and a handler `Private Sub Command1_Click()`; type `0` into Index in the Properties window | **No message.** The Properties window then named it `Command1(0)`. The saved `.frm` held `Index = 0` and **the handler unchanged**, still `Command1_Click()` |
+| Then F5 | **"Compile error: Procedure declaration does not match description of event or procedure having the same name"**, with OK and Help, and the handler's declaration line highlighted in the code window. Nothing ran |
+| `Command1` with `Index = 0` and a handler `Private Sub Command1_Click(Index As Integer)`; clear Index in the Properties window | **No message.** The Properties window then named it `Command1`. The saved `.frm` held no Index line and **the handler unchanged**, still `(Index As Integer)` |
+| Then F5 | **The same compile error,** with the declaration highlighted |
+| `Command1` with `Index = 0` and `Private Sub Command1_Click(i As Integer)`, the parameter renamed; F5, then Space on the button | **Ran.** The handler wrote `i=0` |
+| The same with `(Index As Long)`; F5 | **The compile error** |
+| The same with `(ByVal Index As Integer)`; F5 | **The compile error** |
+| The same with `(Index)`, no type and no DefType; F5 | **The compile error** |
+| The same with `(Index)` and `DefInt I` in the module; F5, then Space | **Ran.** `TypeName(Index)` was Integer, the value 0 |
+| The same with `(Index%)`; F5, then Space | **Ran.** Integer, 0 |
+
+**What this settles:**
+- **A new handler for an array element takes `Index As Integer` as its first parameter,** ahead of whatever the event
+  itself passes.
+- **Setting or clearing Index never rewrites a handler, and doesn't warn.** The mismatch surfaces at F5, as a compile
+  error naming no procedure in its text, though the code window highlights the declaration.
+- **What VB6 compares is the parameters' types and passing, not their names.** A renamed `Index` runs and receives
+  the index. `As Long` for `As Integer` is the compile error, and so is `ByVal` on a parameter the event passes by
+  reference. Only the extra parameter `Index` was varied; the event's own arguments, such as MouseDown's, weren't.
+- **The type compared is the effective one,** as DefType decides it ([DefType](deftype--default-typing-by-first-letter.md)):
+  an untyped `Index` is Variant and refused, but the same declaration under `DefInt I` is Integer and runs, as `Index%`
+  does. The obvious reading, that a declaration must say `As Integer`, would have refused two programs VB6 runs.
+- **Not measured:**
+  - the same error from `/make`;
+  - an element whose Index is set to something other than 0;
+  - a control array made by naming or pasting a second control (that's #1397);
+  - a handler whose other parameters are wrong, such as a MouseDown with a mistyped `Button`.

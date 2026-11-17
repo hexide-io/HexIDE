@@ -115,14 +115,18 @@ tab while remaining selectable, including the final diagnostic location.
 - **WHEN** an entry contains multiple unknown JSON fields and the active language is Japanese
 - **THEN** a Japanese field-list heading precedes the original field names, without English plural fragments
 
-### Requirement: Program message box buttons SHALL use the IDE language
-Message boxes opened through the IDE SHALL resolve their OK, Cancel, Abort, Retry, Ignore, Yes and No
-captions through the localization service when shown. The program's prompt and title SHALL remain its
-own text. The standalone runner, which has no localization service, SHALL retain English button captions.
+### Requirement: Program dialog captions SHALL be independent of the IDE language
+Program MsgBox and InputBox controls SHALL use Windows' button captions on Windows, through
+`MB_GetString` with command ID minus one, and English captions elsewhere (#4250). A null native string
+SHALL fall back to English for that button. Native `&` mnemonics SHALL become Avalonia `_` access keys,
+and `&&` SHALL become a literal ampersand. IDE prompts SHALL continue to use the active language pack.
+The program's prompt and explicit title SHALL remain its own text; an omitted title SHALL use App.Title,
+with a host-supplied distribution name when there is no project.
 
 #### Scenario: A program asks a question in a French IDE
 - **WHEN** a program opens a Yes/No message box in an IDE using French
-- **THEN** its buttons read Oui and Non and return the same results as their English counterparts
+- **THEN** its buttons use Windows' captions on Windows and English Yes and No elsewhere, independently of the IDE pack
+- **AND** the buttons return the same results as before
 
 #### Scenario: Make Project cannot make a program
 - **WHEN** Make Project finds no startup project, runs in a browser or on an unsupported system, lacks the standalone runtime, or encounters an unexpected error
@@ -283,7 +287,8 @@ name the runtime dialog namespace in IDE product code. Color and Print controls 
 #### Scenario: An IDE prompt while a program is running
 - **WHEN** the IDE asks its own question or requests text
 - **THEN** it uses an IDE-owned control and the active interface language and direction
-- **AND** the program's MsgBox and InputBox continue to use runtime-owned controls with their existing behavior
+- **AND** the program's MsgBox and InputBox use program-only runtime controls, with Windows button captions on Windows and English elsewhere (#4250)
+- **AND** the program's omitted title uses App.Title, with a host-supplied distribution name when there is no project
 - **AND** automation recognizes both kinds of box
 
 ### Requirement: A pseudo-localized mode SHALL exist to find untranslated text
@@ -378,3 +383,19 @@ translated keys in every shipped neutral pack.
 #### Scenario: Pseudo coverage
 - **WHEN** Pseudo is active
 - **THEN** AI Chat's pane title and Tools label are bracketed like other IDE chrome keys
+
+### Requirement: Startup refusals follow the operating system language before settings load
+Before settings can be read, descriptor refusals and invalid command-line flag diagnostics read by a
+person SHALL use shipped language-pack keys resolved through `system`. Descriptor exceptions SHALL
+retain English `Message` text for programs and logs and carry the localization key and arguments
+separately. Field names, paths, product names, flag names, sizes and limits SHALL remain arguments.
+
+#### Scenario: Broken descriptor on a French operating system
+- **WHEN** the OS UI language is French and the installation descriptor has an invalid field
+- **THEN** startup refuses with a French explanation and caption before opening user state
+- **AND** the descriptor path and field name remain unchanged
+- **AND** the exception's `Message` remains English
+
+#### Scenario: Invalid startup flag on a French operating system
+- **WHEN** the OS UI language is French and a startup flag is refused
+- **THEN** the diagnostic is French and retains the flag spelling, product name and supplied invalid value

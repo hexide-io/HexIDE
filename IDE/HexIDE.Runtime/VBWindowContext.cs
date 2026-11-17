@@ -26,6 +26,9 @@ public class VBWindowContext : IModuleExecutionRoot
     internal void CloseFiles() => interpreter?.BuiltIns.Files.CloseAll();
     private VbObject? instance;
     private bool formDeclarationsRun;
+    internal ProjectElements.FormDefinition? FormDefinition { get; set; }
+    private bool handlersChecked;
+
     // Set once StartAsync begins. A started form's declarations run there and nowhere else, so an event can never run
     // them late, after Load has used the variables they would re-create (#1010 review).
     private bool started;
@@ -111,6 +114,7 @@ public class VBWindowContext : IModuleExecutionRoot
         };
         instance = null;
         formDeclarationsRun = false;
+        handlersChecked = false;
         // What `App` reports. Null means no project behind this run (a bare context), and App then reports
         // empty rather than inventing an identity.
         if (appInfo is not null)
@@ -176,7 +180,7 @@ public class VBWindowContext : IModuleExecutionRoot
 
     internal void AttachControl(VBProgram program, ModuleInfo module)
     {
-        Attach(program, module, "", new VbObject(module, module.ModuleEnv.Clone()) { FormLoaded = true });
+        Attach(program, module, "", new VbObject(module, module.ModuleEnv.Clone()) { FormLoaded = true, Interpreter = program.Interpreter });
         formDeclarationsRun = false;
         started = false;
         program.Interpreter.AddRef(Vb6Value.NewObject(instance!));
@@ -208,7 +212,9 @@ public class VBWindowContext : IModuleExecutionRoot
         form.FormUnloaded = false;
         ExecutionContext.State.ClearPendingControls(form);
         Program?.Loaded(this);
-        await StartControls();
+        // A UserControl's Initialize, ReadProperties and Resize are reported as any event's fault is (#4266).
+        if (await Report(StartControls) == Outcome.Over)
+            return;
         await Report(() => RaiseLoad(form));
     }
 
@@ -548,6 +554,8 @@ public class VBWindowContext : IModuleExecutionRoot
         // The start holds the gate as any handler does, so an event that comes during Load waits for it (#766).
         return await Events.Run("Form_Load", async () =>
         {
+            var session = interpreter.DebugController?.Session;
+            interpreter.DebugController?.NotifyDispatchStarted();
             try
             {
                 if (await Report(EnsureDeclarations) != Outcome.Completed)
@@ -561,7 +569,9 @@ public class VBWindowContext : IModuleExecutionRoot
                     form.FormLoaded = true;
                     ExecutionContext.State.ClearPendingControls(form);
                     Program?.Loaded(this);
-                    await StartControls();
+                    // Unreported, a refusal in a UserControl's ReadProperties ended the run with nothing said (#4266).
+                    if (await Report(StartControls) == Outcome.Over || RunIsOver())
+                        return false;
                     if (await Report(() => RaiseLoad(form)) == Outcome.Over)
                         return false;
                 }
@@ -570,7 +580,8 @@ public class VBWindowContext : IModuleExecutionRoot
             }
             finally
             {
-                interpreter.DebugController?.NotifyDispatchIdle();
+                if (interpreter.DebugController?.Session == session)
+                    interpreter.DebugController?.NotifyDispatchIdle();
             }
         });
     }
@@ -579,11 +590,43 @@ public class VBWindowContext : IModuleExecutionRoot
 
     private async Task EnsureDeclarations()
     {
+        CheckControlHandlers();
         await interpreter!.RunModuleDeclarations();
         if (formDeclarationsRun)
             return;
         formDeclarationsRun = true;
         await interpreter.RunFormDeclarations(EnsureInstance());
+    }
+
+    // Checked on entry to this form, before declarations or Initialize, on both startup paths (#4205).
+    private void CheckControlHandlers()
+    {
+        if (handlersChecked || FormDefinition is null)
+            return;
+        var module = EnsureInstance().ClassDef;
+        foreach (var component in FormDefinition.Components)
+        {
+            if (component.BaseClass is Components.FormComponentClass)
+                continue;
+            var name = component.GetPropertyOrDefault(Components.VBProperties.NameProperty);
+            foreach (var ev in component.BaseClass.Events)
+            {
+                if (!module.PrePass.Procedures.TryGetValue($"{name}_{ev.Name}", out var procedure) || procedure.IsFunction)
+                    continue;
+                var element = component.IsControlArrayElement;
+                var parameters = procedure.Parameters;
+                if (parameters.Count == ev.Arguments.Length + (element ? 1 : 0)
+                    && (!element || parameters[0].DeclaredType == Vb6Value.ValueType.Integer && parameters[0].ByRef))
+                    continue;
+                var line = procedure.Declaration?.Start.Line ?? 1;
+                var error = new VBCompileErrorException(
+                    "Procedure declaration does not match description of event or procedure having the same name") { Line = line };
+                HexIDE.IDE.ErrorLocation.Note(error, module.Name, line);
+                Log.Error("Event procedure {Procedure} in {Module}, line {Line}: {Message}", procedure.Name, module.Name, line, error.Message);
+                throw error;
+            }
+        }
+        handlersChecked = true;
     }
 
     public void ExecuteKeyboardEvent(string name, IReadOnlyList<Vb6Value> args, int writable, Action<int> completed)
@@ -791,17 +834,16 @@ public class VBWindowContext : IModuleExecutionRoot
     // run carries on afterwards.
     private async Task<bool> Dispatch(Func<Task> work)
     {
+        var session = interpreter?.DebugController?.Session;
+        interpreter?.DebugController?.NotifyDispatchStarted();
         try
         {
             return await Report(work) != Outcome.Over;
         }
         finally
         {
-            // Event-dispatch boundary: this handler chain has returned (or aborted). Disarm any step the
-            // front-end armed but never consumed, so a leftover Step Into/Over/Out can't spuriously break the
-            // NEXT event handler. A no-op unless a step is armed and the controller is Running. (Module top-level
-            // execution — the headless test path — never routes through here, so its stepping is unaffected.)
-            interpreter?.DebugController?.NotifyDispatchIdle();
+            if (interpreter?.DebugController?.Session == session)
+                interpreter?.DebugController?.NotifyDispatchIdle();
         }
     }
 

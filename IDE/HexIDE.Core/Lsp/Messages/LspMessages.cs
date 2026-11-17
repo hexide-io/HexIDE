@@ -356,7 +356,7 @@ public record ConfigurationParams([property: JsonPropertyName("items")] Configur
 public record ConfigurationItem(
     [property: JsonPropertyName("scopeUri")] string? ScopeUri = null,
     [property: JsonPropertyName("section")] string? Section = null);
-public record DidChangeConfigurationParams([property: JsonPropertyName("settings")] EmptyParams Settings);
+public record DidChangeConfigurationParams([property: JsonPropertyName("settings")] JsonElement Settings);
 
 /// <summary>
 /// What the client can do at workspace scope.
@@ -1417,6 +1417,13 @@ public record InlayHint(
     [property: JsonPropertyName("position")] Position Position,
     [property: JsonPropertyName("label")] System.Text.Json.JsonElement Label)
 {
+    [JsonPropertyName("kind")]
+    public int? Kind { get; init; }
+    [JsonPropertyName("paddingLeft")]
+    public bool PaddingLeft { get; init; }
+    [JsonPropertyName("paddingRight")]
+    public bool PaddingRight { get; init; }
+
     [JsonIgnore]
     public string Text => Label.ValueKind == System.Text.Json.JsonValueKind.String
         ? Label.GetString() ?? ""
@@ -1444,7 +1451,8 @@ public record CodeActionParams(
 
 public record CodeActionContext(
     [property: JsonPropertyName("diagnostics")] Diagnostic[] Diagnostics,
-    [property: JsonPropertyName("triggerKind")] int TriggerKind = 1);
+    [property: JsonPropertyName("triggerKind")] int TriggerKind = 1,
+    [property: JsonPropertyName("only"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string[]? Only = null);
 
 public record CodeActionClientCapabilities(
     [property: JsonPropertyName("codeActionLiteralSupport")] CodeActionLiteralSupport CodeActionLiteralSupport,

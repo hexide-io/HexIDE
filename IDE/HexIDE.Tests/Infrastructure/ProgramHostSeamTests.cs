@@ -22,4 +22,14 @@ public class ProgramHostSeamTests
             .Where(file => Path.GetFileName(file) == "InterpreterRunEngine.cs")
             .Should().BeEmpty();
     }
+    [Fact]
+    public void Program_host_and_file_picker_mapping_do_not_name_the_runtime()
+    {
+        // #4139: the IDE must retain its picker mapping when the run engine moves out.
+        ProductSource.FilesMatching(new Regex(@"\bHexIDE\.Runtime\b"))
+            .Where(file => Path.GetFileName(file) is "ProgramHost.cs" or "ProgramFileDialogOptions.cs")
+            .Should().BeEmpty();
+        File.Exists(Path.Combine(RepoTree.Root(), "IDE", "HexIDE", "IDE", "ProgramFileDialogOptions.cs"))
+            .Should().BeTrue();
+    }
 }

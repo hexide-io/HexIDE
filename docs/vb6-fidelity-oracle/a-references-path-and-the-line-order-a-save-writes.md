@@ -152,5 +152,7 @@ below `C:\`, so those fields can't be compared byte for byte from another folder
 - **Where it differs, since HexIDE has no registry to resolve against:**
   - an empty path stays empty, where VB6 writes a registered library's path;
   - a registered library whose file has moved keeps the path the file gives, where VB6 writes the registry's;
-  - VB6's change of library (OLEPRO32's Standard OLE Types to stdole2, ADO 2.0 to 2.5) and the `Retained=0` it adds are
-    not reproduced (#2459).
+  - VB6's change of library (OLEPRO32's Standard OLE Types to stdole2, ADO 2.0 to 2.5) is not reproduced: the registry,
+    not the file, decides the library (#2459).
+- **`Retained=0`** is added where VB6 adds it: an ActiveX EXE with no `Retained=` line gains it between `Unattended=0`
+  and `ThreadPerObject=0` (#2459). Other project types are left alone, since what VB6's save does there is unmeasured.

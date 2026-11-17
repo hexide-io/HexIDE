@@ -4,18 +4,6 @@ using Avalonia.Input;
 
 namespace HexIDE.Runtime.Components;
 
-/// <summary>
-/// A menu item's <c>Shortcut</c>, as VB6 writes it into a <c>.frm</c>.
-///
-/// The property is not modelled — it has no <see cref="PropertyClass"/> — so it survives a load as a
-/// preserved raw line and is read back from there. That is deliberate rather than an oversight to fix in
-/// passing: modelling it means writing it back, and the writer's property formatting is a separate open
-/// defect. Reading it to draw the menu costs nothing and risks nothing.
-///
-/// The syntax is a small closed set. A modifier prefix — <c>^</c> Ctrl, <c>+</c> Shift, <c>%</c> Alt — then
-/// either a single character (<c>^N</c>) or a braced key name (<c>^{F4}</c>, <c>{DEL}</c>). VB6's own menu
-/// templates use <c>^N</c>, <c>^O</c>, <c>^S</c>, <c>^P</c>, <c>{F1}</c> and <c>^{INSERT}</c> among others.
-/// </summary>
 internal static class VBMenuShortcut
 {
     /// <summary>VB6's braced key names. Anything not here is not a shortcut VB6 could have written.</summary>
@@ -32,7 +20,8 @@ internal static class VBMenuShortcut
     public static bool TryParse(ComponentInstance component, out KeyGesture gesture)
     {
         gesture = null!;
-        return TryReadRawValue(component, out var raw) && TryParse(raw, out gesture);
+        return TryParse(component.GetPropertyOrDefault(MenuComponentClass.ShortcutProperty) ?? "", out gesture)
+            || TryReadRawValue(component, out var raw) && TryParse(raw, out gesture);
     }
 
     /// <summary>
@@ -58,6 +47,21 @@ internal static class VBMenuShortcut
         }
         value = "";
         return false;
+    }
+
+    // Measured save spellings: #4141, oracle PR #4306.
+    internal static string Canonicalize(string raw)
+    {
+        if (raw is "^{INS}" or "+{INS}")
+            return "";
+        if (raw == "{DELETE}")
+            return "{DEL}";
+        if (raw == "%{BACKSPACE}")
+            return "%{BKSP}";
+        if (raw.StartsWith("^+{F", StringComparison.Ordinal) && raw.EndsWith('}')
+            && raw[4..^1] is "1" or "2" or "3" or "4" or "5" or "6" or "7" or "8" or "9" or "11" or "12")
+            return "+^" + raw[2..];
+        return raw;
     }
 
     internal static bool TryParse(string raw, out KeyGesture gesture)

@@ -43,6 +43,7 @@ public class VBCommandButton : Button
 
     static VBCommandButton()
     {
+        ControlKeyEvents.Attach<VBCommandButton>();
         AttachedEvents.AttachFocusEvents<VBCommandButton>();
         // An arrow moves the focus to the previous or next control in its container (measured, #1625).
         ArrowNavigation.Attach<VBCommandButton>();

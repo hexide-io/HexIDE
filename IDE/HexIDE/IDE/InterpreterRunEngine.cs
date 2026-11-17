@@ -76,8 +76,12 @@ public sealed class InterpreterRunEngine : IRunEngine
     }
 
     /// <inheritdoc />
-    public RunStart Prepare(ProjectDefinition project) =>
-        project.StartsAtSubMain ? PrepareSubMain(project) : PrepareForm(project.StartupForm!);
+    public RunStart Prepare(ProjectDefinition project)
+    {
+        // Every distribution gives the user's program the same neutral window icon (#4187).
+        VBLoader.DefaultFormIcon = new WindowIcon(AssetLoader.Open(new Uri("avares://HexIDE.Runtime/form.ico")));
+        return project.StartsAtSubMain ? PrepareSubMain(project) : PrepareForm(project.StartupForm!);
+    }
 
     private RunStart PrepareForm(FormDefinition form)
     {

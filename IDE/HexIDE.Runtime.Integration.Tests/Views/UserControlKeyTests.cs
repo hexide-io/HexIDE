@@ -51,6 +51,9 @@ public partial class UserControlKeyTests
         internal readonly RunWindow Window = new() { Width = 500, Height = 400 };
         internal readonly Library Lib = new();
         internal readonly VBWindowContext Context;
+        // What the run reported, as the IDE hears it: a fault (a refusal) or a run-time error (#4266).
+        internal readonly List<Exception> Faults = [];
+        internal readonly List<VBRunTimeException> RunTimeErrors = [];
         internal Control Named(string name) => Window.GetLogicalDescendants().OfType<Control>().Single(c => VBProps.GetName(c) == name);
         internal Run(string settings, string formCode = "", string controlCode = "", string child = "", bool plain = false, string? blocks = null, string formSettings = "")
         {
@@ -81,6 +84,8 @@ public partial class UserControlKeyTests
                 + "End\nAttribute VB_Name = \"Form1\"\n" + formCode, new Sink(), extraComponents: registry)!;
             project.AddForm(form);
             Context = new VBWindowContext(Lib) { Window = Window };
+            VBWindowContext.Faulted += OnFaulted;
+            VBWindowContext.RunTimeError += OnRunTimeError;
             var root = VBLoader.FormComponentOf(form);
             AttachedProperties.SetBackColor(Window, root.GetPropertyOrDefault(VBProperties.BackColorProperty));
             AttachedProperties.SetForeColor(Window, root.GetPropertyOrDefault(VBProperties.ForeColorProperty));
@@ -88,7 +93,9 @@ public partial class UserControlKeyTests
             Window.Context = Context;
             VBLoader.PrepareForm(form, Context, content => Window.Content = content, null);
             ContainerRuntimeHarness.MergeAppResources(Window);
-            Context.StartAsync().GetAwaiter().GetResult().Should().BeTrue();
+            var started = Context.StartAsync().GetAwaiter().GetResult();
+            if (Faults.Count == 0)
+                started.Should().BeTrue();
             Window.Show();
             Context.ShowControls();
         }
@@ -103,7 +110,23 @@ public partial class UserControlKeyTests
                 await new StatementExecutor(Context.Interpreter!, Context.InstanceEnv, Context.FormInstance!.ClassDef)
                     .Visit(Context.Interpreter!.TryParseStatement(line)!);
         }
-        public void Dispose() { Context.Program?.Abandon(); Window.Close(); }
+        private void OnFaulted(VBWindowContext context, Exception e)
+        {
+            if (ReferenceEquals(context, Context))
+                Faults.Add(e);
+        }
+        private void OnRunTimeError(VBWindowContext context, VBRunTimeException e)
+        {
+            if (ReferenceEquals(context, Context))
+                RunTimeErrors.Add(e);
+        }
+        public void Dispose()
+        {
+            VBWindowContext.Faulted -= OnFaulted;
+            VBWindowContext.RunTimeError -= OnRunTimeError;
+            Context.Program?.Abandon();
+            Window.Close();
+        }
     }
 
     internal static string Block(string type, string name, int tab, string child = "", string extra = "") =>

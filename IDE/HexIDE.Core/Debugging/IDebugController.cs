@@ -23,7 +23,7 @@ public interface IDebugController
     /// the project runner (which would cycle through the editor factory).</summary>
     bool IsSessionActive { get; }
 
-    /// <summary>Where the walk is paused (module + 1-based line + reason), or null when not paused.</summary>
+    /// <summary>Why execution is paused, with a module and 1-based line when a statement exists; null when not paused.</summary>
     StoppedInfo? CurrentStop { get; }
 
     /// <summary>Fired (synchronously, on the walk's thread) when execution enters Break mode.</summary>
@@ -67,13 +67,14 @@ public interface IDebugController
     /// <summary>Resume from Break mode and run until the next breakpoint / pause / end.</summary>
     void Continue();
 
-    /// <summary>Request a pause (Ctrl+Break). The next statement gate breaks; a no-op if the program is idle.</summary>
+    /// <summary>Request a pause (Ctrl+Break). Break immediately without a statement when idle, otherwise at the next statement.</summary>
     void Pause();
 
     /// <summary>Step Into (F8): arm one-shot step mode so the next executed statement — this frame or a callee's
     /// first statement (it descends into calls) — breaks with reason=Step. If Paused, resumes the current frame
     /// (leaving frozen events frozen); if Idle/Running, just arms (the starting run's first statement, or the
-    /// running walk's next one, breaks).</summary>
+    /// running walk's next one, breaks). From idle break mode, or after the outermost handler returns, the next
+    /// event stops at its declaration before any statement.</summary>
     void StepInto();
 
     /// <summary>Step Over (Shift+F8): run any called procedure to completion, breaking at the next statement in the
@@ -128,6 +129,10 @@ public enum StopReason { Breakpoint, Step, Pause, StopStatement, Watch, RuntimeE
 /// breaks on CHANGE (Break When Value Has Changed) rather than on TRUE (Break When Value Is True).</summary>
 public readonly record struct WatchBreakSpec(string Expression, bool BreakOnChange);
 
-/// <summary>Where and why execution is paused (line is 1-based, matching the editor and ANTLR).</summary>
+/// <summary>Where and why execution is paused (line is 1-based, or zero with no current statement).</summary>
 public readonly record struct StoppedInfo(StopReason Reason, string Module, int Line,
-    string? ConditionExpression = null, string? ConditionError = null);
+    string? ConditionExpression = null, string? ConditionError = null)
+{
+    /// <summary>Idle Break has no statement: an empty module and line zero.</summary>
+    public bool HasStatement => Line > 0 && !string.IsNullOrEmpty(Module);
+}

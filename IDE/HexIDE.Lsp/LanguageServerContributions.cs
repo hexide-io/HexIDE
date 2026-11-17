@@ -46,6 +46,12 @@ public sealed class LanguageServerContributions(
     /// </summary>
     /// <param name="server">The server, as the add-in describes it.</param>
     /// <param name="origin">Who contributed it, for the Language Servers window: the add-in's title.</param>
+    /// <param name="originId">The add-in's id, which keys the one notice about a publisher record without namespaces.</param>
+    /// <param name="publisherNamespaces">
+    /// The namespaces the add-in's verified publisher record issues (<see cref="PublisherNamespaces"/>). When given, the
+    /// message prefix must be <c>&lt;ns&gt;/</c> and the command prefix <c>&lt;ns&gt;.</c> for one of them. Null for a record
+    /// issued before the field existed, or an add-in with no verified record: today's rule applies, with a notice.
+    /// </param>
     /// <exception cref="ArgumentException">
     /// The entry fails the checks a file entry gets, is switched off, or its prefix or one of its methods is not the
     /// add-in's to use. What was wrong with the entry is also a configuration problem.
@@ -53,7 +59,8 @@ public sealed class LanguageServerContributions(
     /// <exception cref="InvalidOperationException">
     /// The id is taken: the configuration names it, and keeps its own entry, or another add-in contributed it first.
     /// </exception>
-    public AddinServerConnection Register(AddinLanguageServer server, string? origin)
+    public AddinServerConnection Register(AddinLanguageServer server, string? origin, string? originId = null,
+        IReadOnlyList<string>? publisherNamespaces = null)
     {
         ArgumentNullException.ThrowIfNull(server);
         ArgumentNullException.ThrowIfNull(server.Entry);
@@ -64,6 +71,7 @@ public sealed class LanguageServerContributions(
         CheckMessages(server.MessagePrefix, claimed);
         var commands = new Dictionary<string, AddinClientCommand>(server.ClientCommands, StringComparer.Ordinal);
         CheckCommands(server.CommandPrefix, commands);
+        CheckNamespaces(server.MessagePrefix, server.CommandPrefix, publisherNamespaces, origin);
         if (server.BeforeLaunchTimeout <= TimeSpan.Zero || server.BeforeLaunchTimeout > AddinLanguageServer.MaxBeforeLaunchTimeout)
             throw new ArgumentException(
                 $"The wait for a gate before launch must be positive and at most {AddinLanguageServer.MaxBeforeLaunchTimeout}.",
@@ -98,6 +106,14 @@ public sealed class LanguageServerContributions(
             router.ReportContributionProblems(id, problems);
             throw new ArgumentException($"The language server '{id}' is switched off, so there is nothing to add.", nameof(server));
         }
+
+        // A record issued before publisher namespaces existed binds no prefix: say so, once for each add-in.
+        if (publisherNamespaces is null && (server.MessagePrefix is not null || server.CommandPrefix is not null)
+            && NoticeOnce(originId ?? origin ?? id))
+            problems.Add(new LanguageServerConfigProblem(id,
+                $"{origin ?? "An add-in"} uses the prefix {string.Join(" and ", new[] { server.MessagePrefix, server.CommandPrefix }.OfType<string>().Select(p => $"'{p}'"))}, "
+                + "and its publisher's record names no namespaces, so the prefix isn't checked against its publisher. "
+                + "Records issued before v1 don't carry them.", false));
 
         // What was worth saying about an entry that is used all the same: a launch command not run before, a misspelt field.
         router.ReportContributionProblems(id, problems);
@@ -204,6 +220,28 @@ public sealed class LanguageServerContributions(
         }
     }
 
+    private readonly HashSet<string> _noticed = new(StringComparer.OrdinalIgnoreCase);
+
+    private bool NoticeOnce(string key)
+    {
+        lock (_noticed) return _noticed.Add(key);
+    }
+
+    // #4258 part D: with a verified publisher record that issues namespaces, the prefixes must be under one of them.
+    private static void CheckNamespaces(string? messagePrefix, string? commandPrefix, IReadOnlyList<string>? namespaces,
+        string? origin)
+    {
+        const string server = "server";
+        if (namespaces is null) return;
+        string Issued() => namespaces.Count == 0 ? "none" : string.Join(", ", namespaces.Select(ns => $"'{ns}'"));
+        if (messagePrefix is { } message && !PublisherNamespaces.AllowsMessagePrefix(namespaces, message))
+            throw new ArgumentException($"{origin ?? "The add-in"}'s message prefix '{message}' isn't under a namespace its "
+                + $"publisher was issued ({Issued()}): it must be '<namespace>/' for one of them.", server);
+        if (commandPrefix is { } command && !PublisherNamespaces.AllowsCommandPrefix(namespaces, command))
+            throw new ArgumentException($"{origin ?? "The add-in"}'s command prefix '{command}' isn't under a namespace its "
+                + $"publisher was issued ({Issued()}): it must be '<namespace>.' for one of them.", server);
+    }
+
     // The prefix, and the methods claimed under it, checked before anything is added.
     private static void CheckMessages(string? messagePrefix, IReadOnlyDictionary<string, AddinServerMethod> claimed)
     {
@@ -223,6 +261,10 @@ public sealed class LanguageServerContributions(
         if (ProtocolNamespaces.Any(ns => prefix.StartsWith(ns, StringComparison.OrdinalIgnoreCase)))
             throw new ArgumentException($"'{prefix}' is a namespace the Language Server Protocol uses, so it is not an add-in's.",
                 server);
+
+        // Core's own (hexide/projectProperties, #4024), whatever a publisher record says.
+        if (prefix.StartsWith("hexide/", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException($"'{prefix}' is a reserved message namespace, so it is not an add-in's.", server);
 
         foreach (var method in claimed.Keys)
         {

@@ -952,6 +952,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 && string.Equals(value.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
                 && !FormMembers.IsMember(identifier, out _))
                 throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+            interpreter.NoteMemberAccess(vobj, identifier, currentModule.Name, context.Start.Line);
             // A form's built-in method is its window's: `Call Me.Move 0, 0` (#822).
             value = await interpreter.Loading((Form: vobj, Member: identifier), static s => s.Form.BuiltInMembersFor(s.Member)) is { } formWindow
                 ? new Vb6Value(formWindow)
@@ -2175,10 +2176,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // A control on the right of a Let stands for its default member in VB6: `s = Text1` reads Text1.Text,
         // `v = Command1` reads its Value, `n = Check1` its Value (all measured). HexIDE has no default members for
         // controls yet (#790), and storing the reference gave a wrong value: a String took the .NET type name, a
-        // Variant kept the control. So a Let of one is refused until #790, whatever the target. A Let never stores a
+        // Variant kept the control. Apart from Slider (#1091), a Let of one is refused until #790, whatever the target. A Let never stores a
         // reference in VB6, even into an object variable, where it assigns that object's default member. Set, For
         // Each and argument passing do not come here. The in-box objects (Err, App, Debug, a control array) were
         // settled by ObjectAsValue above, and controls are the one kind it leaves alone.
+        if (value.Value is VBSlider sliderValue)
+            return new Vb6Value(sliderValue.Value);
         if (value.Type == Vb6Value.ValueType.Control && value.Value is not null)
             throw new NotImplementedException(
                 $"`{context.implicitCallStmt_InStmt().GetText()} = {context.valueStmt().GetText()}` reads a default "
@@ -2449,7 +2452,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return ControlFlow.Nothing;
             }
             // A UDT is a value type: `b = a` stores an independent deep copy so mutating b never touches a.
-            if (!interpreter.TryReadNow(currentEnv, identifier, out var letFound, out var oldLet, out var letFoundNeed))
+            if (!interpreter.TryReadNow(currentEnv, identifier, out var letFound, out var oldLet, out var letFoundNeed, trackMemberAccess: false))
                 (letFound, oldLet) = await interpreter.ReadVariableAfter(currentEnv, identifier, letFoundNeed!);
             if (!letFound)
             {
@@ -2484,6 +2487,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (oldLet.Value is VBSSTab)
                 return default;
 
+            if (oldLet.Value is VBSlider sliderTarget
+                && currentEnv.TryGetVariableLocation(identifier, out var sliderSlot)
+                && IsObjectVariable(currentEnv, identifier, sliderSlot))
+            {
+                SliderMembers.TrySet(sliderTarget, "Value", value);
+                return default;
+            }
             // A Let into a variable declared As Collection assigns its default member, which needs an index: VB6's "Argument
             // not optional" (measured, #1471). Into any other object variable it is the held object's default member, and a
             // Variant simply takes the value (#1493).
@@ -2641,6 +2651,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         && await interpreter.ReadVariable(vobj.InstanceEnv, indexedName) is (true, var field)
                         && expressionExecutor.IsVariantArrayField(vobj, indexedName, field))
                     {
+                        interpreter.NoteMemberAccess(vobj, indexedName, currentModule.Name, context.Start.Line);
                         var indices = await expressionExecutor.EvaluateCallArgs(indexed.argsCall(0));
                         // VB6 writes into a copy of the field's array, leaving the field unchanged (#1435).
                         // Only an in-bounds store is measured; keep other stores refused.
@@ -2665,6 +2676,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     await interpreter.RunProcedure(vobj.ClassDef, letter, [new CallArg(value, null)], vobj.InstanceEnv, variable, stmtFrames);
                     return default;
                 }
+                interpreter.NoteMemberAccess(vobj, fieldName, currentModule.Name, context.Start.Line);
                 if (!interpreter.TryReadNow(vobj.InstanceEnv, fieldName, out var isField, out var oldFieldLet, out var isFieldNeed))
                     (isField, oldFieldLet) = await interpreter.ReadVariableAfter(vobj.InstanceEnv, fieldName, isFieldNeed!);
                 if (isField)
@@ -2832,6 +2844,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
 
             // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
+            if (SliderMembers.TrySet(control, memberIdentifier, value) is { } slider)
+                return slider ? default : throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
             if ((StatusBarMembers.TrySet(control, memberIdentifier, value)
                  ?? ProgressBarMembers.TrySet(control, memberIdentifier, value)) is { } inBox)
                 return inBox ? default
@@ -4022,6 +4036,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return ControlFlow.Nothing;
             }
             // Raw object-field write: refcount the field slot (AddRef new before Release old, as for a plain var).
+            interpreter.NoteMemberAccess(targetObj, fieldName, currentModule.Name, context.Start.Line);
             if (!interpreter.TryReadNow(targetObj.InstanceEnv, fieldName, out var setField, out var oldField, out var setFieldNeed))
                 (setField, oldField) = await interpreter.ReadVariableAfter(targetObj.InstanceEnv, fieldName, setFieldNeed!);
             if (!setField)
@@ -5058,6 +5073,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 && string.Equals(value.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
                 && !FormMembers.IsMember(identifier, out _))
                 throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+            interpreter.NoteMemberAccess(vobj, identifier, currentModule.Name, context.Start.Line);
             // A form's built-in method is its window's: `Me.Hide`, `Form1.Move 0, 0` (#822).
             value = await interpreter.Loading((Form: vobj, Member: identifier), static s => s.Form.BuiltInMembersFor(s.Member)) is { } formWindow
                 ? new Vb6Value(formWindow)
@@ -5219,7 +5235,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     internal bool ReachedProcedureEnd { get; private set; }
 
-    internal async ValueTask ProcedureBoundary(int line, bool breakpointOnly = false)
+    internal async ValueTask ProcedureBoundary(int line, bool breakpointOnly = false, bool entry = false)
     {
         if (interpreter.Ending)
             throw new Debugging.StopExecutionSignal();
@@ -5227,7 +5243,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return;
         currentLine = line;
         _suspendedAtTopLevel = false;
-        var gate = breakpointOnly ? dbg.OnBreakpointPositionAsync(line, currentModule.Name, this) : DebugGate(dbg);
+        var gate = entry ? dbg.OnProcedureEntryAsync(line, currentModule.Name, this)
+            : breakpointOnly ? dbg.OnBreakpointPositionAsync(line, currentModule.Name, this) : DebugGate(dbg);
         if (breakpointOnly && interpreter.Events is { } events)
             await events.WhileSuspended(gate);
         else

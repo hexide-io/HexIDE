@@ -7,6 +7,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using HexIDE.Runtime.BuiltinTypes;
+using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 
@@ -73,11 +74,12 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
             if (e is FocusChangedEventArgs moved && FindControl(this, moved.NewFocusedElement as ILogical) is { } control)
                 ActiveControl = control;
         }, RoutingStrategies.Bubble, handledEventsToo: true);
-        windowContext = new VBWindowContext(new StandaloneStandardLib(this)) { Window = this };
+        windowContext = new VBWindowContext(new StandaloneStandardLib(this, HexIDE.IDE.Distribution.DisplayName)) { Window = this };
         // Held by a modal form, the window takes no input of its own (#822): what reaches it is stopped on the way down, and
         // activating it brings the modal form forward instead.
         foreach (var input in new RoutedEvent[] { KeyDownEvent, KeyUpEvent, TextInputEvent, PointerPressedEvent, PointerReleasedEvent, PointerWheelChangedEvent })
             AddHandler(input, new EventHandler<RoutedEventArgs>((_, e) => e.Handled |= heldBy is not null), RoutingStrategies.Tunnel);
+        ControlKeyEvents.AttachEmptyForm(this);
         // Activating a form tells the program, which raises Activate and Deactivate (#994). A held form is never active: Windows
         // doesn't activate a disabled window, and activating it brings the modal form forward.
         Activated += (_, _) =>
