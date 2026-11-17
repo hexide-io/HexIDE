@@ -56,6 +56,9 @@ public partial class VB6BuiltIns
     {
         byte b => new Vb6Value(b),
         int i => new Vb6Value(Math.Abs(i)),
+        long l when v.Type == VT.LongLong => l == long.MinValue
+            ? throw new VBRunTimeException(VBStandardError.Overflow)
+            : Vb6Value.NewLongLong(Math.Abs(l)),
         long l => new Vb6Value(Math.Abs(l)),
         float f => new Vb6Value(Math.Abs(f)),
         double d => new Vb6Value(Math.Abs(d)),

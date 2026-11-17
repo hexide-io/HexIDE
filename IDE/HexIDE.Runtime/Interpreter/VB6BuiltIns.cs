@@ -59,10 +59,20 @@ public partial class VB6BuiltIns
     /// <summary>The program's open files (#1145), which FreeFile and EOF read and the file statements use.</summary>
     internal VbFiles Files { get; } = new();
 
+    // #4302 measures these LongLong inputs only. Other intrinsic uses need #1548's oracle rows.
+    private static readonly HashSet<string> LongLongInputs = new(StringComparer.OrdinalIgnoreCase)
+    { "CLngLng", "CLngPtr", "CInt", "CLng", "CDbl", "CStr", "TypeName", "VarType", "Hex", "Oct", "Str", "Format", "LenB", "Abs", "Int", "Fix", "Sgn" };
+
+    internal bool IsVba64 { get; init; }
+
     internal Func<Vb6Value, string, Task<Vb6Value>>? ResolveDefaultForUse { get; set; }
 
     public async Task<Vb6Value?> EvaluateBuiltInFunction(string name, List<Vb6Value> args, bool compareText = false)
     {
+        if (!IsVba64 && IsLongLongConversion(name))
+            return null;
+        if (IsLongLongConversion(name) && args.Count != 1)
+            throw new NotImplementedException("This argument count for a LongLong conversion is unmeasured (#1548)");
         CheckIntrinsicArgumentCount(name, args);
 
         // An unknown name is not a built-in, and its callers say so loudly ("Sub or Function not defined", or not
@@ -83,6 +93,11 @@ public partial class VB6BuiltIns
                 arg = await resolve(arg, name.Equals("Format", StringComparison.OrdinalIgnoreCase) ? "Format"
                     : name.Equals("Abs", StringComparison.OrdinalIgnoreCase) ? "Abs" : name);
             args[i] = ArgumentAsUsed(name, i, arg);
+            if (args[i].Type == Vb6Value.ValueType.LongLong
+                && (i != 0 || !LongLongInputs.Contains(name)
+                    || name.Equals("LenB", StringComparison.OrdinalIgnoreCase)
+                        && args is not IntrinsicArgumentValues { LenVariableSize: 8 }))
+                throw new NotImplementedException($"Use of LongLong by {name} in this argument is unmeasured (#1548)");
         }
 
         // The two async builtins await the standard library; every other builtin is in the sync registry.
