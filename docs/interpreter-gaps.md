@@ -20,7 +20,7 @@
   pending measurements. LocaleID reads 1033 whatever the user locale, as measured, and refuses where the system
   locale or an interface language isn't US English, or off Windows, because which of those VB6 follows is unmeasured
   ([#4266](https://github.com/hexide-io/HexIDE/issues/4266)). A refusal or error raised while a form loads its
-  UserControls is reported as any event's is (#4266). AmbientChanged for form colour changes remains unmeasured.
+  UserControls is reported as any event's is (#4266). AmbientChanged for form colour changes remains unmeasured ([#4448](https://github.com/hexide-io/HexIDE/issues/4448)).
   The remaining UserControl surface and designer/file editing are later work. Part C supplies Container assignment and Count, bottom Align, transparent BackStyle, and measured focus/lifecycle ordering. Align assignments other than 2, BackStyle reads (whose return subtype is unmeasured here), ContainedControls operations other than Count, and PropertyBag operations are still refused. Unmeasured conversions of
   AccessKeys are explicitly refused, rather than assigned invented VB6 semantics.
   [#4337](https://github.com/hexide-io/HexIDE/issues/4337) also attaches runtime-loaded array elements,
