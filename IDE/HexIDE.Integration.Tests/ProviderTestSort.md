@@ -55,6 +55,7 @@ A test that reaches the provider only at run time, through the application's com
 | `TestRunners.cs` | split |
 | `ViewModels/ReadLoopDispatcherTests.cs` | split |
 | `Views/ActiveFormSaveTests.cs` | split |
+| `Views/AddWatchDialogTests.cs` | split |
 | `Views/ArchiveProjectBrowsingTests.cs` | split |
 | `Views/BattleshipFormsDemoTests.cs` | split |
 | `Views/BeginOrderTests.cs` | split |
@@ -164,6 +165,9 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ServerApplyEditFocusTests.cs` | split |
 | `Views/ServerApplyEditModifiedTests.cs` | split |
 | `Views/SingleViewFormsTests.cs` | split |
+| `Views/SliderFileTests.cs` | provider |
+| `Views/SliderInputTests.cs` | provider |
+| `Views/SliderRuntimeTests.cs` | provider |
 | `Views/StartupFormFailsToLoadTests.cs` | split |
 | `Views/SubMainFormsTests.cs` | split |
 | `Views/SymbolRefreshWireTests.cs` | split |

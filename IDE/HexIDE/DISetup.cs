@@ -70,7 +70,8 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Runtime.Debugging.IDebugController>(out var debugger);
                 ctx.Inject<IWindowManager>(out var windows);
                 ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
-                return new WatchesToolViewModel(localization, watches, debugger, windows, external);
+                ctx.Inject<WatchDialogContextSource>(out var contexts);
+                return new WatchesToolViewModel(localization, watches, debugger, windows, external) { DialogContextSource = contexts };
             })
             .Bind().As(Singleton).To<CallStackToolViewModel>()
             .Bind().As(Singleton).To<RecentEditHistory>()

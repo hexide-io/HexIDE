@@ -212,7 +212,9 @@ public class VBWindowContext : IModuleExecutionRoot
         form.FormUnloaded = false;
         ExecutionContext.State.ClearPendingControls(form);
         Program?.Loaded(this);
-        await StartControls();
+        // A UserControl's Initialize, ReadProperties and Resize are reported as any event's fault is (#4266).
+        if (await Report(StartControls) == Outcome.Over)
+            return;
         await Report(() => RaiseLoad(form));
     }
 
@@ -565,7 +567,9 @@ public class VBWindowContext : IModuleExecutionRoot
                     form.FormLoaded = true;
                     ExecutionContext.State.ClearPendingControls(form);
                     Program?.Loaded(this);
-                    await StartControls();
+                    // Unreported, a refusal in a UserControl's ReadProperties ended the run with nothing said (#4266).
+                    if (await Report(StartControls) == Outcome.Over || RunIsOver())
+                        return false;
                     if (await Report(() => RaiseLoad(form)) == Outcome.Over)
                         return false;
                 }

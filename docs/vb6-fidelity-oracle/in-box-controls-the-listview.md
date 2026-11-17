@@ -199,6 +199,40 @@ ProgressBar](in-box-controls-the-progressbar.md).
 - `ListItems.Count =` is 383. `Set ListItems = Nothing` is **438**.
 - `Clear` leaves the columns.
 
+#### Removing the SelectedItem (2026-11-17)
+
+**The question:** what is `SelectedItem` once the item it names is removed? The events program's line under
+[Events](#events) saw the item that moved up into its Index, but there item 4 was selected while `SelectedItem` was
+item 5. So which item was removed couldn't be read back from the log.
+
+**The probe:** a form holding a report-view ListView with one column. Its Form_Load shows the form, then for each row
+clears the list and adds five items, keyed `k1` to `k5`. It sets up the row in code and logs `SelectedItem`'s key,
+`Index` and `Selected`, which items are selected, and `Count`. It logs again after a `DoEvents`, which changed nothing in
+any row. Built as native code and as p-code, which gave the same log line for line.
+
+| Row | Before | Then | SelectedItem | Selected items |
+|---|---|---|---|---|
+| R1 | `ListItems(3).Selected = True` | `Remove 3` | **k4, Index 3, Selected False** | none |
+| R2 | `Set SelectedItem = ListItems(3)` | `Remove "k3"` | k4, Index 3, Selected False | none |
+| R3 | `ListItems(5).Selected = True` | `Remove 5`, the last item | **k4, Index 4, Selected False** | none |
+| R4 | 3 selected, then `Selected = False`, leaving SelectedItem k3 | `Remove 3` | k4, Index 3, Selected False | none |
+| R5 | MultiSelect, 1 and 3 selected, SelectedItem k3 | `Remove 3` | k4, Index 3, Selected False | **k1, still** |
+| R6 | `ListItems(4).Selected = True` | `Remove 2` | k4, Index 3, Selected True | k4 |
+| R7 | `ListItems(3).Selected = True` | `Clear` | `Nothing` | none |
+| R8 | `ListItems(1).Selected = True` | `Remove 1` | k2, Index 1, Selected False | none |
+| R9 | items 5 to 2 removed, leaving k1 selected | `Remove 1`, the only item | **`Nothing`** | none |
+| R10 | as R1 | `Remove 3`, then `Add , "k9"` | k4, Index 3, Selected False | none |
+
+**The rule these rows give:**
+- **Removing the SelectedItem moves it to the item now at the same Index**, or to the new last item when it was last.
+  That item is **not selected**: the selection doesn't move with it.
+- **Other selected items stay selected** (R5).
+- **Whether the removed item was selected makes no difference** (R4 against R1).
+- **No items left means `Nothing`:** after `Clear` (R7) or removing the only item (R9).
+- **Removing an item before the SelectedItem only shifts its Index** (R6), as the [Selection](#selection) table's last row
+  showed.
+- **A later `Add` doesn't move it** (R10).
+
 ### Sorting
 
 **The comparison,** with `Sorted = True`, ascending, on 26 items added in this order: `b B a10 a2 10 9 "" Zeta alpha _x

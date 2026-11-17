@@ -91,6 +91,7 @@ public class FormDeserializer
         Components.InBox.ProgressBarComponentClass.Instance,
         Components.InBox.FlexGridComponentClass.Instance,
         Components.InBox.ListViewComponentClass.Instance,
+        Components.InBox.SliderComponentClass.Instance,
         Components.InBox.TabStripComponentClass.Instance,
         Components.InBox.StatusBarComponentClass.Instance,
         Components.InBox.ImageListComponentClass.Instance,

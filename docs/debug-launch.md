@@ -110,7 +110,7 @@ conditional breakpoints and applied saved edits in the measurements recorded in 
 - **Breakpoint conditions** come from **Condition…** on a breakpoint's gutter context menu. They are sent
   only when the adapter advertises `supportsConditionalBreakpoints`. Otherwise the breakpoint still stops
   every time, and Immediate explains this once per session. Launch-file `condition`, `hitCondition` and
-  `logMessage` remain refused before launch (#2914).
+  `logMessage` remain refused before launch (#4143).
 - **Edits reach the program only through the adapter.** HexIDE sends nothing when you edit. An adapter that
   reads the saved sources when the program resumes, as RDCore's does, runs an edit you saved while stopped,
   so save before you step. Ctrl+S saves the module you are in (#244), and **Save Project** saves them all.

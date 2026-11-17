@@ -277,7 +277,7 @@ public class ObjectBrowserComponentLibraryTests
     [Fact]
     public void Every_declared_control_has_a_component_model_or_an_explicit_gap()
     {
-        string[] notYetModelled = ["Slider", "ImageCombo", "Animation"];
+        string[] notYetModelled = ["ImageCombo", "Animation"];
         foreach (var library in ControlLibraries.All)
         foreach (var name in library.Controls.Keys)
         {

@@ -146,7 +146,11 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
                 "font" => new Vb6Value(ControlFont.Get(window)),
                 // A control-array element's name carries its index, as `AmbCtl1(0)` (measured, oracle PR #4271).
                 "displayname" => new Vb6Value(VBProps.GetIndex(owner) is { } index ? $"{owner.ambientName}({index})" : owner.ambientName),
-                "localeid" when VbLocale.Current.LCID == 1033 => new Vb6Value(1033L),
+                // 1033 whatever the user locale, on a Windows whose system locale and interface languages are US
+                // English (measured, oracle PR #4271). Which of those it follows, if any, is unmeasured (#4266).
+                "localeid" when WindowsLanguages.Current is { AllUsEnglish: true } => new Vb6Value(1033L),
+                "localeid" => throw new NotImplementedException(
+                    "Ambient.LocaleID has not been measured where the system locale or interface language is not US English (#4266)"),
                 "textalign" => new Vb6Value(0),
                 "scaleunits" => new Vb6Value("Twip"),
                 "showgrabhandles" or "showhatching" or "uidead" => new Vb6Value(false),

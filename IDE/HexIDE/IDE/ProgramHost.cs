@@ -1,4 +1,3 @@
-using HexIDE.Runtime.AvaloniaInterop;
 using System;
 using System.Linq;
 using Avalonia.Interactivity;
@@ -159,14 +158,14 @@ public sealed class ProgramHost(IWindowManager windowManager, ILocalizationServi
 #endif
         var start = Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime { MainWindow: { } main }
                     && TopLevel.GetTopLevel(main)?.StorageProvider is { } provider
-            ? await VbFileDialogOptions.StartFolder(provider, request)
+            ? await ProgramFileDialogOptions.StartFolder(provider, request)
             : null;
         if (request.Save)
         {
-            var path = await windowManager.SaveFilePickerAsync(VbFileDialogOptions.Save(request, start));
+            var path = await windowManager.SaveFilePickerAsync(ProgramFileDialogOptions.Save(request, start));
             return path is null ? null : new VbFileDialogAnswer(path, scriptedIndex);
         }
-        var paths = await windowManager.OpenFilePickerAsync(VbFileDialogOptions.Open(request, start));
+        var paths = await windowManager.OpenFilePickerAsync(ProgramFileDialogOptions.Open(request, start));
         return paths is { Count: > 0 }
             ? new VbFileDialogAnswer(paths[0], scriptedIndex, paths.Skip(1).ToArray())
             : null;
