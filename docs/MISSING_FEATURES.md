@@ -141,7 +141,7 @@
 
 | Item | Shortcut | Status | Notes |
 |---|---|---|---|
-| Step Into | F8 | Done | Steps one statement, descending into called Subs/Functions; F8 from idle starts + breaks at the first statement (VB6 start-and-step), then advances from Initialize’s last statement into Load’s first statement (#2172 review). A step returning to event idle clears break-mode chrome and restores Break (#2320). Native debugger Phase 2 |
+| Step Into | F8 | Done | Steps one statement, descending into called Subs/Functions; F8 from design mode starts + breaks at the first statement (VB6 start-and-step), then advances from Initialize’s last statement into Load’s first statement (#2172 review). A step returning to event idle clears break-mode chrome and restores Break (#2320), keeping Into/Over armed for the next handler's declaration (#4261/#4269, measured in #4261 comments, oracle PR #4270). Native debugger Phase 2 |
 | Step Over | Shift+F8 | Done (Phase 5) | Stops at a called procedure’s natural End line before returning (#2172); entry procedures retain their existing step positions. Runs a called Sub/Function to completion, breaks at the next statement in the current frame (depth-based over the activation stack); on a non-call = Step Into. Native debugger Phase 5; MCP `step_over` |
 | Step Out | Ctrl+Shift+F8 | Done (Phase 5) | Runs the rest of the current procedure, breaks in the caller; from the top-level frame runs to completion. Native debugger Phase 5; MCP `step_out` |
 | Run To Cursor | Ctrl+F8 | Done (P7a) | Runs to the caret line (a one-shot temp breakpoint in the gate); paused → continue to target, running → arm, idle → start-and-run. MCP `run_to_cursor`, which refuses a line of the header or of a member's `Attribute` lines (#273); the menu does not, and from such a line runs on as from any line that never executes. Disabled without an active code window (#733). |
@@ -541,7 +541,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Ctrl+F5 | Start with Full Compile | Stub | Same as F5 |
 | Ctrl+Break | Break | Done | Pauses the running interpreter at the next statement; Windows accepts both Ctrl+Cancel (the keyboard’s Ctrl+Break) and Ctrl+Pause, with one Break binding in Options (#4260) |
 | Shift+F5 | Restart | Done | |
-| F8 | Step Into | Done | Step one statement / start-and-step from idle (native debugger, Phase 2) |
+| F8 | Step Into | Done | Step one statement / start-and-step from design mode (native debugger, Phase 2) |
 | Shift+F8 | Step Over | Done | Run called proc to completion, break in current frame (native debugger, Phase 5); factory gesture also available in Default (#3343) |
 | Ctrl+Shift+F8 | Step Out | Done | Run rest of proc, break in caller (native debugger, Phase 5); factory gesture also available in Default (#3343) |
 | Ctrl+F8 | Run to Cursor | Done | Runs to the caret line — a one-shot temp breakpoint (native debugger P7a); factory gesture also available in Default (#3343) |
