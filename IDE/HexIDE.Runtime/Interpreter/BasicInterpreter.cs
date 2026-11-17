@@ -820,7 +820,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         this.compilationConstants = compilationConstants ?? CompilationConstants.Vb6;
         BuiltIns = new VB6BuiltIns(stdLib)
         {
-            IsVba64 = IsVba64,
+            VbaBitness = VbaBitness,
             ResolveDefaultForUse = (value, use) => ResolveDefaultMember(value, use),
             AppTitle = () => App.TitleOrNull,
             ProjectResources = () => Resources,
@@ -962,7 +962,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     // What a module's #If can name besides its own #Consts: the project's arguments and the built-ins (#1112).
     private readonly CompilationConstants compilationConstants;
-    internal bool IsVba64 => compilationConstants.VbaBitness == VbaBitness.Bit64;
+    internal VbaBitness VbaBitness => compilationConstants.VbaBitness;
+    internal bool IsVba64 => VbaBitness == VbaBitness.Bit64;
 
     // Each module's conditional compilation is applied before it is parsed, so an inactive branch is never parsed, as in
     // vb6.exe, and a directive's error stops the program as it loads (#1112). The text is the parser's alone: the code

@@ -154,13 +154,15 @@ public class PrePass : VB6BaseVisitor<object?>
     /// </summary>
     public override object? VisitDeftypeStmt(VB6Parser.DeftypeStmtContext context)
     {
-        if ((context.DEFLNGLNG() != null || context.DEFLNGPTR() != null) && VbaBitness != VbaBitness.Bit64)
+        if (context.DEFLNGLNG() != null && VbaBitness != VbaBitness.Bit64
+            || context.DEFLNGPTR() != null && VbaBitness == VbaBitness.None)
             throw new VBCompileErrorException("Invalid outside procedure");
         if (declared)
             throw new VBCompileErrorException("Deftype statements must precede declarations");
         var type = context.DEFBOOL() != null ? Vb6Value.ValueType.Boolean
             : context.DEFBYTE() != null ? Vb6Value.ValueType.Byte
             : context.DEFINT() != null ? Vb6Value.ValueType.Integer
+            : context.DEFLNGPTR() != null && VbaBitness == VbaBitness.Bit32 ? Vb6Value.ValueType.Long
             : context.DEFLNGLNG() != null || context.DEFLNGPTR() != null ? Vb6Value.ValueType.LongLong
             : context.DEFLNG() != null ? Vb6Value.ValueType.Long
             : context.DEFCUR() != null ? Vb6Value.ValueType.Currency
@@ -834,7 +836,7 @@ public class PrePass : VB6BaseVisitor<object?>
                 fields.Add(new UdtField(fieldName, null, null, asType.type().GetText()));
                 continue;
             }
-            if (BaseTypeMapper.Vba64Type(asType.type().GetText(), VbaBitness == VbaBitness.Bit64) is { } wide)
+            if (BaseTypeMapper.VbaType(asType.type().GetText(), VbaBitness) is { } wide)
                 fields.Add(new UdtField(fieldName, wide, null, IsArray: isArray, Bounds: bounds));
             else if (asType.type().complexType() is not null || asType.type().baseType()?.OBJECT() is not null
                 || asType.type().baseType()?.COLLECTION() is not null)
@@ -942,7 +944,7 @@ public class PrePass : VB6BaseVisitor<object?>
     // Maps an `As <type>` clause to a base ValueType, or null when absent / complex / unknown (params and
     // return types are left untyped in that case for now — the wider type system is a later phase).
     private Vb6Value.ValueType? ExtractBaseType(VB6Parser.AsTypeClauseContext? asType)
-        => BaseTypeMapper.Vba64Type(asType?.type()?.complexType()?.GetText(), VbaBitness == VbaBitness.Bit64)
+        => BaseTypeMapper.VbaType(asType?.type()?.complexType()?.GetText(), VbaBitness)
             ?? BaseTypeMapper.Map(asType?.type()?.baseType());
 
     private string? NamedType(VB6Parser.AsTypeClauseContext? asType) =>

@@ -19,13 +19,14 @@ public class VbaBitnessEngineTests
     }
 
     [AvaloniaFact]
-    public void Unmeasured_32_bit_project_refuses_during_real_program_construction()
+    public void Measured_32_bit_project_prepares_during_real_program_construction()
     {
         var host = Substitute.For<IProgramHost>();
         host.NotImplementedYet.Returns("Not implemented: {0}");
         var result = Engine(host).Prepare(Project(VbaBitness.Bit32, ""));
-        result.Run.Should().BeNull();
-        result.Failure!.Text.Should().Contain("32-bit VBA7 is not measured yet (#1548)");
+        // #4399, Excel x86 W1–W6 (oracle PR #4398).
+        result.Run.Should().NotBeNull();
+        result.Failure.Should().BeNull();
     }
 
     private static InterpreterRunEngine Engine(IProgramHost host) =>
