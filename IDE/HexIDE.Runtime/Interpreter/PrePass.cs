@@ -748,7 +748,7 @@ public class PrePass : VB6BaseVisitor<object?>
         GetOrAddProperty(name).Get = CheckedLocals(new ProcedureInfo(name, true, args,
             returnUdt != null && !returnType.IsArray ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
-            returnsVariant, returnsObject) { Declaration = context });
+            returnsVariant, returnsObject) { Declaration = context, Accessor = "Get" });
         NoteDefaultMember(context.block(), DefaultMemberKind.Property);
         return default;
     }
@@ -786,7 +786,8 @@ public class PrePass : VB6BaseVisitor<object?>
         if (args.Count != 1 && !(args.Count > 1 && (kind == "Let" ? allowIndexedLet : allowIndexedSet)))
             throw new NotImplementedException(
                 $"Property {kind} '{name}' must take exactly one (value) parameter — parameterized properties are not supported");
-        return CheckedLocals(new ProcedureInfo(name, false, args, Vb6Value.ValueType.EmptyVariant, block, IsPrivate(visibility)));
+        return CheckedLocals(new ProcedureInfo(name, false, args, Vb6Value.ValueType.EmptyVariant, block, IsPrivate(visibility))
+            { Accessor = kind });
     }
 
     public override object? VisitTypeStmt(VB6Parser.TypeStmtContext context)

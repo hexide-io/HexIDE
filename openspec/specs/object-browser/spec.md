@@ -173,6 +173,12 @@ a mistake somewhere else. The failure is silent and it points away from the real
 - **WHEN** a procedure is added to a type and that type is selected in the browser
 - **THEN** the new procedure appears in the member list
 
+#### Scenario: A project module has no server symbols
+- **WHEN** the selected project module's server returns no symbols, or no server is running
+- **THEN** the browser SHALL list declarations from that module's loaded text using the same VB-family collector as Add Watch (#4401)
+- **AND** collected declarations SHALL use the existing symbol-to-member mapping and whole-file navigation coordinates
+- **AND** a nonempty server answer SHALL remain authoritative
+
 ### Requirement: Double-clicking a member in the project SHALL open it at its definition
 Double-clicking a member belonging to the project SHALL open its containing document and position the caret
 at that member's declaration. Double-clicking a member of an external library SHALL do nothing.

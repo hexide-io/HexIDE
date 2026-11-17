@@ -133,4 +133,60 @@ public class WatchEvalTests : BaseVBTestFixture
         }
     }
 
+    // docs/vb6-fidelity-oracle/a-watch-and-its-context.md, "A watch scoped to one accessor" (measured in a class,
+    // #4401): each Property accessor is a context of its own, and the module's watch evaluates in either.
+    [Theory]
+    [InlineData("m", "Module1.X(Get)", false, "<Out of context>", "Empty")]
+    [InlineData("m", "Module1.X(Let)", false, "0", "Long")]
+    [InlineData("v", "Module1.X(Let)", false, "5", "Long")]
+    [InlineData("m", "Module1", false, "0", "Long")]
+    [InlineData("m", "Module1.X(Get)", true, "5", "Long")]
+    [InlineData("m", "Module1.X(Let)", true, "<Out of context>", "Empty")]
+    [InlineData("v", "Module1.X(Let)", true, "<Out of context>", "Empty")]
+    [InlineData("m", "Module1", true, "5", "Long")]
+    public async Task StoredWatch_TellsPropertyAccessorsApart(string expression, string context, bool inGet,
+        string display, string type)
+    {
+        var (vb, dbg) = NewDebuggable("""
+            Dim m As Long
+            Form_Load
+            Sub Form_Load()
+                X = 5
+                Debug.Print X
+            End Sub
+            Property Get X() As Long
+                Stop
+                X = m
+            End Property
+            Property Let X(ByVal v As Long)
+                Stop
+                m = v
+            End Property
+            """, "Module1");
+        var stopped = NextStop(dbg);
+        var run = vb.Execute();
+        await stopped.Guarded();
+        try
+        {
+            dbg.GetLocals()!.WatchContext.Should().Be("Module1.X(Let)");
+            if (inGet)
+            {
+                stopped = NextStop(dbg);
+                dbg.Continue();
+                await stopped.Guarded();
+                dbg.GetLocals()!.WatchContext.Should().Be("Module1.X(Get)");
+            }
+            var result = await ((IDebugController)dbg).EvaluateScopedWatchAsync(expression, context);
+            result.Should().NotBeNull();
+            result!.Display.Should().Be(display);
+            result.TypeName.Should().Be(type);
+            result.Ok.Should().Be(type != "Empty");
+        }
+        finally
+        {
+            dbg.Stop();
+            await run.Guarded();
+        }
+    }
+
 }

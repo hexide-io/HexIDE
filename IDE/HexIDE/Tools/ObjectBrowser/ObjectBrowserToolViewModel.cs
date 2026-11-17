@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using HexIDE.IDE;
+using HexIDE.Language;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Runtime.Components;
@@ -589,7 +590,7 @@ public partial class ObjectBrowserToolViewModel : Document
             return;
         }
 
-        if (lspClient.IsRunning && SelectedClass.CanNavigate)
+        if (SelectedClass.CanNavigate)
             LoadMembersAsync(SelectedClass, memberRequestVersion).ListenErrors();
     }
 
@@ -602,7 +603,17 @@ public partial class ObjectBrowserToolViewModel : Document
                 ? DocumentWireName.For(classVm.ModuleDefinition)
                 : DocumentWireName.For(classVm.FormDefinition!);
 
-            var symbols = await lspClient.RequestDocumentSymbolsAsync(uri, CancellationToken.None);
+            var symbols = lspClient.IsRunning
+                ? await lspClient.RequestDocumentSymbolsAsync(uri, CancellationToken.None) : [];
+            if (symbols.Length == 0)
+            {
+                // Keep navigation in whole-file coordinates, as for server symbols and code windows.
+                var text = classVm.ModuleDefinition is { } module
+                    ? (module.Owner.Format?.CodePrefix(module) ?? FormCodeText.Prefix(module)) + module.Code
+                    : (classVm.FormDefinition!.Owner.Format?.CodePrefix(classVm.FormDefinition)
+                        ?? FormCodeText.Prefix(classVm.FormDefinition)) + classVm.FormDefinition.Code;
+                symbols = VbFamilyDeclarationCollector.Collect(text);
+            }
             if (requestVersion != memberRequestVersion) return;
 
             classVm.Members.Clear();
