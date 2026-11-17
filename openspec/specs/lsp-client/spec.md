@@ -3170,3 +3170,21 @@ a refresh is pending; closing an editor SHALL remove its subscriptions (#4254).
 - **WHEN** a server sends several semantic-token refresh requests while a document's refresh is pending
 - **THEN** each request receives null
 - **AND** that document sends one full semantic-token request for the burst
+
+### Requirement: Workspace diagnostic pull
+
+The client SHALL request `workspace/diagnostic` only when the provider declares `workspaceDiagnostics`,
+after initialization, each diagnostic refresh, and coalesced document closes. Each request SHALL carry
+the provider identifier and held result IDs, use the normal request timeout, omit partial-result tokens,
+and cancel its predecessor on the connection.
+
+#### Scenario: Closed module findings
+- **WHEN** a workspace response contains a full report for a closed URI
+- **THEN** its diagnostics and result ID replace that server's findings for the URI in the shared store
+- **AND** unchanged reports retain findings, while URIs omitted from the answer are cleared
+- **AND** reports for open documents do not replace their per-document pulls
+
+#### Scenario: Closing an editor
+- **WHEN** a document closes on a connection offering workspace diagnostics
+- **THEN** its last findings remain until a workspace answer replaces them
+- **AND** a connection without that capability retains its existing close-clearing behaviour

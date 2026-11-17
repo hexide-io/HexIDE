@@ -190,7 +190,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             note = null;
         else if (analysed.Length > 0)
             note = $"No diagnostics: {(analysed.Length == 1 ? "the analysed document is" : $"all {analysed.Length} analysed documents are")} "
-                   + "clean. Only open documents are analysed.";
+                   + "clean. Closed modules are included when a server offers workspace diagnostics.";
         else
             note = "Nothing has been analysed: no document is open, and only open documents are. open_file a form "
                    + "or module, then ask again.";

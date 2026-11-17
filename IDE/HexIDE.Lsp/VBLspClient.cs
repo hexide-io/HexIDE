@@ -593,6 +593,7 @@ public sealed class VBLspClient : ILspClient
         _initializeAnswered = false;
         ClearProgress();
         _initialized = false;
+        ClearWorkspaceDiagnosticState();
         _capabilities = null;
         _warnedCapabilities.Clear();
         _semanticWarnings.Clear();
@@ -840,6 +841,7 @@ public sealed class VBLspClient : ILspClient
         _writtenOpens = new();
         Interlocked.Increment(ref _connection);
         _initialized = true;
+        PullWorkspaceDiagnosticsInBackground();
         NoteHandshake();
         _logger.LogInformation("LSP server initialized: {Server}",
             _identity is { Name: { Length: > 0 } n }
@@ -1120,10 +1122,14 @@ public sealed class VBLspClient : ILspClient
         if (_writtenOpens.TryRemove(uri, out var written)) written.TrySetCanceled();
         ForgetPullState(uri);
         var rpc = _rpc;
-        if (rpc is null || !_initialized || !ServerCapabilities.AcceptsOpenClose(_capabilities?.Value)) return;
-        var p = new DidCloseTextDocumentParams(new TextDocumentIdentifier(uri));
-        try { await rpc.NotifyWithParameterObjectAsync("textDocument/didClose", p); }
-        catch (Exception ex) { WarnRequestFailedOnce("textDocument/didClose", ex, cancellationToken); }
+        if (rpc is null || !_initialized) return;
+        if (ServerCapabilities.AcceptsOpenClose(_capabilities?.Value))
+        {
+            var p = new DidCloseTextDocumentParams(new TextDocumentIdentifier(uri));
+            try { await rpc.NotifyWithParameterObjectAsync("textDocument/didClose", p); }
+            catch (Exception ex) { WarnRequestFailedOnce("textDocument/didClose", ex, cancellationToken); }
+        }
+        PullWorkspaceDiagnosticsInBackground(coalesce: true);
     }
 
     // ── Diagnostics this server will only give when asked ────────────────────────────────────────────
@@ -1134,7 +1140,7 @@ public sealed class VBLspClient : ILspClient
     // had to know how its diagnostics were obtained would be the seam leaking.
 
     /// <summary>What the server called its last answer about each document, so it can say "still true".</summary>
-    private readonly ConcurrentDictionary<string, string> _pullResultIds = new();
+    private readonly ConcurrentDictionary<string, string> _pullResultIds = new(LspDocumentUri.Comparer);
 
     /// <summary>
     /// How many times this client has asked about each document. A request carries the value it saw, and
@@ -1230,14 +1236,19 @@ public sealed class VBLspClient : ILspClient
 
     private void ForgetPullState(string uri)
     {
-        // The result identifier goes, because it names an answer about a document this client has stopped
-        // tracking. The two COUNTERS stay, and that is deliberate: resetting them makes a reopened document
+        // Without workspace diagnostics, the result identifier goes when this client stops tracking the
+        // document. The two COUNTERS stay, and that is deliberate: resetting them makes a reopened document
         // start at generation 1 again, so an answer still in flight from before the close — which carries a
         // higher number — outranks every fresh answer that follows it, and the reopened document shows
         // pre-close diagnostics until the counter climbs back past it. Monotonic per document for the life
         // of the connection costs two integers per file ever opened and has no such window.
         lock (_pullPublishGate)
         {
+            if (ServerCapabilities.OffersWorkspaceDiagnostics(AdvertisedCapabilities))
+            {
+                _workspaceDiagnosticUris.Add(uri);
+                return;
+            }
             _pullResultIds.TryRemove(uri, out _);
 
             // Nothing else would. A push server clears a document by publishing an empty set for it, and a
@@ -1246,6 +1257,82 @@ public sealed class VBLspClient : ILspClient
             if (CanServeQuietly("diagnosticProvider"))
                 _diagnosticLifecycle.Publish(uri, () =>
                     RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, [])));
+        }
+    }
+
+    private CancellationTokenSource? _workspaceDiagnosticCancellation;
+    private readonly HashSet<string> _workspaceDiagnosticUris = new(LspDocumentUri.Comparer);
+
+    private void ClearWorkspaceDiagnosticState()
+    {
+        lock (_pullPublishGate)
+        {
+            _workspaceDiagnosticCancellation?.Cancel();
+            foreach (var uri in _workspaceDiagnosticUris) _pullResultIds.TryRemove(uri, out _);
+            _workspaceDiagnosticUris.Clear();
+        }
+    }
+
+    private void PullWorkspaceDiagnosticsInBackground(bool coalesce = false)
+    {
+        if (!_initialized || !ServerCapabilities.OffersWorkspaceDiagnostics(AdvertisedCapabilities)) return;
+        lock (_pullPublishGate)
+        {
+            _workspaceDiagnosticCancellation?.Cancel();
+            var cancellation = new CancellationTokenSource();
+            _workspaceDiagnosticCancellation = cancellation;
+            _ = PullWorkspaceDiagnosticsAsync(cancellation, coalesce);
+        }
+    }
+
+    private async Task PullWorkspaceDiagnosticsAsync(CancellationTokenSource cancellation, bool coalesce)
+    {
+        var rpc = _rpc;
+        var connection = Volatile.Read(ref _connection);
+        try
+        {
+            if (rpc is null) return;
+            if (coalesce) await Task.Delay(50, cancellation.Token);
+            var parameters = new WorkspaceDiagnosticParams(
+                ServerCapabilities.DiagnosticIdentifier(AdvertisedCapabilities),
+                _pullResultIds.Select(p => new PreviousResultId(p.Key, p.Value)).ToArray());
+            var raw = await InvokeRequestAsync<JsonElement?>(rpc, "workspace/diagnostic", parameters,
+                cancellation.Token);
+            lock (_pullPublishGate)
+            {
+                if (cancellation.IsCancellationRequested || !_initialized || !ReferenceEquals(rpc, _rpc)
+                    || connection != Volatile.Read(ref _connection)
+                    || raw is not { ValueKind: JsonValueKind.Object } report
+                    || !report.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+                    return;
+                var seen = new HashSet<string>(LspDocumentUri.Comparer);
+                foreach (var item in items.EnumerateArray())
+                {
+                    if (!item.TryGetProperty("uri", out var value) || value.GetString() is not { } uri) continue;
+                    seen.Add(uri);
+                    if (_openDocuments.Keys.Any(open => LspDocumentUri.AreSame(open, uri))) continue;
+                    ApplyDiagnosticReport(uri, item);
+                }
+                foreach (var uri in _workspaceDiagnosticUris.Except(seen, LspDocumentUri.Comparer).ToArray())
+                {
+                    if (_openDocuments.Keys.Any(open => LspDocumentUri.AreSame(open, uri))) continue;
+                    _pullResultIds.TryRemove(uri, out _);
+                    _diagnosticLifecycle.Publish(uri, () => RaisePublishDiagnostics(DiagnosticOwner.LanguageServer,
+                        new PublishDiagnosticsParams(uri, [])));
+                }
+                _workspaceDiagnosticUris.Clear();
+                _workspaceDiagnosticUris.UnionWith(seen);
+            }
+        }
+        catch (Exception ex) { WarnRequestFailedOnce("workspace/diagnostic", ex, cancellation.Token); }
+        finally
+        {
+            lock (_pullPublishGate)
+            {
+                if (ReferenceEquals(_workspaceDiagnosticCancellation, cancellation))
+                    _workspaceDiagnosticCancellation = null;
+                cancellation.Dispose();
+            }
         }
     }
 
@@ -1320,9 +1407,8 @@ public sealed class VBLspClient : ILspClient
         // on top of it (#503). See _pullPublishGate.
         lock (_pullPublishGate)
         {
-            // Closed while we were asking. Nothing may be published for a document the editor has let go — the
-            // close already cleared it, and putting marks back afterwards would leave them with nothing that
-            // could ever remove them.
+            // Per-document answers lose authority on close: workspace reports now own the URI,
+            // or the close has already cleared its marks.
             if (!_openDocuments.ContainsKey(uri)) return;
 
             // Already overtaken: something newer is on screen, so this answer describes text nobody is looking
@@ -2481,6 +2567,7 @@ public sealed class VBLspClient : ILspClient
         if (_settings is not null) _settings.PropertyChanged -= OnSettingsChanged;
         ClearProgress();
         _stopping = true;
+        ClearWorkspaceDiagnosticState();
         // Safe even if the reconnect loop already disposed the CTS in its finally.
         try { _reconnectCts?.Cancel(); } catch (ObjectDisposedException) { }
 
@@ -2531,6 +2618,7 @@ public sealed class VBLspClient : ILspClient
         await _transport.DisposeAsync();
         _transport.Notice -= OnTransportNotice;
         _initialized = false;
+        ClearWorkspaceDiagnosticState();
         _capabilities = null;
         _identity = null;
         _warnedCapabilities.Clear();
@@ -2573,6 +2661,7 @@ public sealed class VBLspClient : ILspClient
     {
         EndConnectionRequests();
         _initialized = false;
+        ClearWorkspaceDiagnosticState();
         _capabilities = null;
         _warnedCapabilities.Clear();
         _semanticWarnings.Clear();
@@ -2890,8 +2979,8 @@ public sealed class VBLspClient : ILspClient
         /// them.
         ///
         /// <para>
-        /// Every open document is asked about afresh, and the result identifiers are dropped first: holding
-        /// them would invite the server to answer "unchanged" against the very answers being invalidated.
+        /// Every open document is asked about afresh. Workspace-capable connections retain result IDs
+        /// for the workspace request; other connections discard them before the per-document re-pull.
         /// </para>
         ///
         /// <para>
@@ -2909,7 +2998,9 @@ public sealed class VBLspClient : ILspClient
         {
             _client._serverRefreshesDiagnostics = true;
             _client._logger.LogDebug("The server asked for diagnostics to be refreshed; re-requesting.");
-            _client._pullResultIds.Clear();
+            _client.PullWorkspaceDiagnosticsInBackground();
+            if (!ServerCapabilities.OffersWorkspaceDiagnostics(_client.AdvertisedCapabilities))
+                _client._pullResultIds.Clear();
             foreach (var uri in _client._openDocuments.Keys)
                 _client.PullDiagnosticsInBackground(uri);
         }
