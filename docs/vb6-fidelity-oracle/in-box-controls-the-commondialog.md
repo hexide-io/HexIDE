@@ -225,6 +225,86 @@ A driver answered each dialog with real keys, as for the ShowX rows above. The t
   WinHelp, the result would be different.
 - After the calls, Flags, HelpFile and HelpCommand read back as they were set.
 
+### Color, HelpContext and Action conversions, control arrays and containers (2026-11-17, #4148)
+
+**The probe.**
+- **The builds:** a form holding `cd1`, a CommonDialog, built with `VB6.EXE /make` as native code and p-code, and run in session 0, so no dialog ever opened.
+- **The logging:** each row logged `Err.Number`, `VarType`, `TypeName` and the value under `On Error Resume Next`.
+- **Assignments:** each was made from a sentinel, Color 7 or HelpContext 7, so a refused one reads back the sentinel.
+- **Action:** only values whose conversion lands outside 1 to 6 were written, so no Action opened a dialog.
+- **A second form** held a control array `cd(0)` inside a Frame, and `cd2` on the form.
+
+Native code and p-code logged the same lines.
+
+**The binding decides Color's type.** Early-bound, through the control's name or a variable `As CommonDialog`, Color is a **Long**. Late-bound, through a variable `As Object`, a Variant or `CallByName`, it is an **unsigned Long, VarType 19**, as recorded above. With Color set to `&H80000005`:
+
+| Use | Early-bound (`cd1.Color`, `t.Color`) | Late-bound (`o.Color`, `vv.Color`, `CallByName`) |
+|---|---|---|
+| `v = …`, then `VarType(v)` | 3, value -2147483643 | **19**; `CDbl(v)` is 2147483653 |
+| `TypeName(…)`, `IsNumeric(…)` | `Long`, True | **458**; IsNumeric False |
+| `… + 1` | -2147483642, a Long | **458** |
+| `… * 2` | **6**, overflow | **458**, with Color 255 |
+| `-…`, `… \ 2`, `… And &HFF` | 2147483643, -1073741821, 5 | |
+| `(… = 255)`, Color 255 | True | **458** |
+| `CLng(…)`, or stored in a Long | -2147483643 | -2147483643: it wraps, with no overflow |
+| stored in a Double, or a String | -2147483643 | 2147483653 |
+| stored in an Integer or a Byte, Color 255 | 255 | 255 (Integer) |
+| `… & ""` | `-2147483643` | `255`, with Color 255 |
+
+**Assigning Color:**
+
+| Assigned | Early-bound | Late-bound |
+|---|---|---|
+| `-1` | **380**, unchanged | **6** |
+| `True` | **380** | |
+| `4294967295#` | **6** | **380** |
+| `4294967296#` | 6 | |
+| `&H80000005` | taken; reads -2147483643 | taken |
+| `2147483653#` | | taken; reads back as `&H80000005` |
+| `-2147483648#` | taken | |
+| `"255"`, `"&HFF"` | 255 | |
+| `1.5`, `2.5` | 2, 2: rounded half to even | |
+| `Empty` | 0 | |
+| `Null` | **94** | |
+| `"abc"` | **13** | |
+
+So each path converts first, early-bound to a Long and late-bound to an unsigned Long, raising that conversion's overflow. **Then the control refuses `&HFFFFFFFF` with 380** on both. `&H80000000` and `&H80000005` are taken.
+
+**HelpContext is a Long on both paths,** VarType 3 late-bound too. The default is 0. Assignments:
+- `"9"` gives 9;
+- `1.5` and `2.5` give 2 and 2;
+- `-1` and `True` both give -1, taken;
+- `2147483647` is taken;
+- `2147483648#` raises **6**;
+- `Null` raises **94**, and `"abc"` **13**;
+- `Empty` gives 0.
+
+`HelpContext + 1`, with 5, is 6.
+
+**Action converts as an Integer:**
+- `0.4`, `"0"`, `Empty`, `True`, `6.6` (7), `7.4` (7), `"7"` and `32767` each raise **380**;
+- `32768`, `-32769` and `2147483648#` raise **6**;
+- `Null` raises **94**, and `"abc"` **13**.
+
+**A CommonDialog can be a control array:**
+- `cd(0).Index` is 0, and `Load cd(1)` works;
+- `cd.Count` is 2 and `cd.UBound` 1;
+- setting `cd(1).Color` to 5 leaves `cd(0).Color` at 0;
+- `For Each c In cd`, run after `Unload cd(1)`, visits `cd(0)` alone;
+- `Unload cd(1)` works, and `Unload cd(0)` raises **362**, as for any design-time element;
+- `TypeName(cd)` is `Object`, and `TypeName(cd2)` is `CommonDialog`;
+- `Controls.Count` counted the Frame, `cd(0)` and `cd2`.
+
+**It has no Container, Left or Top:**
+- Early-bound, `cd2.Container`, `Set cd2.Container = Frame1` and `cd(0).Container` don't compile: "Method or data member not found".
+- Late-bound, Container raises **438**, and Left and Top raise **393**. That was so for the element inside the Frame too.
+- `Parent` is the form, and `Tag` and `Name` read.
+
+**Unmeasured:**
+- a late-bound Color assigned `True`, `"255"` or `1.5`, and `2147483653#` assigned early-bound;
+- which other values the control refuses besides `&HFFFFFFFF`;
+- an Action that converts to 1 to 6 from a non-integer: reasoned to open that dialog, not probed.
+
 ### The saved files
 
 **The programs.**
