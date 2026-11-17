@@ -2268,6 +2268,10 @@ While an external session is active, `get_call_stack`, `get_locals`, `evaluate`,
 as the IDE windows. Replies SHALL preserve the tools' result shapes, omit unavailable source or
 project fields and explain the adapter frame context. Running inspection SHALL refuse with guidance
 to use `break_program` or a breakpoint. External watches SHALL support Expression watches only.
+External `evaluate` SHALL report adapter refusals as `success: false` with the adapter message as
+`error`. Its successful result SHALL concatenate output delivered during the evaluation and the
+response result, preserving text. Before building the reply it SHALL wait for UI delivery of events
+already read, including output read before the response but dispatched after it.
 `set_breakpoints` and `clear_all_breakpoints` SHALL edit the editor's external breakpoint set and
 report adapter verification, relocation, refusal and unsupported conditions after awaiting its replies.
 `get_breakpoints` SHALL read that same external set, with its conditions, so it agrees with the editor.
@@ -2281,6 +2285,18 @@ report adapter verification, relocation, refusal and unsupported conditions afte
 
 - **WHEN** an inspection tool is called while the external session runs
 - **THEN** its reply explains that inspection requires a stop and names `break_program` or a breakpoint
+
+#### Scenario: External REPL prints its result
+
+- **WHEN** the adapter sends output before an empty evaluate response, with UI delivery still queued
+- **THEN** `evaluate` waits for that delivery and returns the printed text
+- **AND** a nonempty response result is appended after the output when both have text
+
+#### Scenario: External REPL refuses a line
+
+- **WHEN** the adapter answers evaluate with `success: false`
+- **THEN** the tool returns `success: false` and the adapter message as `error`
+- **AND** the Immediate window continues to display the adapter message
 
 #### Scenario: Replace external breakpoints
 

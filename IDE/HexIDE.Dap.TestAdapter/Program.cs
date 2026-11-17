@@ -120,7 +120,7 @@ public static class Program
                 if (command == "disconnect") return 0;
                 continue;
             }
-            if (mode.StartsWith("cursor", StringComparison.Ordinal) || mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "event-flood" or "terminated-flood" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "conditions" or "conditions-running" or "locals-tree" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held" or "disconnect-held-stderr")
+            if (mode.StartsWith("cursor", StringComparison.Ordinal) || mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "event-flood" or "terminated-flood" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "evaluate-output" or "evaluate-refusal" or "conditions" or "conditions-running" or "locals-tree" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held" or "disconnect-held-stderr")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
                 if (mode == "run-control-delayed" && command == "stepIn") continue;
@@ -185,6 +185,22 @@ public static class Program
                         await Send(new { seq = 30, type = "event", @event = "invalidated",
                             body = JsonSerializer.Deserialize<JsonElement>(expression[11..]) });
                     }
+                    // RDCore printed text and response order: https://github.com/hexide-io/HexIDE/issues/4323.
+                    if (context == "repl" && (expression is "? output" or "? both" or "? flood" || expression?.StartsWith("? output:", StringComparison.Ordinal) == true))
+                    {
+                        if (expression!.StartsWith("? output:", StringComparison.Ordinal))
+                        {
+                            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                            while (!File.Exists(expression[9..])) await Task.Delay(10, deadline.Token);
+                        }
+                        if (expression == "? flood")
+                            for (var i = 0; i < 10_000; i++)
+                                await Send(new { seq = 10, type = "event", @event = "output", body = new { output = $"line {i}\n" } });
+                        else await Send(new { seq = 10, type = "event", @event = "output", body = new { output = " 84 \n" } });
+                        await Send(new { seq = 11, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(),
+                            command, success = true, body = new { result = expression == "? both" ? "response" : "", variablesReference = 0 } });
+                        continue;
+                    }
                     if (expression == "wait")
                     {
                         heldEvaluation = request.RootElement.GetProperty("seq").GetInt32();
@@ -193,7 +209,7 @@ public static class Program
                     }
                     if (expression == "callerValue = 99" && frame == 7) callerValue = "99";
                     await Send(new { seq = 11, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(),
-                        command, success = expression != "reject" && context is "repl" or "watch" or "hover",
+                        command, success = mode != "evaluate-refusal" && expression != "reject" && context is "repl" or "watch" or "hover",
                         message = "fixture refusal", body = new { result = mode == "invalidated" && expression == "value" ? callerValue : $"frame:{frame}:{expression}", type = "Long", variablesReference = expression == "aggregate" ? 8 : 0 } });
                     continue;
                 }
