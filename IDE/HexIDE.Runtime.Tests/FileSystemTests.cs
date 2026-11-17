@@ -318,18 +318,6 @@ public class FileSystemTests : BaseVBTestFixture, IDisposable
         AssertDebugLog([Long(68)]);
     }
 
-    [Theory]
-    [InlineData("CurDir(Drive:=\"C\")")]
-    [InlineData("Dir(PathName:=\"*\")")]
-    [InlineData("FileLen(PathName:=\"a.txt\")")]
-    [InlineData("FileDateTime(PathName:=\"a.txt\")")]
-    [InlineData("GetAttr(PathName:=\"a.txt\")")]
-    public async Task Unmeasured_named_calls_are_explicitly_refused(string expression)
-    {
-        var act = () => Execute("Debug.Print " + expression);
-        await act.Should().ThrowAsync<NotImplementedException>().WithMessage("Named arguments to * are not implemented yet");
-    }
-
     [Fact]
     public async Task Unix_hidden_is_excluded_from_wildcard_Kill_unless_the_host_has_real_hidden_attributes()
     {

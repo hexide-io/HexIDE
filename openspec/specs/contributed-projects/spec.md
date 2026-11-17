@@ -31,8 +31,25 @@ each type's names as contributed, a whole file name as that name.
 - **WHEN** an add-in contributes a type for `*.vbp`
 - **THEN** the registration is refused
 
+### Requirement: Command-line project paths SHALL wait for add-in discovery and consent
+The command-line parser SHALL accept any plain, non-option argument naming an existing file as a project path,
+relative to the invocation directory. Consumed option values and arguments beginning with `-` SHALL retain their
+existing parsing behaviour. Startup SHALL wait for add-in discovery before choosing a reader. When no type claims
+the path, startup SHALL wait for the first-load consent pass after the main window opens, then use the shared open
+route again. A file still unclaimed SHALL receive the localized no-reader message naming the file, without showing
+the New Project dialog.
+
+#### Scenario: Consent supplies the reader
+- **WHEN** a command-line project file is unclaimed before first-load consent
+- **AND** allowing the add-in contributes a type for the file
+- **THEN** the shared open route asks that type to read the file after consent completes
+
+#### Scenario: No reader after consent
+- **WHEN** no type claims the command-line file after the consent pass
+- **THEN** a localized message names the file and the New Project dialog is not shown
+
 ### Requirement: Every project file SHALL be read through one path
-Open Project, the recent projects list and a project group SHALL read a project file the same way: by a contributed
+Open Project, a command-line project path, the recent projects list and a project group SHALL read a project file the same way: by a contributed
 type that reads it, then as a `.vbp`. Any other file SHALL be refused with a reason, never read as a `.vbp`.
 
 #### Scenario: A group lists a contributed project
@@ -127,8 +144,9 @@ through its type's format. Where the type has no project-file writer, the save S
 it goes, or add it to the recent list, and the file SHALL NOT count as edited. Where it has one, the IDE SHALL render the
 project file through that writer and nothing else, and SHALL write it, in the encoding the writer names, only at the path
 the project was opened from. Save Project As SHALL be unavailable when no loaded project offers moving its project file.
-Within a wider Save Project As, a contributed project SHALL be saved in place and the user SHALL be told once, with each
-project whose own project file was written named. No member SHALL be written at that path, whichever route names it.
+A save that would write a `.vbg` listing a contributed project's non-`.vbp` file SHALL refuse before any write,
+as specified by [serialization-round-trip](../serialization-round-trip/spec.md). Standalone saves retain the writer
+contract above. No member SHALL be written at the project's own path, whichever route names it.
 
 Adding and removing members SHALL be offered only where the type's writer carries members. References SHALL be offered only
 where the writer carries references. Project Properties SHALL offer name and description only where the writer carries
@@ -168,13 +186,16 @@ or otherwise.
 - **AND** a writer without properties leaves Project Properties refused with a reason about properties alone
 
 #### Scenario: Save Project As with contributed projects
+- **GIVEN** contributed project files whose extensions are not `.vbp`
 - **WHEN** only contributed projects are loaded
 - **THEN** Save Project As is unavailable
 - **WHEN** a VB6 project is loaded alongside a contributed project, and the user chooses Save Project As
-- **THEN** only the VB6 project's file asks for a destination, the contributed project's file is saved in place, and a
-  single message names only the contributed projects whose own project files were written
-- **WHEN** the contributed type has no project-file writer, or the save writes no project file for it
-- **THEN** the message does not name it; dismissing a destination picker writes neither project file and shows no such message
+- **THEN** only the VB6 project's file and the group ask for destinations
+- **AND** writing the `.vbg` refuses before any file is written, naming non-`.vbp` members and explaining that VB6
+  would open them as code modules ([oracle PR #4308](https://github.com/hexide-io/HexIDE/pull/4308))
+- **AND** no contributed project is reported as saved in place
+- **WHEN** a destination picker is dismissed
+- **THEN** neither project file is written and no saved-in-place message is shown
 
 #### Scenario: The project file changed outside the IDE
 - **WHEN** the add-in's own program changed the project file since the IDE opened it, and the user saves changes of the

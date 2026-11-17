@@ -4,9 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:te="clr-namespace:HexIDE.Tools.TranslationEditor"
              xmlns:loc="clr-namespace:HexIDE.Localization"
-             xmlns:conv="clr-namespace:HexIDE.Converters"
              xmlns:ctrl="clr-namespace:HexIDE.Controls"
-             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
              x:DataType="te:TranslationEditorViewModel"
              x:Class="HexIDE.Tools.TranslationEditor.TranslationEditorView">
@@ -14,10 +12,16 @@
     <UserControl.Resources>
         <ctrl:BoolToWeightConverter x:Key="OverriddenWeight"
                                     WhenTrue="Bold" WhenFalse="Normal" />
-        <conv:BoolToBrushConverter x:Key="RedFallbackBrush"
-                                   ActiveBrush="{DynamicResource ValidationErrorBrush}"
-                                   InactiveBrush="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}" />
     </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.englishFallback">
+            <Setter Property="FontStyle" Value="Italic" />
+        </Style>
+        <Style Selector="DataGridRow:not(:selected) TextBlock.englishFallback">
+            <Setter Property="Foreground" Value="{DynamicResource ValidationErrorBrush}" />
+        </Style>
+    </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,Auto,*,Auto">
 
@@ -99,14 +103,20 @@
                                         Header="{DynamicResource Str.TranslationEditor.Column.From}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="te:TranslationRowViewModel">
-                            <!-- Red when the reference is "secretly English" (From ≠ en and this key has no
-                                 own translation in From's chain) — flags the From value, per the red rule. -->
+                            <!-- English fallbacks stay italic; only unselected rows use red. -->
                             <TextBlock Text="{CompiledBinding FromValue}"
+                                       Classes.englishFallback="{CompiledBinding IsRedFallback}"
                                        VerticalAlignment="Center"
                                        Margin="4,0"
-                                       TextTrimming="CharacterEllipsis"
-                                       ToolTip.Tip="{CompiledBinding ChainTooltip}"
-                                       Foreground="{CompiledBinding IsRedFallback, Converter={StaticResource RedFallbackBrush}}" />
+                                       TextTrimming="CharacterEllipsis">
+                                <ToolTip.Tip>
+                                    <StackPanel>
+                                        <TextBlock Text="{CompiledBinding ChainTooltip}" />
+                                        <TextBlock Text="{DynamicResource Str.TranslationEditor.Tooltip.Fallback}"
+                                                   IsVisible="{CompiledBinding IsRedFallback}" />
+                                    </StackPanel>
+                                </ToolTip.Tip>
+                            </TextBlock>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

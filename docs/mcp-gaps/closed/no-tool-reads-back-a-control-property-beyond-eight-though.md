@@ -46,3 +46,7 @@ corrected `set_control_property` description. [#923](https://github.com/hexide-i
 > index answers with its first element, and the reply's `note` says so. A Menu no longer has Left, Top, Width or
 > Height, which a caller could set and the save wrote under names VB6 gives no menu. `set_control_property`'s
 > description now sends callers to `controlName`. Guarded by `PropertyTextTests`.
+
+**Later change (#2701).** Index now has an editable design-time adapter in the Properties window and
+`set_control_property`; see [the control-array creation fix](2701.md). The read-only Index example
+above describes the earlier surface.

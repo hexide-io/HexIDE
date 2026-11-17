@@ -1,4 +1,6 @@
 using System.IO;
+using System.Text.Json.Nodes;
+using Avalonia.Headless.XUnit;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Localization;
@@ -55,11 +57,24 @@ public sealed class RecoveryOffersTests : IDisposable
         public readonly EventBus Bus = new();
         public readonly IWindowManager Windows = Substitute.For<IWindowManager>();
         public readonly ProjectService Service;
+        public readonly List<BaseEditorWindowViewModel> Tabs = [];
+        public readonly IDocumentDockService Dock = Substitute.For<IDocumentDockService>();
+        public readonly EditorService Editors;
 
-        public Session(ContributedProjects? contributed = null)
+        public Session(ContributedProjects? contributed = null, bool realManager = false)
         {
-            Manager.LoadedProjects.Returns(_ => Loaded);
-            Manager.When(m => m.AddProject(Arg.Any<ProjectDefinition>())).Do(ci => Loaded.Add(ci.Arg<ProjectDefinition>()));
+            Dock.OpenDocuments.Returns(Tabs);
+            Dock.When(d => d.OpenDocument(Arg.Any<BaseEditorWindowViewModel>(), Arg.Any<bool>()))
+                .Do(ci => Tabs.Add(ci.Arg<BaseEditorWindowViewModel>()));
+            Editors = new EditorService(Dock, null!, null!, null!, null!, () => Manager,
+                Substitute.For<ILocalizationService>(), Bus, () => Service!);
+            if (realManager)
+                Manager = new ProjectManager(Editors, Bus);
+            else
+            {
+                Manager.LoadedProjects.Returns(_ => Loaded);
+                Manager.When(m => m.AddProject(Arg.Any<ProjectDefinition>())).Do(ci => Loaded.Add(ci.Arg<ProjectDefinition>()));
+            }
             var sidecar = Substitute.For<IUserSidecarService>();
             sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
             sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
@@ -67,7 +82,7 @@ public sealed class RecoveryOffersTests : IDisposable
                 () => throw new InvalidOperationException("new-project dialog must not be reached"),
                 Windows, Bus, Manager, Substitute.For<IRecentProjectsService>(),
                 Substitute.For<IReferenceLibraryService>(), sidecar, Store, Substitute.For<ILocalizationService>(),
-                Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry(), contributed: contributed);
+                Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry(), contributed: contributed, documents: Dock);
         }
 
         public ProjectDefinition Project => Loaded.Single();
@@ -97,12 +112,11 @@ public sealed class RecoveryOffersTests : IDisposable
         localization.GetString(Arg.Any<string>()).Returns(ci => ci.Arg<string>() + ": {0}");
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(_ => DateTime.UtcNow);
-        var dock = Substitute.For<IDocumentDockService>();
-        dock.OpenDocuments.Returns([]);
+        var dock = session.Dock;
 
         return new RecoveryOffers(recovery, session.Service, session.Manager, windows, localization, dock,
             session.Store, clock, bus ?? Substitute.For<IEventBus>(), Substitute.For<IStatusBarService>(),
-            Substitute.For<IHeaderRefresher>(), format: new Vb6ProjectFileFormat());
+            Substitute.For<IHeaderRefresher>(), format: new Vb6ProjectFileFormat(), editors: session.Editors);
     }
 
     /// <summary>Writes a saved project of a form and two modules into <paramref name="folder"/>, and names its file.</summary>
@@ -143,6 +157,130 @@ public sealed class RecoveryOffersTests : IDisposable
         .ToDictionary(f => Path.GetFileName(f)!, File.ReadAllBytes);
 
     private static ModuleDefinition Module(ProjectDefinition project, string name) => project.Modules.Single(m => m.Name == name);
+
+    private static ProjectFileDocumentViewModel ProjectTab(Session session)
+    {
+        session.Editors.EditProjectFile(new ProjectFileSource(session.Project));
+        return session.Tabs.OfType<ProjectFileDocumentViewModel>().Single();
+    }
+
+    [AvaloniaFact]
+    public async Task Project_file_typing_is_captured_separately_and_round_trips()
+    {
+        var first = await Opened(WriteProject(dir));
+        var tab = ProjectTab(first);
+        first.Service.CaptureUnsavedWork().Should().BeEmpty("a clean tab is not captured");
+        tab.Document.Text += "Title=\"Pending\"\r\n";
+        var capture = first.Service.CaptureUnsavedWork().Single();
+        capture.ProjectFile.Should().BeNull("typed text is not rendered model settings");
+        capture.ProjectFileEdit.Should().Be(new UnsavedFile("Test.vbp", tab.Document.Text));
+        var fingerprint = RecoveryRun.Fingerprint([capture]);
+        RecoveryRun.Fingerprint([capture with { ProjectFileEdit = capture.ProjectFileEdit! with { Text = "later" } }])
+            .Should().NotBe(fingerprint);
+        first.Project.Name = "Model settings";
+        var run = Crash(first);
+        using var pending = PendingRun.Find(root, null, (_, _) => false, DateTime.UtcNow).Single();
+        var read = pending.Read(pending.Projects.Single());
+        read.ProjectFileEdit.Should().Be(capture.ProjectFileEdit);
+        read.ProjectFile!.Text.Should().Contain("Model settings").And.NotContain("Pending");
+        RecoveryRun.Read(run)!.Projects.Single().ProjectFileEdit.Should().NotBeNull();
+        first.Project.Name = "Test";
+        tab.Document.UndoStack.Undo();
+        first.Service.CaptureUnsavedWork().Should().BeEmpty();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Project_file_recovery_opens_a_modified_tab_without_applying_settings_or_writing(bool inGroup)
+    {
+        var vbp = WriteProject(dir);
+        var first = await Opened(vbp);
+        var tab = ProjectTab(first);
+        tab.Document.Text = tab.Document.Text.Replace("Name=\"Test\"", "Name=\"Pending\"");
+        Crash(first);
+        File.AppendAllText(vbp, "Title=\"Changed outside\"\r\n");
+        var bytes = File.ReadAllBytes(vbp);
+        var second = new Session(realManager: true);
+        var offers = Offers(second);
+        var openPath = vbp;
+        if (inGroup)
+        {
+            File.WriteAllText(Path.Join(dir, "Other.vbp"), "Type=Exe\r\nName=\"Other\"\r\n");
+            openPath = Path.Join(dir, "Named.vbg");
+            File.WriteAllText(openPath, "VBGROUP 5.0\r\nProject=Other.vbp\r\nProject=Test.vbp\r\nStartupProject=Test.vbp\r\n");
+        }
+        await second.Service.OpenProject(openPath);
+        var project = second.Manager.LoadedProjects.Single(p => p.AbsolutePath == vbp);
+        var group = second.Manager.CurrentGroup;
+        var order = second.Manager.LoadedProjects.ToArray();
+        var startup = second.Manager.StartupProject;
+        var files = FilesIn(dir);
+        string? warning = null;
+        answers.Enqueue(dialog =>
+        {
+            warning = dialog.Items.Single().ChangedOnDisk;
+            return Restore(dialog);
+        });
+        await offers.OfferForAsync(project);
+        second.Manager.CurrentGroup.Should().BeSameAs(group);
+        second.Manager.LoadedProjects.Should().Equal(order);
+        second.Manager.StartupProject.Should().BeSameAs(startup);
+        if (inGroup)
+        {
+            group!.Name.Should().Be("Named");
+            group.AbsolutePath.Should().Be(openPath, "the group remains saved");
+            second.Manager.LoadedProjects.Select(p => p.Name).Should().Equal("Other", "Test");
+        }
+        FilesIn(dir).Should().BeEquivalentTo(files);
+        shown.Should().ContainSingle();
+        warning.Should().Be("Str.Dialog.Recovery.ChangedOnDisk: Test.vbp");
+        var restored = second.Tabs.OfType<ProjectFileDocumentViewModel>().Single();
+        restored.Document.Text.Should().Be(tab.Document.Text);
+        restored.IsModified.Should().BeTrue();
+        project.Name.Should().Be("Test");
+        File.ReadAllBytes(vbp).Should().Equal(bytes);
+    }
+
+    [AvaloniaFact]
+    public async Task Project_file_backup_equal_to_disk_is_not_offered()
+    {
+        var vbp = WriteProject(dir);
+        var first = await Opened(vbp);
+        var tab = ProjectTab(first);
+        tab.Document.Text += "Title=\"Pending\"\r\n";
+        var run = Crash(first);
+        RecoveryRun.Read(run)!.Projects.Should().ContainSingle();
+        File.WriteAllBytes(vbp, Vb6TextFile.Encode(tab.Document.Text, first.Project.TextEncoding));
+        var second = new Session();
+        var offers = Offers(second);
+        await second.Service.OpenProject(vbp);
+        await offers.OfferForAsync(second.Project);
+        shown.Should().BeEmpty();
+        second.Tabs.Should().BeEmpty();
+        Directory.Exists(run).Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task A_record_without_project_file_edit_still_restores_documents()
+    {
+        var vbp = WriteProject(dir);
+        var first = await Opened(vbp);
+        ProjectTab(first).Document.Text += "Title=\"Pending\"\r\n";
+        Module(first.Project, "Module1").UpdateCode("' recovered\r\n");
+        var run = Crash(first);
+        var recordPath = Path.Join(run, "run.json");
+        var json = JsonNode.Parse(File.ReadAllText(recordPath))!;
+        json["projects"]![0]!.AsObject().Remove("projectFileEdit").Should().BeTrue();
+        File.WriteAllText(recordPath, json.ToJsonString());
+        var second = new Session();
+        var offers = Offers(second);
+        answers.Enqueue(Restore);
+        await second.Service.OpenProject(vbp);
+        await offers.OfferForAsync(second.Project);
+        Module(second.Project, "Module1").Code.Should().Contain("' recovered");
+        second.Tabs.Should().BeEmpty();
+    }
 
     [Fact]
     public async Task A_saved_project_s_work_is_offered_as_it_opens_and_comes_back_unsaved()

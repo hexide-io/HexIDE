@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Tools.TranslationEditor;
@@ -98,6 +99,55 @@ public class TranslationEditorViewIntegrationTests
         finally
         {
             try { Directory.Delete(dir, recursive: true); } catch { /* best-effort */ }
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(BrandText.UpstreamCreditsKey, "Str.TranslationEditor.ProtectedCredits")]
+    [InlineData("Str.Dialog.TrustChain.Root", "Str.TranslationEditor.ProtectedTrust")]
+    public void ProtectedRow_BeginEditIsCancelled_AndExplainsReason(string key, string reason)
+    {
+        var (loc, uts, dir) = BuildServices(nameof(ProtectedRow_BeginEditIsCancelled_AndExplainsReason));
+        var vm = BuildVm(loc, uts);
+        vm.SearchText = key;
+        var view = new TranslationEditorView { DataContext = vm };
+        var window = new Window { Width = 1100, Height = 680, Content = view };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var grid = view.GetVisualDescendants().OfType<DataGrid>().Single();
+            var row = vm.Rows.Single(r => r.Key == key);
+            var original = row.ToValue;
+            grid.SelectedItem = row;
+            grid.CurrentColumn = grid.Columns[2];
+            grid.ScrollIntoView(row, grid.CurrentColumn);
+            grid.Focus();
+            Dispatcher.UIThread.RunJobs();
+
+            grid.BeginEdit().Should().BeFalse();
+
+            vm.StatusMessage.Should().Be(loc.GetString(reason)).And.NotBe(reason);
+            row.ToValue.Should().Be(original);
+            uts.GetOverrides("de").Should().NotContainKey(key);
+
+            // The same mounted grid must allow an ordinary row to edit, so failure above cannot be
+            // explained by an uninitialized grid or an unreachable editing template.
+            vm.SearchText = "Str.Menu.File";
+            Dispatcher.UIThread.RunJobs();
+            var editable = vm.Rows.Single(r => r.Key == "Str.Menu.File");
+            grid.SelectedItem = editable;
+            grid.CurrentColumn = grid.Columns[2];
+            grid.ScrollIntoView(editable, grid.CurrentColumn);
+            grid.Focus();
+            Dispatcher.UIThread.RunJobs();
+            grid.BeginEdit().Should().BeTrue();
+            grid.CancelEdit();
+        }
+        finally
+        {
+            window.Close();
+            Directory.Delete(dir, recursive: true);
         }
     }
 

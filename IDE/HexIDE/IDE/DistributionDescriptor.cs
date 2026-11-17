@@ -244,6 +244,9 @@ public static partial class DistributionDescriptor
         var reference = OptionalString(root, "logo", file);
         if (reference == null)
             return null;
+        if (reference.Contains('\\'))
+            throw Refuse(file, $"'logo' is '{reference}'; it must be written with '/'",
+                "Str.Startup.Descriptor.LogoSeparator", "logo", reference, "/");
         if (!reference.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
             throw Refuse(file, "'logo' must name a .png file", "Str.Startup.Descriptor.LogoExtension", "logo", ".png");
 

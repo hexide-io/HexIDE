@@ -96,19 +96,25 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 
 ## Stepping
 
-### D4. Step Into past the end of a procedure returns to the caller; a top-level handler disarms
-- **VB6:** stepping off the end of a proc returns to the caller (breaking there while stepping); off the end of the
-  outermost event handler clears the step and the next event runs free.
-- **HexIDE:** matches this. Step is a one-shot: off the end of a NESTED proc it breaks at the caller's next statement
+### D4. Step Into past the end of a procedure returns to the caller; a top-level handler disarms — VB6 does not
+- **VB6:** stepping off the end of a proc returns to the caller (breaking there while stepping). Off the end of the
+  outermost event handler, **the step stays armed**: the IDE shows [run], and the next event breaks at its handler's
+  declaration line (measured 2026-11-16, #4261; the oracle's [Break on an idle program, and a step off the end of an
+  event handler](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md)). Only Continue
+  clears it. This line used to say the step clears and "the next event runs free": that was the P5 reviews'
+  expectation, never a measurement.
+- **HexIDE:** differs at the outermost handler. Step is a one-shot: off the end of a NESTED proc it breaks at the caller's next statement
   (Step Into always breaks at the next executed statement); off the end of the OUTERMOST event handler it is
   **disarmed at the event-dispatch boundary** (`VBWindowContext.ExecuteSub`), so it does NOT leak into the next event.
 - **History:** from Phase 2 through the first P5 cut the one-shot instead **carried** into the next event's first
   statement (a documented divergence — the faithful proc-end-clear had introduced 7 defects in the Phase-2 review, so
-  it was removed). The v2·P5 dispatch-idle disarm restored the VB6 behaviour after both P5 adversarial reviewers
+  it was removed). The v2·P5 dispatch-idle disarm restored what was then taken to be VB6's behaviour after both P5 adversarial reviewers
   independently flagged the leak (a Step Over leaving `target=1` fired on *every* subsequent event).
-- **Status:** **resolved (v2·P5)**. Matches VB6's "next event runs free." **#2320:** returning to idle also
+- **Status:** **bug**, [#4269](https://github.com/hexide-io/HexIDE/issues/4269): the v2·P5 disarm diverges from VB6, which
+  carries the step (above). It was recorded as resolved against an unmeasured VB6 rule. **#2320:** returning to idle also
   publishes Continued and releases frozen events, so the shell leaves break mode (title, current-line bar,
-  inspection windows and command availability). VB6's title and toolbar at this point remain unmeasured.
+  inspection windows and command availability). VB6's title at this point is [run] (measured, #4261); its toolbar
+  remains unmeasured.
 
 ### D5. Step Over / Step Out (v2·P5)
 - **VB6:** Shift+F8 (Step Over — run a called proc to completion, break at the next statement in the current frame),

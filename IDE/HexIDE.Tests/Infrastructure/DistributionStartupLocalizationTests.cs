@@ -28,6 +28,7 @@ public class DistributionStartupLocalizationTests
         { With("\"links\":[]"), "'links' must be an object" },
         { With("\"links\":{\"home\":false}"), "'links.home' must be a string" },
         { With("\"links\":{\"home\":\"http://example.test\"}"), "'links.home' must be an absolute https URL with no user name" },
+        { With("\"logo\":\"art\\\\logo.png\""), "'logo' is 'art\\logo.png'; it must be written with '/'" },
         { With("\"logo\":\"logo.jpg\""), "'logo' must name a .png file" },
         { With("\"logo\":\"logo.png\""), "'logo' names 'logo.png', which is not a PNG image" },
         { With("\"defaultProfile\":\"../profile\""), "'defaultProfile' is '../profile'; it must be a profile's name, or a folder inside the installation written with '/'" },

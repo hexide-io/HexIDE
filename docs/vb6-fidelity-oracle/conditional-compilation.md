@@ -252,6 +252,8 @@ module, so the directives are processed first.
   - every personality takes VB6's built-ins. VBA documents `VBA6`, `VBA7` and `Win32` as 1, and `Win64` as 1 in a 64-bit
     host, unmeasured here, but `VBA7 = 1` would select declarations HexIDE cannot parse (#1548). That waits for #1113's
     "view as" work;
+    - **Measured since in 64-bit VBA7 (#1548):** `VBA7`, `VBA6`, `Win64` and `Win32` are all set there. See
+      [LongLong and LongPtr in 64-bit VBA7](longlong-and-longptr-in-64-bit-vba7.md);
   - `Like` was refused, not implemented, until HexIDE had `Like` (#1547). It runs since #1598;
   - `CVErr` is refused, not implemented: HexIDE has no `CVErr`;
   - `-2 ^ 2` is 4 here, where it is -4, because the lexer reads the minus as part of the number, here as everywhere (#1073);
