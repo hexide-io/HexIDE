@@ -412,6 +412,7 @@
     "Str.Tool.Project.Menu.Print": "Печать",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
     "Str.Tool.ColorPalette.Title": "Палитра цветов",
+    "Str.Options.Addin.ServerSettingsDefault": "(По умолчанию)",
     "Str.Tool.ColorPalette.Button.Default": "По умолчанию",
     "Str.Tool.ColorPalette.Button.DefineColors": "Задать цвета",
     "Str.Tool.Locals.ContextReady": "<Готово>",

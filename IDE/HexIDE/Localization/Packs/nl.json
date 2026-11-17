@@ -446,6 +446,7 @@
     "Str.Tool.Project.Menu.Print": "Afdrukken",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
     "Str.Tool.ColorPalette.Title": "Kleurenpalet",
+    "Str.Options.Addin.ServerSettingsDefault": "(Standaard)",
     "Str.Tool.ColorPalette.Button.Default": "Standaard",
     "Str.Tool.ColorPalette.Button.DefineColors": "Kleuren definiëren",
     "Str.Tool.Locals.ContextReady": "<Gereed>",

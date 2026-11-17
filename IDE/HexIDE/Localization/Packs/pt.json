@@ -412,6 +412,7 @@
     "Str.Tool.Project.Menu.Print": "Imprimir",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
     "Str.Tool.ColorPalette.Title": "Paleta de Cores",
+    "Str.Options.Addin.ServerSettingsDefault": "(Predefinição)",
     "Str.Tool.ColorPalette.Button.Default": "Predefinição",
     "Str.Tool.ColorPalette.Button.DefineColors": "Definir cores",
     "Str.Tool.Locals.ContextReady": "<Pronto>",

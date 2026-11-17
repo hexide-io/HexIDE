@@ -15,6 +15,19 @@ namespace HexIDE.Addins;
 public sealed class AddinOptionsService : IOptionsPageContributor
 {
     private readonly List<Registration> _pages = [];
+    private readonly List<(string Owner, string Name, HexIDE.Lsp.AddinServerConnection Connection)> _servers = [];
+
+    internal void TrackServer(string owner, string name, HexIDE.Lsp.AddinServerConnection connection)
+    {
+        // A server taken out (its add-in disabled or its consent revoked) leaves the list, so its page shows only live servers.
+        _servers.RemoveAll(server => server.Connection.IsTakenOut);
+        _servers.Add((owner, name, connection));
+    }
+
+    internal IReadOnlyList<(string Name, HexIDE.Lsp.AddinServerConnection Connection)> ServersFor(string owner) =>
+        _servers.Where(server => !server.Connection.IsTakenOut && string.Equals(server.Owner, owner, StringComparison.OrdinalIgnoreCase))
+            .Select(server => (server.Name, server.Connection)).ToList();
+
 
     // NoInlining keeps RegisterOptionsPage a real stack frame so GetCallingAssembly resolves to
     // the add-in that called it (not this assembly).

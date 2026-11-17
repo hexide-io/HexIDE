@@ -397,6 +397,7 @@
     "Str.Tool.Project.Menu.Print": "Print",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
     "Str.Tool.ColorPalette.Title": "Color Palette",
+    "Str.Options.Addin.ServerSettingsDefault": "(default)",
     "Str.Tool.ColorPalette.Button.Default": "Default",
     "Str.Tool.ColorPalette.Button.DefineColors": "Define Colors",
     "Str.Tool.Locals.ContextReady": "<Ready>",
