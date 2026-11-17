@@ -455,7 +455,7 @@ by value will run such a program to completion while producing the wrong answer.
 The interpreter SHALL accept the intrinsic parameter names and required omissions measured in
 [#4145](https://github.com/hexide-io/HexIDE/issues/4145), placing arguments in parameter order and
 retaining positional values and optional defaults. Financial flags SHALL be named Due, arrays ValueArray,
-and pointer operands Ptr. Existing ChrB, IRR and MIRR execution refusals SHALL remain.
+and pointer operands Ptr. ChrB execution SHALL remain refused; IRR and MIRR SHALL use the cash-flow models below.
 Wrong names SHALL raise "Named argument not found" and omitted required arguments "Argument not optional"
 as the statement runs. Named InStrB SHALL raise "Syntax error", named CallByName "Argument in ParamArray
 may not be named", and named IMEStatus "Wrong number of arguments or invalid property assignment".
@@ -2002,7 +2002,7 @@ it, and SHALL NOT raise Scroll (measured on vb6.exe, #4229).
 - **THEN** TopIndex becomes 49 and Scroll is raised only if that changes the top row
 - **AND** assigning 60 or -1 raises 380 without changing the row or raising Scroll
 
-### Requirement: Measured net present value and explicit cash-flow refusals
+### Requirement: Measured net present value and authorized cash-flow models
 
 The interpreter SHALL execute all five positional NPV rows measured in
 [#2525](https://github.com/hexide-io/HexIDE/issues/2525), preserving Double subtypes,
@@ -2011,8 +2011,11 @@ each cumulative discount power to Double as described in
 [Cash-flow precision](../../../docs/financial-precision-2525.md).
 Named NPV calls SHALL accept Rate and ValueArray (#4145).
 Unmeasured conversions, empty/multidimensional arrays and unsupported arithmetic
-domains SHALL refuse as unimplemented. IRR and MIRR SHALL explicitly refuse as unimplemented
-until a precision model matches every measured row for the function.
+domains SHALL refuse as unimplemented. IRR and MIRR SHALL execute the closest 64-bit models
+recorded in the precision note (Horner masks 9 and 84), authorized by Jen’s 2026-11-17 decision
+in #2525, preserving their documented computed bits and measured error numbers. Their
+unmeasured conversions, argument shapes, nonconvergence, other flows without a sign change,
+ReinvestRate -1 and unsupported power domains SHALL refuse as unimplemented.
 
 #### Scenario: Every cash flow is discounted
 - **WHEN** NPV is called with rate 0.1 and the measured five-element Double array a
@@ -2022,9 +2025,18 @@ until a precision model matches every measured row for the function.
 - **WHEN** NPV is called with the measured rate -1 or unallocated Double array
 - **THEN** it raises error 5
 
-#### Scenario: A cash-flow function has no matching precision model
-- **WHEN** IRR or MIRR is called
-- **THEN** execution stops with HexIDE's not-implemented error rather than returning guessed bits
+#### Scenario: Authorized approximate cash-flow results
+- **WHEN** IRR(a) or MIRR(b, 0.1, 0.12) is called with the measured Double arrays
+- **THEN** the Double result has bits `3FC875EFF17028E0` or `3FB94260ED23798E`, respectively
+- **AND** the documented differences from VB6 remain explicit
+
+#### Scenario: Measured cash-flow errors
+- **WHEN** IRR(cs), MIRR(cs, 0.1, 0.12), or MIRR(b, -1, 0.12) is called
+- **THEN** the error number is 5, 11, or 5, respectively
+
+#### Scenario: Unmeasured cash-flow domain
+- **WHEN** IRR does not converge or MIRR is called with ReinvestRate -1
+- **THEN** execution stops with HexIDE's not-implemented error naming #2525
 
 ### Requirement: Windows program dates use Windows locale data
 On Windows, for a locale whose default calendar is Gregorian, the interpreter SHALL take
