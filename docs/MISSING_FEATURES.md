@@ -618,6 +618,12 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 
 ---
 
+## Office document browsing
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Browse an Office document's VBA project | Partial | Read-only container browser for supported modern Excel, Word and PowerPoint files and legacy Excel/Word files (#4331). Host/module folders, references, locks and source/p-code notices; UserForm code only (#1114). No writes (#1120), execution (#1121) or VBA language-server session. Headless checked; supervisor live verification pending. See [Office containers](office-containers.md). |
+
 ## Windows-only (IsWindows-gated)
 
 Features that depend on the Windows COM/OLE infrastructure. In scope on Windows only (`OperatingSystem.IsWindows()`); not available on macOS/Linux. The `.vbp` source round-trip is preserved so projects can still be opened in VB6 and run natively on any platform.

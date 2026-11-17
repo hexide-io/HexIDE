@@ -173,9 +173,9 @@ public class RecentlyClosedDocumentsTests : CompositionTestBase
         return Path.Combine(root.FullName, "IDE", "HexIDE.TwinBasic.Tests", "Fixtures", name);
     }
 
-    private static IEnumerable<ArchiveProjectDocument> Documents(ArchiveProjectFolder folder) =>
-        folder.Children.SelectMany(entry => entry is ArchiveProjectFolder child
-            ? Documents(child) : new[] { (ArchiveProjectDocument)entry });
+    private static IEnumerable<ContainerDocument> Documents(ContainerFolder folder) =>
+        folder.Children.SelectMany(entry => entry is ContainerFolder child
+            ? Documents(child) : new[] { (ContainerDocument)entry });
 
     private static async Task CheckArchiveHistory(IDocumentDockService dock, IEditorService editors)
     {
