@@ -1323,6 +1323,11 @@
     "Str.AIChat.New": "Nou",
     "Str.AIChat.InputPlaceholder": "Întrebați despre codul dvs.…",
     "Str.AIChat.NewTip": "Conversație nouă (istoricul este păstrat)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Proiectele {0} partajează dosarul {1}; doar {2} este scris sau importat."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Proiectele {0} partajează dosarul {1}; doar {2} este scris sau importat.",
+    "Str.PropDesc.Index": "Indicele elementului din tabloul de controale, sau gol pentru un control simplu.",
+    "Str.ControlArray.InvalidIndex": "Index trebuie să fie un număr întreg de la 0 la 32767 sau gol.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' are deja Index {1}. Alegeți alt Index.",
+    "Str.ControlArray.ClearRefused": "Index nu poate fi golit cât timp '{0}' are același nume.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' are același nume și nu are Index. Setați mai întâi proprietatea Index a acestuia."
   }
 }

@@ -1323,6 +1323,11 @@
     "Str.AIChat.New": "Ny",
     "Str.AIChat.InputPlaceholder": "Spørg om din kode…",
     "Str.AIChat.NewTip": "Ny samtale (historikken bevares)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekterne {0} deler mappen {1}; kun {2} skrives eller importeres."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekterne {0} deler mappen {1}; kun {2} skrives eller importeres.",
+    "Str.PropDesc.Index": "Indekset for elementet i kontrolarrayet, eller tomt for en enkelt kontrol.",
+    "Str.ControlArray.InvalidIndex": "Index skal være et heltal fra 0 til 32767 eller tomt.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' har allerede Index {1}. Vælg et andet Index.",
+    "Str.ControlArray.ClearRefused": "Index kan ikke ryddes, så længe '{0}' har samme navn.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' har samme navn og intet Index. Angiv først dets Index."
   }
 }

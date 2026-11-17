@@ -1323,6 +1323,11 @@
     "Str.AIChat.New": "Yeni",
     "Str.AIChat.InputPlaceholder": "Kodunuz hakkında soru sorun…",
     "Str.AIChat.NewTip": "Yeni sohbet (geçmiş korunur)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "{0} projeleri {1} klasörünü paylaşıyor; yalnızca {2} yazılır veya içe aktarılır."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "{0} projeleri {1} klasörünü paylaşıyor; yalnızca {2} yazılır veya içe aktarılır.",
+    "Str.PropDesc.Index": "Denetim dizisi öğesinin dizini; tek denetim için boş bırakılır.",
+    "Str.ControlArray.InvalidIndex": "Index 0 ile 32767 arasında bir tam sayı veya boş olmalıdır.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' zaten Index {1} değerine sahip. Başka bir Index seçin.",
+    "Str.ControlArray.ClearRefused": "'{0}' aynı ada sahipken Index temizlenemez.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' aynı ada sahip ve Index değeri yok. Önce onun Index değerini ayarlayın."
   }
 }

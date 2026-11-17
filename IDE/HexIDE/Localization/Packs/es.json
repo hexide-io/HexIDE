@@ -1323,6 +1323,11 @@
     "Str.AIChat.PrivacyNotice": "ℹ Privacidad: sus mensajes, el contenido del archivo activo (en un formulario, también su diseño y títulos) y sus diagnósticos se envían a {0}, un servicio de terceros configurado en los ajustes del chat de IA. También se envían allí, sin pedir aprobación, el contenido de cualquier otro archivo de sus proyectos cargados que el asistente lea con sus herramientas, las listas de archivos de los proyectos y los diagnósticos de cualquier archivo.",
     "Str.AIChat.PrivacyKeyTip": "Consejo: establezca la variable de entorno HEXIDE_AI_API_KEY para evitar guardar su clave API en un archivo.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Los proyectos {0} comparten la carpeta {1}; solo se escribe o importa {2}.",
-    "Str.MemberOrigin.HexIde": "Extensión de HexIDE; no disponible en VB6."
+    "Str.MemberOrigin.HexIde": "Extensión de HexIDE; no disponible en VB6.",
+    "Str.PropDesc.Index": "Índice del elemento de la matriz de controles, o vacío para un control simple.",
+    "Str.ControlArray.InvalidIndex": "Index debe ser un número entero de 0 a 32767, o estar vacío.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' ya tiene Index {1}. Elija otro Index.",
+    "Str.ControlArray.ClearRefused": "No se puede vaciar Index mientras '{0}' tenga el mismo nombre.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' tiene el mismo nombre y no tiene Index. Establezca primero su Index."
   }
 }

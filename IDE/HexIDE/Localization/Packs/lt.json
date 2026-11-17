@@ -1323,6 +1323,11 @@
     "Str.AIChat.New": "Naujas",
     "Str.AIChat.InputPlaceholder": "Klauskite apie savo kodą…",
     "Str.AIChat.NewTip": "Naujas pokalbis (istorija išsaugoma)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektai {0} bendrina aplanką {1}; įrašomas arba importuojamas tik {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektai {0} bendrina aplanką {1}; įrašomas arba importuojamas tik {2}.",
+    "Str.PropDesc.Index": "Valdiklių masyvo elemento indeksas arba tuščia atskiram valdikliui.",
+    "Str.ControlArray.InvalidIndex": "Index turi būti sveikasis skaičius nuo 0 iki 32767 arba tuščias.",
+    "Str.ControlArray.DuplicateIndex": "„{0}“ jau turi Index {1}. Pasirinkite kitą Index.",
+    "Str.ControlArray.ClearRefused": "Index negalima išvalyti, kol „{0}“ turi tą patį pavadinimą.",
+    "Str.ControlArray.UnindexedSibling": "„{0}“ turi tą patį pavadinimą ir neturi Index. Pirmiausia nustatykite jo Index."
   }
 }

@@ -1323,6 +1323,11 @@
     "Str.AIChat.New": "Новий",
     "Str.AIChat.InputPlaceholder": "Запитайте про свій код…",
     "Str.AIChat.NewTip": "Новий чат (історія зберігається)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Проєкти {0} використовують спільну папку {1}; записується або імпортується лише {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Проєкти {0} використовують спільну папку {1}; записується або імпортується лише {2}.",
+    "Str.PropDesc.Index": "Індекс елемента масиву елементів керування або порожнє значення для окремого елемента.",
+    "Str.ControlArray.InvalidIndex": "Index має бути цілим числом від 0 до 32767 або порожнім.",
+    "Str.ControlArray.DuplicateIndex": "«{0}» уже має Index {1}. Виберіть інший Index.",
+    "Str.ControlArray.ClearRefused": "Неможливо очистити Index, поки «{0}» має те саме ім’я.",
+    "Str.ControlArray.UnindexedSibling": "«{0}» має те саме ім’я і не має Index. Спочатку задайте його Index."
   }
 }

@@ -1323,6 +1323,11 @@
     "Str.AIChat.New": "Nov",
     "Str.AIChat.InputPlaceholder": "Vprašajte o svoji kodi…",
     "Str.AIChat.NewTip": "Nov klepet (zgodovina se ohrani)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} si delijo mapo {1}; zapiše ali uvozi se samo {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} si delijo mapo {1}; zapiše ali uvozi se samo {2}.",
+    "Str.PropDesc.Index": "Indeks elementa polja kontrolnikov ali prazno za samostojen kontrolnik.",
+    "Str.ControlArray.InvalidIndex": "Index mora biti celo število od 0 do 32767 ali prazen.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' že ima Index {1}. Izberite drug Index.",
+    "Str.ControlArray.ClearRefused": "Vrednosti Index ni mogoče počistiti, dokler ima '{0}' isto ime.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' ima isto ime in nima vrednosti Index. Najprej nastavite njegov Index."
   }
 }

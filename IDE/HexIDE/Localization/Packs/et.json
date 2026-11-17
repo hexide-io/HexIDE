@@ -1323,6 +1323,11 @@
     "Str.AIChat.New": "Uus",
     "Str.AIChat.InputPlaceholder": "Küsi oma koodi kohta…",
     "Str.AIChat.NewTip": "Uus vestlus (ajalugu säilitatakse)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektid {0} jagavad kausta {1}; kirjutatakse või imporditakse ainult {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projektid {0} jagavad kausta {1}; kirjutatakse või imporditakse ainult {2}.",
+    "Str.PropDesc.Index": "Juhtelementide massiivi elemendi indeks või tühi eraldiseisva juhtelemendi korral.",
+    "Str.ControlArray.InvalidIndex": "Index peab olema täisarv vahemikus 0 kuni 32767 või tühi.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' kasutab juba Index väärtust {1}. Valige teine Index.",
+    "Str.ControlArray.ClearRefused": "Index väärtust ei saa tühjendada, kuni '{0}' on sama nimega.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' on sama nimega ja sellel puudub Index. Määrake esmalt selle Index."
   }
 }

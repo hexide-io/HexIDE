@@ -1323,6 +1323,11 @@
     "Str.AIChat.New": "Jauna",
     "Str.AIChat.InputPlaceholder": "Jautājiet par savu kodu…",
     "Str.AIChat.NewTip": "Jauna saruna (vēsture tiek saglabāta)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} koplieto mapi {1}; tiek ierakstīts vai importēts tikai {2}."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projekti {0} koplieto mapi {1}; tiek ierakstīts vai importēts tikai {2}.",
+    "Str.PropDesc.Index": "Vadīklu masīva elementa indekss vai tukšs atsevišķai vadīklai.",
+    "Str.ControlArray.InvalidIndex": "Index jābūt veselam skaitlim no 0 līdz 32767 vai tukšam.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' jau ir Index {1}. Izvēlieties citu Index.",
+    "Str.ControlArray.ClearRefused": "Index nevar notīrīt, kamēr '{0}' ir tāds pats nosaukums.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' ir tāds pats nosaukums un nav Index. Vispirms iestatiet tā Index."
   }
 }

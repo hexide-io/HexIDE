@@ -1323,6 +1323,11 @@
     "Str.AIChat.PrivacyNotice": "ℹ 隱私權：您的訊息、作用中文件的內容（對於表單，還包括配置和標題）及其診斷資訊會傳送至 {0}，即您在 AI 聊天設定中設定的第三方服務。助理透過工具讀取的已載入專案中任何其他檔案的內容、專案檔案清單及任何檔案的診斷資訊，也會在不要求核准的情況下傳送至該服務。",
     "Str.AIChat.PrivacyKeyTip": "提示：請設定 HEXIDE_AI_API_KEY 環境變數，以避免將 API 金鑰儲存在檔案中。",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "專案 {0} 共用資料夾 {1}；僅寫入或匯入 {2}。",
-    "Str.MemberOrigin.HexIde": "HexIDE 擴充功能；VB6 中無法使用。"
+    "Str.MemberOrigin.HexIde": "HexIDE 擴充功能；VB6 中無法使用。",
+    "Str.PropDesc.Index": "控制項陣列元素的索引；獨立控制項則為空。",
+    "Str.ControlArray.InvalidIndex": "Index 必須是 0 到 32767 的整數，或留空。",
+    "Str.ControlArray.DuplicateIndex": "「{0}」已有 Index {1}。請選擇其他 Index。",
+    "Str.ControlArray.ClearRefused": "「{0}」具有相同名稱時，無法清空 Index。",
+    "Str.ControlArray.UnindexedSibling": "「{0}」具有相同名稱且沒有 Index。請先設定其 Index。"
   }
 }

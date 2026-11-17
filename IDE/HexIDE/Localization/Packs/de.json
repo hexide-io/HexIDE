@@ -1323,6 +1323,11 @@
     "Str.AIChat.PrivacyNotice": "ℹ Datenschutz: Ihre Nachrichten, der Inhalt der aktiven Datei (bei einem Formular auch Layout und Beschriftungen) und deren Diagnosen werden an {0} gesendet — einen Drittanbieterdienst, den Sie in den KI-Chat-Einstellungen konfiguriert haben. Auch der Inhalt jeder anderen Datei in Ihren geladenen Projekten, die der Assistent mit seinen Werkzeugen liest, Projektdateilisten und Diagnosen für beliebige Dateien werden ohne Nachfrage zur Genehmigung dorthin gesendet.",
     "Str.AIChat.PrivacyKeyTip": "Tipp: Setzen Sie die Umgebungsvariable HEXIDE_AI_API_KEY, um Ihren API-Schlüssel nicht in einer Datei zu speichern.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Die Projekte {0} teilen den Ordner {1}; nur {2} wird geschrieben oder importiert.",
-    "Str.MemberOrigin.HexIde": "HexIDE-Erweiterung; in VB6 nicht verfügbar."
+    "Str.MemberOrigin.HexIde": "HexIDE-Erweiterung; in VB6 nicht verfügbar.",
+    "Str.PropDesc.Index": "Index des Steuerelementfeld-Elements, oder leer für ein einzelnes Steuerelement.",
+    "Str.ControlArray.InvalidIndex": "Index muss eine ganze Zahl von 0 bis 32767 oder leer sein.",
+    "Str.ControlArray.DuplicateIndex": "„{0}“ hat bereits Index {1}. Wählen Sie einen anderen Index.",
+    "Str.ControlArray.ClearRefused": "Index kann nicht geleert werden, solange „{0}“ denselben Namen hat.",
+    "Str.ControlArray.UnindexedSibling": "„{0}“ hat denselben Namen und keinen Index. Legen Sie zuerst dessen Index fest."
   }
 }

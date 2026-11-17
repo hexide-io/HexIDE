@@ -1323,6 +1323,11 @@
     "Str.AIChat.New": "Nieuw",
     "Str.AIChat.InputPlaceholder": "Stel een vraag over uw code…",
     "Str.AIChat.NewTip": "Nieuwe chat (de geschiedenis blijft bewaard)",
-    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projecten {0} delen map {1}; alleen {2} wordt geschreven of geïmporteerd."
+    "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Projecten {0} delen map {1}; alleen {2} wordt geschreven of geïmporteerd.",
+    "Str.PropDesc.Index": "Index van het element in de besturingselementmatrix, of leeg voor een los besturingselement.",
+    "Str.ControlArray.InvalidIndex": "Index moet een geheel getal van 0 tot 32767 of leeg zijn.",
+    "Str.ControlArray.DuplicateIndex": "'{0}' heeft al Index {1}. Kies een andere Index.",
+    "Str.ControlArray.ClearRefused": "Index kan niet worden gewist zolang '{0}' dezelfde naam heeft.",
+    "Str.ControlArray.UnindexedSibling": "'{0}' heeft dezelfde naam en geen Index. Stel eerst de Index ervan in."
   }
 }
