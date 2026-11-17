@@ -72,7 +72,7 @@ public class TextBoxSelectionAfterInputTests
         window.Show();
         // Avalonia finds the end of a multi-line text from its layout.
         window.UpdateLayout();
-        var host = new StandaloneStandardLib(window);
+        var host = new StandaloneStandardLib(window, HexIDE.IDE.Distribution.DisplayName);
         var context = new ModuleExecutionContext();
         var env = new ExecutionEnvironment();
         env.DefineVariable("Text1", context.State.Alloc(new Vb6Value(editor)));

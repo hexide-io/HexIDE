@@ -50,6 +50,10 @@ a translator who is stronger in a third language than in English can work from t
 ### Requirement: A reference value that is only an English fallback SHALL be marked
 Where the reference language is not English and a key has no value of its own in that language's chain, the
 reference value SHALL be visibly marked as a fallback rather than presented as a translation.
+The From cell SHALL use italic text for a fallback in both selection states, with the validation-error
+colour only while unselected. Selected From cells SHALL inherit the row selection foreground, including
+fallbacks, so their text meets a contrast ratio of at least 4.5:1 against the selected row background.
+The From tooltip SHALL explain the italic fallback cue.
 
 Without the marking the column silently lies: the translator sees English text under a column labelled with
 another language and reasonably concludes that is what that language says. Marking it turns a trap into

@@ -69,9 +69,9 @@ public class ForeignAdapterTests
             {
                 var project = Path.Combine(directory, "Probe.csproj");
                 await File.WriteAllTextAsync(project,
-                    "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><DebugType>portable</DebugType><Optimize>false</Optimize></PropertyGroup></Project>", token);
+                    "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net11.0</TargetFramework><DebugType>portable</DebugType><Optimize>false</Optimize></PropertyGroup></Project>", token);
                 await Build(project, directory, token);
-                launch = JsonSerializer.SerializeToElement(new { program = Path.Combine(directory, "bin", "Debug", "net10.0", "Probe.dll"), cwd = directory });
+                launch = JsonSerializer.SerializeToElement(new { program = Path.Combine(directory, "bin", "Debug", "net11.0", "Probe.dll"), cwd = directory });
             }
             var options = ForeignAdapterAcquisition.Resolve(adapter).Options! with { WorkingDirectory = directory, Capture = new(log, adapter) };
             await using var session = DapSession.Start(options);

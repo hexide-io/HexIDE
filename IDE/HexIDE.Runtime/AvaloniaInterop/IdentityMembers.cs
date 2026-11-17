@@ -38,7 +38,7 @@ internal static class IdentityMembers
         }
         if (!IsIndex(member))
             return false;
-        if (control is IFormView)
+        if (FormRoot.View(control) is not null)
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         value = VBProps.GetIndex(control) is { } index
             ? new Vb6Value(index)

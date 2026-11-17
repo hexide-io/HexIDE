@@ -19,7 +19,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       - name: Run VB LSP Server Tests
         run: dotnet test HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj

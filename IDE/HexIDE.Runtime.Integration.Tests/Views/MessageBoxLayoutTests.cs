@@ -22,7 +22,7 @@ public class MessageBoxLayoutTests
     [InlineData(MessageBoxLayout.Right | MessageBoxLayout.RtlReading, true)]
     public void Windows_program_window_styles_follow_RtlReading(MessageBoxLayout layout, bool mirrored)
     {
-        var box = new MessageBox { IsProgramDialog = true, Layout = layout };
+        var box = new MessageBox { Layout = layout };
         var callback = box.WindowStylesCallback(true);
         if (!mirrored)
         {
@@ -35,14 +35,12 @@ public class MessageBoxLayoutTests
     }
 
     [AvaloniaFact]
-    public void Other_platforms_and_IDE_boxes_have_no_window_style_callback()
+    public void Other_platforms_have_no_window_style_callback()
     {
-        var program = new MessageBox { IsProgramDialog = true, Layout = MessageBoxLayout.RtlReading };
+        var program = new MessageBox { Layout = MessageBoxLayout.RtlReading };
         program.WindowStylesCallback(false).Should().BeNull();
         if (!System.OperatingSystem.IsWindows())
             program.WindowStylesCallback(System.OperatingSystem.IsWindows()).Should().BeNull();
-        var ide = new MessageBox { Layout = MessageBoxLayout.RtlReading };
-        ide.WindowStylesCallback(true).Should().BeNull();
     }
 
     [AvaloniaTheory]
@@ -61,7 +59,7 @@ public class MessageBoxLayoutTests
     [InlineData(0x020D)]
     public void Mirrored_mouse_messages_are_resent_once_in_client_pixels(uint message)
     {
-        var box = new MessageBox { IsProgramDialog = true, Layout = MessageBoxLayout.RtlReading };
+        var box = new MessageBox { Layout = MessageBoxLayout.RtlReading };
         Avalonia.Controls.Win32Properties.CustomWndProcHookCallback? hook = null;
         var sends = 0;
         // The review's 399-pixel client, at 150%: x 324 must reach Avalonia as 74, without DIP conversion.
@@ -92,7 +90,7 @@ public class MessageBoxLayoutTests
     [InlineData(0x0100)] // key
     public void Screen_coordinate_and_non_mouse_messages_pass_through(uint message)
     {
-        var box = new MessageBox { IsProgramDialog = true, Layout = MessageBoxLayout.RtlReading };
+        var box = new MessageBox { Layout = MessageBoxLayout.RtlReading };
         var hook = box.MouseHookCallback(true, _ => throw new System.Exception("Must not read client width"));
         var handled = false;
         hook!(System.IntPtr.Zero, message, System.IntPtr.Zero, (System.IntPtr)(-1), ref handled)
@@ -101,13 +99,12 @@ public class MessageBoxLayoutTests
     }
 
     [AvaloniaTheory]
-    [InlineData(false, true, MessageBoxLayout.RtlReading)]
-    [InlineData(true, false, MessageBoxLayout.RtlReading)]
-    [InlineData(true, true, MessageBoxLayout.None)]
-    [InlineData(true, true, MessageBoxLayout.Right)]
-    public void Mouse_hook_is_absent_without_native_mirroring(bool windows, bool program, MessageBoxLayout layout)
+    [InlineData(false, MessageBoxLayout.RtlReading)]
+    [InlineData(true, MessageBoxLayout.None)]
+    [InlineData(true, MessageBoxLayout.Right)]
+    public void Mouse_hook_is_absent_without_native_mirroring(bool windows, MessageBoxLayout layout)
     {
-        var box = new MessageBox { IsProgramDialog = program, Layout = layout };
+        var box = new MessageBox { Layout = layout };
         box.MouseHookCallback(windows).Should().BeNull();
         if (!System.OperatingSystem.IsWindows())
             box.MouseHookCallback(System.OperatingSystem.IsWindows()).Should().BeNull();
@@ -124,7 +121,7 @@ public class MessageBoxLayoutTests
     {
         var owner = new Window();
         owner.Show();
-        var answer = new StandaloneStandardLib(owner).MsgBox("probe", "Layout probe",
+        var answer = new StandaloneStandardLib(owner, HexIDE.IDE.Distribution.DisplayName).MsgBox("probe", "Layout probe",
             MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, layout);
         var window = owner.OwnedWindows.Single();
         var box = (MessageBox)window.Content!;
@@ -143,9 +140,13 @@ public class MessageBoxLayoutTests
             (line.Start > 1).Should().Be(rightAligned, "the laid-out glyphs align within the prompt's available width");
             var buttons = box.GetVisualDescendants().OfType<Button>()
                 .OrderBy(b => b.PointToScreen(default).X).ToArray();
+            // #4250: captions (including access keys) belong to the platform; this test pins their order.
+            var yes = HexIDE.Runtime.Dialogs.ProgramButtonCaptions.Get(MessageBoxResult.Yes, "Yes");
+            var no = HexIDE.Runtime.Dialogs.ProgramButtonCaptions.Get(MessageBoxResult.No, "No");
+            var cancel = HexIDE.Runtime.Dialogs.ProgramButtonCaptions.Get(MessageBoxResult.Cancel, "Cancel");
             buttons.Select(b => b.Content).Should().Equal(mirrored
-                ? new[] { "Cancel", "No", "Yes" } : new[] { "Yes", "No", "Cancel" });
-            buttons.Single(b => Equals(b.Content, "No")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                ? new[] { cancel, no, yes } : new[] { yes, no, cancel });
+            buttons.Single(b => Equals(b.Content, no)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             (await answer).Should().Be(MessageBoxResult.No);
         }
         finally
