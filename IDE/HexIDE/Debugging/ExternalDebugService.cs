@@ -191,9 +191,9 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
         {
             State = DapSessionState.Faulted;
             var strings = localization ?? new LocalizationService();
-            Failed?.Invoke(exception.Option.Equals("condition", StringComparison.OrdinalIgnoreCase)
-                ? string.Format(strings.GetString("Str.Debug.External.BreakpointConditionUnsupported"), exception.File, exception.Entry)
-                : string.Format(strings.GetString("Str.Debug.External.BreakpointOptionUnsupported"), exception.Option, exception.File, exception.Entry));
+            // Every option is supported now (#4143): only a value that isn't a string is refused.
+            Failed?.Invoke(string.Format(strings.GetString("Str.Debug.External.BreakpointOptionNotText"),
+                exception.Option, exception.File, exception.Entry));
         }
         catch (Exception exception)
         {

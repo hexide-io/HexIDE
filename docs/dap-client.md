@@ -293,6 +293,13 @@ dotnet test IDE/HexIDE.Tests -- --filter-class "*DapConnectionTests"
 dotnet test IDE/HexIDE.Tests -- --filter-class "*DapProcessTests"
 ```
 
+Launch-file breakpoint entries accept `condition`, `hitCondition` and `logMessage` strings (#4143).
+Each is sent only with the corresponding adapter capability; unsupported fields are omitted with one
+localized notice per field per session, keeping the breakpoint. Launch conditions take precedence over
+gutter conditions. `ExternalDebugServiceTests` captures the requests to `HexIDE.Dap.TestAdapter` and checks
+initial/live wire fields, capability omissions, notice lifetime, Run To Cursor preservation and removal.
+See [external debug sessions](debug-launch.md) for the launch format.
+
 The opt-in [real adapter smoke](dap-adapter-smoke.md) launches a separately installed adapter and its real
 components. It is not downloaded or run by ordinary CI; the smoke executable is built with the IDE solution.
 
@@ -300,7 +307,7 @@ components. It is not downloaded or run by ordinary CI; the smoke executable is 
 
 - Rich launch settings UI and workspace preparation, including any VB6 project conversion.
 - Multi-thread inspection.
-- Command-specific MCP routing and conditional/hit-count breakpoints.
+- Command-specific MCP inspection and gutter editing for hit conditions and log messages.
 - External break-condition watches, dynamic capabilities and further capability-dependent UI.
 - Automated acquisition and cross-platform real-adapter acceptance in CI.
 - An add-in contributing a debug adapter, [#891](https://github.com/hexide-io/HexIDE/issues/891). An add-in can already
