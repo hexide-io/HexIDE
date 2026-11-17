@@ -504,6 +504,7 @@ public partial class CodeEditorView : UserControl
                 ScheduleFolding(vm);
             };
             vm.Settings.PropertyChanged += _inlaySettingsChanged;
+            vm.Analysis.Refreshed += OnAnalysisRefreshed;
             // Attach LSP text marker service (squiggles) and diagnostics colorizer (red text)
             _markerService = new LspTextMarkerService(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_markerService);
@@ -802,6 +803,7 @@ public partial class CodeEditorView : UserControl
                 _watchedDocument = null;
             }
             vm.LanguageServerStateChanged -= OnLanguageServerStateChanged;
+            vm.Analysis.Refreshed -= OnAnalysisRefreshed;
             if (_fontSettingsChanged is not null) vm.Settings.PropertyChanged -= _fontSettingsChanged;
             _fontSettingsChanged = null;
             if (_inlaySettingsChanged is not null)
@@ -1397,6 +1399,15 @@ public partial class CodeEditorView : UserControl
                 command => vm.RunCodeLensAsync(command).ListenErrors());
             ScheduleFolding(vm);
         }
+    }
+
+    private void OnAnalysisRefreshed(object? sender, EventArgs args)
+    {
+        if (DataContext is not CodeEditorViewModel vm) return;
+        ++_semanticVersion;
+        if (_semanticColorizer is not null) _semanticColorizer.Tokens = [];
+        TextEditor.TextArea.TextView.Redraw();
+        ScheduleFolding(vm);
     }
 
     private void ScheduleFolding(CodeEditorViewModel vm)
@@ -3061,6 +3072,61 @@ public partial class CodeEditorView : UserControl
         {
             QuickFixesMenu.Items.Clear();
             QuickFixesMenu.Items.Add(new MenuItem { Header = ex.Message, IsEnabled = false });
+        }
+    }
+
+    private async void OnCodeActionsOpened(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is MenuItem menu && ReferenceEquals(e.Source, menu) && DataContext is CodeEditorViewModel vm)
+            await LoadCodeActionsAsync(menu, vm, ReferenceEquals(menu, SourceActionsMenu) ? "source" : "refactor");
+    }
+
+    internal static async Task LoadCodeActionsAsync(MenuItem menu, CodeEditorViewModel vm, string kind)
+    {
+        menu.Items.Clear();
+        menu.Items.Add(new MenuItem { Header = vm.NoCodeActionsMenuLabel, IsEnabled = false });
+        try
+        {
+            var actions = await vm.RequestCodeActionsAsync(vm.SelectionLength > 0 ? vm.SelectionStart : vm.CaretOffset,
+                vm.SelectionLength, [kind]);
+            menu.Items.Clear();
+            // Asked with `only`, so an action without a kind is one the server filtered for this menu: RDCore, for one,
+            // sends every action with the first kind the client declares, which here is "" (#4256).
+            var filtered = actions.Where(a => a.Kind == kind || a.Kind?.StartsWith(kind + ".", StringComparison.Ordinal) == true
+                || string.IsNullOrEmpty(a.Kind) && !a.IsQuickFix);
+            // As Quick Fixes lays out: server, then the actions it sent, titled as sent. A kind is an identifier
+            // ("refactor.extract.method"), not a label, and the server's title already says what the action does.
+            {
+                foreach (var group in filtered.GroupBy(a => a.Server))
+                {
+                    var server = new MenuItem { Header = group.First().ServerDisplayName ?? group.Key };
+                    foreach (var action in group)
+                    {
+                        var item = new MenuItem
+                        {
+                            Header = action.DisabledReason is { } reason ? $"{action.Title} — {reason}" : action.Title,
+                            IsEnabled = action.DisabledReason is null
+                        };
+                        item.Click += async (_, _) =>
+                        {
+                            try
+                            {
+                                if (await vm.ApplyCodeActionAsync(action) is { } refusal) await vm.ShowRefusalAsync(refusal);
+                            }
+                            catch (Exception ex) { await vm.ShowRefusalAsync(ex.Message); }
+                        };
+                        server.Items.Add(item);
+                    }
+                    menu.Items.Add(server);
+                }
+            }
+            if (menu.Items.Count == 0)
+                menu.Items.Add(new MenuItem { Header = vm.NoCodeActionsMenuLabel, IsEnabled = false });
+        }
+        catch (Exception ex)
+        {
+            menu.Items.Clear();
+            menu.Items.Add(new MenuItem { Header = ex.Message, IsEnabled = false });
         }
     }
 

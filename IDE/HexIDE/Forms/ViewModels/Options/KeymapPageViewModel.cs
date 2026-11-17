@@ -169,11 +169,13 @@ public partial class KeymapPageViewModel : ObservableObject, IOptionsPage
             return false;
         }
     }
-    private string DisplayGesture(string gesture) => gesture
+    private string DisplayGesture(string gesture) => string.Join("+", gesture
         .Replace("OemPlus", "+").Replace("OemMinus", "-").Replace("OemComma", ",")
         .Replace("OemPeriod", ".").Replace("OemQuestion", "/").Replace("OemSemicolon", ";")
         .Replace("OemQuotes", "'").Replace("OemOpenBrackets", "[").Replace("OemCloseBrackets", "]")
-        .Replace("OemPipe", "\\").Replace("OemTilde", "`").Replace("Return", Text("Str.Options.Keymap.Enter"));
+        .Replace("OemPipe", "\\").Replace("OemTilde", "`").Replace("Return", Text("Str.Options.Keymap.Enter"))
+        // The whole key only: MediaPlayPause is another key, not Media Play Break.
+        .Split('+').Select(key => key == "Pause" ? Text("Str.Options.Keymap.Break") : key));
 
     internal string ExportJson() => KeymapService.SerializeOverrides(_overrides);
 

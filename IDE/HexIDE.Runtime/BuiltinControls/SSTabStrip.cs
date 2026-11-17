@@ -56,9 +56,25 @@ internal sealed class SSTabStrip(VBSSTab owner) : Panel
                 Foreground = owner.IsEffectivelyEnabled && owner.TabEnabled(i)
                     ? VBColor.Black.ToBrush() : VBColor.FromSystemColor(VbSystemColor.Graytext).ToBrush(),
             };
+            Control content = caption;
+            if (owner.TabPicture(i).Bitmap is { } bitmap)
+            {
+                content = new StackPanel
+                {
+                    Orientation = Avalonia.Layout.Orientation.Horizontal,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                    Children =
+                    {
+                        new Image { Source = bitmap, Width = bitmap.PixelSize.Width, Height = bitmap.PixelSize.Height,
+                            Stretch = Stretch.Fill },
+                        caption,
+                    },
+                };
+            }
             var header = new Border
             {
-                Child = caption,
+                Child = content,
                 Background = face,
                 BorderBrush = shadow,
                 BorderThickness = i == owner.Tab ? new Thickness(1, 1, 1, 0) : new Thickness(1),

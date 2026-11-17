@@ -11,6 +11,8 @@ namespace HexIDE.Runtime.ProjectElements;
 /// </remarks>
 public readonly record struct ObjectReference(string Guid, string Version, string File)
 {
+    public int Lcid { get; init; }
+
     /// <summary>The reference on <paramref name="line"/>, which is a <c>.vbp</c> line or a form's header line.</summary>
     public static bool TryParse(string line, out ObjectReference reference)
     {
@@ -34,7 +36,10 @@ public readonly record struct ObjectReference(string Guid, string Version, strin
             return false;
         var version = identity[(hash + 1)..];
         var lcid = version.IndexOf('#');
-        reference = new ObjectReference(identity[..(close + 1)], lcid < 0 ? version : version[..lcid], file);
+        reference = new ObjectReference(identity[..(close + 1)], lcid < 0 ? version : version[..lcid], file)
+        {
+            Lcid = lcid >= 0 && int.TryParse(version[(lcid + 1)..], out var locale) ? locale : 0,
+        };
         return true;
     }
 

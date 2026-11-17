@@ -7,8 +7,6 @@ namespace HexIDE.Runtime.Dialogs;
 
 public partial class InputBox : UserControl
 {
-    public bool IsProgramDialog { get; init; }
-
     public string Prompt { get; set; } = "";
     public string Text { get; set; } = "";
 
@@ -20,13 +18,20 @@ public partial class InputBox : UserControl
         Loaded += OnLoaded;
     }
 
+    /// <summary>
+    /// Gives the window a program's InputBox is shown in the system message box's title bar: no minimize or maximize
+    /// box, and no icon (#4099). Call it before the window is shown. Avalonia sets a window's icon as it shows it, so
+    /// chrome applied once the box was in a shown window, as it first was, left HexIDE's icon in place.
+    /// </summary>
+    public void ApplyProgramChrome(Window window)
+    {
+        ProgramDialogChrome.Apply(window);
+    }
+
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
-        // The IDE installs Str.* resources; the standalone runner keeps the English fallback.
-        PART_Ok.Content = this.TryFindResource("Str.Dialog.MessageBox.Button.Ok", out var ok)
-            && ok is string okCaption ? okCaption : "OK";
-        PART_Cancel.Content = this.TryFindResource("Str.Dialog.MessageBox.Button.Cancel", out var cancel)
-            && cancel is string cancelCaption ? cancelCaption : "Cancel";
+        PART_Ok.Content = ProgramButtonCaptions.Get(HexIDE.IDE.MessageBoxResult.Ok, "OK");
+        PART_Cancel.Content = ProgramButtonCaptions.Get(HexIDE.IDE.MessageBoxResult.Cancel, "Cancel");
         PART_Prompt.Text = Prompt;
         PART_Input.Text = Text;
         PART_Input.SelectAll();

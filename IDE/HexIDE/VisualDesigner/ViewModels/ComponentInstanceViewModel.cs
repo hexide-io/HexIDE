@@ -45,6 +45,10 @@ public partial class ComponentInstanceViewModel : ObservableObject
 
     private void InstancePropertyChanging(ComponentInstance _, PropertyClass propertyClass, object? oldvalue, object? newValue)
     {
+        if (propertyClass == VBProperties.DesignIndexProperty
+            && ControlArrayIndex.RefusalFor(instance, newValue as string ?? "",
+                parentViewModel.AllComponents.Select(c => c.Instance)) is { } indexRefusal)
+            throw new DataValidationException(indexRefusal.Localized(parentViewModel.Localization));
         if (propertyClass == VBProperties.NameProperty
             && ComponentNaming.RefusalFor(instance, oldvalue as string, newValue as string,
                 parentViewModel.AllComponents.Select(c => c.Instance), parentViewModel.FormDefinition,
@@ -94,6 +98,8 @@ public partial class ComponentInstanceViewModel : ObservableObject
             OnPropertyChanged(nameof(Name));
             OnPropertyChanged(nameof(AddressedName));
         }
+        else if (propertyClass == VBProperties.DesignIndexProperty)
+            OnPropertyChanged(nameof(AddressedName));
         else if (propertyClass == VBProperties.TabIndexProperty)
             OnPropertyChanged(nameof(TabIndex));
         else if (propertyClass == VBProperties.TabStopProperty)

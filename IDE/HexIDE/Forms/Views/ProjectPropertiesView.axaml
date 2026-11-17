@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:HexIDE.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewModels="clr-namespace:HexIDE.Forms.ViewModels"
@@ -60,8 +61,8 @@
                         <HeaderedContentControl Grid.Column="1" Header="{DynamicResource Str.Dialog.ProjectProperties.General.ThreadingModel}" IsEnabled="False">
                             <Grid RowDefinitions="Auto,4,Auto,4,Auto" ColumnDefinitions="*,*" ColumnSpacing="4" Margin="2">
                                 <ComboBox Grid.ColumnSpan="2" />
-                                <RadioButton Grid.Row="2" Grid.ColumnSpan="2" Content="{DynamicResource Str.Dialog.ProjectProperties.General.ThreadPerObject}" />
-                                <RadioButton Grid.Row="4" IsChecked="True" Content="{DynamicResource Str.Dialog.ProjectProperties.General.ThreadPool}" />
+                                <controls:IdeRadioButton Grid.Row="2" Grid.ColumnSpan="2" Content="{DynamicResource Str.Dialog.ProjectProperties.General.ThreadPerObject}" />
+                                <controls:IdeRadioButton Grid.Row="4" IsChecked="True" Content="{DynamicResource Str.Dialog.ProjectProperties.General.ThreadPool}" />
                                 <DockPanel Grid.Row="4" Grid.Column="1" LastChildFill="False">
                                     <NumericUpDown Value="1" MinWidth="60"/>
                                     <AccessText VerticalAlignment="Center" Margin="4,0,0,0" Text="{DynamicResource Str.Dialog.ProjectProperties.General.Threads}" />

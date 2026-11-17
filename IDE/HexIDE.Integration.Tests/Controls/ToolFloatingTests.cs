@@ -621,6 +621,92 @@ public class ToolFloatingTests
         finally { field.SetValue(app, previous); composition.LocalizationService.Apply(language); }
     });
 
+    [AvaloniaFact]
+    public Task Floating_menu_Dock_returns_to_original_tab_and_proportion() => WithWorkspace((vm, factory, _, _) =>
+    {
+        var home = (IDock)vm.Immediate.Owner!;
+        var index = home.VisibleDockables!.IndexOf(vm.Immediate);
+        var proportion = home.Proportion;
+        factory.FloatDockable(vm.Immediate);
+        Dispatcher.UIThread.RunJobs();
+        var host = FloatingHost(vm);
+        var chrome = host.GetVisualDescendants().OfType<ToolChromeControl>().Single();
+        chrome.ToolFlyout!.ShowAt(chrome);
+        Dispatcher.UIThread.RunJobs();
+        var dock = ((MenuFlyout)chrome.ToolFlyout).Items.OfType<MenuItem>()
+            .Single(m => Equals(m.Header, Application.Current!.FindResource("ToolChromeControlDockString")));
+        dock.IsVisible.Should().BeTrue();
+        dock.IsEnabled.Should().BeTrue();
+        dock.Command!.Execute(dock.CommandParameter);
+        Dispatcher.UIThread.RunJobs();
+        vm.Immediate.Owner.Should().BeSameAs(home);
+        home.VisibleDockables.IndexOf(vm.Immediate).Should().Be(index);
+        home.Proportion.Should().BeApproximately(proportion, 0.001);
+        host.IsVisible.Should().BeFalse();
+    });
+
+    [AvaloniaFact]
+    public Task Floating_menu_has_no_enabled_Float() => WithWorkspace((vm, factory, _, _) =>
+    {
+        factory.FloatDockable(vm.Immediate);
+        Dispatcher.UIThread.RunJobs();
+        var chrome = FloatingHost(vm).GetVisualDescendants().OfType<ToolChromeControl>().Single();
+        chrome.ToolFlyout!.ShowAt(chrome);
+        Dispatcher.UIThread.RunJobs();
+        ((MenuFlyout)chrome.ToolFlyout).Items.OfType<MenuItem>().Should().NotContain(m =>
+            Equals(m.Header, Application.Current!.FindResource("ToolChromeControlFloatString")) && m.IsVisible && m.IsEnabled);
+        chrome.ToolFlyout.Hide();
+    });
+
+    [AvaloniaFact]
+    public Task Floating_title_double_click_docks_through_pointer_route_at_150_percent() => WithWorkspace((vm, factory, _, _) =>
+    {
+        var home = vm.Immediate.Owner;
+        factory.FloatDockable(vm.Immediate);
+        Dispatcher.UIThread.RunJobs();
+        var host = FloatingHost(vm);
+        host.SetRenderScaling(1.5);
+        var title = host.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Title");
+        var point = title.TranslatePoint(new Point(3, title.Bounds.Height / 2), host)!.Value;
+        host.MouseDown(point, Avalonia.Input.MouseButton.Left);
+        host.MouseUp(point, Avalonia.Input.MouseButton.Left);
+        host.MouseDown(point, Avalonia.Input.MouseButton.Left);
+        // Headless pumps the posted docking action before returning from the second press.
+        if (host.IsVisible) host.MouseUp(point, Avalonia.Input.MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        vm.Immediate.Owner.Should().BeSameAs(home);
+        host.IsVisible.Should().BeFalse();
+    }, scaling: 1.5);
+
+    [AvaloniaFact]
+    public Task Floating_title_background_tracks_active_and_inactive_theme_resources() => WithWorkspace((vm, factory, window, _) =>
+    {
+        factory.FloatDockable(vm.Immediate);
+        Dispatcher.UIThread.RunJobs();
+        var host = FloatingHost(vm);
+        var grip = host.GetVisualDescendants().OfType<Grid>().Single(b => b.Name == "PART_Grip");
+        // The caption glyphs follow the bar, as the title does, whatever Dock thinks is active.
+        var title = host.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Title");
+        var close = host.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single(p => p.Name == "PART_ClosePath");
+        var active = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Colors.Red);
+        var inactive = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Colors.Green);
+        host.Resources["ActiveTitleBarBrush"] = active;
+        host.Resources["DockTitleBarBrush"] = inactive;
+        host.Activate();
+        Dispatcher.UIThread.RunJobs();
+        host.IsActive.Should().BeTrue();
+        grip.Background.Should().BeSameAs(active);
+        close.Fill.Should().BeSameAs(title.Foreground, "the active caption's glyphs");
+        window.Activate();
+        // Headless windows do not deactivate peers; deliver the platform's deactivation callback.
+        typeof(WindowBase).GetMethod("HandleDeactivated", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(host, null);
+        Dispatcher.UIThread.RunJobs();
+        host.IsActive.Should().BeFalse();
+        grip.Background.Should().BeSameAs(inactive);
+        close.Fill.Should().BeSameAs(title.Foreground, "the inactive caption's glyphs");
+    });
+
     private static HostWindow FloatingHost(MainViewViewModel vm) =>
         (HostWindow)((IRootDock)vm.Layout).Windows!.Single().Host!;
 

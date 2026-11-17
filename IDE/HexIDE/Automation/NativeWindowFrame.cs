@@ -114,13 +114,20 @@ internal static class NativeWindowFrame
         var origin = new PixelPoint(clientOrigin.X, clientOrigin.Y);
         var scaling = window.DesktopScaling;
 
+        // A mirrored window (WS_EX_LAYOUTRTL) maps client (0, 0) to its client area's right edge, and PrintWindow draws it
+        // reversed, left for right, as it draws Windows' own MB_RTLREADING message box. The screen shows neither (#4103).
+        var mirrored = (GetWindowLong(hwnd, -20) & LayoutRtl) != 0;
+        var info = new WindowInfo { Size = (uint)Marshal.SizeOf<WindowInfo>() };
+        if (mirrored && GetWindowInfo(hwnd, ref info))
+            origin = new PixelPoint(info.Client.Left, info.Client.Top);
+
         // The window's rectangle holds the invisible resize borders as well, which the frame bounds leave out: crop to those.
         if (whole.Contains(frame)
             && Drawn(whole.Size, new PixelRect(frame.X - whole.X, frame.Y - whole.Y, frame.Width, frame.Height), scaling,
-                   refuseBlack: true, (memory, _) => PrintWindow(hwnd, memory, 2)) is { } printed)
+                   refuseBlack: true, (memory, _) => PrintWindow(hwnd, memory, 2), mirror: mirrored) is { } printed)
         {
             error = null;
-            return new FrameImage(printed, frame, origin, null);
+            return new FrameImage(printed, frame, origin, mirrored ? MirroredNote : null);
         }
 
         var inputDesktop = OpenInputDesktop(0, false, 1);
@@ -153,7 +160,8 @@ internal static class NativeWindowFrame
     /// What <paramref name="draw"/> puts in a <paramref name="size"/> bitmap, cut to <paramref name="crop"/>. Null when it
     /// draws nothing, or, with <paramref name="refuseBlack"/>, only black: a frame always has some colour.
     /// </summary>
-    private static WriteableBitmap? Drawn(PixelSize size, PixelRect crop, double scaling, bool refuseBlack, Func<nint, nint, bool> draw)
+    private static WriteableBitmap? Drawn(PixelSize size, PixelRect crop, double scaling, bool refuseBlack, Func<nint, nint, bool> draw,
+        bool mirror = false)
     {
         var screen = GetDC(0);
         if (screen == 0) return null;
@@ -173,9 +181,16 @@ internal static class NativeWindowFrame
             {
                 using var buffer = bitmap.Lock();
                 var row = new byte[checked(crop.Width * 4)];
+                var whole = mirror ? new byte[checked(size.Width * 4)] : null;
                 for (var y = 0; y < crop.Height; y++)
                 {
-                    Marshal.Copy(pixels + (nint)(((long)(crop.Y + y) * size.Width + crop.X) * 4), row, 0, row.Length);
+                    if (whole is null)
+                        Marshal.Copy(pixels + (nint)(((long)(crop.Y + y) * size.Width + crop.X) * 4), row, 0, row.Length);
+                    else
+                    {
+                        Marshal.Copy(pixels + (nint)((long)(crop.Y + y) * size.Width * 4), whole, 0, whole.Length);
+                        MirrorRow(whole, size.Width, crop.X, row);
+                    }
                     for (var x = 0; refuseBlack && !coloured && x < row.Length; x += 4)
                         coloured = (row[x] | row[x + 1] | row[x + 2]) != 0;
                     Marshal.Copy(row, 0, buffer.Address + y * buffer.RowBytes, row.Length);
@@ -194,6 +209,20 @@ internal static class NativeWindowFrame
             if (memory != 0) DeleteDC(memory);
             ReleaseDC(0, screen);
         }
+    }
+
+    internal const string MirroredNote = "This window is mirrored (WS_EX_LAYOUTRTL). Windows draws such a window reversed, left for "
+        + "right, when asked for its pixels, as it does its own right-to-left message box, so the image was flipped back to "
+        + "show it as the screen does.";
+
+    /// <summary>
+    /// Fills <paramref name="row"/> with the pixels from <paramref name="cropX"/> of a row that a mirrored window's capture drew
+    /// reversed: the whole row flipped, then cropped, so the crop need not be centred (#4103).
+    /// </summary>
+    internal static void MirrorRow(byte[] whole, int width, int cropX, byte[] row)
+    {
+        for (var x = 0; x < row.Length / 4; x++)
+            Buffer.BlockCopy(whole, (width - 1 - (cropX + x)) * 4, row, x * 4, 4);
     }
 
     /// <summary>What a copy of <paramref name="frame"/> from the screen shows of the windows in <paramref name="above"/>.</summary>
@@ -297,6 +326,17 @@ internal static class NativeWindowFrame
     private struct NativePoint { public int X, Y; }
     [StructLayout(LayoutKind.Sequential)]
     private struct NativeRect { public int Left, Top, Right, Bottom; }
+
+    private const uint LayoutRtl = 0x00400000;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WindowInfo
+    {
+        public uint Size;
+        public NativeRect Window, Client;
+        public uint Style, ExStyle, Status, BorderWidth, BorderHeight;
+        public ushort WindowType, CreatorVersion;
+    }
     [StructLayout(LayoutKind.Sequential)]
     private struct BitmapInfo
     {
@@ -315,6 +355,7 @@ internal static class NativeWindowFrame
     [DllImport("user32.dll")] private static extern bool IsIconic(nint hwnd);
     [DllImport("user32.dll")] private static extern bool ClientToScreen(nint hwnd, ref NativePoint point);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(nint hwnd, out NativeRect rect);
+    [DllImport("user32.dll")] private static extern bool GetWindowInfo(nint hwnd, ref WindowInfo info);
     [DllImport("user32.dll")] private static extern bool PhysicalToLogicalPointForPerMonitorDPI(nint hwnd, ref NativePoint point);
     [DllImport("user32.dll")] private static extern nint GetWindow(nint hwnd, uint command);
     [DllImport("user32.dll", EntryPoint = "GetWindowTextW", CharSet = CharSet.Unicode)]
