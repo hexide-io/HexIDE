@@ -391,7 +391,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public void BreakCurrentProject()
     {
         if (externalDebugger?.IsActive == true) { _ = externalDebugger.CommandAsync("pause"); return; }
-        // Request a break: the next statement gate suspends (a no-op if the program is idle-between-events).
+        // Break immediately while idle, otherwise at the next statement gate.
         debugController.Pause();
     }
 
@@ -523,9 +523,11 @@ public partial class ProjectRunnerService : IProjectRunnerService
     // F8 works from idle (start-and-step, needs a startup project) or any running/paused state.
     public bool CanStepIntoProject => externalDebugger?.IsActive == true ? CanContinueProject : CanRunStartupProject || IsRunning;
     public bool CanStepOverProject => CanStepIntoProject;
-    public bool CanStepOutProject => CanStepIntoProject;
+    public bool CanStepOutProject => CanStepIntoProject
+        && (externalDebugger?.IsActive == true || debugController.CurrentStop is not { HasStatement: false });
     public bool CanRunToCursor => externalDebugger?.IsActive == true
-        ? externalDebugger.CanRunToCursor : CanRunStartupProject || IsRunning;
+        ? externalDebugger.CanRunToCursor
+        : (CanRunStartupProject || IsRunning) && debugController.CurrentStop is not { HasStatement: false };
     public bool CanEndProject => IsRunning;
     public bool CanRestartProject => IsRunning && externalDebugger?.IsActive != true;
 

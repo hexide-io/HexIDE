@@ -24,13 +24,24 @@ internal static class TextBoxKeyEvents
     {
         if (e.Handled || !AttachedEvents.OwnsThePointerEvent(box, e.Source))
             return;
+        var code = KeyCode(e);
+        if (code == 0)
+            return;
+        var shift = (e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 1 : 0)
+                    | (e.KeyModifiers.HasFlag(KeyModifiers.Control) ? 2 : 0)
+                    | (e.KeyModifiers.HasFlag(KeyModifiers.Alt) ? 4 : 0);
+        Deliver(box, ev, code, shift, _ => { });
+    }
+
+    internal static int KeyCode(KeyEventArgs e)
+    {
         if (e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Shift or KeyModifiers.Control or KeyModifiers.Alt)
             && e.Key is not (Key.K or Key.A or Key.X or Key.Back or Key.Delete or Key.Left or Key.F2
                 or Key.LeftShift or Key.RightShift or Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt))
-            return;
+            return 0;
         // #2325's console keyboard sweep (issuecomment-6454480155), native and p-code alike.
         // Enter/Esc and Tab still need the form's Default/Cancel/navigation arbitration.
-        var code = e.Key switch
+        return e.Key switch
         {
             >= Key.A and <= Key.Z => 65 + e.Key - Key.A,
             >= Key.D0 and <= Key.D9 => 48 + e.Key - Key.D0,
@@ -52,12 +63,6 @@ internal static class TextBoxKeyEvents
             Key.LeftAlt or Key.RightAlt => 18,
             _ => 0,
         };
-        if (code == 0)
-            return;
-        var shift = (e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 1 : 0)
-                    | (e.KeyModifiers.HasFlag(KeyModifiers.Control) ? 2 : 0)
-                    | (e.KeyModifiers.HasFlag(KeyModifiers.Alt) ? 4 : 0);
-        Deliver(box, ev, code, shift, _ => { });
     }
 
     internal static void Deliver(Control box, EventClass ev, int code, int? shift, Action<int> completed)

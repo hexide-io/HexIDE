@@ -1,0 +1,399 @@
+{
+  "basic.doc": {
+    "declaredCodePage": 1252,
+    "modules": [
+      {
+        "moduleType": 34,
+        "nameUnicode": "ThisDocument",
+        "sourceBytes": 368,
+        "sourceSha256": "736f6b0840b8bc5096362887a601c48123885cc8ecb2dd538865858d81a0bf15",
+        "streamNameUnicode": "ThisDocument",
+        "textOffset": 969
+      },
+      {
+        "moduleType": 33,
+        "nameUnicode": "Module1",
+        "sourceBytes": 306,
+        "sourceSha256": "030f8ae9637e9e5b7cb684a70cad9d78fabb5cc89733659eee82a6d65d529b99",
+        "streamNameUnicode": "Module1",
+        "textOffset": 1111
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Class1",
+        "sourceBytes": 508,
+        "sourceSha256": "2a9b60b7ca05ffcca080739cb1750ab52f85da904081bddbbe443792a8d037b4",
+        "streamNameUnicode": "Class1",
+        "textOffset": 1327
+      }
+    ],
+    "projectName": "CorpusProject",
+    "sysKind": 3
+  },
+  "basic.docm": {
+    "declaredCodePage": 1252,
+    "modules": [
+      {
+        "moduleType": 34,
+        "nameUnicode": "ThisDocument",
+        "sourceBytes": 368,
+        "sourceSha256": "736f6b0840b8bc5096362887a601c48123885cc8ecb2dd538865858d81a0bf15",
+        "streamNameUnicode": "ThisDocument",
+        "textOffset": 969
+      },
+      {
+        "moduleType": 33,
+        "nameUnicode": "Module1",
+        "sourceBytes": 306,
+        "sourceSha256": "030f8ae9637e9e5b7cb684a70cad9d78fabb5cc89733659eee82a6d65d529b99",
+        "streamNameUnicode": "Module1",
+        "textOffset": 1111
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Class1",
+        "sourceBytes": 508,
+        "sourceSha256": "2a9b60b7ca05ffcca080739cb1750ab52f85da904081bddbbe443792a8d037b4",
+        "streamNameUnicode": "Class1",
+        "textOffset": 1327
+      }
+    ],
+    "projectName": "CorpusProject",
+    "sysKind": 3
+  },
+  "basic.pptm": {
+    "declaredCodePage": 1252,
+    "modules": [
+      {
+        "moduleType": 33,
+        "nameUnicode": "Module1",
+        "sourceBytes": 306,
+        "sourceSha256": "030f8ae9637e9e5b7cb684a70cad9d78fabb5cc89733659eee82a6d65d529b99",
+        "streamNameUnicode": "Module1",
+        "textOffset": 1111
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Class1",
+        "sourceBytes": 508,
+        "sourceSha256": "2a9b60b7ca05ffcca080739cb1750ab52f85da904081bddbbe443792a8d037b4",
+        "streamNameUnicode": "Class1",
+        "textOffset": 1327
+      }
+    ],
+    "projectName": "CorpusProject",
+    "sysKind": 3
+  },
+  "basic.xls": {
+    "declaredCodePage": 1252,
+    "modules": [
+      {
+        "moduleType": 34,
+        "nameUnicode": "ThisWorkbook",
+        "sourceBytes": 388,
+        "sourceSha256": "522af449a7c6cc628def44c31bcafa5fef1b97b12c42c39d63ca49376a366708",
+        "streamNameUnicode": "ThisWorkbook",
+        "textOffset": 1007
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Sheet1",
+        "sourceBytes": 299,
+        "sourceSha256": "8e442a8e542ca01c7d87af7e9ad015863e0a19232a647712a6e31b3911beb372",
+        "streamNameUnicode": "Sheet1",
+        "textOffset": 819
+      },
+      {
+        "moduleType": 33,
+        "nameUnicode": "Module1",
+        "sourceBytes": 306,
+        "sourceSha256": "030f8ae9637e9e5b7cb684a70cad9d78fabb5cc89733659eee82a6d65d529b99",
+        "streamNameUnicode": "Module1",
+        "textOffset": 1207
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Class1",
+        "sourceBytes": 508,
+        "sourceSha256": "2a9b60b7ca05ffcca080739cb1750ab52f85da904081bddbbe443792a8d037b4",
+        "streamNameUnicode": "Class1",
+        "textOffset": 1327
+      },
+      {
+        "moduleType": 33,
+        "nameUnicode": "BigModule",
+        "sourceBytes": 10993,
+        "sourceSha256": "a389f670f612e0048df8a971271949d4c34501c0e5199dbf679d55509d884fb1",
+        "streamNameUnicode": "BigModule",
+        "textOffset": 24494
+      }
+    ],
+    "projectName": "CorpusProject",
+    "sysKind": 3
+  },
+  "basic.xlsb": {
+    "declaredCodePage": 1252,
+    "modules": [
+      {
+        "moduleType": 34,
+        "nameUnicode": "ThisWorkbook",
+        "sourceBytes": 388,
+        "sourceSha256": "522af449a7c6cc628def44c31bcafa5fef1b97b12c42c39d63ca49376a366708",
+        "streamNameUnicode": "ThisWorkbook",
+        "textOffset": 1007
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Sheet1",
+        "sourceBytes": 299,
+        "sourceSha256": "8e442a8e542ca01c7d87af7e9ad015863e0a19232a647712a6e31b3911beb372",
+        "streamNameUnicode": "Sheet1",
+        "textOffset": 819
+      },
+      {
+        "moduleType": 33,
+        "nameUnicode": "Module1",
+        "sourceBytes": 306,
+        "sourceSha256": "030f8ae9637e9e5b7cb684a70cad9d78fabb5cc89733659eee82a6d65d529b99",
+        "streamNameUnicode": "Module1",
+        "textOffset": 1207
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Class1",
+        "sourceBytes": 508,
+        "sourceSha256": "2a9b60b7ca05ffcca080739cb1750ab52f85da904081bddbbe443792a8d037b4",
+        "streamNameUnicode": "Class1",
+        "textOffset": 1327
+      },
+      {
+        "moduleType": 33,
+        "nameUnicode": "BigModule",
+        "sourceBytes": 10993,
+        "sourceSha256": "a389f670f612e0048df8a971271949d4c34501c0e5199dbf679d55509d884fb1",
+        "streamNameUnicode": "BigModule",
+        "textOffset": 24494
+      }
+    ],
+    "projectName": "CorpusProject",
+    "sysKind": 3
+  },
+  "basic.xlsm": {
+    "declaredCodePage": 1252,
+    "modules": [
+      {
+        "moduleType": 34,
+        "nameUnicode": "ThisWorkbook",
+        "sourceBytes": 388,
+        "sourceSha256": "522af449a7c6cc628def44c31bcafa5fef1b97b12c42c39d63ca49376a366708",
+        "streamNameUnicode": "ThisWorkbook",
+        "textOffset": 1007
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Sheet1",
+        "sourceBytes": 299,
+        "sourceSha256": "8e442a8e542ca01c7d87af7e9ad015863e0a19232a647712a6e31b3911beb372",
+        "streamNameUnicode": "Sheet1",
+        "textOffset": 819
+      },
+      {
+        "moduleType": 33,
+        "nameUnicode": "Module1",
+        "sourceBytes": 306,
+        "sourceSha256": "030f8ae9637e9e5b7cb684a70cad9d78fabb5cc89733659eee82a6d65d529b99",
+        "streamNameUnicode": "Module1",
+        "textOffset": 1207
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Class1",
+        "sourceBytes": 508,
+        "sourceSha256": "2a9b60b7ca05ffcca080739cb1750ab52f85da904081bddbbe443792a8d037b4",
+        "streamNameUnicode": "Class1",
+        "textOffset": 1327
+      },
+      {
+        "moduleType": 33,
+        "nameUnicode": "BigModule",
+        "sourceBytes": 10993,
+        "sourceSha256": "a389f670f612e0048df8a971271949d4c34501c0e5199dbf679d55509d884fb1",
+        "streamNameUnicode": "BigModule",
+        "textOffset": 24494
+      }
+    ],
+    "projectName": "CorpusProject",
+    "sysKind": 3
+  },
+  "cp932.xls": {
+    "declaredCodePage": 1252,
+    "modules": [
+      {
+        "moduleType": 34,
+        "nameUnicode": "ThisWorkbook",
+        "sourceBytes": 305,
+        "sourceSha256": "14de0425a62586687c3d59b7d3d7dc60268f989ab7e07a61403525064d98502a",
+        "streamNameUnicode": "ThisWorkbook",
+        "textOffset": 819
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Sheet1",
+        "sourceBytes": 299,
+        "sourceSha256": "8e442a8e542ca01c7d87af7e9ad015863e0a19232a647712a6e31b3911beb372",
+        "streamNameUnicode": "Sheet1",
+        "textOffset": 819
+      },
+      {
+        "moduleType": 33,
+        "nameUnicode": "日本語モジュール",
+        "sourceBytes": 189,
+        "sourceSha256": "9755ce53417538cac1c11f500f9e02931d5bf7afa29b988ab3429eede1492511",
+        "streamNameUnicode": "日本語モジュール",
+        "textOffset": 951
+      }
+    ],
+    "projectName": "CodePageProject",
+    "sysKind": 3
+  },
+  "cp932.xlsm": {
+    "declaredCodePage": 1252,
+    "modules": [
+      {
+        "moduleType": 34,
+        "nameUnicode": "ThisWorkbook",
+        "sourceBytes": 305,
+        "sourceSha256": "14de0425a62586687c3d59b7d3d7dc60268f989ab7e07a61403525064d98502a",
+        "streamNameUnicode": "ThisWorkbook",
+        "textOffset": 819
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Sheet1",
+        "sourceBytes": 299,
+        "sourceSha256": "8e442a8e542ca01c7d87af7e9ad015863e0a19232a647712a6e31b3911beb372",
+        "streamNameUnicode": "Sheet1",
+        "textOffset": 819
+      },
+      {
+        "moduleType": 33,
+        "nameUnicode": "日本語モジュール",
+        "sourceBytes": 189,
+        "sourceSha256": "9755ce53417538cac1c11f500f9e02931d5bf7afa29b988ab3429eede1492511",
+        "streamNameUnicode": "日本語モジュール",
+        "textOffset": 951
+      }
+    ],
+    "projectName": "CodePageProject",
+    "sysKind": 3
+  },
+  "locked.xlsm": {
+    "declaredCodePage": 1252,
+    "modules": [
+      {
+        "moduleType": 34,
+        "nameUnicode": "ThisWorkbook",
+        "sourceBytes": 305,
+        "sourceSha256": "14de0425a62586687c3d59b7d3d7dc60268f989ab7e07a61403525064d98502a",
+        "streamNameUnicode": "ThisWorkbook",
+        "textOffset": 819
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Sheet1",
+        "sourceBytes": 299,
+        "sourceSha256": "8e442a8e542ca01c7d87af7e9ad015863e0a19232a647712a6e31b3911beb372",
+        "streamNameUnicode": "Sheet1",
+        "textOffset": 819
+      },
+      {
+        "moduleType": 33,
+        "nameUnicode": "Module1",
+        "sourceBytes": 174,
+        "sourceSha256": "004bdd1dded4fecaf74455a90bbc80a705cd78c81ea460873e5a4160569020d5",
+        "streamNameUnicode": "Module1",
+        "textOffset": 927
+      }
+    ],
+    "projectName": "LockedProject",
+    "sysKind": 3
+  },
+  "other.xlsm": {
+    "declaredCodePage": 1252,
+    "modules": [
+      {
+        "moduleType": 34,
+        "nameUnicode": "ThisWorkbook",
+        "sourceBytes": 305,
+        "sourceSha256": "14de0425a62586687c3d59b7d3d7dc60268f989ab7e07a61403525064d98502a",
+        "streamNameUnicode": "ThisWorkbook",
+        "textOffset": 819
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Sheet1",
+        "sourceBytes": 299,
+        "sourceSha256": "8e442a8e542ca01c7d87af7e9ad015863e0a19232a647712a6e31b3911beb372",
+        "streamNameUnicode": "Sheet1",
+        "textOffset": 819
+      },
+      {
+        "moduleType": 33,
+        "nameUnicode": "OtherModule",
+        "sourceBytes": 135,
+        "sourceSha256": "706f689dd558d149a34d943797b0f35c108fc26bae27033ed7a9b2a06c28ada2",
+        "streamNameUnicode": "OtherModule",
+        "textOffset": 1006
+      }
+    ],
+    "projectName": "OtherProject",
+    "sysKind": 3
+  },
+  "userform.xlsm": {
+    "declaredCodePage": 1252,
+    "modules": [
+      {
+        "moduleType": 34,
+        "nameUnicode": "ThisWorkbook",
+        "sourceBytes": 388,
+        "sourceSha256": "522af449a7c6cc628def44c31bcafa5fef1b97b12c42c39d63ca49376a366708",
+        "streamNameUnicode": "ThisWorkbook",
+        "textOffset": 1007
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Sheet1",
+        "sourceBytes": 299,
+        "sourceSha256": "8e442a8e542ca01c7d87af7e9ad015863e0a19232a647712a6e31b3911beb372",
+        "streamNameUnicode": "Sheet1",
+        "textOffset": 819
+      },
+      {
+        "moduleType": 33,
+        "nameUnicode": "Module1",
+        "sourceBytes": 306,
+        "sourceSha256": "030f8ae9637e9e5b7cb684a70cad9d78fabb5cc89733659eee82a6d65d529b99",
+        "streamNameUnicode": "Module1",
+        "textOffset": 1111
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "Class1",
+        "sourceBytes": 508,
+        "sourceSha256": "2a9b60b7ca05ffcca080739cb1750ab52f85da904081bddbbe443792a8d037b4",
+        "streamNameUnicode": "Class1",
+        "textOffset": 1327
+      },
+      {
+        "moduleType": 34,
+        "nameUnicode": "UserForm1",
+        "sourceBytes": 421,
+        "sourceSha256": "c878c0d7783fdc01ebc69035a2d2c59c2da9729bf1c5940645c85bd86a8b4287",
+        "streamNameUnicode": "UserForm1",
+        "textOffset": 1139
+      }
+    ],
+    "projectName": "FormProject",
+    "sysKind": 3
+  }
+}

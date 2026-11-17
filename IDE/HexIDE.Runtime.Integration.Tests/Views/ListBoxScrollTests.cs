@@ -179,7 +179,8 @@ public class ListBoxScrollTests : WindowTestFixture
         var window = (Window)TopLevel.GetTopLevel(recorder.List)!;
         window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
         Dispatcher.UIThread.RunJobs();
-        recorder.Calls.Should().Equal($"List1_Click top={expected}", $"List1_Scroll top={expected}");
+        // #2325's key-events oracle: KeyDown now precedes the existing Click/Scroll path.
+        recorder.Calls.Should().Equal("List1_KeyDown", $"List1_Click top={expected}", $"List1_Scroll top={expected}");
     }
 
     [AvaloniaTheory]
@@ -194,7 +195,7 @@ public class ListBoxScrollTests : WindowTestFixture
         recorder.Calls.Clear();
         ((Window)TopLevel.GetTopLevel(recorder.List)!).KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
         Dispatcher.UIThread.RunJobs();
-        recorder.Calls.Should().Equal(click ? new[] { $"List1_Click top={top}" } : System.Array.Empty<string>());
+        recorder.Calls.Should().Equal(click ? new[] { "List1_KeyDown", $"List1_Click top={top}" } : new[] { "List1_KeyDown" });
     }
 
     [AvaloniaTheory]

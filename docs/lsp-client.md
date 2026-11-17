@@ -1462,17 +1462,17 @@ two genuinely different things, and dropping either would hide something the use
 ## Inlay hints
 
 The client declares `textDocument.inlayHint` and requests `textDocument/inlayHint` only from servers
-advertising `inlayHintProvider` (a flag or options object). Matching servers' labels are gathered for the
-whole open document after edits settle and after a connection starts. Edits clear old labels and obsolete
-replies are discarded. String labels and label-part arrays render after their source line in the theme's
-read-only text colour, without inserting text, affecting undo or adding caret columns. An interior hint
-position still places its label after that line; several labels on one line are joined in server order.
+advertising `inlayHintProvider` (a flag or options object). The highest-priority claimant returning nonempty
+hints supplies labels for the whole open document after edits settle and after a connection starts. Edits
+clear old labels and obsolete replies are discarded. String labels and label-part arrays render inline at
+their reported positions in the theme's read-only text colour, honouring left and right padding, without
+inserting text, affecting undo or adding caret stops. End-of-line hints stay at the line end. Empty answers fall back to the next claimant (#4253).
 Options → Editor → General → **Show inlay hints** hides them and stops requests; it defaults on.
 
 The bundled server supplies syntactic block-end labels (#1998), an explicit exception to the analysis
 boundary below. Parameter names and inferred types still need binding and remain a backend's job.
-Labels alone are consumed: `inlayHint/resolve`, refresh requests, tooltips, navigation, commands and
-hint text edits are not supported or advertised.
+The client consumes label text, positions and padding. `inlayHint/resolve`, refresh requests, tooltips,
+navigation, commands and hint text edits are not supported or advertised.
 
 ## Custom methods
 
@@ -1486,7 +1486,11 @@ client may legitimately gate a custom method on. A server that does not advertis
 
 The client declares `workspace.configuration` and answers `workspace/configuration` with one value
 per requested item, in order. `editor.tabSize` returns the current Tools > Options Tab Width as a
-number, including for scoped items; unknown or absent sections return `null`. Running connections
+number, including for scoped items. Other sections resolve by dotted path within the entry’s `settings`
+object; absent or empty sections return the whole object, and missing paths return `null`. `scopeUri`
+is accepted and ignored. Saving an entry in Language & Debug Servers reloads the file and applies changed
+settings only to the named server, sending `workspace/didChangeConfiguration` with that object. An edit made
+outside HexIDE applies at the next start or the next save in that window. Running connections
 receive `workspace/didChangeConfiguration` with empty `settings` when Tab Width changes, so a server
 can request its configuration again. New connections read the current value on their first request.
 `WorkspaceConfigurationWireTests` checks the capability, response array and change notification frames.
@@ -1679,7 +1683,7 @@ than inferred.
 | ✅ | `textDocument/formatting` | → |  |
 | ✅ | `textDocument/hover` | → |  |
 | ✅ | `textDocument/implementation` | → | Capability-gated navigation; all three location shapes, multiple results in Find References (#3074) |
-| ✅ | `textDocument/inlayHint` | → | Labels after the line; syntactic block ends from the bundled server |
+| ✅ | `textDocument/inlayHint` | → | Inline labels at their positions; first nonempty provider; bundled syntactic block ends |
 | ○ | `textDocument/inlineCompletion` | → |  |
 | ○ | `textDocument/inlineValue` | → |  |
 | ○ | `textDocument/linkedEditingRange` | → |  |
@@ -1708,10 +1712,10 @@ than inferred.
 |---|---|---|---|
 | ✅ | `workspace/applyEdit` | ← | Checked workspace edits during a user command on that server; otherwise refused with a reason (#2908) |
 | ✅ | `workspace/codeLens/refresh` | ← | Answers null and refetches lenses in attached code windows |
-| ✅ | `workspace/configuration` | ← | Returns editor.tabSize from Tab Width; unknown items return null |
+| ✅ | `workspace/configuration` | ← | Returns editor.tabSize from Tab Width; other sections resolve entry settings by dotted path; missing paths return null |
 | ✅ | `workspace/diagnostic` | → | Capability-gated workspace pull on initialization, refresh and close; closed-file reports share the diagnostics store (#4263) |
 | ✅ | `workspace/diagnostic/refresh` | ← | Re-asks open documents and, when offered, workspace diagnostics (#4263) |
-| ✅ | `workspace/didChangeConfiguration` | → | Notifies running servers when Tab Width changes |
+| ✅ | `workspace/didChangeConfiguration` | → | Notifies running servers when Tab Width changes; entry settings changes notify only that server |
 | ✅ | `workspace/didChangeWatchedFiles` | → | Registered globs, masks, relative patterns and coalesced disk events (#456) |
 | ✅ | `workspace/didChangeWorkspaceFolders` | → | Shared project-change debounce; opted-in servers, before import |
 | ✅ | `workspace/didCreateFiles` | → | First saves and Save As to new files, filtered per running server (#2248) |

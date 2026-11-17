@@ -554,6 +554,8 @@ public class VBWindowContext : IModuleExecutionRoot
         // The start holds the gate as any handler does, so an event that comes during Load waits for it (#766).
         return await Events.Run("Form_Load", async () =>
         {
+            var session = interpreter.DebugController?.Session;
+            interpreter.DebugController?.NotifyDispatchStarted();
             try
             {
                 if (await Report(EnsureDeclarations) != Outcome.Completed)
@@ -578,7 +580,8 @@ public class VBWindowContext : IModuleExecutionRoot
             }
             finally
             {
-                interpreter.DebugController?.NotifyDispatchIdle();
+                if (interpreter.DebugController?.Session == session)
+                    interpreter.DebugController?.NotifyDispatchIdle();
             }
         });
     }
@@ -831,17 +834,16 @@ public class VBWindowContext : IModuleExecutionRoot
     // run carries on afterwards.
     private async Task<bool> Dispatch(Func<Task> work)
     {
+        var session = interpreter?.DebugController?.Session;
+        interpreter?.DebugController?.NotifyDispatchStarted();
         try
         {
             return await Report(work) != Outcome.Over;
         }
         finally
         {
-            // Event-dispatch boundary: this handler chain has returned (or aborted). Disarm any step the
-            // front-end armed but never consumed, so a leftover Step Into/Over/Out can't spuriously break the
-            // NEXT event handler. A no-op unless a step is armed and the controller is Running. (Module top-level
-            // execution — the headless test path — never routes through here, so its stepping is unaffected.)
-            interpreter?.DebugController?.NotifyDispatchIdle();
+            if (interpreter?.DebugController?.Session == session)
+                interpreter?.DebugController?.NotifyDispatchIdle();
         }
     }
 

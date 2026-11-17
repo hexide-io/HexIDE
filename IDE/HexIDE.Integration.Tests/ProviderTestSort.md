@@ -52,6 +52,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Controls/ProjectFileNodeTests.cs` | split |
 | `Controls/ProjectGroupExpansionTests.cs` | split |
 | `Debugging/CallStackReplyTests.cs` | split |
+| `Debugging/IdleBreakCommandsTests.cs` | split |
 | `TestRunners.cs` | split |
 | `ViewModels/ReadLoopDispatcherTests.cs` | split |
 | `Views/ActiveFormSaveTests.cs` | split |

@@ -1754,7 +1754,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 {
                     await executor.HoistDeclaredLocals(proc);
                     if (proc.Declaration is VB6Parser.SubStmtContext declaration)
-                        await executor.ProcedureBoundary(declaration.Start.Line, breakpointOnly: true);
+                        await executor.ProcedureBoundary(declaration.Start.Line, breakpointOnly: true, entry: true);
                     if (proc.Body is { } procedureBody)
                         await executor.Execute(procedureBody);
                     // A handler the last statement raised finishes inside the call, as it does in VB6, before the caller

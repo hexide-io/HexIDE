@@ -307,7 +307,8 @@ public class SaveRecordsTheHeaderTests : IDisposable
     [InlineData("Height = 3.7E+18", true)]
     [InlineData("Left = 2147483648", true)]
     [InlineData("ClientHeight = 3.7E+18", false)]
-    [InlineData("Height = -1", true)]
+    // A negative Height on a form's control recovers as zero and saves through Save As (#4179); this service's
+    // picker answers with the original path, which re-prompts without end, so that row lives in #4179's tests.
     public async Task DamagedPropertySaveLeavesOriginalBytes(string properties, bool button)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "Test") { AbsolutePath = Path.Join(dir, "Test.vbp") };
