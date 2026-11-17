@@ -171,8 +171,12 @@ public static class PackageSigner
 
     /// <summary>Issues a publisher's public key using an offline intermediate signing key.</summary>
     public static void SignPublisher(string rootPublicKeyPath, string intermediateKeyPath, string intermediateDir,
-        string publisherId, string displayName, string publicKeyPath, string outDir)
+        string publisherId, string displayName, string publicKeyPath, string outDir, IReadOnlyList<string>? namespaces = null)
     {
+        // Issued namespaces bind an add-in's protocol prefixes (#4258): never one core keeps, never one of the wrong shape.
+        if (namespaces?.FirstOrDefault(ns => !PublisherNamespaces.IsUsable(ns)) is { } bad)
+            throw new ArgumentException($"'{bad}' is not a namespace that can be issued: one is a name followed by '.', "
+                + $"such as 'rdcore.', and '{PublisherNamespaces.Reserved}' is HexIDE's own");
         if (!PublisherId.IsValid(publisherId))
             throw new ArgumentException("invalid publisher id (expected 3–64 lowercase letters/digits joined by single dots or hyphens)");
         ValidateDisplayName(displayName);
@@ -198,6 +202,7 @@ public static class PackageSigner
             DisplayName = displayName,
             PublicKey = PackageCrypto.ExportPublicKey(publisher),
             IntermediateId = inter.IntermediateId,
+            Namespaces = namespaces?.Distinct(StringComparer.Ordinal).ToArray(),
         };
         var bytes = JsonSerializer.SerializeToUtf8Bytes(record, AddinJsonContext.Default.PublisherRecord);
         var signature = PackageCrypto.Sign(key, bytes);

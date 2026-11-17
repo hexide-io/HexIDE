@@ -114,6 +114,25 @@ first-party private key.
 - **WHEN** a third-party package claims the first-party identifier but is signed by a different key
 - **THEN** it is not treated as first-party and consent is still required
 
+### Requirement: An add-in's protocol prefixes SHALL be bound to its publisher's signed namespaces
+When the verified publisher record issues namespaces, a contributed language server's message prefix SHALL be
+`<namespace>/` and its command prefix `<namespace>.` (or under them) for one of them, or registration SHALL be
+refused naming both. The namespaces SHALL be read only from the signed publisher record. A record without the
+field SHALL keep the earlier rule, with one notice per add-in and no refusal. `hexide/` and `hexide.` SHALL stay
+reserved whatever a record says.
+
+#### Scenario: A prefix outside the issued namespaces
+- **WHEN** an add-in whose publisher was issued `rdcore.` registers a server with the message prefix `other/`
+- **THEN** registration is refused, naming `other/` and `rdcore.`
+
+#### Scenario: A record from before the field
+- **WHEN** an add-in whose publisher record has no namespaces registers a server with the prefix `rdcore/`
+- **THEN** the server is added, and one notice says the prefix isn't checked against the publisher
+
+#### Scenario: A record claiming HexIDE's namespace
+- **WHEN** a signed publisher record lists `hexide.`
+- **THEN** that entry grants nothing, and `hexide/` and `hexide.` prefixes are still refused
+
 ### Requirement: The IDE SHALL be able to revoke a build, a publisher, or an intermediate signer
 The IDE SHALL consult a signed revocation list before the consent decision, and SHALL refuse to load
 anything it revokes. Revocation SHALL be expressible against a specific build, a publisher, or an
