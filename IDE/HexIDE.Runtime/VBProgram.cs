@@ -510,6 +510,8 @@ public sealed class VBProgram : IFormProgram
         if (finishing)
             return;
         finishing = true;
+        if (interpreter.StartupMainReturned && !interpreter.Ending)
+            await interpreter.ReleaseProgramObjects();
         // #2496 measured project order between forms, reverse creation order within each form.
         var instances = created.ToList();
         if (formOrder.Count > 0)
