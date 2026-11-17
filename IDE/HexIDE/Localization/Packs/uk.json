@@ -872,6 +872,8 @@
     "Str.PropDesc.StartUpPosition": "Де на екрані розміщується форма при першому відкритті.",
     "Str.PropDesc.ShowInTaskbar": "Чи з'являється форма на панелі завдань.",
     "Str.PropDesc.TabIndex": "Позиція елемента в порядку обходу Tab у формі.",
+    "Str.PropDesc.Default": "Чи натискає Enter цю кнопку.",
+    "Str.PropDesc.Cancel": "Чи натискає Esc цю кнопку.",
     "Str.PropDesc.TabStop": "Чи може користувач дістатися елемента клавішею Tab.",
     "Str.PropDesc.KeyPreview": "Чи отримує форма події клавіатури раніше за свої елементи.",
     "Str.PropDesc.MaxButton": "Чи показує рядок заголовка форми кнопку розгортання.",

@@ -901,6 +901,8 @@
     "Str.PropDesc.StartUpPosition": "On es col·loca el formulari a la pantalla quan s'obre per primera vegada.",
     "Str.PropDesc.ShowInTaskbar": "Si el formulari apareix a la barra de tasques.",
     "Str.PropDesc.TabIndex": "La posició del control en l'ordre de tabulació del formulari.",
+    "Str.PropDesc.Default": "Si Retorn fa clic en aquest botó.",
+    "Str.PropDesc.Cancel": "Si Esc fa clic en aquest botó.",
     "Str.PropDesc.TabStop": "Si l'usuari pot arribar al control amb la tecla de tabulació.",
     "Str.PropDesc.KeyPreview": "Si el formulari rep els esdeveniments de teclat abans que els controls.",
     "Str.PropDesc.MaxButton": "Si la barra de títol del formulari mostra un botó de maximització.",

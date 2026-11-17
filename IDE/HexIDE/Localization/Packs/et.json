@@ -873,6 +873,8 @@
     "Str.PropDesc.StartUpPosition": "Kuhu vorm esmakordsel avamisel ekraanil paigutatakse.",
     "Str.PropDesc.ShowInTaskbar": "Kas vorm ilmub tegumiribale.",
     "Str.PropDesc.TabIndex": "Juhtelemendi asukoht vormi tabeldusjärjekorras.",
+    "Str.PropDesc.Default": "Kas Enter klõpsab seda nuppu.",
+    "Str.PropDesc.Cancel": "Kas Esc klõpsab seda nuppu.",
     "Str.PropDesc.TabStop": "Kas kasutaja saab Tab-klahviga juhtelemendile liikuda.",
     "Str.PropDesc.KeyPreview": "Kas vorm saab klaviatuurisündmused enne juhtelemente.",
     "Str.PropDesc.MaxButton": "Kas vormi tiitliribal kuvatakse maksimeerimisnupp.",

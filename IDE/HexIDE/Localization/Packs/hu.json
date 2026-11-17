@@ -907,6 +907,8 @@
     "Str.PropDesc.StartUpPosition": "Az űrlap képernyőbeli helye az első megnyitáskor.",
     "Str.PropDesc.ShowInTaskbar": "Az űrlap megjelenjen-e a tálcán.",
     "Str.PropDesc.TabIndex": "A vezérlő helye az űrlap tabulátorsorrendjében.",
+    "Str.PropDesc.Default": "Az Enter erre a gombra kattint-e.",
+    "Str.PropDesc.Cancel": "Az Esc erre a gombra kattint-e.",
     "Str.PropDesc.TabStop": "A felhasználó elérheti-e a vezérlőt a Tab billentyűvel.",
     "Str.PropDesc.KeyPreview": "Az űrlap a vezérlői előtt kapja-e meg a billentyűzetes eseményeket.",
     "Str.PropDesc.MaxButton": "Az űrlap címsorában megjelenjen-e a Teljes méret gomb.",

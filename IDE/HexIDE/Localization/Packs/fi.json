@@ -872,6 +872,8 @@
     "Str.PropDesc.StartUpPosition": "Lomakkeen sijainti näytöllä sen ensimmäistä kertaa avautuessa.",
     "Str.PropDesc.ShowInTaskbar": "Näkyykö lomake tehtäväpalkissa.",
     "Str.PropDesc.TabIndex": "Ohjausobjektin paikka lomakkeen sarkainjärjestyksessä.",
+    "Str.PropDesc.Default": "Napsauttaako Enter tätä painiketta.",
+    "Str.PropDesc.Cancel": "Napsauttaako Esc tätä painiketta.",
     "Str.PropDesc.TabStop": "Voiko käyttäjä siirtyä ohjausobjektiin Tab-näppäimellä.",
     "Str.PropDesc.KeyPreview": "Saako lomake näppäimistötapahtumat ennen ohjausobjektejaan.",
     "Str.PropDesc.MaxButton": "Näkyykö lomakkeen otsikkopalkissa Suurenna-painike.",

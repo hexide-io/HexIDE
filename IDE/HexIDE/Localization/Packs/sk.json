@@ -873,6 +873,8 @@
     "Str.PropDesc.StartUpPosition": "Umiestnenie formulára na obrazovke pri prvom otvorení.",
     "Str.PropDesc.ShowInTaskbar": "Určuje, či sa formulár zobrazuje na paneli úloh.",
     "Str.PropDesc.TabIndex": "Pozícia ovládacieho prvku v poradí prechádzania tabulátorom vo formulári.",
+    "Str.PropDesc.Default": "Či Enter klikne na toto tlačidlo.",
+    "Str.PropDesc.Cancel": "Či Esc klikne na toto tlačidlo.",
     "Str.PropDesc.TabStop": "Určuje, či používateľ môže prejsť na ovládací prvok klávesom Tab.",
     "Str.PropDesc.KeyPreview": "Určuje, či formulár prijíma udalosti klávesnice pred svojimi ovládacími prvkami.",
     "Str.PropDesc.MaxButton": "Určuje, či záhlavie formulára zobrazuje tlačidlo maximalizácie.",

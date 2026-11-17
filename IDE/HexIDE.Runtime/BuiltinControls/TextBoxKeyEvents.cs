@@ -40,7 +40,7 @@ internal static class TextBoxKeyEvents
                 or Key.LeftShift or Key.RightShift or Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt))
             return 0;
         // #2325's console keyboard sweep (issuecomment-6454480155), native and p-code alike.
-        // Enter/Esc and Tab still need the form's Default/Cancel/navigation arbitration.
+        // The form arbitrates Enter/Esc first (#4371); Tab still needs navigation arbitration.
         return e.Key switch
         {
             >= Key.A and <= Key.Z => 65 + e.Key - Key.A,
@@ -49,6 +49,8 @@ internal static class TextBoxKeyEvents
             >= Key.F1 and <= Key.F12 when e.Key != Key.F10
                 && !(e.Key == Key.F4 && e.KeyModifiers.HasFlag(KeyModifiers.Alt)) => 112 + e.Key - Key.F1,
             Key.Space when !e.KeyModifiers.HasFlag(KeyModifiers.Alt) => 32,
+            Key.Enter when e.KeyModifiers == KeyModifiers.None => 13,
+            Key.Escape when e.KeyModifiers == KeyModifiers.None => 27,
             Key.Back => 8, Key.Insert => 45, Key.Delete => 46,
             Key.Home => 36, Key.End => 35, Key.PageUp => 33, Key.PageDown => 34,
             Key.Left => 37, Key.Up => 38, Key.Right => 39, Key.Down => 40, Key.Clear => 12,

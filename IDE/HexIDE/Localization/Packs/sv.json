@@ -872,6 +872,8 @@
     "Str.PropDesc.StartUpPosition": "Var formuläret placeras på skärmen när det öppnas första gången.",
     "Str.PropDesc.ShowInTaskbar": "Om formuläret visas i aktivitetsfältet.",
     "Str.PropDesc.TabIndex": "Kontrollens position i formulärets tab-ordning.",
+    "Str.PropDesc.Default": "Om Enter klickar på den här knappen.",
+    "Str.PropDesc.Cancel": "Om Esc klickar på den här knappen.",
     "Str.PropDesc.TabStop": "Om användaren kan nå kontrollen med Tab-tangenten.",
     "Str.PropDesc.KeyPreview": "Om formuläret tar emot tangentbordshändelser före sina kontroller.",
     "Str.PropDesc.MaxButton": "Om formulärets namnlist visar en Maximera-knapp.",

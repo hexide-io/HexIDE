@@ -900,6 +900,8 @@
     "Str.PropDesc.StartUpPosition": "Dónde se coloca el formulario en la pantalla al abrirse por primera vez.",
     "Str.PropDesc.ShowInTaskbar": "Si el formulario aparece en la barra de tareas.",
     "Str.PropDesc.TabIndex": "La posición del control en el orden de tabulación del formulario.",
+    "Str.PropDesc.Default": "Si Entrar hace clic en este botón.",
+    "Str.PropDesc.Cancel": "Si Esc hace clic en este botón.",
     "Str.PropDesc.TabStop": "Si el usuario puede llegar al control con la tecla Tab.",
     "Str.PropDesc.KeyPreview": "Si el formulario recibe los eventos de teclado antes que sus controles.",
     "Str.PropDesc.MaxButton": "Si la barra de título del formulario muestra un botón Maximizar.",

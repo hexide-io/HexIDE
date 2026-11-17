@@ -900,6 +900,8 @@
     "Str.PropDesc.StartUpPosition": "Where the form is placed on screen when it first opens.",
     "Str.PropDesc.ShowInTaskbar": "Whether the form appears in the taskbar.",
     "Str.PropDesc.TabIndex": "The control's position in the form's tab order.",
+    "Str.PropDesc.Default": "Whether Enter clicks this button.",
+    "Str.PropDesc.Cancel": "Whether Esc clicks this button.",
     "Str.PropDesc.TabStop": "Whether the user can reach the control with the Tab key.",
     "Str.PropDesc.KeyPreview": "Whether the form receives keyboard events before its controls do.",
     "Str.PropDesc.MaxButton": "Whether the form's title bar shows a Maximize button.",
