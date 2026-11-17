@@ -356,7 +356,7 @@ public record ConfigurationParams([property: JsonPropertyName("items")] Configur
 public record ConfigurationItem(
     [property: JsonPropertyName("scopeUri")] string? ScopeUri = null,
     [property: JsonPropertyName("section")] string? Section = null);
-public record DidChangeConfigurationParams([property: JsonPropertyName("settings")] EmptyParams Settings);
+public record DidChangeConfigurationParams([property: JsonPropertyName("settings")] JsonElement Settings);
 
 /// <summary>
 /// What the client can do at workspace scope.

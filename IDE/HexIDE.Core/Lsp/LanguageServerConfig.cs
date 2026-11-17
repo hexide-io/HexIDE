@@ -225,6 +225,10 @@ public sealed class LanguageServerEntry
     [JsonPropertyName("pipeRole")]
     public string? PipeRole { get; set; }
 
+    /// <summary>Server-owned settings, answered by section without interpreting their schema.</summary>
+    [JsonPropertyName("settings")]
+    public JsonElement? Settings { get; set; }
+
     /// <summary>Server-specific JSON passed unchanged in the initialize request.</summary>
     [JsonPropertyName("initializationOptions")]
     public JsonElement? InitializationOptions { get; set; }

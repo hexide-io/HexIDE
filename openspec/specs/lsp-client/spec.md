@@ -547,7 +547,12 @@ moves from the editor onto its links.
 ### Requirement: Servers can request the editor tab size
 The client SHALL declare `workspace.configuration` support and SHALL answer `workspace/configuration`
 with one result per item in request order. Section `editor.tabSize` SHALL return the current editor
-Tab Width as a number regardless of scope URI; unknown or absent sections SHALL return null.
+Tab Width as a number regardless of scope URI. Other sections SHALL resolve by dotted path in the
+entry's optional raw JSON `settings` object. Empty or absent sections SHALL return the whole object;
+missing paths SHALL return null. Scope URIs SHALL be accepted and ignored.
+The entry and add-in registration SHALL carry these settings. Saving entries SHALL reload the file and apply
+changed settings to that server only and send `workspace/didChangeConfiguration` with the object.
+Settings SHALL be retained for a server that has not started yet or restarts.
 The client SHALL notify running servers with `workspace/didChangeConfiguration` and empty settings
 when Tab Width changes.
 
