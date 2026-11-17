@@ -22,14 +22,10 @@ public class AutomationRuntimeSeamTests
     // Inventory: https://github.com/hexide-io/HexIDE/issues/3411#issuecomment-6904319880
     private static readonly (string Type, string Group, string[] Files)[] Allowed =
     [
-        ("HexIDE.Runtime.EventPump", Provider, [Automation + "UiAutomationDriver.cs", Server + "HexIdeTools.cs"]),
-        ("HexIDE.Runtime.IModuleExecutionRoot", Provider, [Automation + "UiAutomationDriver.cs", Automation + "OpenDialogs.cs"]),
-        ("HexIDE.Runtime.VBFormRuntime", Provider, [Automation + "UiAutomationDriver.cs"]),
-        ("HexIDE.Runtime.VBDebugConsole", Provider, [Server + "ProgramPrinted.cs"]),
         ("HexIDE.Runtime.BuiltinControls.VBMenu", Controls, [Automation + "UiAutomationDriver.cs"]),
         ("HexIDE.Runtime.BuiltinControls.VBTimer", Controls, [Automation + "UiAutomationDriver.cs"]),
         ("HexIDE.Runtime.BuiltinControls.VBCommonDialog", Controls, [Automation + "UiAutomationDriver.cs"]),
-        ("HexIDE.Runtime.BuiltinControls.VBProps", Controls, [Automation + "UiAutomationDriver.cs", Server + "HexIdeTools.cs"]),
+        ("HexIDE.Runtime.BuiltinControls.VBProps", Controls, [Automation + "UiAutomationDriver.cs"]),
         ("HexIDE.Runtime.BuiltinControls.LockKeys", Controls, [Server + "HexIdeTools.cs"]),
         ("HexIDE.Runtime.BuiltinControls.LockKey", Controls, [Server + "HexIdeTools.cs"]),
         ("HexIDE.Runtime.BuiltinControls.LockKeySource", Controls, [Server + "HexIdeTools.cs"]),
