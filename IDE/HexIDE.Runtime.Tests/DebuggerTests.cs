@@ -327,35 +327,73 @@ public class DebuggerTests : BaseVBTestFixture
         }
     }
 
+    [Fact]
+    public void Pause_at_dispatch_idle_has_no_statement_and_continue_clears_the_request()
+    {
+        // #4261, measured in VB6's IDE (oracle PR #4270).
+        var dbg = new DebugController { TimeSliceMs = null };
+        dbg.Reset();
+        dbg.NotifyDispatchIdle();
+        var stops = new List<StoppedInfo>();
+        dbg.Stopped += stops.Add;
+        dbg.Pause();
+        dbg.State.Should().Be(DebugState.Paused);
+        stops.Should().ContainSingle().Which.Should().Be(new StoppedInfo(StopReason.Pause, "", 0));
+        dbg.GetLocals().Should().BeNull();
+        dbg.GetCallStack().Should().BeEmpty();
+        dbg.Continue();
+        dbg.OnStatementAsync(2, "M", null).IsCompletedSuccessfully.Should().BeTrue();
+    }
+
     [Theory]
     [InlineData("Into")]
     [InlineData("Over")]
     [InlineData("Out")]
-    public async Task StepReturningToIdle_LeavesBreakModeAndReleasesFrozenEvents(string step)
+    public void StepReturningToIdle_LeavesBreakModeAndReleasesFrozenEvents(string step)
     {
-        var dbg = new DebugController();
-        dbg.SetBreakpoints("M", new[] { 1 });
-        var decider = dbg.OnStatementAsync(1, "M", null).AsTask();
-        var newcomer = dbg.OnStatementAsync(2, "Other", null).AsTask();
-        newcomer.IsCompleted.Should().BeFalse();
-        var continued = 0;
-        dbg.Continued += () => continued++;
+        var previous = SynchronizationContext.Current;
+        var pump = new YieldContext();
+        SynchronizationContext.SetSynchronizationContext(pump);
+        var dbg = new DebugController { TimeSliceMs = null };
+        try
+        {
+            dbg.SetBreakpoints("M", new[] { 1 });
+            var decider = dbg.OnStatementAsync(1, "M", null).AsTask();
+            var newcomer = dbg.OnStatementAsync(2, "Other", null).AsTask();
+            newcomer.IsCompleted.Should().BeFalse();
+            var continued = 0;
+            dbg.Continued += () => continued++;
 
-        if (step == "Into") dbg.StepInto();
-        else if (step == "Over") dbg.StepOver();
-        else dbg.StepOut();
-        await decider.Guarded();
-        continued.Should().Be(0);
-        newcomer.IsCompleted.Should().BeFalse();
+            if (step == "Into") dbg.StepInto();
+            else if (step == "Over") dbg.StepOver();
+            else dbg.StepOut();
+            pump.Pump();
+            decider.IsCompletedSuccessfully.Should().BeTrue();
+            continued.Should().Be(0);
+            newcomer.IsCompleted.Should().BeFalse();
 
-        dbg.NotifyDispatchIdle();
-        continued.Should().Be(1);
-        dbg.State.Should().Be(DebugState.Running);
-        dbg.CurrentStop.Should().BeNull();
-        await newcomer.Guarded();
-        dbg.NotifyDispatchIdle();
-        continued.Should().Be(1);
-        await dbg.OnStatementAsync(3, "Other", null).AsTask().Guarded();
+            dbg.NotifyDispatchIdle();
+            continued.Should().Be(1);
+            dbg.State.Should().Be(DebugState.Running);
+            dbg.CurrentStop.Should().BeNull();
+            pump.Pump();
+            // #4269 overturns D4's old disarm. With no frame, Over/Out fall back to Into.
+            dbg.State.Should().Be(DebugState.Paused);
+            dbg.CurrentStop!.Value.Reason.Should().Be(StopReason.Step);
+            newcomer.IsCompleted.Should().BeFalse();
+            dbg.Continue();
+            pump.Pump();
+            newcomer.IsCompletedSuccessfully.Should().BeTrue();
+            dbg.NotifyDispatchIdle();
+            continued.Should().Be(2);
+            dbg.OnStatementAsync(3, "Other", null).IsCompletedSuccessfully.Should().BeTrue();
+        }
+        finally
+        {
+            dbg.Stop();
+            pump.Pump();
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
     }
 
     [Fact]

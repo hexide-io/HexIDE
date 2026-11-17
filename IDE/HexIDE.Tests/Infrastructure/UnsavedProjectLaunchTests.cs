@@ -30,7 +30,7 @@ public class UnsavedProjectLaunchTests
         var end = source.IndexOf("else if (ServerOptions.NewProject)", start, StringComparison.Ordinal);
         end.Should().BeGreaterThan(start);
         var branch = source[start..end];
-        branch.Should().Contain("Static.StartupProjectHook = (ps, _) => ps.CreateNewProject(IProjectTemplate.StandardEXE);");
+        branch.Should().Contain("Static.StartupProjectHook = (ps, _) => ps.CreateDefaultProject();");
         branch.Should().NotContain("SaveProject");
     }
 

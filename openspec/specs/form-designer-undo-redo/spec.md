@@ -150,3 +150,12 @@ the developer never sees as separate actions.
 - **WHEN** the developer confirms changes in the menu editor
 - **THEN** the undo history is unchanged
 
+
+#### Scenario: Confirming an unchanged menu editor
+- **WHEN** the developer confirms the menu editor without changing its items or hierarchy
+- **THEN** no layout change is committed, no properties are written, and the form's modified state and saved text remain unchanged
+
+#### Scenario: Applying menu properties
+- **WHEN** the developer confirms a changed menu item
+- **THEN** only properties whose values differ from the item's current values are written
+- **AND** a new item writes only its non-default properties

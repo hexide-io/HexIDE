@@ -283,7 +283,7 @@ public class WriteAtSaveTests : IDisposable
     {
         var manager = new ProjectManager(Substitute.For<IEditorService>(), new EventBus());
         var service = MakeService(manager: manager);
-        await service.CreateNewProject(IProjectTemplate.StandardEXE);
+        await service.CreateNewProject(Vb6ProjectType.StandardExe);
         var project = manager.LoadedProjects.Single();
         project.Format.Should().BeOfType<Vb6ProjectFileFormat>("a new project is made in the IDE's format (#4053)");
         var form = project.Forms.Single();
@@ -303,7 +303,7 @@ public class WriteAtSaveTests : IDisposable
     public async Task Template_marks_set_before_first_save_reopen_on_the_same_statement()
     {
         var projects = new ProjectManager(Substitute.For<IEditorService>(), new EventBus());
-        await MakeService(manager: projects).CreateNewProject(IProjectTemplate.StandardEXE);
+        await MakeService(manager: projects).CreateNewProject(Vb6ProjectType.StandardExe);
         var project = projects.LoadedProjects.Single();
         var form = project.Forms.Single();
         form.UpdateCode("Private Sub Form_Load()\r\n    Debug.Print 885\r\nEnd Sub\r\n");

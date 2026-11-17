@@ -97,6 +97,7 @@ public partial class LanguageServersToolViewModel : Document
         Definitions.Clear();
         try
         {
+            _editorStore.Load();
             var text = _editorStore.Read();
             var userIds = _editorStore.UserIds(text);
             foreach (var id in _editorStore.Defaults.Select(e => e.Id!).Concat(userIds).Distinct(StringComparer.Ordinal))

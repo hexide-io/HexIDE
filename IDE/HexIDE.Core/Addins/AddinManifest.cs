@@ -56,6 +56,14 @@ public sealed record PublisherRecord
     /// <summary>Base64 SubjectPublicKeyInfo (SPKI) of the publisher's ECDSA P-256 public key.</summary>
     [JsonPropertyName("publicKey")]      public string PublicKey { get; init; } = "";
     [JsonPropertyName("intermediateId")] public string IntermediateId { get; init; } = "";
+    /// <summary>
+    /// The protocol namespaces issued to this publisher, each a name followed by <c>.</c> (<c>rdcore.</c>), or null in a
+    /// record issued before the field existed (#4258, #4024). Read only from a record whose signature has been checked:
+    /// see <see cref="PublisherNamespaces"/>.
+    /// </summary>
+    [JsonPropertyName("namespaces")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string[]? Namespaces { get; init; }
 }
 
 /// <summary>

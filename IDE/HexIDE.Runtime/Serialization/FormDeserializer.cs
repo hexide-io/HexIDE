@@ -91,6 +91,7 @@ public class FormDeserializer
         Components.InBox.ProgressBarComponentClass.Instance,
         Components.InBox.FlexGridComponentClass.Instance,
         Components.InBox.ListViewComponentClass.Instance,
+        Components.InBox.SliderComponentClass.Instance,
         Components.InBox.TabStripComponentClass.Instance,
         Components.InBox.StatusBarComponentClass.Instance,
         Components.InBox.ImageListComponentClass.Instance,
@@ -341,7 +342,9 @@ public class FormDeserializer
                         or "ClientLeft" or "ClientTop" or "ClientWidth" or "ClientHeight"
                     && (parent is null || componentClass.PropertiesByName.ContainsKey(propertyName))
                     && TryReadNumber(serializedProperty.Value, out var measurement)
-                    && ((float)measurement >= 2147483648f || propertyName == "Height" && (float)measurement < 0))
+                    && ((float)measurement >= 2147483648f || propertyName == "Height" && (float)measurement < 0
+                        // A negative size on a form's control recovers as zero with Save As instead (#4179, oracle PR #4350).
+                        && !(rootComponent.Type == "VB.Form" && parent is not null)))
                 {
                     form.MarkUnfaithfulToSave(UnfaithfulSaveCause.RefusedMeasurement,
                         FormattableString.Invariant($"Property {serializedProperty.Key} in {serializedComponent.Name} could not be set to {serializedProperty.Value}."));
@@ -418,6 +421,15 @@ public class FormDeserializer
                     continue; // unknown property — preserved verbatim by OrderedRawProperties loop below
 
                 var val = serializedProperty.Value;
+                // VB6 IDE load errors recover the size as zero, and require Save As (#4179, oracle PR #4350).
+                if (rootComponent.Type == "VB.Form" && parent is not null && TryReadNumber(val, out var size)
+                    && DesignerSizeValidation.Refuses(propertyClass, size))
+                {
+                    val = 0;
+                    form.LoadedWithErrors = true;
+                    errorSink.LogError("Str.ProjectLoad.PropertyNotSet", "Line {0}: Property {1} in {2} could not be set.",
+                        serializedComponent.BeginLine, propertyName, serializedComponent.Name);
+                }
                 void InvalidValue()
                 {
                     errorSink.LogError("Str.ProjectLoad.InvalidValue", "Property {0} in {1} had an invalid value.", serializedProperty.Key, serializedComponent.Name);
@@ -428,6 +440,23 @@ public class FormDeserializer
                         form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreadableDuplicateProperty,
                             $"Property {serializedProperty.Key} in {serializedComponent.Name} has an unreadable duplicate value.");
                 }
+                if (componentClass is MenuComponentClass
+                    && (propertyClass == VBProperties.HelpContextIDProperty || propertyClass == MenuComponentClass.NegotiatePositionProperty))
+                {
+                    // Keep other spellings raw; NegotiatePosition's trailing enum comment is measured (#4141).
+                    var lines = serializedComponent.OrderedRawProperties
+                        .Where(p => p.Name.Equals(serializedProperty.Key, StringComparison.OrdinalIgnoreCase))
+                        .SelectMany(p => p.RawLines).ToArray();
+                    var numberText = lines.Length == 1 ? lines[0][(lines[0].IndexOf('=') + 1)..].Trim() : "";
+                    var comment = propertyClass == MenuComponentClass.NegotiatePositionProperty ? numberText.IndexOf('\'') : -1;
+                    if (comment >= 0)
+                        numberText = numberText[..comment].TrimEnd();
+                    if (lines.Length == 1 && int.TryParse(numberText, out var number))
+                        instance.SetUntypedProperty(propertyClass, number);
+                    else
+                        InvalidValue();
+                    continue;
+                }
                 if (propertyClass.PropertyType == typeof(string))
                 {
                     if (val is not string)
@@ -435,7 +464,8 @@ public class FormDeserializer
                         InvalidValue();
                         continue;
                     }
-                    instance.SetUntypedProperty(propertyClass, val);
+                    instance.SetUntypedProperty(propertyClass, propertyClass == MenuComponentClass.ShortcutProperty
+                        ? VBMenuShortcut.Canonicalize((string)val) : val);
                 }
                 else if (propertyClass.PropertyType == typeof(bool))
                 {

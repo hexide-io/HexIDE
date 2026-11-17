@@ -169,6 +169,22 @@ public sealed class DapSession : IAsyncDisposable
         }
     }
 
+    /// <summary>Waits for the update consumer to deliver all events read before this call.</summary>
+    public async Task WaitForDeliveryAsync()
+    {
+        try
+        {
+            var delivered = _connection.QueueDeliveryBarrierAsync();
+            if (await Task.WhenAny(delivered, Completion).ConfigureAwait(false) != delivered)
+                throw new IOException("Debug session ended before updates were delivered.");
+            await delivered.ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or System.Threading.Channels.ChannelClosedException)
+        {
+            throw new IOException("Debug session ended before updates were delivered.", exception);
+        }
+    }
+
     public bool Supports(string capability) => Capabilities.TryGetProperty(capability, out var value) && value.ValueKind == JsonValueKind.True;
 
     public Task<DapResponse> ThreadsAsync(DapStop stop, CancellationToken token = default) => Inspect(stop, "threads", new { }, token);
@@ -366,8 +382,9 @@ public sealed class DapSession : IAsyncDisposable
                 Task publication;
                 lock (_sync)
                 {
-                    if (_snapshot.State == DapSessionState.Faulted) continue;
-                    if (_snapshot.State == DapSessionState.Ended) Publish(message);
+                    if (message.DeliveryBarrier is not null) Publish(message);
+                    else if (_snapshot.State == DapSessionState.Faulted) continue;
+                    else if (_snapshot.State == DapSessionState.Ended) Publish(message);
                     else
                     {
                         switch (message.Event)

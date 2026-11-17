@@ -42,6 +42,7 @@ public class VBCheckBox : CheckBox
 
     static VBCheckBox()
     {
+        ControlKeyEvents.Attach<VBCheckBox>();
         // MouseUp follows Click, which the toggle raises as it is released (measured, #974).
         AttachedEvents.AttachMouse<VBCheckBox>();
         AttachedEvents.AttachFocusEvents<VBCheckBox>();

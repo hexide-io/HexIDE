@@ -322,13 +322,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 else
                 {
                     Log.Debug("CodeEditorViewModel: 'Sub {SubName}' not found, creating event stub", e.Sub);
-                    // Private, as VB6 writes an event procedure (measured, #1532). Add Procedure's own default is Public.
-                    AddProcedureViewModel vm = new AddProcedureViewModel();
-                    vm.IsPublic = false;
-                    vm.IsSub = true;
-                    vm.Name = e.Sub;
-                    var code = vm.GenerateCode();
-                    InsertAtEnd(code.beginCode, code.endCode);
+                    InsertEventHandlerStub(e.ObjectName, e.EventName);
                 }
                 FocusWindowRequest?.Invoke();
             }
@@ -1000,6 +994,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public CodeEditorViewModel Initialize(FormDefinition formElement)
     {
         this.formDefinition = formElement;
+        ConditionalTargetIndex = formElement.Owner.VbaBitness switch { VbaBitness.Bit32 => 1, VbaBitness.Bit64 => 2, _ => 0 };
         this.identity = DocumentIdentity.For(formElement);
         // Both subscriptions also reconcile the wire name. A document with no file is named
         // untitled:<Project>/<Name>, so BOTH its own rename and its project's change what servers should
@@ -1029,6 +1024,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public CodeEditorViewModel Initialize(ModuleDefinition moduleElement)
     {
         this.moduleDefinition = moduleElement;
+        ConditionalTargetIndex = moduleElement.Owner.VbaBitness switch { VbaBitness.Bit32 => 1, VbaBitness.Bit64 => 2, _ => 0 };
         // BOTH halves, because a UserControl or PropertyPage HAS both and they are one file.
         //
         // This used to set only the module, while the designer's View Code went through
@@ -2680,11 +2676,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
         var sb = new StringBuilder();
         sb.Append($"Private Sub {objectName}_{eventName}(");
+        var element = component?.IsControlArrayElement == true;
+        if (element) sb.Append("Index As Integer");
         if (ev is not null)
         {
             for (int i = 0; i < ev.Arguments.Length; i++)
             {
-                if (i > 0) sb.Append(", ");
+                if (i > 0 || element) sb.Append(", ");
                 sb.Append($"{ev.Arguments[i].DefaultName} As {ev.Arguments[i].Type}");
             }
         }

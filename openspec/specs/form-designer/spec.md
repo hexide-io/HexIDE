@@ -552,10 +552,12 @@ or saving. Automation replies SHALL name the resulting element or plain control.
 
 ### Requirement: Designer keyboard selection follows measured tab order
 
-With at most one control selected, Tab and Shift+Tab in the designer SHALL move the selection through the
-form's controls in TabIndex order, wrapping, where every control is a top-level, visible, enabled tab stop,
-as measured in [#3399](https://github.com/hexide-io/HexIDE/issues/3399). Other forms SHALL keep their
-existing Tab behaviour until those cases are measured. Escape SHALL select the form, and focus SHALL stay
+Tab and Shift+Tab in the designer SHALL move the selection through every control with a TabIndex in
+pure TabIndex order across the whole form, wrapping without including the form. TabStop, Visible, Enabled
+and containment SHALL NOT exclude a control or group it with its container; Labels and containers are
+stops too, as measured in [#4211](https://github.com/hexide-io/HexIDE/issues/4211). With several controls
+selected, traversal SHALL start from the primary (last selected) control and produce a single selection.
+Escape SHALL select the form, and focus SHALL stay
 in the designer, except while a mouse button is held: then Escape SHALL leave the selection alone, so a drag
 that is abandoned and let go where it began leaves its control where it was.
 
@@ -566,7 +568,20 @@ that is abandoned and let go where it began leaves its control where it was.
 - **THEN** selection visits Text1, Check1, Command1 and Text1, with focus in the designer
 - **AND** Shift+Tab reverses that cycle, and Shift+Tab from the form selects Command1
 
-#### Scenario: Escape on a form with an unmeasured case
+#### Scenario: Children precede their Frame by TabIndex
+
+- **GIVEN** Command1 (0), Text2 inside Frame1 (1), Text1 (2), Frame1 (3), Command3 (4), Command2 inside Frame1 (5), Label1 (6), hidden Check1 (7) and disabled Option1 (8), with Text1's TabStop False
+- **WHEN** Tab is pressed repeatedly from the form
+- **THEN** each control is selected in that order and the cycle wraps to Command1
+- **AND** Shift+Tab traverses the reverse order
+
+#### Scenario: Tab replaces a multiple selection
+
+- **GIVEN** Command3 (8) then Text1 (1) selected, with Text1 primary
+- **WHEN** Tab is pressed
+- **THEN** Check1 (2) alone is selected
+
+#### Scenario: Escape on a form with TabStop False
 
 - **GIVEN** a form where one control has TabStop False
 - **WHEN** a control is selected and Escape is pressed

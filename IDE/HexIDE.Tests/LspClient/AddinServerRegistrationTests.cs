@@ -871,6 +871,86 @@ public class AddinServerRegistrationTests : IDisposable
         await sending.Should().ThrowAsync<ArgumentException>();
     }
 
+    // ── #4258 part D: prefixes bound to the publisher's issued namespaces ───────────────────────
+
+    private static AddinLanguageServer Prefixed(string id, string? messagePrefix, string? commandPrefix) =>
+        new(PipeEntry(id, "unused"))
+        {
+            MessagePrefix = messagePrefix,
+            CommandPrefix = commandPrefix,
+            ClientCommands = commandPrefix is null
+                ? new Dictionary<string, AddinClientCommand>()
+                : new Dictionary<string, AddinClientCommand> { [commandPrefix + "go"] = (_, _) => Task.CompletedTask },
+        };
+
+    [Theory]
+    [InlineData("rdcore/", "rdcore.")]
+    [InlineData("rdcore/sub/", "rdcore.sub.")]
+    [InlineData("rdcore/", null)]
+    [InlineData(null, "rdcore.")]
+    [InlineData(null, null)]
+    public void PrefixesUnderAnIssuedNamespaceAreAccepted(string? messagePrefix, string? commandPrefix)
+    {
+        var router = Router();
+        using var connection = Contributions(router).Register(Prefixed("probe", messagePrefix, commandPrefix), "My Add-in",
+            "com.example.addin", ["rdcore."]);
+        connection.Id.Should().Be("probe");
+        router.ConfigurationProblems.Should().NotContain(p => p.Message.Contains("names no namespaces"));
+    }
+
+    [Theory]
+    [InlineData("other/", null, "message prefix 'other/'")]
+    [InlineData(null, "other.", "command prefix 'other.'")]
+    [InlineData("rdcore/", "other.", "command prefix 'other.'")]
+    [InlineData("rdcorex/", null, "message prefix 'rdcorex/'")]
+    [InlineData(null, "rdcorex.", "command prefix 'rdcorex.'")]
+    public void APrefixOutsideTheIssuedNamespacesIsRefusedNamingBoth(string? messagePrefix, string? commandPrefix, string named)
+    {
+        var router = Router();
+        var registering = () => Contributions(router).Register(Prefixed("probe", messagePrefix, commandPrefix), "My Add-in",
+            "com.example.addin", ["rdcore.", "tools."]);
+        registering.Should().Throw<ArgumentException>()
+            .Which.Message.Should().Contain(named).And.Contain("'rdcore.', 'tools.'");
+        router.Connections.Should().NotContain(c => c.Id == "probe", "nothing is added");
+    }
+
+    [Fact]
+    public void ARecordThatIssuesNothingAllowsNoPrefix()
+    {
+        var registering = () => Contributions(Router()).Register(Prefixed("probe", "rdcore/", null), "My Add-in",
+            "com.example.addin", []);
+        registering.Should().Throw<ArgumentException>().Which.Message.Should().Contain("(none)");
+    }
+
+    [Theory]
+    [InlineData("hexide/", null)]
+    [InlineData("HexIDE/tools/", null)]
+    [InlineData(null, "hexide.")]
+    [InlineData(null, "hexide.chat.")]
+    public void HexideStaysReservedWhateverTheRecordSays(string? messagePrefix, string? commandPrefix)
+    {
+        var registering = () => Contributions(Router()).Register(Prefixed("probe", messagePrefix, commandPrefix), "My Add-in",
+            "com.example.addin", ["hexide."]);
+        registering.Should().Throw<ArgumentException>().Which.Message.Should().Contain("reserved");
+    }
+
+    [Fact]
+    public void WithoutIssuedNamespacesTodaysRuleAppliesWithOneNoticePerAddin()
+    {
+        var router = Router();
+        var contributions = Contributions(router);
+        using var first = contributions.Register(Prefixed("probe", "rdcore/", "rdcore."), "My Add-in", "com.example.addin");
+        router.ConfigurationProblems.Should().ContainSingle(p => p.EntryId == "probe" && p.Message.Contains("names no namespaces"))
+            .Which.Message.Should().Contain("'rdcore/' and 'rdcore.'").And.Contain("My Add-in");
+        router.ConfigurationProblems.Single(p => p.EntryId == "probe").EntryRejected.Should().BeFalse("it is a notice, never a refusal");
+
+        using var second = contributions.Register(Prefixed("probe2", "other/", null), "My Add-in", "com.example.addin");
+        router.ConfigurationProblems.Should().NotContain(p => p.EntryId == "probe2", "one notice for each add-in");
+
+        using var another = contributions.Register(Prefixed("probe3", "third/", null), "Another", "com.example.another");
+        router.ConfigurationProblems.Should().ContainSingle(p => p.EntryId == "probe3" && p.Message.Contains("names no namespaces"));
+    }
+
     // ── the channel, on the wire ────────────────────────────────────────────────────────────────
 
     // A server of the add-in's: it echoes a request of its own, takes a notification of its own, and asks the client a

@@ -6,12 +6,14 @@ and exists to skip a step you would otherwise take by hand, or to turn on someth
 the IDE finishes starting.
 
 ```text
-HexIDE.Desktop [options] [<project file>]
+HexIDE [options] [<project file>]
 ```
 
 **Both prefixes work.** `--newproject` and `/newproject` are the same flag, and both are matched
 case-insensitively. The `/` form is VB6's own convention and is kept for the muscle memory; `--` is what
 most people will type today.
+
+The examples use the release executable, `HexIDE` (`HexIDE.exe` on Windows); a build from source runs `HexIDE.Desktop`.
 
 ## Options
 
@@ -71,7 +73,7 @@ read from and written to there instead, for that session only. Use it to set up 
 an experiment without touching the configuration you work in:
 
 ```sh
-HexIDE.Desktop --user-data-dir ./demo-profile
+HexIDE --user-data-dir ./demo-profile
 ```
 
 - **The directory is created on first use**, so a new one starts from HexIDE's defaults exactly as a first
@@ -154,7 +156,7 @@ exit code 2 and an actionable message naming the three replacement profile comma
 beside a valid profile flag. Help-only requests still succeed.
 
 **Paths are relative to where you ran HexIDE from.** HexIDE moves its working directory to its own folder as
-it starts, and used to resolve the project path *after* that move — so `HexIDE.Desktop ../demo/x.vbp` looked
+it starts, and used to resolve the project path *after* that move — so `HexIDE ../demo/x.vbp` looked
 beside the executable, found nothing, and opened nothing without saying so.
 
 **The positional path must name an existing file.** It opens through the same project-type lookup as
@@ -176,7 +178,7 @@ looking for a deeper cause, and `--help` will tell you how a flag is spelled.
 Windows it writes to the console that launched it: HexIDE is a GUI program and owns no console of its own,
 so run from a shortcut or Explorer there is nowhere for the text to go and nothing appears.
 An inherited file or pipe is used directly, before trying to attach to a console. In particular, a
-Windows batch file can capture help and refusals with `HexIDE.Desktop.exe --help > out.txt 2>&1`,
+Windows batch file can capture help and refusals with `HexIDE.exe --help > out.txt 2>&1`,
 even when the batch file's cmd has no console window.
 
 **The mark at the top is in colour where the terminal can show it.** That means output going to a
@@ -217,22 +219,22 @@ that the rendered row stays inside 94 columns, so the mark still fits beside it 
 
 ```sh
 # Open a project
-HexIDE.Desktop C:\src\Battleship\Battleship.vbp
+HexIDE C:\src\Battleship\Battleship.vbp
 
 # Straight into an empty Standard EXE
-HexIDE.Desktop --newproject-unsaved
+HexIDE --newproject-unsaved
 
 # Record every language-server conversation from its first handshake
-HexIDE.Desktop --capture-lsp C:\src\Battleship\Battleship.vbp
+HexIDE --capture-lsp C:\src\Battleship\Battleship.vbp
 
 # The VBA profile
-HexIDE.Desktop --profile vba
+HexIDE --profile vba
 
 # Debug builds: drive the IDE from an automation client on port 5123
-HexIDE.Desktop --server-port 5123 --newproject
+HexIDE --server-port 5123 --newproject
 
 # What all of this says, from the program itself
-HexIDE.Desktop --help
+HexIDE --help
 ```
 
 ## Linux display backend

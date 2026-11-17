@@ -26,7 +26,7 @@ public class ComboBoxComponentClass : ComponentBaseClass
         AppearanceProperty,
         TabStopProperty,
         TabIndexProperty,
-        ToolTipTextProperty], [ChangeEvent, ClickEvent, DblClickEvent, DropDownEvent, GotFocusEvent, LostFocusEvent])
+        ToolTipTextProperty], [ChangeEvent, ClickEvent, DblClickEvent, DropDownEvent, GotFocusEvent, LostFocusEvent, KeyDownEvent, KeyPressEvent, KeyUpEvent])
     {
         Members = CreateMembers();
     }

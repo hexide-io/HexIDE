@@ -11,6 +11,10 @@ public sealed record DapResponse(int Sequence, int RequestSequence, string Comma
 /// <summary>An adapter event in wire order. JSON elements own their data and survive the next read.</summary>
 public sealed record DapEvent(int Sequence, string Event, JsonElement Message)
 {
+    /// <summary>A local delivery barrier, never an adapter event. Consumers acknowledge after prior events are delivered.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public TaskCompletionSource? DeliveryBarrier { get; init; }
+
     public JsonElement? Body => Message.TryGetProperty("body", out var body) ? body : null;
 }
 

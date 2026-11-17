@@ -42,6 +42,7 @@ public partial class ProjectService : IProjectService
     private readonly IComponentRegistry componentRegistry;
     private readonly IReadOnlyRegionWriter regionWriter;
     private readonly IDocumentDockService? documents;
+    private readonly HexIDE.Addins.AddinProjectTemplateService? templates;
 
     public ProjectService(IReadOnlyRegionWriter regionWriter, Func<NewProjectViewModel> newProjectVm,
         IWindowManager windowManager,
@@ -58,8 +59,10 @@ public partial class ProjectService : IProjectService
         ArchiveProjectService? archives = null,
         Func<ILspClient>? lspClient = null,
         ContributedProjects? contributed = null,
-        IDocumentDockService? documents = null)
+        IDocumentDockService? documents = null,
+        HexIDE.Addins.AddinProjectTemplateService? templates = null)
     {
+        this.templates = templates;
         this.documents = documents;
         // A ProjectService made without the IDE's project types, which only a test makes, reads VB6's files through the
         // format it was given, registered as the composition registers VB6's type. That goes in #3411's slice 10b-3.
@@ -184,6 +187,7 @@ public partial class ProjectService : IProjectService
     private async Task<IAddinProjectTemplate?> ChooseNewProject(bool replaceExisting)
     {
         var vm = newProjectVm();
+        vm.FileBrowser.OfferProjects(contributed.OpenablePatterns);
         if (!await windowManager.ShowDialog(vm))
             return null;
 
@@ -218,6 +222,12 @@ public partial class ProjectService : IProjectService
         projectManager.NewProject(template, name, RecordTemplateHeaders);
         EnsureGroupIfMultiple();
     }
+
+    // A service made without the IDE's templates, which only a test makes, takes VB6's, as the composition registers them.
+    public Task CreateDefaultProject() => CreateNewProject(templates is null
+        ? Vb6ProjectType.StandardExe
+        : templates.FirstPartyTemplate("standard-exe")
+          ?? throw new InvalidOperationException("No project type that's registered offers a Standard EXE template."));
 
     public async Task CreateNewProject(IProjectTemplate template)
     {
@@ -375,19 +385,23 @@ public partial class ProjectService : IProjectService
             throw new OperationCanceledException();
         }
 
-        // The add-ins' project types beside HexIDE's own, each with its own filter as well, and each as it was contributed:
-        // a whole file name such as ".rdproj" is offered as that name, so the picker shows no Ledger.rdproj that the type
-        // would not read.
+        // Every registered type's files, each type with its own filter as well, and each as it was contributed: a whole file
+        // name such as ".rdproj" is offered as that name, so the picker shows no Ledger.rdproj that the type would not read.
+        // A type that reads its projects whole, VB6's, offers its groups and its projects apart, as the dialog always has
+        // (#3411 slice 10b).
+        var whole = contributed.Types.Where(type => type.Type.Format is not null).ToList();
         var types = contributed.Types.Where(type => type.Type.Format is null).ToList();
         static IReadOnlyList<string> Picked(ContributedProjectType type) => type.Type.FileNames;
+        static IEnumerable<FilePickerFileType> Apart(ContributedProjectType type) => type.Type.GroupFileNames.Count > 0
+            ? [new("Project Group") { Patterns = type.Type.GroupFileNames }, new("Project") { Patterns = Picked(type) }]
+            : [new(type.Type.Title) { Patterns = Picked(type) }];
         var files = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = "Open Project",
             FileTypeFilter =
             [
-                new("Project Files") { Patterns = ["*.vbp", "*.vbg", "*.twinproj", .. types.SelectMany(Picked)] },
-                new("Project Group") { Patterns = ["*.vbg"] },
-                new("Project")       { Patterns = ["*.vbp"] },
+                new("Project Files") { Patterns = contributed.OpenablePatterns },
+                .. whole.SelectMany(Apart),
                 .. types.Select(type => new FilePickerFileType(type.Type.Title) { Patterns = Picked(type) }),
                 new("All Files")     { Patterns = ["*.*"] }
             ],
@@ -397,8 +411,10 @@ public partial class ProjectService : IProjectService
         if (files == null || files.Count != 1)
             throw new OperationCanceledException();
 
+        using var reload = projectManager.BeginReload();
+
         // Archive projects coexist with the current workspace, as on the direct/recent open path.
-        if (!string.Equals(Path.GetExtension(files[0]), ".twinproj", StringComparison.OrdinalIgnoreCase))
+        if (!ArchiveProjectService.Reservation.Covers(files[0]))
             await UnloadAllProjects();
 
         await OpenProject(files[0]);
@@ -406,9 +422,8 @@ public partial class ProjectService : IProjectService
 
     public async Task OpenProject(string projectPath)
     {
-        if (ArchiveProjectService.Reservation.Covers(projectPath))
+        if (archives is not null && ArchiveProjectService.Reservation.Covers(projectPath))
         {
-            if (archives == null) throw new NotSupportedException("Archive project service is unavailable.");
             try
             {
                 await archives.Open(projectPath);
@@ -439,7 +454,7 @@ public partial class ProjectService : IProjectService
         if (contributed.Find(projectPath) is not { } type)
         {
             await windowManager.MessageBox(
-                string.Format(localization.GetString("Str.ContributedProject.NoReader"), Path.GetFileName(projectPath)),
+                UnreadProjectMessage(projectPath),
                 icon: MessageBoxIcon.Information);
             return;
         }
@@ -447,6 +462,29 @@ public partial class ProjectService : IProjectService
             await LoadProjectFromDisk(projectPath, type, own);
         else
             await OpenContributed(type, projectPath);
+    }
+
+    private string UnreadProjectMessage(string path)
+    {
+        var types = contributed.Types;
+        var missing = contributed.Reserved.FirstOrDefault(reservation => reservation.Covers(path)
+            && (reservation.Owner == ArchiveProjectService.Reservation.Owner
+                ? archives is null
+                : !types.Any(type => type.AddinId == reservation.Owner)));
+        if (missing is null && Vb6ProjectType.Members.Covers(path)
+            && !types.Any(type => type.AddinId == Vb6ProjectType.Id))
+            missing = Vb6ProjectType.Members;
+        var file = Path.GetFileName(path);
+        if (missing is not null)
+            return string.Format(localization.GetString("Str.ContributedProject.ProviderNotLoaded"), file, missing.Title);
+
+        var patterns = types.SelectMany(type => type.Type.FileNames.Concat(type.Type.GroupFileNames));
+        if (archives is not null)
+            patterns = patterns.Concat(ArchiveProjectService.Reservation.Patterns);
+        var names = string.Join(", ", patterns.Select(pattern => pattern.StartsWith("*.", StringComparison.Ordinal) ? pattern[1..] : pattern));
+        return names.Length == 0
+            ? string.Format(localization.GetString("Str.ContributedProject.NoTypeLoaded"), file)
+            : string.Format(localization.GetString("Str.ContributedProject.NoLoadedReader"), file, names);
     }
 
     // A project file an add-in reads: its content becomes a ProjectDefinition, loaded as a .vbp's is from there on, with
@@ -1066,6 +1104,10 @@ public partial class ProjectService : IProjectService
         // keeps a reload during a later picker from slipping a file past it (see the remarks).
         destinations.RemoveAll(destination => RefusesUnfaithful(destination.Document));
 
+        foreach (var destination in destinations)
+            if (destination.Document is FormDefinition form)
+                RefuseLoadedFormOverwrite(form, destination.Path);
+
         EnsureEveryMemberListed(destinations);
         EnsureNoMemberOverItsProjectFile(destinations);
         EnsureEncodable(destinations);
@@ -1121,6 +1163,17 @@ public partial class ProjectService : IProjectService
                 // docs/serialization-outcomes.md says is never acceptable. (#143)
                 if (RefusesUnfaithful(form))
                     return null;
+                if (form.LoadedWithErrors && form.AbsolutePath is not null)
+                {
+                    if (!userSave && !saveAs)
+                        throw LoadedFormRefusal(form);
+                    var directory = IsScratchFile(form.Owner, form.AbsolutePath)
+                        ? PickerDirectory(form.Owner, previousDirectory) : null;
+                    string chosen;
+                    do { chosen = await ChooseFormPath(form, directory); }
+                    while (WouldOverwriteLoadedForm(form, chosen));
+                    return new Destination(form, chosen, Chosen: true);
+                }
                 return form.AbsolutePath is { } formPath && !saveAs && (!userSave || !IsScratchFile(form.Owner, formPath))
                     ? new Destination(form, formPath)
                     : new Destination(form, await ChooseFormPath(form, form.AbsolutePath is null || IsScratchFile(form.Owner, form.AbsolutePath) ? PickerDirectory(form.Owner, previousDirectory) : null), Chosen: true);
@@ -1365,6 +1418,7 @@ public partial class ProjectService : IProjectService
                 await SaveSelected(changed);
         }
         // In its place: a project in a group keeps its position, and its startup, and the group stays (#4009).
+        using (projectManager.BeginReload())
         using (projectManager.HoldPlace(project))
         {
             beforeReopen?.Invoke();
@@ -2469,6 +2523,18 @@ public partial class ProjectService : IProjectService
         }
     }
 
+    private static InvalidOperationException LoadedFormRefusal(FormDefinition form) =>
+        new($"Refusing to overwrite {form.Name}: it loaded with errors; save it to a new file.");
+
+    private static void RefuseLoadedFormOverwrite(FormDefinition form, string path)
+    {
+        if (WouldOverwriteLoadedForm(form, path))
+            throw LoadedFormRefusal(form);
+    }
+
+    private static bool WouldOverwriteLoadedForm(FormDefinition form, string path) =>
+        form.LoadedWithErrors && IsItsOwnFile(form.AbsolutePath, path);
+
     /// <summary>
     /// Write a form's two halves — the designer text and its companion binary — or write neither.
     ///
@@ -2487,6 +2553,8 @@ public partial class ProjectService : IProjectService
     // path that depends on it cannot be driven from a test (it needs the published standalone runtime).
     internal bool SerializeFormToFile(FormDefinition form, string formPath, bool adoptHeader = true, bool ownCommand = false, SaveRewriteReport? rewrites = null)
     {
+        RefuseLoadedFormOverwrite(form, formPath);
+
         // ONE ruler, asked ONCE, before either half is written. (#148)
         //
         // The text write used to be unconditional while the companion write carried a refusal of its own,
@@ -2539,6 +2607,8 @@ public partial class ProjectService : IProjectService
         WriteCompanionBinary(formPath, frxContent, form);
         AtomicWriteText(formPath, frmText, encodedText);
         form.AbsolutePath = formPath;
+        if (adoptHeader)
+            form.LoadedWithErrors = false;
 
         // The second refresh trigger (#273 task 3.3a). The header the buffer shows becomes the header this
         // save wrote, which is NOT always the one it was opened with: the serializer is a reproduction

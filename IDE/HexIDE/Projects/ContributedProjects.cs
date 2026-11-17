@@ -364,6 +364,24 @@ public sealed partial class ContributedProjects
             return _types.FirstOrDefault(known => known.Type.FileNames.Any(name => Matches(name, fileName)));
     }
 
+    /// <summary>
+    /// The files Open Project offers, in its order: the projects and groups of each type that reads its projects whole, VB6's
+    /// first, then the archives', then the projects of each type an add-in reads (#3411 slice 10b).
+    /// </summary>
+    public IReadOnlyList<string> OpenablePatterns
+    {
+        get
+        {
+            var types = Types;
+            return
+            [
+                .. types.Where(t => t.Type.Format is not null).SelectMany(t => t.Type.FileNames.Concat(t.Type.GroupFileNames)),
+                .. ArchiveProjectService.Reservation.Patterns,
+                .. types.Where(t => t.Type.Format is null).SelectMany(t => t.Type.FileNames),
+            ];
+        }
+    }
+
     /// <summary>The type whose format reads this project group file, or null when none does.</summary>
     public ContributedProjectType? FindGroup(string path)
     {

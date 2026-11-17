@@ -52,9 +52,11 @@ A test that reaches the provider only at run time, through the application's com
 | `Controls/ProjectFileNodeTests.cs` | split |
 | `Controls/ProjectGroupExpansionTests.cs` | split |
 | `Debugging/CallStackReplyTests.cs` | split |
+| `Debugging/IdleBreakCommandsTests.cs` | split |
 | `TestRunners.cs` | split |
 | `ViewModels/ReadLoopDispatcherTests.cs` | split |
 | `Views/ActiveFormSaveTests.cs` | split |
+| `Views/AddWatchDialogTests.cs` | split |
 | `Views/ArchiveProjectBrowsingTests.cs` | split |
 | `Views/BattleshipFormsDemoTests.cs` | split |
 | `Views/BeginOrderTests.cs` | split |
@@ -138,6 +140,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/MouseEventTests.cs` | split |
 | `Views/NewControlNameTests.cs` | split |
 | `Views/ObjectBrowserBehaviourTests.cs` | split |
+| `Views/ObjectBrowserReloadTests.cs` | split |
 | `Views/ObjectBrowserViewIntegrationTests.cs` | split |
 | `Views/OnTypeFormattingTests.cs` | split |
 | `Views/OpeningCaretTests.cs` | split |
@@ -163,6 +166,9 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ServerApplyEditFocusTests.cs` | split |
 | `Views/ServerApplyEditModifiedTests.cs` | split |
 | `Views/SingleViewFormsTests.cs` | split |
+| `Views/SliderFileTests.cs` | provider |
+| `Views/SliderInputTests.cs` | provider |
+| `Views/SliderRuntimeTests.cs` | provider |
 | `Views/StartupFormFailsToLoadTests.cs` | split |
 | `Views/SubMainFormsTests.cs` | split |
 | `Views/SymbolRefreshWireTests.cs` | split |

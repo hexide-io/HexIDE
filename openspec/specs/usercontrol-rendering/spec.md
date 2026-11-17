@@ -189,10 +189,25 @@ per control. InvisibleAtRuntime instances SHALL raise only Initialize, ReadPrope
 
 A running form-hosted UserControl SHALL read its container's BackColor, ForeColor and Font object,
 its instance DisplayName, and the measured constants from [#4149](https://github.com/hexide-io/HexIDE/issues/4149).
-UserMode SHALL be True and ShowHatching False. LocaleID SHALL read 1033 under en-US; other locales,
-Palette, RightToLeft on a right-to-left form and non-form containers SHALL refuse explicitly as not implemented.
+UserMode SHALL be True and ShowHatching False. Palette, RightToLeft on a right-to-left form and non-form
+containers SHALL refuse explicitly as not implemented.
 Design-time UserControl execution remains unavailable.
 
 #### Scenario: Reading the form font during startup
 - **WHEN** a UserControl reads Ambient.Font in ReadProperties on a form with Arial 12 Bold
 - **THEN** the object reads Name Arial, Size 12, Bold True and Italic False
+
+#### Scenario: A refusal while the form loads its controls
+- **WHEN** a UserControl's Initialize, ReadProperties or Resize reads a member HexIDE refuses
+- **THEN** the refusal is reported as one in any event procedure is, rather than ending the run unreported
+
+### Requirement: Ambient.LocaleID SHALL answer only where it was measured
+
+A form-hosted UserControl's Ambient.LocaleID SHALL read 1033 whatever the user locale where Windows' system
+locale and interface languages are US English, as measured (#4266). Which of those it follows is unmeasured, so
+it SHALL refuse explicitly where any of them differs, and off Windows.
+
+#### Scenario: An en-GB user locale on US English Windows
+- **WHEN** a UserControl reads Ambient.LocaleID with the user locale en-GB and the system locale and interface
+  languages US English
+- **THEN** it reads 1033

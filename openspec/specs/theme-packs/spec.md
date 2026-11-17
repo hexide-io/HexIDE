@@ -272,7 +272,7 @@ one panel that did not change rather than as an error.
 - **THEN** its caption bar uses the `ActiveTitleBarBrush` resource resolved at the bar, without an MDI ancestor binding
 
 ### Requirement: Shipped dark packs SHALL declare all mapped colours
-Dark and Abyss SHALL carry every colour key supported by the theme-pack mapping. Their warning banners
+Dark and Abyss SHALL carry every Classic palette colour key supported by the theme-pack mapping. Their warning banners
 SHALL use dark backgrounds, with foreground contrast of at least 4.5:1 and border contrast of at least 3:1
 against both the banner and Window backgrounds. Validation error text SHALL have at least 4.5:1 contrast
 against the pack's Window background.
@@ -280,6 +280,22 @@ against the pack's Window background.
 #### Scenario: Warning and validation surfaces in a dark pack
 - **WHEN** Dark or Abyss is selected
 - **THEN** warning banners and validation text use that pack's explicit colours rather than Classic's defaults
+
+### Requirement: Shipped dark chrome SHALL use each pack's palette
+Every shipped `themeVariant: "Dark"` pack SHALL set `ThemeBackgroundBrush`.
+Abyss SHALL set all mapped SimpleTheme and Dock brushes from its navy palette; Dark SHALL override
+only pane and dialog background brushes from its grey palette, retaining Simple defaults for other brushes.
+Abyss SHALL use SystemAccentColorLight2 at alpha 0x99, 0x66 and 0x33 for ThemeAccentBrush2, 3 and 4.
+Text on declared backgrounds SHALL meet 4.5:1 contrast, compositing translucent colours over
+ThemeBackgroundBrush; declared borders and scrollbar thumbs SHALL meet 3:1 against adjacent backgrounds.
+
+#### Scenario: Abyss panes and dialogs
+- **WHEN** Abyss is selected
+- **THEN** Project Explorer, Properties, Toolbox, dialogs and grid rows use its navy family rather than SimpleTheme's grey defaults
+
+#### Scenario: Dark retains Simple tab styling
+- **WHEN** Dark is selected
+- **THEN** its active document tab retains Simple's blue background and foregrounds
 
 ### Requirement: Hidden controls SHALL be dimmed in the designer
 The designer SHALL dim a modelled control whose own Visible property or a containing control's Visible

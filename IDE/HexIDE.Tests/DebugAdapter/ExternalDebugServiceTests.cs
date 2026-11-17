@@ -22,6 +22,39 @@ public class ExternalDebugServiceTests
     }
 
     [AvaloniaFact]
+    public async Task Evaluate_returns_output_printed_while_the_dispatcher_is_busy()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-evaluate-flood-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var capture = new ConversationLog();
+        var service = new ExternalDebugService(capture);
+        var output = new List<string>();
+        var run = service.StartAsync(await Configuration(directory, "evaluate-output"));
+        try
+        {
+            await WaitFor(service, () => service.CanEvaluate && service.Variables.Count > 0);
+            service.Output += text =>
+            {
+                Dispatcher.UIThread.CheckAccess().Should().BeTrue();
+                if (output.Count == 0) Thread.Sleep(500); // Exercise #4249's busy-dispatcher route.
+                output.Add(text);
+            };
+            var result = await service.EvaluateAsync("? flood").WaitAsync(Patience, Token);
+            var expected = string.Concat(Enumerable.Range(0, 10_000).Select(i => $"line {i}\n"));
+            result.PrintedOutput.Should().Be(expected);
+            result.Error.Should().BeNull();
+            string.Concat(output).Should().Be(expected);
+            output.Count.Should().BeLessThan(10_000);
+        }
+        finally
+        {
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
     public async Task Termination_keeps_draining_output_ahead_of_the_disconnect_reply()
     {
         var directory = Path.Combine(Path.GetTempPath(), "hexide-terminated-flood-" + Guid.NewGuid());
