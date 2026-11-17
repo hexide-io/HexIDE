@@ -1823,6 +1823,22 @@ pointer, in the same window, SHALL move nothing first, as a still pointer sends 
 - **WHEN** `click` presses again where the last click left the pointer
 - **THEN** no move comes before the press, and the reply says the pointer was already there
 
+### Requirement: A press that closes its window or removes its target SHALL report what happened
+Before hit-testing a click's release, the driver SHALL check whether its window closed or its press
+target left the tree. Either SHALL report success naming the window or target and first or second
+press, say nothing was released there, and send no remaining release or second press. An empty release
+point in an open window with an attached press target SHALL retain its failure.
+
+#### Scenario: A floating title docks on its second press
+- **WHEN** a double click's second press closes the floating tool window
+- **THEN** the reply reports success naming that window and the second press
+- **AND** no release is sent after closure
+
+#### Scenario: A first press removes its target
+- **WHEN** the first press removes the element it reached while the window stays open
+- **THEN** the reply reports success naming the removed target and first press
+- **AND** neither its release nor a second press is sent
+
 ### Requirement: A click on a mirrored window SHALL say that it went past Windows' mirroring
 On Windows, when the window `click` presses in has `WS_EX_LAYOUTRTL`, the reply SHALL say that the window is mirrored and that
 the press was raised at the layout point, past the mirroring with which Windows hands a real mouse's messages to such a
