@@ -1,3 +1,4 @@
+using HexIDE.Office;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -403,7 +404,7 @@ public partial class ProjectService : IProjectService
         using var reload = projectManager.BeginReload();
 
         // Archive projects coexist with the current workspace, as on the direct/recent open path.
-        if (!ArchiveProjectService.Reservation.Covers(files[0]))
+        if (!ArchiveProjectService.Covers(files[0]))
             await UnloadAllProjects();
 
         await OpenProject(files[0]);
@@ -411,13 +412,17 @@ public partial class ProjectService : IProjectService
 
     public async Task OpenProject(string projectPath)
     {
-        if (archives is not null && ArchiveProjectService.Reservation.Covers(projectPath))
+        if (archives is not null && ArchiveProjectService.Covers(projectPath))
         {
             try
             {
                 await archives.Open(projectPath);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            catch (OfficeProjectMissingException)
+            {
+                await windowManager.MessageBox(string.Format(localization.GetString("Str.Office.NoProject"), Path.GetFileName(projectPath)), icon: MessageBoxIcon.Information);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OfficeFileException)
             {
                 Log.Error(ex, "Error opening archive project {ProjectPath}", projectPath);
                 await windowManager.MessageBox(

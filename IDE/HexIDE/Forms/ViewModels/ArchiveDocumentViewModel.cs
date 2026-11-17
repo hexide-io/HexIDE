@@ -7,6 +7,7 @@ using HexIDE.Lsp;
 using HexIDE.Controls;
 using HexIDE.Localization;
 using HexIDE.TwinBasic;
+using HexIDE.Projects;
 using PropertyChanged.SourceGenerator;
 
 namespace HexIDE.Forms.ViewModels;
@@ -20,8 +21,8 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
     private LspDocumentSession? session;
     public IReadOnlyList<LspMarker> Markers { get; private set; } = [];
     public event Action<IReadOnlyList<LspMarker>>? MarkersChanged;
-    public string DocumentUri => ArchiveEntryUri.ForEntry(Entry.Identity.ContainerPath, Entry.Identity.Segments);
-    public ArchiveProjectEntry Entry { get; private set; }
+    public string DocumentUri => Entry.DocumentUri;
+    public ContainerEntry Entry { get; private set; }
     [Notify] private TextDocument document = new();
     [Notify] private string notice = "";
     [Notify] private string metadata = "";
@@ -37,7 +38,7 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
     public bool IsReadOnlyRegion(int offset, int length) => false;
     public Func<int, int, bool> SnapshotReadOnlyRegions() => static (_, _) => true;
 
-    public ArchiveDocumentViewModel(ArchiveProjectEntry entry, ILocalizationService localization,
+    public ArchiveDocumentViewModel(ContainerEntry entry, ILocalizationService localization,
         IConditionalCodeReader conditionalCode, string? buildType = null, ILspClient? lspClient = null)
     {
         this.lspClient = lspClient;
@@ -47,10 +48,14 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
         Update(entry, buildType);
     }
 
+    public ArchiveDocumentViewModel(ArchiveProjectEntry entry, ILocalizationService localization,
+        IConditionalCodeReader conditionalCode, string? buildType = null, ILspClient? lspClient = null)
+        : this(ContainerEntry.FromArchive(entry), localization, conditionalCode, buildType, lspClient) { }
+
     /// <param name="entry">The entry, from the project's latest snapshot.</param>
     /// <param name="buildType">The project's build type from its Settings, which <c>TWINBASIC_BUILD_TYPE</c> holds; null when
     /// the project names none, and conditions on it are then left ungreyed.</param>
-    public void Update(ArchiveProjectEntry entry, string? buildType = null)
+    public void Update(ContainerEntry entry, string? buildType = null)
     {
         session?.Dispose();
         session = null;
@@ -58,7 +63,7 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
         MarkersChanged?.Invoke(Markers);
         this.buildType = buildType;
         Entry = entry;
-        var preview = (entry as ArchiveProjectDocument)?.ReadText();
+        var preview = entry.ReadText();
         var buffer = new TextDocument(preview?.Text ?? "");
         buffer.UndoStack.ClearAll();
         // Protect programmatic edits as well as keyboard, paste and Replace operations.
@@ -68,17 +73,18 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
         Notice = localization.GetString("Str.Archive.ReadOnly") + " " +
             (preview is null ? "" : preview.Status == ArchiveTextStatus.Available ? "" :
                 localization.GetString("Str.Archive." + preview.Status));
-        Metadata = string.Format(localization.GetString("Str.Archive.Metadata"),
+        if (entry.NoticeKey is { } noticeKey) Notice = localization.GetString(noticeKey);
+        Metadata = entry.Archive is { } archive ? string.Format(localization.GetString("Str.Archive.Metadata"),
             entry.Identity.ContainerPath, string.Join(" / ", entry.Identity.Segments),
-            entry.Source.Category, entry.Source.Flags, entry.Source.Revision,
-            (entry as ArchiveProjectDocument)?.File.Content.Length ?? 0);
-        InactiveLines = preview?.Status == ArchiveTextStatus.Available && entry.Name.EndsWith(".twin", StringComparison.OrdinalIgnoreCase)
+            archive.Source.Category, archive.Source.Flags, archive.Source.Revision,
+            (archive as ArchiveProjectDocument)?.File.Content.Length ?? 0) : "";
+        InactiveLines = entry.Archive != null && preview?.Status == ArchiveTextStatus.Available && entry.Name.EndsWith(".twin", StringComparison.OrdinalIgnoreCase)
             ? InactiveLinesOf(preview.Text!, buildType)
             : [];
         Title = ComputeTitle();
         if (lspClient != null && preview?.Status == ArchiveTextStatus.Available)
         {
-            session = new LspDocumentSession(lspClient, Document, DocumentUri);
+            session = new LspDocumentSession(lspClient, Document, DocumentUri, isProjectMember: entry.Source != null);
             session.MarkersChanged += markers =>
             {
                 Markers = markers;

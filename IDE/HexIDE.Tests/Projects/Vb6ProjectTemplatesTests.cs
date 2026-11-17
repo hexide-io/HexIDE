@@ -15,6 +15,8 @@ namespace HexIDE.Tests.Projects;
 public sealed class Vb6ProjectTemplatesTests
 {
     private static readonly AddinOrigin Rdcore = new("rdcore", "RDCore for HexIDE");
+    private static readonly string[] OfficePatterns = ["*.xlsm", "*.xltm", "*.xlam", "*.xlsb", "*.docm", "*.dotm",
+        "*.pptm", "*.potm", "*.ppsm", "*.ppam", "*.xls", "*.xlt", "*.xla", "*.doc", "*.dot"];
 
     private static AddinProjectTemplateService WithVb6()
     {
@@ -108,17 +110,21 @@ public sealed class Vb6ProjectTemplatesTests
     [InlineData(true, new[] { "*.vbp", "*.vbg", "*.twinproj", ".rdproj" })]
     public void Open_offers_the_registered_types_files_VB6_s_first_then_the_archives_then_add_ins(bool withAddin,
         string[] expected) =>
-        Types(withAddin).OpenablePatterns.Should().Equal(expected);
+        Types(withAddin).OpenablePatterns.Should().Equal(expected.Take(3).Concat(OfficePatterns).Concat(expected.Skip(3)));
 
     [Fact]
     public void The_existing_project_tab_offers_what_it_is_given()
     {
-        var browser = new FileBrowserViewModel();
-        browser.FileTypeFilters[0].Should().Be("Project Files (*.vbp, *.vbg, *.twinproj)", "as it always did, until told");
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Office.ProjectFiles").Returns("Project and Office files");
+        localization.GetString("Str.Office.AllFiles").Returns("All files");
+        var browser = new FileBrowserViewModel(localization);
+        var expected = new[] { "*.vbp", "*.vbg", "*.twinproj" }.Concat(OfficePatterns).ToArray();
+        browser.FileTypeFilters[0].Should().Be($"Project and Office files ({string.Join(", ", expected)})");
 
         browser.OfferProjects(Types(withAddin: true).OpenablePatterns);
 
-        browser.FileTypeFilters.Should().Equal("Project Files (*.vbp, *.vbg, *.twinproj, .rdproj)", "All Files (*.*)");
+        browser.FileTypeFilters.Should().Equal($"Project and Office files ({string.Join(", ", expected.Append(".rdproj"))})", "All files (*.*)");
     }
 
     [Fact]
@@ -139,7 +145,7 @@ public sealed class Vb6ProjectTemplatesTests
 
         await open.Should().ThrowAsync<OperationCanceledException>();
         asked!.FileTypeFilter!.Select(f => $"{f.Name}: {string.Join(" ", f.Patterns!)}").Should().Equal(
-            "Project Files: *.vbp *.vbg *.twinproj .rdproj",
+            $"Project Files: *.vbp *.vbg *.twinproj {string.Join(" ", OfficePatterns)} .rdproj",
             "Project Group: *.vbg",
             "Project: *.vbp",
             "RDCore projects: .rdproj",

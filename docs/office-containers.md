@@ -1,9 +1,9 @@
 # Office containers
 
 `IDE/HexIDE.Office` reads compound files and locates an Office document's VBA project
-([#4329](https://github.com/hexide-io/HexIDE/issues/4329)). It has no package dependencies or IDE callers.
+([#4329](https://github.com/hexide-io/HexIDE/issues/4329)). It has no package dependencies or dependency on the IDE.
 It also reads VBA project metadata and source ([#4330](https://github.com/hexide-io/HexIDE/issues/4330));
-IDE integration remains #4331. Legacy PowerPoint needs MS-PPT decoding and is refused with that reason.
+The IDE browses these projects read-only (#4331). Legacy PowerPoint needs MS-PPT decoding and is refused with that reason.
 
 The reader was authored from Microsoft's [MS-CFB specification](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-cfb/53989ce4-7b05-4f8d-829b-d08d6148375b),
 sections 2.2–2.7 (October 26, 2026 edition). It supports version 3 (512-byte sectors), version 4
@@ -96,5 +96,53 @@ English; the library adds no IDE chrome or localization keys.
 corpus build scripts, Japanese decoding, references, viewing locks, UserForms and equivalent Excel
 containers. Locked source hashes are checked through the decompressor separately from the public
 project model, which withholds source. Synthetic corruption and record-edge tests supplement these
-real-file checks. This adds no executable language surface: MISSING_LANGUAGE counts and IDE feature
-statuses are unchanged. 32-bit Office remains unmeasured; the supplied corpus was saved by 64-bit Office.
+real-file checks. The reader adds no executable language surface: MISSING_LANGUAGE counts are unchanged.
+IDE browsing is described below. 32-bit Office remains unmeasured; the supplied corpus was saved by 64-bit Office.
+
+## Browsing in the IDE
+
+File > Open Project, recent projects and `OpenProject(path)` accept `.xlsm`, `.xltm`, `.xlam`,
+`.xlsb`, `.docm`, `.dotm`, `.pptm`, `.potm`, `.ppsm`, `.ppam`, `.xls`, `.xlt`, `.xla`, `.doc` and
+`.dot`. These extensions are reserved for the container browser, alongside `.twinproj`; they are
+not writable project types. Legacy `.ppt` is not offered. Opening a container preserves the loaded
+workspace, including a project group. A missing VBA project names the document in a message; a
+reader refusal includes its reason. Neither failure enters the recent list.
+
+`IContainerProject` and `ContainerEntry` are the browser seam in `HexIDE/Projects`.
+`TwinBasicBrowserProject` adapts the existing immutable archive snapshot without changing the reader.
+`OfficeBrowserProject` copies names, kinds, source and reference labels from `VbaProject`, then
+releases the locator before publishing. No borrowed designer entry or file handle escapes that read.
+Open, reload and close use the same serialized lifecycle and read-only document handling. A failed
+reload retains the previous tree and tabs. No Office application is started and no document event runs.
+
+The root names the VBA project and document. Nonempty folders appear in this order: the host's
+objects (Excel, Word or PowerPoint), Forms, Modules, Class Modules, then References. References
+use their names, or their Libid when unnamed. A locked root is labelled locked, explains that code
+cannot be shown, and exposes no module nodes. Source tabs preserve the reader's decoded source,
+including Japanese in the supplied cp932 corpus. They cannot be edited or saved back (#1120).
+Each tab and the root tooltip explain that this is stored source: Office can execute the compiled
+p-code beside it when its version matches, so what runs can differ. UserForms open their code and
+carry an additional notice that the form designer isn't available here yet (it awaits #1114); the browser does not retain borrowed
+MS-OFORMS storages after disposal.
+
+Office source tabs get the same read-only language-server session as archive previews (#4453).
+The wire name appends VBA's export extension: `.bas` for standard modules, `.cls` for class and document
+modules, `.frm` for UserForms. `/Standard/Module1` remains the browser and `open_file` path; its wire URI is
+`archive-entry:/Standard/Module1.bas?container=…`, shared by the tab and `get_project_info`'s `entryUris`.
+Modules open as project members, so stored classes need no `VERSION 1.0 CLASS` header and only servers
+establishing VB6 receive them. Extension claims route them; the bundled server receives `languageId` `vb6`.
+Sessions send `didOpen` and `didClose`, with no changes, and close on tab/container close or reload.
+Locked projects have no modules and no sessions. Diagnostics appear as markers; no source is written back.
+F5, Run and Make cannot implicitly fall through to a loaded startup project while an Office node or tab
+is active; running Office code remains #1121. Synchronize Folder, Show Hidden, twinBASIC metadata and
+inactive-line shading remain twinBASIC capabilities.
+
+`OfficeProjectBrowsingTests` use the [measured Office corpus](../corpus/office/m365-x64/README.md).
+Headless `ArchiveProjectBrowsingTests` exercise the tree, text notice, diagnostic markers, session lifetime
+and composition's run refusal. `OfficeModuleSessionTests` check real bundled-server frames and a VBA7
+`PtrSafe` declaration; `OfficeModuleCorpusTests` check every module in the eight #4453 corpus files publishes
+no diagnostics.
+Verified on the running IDE at review (#4331's pull request): each host's folders, the locked root,
+source and UserForm notices, the read-only editor, disabled run and build commands, and no
+twinBASIC-only controls.
+No executable language surface changes; MISSING_LANGUAGE counts are unchanged.

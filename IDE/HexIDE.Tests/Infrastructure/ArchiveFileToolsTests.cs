@@ -45,6 +45,27 @@ public sealed class ArchiveFileToolsTests : IDisposable
         tools = new HexIdeTools(context);
     }
 
+    [AvaloniaFact]
+    public async Task Office_modules_are_listed_and_opened_readonly_by_automation()
+    {
+        var path = HexIDE.Tests.Projects.OfficeProjectBrowsingTests.CorpusFile("basic.xlsm");
+        await archives.Open(path);
+        var reply = await tools.GetProjectInfoAsync(TestContext.Current.CancellationToken);
+        var listed = JsonSerializer.SerializeToElement(reply).GetProperty("Projects")[0];
+        listed.GetProperty("Path").GetString().Should().Be(path);
+        listed.GetProperty("Entries").EnumerateArray().Select(e => e.GetString()).Should().Contain("/Standard/Module1");
+        var opened = await tools.OpenFileAsync("/Standard/Module1", project: path, line: 1);
+        opened.Success.Should().BeTrue(opened.Error);
+        opened.Note.Should().Contain("Language servers know it as Module1.bas");
+        var tab = tabs.OfType<ArchiveDocumentViewModel>().Single();
+        tab.Document.Text.Should().Contain("Option Explicit");
+        tab.IsReadOnlyDocument.Should().BeTrue();
+        var entryUris = listed.GetProperty("EntryUris").EnumerateArray();
+        entryUris.Single(e => e.GetProperty("Path").GetString() == "/Standard/Module1")
+            .GetProperty("Uri").GetString().Should().Be(tab.DocumentUri);
+        tab.DocumentUri.Should().Contain("/Standard/Module1.bas?");
+    }
+
     [AvaloniaTheory]
     [InlineData("Example.vbp", false)]
     [InlineData("Group.vbg", true)]
