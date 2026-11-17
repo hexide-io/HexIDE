@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "Pēc {0} jānorāda Windows kodu lapas numurs, piemēram, {1}, bet saņemts '{2}'. {3} nav palaista: failu lasīšana šī datora kodu lapā radītu iespaidu, ka karodziņš ir darbojies.",
     "Str.Startup.DpiUnaware": "{0} darbojas tikai sistēmā Windows. {1} nav palaista, lai tā netiktu palaista displeja mērogā, radot iespaidu, ka karodziņš ir darbojies. Sistēmā Linux Avalonia X11 platforma tā vietā nolasa {2}.",
     "Str.Startup.BrandingError": "Šīs instalācijas zīmola datus nevar izmantot, tāpēc IDE netika palaista un netika atvērti nekādi iestatījumu, žurnālu vai atkopšanas faili. {0}",
-    "Str.Startup.CannotStart": "Nevar palaist"
+    "Str.Startup.CannotStart": "Nevar palaist",
+    "Str.Office.ProjectFiles": "Projektu un Office faili",
+    "Str.Office.AllFiles": "Visi faili",
+    "Str.Office.SourceNotice": "Tikai lasāms. Parādītais kods ir dokumentā saglabātais pirmkods. Office izpilda blakus saglabāto kompilēto p-kodu, ja tā versija atbilst, tāpēc izpildītais kods var atšķirties.",
+    "Str.Office.FormNotice": "Tikai lasāms. Parādītais kods ir dokumentā saglabātais pirmkods. Office izpilda blakus saglabāto kompilēto p-kodu, ja tā versija atbilst, tāpēc izpildītais kods var atšķirties. Veidlapu noformētājs šeit vēl nav pieejams.",
+    "Str.Office.Forms": "Veidlapas",
+    "Str.Office.Modules": "Moduļi",
+    "Str.Office.Classes": "Klašu moduļi",
+    "Str.Office.References": "Atsauces",
+    "Str.Office.ExcelObjects": "Microsoft Excel Objekti",
+    "Str.Office.WordObjects": "Microsoft Word Objekti",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint Objekti",
+    "Str.Office.DocumentObjects": "Dokumenta objekti",
+    "Str.Office.LockedMessage": "VBA projekts ir bloķēts, un tā kodu nevar parādīt.",
+    "Str.Office.LockedCaption": "{0} ({1}) — bloķēts",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} nav VBA projekta."
   }
 }

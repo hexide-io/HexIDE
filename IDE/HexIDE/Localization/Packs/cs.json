@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "Za {0} musí následovat číslo kódové stránky Windows, například {1}, ale bylo zadáno '{2}'. {3} se nespustilo: čtení souborů pomocí vlastní kódové stránky tohoto počítače by budilo dojem, že přepínač fungoval.",
     "Str.Startup.DpiUnaware": "{0} funguje pouze ve Windows. {1} se nespustilo, aby nepoužilo vlastní měřítko displeje a nebudilo dojem, že přepínač fungoval. V Linuxu platforma X11 frameworku Avalonia místo toho čte {2}.",
     "Str.Startup.BrandingError": "Značku této instalace nelze použít, proto se IDE nespustilo a nebyly otevřeny žádné soubory nastavení, protokolů ani obnovení. {0}",
-    "Str.Startup.CannotStart": "Nelze spustit"
+    "Str.Startup.CannotStart": "Nelze spustit",
+    "Str.Office.ProjectFiles": "Soubory projektů a Office",
+    "Str.Office.AllFiles": "Všechny soubory",
+    "Str.Office.SourceNotice": "Jen pro čtení. Zobrazený kód je zdrojový kód uložený v dokumentu. Office spouští zkompilovaný p-code uložený vedle něj, pokud jeho verze odpovídá, takže spouštěný kód se může lišit.",
+    "Str.Office.FormNotice": "Jen pro čtení. Zobrazený kód je zdrojový kód uložený v dokumentu. Office spouští zkompilovaný p-code uložený vedle něj, pokud jeho verze odpovídá, takže spouštěný kód se může lišit. Návrhář formulářů zde zatím není k dispozici.",
+    "Str.Office.Forms": "Formuláře",
+    "Str.Office.Modules": "Moduly",
+    "Str.Office.Classes": "Moduly tříd",
+    "Str.Office.References": "Odkazy",
+    "Str.Office.ExcelObjects": "Microsoft Excel Objekty",
+    "Str.Office.WordObjects": "Microsoft Word Objekty",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint Objekty",
+    "Str.Office.DocumentObjects": "Objekty dokumentu",
+    "Str.Office.LockedMessage": "Projekt VBA je uzamčen a jeho kód nelze zobrazit.",
+    "Str.Office.LockedCaption": "{0} ({1}) — uzamčeno",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} nemá projekt VBA."
   }
 }

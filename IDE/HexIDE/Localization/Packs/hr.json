@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "Iza {0} mora slijediti broj kodne stranice sustava Windows, primjerice {1}, a primljeno je '{2}'. {3} nije pokrenut: čitanje datoteka u kodnoj stranici ovog računala umjesto toga izgledalo bi kao da je zastavica djelovala.",
     "Str.Startup.DpiUnaware": "{0} radi samo u sustavu Windows. {1} nije pokrenut kako se ne bi pokrenuo u vlastitom mjerilu zaslona i izgledao kao da je zastavica djelovala. U Linuxu platforma X11 za Avalonia umjesto toga čita {2}.",
     "Str.Startup.BrandingError": "Identitet robne marke ove instalacije ne može se upotrijebiti pa IDE nije pokrenut i nisu otvorene datoteke postavki, zapisnika ni oporavka. {0}",
-    "Str.Startup.CannotStart": "Pokretanje nije moguće"
+    "Str.Startup.CannotStart": "Pokretanje nije moguće",
+    "Str.Office.ProjectFiles": "Datoteke projekata i sustava Office",
+    "Str.Office.AllFiles": "Sve datoteke",
+    "Str.Office.SourceNotice": "Samo za čitanje. Prikazani kod izvorni je kod pohranjen u dokumentu. Office izvršava prevedeni p-code pohranjen uz njega kada se njegova verzija podudara, pa se izvršeni kod može razlikovati.",
+    "Str.Office.FormNotice": "Samo za čitanje. Prikazani kod izvorni je kod pohranjen u dokumentu. Office izvršava prevedeni p-code pohranjen uz njega kada se njegova verzija podudara, pa se izvršeni kod može razlikovati. Dizajner obrazaca ovdje još nije dostupan.",
+    "Str.Office.Forms": "Obrasci",
+    "Str.Office.Modules": "Moduli",
+    "Str.Office.Classes": "Moduli klasa",
+    "Str.Office.References": "Reference",
+    "Str.Office.ExcelObjects": "Microsoft Excel Objekti",
+    "Str.Office.WordObjects": "Microsoft Word Objekti",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint Objekti",
+    "Str.Office.DocumentObjects": "Objekti dokumenta",
+    "Str.Office.LockedMessage": "Projekt VBA je zaključan i njegov se kod ne može prikazati.",
+    "Str.Office.LockedCaption": "{0} ({1}) — zaključano",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} nema projekt VBA."
   }
 }

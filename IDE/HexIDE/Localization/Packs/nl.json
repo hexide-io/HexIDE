@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "Na {0} moet een Windows-codepaginanummer volgen, zoals {1}, maar '{2}' is opgegeven. {3} is niet gestart: bestanden lezen met de eigen codepagina van deze computer zou de indruk wekken dat de vlag heeft gewerkt.",
     "Str.Startup.DpiUnaware": "{0} werkt alleen op Windows. {1} is niet gestart, om te voorkomen dat het met de eigen schaal van het scherm wordt gestart en de indruk wekt dat de vlag heeft gewerkt. Op Linux leest het X11-platform van Avalonia in plaats daarvan {2}.",
     "Str.Startup.BrandingError": "De merkgegevens van deze installatie kunnen niet worden gebruikt. Daarom is de IDE niet gestart en zijn er geen instellingen-, logboek- of herstelbestanden geopend. {0}",
-    "Str.Startup.CannotStart": "Kan niet starten"
+    "Str.Startup.CannotStart": "Kan niet starten",
+    "Str.Office.ProjectFiles": "Project- en Office-bestanden",
+    "Str.Office.AllFiles": "Alle bestanden",
+    "Str.Office.SourceNotice": "Alleen-lezen. De getoonde code is de broncode die in het document is opgeslagen. Office voert de daarnaast opgeslagen gecompileerde p-code uit wanneer de versie overeenkomt, dus de uitgevoerde code kan afwijken.",
+    "Str.Office.FormNotice": "Alleen-lezen. De getoonde code is de broncode die in het document is opgeslagen. Office voert de daarnaast opgeslagen gecompileerde p-code uit wanneer de versie overeenkomt, dus de uitgevoerde code kan afwijken. De formulierontwerper is hier nog niet beschikbaar.",
+    "Str.Office.Forms": "Formulieren",
+    "Str.Office.Modules": "Modules",
+    "Str.Office.Classes": "Klassenmodules",
+    "Str.Office.References": "Verwijzingen",
+    "Str.Office.ExcelObjects": "Microsoft Excel-objecten",
+    "Str.Office.WordObjects": "Microsoft Word-objecten",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint-objecten",
+    "Str.Office.DocumentObjects": "Documentobjecten",
+    "Str.Office.LockedMessage": "Het VBA-project is vergrendeld en de code kan niet worden weergegeven.",
+    "Str.Office.LockedCaption": "{0} ({1}) — vergrendeld",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} bevat geen VBA-project."
   }
 }

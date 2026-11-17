@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} 後需要提供 Windows 字碼頁編號，例如 {1}，但收到的是「{2}」。{3} 未啟動：若改用此電腦本身的字碼頁讀取檔案，會讓人誤以為該旗標已生效。",
     "Str.Startup.DpiUnaware": "{0} 僅適用於 Windows。{1} 未啟動，以免以顯示器本身的縮放比例啟動，讓人誤以為該旗標已生效。在 Linux 上，Avalonia 的 X11 平台會改為讀取 {2}。",
     "Str.Startup.BrandingError": "無法使用此安裝的品牌識別，因此 IDE 未啟動，也未開啟任何設定、記錄或復原檔案。{0}",
-    "Str.Startup.CannotStart": "無法啟動"
+    "Str.Startup.CannotStart": "無法啟動",
+    "Str.Office.ProjectFiles": "專案與 Office 檔案",
+    "Str.Office.AllFiles": "所有檔案",
+    "Str.Office.SourceNotice": "唯讀。顯示的程式碼是文件中儲存的原始碼。當版本相符時，Office 會執行儲存在其旁邊的已編譯 p-code，因此實際執行的程式碼可能不同。",
+    "Str.Office.FormNotice": "唯讀。顯示的程式碼是文件中儲存的原始碼。當版本相符時，Office 會執行儲存在其旁邊的已編譯 p-code，因此實際執行的程式碼可能不同。 表單設計工具在此尚無法使用。",
+    "Str.Office.Forms": "表單",
+    "Str.Office.Modules": "模組",
+    "Str.Office.Classes": "類別模組",
+    "Str.Office.References": "參照",
+    "Str.Office.ExcelObjects": "Microsoft Excel 物件",
+    "Str.Office.WordObjects": "Microsoft Word 物件",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint 物件",
+    "Str.Office.DocumentObjects": "文件物件",
+    "Str.Office.LockedMessage": "VBA 專案已鎖定，無法顯示其程式碼。",
+    "Str.Office.LockedCaption": "{0} ({1}) — 已鎖定",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} 沒有 VBA 專案。"
   }
 }

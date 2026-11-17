@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} needs a Windows code page number after it, such as {1}, and got '{2}'. {3} has not started: reading files in this machine's own code page instead would look as though the flag had worked.",
     "Str.Startup.DpiUnaware": "{0} works on Windows only. {1} has not started, rather than start at the display's own scale and look as though the flag had worked. On Linux, Avalonia's X11 platform reads {2} instead.",
     "Str.Startup.BrandingError": "This installation's branding cannot be used, so the IDE has not started and no settings, logs or recovery files were opened. {0}",
-    "Str.Startup.CannotStart": "Cannot start"
+    "Str.Startup.CannotStart": "Cannot start",
+    "Str.Office.ProjectFiles": "Project and Office files",
+    "Str.Office.AllFiles": "All files",
+    "Str.Office.SourceNotice": "Read-only. The code shown is the source stored in the document. Office runs the compiled p-code stored beside it when its version matches, so what runs may differ.",
+    "Str.Office.FormNotice": "Read-only. The code shown is the source stored in the document. Office runs the compiled p-code stored beside it when its version matches, so what runs may differ. The form designer isn't available here yet.",
+    "Str.Office.Forms": "Forms",
+    "Str.Office.Modules": "Modules",
+    "Str.Office.Classes": "Class Modules",
+    "Str.Office.References": "References",
+    "Str.Office.ExcelObjects": "Microsoft Excel Objects",
+    "Str.Office.WordObjects": "Microsoft Word Objects",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint Objects",
+    "Str.Office.DocumentObjects": "Document Objects",
+    "Str.Office.LockedMessage": "The VBA project is locked and its code cannot be shown.",
+    "Str.Office.LockedCaption": "{0} ({1}) — locked",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} has no VBA project."
   }
 }

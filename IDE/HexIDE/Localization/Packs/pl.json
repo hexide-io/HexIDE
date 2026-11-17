@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "Po {0} należy podać numer strony kodowej Windows, na przykład {1}, ale otrzymano '{2}'. {3} nie został uruchomiony: odczytywanie plików w stronie kodowej tego komputera sprawiałoby wrażenie, że flaga zadziałała.",
     "Str.Startup.DpiUnaware": "{0} działa tylko w systemie Windows. {1} nie został uruchomiony, aby uniknąć uruchomienia w skali ekranu i stworzenia wrażenia, że flaga zadziałała. W systemie Linux platforma X11 biblioteki Avalonia odczytuje zamiast tego {2}.",
     "Str.Startup.BrandingError": "Nie można użyć oznaczenia marki tej instalacji, więc IDE nie zostało uruchomione i nie otwarto żadnych plików ustawień, dzienników ani odzyskiwania. {0}",
-    "Str.Startup.CannotStart": "Nie można uruchomić"
+    "Str.Startup.CannotStart": "Nie można uruchomić",
+    "Str.Office.ProjectFiles": "Pliki projektów i pakietu Office",
+    "Str.Office.AllFiles": "Wszystkie pliki",
+    "Str.Office.SourceNotice": "Tylko do odczytu. Wyświetlany kod to kod źródłowy zapisany w dokumencie. Office uruchamia zapisany obok niego skompilowany p-code, gdy jego wersja jest zgodna, więc wykonywany kod może się różnić.",
+    "Str.Office.FormNotice": "Tylko do odczytu. Wyświetlany kod to kod źródłowy zapisany w dokumencie. Office uruchamia zapisany obok niego skompilowany p-code, gdy jego wersja jest zgodna, więc wykonywany kod może się różnić. Projektant formularzy nie jest tu jeszcze dostępny.",
+    "Str.Office.Forms": "Formularze",
+    "Str.Office.Modules": "Moduły",
+    "Str.Office.Classes": "Moduły klas",
+    "Str.Office.References": "Odwołania",
+    "Str.Office.ExcelObjects": "Microsoft Excel Obiekty",
+    "Str.Office.WordObjects": "Microsoft Word Obiekty",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint Obiekty",
+    "Str.Office.DocumentObjects": "Obiekty dokumentu",
+    "Str.Office.LockedMessage": "Projekt VBA jest zablokowany i nie można wyświetlić jego kodu.",
+    "Str.Office.LockedCaption": "{0} ({1}) — zablokowany",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} nie zawiera projektu VBA."
   }
 }

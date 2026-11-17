@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "A(z) {0} után Windows-kódlapszámot kell megadni, például {1}, de ezt kapta: '{2}'. A(z) {3} nem indult el: a fájlok e gép saját kódlapjával való olvasása azt a látszatot keltené, hogy a kapcsoló működött.",
     "Str.Startup.DpiUnaware": "A(z) {0} csak Windowson működik. A(z) {1} nem indult el, hogy ne a kijelző saját méretezésével induljon, azt a látszatot keltve, hogy a kapcsoló működött. Linuxon az Avalonia X11 platformja ehelyett ezt olvassa: {2}.",
     "Str.Startup.BrandingError": "A telepítés márkaadatai nem használhatók, ezért az IDE nem indult el, és nem nyíltak meg beállítás-, napló- vagy helyreállítási fájlok. {0}",
-    "Str.Startup.CannotStart": "Nem indítható el"
+    "Str.Startup.CannotStart": "Nem indítható el",
+    "Str.Office.ProjectFiles": "Projekt- és Office-fájlok",
+    "Str.Office.AllFiles": "Minden fájl",
+    "Str.Office.SourceNotice": "Csak olvasható. A megjelenített kód a dokumentumban tárolt forráskód. Az Office a mellette tárolt lefordított p-kódot futtatja, ha annak verziója egyezik, így a futtatott kód eltérhet.",
+    "Str.Office.FormNotice": "Csak olvasható. A megjelenített kód a dokumentumban tárolt forráskód. Az Office a mellette tárolt lefordított p-kódot futtatja, ha annak verziója egyezik, így a futtatott kód eltérhet. Az űrlaptervező itt még nem érhető el.",
+    "Str.Office.Forms": "Űrlapok",
+    "Str.Office.Modules": "Modulok",
+    "Str.Office.Classes": "Osztálymodulok",
+    "Str.Office.References": "Hivatkozások",
+    "Str.Office.ExcelObjects": "Microsoft Excel-objektumok",
+    "Str.Office.WordObjects": "Microsoft Word-objektumok",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint-objektumok",
+    "Str.Office.DocumentObjects": "Dokumentumobjektumok",
+    "Str.Office.LockedMessage": "A VBA-projekt zárolva van, és a kódja nem jeleníthető meg.",
+    "Str.Office.LockedCaption": "{0} ({1}) — zárolva",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "A(z) {0} nem tartalmaz VBA-projektet."
   }
 }

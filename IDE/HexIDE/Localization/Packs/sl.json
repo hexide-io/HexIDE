@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "Za {0} je potrebna številka kodne strani Windows, na primer {1}, podano pa je bilo »{2}«. {3} se ni zagnal: branje datotek z lastno kodno stranjo tega računalnika bi ustvarilo vtis, da je zastavica delovala.",
     "Str.Startup.DpiUnaware": "{0} deluje samo v sistemu Windows. {1} se ni zagnal, da zagon z lastnim merilom zaslona ne bi ustvaril vtisa, da je zastavica delovala. V Linuxu platforma X11 ogrodja Avalonia namesto tega bere {2}.",
     "Str.Startup.BrandingError": "Podatkov o blagovni znamki te namestitve ni mogoče uporabiti, zato se IDE ni zagnal in ni odprl datotek z nastavitvami, dnevniki ali podatki za obnovitev. {0}",
-    "Str.Startup.CannotStart": "Zagon ni mogoč"
+    "Str.Startup.CannotStart": "Zagon ni mogoč",
+    "Str.Office.ProjectFiles": "Datoteke projektov in Office",
+    "Str.Office.AllFiles": "Vse datoteke",
+    "Str.Office.SourceNotice": "Samo za branje. Prikazana koda je izvorna koda, shranjena v dokumentu. Office izvaja prevedeno p-kodo, shranjeno ob njej, ko se njena različica ujema, zato se lahko izvajana koda razlikuje.",
+    "Str.Office.FormNotice": "Samo za branje. Prikazana koda je izvorna koda, shranjena v dokumentu. Office izvaja prevedeno p-kodo, shranjeno ob njej, ko se njena različica ujema, zato se lahko izvajana koda razlikuje. Načrtovalnik obrazcev tu še ni na voljo.",
+    "Str.Office.Forms": "Obrazci",
+    "Str.Office.Modules": "Moduli",
+    "Str.Office.Classes": "Moduli razredov",
+    "Str.Office.References": "Sklici",
+    "Str.Office.ExcelObjects": "Microsoft Excel Predmeti",
+    "Str.Office.WordObjects": "Microsoft Word Predmeti",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint Predmeti",
+    "Str.Office.DocumentObjects": "Predmeti dokumenta",
+    "Str.Office.LockedMessage": "Projekt VBA je zaklenjen in njegove kode ni mogoče prikazati.",
+    "Str.Office.LockedCaption": "{0} ({1}) — zaklenjeno",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} nima projekta VBA."
   }
 }

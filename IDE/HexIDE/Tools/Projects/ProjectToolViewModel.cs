@@ -26,6 +26,7 @@ public partial class ProjectToolViewModel : Tool
     private readonly ArchiveProjectService? archives;
     private bool synchronizingArchiveFolder;
     public bool HasArchiveSelection => SelectedItem is ArchiveTreeNode;
+    public bool HasSynchronizableArchiveSelection => SelectedItem is ArchiveTreeNode { CanSynchronizeFolder: true };
     [Notify] private bool showHiddenArchiveEntries;
     private void OnShowHiddenArchiveEntriesChanged() => RebuildRootItems();
     private Dictionary<ProjectDefinition, ProjectViewModel> projectToViewModel = new();
@@ -33,7 +34,7 @@ public partial class ProjectToolViewModel : Tool
     public ObservableCollection<ProjectViewModel> LoadedProjects { get; } = new();
     public ObservableCollection<object> RootItems { get; } = new();
 
-    [Notify] [AlsoNotify(nameof(HasArchiveSelection), nameof(SelectedForm), nameof(SelectedProject), nameof(SelectedFormOrFormPart), nameof(SelectedModule), nameof(ProjectPropertiesHeader), nameof(SaveFormHeader), nameof(SaveFormAsHeader), nameof(RemoveFormHeader), nameof(HasRemovableSelection))] private object? selectedItem;
+    [Notify] [AlsoNotify(nameof(HasArchiveSelection), nameof(HasSynchronizableArchiveSelection), nameof(SelectedForm), nameof(SelectedProject), nameof(SelectedFormOrFormPart), nameof(SelectedModule), nameof(ProjectPropertiesHeader), nameof(SaveFormHeader), nameof(SaveFormAsHeader), nameof(RemoveFormHeader), nameof(HasRemovableSelection))] private object? selectedItem;
 
     public FormViewModel? SelectedForm
     {
@@ -124,7 +125,7 @@ public partial class ProjectToolViewModel : Tool
         CanPin = false;
         CanClose = true;
         SynchronizeArchiveFolderCommand = new DelegateCommand(() => SynchronizeArchiveFolder().ListenErrors(),
-            () => archives != null && HasArchiveSelection && !synchronizingArchiveFolder);
+            () => archives != null && HasSynchronizableArchiveSelection && !synchronizingArchiveFolder);
 
         ViewObjectCommand = new DelegateCommand(() =>
         {
@@ -209,7 +210,10 @@ public partial class ProjectToolViewModel : Tool
             foreach (var project in archives.Projects)
             {
                 var root = new ArchiveTreeNode(project.Root, ShowHiddenArchiveEntries,
-                    string.Format(localization.GetString("Str.Archive.ProjectFormat"), project.Name));
+                    project.CanSynchronizeFolder
+                        ? string.Format(localization.GetString("Str.Archive.ProjectFormat"), project.Name)
+                        : string.Format(localization.GetString(project.IsLocked ? "Str.Office.LockedCaption" : "Str.Office.ProjectCaption"), project.Name, System.IO.Path.GetFileName(project.ContainerPath)),
+                    localization, project.NoticeKey is { } key ? localization.GetString(key) : null, project.CanSynchronizeFolder);
                 foreach (var node in WalkArchive(root))
                     if (previous.TryGetValue(node.Entry.Identity, out var old)) node.IsExpanded = old.IsExpanded;
                 RootItems.Add(root);
@@ -289,7 +293,7 @@ public partial class ProjectToolViewModel : Tool
 
     public void OpenSelected()
     {
-        if (selectedItem is ArchiveTreeNode archive && archive.Entry is HexIDE.TwinBasic.ArchiveProjectDocument)
+        if (selectedItem is ArchiveTreeNode archive && archive.Entry.IsDocument)
         {
             archives?.OpenDocument(archive.Entry);
         }
@@ -368,7 +372,7 @@ public partial class ProjectToolViewModel : Tool
 
     public async Task SynchronizeArchiveFolder()
     {
-        if (archives == null || synchronizingArchiveFolder || selectedItem is not ArchiveTreeNode node) return;
+        if (archives == null || synchronizingArchiveFolder || selectedItem is not ArchiveTreeNode { CanSynchronizeFolder: true } node) return;
         synchronizingArchiveFolder = true;
         SynchronizeArchiveFolderCommand.RaiseCanExecutedChanged();
         try { await archives.SynchronizeFolder(node.Entry.Identity.ContainerPath); }

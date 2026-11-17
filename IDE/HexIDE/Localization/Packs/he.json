@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} דורש מספר דף קוד של Windows אחריו, כגון {1}, אך התקבל '{2}'. {3} לא הופעל: קריאת קבצים בדף הקוד של המחשב במקום זאת הייתה יוצרת רושם שהדגל פעל.",
     "Str.Startup.DpiUnaware": "{0} פועל ב־Windows בלבד. {1} לא הופעל, כדי למנוע הפעלה בקנה המידה של התצוגה ויצירת רושם שהדגל פעל. ב־Linux, פלטפורמת X11 של Avalonia קוראת את {2} במקום זאת.",
     "Str.Startup.BrandingError": "לא ניתן להשתמש במיתוג של התקנה זו, ולכן סביבת הפיתוח לא הופעלה ולא נפתחו קובצי הגדרות, יומן או שחזור. {0}",
-    "Str.Startup.CannotStart": "לא ניתן להפעיל"
+    "Str.Startup.CannotStart": "לא ניתן להפעיל",
+    "Str.Office.ProjectFiles": "קובצי פרויקט ו־Office",
+    "Str.Office.AllFiles": "כל הקבצים",
+    "Str.Office.SourceNotice": "לקריאה בלבד. הקוד המוצג הוא קוד המקור המאוחסן במסמך. Office מריץ את קוד ה־p-code המהודר המאוחסן לצדו כאשר הגרסה שלו תואמת, ולכן הקוד שרץ עשוי להיות שונה.",
+    "Str.Office.FormNotice": "לקריאה בלבד. הקוד המוצג הוא קוד המקור המאוחסן במסמך. Office מריץ את קוד ה־p-code המהודר המאוחסן לצדו כאשר הגרסה שלו תואמת, ולכן הקוד שרץ עשוי להיות שונה. מעצב הטפסים עדיין אינו זמין כאן.",
+    "Str.Office.Forms": "טפסים",
+    "Str.Office.Modules": "מודולים",
+    "Str.Office.Classes": "מודולי מחלקה",
+    "Str.Office.References": "הפניות",
+    "Str.Office.ExcelObjects": "אובייקטים Microsoft Excel",
+    "Str.Office.WordObjects": "אובייקטים Microsoft Word",
+    "Str.Office.PowerPointObjects": "אובייקטים Microsoft PowerPoint",
+    "Str.Office.DocumentObjects": "אובייקטי מסמך",
+    "Str.Office.LockedMessage": "פרויקט ה־VBA נעול ולא ניתן להציג את הקוד שלו.",
+    "Str.Office.LockedCaption": "{0} ({1}) — נעול",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "אין פרויקט VBA ב־{0}."
   }
 }

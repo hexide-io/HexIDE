@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "Після {0} потрібен номер кодової сторінки Windows, наприклад {1}, отримано «{2}». {3} не запущено: читання файлів у власній кодовій сторінці цього комп’ютера створило б враження, що прапорець спрацював.",
     "Str.Startup.DpiUnaware": "{0} працює лише у Windows. {1} не запущено, щоб запуск із власним масштабом дисплея не створював враження, що прапорець спрацював. У Linux платформа X11 Avalonia натомість читає {2}.",
     "Str.Startup.BrandingError": "Фірмове оформлення цього встановлення неможливо використати, тому IDE не запущено й файли налаштувань, журналів і відновлення не відкривалися. {0}",
-    "Str.Startup.CannotStart": "Неможливо запустити"
+    "Str.Startup.CannotStart": "Неможливо запустити",
+    "Str.Office.ProjectFiles": "Файли проєктів і Office",
+    "Str.Office.AllFiles": "Усі файли",
+    "Str.Office.SourceNotice": "Лише для читання. Показано вихідний код, збережений у документі. Office виконує збережений поруч із ним скомпільований p-code, якщо його версія збігається, тому виконуваний код може відрізнятися.",
+    "Str.Office.FormNotice": "Лише для читання. Показано вихідний код, збережений у документі. Office виконує збережений поруч із ним скомпільований p-code, якщо його версія збігається, тому виконуваний код може відрізнятися. Конструктор форм тут поки що недоступний.",
+    "Str.Office.Forms": "Форми",
+    "Str.Office.Modules": "Модулі",
+    "Str.Office.Classes": "Модулі класів",
+    "Str.Office.References": "Посилання",
+    "Str.Office.ExcelObjects": "Microsoft Excel Об’єкти",
+    "Str.Office.WordObjects": "Microsoft Word Об’єкти",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint Об’єкти",
+    "Str.Office.DocumentObjects": "Об’єкти документа",
+    "Str.Office.LockedMessage": "Проєкт VBA заблоковано, і його код неможливо показати.",
+    "Str.Office.LockedCaption": "{0} ({1}) — заблоковано",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "У {0} немає проєкту VBA."
   }
 }

@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} krever et Windows-kodesidenummer etter seg, for eksempel {1}, men fikk '{2}'. {3} har ikke startet: å lese filer med denne maskinens egen kodeside i stedet ville få det til å se ut som om flagget virket.",
     "Str.Startup.DpiUnaware": "{0} virker bare på Windows. {1} har ikke startet, for å unngå å starte med skjermens egen skalering og få det til å se ut som om flagget virket. På Linux leser Avalonias X11-plattform {2} i stedet.",
     "Str.Startup.BrandingError": "Merkevareinformasjonen for denne installasjonen kan ikke brukes, så IDE-en er ikke startet, og ingen innstillings-, logg- eller gjenopprettingsfiler er åpnet. {0}",
-    "Str.Startup.CannotStart": "Kan ikke starte"
+    "Str.Startup.CannotStart": "Kan ikke starte",
+    "Str.Office.ProjectFiles": "Prosjekt- og Office-filer",
+    "Str.Office.AllFiles": "Alle filer",
+    "Str.Office.SourceNotice": "Skrivebeskyttet. Koden som vises, er kildekoden som er lagret i dokumentet. Office kjører den kompilerte p-koden som er lagret ved siden av når versjonen samsvarer, så koden som kjøres, kan være annerledes.",
+    "Str.Office.FormNotice": "Skrivebeskyttet. Koden som vises, er kildekoden som er lagret i dokumentet. Office kjører den kompilerte p-koden som er lagret ved siden av når versjonen samsvarer, så koden som kjøres, kan være annerledes. Skjemautformeren er ikke tilgjengelig her ennå.",
+    "Str.Office.Forms": "Skjemaer",
+    "Str.Office.Modules": "Moduler",
+    "Str.Office.Classes": "Klassemoduler",
+    "Str.Office.References": "Referanser",
+    "Str.Office.ExcelObjects": "Microsoft Excel-objekter",
+    "Str.Office.WordObjects": "Microsoft Word-objekter",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint-objekter",
+    "Str.Office.DocumentObjects": "Dokumentobjekter",
+    "Str.Office.LockedMessage": "VBA-prosjektet er låst, og koden kan ikke vises.",
+    "Str.Office.LockedCaption": "{0} ({1}) — låst",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} har ikke noe VBA-prosjekt."
   }
 }

@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} precisa un número de páxina de códigos de Windows a continuación, como {1}, pero recibiu «{2}». {3} non se iniciou: ler os ficheiros coa páxina de códigos deste equipo daría a impresión de que a opción funcionara.",
     "Str.Startup.DpiUnaware": "{0} só funciona en Windows. {1} non se iniciou para evitar usar a escala da pantalla e dar a impresión de que a opción funcionara. En Linux, a plataforma X11 de Avalonia le {2} no seu lugar.",
     "Str.Startup.BrandingError": "Non se pode usar a identidade de marca desta instalación, polo que o IDE non se iniciou nin se abriron ficheiros de configuración, rexistro ou recuperación. {0}",
-    "Str.Startup.CannotStart": "Non se pode iniciar"
+    "Str.Startup.CannotStart": "Non se pode iniciar",
+    "Str.Office.ProjectFiles": "Ficheiros de proxecto e Office",
+    "Str.Office.AllFiles": "Todos os ficheiros",
+    "Str.Office.SourceNotice": "Só de lectura. O código mostrado é o código fonte gardado no documento. Office executa o p-code compilado gardado ao seu carón cando a súa versión coincide, polo que o código executado pode ser diferente.",
+    "Str.Office.FormNotice": "Só de lectura. O código mostrado é o código fonte gardado no documento. Office executa o p-code compilado gardado ao seu carón cando a súa versión coincide, polo que o código executado pode ser diferente. O deseñador de formularios aínda non está dispoñible aquí.",
+    "Str.Office.Forms": "Formularios",
+    "Str.Office.Modules": "Módulos",
+    "Str.Office.Classes": "Módulos de clase",
+    "Str.Office.References": "Referencias",
+    "Str.Office.ExcelObjects": "Obxectos Microsoft Excel",
+    "Str.Office.WordObjects": "Obxectos Microsoft Word",
+    "Str.Office.PowerPointObjects": "Obxectos Microsoft PowerPoint",
+    "Str.Office.DocumentObjects": "Obxectos do documento",
+    "Str.Office.LockedMessage": "O proxecto VBA está bloqueado e non se pode mostrar o seu código.",
+    "Str.Office.LockedCaption": "{0} ({1}) — bloqueado",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} non contén ningún proxecto VBA."
   }
 }

@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} vaatii peräänsä Windows-koodisivun numeron, kuten {1}, mutta sai arvon '{2}'. {3} ei käynnistynyt: tiedostojen lukeminen tämän koneen omalla koodisivulla antaisi vaikutelman, että valitsin toimi.",
     "Str.Startup.DpiUnaware": "{0} toimii vain Windowsissa. {1} ei käynnistynyt, jotta näytön oman skaalauksen käyttäminen ei antaisi vaikutelmaa, että valitsin toimi. Linuxissa Avalonian X11-alusta lukee sen sijaan arvon {2}.",
     "Str.Startup.BrandingError": "Tämän asennuksen bränditietoja ei voi käyttää, joten IDE:tä ei käynnistetty eikä asetus-, loki- tai palautustiedostoja avattu. {0}",
-    "Str.Startup.CannotStart": "Ei voida käynnistää"
+    "Str.Startup.CannotStart": "Ei voida käynnistää",
+    "Str.Office.ProjectFiles": "Projekti- ja Office-tiedostot",
+    "Str.Office.AllFiles": "Kaikki tiedostot",
+    "Str.Office.SourceNotice": "Vain luku. Näytetty koodi on asiakirjaan tallennettu lähdekoodi. Office suorittaa sen viereen tallennetun käännetyn p-koodin, kun sen versio täsmää, joten suoritettava koodi voi poiketa näytetystä.",
+    "Str.Office.FormNotice": "Vain luku. Näytetty koodi on asiakirjaan tallennettu lähdekoodi. Office suorittaa sen viereen tallennetun käännetyn p-koodin, kun sen versio täsmää, joten suoritettava koodi voi poiketa näytetystä. Lomakesuunnittelija ei ole vielä käytettävissä tässä.",
+    "Str.Office.Forms": "Lomakkeet",
+    "Str.Office.Modules": "Moduulit",
+    "Str.Office.Classes": "Luokkamoduulit",
+    "Str.Office.References": "Viittaukset",
+    "Str.Office.ExcelObjects": "Microsoft Excel -objektit",
+    "Str.Office.WordObjects": "Microsoft Word -objektit",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint -objektit",
+    "Str.Office.DocumentObjects": "Asiakirjaobjektit",
+    "Str.Office.LockedMessage": "VBA-projekti on lukittu, eikä sen koodia voi näyttää.",
+    "Str.Office.LockedCaption": "{0} ({1}) — lukittu",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} ei sisällä VBA-projektia."
   }
 }

@@ -1,21 +1,21 @@
 using HexIDE.TwinBasic;
+using HexIDE.Projects;
 
 namespace HexIDE.Desktop.Server;
 
 /// <summary>Automation paths inside a container, not filesystem paths or language-server URIs.</summary>
 internal static class ArchiveToolPaths
 {
-    public static string PathOf(ArchiveProjectEntry entry) =>
+    public static string PathOf(ContainerEntry entry) =>
         "/" + string.Join("/", entry.Identity.Segments.Select(Uri.EscapeDataString));
 
-    public static IEnumerable<ArchiveProjectEntry> Entries(ArchiveProjectFolder folder)
+    public static IEnumerable<ContainerEntry> Entries(ContainerEntry folder)
     {
         foreach (var entry in folder.Children)
         {
             yield return entry;
-            if (entry is ArchiveProjectFolder child)
-                foreach (var descendant in Entries(child))
-                    yield return descendant;
+            foreach (var descendant in Entries(entry))
+                yield return descendant;
         }
     }
 
@@ -26,7 +26,7 @@ internal static class ArchiveToolPaths
     /// The open archives and the first <see cref="MissListLimit"/> of their entry paths, for a name that matched
     /// nothing. Bounded, so an archive of hundreds of sources does not flood the reply; get_project_info lists them all.
     /// </summary>
-    public static string MissInventory(IReadOnlyList<ArchiveProjectSnapshot> archives)
+    public static string MissInventory(IReadOnlyList<IContainerProject> archives)
     {
         if (archives.Count == 0) return "";
         var parts = new List<string>();
@@ -44,7 +44,7 @@ internal static class ArchiveToolPaths
         return $" Open archives: {string.Join("; ", parts)}{more}.";
     }
 
-    public static bool ProjectMatches(ArchiveProjectSnapshot archive, string? project) =>
+    public static bool ProjectMatches(IContainerProject archive, string? project) =>
         project is null
         || ArchiveEntryIdentity.ContainerPathComparer.Equals(archive.ContainerPath, project)
         || string.Equals(Path.GetFileName(archive.ContainerPath), project, StringComparison.OrdinalIgnoreCase)

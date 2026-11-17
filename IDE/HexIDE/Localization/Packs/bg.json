@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "След {0} трябва да има номер на кодова страница на Windows, например {1}, но е получено „{2}“. {3} не се стартира: четенето на файловете с кодовата страница на този компютър би създало впечатление, че флагът е сработил.",
     "Str.Startup.DpiUnaware": "{0} работи само под Windows. {1} не се стартира, за да не използва собствения мащаб на дисплея и да създаде впечатление, че флагът е сработил. Под Linux платформата X11 на Avalonia вместо това чете {2}.",
     "Str.Startup.BrandingError": "Брандирането на тази инсталация не може да се използва, затова IDE не е стартирана и не са отваряни файлове с настройки, дневници или файлове за възстановяване. {0}",
-    "Str.Startup.CannotStart": "Стартирането е невъзможно"
+    "Str.Startup.CannotStart": "Стартирането е невъзможно",
+    "Str.Office.ProjectFiles": "Файлове на проекти и Office",
+    "Str.Office.AllFiles": "Всички файлове",
+    "Str.Office.SourceNotice": "Само за четене. Показаният код е изходният код, съхранен в документа. Office изпълнява компилирания p-code, съхранен до него, когато версията му съвпада, затова изпълняваният код може да се различава.",
+    "Str.Office.FormNotice": "Само за четене. Показаният код е изходният код, съхранен в документа. Office изпълнява компилирания p-code, съхранен до него, когато версията му съвпада, затова изпълняваният код може да се различава. Дизайнерът на формуляри все още не е наличен тук.",
+    "Str.Office.Forms": "Формуляри",
+    "Str.Office.Modules": "Модули",
+    "Str.Office.Classes": "Модули на класове",
+    "Str.Office.References": "Препратки",
+    "Str.Office.ExcelObjects": "Microsoft Excel Обекти",
+    "Str.Office.WordObjects": "Microsoft Word Обекти",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint Обекти",
+    "Str.Office.DocumentObjects": "Обекти на документа",
+    "Str.Office.LockedMessage": "Проектът VBA е заключен и кодът му не може да бъде показан.",
+    "Str.Office.LockedCaption": "{0} ({1}) — заключен",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} няма проект VBA."
   }
 }

@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} 后需要提供 Windows 代码页编号，例如 {1}，但收到的是“{2}”。{3} 未启动：如果改用此计算机自身的代码页读取文件，会让人误以为该标志已生效。",
     "Str.Startup.DpiUnaware": "{0} 仅适用于 Windows。{1} 未启动，以免按显示器自身的缩放比例启动，让人误以为该标志已生效。在 Linux 上，Avalonia 的 X11 平台会改为读取 {2}。",
     "Str.Startup.BrandingError": "无法使用此安装的品牌标识，因此 IDE 未启动，也未打开任何设置、日志或恢复文件。{0}",
-    "Str.Startup.CannotStart": "无法启动"
+    "Str.Startup.CannotStart": "无法启动",
+    "Str.Office.ProjectFiles": "工程和 Office 文件",
+    "Str.Office.AllFiles": "所有文件",
+    "Str.Office.SourceNotice": "只读。显示的代码是文档中存储的源代码。当版本匹配时，Office 会运行存储在其旁边的已编译 p-code，因此实际运行的代码可能不同。",
+    "Str.Office.FormNotice": "只读。显示的代码是文档中存储的源代码。当版本匹配时，Office 会运行存储在其旁边的已编译 p-code，因此实际运行的代码可能不同。 窗体设计器在此处尚不可用。",
+    "Str.Office.Forms": "窗体",
+    "Str.Office.Modules": "模块",
+    "Str.Office.Classes": "类模块",
+    "Str.Office.References": "引用",
+    "Str.Office.ExcelObjects": "Microsoft Excel 对象",
+    "Str.Office.WordObjects": "Microsoft Word 对象",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint 对象",
+    "Str.Office.DocumentObjects": "文档对象",
+    "Str.Office.LockedMessage": "VBA 工程已锁定，无法显示其代码。",
+    "Str.Office.LockedCaption": "{0} ({1}) — 已锁定",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} 没有 VBA 工程。"
   }
 }

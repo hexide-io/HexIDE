@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "Cần có số trang mã Windows sau {0}, chẳng hạn {1}, nhưng nhận được '{2}'. {3} chưa khởi động: nếu đọc tệp bằng trang mã riêng của máy này thì sẽ có vẻ như cờ đã hoạt động.",
     "Str.Startup.DpiUnaware": "{0} chỉ hoạt động trên Windows. {1} chưa khởi động để tránh chạy theo tỷ lệ riêng của màn hình và tạo cảm giác như cờ đã hoạt động. Trên Linux, nền tảng X11 của Avalonia đọc {2} thay thế.",
     "Str.Startup.BrandingError": "Không thể sử dụng thông tin thương hiệu của bản cài đặt này, nên IDE chưa khởi động và chưa mở bất kỳ tệp cài đặt, nhật ký hay khôi phục nào. {0}",
-    "Str.Startup.CannotStart": "Không thể khởi động"
+    "Str.Startup.CannotStart": "Không thể khởi động",
+    "Str.Office.ProjectFiles": "Tệp dự án và Office",
+    "Str.Office.AllFiles": "Tất cả tệp",
+    "Str.Office.SourceNotice": "Chỉ đọc. Mã hiển thị là mã nguồn được lưu trong tài liệu. Office chạy p-code đã biên dịch được lưu bên cạnh khi phiên bản khớp, nên mã thực thi có thể khác.",
+    "Str.Office.FormNotice": "Chỉ đọc. Mã hiển thị là mã nguồn được lưu trong tài liệu. Office chạy p-code đã biên dịch được lưu bên cạnh khi phiên bản khớp, nên mã thực thi có thể khác. Trình thiết kế biểu mẫu chưa có ở đây.",
+    "Str.Office.Forms": "Biểu mẫu",
+    "Str.Office.Modules": "Mô-đun",
+    "Str.Office.Classes": "Mô-đun lớp",
+    "Str.Office.References": "Tham chiếu",
+    "Str.Office.ExcelObjects": "Đối tượng Microsoft Excel",
+    "Str.Office.WordObjects": "Đối tượng Microsoft Word",
+    "Str.Office.PowerPointObjects": "Đối tượng Microsoft PowerPoint",
+    "Str.Office.DocumentObjects": "Đối tượng tài liệu",
+    "Str.Office.LockedMessage": "Dự án VBA bị khóa và không thể hiển thị mã.",
+    "Str.Office.LockedCaption": "{0} ({1}) — bị khóa",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} không có dự án VBA."
   }
 }

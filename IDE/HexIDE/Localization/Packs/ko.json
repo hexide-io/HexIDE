@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} 뒤에는 {1} 같은 Windows 코드 페이지 번호가 필요하지만 '{2}'이(가) 지정되었습니다. {3}을(를) 시작하지 않았습니다. 이 컴퓨터 자체의 코드 페이지로 파일을 읽으면 플래그가 작동한 것처럼 보이기 때문입니다.",
     "Str.Startup.DpiUnaware": "{0}은(는) Windows에서만 작동합니다. 디스플레이 자체 배율로 시작하여 플래그가 작동한 것처럼 보이지 않도록 {1}을(를) 시작하지 않았습니다. Linux에서는 Avalonia의 X11 플랫폼이 대신 {2}을(를) 읽습니다.",
     "Str.Startup.BrandingError": "이 설치의 브랜드 정보를 사용할 수 없어 IDE가 시작되지 않았으며 설정, 로그 또는 복구 파일을 열지 않았습니다. {0}",
-    "Str.Startup.CannotStart": "시작할 수 없음"
+    "Str.Startup.CannotStart": "시작할 수 없음",
+    "Str.Office.ProjectFiles": "프로젝트 및 Office 파일",
+    "Str.Office.AllFiles": "모든 파일",
+    "Str.Office.SourceNotice": "읽기 전용. 표시된 코드는 문서에 저장된 소스 코드입니다. Office는 버전이 일치하면 그 옆에 저장된 컴파일된 p-code를 실행하므로 실제로 실행되는 코드는 다를 수 있습니다.",
+    "Str.Office.FormNotice": "읽기 전용. 표시된 코드는 문서에 저장된 소스 코드입니다. Office는 버전이 일치하면 그 옆에 저장된 컴파일된 p-code를 실행하므로 실제로 실행되는 코드는 다를 수 있습니다. 폼 디자이너는 아직 여기에서 사용할 수 없습니다.",
+    "Str.Office.Forms": "폼",
+    "Str.Office.Modules": "모듈",
+    "Str.Office.Classes": "클래스 모듈",
+    "Str.Office.References": "참조",
+    "Str.Office.ExcelObjects": "Microsoft Excel 개체",
+    "Str.Office.WordObjects": "Microsoft Word 개체",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint 개체",
+    "Str.Office.DocumentObjects": "문서 개체",
+    "Str.Office.LockedMessage": "VBA 프로젝트가 잠겨 있어 코드를 표시할 수 없습니다.",
+    "Str.Office.LockedCaption": "{0} ({1}) — 잠김",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0}에 VBA 프로젝트가 없습니다."
   }
 }

@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "Po {0} turi būti „Windows“ kodų puslapio numeris, pvz., {1}, bet gauta „{2}“. {3} nepaleista: skaitant failus šio kompiuterio kodų puslapiu atrodytų, kad vėliavėlė suveikė.",
     "Str.Startup.DpiUnaware": "{0} veikia tik „Windows“. {1} nepaleista, kad nebūtų paleista su paties ekrano masteliu ir neatrodytų, kad vėliavėlė suveikė. „Linux“ sistemoje „Avalonia“ X11 platforma vietoj to skaito {2}.",
     "Str.Startup.BrandingError": "Šios įdiegties prekės ženklo duomenų naudoti negalima, todėl IDE nepaleista ir nebuvo atverti jokie nuostatų, žurnalų ar atkūrimo failai. {0}",
-    "Str.Startup.CannotStart": "Nepavyksta paleisti"
+    "Str.Startup.CannotStart": "Nepavyksta paleisti",
+    "Str.Office.ProjectFiles": "Projekto ir Office failai",
+    "Str.Office.AllFiles": "Visi failai",
+    "Str.Office.SourceNotice": "Tik skaityti. Rodomas kodas yra dokumente saugomas pirminis kodas. Office vykdo šalia jo saugomą sukompiliuotą p kodą, kai jo versija sutampa, todėl vykdomas kodas gali skirtis.",
+    "Str.Office.FormNotice": "Tik skaityti. Rodomas kodas yra dokumente saugomas pirminis kodas. Office vykdo šalia jo saugomą sukompiliuotą p kodą, kai jo versija sutampa, todėl vykdomas kodas gali skirtis. Formų dizaino įrankis čia dar nepasiekiamas.",
+    "Str.Office.Forms": "Formos",
+    "Str.Office.Modules": "Moduliai",
+    "Str.Office.Classes": "Klasių moduliai",
+    "Str.Office.References": "Nuorodos",
+    "Str.Office.ExcelObjects": "Microsoft Excel Objektai",
+    "Str.Office.WordObjects": "Microsoft Word Objektai",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint Objektai",
+    "Str.Office.DocumentObjects": "Dokumento objektai",
+    "Str.Office.LockedMessage": "VBA projektas užrakintas ir jo kodo negalima rodyti.",
+    "Str.Office.LockedCaption": "{0} ({1}) — užrakinta",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} neturi VBA projekto."
   }
 }

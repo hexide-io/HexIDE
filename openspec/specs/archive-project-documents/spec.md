@@ -8,7 +8,7 @@ of VB6 project models. This capability describes the model API; IDE views and co
 
 ### Requirement: Preserve a complete project tree
 
-The project snapshot MUST expose the container's original entry order, empty directories, names, metadata
+The twinBASIC project snapshot MUST expose the container's original entry order, empty directories, names, metadata
 and opaque file bytes without coercing source into VB6 forms or modules. Projects and documents MUST report
 read-only status and expose no content mutation or persistence operation.
 
@@ -34,7 +34,7 @@ with parent context before publishing a project. Root display name MUST NOT dete
 
 ### Requirement: Read text explicitly and without loss of raw content
 
-Known text types MUST offer a strict UTF-8 preview bounded by a configurable byte limit. The preview MUST
+Known twinBASIC text types MUST offer a strict UTF-8 preview bounded by a configurable byte limit. The preview MUST
 preserve line endings and omit an initial UTF-8 BOM while original bytes remain unchanged. Unsupported
 types, invalid encoding and exceeded limits MUST return distinct unavailable states with no substitute
 text. Empty valid text MUST remain distinguishable from an unavailable preview.
@@ -60,3 +60,18 @@ The owner MUST serialize lifecycle operations.
 - **WHEN** a complete replacement has been read and validated
 - **THEN** it replaces the registered snapshot as a whole
 - **AND** previously returned snapshots retain their original content
+
+### Requirement: Detach Office browser snapshots from storage lifetimes
+The shared container browser MUST adapt Office projects from the locator and VBA reader by copying
+project names, module kinds, decoded source, references and lock state before disposing the located
+storage. It MUST NOT retain borrowed designer entries or open file handles. Office module identities
+MUST use the container path, kind and exact module name; caption localization MUST NOT change identity.
+The reader libraries MUST remain independent of Avalonia and the IDE.
+
+#### Scenario: The source document is removed after opening
+- **WHEN** an Office snapshot has been published and the document is deleted
+- **THEN** its copied source remains readable without accessing a disposed storage
+
+#### Scenario: A module uses Japanese source
+- **WHEN** the Office reader decodes a Japanese module from the measured cp932 corpus
+- **THEN** the browser retains that exact decoded name and source

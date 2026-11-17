@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} järele on vaja Windowsi koodilehe numbrit, näiteks {1}, kuid saadi '{2}'. {3} ei käivitunud: failide lugemine selle arvuti enda koodilehega jätaks mulje, et lipp töötas.",
     "Str.Startup.DpiUnaware": "{0} töötab ainult Windowsis. {1} ei käivitunud, et vältida ekraani enda mõõtkavas käivitumist ja muljet, et lipp töötas. Linuxis loeb Avalonia X11-platvorm selle asemel väärtust {2}.",
     "Str.Startup.BrandingError": "Selle paigalduse kaubamärgiteavet ei saa kasutada, seega IDE ei käivitunud ning ühtegi sätete-, logi- ega taastefaili ei avatud. {0}",
-    "Str.Startup.CannotStart": "Käivitamine pole võimalik"
+    "Str.Startup.CannotStart": "Käivitamine pole võimalik",
+    "Str.Office.ProjectFiles": "Projekti- ja Office'i failid",
+    "Str.Office.AllFiles": "Kõik failid",
+    "Str.Office.SourceNotice": "Kirjutuskaitstud. Kuvatav kood on dokumenti salvestatud lähtekood. Office käivitab selle kõrvale salvestatud kompileeritud p-koodi, kui selle versioon ühtib, seega võib käivitatav kood erineda.",
+    "Str.Office.FormNotice": "Kirjutuskaitstud. Kuvatav kood on dokumenti salvestatud lähtekood. Office käivitab selle kõrvale salvestatud kompileeritud p-koodi, kui selle versioon ühtib, seega võib käivitatav kood erineda. Vormikujundaja pole siin veel saadaval.",
+    "Str.Office.Forms": "Vormid",
+    "Str.Office.Modules": "Moodulid",
+    "Str.Office.Classes": "Klassimoodulid",
+    "Str.Office.References": "Viited",
+    "Str.Office.ExcelObjects": "Microsoft Exceli objektid",
+    "Str.Office.WordObjects": "Microsoft Wordi objektid",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPointi objektid",
+    "Str.Office.DocumentObjects": "Dokumendi objektid",
+    "Str.Office.LockedMessage": "VBA projekt on lukustatud ja selle koodi ei saa kuvada.",
+    "Str.Office.LockedCaption": "{0} ({1}) — lukustatud",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} ei sisalda VBA projekti."
   }
 }

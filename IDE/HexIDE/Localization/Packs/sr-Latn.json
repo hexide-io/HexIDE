@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "Posle {0} je potreban broj Windows kodne stranice, kao što je {1}, a dobijeno je „{2}“. {3} nije pokrenut: čitanje datoteka u sopstvenoj kodnoj stranici ovog računara stvorilo bi utisak da je zastavica delovala.",
     "Str.Startup.DpiUnaware": "{0} radi samo u sistemu Windows. {1} nije pokrenut, kako pokretanje sa sopstvenom razmerom ekrana ne bi stvorilo utisak da je zastavica delovala. Na Linuxu Avalonia X11 platforma umesto toga čita {2}.",
     "Str.Startup.BrandingError": "Podaci o brendu ove instalacije ne mogu da se koriste, pa IDE nije pokrenut i nisu otvorene datoteke podešavanja, evidencije ni oporavka. {0}",
-    "Str.Startup.CannotStart": "Pokretanje nije moguće"
+    "Str.Startup.CannotStart": "Pokretanje nije moguće",
+    "Str.Office.ProjectFiles": "Datoteke projekata i sistema Office",
+    "Str.Office.AllFiles": "Sve datoteke",
+    "Str.Office.SourceNotice": "Samo za čitanje. Prikazani kod je izvorni kod sačuvan u dokumentu. Office izvršava prevedeni p-code sačuvan pored njega kada se njegova verzija podudara, pa se izvršeni kod može razlikovati.",
+    "Str.Office.FormNotice": "Samo za čitanje. Prikazani kod je izvorni kod sačuvan u dokumentu. Office izvršava prevedeni p-code sačuvan pored njega kada se njegova verzija podudara, pa se izvršeni kod može razlikovati. Dizajner obrazaca ovde još nije dostupan.",
+    "Str.Office.Forms": "Obrasci",
+    "Str.Office.Modules": "Moduli",
+    "Str.Office.Classes": "Moduli klasa",
+    "Str.Office.References": "Reference",
+    "Str.Office.ExcelObjects": "Microsoft Excel Objekti",
+    "Str.Office.WordObjects": "Microsoft Word Objekti",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint Objekti",
+    "Str.Office.DocumentObjects": "Objekti dokumenta",
+    "Str.Office.LockedMessage": "VBA projekat je zaključan i njegov kod ne može da se prikaže.",
+    "Str.Office.LockedCaption": "{0} ({1}) — zaključano",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} nema VBA projekat."
   }
 }

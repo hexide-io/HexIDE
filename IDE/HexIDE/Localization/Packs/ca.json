@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} necessita un número de pàgina de codis del Windows a continuació, com ara {1}, però ha rebut «{2}». {3} no s’ha iniciat: llegir els fitxers amb la pàgina de codis d’aquest ordinador faria semblar que l’opció havia funcionat.",
     "Str.Startup.DpiUnaware": "{0} només funciona al Windows. {1} no s’ha iniciat per evitar fer servir l’escala de la pantalla i fer semblar que l’opció havia funcionat. Al Linux, la plataforma X11 de l’Avalonia llegeix {2} en lloc seu.",
     "Str.Startup.BrandingError": "No es pot utilitzar la identitat de marca d’aquesta instal·lació; per tant, l’IDE no s’ha iniciat ni s’ha obert cap fitxer de configuració, registre o recuperació. {0}",
-    "Str.Startup.CannotStart": "No es pot iniciar"
+    "Str.Startup.CannotStart": "No es pot iniciar",
+    "Str.Office.ProjectFiles": "Fitxers de projecte i Office",
+    "Str.Office.AllFiles": "Tots els fitxers",
+    "Str.Office.SourceNotice": "Només de lectura. El codi mostrat és el codi font desat al document. Office executa el p-code compilat desat al seu costat quan la versió coincideix, de manera que el codi executat pot ser diferent.",
+    "Str.Office.FormNotice": "Només de lectura. El codi mostrat és el codi font desat al document. Office executa el p-code compilat desat al seu costat quan la versió coincideix, de manera que el codi executat pot ser diferent. El dissenyador de formularis encara no està disponible aquí.",
+    "Str.Office.Forms": "Formularis",
+    "Str.Office.Modules": "Mòduls",
+    "Str.Office.Classes": "Mòduls de classe",
+    "Str.Office.References": "Referències",
+    "Str.Office.ExcelObjects": "Objectes Microsoft Excel",
+    "Str.Office.WordObjects": "Objectes Microsoft Word",
+    "Str.Office.PowerPointObjects": "Objectes Microsoft PowerPoint",
+    "Str.Office.DocumentObjects": "Objectes del document",
+    "Str.Office.LockedMessage": "El projecte VBA està bloquejat i no se’n pot mostrar el codi.",
+    "Str.Office.LockedCaption": "{0} ({1}) — bloquejat",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} no conté cap projecte VBA."
   }
 }

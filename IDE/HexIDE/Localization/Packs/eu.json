@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} aukeraren ondoren Windows kode-orri baten zenbakia behar da, adibidez {1}, baina '{2}' jaso du. {3} ez da abiarazi: fitxategiak ordenagailu honen kode-orriarekin irakurriz gero, aukerak funtzionatu duela emango luke.",
     "Str.Startup.DpiUnaware": "{0} aukerak Windows-en bakarrik funtzionatzen du. {1} ez da abiarazi, pantailaren eskala erabiliz aukerak funtzionatu duela ez iruditzeko. Linux-en, Avaloniaren X11 plataformak {2} irakurtzen du horren ordez.",
     "Str.Startup.BrandingError": "Ezin da instalazio honen marka-identitatea erabili; beraz, IDEa ez da abiarazi eta ez da ezarpen-, erregistro- edo berreskuratze-fitxategirik ireki. {0}",
-    "Str.Startup.CannotStart": "Ezin da abiarazi"
+    "Str.Startup.CannotStart": "Ezin da abiarazi",
+    "Str.Office.ProjectFiles": "Proiektu- eta Office-fitxategiak",
+    "Str.Office.AllFiles": "Fitxategi guztiak",
+    "Str.Office.SourceNotice": "Irakurtzeko soilik. Erakutsitako kodea dokumentuan gordetako iturburu-kodea da. Office-k ondoan gordetako p-code konpilatua exekutatzen du bertsioa bat datorrenean; beraz, exekutatzen den kodea desberdina izan daiteke.",
+    "Str.Office.FormNotice": "Irakurtzeko soilik. Erakutsitako kodea dokumentuan gordetako iturburu-kodea da. Office-k ondoan gordetako p-code konpilatua exekutatzen du bertsioa bat datorrenean; beraz, exekutatzen den kodea desberdina izan daiteke. Inprimaki-diseinatzailea ez dago oraindik erabilgarri hemen.",
+    "Str.Office.Forms": "Inprimakiak",
+    "Str.Office.Modules": "Moduluak",
+    "Str.Office.Classes": "Klase-moduluak",
+    "Str.Office.References": "Erreferentziak",
+    "Str.Office.ExcelObjects": "Objektuak Microsoft Excel",
+    "Str.Office.WordObjects": "Objektuak Microsoft Word",
+    "Str.Office.PowerPointObjects": "Objektuak Microsoft PowerPoint",
+    "Str.Office.DocumentObjects": "Dokumentu-objektuak",
+    "Str.Office.LockedMessage": "VBA proiektua blokeatuta dago eta ezin da haren kodea erakutsi.",
+    "Str.Office.LockedCaption": "{0} ({1}) — blokeatuta",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} dokumentuak ez du VBA proiekturik."
   }
 }

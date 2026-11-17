@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} benötigt danach eine Windows-Codepage-Nummer, etwa {1}, hat aber '{2}' erhalten. {3} wurde nicht gestartet: Das Lesen der Dateien mit der Codepage dieses Rechners würde den Eindruck erwecken, die Option habe funktioniert.",
     "Str.Startup.DpiUnaware": "{0} funktioniert nur unter Windows. {1} wurde nicht gestartet, um nicht mit der Skalierung des Bildschirms zu starten und den Eindruck zu erwecken, die Option habe funktioniert. Unter Linux liest die X11-Plattform von Avalonia stattdessen {2}.",
     "Str.Startup.BrandingError": "Das Branding dieser Installation kann nicht verwendet werden. Die IDE wurde daher nicht gestartet und es wurden keine Einstellungs-, Protokoll- oder Wiederherstellungsdateien geöffnet. {0}",
-    "Str.Startup.CannotStart": "Start nicht möglich"
+    "Str.Startup.CannotStart": "Start nicht möglich",
+    "Str.Office.ProjectFiles": "Projekt- und Office-Dateien",
+    "Str.Office.AllFiles": "Alle Dateien",
+    "Str.Office.SourceNotice": "Schreibgeschützt. Der angezeigte Code ist der im Dokument gespeicherte Quellcode. Office führt den daneben gespeicherten kompilierten P-Code aus, wenn dessen Version übereinstimmt. Der ausgeführte Code kann daher abweichen.",
+    "Str.Office.FormNotice": "Schreibgeschützt. Der angezeigte Code ist der im Dokument gespeicherte Quellcode. Office führt den daneben gespeicherten kompilierten P-Code aus, wenn dessen Version übereinstimmt. Der ausgeführte Code kann daher abweichen. Der Formular-Designer ist hier noch nicht verfügbar.",
+    "Str.Office.Forms": "Formulare",
+    "Str.Office.Modules": "Module",
+    "Str.Office.Classes": "Klassenmodule",
+    "Str.Office.References": "Verweise",
+    "Str.Office.ExcelObjects": "Microsoft Excel-Objekte",
+    "Str.Office.WordObjects": "Microsoft Word-Objekte",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint-Objekte",
+    "Str.Office.DocumentObjects": "Dokumentobjekte",
+    "Str.Office.LockedMessage": "Das VBA-Projekt ist gesperrt und sein Code kann nicht angezeigt werden.",
+    "Str.Office.LockedCaption": "{0} ({1}) — gesperrt",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} enthält kein VBA-Projekt."
   }
 }

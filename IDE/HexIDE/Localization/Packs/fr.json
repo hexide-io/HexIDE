@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} doit être suivi d’un numéro de page de codes Windows, par exemple {1}, mais a reçu « {2} ». {3} n’a pas démarré : lire les fichiers avec la page de codes de cette machine aurait donné l’impression que l’option avait fonctionné.",
     "Str.Startup.DpiUnaware": "{0} fonctionne uniquement sous Windows. {1} n’a pas démarré afin de ne pas utiliser l’échelle de l’écran et donner l’impression que l’option avait fonctionné. Sous Linux, la plateforme X11 d’Avalonia lit {2} à la place.",
     "Str.Startup.BrandingError": "L’identité de cette installation ne peut pas être utilisée. L’IDE n’a donc pas démarré et aucun fichier de paramètres, de journal ou de récupération n’a été ouvert. {0}",
-    "Str.Startup.CannotStart": "Démarrage impossible"
+    "Str.Startup.CannotStart": "Démarrage impossible",
+    "Str.Office.ProjectFiles": "Fichiers de projet et Office",
+    "Str.Office.AllFiles": "Tous les fichiers",
+    "Str.Office.SourceNotice": "Lecture seule. Le code affiché est le code source stocké dans le document. Office exécute le p-code compilé stocké à côté lorsque sa version correspond ; le code exécuté peut donc être différent.",
+    "Str.Office.FormNotice": "Lecture seule. Le code affiché est le code source stocké dans le document. Office exécute le p-code compilé stocké à côté lorsque sa version correspond ; le code exécuté peut donc être différent. Le concepteur de formulaires n’est pas encore disponible ici.",
+    "Str.Office.Forms": "Formulaires",
+    "Str.Office.Modules": "Modules",
+    "Str.Office.Classes": "Modules de classe",
+    "Str.Office.References": "Références",
+    "Str.Office.ExcelObjects": "Objets Microsoft Excel",
+    "Str.Office.WordObjects": "Objets Microsoft Word",
+    "Str.Office.PowerPointObjects": "Objets Microsoft PowerPoint",
+    "Str.Office.DocumentObjects": "Objets du document",
+    "Str.Office.LockedMessage": "Le projet VBA est verrouillé et son code ne peut pas être affiché.",
+    "Str.Office.LockedCaption": "{0} ({1}) — verrouillé",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} ne contient aucun projet VBA."
   }
 }

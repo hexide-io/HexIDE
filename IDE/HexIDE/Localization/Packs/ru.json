@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "После {0} требуется номер кодовой страницы Windows, например {1}, получено «{2}». {3} не запущен: чтение файлов в собственной кодовой странице этого компьютера создало бы видимость того, что флаг сработал.",
     "Str.Startup.DpiUnaware": "{0} работает только в Windows. {1} не запущен, чтобы запуск с собственным масштабом дисплея не создавал видимость того, что флаг сработал. В Linux платформа X11 Avalonia вместо этого читает {2}.",
     "Str.Startup.BrandingError": "Фирменное оформление этой установки нельзя использовать, поэтому IDE не запущена и файлы настроек, журналов и восстановления не открывались. {0}",
-    "Str.Startup.CannotStart": "Невозможно запустить"
+    "Str.Startup.CannotStart": "Невозможно запустить",
+    "Str.Office.ProjectFiles": "Файлы проектов и Office",
+    "Str.Office.AllFiles": "Все файлы",
+    "Str.Office.SourceNotice": "Только для чтения. Показан исходный код, сохранённый в документе. Office выполняет сохранённый рядом с ним скомпилированный p-code, если его версия совпадает, поэтому выполняемый код может отличаться.",
+    "Str.Office.FormNotice": "Только для чтения. Показан исходный код, сохранённый в документе. Office выполняет сохранённый рядом с ним скомпилированный p-code, если его версия совпадает, поэтому выполняемый код может отличаться. Конструктор форм здесь пока недоступен.",
+    "Str.Office.Forms": "Формы",
+    "Str.Office.Modules": "Модули",
+    "Str.Office.Classes": "Модули классов",
+    "Str.Office.References": "Ссылки",
+    "Str.Office.ExcelObjects": "Microsoft Excel Объекты",
+    "Str.Office.WordObjects": "Microsoft Word Объекты",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint Объекты",
+    "Str.Office.DocumentObjects": "Объекты документа",
+    "Str.Office.LockedMessage": "Проект VBA заблокирован, и его код невозможно показать.",
+    "Str.Office.LockedCaption": "{0} ({1}) — заблокирован",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "В {0} нет проекта VBA."
   }
 }

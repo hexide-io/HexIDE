@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "Za {0} je potrebné číslo kódovej stránky Windows, napríklad {1}, ale bolo zadané „{2}“. {3} sa nespustil: čítanie súborov vo vlastnej kódovej stránke tohto počítača by vytváralo dojem, že prepínač fungoval.",
     "Str.Startup.DpiUnaware": "{0} funguje iba v systéme Windows. {1} sa nespustil, aby spustenie s vlastnou mierkou displeja nevytváralo dojem, že prepínač fungoval. V systéme Linux platforma X11 knižnice Avalonia namiesto toho číta {2}.",
     "Str.Startup.BrandingError": "Značku tejto inštalácie nie je možné použiť, preto sa IDE nespustilo a neboli otvorené žiadne súbory nastavení, denníkov ani obnovenia. {0}",
-    "Str.Startup.CannotStart": "Nie je možné spustiť"
+    "Str.Startup.CannotStart": "Nie je možné spustiť",
+    "Str.Office.ProjectFiles": "Súbory projektov a balíka Office",
+    "Str.Office.AllFiles": "Všetky súbory",
+    "Str.Office.SourceNotice": "Iba na čítanie. Zobrazený kód je zdrojový kód uložený v dokumente. Office spúšťa skompilovaný p-code uložený vedľa neho, ak sa jeho verzia zhoduje, takže spúšťaný kód sa môže líšiť.",
+    "Str.Office.FormNotice": "Iba na čítanie. Zobrazený kód je zdrojový kód uložený v dokumente. Office spúšťa skompilovaný p-code uložený vedľa neho, ak sa jeho verzia zhoduje, takže spúšťaný kód sa môže líšiť. Návrhár formulárov tu zatiaľ nie je dostupný.",
+    "Str.Office.Forms": "Formuláre",
+    "Str.Office.Modules": "Moduly",
+    "Str.Office.Classes": "Moduly tried",
+    "Str.Office.References": "Odkazy",
+    "Str.Office.ExcelObjects": "Microsoft Excel Objekty",
+    "Str.Office.WordObjects": "Microsoft Word Objekty",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint Objekty",
+    "Str.Office.DocumentObjects": "Objekty dokumentu",
+    "Str.Office.LockedMessage": "Projekt VBA je uzamknutý a jeho kód sa nedá zobraziť.",
+    "Str.Office.LockedCaption": "{0} ({1}) — uzamknuté",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} nemá projekt VBA."
   }
 }

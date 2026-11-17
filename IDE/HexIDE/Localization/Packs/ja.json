@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} の後には {1} などの Windows コードページ番号が必要ですが、'{2}' が指定されました。{3} は起動しませんでした。このコンピューター自身のコードページでファイルを読み取ると、フラグが機能したように見えてしまうためです。",
     "Str.Startup.DpiUnaware": "{0} は Windows でのみ機能します。画面本来の倍率で起動してフラグが機能したように見えないよう、{1} は起動しませんでした。Linux では、Avalonia の X11 プラットフォームは代わりに {2} を読み取ります。",
     "Str.Startup.BrandingError": "このインストールのブランド情報を使用できないため、IDE は起動しておらず、設定、ログ、回復ファイルは開かれていません。{0}",
-    "Str.Startup.CannotStart": "起動できません"
+    "Str.Startup.CannotStart": "起動できません",
+    "Str.Office.ProjectFiles": "プロジェクトと Office ファイル",
+    "Str.Office.AllFiles": "すべてのファイル",
+    "Str.Office.SourceNotice": "読み取り専用。表示されているコードは、ドキュメントに保存されているソースコードです。Office はバージョンが一致すると、その隣に保存されているコンパイル済み p-code を実行するため、実際に実行されるコードとは異なる場合があります。",
+    "Str.Office.FormNotice": "読み取り専用。表示されているコードは、ドキュメントに保存されているソースコードです。Office はバージョンが一致すると、その隣に保存されているコンパイル済み p-code を実行するため、実際に実行されるコードとは異なる場合があります。 フォームデザイナーはここではまだ利用できません。",
+    "Str.Office.Forms": "フォーム",
+    "Str.Office.Modules": "標準モジュール",
+    "Str.Office.Classes": "クラスモジュール",
+    "Str.Office.References": "参照設定",
+    "Str.Office.ExcelObjects": "Microsoft Excel オブジェクト",
+    "Str.Office.WordObjects": "Microsoft Word オブジェクト",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint オブジェクト",
+    "Str.Office.DocumentObjects": "ドキュメント オブジェクト",
+    "Str.Office.LockedMessage": "VBA プロジェクトはロックされており、コードを表示できません。",
+    "Str.Office.LockedCaption": "{0} ({1}) — ロック済み",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} には VBA プロジェクトがありません。"
   }
 }

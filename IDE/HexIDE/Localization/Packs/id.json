@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} memerlukan nomor halaman kode Windows setelahnya, misalnya {1}, tetapi menerima '{2}'. {3} tidak dimulai: membaca berkas dengan halaman kode komputer ini akan memberi kesan bahwa penanda telah berfungsi.",
     "Str.Startup.DpiUnaware": "{0} hanya berfungsi di Windows. {1} tidak dimulai agar tidak berjalan pada skala asli layar dan memberi kesan bahwa penanda telah berfungsi. Di Linux, platform X11 Avalonia membaca {2} sebagai gantinya.",
     "Str.Startup.BrandingError": "Identitas merek instalasi ini tidak dapat digunakan, sehingga IDE tidak dimulai dan tidak ada berkas pengaturan, log, atau pemulihan yang dibuka. {0}",
-    "Str.Startup.CannotStart": "Tidak dapat memulai"
+    "Str.Startup.CannotStart": "Tidak dapat memulai",
+    "Str.Office.ProjectFiles": "File proyek dan Office",
+    "Str.Office.AllFiles": "Semua file",
+    "Str.Office.SourceNotice": "Hanya baca. Kode yang ditampilkan adalah kode sumber yang disimpan dalam dokumen. Office menjalankan p-code terkompilasi yang disimpan di sampingnya jika versinya cocok, sehingga kode yang dijalankan mungkin berbeda.",
+    "Str.Office.FormNotice": "Hanya baca. Kode yang ditampilkan adalah kode sumber yang disimpan dalam dokumen. Office menjalankan p-code terkompilasi yang disimpan di sampingnya jika versinya cocok, sehingga kode yang dijalankan mungkin berbeda. Perancang formulir belum tersedia di sini.",
+    "Str.Office.Forms": "Formulir",
+    "Str.Office.Modules": "Modul",
+    "Str.Office.Classes": "Modul Kelas",
+    "Str.Office.References": "Referensi",
+    "Str.Office.ExcelObjects": "Microsoft Excel Objek",
+    "Str.Office.WordObjects": "Microsoft Word Objek",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint Objek",
+    "Str.Office.DocumentObjects": "Objek Dokumen",
+    "Str.Office.LockedMessage": "Proyek VBA terkunci dan kodenya tidak dapat ditampilkan.",
+    "Str.Office.LockedCaption": "{0} ({1}) — terkunci",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} tidak memiliki proyek VBA."
   }
 }

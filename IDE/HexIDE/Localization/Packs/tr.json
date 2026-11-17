@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "{0} sonrasında {1} gibi bir Windows kod sayfası numarası gereklidir, ancak '{2}' alındı. {3} başlatılmadı: dosyaları bunun yerine bu bilgisayarın kendi kod sayfasında okumak, bayrak çalışmış izlenimi verirdi.",
     "Str.Startup.DpiUnaware": "{0} yalnızca Windows'ta çalışır. {1}, ekranın kendi ölçeğinde başlayıp bayrak çalışmış izlenimi vermemek için başlatılmadı. Linux'ta Avalonia'nın X11 platformu bunun yerine {2} değerini okur.",
     "Str.Startup.BrandingError": "Bu kurulumun marka bilgileri kullanılamadığından IDE başlatılmadı ve hiçbir ayar, günlük veya kurtarma dosyası açılmadı. {0}",
-    "Str.Startup.CannotStart": "Başlatılamıyor"
+    "Str.Startup.CannotStart": "Başlatılamıyor",
+    "Str.Office.ProjectFiles": "Proje ve Office dosyaları",
+    "Str.Office.AllFiles": "Tüm dosyalar",
+    "Str.Office.SourceNotice": "Salt okunur. Gösterilen kod, belgede saklanan kaynak koddur. Office, sürümü eşleştiğinde yanında saklanan derlenmiş p-code kodunu çalıştırır; bu nedenle çalışan kod farklı olabilir.",
+    "Str.Office.FormNotice": "Salt okunur. Gösterilen kod, belgede saklanan kaynak koddur. Office, sürümü eşleştiğinde yanında saklanan derlenmiş p-code kodunu çalıştırır; bu nedenle çalışan kod farklı olabilir. Form tasarımcısı burada henüz kullanılamıyor.",
+    "Str.Office.Forms": "Formlar",
+    "Str.Office.Modules": "Modüller",
+    "Str.Office.Classes": "Sınıf Modülleri",
+    "Str.Office.References": "Başvurular",
+    "Str.Office.ExcelObjects": "Microsoft Excel Nesneleri",
+    "Str.Office.WordObjects": "Microsoft Word Nesneleri",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint Nesneleri",
+    "Str.Office.DocumentObjects": "Belge Nesneleri",
+    "Str.Office.LockedMessage": "VBA projesi kilitli ve kodu gösterilemiyor.",
+    "Str.Office.LockedCaption": "{0} ({1}) — kilitli",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} VBA projesi içermiyor."
   }
 }

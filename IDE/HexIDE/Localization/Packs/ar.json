@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "يجب أن يلي {0} رقم صفحة رموز Windows، مثل {1}، لكنه تلقى '{2}'. لم يبدأ {3}: فقراءة الملفات بصفحة رموز هذا الجهاز ستوحي بأن الخيار قد نجح.",
     "Str.Startup.DpiUnaware": "يعمل {0} على Windows فقط. لم يبدأ {1} لتجنب التشغيل بمقياس الشاشة والإيحاء بأن الخيار قد نجح. على Linux، تقرأ منصة X11 في Avalonia قيمة {2} بدلًا من ذلك.",
     "Str.Startup.BrandingError": "لا يمكن استخدام هوية هذا التثبيت، لذا لم تبدأ بيئة التطوير ولم تُفتح أي ملفات إعدادات أو سجلات أو استرداد. {0}",
-    "Str.Startup.CannotStart": "تعذر البدء"
+    "Str.Startup.CannotStart": "تعذر البدء",
+    "Str.Office.ProjectFiles": "ملفات المشاريع وOffice",
+    "Str.Office.AllFiles": "جميع الملفات",
+    "Str.Office.SourceNotice": "للقراءة فقط. التعليمات البرمجية المعروضة هي المصدر المخزن في المستند. يشغّل Office تعليمات p-code المترجمة المخزنة بجانبه عندما يتطابق إصدارها، لذا قد يختلف ما يتم تشغيله.",
+    "Str.Office.FormNotice": "للقراءة فقط. التعليمات البرمجية المعروضة هي المصدر المخزن في المستند. يشغّل Office تعليمات p-code المترجمة المخزنة بجانبه عندما يتطابق إصدارها، لذا قد يختلف ما يتم تشغيله. مصمم النماذج غير متاح هنا بعد.",
+    "Str.Office.Forms": "النماذج",
+    "Str.Office.Modules": "الوحدات النمطية",
+    "Str.Office.Classes": "وحدات الفئات",
+    "Str.Office.References": "المراجع",
+    "Str.Office.ExcelObjects": "كائنات Microsoft Excel",
+    "Str.Office.WordObjects": "كائنات Microsoft Word",
+    "Str.Office.PowerPointObjects": "كائنات Microsoft PowerPoint",
+    "Str.Office.DocumentObjects": "كائنات المستند",
+    "Str.Office.LockedMessage": "مشروع VBA مقفل ولا يمكن عرض تعليماته البرمجية.",
+    "Str.Office.LockedCaption": "{0} ({1}) — مقفل",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "لا يحتوي {0} على مشروع VBA."
   }
 }

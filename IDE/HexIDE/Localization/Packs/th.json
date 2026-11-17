@@ -1422,6 +1422,22 @@
     "Str.Startup.AnsiCodePageInvalid": "ต้องระบุหมายเลขโค้ดเพจ Windows หลัง {0} เช่น {1} แต่ได้รับ '{2}' จึงไม่ได้เริ่ม {3}: หากอ่านไฟล์ด้วยโค้ดเพจของเครื่องนี้แทน จะดูเหมือนว่าแฟล็กทำงานแล้ว",
     "Str.Startup.DpiUnaware": "{0} ใช้ได้บน Windows เท่านั้น จึงไม่ได้เริ่ม {1} เพื่อหลีกเลี่ยงการเริ่มด้วยมาตราส่วนของจอแสดงผลและดูเหมือนว่าแฟล็กทำงานแล้ว บน Linux แพลตฟอร์ม X11 ของ Avalonia จะอ่าน {2} แทน",
     "Str.Startup.BrandingError": "ไม่สามารถใช้ข้อมูลแบรนด์ของการติดตั้งนี้ได้ จึงไม่ได้เริ่ม IDE และไม่ได้เปิดไฟล์การตั้งค่า บันทึก หรือการกู้คืนใด ๆ {0}",
-    "Str.Startup.CannotStart": "ไม่สามารถเริ่มได้"
+    "Str.Startup.CannotStart": "ไม่สามารถเริ่มได้",
+    "Str.Office.ProjectFiles": "ไฟล์โครงการและ Office",
+    "Str.Office.AllFiles": "ไฟล์ทั้งหมด",
+    "Str.Office.SourceNotice": "อ่านอย่างเดียว โค้ดที่แสดงคือซอร์สโค้ดที่เก็บไว้ในเอกสาร Office จะเรียกใช้ p-code ที่คอมไพล์แล้วซึ่งเก็บไว้ข้างกันเมื่อเวอร์ชันตรงกัน ดังนั้นโค้ดที่ทำงานจริงอาจแตกต่างกัน",
+    "Str.Office.FormNotice": "อ่านอย่างเดียว โค้ดที่แสดงคือซอร์สโค้ดที่เก็บไว้ในเอกสาร Office จะเรียกใช้ p-code ที่คอมไพล์แล้วซึ่งเก็บไว้ข้างกันเมื่อเวอร์ชันตรงกัน ดังนั้นโค้ดที่ทำงานจริงอาจแตกต่างกัน ตัวออกแบบฟอร์มยังไม่พร้อมใช้งานที่นี่",
+    "Str.Office.Forms": "ฟอร์ม",
+    "Str.Office.Modules": "โมดูล",
+    "Str.Office.Classes": "โมดูลคลาส",
+    "Str.Office.References": "การอ้างอิง",
+    "Str.Office.ExcelObjects": "Microsoft Excel วัตถุ",
+    "Str.Office.WordObjects": "Microsoft Word วัตถุ",
+    "Str.Office.PowerPointObjects": "Microsoft PowerPoint วัตถุ",
+    "Str.Office.DocumentObjects": "วัตถุเอกสาร",
+    "Str.Office.LockedMessage": "โครงการ VBA ถูกล็อกและไม่สามารถแสดงโค้ดได้",
+    "Str.Office.LockedCaption": "{0} ({1}) — ถูกล็อก",
+    "Str.Office.ProjectCaption": "{0} ({1})",
+    "Str.Office.NoProject": "{0} ไม่มีโครงการ VBA"
   }
 }
