@@ -48,8 +48,7 @@ internal static class ControlKeyEvents
         if (up && UnmeasuredArrows.TryGetValue(control, out var arrows) && arrows.Remove(e.Key))
             return;
         // Buttons give arrows to focus navigation. A combo that receives their release still raises KeyUp.
-        // Enter/Esc on forms holding controls remain #4371's, including the focused button's native Enter Click.
-        if (e.Key is Key.Enter or Key.Escape || e.Key == Key.Tab
+        if (e.Key == Key.Tab
             || Button(control) && e.Key is Key.Left or Key.Up or Key.Right or Key.Down)
             return;
         var code = TextBoxKeyEvents.KeyCode(e);
@@ -57,6 +56,13 @@ internal static class ControlKeyEvents
             return;
         TextBoxKeyEvents.Deliver(control, up ? ComponentBaseClass.KeyUpEvent : ComponentBaseClass.KeyDownEvent,
             code, Shift(e.KeyModifiers), _ => { });
+        if (!up && e.Key is Key.Enter or Key.Escape && e.KeyModifiers == KeyModifiers.None)
+        {
+            TextBoxKeyEvents.Deliver(control, ComponentBaseClass.KeyPressEvent, code, null, _ => { });
+            if (control is VBComboBox { IsDropDownOpen: true } openCombo)
+                openCombo.SetCurrentValue(ComboBox.IsDropDownOpenProperty, false);
+            e.Handled = true;
+        }
         if (Button(control) && e.Key == Key.Space)
         {
             if (!up)

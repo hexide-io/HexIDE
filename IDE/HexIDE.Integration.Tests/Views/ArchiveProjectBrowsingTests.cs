@@ -61,7 +61,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     [InlineData("basic.xlsm", "Str.Office.ExcelObjects")]
     [InlineData("basic.docm", "Str.Office.WordObjects")]
     [InlineData("userform.xlsm", "Str.Office.ExcelObjects")]
-    public async Task Office_tree_and_readonly_code_show_the_source_notice_without_a_language_session(string file, string hostKey)
+    public async Task Office_tree_and_readonly_code_show_the_source_notice_with_a_language_session(string file, string hostKey)
     {
         localization.GetString("Str.Office.ProjectCaption").Returns("{0} ({1})");
         await archives.Open(OfficeFile(file));
@@ -109,7 +109,19 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             editor.Text.Should().Contain(file == "userform.xlsm" ? "CommandButton1_Click" : "Option Explicit");
             view.GetLogicalDescendants().OfType<TextBlock>().Should().Contain(b => b.Text == tab.Notice);
             FluentActions.Invoking(() => tab.Document.Insert(0, "bad")).Should().Throw<InvalidOperationException>();
-            lsp.ReceivedCalls().Should().BeEmpty();
+            await lsp.Received(1).OpenDocumentAsync(tab.DocumentUri, tab.Document.Text, true);
+            lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(lsp,
+                new PublishDiagnosticsParams(tab.DocumentUri, [new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(0, 6)), "problem", DiagnosticSeverity.Error)]));
+            Dispatcher.UIThread.RunJobs();
+            tab.Markers.Should().ContainSingle();
+            editor.TextArea.TextView.BackgroundRenderers.OfType<LspTextMarkerService>().Single().Markers.Should().ContainSingle();
+            await archives.Reload(OfficeFile(file));
+            await lsp.Received(1).CloseDocumentAsync(tab.DocumentUri);
+            await lsp.Received(2).OpenDocumentAsync(tab.DocumentUri, tab.Document.Text, true);
+            tab.Markers.Should().BeEmpty();
+            await archives.Close(OfficeFile(file));
+            await lsp.Received(2).CloseDocumentAsync(tab.DocumentUri);
+            lsp.ReceivedCalls().Should().NotContain(c => c.GetMethodInfo().Name == nameof(ILspClient.ChangeDocumentAsync));
         }
         finally
         {
@@ -159,7 +171,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             composition.ProjectRunnerService.CanRunStartupProject.Should().BeFalse();
             root.MakeProjectCommand.CanExecute(null).Should().BeFalse();
             LspDocumentSession.VersionsFor(composition.LspClient,
-                composition.DocumentDockService.OpenDocuments.OfType<ArchiveDocumentViewModel>().Single().DocumentUri).Should().BeNull();
+                composition.DocumentDockService.OpenDocuments.OfType<ArchiveDocumentViewModel>().Single().DocumentUri).Should().NotBeNull();
             composition.ProjectRunnerService.RunStartupProject();
             composition.ProjectRunnerService.IsRunning.Should().BeFalse();
         }

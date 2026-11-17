@@ -1,27 +1,30 @@
 using Avalonia.Media;
 using HexIDE.Lsp.Messages;
 using HexIDE.Utils;
+using PropertyChanged.SourceGenerator;
 
 namespace HexIDE.Tools.ObjectBrowser;
 
-public class OBMemberViewModel
+public partial class OBMemberViewModel
 {
-    public string Name { get; }
+    [Notify] private string name;
+    internal string? NameKey { get; init; }
+    internal string? DescriptionKey { get; init; }
 
     /// <summary>The name: what a list of these is read by in automation, which names a row by its item's ToString (#1299).</summary>
     public override string ToString() => Name;
     public OBMemberKind Kind { get; }
     public string Signature { get; }
-    public string? Description { get; }
+    [Notify] private string? description;
     public Position? DeclarationPosition { get; }
 
     public OBMemberViewModel(string name, OBMemberKind kind, string signature, string? description = null,
         Position? declarationPosition = null)
     {
-        Name = name;
+        this.name = name;
         Kind = kind;
         Signature = signature;
-        Description = description;
+        this.description = description;
         DeclarationPosition = declarationPosition;
     }
 
