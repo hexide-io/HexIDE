@@ -24,6 +24,7 @@ public class ModuleExecutionContext
     {
         if (env.TryGetVariableLocation(name, out var loc))
         {
+            NoteImplicitMemberAccess(env, name);
             // An Enum member and a user Const are constants. VB6 refuses `pTwo = 5`, `MK = 2` and `Set MK = Nothing` at
             // compile time with "Assignment to constant not permitted" (measured, #1003: a module Const, a local one, a
             // class's, `Module1.MK = 2` and `MK = MK + 1` alike); the walk can only refuse it here, as the statement runs,
@@ -73,6 +74,9 @@ public class ModuleExecutionContext
     public bool TryGetVariable(ExecutionEnvironment env, string name, out Vb6Value value) =>
         TryRead(env, name, out value, inspecting: false);
 
+    internal bool TryGetVariable(ExecutionEnvironment env, string name, out Vb6Value value, bool trackMemberAccess) =>
+        TryRead(env, name, out value, inspecting: false, trackMemberAccess);
+
     /// <summary>
     /// Read a variable for the debugger: as <see cref="TryGetVariable"/> does, except that a form's control is read even
     /// before the form has loaded, and a form's name holding no instance reads as the Nothing it holds. Locals and the
@@ -82,10 +86,11 @@ public class ModuleExecutionContext
     public bool TryInspectVariable(ExecutionEnvironment env, string name, out Vb6Value value) =>
         TryRead(env, name, out value, inspecting: true);
 
-    private bool TryRead(ExecutionEnvironment env, string name, out Vb6Value value, bool inspecting)
+    private bool TryRead(ExecutionEnvironment env, string name, out Vb6Value value, bool inspecting, bool trackMemberAccess = true)
     {
         if (env.TryGetVariableLocation(name, out var loc))
         {
+            if (!inspecting && trackMemberAccess) NoteImplicitMemberAccess(env, name);
             if (!inspecting && state.PendingControlOf(loc) is { } form)
                 throw new FormLoadNeeded(form, name);
             if (inspecting)
@@ -135,6 +140,17 @@ public class ModuleExecutionContext
         }
         value = default;
         return false;
+    }
+
+    private static void NoteImplicitMemberAccess(ExecutionEnvironment env, string name)
+    {
+        if (env.Instance is { } instance
+            && !ReferenceEquals(env, instance.InstanceEnv)
+            && instance.Terminated
+            && !env.TryGetOwnVariableLocation(name, out _)
+            && instance.InstanceEnv.TryGetOwnVariableLocation(name, out var fieldSlot)
+            && (!instance.ClassDef.ModuleEnv.TryGetOwnVariableLocation(name, out var sharedSlot) || sharedSlot != fieldSlot))
+            instance.Interpreter?.NoteMemberAccess(instance, name);
     }
 
     /// <summary>What <paramref name="name"/>'s slot was declared as, for the Locals window's Type column (#2700): its

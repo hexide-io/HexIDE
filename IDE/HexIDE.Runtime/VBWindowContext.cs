@@ -180,7 +180,7 @@ public class VBWindowContext : IModuleExecutionRoot
 
     internal void AttachControl(VBProgram program, ModuleInfo module)
     {
-        Attach(program, module, "", new VbObject(module, module.ModuleEnv.Clone()) { FormLoaded = true });
+        Attach(program, module, "", new VbObject(module, module.ModuleEnv.Clone()) { FormLoaded = true, Interpreter = program.Interpreter });
         formDeclarationsRun = false;
         started = false;
         program.Interpreter.AddRef(Vb6Value.NewObject(instance!));
