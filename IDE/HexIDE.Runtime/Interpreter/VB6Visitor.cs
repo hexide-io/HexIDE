@@ -155,7 +155,7 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
         throw new Exception("Type mismatch");
     }
 
-    public Vb6Value.ValueType ExtractType(VB6Parser.AsTypeClauseContext? asTypeClause, bool isArray)
+    public Vb6Value.ValueType ExtractType(VB6Parser.AsTypeClauseContext? asTypeClause, bool isArray, bool isVba64 = false)
     {
         Vb6Value.ValueType type = Vb6Value.ValueType.EmptyVariant;
         if (asTypeClause != null)
@@ -164,7 +164,9 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
                 throw new NotImplementedException("An array declared As New is not implemented (#1482)");
             if (asTypeClause.fieldLength() != null && asTypeClause.type()?.baseType()?.STRING() is null)
                 throw new NotImplementedException("fieldLength as type not implemented");
-            if (asTypeClause.type().complexType() != null)
+            if (BaseTypeMapper.Vba64Type(asTypeClause.type().complexType()?.GetText(), isVba64) is { } wide)
+                type = wide;
+            else if (asTypeClause.type().complexType() != null)
                 // A UDT/Enum param or return type — one generic UDT ValueType (the concrete identity is on the
                 // value). Enough for ByRef aliasability (both sides UDT) and to skip numeric coercion; a UDT-typed
                 // Dim itself is built directly in VisitVariableStmt, not here.

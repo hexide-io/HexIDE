@@ -134,6 +134,7 @@ public partial class VB6BuiltIns
         VTP.Byte              => ("Byte", 17),
         VTP.Integer           => ("Integer", 2),
         VTP.Long              => ("Long", 3),
+        VTP.LongLong          => ("LongLong", 20),
         // CommonDialog's TypeName is unmeasured; retain its existing label while correcting VarType.
         VTP.AutomationUnsignedLong => ("Long", 19),
         VTP.Single            => ("Single", 4),

@@ -154,11 +154,14 @@ public class PrePass : VB6BaseVisitor<object?>
     /// </summary>
     public override object? VisitDeftypeStmt(VB6Parser.DeftypeStmtContext context)
     {
+        if ((context.DEFLNGLNG() != null || context.DEFLNGPTR() != null) && VbaBitness != VbaBitness.Bit64)
+            throw new VBCompileErrorException("Invalid outside procedure");
         if (declared)
             throw new VBCompileErrorException("Deftype statements must precede declarations");
         var type = context.DEFBOOL() != null ? Vb6Value.ValueType.Boolean
             : context.DEFBYTE() != null ? Vb6Value.ValueType.Byte
             : context.DEFINT() != null ? Vb6Value.ValueType.Integer
+            : context.DEFLNGLNG() != null || context.DEFLNGPTR() != null ? Vb6Value.ValueType.LongLong
             : context.DEFLNG() != null ? Vb6Value.ValueType.Long
             : context.DEFCUR() != null ? Vb6Value.ValueType.Currency
             : context.DEFSNG() != null ? Vb6Value.ValueType.Single
@@ -736,7 +739,7 @@ public class PrePass : VB6BaseVisitor<object?>
         var name = context.ambiguousIdentifier().GetText();
         DeclareModuleName(name, accessor: "Get");
         var args = ParseParams(context.argList());
-        var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
+        var returnUdt = NamedType(context.asTypeClause());
         // `Property Get P$()` returns a String, as a Function's character declares its return. Unlike a Function's, it
         // compiles beside an As clause too, and the As clause is the type: `Q$() As Long` returns a Long (measured, #742).
         var (returnType, returnsVariant, returnsObject) = context.typeHint() is { } hint && context.asTypeClause() is null
@@ -831,7 +834,9 @@ public class PrePass : VB6BaseVisitor<object?>
                 fields.Add(new UdtField(fieldName, null, null, asType.type().GetText()));
                 continue;
             }
-            if (asType.type().complexType() is not null || asType.type().baseType()?.OBJECT() is not null
+            if (BaseTypeMapper.Vba64Type(asType.type().GetText(), VbaBitness == VbaBitness.Bit64) is { } wide)
+                fields.Add(new UdtField(fieldName, wide, null, IsArray: isArray, Bounds: bounds));
+            else if (asType.type().complexType() is not null || asType.type().baseType()?.OBJECT() is not null
                 || asType.type().baseType()?.COLLECTION() is not null)
                 fields.Add(new UdtField(fieldName, null, asType.type().GetText(), IsArray: isArray, Bounds: bounds));   // nested UDT, Enum or object type, resolved at NewUdt
             else
@@ -852,7 +857,7 @@ public class PrePass : VB6BaseVisitor<object?>
         var name = context.ambiguousIdentifier().GetText();
         // A complexType return (`As Employee`) is the generic UDT ValueType here; the concrete name is carried
         // separately so the return slot can be seeded with a real UDT at call time.
-        var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
+        var returnUdt = NamedType(context.asTypeClause());
         // `Function F%()` returns an Integer, and `& ! # @ $` a Long, Single, Double, Currency and String, ahead of a DefType
         // for the name's letter. A character and an As clause together are VB6's compile error (measured, #740).
         var hint = context.typeHint();
@@ -917,7 +922,7 @@ public class PrePass : VB6BaseVisitor<object?>
                 IsArray: arg.LPAREN() != null,
                 ReadsAsVariant: arg.LPAREN() == null
                     && (defaultType is null ? DeclaresVariant(arg.asTypeClause()) : defaultType == Vb6Value.ValueType.Object),
-                TypeName: arg.asTypeClause()?.type()?.complexType()?.GetText(),
+                TypeName: NamedType(arg.asTypeClause()),
                 DeclaredObject: arg.LPAREN() == null
                     && (DeclaresObject(arg.asTypeClause()) || defaultType == Vb6Value.ValueType.Object)));
         }
@@ -936,8 +941,12 @@ public class PrePass : VB6BaseVisitor<object?>
 
     // Maps an `As <type>` clause to a base ValueType, or null when absent / complex / unknown (params and
     // return types are left untyped in that case for now — the wider type system is a later phase).
-    private static Vb6Value.ValueType? ExtractBaseType(VB6Parser.AsTypeClauseContext? asType)
-        => BaseTypeMapper.Map(asType?.type()?.baseType());
+    private Vb6Value.ValueType? ExtractBaseType(VB6Parser.AsTypeClauseContext? asType)
+        => BaseTypeMapper.Vba64Type(asType?.type()?.complexType()?.GetText(), VbaBitness == VbaBitness.Bit64)
+            ?? BaseTypeMapper.Map(asType?.type()?.baseType());
+
+    private string? NamedType(VB6Parser.AsTypeClauseContext? asType) =>
+        ExtractBaseType(asType) is null ? asType?.type()?.complexType()?.GetText() : null;
 
     // A Function's or Property Get's return type, an array where the clause says so: `As Long()` returns a Long() (measured,
     // #975: TypeName "Long()", and one that never assigns its name returns an empty one, UBound raising 9). It was read as
@@ -953,7 +962,7 @@ public class PrePass : VB6BaseVisitor<object?>
             DeclaresObject(asType) || asType?.type() is { } type && type.LPAREN() == null && type.baseType()?.COLLECTION() != null);
     }
 
-    private static Vb6Value.ValueType ReturnTypeOf(VB6Parser.AsTypeClauseContext? asType)
+    private Vb6Value.ValueType ReturnTypeOf(VB6Parser.AsTypeClauseContext? asType)
     {
         if (asType?.fieldLength() is not null && asType.type()?.baseType()?.STRING() is not null)
             throw new VBCompileErrorException("Expected: end of statement");
@@ -964,6 +973,6 @@ public class PrePass : VB6BaseVisitor<object?>
     }
 
     // A named element type is resolved at the call, once the project's classes are known (#999).
-    private static Vb6Value.ValueType? CheckedArrayReturnOf(VB6Parser.AsTypeClauseContext? asType)
+    private Vb6Value.ValueType? CheckedArrayReturnOf(VB6Parser.AsTypeClauseContext? asType)
         => asType?.type()?.LPAREN() != null && asType.type().complexType() is null ? ReturnTypeOf(asType) : null;
 }
