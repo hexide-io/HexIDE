@@ -138,8 +138,19 @@ internal sealed class ListViewItems(VBListView owner) : ICSharpAsyncProxy, IName
                 result = new Vb6Value(item);
                 break;
             }
-            case "remove": Entries.RemoveAt(Position(args[0])); break;
-            case "clear": Entries.Clear(); break;
+            case "remove":
+            {
+                var at = Position(args[0]);
+                var wasSelectedItem = Entries[at] == owner.SelectedItem;
+                Entries.RemoveAt(at);
+                if (wasSelectedItem)
+                    owner.SelectedItem = Entries.Count == 0 ? null : Entries[System.Math.Min(at, Entries.Count - 1)];
+                break;
+            }
+            case "clear":
+                Entries.Clear();
+                owner.SelectedItem = null;
+                break;
             default: throw new NotImplementedException($"ListItems.{method} is not implemented (#1085)");
         }
         owner.InvalidateVisual();
