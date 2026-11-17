@@ -13,6 +13,8 @@ public interface IByRefTarget
     /// <summary>Whether the target is a Variant.</summary>
     bool IsVariant { get; }
 
+    int? FixedStringWidth => null;
+
     Vb6Value Read();
 
     void Write(Vb6Value value);
@@ -40,6 +42,8 @@ public sealed record ArrayElementRef(VBArray Array, IReadOnlyList<int> Index, bo
             ? type
             : null;
 
+    public int? FixedStringWidth => Array.FixedStringWidth;
+
     public bool IsVariant => HeldAsVariant || Array.ElementType is not { } type || type == Vb6Value.ValueType.EmptyVariant;
 
     public Vb6Value Read() => Array.GetValue(Index);
@@ -63,12 +67,16 @@ public sealed record SlotRef(ExecutionState State, int Location) : IByRefTarget
 
     public bool IsVariant => DeclaredType is null;
 
+    public int? FixedStringWidth => State.FixedStringWidthOf(Location);
+
     public Vb6Value Read() => State[Location];
 
     public void Write(Vb6Value value)
     {
         if (State.DeclaredTypeOf(Location) is { } declared)
             value = VbNumeric.CoerceOnStore(value, declared, null);
+        if (FixedStringWidth is { } width)
+            value = FixedLengthString.Store(value, width);
         ModuleExecutionContext.CheckObjectStore(value, State.DeclaredClassOf(Location));
         State[Location] = value;
     }

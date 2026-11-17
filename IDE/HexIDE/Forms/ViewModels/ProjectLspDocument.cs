@@ -70,7 +70,8 @@ internal sealed class ProjectLspDocument : IDisposable
     {
         await session.FlushAsync();
         if (disposed) return;
-        session.UpdateText(identity.Module is { } module ? format.CodePrefix(module) + module.Code : format.CodePrefix(identity.Form!) + identity.Form!.Code);
+        var own = ProjectFormats.Of(identity.Project, format);
+        session.UpdateText(identity.Module is { } module ? own.CodePrefix(module) + module.Code : own.CodePrefix(identity.Form!) + identity.Form!.Code);
         await session.RenameAsync(DocumentWireName.For(identity));
         await session.NotifySavedAsync();
         Dispose();

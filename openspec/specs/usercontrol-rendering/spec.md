@@ -184,3 +184,15 @@ per control. InvisibleAtRuntime instances SHALL raise only Initialize, ReadPrope
 - **WHEN** its form starts and subsequently unloads
 - **THEN** Initialize and ReadProperties run before Form_Load and Terminate runs on unload
 - **AND** Resize, Show and Hide do not run
+
+### Requirement: Form-hosted Ambient reads
+
+A running form-hosted UserControl SHALL read its container's BackColor, ForeColor and Font object,
+its instance DisplayName, and the measured constants from [#4149](https://github.com/hexide-io/HexIDE/issues/4149).
+UserMode SHALL be True and ShowHatching False. LocaleID SHALL read 1033 under en-US; other locales,
+Palette, RightToLeft on a right-to-left form and non-form containers SHALL refuse explicitly as not implemented.
+Design-time UserControl execution remains unavailable.
+
+#### Scenario: Reading the form font during startup
+- **WHEN** a UserControl reads Ambient.Font in ReadProperties on a form with Arial 12 Bold
+- **THEN** the object reads Name Arial, Size 12, Bold True and Italic False

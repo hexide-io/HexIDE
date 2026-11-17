@@ -26,6 +26,26 @@ public partial class RelatedDocumentEditorView : UserControl
     public void TriggerCompletion() => _languageFeatures?.TriggerCompletion();
     public void TriggerSignatureHelp() => _languageFeatures?.TriggerSignatureHelp();
 
+    private void CanFormatDocument(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is RelatedDocumentEditorViewModel { CanFormatDocument: true };
+        e.Handled = true;
+    }
+
+    private void CanFormatSelection(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is RelatedDocumentEditorViewModel { CanFormatSelection: true };
+        e.Handled = true;
+    }
+
+    private void FormatDocumentExecuted(object? sender, Avalonia.Labs.Input.ExecutedRoutedEventArgs e) => Format(false);
+    private void FormatSelectionExecuted(object? sender, Avalonia.Labs.Input.ExecutedRoutedEventArgs e) => Format(true);
+    private void Format(bool selection)
+    {
+        if (_languageFeatures is { } features && _foldingEditor is { } editor && DataContext is RelatedDocumentEditorViewModel vm)
+            _ = features.FormatAsync(selection, vm.ApplyFormatting, () => vm.RefuseFormatting(editor.IsReadOnly));
+    }
+
     private sealed class CarriedFileCompletionRules(RelatedDocumentEditorViewModel vm) : IEditorCompletionRules
     {
         public bool MayOpenCompletion() => vm.Settings.AutoListMembers && vm.LoadError is null;
@@ -46,6 +66,8 @@ public partial class RelatedDocumentEditorView : UserControl
     private LspDiagnosticsColorizer? _colorizer;
     private System.ComponentModel.PropertyChangedEventHandler? _vmCaretSync;
     private EventHandler? _caretMoved;
+    private EventHandler? _selectionChanged;
+    private bool _syncingSelection;
 
     public RelatedDocumentEditorView()
     {
@@ -101,6 +123,11 @@ public partial class RelatedDocumentEditorView : UserControl
 
         AttachCaretSync(editor, vm);
         _languageFeatures = new EditorLanguageFeatures(editor.TextArea, vm, new CarriedFileCompletionRules(vm));
+        _languageFeatures.AttachHover(editor, () => vm.Markers, marker => new TextBlock { Text = marker.Message }, uri =>
+        {
+            if (uri.Scheme is "http" or "https" && TopLevel.GetTopLevel(this) is { } top)
+                _ = top.Launcher.LaunchUriAsync(uri);
+        });
 
         // Folding, on the same terms as the VB6 editor. A carried file's URI is a real file: one, so an
         // attached server can answer for it; the registry decides whether any server may.
@@ -219,6 +246,7 @@ public partial class RelatedDocumentEditorView : UserControl
     {
         _vmCaretSync = (_, args) =>
         {
+            if (_syncingSelection) return;
             switch (args.PropertyName)
             {
                 case nameof(RelatedDocumentEditorViewModel.SelectionStart):
@@ -231,7 +259,9 @@ public partial class RelatedDocumentEditorView : UserControl
                     var length = Math.Clamp(vm.SelectionLength, 0, editor.Document.TextLength - start);
                     if (editor.SelectionStart != start || editor.SelectionLength != length)
                     {
-                        editor.Select(start, length);
+                        _syncingSelection = true;
+                        try { editor.Select(start, length); }
+                        finally { _syncingSelection = false; }
                         if (length > 0)
                             editor.TextArea.Caret.BringCaretToView();
                     }
@@ -262,6 +292,18 @@ public partial class RelatedDocumentEditorView : UserControl
 
         _caretMoved = (_, _) => vm.CaretOffset = editor.CaretOffset;
         editor.TextArea.Caret.PositionChanged += _caretMoved;
+        _selectionChanged = (_, _) =>
+        {
+            if (_syncingSelection) return;
+            _syncingSelection = true;
+            try
+            {
+                vm.SelectionStart = editor.SelectionStart;
+                vm.SelectionLength = editor.SelectionLength;
+            }
+            finally { _syncingSelection = false; }
+        };
+        editor.TextArea.SelectionChanged += _selectionChanged;
     }
 
     /// <summary>
@@ -323,12 +365,14 @@ public partial class RelatedDocumentEditorView : UserControl
             if (_markerService is not null) editor.TextArea.TextView.BackgroundRenderers.Remove(_markerService);
             if (_colorizer is not null) editor.TextArea.TextView.LineTransformers.Remove(_colorizer);
             if (_caretMoved is not null) editor.TextArea.Caret.PositionChanged -= _caretMoved;
+            if (_selectionChanged is not null) editor.TextArea.SelectionChanged -= _selectionChanged;
         }
 
         _markerService = null;
         _colorizer = null;
         _vmCaretSync = null;
         _caretMoved = null;
+        _selectionChanged = null;
     }
 
     private void OnMarkersChanged(IReadOnlyList<LspMarker> markers)

@@ -204,3 +204,36 @@ and `Text1.Move(100)`, written into the `.frm` that way. Both builds compile, an
 shows, and `Text1.Left` reads 100 after the Move. VB6's editor would have rewritten each with a space, so this is what
 a file written elsewhere gets. HexIDE's grammar refused both; #1064 now accepts them in the interpreter and language server.
 
+**14. A 402 still hides the form, and a modal form hidden from above keeps waiting (2026-11-16, #4032, #3936).** Section
+12's table records `Form1.Hide` and `Form2.Hide` behind a modal form as 402, and nothing more. HexIDE read that as a
+refusal: it raised 402 and left the form shown. So this asks what the 402 leaves behind, for a modeless form and for a
+modal form beneath the topmost one, through `Hide` and through `Visible = False`.
+
+**The probe.** Run does `Form1.Show` and then `Form2.Show vbModal`. Form2's Activate does `Form3.Show vbModal`. Form3's
+Activate runs the statements below under `On Error Resume Next`, logging `Err.Number` and the form's `Visible` after
+each, and ends with `Me.Hide`. Form2's Activate then starts its own Timer, which unloads Form2. vb6.exe SP6, compiled
+(`/make`), native and p-code agreeing in every row. The IDE wasn't measured.
+
+| Statement, in Form3 (modal over Form2, modal over Form1) | `Err.Number` | `Visible` afterwards |
+|---|---|---|
+| `Form2.Hide`: a modal form beneath the topmost | **402** | **False** |
+| `Form2.Visible = False`, in its place | **402** | **False** |
+| `Form1.Hide`: a modeless form beneath both | 402 | **False** |
+| `Me.Hide`: the topmost modal form | 0 | False, and its `Show vbModal` returns |
+
+**After Form3 returned,** Form2 was still hidden. **Its modal loop hadn't ended.** Form2's Timer fired, and Run's
+`Form2.Show vbModal` returned only once that Timer had unloaded Form2. So hiding a modal form from above takes it off the
+screen and leaves its `Show vbModal` waiting. Hiding the topmost modal form, as section 12 records, ends its modal loop.
+
+**The rule these rows support.** Behind a modal form, `Hide` raises 402 and hides the form all the same, whether the
+target is modal or not. `Visible = False` does the same to a modal form beneath. On #3936 a *modeless* form's
+`Visible = False` behind a modal form gave no error (oracle PR #4034), so whether `Visible = False` raises 402 depends
+on whether its target is itself modal. `Hide` raises 402 for both.
+
+**What was overturned.** The obvious reading of section 12's 402 rows was a refusal that changes nothing, as 401 is
+for `Show`: on #3936, `Form2.Show` behind a modal form gave 401 and left Form2 hidden. HexIDE built exactly that reading, and
+raised 402 without hiding. vb6.exe raises 402 and hides the form anyway, so a program running under
+`On Error Resume Next` sees the form go. These rows can't say which of the two happens first, only that both do. Measured because #3936's review left "does VB6 hide a modal form beneath?" unmeasured.
+
+**Not measured:** the IDE (F5); a modal form beneath that is hidden and then shown again while the topmost stays up;
+`Unload` of a modal form beneath.

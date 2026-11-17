@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -12,8 +13,6 @@ namespace HexIDE.Runtime.Dialogs;
 
 public partial class MessageBox : UserControl
 {
-    public bool IsProgramDialog { get; init; }
-
     public string Text { get; set; } = "";
     public MessageBoxButtons Buttons { get; set; } = MessageBoxButtons.Ok;
     public MessageBoxIcon Icon { get; set; } = MessageBoxIcon.None;
@@ -21,21 +20,8 @@ public partial class MessageBox : UserControl
 
     public event Action<MessageBoxResult>? AcceptRequest;
 
-    /// <summary>
-    /// What closing a box with these buttons answers when no button was pressed, or null where it has no close.
-    /// </summary>
-    /// <remarks>
-    /// Measured on vb6.exe, posting WM_CLOSE and SC_CLOSE to each kind: OK alone answers vbOK; OK/Cancel, Yes/No/Cancel
-    /// and Retry/Cancel answer vbCancel; Yes/No and Abort/Retry/Ignore stay open, because they have no close. That is
-    /// Windows' own message box, and the same holds for every box the IDE shows.
-    /// </remarks>
-    public static MessageBoxResult? AnswerOnClose(MessageBoxButtons buttons) => buttons switch
-    {
-        MessageBoxButtons.Ok => MessageBoxResult.Ok,
-        MessageBoxButtons.OkCancel or MessageBoxButtons.YesNoCancel or MessageBoxButtons.RetryCancel
-            => MessageBoxResult.Cancel,
-        _ => null,
-    };
+    public static MessageBoxResult? AnswerOnClose(MessageBoxButtons buttons) =>
+        MessageBoxClosePolicy.AnswerOnClose(buttons);
 
     /// <summary>
     /// Whether the window hosting a box should refuse a close, as Windows refuses one for a box with no close.
@@ -72,9 +58,10 @@ public partial class MessageBox : UserControl
     /// </remarks>
     public async Task<MessageBoxResult> ShowAndWait(Window window, Window owner)
     {
-        if (IsProgramDialog)
-            window.FlowDirection = (Layout & MessageBoxLayout.RtlReading) != 0
-                ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        window.FlowDirection = (Layout & MessageBoxLayout.RtlReading) != 0
+            ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        ApplyWindowStyles(window);
+        ProgramDialogChrome.Apply(window);
         var current = window;
         AcceptRequest += r =>
         {
@@ -105,6 +92,8 @@ public partial class MessageBox : UserControl
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterScreen,
         };
+        ApplyWindowStyles(again);
+        ProgramDialogChrome.Apply(again);
         current = again;
         window.Close();
         var closed = Watch(again);
@@ -115,6 +104,70 @@ public partial class MessageBox : UserControl
         owner.Closed -= OnOwnerClosed;
         return Answer;
     }
+
+    private void ApplyWindowStyles(Window window)
+    {
+        var callback = WindowStylesCallback(OperatingSystem.IsWindows());
+        if (callback is not null)
+        {
+            Win32Properties.AddWindowStylesCallback(window, callback);
+            Win32Properties.AddWndProcHookCallback(window, MouseHookCallback(OperatingSystem.IsWindows())!);
+        }
+    }
+
+    internal Win32Properties.CustomWindowStylesCallback? WindowStylesCallback(bool isWindows)
+    {
+        // VB6's box has WS_EX_LAYOUTRTL with vbMsgBoxRtlReading, which mirrors the native title bar (measured, #3958).
+        // The content keeps Avalonia's own right-to-left layout, and MouseHookCallback un-mirrors the mouse (#3973).
+        if (!isWindows || (Layout & MessageBoxLayout.RtlReading) == 0)
+            return null;
+        return (style, exStyle) => (style, exStyle | 0x00400000u); // WS_EX_LAYOUTRTL
+    }
+
+    internal Win32Properties.CustomWndProcHookCallback? MouseHookCallback(bool isWindows,
+        Func<IntPtr, int>? clientWidth = null, Func<IntPtr, uint, IntPtr, IntPtr, IntPtr>? send = null)
+    {
+        if (WindowStylesCallback(isWindows) is null)
+            return null;
+        clientWidth ??= hwnd => GetClientRect(hwnd, out var rect) ? rect.Right - rect.Left : 0;
+        send ??= SendMessage;
+        var resending = false;
+        return (IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+        {
+            // Wheel, WM_CONTEXTMENU and WM_NCHITTEST use screen coordinates; leave them and the native frame alone.
+            if (resending || !(msg is >= 0x0200 and <= 0x0209 or >= 0x020B and <= 0x020D))
+                return IntPtr.Zero;
+            var width = clientWidth(hwnd);
+            if (width <= 0)
+                return IntPtr.Zero;
+            var x = (short)(lParam.ToInt64() & 0xffff);
+            var mapped = new IntPtr(unchecked((int)((lParam.ToInt64() & 0xffff0000L)
+                | (ushort)(width - 1 - x))));
+            resending = true;
+            try
+            {
+                handled = true;
+                return send(hwnd, msg, wParam, mapped);
+            }
+            finally
+            {
+                resending = false;
+            }
+        };
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ClientRect
+    {
+        public int Left, Top, Right, Bottom;
+    }
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetClientRect(IntPtr hwnd, out ClientRect rect);
+
+    [LibraryImport("user32.dll", EntryPoint = "SendMessageW")]
+    private static partial IntPtr SendMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     /// <summary>
     /// Completes when <paramref name="window"/> closes, and makes a person's close of it answer as
@@ -147,9 +200,8 @@ public partial class MessageBox : UserControl
         // Built once: a box hidden with its owner moves to a window of its own, and is loaded again there.
         if (PART_Buttons.Children.Count > 0)
             return;
-        if (IsProgramDialog)
-            FlowDirection = (Layout & MessageBoxLayout.RtlReading) != 0
-                ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        FlowDirection = (Layout & MessageBoxLayout.RtlReading) != 0
+            ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         if (Icon != MessageBoxIcon.None)
             PART_Content.Children.Add(BuildIconElement(Icon));
 
@@ -161,23 +213,17 @@ public partial class MessageBox : UserControl
             VerticalAlignment = VerticalAlignment.Center
         };
         // #3014 / measuring PR #3958: Right changes only the text alignment.
-        if (IsProgramDialog)
-            prompt.TextAlignment = (Layout & MessageBoxLayout.Right) != 0
-                ? TextAlignment.Right : TextAlignment.Left;
+        prompt.TextAlignment = (Layout & MessageBoxLayout.Right) != 0
+            ? TextAlignment.Right : TextAlignment.Left;
         Grid.SetColumn(prompt, Icon == MessageBoxIcon.None ? 0 : 1);
         Grid.SetColumnSpan(prompt, Icon == MessageBoxIcon.None ? 2 : 1);
         PART_Content.Children.Add(prompt);
 
-        if (!IsProgramDialog)
-            Classes.Add("ideDialog");
-
         foreach (var (label, result) in GetButtonDefs())
         {
             var captured = result;
-            // The IDE installs Str.* resources; the standalone runner keeps the English fallback.
-            var caption = this.TryFindResource($"Str.Dialog.MessageBox.Button.{result}", out var value)
-                && value is string translated ? translated : label;
-            var btn = new Button { Content = caption, MinWidth = 75, IsDefault = !IsProgramDialog && PART_Buttons.Children.Count == 0 };
+            var caption = ProgramButtonCaptions.Get(result, label);
+            var btn = new Button { Content = caption, MinWidth = 75, IsDefault = false };
             btn.Click += (_, _) => AcceptRequest?.Invoke(captured);
             PART_Buttons.Children.Add(btn);
         }

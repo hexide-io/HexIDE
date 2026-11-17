@@ -58,6 +58,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ArchiveProjectBrowsingTests.cs` | split |
 | `Views/BattleshipFormsDemoTests.cs` | split |
 | `Views/BeginOrderTests.cs` | split |
+| `Views/BrandWindowIconTests.cs` | split |
 | `Views/CallHierarchyTests.cs` | split |
 | `Views/CarriedBoxStackingTests.cs` | split |
 | `Views/CarriedPasteTests.cs` | split |
@@ -104,6 +105,12 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/FileWatcherReloadTests.cs` | split |
 | `Views/FindReferencesTests.cs` | split |
 | `Views/FlatScrollBarFileTests.cs` | split |
+| `Views/FlexGridDrawingTests.cs` | provider |
+| `Views/FlexGridKeyboardTests.cs` | provider |
+| `Views/FlexGridMouseTests.cs` | provider |
+| `Views/FlexGridRuntimeTests.cs` | provider |
+| `Views/FontDialogEffectsTests.cs` | split |
+| `Views/FontDialogSizeTests.cs` | split |
 | `Views/FontSizeInPointsTests.cs` | split |
 | `Views/ForegroundWindowLifetimeTests.cs` | split |
 | `Views/ForegroundWindowTests.cs` | split |
@@ -120,6 +127,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/InBoxToolboxTests.cs` | split |
 | `Views/LineControlTests.cs` | split |
 | `Views/LineNumbersFromTheTopOfTheFileTests.cs` | split |
+| `Views/LoadedFormMenuTests.cs` | split |
 | `Views/LockControlsSaveTests.cs` | split |
 | `Views/MarkGutterOnReadOnlyLineTests.cs` | split |
 | `Views/MemberRunFoldTests.cs` | split |
@@ -137,11 +145,13 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/PictureLoadTests.cs` | split |
 | `Views/PositionRowsTests.cs` | split |
 | `Views/PrintDialogTests.cs` | split |
+| `Views/ProgramBoxCaptionTests.cs` | split |
 | `Views/ProjectPropertiesViewIntegrationTests.cs` | split |
 | `Views/QuickFixTests.cs` | split |
 | `Views/RawPropertyRowsTests.cs` | split |
 | `Views/ReadOnlyBannerIntegrationTests.cs` | split |
 | `Views/ReadOnlyGreyingTests.cs` | split |
+| `Views/RefusedPropertyRowsTests.cs` | split |
 | `Views/ResetPromptTests.cs` | split |
 | `Views/RootDoubleClickTests.cs` | split |
 | `Views/RunFaultTests.cs` | split |
@@ -155,6 +165,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/SingleViewFormsTests.cs` | split |
 | `Views/StartupFormFailsToLoadTests.cs` | split |
 | `Views/SubMainFormsTests.cs` | split |
+| `Views/SymbolRefreshWireTests.cs` | split |
 | `Views/SyntaxErrorAtStartTests.cs` | split |
 | `Views/TabIndexAssignmentTests.cs` | split |
 | `Views/TabStripForm.cs` | provider |
@@ -163,6 +174,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ToolReactivationFocusTests.cs` | split |
 | `Views/ToolbarDesignerPersistenceTests.cs` | split |
 | `Views/ToolboxFromRegistryTests.cs` | split |
+| `Views/TypeHierarchyTests.cs` | split |
 | `Views/TypedMemberAttributeTests.cs` | split |
 | `Views/UncreatableControlTests.cs` | split |
 | `Views/UnloadTests.cs` | split |

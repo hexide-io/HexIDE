@@ -21,6 +21,18 @@ internal static class VBVisibility
 {
     public static void Set(Control control, bool visible)
     {
+        // A form's window: itself on the desktop, the host's window holding its root in single view (#4068).
+        if (FormRoot.View(control) is { } view)
+        {
+            if (view.Context.Program is { } program)
+            {
+                if (visible) program.Show(view);
+                else program.Hide(view, reportModalError: false);
+            }
+            else if (visible) view.ShowForm();
+            else view.HideForm();
+            return;
+        }
         if (control is not IVBContainerControl)
         {
             control.IsVisible = visible;

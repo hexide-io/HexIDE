@@ -193,8 +193,47 @@ public class NavigationAccessKeyTests
         used.Should().NotContain(mnemonic, $"{packId}: Call Hierarchy should use a free menu letter");
     }
 
+    [Theory]
+    [InlineData("edit.refactor")]
+    [InlineData("edit.sourceactions")]
+    public void EditCodeActionLabelsUseAFreeAccessKey(string id)
+    {
+        var menu = MainMenuDeclaration.Load().Single(i => i.Id == "edit").Children!;
+        var item = menu.Single(i => i.Id == id);
+        foreach (var packId in LatinMenus().Select(row => (string)row[0]).Distinct())
+        {
+            var strings = PackStrings(packId);
+            var used = menu.Where(i => i.Id != id && i.LabelKey is not null)
+                .Select(i => AccessKey(strings[i.LabelKey!])).ToHashSet();
+            var label = strings[item.LabelKey!];
+            if (AccessKey(label) is { } key)
+                used.Should().NotContain(key, $"{packId}: {id} must use a free Edit menu letter");
+            else
+                label.Where(char.IsLetter).Select(char.ToUpperInvariant).Should().OnlyContain(c => used.Contains(c),
+                    $"{packId}: {id} may omit its key only when no Edit menu letter is free");
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(LatinMenus))]
+    public void TypeHierarchyUsesAFreeLetterOrOmitsItsMarker(string packId, bool editMenu)
+    {
+        var strings = PackStrings(packId);
+        var key = editMenu ? "Str.Menu.Edit.TypeHierarchy" : "Str.CodeEditor.Context.TypeHierarchy";
+        var keys = MenuLabelGroups(editMenu, "edit").First().Where(k => k != key).ToList();
+        if (editMenu) keys.AddRange(["Str.Menu.Edit.Undo", "Str.Menu.Edit.Redo"]);
+        var used = keys.Select(k => AccessKey(strings[k])).ToHashSet();
+        var label = strings[key];
+        if (AccessKey(label) is { } marker)
+            used.Should().NotContain(marker, $"{packId}: Type Hierarchy must not collide with an existing entry");
+        else
+            label.Where(char.IsLetter).Select(char.ToUpperInvariant).Should().OnlyContain(c => used.Contains(c),
+                $"{packId}: Type Hierarchy may omit its marker only when every letter is taken");
+    }
+
     // These menus use their own collision guard instead of English marker-count parity.
-    internal static readonly HashSet<string> CollisionPolicyKeys = LatinMenuKeys().ToHashSet();
+    internal static readonly HashSet<string> CollisionPolicyKeys = LatinMenuKeys()
+        .Concat(["Str.Menu.Edit.Refactor", "Str.Menu.Edit.SourceActions", "Str.Menu.Edit.TypeHierarchy"]).ToHashSet();
 
     private static IEnumerable<string> LatinMenuKeys() =>
         MenuLabelGroups(true, "view").Concat(MenuLabelGroups(false, "view")).SelectMany(keys => keys);

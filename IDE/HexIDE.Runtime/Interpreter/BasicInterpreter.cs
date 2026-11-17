@@ -68,6 +68,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private readonly ExecutionEnvironment rootEnv;
     private readonly string code;
     private PrePass prepass;
+    internal bool StartupMainReturned { get; private set; }
+
+    // Weak entries preserve creation order without retaining objects after their last VB reference.
+    private readonly List<WeakReference<VbObject>> createdClasses = new();
+    private int compactCreatedClassesAt = MinCompactCreatedClasses;
+    private const int MinCompactCreatedClasses = 1024;
+
+    /// <summary>How many created instances are still tracked for the end of a Sub Main program (#1490).</summary>
+    internal int TrackedInstanceCount => createdClasses.Count;
 
     /// <summary>Classes whose <c>Implements</c> conformance has already been verified — the check is per class,
     /// not per instance.</summary>
@@ -152,7 +161,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (result.Type == Vb6Value.ValueType.Object || result.Type == Vb6Value.ValueType.Control
             || result.Type == Vb6Value.ValueType.CSharpProxyObject || result.Type == Vb6Value.ValueType.Nothing)
             throw new NotImplementedException("Nested default members are unmeasured (#174)");
-        return result;
+        // A late-bound read gives a Variant; an early-bound read keeps the member's declared type (#174).
+        return value.HeldAsVariant || string.Equals(value.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
+            ? result.AsVariant() : result;
     }
 
     /// <summary>
@@ -403,8 +414,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var variantFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var autoNewFields = new Dictionary<string, AutoNew>(StringComparer.OrdinalIgnoreCase);
         var objectFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var fixedStringWidths = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
+            int? fixedWidth = null;
+            if (f.FixedLength is { } length)
+            {
+                var owner = Modules.All.First(m => m.PrePass.Types.Values.Contains(def));
+                fixedWidth = FixedLengthString.Width(length, owner.ModuleEnv, ExecutionContext.State);
+            }
             if (f.IsArray)
             {
                 if (f.UdtTypeName is { } nestedType && Types.TryGetValue(nestedType, out var nestedDef))
@@ -415,6 +433,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                         ? Vb6Value.ValueType.Long : throw new NotImplementedException($"Array field '{f.Name}' has an unsupported element type (#178)"));
                     var arrayType = new Vb6Value.ValueType(elementType, true);
                     fields[f.Name] = f.Bounds is null ? new Vb6Value(arrayType) : new Vb6Value(arrayType, f.Bounds);
+                    if (fixedWidth is { } width)
+                        fields[f.Name] = fields[f.Name].WithArray(FixedLengthString.Array(width, f.Bounds));
                     ((VBArray)fields[f.Name].Value!).IsDynamic = f.Bounds is null;
                 }
                 continue;
@@ -457,7 +477,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 typedFields[f.Name] = Vb6Value.ValueType.Long;
             else if (f.UdtTypeName is null && (f.ScalarType is null || f.ScalarType == Vb6Value.ValueType.EmptyVariant))
                 variantFields.Add(f.Name);
-            if (f.ScalarType is { } scalar)
+            if (fixedWidth is { } stringWidth)
+            {
+                fields[f.Name] = FixedLengthString.Initial(stringWidth);
+                fixedStringWidths[f.Name] = stringWidth;
+            }
+            else if (f.ScalarType is { } scalar)
                 fields[f.Name] = new Vb6Value(scalar);
             else if (f.UdtTypeName is { } nested)
                 fields[f.Name] = Types.ContainsKey(nested) ? Vb6Value.NewUdt(NewUdt(nested, depth + 1))
@@ -466,7 +491,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             else
                 fields[f.Name] = Vb6Value.Variant;
         }
-        return new VbUdt(typeName, fields, typedFields, variantFields, autoNewFields, objectFields);
+        return new VbUdt(typeName, fields, typedFields, variantFields, autoNewFields, objectFields, fixedStringWidths);
     }
 
     /// <summary>
@@ -484,6 +509,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         string => v.CopyString(),
         VbUdt udt => CopyUdt(udt),
+        VBArray { FixedStringWidth: not null } => throw new NotImplementedException(
+            "Copying a whole fixed-length String array is not implemented (#179): its assignment rules are unmeasured"),
         VBArray array => v.WithArray(array.CopyForLet(element => CopyElement(element, depth + 1))),
         _ => v,
     };
@@ -551,6 +578,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         foreach (var block in classDef.PrePass.topLevelBlocks)
             await new StatementExecutor(this, instanceEnv, classDef).Execute(block);
         var instance = new VbObject(classDef, instanceEnv);
+        createdClasses.Add(new WeakReference<VbObject>(instance));
+        if (createdClasses.Count >= compactCreatedClassesAt)
+        {
+            // A long-running program makes and drops objects without end. Drop the entries whose object has terminated or
+            // gone, keeping creation order, and let the list double before the next pass, so the cost stays amortised.
+            createdClasses.RemoveAll(e => !e.TryGetTarget(out var o) || o.Terminated);
+            compactCreatedClassesAt = Math.Max(MinCompactCreatedClasses, createdClasses.Count * 2);
+        }
         if (classDef.PrePass.Procedures.TryGetValue("Class_Initialize", out var init))
         {
             // The object under construction is held while Class_Initialize runs, as the New expression holds it in
@@ -570,6 +605,36 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             }
         }
         return instance;
+    }
+
+    // #1490: retain the live classes while releasing module and Static storage, then drop those holds in
+    // reverse creation order. A shared object still terminates only when its last reference goes.
+    internal async Task ReleaseProgramObjects()
+    {
+        var instances = new List<VbObject>();
+        foreach (var entry in createdClasses)
+            if (entry.TryGetTarget(out var instance) && !instance.Terminated && instance.RefCount > 0)
+            {
+                AddRef(Vb6Value.NewObject(instance));
+                instances.Add(instance);
+            }
+        var slots = new HashSet<int>(ExecutionContext.State.ModuleStatics.InSourceOrder());
+        foreach (var module in Modules.All)
+            if (module.Kind == InterpreterModuleKind.Standard)
+                foreach (var slot in module.ModuleEnv.variableToLocation.Values)
+                    if (!predeclaredSlots.Contains(slot) && ExecutionContext.State.DefaultFormOf(slot) is null)
+                        slots.Add(slot);
+        foreach (var slot in slots)
+        {
+            var value = ExecutionContext.State[slot];
+            if (value.Value is not (VbObject or VbCollection or VBArray or VbUdt or LibraryObject))
+                continue;
+            ExecutionContext.State[slot] = Vb6Value.Nothing;
+            await ReleaseRef(value);
+        }
+        for (var i = instances.Count - 1; i >= 0; i--)
+            await ReleaseRef(Vb6Value.NewObject(instances[i]));
+        createdClasses.Clear();
     }
 
     // ---- Class_Terminate reference counting (interpreter-advanced Phase 4.2) ----
@@ -663,7 +728,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // never reaches this path (its count never hit zero); a shared field just decrements. (Inter-field
         // teardown order is unpinned — Dictionary order — no oracle constraint yet.)
         foreach (var slot in o.InstanceEnv.variableToLocation.Values)
-            if (!predeclaredSlots.Contains(slot))   // shared program names are not this instance's fields (#2555)
+            if (!predeclaredSlots.Contains(slot) && ExecutionContext.State.DefaultFormOf(slot) is null)
+                // Shared program names are not this instance's fields (#2555, #1490).
                 await ReleaseRef(ExecutionContext.State[slot]);
         // Then its procedures' Statics, in the order the module declares them (measured, #1491).
         if (o.Statics is { } statics)
@@ -887,7 +953,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // window and every save keep the module as written.
     private ModuleInfo BuildModule(string name, InterpreterModuleKind kind, string moduleCode, ExecutionEnvironment env) => ParseStack.Run(() =>
     {
-        var pp = new PrePass(env, ExecutionContext.State, allowIndexedLet: kind == InterpreterModuleKind.Standard)
+        var pp = new PrePass(env, ExecutionContext.State, allowIndexedLet: kind is InterpreterModuleKind.Standard or InterpreterModuleKind.Class,
+            allowIndexedSet: kind == InterpreterModuleKind.Class)
         {
             ObjectModule = kind != InterpreterModuleKind.Standard
         };
@@ -1101,6 +1168,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </remarks>
     public async Task RunStartupSubMain()
     {
+        StartupMainReturned = false;
         var startup = FindStartupSubMain();
 
         try
@@ -1118,6 +1186,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             await RunModuleDeclarations();
 
             await RunProcedure(startup.Module, startup.Proc, Array.Empty<CallArg>(), isEntry: true);
+            StartupMainReturned = true;
         }
         catch (Debugging.StopExecutionSignal)
         {
@@ -1307,7 +1376,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             ? new Vb6Value(NewCollection())
             : Vb6Value.NewObject(await NewObject(need.AutoNew.ClassName));
         AddRef(made);
-        if (need.Field is { } field)
+        if (need.Element is { } element)
+        {
+            if (element.Read().Value is null) element.Write(made);
+            else await ReleaseRef(made);
+        }
+        else if (need.Field is { } field)
             field.Write(made);
         else if (ExecutionContext.State[need.Location] is { Value: null })
             ExecutionContext.State[need.Location] = made;
@@ -1606,6 +1680,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         callee.ReturnName = proc.IsFunction ? proc.Name : null;
         bool countMe = me is not null && !IsLifecycleHook(proc.Name);
         var refSlots = new List<int>();
+        var fixedStringCopies = new List<(int Slot, IByRefTarget Target)>();
         Vb6Value? ret = null;
         bool completed = false;
         bool holdsMe = false;
@@ -1621,7 +1696,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     holdsMe = true;
                 }
             }
-            await BindParameters(proc, args, callee, owner, ownedSlots, refSlots);
+            await BindParameters(proc, args, callee, owner, ownedSlots, refSlots, fixedStringCopies);
             // The return slot is typed as the declaration says, so a failed store is raised inside the Function,
             // where its own handler traps it (measured, #1444).
             var checkedArrayReturn = proc.CheckedArrayReturn;
@@ -1697,6 +1772,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                       && TryResolveEnum(named, owner, out _) ? returned.AsFixedType()
                     : proc.ReturnsVariant ? returned.AsVariant()
                     : returned;
+            foreach (var (slot, target) in fixedStringCopies)
+                target.Write(ExecutionContext.State[slot]);
             completed = true;
         }
         catch (Exception signal) when (signal is VBRunTimeException or VBCompileErrorException or Debugging.StopExecutionSignal)
@@ -2033,7 +2110,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         p.DeclaredType is { } dt && VbNumeric.IsDeclarableScalar(dt) ? dt : null;
 
     private async Task BindParameters(ProcedureInfo proc, IReadOnlyList<CallArg> args, ExecutionEnvironment callee, ModuleInfo owner,
-        List<int> ownedSlots, List<int> refSlots)
+        List<int> ownedSlots, List<int> refSlots, List<(int Slot, IByRefTarget Target)> fixedStringCopies)
     {
         for (int i = 0; i < proc.Parameters.Count; i++)
         {
@@ -2062,6 +2139,22 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (i < args.Count && !args[i].Value.IsMissing)
             {
                 var arg = args[i];
+                IByRefTarget? fixedTarget = arg.Location is { } fixedSlot
+                    && ExecutionContext.State.FixedStringWidthOf(fixedSlot) is not null
+                    ? new SlotRef(ExecutionContext.State, fixedSlot) : arg.Ref;
+                if (p.ByRef && fixedTarget?.FixedStringWidth is not null)
+                {
+                    var stringOrVariant = !p.IsArray && !p.DeclaredObject && p.TypeName is null
+                        && (p.DeclaredType == Vb6Value.ValueType.String || p.ReadsAsVariant);
+                    if (!stringOrVariant)
+                        throw new NotImplementedException("ByRef fixed-length String to this parameter type is not implemented (#179)");
+                    // #179 measures copy in/out. The parameter's own post-assignment Len is unmeasured;
+                    // use an ordinary String/Variant slot here, applying the width only on return.
+                    ExecutionContext.AllocVariable(callee, p.Name, arg.Value.CopyString(), DeclaredSlotType(p));
+                    callee.TryGetOwnVariableLocation(p.Name, out var slot);
+                    fixedStringCopies.Add((slot, fixedTarget));
+                    continue;
+                }
                 // A ParamArray passed whole to a ByRef parameter is VB6's compile error "Invalid ParamArray use" (measured, to
                 // `x() As Variant` and to `v As Variant`), raised here as the call runs. A ByVal parameter takes a copy.
                 if (p.ByRef && arg.Location is { } argSlot && ExecutionContext.State.IsParamArray(argSlot))

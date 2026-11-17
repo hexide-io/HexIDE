@@ -47,7 +47,13 @@ path beginning `/`. Recognized slash-prefixed flags SHALL continue to take prece
 Desktop SHALL accept `--platform <name>` in Debug and Release, overriding `HEXIDE_PLATFORM`.
 Desktop and Standalone SHALL read that variable and use the same backend selection: `x11` (default)
 uses platform detection, `auto` tries Wayland with the detected backend as fallback, and `wayland`
-requires Wayland without fallback. Selection SHALL leave Windows and macOS platform detection unchanged.
+requires Wayland without fallback. If required Wayland initialization throws Avalonia’s Wayland exception
+on Linux, both launchers SHALL report one localized line on stderr, including Avalonia’s message,
+and exit 2 without a core dump. The diagnostic SHALL identify the selection source: `--platform wayland`
+SHALL suggest `--platform x11` or `--platform auto`; `HEXIDE_PLATFORM=wayland` SHALL suggest setting
+`HEXIDE_PLATFORM` to `x11` or `auto`, or unsetting it. Desktop SHALL write the same line to the IDE log.
+Standalone SHALL write only to stderr and SHALL NOT create an IDE log folder.
+Other exceptions SHALL propagate unchanged. Selection SHALL leave Windows and macOS platform detection unchanged.
 Values SHALL be case-insensitive. An absent Desktop selection SHALL use the environment variable;
 an absent environment selection or an unrecognized value SHALL select `x11`. A flag without a value
 SHALL be ignored.
@@ -62,4 +68,8 @@ SHALL be ignored.
 
 #### Scenario: Diagnosis requires Wayland
 - **WHEN** Desktop starts on Linux with `--platform wayland` and Wayland cannot initialize
-- **THEN** startup fails rather than silently using X11
+- **THEN** startup exits 2 with the same diagnostic on stderr and in the IDE log, rather than silently using X11
+
+#### Scenario: A made program requires an unavailable Wayland display
+- **WHEN** Standalone starts on Linux with `HEXIDE_PLATFORM=wayland` and Wayland initialization throws Avalonia’s Wayland exception
+- **THEN** startup exits 2 with the environment-source diagnostic on stderr and creates no IDE log folder

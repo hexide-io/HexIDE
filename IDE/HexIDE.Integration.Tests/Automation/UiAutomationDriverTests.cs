@@ -1064,6 +1064,125 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Dump_ExplicitNameKeepsTypelessBorder_AndItsPathInspectsIt(bool interactiveOnly)
+    {
+        var border = new Border { Child = interactiveOnly ? new Button { Content = "Child" } : null };
+        AutomationProperties.SetName(border, "imlIcons");
+        var window = Show(new Border { Child = border });
+        try
+        {
+            var tree = UiAutomationDriver.Dump(window, "Window", 20, interactiveOnly);
+            var node = UiAutomationDriver.Find(tree, "imlIcons", 10).Matches.Should().ContainSingle().Which;
+            node.ControlType.Should().Be("None");
+            node.Providers.Should().BeEmpty();
+            var (resolved, error) = UiAutomationDriver.Resolve(window, node.Path);
+            error.Should().BeNull();
+            resolved.Should().BeSameAs(border);
+            UiAutomationDriver.Inspect(resolved!, node.Path).Name.Should().Be("imlIcons");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Dump_UnnamedTypelessBorder_StillFoldsAway()
+    {
+        var border = new Border { Child = new Button { Content = "Child" } };
+        var window = Show(border);
+        try
+        {
+            var nodes = Flatten(UiAutomationDriver.Dump(window, "Window", 20, false)).ToList();
+            nodes.Should().NotContain(n => n.ClassName == "Border");
+            nodes.Should().Contain(n => n.Path == "Window/Button[Child]");
+        }
+        finally { window.Close(); }
+    }
+
+    // Dock's theme sets every dock control's Name from a style setter bound to the dock's Title, which HexIDE
+    // leaves null. A theme's name is not the view's own, so it must not insert a segment into every dock path,
+    // whatever the title says (#4046).
+    [AvaloniaTheory]
+    [InlineData(null)]
+    [InlineData("Tools")]
+    public void Dump_NameFromAStyleSetter_StillFoldsAway(string? title)
+    {
+        var border = new Border { Classes = { "dock" }, Child = new Button { Content = "Child" } };
+        var window = Show(border);
+        try
+        {
+            window.Styles.Add(new Style(x => x.OfType<Border>().Class("dock"))
+            {
+                Setters = { new Setter(AutomationProperties.NameProperty, title) },
+            });
+            Dispatcher.UIThread.RunJobs();
+            border.IsSet(AutomationProperties.NameProperty).Should().BeTrue();
+            var nodes = Flatten(UiAutomationDriver.Dump(window, "Window", 20, false)).ToList();
+            nodes.Should().NotContain(n => n.ClassName == "Border");
+            nodes.Should().Contain(n => n.Path == "Window/Button[Child]");
+        }
+        finally { window.Close(); }
+    }
+
+    // Markup inside a DataTemplate sets its values at Template priority, so a name given there is the view's own.
+    [AvaloniaFact]
+    public void Dump_NameSetAtTemplatePriority_KeepsTypelessBorder()
+    {
+        var border = new Border { Child = new Button { Content = "Child" } };
+        border.SetValue(AutomationProperties.NameProperty, "Foreground", BindingPriority.Template);
+        var window = Show(border);
+        try
+        {
+            var node = UiAutomationDriver.Find(UiAutomationDriver.Dump(window, "Window", 20, false), "Foreground", 10)
+                .Matches.Should().ContainSingle().Which;
+            node.ControlType.Should().Be("None");
+            node.Path.Should().Be("Window/None[Foreground]");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Dump_EmptyOwnName_StillFoldsAway()
+    {
+        var border = new Border { Child = new Button { Content = "Child" } };
+        AutomationProperties.SetName(border, "");
+        var window = Show(border);
+        try
+        {
+            var nodes = Flatten(UiAutomationDriver.Dump(window, "Window", 20, false)).ToList();
+            nodes.Should().NotContain(n => n.ClassName == "Border");
+            nodes.Should().Contain(n => n.Path == "Window/Button[Child]");
+        }
+        finally { window.Close(); }
+    }
+
+    private sealed class ContentNamedWrapper : ContentControl
+    {
+        protected override AutomationPeer OnCreateAutomationPeer() => new ContentNamedPeer(this);
+
+        private sealed class ContentNamedPeer(ContentNamedWrapper owner) : ControlAutomationPeer(owner)
+        {
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.None;
+            protected override string GetNameCore() => owner.Content?.ToString() ?? "";
+        }
+    }
+
+    [AvaloniaFact]
+    public void Dump_NameDerivedOnlyFromContent_StillFoldsAway()
+    {
+        var wrapper = new ContentNamedWrapper { Content = "Derived label" };
+        var window = Show(wrapper);
+        try
+        {
+            wrapper.IsSet(AutomationProperties.NameProperty).Should().BeFalse();
+            ControlAutomationPeer.CreatePeerForElement(wrapper)!.GetName().Should().Be("Derived label");
+            Flatten(UiAutomationDriver.Dump(window, "Window", 20, false))
+                .Should().NotContain(n => n.ClassName == nameof(ContentNamedWrapper));
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Dump_EmittedPath_RoundTripsThroughResolve()
     {

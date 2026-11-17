@@ -21,6 +21,15 @@ public class MainMenuDeclarationTests
     private static IEnumerable<MenuDeclaration> Walk(IEnumerable<MenuDeclaration> items) =>
         items.SelectMany(i => new[] { i }.Concat(Walk(i.Children ?? [])));
 
+    [Theory]
+    [InlineData("edit.refactor", "refactor")]
+    [InlineData("edit.sourceactions", "source-actions")]
+    public void Edit_menu_exposes_code_action_providers(string id, string provider)
+    {
+        Walk(MainMenuDeclaration.Load()).Should().ContainSingle(i => i.Id == id)
+            .Which.Provider.Should().Be(provider);
+    }
+
     [Fact]
     public void Main_view_has_no_handwritten_main_menu()
     {

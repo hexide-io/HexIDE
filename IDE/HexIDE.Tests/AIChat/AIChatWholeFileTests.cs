@@ -553,14 +553,15 @@ public class AIChatWholeFileTests : IDisposable
         chat.MaybeShowEgressNotice();
 
         chat.Messages.Single().RawContent.Should().Contain("the active file's contents (for a form, its layout and captions too)")
-            .And.NotContain("file's code");
+            .And.Contain("assistant reads with its tools").And.Contain("file lists")
+            .And.Contain("diagnostics").And.Contain("without asking for approval");
     }
 
     [Fact]
     public void ADeveloperWhoAcknowledgedTheOldNoticeIsShownTheNewOneOnce()
     {
-        // The old notice said "code"; more now leaves the machine than that developer was told.
-        File.WriteAllText(Path.Join(settingsDir, ".ai-egress-ack"), "shown");
+        // The previous notice disclosed only the active file, not tool reads.
+        File.WriteAllText(Path.Join(settingsDir, ".ai-egress-ack"), "whole-file");
 
         var first = new ChatViewModel(host, settingsDir);
         first.MaybeShowEgressNotice();
@@ -568,6 +569,10 @@ public class AIChatWholeFileTests : IDisposable
         second.MaybeShowEgressNotice();
 
         first.Messages.Should().ContainSingle();
+        first.MaybeShowEgressNotice();
+        first.Messages.Should().ContainSingle("the notice is shown once in the same session too");
+        File.ReadAllText(Path.Join(settingsDir, ".ai-egress-ack")).Should()
+            .Be(ChatViewModel.EgressNoticeVersion);
         second.Messages.Should().BeEmpty("the new notice is acknowledged once shown");
     }
 }

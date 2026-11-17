@@ -58,6 +58,7 @@ public partial class DISetup
             .Bind().As(Singleton).To<FormLayoutToolViewModel>()
             .Bind<FindReferencesToolViewModel>().As(Singleton).To<FindReferencesToolViewModel>()
             .Bind<CallHierarchyToolViewModel>().As(Singleton).To<CallHierarchyToolViewModel>()
+            .Bind<TypeHierarchyToolViewModel>().As(Singleton).To<TypeHierarchyToolViewModel>()
             .Bind().As(Singleton).To<ImmediateToolViewModel>()
             .Bind().As(Singleton).To<LocalsToolViewModel>()
             .Bind().As(Singleton).To<OutlineToolViewModel>()
@@ -112,6 +113,8 @@ public partial class DISetup
             .Bind().As(Singleton).To<ProjectManager>()
             .Bind().As(Singleton).To<EditorService>()
             .Bind().As(Singleton).To<DockFactoryReference>()
+            .Bind<IProgramHost>().As(Singleton).To<ProgramHost>()
+            .Bind<IRunningProgram>().As(Singleton).To<InterpreterRunningProgram>()
             .Bind<IRunEngine>().As(Singleton).To<InterpreterRunEngine>()
             .Bind<HexIDE.Language.IConditionalCodeReader>().As(Singleton)
                 .To<HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode>()
@@ -408,8 +411,15 @@ public partial class DISetup
             .Bind().As(Singleton).To<LanguageServerMessageReporter>()
             .Bind().As(Singleton).To<AddinCommandService>()
             .Bind().As(Singleton).To<AddinProjectTemplateService>()
-            // The project types add-ins contribute, which Open Project and the recent list open as projects.
-            .Bind().As(Singleton).To<HexIDE.Projects.ContributedProjects>()
+            // The project types add-ins contribute, which Open Project and the recent list open as projects, with VB6's own
+            // registered first, as a first-party type reading through the IDE's format (#3411 slice 10b).
+            .Bind().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IProjectFileFormat>(out var format);
+                var types = new HexIDE.Projects.ContributedProjects();
+                HexIDE.Projects.Vb6ProjectType.Register(types, format);
+                return types;
+            })
             .Bind().As(Singleton).To<AddinOptionsService>()
             .Bind<IPackageVerifier>().As(Singleton).To<PackageVerifier>()
             .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To(ctx =>
@@ -423,6 +433,7 @@ public partial class DISetup
                 return new AddinRegistry(verifier, settings, developerMode, windows, localization);
             })
             .Bind<IHexIdeHost>().As(Singleton).To<HexIdeHost>()
+            .Root<IRunningProgram>("RunningProgram")
             .Root<MainViewViewModel>("Root")
             .Root<ILspClient>("LspClient")
             // The conversation record. A root because the automation tools read it directly, and Pure.DI
@@ -468,6 +479,7 @@ public partial class DISetup
             .Root<LanguageServersToolViewModel>("LanguageServersToolViewModel")
             .Root<HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel>("ProtocolInspectorToolViewModel")
             .Root<IProfileService>("ProfileService")
+            .Root<ContributedProjects>("ContributedProjects")
             .Root<AddinProjectTemplateService>("AddinProjectTemplateService");
 
     public static MainViewViewModel DesignTimeRootViewModel => new DISetup().Root;

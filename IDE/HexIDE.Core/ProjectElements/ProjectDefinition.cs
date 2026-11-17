@@ -75,10 +75,12 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// The manifest id of the add-in whose project type opened this project, or null for a project HexIDE read itself. It
-    /// says who the project belongs to, for messages and logs. What the IDE may do with it is <see cref="Offers"/>.
+    /// The manifest id of the add-in whose project type opened this project, VB6's own (<c>hexide.vb6</c>) included since
+    /// #3411's slice 10b; null only for a project nothing opened, such as a test's. It says who the project belongs to, for
+    /// messages, logs and selecting that add-in's default launch, and is never a question of whether HexIDE may change it:
+    /// that's <see cref="Offers"/>.
     /// </summary>
-    public string? ContributedBy { get; init; }
+    public string? ContributedBy { get; set; }
 
     /// <summary>
     /// What this project's type lets the IDE do with it. A project the IDE read itself offers everything. Set again when the
@@ -93,13 +95,20 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     public HexIDE.IDE.IFormFileFormat? FormFormat { get; init; }
 
     /// <summary>
+    /// The format this project's file and its members are read and written with, set by whatever opened or made the project
+    /// (#4053, #3411 slice 10). <see cref="FormFormat"/>, where set, still decides its forms. Null only for a project nothing
+    /// opened, such as a test's, which the IDE's own format serves until #3411's slice 10b gives every project a format.
+    /// </summary>
+    public HexIDE.IDE.IProjectFileFormat? Format { get; set; }
+
+    /// <summary>
     /// What renders this project's own file, where that isn't the IDE's own format. Every render of the project file goes
     /// through this, so a project an add-in opened never has its file written as a <c>.vbp</c>.
     /// </summary>
     public HexIDE.IDE.IProjectFileWriter? ProjectFileWriter { get; init; }
 
     /// <summary>The title of the add-in that opened this project, for display; null when <see cref="ContributedBy"/> is.</summary>
-    public string? ContributorTitle { get; init; }
+    public string? ContributorTitle { get; set; }
 
     /// <summary>
     /// The folders a contributed project lists, relative to its file's folder, which the Project Explorer shows even when

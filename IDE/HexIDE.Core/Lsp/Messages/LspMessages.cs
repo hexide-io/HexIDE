@@ -178,6 +178,9 @@ public record ShowMessageParams(
     public bool IsEditRefusal { get; init; }
 
     [JsonIgnore]
+    public string? CommandTitle { get; init; }
+
+    [JsonIgnore]
     public string? ServerDisplayName { get; init; }
 }
 
@@ -314,6 +317,8 @@ public record TextDocumentClientCapabilities(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SelectionRangeClientCapabilities? SelectionRange = null,
     [property: JsonPropertyName("rename")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RenameClientCapabilities? Rename = null,
+    [property: JsonPropertyName("typeHierarchy")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? TypeHierarchy = null,
     [property: JsonPropertyName("callHierarchy")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? CallHierarchy = null,
     [property: JsonPropertyName("rangeFormatting")]
@@ -388,6 +393,10 @@ public record WorkspaceClientCapabilities(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceEditClientCapabilities? WorkspaceEdit = null,
     [property: JsonPropertyName("codeLens")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceCodeLensClientCapabilities? CodeLens = null,
+    [property: JsonPropertyName("inlayHint")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceInlayHintClientCapabilities? InlayHint = null,
+    [property: JsonPropertyName("semanticTokens")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceSemanticTokensClientCapabilities? SemanticTokens = null,
     [property: JsonPropertyName("didChangeWatchedFiles")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DidChangeWatchedFilesClientCapabilities? DidChangeWatchedFiles = null);
 
@@ -399,6 +408,12 @@ public record WorkspaceEditClientCapabilities(
     [property: JsonPropertyName("documentChanges")] bool DocumentChanges = true);
 
 public record WorkspaceCodeLensClientCapabilities(
+    [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
+
+public record WorkspaceInlayHintClientCapabilities(
+    [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
+
+public record WorkspaceSemanticTokensClientCapabilities(
     [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
 
 public record WorkspaceDiagnosticsClientCapabilities(
@@ -728,12 +743,6 @@ public record ServerCapabilities(
     /// <summary>
     /// True when the server offers whole-workspace diagnostics as well as per-document ones.
     /// </summary>
-    /// <remarks>
-    /// Read but not yet acted on: <c>workspace/diagnostic</c> is a separate request with its own progress and
-    /// partial-result machinery, and is deliberately out of scope (hexide-io/HexIDE#284). Present so that the
-    /// question "does this server offer it" is answerable from the capability rather than by guessing, and so
-    /// a server offering it is not silently assumed to be offering nothing.
-    /// </remarks>
     public static bool OffersWorkspaceDiagnostics(System.Text.Json.JsonElement? capabilities) =>
         capabilities is { } caps
         && caps.ValueKind == System.Text.Json.JsonValueKind.Object
@@ -1435,7 +1444,8 @@ public record CodeActionParams(
 
 public record CodeActionContext(
     [property: JsonPropertyName("diagnostics")] Diagnostic[] Diagnostics,
-    [property: JsonPropertyName("triggerKind")] int TriggerKind = 1);
+    [property: JsonPropertyName("triggerKind")] int TriggerKind = 1,
+    [property: JsonPropertyName("only"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string[]? Only = null);
 
 public record CodeActionClientCapabilities(
     [property: JsonPropertyName("codeActionLiteralSupport")] CodeActionLiteralSupport CodeActionLiteralSupport,
@@ -1511,3 +1521,27 @@ public record WatchedFileEvent(
 
 public record DidChangeWatchedFilesParams(
     [property: JsonPropertyName("changes")] WatchedFileEvent[] Changes);
+
+public record TypeHierarchyItem(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("kind")] int Kind,
+    [property: JsonPropertyName("uri")] string Uri,
+    [property: JsonPropertyName("range")] Range Range,
+    [property: JsonPropertyName("selectionRange")] Range SelectionRange,
+    [property: JsonPropertyName("tags")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int[]? Tags = null,
+    [property: JsonPropertyName("detail")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Detail = null,
+    [property: JsonPropertyName("data")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] JsonElement Data = default);
+
+public record TypeHierarchyParams([property: JsonPropertyName("item")] TypeHierarchyItem Item);
+
+public record PreviousResultId(
+    [property: JsonPropertyName("uri")] string Uri,
+    [property: JsonPropertyName("value")] string Value);
+
+public record WorkspaceDiagnosticParams(
+    [property: JsonPropertyName("identifier")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Identifier,
+    [property: JsonPropertyName("previousResultIds")] PreviousResultId[] PreviousResultIds);

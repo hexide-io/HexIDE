@@ -214,6 +214,9 @@ internal sealed class CapturingFormatter(
     /// invalid and the reader is right to reject it — and the specification's own reading of
     /// <c>workspace/diagnostic/refresh</c> is that it takes no parameters at all, which is what "absent"
     /// means. So dropping the member yields exactly the message the server meant to send.
+    /// Rechecked with rumdl 0.2.79 on 2026-11-16 (#4144): the raw frame still carries null.
+    /// The repair stays even if a later version fixes it, to tolerate this malformed frame from
+    /// servers we did not write without losing the connection.
     /// </para>
     ///
     /// <para>

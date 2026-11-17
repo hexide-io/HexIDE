@@ -162,7 +162,7 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
         {
             if (asTypeClause.NEW() != null)
                 throw new NotImplementedException("An array declared As New is not implemented (#1482)");
-            if (asTypeClause.fieldLength() != null)
+            if (asTypeClause.fieldLength() != null && asTypeClause.type()?.baseType()?.STRING() is null)
                 throw new NotImplementedException("fieldLength as type not implemented");
             if (asTypeClause.type().complexType() != null)
                 // A UDT/Enum param or return type — one generic UDT ValueType (the concrete identity is on the

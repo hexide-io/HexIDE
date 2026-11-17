@@ -125,6 +125,9 @@ public interface IProjectService
     /// <summary>The module counterpart: whether saving would change what was last loaded or saved.</summary>
     bool HasUnsavedChanges(ModuleDefinition module);
 
+    /// <summary>The project-file counterpart, using the save prompt's dirty check.</summary>
+    bool HasUnsavedChanges(ProjectDefinition project);
+
     /// <summary>
     /// Asked before an add-in is turned off or its consent withdrawn, while its format can still write: whether any form,
     /// UserControl or PropertyPage it reads has unsaved changes, and if so what to do, as closing a project asks. Save writes

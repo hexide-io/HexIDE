@@ -58,6 +58,10 @@ public class ExecutionState
         return identity;
     }
 
+    private readonly Dictionary<int, int> fixedStringWidths = new();
+    internal int? FixedStringWidthOf(int location) => fixedStringWidths.TryGetValue(location, out var width) ? width : null;
+    internal void MarkFixedString(int location, int width) => fixedStringWidths[location] = width;
+
     private int nextFreeLocation = 0;
 
     public int Alloc(Vb6Value value) => Alloc(value, null);
@@ -233,12 +237,19 @@ public class ExecutionState
             target.Unlock();
     }
 
+    // An event result whose incoming value is unmeasured must be assigned before it can be read (#1099).
+    private readonly Dictionary<int, string> unmeasuredInputs = new();
+    internal void RefuseUntilAssigned(int location, string reason) => unmeasuredInputs[location] = reason;
+    internal bool IsUnmeasuredInput(int location) => unmeasuredInputs.Count > 0 && unmeasuredInputs.ContainsKey(location);
+
     internal void Free(int location)
     {
         ReleaseRef(location);
         memory.Remove(location);
+        unmeasuredInputs.Remove(location);
         variableIdentities.Remove(location);
         declaredTypes.Remove(location);
+        fixedStringWidths.Remove(location);
         declaredClasses.Remove(location);
         variantLocations.Remove(location);
         declaredArrayLocations.Remove(location);
@@ -262,7 +273,12 @@ public class ExecutionState
 
     public Vb6Value this[int location]
     {
-        get => refSlots.Count > 0 && refSlots.TryGetValue(location, out var target) ? target.Read() : memory[location];
+        get
+        {
+            if (unmeasuredInputs.Count > 0 && unmeasuredInputs.TryGetValue(location, out var reason))
+                throw new System.NotImplementedException(reason);
+            return refSlots.Count > 0 && refSlots.TryGetValue(location, out var target) ? target.Read() : memory[location];
+        }
         set
         {
             if (refSlots.Count > 0 && refSlots.TryGetValue(location, out var target))
@@ -274,6 +290,7 @@ public class ExecutionState
                     throw new InvalidOperationException($"Execution slot {location} is out of scope.");
                 stored = value;
             }
+            unmeasuredInputs.Remove(location);
         }
     }
 }

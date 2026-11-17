@@ -69,17 +69,37 @@ public class ForeignAdapterTests
             {
                 var project = Path.Combine(directory, "Probe.csproj");
                 await File.WriteAllTextAsync(project,
-                    "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><DebugType>portable</DebugType><Optimize>false</Optimize></PropertyGroup></Project>", token);
+                    "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net11.0</TargetFramework><DebugType>portable</DebugType><Optimize>false</Optimize></PropertyGroup></Project>", token);
                 await Build(project, directory, token);
-                launch = JsonSerializer.SerializeToElement(new { program = Path.Combine(directory, "bin", "Debug", "net10.0", "Probe.dll"), cwd = directory });
+                launch = JsonSerializer.SerializeToElement(new { program = Path.Combine(directory, "bin", "Debug", "net11.0", "Probe.dll"), cwd = directory });
             }
             var options = ForeignAdapterAcquisition.Resolve(adapter).Options! with { WorkingDirectory = directory, Capture = new(log, adapter) };
             await using var session = DapSession.Start(options);
             adapterEnded = session.ProcessCompletion;
+            var stoppedEvent = new TaskCompletionSource<DapSessionUpdate>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var terminatedEvent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var observer = Task.Run(async () =>
+            {
+                try
+                {
+                    await foreach (var update in session.Updates.ReadAllAsync(token))
+                    {
+                        if (update.Snapshot.State == DapSessionState.Faulted)
+                            throw new IOException("Adapter session failed.", update.Snapshot.Failure);
+                        if (update.Event?.Event == "stopped") stoppedEvent.TrySetResult(update);
+                        if (update.Event?.Event == "terminated") terminatedEvent.TrySetResult();
+                    }
+                }
+                catch (Exception exception)
+                {
+                    stoppedEvent.TrySetException(exception);
+                    terminatedEvent.TrySetException(exception);
+                }
+            }, token);
             var breakpoints = await session.LaunchAsync(adapter, launch, [new(source, [breakpointLine])], token);
             breakpoints.Should().ContainSingle();
             breakpoints[0].Body!.Value.GetProperty("breakpoints").GetArrayLength().Should().Be(1);
-            var stopped = await Event(session, "stopped", token);
+            var stopped = await stoppedEvent.Task.WaitAsync(token);
             stopped.Event!.Body!.Value.GetProperty("reason").GetString().Should().Be("breakpoint");
             var stop = stopped.Snapshot.Stop!;
             var threads = (await session.ThreadsAsync(stop, token)).Body!.Value.GetProperty("threads");
@@ -94,12 +114,14 @@ public class ForeignAdapterTests
             var variables = (await session.VariablesAsync(stop, locals.GetProperty("variablesReference").GetInt32(), token)).Body!.Value.GetProperty("variables");
             variables.EnumerateArray().Should().Contain(v => v.GetProperty("name").GetString() == "answer" && v.GetProperty("value").GetString() == "41");
             await session.ResumeAsync(stop, "continue", stop.ThreadId.Value, token);
-            await Event(session, "terminated", token);
+            await terminatedEvent.Task.WaitAsync(token);
             await session.DisconnectAsync(token);
             var result = await session.ProcessCompletion!.WaitAsync(token);
             result.ExitCode.Should().Be(0, result.StandardErrorTail);
             result.ForcedTermination.Should().BeFalse(result.StandardErrorTail);
             result.CleanupFailure.Should().BeNull();
+            await observer.WaitAsync(token);
+            session.Snapshot.State.Should().Be(DapSessionState.Ended);
             await log.DrainAsync();
             AssertConversation(log, adapter, source, breakpointLine);
         }
@@ -140,16 +162,6 @@ public class ForeignAdapterTests
                 Thread.Sleep(250);
             }
         }
-    }
-
-    private static async Task<DapSessionUpdate> Event(DapSession session, string name, CancellationToken token)
-    {
-        await foreach (var update in session.Updates.ReadAllAsync(token))
-        {
-            update.Snapshot.State.Should().NotBe(DapSessionState.Faulted, update.Snapshot.Failure?.ToString());
-            if (update.Event?.Event == name) return update;
-        }
-        throw new IOException($"Adapter closed before {name}.");
     }
 
     private static void AssertConversation(ConversationLog log, string adapter, string source, int line)

@@ -15,51 +15,39 @@ public partial class VB6BuiltIns
         if (args[0].IsNull)
             throw InvalidUseOfNull();
         if (args[0].Type != Vb6Value.ValueType.String)
-            throw new NotImplementedException("Shell: non-string PathName conversion has not been measured (#2522)");
+            throw new NotImplementedException("Shell: non-string PathName conversion has not been measured (#4146)");
         var command = AsStr(args[0]).TrimStart(' ', '\t');
         var style = Supplied(args, 1)
-            ? Convert.ToInt32(NarrowNum(args[1], Vb6Value.ValueType.Integer).Value) : (int?)null;
-        if (style is -1 or 10 || command.Length == 0)
+            ? Convert.ToInt32(NarrowNum(args[1], Vb6Value.ValueType.Integer).Value) : 2;
+        if (style is < 0 or > 9 || command.Length == 0)
             throw InvalidCall();
-        if (style is not (null or 0 or 1 or 2 or 3 or 4 or 6 or 7))
-            throw new NotImplementedException("Shell: this WindowStyle has not been measured (#2522)");
 
         var end = command[0] == '"' ? command.IndexOf('"', 1) : command.IndexOfAny([' ', '\t']);
         var program = end < 0 ? command : command[0] == '"' ? command[1..end] : command[..end];
         if (Directory.Exists(command) || Directory.Exists(program))
             throw InvalidCall();
 
-        if (!style.HasValue)
-        {
-            // Missing programs are measured even with no style. A successful launch's default show state is not.
-            var found = File.Exists(program);
-            var names = OperatingSystem.IsWindows() ? new[] { program, program + ".exe" } : new[] { program };
-            foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
-                foreach (var name in names)
-                    found |= File.Exists(Path.Combine(directory, name));
-            if (!found)
-                throw new VBRunTimeException(VBStandardError.FileNotFound);
-            throw new NotImplementedException("Shell: omitted WindowStyle show state has not been measured (#2563)");
-        }
-
         if (OperatingSystem.IsWindows())
         {
             var startup = new ShellStartupInfo
             {
-                Size = Marshal.SizeOf<ShellStartupInfo>(), Flags = 1, ShowWindow = (short)style.Value
+                Size = Marshal.SizeOf<ShellStartupInfo>(), Flags = 1, ShowWindow = (short)style
             };
             // CreateProcess receives the original command line, including quoting and argument boundaries.
             var buffer = (command + '\0').ToCharArray();
             if (!ShellCreateProcess(null, buffer, IntPtr.Zero, IntPtr.Zero, false, 0, IntPtr.Zero, null,
                     ref startup, out var process))
             {
-                if (Marshal.GetLastPInvokeError() is 2 or 3)
+                var error = Marshal.GetLastPInvokeError();
+                if (error is 2 or 3)
                     throw new VBRunTimeException(VBStandardError.FileNotFound);
-                throw new NotImplementedException("Shell: this process launch failure has not been measured (#2522)");
+                if (error == 193 && ShellDocument(File.Exists(command) ? command : program))
+                    throw InvalidCall();
+                throw new NotImplementedException("Shell: this process launch failure has not been measured (#4146)");
             }
             ShellCloseHandle(process.Thread);
             ShellCloseHandle(process.Process);
-            ShellLaunches.Record((int)process.ProcessId, command, style.Value);
+            ShellLaunches.Record((int)process.ProcessId, command, style);
             return new Vb6Value((double)process.ProcessId);
         }
 
@@ -70,16 +58,64 @@ public partial class VB6BuiltIns
             {
                 UseShellExecute = false
             });
-            ShellLaunches.Record(process!.Id, command, style.Value);
+            ShellLaunches.Record(process!.Id, command, style);
             return new Vb6Value((double)process.Id);
         }
-        catch (Win32Exception e) when (e.NativeErrorCode == 2)
+        catch (Win32Exception e) when (e.NativeErrorCode == 2 && !ShellProgramExists(program))
         {
             throw new VBRunTimeException(VBStandardError.FileNotFound);
         }
+        catch (Win32Exception e) when (!OperatingSystem.IsWindows() && e.NativeErrorCode is 8 or 13 && ShellDocument(program)
+            && (File.GetUnixFileMode(program) & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) == 0)
+        {
+            throw InvalidCall();
+        }
         catch (Win32Exception)
         {
-            throw new NotImplementedException("Shell: this process launch failure has not been measured (#2522)");
+            throw new NotImplementedException("Shell: this process launch failure has not been measured (#4146)");
+        }
+    }
+
+    private static bool ShellProgramExists(string program)
+    {
+        if (File.Exists(program))
+            return true;
+        if (program.Contains(Path.DirectorySeparatorChar))
+            return false;
+        foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
+            if (File.Exists(Path.Combine(directory, program)))
+                return true;
+        return false;
+    }
+
+    private static bool ShellDocument(string path)
+    {
+        // Do not turn an executable's bad-image or access-denied failure into a measured document error.
+        var extension = Path.GetExtension(path);
+        if (!File.Exists(path) || extension.Length == 0
+            || extension.Equals(".exe", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".com", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".bat", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".cmd", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".sh", StringComparison.OrdinalIgnoreCase))
+            return false;
+        try
+        {
+            // Only identify readable text documents; ambiguous/binary images keep the refusal.
+            using var file = File.OpenRead(path);
+            for (var i = 0; i < 512; i++)
+            {
+                var value = file.ReadByte();
+                if (value < 0)
+                    return true;
+                if (value is < 32 or > 126 && value is not (9 or 10 or 13))
+                    return false;
+            }
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
         }
     }
 

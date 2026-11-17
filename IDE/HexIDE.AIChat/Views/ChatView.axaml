@@ -56,6 +56,32 @@
                                 </StackPanel>
                             </Border>
 
+                            <!-- Privacy notice that waits for Send before the first message leaves (#4230) -->
+                            <Border IsVisible="{Binding IsEgressConfirmation}"
+                                    Margin="4,3"
+                                    Padding="8,6"
+                                    CornerRadius="6"
+                                    Background="{DynamicResource WarningBannerBackgroundBrush}"
+                                    BorderBrush="{DynamicResource WarningBannerBorderBrush}"
+                                    BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding RawContent}" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource WarningBannerForegroundBrush}" />
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="6"
+                                                Margin="0,6,0,0"
+                                                IsVisible="{Binding IsAwaitingDecision}">
+                                        <Button Name="EgressSend" Content="{DynamicResource Str.AIChat.Send}" Click="OnEgressSendClicked" />
+                                        <Button Name="EgressCancel" Content="{DynamicResource Str.AIChat.EgressCancel}" Click="OnEgressCancelClicked" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding ApprovalOutcome}"
+                                               IsVisible="{Binding !IsAwaitingDecision}"
+                                               Foreground="{DynamicResource WarningBannerForegroundBrush}"
+                                               FontStyle="Italic"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Border>
+
                             <!-- User / assistant message -->
                             <Border IsVisible="{Binding IsBubble}"
                                     Margin="4,3"
