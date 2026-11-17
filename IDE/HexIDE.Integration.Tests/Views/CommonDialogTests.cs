@@ -24,6 +24,67 @@ namespace HexIDE.Integration.Tests.Views;
 /// </summary>
 public class CommonDialogTests
 {
+    // VB6 SP6 native and p-code measurements: https://github.com/hexide-io/HexIDE/issues/4514
+    [AvaloniaTheory]
+    [InlineData("5", "5", 0)]
+    [InlineData("\"9\"", "9", 0)]
+    [InlineData("1.5", "2", 0)]
+    [InlineData("2.5", "2", 0)]
+    [InlineData("-1", "-1", 0)]
+    [InlineData("True", "-1", 0)]
+    [InlineData("2147483647", "2147483647", 0)]
+    [InlineData("2147483648#", "7", 6)]
+    [InlineData("Null", "7", 94)]
+    [InlineData("\"abc\"", "7", 13)]
+    [InlineData("Empty", "0", 0)]
+    public void HelpContext_stores_as_a_Long(string expression, string expected, int error)
+    {
+        var ran = Run(Form(Dialog,
+            "    dlg.HelpContext = 7\r\n"
+          + "    Debug.Print \"\" & dlg.HelpContext\r\n"
+          + "    Err.Clear\r\n"
+          + $"    dlg.HelpContext = {expression}\r\n"
+          + "    Debug.Print Err.Number & \" \" & dlg.HelpContext & \" \" & TypeName(dlg.HelpContext)\r\n"), Opening());
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal("7", $"{error} {expected} Long");
+    }
+
+    [AvaloniaFact]
+    public void HelpContext_defaults_and_late_bound_reads_are_Long()
+    {
+        var ran = Run(Form(Dialog,
+            "    Dim obj As Object\r\n"
+          + "    Set obj = dlg\r\n"
+          + "    Debug.Print dlg.HelpContext & \" \" & TypeName(dlg.HelpContext) & \" \" & VarType(obj.HelpContext)\r\n"
+          + "    dlg.HelpContext = 5\r\n"
+          + "    Debug.Print obj.HelpContext & \" \" & (dlg.HelpContext + 1)\r\n"), Opening());
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal("0 Long 3", "5 6");
+    }
+
+    [AvaloniaFact]
+    public void HelpContext_late_bound_overflow_preserves_previous_value()
+    {
+        var ran = Run(Form(Dialog,
+            "    Dim obj As Object\r\n"
+          + "    Set obj = dlg\r\n"
+          + "    dlg.HelpContext = 7\r\n"
+          + "    Err.Clear\r\n"
+          + "    obj.HelpContext = 2147483648#\r\n"
+          + "    Debug.Print Err.Number & \" \" & obj.HelpContext\r\n"), Opening());
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal("6 7");
+    }
+
+    [AvaloniaFact]
+    public void HelpContext_loads_from_the_form_file()
+    {
+        var dialog = Dialog.Replace("      _Version", "      HelpContext     =   5\r\n      _Version");
+        var ran = Run(Form(dialog, "    Debug.Print \"\" & dlg.HelpContext\r\n"), Opening());
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal("5");
+    }
+
     [AvaloniaFact]
     public void Open_passes_every_selected_file_from_the_IDE_picker()
     {
