@@ -157,7 +157,8 @@ internal sealed class PendingRun : IDisposable
                 document.DiskHash)),
         ],
         project.RenderedAt,
-        project.Scratch);
+        project.Scratch,
+        project.ProjectFileEdit is { } edit ? new UnsavedFile(Path.GetFileName(edit), ReadText(edit)) : null);
 
     /// <summary>
     /// <paramref name="project"/> has been restored or discarded. Once nothing in the run is left waiting, its folder goes.
