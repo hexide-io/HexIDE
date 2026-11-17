@@ -16,9 +16,21 @@
             <TextBox Classes="dialogInitialFocus" Text="{CompiledBinding Expression, Mode=TwoWay}" AcceptsReturn="False" />
         </StackPanel>
 
-        <StackPanel Orientation="Horizontal" Spacing="6">
+        <!-- An external session's watch takes the selected frame's context, shown as it was before #4354. -->
+        <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{CompiledBinding !AllowsContextSelection}">
             <TextBlock Text="{DynamicResource Str.Dialog.AddWatch.Context}" />
-            <TextBlock Text="{CompiledBinding Context}" FontWeight="Bold" />
+            <TextBlock Name="FixedContext" Text="{CompiledBinding Context}" FontWeight="Bold" />
+        </StackPanel>
+
+        <StackPanel Spacing="4" IsVisible="{CompiledBinding AllowsContextSelection}">
+            <TextBlock Text="{DynamicResource Str.Dialog.AddWatch.Module}" />
+            <ComboBox Name="ModulePicker" ItemsSource="{CompiledBinding Modules}" SelectedItem="{CompiledBinding SelectedModule, Mode=TwoWay}" HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:WatchContextModule"><TextBlock Text="{CompiledBinding Name}" /></DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Text="{DynamicResource Str.Dialog.AddWatch.Procedure}" />
+            <ComboBox Name="ProcedurePicker" ItemsSource="{CompiledBinding Procedures}" SelectedItem="{CompiledBinding SelectedProcedure, Mode=TwoWay}" HorizontalAlignment="Stretch" />
         </StackPanel>
 
         <StackPanel Spacing="4">

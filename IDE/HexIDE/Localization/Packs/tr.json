@@ -1352,6 +1352,8 @@
     "Str.ControlArray.ClearRefused": "'{0}' aynı ada sahipken Index temizlenemez.",
     "Str.ControlArray.UnindexedSibling": "'{0}' aynı ada sahip ve Index değeri yok. Önce onun Index değerini ayarlayın.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland yerel Wayland gerektiriyordu, ancak hiçbir Wayland ekranına ulaşılamadı: {0}. Bunun yerine --platform x11 veya --platform auto ile başlatın.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland yerel Wayland gerektiriyordu, ancak hiçbir Wayland ekranına ulaşılamadı: {0}. HEXIDE_PLATFORM değerini x11 veya auto olarak ayarlayın ya da değişkeni kaldırın."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland yerel Wayland gerektiriyordu, ancak hiçbir Wayland ekranına ulaşılamadı: {0}. HEXIDE_PLATFORM değerini x11 veya auto olarak ayarlayın ya da değişkeni kaldırın.",
+    "Str.Dialog.AddWatch.Module": "Modül:",
+    "Str.Dialog.AddWatch.Procedure": "Yordam:"
   }
 }

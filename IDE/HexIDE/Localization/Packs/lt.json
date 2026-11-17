@@ -1352,6 +1352,8 @@
     "Str.ControlArray.ClearRefused": "Index negalima išvalyti, kol „{0}“ turi tą patį pavadinimą.",
     "Str.ControlArray.UnindexedSibling": "„{0}“ turi tą patį pavadinimą ir neturi Index. Pirmiausia nustatykite jo Index.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland reikalauja vietinio Wayland, bet nepavyko pasiekti jokio Wayland ekrano: {0}. Vietoj to paleiskite su --platform x11 arba --platform auto.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland reikalauja vietinio Wayland, bet nepavyko pasiekti jokio Wayland ekrano: {0}. Nustatykite HEXIDE_PLATFORM į x11 arba auto, arba pašalinkite kintamąjį."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland reikalauja vietinio Wayland, bet nepavyko pasiekti jokio Wayland ekrano: {0}. Nustatykite HEXIDE_PLATFORM į x11 arba auto, arba pašalinkite kintamąjį.",
+    "Str.Dialog.AddWatch.Module": "Modulis:",
+    "Str.Dialog.AddWatch.Procedure": "Procedūra:"
   }
 }

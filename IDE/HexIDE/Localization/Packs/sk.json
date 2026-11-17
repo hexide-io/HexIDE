@@ -1352,6 +1352,8 @@
     "Str.ControlArray.ClearRefused": "Index nemožno vymazať, kým má '{0}' rovnaký názov.",
     "Str.ControlArray.UnindexedSibling": "'{0}' má rovnaký názov a nemá Index. Najprv nastavte jeho Index.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland vyžaduje natívny Wayland, ale nebolo možné pripojiť sa k displeju Wayland: {0}. Spustite namiesto toho s --platform x11 alebo --platform auto.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland vyžaduje natívny Wayland, ale nebolo možné pripojiť sa k displeju Wayland: {0}. Nastavte HEXIDE_PLATFORM na x11 alebo auto, alebo premennú odstráňte."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland vyžaduje natívny Wayland, ale nebolo možné pripojiť sa k displeju Wayland: {0}. Nastavte HEXIDE_PLATFORM na x11 alebo auto, alebo premennú odstráňte.",
+    "Str.Dialog.AddWatch.Module": "Modul:",
+    "Str.Dialog.AddWatch.Procedure": "Procedúra:"
   }
 }

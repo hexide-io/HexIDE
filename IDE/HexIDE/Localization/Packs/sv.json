@@ -1352,6 +1352,8 @@
     "Str.ControlArray.ClearRefused": "Index kan inte rensas medan '{0}' har samma namn.",
     "Str.ControlArray.UnindexedSibling": "'{0}' har samma namn och saknar Index. Ange dess Index först.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland krävde inbyggt Wayland, men ingen Wayland-skärm kunde nås: {0}. Starta med --platform x11 eller --platform auto i stället.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland krävde inbyggt Wayland, men ingen Wayland-skärm kunde nås: {0}. Sätt HEXIDE_PLATFORM till x11 eller auto, eller ta bort variabeln."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland krävde inbyggt Wayland, men ingen Wayland-skärm kunde nås: {0}. Sätt HEXIDE_PLATFORM till x11 eller auto, eller ta bort variabeln.",
+    "Str.Dialog.AddWatch.Module": "Modul:",
+    "Str.Dialog.AddWatch.Procedure": "Procedur:"
   }
 }

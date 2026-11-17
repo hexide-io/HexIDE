@@ -1352,6 +1352,8 @@
     "Str.ControlArray.ClearRefused": "Нельзя очистить Index, пока «{0}» имеет то же имя.",
     "Str.ControlArray.UnindexedSibling": "«{0}» имеет то же имя и не имеет Index. Сначала задайте его Index.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland потребовал собственный Wayland, но подключиться к дисплею Wayland не удалось: {0}. Запустите с --platform x11 или --platform auto.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland потребовал собственный Wayland, но подключиться к дисплею Wayland не удалось: {0}. Задайте HEXIDE_PLATFORM значение x11 или auto либо удалите переменную."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland потребовал собственный Wayland, но подключиться к дисплею Wayland не удалось: {0}. Задайте HEXIDE_PLATFORM значение x11 или auto либо удалите переменную.",
+    "Str.Dialog.AddWatch.Module": "Модуль:",
+    "Str.Dialog.AddWatch.Procedure": "Процедура:"
   }
 }

@@ -1352,6 +1352,8 @@
     "Str.ControlArray.ClearRefused": "לא ניתן לנקות את Index כל עוד ל־'{0}' יש אותו שם.",
     "Str.ControlArray.UnindexedSibling": "ל־'{0}' יש אותו שם ואין לו Index. יש להגדיר תחילה את ה־Index שלו.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland דרש Wayland מקורי, אך לא ניתן היה להתחבר לתצוגת Wayland: {0}. יש להפעיל עם --platform x11 או --platform auto במקום זאת.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland דרש Wayland מקורי, אך לא ניתן היה להתחבר לתצוגת Wayland: {0}. יש להגדיר את HEXIDE_PLATFORM לערך x11 או auto, או להסיר את המשתנה."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland דרש Wayland מקורי, אך לא ניתן היה להתחבר לתצוגת Wayland: {0}. יש להגדיר את HEXIDE_PLATFORM לערך x11 או auto, או להסיר את המשתנה.",
+    "Str.Dialog.AddWatch.Module": "מודול:",
+    "Str.Dialog.AddWatch.Procedure": "הליך:"
   }
 }

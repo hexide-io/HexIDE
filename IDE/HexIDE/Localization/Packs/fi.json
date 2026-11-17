@@ -1352,6 +1352,8 @@
     "Str.ControlArray.ClearRefused": "Index-arvoa ei voi tyhjentää, kun kohteella '{0}' on sama nimi.",
     "Str.ControlArray.UnindexedSibling": "Kohteella '{0}' on sama nimi eikä Index-arvoa. Aseta ensin sen Index.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland vaati natiivia Waylandia, mutta Wayland-näyttöön ei saatu yhteyttä: {0}. Käynnistä sen sijaan valinnalla --platform x11 tai --platform auto.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland vaati natiivia Waylandia, mutta Wayland-näyttöön ei saatu yhteyttä: {0}. Aseta HEXIDE_PLATFORM arvoon x11 tai auto tai poista muuttuja."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland vaati natiivia Waylandia, mutta Wayland-näyttöön ei saatu yhteyttä: {0}. Aseta HEXIDE_PLATFORM arvoon x11 tai auto tai poista muuttuja.",
+    "Str.Dialog.AddWatch.Module": "Moduuli:",
+    "Str.Dialog.AddWatch.Procedure": "Proseduuri:"
   }
 }

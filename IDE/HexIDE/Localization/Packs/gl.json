@@ -1352,6 +1352,8 @@
     "Str.ControlArray.ClearRefused": "Non se pode baleirar Index mentres '{0}' teña o mesmo nome.",
     "Str.ControlArray.UnindexedSibling": "'{0}' ten o mesmo nome e non ten Index. Estableza primeiro o seu Index.",
     "Str.Startup.WaylandUnavailableArgument": "--platform wayland requiría Wayland nativo, pero non se puido acceder a ningunha pantalla Wayland: {0}. Inicie con --platform x11 ou --platform auto no seu lugar.",
-    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland requiría Wayland nativo, pero non se puido acceder a ningunha pantalla Wayland: {0}. Estableza HEXIDE_PLATFORM en x11 ou auto, ou elimine a variable."
+    "Str.Startup.WaylandUnavailableEnvironment": "HEXIDE_PLATFORM=wayland requiría Wayland nativo, pero non se puido acceder a ningunha pantalla Wayland: {0}. Estableza HEXIDE_PLATFORM en x11 ou auto, ou elimine a variable.",
+    "Str.Dialog.AddWatch.Module": "Módulo:",
+    "Str.Dialog.AddWatch.Procedure": "Procedemento:"
   }
 }
