@@ -81,7 +81,8 @@ library-class member tables. Fallback properties SHALL use their code names and 
 the runtime's shared catalogue of modelled in-box controls, including those outside the toolbox.
 A class with no member list SHALL remain listed and show a localized message
 in its members pane explaining that its type library is required. Both paths SHALL label HexIDE-only
-members with the localized origin description.
+members with the localized origin description. A library with neither type metadata nor declared classes
+SHALL show a localized, parenthesized type-metadata-unavailable placeholder in its class list.
 
 Third-party component libraries named on project lines or in form headers SHALL also be listed, once per
 project, and loaded by GUID and version through the same service. Each SHALL use its type library's
@@ -110,6 +111,11 @@ metadata can't be read (#4037).
 - **WHEN** a library's type metadata is unavailable and a declared class has no existing member list
 - **THEN** selecting that class shows one localized line explaining that its type library is required
 - **AND** the browser invents no members
+
+#### Scenario: A reference library has no available classes
+- **WHEN** a reference library has neither type metadata nor declared classes
+- **THEN** its class list contains one localized type-metadata-unavailable placeholder (#4100)
+- **AND** the placeholder retains its parentheses
 
 #### Scenario: Type metadata is available
 - **WHEN** a component library's type metadata can be read

@@ -472,6 +472,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Alle biblioteker>",
     "Str.Tool.ObjectBrowser.MembersOf": "Medlemmer av '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Medlemmer kan ikke listes uten typebiblioteket til dette biblioteket.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Typemetadata er ikke tilgjengelige)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Lukk objektutforsker",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektutforsker",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Gå til definisjon",

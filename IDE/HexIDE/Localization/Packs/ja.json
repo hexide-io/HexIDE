@@ -500,6 +500,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<すべてのライブラリ>",
     "Str.Tool.ObjectBrowser.MembersOf": "'{0}' のメンバー",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "このライブラリのタイプライブラリがないため、メンバーを一覧表示できません。",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "（型メタデータを利用できません）",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "オブジェクト ブラウザーを閉じる",
     "Str.Tool.ObjectBrowser.Chrome.Title": "オブジェクト ブラウザー",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "定義へ移動",

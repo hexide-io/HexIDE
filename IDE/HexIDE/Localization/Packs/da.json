@@ -438,6 +438,7 @@
     "Str.Tool.ObjectBrowser.AllLibraries": "<Alle biblioteker>",
     "Str.Tool.ObjectBrowser.MembersOf": "Medlemmer af '{0}'",
     "Str.Tool.ObjectBrowser.MembersUnavailable": "Medlemmer kan ikke vises uden dette biblioteks typebibliotek.",
+    "Str.Tool.ObjectBrowser.TypeMetadataUnavailable": "(Typemetadata er ikke tilgængelige)",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Luk objektgennemser",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektgennemser",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Gå til definition",
