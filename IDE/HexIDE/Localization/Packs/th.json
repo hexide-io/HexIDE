@@ -410,6 +410,7 @@
     "Str.Tool.ObjectBrowser.Panel.Members": "สมาชิก",
     "Str.Tool.ObjectBrowser.Panel.Classes": "คลาส",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "ผลการค้นหา",
+    "Str.Tool.ObjectBrowser.MemberOf": "สมาชิกของ {0}.{1}",
     "Str.Tool.ObjectBrowser.Vba.Globals": "(ส่วนกลาง)",
     "Str.Tool.ObjectBrowser.Vba.NoServer": "ยังไม่มีเซิร์ฟเวอร์ภาษาเริ่มทำงาน เปิดหน้าต่างโค้ดเพื่อเริ่มเซิร์ฟเวอร์",
     "Str.Tool.ObjectBrowser.Vba.NoProvider": "ไม่มีเซิร์ฟเวอร์ภาษาที่ทำงานอยู่ให้บริการสัญลักษณ์ในตัว",
