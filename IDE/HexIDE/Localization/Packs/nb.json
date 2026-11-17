@@ -2,7 +2,7 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
-    "Str.Menu.Edit.Refactor": "Refak_torer",
+    "Str.Menu.Edit.Refactor": "Refaktorer",
     "Str.Menu.Edit.SourceActions": "Kil_dekodehandlinger",
     "Str.CodeEditor.Refactor": "Refaktorer",
     "Str.CodeEditor.SourceActions": "Kildekodehandlinger",

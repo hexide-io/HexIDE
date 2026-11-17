@@ -5,7 +5,7 @@
     "Str.Menu.Edit.Refactor": "_Refaktoryzacja",
     "Str.Menu.Edit.SourceActions": "Akcje kodu _źródłowego",
     "Str.CodeEditor.Refactor": "Refaktoryzacja",
-    "Str.CodeEditor.SourceActions": "Akcje kodu źr_ódłowego",
+    "Str.CodeEditor.SourceActions": "Akcje kodu źródłowe_go",
     "Str.CodeEditor.NoCodeActions": "_Brak dostępnych akcji.",
     "Str.Startup.ProjectFileArgument": "plik projektu",
     "Str.ProjectFile.ReplaceModel": "Zastosowanie tekstu pliku projektu zastąpi niezapisane ustawienia projektu {0}. Kontynuować?",

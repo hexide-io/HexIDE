@@ -3,7 +3,7 @@
   "direction": "ltr",
   "strings": {
     "Str.Menu.Edit.Refactor": "Re_factoriser",
-    "Str.Menu.Edit.SourceActions": "Actions _du code source",
+    "Str.Menu.Edit.SourceActions": "Actions du c_ode source",
     "Str.CodeEditor.Refactor": "Refactoriser",
     "Str.CodeEditor.SourceActions": "Actions du code source",
     "Str.CodeEditor.NoCodeActions": "_Aucune action applicable.",

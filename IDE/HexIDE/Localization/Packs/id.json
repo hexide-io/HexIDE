@@ -2,7 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
-    "Str.Menu.Edit.Refactor": "_Refaktor",
+    "Str.Menu.Edit.Refactor": "Re_faktor",
     "Str.Menu.Edit.SourceActions": "Ti_ndakan kode sumber",
     "Str.CodeEditor.Refactor": "Refaktor",
     "Str.CodeEditor.SourceActions": "Tindakan kode sumber",
