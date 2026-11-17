@@ -30,10 +30,10 @@ public sealed class ProjectGroupExpansionTests : IDisposable
         var editors = Substitute.For<IEditorService>();
         var manager = new ProjectManager(editors, events);
         strings.GetString("Str.Tool.Project.TitleGroup").Returns("Project Group - {0}");
-        service = new ProjectService(new Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(),
+        service = new ProjectService(() => throw new InvalidOperationException(),
             Substitute.For<IWindowManager>(), events, manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            strings, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
+            strings, Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
         explorer = new ProjectToolViewModel(manager, events, service, editors, strings);
     }
 

@@ -166,7 +166,7 @@ public class UiSaveAnswerTimingTests
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), composition.ProjectService,
             composition.EventBus, lsp, settings, Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<IBreakpointService>(), Substitute.For<IDebugController>(), new RunScope(),
-            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<ILocalizationService>());
         if (kind == "module") vm.Initialize(module);
         else vm.Initialize(form);
         var view = new CodeEditorView { DataContext = vm };
@@ -191,8 +191,7 @@ public class UiSaveAnswerTimingTests
         var previousLifetime = lifetimeField.GetValue(Avalonia.Application.Current!);
         lifetimeField.SetValue(Avalonia.Application.Current!, lifetime);
         using var context = new IdeContext(null!, null!, lsp, null!, null!, null!, null!, null!, null!,
-            Substitute.For<IDebugController>(), null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<IDebugController>(), null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
         window.Show();
         Dispatcher.UIThread.RunJobs();

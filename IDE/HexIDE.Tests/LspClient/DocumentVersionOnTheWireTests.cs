@@ -262,7 +262,7 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
         document.Text = "after";
         identity.Module!.RecordOriginalHeader("");
         identity.Module.UpdateCode("after");
-        ProjectLspDocument.CloseWindow(client, identity, session, events, dirty: true, format: new Vb6ProjectFileFormat());
+        ProjectLspDocument.CloseWindow(client, identity, session, events, dirty: true);
         await Settle();
         server.Messages.Should().NotContain(m => m.Method == "didClose");
         events.Publish(new DocumentSavedEvent(null, identity.Module));
@@ -281,8 +281,9 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
         var events = new EventBus();
         var format = new HexIDE.Tests.Projects.ProjectFileFormatSeamTests.StandInFormat();
         identity.Module!.UpdateCode("plain");
+        identity.Project.Format = format;
         document.Text = "after";
-        ProjectLspDocument.CloseWindow(client, identity, session, events, format, dirty: true);
+        ProjectLspDocument.CloseWindow(client, identity, session, events, dirty: true);
         await Settle();
 
         events.Publish(new DocumentSavedEvent(null, identity.Module));
@@ -299,7 +300,7 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
         var identity = ProjectDocument();
         document.Text = "after";
         await session.FlushAsync(TestContext.Current.CancellationToken);
-        ProjectLspDocument.CloseWindow(client, identity, session, new EventBus(), dirty: true, format: new Vb6ProjectFileFormat());
+        ProjectLspDocument.CloseWindow(client, identity, session, new EventBus(), dirty: true);
         var reopened = new LspDocumentSession(client, new TextDocument("after"), Uri, postToUiThread: work => work());
         _sessions.Add(reopened);
         reopened.Start();
@@ -321,7 +322,7 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
         document.Text = "after";
         var identity = ProjectDocument();
         var events = new EventBus();
-        ProjectLspDocument.CloseWindow(client, identity, session, events, dirty: true, format: new Vb6ProjectFileFormat());
+        ProjectLspDocument.CloseWindow(client, identity, session, events, dirty: true);
         await client.StartAsync(TestContext.Current.CancellationToken);
         await server.Opened.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
@@ -339,7 +340,7 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
         var identity = ProjectDocument();
         var events = new EventBus();
         document.Text = "after";
-        ProjectLspDocument.CloseWindow(client, identity, session, events, dirty: true, format: new Vb6ProjectFileFormat());
+        ProjectLspDocument.CloseWindow(client, identity, session, events, dirty: true);
         await Settle();
         server.Messages.Should().NotContain(m => m.Method == "didClose");
 
@@ -354,7 +355,7 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
     {
         var (client, server) = await Connected();
         var (session, _) = await Opened(client, server, "before");
-        ProjectLspDocument.CloseWindow(client, ProjectDocument(), session, new EventBus(), dirty: false, format: new Vb6ProjectFileFormat());
+        ProjectLspDocument.CloseWindow(client, ProjectDocument(), session, new EventBus(), dirty: false);
         await server.Closed.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         server.Messages.Select(m => m.Method).Should().Equal("didOpen", "didClose");

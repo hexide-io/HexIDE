@@ -229,23 +229,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <summary>What says where this module's parentheses are, or null where nothing does, and then none is coloured.</summary>
     public HexIDE.Language.IBracketReader? Brackets { get; }
 
-    private readonly IProjectFileFormat format;
-    /// <summary>Says where this window's read-only regions are.</summary>
-    private readonly IReadOnlyRegionReader regionReader;
-    private readonly IReadOnlyRegionRules? regionRules;
-    private readonly IReadOnlyRegionWriter? regionWriter;
-
-    // The project this code belongs to, whose format reads and guards it (#4053); null for code no project owns, which
-    // the injected format and regions still serve until #3411's slice 10b.
+    // The project this code belongs to, whose format reads and guards it (#4053, #3411 slice 10b). Code no project owns has
+    // no format, and nothing guards it.
     private ProjectDefinition? OwnerProject => moduleDefinition?.Owner ?? formDefinition?.Owner;
 
-    private IProjectFileFormat Format => OwnerProject is { } p ? ProjectFormats.Of(p, format) : format;
+    private IProjectFileFormat Format => ProjectFormats.Of(OwnerProject
+        ?? throw new InvalidOperationException("No project owns this code, so no project file format reads it."));
 
-    private IReadOnlyRegionReader RegionReader => OwnerProject is { } p ? ProjectFormats.ReaderOf(p, regionReader) : regionReader;
+    private IReadOnlyRegionReader RegionReader => ProjectFormats.ReaderOf(OwnerProject);
 
-    private IReadOnlyRegionRules? RegionRules => OwnerProject is { } p ? ProjectFormats.RulesOf(p, regionRules) : regionRules;
+    private IReadOnlyRegionRules? RegionRules => ProjectFormats.RulesOf(OwnerProject);
 
-    private IReadOnlyRegionWriter? RegionWriter => OwnerProject is { } p ? ProjectFormats.WriterOf(p, regionWriter) : regionWriter;
+    private IReadOnlyRegionWriter? RegionWriter => ProjectFormats.WriterOf(OwnerProject);
 
     public CodeEditorViewModel(IWindowManager windowManager,
         IEditorService editorService,
@@ -259,22 +254,14 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Runtime.Debugging.IDebugController debugController,
         HexIDE.Debugging.IRunScope runScope,
         ILocalizationService localization,
-        IProjectFileFormat format,
-        IReadOnlyRegionReader regionReader,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
         HexIDE.Tools.CallStackToolViewModel? callStack = null,
         HexIDE.Tools.RecentEditHistory? recentEditHistory = null,
         HexIDE.Language.IConditionalCodeReader? conditionalCode = null,
-        HexIDE.Language.IBracketReader? brackets = null,
-        IReadOnlyRegionRules? regionRules = null,
-        IReadOnlyRegionWriter? regionWriter = null)
+        HexIDE.Language.IBracketReader? brackets = null)
     {
-        this.format = format;
         ConditionalCode = conditionalCode;
         Brackets = brackets;
-        this.regionReader = regionReader;
-        this.regionRules = regionRules;
-        this.regionWriter = regionWriter;
         this.recentEditHistory = recentEditHistory;
         CanFloat = false;
         this.windowManager = windowManager;
@@ -438,7 +425,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             // document BEFORE the buffer above was written back to the definition.
             RefreshModelModified();
             if (session is { } closing)
-                ProjectLspDocument.CloseWindow(lspClient, Identity, closing, eventBus, Format, IsModified && !unloading);
+                ProjectLspDocument.CloseWindow(lspClient, Identity, closing, eventBus, IsModified && !unloading);
         }));
     }
 
@@ -994,6 +981,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public CodeEditorViewModel Initialize(FormDefinition formElement)
     {
         this.formDefinition = formElement;
+        ConditionalTargetIndex = formElement.Owner.VbaBitness switch { VbaBitness.Bit32 => 1, VbaBitness.Bit64 => 2, _ => 0 };
         this.identity = DocumentIdentity.For(formElement);
         // Both subscriptions also reconcile the wire name. A document with no file is named
         // untitled:<Project>/<Name>, so BOTH its own rename and its project's change what servers should
@@ -1023,6 +1011,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public CodeEditorViewModel Initialize(ModuleDefinition moduleElement)
     {
         this.moduleDefinition = moduleElement;
+        ConditionalTargetIndex = moduleElement.Owner.VbaBitness switch { VbaBitness.Bit32 => 1, VbaBitness.Bit64 => 2, _ => 0 };
         // BOTH halves, because a UserControl or PropertyPage HAS both and they are one file.
         //
         // This used to set only the module, while the designer's View Code went through
@@ -1943,9 +1932,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             var form = module is not null ? module.FormPart : identity.Form;
             if (form is { CanSaveFaithfully: false }) return Refuse(target.Uri);
             // The target's own project decides its prefix and its regions, and it needn't be this window's (#4053).
-            var targetFormat = ProjectFormats.Of(identity.Project, format);
-            var targetReader = ProjectFormats.ReaderOf(identity.Project, regionReader);
-            var targetRules = ProjectFormats.RulesOf(identity.Project, regionRules);
+            var targetFormat = ProjectFormats.Of(identity.Project);
+            var targetReader = ProjectFormats.ReaderOf(identity.Project);
+            var targetRules = ProjectFormats.RulesOf(identity.Project);
             var prefix = editor?.bufferPrefix ?? (module is not null ? targetFormat.CodePrefix(module) : targetFormat.CodePrefix(form!));
             var document = editor?.Document ?? new TextDocument(prefix + (module?.Code ?? form!.Code));
             var (local, server) = versions[i];

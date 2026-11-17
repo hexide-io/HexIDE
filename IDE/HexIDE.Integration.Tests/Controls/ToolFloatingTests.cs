@@ -527,7 +527,7 @@ public class ToolFloatingTests
         lifetime.Windows.Returns(new[] { window, host, dialog });
         var runner = Substitute.For<HexIDE.IDE.IProjectRunnerService>();
         using var context = new HexIDE.Desktop.Server.IdeContext(null!, null!, Substitute.For<HexIDE.Lsp.ILspClient>(),
-            null!, runner, null!, null!, null!, null!, null!, vm, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, runner, null!, null!, null!, null!, null!, vm, null!, null!, null!, null!, null!, null!, null!, null!);
         try
         {
             field.SetValue(app, lifetime);

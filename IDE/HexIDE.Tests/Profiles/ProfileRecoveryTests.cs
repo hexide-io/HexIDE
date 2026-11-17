@@ -170,12 +170,11 @@ public sealed class ProfileRecoveryTests : IDisposable
             Static.DesktopStartupHook!(setup, desktop);
             var manager = Substitute.For<IProjectManager>();
             var projects = new HexIDE.Projects.ProjectService(
-                new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
                 () => throw new InvalidOperationException("Unexpected project dialog"),
                 Substitute.For<IWindowManager>(), new EventBus(), manager,
                 Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
                 Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-                Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
+                Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
             try { await Static.StartupProjectHook!(projects, manager); }
             finally { window.Close(); }
             manager.Received(1).AddProject(Arg.Is<HexIDE.Runtime.ProjectElements.ProjectDefinition>(

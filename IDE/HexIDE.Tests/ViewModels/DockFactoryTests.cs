@@ -75,7 +75,7 @@ public class DockFactoryTests
 
         // ToolBoxToolViewModel loads Avalonia bitmaps in its ctor; bypass since the tree never renders.
         var toolBox = toolbox ?? (ToolBoxToolViewModel)RuntimeHelpers.GetUninitializedObject(typeof(ToolBoxToolViewModel));
-        var properties = new PropertiesToolViewModel(docDock, eventBus, windowManager, loc, new Vb6ProjectFileFormat());
+        var properties = new PropertiesToolViewModel(docDock, eventBus, windowManager, loc);
         var formLayout = new FormLayoutToolViewModel(docDock, eventBus, loc);
         var immediate = new ImmediateToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var locals = new LocalsToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
@@ -224,7 +224,7 @@ public class DockFactoryTests
         var documents = Substitute.For<IDocumentDockService>();
         documents.OpenDocuments.Returns([]);
         var results = new FindReferencesToolViewModel(Substitute.For<ILspClient>(), Substitute.For<IEditorService>(),
-            projects, documents, loc, format: new Vb6ProjectFileFormat());
+            projects, documents, loc);
         var host = new Dock.Avalonia.Controls.DockControl { Layout = root };
         host.DataTemplates.Add(new Avalonia.Controls.Templates.FuncDataTemplate<FindReferencesToolViewModel>(
             (_, _) => new FindReferencesToolView()));

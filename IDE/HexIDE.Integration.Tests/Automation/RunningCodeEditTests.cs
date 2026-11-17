@@ -81,7 +81,7 @@ public class RunningCodeEditTests : IAsyncDisposable
         Phase("create context and root");
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
             null!, runner, save, null!, null!, marks, controller, Composition.Root, null!, null!, null!, null!,
-            null!, null!, Composition.LocalizationService, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader(), new Vb6ReadOnlyRegionRules());
+            null!, null!, Composition.LocalizationService, null!);
         var tools = new HexIdeTools(context);
         save.SaveForm(form, false, interactive: false, rewrites: Arg.Any<HexIDE.Projects.SaveRewriteReport>()).Returns(true);
         save.SaveModule(module, false, interactive: false, rewrites: Arg.Any<HexIDE.Projects.SaveRewriteReport>()).Returns(true);
@@ -89,7 +89,7 @@ public class RunningCodeEditTests : IAsyncDisposable
         using var editor = new CodeEditorViewModel(Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(),
             save, bus, Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), marks, controller, scope,
-            Composition.LocalizationService, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader()).Initialize(module);
+            Composition.LocalizationService).Initialize(module);
         var text = new TextEditor { Document = editor.Document, DataContext = editor };
         var window = new Window { Content = text, Width = 400, Height = 300 };
         var shown = new TaskCompletionSource<VBFormRuntime>(TaskCreationOptions.RunContinuationsAsynchronously);

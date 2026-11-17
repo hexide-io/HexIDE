@@ -10,6 +10,7 @@ using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Tests.Infrastructure;
 using LspRange = HexIDE.Lsp.Messages.Range;
 
 namespace HexIDE.Tests.ViewModels;
@@ -154,7 +155,8 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
     public void ClosedDocumentUsesTheRulesRefusal()
     {
         var module = Notes();
-        DocumentContent.Write(DocumentIdentity.For(module), null, "new notes", new Rules(), format: new Vb6ProjectFileFormat(), reader: Substitute.For<IReadOnlyRegionReader>())
+        new RegionStandInFormat(Substitute.For<IReadOnlyRegionReader>(), new Rules()).On(module.Owner);
+        DocumentContent.Write(DocumentIdentity.For(module), null, "new notes")
             .Refusal.Should().Be("Keep the notes intact.");
         module.Code.Should().Be(Text);
     }
@@ -165,7 +167,8 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
     public void ClosedDocumentWithoutRulesAcceptsIncomingText(bool defaults)
     {
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Notes", ModuleKind.StandardModule);
-        DocumentContent.Write(DocumentIdentity.For(module), null, "new notes", defaults ? new NoRules() : null, format: new Vb6ProjectFileFormat(), reader: Substitute.For<IReadOnlyRegionReader>())
+        new RegionStandInFormat(Substitute.For<IReadOnlyRegionReader>(), defaults ? new NoRules() : null).On(module.Owner);
+        DocumentContent.Write(DocumentIdentity.For(module), null, "new notes")
             .Should().Be(new ContentReplacement("new notes", null, false));
         module.Code.Should().Be("new notes");
     }
@@ -223,15 +226,14 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
         dock.OpenDocuments.Returns([vm]);
         var projects = Substitute.For<IProjectManager>();
         projects.LoadedProjects.Returns([module.Owner]);
-        var addin = new HexIDE.Addins.AddinEditorService(dock, Substitute.For<IEditorService>(), projects,
-            format: new Vb6ProjectFileFormat(), reader: reader);
+        var addin = new HexIDE.Addins.AddinEditorService(dock, Substitute.For<IEditorService>(), projects);
         module.Owner.WorkingDirectory = Path.Join(Path.GetTempPath(), "hexide-3732-" + Guid.NewGuid().ToString("N"));
         module.AbsolutePath = Path.Join(module.Owner.WorkingDirectory, "Notes.bas");
         var service = Substitute.For<IProjectService>();
         service.SaveModule(module, false, false, Arg.Any<SaveRewriteReport?>()).Returns(Task.FromResult(true));
         using var context = new HexIDE.Desktop.Server.IdeContext(projects, dock, Substitute.For<ILspClient>(), null!,
             Substitute.For<IProjectRunnerService>(), service, new EventBus(), null!, null!, null!, null!, null!,
-            null!, null!, null!, null!, null!, new LocalizationService(), null!, new Vb6ProjectFileFormat(), reader, rules);
+            null!, null!, null!, null!, null!, new LocalizationService(), null!);
 
         async Task<string?> Write(string text)
         {
@@ -245,8 +247,7 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
                 var result = await new HexIDE.Desktop.Server.HexIdeTools(context).SetFileContentAsync("Notes", text);
                 return result.Error;
             }
-            return DocumentContent.Write(DocumentIdentity.For(module), null, text,
-                rules, new Vb6ProjectFileFormat(), reader).Refusal;
+            return DocumentContent.Write(DocumentIdentity.For(module), null, text).Refusal;
         }
 
         var phrase = policy == "rules with a phrase" ? "the tucked notes" : "read-only text";
@@ -275,8 +276,8 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
             Arg.Is<IReadOnlyList<TextRegion>>(r => r.Count == 1 && r[0] == regions[0])).Returns("the first tucked note");
         var incoming = before.Replace("~ first\r\n", drop ? "" : "~ changed\r\n");
 
-        DocumentContent.Write(DocumentIdentity.For(module), null, incoming, rules,
-            new Vb6ProjectFileFormat(), reader).Refusal.Should().Be(
+        new RegionStandInFormat(reader, rules).On(module.Owner);
+        DocumentContent.Write(DocumentIdentity.For(module), null, incoming).Refusal.Should().Be(
                 "The content would change the first tucked note, which only the IDE changes. Nothing was changed.");
         module.Code.Should().Be(before);
     }
@@ -304,8 +305,7 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
         var whole = prefix + Text;
         reader.Reads.Clear();
 
-        DocumentContent.Write(DocumentIdentity.For(module), closed ? null : vm, Text, null,
-            new Vb6ProjectFileFormat(), reader).Refusal.Should().Be(
+        DocumentContent.Write(DocumentIdentity.For(module), closed ? null : vm, Text).Refusal.Should().Be(
                 "The content would change read-only text, which only the IDE changes. Nothing was changed.");
         reader.Reads.Should().Contain((whole, prefix.Length)).And.Contain((Text, 0));
         vm.Document.Text.Should().Be(whole);
@@ -313,8 +313,7 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
 
         reader.Reads.Clear();
         var incoming = whole + "new line\r\n";
-        DocumentContent.Write(DocumentIdentity.For(module), closed ? null : vm, incoming, null,
-            new Vb6ProjectFileFormat(), reader).Refusal.Should().BeNull();
+        DocumentContent.Write(DocumentIdentity.For(module), closed ? null : vm, incoming).Refusal.Should().BeNull();
         reader.Reads.Should().Contain((incoming, prefix.Length));
         (closed ? prefix + module.Code : vm.Document.Text).Should().Be(incoming);
     }
@@ -347,7 +346,18 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
         }
     }
 
-    private CodeEditorViewModel NewEditor(IReadOnlyRegionReader? reader, ILocalizationService? localization = null, IReadOnlyRegionRules? rules = null)
+    // A project's regions are its format's (#3411 slice 10b-3), so the editor puts the module's project under the test's
+    // stand-ins as it opens it.
+    private sealed class StandInEditor(CodeEditorViewModel vm, IReadOnlyRegionReader reader, IReadOnlyRegionRules? rules)
+    {
+        public CodeEditorViewModel Initialize(ModuleDefinition module)
+        {
+            new RegionStandInFormat(reader, rules).On(module.Owner);
+            return vm.Initialize(module);
+        }
+    }
+
+    private StandInEditor NewEditor(IReadOnlyRegionReader? reader, ILocalizationService? localization = null, IReadOnlyRegionRules? rules = null)
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
@@ -359,10 +369,9 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), localization ?? Substitute.For<ILocalizationService>(),
-                new Vb6ProjectFileFormat(), reader ?? Substitute.For<IReadOnlyRegionReader>(), regionRules: rules);
+            Substitute.For<HexIDE.Debugging.IRunScope>(), localization ?? Substitute.For<ILocalizationService>());
         made.Add(vm);
-        return vm;
+        return new StandInEditor(vm, reader ?? Substitute.For<IReadOnlyRegionReader>(), rules);
     }
 
     /// <summary>A module read from a file with nothing split off, so the buffer is <see cref="Text"/> and nothing else.</summary>
@@ -467,12 +476,12 @@ public class ReadOnlyRegionReaderSeamTests : IDisposable
     {
         var module = Notes();
         module.Owner.AddModule(module);
+        new RegionStandInFormat(new FixedLines((2, 2))).On(module.Owner);
         var projects = Substitute.For<IProjectManager>();
         projects.LoadedProjects.Returns([module.Owner]);
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel>());
-        var documents = new FindProjectDocuments(dock, projects, Substitute.For<IEditorService>(), () => module.Owner,
-            new Vb6ProjectFileFormat(), new FixedLines((2, 2)));
+        var documents = new FindProjectDocuments(dock, projects, Substitute.For<IEditorService>(), () => module.Owner);
 
         var document = documents.GetDocuments(allProjects: true).Single();
 

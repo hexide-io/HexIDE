@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- The default icon of a person's program: an original, neutral window glyph (MIT, #4187). Rebuild form.ico
+       from the repository root by running tools/IcoGen with two arguments: this file, then form.ico. -->
+  <rect x="1" y="2" width="14" height="12" fill="#50565C"/>
+  <rect x="2" y="3" width="12" height="10" fill="#EDF0F2"/>
+  <rect x="2" y="3" width="12" height="3" fill="#A6ADB4"/>
+  <rect x="3" y="4" width="5" height="1" fill="#50565C"/>
+  <rect x="12" y="4" width="1" height="1" fill="#50565C"/>
+</svg>

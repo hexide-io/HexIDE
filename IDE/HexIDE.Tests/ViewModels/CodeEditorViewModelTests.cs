@@ -43,15 +43,73 @@ public class CodeEditorViewModelTests : IDisposable
     private CodeEditorViewModel CreateSut()
     {
         _sut = new CodeEditorViewModel(
-            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _runScope, _localization,
-                new Vb6ProjectFileFormat(),
-                new Vb6ReadOnlyRegionReader(), recentEditHistory: recentEdits);
+            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _runScope, _localization, recentEditHistory: recentEdits);
         return _sut;
     }
 
     public void Dispose()
     {
         _sut?.Dispose();
+    }
+
+    // #4245: each new code window starts with the project's target, for both member kinds.
+    [AvaloniaTheory]
+    [InlineData(VbaBitness.None, 0)]
+    [InlineData(VbaBitness.Bit32, 1)]
+    [InlineData(VbaBitness.Bit64, 2)]
+    public void Conditional_preview_defaults_to_project_bitness(VbaBitness bitness, int expected)
+    {
+        var module = TestHelpers.CreateModule();
+        module.Owner.VbaBitness = bitness;
+        var moduleVm = CreateSut().Initialize(module);
+        moduleVm.ConditionalTargetIndex.Should().Be(expected);
+        moduleVm.Dispose();
+        var form = TestHelpers.CreateForm(name: "Form1");
+        form.Owner.VbaBitness = bitness;
+        CreateSut().Initialize(form).ConditionalTargetIndex.Should().Be(expected);
+    }
+
+    [AvaloniaFact]
+    public async Task AddWatchInDeclarationsDefaultsToActiveModule()
+    {
+        _localization.GetString("Str.Dialog.AddWatch.AllContext").Returns("(All Procedures)");
+        var module = TestHelpers.CreateModule();
+        module.Owner.AddModule(module);
+        var editor = CreateSut().Initialize(module);
+        editor.CaretOffset = editor.Document.TextLength;
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns(editor);
+        dock.OpenDocuments.Returns(new BaseEditorWindowViewModel[] { editor });
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns(new[] { module.Owner });
+        projects.StartupProject.Returns(module.Owner);
+        var other = new ModuleDefinition(module.Owner, "OtherModule", ModuleKind.ClassModule);
+        module.Owner.AddModule(other);
+        _lspClient.IsRunning.Returns(true);
+        _lspClient.RequestDocumentSymbolsAsync(DocumentWireName.For(other), Arg.Any<CancellationToken>())
+            .Returns([new DocumentSymbol("Square", SymbolKind.Function,
+                new HexIDE.Lsp.Messages.Range(new Position(2, 0), new Position(5, 0)),
+                new HexIDE.Lsp.Messages.Range(new Position(2, 9), new Position(2, 15)))]);
+        _debugController.GetLocals().Returns(new HexIDE.Runtime.Debugging.DebugScope("Module1.Square", []));
+        var watches = new HexIDE.Tools.WatchesToolViewModel(_localization, new HexIDE.Debugging.WatchService(), _debugController, _windowManager)
+        { DialogContextSource = new HexIDE.Tools.WatchDialogContextSource(dock, projects, _lspClient) };
+        await watches.OpenAddWatchDialog("modvar");
+        var dialog = (AddWatchDialogViewModel)_windowManager.ReceivedCalls()
+            .Single(c => c.GetMethodInfo().Name == "ShowDialog").GetArguments()[0]!;
+        dialog.OkCommand.Execute(null);
+        watches.Service.Watches.Single().Context.Should().Be(module.Name);
+        watches.Rows.Single().Context.Should().Be(module.Name);
+        dialog.SelectedModule!.Name.Should().Be(module.Name);
+        dialog.Procedures.Should().Equal("(All Procedures)");
+        dialog.Modules.Select(m => m.Name).Should().Equal(module.Name, "OtherModule");
+        dialog.SelectedModule = dialog.Modules[1];
+        dialog.Procedures.Should().Equal("(All Procedures)", "Square");
+        dialog.SelectedProcedure = "Square";
+        dialog.OkCommand.Execute(null);
+        watches.Service.Watches.Last().Context.Should().Be("OtherModule.Square");
+        dialog.SelectedModule = dialog.Modules[0];
+        dialog.Procedures.Should().Equal("(All Procedures)");
+        dialog.SelectedProcedure.Should().Be("(All Procedures)");
     }
 
     [AvaloniaFact]
@@ -562,7 +620,7 @@ public class CodeEditorViewModelTests : IDisposable
         module.UpdateCode("Option Explicit\r\n");
         var vm = CreateSut().Initialize(module);
 
-        var detector = new DirtyDetector(new FileBaselineStore(), Substitute.For<IProjectService>(), new Vb6ProjectFileFormat());
+        var detector = new DirtyDetector(new FileBaselineStore(), Substitute.For<IProjectService>());
 
         detector.Classify(new WatchedFileTarget("Module1.bas", null, module, vm, null))
             .Should().Be(ReloadDecision.CleanReload);
@@ -580,7 +638,7 @@ public class CodeEditorViewModelTests : IDisposable
 
         vm.Document.Text += "Dim x As Long\r\n";
 
-        var detector = new DirtyDetector(new FileBaselineStore(), Substitute.For<IProjectService>(), new Vb6ProjectFileFormat());
+        var detector = new DirtyDetector(new FileBaselineStore(), Substitute.For<IProjectService>());
 
         detector.Classify(new WatchedFileTarget("Module1.bas", null, module, vm, null))
             .Should().Be(ReloadDecision.Conflict);

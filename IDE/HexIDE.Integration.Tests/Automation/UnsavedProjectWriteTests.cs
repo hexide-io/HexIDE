@@ -43,8 +43,7 @@ public class UnsavedProjectWriteTests
             setup.EditorService, setup.ProjectRunnerService, setup.ProjectService, setup.EventBus,
             setup.BookmarkService, setup.BreakpointService, setup.DebugController, root, setup.ToolBoxViewModel,
             setup.ProfileService, setup.AddinProjectTemplateService, setup.LanguageSwitchService, setup.Capture,
-            setup.Pseudonyms, setup.LocalizationService, setup.SettingsService, setup.ProjectFileFormat,
-            setup.ReadOnlyRegionReader);
+            setup.Pseudonyms, setup.LocalizationService, setup.SettingsService);
         var tools = new HexIdeTools(context);
         var directory = Path.Combine(Path.GetTempPath(), "hexide-4335-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);

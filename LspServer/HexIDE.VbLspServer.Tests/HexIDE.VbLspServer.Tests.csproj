@@ -36,4 +36,8 @@
     <ProjectReference Include="..\HexIDE.VbLspServer\HexIDE.VbLspServer.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- One cleanup per test class: xunit v3 never calls Dispose beside DisposeAsync (#3411 slice 10b-3). -->
+    <Compile Include="..\..\IDE\HexIDE.Tests\Infrastructure\TestClassCleanupTests.cs" Link="Infrastructure\TestClassCleanupTests.cs" />
+  </ItemGroup>
 </Project>

@@ -61,7 +61,7 @@ public sealed class RecoveryOffers : IRecoveryOffers
     public RecoveryOffers(IRecoveryService recovery, IProjectService projects, IProjectManager projectManager,
         IWindowManager windowManager, ILocalizationService localization, IDocumentDockService dock,
         IFileBaselineStore baselineStore, IClock clock, IEventBus eventBus, IStatusBarService statusBar,
-        IHeaderRefresher headerRefresher, IProjectFileFormat format, IEditorService editors)
+        IHeaderRefresher headerRefresher, IEditorService editors)
     {
         this.editors = editors;
         this.recovery = recovery;
@@ -72,7 +72,7 @@ public sealed class RecoveryOffers : IRecoveryOffers
         this.dock = dock;
         this.baselineStore = baselineStore;
         this.clock = clock;
-        reloader = new FileReloader(projects, eventBus, statusBar, localization, headerRefresher, format);
+        reloader = new FileReloader(projects, eventBus, statusBar, localization, headerRefresher);
         eventBus.Subscribe<ProjectOpenedEvent>(e => OfferForAsync(e.Project).ListenErrors());
     }
 

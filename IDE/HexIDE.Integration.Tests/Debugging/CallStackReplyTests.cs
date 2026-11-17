@@ -24,7 +24,26 @@ public class CallStackReplyTests
     private static IdeContext Context(IDebugController debug, MainViewViewModel root) => new(
         Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
         null!, Substitute.For<IProjectRunnerService>(), null!, null!, null!, null!, debug, root,
-        null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+        null!, null!, null!, null!, null!, null!, null!, null!);
+
+    [AvaloniaFact]
+    public async Task Idle_break_reply_explicitly_has_no_current_statement()
+    {
+        // #4261, measured on VB6's idle form, oracle PR #4270.
+        await using var owned = new RealComposition();
+        var debug = Substitute.For<IDebugController>();
+        debug.IsSessionActive.Returns(true);
+        debug.State.Returns(DebugState.Paused);
+        debug.CurrentStop.Returns(new StoppedInfo(StopReason.Pause, "", 0));
+        using var context = Context(debug, owned.Composition.Root);
+        var reply = JsonSerializer.SerializeToElement(
+            await new HexIdeTools(context).GetDebugStateAsync(TestContext.Current.CancellationToken), ReplyJson.Options);
+        reply.GetProperty("state").GetString().Should().Be("Paused");
+        reply.GetProperty("stopReason").GetString().Should().Be("Pause");
+        reply.TryGetProperty("module", out var module).Should().BeFalse("no empty module is reported as a location");
+        reply.TryGetProperty("line", out _).Should().BeFalse();
+        reply.GetProperty("note").GetString().Should().Contain("no current statement");
+    }
 
     [AvaloniaFact]
     public async Task Deep_recursion_returns_the_deepest_repeated_and_outermost_frames()

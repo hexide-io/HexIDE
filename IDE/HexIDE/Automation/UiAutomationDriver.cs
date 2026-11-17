@@ -2608,6 +2608,8 @@ public static class UiAutomationDriver
                 };
             }
             // A program stopped in the debugger goes no further until it is continued, so the reply goes now.
+            if (state.Stop is { HasStatement: false })
+                return outcome with { Detail = outcome.Detail + " (the program is paused with no current statement)" };
             if (state.Stop is { } stop)
                 return outcome with
                 {

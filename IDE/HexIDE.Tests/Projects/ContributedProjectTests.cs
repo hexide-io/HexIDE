@@ -57,16 +57,15 @@ public sealed class ContributedProjectTests : IDisposable
         {
             "Str.Project.AlreadyOpen" => "Projet {0} déjà ouvert.",
             "Str.ContributedProject.OpenError" => "Could not open {0} with {1}: {2}",
-            "Str.ContributedProject.NoReader" => "Str.ContributedProject.NoReader {0}",
+            "Str.ContributedProject.NoLoadedReader" => "Str.ContributedProject.NoLoadedReader {0}",
             var key => key + " {0} {1}",
         });
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<HexIDE.Forms.ViewModels.BaseEditorWindowViewModel>());
-        _service = new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException("no new-project dialog"), _windows,
+        _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             _events, projects, _recent,
             Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, strings,
-            new HeaderRefresher(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(), new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
-            new Vb6ProjectFileFormat(), new ComponentRegistry(),
+            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), new ComponentRegistry(),
             contributed: _types);
     }
 
@@ -181,7 +180,7 @@ public sealed class ContributedProjectTests : IDisposable
             consent.SetResult();
             await opening;
             _loaded.Should().BeEmpty();
-            await _windows.Received(1).MessageBox("Str.ContributedProject.NoReader .rdproj",
+            await _windows.Received(1).MessageBox("Str.ContributedProject.NoLoadedReader .rdproj",
                 Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information);
         }
         finally { consent.TrySetResult(); window.Close(); }
@@ -252,6 +251,53 @@ public sealed class ContributedProjectTests : IDisposable
         _loaded.Any(p => p.Offers.MovesProjectFile).Should().BeFalse("Save Project As is unavailable for an OpenAsync-only type");
         await _windows.DidNotReceive().MessageBox(Arg.Is<string>(message => message.Contains("as code modules")),
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+    }
+
+    [AvaloniaFact]
+    public async Task A_type_with_no_format_of_its_own_reads_and_writes_its_VB6_members_through_the_format_for_their_kind()
+    {
+        // Its members get the format registered for their kind, VB6's (#3411 slice 10b-3). With the test fixtures' fallback
+        // taken away, nothing else could serve them: a project with no format throws.
+        ProjectFormats.TestFixturesOnlyFallback = null;
+        try
+        {
+            using var type = Contribute();
+            var project = await Opened();
+            project.Format.Should().BeOfType<Vb6ProjectFileFormat>("VB6's format reads modules and classes, a document module among them");
+            var main = project.Modules[0];
+
+            DocumentContent.TextOf(DocumentIdentity.For(main), null).Text.Should().Contain("Sub Main()", "the code window's text");
+            _service.HasUnsavedChanges(main).Should().BeFalse("the dirty check renders it as its format writes it");
+            main.UpdateCode("Sub Main()\r\n    Debug.Print 2\r\nEnd Sub\r\n");
+            _service.HasUnsavedChanges(main).Should().BeTrue();
+            await _service.SaveProject(project, saveAs: false);
+            File.ReadAllText(Path.Join(_dir, "src", "Main.bas")).Should().Contain("Debug.Print 2");
+            _service.HasUnsavedChanges(main).Should().BeFalse();
+
+            _loaded.Remove(project);
+            ((Action)(() => _projects.ProjectUnloaded += Raise.Event<Action<ProjectDefinition>>(project))).Should().NotThrow();
+        }
+        finally
+        {
+            HexIDE.Tests.Infrastructure.TestFixturesOnlyFormat.Set();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task A_project_no_registered_format_reads_has_none_and_asking_for_it_says_which()
+    {
+        ProjectFormats.TestFixturesOnlyFallback = null;
+        try
+        {
+            var project = new ProjectDefinition(VBProjectType.EXE, "Unread");
+            new ContributedProjects().FormatForMembers(project).Should().BeNull("nothing is registered");
+            var ask = () => ProjectFormats.Of(project);
+            ask.Should().Throw<InvalidOperationException>().WithMessage("*'Unread'*");
+        }
+        finally
+        {
+            HexIDE.Tests.Infrastructure.TestFixturesOnlyFormat.Set();
+        }
     }
 
     [AvaloniaFact]
@@ -540,7 +586,7 @@ public sealed class ContributedProjectTests : IDisposable
         await _service.OpenProject(ProjectFile);
 
         _loaded.Should().BeEmpty();
-        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.NoReader")),
+        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.NoLoadedReader")),
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 
@@ -588,7 +634,7 @@ public sealed class ContributedProjectTests : IDisposable
 
         _loaded.Should().ContainSingle().Which.ContributedBy.Should().Be("rdcore",
             "a group names a project file as Open Project does, and is read the same way");
-        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.NoReader Other.xproj"),
+        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.NoLoadedReader Other.xproj"),
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 

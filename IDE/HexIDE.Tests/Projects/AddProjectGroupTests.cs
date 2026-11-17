@@ -33,10 +33,10 @@ public sealed class AddProjectGroupTests : IDisposable
         strings.GetString("Str.Tool.Project.TitleGroup").Returns("Project Group - {0}");
         // VB6's files are read by VB6's type, which the composition registers first (#3411 slice 10b).
         Vb6ProjectType.Register(types, new Vb6ProjectFileFormat());
-        service = new ProjectService(new Vb6ReadOnlyRegionWriter(), () => throw new InvalidOperationException(),
+        service = new ProjectService(() => throw new InvalidOperationException(),
             windows, events, manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            strings, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry(), contributed: types);
+            strings, Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: types);
         explorer = new ProjectToolViewModel(manager, events, service, editors, strings);
     }
 
@@ -254,7 +254,7 @@ public sealed class AddProjectGroupTests : IDisposable
             if (failReopen) File.Delete(path);
             return Task.FromResult(true);
         });
-        var workspace = new ProjectLspWorkspace(() => manager, new Vb6ProjectFileFormat());
+        var workspace = new ProjectLspWorkspace(() => manager);
         var rootedAt = workspace.Directory;
         var calls = 0;
         var restarts = 0;

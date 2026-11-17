@@ -11,6 +11,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.Folding;
+using AvaloniaEdit.Rendering;
 using HexIDE.Controls;
 using Dock.Avalonia.Controls;
 using Dock.Model.Core;
@@ -71,7 +72,7 @@ public class EditorRedockTests
             Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), localization, new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+            Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
         module.UpdateCode("Sub Greet()\r\nEnd Sub\r\n");
@@ -183,8 +184,12 @@ public class EditorRedockTests
             view.GetVisualDescendants().OfType<Button>().Should().Contain(b => Equals(b.Content, "1 reference"));
             textView.LineTransformers.OfType<SemanticTokensColorizer>().Single().Tokens.Should().ContainSingle()
                 .Which.Start.Should().Be(vm.Document.GetOffset(2, server.TokenColumn + 1));
-            textView.BackgroundRenderers.OfType<InlayHintRenderer>().Single().Placements(textView)
-                .Should().Contain(p => p.Text == server.HintLabel);
+            textView.ElementGenerators.OfType<InlayHintRenderer>().Should().ContainSingle();
+            textView.EnsureVisualLines();
+            textView.VisualLines.SelectMany(line => line.Elements).OfType<InlineObjectElement>()
+                .Select(element => element.Element).OfType<StackPanel>()
+                .SelectMany(panel => panel.Children.OfType<TextBlock>())
+                .Should().Contain(label => label.Text == server.HintLabel);
             ((FoldingManager)textView.GetService(typeof(FoldingManager))!).AllFoldings.Should().ContainSingle();
         }
 
@@ -245,8 +250,7 @@ public class EditorRedockTests
                     Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
                     Substitute.For<HexIDE.Debugging.IBreakpointService>(),
                     Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-                    Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<ILocalizationService>(),
-                    new Vb6ProjectFileFormat(), new Vb6ReadOnlyRegionReader());
+                    Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<ILocalizationService>());
                 models.Add(vm);
                 var module = new ModuleDefinition(project, name, ModuleKind.StandardModule);
                 module.UpdateCode("Sub Greet()\r\nEnd Sub\r\n");

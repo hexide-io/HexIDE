@@ -8,6 +8,7 @@ using HexIDE.IDE;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Sidecar;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Projects;
 
@@ -66,8 +67,7 @@ public class UnfaithfulSaveGateTests : IDisposable
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
 
-        return new ProjectService(new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter(),
-            () => throw new InvalidOperationException("new-project dialog must not be reached"),
+        return new ProjectService(            () => throw new InvalidOperationException("new-project dialog must not be reached"),
             windowManager,
             Substitute.For<IEventBus>(),
             projectManager,
@@ -76,8 +76,7 @@ public class UnfaithfulSaveGateTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             localization,
-            Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
     }
 
     private const string FlatForm =
@@ -154,6 +153,66 @@ public class UnfaithfulSaveGateTests : IDisposable
 
         warningsShown.Should().Be(0);
         (await File.ReadAllTextAsync(Path.Join(dir, "Form1.frm"), TestContext.Current.CancellationToken)).Should().Contain("Begin VB.TextBox Text1");
+    }
+
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    public async Task A_form_holding_a_slider_saves_code_edits(string lineEnding)
+    {
+        var svc = MakeService();
+        var text = "VERSION 5.00\r\nBegin VB.Form Form1 \r\n"
+            + "   Begin MSComctlLib.Slider Slider1 \r\n"
+            + "      Height          =   675\r\n      Width           =   4500\r\n"
+            + "      _ExtentX        =   7938\r\n      _ExtentY        =   1191\r\n"
+            + "      _Version        =   393216\r\n      Value           =   6\r\n"
+            + "   End\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n";
+        text = text.ReplaceLineEndings(lineEnding);
+        await svc.OpenProject(Stage(text));
+        var form = loaded.Single().Forms.Single();
+        form.UpdateCode(form.Code + "' edited code\r\n");
+
+        await svc.SaveProject(loaded.Single(), saveAs: false);
+
+        warningsShown.Should().Be(0);
+        (await File.ReadAllTextAsync(Path.Join(dir, "Form1.frm"),
+            TestContext.Current.CancellationToken)).Should().Contain("' edited code");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task The_slider_corpus_saves_byte_for_byte_with_only_the_code_edit(bool editCode)
+    {
+        var original = File.ReadAllBytes(Path.Join(RepoTree.Root(), "corpus", "inbox-controls", "saved", "slider", "Form1.frm"));
+        var text = System.Text.Encoding.Latin1.GetString(original);
+        var svc = MakeService();
+        await svc.OpenProject(Stage(text));
+        var form = loaded.Single().Forms.Single();
+        var events = Substitute.For<IEventBus>();
+        events.Subscribe<HexIDE.Events.CreateOrNavigateToSubEvent>(Arg.Any<Action<HexIDE.Events.CreateOrNavigateToSubEvent>>())
+            .Returns(Substitute.For<IDisposable>());
+        using (var editor = new CodeEditorViewModel(
+            Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), svc,
+            events, Substitute.For<HexIDE.Lsp.ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
+            Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
+            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
+            Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form))
+        {
+            editor.IsReadOnly.Should().BeFalse("the corpus must open without the read-only banner");
+            editor.ReadOnlyReason.Should().BeNull();
+        }
+        // Close the untouched buffer before editing the model; otherwise disposal restores its old code
+        // and #3071 retains that unsaved buffer as a project-owned language-server session.
+        const string edit = "' edited code\r\n";
+        if (editCode) form.UpdateCode(form.Code + edit);
+
+        (await svc.SaveForm(form, saveAs: false)).Should().BeTrue();
+
+        warningsShown.Should().Be(0);
+        File.ReadAllBytes(Path.Join(dir, "Form1.frm")).Should().Equal(editCode
+            ? original.Concat(System.Text.Encoding.Latin1.GetBytes(edit)).ToArray()
+            : original);
     }
 
     [Fact]

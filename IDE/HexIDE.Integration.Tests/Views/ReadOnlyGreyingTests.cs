@@ -211,8 +211,6 @@ public class ReadOnlyGreyingTests : IDisposable
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
             Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(),
-                new Vb6ProjectFileFormat(),
-                new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader(),
             conditionalCode: new InterpreterConditionalCode());
         made.Add(vm);
         return vm;
