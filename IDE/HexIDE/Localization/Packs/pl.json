@@ -519,6 +519,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "Te formularze nie zostały zapisane, ponieważ HexIDE nie potrafi ich jeszcze wiernie odtworzyć:\n\n{0}\n\nIch pliki na dysku pozostają niezmienione. Zapisanie ich po cichu zmieniłoby formularze — Visual Basic 6 otworzy wyniki bez żadnego ostrzeżenia i właśnie dlatego takie uszkodzenia łatwo przeoczyć — dlatego HexIDE woli ich nie ruszać, niż je uszkodzić.",
     "Str.Designer.ReadOnly.Banner": "Tylko do odczytu — HexIDE nie potrafi jeszcze wiernie odtworzyć tego formularza, więc zapisanie go wprowadziłoby w nim zmiany. Możesz go wyświetlić i uruchomić, ale zmiany nie zostaną zapisane.",
     "Str.ContributedProject.FormReadOnly": "Tylko do odczytu — dodatek, który to odczytał, nie potrafi tego zapisać z powrotem, więc zmiany nie zostaną zapisane.",
+    "Str.ContributedProject.DesignerModuleReadOnly": "Tylko do odczytu — {1} wymienia '{0}' jako moduł kodu, ale jest to plik projektanta i nie można go bezpiecznie zapisać.",
     "Str.ContributedProject.RenderRefused": "Nic nie zostało zapisane. {1} nie mógł zapisać {0}, więc zapisywanie zatrzymało się, zanim zmienił się jakikolwiek plik.",
     "Str.ContributedProject.SavedInPlace": "{0} jest zapisywany tam, skąd został otwarty, ponieważ {1} zapisuje jego plik projektu tylko tam.",
     "Str.ContributedProject.MemberOverProjectFile": "Nic nie zostało zapisane. {0} zostałby zapisany na {1}, własnym pliku projektu, więc zapisywanie zatrzymało się, zanim zmienił się jakikolwiek plik.",

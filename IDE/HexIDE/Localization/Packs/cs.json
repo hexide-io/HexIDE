@@ -513,6 +513,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "Tyto formuláře nebyly uloženy, protože je HexIDE zatím nedokáže věrně reprodukovat:\n\n{0}\n\nJejich soubory na disku zůstávají nezměněné. Uložení by formuláře nenápadně změnilo — Visual Basic 6 výsledky otevře bez jakéhokoli varování, a právě proto je takové poškození snadné přehlédnout — a tak je HexIDE raději ponechává beze změny, než aby je poškodil.",
     "Str.Designer.ReadOnly.Banner": "Jen pro čtení — HexIDE zatím nedokáže tento formulář věrně reprodukovat, takže uložení by jej změnilo. Můžete si jej prohlédnout a spustit, ale změny se neuloží.",
     "Str.ContributedProject.FormReadOnly": "Jen pro čtení — doplněk, který toto načetl, to neumí zapsat zpět, takže změny v tom nebudou uloženy.",
+    "Str.ContributedProject.DesignerModuleReadOnly": "Jen pro čtení — {1} uvádí '{0}' jako modul kódu, ale jde o soubor návrháře, který nelze bezpečně uložit.",
     "Str.ContributedProject.RenderRefused": "Nic nebylo zapsáno. {1} nemohl zapsat {0}, takže ukládání se zastavilo dříve, než se změnil jakýkoli soubor.",
     "Str.ContributedProject.SavedInPlace": "{0} se ukládá tam, odkud byl otevřen, protože {1} zapisuje soubor projektu pouze tam.",
     "Str.ContributedProject.MemberOverProjectFile": "Nic nebylo zapsáno. {0} by se uložil přes {1}, vlastní soubor projektu, takže ukládání se zastavilo dříve, než se změnil jakýkoli soubor.",

@@ -513,6 +513,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "這些表單未儲存，因為 HexIDE 目前尚無法忠實地重現它們：\n\n{0}\n\n它們在磁碟上的檔案並未變更。儲存會悄悄改變這些表單，而 Visual Basic 6 開啟改動後的檔案時不會有任何錯誤，這正是損壞容易被忽略的原因，因此 HexIDE 選擇保持原樣，而不是破壞它們。",
     "Str.Designer.ReadOnly.Banner": "唯讀 — HexIDE 目前尚無法忠實地重現此表單，儲存將會改變它。您可以檢視與執行它，但變更不會儲存。",
     "Str.ContributedProject.FormReadOnly": "唯讀 — 讀取此項目的增益集無法將其寫回，因此對它的變更不會儲存。",
+    "Str.ContributedProject.DesignerModuleReadOnly": "唯讀 — {1} 將「{0}」列為程式碼模組，但它是設計工具檔案，無法安全儲存。",
     "Str.ContributedProject.RenderRefused": "未寫入任何內容。{1} 無法寫入 {0}，因此在任何檔案變更之前已停止儲存。",
     "Str.ContributedProject.SavedInPlace": "{0} 將儲存在開啟時的位置，因為 {1} 僅在該位置寫入其專案檔案。",
     "Str.ContributedProject.MemberOverProjectFile": "未寫入任何內容。{0} 將被儲存到專案自身的檔案 {1} 之上，因此在任何檔案變更之前已停止儲存。",

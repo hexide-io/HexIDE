@@ -443,6 +443,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "Ovi obrasci nisu sačuvani jer HexIDE još ne može verno da ih reprodukuje:\n\n{0}\n\nNjihove datoteke na disku nisu izmenjene. Čuvanje bi neprimetno promenilo obrasce — Visual Basic 6 otvara rezultate bez prigovora, pa se oštećenje lako previdi — zato ih HexIDE ostavlja netaknute da ih ne bi oštetio.",
     "Str.Designer.ReadOnly.Banner": "Samo za čitanje — HexIDE još ne može verno da reprodukuje ovaj obrazac, pa bi ga čuvanje promenilo. Možete ga pregledati i pokrenuti, ali izmene neće biti sačuvane.",
     "Str.ContributedProject.FormReadOnly": "Samo za čitanje — dodatak koji je ovo pročitao ne može to da upiše nazad, pa izmene neće biti sačuvane.",
+    "Str.ContributedProject.DesignerModuleReadOnly": "Samo za čitanje — {1} je naveo '{0}' kao modul koda, ali to je datoteka dizajnera i ne može se bezbedno sačuvati.",
     "Str.ContributedProject.RenderRefused": "Ništa nije upisano. {1} nije mogao da upiše {0}, pa je čuvanje zaustavljeno pre nego što se bilo koja datoteka promenila.",
     "Str.ContributedProject.SavedInPlace": "{0} se čuva tamo gde je otvoren jer {1} samo tamo upisuje njegovu projektnu datoteku.",
     "Str.ContributedProject.MemberOverProjectFile": "Ništa nije upisano. {0} bi bio sačuvan preko {1}, sopstvene datoteke projekta, pa je čuvanje zaustavljeno pre nego što se bilo koja datoteka promenila.",

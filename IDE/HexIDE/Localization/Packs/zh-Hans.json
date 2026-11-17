@@ -513,6 +513,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "这些窗体未保存，因为 HexIDE 目前还无法忠实地重现它们：\n\n{0}\n\n它们在磁盘上的文件未发生更改。保存会悄无声息地改变这些窗体，而 Visual Basic 6 打开改动后的文件时不会有任何提示，这正是损坏容易被忽视的原因，因此 HexIDE 选择保持原样，而不是破坏它们。",
     "Str.Designer.ReadOnly.Banner": "只读 — HexIDE 目前还无法忠实地重现此窗体，保存会改变它。可以查看和运行它，但更改不会被保存。",
     "Str.ContributedProject.FormReadOnly": "只读 — 读取此项的加载项无法将其写回，因此对它的更改不会被保存。",
+    "Str.ContributedProject.DesignerModuleReadOnly": "只读 — {1} 将“{0}”列为代码模块，但它是设计器文件，无法安全保存。",
     "Str.ContributedProject.RenderRefused": "未写入任何内容。{1} 无法写入 {0}，因此在任何文件更改之前已停止保存。",
     "Str.ContributedProject.SavedInPlace": "{0} 将保存在打开时的位置，因为 {1} 仅在该位置写入其项目文件。",
     "Str.ContributedProject.MemberOverProjectFile": "未写入任何内容。{0} 将被保存到项目自身的文件 {1} 之上，因此在任何文件更改之前已停止保存。",

@@ -1,7 +1,7 @@
 namespace HexIDE.Runtime.ProjectElements;
 
 /// <summary>
-/// Why a form cannot be reproduced on save. A cause rather than a sentence, because the sentence has to be
+/// Why a form or module cannot be reproduced on save. A cause rather than a sentence, because the sentence has to be
 /// shown to the developer in their own language and this is decided in the runtime, which has no
 /// localisation service and should not gain one.
 ///
@@ -13,6 +13,9 @@ namespace HexIDE.Runtime.ProjectElements;
 public enum UnfaithfulSaveCause
 {
     None = 0,
+
+    /// <summary>A designer file was declared as a code module (#4459).</summary>
+    DesignerFileAsModule = 1 << 10,
 
     /// <summary>A repeated property has an unreadable value (#4096).</summary>
     UnreadableDuplicateProperty = 1 << 8,
