@@ -25,10 +25,14 @@
   Form_Load too, without Paint. PictureBox- and Frame-hosted UserControls read the form's ambients and are notified with the rest (both measured)
   ([#4448 measured table](https://github.com/hexide-io/HexIDE/issues/4448), oracle PR #4630).
   The remaining UserControl surface and designer/file editing are later work. Part C supplies Container assignment and Count, bottom Align, transparent BackStyle, and measured focus/lifecycle ordering. Align assignments other than 2, BackStyle reads (whose return subtype is unmeasured here), ContainedControls operations other than Count, and PropertyBag operations are still refused. Unmeasured conversions of
+
+  UserControls is reported as any event's is (#4266). AmbientChanged for a form's colour and font changes is measured but not raised yet, and a PictureBox-hosted
+  UserControl's Ambient reads, measured as the form's, still refuse ([#4448](https://github.com/hexide-io/HexIDE/issues/4448)).
+  The remaining UserControl surface and designer/file editing are later work. Part C supplies Container assignment and Count, bottom Align, transparent BackStyle, and measured focus/lifecycle ordering. Align assignments other than 2, BackStyle reads (whose return subtype is unmeasured here), ContainedControls operations other than Count, and UserControl PropertyBag operations are still refused. Unmeasured conversions of
   AccessKeys are explicitly refused, rather than assigned invented VB6 semantics.
   [#4337](https://github.com/hexide-io/HexIDE/issues/4337) also attaches runtime-loaded array elements,
   with measured Initialize/Resize/ReadProperties, deferred Show, and index-ordered form teardown;
-  PropertyBag operations remain refused, and standalone element Unload and missing saved custom
+  UserControl PropertyBag operations remain refused, and standalone element Unload and missing saved custom
   properties have no additional measured semantics.
 - **Clipboard text is now partial (#1156):** Clear, SetText, GetText and GetFormat(vbCFText) use the host clipboard.
   Image/data methods, non-text format queries and RTF/Link text are deferred and explicitly refused. VB6 preserves
@@ -368,6 +372,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
     an `On Error` handler that saw it could only carry on past a statement that never ran.
 
 ## Partial
+
+- **Standalone `PropertyBag`** ([#4680](https://github.com/hexide-io/HexIDE/issues/4680), oracle PR #4686) supports the measured scalar, Byte-array and Nothing values and VB6 Contents layout. Persistable object streams and other objects remain explicitly unimplemented; the UserControl bag is unchanged. Unpaired UTF-16 text, non-String property-name conversions, unresolved default comparisons, argument-count errors, other Contents conversions, and the VB6 description of error 330 remain unmeasured (the number is implemented with an explicit HexIDE diagnostic).
 
 - **Source-class default members (#174):** async scalar reads execute the collected Function, Property Get or
   variable, including Let, ByVal scalar arguments, operators, builtin value arguments, conditions, Select Case,
