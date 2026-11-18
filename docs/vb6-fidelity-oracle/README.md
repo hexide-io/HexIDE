@@ -617,6 +617,7 @@ added afterwards.
 - [A control VB6 knows and HexIDE carries stacks with the rest (2026-10-23, #1498, design-time, IDE, release build)](a-control-vb6-knows-and-hexide-carries-stacks-with-the-rest.md#a-control-vb6-knows-and-hexide-carries-stacks-with-the-rest-2026-10-23-1498-design-time-ide-release-build)
 - [Static (2026-10-23, #1491)](static.md#static-2026-10-23-1491)
 - [A Let into an object variable (2026-10-23, #1493)](a-let-into-an-object-variable.md#a-let-into-an-object-variable-2026-10-23-1493)
+- [An unset Function of an object type returns Nothing (2026-11-18, #4622, SP6)](a-let-into-an-object-variable.md#an-unset-function-of-an-object-type-returns-nothing-2026-11-18-4622-sp6)
 - [The size of a control added from the toolbox (2026-10-23, #1473, design-time, IDE, release build)](the-size-of-a-control-added-from-the-toolbox.md#the-size-of-a-control-added-from-the-toolbox-2026-10-23-1473-design-time-ide-release-build)
 - [An undeclared variable passed ByRef (2026-10-23, #1505)](an-undeclared-variable-passed-byref.md#an-undeclared-variable-passed-byref-2026-10-23-1505)
 - [Chr, Asc, ChrW and AscW (2026-10-23, #1134)](chr-asc-chrw-and-ascw.md#chr-asc-chrw-and-ascw-2026-10-23-1134)
