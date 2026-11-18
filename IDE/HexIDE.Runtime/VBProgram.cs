@@ -390,7 +390,7 @@ public sealed class VBProgram : IFormProgram
     /// form within this context". Other forms' events go on: Form1's Timer ticks under Form2's modal form, in compiled code
     /// and in the IDE alike (measured).
     /// </remarks>
-    internal async Task ShowModal(IFormView view)
+    internal async Task ShowModal(IFormView view, VBFormRuntime? owner)
     {
         var context = view.Context;
         if (modals.Contains(context))
@@ -408,9 +408,14 @@ public sealed class VBProgram : IFormProgram
             }
         modals.Add(context);
         var over = interpreter.BuiltIns.WatchRunEnd?.Invoke();
+        var window = view as VBFormRuntime;
+        var showInTaskbar = window?.ShowInTaskbar ?? false;
         try
         {
-            view.ShowForm();
+            if (window is not null)
+                window.ShowModalForm(owner);
+            else
+                view.ShowForm();
             var form = context.FormInstance!;
             // Hidden as the innermost form, it is done; hidden while another modal form was over it, it waits on.
             await Events.WhileModal(() => form.FormLoaded && (view.IsShown || hiddenBeneath.Contains(context))
@@ -418,10 +423,20 @@ public sealed class VBProgram : IFormProgram
         }
         finally
         {
+            if (window is not null)
+            {
+                window.ClearModalOwner();
+                window.ShowInTaskbar = showInTaskbar;
+            }
             modals.Remove(context);
             hiddenBeneath.Remove(context);
             foreach (var (otherView, before) in held)
                 otherView.HeldBy = before;
+            // Ownership can raise the owner above the previously active form. Return native focus to the form the
+            // program already selected on hide/unload, after freeing it; its Activate event has already been queued.
+            if (window is not null && active is { FormInstance.FormLoaded: true } next && !ReferenceEquals(next, context)
+                && next.Window is VBFormRuntime { IsShown: true, HeldBy: null } nextView)
+                nextView.ActivateForm();
         }
         // The run ended under the modal form, by End, Stop or a fault: the statement after the Show never runs (measured
         // for End).

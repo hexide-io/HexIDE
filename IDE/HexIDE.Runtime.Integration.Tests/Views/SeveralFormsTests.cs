@@ -126,7 +126,7 @@ public class SeveralFormsTests
         new FormDeserializer().Deserialize(project, (Header(name) + code).ReplaceLineEndings("\r\n"), new NullSink())!;
 
     /// <summary>Run a project of Form1 and Form2, and Form3 if given, from Form1, as F5 does, and let its start run.</summary>
-    private static Run Start(string form1Code, string form2Code = Form2Code, string? form3Code = null)
+    private static Run Start(string form1Code, string form2Code = Form2Code, string? form3Code = null, string? moduleCode = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form1 = Form(project, "Form1", form1Code);
@@ -135,6 +135,12 @@ public class SeveralFormsTests
         if (form3Code is not null)
             project.AddForm(Form(project, "Form3", form3Code));
 
+        if (moduleCode is not null)
+        {
+            var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+            module.UpdateCode(moduleCode);
+            project.AddModule(module);
+        }
         var printed = new List<string>();
         var errors = new List<Exception>();
         var opened = new Dictionary<string, VBFormRuntime>();
@@ -182,6 +188,134 @@ public class SeveralFormsTests
     {
         for (var i = 0; i < 20; i++)
             Dispatcher.UIThread.RunJobs();
+    }
+
+    // Ownership rows a-e measured on VB6 SP6 in https://github.com/hexide-io/HexIDE/issues/4618.
+    [AvaloniaTheory]
+    [InlineData("Form1", "Form1", "", "Form1")]
+    [InlineData("Form1", "Form1", ", Form1", "Form1")]
+    [InlineData("Form1", "Form1", ", Form3", "Form3")]
+    [InlineData("Form1", "Form3", "", "Form1")]
+    [InlineData("Form3", "Form1", "", "Form3")]
+    public void Modal_owner_is_the_argument_or_the_calling_form(string caller, string active, string argument, string owner)
+    {
+        var timer = caller != active;
+        var handler = $"Private Sub {(timer ? "Timer1_Timer" : "Command1_Click")}()\nForm2.Show vbModal{argument}\nEnd Sub\n";
+        using var run = Start("Private Sub Prepare()\nForm3.Show\nEnd Sub\n" + handler,
+            form3Code: handler);
+        run.Opened["Form1"].ExecuteSub("Prepare");
+        Pump();
+        run.Opened[active].Activate();
+        Pump();
+        if (timer)
+            run.Opened[caller].ExecuteTimer("Timer1_Timer");
+        else
+            run.Click(caller);
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Opened["Form2"].Owner.Should().BeSameAs(run.Opened[owner]);
+        run.Opened["Form1"].HeldBy.Should().BeSameAs(run.Opened["Form2"]);
+        run.Opened["Form3"].HeldBy.Should().BeSameAs(run.Opened["Form2"]);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Modal_taskbar_and_owner_are_restored_before_modeless_reuse(bool taskbar)
+    {
+        using var run = Start("""
+            Private shown As Boolean
+            Private Sub Command1_Click()
+                If Not shown Then
+                    shown = True
+                    Form2.Show
+                    Exit Sub
+                End If
+                Form2.Show vbModal
+                Form2.Show
+            End Sub
+            """, "Private Sub Command1_Click()\nMe.Hide\nEnd Sub\n");
+        run.Click("Form1");
+        Pump();
+        var modal = run.Opened["Form2"];
+        modal.ShowInTaskbar = taskbar;
+        run.Click("Form1");
+        Pump();
+        modal.ShowInTaskbar.Should().BeFalse();
+        modal.Owner.Should().BeSameAs(run.Opened["Form1"]);
+        run.Click("Form2");
+        Pump();
+        run.Errors.Should().BeEmpty();
+        modal.Owner.Should().BeNull();
+        modal.ShowInTaskbar.Should().Be(taskbar);
+        modal.IsVisible.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void Modal_from_a_standard_module_keeps_no_owner()
+    {
+        using var run = Start("Private Sub Command1_Click()\nOpenModal\nEnd Sub\n",
+            moduleCode: "Public Sub OpenModal()\nForm2.Show vbModal\nEnd Sub\n");
+        run.Click("Form1");
+        Pump();
+        run.Errors.Should().BeEmpty();
+        run.Opened["Form2"].Owner.Should().BeNull("the standard-module case is unmeasured and stays unowned (#4618)");
+    }
+
+    // Avalonia hides a window's owned windows with it. Unloading a form hides its window, so the hide must clear ownership
+    // first, or unloading the startup form takes the modal form it owns off the screen (#4618 review).
+    [AvaloniaFact]
+    public void Unloading_the_startup_form_beneath_its_modal_form_leaves_the_modal_form_shown()
+    {
+        using var run = Start("Private Sub Command1_Click()\nForm2.Show vbModal\nEnd Sub\n",
+            "Private Sub Command1_Click()\nUnload Form1\nEnd Sub\n");
+        run.Click("Form1");
+        Pump();
+        run.Opened["Form2"].Owner.Should().BeSameAs(run.Opened["Form1"]);
+        run.Click("Form2");
+        Pump();
+        run.Errors.Should().BeEmpty();
+        run.Opened["Form1"].IsVisible.Should().BeFalse();
+        run.Opened["Form2"].IsVisible.Should().BeTrue();
+    }
+
+    // Row c: preserve main's event log when the owner differs from the previously active form (#4618).
+    [AvaloniaFact]
+    public void Modal_close_with_another_owner_preserves_the_activation_events()
+    {
+        static string Events(string name) => $$"""
+            Private Sub Form_Activate()
+                Debug.Print "{{name}} activate"
+            End Sub
+            Private Sub Form_Deactivate()
+                Debug.Print "{{name}} deactivate"
+            End Sub
+
+            """;
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Form3.Show
+            End Sub
+            Private Sub Timer1_Timer()
+                Form2.Show vbModal, Form3
+                Debug.Print "returned"
+            End Sub
+            """ + "\n" + Events("f1"), Form2Code + Events("f2"), Events("f3"));
+        run.Click("Form1");
+        Pump();
+        run.Opened["Form1"].Activate();
+        Pump();
+        run.Printed.Clear();
+        run.Opened["Form1"].ExecuteTimer("Timer1_Timer");
+        Pump();
+        run.Click("Form2");
+        Pump();
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "f1 deactivate", "f2 activate",
+            "f2 queryunload 1", "f2 unload", "returned", "f1 activate");
+        run.Opened["Form2"].Owner.Should().BeNull();
+        run.Opened["Form1"].IsActive.Should().BeTrue();
     }
 
     // ── Which use makes the instance, and which loads it ──────────────────────────────────────────────
@@ -819,6 +953,8 @@ public class SeveralFormsTests
         Pump();
 
         run.Opened["Form1"].HeldBy.Should().BeNull("Form1 is modal now");
+        run.Opened["Form1"].Owner.Should().BeNull("ownership for promotion over a descendant is unmeasured (#4618)");
+        run.Opened["Form2"].Owner.Should().BeNull("an owned child would stay above the form promoted over it");
         run.Opened["Form2"].HeldBy.Should().NotBeNull();
 
         run.Click("Form1");

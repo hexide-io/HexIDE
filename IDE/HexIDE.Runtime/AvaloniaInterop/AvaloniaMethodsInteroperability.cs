@@ -265,7 +265,10 @@ public static class AvaloniaMethodsInteroperability
     /// <summary>
     /// <see cref="Call"/>, for a statement, which can wait: <c>Form2.Show vbModal</c> returns once Form2 has gone (#822).
     /// </summary>
-    public static async ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args)
+    public static ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args) =>
+        c.CallAsync(method, args, null);
+
+    internal static async ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args, VbObject? callingForm)
     {
         VBProps.RefuseIfRemoved(c);
         if (c is VBListView list && method.Equals("StartLabelEdit", StringComparison.OrdinalIgnoreCase) && args.Count == 0)
@@ -286,7 +289,9 @@ public static class AvaloniaMethodsInteroperability
         {
             var program = view.Context.Program
                           ?? throw new NotImplementedException("Show vbModal needs a program of forms, which this host doesn't run (#822).");
-            await program.ShowModal(view);
+            var owner = args.Count > 1 && !args[1].IsMissing ? args[1].Value as VbObject : callingForm;
+            await program.ShowModal(view, owner is { FormLoaded: true, FormWindow: VBFormRuntime { IsVisible: true } window }
+                ? window : null);
             return Vb6Value.Nothing;
         }
         return c.Call(method, args);
