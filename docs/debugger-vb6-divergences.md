@@ -397,6 +397,12 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   its `End Sub`, then runs. HexIDE matches these positions and the Load → Resize → Activate output order.
 - **Unmeasured:** Step Into off the startup form's Load `End Sub`, including whether it stops in Resize;
   its existing stepping path is unchanged. UserControl and other module startup positions remain unchanged.
+- **Reasoned, not measured:**
+  - **A form loaded from an event handler:** Into on `Load Form2` or `Form2.Show` there stops at `Form_Load`'s or
+    `Form_Initialize`'s declaration. That's what the measured `Form1.Show` inside `Sub Main` does, and no other
+    load from code was measured.
+  - **An MDI form:** its `MDIForm_Load` and `MDIForm_Initialize` keep the old first-statement stop. Where VB6
+    stops in them isn't measured.
 
 ### D20. A step from a function's last statement skips `End Function` — FIXED
 - **VB6:** stops there (measured 2026-10-26, #2172; the oracle's [A breakpoint on a procedure's End line or its

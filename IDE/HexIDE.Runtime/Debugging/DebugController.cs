@@ -514,6 +514,8 @@ public sealed class DebugController : IDebugGate
 
     public void NotifyStartupShowResize()
     {
+        // _carriedStepWasOver is set where a dispatch carries a step and cleared by every new step (ResumeForStep).
+        // The window context calls this once, for the startup show's Resize only.
         if (!_stepAtNextEvent || !_carriedStepWasOver)
             return;
         // Only the startup show's Resize: run it below Over's target depth, then its dispatch carries

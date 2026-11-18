@@ -1907,15 +1907,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 try
                 {
                     await executor.HoistDeclaredLocals(proc);
-                    // #4449: startup and form-loading entries stop at their declarations. Direct calls retain
-                    // their existing rule; other startup modules retain their unmeasured positions.
+                    // #4449: a step into Sub Main, or into a form's Load or Initialize, stops at its declaration, as
+                    // VB6 does from design mode and from `Form1.Show` in Sub Main (measured). Direct calls keep their
+                    // existing rule. So does any other module's event during the startup load, such as a class's or a
+                    // UserControl's: where those stop is unmeasured.
                     if (proc.Declaration is VB6Parser.SubStmtContext declaration)
                         await executor.ProcedureBoundary(declaration.Start.Line, breakpointOnly: true, entry: true,
                             stepEntry: isEntry && (me is null ||
-                                (InStartupDispatch && owner.Kind != InterpreterModuleKind.Form
-                                    ? owner.PrePass.Procedures.ContainsKey("Form_Initialize")
-                                    : proc.Name.Equals("Form_Load", StringComparison.OrdinalIgnoreCase) ||
-                                      proc.Name.Equals("Form_Initialize", StringComparison.OrdinalIgnoreCase))));
+                                !(InStartupDispatch && owner.Kind != InterpreterModuleKind.Form) &&
+                                (proc.Name.Equals("Form_Load", StringComparison.OrdinalIgnoreCase) ||
+                                 proc.Name.Equals("Form_Initialize", StringComparison.OrdinalIgnoreCase))));
                     if (proc.Body is { } procedureBody)
                         await executor.Execute(procedureBody);
                     // A handler the last statement raised finishes inside the call, as it does in VB6, before the caller
