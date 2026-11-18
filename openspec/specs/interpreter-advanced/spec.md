@@ -173,6 +173,16 @@ code.
 - **THEN** indexed reads and writes use the subscripts, and whole-array field assignments use the array-variable store rules
 - **AND** nonliteral or inverted Type-field bounds and array fields As New remain explicitly refused
 
+#### Scenario: Object array fields in a record
+- **WHEN** a Type declares a fixed or dynamic array of a project class, Object or Collection
+- **THEN** its allocated elements start as Nothing, and Set stores through the array's declared-class check
+- **AND** an unrelated class raises error 13 without replacing the element
+- **AND** record copies own independent arrays sharing counted object references
+- **AND** Erase resets fixed fields retaining bounds, frees dynamic fields, and releases held objects
+- **AND** a local record releases its objects at scope exit, and shared objects terminate only when their last reference is released
+
+These behaviours are measured native and p-code in [#4596](https://github.com/hexide-io/HexIDE/issues/4596), rows 1–14.
+
 #### Scenario: For Each over a UDT array
 - **WHEN** execution reaches For Each over an array of a user-defined type
 - **THEN** it raises the measured VB6 compile refusal rather than enumerating records

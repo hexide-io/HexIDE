@@ -140,7 +140,7 @@ internal sealed class ImageListImages(VBImageList owner) : ICSharpAsyncProxy, IC
         if (index.Type == Vb6Value.ValueType.EmptyVariant) throw VBImageList.Error(35601);
         if (index.Type == Vb6Value.ValueType.String)
         {
-            var key = (string)index.Value!;
+            var key = (string)index.WithoutOddBytes("VBImageList text use").Value!;
             if (key.Length == 0) throw VBImageList.Error(35603);
             RefuseUnmeasuredKeyCase(key);
             var found = items.FindIndex(i => i.Key.Equals(key, StringComparison.Ordinal));
@@ -165,7 +165,7 @@ internal sealed class ImageListImages(VBImageList owner) : ICSharpAsyncProxy, IC
             if (Vb6Value.TryNumericToDouble(value, out _)) throw VBImageList.Error(35603);
             throw new NotImplementedException("This ImageList key conversion is unmeasured (#1083)");
         }
-        var key = (string)value.Value!;
+        var key = (string)value.WithoutOddBytes("VBImageList text use").Value!;
         if (key.Length > 0 && double.TryParse(key, out _)) throw VBImageList.Error(35603);
         return key;
     }

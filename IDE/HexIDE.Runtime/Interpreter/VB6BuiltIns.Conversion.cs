@@ -108,6 +108,7 @@ public partial class VB6BuiltIns
     /// A caller converts this, never the argument it passed, or Err would reach the conversion as an object.</returns>
     internal static Vb6Value RefuseNonScalar(Vb6Value v)
     {
+        v.RefuseOddBytes("Conversion");
         // An element of an array of a user-defined type that nothing has assigned holds no VbUdt yet, so the type
         // decides, not the value.
         if (v.Type.IsArray || v.Type == VT.UserDefinedType || v.Value is VbUdt)

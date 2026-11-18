@@ -143,7 +143,7 @@ public sealed class VBAnimation : Control, ICSharpPropertyBag, ICustomHitTest
         {
             case "open":
                 if (args.Count != 1 || args[0].Type != Vb6Value.ValueType.String) throw Unimplemented("Open arguments");
-                Open((string)args[0].Value!);
+                Open((string)args[0].WithoutOddBytes("VBAnimation argument").Value!);
                 break;
             case "play": Play(args); break;
             case "stop":
@@ -218,7 +218,7 @@ public sealed class VBAnimation : Control, ICSharpPropertyBag, ICustomHitTest
         if (value.IsNull) throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (value.Type == Vb6Value.ValueType.String)
         {
-            if (!double.TryParse((string)value.Value!, System.Globalization.NumberStyles.Float,
+            if (!double.TryParse((string)value.WithoutOddBytes("VBAnimation text use").Value!, System.Globalization.NumberStyles.Float,
                     VbLocale.Current, out _)) throw new VBRunTimeException(VBStandardError.TypeMismatch);
             throw Unimplemented("numeric String conversion");
         }

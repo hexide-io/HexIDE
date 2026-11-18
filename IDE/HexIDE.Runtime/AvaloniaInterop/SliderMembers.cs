@@ -58,7 +58,7 @@ internal static class SliderMembers
         {
             if (value.Type != Vb6Value.ValueType.String)
                 throw new NotImplementedException("Slider Text conversions are not implemented (#1091): unmeasured.");
-            s.Text = (string)value.Value!;
+            s.Text = (string)value.WithoutOddBytes("SliderMembers text use").Value!;
             return true;
         }
         if (SliderComponentClass.Instance.Member(name) is not { Kind: MemberKind.Property } && key != "_VALUE")

@@ -57,7 +57,7 @@ internal sealed class TabStripTabs(VBTabStrip owner) : ICSharpAsyncProxy, ICShar
             throw new VBRunTimeException(new VBStandardError(35600, "Index out of bounds"));
         return (int)rounded;
     }
-    internal static string Text(Vb6Value value) => value.Type == Vb6Value.ValueType.String ? (string)value.Value!
+    internal static string Text(Vb6Value value) => value.WithoutOddBytes("TabStripTabs text use").Type == Vb6Value.ValueType.String ? (string)value.Value!
         : throw new NotImplementedException("TabStrip string conversion is not implemented (#1089)");
     public bool TryGetProperty(string name, out Vb6Value value) { value = default; return false; }
     public bool TrySetProperty(string name, Vb6Value value) => name.Equals("Count", StringComparison.OrdinalIgnoreCase)

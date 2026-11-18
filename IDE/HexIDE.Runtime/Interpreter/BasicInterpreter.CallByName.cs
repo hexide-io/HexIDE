@@ -14,6 +14,7 @@ public partial class BasicInterpreter
             await VB6BuiltIns.ArrangeIntrinsicArguments("CallByName", callArgs); // Measured compile error, #4145.
         foreach (var arg in callArgs)
         {
+            arg.Value.RefuseOddBytes("CallByName");
             if (arg.Omitted)
                 throw new NotImplementedException("CallByName omitted arguments are not implemented (#2519)");
         }
