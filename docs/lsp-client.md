@@ -2057,8 +2057,10 @@ the connection first requests `workspace/diagnostic/refresh`, after which server
 for that connection alone. The client declares `workspace.diagnostics.refreshSupport: true` in
 `initialize`, so servers can request that refresh. Pinned rumdl 0.2.79 still sends this request
 with `"params":null` (measured 2026-11-16, [#4144](https://github.com/hexide-io/HexIDE/issues/4144));
-the formatter removes that invalid member and the client answers with `"result":null`. The repair
-remains for compatibility with servers that emit this shape.
+StreamJsonRpc 2.26.150 decodes it directly and the client answers with `"result":null`, without an
+undecodable-frame fault or a recovery note ([#4472](https://github.com/hexide-io/HexIDE/issues/4472)).
+The reply completes the refresh request's own conversation entry as `Answered`. The null-params
+repair remains a fallback if a formatter rejects this shape again.
 Automatic transport reconnect currently replays documents but does not re-import until the next
 project change; immediate imports cover registry startup and workspace-root replacement.
 Projects without a saved path are reported rather than assigned an invented project URI. Folder updates

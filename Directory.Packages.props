@@ -54,14 +54,15 @@
     <PackageVersion Include="Serilog.Extensions.Logging" Version="10.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
   </ItemGroup>
-  <!-- LSP / StreamJsonRpc — Nerdbank.MessagePack pinned above 1.0.2 (GHSA-2cwq-pwfr-wcw3);
+  <!-- LSP / StreamJsonRpc — Nerdbank.MessagePack < 1.1.62 is affected by GHSA-2cwq-pwfr-wcw3;
+       1.1.62 is patched, and StreamJsonRpc 2.26.150 requires 1.3.88.
        MessagePack pinned above 2.5.198 (CVE-2026-48109 / GHSA-hv8m-jj95-wg3x) and at 2.5.303 or later
        (GHSA-qhrr-8q5h-9q3h, #1124), pulled in by StreamJsonRpc. HexIDE formats with SystemTextJsonFormatter and never
        uses MessagePack itself, but NU1902 is an error here, so an advisory against the pin stops every build. -->
   <ItemGroup>
     <PackageVersion Include="MessagePack" Version="2.5.307" />
-    <PackageVersion Include="Nerdbank.MessagePack" Version="1.2.4" />
-    <PackageVersion Include="StreamJsonRpc" Version="2.24.92" />
+    <PackageVersion Include="Nerdbank.MessagePack" Version="1.3.88" />
+    <PackageVersion Include="StreamJsonRpc" Version="2.26.150" />
   </ItemGroup>
   <!-- LSP server shell (MIT) — EmmyLua.LanguageServer.Framework: JSON-RPC + LSP plumbing for the
        MIT VB6 language server (replaces the GPLv3 hand-rolled dispatcher). net9 asset, zero deps,
