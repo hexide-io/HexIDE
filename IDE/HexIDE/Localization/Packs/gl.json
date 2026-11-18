@@ -2,6 +2,7 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} xa existe. Quere substituílo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} cargouse con erros, polo que non se pode gardar sobre o ficheiro orixinal. Escolla un nome de ficheiro novo.",
     "Str.ProjectLoad.PropertyNotSet": "Liña {0}: non se puido definir a propiedade {1} en {2}.",
     "Str.Menu.Edit.Refactor": "Re_factorizar",

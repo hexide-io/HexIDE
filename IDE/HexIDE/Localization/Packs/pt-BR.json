@@ -202,6 +202,7 @@
     "Str.AIChat.PrivacyServerTools": "Um servidor de linguagem executado pelo HexIDE (o próprio, um que você configurou ou um adicionado por um suplemento que você permitiu) pode fornecer ferramentas e contexto ao chat de IA. Os resultados dessas ferramentas e esse contexto também são enviados para lá. O contexto e os resultados das ferramentas que o servidor diz que apenas leem são enviados sem perguntar a você.",
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Os projetos {0} compartilham a pasta {1}; apenas {2} é gravado ou importado.",
     "Str.Dialog.ProjectGroup.OtherKindRefused": "Não é possível salvar {0} como grupo de projetos: o VB6 abriria {1} como módulos de código, não como projetos. Remova-os do grupo ou salve cada projeto separadamente. Nada foi gravado.",
-    "Str.PropDesc.Index": "Índice do elemento da matriz de controles, ou vazio para um controle simples."
+    "Str.PropDesc.Index": "Índice do elemento da matriz de controles, ou vazio para um controle simples.",
+    "Str.FilePicker.ReplaceExisting": "{0} já existe. Deseja substituí-lo?"
   }
 }

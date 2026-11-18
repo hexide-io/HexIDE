@@ -265,6 +265,9 @@ public class NegativeSizeSaveTests : IDisposable
         var (_, form, original) = Load();
         var path = form.AbsolutePath!;
         var service = MakeService();
+        // Agree to replacement so this test reaches the behavior it checks (#4505).
+        picker.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning,
+            layout: MessageBoxLayout.SecondButtonDefault).Returns(MessageBoxResult.Yes);
         var copy = Path.Join(dir, "Recovered.frm");
         picker.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(Task.FromResult<string?>(Path.Join(dir, ".", "Form1.frm")), Task.FromResult<string?>(copy));
