@@ -29,8 +29,14 @@ public interface IDebugGate : IDebugController
     /// <summary>A dispatch begins, including one nested in the running handler chain.</summary>
     void NotifyDispatchStarted() { }
 
-    /// <summary>A dispatch returned. Event handlers carry Into/Over to the next event's declaration; startup Main keeps its statement positions.</summary>
+    /// <summary>A dispatch returned. Event handlers carry Into/Over/Out to the next event's declaration.</summary>
     void NotifyDispatchIdle(bool carryStep = true);
+
+    /// <summary>Complete startup Main's dispatch: Into and Out carry to the next event, Over does not (#4449).</summary>
+    void NotifyMainDispatchIdle() => NotifyDispatchIdle(carryStep: false);
+
+    /// <summary>The startup show's Resize is about to run: carry Step Over through it to Activate (#4449).</summary>
+    void NotifyStartupShowResize() { }
 
     /// <summary>A procedure's declaration, before any statement runs.</summary>
     ValueTask OnProcedureEntryAsync(int line, string module, IDebugFrame frame)

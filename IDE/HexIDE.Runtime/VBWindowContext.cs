@@ -335,6 +335,7 @@ public class VBWindowContext : IModuleExecutionRoot
 
     // Whether the window has been shown since the form loaded, and its extent when Resize was last raised (#994).
     private bool shownSinceLoad;
+    private bool startupShowPending;
     private (Avalonia.Size Size, Avalonia.Controls.WindowState State) resizedAt;
 
     /// <summary>
@@ -350,7 +351,9 @@ public class VBWindowContext : IModuleExecutionRoot
         ShowControls();
         shownSinceLoad = true;
         resizedAt = view.Extent;
-        ExecuteSub("Form_Resize");
+        var startupShow = startupShowPending;
+        startupShowPending = false;
+        Raise("Form_Resize", () => null, startupShowResize: startupShow);
     }
 
     /// <summary>
@@ -591,7 +594,9 @@ public class VBWindowContext : IModuleExecutionRoot
                         return false;
                 }
                 // A form that unloaded itself in Load, as `Unload Me` there does, is not shown (measured, #1046 review).
-                return !RunIsOver() && !form.FormUnloaded;
+                var show = !RunIsOver() && !form.FormUnloaded;
+                startupShowPending = show && !shownSinceLoad;
+                return show;
             }
             finally
             {
@@ -783,7 +788,7 @@ public class VBWindowContext : IModuleExecutionRoot
 
     private void Raise(string name, Func<IReadOnlyList<Vb6Value>?> args,
         EventCoalescing coalescing = EventCoalescing.None, string? key = null, Func<bool>? when = null,
-        int? byRefIndex = null, Action<Vb6Value>? completed = null)
+        int? byRefIndex = null, Action<Vb6Value>? completed = null, bool startupShowResize = false)
     {
         // An event raised before SetCode has no code to run, as when a form's controls fail to build and the
         // run is abandoned half way. It used to reach here anyway and log a NullReferenceException after the
@@ -805,6 +810,8 @@ public class VBWindowContext : IModuleExecutionRoot
             // Asked at its turn, not when it was raised (#1344).
             if (when is not null && !when())
                 return;
+            if (startupShowResize)
+                interpreter.DebugController?.NotifyStartupShowResize();
             await Dispatch(async () =>
             {
                 if (!started)

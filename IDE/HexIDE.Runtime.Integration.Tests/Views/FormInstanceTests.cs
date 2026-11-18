@@ -805,13 +805,10 @@ public class FormInstanceTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Step_Into_from_design_mode_breaks_on_the_first_statement_of_the_start(bool hasInitialize)
+    public void Step_Into_from_design_mode_uses_the_measured_start_positions(bool hasInitialize)
     {
-        // Start-and-step breaks on the first executable line, not its declaration. The start is one dispatch now: a step armed
-        // before it reaches Initialize's first statement, or Load's when there is no Initialize, and a step off the end
-        // of Initialize goes on into Load. Each piece was a dispatch of its own, and the first one's end disarmed the
-        // step, so the run went straight through (#656, #1010 review).
-        // End-line breakpoint support must not consume that startup step at Initialize's End Sub (#2172 review).
+        // Measured: https://github.com/hexide-io/HexIDE/issues/4449 — Initialize declaration, statement, End, Load declaration.
+        // The no-Initialize Load declaration was measured in oracle PR #4683 (issue #4449, round 2).
         var code = "Private Score As Integer\nDim Grid(1 To 3) As Integer\n"
             + (hasInitialize ? "Private Sub Form_Initialize()\n    Score = 1\nEnd Sub\n" : "")
             + "Private Sub Form_Load()\n    Score = Score + 1\n    Debug.Print Score\nEnd Sub\n";
@@ -834,14 +831,17 @@ public class FormInstanceTests
             Dispatcher.UIThread.RunJobs();
             if (hasInitialize)
             {
-                stops.Should().Equal([LineOf("    Score = 1")], "Initialize's first statement, after the two declarations and its Sub line");
-                dbg.StepInto();
-                Dispatcher.UIThread.RunJobs();
-                stops.Should().Equal([LineOf("    Score = 1"), LineOf("    Score = Score + 1")],
-                    "off the end of Initialize, into Load's first statement");
+                stops.Should().Equal([LineOf("Private Sub Form_Initialize()")]);
+                foreach (var expected in new[] { LineOf("    Score = 1"), LineOf("    Score = 1") + 1,
+                             LineOf("Private Sub Form_Load()"), LineOf("    Score = Score + 1") })
+                {
+                    dbg.StepOver();
+                    Dispatcher.UIThread.RunJobs();
+                    stops[^1].Should().Be(expected);
+                }
             }
             else
-                stops.Should().Equal([LineOf("    Score = Score + 1")], "Load's first statement: the declarations are never a stop");
+                stops.Should().Equal([LineOf("Private Sub Form_Load()")]);
         }
         finally
         {
@@ -850,6 +850,65 @@ public class FormInstanceTests
             window.Close();
         }
         run.IsCompleted.Should().BeTrue();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Step_Over_off_startup_Load_runs_Resize_then_stops_at_Activate(bool hasInitialize)
+    {
+        // VB6 SP6, #4449 round 2 / oracle PR #4683: programs E and F. Resize runs between Load and
+        // Activate without a step stop. Exercise the real startup show and its dispatched events.
+        var code = (hasInitialize ? "Private Sub Form_Initialize()\n    Debug.Print \"initialize\"\nEnd Sub\n" : "")
+            + "Private Sub Form_Load()\n    Debug.Print \"load\"\nEnd Sub\n"
+            + "Private Sub Form_Resize()\n    Debug.Print \"resize\"\nEnd Sub\n"
+            + "Private Sub Form_Activate()\n    Debug.Print \"activate\"\nEnd Sub\n";
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project, (FormHeader + code).ReplaceLineEndings("\r\n"), new NullSink())!;
+        project.AddForm(form);
+        var whole = FormCodeText.WholeFile(form).ReplaceLineEndings("\n").Split('\n');
+        int LineOf(string statement) => System.Array.IndexOf(whole, statement) + 1;
+        var dbg = new HexIDE.Runtime.Debugging.DebugController { TimeSliceMs = null };
+        var printed = new List<string>();
+        var stops = new List<int>();
+        dbg.Stopped += info => stops.Add(info.Line);
+        dbg.Reset();
+        dbg.StepInto();
+        VBDebugConsole.Output += printed.Add;
+        using var cancellation = new CancellationTokenSource();
+        var run = VBLoader.RunForm(form, cancellation.Token, out var window, dbg);
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            printed.Should().BeEmpty("the startup declaration stops before its statement runs");
+            var expected = new List<int>();
+            if (hasInitialize)
+                expected.AddRange([LineOf("Private Sub Form_Initialize()"), LineOf("    Debug.Print \"initialize\""),
+                    LineOf("    Debug.Print \"initialize\"") + 1]);
+            expected.AddRange([LineOf("Private Sub Form_Load()"), LineOf("    Debug.Print \"load\""),
+                LineOf("    Debug.Print \"load\"") + 1, LineOf("Private Sub Form_Activate()"),
+                LineOf("    Debug.Print \"activate\""), LineOf("    Debug.Print \"activate\"") + 1]);
+            for (var i = 0; i < expected.Count; i++)
+            {
+                stops.Should().Equal(expected.GetRange(0, i + 1));
+                if (expected[i] == LineOf("Private Sub Form_Activate()"))
+                    printed.Should().Equal(hasInitialize ? ["initialize", "load", "resize"] : ["load", "resize"]);
+                dbg.StepOver();
+                Dispatcher.UIThread.RunJobs();
+            }
+            dbg.State.Should().Be(HexIDE.Runtime.Debugging.DebugState.Running);
+            stops.Should().Equal(expected);
+            printed.Should().Equal(hasInitialize ? ["initialize", "load", "resize", "activate"] : ["load", "resize", "activate"]);
+        }
+        finally
+        {
+            dbg.Stop();
+            cancellation.Cancel();
+            Dispatcher.UIThread.RunJobs();
+            window.Close();
+            VBDebugConsole.Output -= printed.Add;
+        }
+        await run.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
     [AvaloniaFact]
