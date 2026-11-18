@@ -63,9 +63,9 @@ its own, because a compile error stops the build. Sub Main logs `CStr(M) & "|" &
 | `vbTab` | "Type mismatch" | not measured |
 | `VbCompareMethod.vbRed` | "Method or data member not found" | "Method or data member not found" |
 | `VBA.VbCompareMethod.vbRed` | "Method or data member not found" | "Method or data member not found" |
-| `VBA.ColorConstants.vbRed`, a container of another library | "Method or data member not found" | not measured |
-| `VBRUN.VbCompareMethod.vbBinaryCompare`, the same | "Method or data member not found" | not measured |
-| `VBRUN.ColorConstants.vbRed` (control) | 255, a Long | not measured |
+| `VBA.ColorConstants.vbRed`, a container of another library | "Method or data member not found" | "Method or data member not found" |
+| `VBRUN.VbCompareMethod.vbBinaryCompare`, the same | "Method or data member not found" | "Method or data member not found" |
+| `VBRUN.ColorConstants.vbRed` (control) | 255, a Long | 255, a Long |
 
 **What it shows:** an Enum member must be numeric, so a String constant that a Const takes is "Type mismatch" in an
 Enum. A container must hold the member and belong to the library that qualifies it, or the name is "Method or data
