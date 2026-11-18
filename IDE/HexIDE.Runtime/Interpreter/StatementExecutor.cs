@@ -726,7 +726,22 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitDateStmt(VB6Parser.DateStmtContext context)
     {
-        throw new NotImplementedException("Date not implemented");
+        return await AssignClock(context.valueStmt());
+    }
+
+    private async Task<ControlFlow> AssignClock(VB6Parser.ValueStmtContext context)
+    {
+        // SP6 native and p-code, #4681: conversion precedes the clock privilege check.
+        var value = await expressionExecutor.EvaluateValue(context);
+        if (value.Type == Vb6Value.ValueType.Double || value.IsNull || value.Value is VBArray)
+            throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+        if (value.Type == Vb6Value.ValueType.Object && value.Value is null)
+            throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+        if (value.Type != Vb6Value.ValueType.Date && value.Type != Vb6Value.ValueType.String)
+            throw new NotImplementedException("Date/Time assignment conversion from this type is not implemented (#4681)");
+        _ = VB6BuiltIns.CDate(value);
+        // Deliberate divergence (#4681): never change the host clock, even elevated, where VB6 would set it.
+        throw new VBRunTimeException(context, VBStandardError.PermissionDenied);
     }
 
     public override async Task<ControlFlow> VisitDeleteSettingStmt(VB6Parser.DeleteSettingStmtContext context)
@@ -4342,7 +4357,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitTimeStmt(VB6Parser.TimeStmtContext context)
     {
-        throw new NotImplementedException("Time not implemented");
+        return await AssignClock(context.valueStmt());
     }
 
     public override async Task<ControlFlow> VisitUnloadStmt(VB6Parser.UnloadStmtContext context)
