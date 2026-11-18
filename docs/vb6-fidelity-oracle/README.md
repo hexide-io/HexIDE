@@ -184,8 +184,8 @@ found, so SendKeys reaches nothing. Nothing about this is visible from the host:
 running, and does nothing.
 
 **It displays no form either.** A compiled program run there reads `Visible` False after `Show`. So a row whose
-result depends on a form being displayed measures a hidden form instead, and two sections of *Several forms*
-were overturned that way (#4744). Run such rows on the console.
+result depends on a form being displayed measures a hidden form instead. Three sections, two of *Several forms*
+and one of *A form's Resize, Activate and Deactivate*, were overturned that way (#4744). Run such rows on the console.
 
 **What works, in two parts.** First there has to be a console session at all — on a VM nobody logs into,
 there is none (`query user` answers `No User exists for *`). Autologon provides one:
