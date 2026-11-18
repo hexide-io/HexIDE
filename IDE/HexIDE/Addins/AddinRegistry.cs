@@ -42,7 +42,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                          IWindowManager windowManager, ILocalizationService localization)
         : this(verifier, settings, devMode, windowManager, localization,
                new ConsentStore(), new RevocationStore(), DefaultStateFilePath(),
-               Path.Combine(AppContext.BaseDirectory, "addins"))
+               BundledAddinsPath.Directory)
     {
     }
 
