@@ -85,6 +85,46 @@ jobs:
             exit 1
           fi
 
+  # The revocation list hexide.io serves must verify against the root this release trusts. If it doesn't, every copy
+  # ignores it and revocation does nothing, which went unnoticed until #4534. The check needs no key.
+  revocations:
+    name: Check hexide.io's revocation list
+    needs: preflight
+    runs-on: ubuntu-latest
+    env:
+      # #4534: 0 only warns, because the published list doesn't verify until Jen re-signs it with the root key, and a
+      # failing step would block every release until then. Set it to 1 in the change that lands the re-signed list.
+      REVOCATIONS_MUST_VERIFY: 0
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '11.0.x'
+      - name: Verify the published list against the shipped root
+        shell: bash
+        run: |
+          set -uo pipefail
+          url=$(grep -oP '(?<=RevocationListUrl = ")[^"]+' IDE/HexIDE.Core/IDE/SettingsDefaults.cs)
+          root=IDE/HexIDE/Addins/Trust/hexide-root.pub
+          dir=$(mktemp -d)
+          if [ -z "$url" ]; then
+            problem="couldn't read RevocationListUrl from SettingsDefaults.cs"
+          elif ! curl -fsSL --retry 3 -o "$dir/revocations.json" "$url" \
+              || ! curl -fsSL --retry 3 -o "$dir/revocations.sig" "$url.sig"; then
+            problem="couldn't fetch $url and its .sig"
+          elif ! dotnet run --project IDE/HexIDE.AddinPacker -f net11.0 -c Release -- verify-revocations \
+              --json "$dir/revocations.json" --sig "$dir/revocations.sig" --root "$root"; then
+            problem="$url doesn't verify against $root, so every copy of this release ignores it and revokes nothing"
+          else
+            echo "$url verifies against $root"
+            exit 0
+          fi
+          if [ "$REVOCATIONS_MUST_VERIFY" = 1 ]; then
+            echo "::error::$problem"
+            exit 1
+          fi
+          echo "::warning::$problem (a warning until #4534 re-signs the list)"
+
   build:
     name: ${{ matrix.name }}
     needs: preflight
@@ -385,7 +425,7 @@ jobs:
   # release, and the loser can drop its assets.
   release:
     name: Publish release
-    needs: build
+    needs: [build, revocations]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v8
