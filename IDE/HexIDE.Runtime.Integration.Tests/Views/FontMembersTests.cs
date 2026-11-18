@@ -344,6 +344,61 @@ public class FontMembersTests
         Snap("MS Shell Dlg", 16).Should().Be((12, "MS Shell Dlg"));
     }
 
+    // VB6 SP6 native/p-code measurements: https://github.com/hexide-io/HexIDE/issues/4781.
+    [AvaloniaTheory]
+    [InlineData("Dim f As Object: Set f = New StdFont")]
+    [InlineData("Dim f As Object: Set f = New stdole.StdFont")]
+    [InlineData("Dim f As New StdFont")]
+    [InlineData("Dim f As New stdole.StdFont")]
+    public void Standalone_StdFont_starts_with_the_measured_members(string declaration)
+    {
+        // #4781 explicitly permits retaining ControlFont’s TypeName; this is not a VB6 TypeName measurement.
+        Run(declaration + "\n" + """
+                Debug.Print f.Name & " " & f.Size & " " & f.Weight & " " & f.Charset
+                Debug.Print f.Bold & " " & f.Italic & " " & f.Underline & " " & f.Strikethrough
+                Debug.Print TypeName(f) & " " & TypeName(Text1.Font)
+
+            """).Should().Equal("MS Sans Serif 8.25 400 0", "False False False False", "Font Font");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("f.Size = 10", "MS Sans Serif 9.75 400 False False False False 0")]
+    [InlineData("f.Name = \"Arial\": f.Size = 10", "Arial 9.75 400 False False False False 0")]
+    [InlineData("f.Bold = True", "MS Sans Serif 8.25 700 True False False False 0")]
+    [InlineData("f.Weight = 600", "MS Sans Serif 8.25 700 True False False False 0")]
+    [InlineData("f.Italic = True", "MS Sans Serif 8.25 400 False True False False 0")]
+    [InlineData("f.Underline = True", "MS Sans Serif 8.25 400 False False True False 0")]
+    [InlineData("f.Strikethrough = True", "MS Sans Serif 8.25 400 False False False True 0")]
+    [InlineData("f.Name = \"Courier New\": f.Size = 9.75", "Courier New 9.75 400 False False False False 0")]
+    [InlineData("f.Name = \"Tahoma\": f.Size = 10.5: f.Bold = True: f.Italic = True", "Tahoma 10.5 700 True True False False 0")]
+    public void Standalone_StdFont_assignments_read_the_measured_values(string assignments, string expected)
+    {
+        Run("Dim f As Object: Set f = New StdFont\n" + assignments + "\n" + """
+                Debug.Print f.Name & " " & f.Size & " " & f.Weight & " " & f.Bold & " " & f.Italic _
+                    & " " & f.Underline & " " & f.Strikethrough & " " & f.Charset
+
+            """).Should().Equal(expected);
+    }
+
+    [AvaloniaFact]
+    public void Standalone_StdFont_attaches_to_a_control_and_later_mutations_redraw_it()
+    {
+        Run("""
+                Dim f As New StdFont
+                f.Name = "Arial": f.Size = 10
+                Set Text1.Font = f
+                f.Bold = True
+                Debug.Print Text1.Font Is f
+                Debug.Print Text1.FontName & " " & Text1.FontSize & " " & Text1.Font.Bold
+
+            """, controls =>
+        {
+            controls["Text1"].FontFamily.Name.Should().Be("Arial");
+            controls["Text1"].FontSize.Should().Be(13);
+            controls["Text1"].FontWeight.Should().Be(Avalonia.Media.FontWeight.Bold);
+        }).Should().Equal("True", "Arial 9.75 True");
+    }
+
     [AvaloniaFact]
     public void Font_is_an_object_with_the_measured_members_and_types()
     {

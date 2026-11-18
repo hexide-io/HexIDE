@@ -17,8 +17,13 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
     private static readonly ConditionalWeakTable<Control, ControlFont> fonts = new();
     private readonly List<WeakReference<Control>> owners = new();
     private VBFont font;
+    private bool standalone;
 
     private ControlFont(VBFont font) => this.font = font;
+
+    // Initial values measured on VB6 SP6, native and p-code (#4781).
+    internal static ControlFont CreateStandalone() => new(FontMembers.Snapped(
+        new VBFont("MS Sans Serif", 8.25, charset: 0, weight: VBFont.NormalWeight))) { standalone = true };
 
     internal static bool AppliesTo(Control control) => FormRoot.View(control) is not null || control is VBLabel or VBTextBox
         or VBCommandButton or VBCheckBox or VBOptionButton or VBComboBox or VBListBox or VBFrame or VBPictureBox
@@ -125,6 +130,8 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
             "italic" => new Vb6Value(font.Italic),
             "weight" => new Vb6Value(font.Weight > 550 ? 700 : 400),
             "charset" => new Vb6Value(font.Charset),
+            "underline" when standalone => new Vb6Value(font.Underline),
+            "strikethrough" when standalone => new Vb6Value(font.Strikethrough),
             _ => throw new NotImplementedException($"Font.{name} is not implemented (#934)"),
         };
         return true;
@@ -132,6 +139,11 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
 
     public bool TrySetProperty(string name, Vb6Value value)
     {
+        if (standalone && TrySetStandalone(name, value))
+        {
+            Publish();
+            return true;
+        }
         // #4448 measured Bold = True, including a StdFont shared with Set Font.
         if (name.Equals("Bold", StringComparison.OrdinalIgnoreCase)
             && value.Type == Vb6Value.ValueType.Boolean && value.Value is true)
@@ -151,7 +163,38 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
             Publish();
             return true;
         }
-        throw new NotImplementedException($"Assigning this value to Font.{name} is not implemented (#934)");
+        throw new NotImplementedException(standalone
+            ? $"Assigning this value to StdFont.{name} is not implemented (#4781)"
+            : $"Assigning this value to Font.{name} is not implemented (#934)");
+    }
+
+    private bool TrySetStandalone(string name, Vb6Value value)
+    {
+        // Only the assignment values and types measured in #4781, not scalar-member coercions.
+        switch (name.ToLowerInvariant())
+        {
+            case "name" when value.Type == Vb6Value.ValueType.String
+                && value.Value is string family && family is "Arial" or "Courier New" or "Tahoma":
+                font = FontMembers.Named(font, value);
+                return true;
+            case "size" when value.Type == Vb6Value.ValueType.Integer && value.Value is int size && size == 10:
+            case "size" when value.Type == Vb6Value.ValueType.Double && value.Value is double fraction && fraction is 9.75 or 10.5:
+                font = FontMembers.Sized(font, value);
+                return true;
+            case "bold" when value.Type == Vb6Value.ValueType.Boolean && value.Value is true:
+            case "weight" when value.Type == Vb6Value.ValueType.Integer && value.Value is int weight && weight == 600:
+                font = FontMembers.With(font, weight: VBFont.BoldWeight);
+                return true;
+            case "italic" or "underline" or "strikethrough" when value.Type == Vb6Value.ValueType.Boolean && value.Value is true:
+                font = FontMembers.With(font,
+                    italic: name.Equals("Italic", StringComparison.OrdinalIgnoreCase) ? true : null,
+                    underline: name.Equals("Underline", StringComparison.OrdinalIgnoreCase) ? true : null,
+                    strikethrough: name.Equals("Strikethrough", StringComparison.OrdinalIgnoreCase) ? true : null);
+                return true;
+            case "charset":
+                throw new NotImplementedException("Assigning StdFont.Charset is not implemented: font substitution is unsupported (#4781)");
+        }
+        return false;
     }
 
     public void Call(string method, List<Vb6Value> args) =>

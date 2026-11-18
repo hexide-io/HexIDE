@@ -1226,8 +1226,14 @@ TypeName is `Font`, whose default member is Name, and whose Size reads as Curren
 SHALL share that reference and propagate supported mutations to every owning control. Independent form
 and control fonts SHALL start as distinct references. `Set Font = Nothing` SHALL raise 380 without
 replacing the font. Font access on scroll bars, Timer, Shape, Line and Image SHALL raise 438.
-Unmeasured object-member conversions and writes SHALL refuse as not implemented. Standalone StdFont,
-the file controls and Data, and Locals expansion remain outside this implementation slice (#934).
+Unmeasured object-member conversions and writes SHALL refuse as not implemented. The file controls and
+Data, and Locals expansion remain outside this implementation slice (#934).
+
+Standalone `New StdFont` and `New stdole.StdFont`, including auto-instancing, SHALL create an ownerless
+Font with the initial members and supported assignments measured in [#4781](https://github.com/hexide-io/HexIDE/issues/4781).
+It SHALL share the control Font reference and publish later mutations after `Set Text1.Font = f`.
+Charset assignments SHALL refuse as not implemented until font substitution is supported. TypeName
+retains the shared object’s `Font` spelling.
 
 #### Scenario: Two controls share one Font
 
