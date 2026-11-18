@@ -66,10 +66,15 @@ its own, because a compile error stops the build. Sub Main logs `CStr(M) & "|" &
 | `VBA.ColorConstants.vbRed`, a container of another library | "Method or data member not found" | "Method or data member not found" |
 | `VBRUN.VbCompareMethod.vbBinaryCompare`, the same | "Method or data member not found" | "Method or data member not found" |
 | `VBRUN.ColorConstants.vbRed` (control) | 255, a Long | 255, a Long |
+| `VBA.NoSuch.vbRed`, no such name | "Method or data member not found" | "Method or data member not found" |
+| `VBA.vbRed.Other`, another library's constant | "Method or data member not found" | "Method or data member not found" |
+| `VBA.vbBinaryCompare.Other`, the library's own constant | **"Invalid qualifier"** | **"Invalid qualifier"** |
 
 **What it shows:** an Enum member must be numeric, so a String constant that a Const takes is "Type mismatch" in an
-Enum. A container must hold the member and belong to the library that qualifies it, or the name is "Method or data
-member not found", in an Enum and a Const alike.
+Enum. In `Library.Middle.Member`, the middle must be a container of that library holding the member. When the middle
+is a constant of that library, the error is "Invalid qualifier"; anything else that doesn't resolve is "Method or data
+member not found": a container of another library, a container without the member, another library's constant, or no
+such name. An Enum and a Const agree on every row.
 
 ### A Type's array bounds
 
