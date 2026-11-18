@@ -16,6 +16,11 @@
         <GlobalAnalyzerConfigFiles Include="PublicAPI.globalconfig" />
     </ItemGroup>
 
+    <!-- The host-code-page probe is compiled only in Debug; keep its API guard in that configuration. -->
+    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+        <AdditionalFiles Include="PublicAPI.Debug/PublicAPI.Shipped.txt" />
+    </ItemGroup>
+
     <ItemGroup>
         <InternalsVisibleTo Include="HexIDE.Tests" />
         <InternalsVisibleTo Include="HexIDE.Integration.Tests" />
