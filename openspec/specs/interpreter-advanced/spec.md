@@ -169,9 +169,17 @@ code.
 - **AND** ReDim, ReDim Preserve and Erase of its containing array raise error 10 during the call
 
 #### Scenario: Array fields in a record
-- **WHEN** a Type contains a fixed array with literal bounds or a dynamic array field
+- **WHEN** a Type contains a fixed array with literal or resolved constant-expression bounds, or a dynamic array field
 - **THEN** indexed reads and writes use the subscripts, and whole-array field assignments use the array-variable store rules
-- **AND** nonliteral or inverted Type-field bounds and array fields As New remain explicitly refused
+- **AND** inverted Type-field bounds and array fields As New remain explicitly refused
+
+#### Scenario: Constant bounds in a Type field
+- **WHEN** a standard module's or class's declaration walk reaches a Type with nonliteral field bounds
+- **THEN** the engine SHALL check and evaluate them there, in source order, using the declaration environment
+- **AND** preceding Consts, Enum members and expressions of them size the fields as measured in [#4595](https://github.com/hexide-io/HexIDE/issues/4595)
+- **AND** a later Const or a variable raises "Constant expression required"
+- **AND** allocation of an unresolved Type first runs its standard module's declarations if they have neither run nor started
+- **AND** otherwise unresolved allocation refuses explicitly with #4595 rather than using placeholder values
 
 #### Scenario: For Each over a UDT array
 - **WHEN** execution reaches For Each over an array of a user-defined type

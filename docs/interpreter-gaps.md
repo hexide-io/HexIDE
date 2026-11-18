@@ -318,9 +318,10 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   is unmeasured and keeps its existing behaviour.
 - **Arrays OF a UDT, and array fields inside a UDT** — implemented (#178): elements own their fields,
   assignments copy every field deeply, and ReDim/Preserve/Erase and ByRef element locks follow the measurements.
-  Array fields have indexed reads/writes and whole-array store checks. Nonliteral or inverted Type-field bounds,
-  array fields As New remain refused. Get/Put of UDT arrays and Types containing array
-  fields also remain refused pending record-layout measurements. The existing acceptance of ByVal UDT parameters
+  Array fields have indexed reads/writes and whole-array store checks. Constant-expression Type-field bounds
+  resolve in declaration order ([#4595, measured](https://github.com/hexide-io/HexIDE/issues/4595));
+  allocation before their Type resolves, inverted bounds and array fields As New remain refused. Get/Put of UDT
+  arrays and Types containing array fields also remain refused pending record-layout measurements. The existing acceptance of ByVal UDT parameters
   and UDT-to-Variant assignments remains a divergence from the compile refusals measured for #178.
 - **`LSet` / `RSet`** — named String variables and Variants holding a String or Integer justify their text
   since #2517. Other target types, unmeasured source conversions and
