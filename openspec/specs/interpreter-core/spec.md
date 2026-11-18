@@ -2332,3 +2332,36 @@ unmeasured unsigned numeric uses. CallByName remains outside this support (#4520
 - **WHEN** TypeName, addition, multiplication or equality uses a late-bound Color
 - **THEN** error 458 is raised
 - **AND** IsNumeric on that Color is False
+
+### Requirement: A running form and PictureBox own their coordinate system
+
+The interpreter SHALL expose ScaleMode as Integer and ScaleLeft, ScaleTop, ScaleWidth and ScaleHeight as
+Single on each running form and PictureBox, initialized from the saved scale. Setting an origin or extent
+SHALL select User mode; selecting mode 0 SHALL retain the current mapping, and modes 1–7 SHALL map the
+client area in the chosen unit. Child positions SHALL use their container’s mapping, with assigned positions
+retained as whole twips rounded half to even. Left and Top SHALL use the signed unit and origin; Width and
+Height SHALL use the unit’s magnitude even in flipped user scales. Negative CommandButton sizes SHALL still
+raise 380 from a property assignment and 5 from Move, before anything moves (issue #990 round-2 measurements).
+Form and PictureBox mouse coordinates SHALL use the object’s
+own mapping; other controls retain their existing mouse units. A form resize SHALL retain the size
+of a user unit. UserControl scales and PictureBox resize are outside this slice (part of #990).
+
+The interpreter and bundled LSP grammars SHALL parse the bare and qualified Scale statement with either
+two points or no arguments. ScaleX and ScaleY SHALL default from HiMetric to the current scale, returning
+Single lengths. Container-position/container-size units and vbUser outside a user scale SHALL raise 5.
+The measured metric factor and its accepted last-place precision difference are recorded in
+[#990](https://github.com/hexide-io/HexIDE/issues/990); the other values come from the
+[coordinate oracle](../../../docs/vb6-fidelity-oracle/the-coordinate-system-scalemode-scale-scalex-and-scaley.md).
+
+#### Scenario: An upward user scale
+
+- **WHEN** a form executes `Scale (0, 100)-(10, 0)`
+- **THEN** ScaleMode is 0, ScaleLeft is 0, ScaleTop is 100, ScaleWidth is 10 and ScaleHeight is -100
+- **AND** a later bare Scale returns the form to its client-area twip mapping
+
+#### Scenario: Invalid scales leave the mapping intact
+
+- **WHEN** a program sets an invalid ScaleMode or a zero ScaleWidth/ScaleHeight
+- **THEN** the interpreter raises 380
+- **WHEN** a Scale statement supplies a zero extent
+- **THEN** it raises 11 and retains the previous scale

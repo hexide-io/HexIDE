@@ -41,11 +41,18 @@ internal static class ConstantExpression
         var lexer = new VB6Lexer(new AntlrInputStream(text));
         lexer.RemoveErrorListeners();
         lexer.AddErrorListener(Refusal.Instance);
-        var parser = new VB6Parser(new CommonTokenStream(lexer)) { ErrorHandler = new BailErrorStrategy() };
+        // #990 reserves Scale in ordinary code. Its use as a directive name is unmeasured;
+        // keep the conditional evaluator's existing identifier handling.
+        var tokens = new CommonTokenStream(lexer);
+        var parser = new VB6Parser(tokens) { ErrorHandler = new BailErrorStrategy() };
         parser.RemoveErrorListeners();
         parser.AddParseListener(new ParseDepthGuard(maxDepth: ParseDepthGuard.DefaultMaxDepth));
         try
         {
+            tokens.Fill();
+            foreach (var token in tokens.GetTokens())
+                if (token is CommonToken { Type: VB6Lexer.SCALE } scale)
+                    scale.Type = VB6Lexer.IDENTIFIER;
             var expression = parser.valueStmt();
             if (parser.CurrentToken.Type != TokenConstants.EOF)
                 return null;

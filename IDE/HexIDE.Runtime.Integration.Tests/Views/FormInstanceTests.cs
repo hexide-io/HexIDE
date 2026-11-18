@@ -678,8 +678,6 @@ public class FormInstanceTests
 
     [AvaloniaTheory]
     [InlineData("    CurrentX = 0", "Setting Form1's CurrentX")]
-    [InlineData("    Debug.Print ScaleMode", "Reading Form1's ScaleMode")]
-    [InlineData("    Debug.Print Me.ScaleMode", "Reading Form1's ScaleMode")]
     [InlineData("    Cls", "Cls method")]
     [InlineData("    Debug.Print TextWidth(\"abc\")", "TextWidth method")]
     public void A_member_VB6s_Form_has_and_HexIDE_lacks_is_refused_as_not_implemented(string statement, string named)

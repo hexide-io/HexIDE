@@ -2001,6 +2001,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
         // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
         VBProps.RefuseIfRemoved(control);
+        if (control is VBPictureBox && RuntimeScale.IsConversion(MemberName(member)))
+            return RuntimeScale.ConvertUnits(control, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
 
         if (control is VBShape or VBLine && memberIdentifier.Equals("MousePointer", StringComparison.OrdinalIgnoreCase))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
@@ -2036,6 +2038,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             if (AvaloniaInteroperability.TryGet(control, prop, out var value))
                 return value;
         }
+        if (RuntimeScale.TryGet(control, memberIdentifier, out var scaleMember))
+            return scaleMember;
         // FontName, which is no property of its own here but the name of the control's font (#1141).
         if (FontMembers.TryGet(control, memberIdentifier, out var fontMember))
             return fontMember;
