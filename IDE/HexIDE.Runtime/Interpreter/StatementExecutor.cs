@@ -1052,6 +1052,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // A user class-instance method call (`Call obj.Method(args)`) — dispatch into the interpreter on the instance
         // (Me bound, args by-ref-capable), exactly as the bare-call path (VisitICS_B_MemberProcedureCall) does. Without
         // this, `Call obj.Method(args)` threw "Unknown method" while `obj.Method args` worked (bug-hunt MED).
+        var reference = value;
         if (value.Type == Vb6Value.ValueType.Object)
         {
             if (value.Value is not VbObject vobj)
@@ -1078,10 +1079,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             await ExpressionExecutor.AsBound(value, identifier, async () =>
                 await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier,
-                    await expressionExecutor.EvaluateMemberArgs(value.Value, identifier, context.argsCall())));
+                    await expressionExecutor.EvaluateMemberArgs(value, identifier, context.argsCall())));
             return ControlFlow.Nothing;
         }
-        var callArgs = await expressionExecutor.EvaluateMemberArgs(value.Value, identifier, context.argsCall());
+        var callArgs = await expressionExecutor.EvaluateMemberArgs(reference, identifier, context.argsCall());
         ExpressionExecutor.RequireMemberReceiver(value, context);
 
         if (value.Type == Vb6Value.ValueType.CSharpProxyObject)
@@ -5464,6 +5465,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         // A user class-instance method call (`obj.Method args`) — dispatch into the interpreter on the instance
         // (Me bound, args by-ref-capable). Nothing → Error 91.
+        var reference = value;
         if (value.Type == Vb6Value.ValueType.Object)
         {
             if (value.Value is not VbObject vobj)
@@ -5522,10 +5524,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             await ExpressionExecutor.AsBound(value, identifier, async () =>
                 await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier,
-                    await expressionExecutor.EvaluateMemberArgs(value.Value, identifier, context.argsCall())));
+                    await expressionExecutor.EvaluateMemberArgs(value, identifier, context.argsCall())));
             return ControlFlow.Nothing;
         }
-        var callArgs = await expressionExecutor.EvaluateMemberArgs(value.Value, identifier, context.argsCall());
+        var callArgs = await expressionExecutor.EvaluateMemberArgs(reference, identifier, context.argsCall());
         ExpressionExecutor.RequireMemberReceiver(value, context);
 
         if (value.Type == Vb6Value.ValueType.CSharpProxyObject)
@@ -5606,7 +5608,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (FormMembers.TryBare(interpreter.ExecutionContext, currentEnv, subName, out var form, out var formMember)
             && formMember.IsMethod)
         {
-            var callArgs = await expressionExecutor.EvaluateCallArgs(context.argsCall());
+            var callArgs = await expressionExecutor.EvaluateMemberArgs(Vb6Value.NewObject(form), subName, context.argsCall());
             // Loaded first, then called, so a modal Show can wait (#822).
             var window = await interpreter.Loading((Form: form, Name: subName), static s => s.Form.BuiltInMembersFor(s.Name));
             await window!.CallAsync(subName, callArgs, CallingForm());
