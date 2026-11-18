@@ -299,6 +299,7 @@
     "Str.Menu.Help.LogFolder": "Ireki HexIDEren _egunkari-karpeta",
     "Str.Help.LogFolder.OpenFailed": "Ezin izan da egunkari-karpeta ireki. Eskuz ireki dezakezu: {0}",
     "Str.Menu.Help.About": "HexIDEri _buruz...",
+    "Str.Menu.MacApp.About": "HexIDEri buruz",
     "Str.Menu.GoToGithubRepo": "Joan GitHub biltegira",
     "Str.ProjectType.StandardEXE": "EXE estandarra",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",

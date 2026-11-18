@@ -253,6 +253,9 @@ yourself. As on Windows, the tool never touches a key or a trust anchor, and the
 
 ## Making the macOS build your own
 
+The app menu's About item uses your product's name and opens your About dialog, just as Help → About does.
+Avalonia supplies the remaining standard app-menu items in English, independently of the IDE language.
+
 On macOS a product's identity is its bundle, so the tool renames the bundle and the executable and rewrites the bundle's
 `Info.plist` and icon. Run it on macOS, from a clone of the tag you're repacking, because it checks the result with
 macOS's own tools:

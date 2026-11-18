@@ -36,6 +36,24 @@ public partial class App : Application
         CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
         LoadMarkup();
         Name = IDE.Distribution.DisplayName;
+        ConfigureNativeMenu(OperatingSystem.IsMacOS());
+    }
+
+    internal void ConfigureNativeMenu(bool isMacOS)
+    {
+        if (!isMacOS)
+            return;
+
+        // This must precede Avalonia's after-setup callback, which otherwise supplies About Avalonia (#4511).
+        var about = new NativeMenuItem();
+        about.Bind(NativeMenuItem.HeaderProperty, this.GetResourceObservable("Str.Menu.MacApp.About"));
+        about.Click += (_, _) =>
+        {
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime
+                { MainWindow.DataContext: MainViewViewModel viewModel })
+                viewModel.About();
+        };
+        NativeMenu.SetMenu(this, new NativeMenu { Items = { about } });
     }
 
     internal void LoadMarkup() => AvaloniaXamlLoader.Load(this);

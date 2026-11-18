@@ -94,6 +94,37 @@ public class MainViewViewModelTests
             .Should().Be("Cannot open log folder: " + Distribution.LogsDirectory);
     }
 
+    [Avalonia.Headless.XUnit.AvaloniaTheory]
+    [InlineData("HexIDE", "About HexIDE")]
+    [InlineData("Acme Probe", "About Acme Probe")]
+    public void Mac_app_menu_uses_the_brand_and_the_existing_About_path(string name, string expected)
+    {
+        var app = new App();
+        var localization = new LocalizationService(identity: new DistributionIdentity("probe", name));
+        app.Resources["Str.Menu.MacApp.About"] = localization.GetStringFrom("en", "Str.Menu.MacApp.About");
+        var desktop = new Avalonia.Controls.ApplicationLifetimes.ClassicDesktopStyleApplicationLifetime();
+        app.ApplicationLifetime = desktop;
+        app.ConfigureNativeMenu(true);
+        var menu = NativeMenu.GetMenu(app);
+        menu.Should().NotBeNull();
+        var item = menu!.Items.Should().ContainSingle().Subject.Should().BeOfType<NativeMenuItem>().Subject;
+        item.Header.Should().Be(expected);
+        var window = new Window { DataContext = _sut };
+        desktop.MainWindow = window;
+        ((Avalonia.Controls.INativeMenuItemExporterEventsImplBridge)item).RaiseClicked();
+        _windowManager.Received(1).ShowAbout(Arg.Any<AboutDialogOptions>());
+        app.Resources["Str.Menu.MacApp.About"] = "À propos de " + name;
+        item.Header.Should().Be("À propos de " + name);
+    }
+
+    [Avalonia.Headless.XUnit.AvaloniaFact]
+    public void Other_platforms_do_not_get_a_native_app_menu()
+    {
+        var app = new App();
+        app.ConfigureNativeMenu(false);
+        NativeMenu.GetMenu(app).Should().BeNull();
+    }
+
     private static System.IDisposable MenuTheme()
     {
         var theme = new Avalonia.Themes.Simple.SimpleTheme();

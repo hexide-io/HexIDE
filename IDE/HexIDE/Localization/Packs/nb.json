@@ -372,6 +372,7 @@
     "Str.Menu.Help.LogFolder": "Åpne HexIDE-_loggmappen",
     "Str.Help.LogFolder.OpenFailed": "Kunne ikke åpne loggmappen. Du kan åpne den manuelt: {0}",
     "Str.Menu.Help.About": "_Om HexIDE...",
+    "Str.Menu.MacApp.About": "Om HexIDE",
     "Str.Menu.GoToGithubRepo": "Gå til GitHub-repo",
     "Str.NewProject.NoTemplates": "Denne profilen tilbyr ingen maler for nye prosjekter. Åpne et eksisterende prosjekt i stedet.",
     "Str.NewProject.Msg.NoStandardExe": "{0} har ingen installert prosjekttype som oppretter et Standard EXE-prosjekt, og startet derfor uten prosjekt.",
