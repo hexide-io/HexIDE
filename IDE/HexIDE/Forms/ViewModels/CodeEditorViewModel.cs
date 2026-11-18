@@ -1222,12 +1222,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // takes that return, and it still needs "(General)" selected rather than left null.
         SelectedObject = GeneralObject;
         if (formDefinition is null) return;
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var component in formDefinition.Components)
         {
             var name = ReferenceEquals(component, formDefinition.Components[0]) && RootEventPrefix is { } prefix
                 ? prefix
                 : component.GetPropertyOrDefault(VBProperties.NameProperty);
-            if (name is { Length: > 0 })
+            if (name is { Length: > 0 } && names.Add(name))
                 ObjectNames.Add(name);
         }
     }
