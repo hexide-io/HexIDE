@@ -24,9 +24,8 @@ internal static class MacRepacker
 }
 
 /// <summary>
-/// A macOS build's identity is in its bundle. The executable's bytes don't change, so the ad-hoc signature each program
-/// was published with stays valid, and Apple Silicon needs one to run the program at all. The bundle isn't sealed, so
-/// there is no signature over the files that do change.
+/// A macOS repack rewrites the bundle's identity, then seals it again with an ad-hoc signature.
+/// No signing identity or key is used.
 /// </summary>
 internal sealed class MacTarget : RepackTarget
 {
@@ -60,11 +59,6 @@ internal sealed class MacTarget : RepackTarget
         }
 
         Payload.RequireExecutable(path, "macOS");
-
-        // Rewriting Info.plist would break a signature over the whole bundle, and HexIDE publishes none.
-        var contents = Path.GetDirectoryName(Path.GetDirectoryName(path))!;
-        if (Directory.Exists(Path.Combine(contents, "_CodeSignature")))
-            throw new RepackException("This bundle is signed as a whole, and rewriting it would invalidate that signature. This tool repacks the unsealed bundles HexIDE publishes.");
     }
 
     public override bool FinishExecutable(string executable, string stockExecutable, DistributionIdentity brand)
@@ -95,29 +89,37 @@ internal sealed class MacTarget : RepackTarget
         if (OperatingSystem.IsMacOS())
         {
             RunCheck("/usr/bin/plutil", ["-lint", plistPath], $"macOS doesn't accept the {MacRepacker.InfoPlistPath} this tool wrote.");
-            CheckSignature(Path.Combine(bundle, MacRepacker.ProgramDirectory, executableName));
-        }
-    }
 
-    // Asked about a bundle's main executable, codesign answers for the bundle, and this one isn't sealed. What Apple
-    // Silicon checks when it starts the program is the signature inside the file, so a copy elsewhere is what to ask about.
-    private static void CheckSignature(string executable)
-    {
-        var scratch = Directory.CreateTempSubdirectory("hexide-repack-");
-        try
-        {
-            var copy = Path.Combine(scratch.FullName, Path.GetFileName(executable));
-            File.Copy(executable, copy);
-            RunCheck("/usr/bin/codesign", ["--verify", copy],
-                $"macOS doesn't accept the signature on {Path.GetFileName(executable)}, and Apple Silicon wouldn't run it.");
-        }
-        finally
-        {
-            scratch.Delete(recursive: true);
+            // codesign seals a bundle only when every file in Contents/MacOS carries a signature of its own. A build
+            // published by scripts/macos-bundle.sh has them already, but the brand's descriptor and logo and any
+            // --include'd files are new, and a build published before #4495 has none on its data files. So anything
+            // that doesn't verify is signed ad hoc first, as the bundle script does. The executable is left to the
+            // bundle's own signature: codesign resolves its path to the bundle.
+            var programs = Path.Combine(bundle, MacRepacker.ProgramDirectory);
+            foreach (var file in Directory.EnumerateFiles(programs, "*", SearchOption.AllDirectories))
+            {
+                var relative = Path.GetRelativePath(programs, file);
+                if (relative == executableName || Run("/usr/bin/codesign", ["--verify", file]).ExitCode == 0)
+                    continue;
+                RunCheck("/usr/bin/codesign", ["--force", "-s", "-", file], $"macOS couldn't sign {relative}.");
+            }
+
+            RunCheck("/usr/bin/codesign", ["--force", "-s", "-", bundle], "macOS couldn't re-seal the bundle.");
+            RunCheck("/usr/bin/codesign", ["--verify", "--strict", "--deep", bundle], "macOS doesn't accept the bundle signature.");
         }
     }
 
     private static void RunCheck(string tool, string[] arguments, string failure)
+    {
+        var (exitCode, text) = Run(tool, arguments);
+        if (exitCode is null)
+            throw new RepackException($"{tool} didn't finish. {failure}");
+        if (exitCode != 0)
+            throw new RepackException($"{failure} {text}".TrimEnd());
+    }
+
+    // The exit code, or null when the tool didn't finish within a minute, with what it wrote.
+    private static (int? ExitCode, string Text) Run(string tool, string[] arguments)
     {
         var start = new ProcessStartInfo(tool, arguments) { RedirectStandardError = true, RedirectStandardOutput = true };
         using var process = Process.Start(start) ?? throw new RepackException($"Couldn't start {tool}.");
@@ -126,20 +128,19 @@ internal sealed class MacTarget : RepackTarget
         if (!process.WaitForExit(TimeSpan.FromMinutes(1)))
         {
             process.Kill();
-            throw new RepackException($"{tool} didn't finish. {failure}");
+            return (null, "");
         }
 
-        if (process.ExitCode != 0)
-            throw new RepackException($"{failure} {errors.GetAwaiter().GetResult()}{output.GetAwaiter().GetResult()}".TrimEnd());
+        return (process.ExitCode, $"{errors.GetAwaiter().GetResult()}{output.GetAwaiter().GetResult()}");
     }
 
     public override IEnumerable<string> Describe(RepackResult result)
     {
         yield return $"  {result.ProductName}.app: its name, bundle identifier and icon are now {result.ProductName}'s.";
         yield return $"  Contents/MacOS/{result.ExecutableName}: HexIDE's executable under its new name.";
-        yield return "  The helper programs beside it keep HexIDE's names, and every other file is as published.";
+        yield return "  The helper programs beside it keep HexIDE's names, and the bundle has been re-sealed ad hoc.";
         yield return "";
-        yield return "This output has no signing identity. Its programs keep stock's ad-hoc signatures, which identify nobody. Sign it with your own Developer ID and notarize it before you ship it.";
+        yield return "This output has no signing identity. Its bundle is re-sealed ad hoc, which identifies nobody. Sign it with your own Developer ID and notarize it before you ship it.";
     }
 }
 

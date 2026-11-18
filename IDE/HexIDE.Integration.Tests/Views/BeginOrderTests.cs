@@ -1,10 +1,13 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Headless.XUnit;
+using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Projects;
@@ -74,7 +77,7 @@ public class BeginOrderTests
     private static readonly (string Prefix, string VbType)[] Classes =
     [
         ("Picture", "VB.PictureBox"), ("Frame", "VB.Frame"), ("Command", "VB.CommandButton"), ("Label", "VB.Label"),
-        ("Line", "VB.Line"), ("Timer", "VB.Timer"), ("mnu", "VB.Menu"),
+        ("Shape", "VB.Shape"), ("Image", "VB.Image"), ("Line", "VB.Line"), ("Timer", "VB.Timer"), ("mnu", "VB.Menu"),
         // Carried classes (#1498), using an unregistered ImageList stand-in since #1083 models MSComctlLib.ImageList.
         ("tb", "MSComctlLib.Toolbar"), ("brw", "SHDocVwCtl.WebBrowser"), ("iml", "NoSuchLib.ImageList"),
     ];
@@ -195,7 +198,6 @@ public class BeginOrderTests
     [InlineData("Picture1,Picture2,Frame1(Picture3,Picture4)")]
     [InlineData("Frame2(Picture6,Picture5,Command3),Command1,Picture2,Picture1,Frame1(Command2,Picture4,Picture3),Label2,Label1")]
     [InlineData("Command1,Line1,Line2,Timer1")]
-    [InlineData("Label1,Command1,Label2")]
     [InlineData("Command1,Label1,mnuFile(mnuOpen,mnuExit),mnuHelp")]
     [InlineData("tbToolBar,brwWebBrowser,Timer1,Picture1(Label1),imlIcons")]
     [InlineData("Picture1(tbToolBar,Command1,imlIcons),Label1,imlOther")]
@@ -206,6 +208,89 @@ public class BeginOrderTests
 
         vm.HasComponentsNotInModel.Should().BeFalse("nothing has changed, so the form is not dirty");
         Saved(vm, form).Should().Be(spec);
+    }
+
+    // Save measurements: #1517, oracle PR #4518. Label-to-Label drawing keeps the existing rule.
+    [AvaloniaTheory]
+    [InlineData("LabelFirst,Command1,Command2,Frame1(Label2,Command3)", "LabelFirst,Frame1,Label2,Command3,Command2,Command1")]
+    [InlineData("LabelA,Command1,LabelB,Command2,Shape1", "Shape1,LabelB,LabelA,Command2,Command1")]
+    [InlineData("Line1,Image1,Command1", "Image1,Line1,Command1")]
+    public void Hand_ordered_controls_draw_in_separate_planes(string spec, string drawn)
+    {
+        var (vm, _) = Open(spec);
+
+        Drawn(vm).Should().Be(drawn);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("LabelFirst,Command1,Command2,Frame1(Label2,Command3)", "Command1,Command2,Frame1(Command3,Label2),LabelFirst")]
+    [InlineData("LabelA,Command1,LabelB,Command2,Shape1", "Command1,Command2,LabelA,LabelB,Shape1")]
+    [InlineData("Command1,Command2,Frame1(Command3,Label2),LabelFirst", "Command1,Command2,Frame1(Command3,Label2),LabelFirst")]
+    public async Task Hand_ordered_forms_stay_clean_until_a_code_edit_and_save_in_VB6_order(string spec, string saved)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "hexide-begin-order-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var path = Path.Combine(dir, "Form1.frm");
+            var source = Frm(spec).Replace("   ClientWidth     =   6000\r\n",
+                "   ClientWidth     =   6000\r\n   ScaleHeight     =   4500\r\n   ScaleWidth      =   6000\r\n");
+            File.WriteAllText(path, source);
+            var projectPath = Path.Combine(dir, "P.vbp");
+            File.WriteAllText(projectPath, "Type=Exe\r\nForm=Form1.frm\r\nName=\"P\"\r\n");
+            await using var owned = new RealComposition();
+            var composition = owned.Composition;
+            await composition.ProjectService.OpenProject(projectPath);
+            var form = composition.ProjectManager.LoadedProjects.Single().Forms.Single();
+            using var vm = new FormEditViewModel(null!, composition.EventBus, composition.ProjectService,
+                null!, null!, composition.SettingsService, composition.LocalizationService).Initialize(form);
+
+            vm.HasComponentsNotInModel.Should().BeFalse();
+            vm.IsModified.Should().BeFalse();
+            if (spec == saved)
+                Drawn(vm).Should().Be("LabelFirst,Frame1,Label2,Command3,Command2,Command1");
+            composition.EventBus.Publish(new ApplyAllUnsavedChangesEvent());
+            composition.ProjectService.HasUnsavedChanges(form).Should().BeFalse();
+            await composition.ProjectService.UnloadAllProjects();
+            File.ReadAllText(path).Should().Be(source, "closing an unedited form must not rewrite it");
+            await composition.ProjectService.OpenProject(projectPath);
+            form = composition.ProjectManager.LoadedProjects.Single().Forms.Single();
+            vm.Initialize(form);
+
+            form.UpdateCode(form.Code + "Private Sub Form_Load()\r\nEnd Sub\r\n");
+            await composition.ProjectService.SaveForm(form, false, interactive: false);
+            var written = File.ReadAllText(path);
+            Saved(vm, form).Should().Be(saved);
+            var begins = Regex.Matches(written, @"(?m)^ *Begin \S+ (\S+)")
+                .Select(m => m.Groups[1].Value);
+            begins.Should().Equal(new[] { "Form1" }.Concat(Parse(saved).SelectMany(Flatten)));
+            static IEnumerable<string> Flatten(Node node) => new[] { node.Name }.Concat(node.Children.SelectMany(Flatten));
+            PropertyLines(written).Should().BeEquivalentTo(PropertyLines(source),
+                "each control retains every property line, including TabIndex");
+            written.Should().Contain("Private Sub Form_Load()");
+            await composition.ProjectService.UnloadAllProjects();
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    private static Dictionary<string, List<string>> PropertyLines(string text)
+    {
+        var properties = new Dictionary<string, List<string>>();
+        var blocks = new Stack<string>();
+        foreach (var line in text.ReplaceLineEndings("\n").Split('\n'))
+        {
+            var begin = Regex.Match(line, @"^ *Begin \S+ (\S+)");
+            if (begin.Success)
+            {
+                blocks.Push(begin.Groups[1].Value);
+                properties.Add(blocks.Peek(), []);
+            }
+            else if (line.Trim() == "End" && blocks.Count > 0)
+                blocks.Pop();
+            else if (blocks.Count > 0 && line.Contains(" = "))
+                properties[blocks.Peek()].Add(line);
+        }
+        return properties;
     }
 
     // ── Bring to Front and Send to Back ──────────────────────────────────────────────────────────────────
