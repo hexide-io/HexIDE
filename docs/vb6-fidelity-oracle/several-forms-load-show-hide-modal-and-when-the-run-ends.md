@@ -237,3 +237,53 @@ raised 402 without hiding. vb6.exe raises 402 and hides the form anyway, so a pr
 
 **Not measured:** the IDE (F5); a modal form beneath that is hidden and then shown again while the topmost stays up;
 `Unload` of a modal form beneath.
+
+### A form's name as a type: New, As New, an Object and an interface (2026-11-18, #4598, SP6)
+
+**The probe.**
+- **The forms:** Form1 ran each step from a Timer and logged to a file. Form2 numbered its instances in its
+  Initialize, and logged each event with that number. No handler read a property, so the log loaded nothing.
+- **The interface:** Form2 `Implements IThing`, a class with `Hello` and a `WhoAmI` property.
+- **The builds:** p-code and native code logged the same lines.
+
+| Step, in order | Events | Forms.Count after |
+|---|---|---|
+| at the start | | 1 |
+| `Set f = New Form2`, with f As Form2 | Initialize #1 | 1: not loaded |
+| `f.Id`, a Public Function of Form2 | none | 1 |
+| `f.Tag = "one"` | Load #1 | 2 |
+| `Dim g As New Form2`, before g is used | none | 2 |
+| `g.Id` | Initialize #2 | 2 |
+| `g.Caption = "g"` | Load #2 | 3 |
+| `Set h = New Form2`, then `Load h` | Initialize #3, Load #3. h.Visible is False | 4 |
+| `Set k = New Form2`, then `k.Show` | Initialize #4, Load #4. Activate #4 came only after the Timer's handler returned | 5 |
+| `Set o = New Form2`, with o As Object | Initialize #5. `TypeName(o)` is "Form2", and `o.Id` is 5 | 5 |
+| `Set t = New Form2`, with t As IThing, then `t.Hello` | Initialize #6, IThing_Hello #6 | 5: a call through the interface doesn't load it |
+| `UseIt New Form2`, with `Sub UseIt(ByVal w As IThing)` reading `w.WhoAmI` | Initialize #7, then UseIt's own line, then Terminate #7 as the call returned | 5 |
+| `TypeName(New Form2)` | Initialize #8, then Terminate #8. It reads "Form2" | 5 |
+| `Unload f` | QueryUnload #1 with UnloadMode 1, Unload #1 | 4 |
+| then `f.Id` | none. It reads 1 | 4 |
+| then `f.Tag` | **Load #1, with no Initialize.** It reads "" | 5 |
+| `Unload f`, then `Set f = Nothing` | QueryUnload #1, Unload #1, then Terminate #1 at the Set | 4 |
+| `Set k = Nothing`, with k showing | none: k stays loaded and shown | 4 |
+| the Timer's handler returns | Terminate #5 and #6, for o and t. Not #2, #3 or #4, which are loaded | |
+
+**From a first run**, whose handlers read `Me.Tag`:
+- **Types:** `TypeName(f)` read "Nothing" before the Set. After it, `TypeOf f Is Form2`, `TypeOf f Is Form` and
+  `TypeOf f Is IThing` were all True. `Set x = f`, with x As Form, worked, and `TypeName(x)` read "Form2".
+- **The default instance:** `f Is Form2` was False, and naming Form2 made the default instance.
+- **A property read in Initialize loads the form there and then.** Reading `Me.Tag` inside Form_Initialize ran
+  Form_Load before Initialize's own line finished. So a log taken in Initialize can make Load look as if it came first.
+
+**What it shows**, extending section 5 above:
+- **A form's name is a type,** and `New` makes a new instance of it. That holds in a variable of the form's own type,
+  As Form, As Object, or As an interface the form implements.
+- **Only a built-in member loads an instance.** The form's own Public members don't, and nor does a call through an
+  interface it implements.
+- **`As New` makes the instance when the variable is first used.**
+- **A temporary instance terminates as soon as the statement that used it ends.**
+- **A loaded form outlives its variables.** `Set k = Nothing`, and a local going out of scope, neither unloads nor
+  terminates it. The Forms collection keeps it.
+
+**Not measured:** a variable As Form2 declared in a standard module, which is the demo's own case, and `Unload Me`
+inside a New instance.

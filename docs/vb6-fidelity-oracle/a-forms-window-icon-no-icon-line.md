@@ -45,5 +45,33 @@ Checked live with F5 on the probe's six forms: each window's `WM_GETICON` answer
 
 **Not measured:**
 - An icon with several sizes, and which of them VB6 picks for the small icon.
-- An Icon changed at run time, `Me.Icon = LoadPicture(…)`. HexIDE reads the Icon once, as the window is made.
+- An Icon changed at run time, `Me.Icon = LoadPicture(…)`. HexIDE reads the Icon once, as the window is made. Measured since: "An Icon set at run time", below.
 
+
+### An Icon set at run time (2026-11-18, #4603, SP6)
+
+**The probe.** A running form set its own `Icon`, logging each result and error. p-code and native code logged the
+same lines. The files:
+- `ARW01UP.ICO`, VB6's own 32-by-32 sample from `Common\Graphics\Icons\Arrows`, 1078 bytes, in the classic format;
+- `x.ico`, one 32-by-32, 32-bit image stored as PNG, the format later versions of Windows write;
+- `x.bmp`, a 32-by-32 bitmap.
+
+| Statement | Result |
+|---|---|
+| reading `Me.Icon` on a new form | TypeName Picture, Type 3, a Handle that isn't 0 |
+| `Set p = LoadPicture(ARW01UP.ICO)` | ok: p.Type 3, Width 847, Height 847 (HiMetric, 32 pixels) |
+| `Set Me.Icon = p` | ok. `Me.Icon Is p` is True, with the same Handle |
+| `Me.Icon = LoadPicture(ARW01UP.ICO)`, without Set | ok |
+| `LoadPicture(x.ico)`, the PNG-stored icon | **error 481**, Invalid picture, raised by LoadPicture itself |
+| `Set Me.Icon = LoadPicture(x.bmp)` | **error 380**, Invalid property value, and the Icon keeps its Type 3 |
+| `Set Me.Icon = LoadPicture()` | ok: Type 0, Handle 0 |
+| `Set Me.Icon = Nothing` | ok. `Me.Icon` then reads a Picture of Type 0 and Handle 0, **not Nothing** |
+| `LoadPicture(nosuch.ico)` | error 53, File not found, naming the path |
+| `Set f2.Icon = …` on a `New Form2` not yet loaded | ok, and it loads the form |
+
+- **On screen:** after `Set Me.Icon`, the form's title bar and its taskbar button both showed the new icon (console
+  screenshot).
+- **Every error here was trappable** under `On Error Resume Next`.
+
+**Not measured:** what the title bar shows after `LoadPicture()` or `Nothing`, and an icon file holding several
+sizes.
