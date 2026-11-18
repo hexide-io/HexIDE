@@ -90,3 +90,23 @@ At `86dcc6c50`, in `HexIDE.Runtime.Tests` probes:
 - every Type row is refused: "Nonliteral array bounds for field 'a' inside Type 'T' are not implemented (#178)" (#4595);
 - a module-level Const reads `vbObjectError Or 127`, `VBA.vbBinaryCompare` and `VBRUN.vbRed` as VB6 does, and refuses
   `VBA.vbRed` as unread rather than giving VB6's compile error.
+
+### A variable declared above its Type (2026-11-18, #4734)
+
+**The probe.**
+- **Build:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0. The two builds logged every row identically.
+- **The project:** one project per row, since a compile error stops the build.
+- **The declarations:** the rows' lines, in the order given, in `Module2` or `Class1`, before any procedure.
+- **The read:** a procedure then logs `LBound(x.a)` and `UBound(x.a)`, sets `x.a(N) = 7` and reads it back. In a class, `Sub Main` makes a `New Class1` and calls it.
+
+| Declarations, in order | Module | Class |
+|---|---|---|
+| `Private Const N As Byte = 3`, `Private x As T`, `Private Type T` with `a(1 To N) As Long` | builds; bounds 1 To 3, and `x.a(3)` reads back 7 | the same |
+| `Private x As T`, `Private Const N As Byte = 3`, then the Type | builds; bounds 1 To 3, and `x.a(3)` reads back 7 | the same |
+| `Private x As T`, the Type, then `Private Const N As Byte = 3` | "Constant expression required", line 3 as the build log numbers it | the same |
+
+- **A variable may be declared above its Type,** and gets the Type's bounds.
+- **What decides it is where the Const sits relative to the Type, not to the variable.** A Const above the Type works even when it's below the variable. A Const below the Type is the compile error recorded above, whether or not a variable comes first.
+- **The obvious guess was that the variable's position mattered:** that the bounds are fixed where the variable is declared, so a Const between the variable and its Type would be a forward reference. It isn't.
+
+**Not measured:** a variable of the Type in another module, declared above the Type's module in the project; and a Public Type.
