@@ -1884,6 +1884,27 @@ public static class UiAutomationDriver
         topLevel is Window window && NativeWindowFrame.Read(window).ExStyle is { } ex && (ex & 0x00400000) != 0
             ? MirroredPressNote : "";
 
+    // Test the requested point in each ancestor's own coordinates, including non-scrolling clips (#4558).
+    private static Visual? ClickClip(Control control, Point local)
+    {
+        if (!new Rect(control.Bounds.Size).Contains(local)) return null;
+        return control.GetVisualAncestors().FirstOrDefault(ancestor =>
+            (ancestor.ClipToBounds || ancestor is ScrollContentPresenter or TopLevel)
+            && control.TranslatePoint(local, ancestor) is { } point
+            && !new Rect(ancestor.Bounds.Size).Contains(point));
+    }
+
+    private static string ClippedClick(Control control, Visual clip) =>
+        $"'{Describe(control)}' isOffscreen or its press point is clipped by '{(clip is Control c ? Describe(c) : clip.GetType().Name)}' "
+        + "and couldn't be brought into view; nothing was pressed";
+
+    private static InteractOutcome WithClickScroll(InteractOutcome outcome, string note) => outcome with
+    {
+        Detail = outcome.Detail is { } detail ? detail + note : null,
+        Release = outcome.Release is { } release ? () => WithClickScroll(release(), note) : null,
+        NextClick = outcome.NextClick is { } next ? async () => WithClickScroll(await next(), note) : null,
+    };
+
     private static InteractOutcome DoClick(Control control, string? value)
     {
         static InteractOutcome Fail(string error) => new(false, "pointer", null, error);
@@ -1899,6 +1920,8 @@ public static class UiAutomationDriver
         var local = at ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
         if (control.TranslatePoint(local, topLevel) is not { } inWindow)
             return Fail($"could not translate ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}' into window coordinates");
+        if (ClickClip(control, local) is { } clip)
+            return Fail(ClippedClick(control, clip));
         var where = $"({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}', which is ({inWindow.X.ToString("0.#", CultureInfo.InvariantCulture)}, {inWindow.Y.ToString("0.#", CultureInfo.InvariantCulture)}) in the window" + CodeWindowPointer.Note(control, local);
         // What a real press there reaches: the topmost element at that point that takes the pointer.
         if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive hit)
@@ -2282,7 +2305,8 @@ public static class UiAutomationDriver
 
     /// <summary>
     /// <see cref="Interact"/>, for a caller that can wait. A <c>click</c> first waits, up to <paramref name="frameWait"/>
-    /// (<see cref="ClickFrameWait"/> when omitted), for the target's window to draw its next frame. A <c>toggle</c> reads its
+    /// (<see cref="ClickFrameWait"/> when omitted), for the target's window to draw its next frame, after bringing a clipped
+    /// press point into view. A <c>toggle</c> reads its
     /// state once the work it set off has run (<see cref="ToggleSettledAsync"/>). Every other action is
     /// <see cref="Interact"/> as it is.
     /// </summary>
@@ -2307,8 +2331,35 @@ public static class UiAutomationDriver
         }
         if (verb is not ("click" or "wheel" or "doubleclick"))
             return Interact(control, action, value);
+        var scrollNote = "";
+        if (verb == "click")
+        {
+            var aimed = value;
+            if (!CodeWindowPointer.Aim(control, ref aimed, out var aimError)) return Err(aimError!);
+            if (TryParseClick(aimed, out var at, out _, out _, out _, out _, out _, out _))
+            {
+                var local = at ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
+                if (ClickClip(control, local) is not null)
+                {
+                    var viewers = control.GetVisualAncestors().OfType<ScrollViewer>()
+                        .Select(viewer => (Viewer: viewer, Before: viewer.Offset)).ToArray();
+                    control.BringIntoView(new Rect(local, new Size(1, 1)));
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
+                    TopLevel.GetTopLevel(control)?.UpdateLayout();
+                    local = at ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
+                    if (ClickClip(control, local) is { } clip)
+                        return new InteractOutcome(false, "pointer", null, ClippedClick(control, clip));
+                    var moved = viewers.Where(v => v.Viewer.Offset != v.Before).Select(v => $"'{Describe(v.Viewer)}'").ToArray();
+                    scrollNote = moved.Length == 0 ? "; the target was brought into view first; no scroll viewer changed its offset"
+                        : "; the target was scrolled into view first; scroll viewers moved: " + string.Join(", ", moved);
+                }
+            }
+        }
         var wait = frameWait ?? ClickFrameWait;
         var drawn = await NextFrameDrawnAsync(control, wait);
+        if (!drawn && scrollNote.Length != 0)
+            return new InteractOutcome(false, "pointer", null,
+                "the target was brought into view, but its window drew no frame after scrolling; nothing was pressed. Try again once it shows" + scrollNote);
         var outcome = Interact(control, action, value);
         if (!drawn && outcome is { Success: false, Error: { } error } && error.StartsWith(NothingTakesThePointer, StringComparison.Ordinal))
             outcome = outcome with
@@ -2316,7 +2367,7 @@ public static class UiAutomationDriver
                 Error = error + $"; or its window, which drew no frame in the {wait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms the {verb} waited, "
                         + $"has nothing drawn there yet, since {(verb == "click" ? "a press" : "a wheel")} is hit-tested against what was drawn: try again once it shows",
             };
-        return outcome;
+        return scrollNote.Length == 0 ? outcome : WithClickScroll(outcome, scrollNote);
     }
 
     /// <summary>
