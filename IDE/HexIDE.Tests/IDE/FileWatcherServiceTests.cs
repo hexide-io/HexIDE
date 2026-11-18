@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -66,10 +67,28 @@ public class FileWatcherServiceTests : IDisposable
 
     private void Change(string path, bool expected = true)
     {
+        WaitForQuiet();
         seen.TryRemove(path, out _);
         File.AppendAllText(path, "external");
         SpinWait.SpinUntil(() => seen.ContainsKey(path), expected ? 5000 : 1200)
             .Should().Be(expected, path);
+    }
+
+    // FileAt writes each file before its project loads. On macOS a write made just before a watch starts can still reach
+    // that watch a few milliseconds later (#3650), and under load it lands while the watch is live. The service queues it
+    // and processes it once the coalescer's 400 ms quiet period has passed, by which time Change has cleared `seen`. That
+    // stale write then reads as the external change: it failed a test expecting none (#4573), and could pass one expecting
+    // a change without the change itself being seen. So wait until nothing is pending, and has stayed that way for longer
+    // than the delivery delay, before clearing.
+    private void WaitForQuiet()
+    {
+        var quiet = Stopwatch.StartNew();
+        SpinWait.SpinUntil(() =>
+        {
+            if (watcher.HasPendingChanges)
+                quiet.Restart();
+            return quiet.ElapsedMilliseconds >= 300;
+        }, 10_000).Should().BeTrue("the file watcher should settle before the external change");
     }
 
     [Theory]
