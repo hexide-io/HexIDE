@@ -365,6 +365,13 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **AND** a watch stored as `Module.Name(Get)` SHALL evaluate only while that accessor runs, reading `<Out of context>` while another accessor of the same property runs (measured, #4401)
 - **AND** the shared VB-family collector SHALL collect Sub, Function, Property Get/Let/Set, Enum and Type headers without binding names or selecting conditional-compilation branches
 
+#### Scenario: A watch scoped to another module
+- **WHEN** the program is paused in one module and a watch is scoped to another
+- **THEN** a watch scoped to a procedure SHALL read that procedure's frame below the paused one, in whichever module it is, and SHALL read `<Out of context>` with no such frame (measured one frame down across modules, #4481)
+- **AND** a watch scoped to a class or form SHALL read the instance whose procedure is on the call stack below the paused one, and SHALL read `<Out of context>` with none there (measured for a class, #4481)
+- **AND** a watch scoped to a standard module SHALL evaluate at that module's scope wherever the program is paused, the module on the call stack or not (measured, #4481)
+- **AND** it SHALL never evaluate in the paused frame instead, where a name of the same spelling could give another variable's value
+
 #### Scenario: A watch on (All Modules)
 - **WHEN** the developer opens Add Watch
 - **THEN** the Module list SHALL start with `(All Modules)`, which offers `(All Procedures)` alone, and SHALL default to it when no code window is active and no program is paused (measured, #4452)
