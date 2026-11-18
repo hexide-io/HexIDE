@@ -32,15 +32,19 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   Form2 open. With Form2 open, though, F5 left Form1 behind the IDE: D36. Hidden/unloaded windows, Ctrl+F8, Step Out,
   and steps completing without re-entering code remain unmeasured.
 
-### D36. After F5, other modeless forms can stay behind the IDE (#4667)
-- **VB6:** F5 brings the modal form forward with its owner directly behind it, and brings the other program forms back
-  ([SP6 measurements](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md#which-window-comes-to-the-front-continue-a-step-and-a-modal-form-2026-11-17-4262-ide),
-  [#4618's ownership measurements](https://github.com/hexide-io/HexIDE/issues/4618)).
-- **HexIDE:** modal forms now have OS ownership: the shown explicit owner, or the shown calling form when omitted
-  (#4618). Their taskbar button is suppressed during the modal loop; closing preserves the existing activation events.
-  Headless tests check ownership and events; Windows F5 z-order still needs live verification.
-- **Remaining:** other modeless forms have no shared hidden owner, so bringing every program form back is still
-  **not implemented**, tracked by [#4667](https://github.com/hexide-io/HexIDE/issues/4667).
+### D36. Bringing program forms back on F5 depends on the window system (#4667)
+- **VB6:** F5 brings every program form back above the IDE, with the modal form's owner directly beneath it,
+  without new Activate or Deactivate events ([SP6 rows a, c and d](https://github.com/hexide-io/HexIDE/issues/4667),
+  oracle PR [#4665](https://github.com/hexide-io/HexIDE/pull/4665)).
+- **HexIDE:** Continue raises the shown, non-minimised forms in activation order without activating them, then
+  activates the paused form as before. Windows uses `SetWindowPos` with `SWP_NOACTIVATE`, macOS `orderFront:`,
+  and X11 `XRaiseWindow` on a separate display connection. Modal ownership (#4618) keeps the owner beneath it.
+  Headless tests check the raise order, the exclusions and the unchanged event log. Checked live on Windows
+  (hexide-mcp, 2026-11-18, Win10 VM, row c's three forms): after a real Ctrl+Break and F5 the windows were Form2 (owned
+  by Form3), Form3, Form1, the IDE, as VB6's are. macOS and X11 are unchecked.
+- **Platform limits:** Wayland offers no client-requested raise, so other forms may remain behind the IDE.
+  An X11 window manager may decline the restack request; whether it honours it needs checking on that manager.
+  Unknown backends do nothing. Minimised forms were not measured and are excluded from restacking.
 
 ## Break during a modal wait
 

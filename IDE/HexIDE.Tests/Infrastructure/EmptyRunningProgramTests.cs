@@ -10,6 +10,7 @@ public class EmptyRunningProgramTests
         IRunningProgram program = new EmptyRunningProgram();
         var output = new List<string>();
         program.Written += output.Add;
+        program.ShownWindows(new object()).Should().BeEmpty();
         program.Form(new object()).Should().BeNull();
         program.Activity(new object()).Should().BeNull();
         program.Activity(null).Should().BeNull("no activity means there is nothing to wait for");
