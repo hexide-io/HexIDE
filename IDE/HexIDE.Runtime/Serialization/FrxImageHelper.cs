@@ -23,6 +23,8 @@ public static class FrxImageHelper
         Icon,
         Cursor,
         Unknown,
+        Jpeg,
+        Gif,
     }
 
     public static FrxBlobKind DetectKind(byte[] blob)
@@ -35,6 +37,10 @@ public static class FrxImageHelper
         if (blob.Length >= 4 && blob[0] == CurMagic[0] && blob[1] == CurMagic[1]
                              && blob[2] == CurMagic[2] && blob[3] == CurMagic[3])
             return FrxBlobKind.Cursor;
+        if (blob.AsSpan().StartsWith(new byte[] { 0xff, 0xd8, 0xff }))
+            return FrxBlobKind.Jpeg;
+        if (blob.AsSpan().StartsWith("GIF87a"u8) || blob.AsSpan().StartsWith("GIF89a"u8))
+            return FrxBlobKind.Gif;
         return FrxBlobKind.Unknown;
     }
 
@@ -60,7 +66,7 @@ public static class FrxImageHelper
 
         var payload = PicturePayload(blob) ?? blob;
         var kind = DetectKind(payload);
-        if (kind is not (FrxBlobKind.Bitmap or FrxBlobKind.Icon))
+        if (kind is not (FrxBlobKind.Bitmap or FrxBlobKind.Icon or FrxBlobKind.Jpeg or FrxBlobKind.Gif))
             return null;
 
         try

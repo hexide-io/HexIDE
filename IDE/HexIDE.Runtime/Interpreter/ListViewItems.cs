@@ -36,7 +36,7 @@ internal sealed class ListViewItems(VBListView owner) : ICSharpAsyncProxy, IName
     internal static string Text(Vb6Value value, bool allowInteger42 = true)
     {
         if (value.Type == Vb6Value.ValueType.String)
-            return (string)value.Value!;
+            return (string)value.WithoutOddBytes("ListViewItems text use").Value!;
         if (allowInteger42 && value.Type == Vb6Value.ValueType.Integer && Vb6Value.TryNumericToDouble(value, out var number) && number == 42)
             return "42";
         throw new NotImplementedException("This ListView text conversion is unmeasured (#1085)");
@@ -65,7 +65,7 @@ internal sealed class ListViewItems(VBListView owner) : ICSharpAsyncProxy, IName
     {
         if (index.Type == Vb6Value.ValueType.String && !adding)
         {
-            var key = (string)index.Value!;
+            var key = (string)index.WithoutOddBytes("ListViewItems text use").Value!;
             if (key.Length == 0)
                 throw Error(35603);
             var at = keys.ToList().IndexOf(key);
@@ -214,7 +214,7 @@ internal sealed class ListViewItem(VBListView owner, ListViewItems items, string
     private long foreColor = unchecked((int)0x80000008);
     internal string Caption => caption;
     internal string SortText(int key) => key == 0 ? caption : SubItems.Entries.ElementAtOrDefault(key - 1)?.Text ?? "";
-    internal string TagText => (string)tag.Value!;
+    internal string TagText => (string)tag.WithoutOddBytes("ListViewItems text use").Value!;
 
     private int SubIndex(IReadOnlyList<Vb6Value> args)
     {

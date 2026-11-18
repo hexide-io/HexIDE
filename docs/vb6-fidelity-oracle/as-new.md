@@ -94,6 +94,8 @@ So a ByRef parameter reads the Nothing its caller's variable holds: the `As New`
   does `e Is Nothing`.
 - The variable stays Nothing, so every use tries again.
 - With `On Error GoTo`, the handler sees 5.
+- While Initialize runs, the object is already in its slot, and a raising one leaves no `Class_Terminate`: see
+  [an auto-made object is in its slot while its Class_Initialize runs](an-auto-made-object-is-in-its-slot-during-class-initialize.md#an-auto-made-object-is-in-its-slot-while-its-class_initialize-runs-2026-11-18-4605-sp6) (2026-11-18, #4605).
 
 ### Arrays, a Type's field, and a Static
 

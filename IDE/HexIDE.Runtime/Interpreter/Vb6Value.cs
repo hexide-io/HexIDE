@@ -15,6 +15,8 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     // With text, two strings compare as Option Compare Text compares them (VbTextCompare), and anything else as without.
     public int? TryCompareTo(Vb6Value other, bool text = false)
     {
+        RefuseOddBytes("Comparison");
+        other.RefuseOddBytes("Comparison");
         if (Type == other.Type)
         {
             if (Type == ValueType.Error)
@@ -57,6 +59,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     /// that widens the value model's numeric subtypes to double for the operator/comparison cascades.</summary>
     public static bool TryNumericToDouble(Vb6Value v, out double d)
     {
+        v.RefuseOddBytes("Numeric conversion");
         switch (v.Value)
         {
             case uint:
@@ -190,6 +193,45 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
             payload = (long)value;
         }
     }
+    internal bool IsOddByteString => Type == ValueType.OddByteString;
+
+    internal void RefuseOddBytes(string operation)
+    {
+        if (IsOddByteString) throw OddBytesNotImplemented(operation);
+    }
+
+    internal Vb6Value WithoutOddBytes(string operation)
+    {
+        RefuseOddBytes(operation);
+        return this;
+    }
+
+    internal static NotImplementedException OddBytesNotImplemented(string operation) =>
+        new($"{operation} with an odd-byte String is not implemented (#1510).");
+
+    // #4576 / the-byte-string-functions.md: pair bytes without an encoding fallback for lone surrogates.
+    internal static Vb6Value FromStringBytes(byte[] bytes)
+    {
+        if (bytes.Length % 2 != 0) return new(ValueType.OddByteString, bytes);
+        var chars = new char[bytes.Length / 2];
+        for (var i = 0; i < chars.Length; i++)
+            chars[i] = (char)(bytes[2 * i] | bytes[2 * i + 1] << 8);
+        return new Vb6Value(new string(chars));
+    }
+
+    internal byte[] StringBytes() => IsOddByteString ? (byte[])Value! : OrdinaryStringBytes((string)Value!);
+
+    private static byte[] OrdinaryStringBytes(string text)
+    {
+        var bytes = new byte[2 * text.Length];
+        for (var i = 0; i < text.Length; i++)
+        {
+            bytes[2 * i] = (byte)text[i];
+            bytes[2 * i + 1] = (byte)(text[i] >> 8);
+        }
+        return bytes;
+    }
+
     public static Vb6Value NewLongLong(long value) => new(ValueType.LongLong, value);
     public Vb6Value(long value) : this(ValueType.Long, value) {}
     internal static Vb6Value NewAutomationUnsignedLong(uint value) => new(ValueType.AutomationUnsignedLong, value);
@@ -329,6 +371,8 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         // live on the VbObject. A null Value = Nothing.
         public static readonly ValueType Object = new ValueType(ValueTypePrimitive.Object, false);
 
+        public static readonly ValueType OddByteString = new(ValueTypePrimitive.OddByteString, false);
+
         public static readonly ValueType Error = new ValueType(ValueTypePrimitive.Error, false);
         /// <summary>A blank argument slot. See <see cref="ValueTypePrimitive.Missing"/>.</summary>
         public static readonly ValueType Missing = new ValueType(ValueTypePrimitive.Missing, false);
@@ -392,7 +436,8 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
 
         AutomationUnsignedLong,
         Error,
-        LongLong
+        LongLong,
+        OddByteString
     }
 
     public static implicit operator Vb6Value(int value) =>

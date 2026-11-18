@@ -138,7 +138,7 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
             }
             if (!name.Equals("AccessKeys", StringComparison.OrdinalIgnoreCase))
                 throw new NotImplementedException($"UserControl.{name} is not implemented (#1631)");
-            owner.AccessKeys = value.Type == Vb6Value.ValueType.String ? (string)value.Value! : throw new NotImplementedException("UserControl.AccessKeys conversion is not measured (#1631)");
+            owner.AccessKeys = value.WithoutOddBytes("VBUserControl text use").Type == Vb6Value.ValueType.String ? (string)value.Value! : throw new NotImplementedException("UserControl.AccessKeys conversion is not measured (#1631)");
             return true;
         }
     }

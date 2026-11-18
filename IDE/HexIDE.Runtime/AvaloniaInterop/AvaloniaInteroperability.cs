@@ -178,6 +178,7 @@ public static class AvaloniaInteroperability
         // because without it the assignment was a trappable 461 that On Error Resume Next swallowed, and the
         // transparent-Label rule then dropped the BackColor that followed, a wrong value with no error.
         Register<VBLabel, BackStyles>(VBProperties.BackStyleProperty, VBLabel.BackStyleProperty);
+        Register<VBLabel, VBTextAlignment>(VBProperties.AlignmentProperty, VBLabel.AlignmentProperty);
         Register<VBLabel, VBAppearance>(VBProperties.AppearanceProperty, VBLabel.AppearanceProperty);
         Register<VBCheckBox, VBCheckValue>(VBProperties.CheckValueProperty, VBCheckBox.ValueProperty);
 
