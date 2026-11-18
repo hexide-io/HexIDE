@@ -17,7 +17,7 @@ public static class AvaloniaMethodsInteroperability
         VBProps.RefuseIfRemoved(c);
         if (RuntimeDrawing.Of(c) is not null && RuntimeDrawing.IsMethod(method))
             return RuntimeDrawing.Call(c, method, args);
-        if (RuntimeScale.Of(c) is not null && RuntimeScale.IsConversion(method))
+        if (c is not VBUserControl && RuntimeScale.Of(c) is not null && RuntimeScale.IsConversion(method))
             return RuntimeScale.ConvertUnits(c, method, args);
         if (c is VBMSFlexGrid grid) return FlexGridMembers.Call(grid, method, args);
 

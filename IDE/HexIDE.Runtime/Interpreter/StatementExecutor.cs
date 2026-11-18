@@ -1017,10 +1017,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var points = new List<Vb6Value>();
         foreach (var point in context.valueStmt())
             points.Add(await expressionExecutor.EvaluateScalar(point));
-        if (target.HeldAsVariant || string.Equals(target.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase))
+        var late = target.HeldAsVariant || string.Equals(target.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase);
+        if (late && target.Value is (VBTextBox or VBUserControl))
+            throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        if (late && target.Value is not (VbObject { ClassDef.Kind: InterpreterModuleKind.Form } or VBPictureBox))
             throw new NotImplementedException("Late-bound Scale is not implemented (#4693)");
         if (target.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form)
             await interpreter.Loading(() => RuntimeScale.Statement(form.BuiltInMembersFor("Scale")!, points));
+        else if (context.implicitCallStmt_InStmt() is null
+            && target.Value is VbObject { ClassDef.HostedControl: true, UserControlHost: { } ownControl })
+            RuntimeScale.Statement(ownControl, points);
+        else if (target.Value is VBUserControl.RootObject root)
+            RuntimeScale.Statement(root.Owner, points);
         else if (target.Value is Control control)
             RuntimeScale.Statement(control, points);
         else
@@ -2238,6 +2246,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         foreach (var arg in args) arg.RefuseOddBytes(member);
         VBFlatScrollBar.RefuseEarlyBound(reference, member);
         UserControlMembers.Check(reference, member);
+        if (reference.Value is (VBTextBox or VBUserControl) && RuntimeScale.IsConversion(member)
+            && (reference.HeldAsVariant || string.Equals(reference.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)))
+            throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         return ((Control)reference.Value!).CallAsync(member, args, CallingForm());
     }
 
@@ -3059,6 +3070,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (variable.Value is VBCommonDialog dialog && dialog.TrySetProperty(memberIdentifier, value, throughObject))
                 return default;
 
+            if (throughObject && variable.Value is VBUserControl.RootObject && FormMembers.IsCoordinateMember(memberIdentifier))
+                throw new NotImplementedException($"UserControl.{memberIdentifier} through an Object variable is not implemented (#4693)");
+
             // A CSharp property bag (e.g. Err.Number = …) handles its own get/set by name.
             if (variable.Value is ICSharpPropertyBag propertyBag && propertyBag.TrySetProperty(memberIdentifier, value))
                 return default;
@@ -3111,7 +3125,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (AvaloniaInteroperability.TrySet(control, prop, value))
                     return default;
             }
-            if (RuntimeScale.TrySet(control, memberIdentifier, value))
+            if (control is not VBUserControl && RuntimeScale.TrySet(control, memberIdentifier, value))
                 return default;
             // FontName sets the control's font by name (#1141).
             if (FontMembers.TrySet(control, memberIdentifier, value))

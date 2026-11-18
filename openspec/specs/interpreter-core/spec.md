@@ -2407,7 +2407,12 @@ Height SHALL use the unit’s magnitude even in flipped user scales. Negative Co
 raise 380 from a property assignment and 5 from Move, before anything moves (issue #990 round-2 measurements).
 Form and PictureBox mouse coordinates SHALL use the object’s
 own mapping; other controls retain their existing mouse units. A form resize SHALL retain the size
-of a user unit. UserControl scales and PictureBox resize are outside this slice ([#4693](https://github.com/hexide-io/HexIDE/issues/4693)).
+of a user unit. A placed UserControl SHALL own the same coordinate properties, Scale statement and conversions,
+initialized from its saved scale over its child canvas. Its saved child positions SHALL remain twips even when
+its .ctl declares pixels. A form or PictureBox saved in User mode with no extents or origins SHALL use one twip
+per unit and zero origins. Origins and extents of a saved UserControl User scale without extents SHALL remain refused as unmeasured.
+Me-qualified coordinate access and Object aliases to the own root SHALL retain their prior refusals pending measurement.
+PictureBox resize and UserControl drawing remain unmeasured (#4693).
 
 The interpreter and bundled LSP grammars SHALL parse the bare and qualified Scale statement with either
 two points or no arguments. ScaleX and ScaleY SHALL default from HiMetric to the current scale, returning
@@ -2415,6 +2420,20 @@ Single lengths. Container-position/container-size units and vbUser outside a use
 The measured metric factor and its accepted last-place precision difference are recorded in
 [#990](https://github.com/hexide-io/HexIDE/issues/990); the other values come from the
 [coordinate oracle](../../../docs/vb6-fidelity-oracle/the-coordinate-system-scalemode-scale-scalex-and-scaley.md).
+
+Late-bound Scale, ScaleX and ScaleY SHALL use a form's or PictureBox's mapping; TextBox and UserControl
+extenders SHALL raise 438. Other objects SHALL retain their existing behaviour. Zero conversion arguments
+SHALL raise "Argument not optional"; four on either axis and five on ScaleX SHALL raise "Wrong number of
+arguments or invalid property assignment" as execution reaches the statement. ScaleY with five and counts
+above five SHALL remain refused as unmeasured. Centimetre PictureBox Line endpoints SHALL load as whole twips
+using the approved factor, with the one-Single-step X1/Y1 difference the maintainer accepted with #990's factor.
+These rows are measured in the coordinate oracle's #4693 sections.
+User-scale PictureBox Lines and other unmeasured Line modes SHALL remain refused naming #4693.
+
+#### Scenario: A pixel-saved UserControl
+- **WHEN** a 2400 by 1800 twip UserControl is saved in pixel mode with a Label at 10, 20, 40 by 17
+- **THEN** its scale reads 160 by 120 and the Label reads 0.6666667, 1.333333, 2.666667 by 1.133333
+- **AND** selecting twips reads the saved Label numbers unchanged
 
 #### Scenario: An upward user scale
 
