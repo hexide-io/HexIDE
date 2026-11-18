@@ -333,6 +333,7 @@
     "Str.Menu.Help.LogFolder": "Atvērt HexIDE žurnā_lu mapi",
     "Str.Help.LogFolder.OpenFailed": "Neizdevās atvērt žurnālu mapi. Varat to atvērt manuāli: {0}",
     "Str.Menu.Help.About": "_Par HexIDE...",
+    "Str.Menu.MacApp.About": "Par HexIDE",
     "Str.Menu.GoToGithubRepo": "Atvērt GitHub repozitoriju",
     "Str.ProjectType.StandardEXE": "Standarta EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",

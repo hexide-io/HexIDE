@@ -33,10 +33,10 @@ public class FormDeserializer
 
     private static Dictionary<string, ComponentBaseClass> componentsByTypeNames;
 
-    private static readonly HashSet<string> VisualRootTypes =
-    [
+    private static readonly HashSet<string> VisualRootTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
         "VB.Form", "VB.UserControl", "VB.PropertyPage"
-    ];
+    };
 
     // The designer root's client rectangle, as the model keeps it.
     private static readonly Dictionary<string, PropertyClass> RootClientAxes = new()
@@ -55,7 +55,7 @@ public class FormDeserializer
 
     static FormDeserializer()
     {
-        componentsByTypeNames = new();
+        componentsByTypeNames = new(StringComparer.OrdinalIgnoreCase);
         foreach (var component in AllSupportedComponents)
         {
             componentsByTypeNames[component.VBTypeName] = component;
@@ -143,11 +143,13 @@ public class FormDeserializer
             return null;
         }
 
-        if (!VisualRootTypes.Contains(rootComponent.Type))
+        if (!VisualRootTypes.TryGetValue(rootComponent.Type, out var rootType))
         {
             errorSink.LogError("Str.ProjectLoad.InvalidForm", "This is not a valid form file");
             return null;
         }
+
+        rootComponent.Type = rootType;
 
         // Nor is a form that holds another form, or a UserControl or PropertyPage block, which read as one. Loading it
         // put two forms in one model, and saving that threw (#1222). A stack rather than recursion: the nesting is the

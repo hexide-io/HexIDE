@@ -92,6 +92,17 @@ public class FormSerializer
             if (children.Any(c => c.BaseClass is UserControlComponentClass))
                 children = children.OrderBy(c => c.BaseClass is UserControlComponentClass uc
                     ? uc.Setting("Windowless") : c.BaseClass is ComponentBaseClass { IsWindowless: true }).ToList();
+            else if (container.PreservedChildSubtrees.Count == 0)
+            {
+                // #1517 / oracle PR #4518. Rendering uses the saved plane order even before a designer opens,
+                // so the load-time render baseline stays clean when that designer later flushes its order.
+                // Nonvisual icons and menus keep their slots; carried blocks retain their ordinal-based placement.
+                var visual = children.Where(c => c.BaseClass.IsVisual && c.BaseClass is not MenuComponentClass)
+                    .OrderBy(c => c.BaseClass is ComponentBaseClass { IsWindowless: true }).ToArray();
+                var at = 0;
+                children = children.Select(c => c.BaseClass.IsVisual && c.BaseClass is not MenuComponentClass
+                    ? visual[at++] : c).ToList();
+            }
             var preserved = container.PreservedChildSubtrees;
             var before = CarriedOrder.ChildrenBefore(children.Count, preserved);
             var preservedIndex = 0;

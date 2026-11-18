@@ -403,6 +403,9 @@ public interface ILspClient : IAsyncDisposable
         System.Text.Json.JsonElement[]? arguments = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Whether the connection that supplied this lens command has an add-in claim for it.</summary>
+    bool IsClaimedCodeLensCommand(Command command) => false;
+
     /// <summary>Runs a lens command on the connection that supplied it.</summary>
     Task ExecuteCodeLensCommandAsync(Command command, CancellationToken cancellationToken = default) =>
         ExecuteCommandAsync(command.CommandName, command.Arguments, cancellationToken);

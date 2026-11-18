@@ -299,6 +299,7 @@
     "Str.Menu.Help.LogFolder": "Deschide dosarul de _jurnale HexIDE",
     "Str.Help.LogFolder.OpenFailed": "Dosarul de jurnale nu a putut fi deschis. Îl puteți deschide manual: {0}",
     "Str.Menu.Help.About": "_Despre HexIDE...",
+    "Str.Menu.MacApp.About": "Despre HexIDE",
     "Str.Menu.GoToGithubRepo": "Deschide depozitul GitHub",
     "Str.ProjectType.StandardEXE": "EXE standard",
     "Str.ProjectType.ActiveXEXE": "EXE ActiveX",

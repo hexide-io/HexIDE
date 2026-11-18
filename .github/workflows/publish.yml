@@ -30,14 +30,9 @@ name: Publish Release
 # mac legs' made programs are unverified rather than known broken.
 #
 # ── Signing ───────────────────────────────────────────────────────────────────────────────────────
-# Nothing here is signed or notarised. macOS builds are ad-hoc signed only, which is what stops Apple
-# Silicon killing an unsigned arm64 binary outright — it is NOT Gatekeeper approval. macOS ships as
-# .tar.gz rather than .zip because tar does not propagate com.apple.quarantine, so Gatekeeper never
-# engages. That is a known gap, not a supported guarantee: if it stops working, the macOS download
-# needs a real Developer ID certificate.
-# What that would take -- membership, certificate, hardened-runtime entitlements, notarytool and
-# stapling, and the bundle restructure it depends on -- is written up in docs/macos-signing.md so it
-# does not have to be re-derived under pressure.
+# macOS bundles are sealed ad hoc, without a signing identity or notarisation.
+# Downloaded builds can carry quarantine, including through tar (#4507), so macOS
+# says it cannot verify HexIDE. See docs/macos-signing.md for notarisation prerequisites.
 
 on:
   workflow_dispatch:
@@ -242,18 +237,8 @@ jobs:
           TAG='${{ inputs.tag }}'
           VERSION="${TAG#v}"
           for flavour in fdd sc; do
-            # Signing happens on the STAGED TREE, before the .app exists, and that ordering is
-            # load-bearing rather than tidiness.
-            #
-            # codesign canonicalises the path of a bundle's CFBundleExecutable to the BUNDLE. Once
-            # bin/$flavour/HexIDE sits at HexIDE.app/Contents/MacOS/HexIDE, signing "that path" no
-            # longer signs the file: it tries to seal the whole bundle, which this layout cannot do,
-            # and the failure was swallowed by the "|| true" below. Verifying it reported the
-            # unsealed bundle rather than the binary. That is why every other Mach-O verified while
-            # the main executable alone came back UNSIGNED -- it was the only file codesign resolved
-            # to something else, and it had never actually been signed in any build. Here it is an
-            # ordinary Mach-O in an ordinary directory. Signatures are embedded in the file, so the
-            # cp -R into the bundle preserves them.
+            # Sign and check apphosts before bundle assembly: codesign resolves the main
+            # executable's bundled path to the bundle itself.
             SRC="bin/$flavour"
 
             # codesign decides what counts as a "code object" partly from the execute bit, so any
@@ -276,16 +261,7 @@ jobs:
                 fi
               done
 
-            # The gate is per-binary, never per-bundle. The .app is deliberately not sealed: a .NET
-            # publish payload in Contents/MacOS is not a valid signable bundle (four apphosts, a
-            # *.runtimeconfig.json beside each, standalone/, per-language satellite directories).
-            # Plain codesign dies on a runtimeconfig.json it cannot sign; --deep dies with "bundle
-            # format unrecognized". Sealing would mean moving the payload to Contents/Resources and
-            # shimming assembly resolution for all four executables -- a restructure, not a flag.
-            # See docs/macos-signing.md. Nothing depends on it: Gatekeeper is unsatisfiable without
-            # a Developer ID either way, and .tar.gz keeps quarantine from engaging. What matters is
-            # that every Mach-O carries a signature, so assert exactly that -- which is also what
-            # catches the "|| true" above silently swallowing a failure.
+            # Keep the per-Mach-O gate as well as the bundle script's strict seal check.
             unsigned=0
             while IFS= read -r -d '' f; do
               if file -b "$f" | grep -q '^Mach-O'; then
@@ -298,29 +274,7 @@ jobs:
             fi
             echo "signed: every Mach-O in $flavour verified"
 
-            APP="bin/$flavour-app/HexIDE.app"
-            mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-            cp -R "bin/$flavour/." "$APP/Contents/MacOS/"
-            cp HexIDE/Icons/AppIcon/hexide.icns "$APP/Contents/Resources/hexide.icns"
-            cat > "$APP/Contents/Info.plist" <<PLIST
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleName</key><string>HexIDE</string>
-            <key>CFBundleDisplayName</key><string>HexIDE</string>
-            <key>CFBundleIdentifier</key><string>io.hexide.HexIDE</string>
-            <key>CFBundleExecutable</key><string>HexIDE</string>
-            <key>CFBundleIconFile</key><string>hexide</string>
-            <key>CFBundlePackageType</key><string>APPL</string>
-            <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-            <key>CFBundleShortVersionString</key><string>${VERSION}</string>
-            <key>CFBundleVersion</key><string>${VERSION}</string>
-            <key>LSMinimumSystemVersion</key><string>13.0</string>
-            <key>NSHighResolutionCapable</key><true/>
-          </dict>
-          </plist>
-          PLIST
+            ../scripts/macos-bundle.sh "$SRC" "bin/$flavour-app/HexIDE.app" "$VERSION"
           done
 
       - name: Smoke-check the staged output
@@ -408,10 +362,7 @@ jobs:
           tar -czf ./bin/hexide-${{ matrix.name }}.tar.gz -C ./bin/fdd .
           tar -czf ./bin/hexide-${{ matrix.name }}-selfcontained.tar.gz -C ./bin/sc .
 
-      # .tar.gz, not .zip. A .zip unpacked by Finder carries com.apple.quarantine onto every extracted
-      # file, and on macOS 15+ an unsigned app then shows "Apple could not verify ... is free of
-      # malware" with Move to Trash / Done and NO Open button — the Control-click bypass was removed.
-      # tar does not propagate the attribute, so the app opens normally.
+      # Quarantine can propagate through this archive too (#4507).
       - name: Archive (macOS)
         if: matrix.os == 'mac'
         run: |
@@ -471,8 +422,7 @@ jobs:
 
             [Download and run instructions](https://github.com/hexide-io/HexIDE/blob/${{ inputs.tag }}/README.md#download-and-run), including Linux extraction and launch steps.
 
-            Nothing here is signed or notarised.
+            No build has a signing identity or is notarised.
             **Windows** shows a SmartScreen warning: More info → Run anyway.
-            **macOS** — extract in Terminal with `tar -xzf <file>.tar.gz`. Unpacking with Finder
-            instead applies a quarantine flag that an unsigned app cannot clear.
+            **macOS** says it can't verify HexIDE the first time, because the build isn't notarised: choose Done, then System Settings → Privacy & Security → Open Anyway, and confirm with an administrator's password.
             **Linux** self-contained still needs native libraries, including the distro's `libX11`, `libICE`, `libSM`, `fontconfig` and ICU. Native Wayland (`auto` or `wayland`) also needs `libwayland-client`, `libwayland-cursor` and `libxkbcommon`, plus `libEGL` and `libwayland-egl` for GPU rendering.

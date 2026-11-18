@@ -2159,7 +2159,8 @@ public sealed class VBLspClient : ILspClient
                     await ExecuteCodeLensCommandAsync(cmd with { Title = title }, ct);
                 }, documentFor, cmd => ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, cmd.CommandName) || _claimedCommands.ContainsKey(cmd.CommandName),
                 Kind: payload.TryGetProperty("kind", out var kind) ? kind.GetString() : null,
-                IsQuickFix: payload.TryGetProperty("diagnostics", out var fixes) && fixes.ValueKind == JsonValueKind.Array && fixes.GetArrayLength() > 0);
+                IsQuickFix: payload.TryGetProperty("diagnostics", out var fixes) && fixes.ValueKind == JsonValueKind.Array && fixes.GetArrayLength() > 0,
+                IsClaimed: cmd => HasClaimedCommand(cmd.CommandName));
         }
 
         var response = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/codeAction",
@@ -2433,6 +2434,18 @@ public sealed class VBLspClient : ILspClient
     private Func<CancellationToken> _addinLifetime = () => default;
     internal void SetCommandLifetime(Func<CancellationToken> lifetime) => _addinLifetime = lifetime;
 
+    public bool IsClaimedCodeLensCommand(Command command) => HasClaimedCommand(command.CommandName);
+
+    internal CancellationToken ClaimedCommandLifetime() => !_stopping && RunningUserCommand(claimedOnly: true) is { } running
+        ? running.Lifetime
+        : throw new InvalidOperationException("Code-window actions require a running claimed-command handler.");
+
+    private UserCommand? RunningUserCommand(bool claimedOnly) => _userCommands.Keys
+        .Where(command => command.Connection == Volatile.Read(ref _connection)
+            && (!claimedOnly || command.Claimed) && !command.Lifetime.IsCancellationRequested
+            && Volatile.Read(ref command.Pending) is not { IsCompleted: true })
+        .OrderBy(command => command.Order).FirstOrDefault();
+
     public async Task ExecuteCodeLensCommandAsync(Command command, CancellationToken cancellationToken = default)
     {
         if (ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, command.CommandName))
@@ -2478,11 +2491,7 @@ public sealed class VBLspClient : ILspClient
                 { LocalizationKey = key, IsEditRefusal = true });
             return new(false, reason);
         }
-        var running = _userCommands.Keys
-            .Where(command => command.Connection == Volatile.Read(ref _connection)
-                && (!claimedOnly || command.Claimed) && !command.Lifetime.IsCancellationRequested
-                && Volatile.Read(ref command.Pending) is not { IsCompleted: true })
-            .OrderBy(command => command.Order).FirstOrDefault();
+        var running = RunningUserCommand(claimedOnly);
         if (_stopping || running is null)
             return Refuse(HexIDE.IDE.Distribution.DisplayName + " applies a server's edits only while a command the user started is running.", "Str.Lsp.EditRequiresUserCommand");
         if (_applyEdit is not { } apply)

@@ -971,6 +971,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private readonly ConditionalWeakTable<CodeLens, ILspClient> _codeLensOwners = new();
     private readonly ConditionalWeakTable<Command, ILspClient> _lensCommandOwners = new();
 
+    public bool IsClaimedCodeLensCommand(Command command) =>
+        _lensCommandOwners.TryGetValue(command, out var client) && client.IsRunning
+        && _entries.Any(e => ReferenceEquals(e.Client, client)) && client.IsClaimedCodeLensCommand(command);
+
     public async Task ExecuteCodeLensCommandAsync(Command command, CancellationToken cancellationToken = default)
     {
         if (_lensCommandOwners.TryGetValue(command, out var client) && client.IsRunning

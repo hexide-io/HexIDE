@@ -324,6 +324,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 FocusWindowRequest?.Invoke();
             }
         }));
+        AutoDispose(this.eventBus.Subscribe<NavigateToDeclarationsEvent>(e =>
+        {
+            if (e.Form != formDefinition) return;
+            SelectedObject = GeneralObject;
+            SelectedProcedure = DeclarationsProc;
+            NavigateToDeclarations();
+        }));
         AutoDispose(this.eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(e =>
         {
             // Marshalled, because failing here is INVISIBLE and corrupting. Document.Text throws
@@ -1323,28 +1330,39 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         FocusWindowRequest?.Invoke();
     }
 
+    private bool refreshingProcedureNames;
+
     private void RefreshProcedureNames()
     {
-        var current = SelectedProcedure;
-        ProcedureNames.Clear();
-
-        if (SelectedObject == GeneralObject || SelectedObject is null)
+        refreshingProcedureNames = true;
+        try
         {
-            ProcedureNames.Add(DeclarationsProc);
-            foreach (var s in FlattenedSymbols())
-                if (s.Kind is SymbolKind.Method or SymbolKind.Function or SymbolKind.Property)
-                    ProcedureNames.Add(s.Name);
-        }
-        else
-        {
-            // Show events for the selected form/control
-            var component = FindComponent(SelectedObject);
-            if (component is not null)
-                foreach (var ev in component.BaseClass.Events)
-                    ProcedureNames.Add(ev.Name);
-        }
+            var current = SelectedProcedure;
+            ProcedureNames.Clear();
 
-        SelectedProcedure = (current is not null && ProcedureNames.IndexOf(current) >= 0) ? current : null;
+            if (SelectedObject == GeneralObject || SelectedObject is null)
+            {
+                ProcedureNames.Add(DeclarationsProc);
+                foreach (var s in FlattenedSymbols())
+                    // A form's controls can arrive as Property symbols too (RDCore, #4526); they belong in the Object
+                    // box. Only Property symbols are filtered: a procedure keeps its place even if it shares a name
+                    // FindComponent knows, such as the root's "Form".
+                    if (s.Kind is SymbolKind.Method or SymbolKind.Function ||
+                        (s.Kind is SymbolKind.Property && FindComponent(s.Name) is null))
+                        ProcedureNames.Add(s.Name);
+            }
+            else
+            {
+                // Show events for the selected form/control
+                var component = FindComponent(SelectedObject);
+                if (component is not null)
+                    foreach (var ev in component.BaseClass.Events)
+                        ProcedureNames.Add(ev.Name);
+            }
+
+            SelectedProcedure = (current is not null && ProcedureNames.IndexOf(current) >= 0) ? current : null;
+        }
+        finally { refreshingProcedureNames = false; }
     }
 
     private string? RootEventPrefix => formDefinition?.RootVBTypeName switch
@@ -1892,7 +1910,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                     if (target is not null) await target.FlushDocumentAsync(ct);
                 }
             }
-            if (await TryRunClientCommandAsync(command)) return null;
+            if (await TryRunClientCommandAsync(command, action.IsClaimed?.Invoke(command) == true)) return null;
             if (action.CanExecute?.Invoke(command) != true || action.Execute is not { } execute)
                 return string.Format(localization.GetString("Str.CodeEditor.QuickFix.UnsupportedCommand"), command.CommandName);
             try { await execute(command, ct); }
@@ -2290,7 +2308,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         try
         {
-            if (!await TryRunClientCommandAsync(command))
+            if (!await TryRunClientCommandAsync(command, lspClient.IsClaimedCodeLensCommand(command)))
                 await lspClient.ExecuteCodeLensCommandAsync(command);
         }
         catch (HexIDE.Addins.AddinCommandException ex)
@@ -2299,8 +2317,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         }
     }
 
-    private async Task<bool> TryRunClientCommandAsync(Command command)
+    private async Task<bool> TryRunClientCommandAsync(Command command, bool claimed)
     {
+        if (claimed && command.CommandName is "rdcore.rename" or "rdcore.showReferences") return false;
         if (command.CommandName is "rdcore.rename" or "editor.action.rename")
         {
             try
@@ -2309,15 +2328,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 var uri = args[0].GetString();
                 if (uri is null) return false;
                 var position = new Position(args[1].GetProperty("line").GetInt32(), args[1].GetProperty("character").GetInt32());
-                var target = LspDocumentUri.AreSame(uri, GetDocumentUriPublic()) ? this : editorService.OpenCodeForUri(uri);
-                if (target is null || position.Line < 0 || position.Line >= target.Document.LineCount
-                    || position.Character < 0 || position.Character > target.Document.GetLineByNumber(position.Line + 1).Length) return false;
-                var offset = target.Document.GetOffset(position.Line + 1, position.Character + 1);
-                target.NavigateToOffset(offset);
-                if (WordAt(target.Document, offset) is not { } name) return true;
-                if (target.RenameRefusalAt(offset, name) is { } refusal) await target.ShowRefusalAsync(refusal);
-                else await target.RenameSymbolAsync(position, name);
-                return true;
+                return await CodeEditorClientActions.StartRenameAsync(editorService, this, uri, position);
             }
             catch (Exception error) when (error is System.Text.Json.JsonException or InvalidOperationException
                 or KeyNotFoundException or FormatException)
@@ -2343,7 +2354,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                     return new Location(item.GetProperty("uri").GetString()!,
                         new HexIDE.Lsp.Messages.Range(ReadPosition("start"), ReadPosition("end")));
                 }).ToArray();
-                eventBus.Publish(new ShowReferenceLocationsEvent(locations));
+                CodeEditorClientActions.ShowReferences(eventBus, locations);
             }
             catch (Exception error) when (error is System.Text.Json.JsonException or InvalidOperationException
                 or KeyNotFoundException or FormatException)
@@ -2353,6 +2364,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             return true;
         }
         return false;
+    }
+
+    internal async Task<bool> StartRenameAtAsync(Position position)
+    {
+        if (position.Line < 0 || position.Line >= Document.LineCount
+            || position.Character < 0 || position.Character > Document.GetLineByNumber(position.Line + 1).Length) return false;
+        var offset = Document.GetOffset(position.Line + 1, position.Character + 1);
+        this.NavigateToOffset(offset);
+        if (WordAt(Document, offset) is not { } name) return true;
+        if (RenameRefusalAt(offset, name) is { } refusal) await ShowRefusalAsync(refusal);
+        else await RenameSymbolAsync(position, name);
+        return true;
     }
 
     public bool CanShowCallHierarchy => LiveDocumentUri is { } uri && lspClient.SupportsCallHierarchy(uri);
@@ -2619,7 +2642,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     private void OnSelectedProcedureChanged(string? oldValue, string? newValue)
     {
-        if (newValue is null or DeclarationsProc) return;
+        // Clear and reselection update the bound ComboBox synchronously; restoring its item is not a choice (#4480).
+        if (refreshingProcedureNames || newValue is null) return;
+        if (newValue == DeclarationsProc)
+        {
+            NavigateToDeclarations();
+            return;
+        }
 
         if (SelectedObject == GeneralObject || SelectedObject is null)
         {
@@ -2648,6 +2677,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             }
         }
 
+        FocusWindowRequest?.Invoke();
+    }
+
+    private void NavigateToDeclarations()
+    {
+        this.NavigateToOffset(PastReadOnlyRegion(0));
         FocusWindowRequest?.Invoke();
     }
 

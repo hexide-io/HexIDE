@@ -18,3 +18,8 @@ public class CreateOrNavigateToSubEvent : IEvent
     public string ObjectName { get; }
     public string EventName { get; }
 }
+
+public class NavigateToDeclarationsEvent(FormDefinition form) : IEvent
+{
+    public FormDefinition Form { get; } = form;
+}
