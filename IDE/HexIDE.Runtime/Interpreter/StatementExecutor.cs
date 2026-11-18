@@ -961,6 +961,25 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new VBCompileErrorException("Invalid use of property");
     }
 
+    public override async Task<ControlFlow> VisitScaleStmt(VB6Parser.ScaleStmtContext context)
+    {
+        var target = context.implicitCallStmt_InStmt() is { } qualifier
+            ? await expressionExecutor.EvaluateValue(qualifier)
+            : interpreter.ExecutionContext.TryInspectVariable(currentEnv, "Me", out var me) ? me : Vb6Value.Nothing;
+        var points = new List<Vb6Value>();
+        foreach (var point in context.valueStmt())
+            points.Add(await expressionExecutor.EvaluateScalar(point));
+        if (target.HeldAsVariant || string.Equals(target.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase))
+            throw new NotImplementedException("Late-bound Scale is not implemented (#990)");
+        if (target.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form)
+            await interpreter.Loading(() => RuntimeScale.Statement(form.BuiltInMembersFor("Scale")!, points));
+        else if (target.Value is Control control)
+            RuntimeScale.Statement(control, points);
+        else
+            throw new VBCompileErrorException("Method not valid without suitable object");
+        return ControlFlow.Nothing;
+    }
+
     public override async Task<ControlFlow> VisitECS_ProcedureCall(VB6Parser.ECS_ProcedureCallContext context)
     {
         var subName = context.ambiguousIdentifier().GetText();
@@ -2733,6 +2752,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     if (propertyName is not null
                         && vobj.ClassDef.PrePass.Properties.TryGetValue(propertyName, out var indexedProperty))
                     {
+                        if (indexedProperty.Let is null && indexedProperty.Get is { Parameters.Count: 0 } getter
+                            && interpreter.ProjectClassFor(getter.ReturnUdtTypeName ?? "") is not null
+                            && members[0].iCS_S_ProcedureOrArrayCall() is { } getCall && getCall.argsCall().Length == 1)
+                        {
+                            var result = await interpreter.RunProcedure(vobj.ClassDef, getter, [], vobj.InstanceEnv, variable, stmtFrames)
+                                ?? throw new NotImplementedException("A parameterless Get without a value is unmeasured (#4606)");
+                            await interpreter.LetDefaultMember(result, await expressionExecutor.ResolveCallArgs(getCall.argsCall(0)), value, context, stmtFrames);
+                            return default;
+                        }
                         if (indexedProperty.Let is not { } indexedLetter
                             || indexedLetter.Parameters.SkipLast(1).Any(p => p.Optional || p.ParamArray)
                             || members[0].iCS_S_ProcedureOrArrayCall() is not { } propertyCall
@@ -2963,6 +2991,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (AvaloniaInteroperability.TrySet(control, prop, value))
                     return default;
             }
+            if (RuntimeScale.TrySet(control, memberIdentifier, value))
+                return default;
             // FontName sets the control's font by name (#1141).
             if (FontMembers.TrySet(control, memberIdentifier, value))
                 return default;
@@ -3032,6 +3062,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 panels.Item(indexes).SetText(value);
                 return default;
             }
+            if (!string.Equals(currentEnv.ReturnName, identifier, StringComparison.OrdinalIgnoreCase)
+                && await interpreter.ReadVariable(currentEnv, identifier) is (true, var receiver)
+                && (receiver.Value is VbObject || receiver.Value is null
+                    && interpreter.ProjectClassFor(receiver.DeclaredAs ?? "") is not null))
+            {
+                await interpreter.LetDefaultMember(receiver, [.. indexes.Select(v => new CallArg(v, null))], value, context, stmtFrames);
+                return default;
+            }
             var indexesAsInt = await expressionExecutor.ResolveSubscripts(indexes);
 
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var array))
@@ -3086,11 +3124,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             ?? throw new NotImplementedException($"storing into {call.GetText()} is not implemented (#1476)");
         foreach (var subscripts in middle)
             holder = await expressionExecutor.IndexResult(holder, subscripts, call);
+        if (holder.Value is VbObject)
+        {
+            await interpreter.LetDefaultMember(holder, [.. last.Select(v => new CallArg(v, null))], value, context, stmtFrames);
+            return ControlFlow.Nothing;
+        }
         if (holder.Value is not VBArray inner)
         {
             // `a(0)(1) = 5` with `a` an Integer array does not compile: "Type mismatch" (measured). A Variant holding no array
             // is unmeasured, and raises 13 as a read of it does.
-            if (holder.Value is VbCollection or VbObject || holder.Type == Vb6Value.ValueType.Object)
+            if (holder.Value is VbCollection || holder.Type == Vb6Value.ValueType.Object)
                 throw new NotImplementedException($"storing into {call.GetText()} is not implemented (#1476)");
             if (holder.HasFixedType)
                 throw new VBCompileErrorException("Type mismatch");
@@ -3984,17 +4027,33 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         // `Set obj.Member = New Foo` — an object-assign to another instance's member. A Property Set accessor
         // wins over a raw object-field write; otherwise store the reference in the field's slot.
-        // NB `Set .Member = o` against a With target can't reach here: `Set .x` parses as a member-Let on a
-        // variable named "Set" (VB6 keyword-as-identifier ambiguity resolves to letStmt), so leading-dot Set is
-        // a grammar-level wall — use `Set obj.Member = o` with an explicit reference. (Property Let via With
-        // works — no Set keyword to alias.)
-        if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } membersCall
-            && membersCall.iCS_S_VariableOrProcedureCall() is { } leadPart)
+        // The receiver may be a name, an indexed read or the innermost With target (#4600, #4602, #4607).
+        if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } membersCall)
         {
-            if (await TryStoreModuleMember(membersCall, value, true, context))
-                return default;
-            if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out var setLead, out var target, out var setLeadNeed))
-                (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
+            var leadPart = membersCall.iCS_S_VariableOrProcedureCall();
+            var setLead = true;
+            Vb6Value target;
+            if (leadPart is not null)
+            {
+                if (await TryStoreModuleMember(membersCall, value, true, context))
+                    return default;
+                if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out setLead, out target, out var setLeadNeed))
+                    (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
+                if (!setLead && interpreter.TryResolveProcedure(leadPart.GetText(), currentModule, out _, out var procedure)
+                    && procedure.IsFunction)
+                {
+                    target = (Vb6Value)(await expressionExecutor.EvaluateValue(leadPart))!;
+                    setLead = true;
+                }
+            }
+            else if (membersCall.iCS_S_ProcedureOrArrayCall() is { } indexedReceiver)
+            {
+                target = (Vb6Value)(await expressionExecutor.EvaluateProcedureOrArrayCall(indexedReceiver))!;
+                if (target.Value is VbUdt)
+                    throw new NotImplementedException("Set through this Type field is not implemented (#3924)");
+            }
+            else
+                target = WithTargetOrError(context);
             if (setLead && target.Value is VBListView or ListViewItem or ListViewTextObject
                 && membersCall.iCS_S_MemberCall().Length == 1
                 && !MemberHasArgs(membersCall.iCS_S_MemberCall()[0])
@@ -4101,7 +4160,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             }
             var chainMembers = membersCall.iCS_S_MemberCall();
-            if (!setLead && chainMembers.Length > 1
+            if (!setLead && leadPart is not null && chainMembers.Length > 1
                 && interpreter.TryResolveQualifier(leadPart.GetText(), out var qualifier)
                 && qualifier.Kind == BasicInterpreter.QualifierKind.Module)
             {

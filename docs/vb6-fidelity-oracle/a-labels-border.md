@@ -31,3 +31,41 @@ VB6's and the shades are the palette's. Window frame had no colour at all, so `v
 now Windows 10's `646464`. That is the Windows 10 measurement inside an otherwise Win98-era palette, whose window frame
 would be black, which is why black was the obvious guess.
 
+
+### A Label's BorderStyle at run time (2026-11-18, #4647, SP6)
+
+**The probe.** A form held Label1, saved with BorderStyle 0, and Label2, saved with 1. Its Form_Load ran under
+`On Error Resume Next`. Before each assignment, it set `Label1.BorderStyle = 0` and cleared Err. After it, it logged
+Err.Number and what Label1.BorderStyle read. p-code and native code logged the same lines. The run was in session 0, so
+nothing here was looked at on screen.
+
+| Statement | Err | Reads after |
+|---|---|---|
+| read `Label1.BorderStyle` | | TypeName Integer, VarType 2, 0 |
+| read `Label2.BorderStyle`, saved 1 | | 1 |
+| `= 1` | 0 | 1 |
+| `= 0` | 0 | 0 |
+| `= 2`, `= -1` | 380 | 0 |
+| `= 0.4`, `= 0.5` | 0 | 0 |
+| `= 0.6` | 0 | 1 |
+| `= 1.5`, `= 1.6` | 380 | 0 |
+| `= "1"` | 0 | 1 |
+| `= "x"` | 13 | 0 |
+| `= True` | 380 | 0 |
+| `= Empty` | 0 | 0 |
+| `= Null` | 94 | 0 |
+| `o.BorderStyle = 1`, with `o As Object` set to Label1 | 0 | 1 |
+| a Label from `Controls.Add("VB.Label", "lblAdded")`: read | 0 | 0 |
+| its `= 1` | 0 | 1 |
+| its `= 2` | 380 | 1, unchanged |
+
+- **The property is settable at run time,** early-bound, late-bound, and on an added Label.
+- **It takes 0 and 1 only, as an Integer rounded half to even.** 0.5 is 0 and 1.5 is 2, which is 380. `"1"` is
+  converted, and `"x"` is 13. True is -1, so 380. Empty is 0, and Null is 94.
+- **A refused value leaves the property as it was.**
+- **The same rounding as Alignment's,** on "A Label's Alignment at run time" (oracle PR #4613, #4604).
+
+**What VB6 drew.** #4604's probe set `lblAdded.BorderStyle = 1` on an added Label, and its screenshot showed the
+border. The border's pixels after a run-time change weren't compared with a saved Fixed Single's.
+
+**HexIDE's own reading, found with it:** `Label1.BorderStyle = 1` raised 461 in a running program (#4647).
