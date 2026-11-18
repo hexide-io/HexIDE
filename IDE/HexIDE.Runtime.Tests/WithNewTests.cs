@@ -1,3 +1,5 @@
+using HexIDE.Runtime.Interpreter;
+
 namespace HexIDE.Runtime.Tests;
 
 // Measured native and p-code logs: https://github.com/hexide-io/HexIDE/issues/4599;
@@ -28,6 +30,15 @@ public class WithNewTests : BaseVBTestFixture
             "Set keep = .Self\nEnd With\nDebug.Print \"\" & keep.X\nSet keep = Nothing\nEnd Sub\n",
             ("Class1", Class1));
         AssertDebugLog(["initialize", "0", "terminate"]);
+    }
+
+    [Fact]
+    public async Task WithNewForm_RefusesNamingTheUnmeasuredLifetime()
+    {
+        var interpreter = new BasicInterpreter(new MockStdLib(debug), context, rootEnv,
+            "Main\nSub Main()\nWith New Form2\nEnd With\nEnd Sub\n", formModules: [("Form2", "")]);
+        var run = () => interpreter.Execute();
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("With New Form2*#435*");
     }
 
     [Fact]

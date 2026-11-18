@@ -52,6 +52,34 @@ public class TipPlacementTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData(1.0)]
+    [InlineData(1.5)]
+    public void An_open_tip_on_native_Wayland_has_the_same_bounds(double scaling)
+    {
+        var button = new Button { Content = "Go" };
+        ToolTip.SetTip(button, "Add Form");
+        var window = PopupBoundsTests.NativePopupWindow(scaling);
+        window.Content = button;
+        window.Show();
+        try
+        {
+            ToolTip.SetIsOpen(button, true);
+            Dispatcher.UIThread.RunJobs();
+            var expected = UiAutomationDriver.OpenTipBounds(button, window);
+            expected.Should().NotBeNull();
+            NativeWayland.ForTest = _ => true;
+
+            UiAutomationDriver.OpenTipBounds(button, window).Should().Be(expected);
+        }
+        finally
+        {
+            NativeWayland.ForTest = null;
+            ToolTip.SetIsOpen(button, false);
+            window.Close();
+        }
+    }
+
     [Theory]
     [InlineData(104, 85, 100, 64, "its top-left 4 right of and 21 below the point hovered")]
     [InlineData(90.25, 40, 100, 64, "its top-left 9.8 left of and 24 above the point hovered")]

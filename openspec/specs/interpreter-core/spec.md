@@ -30,6 +30,28 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: A running form accepts Icon assignments
+
+A running form's default instance SHALL accept icon pictures or Nothing through Set or Let on Icon, bare or through Me or the form's name, without reading the picture's default Handle, following [#4603's SP6 measurements](https://github.com/hexide-io/HexIDE/issues/4603). Native handles and New instances remain outside this slice.
+
+#### Scenario: Assign an icon or a bitmap
+- **WHEN** a program assigns an icon picture to the form's Icon
+- **THEN** Icon returns the same picture, Type 3, and the window displays it, replacing any previous icon hook
+- **WHEN** it then assigns a bitmap picture
+- **THEN** trappable error 380, Invalid property value, leaves Icon unchanged
+
+#### Scenario: Empty pictures and Nothing clear the property differently on screen
+- **WHEN** a program assigns LoadPicture() to Icon
+- **THEN** Icon returns that empty picture, Type 0, and the window keeps its previous icon state
+- **WHEN** a program assigns Nothing to Icon
+- **THEN** Icon returns an empty Picture, Type 0, not Nothing, and the window takes the saved (None) state: Windows' generic icon on a sizable form and no caption icon on a Fixed Dialog
+- **AND** a subsequent LoadPicture() leaves that window state unchanged
+
+#### Scenario: Reads before assignment
+- **WHEN** a program reads Icon before assigning it
+- **THEN** the interpreter SHALL refuse it as not implemented
+
+
 ### Requirement: Measured 32-bit VBA7 integer support
 
 The runtime SHALL start projects targeting `VbaBitness.Bit32` with the Excel x86 behaviour recorded in
@@ -196,6 +218,24 @@ lookup rules below; ambiguous unmatched languages SHALL refuse as not implemente
 
 - **WHEN** the counted string for an ID has length zero
 - **THEN** the reader reports no string for that ID
+
+### Requirement: LoadPicture recognises measured file content and errors
+
+`LoadPicture` SHALL load BMP, ICO, JPEG and GIF content, independent of extension, following the
+[#4597 measurements](https://github.com/hexide-io/HexIDE/issues/4597). JPEG and GIF SHALL return Picture
+objects with Integer Type 1; the measured 20×10 images SHALL report Long Width 529 and Height 265 HiMetric.
+PNG, empty files and unknown content SHALL raise trappable 481, `Invalid picture`.
+Missing files in existing folders SHALL raise 53, missing folders 76 and directory paths 75, with descriptions
+`File not found: '<path>'`, `Path not found: '<path>'` and `Path/File access error: '<path>'` respectively.
+The description SHALL preserve the passed path; relative-path spelling remains unmeasured.
+Metafiles and file cursors SHALL refuse as unmeasured, and recognised but undecodable images and other I/O
+failures SHALL retain their not-implemented refusals. No-argument clearing and other argument refusals remain unchanged.
+
+#### Scenario: A program falls back after a picture error
+
+- **WHEN** a program calls LoadPicture on a PNG or a missing file, folder or directory path
+- **THEN** On Error Resume Next exposes the measured Err.Number and Err.Description
+- **AND** On Error GoTo reaches its handler so the program can use its fallback
 
 ### Requirement: Resource intrinsics read the project snapshot
 
@@ -474,7 +514,8 @@ by value will run such a program to completion while producing the wrong answer.
 The interpreter SHALL accept the intrinsic parameter names and required omissions measured in
 [#4145](https://github.com/hexide-io/HexIDE/issues/4145), placing arguments in parameter order and
 retaining positional values and optional defaults. Financial flags SHALL be named Due, arrays ValueArray,
-and pointer operands Ptr. ChrB execution SHALL remain refused; IRR and MIRR SHALL use the cash-flow models below.
+and pointer operands Ptr. ChrB SHALL accept the conversions and odd-byte String uses scoped by
+[#4576](https://github.com/hexide-io/HexIDE/issues/4576), refusing other uses with #1510; IRR and MIRR SHALL use the cash-flow models below.
 Wrong names SHALL raise "Named argument not found" and omitted required arguments "Argument not optional"
 as the statement runs. Named InStrB SHALL raise "Syntax error", named CallByName "Argument in ParamArray
 may not be named", and named IMEStatus "Wrong number of arguments or invalid property assignment".
@@ -1528,6 +1569,28 @@ as not implemented.
 - **WHEN** Print # or Write # receives CVErr(5)
 - **THEN** Print # writes "Error 5" and Write # writes "#ERROR 5#"
 - **AND** implicit string coercion still raises 13
+
+### Requirement: New on a form creates a separate instance
+
+Explicit `New Form2` SHALL create an instance distinct from the form's default instance, from any executing
+module. Its declarations and Initialize SHALL run inside that statement. Its own Public members and calls
+through an implemented interface SHALL leave it unloaded; controls and built-in members SHALL load it.
+A loaded instance SHALL be retained by Forms until Unload, and an unloaded instance SHALL terminate at
+its last reference's release, including statement temporaries. Forms SHALL receive the same interface
+conformance check as classes when constructed. Without a forms program, construction SHALL refuse with
+NotImplementedException naming #4598. These are #4598's measured VB6 SP6 rows, native and p-code agreeing;
+`As New Form2` remains outside this change.
+
+#### Scenario: A temporary instance does not become the default
+
+- **WHEN** a statement reads `TypeName(New Form2)`
+- **THEN** Initialize runs, TypeName is "Form2", and Terminate runs at statement end without loading it
+- **AND** a later read of the name Form2 creates its own default instance
+
+#### Scenario: Unload preserves a referenced instance
+
+- **WHEN** an instance created by New is loaded, unloaded and then used through a built-in member
+- **THEN** Load runs again without Initialize, and the instance rejoins Forms
 
 ### Requirement: Forms SHALL hold the program's loaded forms as VB6's does
 `Forms` SHALL be a program global, reached where nothing the program declares claims the name. It SHALL hold the loaded

@@ -156,7 +156,7 @@ internal static class SSTabMembers
 
     private static bool Boolean(Vb6Value value) => value.Value is bool b ? b
         : throw new NotImplementedException("SSTab Boolean conversion is not measured");
-    private static string Text(Vb6Value value) => value.Value is string s ? s
+    private static string Text(Vb6Value value) => value.WithoutOddBytes("SSTabMembers text use").Value is string s ? s
         : throw new NotImplementedException("SSTab text conversion is not measured");
 
     private static void RefuseUnimplemented(string name)

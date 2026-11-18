@@ -174,7 +174,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     internal async Task<Vb6Value?> CallBuiltIn(string name, List<Vb6Value> args, bool compareText)
     {
         if (name.Equals("CreateObject", StringComparison.OrdinalIgnoreCase) && args.Count == 1
-            && args[0].Value is string progId && progId.Contains('.') && LibraryClassFor(progId) is { } cls)
+            && args[0].WithoutOddBytes("CreateObject").Value is string progId && progId.Contains('.') && LibraryClassFor(progId) is { } cls)
             return NewLibraryObject(cls);
         if (Events is not { } events)
             return await BuiltIns.EvaluateBuiltInFunction(name, args, compareText);
@@ -188,6 +188,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     internal async Task<Vb6Value?> CallProxy(ICSharpProxy proxy, string name, List<Vb6Value> args)
     {
+        foreach (var arg in args) arg.RefuseOddBytes(name);
         if (proxy is VbErr && name.Equals("Raise", StringComparison.OrdinalIgnoreCase))
             for (var i = 0; i < Math.Min(3, args.Count); i++)
                 args[i] = await ResolveDefaultMember(args[i]);
@@ -428,6 +429,18 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             {
                 if (f.UdtTypeName is { } nestedType && Types.TryGetValue(nestedType, out var nestedDef))
                     fields[f.Name] = NewUdtArray(nestedDef, f.Bounds, f.Bounds is null, depth + 1);
+                else if (f.UdtTypeName is { } objectType && !Enums.ContainsKey(objectType)
+                    && (ProjectClassFor(objectType) is not null
+                        || objectType.Equals("Object", StringComparison.OrdinalIgnoreCase)
+                        || ExpressionExecutor.IsCollectionType(objectType)))
+                {
+                    var arrayType = new Vb6Value.ValueType(Vb6Value.ValueType.Object, true);
+                    fields[f.Name] = f.Bounds is null ? new Vb6Value(arrayType) : new Vb6Value(arrayType, f.Bounds);
+                    var array = (VBArray)fields[f.Name].Value!;
+                    array.IsDynamic = f.Bounds is null;
+                    array.DeclaredClass = ProjectClassFor(objectType)?.Name
+                        ?? (ExpressionExecutor.IsCollectionType(objectType) ? "Collection" : null);
+                }
                 else
                 {
                     var elementType = f.ScalarType ?? (f.UdtTypeName is { } enumType && Enums.ContainsKey(enumType)
@@ -552,7 +565,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         return CopyForStore(element, depth);
     }
 
-    /// <summary>Instantiate a class (<c>New ClassName</c>): build this instance's OWN field env by cloning the
+    /// <summary>Instantiate a class or form (<c>New ClassName</c>). A form gets its own window context (#4598).
+    /// For a class, build this instance's OWN field env by cloning the
     /// class template env (so the shared <c>Debug</c>/<c>Err</c>/global slots carry over) then re-running the
     /// class's top-level <c>Dim</c> declarations against it — each <c>Dim</c> allocates a FRESH slot, giving true
     /// per-instance field storage. Finally, if the class declares <c>Private Sub Class_Initialize()</c>, fire it
@@ -565,7 +579,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             throw new Debugging.ImmediateEvalException("Creating objects is not available in the Immediate window.");
         if (className.Equals("StdFont", StringComparison.OrdinalIgnoreCase) && !Modules.TryGet(className, out _))
             throw new NotImplementedException("New StdFont is not implemented: its initial member values are unmeasured (#934)");
-        if (!Modules.TryGet(className, out var classDef) || classDef.Kind != InterpreterModuleKind.Class || classDef.HostedControl)
+        if (!Modules.TryGet(className, out var classDef) || classDef.Kind is not (InterpreterModuleKind.Class or InterpreterModuleKind.Form) || classDef.HostedControl)
             throw new VBCompileErrorException("User-defined type not defined: " + className);
         // A class that claims an interface must supply all of it. VB6 refuses to BUILD such a program; with no
         // compile step to refuse at, the check runs here — once per class, before the first instance exists, so
@@ -574,6 +588,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             VbInterface.VerifyConformance(classDef, Modules);
             verifiedImplementers.Add(classDef.Name);
+        }
+        if (classDef.Kind == InterpreterModuleKind.Form)
+        {
+            if (Forms is null)
+                throw new NotImplementedException($"New {className} requires a forms program (#4598).");
+            return await Forms.MakeInstance(classDef);
         }
         var instanceEnv = classDef.ModuleEnv.Clone();
         foreach (var block in classDef.PrePass.topLevelBlocks)
@@ -749,6 +769,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (o.Statics is { } statics)
             foreach (var slot in statics.InSourceOrder())
                 await ReleaseRef(ExecutionContext.State[slot]);
+        if (o.ClassDef.Kind == InterpreterModuleKind.Form)
+            Forms?.Terminated(o);
     }
 
     // Class_Initialize / Class_Terminate are lifecycle HOOKS, not ordinary methods: their `Me` is not a counted
@@ -888,6 +910,48 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 Enums[en] = members;
             }
         }
+
+        // Library folds must not outrank project declarations collected by a later pre-pass (#4594).
+        foreach (var module in Modules.All)
+            foreach (var read in module.PrePass.EnumLibraryNames)
+            {
+                NotImplementedException Unsupported() => new(
+                    $"Enum {read.Enum}, member '{read.Member}': project name '{read.Name}' is not implemented (#4614)");
+                if (read.Qualified)
+                {
+                    var lead = read.Name.Split('.')[0];
+                    if (Modules.All.Any(m => m.Kind == InterpreterModuleKind.Standard
+                            && m.Name.Equals(lead, StringComparison.OrdinalIgnoreCase)
+                            || m.PrePass.Enums.ContainsKey(lead)))
+                        throw Unsupported();
+                    if (read.Refusal is { } qualifiedRefusal) throw qualifiedRefusal;
+                    continue;
+                }
+                foreach (var other in Modules.All)
+                {
+                    var own = ReferenceEquals(module, other);
+                    var kind = other.PrePass.ModuleName(read.Name);
+                    if (own && kind == PrePass.ModuleNameKind.Variable
+                        || !own && other.Kind == InterpreterModuleKind.Standard && other.PrePass.PublicVariables.Contains(read.Name))
+                        throw new VBCompileErrorException("Constant expression required");
+                    if (other.PrePass.ModuleConsts.TryGetValue(read.Name, out var constant)
+                        && (own || other.Kind == InterpreterModuleKind.Standard && constant.Public))
+                    {
+                        if (own && constant.Declaration.Start.TokenIndex >= module.PrePass.EnumDeclaredAt[read.Enum])
+                            throw new VBCompileErrorException("Constant expression required");
+                        throw Unsupported();
+                    }
+                    if (own && kind is not null)
+                        throw Unsupported();
+                    if (!own && other.Kind == InterpreterModuleKind.Standard
+                        && other.PrePass.HasOtherModuleName(read.Name))
+                        throw Unsupported();
+                    foreach (var (name, members) in other.PrePass.Enums)
+                        if (!other.PrePass.PrivateEnums.Contains(name) && members.ContainsKey(read.Name))
+                            throw Unsupported();
+                }
+                if (read.Refusal is { } refusal) throw refusal;
+            }
 
         // Seed the program-global Debug and Err objects into EVERY module env, each at a SINGLE shared slot
         // (never a per-env alloc, which would mint N distinct objects). Sharing the slot also removes the old
@@ -1470,7 +1534,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         if (form.Kind != InterpreterModuleKind.Form)
             throw new ArgumentException($"{form.Name} is not a form module", nameof(form));
-        var instance = new VbObject(form, form.ModuleEnv.Clone()) { Interpreter = this };
+        var instance = NewUnboundFormInstance(form);
         var reference = Vb6Value.NewObject(instance);
         SeedProgramGlobal(form.Name, () => reference);
         if (form.ModuleEnv.TryGetVariableLocation(form.Name, out var slot))
@@ -1478,6 +1542,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         AddRef(reference);
         return instance;
     }
+
+    internal VbObject NewUnboundFormInstance(ModuleInfo form) =>
+        new(form, form.ModuleEnv.Clone()) { Interpreter = this };
 
     /// <summary>
     /// Run a form instance's module-level declarations into its own env, as <see cref="NewObject"/> does for a class.
@@ -2153,6 +2220,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private async Task BindParameters(ProcedureInfo proc, IReadOnlyList<CallArg> args, ExecutionEnvironment callee, ModuleInfo owner,
         List<int> ownedSlots, List<int> refSlots, List<(int Slot, IByRefTarget Target)> fixedStringCopies)
     {
+        foreach (var arg in args) arg.Value.RefuseOddBytes("Argument to " + proc.Name);
         for (int i = 0; i < proc.Parameters.Count; i++)
         {
             var p = proc.Parameters[i];
@@ -2231,6 +2299,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     var passed = p.DeclaredType is { } declared && VbNumeric.IsDeclarableScalar(declared)
                         ? ObjectAsValue.Scalar(await ResolveDefaultMember(arg.Value), proc.Body as Antlr4.Runtime.ParserRuleContext)
                         : arg.Value;
+                    passed.RefuseOddBytes("Argument to " + proc.Name);
                     // Converted as a store into a variable of the type converts, before the procedure runs, so a value
                     // that will not convert raises in the caller (measured, #874: `B "abc"` with `ByVal x As Boolean` is
                     // 13 at the call, `S 5` with `ByVal x As String` is "5", `D "1/2/2000"` As Date is that date, and

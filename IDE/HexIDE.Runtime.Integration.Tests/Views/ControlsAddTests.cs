@@ -6,6 +6,8 @@ using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.Media;
+using Avalonia.VisualTree;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
@@ -25,6 +27,54 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 /// by how many the counts differ.</remarks>
 public class ControlsAddTests
 {
+    // Alignment measurements: https://github.com/hexide-io/HexIDE/issues/4604 (oracle PR #4613).
+    [AvaloniaFact]
+    public void Added_Label_alignment_reads_and_writes_through_With()
+    {
+        var (values, errors) = Run("""
+            Dim lblAdded As Object
+            Set lblAdded = Controls.Add("VB.Label", "lblAdded")
+            lblAdded.Alignment = 2
+            Debug.Print lblAdded.Alignment
+            With lblAdded
+                .Alignment = 0
+                Debug.Print .Alignment
+            End With
+            """, "");
+
+        errors.Should().BeEmpty();
+        values.Select(v => v.Trim()).Should().Equal("2", "0");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(2, 2, TextAlignment.Center, TextAlignment.Center)]
+    [InlineData(1, 0, TextAlignment.Right, TextAlignment.Left)]
+    public void Runtime_alignment_moves_the_placed_and_added_captions(
+        int placed, int added, TextAlignment placedText, TextAlignment addedText)
+    {
+        var (values, errors) = Run($"""
+            Dim lblAdded As Object
+            Set lblAdded = Controls.Add("VB.Label", "lblAdded")
+            lblAdded.Caption = "Added caption"
+            lblAdded.Visible = True
+            Label1.Alignment = 2
+            lblAdded.Alignment = 2
+            Label1.Alignment = {placed}
+            lblAdded.Alignment = {added}
+            """, "", Designer.Replace("Begin VB.TextBox Text1", "Begin VB.Label Label1"),
+            inspect: window =>
+            {
+                TextBlock Caption(string name) => window.GetVisualDescendants().OfType<VBLabel>()
+                    .Single(label => VBProps.GetName(label) == name)
+                    .GetVisualDescendants().OfType<TextBlock>().Single();
+                Caption("Label1").TextAlignment.Should().Be(placedText);
+                Caption("lblAdded").TextAlignment.Should().Be(addedText);
+            });
+
+        errors.Should().BeEmpty();
+        values.Should().BeEmpty();
+    }
+
     // Defaults measured in the oracle mousepointers-names-and-pointers.md (#1970).
     [AvaloniaTheory]
     [InlineData("CommandButton")]

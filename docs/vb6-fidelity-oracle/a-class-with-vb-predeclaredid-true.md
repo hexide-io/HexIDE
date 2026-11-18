@@ -23,6 +23,9 @@ End Sub
 - `TypeName(Class1)` is `Class1`. `New Class1` makes a separate instance, with its own `Value`.
 - `Set Class1 = Nothing` terminates the default instance. **The next use makes a new one:** even `Class1 Is Nothing` does, so it answers False, after a second `Initialize`, and `Value` is 0 again.
 - The instance lives until the program ends: its `Terminate` logs after Main's last line.
+- **While its `Class_Initialize` runs, the default instance is already the class's name,** so `Me Is Class1` is True
+  there and nothing recurses. See [an auto-made object is in its slot while its Class_Initialize runs](an-auto-made-object-is-in-its-slot-during-class-initialize.md#an-auto-made-object-is-in-its-slot-while-its-class_initialize-runs-2026-11-18-4605-sp6)
+  (2026-11-18, #4605).
 - In the log, the two `Terminate`s after "default 5, new 7" are `c`'s, at `Set c = Nothing`, and then the default instance's, at `Set Class1 = Nothing`.
 
 ```

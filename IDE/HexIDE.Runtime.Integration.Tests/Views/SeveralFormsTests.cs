@@ -184,6 +184,144 @@ public class SeveralFormsTests
             Dispatcher.UIThread.RunJobs();
     }
 
+    // VB6 SP6, native and p-code: #4598's measured rows (oracle PR #4613).
+    [AvaloniaFact]
+    public void New_form_is_distinct_from_its_default_and_naming_the_default_initializes_it_separately()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Dim f As Form2
+                Debug.Print TypeName(f)
+                Set f = New Form2
+                Debug.Print TypeName(f)
+                Debug.Print f Is Form2
+            End Sub
+            """);
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Nothing", "f2 initialize", "Form2", "f2 initialize", "False", "f2 terminate");
+        run.Opened.Should().NotContainKey("Form2");
+    }
+
+    [AvaloniaFact]
+    public void A_temporary_New_form_terminates_at_statement_end_without_loading_or_showing()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Debug.Print TypeName(New Form2)
+                Debug.Print "after " & Forms.Count
+            End Sub
+            """);
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "Form2", "f2 terminate", "after 1");
+        run.Opened.Should().NotContainKey("Form2");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("f.Tag = \"one\"", true, false)]
+    [InlineData("Load f", true, false)]
+    [InlineData("f.Show", true, true)]
+    [InlineData("Debug.Print f.Label1.Caption", true, false)]
+    [InlineData("f.Foo", false, false)]
+    public void A_New_forms_controls_and_built_in_members_load_it_but_its_own_members_do_not(
+        string use, bool loaded, bool shown)
+    {
+        using var run = Start($$"""
+            Private Sub Command1_Click()
+                Dim f As Form2
+                Set f = New Form2
+                Debug.Print "new " & Forms.Count
+                {{use}}
+                Debug.Print "used " & Forms.Count
+                If Forms.Count > 1 Then Debug.Print f.Visible
+            End Sub
+            """);
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        var expected = new List<string> { "f2 initialize", "new 1" };
+        if (loaded) expected.Add("f2 load");
+        if (use == "f.Foo") expected.Add("f2 foo");
+        if (use.Contains("Label1")) expected.Add("label");
+        expected.Add(loaded ? "used 2" : "used 1");
+        expected.Add(loaded ? shown.ToString() : "f2 terminate");
+        run.Printed.Should().Equal(expected);
+        run.Opened.ContainsKey("Form2").Should().Be(shown);
+        if (shown) run.Opened["Form2"].IsVisible.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void Unload_keeps_a_New_forms_identity_and_reloading_does_not_initialize_again()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Dim f As Form2
+                Set f = New Form2
+                f.Tag = "one"
+                Unload f
+                Debug.Print "unloaded " & Forms.Count
+                f.Foo
+                Dim tag As String
+                tag = f.Tag
+                Debug.Print "reloaded " & Forms.Count
+                Unload f
+                Set f = Nothing
+                Debug.Print "released " & Forms.Count
+            End Sub
+            """);
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "f2 queryunload 1", "f2 unload", "unloaded 1",
+            "f2 foo", "f2 load", "reloaded 2", "f2 queryunload 1", "f2 unload", "f2 terminate", "released 1");
+    }
+
+    [AvaloniaFact]
+    public void Setting_a_shown_New_form_to_Nothing_leaves_it_loaded_and_shown()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Dim k As Form2
+                Set k = New Form2
+                k.Show
+                Set k = Nothing
+                Debug.Print Forms.Count
+            End Sub
+            """);
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", " 2 ");
+        run.Opened["Form2"].IsVisible.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void An_Object_reference_to_a_New_form_can_call_its_own_member_without_loading()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Dim o As Object
+                Set o = New Form2
+                Debug.Print TypeName(o)
+                o.Foo
+                Debug.Print Forms.Count
+            End Sub
+            """);
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "Form2", "f2 foo", " 1 ", "f2 terminate");
+    }
+
     // ── Which use makes the instance, and which loads it ──────────────────────────────────────────────
 
     [AvaloniaTheory]

@@ -144,6 +144,7 @@ public partial class VB6BuiltIns
         VTP.Currency          => ("Currency", 6),
         VTP.Decimal           => ("Decimal", 14),
         VTP.Date              => ("Date", 7),
+        VTP.OddByteString     => ("String", 8),
         VTP.String            => ("String", 8),
         VTP.Boolean           => ("Boolean", 11),
         VTP.Null              => ("Null", 1),
@@ -173,7 +174,7 @@ public partial class VB6BuiltIns
         }
         if (v.Type == VT.EmptyVariant || v.Type == VT.Color) return true;
         if (v.Type == VT.Date) return false;
-        if (v.Value is string s) return IsNumericString(s);
+        if (v.WithoutOddBytes("VB6BuiltIns.Inspection text use").Value is string s) return IsNumericString(s);
         return false;
     }
 
@@ -217,7 +218,7 @@ public partial class VB6BuiltIns
     private static bool IsDateValue(Vb6Value v)
     {
         if (v.Type == VT.Date) return true;
-        if (v.Value is string s)
+        if (v.WithoutOddBytes("VB6BuiltIns.Inspection text use").Value is string s)
             return TryReadDate(s, out _);
         return false;
     }

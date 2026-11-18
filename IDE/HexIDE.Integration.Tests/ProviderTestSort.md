@@ -63,6 +63,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/CommonDialogTests.cs` | split |
 | `Views/ComponentsViewTests.cs` | split |
 | `Views/ContainerRuntimeHarness.cs` | provider |
+| `Views/ContinueActivationTests.cs` | split |
 | `Views/ControlNameClashTests.cs` | split |
 | `Views/DebuggerLinesAreFileLinesTests.cs` | split |
 | `Views/DesignerClientSizeTests.cs` | split |

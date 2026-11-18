@@ -58,6 +58,18 @@ public sealed class WatchedFilesForeignTests
             var wire = capture.Snapshot("ruff-watch");
             wire.Should().Contain(e => e.Method == "client/registerCapability");
             wire.Should().Contain(e => e.Method == "workspace/didChangeWatchedFiles");
+            // #3650: an edit of a file that existed before the watch reaches the server as Changed (2) on every platform.
+            // macOS reports such an edit Changed and then Created, which went out as Created until #3650. Read the bytes
+            // that were sent, not what the client meant to send.
+            var types = wire.Where(e => e.Method == "workspace/didChangeWatchedFiles" && e.Direction == ConversationDirection.Sent)
+                .Select(e => capture.Body("ruff-watch", e.Sequence))
+                .Where(b => b is { IsTruncated: false })
+                .SelectMany(b => System.Text.Json.JsonDocument.Parse(b!.Head).RootElement
+                    .GetProperty("params").GetProperty("changes").EnumerateArray()
+                    .Where(c => c.GetProperty("uri").GetString()!.EndsWith("/pyproject.toml", StringComparison.Ordinal))
+                    .Select(c => c.GetProperty("type").GetInt32()).ToArray())
+                .ToArray();
+            types.Should().NotBeEmpty("the edit of pyproject.toml should be on the wire").And.OnlyContain(t => t == 2);
         }
         finally
         {

@@ -67,5 +67,86 @@ Measured with `scripts/vb6-oracle.ps1 -Classes`, plus the same script with `Comp
 Every row raised nothing. These are ordinary VB6, so none was in doubt. They are recorded because HexIDE failed
 each one when this page was written (450, 461, 91, 13, and a refusal), and the issues pin these values.
 
-What a ByRef interface parameter does when its argument isn't a variable, and a parameterized default member reached
-through a Property Get that takes arguments of its own, are unmeasured.
+## Measured by hexide-int: interface views, a bare Function, and LSet on a member (#4601, #4624, #4626)
+
+Measured by hexide-int the same day, on the same `vb6.exe` with `/make`, native and p-code agreeing on every row. The
+classes:
+- **`IHas`:** `Property Get/Set P As Object` and `Q As String`.
+- **`Impl`:** `Implements IHas`, its `Q` returning `"q"`.
+- **`Holder`:** `Property Get Thing() As IHas`, returning an `Impl`.
+- **`Box`:** `Property Get/Set O As Object` and `Public S As String`.
+- **In the module:**
+  - `Function GetIt() As IHas` returns `New Impl`;
+  - `AskRef(x As IHas)`, ByRef, and `AskOpt(Optional ByVal x As IHas)` each return `x.Q`;
+  - `Function GetC() As Collection`.
+- **The variables:** `i` is `As IHas`, and `c` is `As Impl`; each holds an `Impl`. `b` is a `Box`.
+
+| Program | VB6 |
+|---|---|
+| `GetIt().Q` | `q` |
+| `GetIt.Q`, the Function called bare at the head of the chain | `q` |
+| `h.Thing.Q`, through the Property Get | `q` |
+| `TypeName(GetIt)` | `Impl` |
+| `AskOpt(i)` | `q` |
+| `AskRef((i))`, a parenthesised argument to the ByRef parameter | **438** "Object doesn't support this property or method" |
+| `AskRef((c))` | **438** |
+| `GetC.Count`, and `GetC().Count` | 1, and 1 |
+| `With b` / `Set .O = New Collection`, then `TypeName(b.O)`; then `Set .O = Nothing` | `Collection`; then `Nothing` |
+| `With b` / `LSet .S = "ab"`; `LSet b.S = "ab"`; `With b` / `RSet .S = "ab"` | each the compile error "Variable required - can't assign to this expression" |
+
+**What this overturned.** #4601 suggested that an argument which isn't a variable, so is copied, should take the
+parameter's interface view, as a ByVal parameter does. It doesn't. A parenthesised argument to a ByRef interface
+parameter loses the view, and `x.Q` is 438. Giving that copy the view would answer `q`, a wrong value.
+
+**In HexIDE,** at `23a38af17`:
+- `GetIt().Q` and `h.Thing.Q` were the compile error "Method or data member not found (Q)" (#4601).
+- `GetIt.Q` and `GetC.Count` were 424 "Object required": a Function called bare at the head of a chain wasn't
+  called (#4624).
+- `LSet .S` and `RSet .S` parsed as a Let on a variable named `LSet` (#4626).
+
+## Measured by hexide-int: a default member that takes arguments (#4606)
+
+Measured the same way, native and p-code agreeing on every row. The classes, each in its own module:
+- **`Bag`:** over a `Private store As New Collection`.
+  - Its default member is `Property Get Item(ByVal k As Variant) As Variant` (`Attribute Item.VB_UserMemId = 0`),
+    with a `Property Let Item(ByVal k, ByVal v)` beside it.
+  - It also has `Property Get Self() As Bag`.
+- **`FBag`:** a default `Function Item(ByVal k As Variant) As Variant`, returning `"f" & k`.
+- **`TBag`:** a default `Property Get Item(ByVal a As Long, ByVal b As Long) As Long`, returning `a * 10 + b`.
+- **`Holder`:** a `Private names As Bag` field.
+  - `Init` sets it to a new `Bag`.
+  - `PutIt` does `names(k) = v`, and `GetIt` returns `names(k)`.
+  - `Property Get State() As Bag` returns `names`. It takes no parameters, and has no Let.
+- **In the module:** `Function MakeBag() As Bag` returns a new `Bag` after `MakeBag.Item("x") = "m"`.
+- **`b`** is a `Dim b As New Bag`, as in the table above.
+
+| Program | VB6 |
+|---|---|
+| `Dim v As Variant` / `Set v = New Bag` / `v("x") = "v"` / `v("x")` | `v` |
+| `Dim o As Object` / `Set o = New Bag` / `o("x") = "o"` / `o("x")` | `o` |
+| `Dim n As Bag`, Nothing: `n("x")` | **91** |
+| `Dim n As Bag`, Nothing: `n("x") = "n"` | **91** |
+| `h.Init` / `h.PutIt "k", "hv"` / `h.GetIt("k")`: a class field, Let and read | `hv` |
+| then `h.State("k")`, through the parameterless Get | `hv` |
+| `h.Init` / `h.State("k2") = "w"` / `h.GetIt("k2")`: a Let through the Get-only `State` | `w` |
+| `Dim f As New FBag` / `f("q")`, a Function default member | `fq` |
+| `Dim t As New TBag` / `t(1, 2)`, two arguments | `12` |
+| `b("x") = "bv"` / `s = b("x") & "!"`, with `s As String` | `bv!` |
+| `MakeBag()("x")` | `m` |
+| `MakeBag("x")`: a Function with no parameters and a class result, given an argument | `m` |
+| `TypeName(v("x")) & " " & TypeName(b("x"))` | `String String` |
+| `Dim arr(1 To 2) As Bag` / `Set arr(1) = New Bag` / `arr(1)("x") = "a"` / `arr(1)("x")` | `a` |
+| then `arr(1).Item("x")` | `a` |
+
+So arguments given to an object go to its default member, read or Let. That holds whatever holds the object: a
+variable of the class, a Variant or `As Object`, a class field, a Function's result, an array element, or a
+parameterless Property Get. A Let through that Get works even though it has no Property Let, because the Let goes to
+the object the Get returns. Nothing raises 91 either way.
+
+**In HexIDE,** at `23a38af17`, every row above failed (#4606). For example, `v("x") = "v"` was 13, `f("q")` the
+compile error "Sub or Function not defined", and `MakeBag()("x")` a refusal naming #174.
+
+**Still unmeasured:**
+- a Variant or `As Object` holding Nothing, given arguments;
+- the order in which a Let's arguments and value are evaluated, for an object;
+- a default member reached through a Property Get that takes arguments of its own.

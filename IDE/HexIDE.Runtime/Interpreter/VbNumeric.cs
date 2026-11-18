@@ -100,6 +100,7 @@ public static class VbNumeric
     /// </summary>
     private static Vb6Value ReadString(Vb6Value v, ParserRuleContext? ctx)
     {
+        v.RefuseOddBytes("Arithmetic");
         if (v.Type != VT.String)
             return v;
         try
@@ -313,6 +314,7 @@ public static class VbNumeric
     /// and range-checks (out of range -> Overflow). A non-core-numeric target is left unchanged (a later phase).</summary>
     public static Vb6Value Narrow(Vb6Value v, VT target, ParserRuleContext? ctx)
     {
+        v.RefuseOddBytes("Numeric conversion");
         if (v.Type == VT.AutomationUnsignedLong)
             return ConvertAutomationUnsignedLong(v, target);
         if (v.Type == target)
@@ -365,6 +367,8 @@ public static class VbNumeric
     // A late-bound CommonDialog Color write retains its unmeasured UInt refusal, including default members (#4513).
     internal static Vb6Value CoerceOnStore(Vb6Value v, VT target, ParserRuleContext? ctx, bool allowAutomationUnsignedLong)
     {
+        if (v.IsOddByteString)
+            return target == VT.String ? v : throw Vb6Value.OddBytesNotImplemented($"Assignment to {target}");
         if (v.Type == VT.Error && (target == VT.Long || target == VT.String))
             throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
         if (v.Type == VT.Error)
@@ -389,7 +393,11 @@ public static class VbNumeric
         if (v.IsNull)
             throw new VBRunTimeException(ctx, VBStandardError.InvalidUseOfNull);
         if (target == VT.String)
+        {
+            if (v.Value is VBArray { ElementType: var element } && element == VT.Byte)
+                throw new NotImplementedException("Byte-array-to-String assignment is not implemented (#1510).");
             return new Vb6Value(VbDisplay.ToText(v));
+        }
         if (target == VT.Boolean)
             return VB6BuiltIns.CBool(v);
         // A String into a Date is read as CDate reads it, a date first and then a serial (measured, #967). ToNum read the

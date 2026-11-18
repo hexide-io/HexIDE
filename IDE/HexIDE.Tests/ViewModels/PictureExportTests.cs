@@ -25,6 +25,20 @@ public class PictureExportTests
             windows, Substitute.For<ILocalizationService>()), property, bytes);
 
     [Theory]
+    [InlineData("FFD8FF", "jpg")]
+    [InlineData("474946383761", "gif")]
+    [InlineData("474946383961", "gif")]
+    public async Task JpegAndGifExportUseTheirContentExtension(string signature, string extension)
+    {
+        var windows = Substitute.For<IWindowManager>();
+        windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns((string?)null);
+        var row = Row(windows, VBProperties.PictureProperty, Record(Convert.FromHexString(signature)));
+        await row.ExportPictureCommand.ExecuteAsync(null);
+        await windows.Received(1).SaveFilePickerAsync(Arg.Is<FilePickerSaveOptions>(options =>
+            options.DefaultExtension == extension && options.SuggestedFileName == "Picture." + extension));
+    }
+
+    [Theory]
     [InlineData("Picture")]
     [InlineData("Icon")]
     [InlineData("MouseIcon")]

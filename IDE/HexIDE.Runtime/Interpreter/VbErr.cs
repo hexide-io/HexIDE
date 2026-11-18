@@ -143,13 +143,13 @@ public class VbErr(Func<string>? projectName = null) : ICSharpProxy, ICSharpProp
     }
 
     private static string HelpFileValue(Vb6Value value) => value.Type == Vb6Value.ValueType.String
-        ? (string)value.Value!
+        ? (string)value.WithoutOddBytes("VbErr text use").Value!
         : throw new NotImplementedException("Err.HelpFile assignment conversion is not measured (#2527)");
 
     private static long HelpContextValue(Vb6Value value)
     {
         if (value.Type == Vb6Value.ValueType.String
-            && int.TryParse((string)value.Value!, NumberStyles.Integer, VbLocale.Current, out var parsed))
+            && int.TryParse((string)value.WithoutOddBytes("VbErr text use").Value!, NumberStyles.Integer, VbLocale.Current, out var parsed))
             return parsed;
         if ((value.Type == Vb6Value.ValueType.Integer || value.Type == Vb6Value.ValueType.Long
              || value.Type == Vb6Value.ValueType.Byte || value.Type == Vb6Value.ValueType.Single

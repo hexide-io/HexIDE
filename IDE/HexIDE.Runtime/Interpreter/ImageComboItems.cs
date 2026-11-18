@@ -23,7 +23,7 @@ internal sealed class ImageComboItems : ICSharpAsyncProxy, ICSharpPropertyBag, I
         return Convert.ToInt32(value.Value);
     }
 
-    internal static string Text(Vb6Value value) => value.Type == Vb6Value.ValueType.String ? (string)value.Value! : throw Unmeasured();
+    internal static string Text(Vb6Value value) => value.WithoutOddBytes("ImageComboItems text use").Type == Vb6Value.ValueType.String ? (string)value.Value! : throw Unmeasured();
 
     private int Position(Vb6Value index)
     {
