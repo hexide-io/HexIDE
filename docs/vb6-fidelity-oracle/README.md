@@ -814,3 +814,4 @@ added afterwards.
 - [Default and Cancel buttons (2026-11-17, #4371)](default-and-cancel-buttons.md#default-and-cancel-buttons-2026-11-17-4371)
 - [What the IDE asks before replacing or dropping a file (2026-11-17, #2504, design-time, IDE, SP6)](what-the-ide-asks-before-replacing-or-dropping-a-file.md#what-the-ide-asks-before-replacing-or-dropping-a-file-2026-11-17-2504)
 - [App.Path and App.EXEName under F5, and in the made exe (2026-11-17, #4504, SP6)](app-path-and-exename-under-f5-and-in-the-made-exe.md#apppath-and-appexename-under-f5-and-in-the-made-exe-2026-11-17-4504)
+- [The CommonDialog: Color, HelpContext and Action conversions, control arrays and containers (2026-11-17, #4148, SP6)](in-box-controls-the-commondialog.md#color-helpcontext-and-action-conversions-control-arrays-and-containers-2026-11-17-4148)
