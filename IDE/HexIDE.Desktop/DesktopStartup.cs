@@ -67,7 +67,7 @@ internal static class DesktopStartup
             // The registry also guards loading in recovery sessions.
             var loader = setup.AddinLoader;
             loader.LoadAll(setup.HexIdeHost);
-            desktop.ShutdownRequested += (_, _) => loader.Dispose();
+            DisposeOnShutdown(desktop, loader);
 
             startupProject.Attach(desktop.MainWindow!, setup.ContributedProjects, loader.PromptPendingConsentAsync);
 
@@ -136,6 +136,16 @@ internal static class DesktopStartup
                 cts.Cancel();
             };
 #endif
+        };
+    }
+
+    internal static void DisposeOnShutdown(IClassicDesktopStyleApplicationLifetime desktop, IAddinLoader loader)
+    {
+        // App's handlers run first: this hook is invoked at the end of OnFrameworkInitializationCompleted.
+        // Keep this on ShutdownRequested so disposal precedes closing any consent dialog (#547).
+        desktop.ShutdownRequested += (_, e) =>
+        {
+            if (!e.Cancel) loader.Dispose();
         };
     }
 }
