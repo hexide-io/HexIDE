@@ -167,7 +167,9 @@ statement. The classes, each in its own module:
 - **`CVS`:** the same, holding 7;
 - **`CG`:** a default `Property Get Value(ByVal i As Long)`, returning `i * 10`, with no Let;
 - **`CF`:** a default `Function Value(ByVal i As Long)`, returning `i * 10`;
-- **`CG2`** and **`CF2`:** as `CG` and `CF`, but each logs `Get <i>` or `Function <i>` first.
+- **`CG2`** and **`CF2`:** as `CG` and `CF`, but each logs `Get <i>` or `Function <i>` first;
+- **`CVE`:** a default `Public Value As Variant` that is never set;
+- **`CVT`:** a default `Public Value As Long`, set to 7.
 
 | Class | Statement | Early-bound | Late-bound |
 |---|---|---|---|
@@ -182,6 +184,10 @@ statement. The classes, each in its own module:
 | `CV` | `x = e.Value(1)` | 20 (see below) | 451 |
 | `CVS` | `x = e(1)` | 13 | 451 |
 | `CVS` | `e(1) = 5` | 13 | 451 |
+| `CVE` | `x = e(1)` | 13 | 451 |
+| `CVE` | `e(1) = 5` | 13 | not measured |
+| `CVT` | `x = e(1)` | compile error "Wrong number of arguments or invalid property assignment" | 451 |
+| `CVT` | `e(1) = 5` | compile error "Can't assign to read-only property" | 451 |
 | `CG` | `e(1) = 5` | 424 | 451 |
 | `CF` | `e(1) = 5` | 424 | 451 |
 | `CG2` | `e(1) = 5` | logs `Get 1`, then 424 | logs `Get 1`, then 451 |
@@ -193,8 +199,11 @@ statement. The classes, each in its own module:
 
 **Readings:**
 - **No default member is 438 both ways,** read or assigned.
-- **Early-bound, a default variable is indexed as its value.** An array gives its element, and an index past its
-  bounds is 9. A scalar is 13. An assignment indexes a copy: no error, and the array is unchanged.
+- **Early-bound, a default Variant is indexed as its value.** An array gives its element, and an index past its
+  bounds is 9. A scalar or Empty is 13. An assignment indexes a copy: no error, and the array is unchanged.
+- **Early-bound, a typed default field doesn't compile with arguments,** and the two compile errors differ: a read
+  is "Wrong number of arguments or invalid property assignment", an assignment "Can't assign to read-only
+  property".
 - **A Let through a Get or Function with no Let calls it with the arguments first,** then needs an object from it. A
   number is 424 early-bound and 451 late-bound. That is the same route as `h.State("k2") = "w"` above, where the Get
   did return an object.
