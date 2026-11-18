@@ -270,8 +270,6 @@ public static class UiAutomationDriver
                 rect = new Rect(RawPointer.InWindow(source, rect.Position), rect.Size);
                 if (!ReferenceEquals(source, window))
                 {
-                    if (NativeWayland.Hosts(source))
-                        return (null, $"The control is in a popup, and {NativeWayland.NoPopupPlace}, so boundingRect is unavailable.");
                     var origin = window.PointToClient(source.PointToScreen(rect.Position));
                     var scale = source.RenderScaling / window.RenderScaling;
                     rect = new Rect(origin, new Size(rect.Width * scale, rect.Height * scale));
@@ -4590,7 +4588,7 @@ public static class UiAutomationDriver
     {
         if (ToolTipInstanceProperty is null || !ToolTip.GetIsOpen(owner)
             || owner.GetValue(ToolTipInstanceProperty) is not ToolTip { IsEffectivelyVisible: true } tip
-            || TopLevel.GetTopLevel(tip) is not { } top || NativeWayland.Hosts(top))
+            || TopLevel.GetTopLevel(tip) is null)
             return null;
         return Safe<Rect?>(() => new Rect(window.PointToClient(tip.PointToScreen(default)), tip.Bounds.Size), null);
     }
