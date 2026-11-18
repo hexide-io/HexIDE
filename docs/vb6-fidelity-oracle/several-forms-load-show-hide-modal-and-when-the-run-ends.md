@@ -61,6 +61,9 @@ Form2's own timer reports on Form1, then unloads (6a) or hides (6b) Form2 at its
 
   Both runs were in session 0. So a modal form lets other events run in either build, and a MsgBox holds them, but
   only in the IDE.
+  **Re-run on the console (2026-11-18, #4768): the same.** A 100 ms Timer on the form that called `MsgBox` didn't
+  tick while the box was up in the IDE (`/runexit`). Compiled, it had ticked 47 times (p-code) and 46 (native) by the
+  time a box closed after about 5 s returned. The probe logged its session id, 1.
 - **Form1 is disabled while Form2 is modal.** On the console, `Form1.Enabled` reads False and so does
   `IsWindowEnabled(Form1.hWnd)`, and both read True again once the modal form has gone. In session 0 both read True
   throughout, the one place that session misled.
