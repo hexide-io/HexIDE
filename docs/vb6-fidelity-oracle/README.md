@@ -816,3 +816,5 @@ added afterwards.
 - [What the IDE asks before replacing or dropping a file (2026-11-17, #2504, design-time, IDE, SP6)](what-the-ide-asks-before-replacing-or-dropping-a-file.md#what-the-ide-asks-before-replacing-or-dropping-a-file-2026-11-17-2504)
 - [App.Path and App.EXEName under F5, and in the made exe (2026-11-17, #4504, SP6)](app-path-and-exename-under-f5-and-in-the-made-exe.md#apppath-and-appexename-under-f5-and-in-the-made-exe-2026-11-17-4504)
 - [The CommonDialog: Color, HelpContext and Action conversions, control arrays and containers (2026-11-17, #4148, SP6)](in-box-controls-the-commondialog.md#color-helpcontext-and-action-conversions-control-arrays-and-containers-2026-11-17-4148)
+- [The coordinate system: ScaleMode, Scale, ScaleX and ScaleY (2026-11-18, #990, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#the-coordinate-system-scalemode-scale-scalex-and-scaley-2026-11-18-990-sp6)
+- [The drawing methods: Line, PSet, Circle, Cls and Point (2026-11-18, #988, SP6)](the-drawing-methods-line-pset-circle-cls-and-point.md#the-drawing-methods-line-pset-circle-cls-and-point-2026-11-18-988-sp6)
