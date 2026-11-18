@@ -15,8 +15,8 @@ public class WithTests : BaseVBTestFixture
     public async Task With_ResolvesLeadingDotMethodCall()
     {
         await RunClasses(
-            "Dim c As Writer\nSet c = New Writer\nWith c\n.Write 1\n.Write 2\nEnd With\n",
-            ("Writer", "Public Sub Write(n As Integer)\nDebug.Print n\nEnd Sub\n"));
+            "Dim c As Writer\nSet c = New Writer\nWith c\n.Emit 1\n.Emit 2\nEnd With\n",
+            ("Writer", "Public Sub Emit(n As Integer)\nDebug.Print n\nEnd Sub\n"));
         AssertDebugLog([1, 2]);
     }
 
@@ -26,8 +26,8 @@ public class WithTests : BaseVBTestFixture
         await RunClasses(
             "Dim a As Writer\nSet a = New Writer\na.N = 10\n" +
             "Dim b As Writer\nSet b = New Writer\nb.N = 20\n" +
-            "With a\n.Write\nWith b\n.Write\nEnd With\n.Write\nEnd With\n",
-            ("Writer", "Public N As Integer\nPublic Sub Write()\nDebug.Print N\nEnd Sub\n"));
+            "With a\n.Emit\nWith b\n.Emit\nEnd With\n.Emit\nEnd With\n",
+            ("Writer", "Public N As Integer\nPublic Sub Emit()\nDebug.Print N\nEnd Sub\n"));
         AssertDebugLog([10, 20, 10]);
     }
 

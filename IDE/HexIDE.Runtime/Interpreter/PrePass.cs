@@ -930,9 +930,18 @@ public class PrePass : VB6BaseVisitor<object?>
         return default;
     }
 
+    // Measured for Sub names only, not other declarations (#4674).
+    private static readonly HashSet<string> RefusedSubNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Close", "Debug", "End", "Get", "Input", "Len", "Lock", "Open",
+        "Print", "Put", "Seek", "Spc", "Stop", "Tab", "Unlock", "Write"
+    };
+
     public override object? VisitSubStmt(VB6Parser.SubStmtContext context)
     {
         var name = context.ambiguousIdentifier().GetText();
+        if (RefusedSubNames.Contains(name))
+            throw new VBCompileErrorException("Expected: identifier");
         DeclareModuleName(name, exported: !IsPrivate(context.visibility()));
         Procedures[name] = CheckedLocals(new ProcedureInfo(name, false, ParseParams(context.argList()),
             Vb6Value.ValueType.EmptyVariant, context.block(), IsPrivate(context.visibility())) { Declaration = context });
