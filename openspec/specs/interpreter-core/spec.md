@@ -379,7 +379,8 @@ be refused as not implemented.
 
 A variable declared `As ErrObject` SHALL accept Err and Nothing. Assigning a Collection SHALL
 raise 13 and preserve the previous reference. `New ErrObject` SHALL raise a trappable run-time
--2147221164, "Class not registered" (VB6 SP6 native/p-code measurements, #2627).
+-2147221164, "Class not registered" followed by CR LF (22 characters; VB6 SP6 native/p-code/IDE
+measurement in [#4676](https://github.com/hexide-io/HexIDE/issues/4676), oracle PR #4731).
 
 #### Scenario: Refused Collection assignment
 
@@ -391,7 +392,7 @@ raise 13 and preserve the previous reference. `New ErrObject` SHALL raise a trap
 
 - **GIVEN** `e As ErrObject` holds Nothing
 - **WHEN** `Set e = New ErrObject` executes under `On Error Resume Next`
-- **THEN** Err.Number is -2147221164, Err.Description is "Class not registered", and e remains Nothing
+- **THEN** Err.Number is -2147221164, Err.Description is "Class not registered" followed by CR LF (length 22), and e remains Nothing
 
 ### Requirement: One engine SHALL serve every execution path
 Running from the IDE, running under automation, and running in tests SHALL all execute through the same
