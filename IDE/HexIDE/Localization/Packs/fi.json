@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "VBA-projekti on lukittu, eikä sen koodia voi näyttää.",
     "Str.Office.LockedCaption": "{0} ({1}) — lukittu",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} ei sisällä VBA-projektia."
+    "Str.Office.NoProject": "{0} ei sisällä VBA-projektia.",
+    "Str.SessionEnd.UnsavedWork": "Tallentamattomia muutoksia: {0}"
   }
 }

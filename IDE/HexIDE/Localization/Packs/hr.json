@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "Projekt VBA je zaključan i njegov se kod ne može prikazati.",
     "Str.Office.LockedCaption": "{0} ({1}) — zaključano",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} nema projekt VBA."
+    "Str.Office.NoProject": "{0} nema projekt VBA.",
+    "Str.SessionEnd.UnsavedWork": "Nespremljene promjene: {0}"
   }
 }

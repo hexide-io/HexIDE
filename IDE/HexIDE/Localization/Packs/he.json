@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "פרויקט ה־VBA נעול ולא ניתן להציג את הקוד שלו.",
     "Str.Office.LockedCaption": "{0} ({1}) — נעול",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "אין פרויקט VBA ב־{0}."
+    "Str.Office.NoProject": "אין פרויקט VBA ב־{0}.",
+    "Str.SessionEnd.UnsavedWork": "שינויים שלא נשמרו ב-{0}"
   }
 }

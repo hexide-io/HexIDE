@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "VBA 專案已鎖定，無法顯示其程式碼。",
     "Str.Office.LockedCaption": "{0} ({1}) — 已鎖定",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} 沒有 VBA 專案。"
+    "Str.Office.NoProject": "{0} 沒有 VBA 專案。",
+    "Str.SessionEnd.UnsavedWork": "{0} 中有未儲存的變更"
   }
 }

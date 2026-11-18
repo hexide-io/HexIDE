@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "Het VBA-project is vergrendeld en de code kan niet worden weergegeven.",
     "Str.Office.LockedCaption": "{0} ({1}) — vergrendeld",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} bevat geen VBA-project."
+    "Str.Office.NoProject": "{0} bevat geen VBA-project.",
+    "Str.SessionEnd.UnsavedWork": "Niet-opgeslagen wijzigingen in {0}"
   }
 }

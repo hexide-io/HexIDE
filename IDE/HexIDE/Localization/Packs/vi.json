@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "Dự án VBA bị khóa và không thể hiển thị mã.",
     "Str.Office.LockedCaption": "{0} ({1}) — bị khóa",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} không có dự án VBA."
+    "Str.Office.NoProject": "{0} không có dự án VBA.",
+    "Str.SessionEnd.UnsavedWork": "Thay đổi chưa lưu trong {0}"
   }
 }
