@@ -1578,8 +1578,7 @@ through an implemented interface SHALL leave it unloaded; controls and built-in 
 A loaded instance SHALL be retained by Forms until Unload, and an unloaded instance SHALL terminate at
 its last reference's release, including statement temporaries. Forms SHALL receive the same interface
 conformance check as classes when constructed. Without a forms program, construction SHALL refuse with
-NotImplementedException naming #4598. These are #4598's measured VB6 SP6 rows, native and p-code agreeing;
-`As New Form2` remains outside this change.
+NotImplementedException naming #4598. These are #4598's measured VB6 SP6 rows, native and p-code agreeing.
 
 #### Scenario: A temporary instance does not become the default
 
@@ -1591,6 +1590,27 @@ NotImplementedException naming #4598. These are #4598's measured VB6 SP6 rows, n
 
 - **WHEN** an instance created by New is loaded, unloaded and then used through a built-in member
 - **THEN** Load runs again without Initialize, and the instance rejoins Forms
+
+### Requirement: As New on a form creates a separate instance on first use
+
+A local or standard-module variable declared `As New Form2` SHALL create nothing at declaration and
+SHALL make its instance on first use, including `Is Nothing`, `TypeName` and a Public member. The instance
+SHALL follow explicit New's loading and Unload rules. Set to Nothing SHALL release an unloaded instance;
+the next use SHALL make another. An unloaded local SHALL terminate on procedure return.
+Measured VB6 SP6, native and p-code: [#4640](https://github.com/hexide-io/HexIDE/issues/4640).
+
+#### Scenario: Reusing and releasing an auto-instantiated form
+
+- **WHEN** a local As New form is loaded through Caption, unloaded, and used through Caption again
+- **THEN** Load runs again without Initialize, on the same instance
+- **WHEN** it is unloaded and set to Nothing, then read with Is Nothing
+- **THEN** the old instance terminates at Set and a new instance initializes, with Is Nothing reading False
+
+#### Scenario: A module variable is distinct from the default instance
+
+- **WHEN** a Public As New form variable is first used through its Id member, then shown and compared to Form2
+- **THEN** its own Initialize precedes Show's Load and Form2 initializes a separate default instance
+- **AND** the comparison reads False
 
 ### Requirement: Forms SHALL hold the program's loaded forms as VB6's does
 `Forms` SHALL be a program global, reached where nothing the program declares claims the name. It SHALL hold the loaded

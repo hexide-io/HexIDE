@@ -184,6 +184,29 @@ public class SeveralFormsTests
             Dispatcher.UIThread.RunJobs();
     }
 
+    // Measured VB6 SP6, native and p-code: https://github.com/hexide-io/HexIDE/issues/4640.
+    [AvaloniaTheory]
+    [InlineData("Debug.Print g Is Nothing", "False")]
+    [InlineData("Debug.Print TypeName(g)", "Form2")]
+    [InlineData("g.Foo", "f2 foo")]
+    public void As_New_form_is_made_on_first_use_and_released_on_return(string use, string result)
+    {
+        using var run = Start($$"""
+            Private Sub Command1_Click()
+                Dim g As New Form2
+                Debug.Print "declared " & Forms.Count
+                {{use}}
+                Debug.Print "used " & Forms.Count
+            End Sub
+            """);
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("declared 1", "f2 initialize", result, "used 1", "f2 terminate");
+        run.Opened.Should().NotContainKey("Form2");
+    }
+
     // VB6 SP6, native and p-code: #4598's measured rows (oracle PR #4613).
     [AvaloniaFact]
     public void New_form_is_distinct_from_its_default_and_naming_the_default_initializes_it_separately()
