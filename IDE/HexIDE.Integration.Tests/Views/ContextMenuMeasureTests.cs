@@ -17,7 +17,7 @@ namespace HexIDE.Integration.Tests.Views;
 
 public class ContextMenuMeasureTests
 {
-    [AvaloniaFact(Skip = "Needs Avalonia 12.1.5; pinned back to 12.1.4 for #3869")]
+    [AvaloniaFact]
     public void CodeMenuFitsItsShortcutsAndSubmenuArrowsOnFirstOpening()
     {
         new LocalizationService().Apply("en");
