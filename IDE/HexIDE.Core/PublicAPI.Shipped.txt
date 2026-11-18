@@ -668,6 +668,762 @@ HexIDE.Addins.TrustLink.KeyFingerprint.init -> void
 HexIDE.Addins.TrustLink.Label.get -> string!
 HexIDE.Addins.TrustLink.Label.init -> void
 HexIDE.Addins.TrustLink.TrustLink(string! Label, string! Id, string! KeyFingerprint) -> void
+HexIDE.Conversations.CaptureLimits
+HexIDE.Conversations.CaptureLimits.<Clone>$() -> HexIDE.Conversations.CaptureLimits!
+HexIDE.Conversations.CaptureLimits.CaptureLimits(int EnvelopeEntries = 25000, int PrologueEntries = 200, long PayloadBytesPerConnection = 16777216, long GlobalPayloadBytes = 67108864, int FrameBytes = 65536) -> void
+HexIDE.Conversations.CaptureLimits.Clamped(out System.Collections.Generic.IReadOnlyList<string!>! adjustments) -> HexIDE.Conversations.CaptureLimits!
+HexIDE.Conversations.CaptureLimits.Deconstruct(out int EnvelopeEntries, out int PrologueEntries, out long PayloadBytesPerConnection, out long GlobalPayloadBytes, out int FrameBytes) -> void
+HexIDE.Conversations.CaptureLimits.EnvelopeEntries.get -> int
+HexIDE.Conversations.CaptureLimits.EnvelopeEntries.init -> void
+HexIDE.Conversations.CaptureLimits.Equals(HexIDE.Conversations.CaptureLimits? other) -> bool
+HexIDE.Conversations.CaptureLimits.FrameBytes.get -> int
+HexIDE.Conversations.CaptureLimits.FrameBytes.init -> void
+HexIDE.Conversations.CaptureLimits.GlobalPayloadBytes.get -> long
+HexIDE.Conversations.CaptureLimits.GlobalPayloadBytes.init -> void
+HexIDE.Conversations.CaptureLimits.PayloadBytesPerConnection.get -> long
+HexIDE.Conversations.CaptureLimits.PayloadBytesPerConnection.init -> void
+HexIDE.Conversations.CaptureLimits.PrologueEntries.get -> int
+HexIDE.Conversations.CaptureLimits.PrologueEntries.init -> void
+HexIDE.IDE.FormatRegions
+HexIDE.IDE.FormatRegions.<Clone>$() -> HexIDE.IDE.FormatRegions!
+HexIDE.IDE.FormatRegions.Deconstruct(out HexIDE.Language.IReadOnlyRegionReader! Reader, out HexIDE.Language.IReadOnlyRegionWriter! Writer, out HexIDE.Language.IReadOnlyRegionRules! Rules) -> void
+HexIDE.IDE.FormatRegions.Equals(HexIDE.IDE.FormatRegions? other) -> bool
+HexIDE.IDE.FormatRegions.FormatRegions(HexIDE.Language.IReadOnlyRegionReader! Reader, HexIDE.Language.IReadOnlyRegionWriter! Writer, HexIDE.Language.IReadOnlyRegionRules! Rules) -> void
+HexIDE.IDE.FormatRegions.Reader.get -> HexIDE.Language.IReadOnlyRegionReader!
+HexIDE.IDE.FormatRegions.Reader.init -> void
+HexIDE.IDE.FormatRegions.Rules.get -> HexIDE.Language.IReadOnlyRegionRules!
+HexIDE.IDE.FormatRegions.Rules.init -> void
+HexIDE.IDE.FormatRegions.Writer.get -> HexIDE.Language.IReadOnlyRegionWriter!
+HexIDE.IDE.FormatRegions.Writer.init -> void
+HexIDE.IDE.IFormFileFormat
+HexIDE.IDE.IFormFileFormat.RenderDesignerFile(HexIDE.Runtime.ProjectElements.ModuleDefinition! module, string! fileName) -> HexIDE.IDE.RenderedFile
+HexIDE.IDE.IFormFileFormat.RenderDesignerHeader(HexIDE.Runtime.ProjectElements.FormDefinition! form, string! fileName) -> string!
+HexIDE.IDE.IFormFileFormat.RenderForm(HexIDE.Runtime.ProjectElements.FormDefinition! form, string! fileName) -> HexIDE.IDE.RenderedFile
+HexIDE.IDE.IFormFileReader
+HexIDE.IDE.IFormFileReader.CompanionPath(string! path) -> string?
+HexIDE.IDE.IFormFileReader.ReadDesignerPart(HexIDE.Runtime.ProjectElements.ProjectDefinition! project, string! text, byte[]? companion, HexIDE.Runtime.Serialization.IDeserializeErrorSink! problems) -> HexIDE.Runtime.ProjectElements.FormDefinition?
+HexIDE.IDE.IFormFileReader.ReadForm(HexIDE.Runtime.ProjectElements.ProjectDefinition! project, string! text, byte[]? companion, HexIDE.Runtime.Serialization.IDeserializeErrorSink! problems) -> HexIDE.Runtime.ProjectElements.FormDefinition?
+HexIDE.IDE.IProjectFileFormat
+HexIDE.IDE.IProjectFileFormat.CodePrefix(HexIDE.Runtime.ProjectElements.FormDefinition! form) -> string!
+HexIDE.IDE.IProjectFileFormat.CodePrefix(HexIDE.Runtime.ProjectElements.ModuleDefinition! module) -> string!
+HexIDE.IDE.IProjectFileFormat.CompanionExtension(string! path) -> string!
+HexIDE.IDE.IProjectFileFormat.FormExtension.get -> string!
+HexIDE.IDE.IProjectFileFormat.IsCompanionCitation(string! value) -> bool
+HexIDE.IDE.IProjectFileFormat.MemberExtension(HexIDE.Runtime.ProjectElements.ModuleKind kind) -> string!
+HexIDE.IDE.IProjectFileFormat.MemberLine(HexIDE.Runtime.ProjectElements.ModuleKind kind, string! name, string! relativePath) -> string!
+HexIDE.IDE.IProjectFileFormat.PrefixCarriesName(HexIDE.Runtime.ProjectElements.ModuleDefinition! module) -> bool
+HexIDE.IDE.IProjectFileFormat.ReadGroup(string! text) -> HexIDE.Runtime.Serialization.SerializedProjectGroup!
+HexIDE.IDE.IProjectFileFormat.ReadProjectAsync(string! path, HexIDE.IDE.Vb6TextEncoding! hostAnsi, System.Action<string!, byte[]!>? fileRead, HexIDE.Runtime.Serialization.IDeserializeErrorSink! problems) -> System.Threading.Tasks.Task<HexIDE.IDE.ProjectFileRead!>!
+HexIDE.IDE.IProjectFileFormat.ReadProjectTextAsync(string! path, string! text, HexIDE.IDE.Vb6TextEncoding! encoding, HexIDE.IDE.Vb6TextEncoding! hostAnsi, HexIDE.Runtime.Serialization.IDeserializeErrorSink! problems) -> System.Threading.Tasks.Task<HexIDE.IDE.ProjectFileRead!>!
+HexIDE.IDE.IProjectFileFormat.Regions.get -> HexIDE.IDE.FormatRegions?
+HexIDE.IDE.IProjectFileFormat.RenderGroup(string! groupPath, System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.ProjectElements.ProjectDefinition!>! projects, HexIDE.Runtime.ProjectElements.ProjectDefinition? startupProject, System.Collections.Generic.IReadOnlyList<string!>? unknownLines, System.Func<object!, string?>? pathOf) -> string!
+HexIDE.IDE.IProjectFileFormat.RenderModule(HexIDE.Runtime.ProjectElements.ModuleDefinition! module, string! fileName) -> HexIDE.IDE.RenderedFile
+HexIDE.IDE.IProjectFileFormat.RenderProject(HexIDE.Runtime.ProjectElements.ProjectDefinition! project, string! projectPath, System.Func<object!, string?>? pathOf = null, bool includeRelatedDocuments = true) -> string!
+HexIDE.IDE.IProjectFileFormat.RootChildren(System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentInstance!>! components, HexIDE.Runtime.Components.ComponentInstance! root) -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentInstance!>!
+HexIDE.IDE.IProjectFileFormat.SplitModule(string! text, HexIDE.Runtime.ProjectElements.ModuleKind kind) -> (string! Header, string! Body)
+HexIDE.IDE.IProjectFileWriter
+HexIDE.IDE.IProjectFileWriter.Carries.get -> HexIDE.IDE.ProjectFileParts
+HexIDE.IDE.IProjectFileWriter.Encoding.get -> System.Text.Encoding!
+HexIDE.IDE.IProjectFileWriter.RenderProject(HexIDE.Runtime.ProjectElements.ProjectDefinition! project, string! path, System.Func<object!, string?>? pathOf) -> string!
+HexIDE.IDE.ProjectFileParts
+HexIDE.IDE.ProjectFileParts.Members = 1 -> HexIDE.IDE.ProjectFileParts
+HexIDE.IDE.ProjectFileParts.None = 0 -> HexIDE.IDE.ProjectFileParts
+HexIDE.IDE.ProjectFileParts.Properties = 4 -> HexIDE.IDE.ProjectFileParts
+HexIDE.IDE.ProjectFileParts.References = 2 -> HexIDE.IDE.ProjectFileParts
+HexIDE.IDE.ProjectFileRead
+HexIDE.IDE.ProjectFileRead.<Clone>$() -> HexIDE.IDE.ProjectFileRead!
+HexIDE.IDE.ProjectFileRead.Deconstruct(out HexIDE.Runtime.ProjectElements.ProjectDefinition! Project, out System.Collections.Generic.IReadOnlyList<string!>! SkippedDocuments, out System.Collections.Generic.IReadOnlyList<string!>! ReadByteForByte, out byte[]! ProjectFileBytes) -> void
+HexIDE.IDE.ProjectFileRead.Equals(HexIDE.IDE.ProjectFileRead? other) -> bool
+HexIDE.IDE.ProjectFileRead.Project.get -> HexIDE.Runtime.ProjectElements.ProjectDefinition!
+HexIDE.IDE.ProjectFileRead.Project.init -> void
+HexIDE.IDE.ProjectFileRead.ProjectFileBytes.get -> byte[]!
+HexIDE.IDE.ProjectFileRead.ProjectFileBytes.init -> void
+HexIDE.IDE.ProjectFileRead.ProjectFileRead(HexIDE.Runtime.ProjectElements.ProjectDefinition! Project, System.Collections.Generic.IReadOnlyList<string!>! SkippedDocuments, System.Collections.Generic.IReadOnlyList<string!>! ReadByteForByte, byte[]! ProjectFileBytes) -> void
+HexIDE.IDE.ProjectFileRead.ReadByteForByte.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.IDE.ProjectFileRead.ReadByteForByte.init -> void
+HexIDE.IDE.ProjectFileRead.SkippedDocuments.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.IDE.ProjectFileRead.SkippedDocuments.init -> void
+HexIDE.IDE.RenderedFile
+HexIDE.IDE.RenderedFile.Companion.get -> byte[]?
+HexIDE.IDE.RenderedFile.Companion.init -> void
+HexIDE.IDE.RenderedFile.Deconstruct(out string! Text, out byte[]? Companion) -> void
+HexIDE.IDE.RenderedFile.Equals(HexIDE.IDE.RenderedFile other) -> bool
+HexIDE.IDE.RenderedFile.RenderedFile() -> void
+HexIDE.IDE.RenderedFile.RenderedFile(string! Text, byte[]? Companion) -> void
+HexIDE.IDE.RenderedFile.Text.get -> string!
+HexIDE.IDE.RenderedFile.Text.init -> void
+HexIDE.IDE.Vb6TextEncoding
+HexIDE.IDE.Vb6TextEncoding.<Clone>$() -> HexIDE.IDE.Vb6TextEncoding!
+HexIDE.IDE.Vb6TextEncoding.CodePage.get -> int
+HexIDE.IDE.Vb6TextEncoding.CodePage.init -> void
+HexIDE.IDE.Vb6TextEncoding.Deconstruct(out int CodePage, out bool Utf8Bom) -> void
+HexIDE.IDE.Vb6TextEncoding.Equals(HexIDE.IDE.Vb6TextEncoding? other) -> bool
+HexIDE.IDE.Vb6TextEncoding.Utf8Bom.get -> bool
+HexIDE.IDE.Vb6TextEncoding.Utf8Bom.init -> void
+HexIDE.IDE.Vb6TextEncoding.Vb6TextEncoding(int CodePage, bool Utf8Bom = false) -> void
+HexIDE.IDE.Vb6TextFile
+HexIDE.Language.ContentReplacement
+HexIDE.Language.ContentReplacement.ContentReplacement() -> void
+HexIDE.Language.ContentReplacement.ContentReplacement(string? NewText, string? Refusal, bool HeaderKept) -> void
+HexIDE.Language.ContentReplacement.Deconstruct(out string? NewText, out string? Refusal, out bool HeaderKept) -> void
+HexIDE.Language.ContentReplacement.Equals(HexIDE.Language.ContentReplacement other) -> bool
+HexIDE.Language.ContentReplacement.HeaderKept.get -> bool
+HexIDE.Language.ContentReplacement.HeaderKept.init -> void
+HexIDE.Language.ContentReplacement.NewText.get -> string?
+HexIDE.Language.ContentReplacement.NewText.init -> void
+HexIDE.Language.ContentReplacement.Refusal.get -> string?
+HexIDE.Language.ContentReplacement.Refusal.init -> void
+HexIDE.Language.HangingRegion
+HexIDE.Language.HangingRegion.<Clone>$() -> HexIDE.Language.HangingRegion!
+HexIDE.Language.HangingRegion.Anchor.get -> int
+HexIDE.Language.HangingRegion.Anchor.init -> void
+HexIDE.Language.HangingRegion.Deconstruct(out HexIDE.Language.TextRegion Region, out int LineStart, out int Anchor, out int LastContentEnd, out HexIDE.Language.HangingRegionKey Key, out string! Name) -> void
+HexIDE.Language.HangingRegion.Equals(HexIDE.Language.HangingRegion? other) -> bool
+HexIDE.Language.HangingRegion.HangingRegion(HexIDE.Language.TextRegion Region, int LineStart, int Anchor, int LastContentEnd, HexIDE.Language.HangingRegionKey Key, string! Name) -> void
+HexIDE.Language.HangingRegion.Key.get -> HexIDE.Language.HangingRegionKey
+HexIDE.Language.HangingRegion.Key.init -> void
+HexIDE.Language.HangingRegion.LastContentEnd.get -> int
+HexIDE.Language.HangingRegion.LastContentEnd.init -> void
+HexIDE.Language.HangingRegion.LineStart.get -> int
+HexIDE.Language.HangingRegion.LineStart.init -> void
+HexIDE.Language.HangingRegion.Name.get -> string!
+HexIDE.Language.HangingRegion.Name.init -> void
+HexIDE.Language.HangingRegion.Region.get -> HexIDE.Language.TextRegion
+HexIDE.Language.HangingRegion.Region.init -> void
+HexIDE.Language.HangingRegionKey
+HexIDE.Language.HangingRegionKey.Deconstruct(out string! Name, out int Ordinal) -> void
+HexIDE.Language.HangingRegionKey.Equals(HexIDE.Language.HangingRegionKey other) -> bool
+HexIDE.Language.HangingRegionKey.HangingRegionKey() -> void
+HexIDE.Language.HangingRegionKey.HangingRegionKey(string! Name, int Ordinal) -> void
+HexIDE.Language.HangingRegionKey.Name.get -> string!
+HexIDE.Language.HangingRegionKey.Name.init -> void
+HexIDE.Language.HangingRegionKey.Ordinal.get -> int
+HexIDE.Language.HangingRegionKey.Ordinal.init -> void
+HexIDE.Language.IReadOnlyRegionReader
+HexIDE.Language.IReadOnlyRegionReader.CommentStart(string! text, HexIDE.Language.HangingRegion! region) -> int
+HexIDE.Language.IReadOnlyRegionReader.HangingRegions(string! text, int prefixLength) -> System.Collections.Generic.IReadOnlyList<HexIDE.Language.HangingRegion!>!
+HexIDE.Language.IReadOnlyRegionReader.LineToHangFrom(string! text, HexIDE.Language.HangingRegion! region, string! inserted) -> int?
+HexIDE.Language.IReadOnlyRegionReader.Regions(string! text, int prefixLength) -> System.Collections.Generic.IReadOnlyList<HexIDE.Language.TextRegion>!
+HexIDE.Language.IReadOnlyRegionReader.Regions(string! text, int prefixLength, bool prefixIsEntireHeader) -> System.Collections.Generic.IReadOnlyList<HexIDE.Language.TextRegion>!
+HexIDE.Language.IReadOnlyRegionReader.StartsHangingRegion(System.ReadOnlySpan<char> line) -> bool
+HexIDE.Language.IReadOnlyRegionRules
+HexIDE.Language.IReadOnlyRegionRules.DescribeRegions(string! text, int prefixLength, System.Collections.Generic.IReadOnlyList<HexIDE.Language.TextRegion>! regions) -> string?
+HexIDE.Language.IReadOnlyRegionRules.HeaderDeclares(string! text, int prefixLength, string! name) -> bool
+HexIDE.Language.IReadOnlyRegionRules.RangeEditRefusal(string! before, string! after, int prefixLength) -> string?
+HexIDE.Language.IReadOnlyRegionRules.RenameMayWrite(string! text, int prefixLength, System.Collections.Generic.IReadOnlyList<HexIDE.Language.TextChange>! changes, HexIDE.Language.TextChange edit) -> bool
+HexIDE.Language.IReadOnlyRegionRules.Replace(string! current, int prefixLength, string! incoming) -> HexIDE.Language.ContentReplacement?
+HexIDE.Language.IReadOnlyRegionWriter
+HexIDE.Language.IReadOnlyRegionWriter.DescribeSaveRewrite(string! text, HexIDE.Language.TextChange change) -> string?
+HexIDE.Language.IReadOnlyRegionWriter.NameRewrite(string! text, int prefixLength, string! name, bool moduleLevel = false) -> HexIDE.Language.TextChange?
+HexIDE.Language.IReadOnlyRegionWriter.SaveRewrites(string! text, int prefixLength) -> System.Collections.Generic.IReadOnlyList<HexIDE.Language.TextChange>!
+HexIDE.Language.TextChange
+HexIDE.Language.TextChange.Deconstruct(out int Offset, out int Length, out string! Text) -> void
+HexIDE.Language.TextChange.Equals(HexIDE.Language.TextChange other) -> bool
+HexIDE.Language.TextChange.Length.get -> int
+HexIDE.Language.TextChange.Length.init -> void
+HexIDE.Language.TextChange.Offset.get -> int
+HexIDE.Language.TextChange.Offset.init -> void
+HexIDE.Language.TextChange.Text.get -> string!
+HexIDE.Language.TextChange.Text.init -> void
+HexIDE.Language.TextChange.TextChange() -> void
+HexIDE.Language.TextChange.TextChange(int Offset, int Length, string! Text) -> void
+HexIDE.Language.TextRegion
+HexIDE.Language.TextRegion.Anchor.get -> int?
+HexIDE.Language.TextRegion.Anchor.init -> void
+HexIDE.Language.TextRegion.Changes(int offset, int length) -> bool
+HexIDE.Language.TextRegion.Deconstruct(out int Start, out int End, out bool OpenEnded, out int? Anchor) -> void
+HexIDE.Language.TextRegion.EditStart.get -> int
+HexIDE.Language.TextRegion.End.get -> int
+HexIDE.Language.TextRegion.End.init -> void
+HexIDE.Language.TextRegion.Equals(HexIDE.Language.TextRegion other) -> bool
+HexIDE.Language.TextRegion.OpenEnded.get -> bool
+HexIDE.Language.TextRegion.OpenEnded.init -> void
+HexIDE.Language.TextRegion.Start.get -> int
+HexIDE.Language.TextRegion.Start.init -> void
+HexIDE.Language.TextRegion.TextRegion() -> void
+HexIDE.Language.TextRegion.TextRegion(int Start, int End, bool OpenEnded = false, int? Anchor = null) -> void
+HexIDE.Language.TextRegion.Touches(int offset, int length) -> bool
+HexIDE.Lsp.CaptureLimitsEntry
+HexIDE.Lsp.CaptureLimitsEntry.CaptureLimitsEntry() -> void
+HexIDE.Lsp.CaptureLimitsEntry.EnvelopeEntries.get -> int?
+HexIDE.Lsp.CaptureLimitsEntry.EnvelopeEntries.set -> void
+HexIDE.Lsp.CaptureLimitsEntry.FrameBytes.get -> int?
+HexIDE.Lsp.CaptureLimitsEntry.FrameBytes.set -> void
+HexIDE.Lsp.CaptureLimitsEntry.GlobalPayloadBytes.get -> long?
+HexIDE.Lsp.CaptureLimitsEntry.GlobalPayloadBytes.set -> void
+HexIDE.Lsp.CaptureLimitsEntry.IsEmpty.get -> bool
+HexIDE.Lsp.CaptureLimitsEntry.Over(HexIDE.Conversations.CaptureLimits! baseline, bool includeGlobalCeiling = true) -> HexIDE.Conversations.CaptureLimits!
+HexIDE.Lsp.CaptureLimitsEntry.PayloadBytesPerConnection.get -> long?
+HexIDE.Lsp.CaptureLimitsEntry.PayloadBytesPerConnection.set -> void
+HexIDE.Lsp.CaptureLimitsEntry.PrologueEntries.get -> int?
+HexIDE.Lsp.CaptureLimitsEntry.PrologueEntries.set -> void
+HexIDE.Lsp.LanguageServerConfigFile
+HexIDE.Lsp.LanguageServerConfigFile.Arguments.get -> System.Collections.Generic.Dictionary<string!, HexIDE.Lsp.ServerArguments!>?
+HexIDE.Lsp.LanguageServerConfigFile.Arguments.set -> void
+HexIDE.Lsp.LanguageServerConfigFile.Capture.get -> HexIDE.Lsp.CaptureLimitsEntry?
+HexIDE.Lsp.LanguageServerConfigFile.Capture.set -> void
+HexIDE.Lsp.LanguageServerConfigFile.LanguageServerConfigFile() -> void
+HexIDE.Lsp.LanguageServerConfigFile.Servers.get -> HexIDE.Lsp.LanguageServerEntry![]?
+HexIDE.Lsp.LanguageServerConfigFile.Servers.set -> void
+HexIDE.Lsp.LanguageServerConfigFile.Version.get -> int
+HexIDE.Lsp.LanguageServerConfigFile.Version.set -> void
+HexIDE.Lsp.LanguageServerConfigJsonContext
+HexIDE.Lsp.LanguageServerConfigJsonContext.LanguageServerConfigJsonContext() -> void
+HexIDE.Lsp.LanguageServerConfigJsonContext.LanguageServerConfigJsonContext(System.Text.Json.JsonSerializerOptions! options) -> void
+HexIDE.Lsp.LanguageServerConfigProblem
+HexIDE.Lsp.LanguageServerConfigProblem.<Clone>$() -> HexIDE.Lsp.LanguageServerConfigProblem!
+HexIDE.Lsp.LanguageServerConfigProblem.Arguments.get -> object![]!
+HexIDE.Lsp.LanguageServerConfigProblem.Arguments.init -> void
+HexIDE.Lsp.LanguageServerConfigProblem.Code.get -> string?
+HexIDE.Lsp.LanguageServerConfigProblem.Code.init -> void
+HexIDE.Lsp.LanguageServerConfigProblem.Deconstruct(out string? EntryId, out string! Message, out bool EntryRejected, out HexIDE.Lsp.LanguageServerConfigProblemKind Kind) -> void
+HexIDE.Lsp.LanguageServerConfigProblem.EntryId.get -> string?
+HexIDE.Lsp.LanguageServerConfigProblem.EntryId.init -> void
+HexIDE.Lsp.LanguageServerConfigProblem.EntryRejected.get -> bool
+HexIDE.Lsp.LanguageServerConfigProblem.EntryRejected.init -> void
+HexIDE.Lsp.LanguageServerConfigProblem.Equals(HexIDE.Lsp.LanguageServerConfigProblem? other) -> bool
+HexIDE.Lsp.LanguageServerConfigProblem.Kind.get -> HexIDE.Lsp.LanguageServerConfigProblemKind
+HexIDE.Lsp.LanguageServerConfigProblem.Kind.init -> void
+HexIDE.Lsp.LanguageServerConfigProblem.LanguageServerConfigProblem(string? EntryId, string! Message, bool EntryRejected, HexIDE.Lsp.LanguageServerConfigProblemKind Kind = HexIDE.Lsp.LanguageServerConfigProblemKind.Configuration) -> void
+HexIDE.Lsp.LanguageServerConfigProblem.Message.get -> string!
+HexIDE.Lsp.LanguageServerConfigProblem.Message.init -> void
+HexIDE.Lsp.LanguageServerConfigProblem.WithDetails(string! code, params object![]! arguments) -> HexIDE.Lsp.LanguageServerConfigProblem!
+HexIDE.Lsp.LanguageServerConfigProblemKind
+HexIDE.Lsp.LanguageServerConfigProblemKind.Configuration = 0 -> HexIDE.Lsp.LanguageServerConfigProblemKind
+HexIDE.Lsp.LanguageServerConfigProblemKind.Disabled = 3 -> HexIDE.Lsp.LanguageServerConfigProblemKind
+HexIDE.Lsp.LanguageServerConfigProblemKind.IgnoredField = 4 -> HexIDE.Lsp.LanguageServerConfigProblemKind
+HexIDE.Lsp.LanguageServerConfigProblemKind.UnrecognisedField = 1 -> HexIDE.Lsp.LanguageServerConfigProblemKind
+HexIDE.Lsp.LanguageServerConfigProblemKind.UnseenCommand = 2 -> HexIDE.Lsp.LanguageServerConfigProblemKind
+HexIDE.Lsp.LanguageServerEntry
+HexIDE.Lsp.LanguageServerEntry.Arguments.get -> HexIDE.Lsp.ServerArguments?
+HexIDE.Lsp.LanguageServerEntry.Arguments.set -> void
+HexIDE.Lsp.LanguageServerEntry.Capture.get -> HexIDE.Lsp.CaptureLimitsEntry?
+HexIDE.Lsp.LanguageServerEntry.Capture.set -> void
+HexIDE.Lsp.LanguageServerEntry.ChatTools.get -> string?
+HexIDE.Lsp.LanguageServerEntry.ChatTools.set -> void
+HexIDE.Lsp.LanguageServerEntry.Command.get -> string?
+HexIDE.Lsp.LanguageServerEntry.Command.set -> void
+HexIDE.Lsp.LanguageServerEntry.DisplayName.get -> string?
+HexIDE.Lsp.LanguageServerEntry.DisplayName.set -> void
+HexIDE.Lsp.LanguageServerEntry.Enabled.get -> bool?
+HexIDE.Lsp.LanguageServerEntry.Enabled.set -> void
+HexIDE.Lsp.LanguageServerEntry.Endpoint.get -> string?
+HexIDE.Lsp.LanguageServerEntry.Endpoint.set -> void
+HexIDE.Lsp.LanguageServerEntry.Environment.get -> System.Collections.Generic.Dictionary<string!, string!>?
+HexIDE.Lsp.LanguageServerEntry.Environment.set -> void
+HexIDE.Lsp.LanguageServerEntry.Extensions.get -> string![]?
+HexIDE.Lsp.LanguageServerEntry.Extensions.set -> void
+HexIDE.Lsp.LanguageServerEntry.Id.get -> string?
+HexIDE.Lsp.LanguageServerEntry.Id.set -> void
+HexIDE.Lsp.LanguageServerEntry.InitializationOptions.get -> System.Text.Json.JsonElement?
+HexIDE.Lsp.LanguageServerEntry.InitializationOptions.set -> void
+HexIDE.Lsp.LanguageServerEntry.LanguageId.get -> string?
+HexIDE.Lsp.LanguageServerEntry.LanguageId.set -> void
+HexIDE.Lsp.LanguageServerEntry.LanguageServerEntry() -> void
+HexIDE.Lsp.LanguageServerEntry.PipeName.get -> string?
+HexIDE.Lsp.LanguageServerEntry.PipeName.set -> void
+HexIDE.Lsp.LanguageServerEntry.PipeRole.get -> string?
+HexIDE.Lsp.LanguageServerEntry.PipeRole.set -> void
+HexIDE.Lsp.LanguageServerEntry.Priority.get -> int?
+HexIDE.Lsp.LanguageServerEntry.Priority.set -> void
+HexIDE.Lsp.LanguageServerEntry.ProjectImport.get -> HexIDE.Lsp.ProjectImportEntry?
+HexIDE.Lsp.LanguageServerEntry.ProjectImport.set -> void
+HexIDE.Lsp.LanguageServerEntry.RestartOnProjectChange.get -> bool?
+HexIDE.Lsp.LanguageServerEntry.RestartOnProjectChange.set -> void
+HexIDE.Lsp.LanguageServerEntry.Settings.get -> System.Text.Json.JsonElement?
+HexIDE.Lsp.LanguageServerEntry.Settings.set -> void
+HexIDE.Lsp.LanguageServerEntry.TcpRole.get -> string?
+HexIDE.Lsp.LanguageServerEntry.TcpRole.set -> void
+HexIDE.Lsp.LanguageServerEntry.Trace.get -> string?
+HexIDE.Lsp.LanguageServerEntry.Trace.set -> void
+HexIDE.Lsp.LanguageServerEntry.Transport.get -> string?
+HexIDE.Lsp.LanguageServerEntry.Transport.set -> void
+HexIDE.Lsp.LanguageServerEntry.Unrecognized.get -> System.Collections.Generic.Dictionary<string!, System.Text.Json.JsonElement>?
+HexIDE.Lsp.LanguageServerEntry.Unrecognized.set -> void
+HexIDE.Lsp.LanguageServerEntry.WebSocketRole.get -> string?
+HexIDE.Lsp.LanguageServerEntry.WebSocketRole.set -> void
+HexIDE.Lsp.LanguageServerEntry.WorkingDirectory.get -> string?
+HexIDE.Lsp.LanguageServerEntry.WorkingDirectory.set -> void
+HexIDE.Lsp.LanguageServerEntry.WorkspaceArtifact.get -> HexIDE.Lsp.WorkspaceArtifactEntry?
+HexIDE.Lsp.LanguageServerEntry.WorkspaceArtifact.set -> void
+HexIDE.Lsp.Messages.ApplyWorkspaceEditResult
+HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.Applied.get -> bool
+HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.Applied.init -> void
+HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.ApplyWorkspaceEditResult(HexIDE.Lsp.Messages.ApplyWorkspaceEditResult! original) -> void
+HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.ApplyWorkspaceEditResult(bool Applied, string? FailureReason = null) -> void
+HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.Deconstruct(out bool Applied, out string? FailureReason) -> void
+HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.FailureReason.get -> string?
+HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.FailureReason.init -> void
+HexIDE.Lsp.Messages.Location
+HexIDE.Lsp.Messages.Location.Deconstruct(out string! Uri, out HexIDE.Lsp.Messages.Range! Range) -> void
+HexIDE.Lsp.Messages.Location.Location(HexIDE.Lsp.Messages.Location! original) -> void
+HexIDE.Lsp.Messages.Location.Location(string! Uri, HexIDE.Lsp.Messages.Range! Range) -> void
+HexIDE.Lsp.Messages.Location.Range.get -> HexIDE.Lsp.Messages.Range!
+HexIDE.Lsp.Messages.Location.Range.init -> void
+HexIDE.Lsp.Messages.Location.Uri.get -> string!
+HexIDE.Lsp.Messages.Location.Uri.init -> void
+HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier
+HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.Deconstruct(out string! Uri, out int? Version) -> void
+HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.OptionalVersionedTextDocumentIdentifier(HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier! original) -> void
+HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.OptionalVersionedTextDocumentIdentifier(string! Uri, int? Version) -> void
+HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.Uri.get -> string!
+HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.Uri.init -> void
+HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.Version.get -> int?
+HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.Version.init -> void
+HexIDE.Lsp.Messages.Position
+HexIDE.Lsp.Messages.Position.Character.get -> int
+HexIDE.Lsp.Messages.Position.Character.init -> void
+HexIDE.Lsp.Messages.Position.Deconstruct(out int Line, out int Character) -> void
+HexIDE.Lsp.Messages.Position.Line.get -> int
+HexIDE.Lsp.Messages.Position.Line.init -> void
+HexIDE.Lsp.Messages.Position.Position(HexIDE.Lsp.Messages.Position! original) -> void
+HexIDE.Lsp.Messages.Position.Position(int Line, int Character) -> void
+HexIDE.Lsp.Messages.Range
+HexIDE.Lsp.Messages.Range.Deconstruct(out HexIDE.Lsp.Messages.Position! Start, out HexIDE.Lsp.Messages.Position! End) -> void
+HexIDE.Lsp.Messages.Range.End.get -> HexIDE.Lsp.Messages.Position!
+HexIDE.Lsp.Messages.Range.End.init -> void
+HexIDE.Lsp.Messages.Range.Range(HexIDE.Lsp.Messages.Position! Start, HexIDE.Lsp.Messages.Position! End) -> void
+HexIDE.Lsp.Messages.Range.Range(HexIDE.Lsp.Messages.Range! original) -> void
+HexIDE.Lsp.Messages.Range.Start.get -> HexIDE.Lsp.Messages.Position!
+HexIDE.Lsp.Messages.Range.Start.init -> void
+HexIDE.Lsp.Messages.TextDocumentEdit
+HexIDE.Lsp.Messages.TextDocumentEdit.Deconstruct(out HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier? TextDocument, out HexIDE.Lsp.Messages.TextEdit![]? Edits, out string? Kind, out string? Uri, out string? OldUri) -> void
+HexIDE.Lsp.Messages.TextDocumentEdit.Edits.get -> HexIDE.Lsp.Messages.TextEdit![]?
+HexIDE.Lsp.Messages.TextDocumentEdit.Edits.init -> void
+HexIDE.Lsp.Messages.TextDocumentEdit.Kind.get -> string?
+HexIDE.Lsp.Messages.TextDocumentEdit.Kind.init -> void
+HexIDE.Lsp.Messages.TextDocumentEdit.OldUri.get -> string?
+HexIDE.Lsp.Messages.TextDocumentEdit.OldUri.init -> void
+HexIDE.Lsp.Messages.TextDocumentEdit.TextDocument.get -> HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier?
+HexIDE.Lsp.Messages.TextDocumentEdit.TextDocument.init -> void
+HexIDE.Lsp.Messages.TextDocumentEdit.TextDocumentEdit(HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier? TextDocument = null, HexIDE.Lsp.Messages.TextEdit![]? Edits = null, string? Kind = null, string? Uri = null, string? OldUri = null) -> void
+HexIDE.Lsp.Messages.TextDocumentEdit.TextDocumentEdit(HexIDE.Lsp.Messages.TextDocumentEdit! original) -> void
+HexIDE.Lsp.Messages.TextDocumentEdit.Uri.get -> string?
+HexIDE.Lsp.Messages.TextDocumentEdit.Uri.init -> void
+HexIDE.Lsp.Messages.TextEdit
+HexIDE.Lsp.Messages.TextEdit.Deconstruct(out HexIDE.Lsp.Messages.Range! Range, out string! NewText) -> void
+HexIDE.Lsp.Messages.TextEdit.NewText.get -> string!
+HexIDE.Lsp.Messages.TextEdit.NewText.init -> void
+HexIDE.Lsp.Messages.TextEdit.Range.get -> HexIDE.Lsp.Messages.Range!
+HexIDE.Lsp.Messages.TextEdit.Range.init -> void
+HexIDE.Lsp.Messages.TextEdit.TextEdit(HexIDE.Lsp.Messages.Range! Range, string! NewText) -> void
+HexIDE.Lsp.Messages.TextEdit.TextEdit(HexIDE.Lsp.Messages.TextEdit! original) -> void
+HexIDE.Lsp.Messages.WorkspaceEdit
+HexIDE.Lsp.Messages.WorkspaceEdit.Changes.get -> System.Collections.Generic.Dictionary<string!, HexIDE.Lsp.Messages.TextEdit![]!>?
+HexIDE.Lsp.Messages.WorkspaceEdit.Changes.init -> void
+HexIDE.Lsp.Messages.WorkspaceEdit.Deconstruct(out System.Collections.Generic.Dictionary<string!, HexIDE.Lsp.Messages.TextEdit![]!>? Changes, out HexIDE.Lsp.Messages.TextDocumentEdit![]? DocumentChanges) -> void
+HexIDE.Lsp.Messages.WorkspaceEdit.DocumentChanges.get -> HexIDE.Lsp.Messages.TextDocumentEdit![]?
+HexIDE.Lsp.Messages.WorkspaceEdit.DocumentChanges.init -> void
+HexIDE.Lsp.Messages.WorkspaceEdit.WorkspaceEdit(HexIDE.Lsp.Messages.WorkspaceEdit! original) -> void
+HexIDE.Lsp.Messages.WorkspaceEdit.WorkspaceEdit(System.Collections.Generic.Dictionary<string!, HexIDE.Lsp.Messages.TextEdit![]!>? Changes = null, HexIDE.Lsp.Messages.TextDocumentEdit![]? DocumentChanges = null) -> void
+HexIDE.Lsp.ProjectImportEntry
+HexIDE.Lsp.ProjectImportEntry.Arguments.get -> System.Text.Json.JsonElement?
+HexIDE.Lsp.ProjectImportEntry.Arguments.set -> void
+HexIDE.Lsp.ProjectImportEntry.Command.get -> string?
+HexIDE.Lsp.ProjectImportEntry.Command.set -> void
+HexIDE.Lsp.ProjectImportEntry.ProjectImportEntry() -> void
+HexIDE.Lsp.ProjectImportEntry.Unrecognized.get -> System.Collections.Generic.Dictionary<string!, System.Text.Json.JsonElement>?
+HexIDE.Lsp.ProjectImportEntry.Unrecognized.set -> void
+HexIDE.Lsp.SeenCommandJsonContext
+HexIDE.Lsp.SeenCommandJsonContext.SeenCommandJsonContext() -> void
+HexIDE.Lsp.SeenCommandJsonContext.SeenCommandJsonContext(System.Text.Json.JsonSerializerOptions! options) -> void
+HexIDE.Lsp.ServerArguments
+HexIDE.Lsp.ServerArguments.<Clone>$() -> HexIDE.Lsp.ServerArguments!
+HexIDE.Lsp.ServerArguments.Deconstruct(out string? Text, out string![]? List) -> void
+HexIDE.Lsp.ServerArguments.Equals(HexIDE.Lsp.ServerArguments? other) -> bool
+HexIDE.Lsp.ServerArguments.List.get -> string![]?
+HexIDE.Lsp.ServerArguments.List.init -> void
+HexIDE.Lsp.ServerArguments.ServerArguments(string? Text, string![]? List) -> void
+HexIDE.Lsp.ServerArguments.Text.get -> string?
+HexIDE.Lsp.ServerArguments.Text.init -> void
+HexIDE.Lsp.ServerArgumentsConverter
+HexIDE.Lsp.ServerArgumentsConverter.ServerArgumentsConverter() -> void
+HexIDE.Lsp.WorkspaceArtifactEntry
+HexIDE.Lsp.WorkspaceArtifactEntry.Path.get -> string?
+HexIDE.Lsp.WorkspaceArtifactEntry.Path.set -> void
+HexIDE.Lsp.WorkspaceArtifactEntry.Provider.get -> string?
+HexIDE.Lsp.WorkspaceArtifactEntry.Provider.set -> void
+HexIDE.Lsp.WorkspaceArtifactEntry.RestartOnChange.get -> bool?
+HexIDE.Lsp.WorkspaceArtifactEntry.RestartOnChange.set -> void
+HexIDE.Lsp.WorkspaceArtifactEntry.Settings.get -> System.Text.Json.JsonElement?
+HexIDE.Lsp.WorkspaceArtifactEntry.Settings.set -> void
+HexIDE.Lsp.WorkspaceArtifactEntry.Unrecognized.get -> System.Collections.Generic.Dictionary<string!, System.Text.Json.JsonElement>?
+HexIDE.Lsp.WorkspaceArtifactEntry.Unrecognized.set -> void
+HexIDE.Lsp.WorkspaceArtifactEntry.WorkspaceArtifactEntry() -> void
+HexIDE.Runtime.Components.ComponentInstance
+HexIDE.Runtime.Components.ComponentInstance.AddPreservedChildSubtree(int ordinal, int documentOrder, string! text, System.Collections.Generic.IReadOnlyDictionary<int, byte[]!>? records = null) -> void
+HexIDE.Runtime.Components.ComponentInstance.BaseClass.get -> HexIDE.Runtime.Components.IComponentClass!
+HexIDE.Runtime.Components.ComponentInstance.ComponentInstance(HexIDE.Runtime.Components.IComponentClass! baseClass, string! name) -> void
+HexIDE.Runtime.Components.ComponentInstance.ContainedControls.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentInstance!>!
+HexIDE.Runtime.Components.ComponentInstance.Container.get -> HexIDE.Runtime.Components.ComponentInstance?
+HexIDE.Runtime.Components.ComponentInstance.GetAllSetProperties() -> System.Collections.Generic.IReadOnlyDictionary<HexIDE.Runtime.Components.PropertyClass!, object?>!
+HexIDE.Runtime.Components.ComponentInstance.GetBoxedPropertyOrDefault(HexIDE.Runtime.Components.PropertyClass! property) -> object?
+HexIDE.Runtime.Components.ComponentInstance.GetPropertyOrDefault<T>(HexIDE.Runtime.Components.PropertyClass<T>! property) -> T?
+HexIDE.Runtime.Components.ComponentInstance.IsControlArrayElement.get -> bool
+HexIDE.Runtime.Components.ComponentInstance.OnComponentPropertyChanged -> System.Action<HexIDE.Runtime.Components.ComponentInstance!, HexIDE.Runtime.Components.PropertyClass!>!
+HexIDE.Runtime.Components.ComponentInstance.OnComponentPropertyChanging -> System.Action<HexIDE.Runtime.Components.ComponentInstance!, HexIDE.Runtime.Components.PropertyClass!, object?, object?>!
+HexIDE.Runtime.Components.ComponentInstance.PreservedChildSubtrees.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree>!
+HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree
+HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.Deconstruct(out int Ordinal, out int DocumentOrder, out string! Text, out System.Collections.Generic.IReadOnlyDictionary<int, byte[]!>? Records) -> void
+HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.DocumentOrder.get -> int
+HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.DocumentOrder.init -> void
+HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.Equals(HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree other) -> bool
+HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.Ordinal.get -> int
+HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.Ordinal.init -> void
+HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.PreservedSubtree() -> void
+HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.PreservedSubtree(int Ordinal, int DocumentOrder, string! Text, System.Collections.Generic.IReadOnlyDictionary<int, byte[]!>? Records = null) -> void
+HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.Records.get -> System.Collections.Generic.IReadOnlyDictionary<int, byte[]!>?
+HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.Records.init -> void
+HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.Text.get -> string!
+HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.Text.init -> void
+HexIDE.Runtime.Components.ComponentInstance.SetContainer(HexIDE.Runtime.Components.ComponentInstance? container, int index = -1) -> void
+HexIDE.Runtime.Components.ComponentInstance.SetPreservedChildOrdinals(System.Collections.Generic.IReadOnlyList<int>! ordinals) -> void
+HexIDE.Runtime.Components.ComponentInstance.SetProperty<T>(HexIDE.Runtime.Components.PropertyClass<T>! propertyClass, T? value) -> HexIDE.Runtime.Components.ComponentInstance!
+HexIDE.Runtime.Components.ComponentInstance.SetUntypedProperty(HexIDE.Runtime.Components.PropertyClass! propertyClass, object? untypedValue) -> void
+HexIDE.Runtime.Components.ComponentInstance.TryGetBoxedProperty(HexIDE.Runtime.Components.PropertyClass! property, out object? value) -> bool
+HexIDE.Runtime.Components.ComponentInstance.TryGetProperty<T>(HexIDE.Runtime.Components.PropertyClass<T>! property, out T value) -> bool
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperties.get -> System.Collections.Generic.List<HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty>!
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.Deconstruct(out string! Name, out System.Collections.Generic.IReadOnlyList<string!>! Lines, out System.Collections.Generic.IReadOnlyDictionary<int, byte[]!>? Records) -> void
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.EditedValue.get -> string?
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.EditedValue.init -> void
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.Equals(HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty other) -> bool
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.Lines.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.Lines.init -> void
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.Name.get -> string!
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.Name.init -> void
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.Records.get -> System.Collections.Generic.IReadOnlyDictionary<int, byte[]!>?
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.Records.init -> void
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.UnknownRawProperty() -> void
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.UnknownRawProperty(string! Name, System.Collections.Generic.IReadOnlyList<string!>! Lines, System.Collections.Generic.IReadOnlyDictionary<int, byte[]!>? Records = null) -> void
+HexIDE.Runtime.Components.ComponentInstance.UnknownRawPropertyLines.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.Runtime.Components.ComponentInstance.this[HexIDE.Runtime.Components.PropertyClass<double>! property].get -> double
+HexIDE.Runtime.Components.ComponentInstance.this[HexIDE.Runtime.Components.PropertyClass<int>! property].get -> int
+HexIDE.Runtime.Components.ComponentInstance.this[HexIDE.Runtime.Components.PropertyClass<string!>! property].get -> string?
+HexIDE.Runtime.Components.EventClass
+HexIDE.Runtime.Components.EventClass.Arguments.get -> HexIDE.Runtime.Components.EventClassArgument![]!
+HexIDE.Runtime.Components.EventClass.EventClass(string! name, params System.ReadOnlySpan<HexIDE.Runtime.Components.EventClassArgument!> arguments) -> void
+HexIDE.Runtime.Components.EventClass.Name.get -> string!
+HexIDE.Runtime.Components.EventClassArgument
+HexIDE.Runtime.Components.EventClassArgument.DefaultName.get -> string!
+HexIDE.Runtime.Components.EventClassArgument.EventClassArgument(string! defaultName, string! type) -> void
+HexIDE.Runtime.Components.EventClassArgument.Type.get -> string!
+HexIDE.Runtime.Components.IComponentClass
+HexIDE.Runtime.Components.IComponentClass.ApplyDesignerConsequences(HexIDE.Runtime.Components.ComponentInstance! instance, HexIDE.Runtime.Components.PropertyClass! property) -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.PropertyChange>!
+HexIDE.Runtime.Components.IComponentClass.ClassName.get -> string!
+HexIDE.Runtime.Components.IComponentClass.DesignerDoubleClickEvent.get -> string?
+HexIDE.Runtime.Components.IComponentClass.Events.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.EventClass!>!
+HexIDE.Runtime.Components.IComponentClass.IsVisual.get -> bool
+HexIDE.Runtime.Components.IComponentClass.Name.get -> string!
+HexIDE.Runtime.Components.IComponentClass.Properties.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.PropertyClass!>!
+HexIDE.Runtime.Components.IComponentClass.PropertiesByName.get -> System.Collections.Generic.IReadOnlyDictionary<string!, HexIDE.Runtime.Components.PropertyClass!>!
+HexIDE.Runtime.Components.IComponentClass.VBTypeName.get -> string!
+HexIDE.Runtime.Components.PropertyCategory
+HexIDE.Runtime.Components.PropertyCategory.Appearance = 1 -> HexIDE.Runtime.Components.PropertyCategory
+HexIDE.Runtime.Components.PropertyCategory.Behavior = 2 -> HexIDE.Runtime.Components.PropertyCategory
+HexIDE.Runtime.Components.PropertyCategory.Internal = 4 -> HexIDE.Runtime.Components.PropertyCategory
+HexIDE.Runtime.Components.PropertyCategory.List = 5 -> HexIDE.Runtime.Components.PropertyCategory
+HexIDE.Runtime.Components.PropertyCategory.Misc = 0 -> HexIDE.Runtime.Components.PropertyCategory
+HexIDE.Runtime.Components.PropertyCategory.Position = 3 -> HexIDE.Runtime.Components.PropertyCategory
+HexIDE.Runtime.Components.PropertyChange
+HexIDE.Runtime.Components.PropertyChange.After.get -> object?
+HexIDE.Runtime.Components.PropertyChange.After.init -> void
+HexIDE.Runtime.Components.PropertyChange.Before.get -> object?
+HexIDE.Runtime.Components.PropertyChange.Before.init -> void
+HexIDE.Runtime.Components.PropertyChange.Deconstruct(out HexIDE.Runtime.Components.PropertyClass! Property, out object? Before, out object? After) -> void
+HexIDE.Runtime.Components.PropertyChange.Equals(HexIDE.Runtime.Components.PropertyChange other) -> bool
+HexIDE.Runtime.Components.PropertyChange.Property.get -> HexIDE.Runtime.Components.PropertyClass!
+HexIDE.Runtime.Components.PropertyChange.Property.init -> void
+HexIDE.Runtime.Components.PropertyChange.PropertyChange() -> void
+HexIDE.Runtime.Components.PropertyChange.PropertyChange(HexIDE.Runtime.Components.PropertyClass! Property, object? Before, object? After) -> void
+HexIDE.Runtime.Components.PropertyClass
+HexIDE.Runtime.Components.PropertyClass.Category.get -> HexIDE.Runtime.Components.PropertyCategory
+HexIDE.Runtime.Components.PropertyClass.Description.get -> string!
+HexIDE.Runtime.Components.PropertyClass.Name.get -> string!
+HexIDE.Runtime.Components.PropertyClass.PropertyClass(string! name, string! description, HexIDE.Runtime.Components.PropertyCategory category) -> void
+HexIDE.Runtime.Components.PropertyClass.TryParseString(string? value, out object? o) -> bool
+HexIDE.Runtime.Components.PropertyClass<T>
+HexIDE.Runtime.Components.PropertyClass<T>.DefaultValue(HexIDE.Runtime.Components.IComponentClass! componentClass) -> T?
+HexIDE.Runtime.Components.PropertyClass<T>.DefaultValue<TComponent>() -> T?
+HexIDE.Runtime.Components.PropertyClass<T>.OverrideDefault<TComponent>(T? value) -> void
+HexIDE.Runtime.Components.PropertyClass<T>.PropertyClass(string! name, string! description, HexIDE.Runtime.Components.PropertyCategory category, T? defaultValue = default(T?)) -> void
+HexIDE.Runtime.ProjectElements.FormDefinition
+HexIDE.Runtime.ProjectElements.FormDefinition.AbsolutePath.get -> string?
+HexIDE.Runtime.ProjectElements.FormDefinition.AbsolutePath.set -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.AdoptFidelityState(HexIDE.Runtime.ProjectElements.FormDefinition! fresh) -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.CanSaveFaithfully.get -> bool
+HexIDE.Runtime.ProjectElements.FormDefinition.CitedCompanionBlobCount.get -> int
+HexIDE.Runtime.ProjectElements.FormDefinition.Code.get -> string!
+HexIDE.Runtime.ProjectElements.FormDefinition.Components.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentInstance!>!
+HexIDE.Runtime.ProjectElements.FormDefinition.DesignerText.get -> string?
+HexIDE.Runtime.ProjectElements.FormDefinition.FormDefinition(HexIDE.Runtime.ProjectElements.ProjectDefinition! owner, HexIDE.Runtime.Components.IComponentClass! formComponentClass, string! name) -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.FormDefinition(HexIDE.Runtime.ProjectElements.ProjectDefinition! owner, System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentInstance!>! initialComponents, string! code) -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.HasUnmodelledBinaryProperties.get -> bool
+HexIDE.Runtime.ProjectElements.FormDefinition.HeaderLines.get -> System.Collections.Generic.List<string!>!
+HexIDE.Runtime.ProjectElements.FormDefinition.LoadedCompanionBlobCount.get -> int
+HexIDE.Runtime.ProjectElements.FormDefinition.LoadedWithErrors.get -> bool
+HexIDE.Runtime.ProjectElements.FormDefinition.LoadedWithErrors.set -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.LockControls.get -> bool
+HexIDE.Runtime.ProjectElements.FormDefinition.LockControls.set -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.MarkUnfaithfulToSave(HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause cause, string! developerReason) -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.MarkUnmodelledBinaryProperty() -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.MaxUnreproducibleNestingDepth.get -> int
+HexIDE.Runtime.ProjectElements.FormDefinition.Name.get -> string!
+HexIDE.Runtime.ProjectElements.FormDefinition.NotifyRootPropertiesChanged() -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.ObjectReferences.get -> System.Collections.Generic.IEnumerable<HexIDE.Runtime.ProjectElements.ObjectReference>!
+HexIDE.Runtime.ProjectElements.FormDefinition.OuterRect.get -> HexIDE.Runtime.ProjectElements.RootOuterRect?
+HexIDE.Runtime.ProjectElements.FormDefinition.OuterRect.set -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.Owner.get -> HexIDE.Runtime.ProjectElements.ProjectDefinition!
+HexIDE.Runtime.ProjectElements.FormDefinition.OwningModule.get -> HexIDE.Runtime.ProjectElements.ModuleDefinition?
+HexIDE.Runtime.ProjectElements.FormDefinition.PropertyChanged -> System.ComponentModel.PropertyChangedEventHandler?
+HexIDE.Runtime.ProjectElements.FormDefinition.RecordCitedCompanionBlobCount(int count) -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.RecordDesignerText(string? text) -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.RecordLoadedCompanionBlobCount(int count) -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.RecordUnreproducibleNestingDepth(int depth) -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.RootVBTypeName.get -> string!
+HexIDE.Runtime.ProjectElements.FormDefinition.Scale.get -> HexIDE.Runtime.ProjectElements.RootScale?
+HexIDE.Runtime.ProjectElements.FormDefinition.Scale.set -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.SetField<T>(ref T field, T value, string? propertyName = null) -> bool
+HexIDE.Runtime.ProjectElements.FormDefinition.TextEncoding.get -> HexIDE.IDE.Vb6TextEncoding!
+HexIDE.Runtime.ProjectElements.FormDefinition.TextEncoding.set -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.UnfaithfulSaveCauses.get -> HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.FormDefinition.UnfaithfulSaveReason.get -> string?
+HexIDE.Runtime.ProjectElements.FormDefinition.UnknownChildSubtreeTexts.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.Runtime.ProjectElements.FormDefinition.UpdateCode(string! newCode) -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.UpdateComponents(System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentInstance!>! components) -> void
+HexIDE.Runtime.ProjectElements.FormDefinition.UpdateRootTypeName(string! typeName) -> void
+HexIDE.Runtime.ProjectElements.ModuleDefinition
+HexIDE.Runtime.ProjectElements.ModuleDefinition.AbsolutePath.get -> string?
+HexIDE.Runtime.ProjectElements.ModuleDefinition.AbsolutePath.set -> void
+HexIDE.Runtime.ProjectElements.ModuleDefinition.CanSaveFaithfully.get -> bool
+HexIDE.Runtime.ProjectElements.ModuleDefinition.Code.get -> string!
+HexIDE.Runtime.ProjectElements.ModuleDefinition.FormPart.get -> HexIDE.Runtime.ProjectElements.FormDefinition?
+HexIDE.Runtime.ProjectElements.ModuleDefinition.Kind.get -> HexIDE.Runtime.ProjectElements.ModuleKind
+HexIDE.Runtime.ProjectElements.ModuleDefinition.LoadedLineMap.get -> int[]?
+HexIDE.Runtime.ProjectElements.ModuleDefinition.LoadedLineMap.set -> void
+HexIDE.Runtime.ProjectElements.ModuleDefinition.LoadedOldHeaderLines.get -> int
+HexIDE.Runtime.ProjectElements.ModuleDefinition.LoadedOldHeaderLines.set -> void
+HexIDE.Runtime.ProjectElements.ModuleDefinition.MarkUnfaithfulToSave(HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause cause, string! developerReason) -> void
+HexIDE.Runtime.ProjectElements.ModuleDefinition.ModuleDefinition(HexIDE.Runtime.ProjectElements.ProjectDefinition! owner, string! name, HexIDE.Runtime.ProjectElements.ModuleKind kind) -> void
+HexIDE.Runtime.ProjectElements.ModuleDefinition.Name.get -> string!
+HexIDE.Runtime.ProjectElements.ModuleDefinition.Name.set -> void
+HexIDE.Runtime.ProjectElements.ModuleDefinition.OriginalHeader.get -> string?
+HexIDE.Runtime.ProjectElements.ModuleDefinition.Owner.get -> HexIDE.Runtime.ProjectElements.ProjectDefinition!
+HexIDE.Runtime.ProjectElements.ModuleDefinition.ProjectLineName.get -> string?
+HexIDE.Runtime.ProjectElements.ModuleDefinition.ProjectLineName.set -> void
+HexIDE.Runtime.ProjectElements.ModuleDefinition.PropertyChanged -> System.ComponentModel.PropertyChangedEventHandler?
+HexIDE.Runtime.ProjectElements.ModuleDefinition.RecordOriginalHeader(string? header) -> void
+HexIDE.Runtime.ProjectElements.ModuleDefinition.SetField<T>(ref T field, T value, string? propertyName = null) -> bool
+HexIDE.Runtime.ProjectElements.ModuleDefinition.TextEncoding.get -> HexIDE.IDE.Vb6TextEncoding!
+HexIDE.Runtime.ProjectElements.ModuleDefinition.TextEncoding.set -> void
+HexIDE.Runtime.ProjectElements.ModuleDefinition.UnfaithfulSaveCauses.get -> HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.ModuleDefinition.UnfaithfulSaveReason.get -> string?
+HexIDE.Runtime.ProjectElements.ModuleDefinition.UpdateCode(string! newCode) -> void
+HexIDE.Runtime.ProjectElements.ModuleDefinition.UpdateFormPart(HexIDE.Runtime.ProjectElements.FormDefinition? formPart) -> void
+HexIDE.Runtime.ProjectElements.ModuleKind
+HexIDE.Runtime.ProjectElements.ModuleKind.ClassModule = 1 -> HexIDE.Runtime.ProjectElements.ModuleKind
+HexIDE.Runtime.ProjectElements.ModuleKind.PropertyPage = 3 -> HexIDE.Runtime.ProjectElements.ModuleKind
+HexIDE.Runtime.ProjectElements.ModuleKind.StandardModule = 0 -> HexIDE.Runtime.ProjectElements.ModuleKind
+HexIDE.Runtime.ProjectElements.ModuleKind.UserControl = 2 -> HexIDE.Runtime.ProjectElements.ModuleKind
+HexIDE.Runtime.ProjectElements.ObjectReference
+HexIDE.Runtime.ProjectElements.ObjectReference.Deconstruct(out string! Guid, out string! Version, out string! File) -> void
+HexIDE.Runtime.ProjectElements.ObjectReference.Equals(HexIDE.Runtime.ProjectElements.ObjectReference other) -> bool
+HexIDE.Runtime.ProjectElements.ObjectReference.File.get -> string!
+HexIDE.Runtime.ProjectElements.ObjectReference.File.init -> void
+HexIDE.Runtime.ProjectElements.ObjectReference.Guid.get -> string!
+HexIDE.Runtime.ProjectElements.ObjectReference.Guid.init -> void
+HexIDE.Runtime.ProjectElements.ObjectReference.Lcid.get -> int
+HexIDE.Runtime.ProjectElements.ObjectReference.Lcid.init -> void
+HexIDE.Runtime.ProjectElements.ObjectReference.Names(string! guid) -> bool
+HexIDE.Runtime.ProjectElements.ObjectReference.ObjectReference() -> void
+HexIDE.Runtime.ProjectElements.ObjectReference.ObjectReference(string! Guid, string! Version, string! File) -> void
+HexIDE.Runtime.ProjectElements.ObjectReference.Version.get -> string!
+HexIDE.Runtime.ProjectElements.ObjectReference.Version.init -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition
+HexIDE.Runtime.ProjectElements.ProjectDefinition.AbsolutePath.get -> string?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.AbsolutePath.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.AddForm(HexIDE.Runtime.ProjectElements.FormDefinition! form) -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.AddModule(HexIDE.Runtime.ProjectElements.ModuleDefinition! module) -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.AddObjectLine(string! line) -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.AddReference(HexIDE.Runtime.ProjectElements.VbReference! r) -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.AddRelatedDocument(HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition! document) -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ConditionalArguments() -> System.Collections.Generic.IReadOnlyDictionary<string!, short>?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ContributedBy.get -> string?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ContributedBy.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ContributorTitle.get -> string?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ContributorTitle.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.DeleteForm(HexIDE.Runtime.ProjectElements.FormDefinition! form) -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.DeleteModule(HexIDE.Runtime.ProjectElements.ModuleDefinition! module) -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.DeleteRelatedDocument(HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition! document) -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.Description.get -> string!
+HexIDE.Runtime.ProjectElements.ProjectDefinition.Description.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ExtensionTail.get -> string?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ExtensionTail.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.FormAdded -> System.Action<HexIDE.Runtime.ProjectElements.ProjectDefinition!, HexIDE.Runtime.ProjectElements.FormDefinition!>?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.FormDeleted -> System.Action<HexIDE.Runtime.ProjectElements.ProjectDefinition!, HexIDE.Runtime.ProjectElements.FormDefinition!>?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.FormFormat.get -> HexIDE.IDE.IFormFileFormat?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.FormFormat.init -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.Format.get -> HexIDE.IDE.IProjectFileFormat?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.Format.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.Forms.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.ProjectElements.FormDefinition!>!
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ItemLinesDirectory.get -> string?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ItemLinesDirectory.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.KnownLineKeys.get -> System.Collections.Generic.List<string!>!
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ListedFolders.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ListedFolders.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ModuleAdded -> System.Action<HexIDE.Runtime.ProjectElements.ProjectDefinition!, HexIDE.Runtime.ProjectElements.ModuleDefinition!>?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ModuleDeleted -> System.Action<HexIDE.Runtime.ProjectElements.ProjectDefinition!, HexIDE.Runtime.ProjectElements.ModuleDefinition!>?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.Modules.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.ProjectElements.ModuleDefinition!>!
+HexIDE.Runtime.ProjectElements.ProjectDefinition.Name.get -> string!
+HexIDE.Runtime.ProjectElements.ProjectDefinition.Name.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ObjectReferences.get -> System.Collections.Generic.IEnumerable<HexIDE.Runtime.ProjectElements.ObjectReference>!
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ObjectReferencesChanged -> System.Action<HexIDE.Runtime.ProjectElements.ProjectDefinition!>?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.Offers.get -> HexIDE.Runtime.ProjectElements.ProjectOffers!
+HexIDE.Runtime.ProjectElements.ProjectDefinition.Offers.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.PreSectionValue(string! key) -> string?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.PreserveItemLine(string! line, int slot) -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.PreservedItemLineSlots.get -> System.Collections.Generic.Dictionary<int, int>!
+HexIDE.Runtime.ProjectElements.ProjectDefinition.PreservedItemLines.get -> System.Collections.Generic.List<string!>!
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ProjectDefinition(HexIDE.Runtime.ProjectElements.VBProjectType projectType, string! name) -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ProjectFileWriter.get -> HexIDE.IDE.IProjectFileWriter?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ProjectFileWriter.init -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ProjectType.get -> HexIDE.Runtime.ProjectElements.VBProjectType
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ProjectType.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.PropertyChanged -> System.ComponentModel.PropertyChangedEventHandler?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.References.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.ProjectElements.VbReference!>!
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ReferencesDialogAccepted.get -> bool
+HexIDE.Runtime.ProjectElements.ProjectDefinition.ReferencesDialogAccepted.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.RelatedDocumentAdded -> System.Action<HexIDE.Runtime.ProjectElements.ProjectDefinition!, HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition!>?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.RelatedDocumentDeleted -> System.Action<HexIDE.Runtime.ProjectElements.ProjectDefinition!, HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition!>?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.RelatedDocuments.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition!>!
+HexIDE.Runtime.ProjectElements.ProjectDefinition.RemoveObjectReference(string! guid) -> bool
+HexIDE.Runtime.ProjectElements.ProjectDefinition.RemoveReference(HexIDE.Runtime.ProjectElements.VbReference! r) -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.SetField<T>(ref T field, T value, string? propertyName = null) -> bool
+HexIDE.Runtime.ProjectElements.ProjectDefinition.SetReferences(System.Collections.Generic.IEnumerable<HexIDE.Runtime.ProjectElements.VbReference!>! newReferences) -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.StartsAtSubMain.get -> bool
+HexIDE.Runtime.ProjectElements.ProjectDefinition.StartsAtSubMain.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.StartupForm.get -> HexIDE.Runtime.ProjectElements.FormDefinition?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.StartupForm.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.StartupFormName.get -> string?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.StartupFormName.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.TextEncoding.get -> HexIDE.IDE.Vb6TextEncoding!
+HexIDE.Runtime.ProjectElements.ProjectDefinition.TextEncoding.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.UnknownPreSectionLines.get -> System.Collections.Generic.List<(int PositionHint, string! RawLine)>!
+HexIDE.Runtime.ProjectElements.ProjectDefinition.VbaBitness.get -> HexIDE.Runtime.ProjectElements.VbaBitness
+HexIDE.Runtime.ProjectElements.ProjectDefinition.VbaBitness.set -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.WorkingDirectory.get -> string?
+HexIDE.Runtime.ProjectElements.ProjectDefinition.WorkingDirectory.set -> void
+HexIDE.Runtime.ProjectElements.ProjectOffers
+HexIDE.Runtime.ProjectElements.ProjectOffers.<Clone>$() -> HexIDE.Runtime.ProjectElements.ProjectOffers!
+HexIDE.Runtime.ProjectElements.ProjectOffers.ChangesMembership.get -> bool
+HexIDE.Runtime.ProjectElements.ProjectOffers.ChangesMembership.init -> void
+HexIDE.Runtime.ProjectElements.ProjectOffers.Equals(HexIDE.Runtime.ProjectElements.ProjectOffers? other) -> bool
+HexIDE.Runtime.ProjectElements.ProjectOffers.Makes.get -> bool
+HexIDE.Runtime.ProjectElements.ProjectOffers.Makes.init -> void
+HexIDE.Runtime.ProjectElements.ProjectOffers.MovesProjectFile.get -> bool
+HexIDE.Runtime.ProjectElements.ProjectOffers.MovesProjectFile.init -> void
+HexIDE.Runtime.ProjectElements.ProjectOffers.ProjectOffers() -> void
+HexIDE.Runtime.ProjectElements.ProjectOffers.Runs.get -> bool
+HexIDE.Runtime.ProjectElements.ProjectOffers.Runs.init -> void
+HexIDE.Runtime.ProjectElements.ProjectOffers.SetsComponents.get -> bool
+HexIDE.Runtime.ProjectElements.ProjectOffers.SetsComponents.init -> void
+HexIDE.Runtime.ProjectElements.ProjectOffers.SetsProperties.get -> bool
+HexIDE.Runtime.ProjectElements.ProjectOffers.SetsProperties.init -> void
+HexIDE.Runtime.ProjectElements.ProjectOffers.SetsReferences.get -> bool
+HexIDE.Runtime.ProjectElements.ProjectOffers.SetsReferences.init -> void
+HexIDE.Runtime.ProjectElements.ProjectOffers.SetsTypeAndStartup.get -> bool
+HexIDE.Runtime.ProjectElements.ProjectOffers.SetsTypeAndStartup.init -> void
+HexIDE.Runtime.ProjectElements.ProjectOffers.WritesForms.get -> bool
+HexIDE.Runtime.ProjectElements.ProjectOffers.WritesForms.init -> void
+HexIDE.Runtime.ProjectElements.ProjectOffers.WritesProjectFile.get -> bool
+HexIDE.Runtime.ProjectElements.ProjectOffers.WritesProjectFile.init -> void
+HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition
+HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition.AbsolutePath.get -> string?
+HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition.AbsolutePath.set -> void
+HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition.Name.get -> string!
+HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition.Name.set -> void
+HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition.OriginalItemLine.get -> string?
+HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition.OriginalItemSlot.get -> int?
+HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition.OriginalItemSlot.init -> void
+HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition.Owner.get -> HexIDE.Runtime.ProjectElements.ProjectDefinition!
+HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition.PropertyChanged -> System.ComponentModel.PropertyChangedEventHandler?
+HexIDE.Runtime.ProjectElements.RelatedDocumentDefinition.RelatedDocumentDefinition(HexIDE.Runtime.ProjectElements.ProjectDefinition! owner, string! name, string? absolutePath = null, string? originalItemLine = null) -> void
+HexIDE.Runtime.ProjectElements.RootOuterRect
+HexIDE.Runtime.ProjectElements.RootOuterRect.<Clone>$() -> HexIDE.Runtime.ProjectElements.RootOuterRect!
+HexIDE.Runtime.ProjectElements.RootOuterRect.Deconstruct(out double LeftOffsetTwips, out double TopOffsetTwips, out double WidthOffsetTwips, out double HeightOffsetTwips) -> void
+HexIDE.Runtime.ProjectElements.RootOuterRect.Equals(HexIDE.Runtime.ProjectElements.RootOuterRect? other) -> bool
+HexIDE.Runtime.ProjectElements.RootOuterRect.HeightOffsetTwips.get -> double
+HexIDE.Runtime.ProjectElements.RootOuterRect.HeightOffsetTwips.init -> void
+HexIDE.Runtime.ProjectElements.RootOuterRect.LeftOffsetTwips.get -> double
+HexIDE.Runtime.ProjectElements.RootOuterRect.LeftOffsetTwips.init -> void
+HexIDE.Runtime.ProjectElements.RootOuterRect.RootOuterRect(double LeftOffsetTwips, double TopOffsetTwips, double WidthOffsetTwips, double HeightOffsetTwips) -> void
+HexIDE.Runtime.ProjectElements.RootOuterRect.TopOffsetTwips.get -> double
+HexIDE.Runtime.ProjectElements.RootOuterRect.TopOffsetTwips.init -> void
+HexIDE.Runtime.ProjectElements.RootOuterRect.WidthOffsetTwips.get -> double
+HexIDE.Runtime.ProjectElements.RootOuterRect.WidthOffsetTwips.init -> void
+HexIDE.Runtime.ProjectElements.RootScale
+HexIDE.Runtime.ProjectElements.RootScale.<Clone>$() -> HexIDE.Runtime.ProjectElements.RootScale!
+HexIDE.Runtime.ProjectElements.RootScale.Deconstruct(out int Mode, out double? Width, out double? Height) -> void
+HexIDE.Runtime.ProjectElements.RootScale.Equals(HexIDE.Runtime.ProjectElements.RootScale? other) -> bool
+HexIDE.Runtime.ProjectElements.RootScale.Height.get -> double?
+HexIDE.Runtime.ProjectElements.RootScale.Height.init -> void
+HexIDE.Runtime.ProjectElements.RootScale.Mode.get -> int
+HexIDE.Runtime.ProjectElements.RootScale.Mode.init -> void
+HexIDE.Runtime.ProjectElements.RootScale.RootScale(int Mode, double? Width, double? Height) -> void
+HexIDE.Runtime.ProjectElements.RootScale.Width.get -> double?
+HexIDE.Runtime.ProjectElements.RootScale.Width.init -> void
+HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause.DesignerFileAsModule = 1024 -> HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause.MissingUserControlExtents = 64 -> HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause.NestedContainers = 1 -> HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause.None = 0 -> HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause.NulInDesignerText = 128 -> HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause.ReadByAddin = 16 -> HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause.RefusedByFormat = 32 -> HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause.RefusedMeasurement = 512 -> HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause.SSTabPageMetadata = 4 -> HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause.UnimplementedControlPersistence = 8 -> HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause.UnreadableDuplicateProperty = 256 -> HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause.UnreproducibleBinaryContent = 2 -> HexIDE.Runtime.ProjectElements.UnfaithfulSaveCause
+HexIDE.Runtime.ProjectElements.VBProjectType
+HexIDE.Runtime.ProjectElements.VBProjectType.Control = 3 -> HexIDE.Runtime.ProjectElements.VBProjectType
+HexIDE.Runtime.ProjectElements.VBProjectType.EXE = 0 -> HexIDE.Runtime.ProjectElements.VBProjectType
+HexIDE.Runtime.ProjectElements.VBProjectType.OleDll = 1 -> HexIDE.Runtime.ProjectElements.VBProjectType
+HexIDE.Runtime.ProjectElements.VBProjectType.OleExe = 2 -> HexIDE.Runtime.ProjectElements.VBProjectType
+HexIDE.Runtime.ProjectElements.VbReference
+HexIDE.Runtime.ProjectElements.VbReference.Deconstruct(out string! Guid, out string! Version, out int Lcid, out string? LibPath, out string? Name) -> void
+HexIDE.Runtime.ProjectElements.VbReference.Guid.get -> string!
+HexIDE.Runtime.ProjectElements.VbReference.Guid.init -> void
+HexIDE.Runtime.ProjectElements.VbReference.Lcid.get -> int
+HexIDE.Runtime.ProjectElements.VbReference.Lcid.init -> void
+HexIDE.Runtime.ProjectElements.VbReference.LibPath.get -> string?
+HexIDE.Runtime.ProjectElements.VbReference.LibPath.init -> void
+HexIDE.Runtime.ProjectElements.VbReference.Name.get -> string?
+HexIDE.Runtime.ProjectElements.VbReference.Name.init -> void
+HexIDE.Runtime.ProjectElements.VbReference.VbReference(HexIDE.Runtime.ProjectElements.VbReference! original) -> void
+HexIDE.Runtime.ProjectElements.VbReference.VbReference(string! Guid, string! Version, int Lcid, string? LibPath, string? Name) -> void
+HexIDE.Runtime.ProjectElements.VbReference.Version.get -> string!
+HexIDE.Runtime.ProjectElements.VbReference.Version.init -> void
+HexIDE.Runtime.ProjectElements.VbaBitness
+HexIDE.Runtime.ProjectElements.VbaBitness.Bit32 = 32 -> HexIDE.Runtime.ProjectElements.VbaBitness
+HexIDE.Runtime.ProjectElements.VbaBitness.Bit64 = 64 -> HexIDE.Runtime.ProjectElements.VbaBitness
+HexIDE.Runtime.ProjectElements.VbaBitness.None = 0 -> HexIDE.Runtime.ProjectElements.VbaBitness
+HexIDE.Runtime.Serialization.IDeserializeErrorSink
+HexIDE.Runtime.Serialization.IDeserializeErrorSink.LogError(string! error) -> void
+HexIDE.Runtime.Serialization.IDeserializeErrorSink.LogError(string! key, string! fallback, params object![]! arguments) -> void
+HexIDE.Runtime.Serialization.SerializedProjectGroup
+HexIDE.Runtime.Serialization.SerializedProjectGroup.Deconstruct(out string? StartupProjectRelativePath, out System.Collections.Generic.IReadOnlyList<string!>! ProjectRelativePaths, out System.Collections.Generic.IReadOnlyList<string!>! UnknownLines) -> void
+HexIDE.Runtime.Serialization.SerializedProjectGroup.ProjectRelativePaths.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.Runtime.Serialization.SerializedProjectGroup.ProjectRelativePaths.init -> void
+HexIDE.Runtime.Serialization.SerializedProjectGroup.SerializedProjectGroup(HexIDE.Runtime.Serialization.SerializedProjectGroup! original) -> void
+HexIDE.Runtime.Serialization.SerializedProjectGroup.SerializedProjectGroup(string? StartupProjectRelativePath, System.Collections.Generic.IReadOnlyList<string!>! ProjectRelativePaths, System.Collections.Generic.IReadOnlyList<string!>! UnknownLines) -> void
+HexIDE.Runtime.Serialization.SerializedProjectGroup.StartupProjectRelativePath.get -> string?
+HexIDE.Runtime.Serialization.SerializedProjectGroup.StartupProjectRelativePath.init -> void
+HexIDE.Runtime.Serialization.SerializedProjectGroup.UnknownLines.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.Runtime.Serialization.SerializedProjectGroup.UnknownLines.init -> void
+abstract HexIDE.Runtime.Components.PropertyClass.BoxedDefaultValue(HexIDE.Runtime.Components.IComponentClass! componentClass) -> object?
+abstract HexIDE.Runtime.Components.PropertyClass.BoxedDefaultValue<TComponent>() -> object?
+abstract HexIDE.Runtime.Components.PropertyClass.PropertyType.get -> System.Type!
 const HexIDE.Addins.AddinManifest.CurrentSchema = 2 -> int
 const HexIDE.Addins.ConsentDecisions.Allow = "allow" -> string!
 const HexIDE.Addins.ConsentDecisions.Block = "block" -> string!
@@ -678,6 +1434,8 @@ const HexIDE.Addins.ServerChatToolLimits.MaxName = 64 -> int
 const HexIDE.Addins.ServerChatToolLimits.MaxResult = 16384 -> int
 const HexIDE.Addins.ServerChatToolLimits.MaxSchemaBytes = 8192 -> int
 const HexIDE.Addins.ServerChatToolLimits.MaxToolsPerServer = 32 -> int
+const HexIDE.Runtime.ProjectElements.ProjectDefinition.AfterFormsHint = -1 -> int
+const HexIDE.Runtime.ProjectElements.ProjectDefinition.ConditionalArgumentsKey = "CondComp" -> string!
 override HexIDE.Addins.AddinConsentFile.Equals(object? obj) -> bool
 override HexIDE.Addins.AddinConsentFile.GetHashCode() -> int
 override HexIDE.Addins.AddinConsentFile.ToString() -> string!
@@ -786,6 +1544,84 @@ override HexIDE.Addins.TrustChain.ToString() -> string!
 override HexIDE.Addins.TrustLink.Equals(object? obj) -> bool
 override HexIDE.Addins.TrustLink.GetHashCode() -> int
 override HexIDE.Addins.TrustLink.ToString() -> string!
+override HexIDE.Conversations.CaptureLimits.Equals(object? obj) -> bool
+override HexIDE.Conversations.CaptureLimits.GetHashCode() -> int
+override HexIDE.Conversations.CaptureLimits.ToString() -> string!
+override HexIDE.IDE.FormatRegions.Equals(object? obj) -> bool
+override HexIDE.IDE.FormatRegions.GetHashCode() -> int
+override HexIDE.IDE.FormatRegions.ToString() -> string!
+override HexIDE.IDE.ProjectFileRead.Equals(object? obj) -> bool
+override HexIDE.IDE.ProjectFileRead.GetHashCode() -> int
+override HexIDE.IDE.ProjectFileRead.ToString() -> string!
+override HexIDE.IDE.RenderedFile.GetHashCode() -> int
+override HexIDE.IDE.Vb6TextEncoding.Equals(object? obj) -> bool
+override HexIDE.IDE.Vb6TextEncoding.GetHashCode() -> int
+override HexIDE.IDE.Vb6TextEncoding.ToString() -> string!
+override HexIDE.Language.ContentReplacement.GetHashCode() -> int
+override HexIDE.Language.HangingRegion.Equals(object? obj) -> bool
+override HexIDE.Language.HangingRegion.GetHashCode() -> int
+override HexIDE.Language.HangingRegion.ToString() -> string!
+override HexIDE.Language.HangingRegionKey.GetHashCode() -> int
+override HexIDE.Language.TextChange.GetHashCode() -> int
+override HexIDE.Language.TextRegion.GetHashCode() -> int
+override HexIDE.Lsp.LanguageServerConfigJsonContext.GeneratedSerializerOptions.get -> System.Text.Json.JsonSerializerOptions?
+override HexIDE.Lsp.LanguageServerConfigJsonContext.GetTypeInfo(System.Type! type) -> System.Text.Json.Serialization.Metadata.JsonTypeInfo?
+override HexIDE.Lsp.LanguageServerConfigProblem.Equals(object? obj) -> bool
+override HexIDE.Lsp.LanguageServerConfigProblem.GetHashCode() -> int
+override HexIDE.Lsp.LanguageServerConfigProblem.ToString() -> string!
+override HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.Equals(object? obj) -> bool
+override HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.GetHashCode() -> int
+override HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.ToString() -> string!
+override HexIDE.Lsp.Messages.Location.Equals(object? obj) -> bool
+override HexIDE.Lsp.Messages.Location.GetHashCode() -> int
+override HexIDE.Lsp.Messages.Location.ToString() -> string!
+override HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.Equals(object? obj) -> bool
+override HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.GetHashCode() -> int
+override HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.ToString() -> string!
+override HexIDE.Lsp.Messages.Position.Equals(object? obj) -> bool
+override HexIDE.Lsp.Messages.Position.GetHashCode() -> int
+override HexIDE.Lsp.Messages.Position.ToString() -> string!
+override HexIDE.Lsp.Messages.Range.Equals(object? obj) -> bool
+override HexIDE.Lsp.Messages.Range.GetHashCode() -> int
+override HexIDE.Lsp.Messages.Range.ToString() -> string!
+override HexIDE.Lsp.Messages.TextDocumentEdit.Equals(object? obj) -> bool
+override HexIDE.Lsp.Messages.TextDocumentEdit.GetHashCode() -> int
+override HexIDE.Lsp.Messages.TextDocumentEdit.ToString() -> string!
+override HexIDE.Lsp.Messages.TextEdit.Equals(object? obj) -> bool
+override HexIDE.Lsp.Messages.TextEdit.GetHashCode() -> int
+override HexIDE.Lsp.Messages.TextEdit.ToString() -> string!
+override HexIDE.Lsp.Messages.WorkspaceEdit.Equals(object? obj) -> bool
+override HexIDE.Lsp.Messages.WorkspaceEdit.GetHashCode() -> int
+override HexIDE.Lsp.Messages.WorkspaceEdit.ToString() -> string!
+override HexIDE.Lsp.SeenCommandJsonContext.GeneratedSerializerOptions.get -> System.Text.Json.JsonSerializerOptions?
+override HexIDE.Lsp.SeenCommandJsonContext.GetTypeInfo(System.Type! type) -> System.Text.Json.Serialization.Metadata.JsonTypeInfo?
+override HexIDE.Lsp.ServerArguments.Equals(object? obj) -> bool
+override HexIDE.Lsp.ServerArguments.GetHashCode() -> int
+override HexIDE.Lsp.ServerArguments.ToString() -> string!
+override HexIDE.Lsp.ServerArgumentsConverter.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! type, System.Text.Json.JsonSerializerOptions! options) -> HexIDE.Lsp.ServerArguments!
+override HexIDE.Lsp.ServerArgumentsConverter.Write(System.Text.Json.Utf8JsonWriter! writer, HexIDE.Lsp.ServerArguments! value, System.Text.Json.JsonSerializerOptions! options) -> void
+override HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.GetHashCode() -> int
+override HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.GetHashCode() -> int
+override HexIDE.Runtime.Components.PropertyChange.GetHashCode() -> int
+override HexIDE.Runtime.Components.PropertyClass<T>.BoxedDefaultValue(HexIDE.Runtime.Components.IComponentClass! componentClass) -> object?
+override HexIDE.Runtime.Components.PropertyClass<T>.BoxedDefaultValue<TComponent>() -> object?
+override HexIDE.Runtime.Components.PropertyClass<T>.PropertyType.get -> System.Type!
+override HexIDE.Runtime.ProjectElements.ObjectReference.GetHashCode() -> int
+override HexIDE.Runtime.ProjectElements.ProjectOffers.Equals(object? obj) -> bool
+override HexIDE.Runtime.ProjectElements.ProjectOffers.GetHashCode() -> int
+override HexIDE.Runtime.ProjectElements.ProjectOffers.ToString() -> string!
+override HexIDE.Runtime.ProjectElements.RootOuterRect.Equals(object? obj) -> bool
+override HexIDE.Runtime.ProjectElements.RootOuterRect.GetHashCode() -> int
+override HexIDE.Runtime.ProjectElements.RootOuterRect.ToString() -> string!
+override HexIDE.Runtime.ProjectElements.RootScale.Equals(object? obj) -> bool
+override HexIDE.Runtime.ProjectElements.RootScale.GetHashCode() -> int
+override HexIDE.Runtime.ProjectElements.RootScale.ToString() -> string!
+override HexIDE.Runtime.ProjectElements.VbReference.Equals(object? obj) -> bool
+override HexIDE.Runtime.ProjectElements.VbReference.GetHashCode() -> int
+override HexIDE.Runtime.ProjectElements.VbReference.ToString() -> string!
+override HexIDE.Runtime.Serialization.SerializedProjectGroup.Equals(object? obj) -> bool
+override HexIDE.Runtime.Serialization.SerializedProjectGroup.GetHashCode() -> int
+override HexIDE.Runtime.Serialization.SerializedProjectGroup.ToString() -> string!
 static HexIDE.Addins.AddinCapabilities.IsKnown(string? capability) -> bool
 static HexIDE.Addins.AddinCapabilities.IsValid(System.Text.Json.JsonElement? declaration) -> bool
 static HexIDE.Addins.AddinConsentFile.operator !=(HexIDE.Addins.AddinConsentFile? left, HexIDE.Addins.AddinConsentFile? right) -> bool
@@ -880,6 +1716,87 @@ static HexIDE.Addins.TrustChain.operator !=(HexIDE.Addins.TrustChain? left, HexI
 static HexIDE.Addins.TrustChain.operator ==(HexIDE.Addins.TrustChain? left, HexIDE.Addins.TrustChain? right) -> bool
 static HexIDE.Addins.TrustLink.operator !=(HexIDE.Addins.TrustLink? left, HexIDE.Addins.TrustLink? right) -> bool
 static HexIDE.Addins.TrustLink.operator ==(HexIDE.Addins.TrustLink? left, HexIDE.Addins.TrustLink? right) -> bool
+static HexIDE.Conversations.CaptureLimits.Default.get -> HexIDE.Conversations.CaptureLimits!
+static HexIDE.Conversations.CaptureLimits.operator !=(HexIDE.Conversations.CaptureLimits? left, HexIDE.Conversations.CaptureLimits? right) -> bool
+static HexIDE.Conversations.CaptureLimits.operator ==(HexIDE.Conversations.CaptureLimits? left, HexIDE.Conversations.CaptureLimits? right) -> bool
+static HexIDE.IDE.FormatRegions.operator !=(HexIDE.IDE.FormatRegions? left, HexIDE.IDE.FormatRegions? right) -> bool
+static HexIDE.IDE.FormatRegions.operator ==(HexIDE.IDE.FormatRegions? left, HexIDE.IDE.FormatRegions? right) -> bool
+static HexIDE.IDE.ProjectFileRead.operator !=(HexIDE.IDE.ProjectFileRead? left, HexIDE.IDE.ProjectFileRead? right) -> bool
+static HexIDE.IDE.ProjectFileRead.operator ==(HexIDE.IDE.ProjectFileRead? left, HexIDE.IDE.ProjectFileRead? right) -> bool
+static HexIDE.IDE.RenderedFile.operator !=(HexIDE.IDE.RenderedFile left, HexIDE.IDE.RenderedFile right) -> bool
+static HexIDE.IDE.RenderedFile.operator ==(HexIDE.IDE.RenderedFile left, HexIDE.IDE.RenderedFile right) -> bool
+static HexIDE.IDE.Vb6TextEncoding.Ansi.get -> HexIDE.IDE.Vb6TextEncoding!
+static HexIDE.IDE.Vb6TextEncoding.HasTable(int codePage) -> bool
+static HexIDE.IDE.Vb6TextEncoding.Latin1.get -> HexIDE.IDE.Vb6TextEncoding!
+static HexIDE.IDE.Vb6TextEncoding.Utf8.get -> HexIDE.IDE.Vb6TextEncoding!
+static HexIDE.IDE.Vb6TextEncoding.Utf8WithBom.get -> HexIDE.IDE.Vb6TextEncoding!
+static HexIDE.IDE.Vb6TextEncoding.operator !=(HexIDE.IDE.Vb6TextEncoding? left, HexIDE.IDE.Vb6TextEncoding? right) -> bool
+static HexIDE.IDE.Vb6TextEncoding.operator ==(HexIDE.IDE.Vb6TextEncoding? left, HexIDE.IDE.Vb6TextEncoding? right) -> bool
+static HexIDE.IDE.Vb6TextFile.Decode(byte[]! bytes, HexIDE.IDE.Vb6TextEncoding? encoding = null) -> string!
+static HexIDE.IDE.Vb6TextFile.DetectEncoding(byte[]! bytes, HexIDE.IDE.Vb6TextEncoding? fallback = null) -> HexIDE.IDE.Vb6TextEncoding!
+static HexIDE.IDE.Vb6TextFile.Encode(string! content, HexIDE.IDE.Vb6TextEncoding? encoding = null) -> byte[]!
+static HexIDE.IDE.Vb6TextFile.EncodeDocument(string! document, string! content, HexIDE.IDE.Vb6TextEncoding! encoding) -> byte[]!
+static HexIDE.IDE.Vb6TextFile.ReadAllText(string! path) -> string!
+static HexIDE.IDE.Vb6TextFile.ReadDocument(byte[]! bytes, HexIDE.IDE.Vb6TextEncoding? lastReadIn = null, HexIDE.IDE.Vb6TextEncoding? ansi = null, HexIDE.IDE.Vb6TextEncoding? recorded = null) -> (string! Text, HexIDE.IDE.Vb6TextEncoding! Encoding, bool ByteForByte)
+static HexIDE.IDE.Vb6TextFile.ReadDocumentAsync(string! path, HexIDE.IDE.Vb6TextEncoding? lastReadIn = null, HexIDE.IDE.Vb6TextEncoding? ansi = null, HexIDE.IDE.Vb6TextEncoding? recorded = null) -> System.Threading.Tasks.Task<(string! Text, byte[]! Bytes, HexIDE.IDE.Vb6TextEncoding! Encoding, bool ByteForByte)>!
+static HexIDE.Language.ContentReplacement.operator !=(HexIDE.Language.ContentReplacement left, HexIDE.Language.ContentReplacement right) -> bool
+static HexIDE.Language.ContentReplacement.operator ==(HexIDE.Language.ContentReplacement left, HexIDE.Language.ContentReplacement right) -> bool
+static HexIDE.Language.HangingRegion.operator !=(HexIDE.Language.HangingRegion? left, HexIDE.Language.HangingRegion? right) -> bool
+static HexIDE.Language.HangingRegion.operator ==(HexIDE.Language.HangingRegion? left, HexIDE.Language.HangingRegion? right) -> bool
+static HexIDE.Language.HangingRegionKey.operator !=(HexIDE.Language.HangingRegionKey left, HexIDE.Language.HangingRegionKey right) -> bool
+static HexIDE.Language.HangingRegionKey.operator ==(HexIDE.Language.HangingRegionKey left, HexIDE.Language.HangingRegionKey right) -> bool
+static HexIDE.Language.TextChange.operator !=(HexIDE.Language.TextChange left, HexIDE.Language.TextChange right) -> bool
+static HexIDE.Language.TextChange.operator ==(HexIDE.Language.TextChange left, HexIDE.Language.TextChange right) -> bool
+static HexIDE.Language.TextRegion.operator !=(HexIDE.Language.TextRegion left, HexIDE.Language.TextRegion right) -> bool
+static HexIDE.Language.TextRegion.operator ==(HexIDE.Language.TextRegion left, HexIDE.Language.TextRegion right) -> bool
+static HexIDE.Lsp.LanguageServerConfigJsonContext.Default.get -> HexIDE.Lsp.LanguageServerConfigJsonContext!
+static HexIDE.Lsp.LanguageServerConfigProblem.operator !=(HexIDE.Lsp.LanguageServerConfigProblem? left, HexIDE.Lsp.LanguageServerConfigProblem? right) -> bool
+static HexIDE.Lsp.LanguageServerConfigProblem.operator ==(HexIDE.Lsp.LanguageServerConfigProblem? left, HexIDE.Lsp.LanguageServerConfigProblem? right) -> bool
+static HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.operator !=(HexIDE.Lsp.Messages.ApplyWorkspaceEditResult? left, HexIDE.Lsp.Messages.ApplyWorkspaceEditResult? right) -> bool
+static HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.operator ==(HexIDE.Lsp.Messages.ApplyWorkspaceEditResult? left, HexIDE.Lsp.Messages.ApplyWorkspaceEditResult? right) -> bool
+static HexIDE.Lsp.Messages.Location.operator !=(HexIDE.Lsp.Messages.Location? left, HexIDE.Lsp.Messages.Location? right) -> bool
+static HexIDE.Lsp.Messages.Location.operator ==(HexIDE.Lsp.Messages.Location? left, HexIDE.Lsp.Messages.Location? right) -> bool
+static HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.operator !=(HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier? left, HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier? right) -> bool
+static HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.operator ==(HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier? left, HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier? right) -> bool
+static HexIDE.Lsp.Messages.Position.operator !=(HexIDE.Lsp.Messages.Position? left, HexIDE.Lsp.Messages.Position? right) -> bool
+static HexIDE.Lsp.Messages.Position.operator ==(HexIDE.Lsp.Messages.Position? left, HexIDE.Lsp.Messages.Position? right) -> bool
+static HexIDE.Lsp.Messages.Range.operator !=(HexIDE.Lsp.Messages.Range? left, HexIDE.Lsp.Messages.Range? right) -> bool
+static HexIDE.Lsp.Messages.Range.operator ==(HexIDE.Lsp.Messages.Range? left, HexIDE.Lsp.Messages.Range? right) -> bool
+static HexIDE.Lsp.Messages.TextDocumentEdit.operator !=(HexIDE.Lsp.Messages.TextDocumentEdit? left, HexIDE.Lsp.Messages.TextDocumentEdit? right) -> bool
+static HexIDE.Lsp.Messages.TextDocumentEdit.operator ==(HexIDE.Lsp.Messages.TextDocumentEdit? left, HexIDE.Lsp.Messages.TextDocumentEdit? right) -> bool
+static HexIDE.Lsp.Messages.TextEdit.operator !=(HexIDE.Lsp.Messages.TextEdit? left, HexIDE.Lsp.Messages.TextEdit? right) -> bool
+static HexIDE.Lsp.Messages.TextEdit.operator ==(HexIDE.Lsp.Messages.TextEdit? left, HexIDE.Lsp.Messages.TextEdit? right) -> bool
+static HexIDE.Lsp.Messages.WorkspaceEdit.operator !=(HexIDE.Lsp.Messages.WorkspaceEdit? left, HexIDE.Lsp.Messages.WorkspaceEdit? right) -> bool
+static HexIDE.Lsp.Messages.WorkspaceEdit.operator ==(HexIDE.Lsp.Messages.WorkspaceEdit? left, HexIDE.Lsp.Messages.WorkspaceEdit? right) -> bool
+static HexIDE.Lsp.SeenCommandJsonContext.Default.get -> HexIDE.Lsp.SeenCommandJsonContext!
+static HexIDE.Lsp.ServerArguments.implicit operator HexIDE.Lsp.ServerArguments?(string? text) -> HexIDE.Lsp.ServerArguments?
+static HexIDE.Lsp.ServerArguments.operator !=(HexIDE.Lsp.ServerArguments? left, HexIDE.Lsp.ServerArguments? right) -> bool
+static HexIDE.Lsp.ServerArguments.operator ==(HexIDE.Lsp.ServerArguments? left, HexIDE.Lsp.ServerArguments? right) -> bool
+static HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.operator !=(HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree left, HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree right) -> bool
+static HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.operator ==(HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree left, HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree right) -> bool
+static HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.operator !=(HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty left, HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty right) -> bool
+static HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.operator ==(HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty left, HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty right) -> bool
+static HexIDE.Runtime.Components.PropertyChange.operator !=(HexIDE.Runtime.Components.PropertyChange left, HexIDE.Runtime.Components.PropertyChange right) -> bool
+static HexIDE.Runtime.Components.PropertyChange.operator ==(HexIDE.Runtime.Components.PropertyChange left, HexIDE.Runtime.Components.PropertyChange right) -> bool
+static HexIDE.Runtime.Components.PropertyClass.RegisterParser<T>(System.Func<string!, (bool success, object? value)>! parser) -> void
+static HexIDE.Runtime.ProjectElements.FormDefinition.NewDesignerHalf(HexIDE.Runtime.ProjectElements.ProjectDefinition! owner, HexIDE.Runtime.Components.IComponentClass! rootClass, string! name, string! rootTypeName) -> HexIDE.Runtime.ProjectElements.FormDefinition!
+static HexIDE.Runtime.ProjectElements.FormDefinition.NewForm(HexIDE.Runtime.ProjectElements.ProjectDefinition! owner, HexIDE.Runtime.Components.IComponentClass! formComponentClass, string! name) -> HexIDE.Runtime.ProjectElements.FormDefinition!
+static HexIDE.Runtime.ProjectElements.ModuleDefinition.NewDesigner(HexIDE.Runtime.ProjectElements.ProjectDefinition! owner, string! name, HexIDE.Runtime.ProjectElements.ModuleKind kind, HexIDE.Runtime.Components.IComponentClass! rootClass) -> HexIDE.Runtime.ProjectElements.ModuleDefinition!
+static HexIDE.Runtime.ProjectElements.ObjectReference.TryParse(string! line, out HexIDE.Runtime.ProjectElements.ObjectReference reference) -> bool
+static HexIDE.Runtime.ProjectElements.ObjectReference.operator !=(HexIDE.Runtime.ProjectElements.ObjectReference left, HexIDE.Runtime.ProjectElements.ObjectReference right) -> bool
+static HexIDE.Runtime.ProjectElements.ObjectReference.operator ==(HexIDE.Runtime.ProjectElements.ObjectReference left, HexIDE.Runtime.ProjectElements.ObjectReference right) -> bool
+static HexIDE.Runtime.ProjectElements.ProjectOffers.Everything.get -> HexIDE.Runtime.ProjectElements.ProjectOffers!
+static HexIDE.Runtime.ProjectElements.ProjectOffers.Nothing.get -> HexIDE.Runtime.ProjectElements.ProjectOffers!
+static HexIDE.Runtime.ProjectElements.ProjectOffers.operator !=(HexIDE.Runtime.ProjectElements.ProjectOffers? left, HexIDE.Runtime.ProjectElements.ProjectOffers? right) -> bool
+static HexIDE.Runtime.ProjectElements.ProjectOffers.operator ==(HexIDE.Runtime.ProjectElements.ProjectOffers? left, HexIDE.Runtime.ProjectElements.ProjectOffers? right) -> bool
+static HexIDE.Runtime.ProjectElements.RootOuterRect.operator !=(HexIDE.Runtime.ProjectElements.RootOuterRect? left, HexIDE.Runtime.ProjectElements.RootOuterRect? right) -> bool
+static HexIDE.Runtime.ProjectElements.RootOuterRect.operator ==(HexIDE.Runtime.ProjectElements.RootOuterRect? left, HexIDE.Runtime.ProjectElements.RootOuterRect? right) -> bool
+static HexIDE.Runtime.ProjectElements.RootScale.operator !=(HexIDE.Runtime.ProjectElements.RootScale? left, HexIDE.Runtime.ProjectElements.RootScale? right) -> bool
+static HexIDE.Runtime.ProjectElements.RootScale.operator ==(HexIDE.Runtime.ProjectElements.RootScale? left, HexIDE.Runtime.ProjectElements.RootScale? right) -> bool
+static HexIDE.Runtime.ProjectElements.VbReference.operator !=(HexIDE.Runtime.ProjectElements.VbReference? left, HexIDE.Runtime.ProjectElements.VbReference? right) -> bool
+static HexIDE.Runtime.ProjectElements.VbReference.operator ==(HexIDE.Runtime.ProjectElements.VbReference? left, HexIDE.Runtime.ProjectElements.VbReference? right) -> bool
+static HexIDE.Runtime.Serialization.SerializedProjectGroup.operator !=(HexIDE.Runtime.Serialization.SerializedProjectGroup? left, HexIDE.Runtime.Serialization.SerializedProjectGroup? right) -> bool
+static HexIDE.Runtime.Serialization.SerializedProjectGroup.operator ==(HexIDE.Runtime.Serialization.SerializedProjectGroup? left, HexIDE.Runtime.Serialization.SerializedProjectGroup? right) -> bool
 virtual HexIDE.Addins.AddinClientCommand.Invoke(System.Text.Json.JsonElement[]? arguments, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
 virtual HexIDE.Addins.AddinDiagnostic.<Clone>$() -> HexIDE.Addins.AddinDiagnostic!
 virtual HexIDE.Addins.AddinDiagnostic.EqualityContract.get -> System.Type!
@@ -931,6 +1848,50 @@ virtual HexIDE.Addins.AddinTextEdit.EqualityContract.get -> System.Type!
 virtual HexIDE.Addins.AddinTextEdit.Equals(HexIDE.Addins.AddinTextEdit? other) -> bool
 virtual HexIDE.Addins.AddinTextEdit.PrintMembers(System.Text.StringBuilder! builder) -> bool
 virtual HexIDE.Addins.ServerChatToolApproval.Invoke(HexIDE.Addins.ServerChatTool! tool, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+virtual HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.<Clone>$() -> HexIDE.Lsp.Messages.ApplyWorkspaceEditResult!
+virtual HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.EqualityContract.get -> System.Type!
+virtual HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.Equals(HexIDE.Lsp.Messages.ApplyWorkspaceEditResult? other) -> bool
+virtual HexIDE.Lsp.Messages.ApplyWorkspaceEditResult.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Lsp.Messages.Location.<Clone>$() -> HexIDE.Lsp.Messages.Location!
+virtual HexIDE.Lsp.Messages.Location.EqualityContract.get -> System.Type!
+virtual HexIDE.Lsp.Messages.Location.Equals(HexIDE.Lsp.Messages.Location? other) -> bool
+virtual HexIDE.Lsp.Messages.Location.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.<Clone>$() -> HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier!
+virtual HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.EqualityContract.get -> System.Type!
+virtual HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.Equals(HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier? other) -> bool
+virtual HexIDE.Lsp.Messages.OptionalVersionedTextDocumentIdentifier.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Lsp.Messages.Position.<Clone>$() -> HexIDE.Lsp.Messages.Position!
+virtual HexIDE.Lsp.Messages.Position.EqualityContract.get -> System.Type!
+virtual HexIDE.Lsp.Messages.Position.Equals(HexIDE.Lsp.Messages.Position? other) -> bool
+virtual HexIDE.Lsp.Messages.Position.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Lsp.Messages.Range.<Clone>$() -> HexIDE.Lsp.Messages.Range!
+virtual HexIDE.Lsp.Messages.Range.EqualityContract.get -> System.Type!
+virtual HexIDE.Lsp.Messages.Range.Equals(HexIDE.Lsp.Messages.Range? other) -> bool
+virtual HexIDE.Lsp.Messages.Range.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Lsp.Messages.TextDocumentEdit.<Clone>$() -> HexIDE.Lsp.Messages.TextDocumentEdit!
+virtual HexIDE.Lsp.Messages.TextDocumentEdit.EqualityContract.get -> System.Type!
+virtual HexIDE.Lsp.Messages.TextDocumentEdit.Equals(HexIDE.Lsp.Messages.TextDocumentEdit? other) -> bool
+virtual HexIDE.Lsp.Messages.TextDocumentEdit.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Lsp.Messages.TextEdit.<Clone>$() -> HexIDE.Lsp.Messages.TextEdit!
+virtual HexIDE.Lsp.Messages.TextEdit.EqualityContract.get -> System.Type!
+virtual HexIDE.Lsp.Messages.TextEdit.Equals(HexIDE.Lsp.Messages.TextEdit? other) -> bool
+virtual HexIDE.Lsp.Messages.TextEdit.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Lsp.Messages.WorkspaceEdit.<Clone>$() -> HexIDE.Lsp.Messages.WorkspaceEdit!
+virtual HexIDE.Lsp.Messages.WorkspaceEdit.EqualityContract.get -> System.Type!
+virtual HexIDE.Lsp.Messages.WorkspaceEdit.Equals(HexIDE.Lsp.Messages.WorkspaceEdit? other) -> bool
+virtual HexIDE.Lsp.Messages.WorkspaceEdit.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Runtime.ProjectElements.FormDefinition.OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs! e) -> void
+virtual HexIDE.Runtime.ProjectElements.FormDefinition.OnPropertyChanged(string? propertyName = null) -> void
+virtual HexIDE.Runtime.ProjectElements.ModuleDefinition.OnPropertyChanged(string? propertyName = null) -> void
+virtual HexIDE.Runtime.ProjectElements.ProjectDefinition.OnPropertyChanged(string? propertyName = null) -> void
+virtual HexIDE.Runtime.ProjectElements.VbReference.<Clone>$() -> HexIDE.Runtime.ProjectElements.VbReference!
+virtual HexIDE.Runtime.ProjectElements.VbReference.EqualityContract.get -> System.Type!
+virtual HexIDE.Runtime.ProjectElements.VbReference.Equals(HexIDE.Runtime.ProjectElements.VbReference? other) -> bool
+virtual HexIDE.Runtime.ProjectElements.VbReference.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Runtime.Serialization.SerializedProjectGroup.<Clone>$() -> HexIDE.Runtime.Serialization.SerializedProjectGroup!
+virtual HexIDE.Runtime.Serialization.SerializedProjectGroup.EqualityContract.get -> System.Type!
+virtual HexIDE.Runtime.Serialization.SerializedProjectGroup.Equals(HexIDE.Runtime.Serialization.SerializedProjectGroup? other) -> bool
+virtual HexIDE.Runtime.Serialization.SerializedProjectGroup.PrintMembers(System.Text.StringBuilder! builder) -> bool
 ~HexIDE.Addins.AddinConsentJsonContext.AddinConsentFile.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Addins.AddinConsentFile>
 ~HexIDE.Addins.AddinConsentJsonContext.AddinConsentRecord.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Addins.AddinConsentRecord>
 ~HexIDE.Addins.AddinConsentJsonContext.AddinConsentRecordArray.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Addins.AddinConsentRecord[]>
@@ -952,3 +1913,46 @@ virtual HexIDE.Addins.ServerChatToolApproval.Invoke(HexIDE.Addins.ServerChatTool
 ~HexIDE.Addins.RevocationJsonContext.RevokedSets.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Addins.RevokedSets>
 ~HexIDE.Addins.RevocationJsonContext.String.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<string>
 ~HexIDE.Addins.RevocationJsonContext.StringArray.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<string[]>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.Boolean.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<bool>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.CaptureLimitsEntry.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Lsp.CaptureLimitsEntry>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.DictionaryStringJsonElement.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<System.Collections.Generic.Dictionary<string, System.Text.Json.JsonElement>>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.DictionaryStringServerArguments.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<System.Collections.Generic.Dictionary<string, HexIDE.Lsp.ServerArguments>>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.DictionaryStringString.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<System.Collections.Generic.Dictionary<string, string>>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.Int32.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<int>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.Int64.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<long>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.JsonElement.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<System.Text.Json.JsonElement>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.LanguageServerConfigFile.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Lsp.LanguageServerConfigFile>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.LanguageServerEntry.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Lsp.LanguageServerEntry>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.LanguageServerEntryArray.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Lsp.LanguageServerEntry[]>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.NullableBoolean.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<bool?>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.NullableInt32.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<int?>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.NullableInt64.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<long?>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.NullableJsonElement.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<System.Text.Json.JsonElement?>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.ProjectImportEntry.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Lsp.ProjectImportEntry>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.ServerArguments.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Lsp.ServerArguments>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.String.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<string>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.StringArray.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<string[]>
+~HexIDE.Lsp.LanguageServerConfigJsonContext.WorkspaceArtifactEntry.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Lsp.WorkspaceArtifactEntry>
+~HexIDE.Lsp.SeenCommandJsonContext.Int32.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<int>
+~HexIDE.Lsp.SeenCommandJsonContext.SeenCommand.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Lsp.SeenCommand>
+~HexIDE.Lsp.SeenCommandJsonContext.SeenCommandArray.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Lsp.SeenCommand[]>
+~HexIDE.Lsp.SeenCommandJsonContext.SeenCommandFile.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Lsp.SeenCommandFile>
+~HexIDE.Lsp.SeenCommandJsonContext.String.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<string>
+~override HexIDE.IDE.RenderedFile.Equals(object obj) -> bool
+~override HexIDE.IDE.RenderedFile.ToString() -> string
+~override HexIDE.Language.ContentReplacement.Equals(object obj) -> bool
+~override HexIDE.Language.ContentReplacement.ToString() -> string
+~override HexIDE.Language.HangingRegionKey.Equals(object obj) -> bool
+~override HexIDE.Language.HangingRegionKey.ToString() -> string
+~override HexIDE.Language.TextChange.Equals(object obj) -> bool
+~override HexIDE.Language.TextChange.ToString() -> string
+~override HexIDE.Language.TextRegion.Equals(object obj) -> bool
+~override HexIDE.Language.TextRegion.ToString() -> string
+~override HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.Equals(object obj) -> bool
+~override HexIDE.Runtime.Components.ComponentInstance.PreservedSubtree.ToString() -> string
+~override HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.Equals(object obj) -> bool
+~override HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty.ToString() -> string
+~override HexIDE.Runtime.Components.PropertyChange.Equals(object obj) -> bool
+~override HexIDE.Runtime.Components.PropertyChange.ToString() -> string
+~override HexIDE.Runtime.ProjectElements.ObjectReference.Equals(object obj) -> bool
+~override HexIDE.Runtime.ProjectElements.ObjectReference.ToString() -> string

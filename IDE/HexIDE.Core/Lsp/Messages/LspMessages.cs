@@ -3,14 +3,6 @@ using System.Text.Json.Serialization;
 
 namespace HexIDE.Lsp.Messages;
 
-public record Position(
-    [property: JsonPropertyName("line")] int Line,
-    [property: JsonPropertyName("character")] int Character);
-
-public record Range(
-    [property: JsonPropertyName("start")] Position Start,
-    [property: JsonPropertyName("end")] Position End);
-
 public enum DiagnosticSeverity
 {
     Error = 1,
@@ -1139,11 +1131,6 @@ public record ReferenceParams(
     [property: JsonPropertyName("position")] Position Position,
     [property: JsonPropertyName("context")] ReferenceContext Context);
 
-/// <summary>A location inside a resource, such as a line inside a text file.</summary>
-public record Location(
-    [property: JsonPropertyName("uri")]   string Uri,
-    [property: JsonPropertyName("range")] Range Range);
-
 /// <summary>A document highlight marks a range in the document for the symbol at the given position.</summary>
 public record DocumentHighlight(
     [property: JsonPropertyName("range")] Range Range,
@@ -1155,33 +1142,6 @@ public record RenameParams(
     [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
     [property: JsonPropertyName("position")]     Position Position,
     [property: JsonPropertyName("newName")]       string NewName);
-
-/// <summary>A text edit applicable to a document.</summary>
-public record TextEdit(
-    [property: JsonPropertyName("range")]   Range Range,
-    [property: JsonPropertyName("newText")] string NewText);
-
-/// <summary>
-/// A workspace edit represents changes to many resources managed in the workspace.
-/// The <c>Changes</c> dictionary maps document URIs to arrays of TextEdits.
-/// </summary>
-public record WorkspaceEdit(
-    [property: JsonPropertyName("changes")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Dictionary<string, TextEdit[]>? Changes = null,
-    [property: JsonPropertyName("documentChanges")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TextDocumentEdit[]? DocumentChanges = null);
-
-/// <summary>A text document edit, or an unsupported resource operation identified by Kind.</summary>
-public record TextDocumentEdit(
-    [property: JsonPropertyName("textDocument")] OptionalVersionedTextDocumentIdentifier? TextDocument = null,
-    [property: JsonPropertyName("edits")] TextEdit[]? Edits = null,
-    [property: JsonPropertyName("kind")] string? Kind = null,
-    [property: JsonPropertyName("uri")] string? Uri = null,
-    [property: JsonPropertyName("oldUri")] string? OldUri = null);
-
-public record OptionalVersionedTextDocumentIdentifier(
-    [property: JsonPropertyName("uri")] string Uri,
-    [property: JsonPropertyName("version")] int? Version);
 
 /// <summary>Formatting options sent by the client.</summary>
 public record FormattingOptions(
@@ -1495,10 +1455,6 @@ public record ApplyWorkspaceEditParams(
     [property: JsonPropertyName("label")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Label = null);
 
-public record ApplyWorkspaceEditResult(
-    [property: JsonPropertyName("applied")] bool Applied,
-    [property: JsonPropertyName("failureReason")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? FailureReason = null);
 public record CallHierarchyItem(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("kind")] int Kind,

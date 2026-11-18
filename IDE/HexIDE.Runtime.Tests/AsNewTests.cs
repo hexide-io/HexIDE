@@ -642,4 +642,25 @@ public class AsNewTests : BaseVBTestFixture
         await Run(code);
         AssertDebugLog([new(1L), new(0L)]);
     }
+    // VB6 SP6 native/p-code measurements: #4605, rows 6–8.
+    [Theory]
+    [InlineData("Public g As New C", "g")]
+    [InlineData("Public ga(1) As New C", "ga(1)")]
+    [InlineData("Public Type TT\n m As New C\nEnd Type\nPublic t As TT", "t.m")]
+    public async Task Initialize_can_read_its_own_auto_new_slot(string declaration, string slot)
+    {
+        await RunClasses("Public Made As Long\n" + declaration + "\nDim v As Long\nv = " + slot
+            + ".Tag\nDebug.Print Made, Err.Number\n", ("C", """
+            Public Tag As Long
+            Private Sub Class_Initialize()
+                Made = Made + 1
+                If Made <= 3 Then
+
+            """ + "Debug.Print " + slot + " Is Nothing, " + slot + " Is Me\n" + """
+                End If
+            End Sub
+
+            """));
+        AssertDebugLog([new(false), new(true), new(1L), new(0L)]);
+    }
 }

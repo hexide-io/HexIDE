@@ -1,6 +1,7 @@
 is_global = true
 
-# Generated trees have no per-file editorconfig scope; their non-SDK namespaces must be excluded here.
-dotnet_public_api_analyzer.skip_namespaces = HexIDE.Lsp,HexIDE.Processes
+# Generated trees have no per-file editorconfig scope. LSP JSON contexts are baselined;
+# only the unreachable Processes namespace is excluded. Namespace skips include children.
+dotnet_public_api_analyzer.skip_namespaces = HexIDE.Processes
 # JSON source generators emit oblivious framework types; retain the baseline's ~ annotations.
 dotnet_diagnostic.RS0041.severity = none
