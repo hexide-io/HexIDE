@@ -602,6 +602,7 @@ added afterwards.
 - [A UDT field passed ByRef (2026-10-22, #1451)](a-udt-field-passed-byref.md#a-udt-field-passed-byref-2026-10-22-1451)
 - [An array element passed ByRef (2026-10-22, #1455)](an-array-element-passed-byref.md#an-array-element-passed-byref-2026-10-22-1455)
 - [For Each locks its array (#1460)](for-each-locks-its-array.md#for-each-locks-its-array-1460)
+- [GoSub, Return, and On … GoTo and On … GoSub (2026-11-18, #4726)](gosub-return-and-on-goto.md#gosub-return-and-on--goto-and-on--gosub-2026-11-18-4726)
 - [The References dialog's fixed rows (2026-10-22, #1026, design-time)](the-references-dialogs-fixed-rows.md#the-references-dialogs-fixed-rows-2026-10-22-1026-design-time)
 - [A form's StartUpPosition when its file has no line (2026-10-13, #932)](a-forms-startupposition-when-its-file-has-no-line.md#a-forms-startupposition-when-its-file-has-no-line-2026-10-13-932)
 - [A form's Attribute block, and a form without one (2026-10-22, #516, #931)](a-forms-attribute-block-and-a-form-without-one.md#a-forms-attribute-block-and-a-form-without-one-2026-10-22-516-931)
