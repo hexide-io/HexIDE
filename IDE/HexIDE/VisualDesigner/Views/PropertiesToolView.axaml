@@ -135,7 +135,7 @@
             <ComboBox.ItemTemplate>
                 <DataTemplate x:DataType="visualDesigner:ComponentInstanceViewModel">
                     <StackPanel Orientation="Horizontal" Spacing="10">
-                        <TextBlock FontWeight="Bold" Text="{CompiledBinding Name}" />
+                        <TextBlock FontWeight="Bold" Text="{CompiledBinding AddressedName}" />
                         <TextBlock Text="{CompiledBinding BaseClassName}" />
                     </StackPanel>
                 </DataTemplate>

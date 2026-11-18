@@ -130,6 +130,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/PrintDialogTests.cs` | split |
 | `Views/ProgramBoxCaptionTests.cs` | split |
 | `Views/ProjectPropertiesViewIntegrationTests.cs` | split |
+| `Views/PropertiesObjectNamesTests.cs` | split |
 | `Views/RawPropertyRowsTests.cs` | split |
 | `Views/ReadOnlyBannerIntegrationTests.cs` | split |
 | `Views/ReadOnlyGreyingTests.cs` | split |
