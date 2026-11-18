@@ -983,6 +983,12 @@ The process exit code SHALL remain observable in the conversation during client 
 except for a timeout termination after a successful `shutdown` answer and a sent `exit`: that end SHALL
 be recorded once as a stop with the elapsed grace period, without a fault or killed-process exit code.
 Natural non-zero exits and kills without a successful shutdown SHALL retain their exit code and fault.
+After a successfully sent `exit`, an owned stdio or TCP connection SHALL end its send side and wait
+at most one second for server output to end before disposing RPC, then disposing the transport.
+The client SHALL skip this wait if sending `exit` times out, half-close is unsupported, or the server
+is externally owned. Each byte-stream connection SHALL use its own read-buffer pool, whose owners
+return each array at most once even when read-loop completion races handler disposal (#4484).
+The registry SHALL stop its servers concurrently, so their stop waits overlap.
 After sending `shutdown`, the client SHALL send no request or notification but `exit` on that connection.
 Pending workspace-folder updates, project imports and cancellations SHALL be dropped for the old
 connection rather than queued for it. Replies to the server's own requests SHALL still be sent. When a connection ends, its unanswered requests SHALL be recorded as Abandoned.

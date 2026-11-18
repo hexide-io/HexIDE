@@ -50,6 +50,25 @@ public class TcpLspTransportTests
     }
 
     [Fact]
+    public async Task HalfCloseEndsOnlyOurOutput()
+    {
+        var token = TestContext.Current.CancellationToken;
+        await using var transport = Transport("tcp://localhost:0", "Listen");
+        var connecting = transport.ConnectAsync(new SystemTextJsonFormatter(), token);
+        using var peer = new TcpClient();
+        await peer.ConnectAsync(IPAddress.Loopback, transport.BoundPort, token);
+        using var handler = (IDisposable)(await connecting)!;
+        ((ILspTransport)transport).TryEndOutput().Should().BeTrue();
+        var stream = peer.GetStream();
+        (await stream.ReadAsync(new byte[1], token).AsTask().WaitAsync(TimeSpan.FromSeconds(3), token)).Should().Be(0);
+        var body = Encoding.UTF8.GetBytes("{\"jsonrpc\":\"2.0\",\"method\":\"probe/eof\"}");
+        await stream.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {body.Length}\r\n\r\n"), token);
+        await stream.WriteAsync(body, token);
+        var message = await ((IJsonRpcMessageHandler)handler).ReadAsync(token).AsTask().WaitAsync(TimeSpan.FromSeconds(3), token);
+        message.Should().BeAssignableTo<StreamJsonRpc.Protocol.JsonRpcRequest>().Which.Method.Should().Be("probe/eof");
+    }
+
+    [Fact]
     public async Task LaunchedServerReceivesTheBoundPortAndReportsItsProcess()
     {
         var server = typeof(global::HexIDE.Lsp.TestServer.Program).Assembly.Location;

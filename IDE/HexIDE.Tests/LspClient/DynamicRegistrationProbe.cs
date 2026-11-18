@@ -111,7 +111,7 @@ public class DynamicRegistrationProbe : IAsyncDisposable
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
 
         var serverRpc = new JsonRpc(
-            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
+            new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
         server.Rpc = serverRpc;
         serverRpc.StartListening();
         _disposables.Add(serverRpc);
@@ -120,7 +120,7 @@ public class DynamicRegistrationProbe : IAsyncDisposable
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
         if (workspace is null)
         {

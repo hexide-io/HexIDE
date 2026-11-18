@@ -250,12 +250,12 @@ public class QuickFixTests : IDisposable
     {
         var peer = new OrderingPeer();
         var (local, remote) = FullDuplexStream.CreatePair();
-        using var server = new JsonRpc(new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()), peer);
+        using var server = new JsonRpc(new LspMessageHandler(remote, remote, new SystemTextJsonFormatter()), peer);
         server.StartListening();
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(local, local, call.Arg<IJsonRpcMessageFormatter>())));
+            .Returns(call => Task.FromResult<IJsonRpcMessageHandler?>(new LspMessageHandler(local, local, call.Arg<IJsonRpcMessageFormatter>())));
         await using var wire = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6");
         await wire.StartAsync(ct);
         await wire.OpenDocumentAsync(uri, before, ct);
@@ -275,12 +275,12 @@ public class QuickFixTests : IDisposable
     {
         var peer = new RefactorPeer { Edit = Edit() };
         var (local, remote) = FullDuplexStream.CreatePair();
-        using var server = new JsonRpc(new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()), peer);
+        using var server = new JsonRpc(new LspMessageHandler(remote, remote, new SystemTextJsonFormatter()), peer);
         server.StartListening();
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(local, local, call.Arg<IJsonRpcMessageFormatter>())));
+            .Returns(call => Task.FromResult<IJsonRpcMessageHandler?>(new LspMessageHandler(local, local, call.Arg<IJsonRpcMessageFormatter>())));
         await using var wire = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6");
         await using var registry = new LspClientRegistry([
             new LanguageServerRegistration("scripted", "Scripted server", [".bas"], "vb6", () => wire)],

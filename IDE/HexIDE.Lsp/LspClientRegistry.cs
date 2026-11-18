@@ -287,6 +287,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public async Task StopAsync()
     {
+        // Every server stops at once. Each stop can wait on its own server (for the answer to shutdown, for exit
+        // to go out, and for its output to end, #4484), and run one after another those waits added up: N slow
+        // servers cost N times one at IDE exit. Run together, the whole stop takes about as long as the slowest.
+        var stopping = new List<Task>();
         foreach (var e in _entries)
         {
             if (e.Client is not { } client) continue;
@@ -298,13 +302,20 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             client.MessageLogged -= OnInnerLogMessage;
             client.TraceReceived -= OnInnerTrace;
             client.StateChanged -= OnInnerStateChanged;
-            try { await client.StopAsync(); } catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
-            client.ProgressReceived -= OnInnerProgress;
-            e.Client = null;
-            e.State = LanguageConnectionState.Stopped;
-            e.StateSince = DateTimeOffset.UtcNow;
+            stopping.Add(StopOneAsync(e, client));
         }
+        await Task.WhenAll(stopping);
         ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private async Task StopOneAsync(Entry e, ILspClient client)
+    {
+        try { await client.StopAsync(); } catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
+        // After the stop, so a server's last progress report (its "end") still reaches the IDE.
+        client.ProgressReceived -= OnInnerProgress;
+        e.Client = null;
+        e.State = LanguageConnectionState.Stopped;
+        e.StateSince = DateTimeOffset.UtcNow;
     }
 
     public Task OpenDocumentAsync(string uri, string text, CancellationToken cancellationToken = default) =>

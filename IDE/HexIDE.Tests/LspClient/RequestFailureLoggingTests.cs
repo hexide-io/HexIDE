@@ -53,7 +53,7 @@ public class RequestFailureLoggingTests : IAsyncDisposable
 
         var remote = _diagnosis.TapPeer(serverSide);
         var serverRpc = new JsonRpc(
-            new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()),
+            new LspMessageHandler(remote, remote, new SystemTextJsonFormatter()),
             server ?? new ThrowingServer(renames: _renames));
         _peers.Add(serverRpc);
         _diagnosis.Watch(serverRpc, "stand-in", _peers.Count);
@@ -63,7 +63,7 @@ public class RequestFailureLoggingTests : IAsyncDisposable
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
         var client = new VBLspClient(transport, _log, DocumentLanguage.Vb6);
         _disposables.Add(client);
@@ -244,7 +244,7 @@ public class RequestFailureLoggingTests : IAsyncDisposable
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
         var remote = _diagnosis.TapPeer(serverSide);
         var serverRpc = new JsonRpc(
-            new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()),
+            new LspMessageHandler(remote, remote, new SystemTextJsonFormatter()),
             new SilentServer());
         _peers.Add(serverRpc);
         _diagnosis.Watch(serverRpc, "stand-in", _peers.Count);
@@ -254,7 +254,7 @@ public class RequestFailureLoggingTests : IAsyncDisposable
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
         var client = new VBLspClient(transport, _log, DocumentLanguage.Vb6);
         _disposables.Add(client);

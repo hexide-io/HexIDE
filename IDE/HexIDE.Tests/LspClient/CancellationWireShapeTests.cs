@@ -18,7 +18,7 @@ public class CancellationWireShapeTests
     public async Task StrategySendsNumericAndStringIdsAsScalars(bool stringId, string expectedId)
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
-        using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(clientSide, clientSide,
+        using var rpc = new JsonRpc(new LspMessageHandler(clientSide, clientSide,
             new SystemTextJsonFormatter { JsonSerializerOptions = new JsonSerializerOptions(LspJsonContext.Default.Options) }));
         await using var peer = serverSide;
         rpc.StartListening();
@@ -38,7 +38,7 @@ public class CancellationWireShapeTests
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(15));
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
-        using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(clientSide, clientSide,
+        using var rpc = new JsonRpc(new LspMessageHandler(clientSide, clientSide,
             new SystemTextJsonFormatter { JsonSerializerOptions = new JsonSerializerOptions(LspJsonContext.Default.Options) }));
         await using var peer = serverSide;
         var strategy = new LspCancellationStrategy(rpc, Substitute.For<ILogger<VBLspClient>>());
@@ -68,7 +68,7 @@ public class CancellationWireShapeTests
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
         var logger = Substitute.For<ILogger<VBLspClient>>();
         await using var client = new VBLspClient(transport, logger,
             "vb6", capture: log, connectionId: "probe");
@@ -149,7 +149,7 @@ public class CancellationWireShapeTests
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
         var logger = Substitute.For<ILogger<VBLspClient>>();
         await using var client = new VBLspClient(transport, logger, "vb6");
         await using var peer = serverSide;

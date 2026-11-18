@@ -193,6 +193,27 @@ Changing the UI language does not automatically restart servers (#2210).
 A connection records one `disconnected:` lifecycle entry even when client teardown finishes before
 the transport reports its hangup. A disconnection during client shutdown is not a fault (#4273).
 
+Byte-stream transports and test stand-ins use `LspMessageHandler` (#4484). It retains the stream
+ownership of StreamJsonRpc's Stream constructor, with explicit .NET adapters and a private read-buffer
+pool per connection. StreamJsonRpc's read loop can release a buffer in its last `AdvanceTo` while
+`DisposeReader` completes the reader on another thread. Returning the same shared buffer twice lets
+other connections rent it simultaneously and read each other's bytes. This is a StreamJsonRpc race,
+rather than a .NET or Nerdbank adapter fault. The connection pool wraps its own `ArrayPool<byte>`;
+each owner returns its array at most once using an interlocked swap. Second disposals are counted,
+and the first per connection is logged at Debug. Arrays are reused within that connection and become
+collectible with it. The handler closes its write stream after completing the writer and its separate
+read stream on disposal, including cancellation of reads that ignore their token. A stream used both ways
+(TCP, named pipes) is closed only once its last write ends, so a server that stops reading holds the
+connection open until its transport closes it. Every transport closes its socket or pipe right after RPC
+disposal, on stop, restart and reconnect, and `BlockedConnectionStopTests` checks TCP and named pipes.
+
+The [#3520 measurements](https://github.com/hexide-io/HexIDE/issues/3520) caught both release stacks
+as connections ended. Round 8 suppressed three second disposals and observed zero subsequent rents
+from those pools. The per-connection TCP arm checked 2.51 million frames over 240,000 teardowns; the
+in-memory arm checked 827,000 over 122,000. Both recorded zero bad frames. The race is reported upstream
+as [microsoft/vs-streamjsonrpc#1605](https://github.com/microsoft/vs-streamjsonrpc/issues/1605). These
+measurements support a mitigation, rather than a claim that teardown is race-free.
+
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
 Once `shutdown` is sent, the common outbound RPC gate permits no request or notification but `exit`, including
@@ -201,6 +222,18 @@ during a workspace-root restart (#2924). Replies still go: a server may ask some
 connection before `exit` could be sent. Pending folder updates and imports for that connection are dropped; the replacement
 receives the current folders in `initialize` and its own project import. When the connection ends,
 unanswered requests are marked Abandoned in the protocol inspector.
+When `exit` was sent successfully, stdio closes the server's stdin and TCP shuts down its send side.
+The client then waits at most `ServerOutputEndTimeout` (one second) for RPC completion, so the server
+can finish its output before reader disposal. Named pipes cannot half-close and use the pool guard;
+WebSockets are unchanged. An attached transport that leaves its server running is never half-closed.
+If sending `exit` timed out behind a blocked write, half-close and this wait are skipped. Afterwards
+the existing order remains: dispose RPC, then dispose the transport. Closing stdin is essential for
+servers such as rumdl that wait for end-of-input even after receiving `exit`. The other RPC disposal
+sites (abandoned handshake, reconnect and unanswered-initialize restart) retain their order and
+rely on the connection pool guard.
+The registry stops all its servers at once, so these waits overlap: stopping several servers takes
+about as long as the slowest one, not the sum of them.
+
 Before an initialize reply, neither message is sent. An externally owned pipe server receives neither
 on stop: HexIDE closes only its connection. On Windows, a launched pipe server gets two seconds to
 exit before HexIDE kills its remaining process tree, including during bring-up (#313). Windows stdio
@@ -376,6 +409,14 @@ Stopping has a deadline of its own, `VBLspClient.ShutdownTimeout` (two seconds),
 answer to `shutdown`, and once to sending `exit`. The second is what the first does not cover. A server that
 has stopped reading fills the pipe, so the write ahead of `exit` never finishes, and `exit` once waited behind
 it for good. Then the connection is disposed, which ends the stuck writes (#1221).
+
+`WireStressTests` independently checks framing beside unchecked connections torn down mid-write.
+Set `HEXIDE_WIRE_STRESS_SECONDS`, `HEXIDE_WIRE_STRESS_CHURN=12`, and
+`HEXIDE_WIRE_STRESS_CHURN_ORDER` to `stdio-client-first`, `stdio-half-close`, or `tcp-client-first`.
+The stdio arms use two anonymous pipes; the half-close arm drains sends, closes input and waits for
+output to end before RPC disposal. With no churn, a 60-second run reports allocations per checked
+frame and frames per second. All runs report checked frames, bad frames, teardowns and managed memory
+after full GC. Clients use `NullLogger`, so the harness does not retain logged cancellation exceptions.
 
 `FaultServerTests` drives these paths with a server that misbehaves on demand. It ignores `shutdown`, stops
 reading, never answers, stalls or dies halfway through a reply, and sends malformed frames, floods and

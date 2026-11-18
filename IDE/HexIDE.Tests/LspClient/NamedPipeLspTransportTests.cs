@@ -85,7 +85,7 @@ public class NamedPipeLspTransportTests
         await using var serverPipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
         await serverPipe.ConnectAsync(Timeout());
 
-        using var serverRpc = new JsonRpc(new HeaderDelimitedMessageHandler(serverPipe, serverPipe, Formatter()), new EchoServer());
+        using var serverRpc = new JsonRpc(new LspMessageHandler(serverPipe, serverPipe, Formatter()), new EchoServer());
         serverRpc.StartListening();
 
         var handler = await connecting;
@@ -115,7 +115,7 @@ public class NamedPipeLspTransportTests
             var handler = await sut.ConnectAsync(Formatter(), TestContext.Current.CancellationToken);
             using var peer = await accepting;
             await using var stream = new NetworkStream(peer, ownsSocket: false);
-            using var serverRpc = new JsonRpc(new HeaderDelimitedMessageHandler(stream, stream, Formatter()), new EchoServer());
+            using var serverRpc = new JsonRpc(new LspMessageHandler(stream, stream, Formatter()), new EchoServer());
             serverRpc.StartListening();
 
             handler.Should().NotBeNull();

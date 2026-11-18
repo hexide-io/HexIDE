@@ -464,13 +464,13 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
             _clientSide = clientSide;
 
             var serverRpc = new JsonRpc(
-                new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
+                new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
                 new AnswersTheHandshake(this));
             _rpcs.Add(serverRpc);
             serverRpc.StartListening();
 
             return Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, formatter));
+                new LspMessageHandler(clientSide, clientSide, formatter));
         }
 
         public ValueTask DisposeAsync()
