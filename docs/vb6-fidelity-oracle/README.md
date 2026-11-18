@@ -840,3 +840,4 @@ added afterwards.
 - [The `Date` and `Time` statements (2026-11-18, #4681, SP6)](the-date-and-time-statements.md#the-date-and-time-statements-2026-11-18-4681-sp6)
 - [`_NewEnum`, and a class that makes itself enumerable (2026-11-18, #4679, SP6)](collection.md#_newenum-and-a-class-that-makes-itself-enumerable-2026-11-18-4679-sp6)
 - [Pictures on the Clipboard: `GetData` and `SetData` (2026-11-18, #4682, SP6)](text-clipboard.md#pictures-getdata-and-setdata-2026-11-18-4682-sp6)
+- [A form's As New instance is in its slot during Form_Initialize (2026-11-18, #4640, SP6)](an-auto-made-object-is-in-its-slot-during-class-initialize.md#a-forms-as-new-instance-is-in-its-slot-during-form_initialize-2026-11-18-4640-sp6)
