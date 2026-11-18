@@ -173,6 +173,15 @@ public partial class App : Application
 
                 var closeConfirmed = false;
 
+                // OS/TryShutdown requests arrive before Closing. Confirm unsaved work first; a
+                // cancelled save prompt must leave the language servers and file watcher running.
+                desktop.ShutdownRequested += (_, e) =>
+                {
+                    if (closeConfirmed) return;
+                    e.Cancel = true;
+                    mainWindow.Close();
+                };
+
                 // Offer to save unsaved work, then save window state. The prompt is async and Closing is
                 // not, so the first close is vetoed, the dialog awaited, and the window re-closed once
                 // confirmed. Cancel in the dialog aborts the exit entirely, matching VB6.
@@ -223,12 +232,9 @@ public partial class App : Application
                 }
             }
 
-            desktop.ShutdownRequested += async (_, _) =>
-            {
-                _diSetup.FileWatcherService.Dispose();
-                await _diSetup.LspClient.StopAsync();
-                LoggingSetup.Shutdown();
-            };
+            var exitStop = new ExitStop(desktop, _diSetup.FileWatcherService.Dispose,
+                _diSetup.LspClient.StopAsync, LoggingSetup.Shutdown, ExitStop.StopTimeout);
+            desktop.ShutdownRequested += exitStop.OnShutdownRequested;
 
             // The language pack was applied before the shell existed, so push its reading direction
             // onto the freshly-created window now (RTL packs mirror the chrome; the form-designer
