@@ -108,7 +108,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     {
         OnSelectedComponentChanged();
         SetSelectedComponents(SelectedComponents);
-        var selectable = AllComponents.Where(c => c.HasDesignerPreview).ToList();
+        var selectable = AllComponents.Where(c => c.HasDesignerPreview)
+            .OrderBy(c => c.AddressedName, StringComparer.InvariantCultureIgnoreCase).ToList();
         foreach (var item in SelectableComponents.Except(selectable).ToList())
             SelectableComponents.Remove(item);
         for (var i = 0; i < selectable.Count; i++)
