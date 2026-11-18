@@ -70,6 +70,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private PrePass prepass;
     internal bool StartupMainReturned { get; private set; }
 
+    // Distinguishes a startup form from a form loaded by an executing statement (#4449).
+    internal bool InStartupDispatch { get; set; }
+
     // Weak entries preserve creation order without retaining objects after their last VB reference.
     private readonly List<WeakReference<VbObject>> createdClasses = new();
     private int compactCreatedClassesAt = MinCompactCreatedClasses;
@@ -1358,9 +1361,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     }
 
     /// <summary>
-    /// True while the modules' or a form's declarations run (#1010 review). The debugger's gate is skipped then: VB6 never
-    /// stops on a declaration, so F8 from design mode breaks on the first statement of the event that follows, and a
-    /// breakpoint can't be hit there either. A class's field initialisers, run at New, still pass the gate (D13).
+    /// True while module-level declarations run (#1010 review). The debugger's gate is skipped then; procedure
+    /// declaration stops are handled separately (#4449). A breakpoint can't be hit on a field declaration. A class's field initialisers, run at New, still pass the gate (D13).
     /// </summary>
     internal bool RunningDeclarations { get; private set; }
 
@@ -1842,19 +1844,25 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 try
                 {
                     await executor.HoistDeclaredLocals(proc);
+                    // #4449: startup and form-loading entries stop at their declarations. Direct calls retain
+                    // their existing rule; other startup modules retain their unmeasured positions.
                     if (proc.Declaration is VB6Parser.SubStmtContext declaration)
-                        await executor.ProcedureBoundary(declaration.Start.Line, breakpointOnly: true, entry: true);
+                        await executor.ProcedureBoundary(declaration.Start.Line, breakpointOnly: true, entry: true,
+                            stepEntry: isEntry && (me is null ||
+                                (InStartupDispatch && owner.Kind != InterpreterModuleKind.Form
+                                    ? owner.PrePass.Procedures.ContainsKey("Form_Initialize")
+                                    : proc.Name.Equals("Form_Load", StringComparison.OrdinalIgnoreCase) ||
+                                      proc.Name.Equals("Form_Initialize", StringComparison.OrdinalIgnoreCase))));
                     if (proc.Body is { } procedureBody)
                         await executor.Execute(procedureBody);
                     // A handler the last statement raised finishes inside the call, as it does in VB6, before the caller
                     // goes on with what the call returned (#766).
                     if (Events is { } events)
                         await events.WaitForRaised();
-                    // Keep entry procedures' existing stepping positions while honouring their End breakpoints:
-                    // a startup step carries on from Initialize into Load's first statement (#2172 review).
+                    // Startup procedures stop on End as event handlers do (#4449, #4619).
                     if ((proc.Body == null || executor.ReachedProcedureEnd) && proc.Declaration is { } ending)
                         await executor.ProcedureBoundary(ending.Stop.Line,
-                            breakpointOnly: isEntry || ending is VB6Parser.PropertyGetStmtContext);
+                            breakpointOnly: ending is VB6Parser.PropertyGetStmtContext);
                 }
                 // Searched from the top, where the frame almost always is: Remove searched from the bottom, which made a
                 // return N calls deep cost N (#3250).

@@ -199,7 +199,7 @@ public sealed class VBProgram : IFormProgram
                 finally
                 {
                     if (interpreter.DebugController?.Session == session)
-                        interpreter.DebugController?.NotifyDispatchIdle(carryStep: false);
+                        interpreter.DebugController?.NotifyMainDispatchIdle();
                 }
                 return true;
             });
