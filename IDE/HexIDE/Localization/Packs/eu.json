@@ -123,6 +123,7 @@
     "Str.Archive.FolderReadyFormat": "Iturburu-karpeta gordetako artxibotik sinkronizatu da:\n{0}\n\nKarpeta editatzeak sinkronizazioa eteten du; aldaketak ez dira inportatzen. Birkargatu proiektua aurrebistak freskatzeko.",
     "Str.Archive.FolderErrorFormat": "Iturburu-karpetaren sinkronizazioa eten da:\n{0}\n\nArtxiboa ez da aldatu.",
     "Str.Archive.OpenErrorFormat": "Ezin izan da {0} ireki:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "instalatutako formatuek ez dituzte '{0}' inprimakiak irakurtzen",
     "Str.ContributedProject.OpenError": "Ezin izan da {0} ireki {1} erabiliz:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} {1}(e)k irekitzen du: bere fitxategiak dagokion programak gehitzen eta kentzen ditu, ez HexIDEk.",
     "Str.ContributedProject.RemovedWithChanges": "{1} proiektuari dagokion programak {0} kendu du proiektutik. Zure aldaketak gorde nahi dituzu lehenbizi?",
