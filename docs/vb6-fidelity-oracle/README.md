@@ -559,6 +559,7 @@ added afterwards.
 - [A String in arithmetic (2026-10-14, #1047, #770)](a-string-in-arithmetic.md#a-string-in-arithmetic-2026-10-14-1047-770)
 - [Several forms: load, show, hide, modal, and when the run ends (2026-10-14, #822)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#several-forms-load-show-hide-modal-and-when-the-run-ends-2026-10-14-822)
 - [A form's name as a type: New, As New, an Object and an interface (2026-11-18, #4598, SP6)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#a-forms-name-as-a-type-new-as-new-an-object-and-an-interface-2026-11-18-4598-sp6)
+- [Who owns a modal form, and what F5 brings back (2026-11-18, #4618, SP6, IDE)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#who-owns-a-modal-form-and-what-f5-brings-back-2026-11-18-4618-sp6-ide)
 - [An unhandled run-time error (2026-10-14, #1011)](an-unhandled-run-time-error.md#an-unhandled-run-time-error-2026-10-14-1011)
 - [Operator precedence (2026-10-15, #1074)](operator-precedence.md#operator-precedence-2026-10-15-1074)
 - [The library's `$` forms (2026-10-15, #742, #1071)](the-librarys--forms.md#the-librarys--forms-2026-10-15-742-1071)
