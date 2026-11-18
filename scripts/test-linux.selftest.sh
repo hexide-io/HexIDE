@@ -28,6 +28,7 @@ check() {
     if ! build_arguments "$@"; then
         echo "FAIL: $* (argument building failed)"; fail=$((fail + 1)); return
     fi
+    expected="<--project><${1##*/}.csproj>$expected"
     local actual
     actual=$(printf '<%s>' "${test_args[@]}")
     if [ "$actual" != "$expected" ]; then
@@ -60,6 +61,9 @@ check '<--><--minimum-expected-tests><1><--filter-not-method><*Example>' \
 check '<--><--minimum-expected-tests><1><--filter-query></*/*/Example/*>' \
     IDE/HexIDE.Tests -- --filter-query '/*/*/Example/*'
 check '<--><--minimum-expected-tests><7>' IDE/HexIDE.Tests -- --minimum-expected-tests 7
+check '<--><--minimum-expected-tests=7>' IDE/HexIDE.Tests -- --minimum-expected-tests=7
+check '<--><--minimum-expected-tests><1><--filter-method><*Example>' \
+    IDE/HexIDE.Tests -- --filter-method '*Example'
 if build_arguments IDE/Unknown.Tests >/dev/null 2>&1; then
     echo 'FAIL: an unknown project must not run without a floor'; fail=$((fail + 1))
 else

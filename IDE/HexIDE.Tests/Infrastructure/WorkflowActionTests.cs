@@ -5,6 +5,30 @@ namespace HexIDE.Tests.Infrastructure;
 public class WorkflowActionTests
 {
     [Fact]
+    public void TestStepsSelectProjectsForTheNativeMtpRunner()
+    {
+        var workflow = File.ReadAllText(Path.Combine(RepoTree.Root(), ".github", "workflows", "build.yml"))
+            .ReplaceLineEndings("\n");
+        var commands = Regex.Matches(workflow, @"dotnet test ([^\r\n]+)");
+        commands.Should().NotBeEmpty();
+        foreach (Match command in commands)
+            command.Groups[1].Value.Should().StartWith("--project ");
+    }
+
+    [Fact]
+    public void TestReportPathsRemainProjectLocal()
+    {
+        var workflow = File.ReadAllText(Path.Combine(RepoTree.Root(), ".github", "workflows", "build.yml"))
+            .ReplaceLineEndings("\n");
+        var commands = Regex.Matches(workflow,
+            @"dotnet test --project (HexIDE\.[\w.]+)/[^\n]+(?:\n +--[^\n]+)*")
+            .Where(command => command.Value.Contains("--results-directory")).ToArray();
+        commands.Should().NotBeEmpty();
+        foreach (var command in commands)
+            command.Value.Should().Contain($"--results-directory {command.Groups[1].Value}/TestResults");
+    }
+
+    [Fact]
     public void RequiredForeignServerStepsSkipImagePathAndPrintTheResolutionReport()
     {
         var workflow = File.ReadAllText(Path.Combine(RepoTree.Root(), ".github", "workflows", "build.yml"))

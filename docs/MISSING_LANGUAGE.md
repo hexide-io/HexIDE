@@ -15,10 +15,9 @@
 >
 > **Living document.** Update a row the moment its status changes.
 > To recount after a merge, run from the repository root:
-> `HEXIDE_MISSING_LANGUAGE_FIX=1 dotnet test IDE/HexIDE.Tests/ -p:TestingPlatformCaptureOutput=false -- --filter-class "*MissingLanguageDocTests"`
-> (PowerShell: set `$env:HEXIDE_MISSING_LANGUAGE_FIX = "1"` before the same `dotnet test` command,
-> then `Remove-Item Env:HEXIDE_MISSING_LANGUAGE_FIX`). Disabling MTP output capture shows each change
-> in the terminal. The guard reports and rewrites derived counts
+> `HEXIDE_MISSING_LANGUAGE_FIX=1 pwsh scripts/test.ps1 IDE/HexIDE.Tests/ -- --filter-class "*MissingLanguageDocTests"`
+> (PowerShell: set `$env:HEXIDE_MISSING_LANGUAGE_FIX = "1"` before the same `pwsh` command,
+> then `Remove-Item Env:HEXIDE_MISSING_LANGUAGE_FIX`). The guard reports and rewrites derived counts
 > using its own recount, preserving line endings. It still rejects unknown ratings, duplicate names,
 > missing status rows and inconsistent constant-family ratings; fix those source rows by hand.
 > It also checks every table for an immediately following delimiter row, no misplaced delimiters,
