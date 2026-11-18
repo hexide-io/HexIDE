@@ -298,6 +298,10 @@ public class CommonDialogTests
         finally
         {
             VBDebugConsole.Output -= print;
+            // A compile error stops the program in break mode with its form still open, where a program's own End
+            // closes everything: end it here, or that form outlives the test (SuiteLeakChecks).
+            runner.EndProject();
+            Dispatcher.UIThread.RunJobs();
         }
         return ran;
     }
