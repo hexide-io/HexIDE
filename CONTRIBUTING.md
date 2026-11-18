@@ -287,6 +287,14 @@ podman run --rm -v "C:\path\to\HexIDE:/repo" -v hexide-nuget:/root/.nuget -w /re
 
 The container has no Node, so the three JSON-server tests skip there.
 
+### Changing the add-in API
+
+`HexIDE.Core` guards the public API declared under `Addins/` with PublicApiAnalyzers. Put additions in
+`PublicAPI.Unshipped.txt`; `PublicAPI.Shipped.txt` records the existing SDK. A change or removal breaks
+compiled add-ins, RDCore's included, and needs the maintainer's decision. On SDK records, add init-only
+properties, never new positional parameters: those replace the constructor and `Deconstruct` (#4566).
+Types exposed from other Core namespaces are not baselined by this guard (#4567).
+
 ### Add-ins without the signing key
 
 Only the maintainer can sign **first-party** add-ins. The signing key is a release secret, and a clone

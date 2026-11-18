@@ -1,0 +1,954 @@
+#nullable enable
+HexIDE.Addins.AddinAuthorAttribute
+HexIDE.Addins.AddinAuthorAttribute.AddinAuthorAttribute(string! author) -> void
+HexIDE.Addins.AddinAuthorAttribute.Author.get -> string!
+HexIDE.Addins.AddinCapabilities
+HexIDE.Addins.AddinCapabilityDeclaration
+HexIDE.Addins.AddinCapabilityDeclaration.Capabilities.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.Addins.AddinCapabilityDeclaration.Id.get -> string!
+HexIDE.Addins.AddinCapabilityDeclaration.IsLegacy.get -> bool
+HexIDE.Addins.AddinCapabilityDeclaration.ManifestHash.get -> string!
+HexIDE.Addins.AddinCapabilityDeclaration.PublisherId.get -> string!
+HexIDE.Addins.AddinClientCommand
+HexIDE.Addins.AddinCommandException
+HexIDE.Addins.AddinCommandException.AddinCommandException(string! message) -> void
+HexIDE.Addins.AddinConsentFile
+HexIDE.Addins.AddinConsentFile.<Clone>$() -> HexIDE.Addins.AddinConsentFile!
+HexIDE.Addins.AddinConsentFile.AddinConsentFile() -> void
+HexIDE.Addins.AddinConsentFile.Consents.get -> HexIDE.Addins.AddinConsentRecord![]!
+HexIDE.Addins.AddinConsentFile.Consents.init -> void
+HexIDE.Addins.AddinConsentFile.Equals(HexIDE.Addins.AddinConsentFile? other) -> bool
+HexIDE.Addins.AddinConsentFile.Schema.get -> int
+HexIDE.Addins.AddinConsentFile.Schema.init -> void
+HexIDE.Addins.AddinConsentJsonContext
+HexIDE.Addins.AddinConsentJsonContext.AddinConsentJsonContext() -> void
+HexIDE.Addins.AddinConsentJsonContext.AddinConsentJsonContext(System.Text.Json.JsonSerializerOptions! options) -> void
+HexIDE.Addins.AddinConsentRecord
+HexIDE.Addins.AddinConsentRecord.<Clone>$() -> HexIDE.Addins.AddinConsentRecord!
+HexIDE.Addins.AddinConsentRecord.AddinConsentRecord() -> void
+HexIDE.Addins.AddinConsentRecord.ArtifactPath.get -> string?
+HexIDE.Addins.AddinConsentRecord.ArtifactPath.init -> void
+HexIDE.Addins.AddinConsentRecord.Decision.get -> string!
+HexIDE.Addins.AddinConsentRecord.Decision.init -> void
+HexIDE.Addins.AddinConsentRecord.Equals(HexIDE.Addins.AddinConsentRecord? other) -> bool
+HexIDE.Addins.AddinConsentRecord.Id.get -> string!
+HexIDE.Addins.AddinConsentRecord.Id.init -> void
+HexIDE.Addins.AddinConsentRecord.ManifestHash.get -> string!
+HexIDE.Addins.AddinConsentRecord.ManifestHash.init -> void
+HexIDE.Addins.AddinConsentRecord.Provider.get -> string?
+HexIDE.Addins.AddinConsentRecord.Provider.init -> void
+HexIDE.Addins.AddinConsentRecord.PublisherId.get -> string!
+HexIDE.Addins.AddinConsentRecord.PublisherId.init -> void
+HexIDE.Addins.AddinConsentRecord.TimestampUtc.get -> string!
+HexIDE.Addins.AddinConsentRecord.TimestampUtc.init -> void
+HexIDE.Addins.AddinConsentRecord.WorkspaceRoot.get -> string?
+HexIDE.Addins.AddinConsentRecord.WorkspaceRoot.init -> void
+HexIDE.Addins.AddinDebugLaunch
+HexIDE.Addins.AddinDebugLaunch.<Clone>$() -> HexIDE.Addins.AddinDebugLaunch!
+HexIDE.Addins.AddinDebugLaunch.AddinDebugLaunch(string! Title) -> void
+HexIDE.Addins.AddinDebugLaunch.Claims.get -> System.Func<HexIDE.Addins.AddinProjectInfo!, bool>!
+HexIDE.Addins.AddinDebugLaunch.Claims.init -> void
+HexIDE.Addins.AddinDebugLaunch.CreateConfigurationAsync.get -> System.Func<HexIDE.Addins.AddinProjectInfo!, System.Threading.CancellationToken, System.Threading.Tasks.Task<HexIDE.Addins.AddinLaunchConfiguration!>!>!
+HexIDE.Addins.AddinDebugLaunch.CreateConfigurationAsync.init -> void
+HexIDE.Addins.AddinDebugLaunch.Deconstruct(out string! Title) -> void
+HexIDE.Addins.AddinDebugLaunch.Equals(HexIDE.Addins.AddinDebugLaunch? other) -> bool
+HexIDE.Addins.AddinDebugLaunch.Title.get -> string!
+HexIDE.Addins.AddinDebugLaunch.Title.init -> void
+HexIDE.Addins.AddinDescriptionAttribute
+HexIDE.Addins.AddinDescriptionAttribute.AddinDescriptionAttribute(string! description) -> void
+HexIDE.Addins.AddinDescriptionAttribute.Description.get -> string!
+HexIDE.Addins.AddinDiagnostic
+HexIDE.Addins.AddinDiagnostic.AddinDiagnostic(HexIDE.Addins.AddinDiagnostic! original) -> void
+HexIDE.Addins.AddinDiagnostic.AddinDiagnostic(string! FileName, int Line, int Column, string! Message, HexIDE.Addins.AddinDiagnosticSeverity Severity, string? Code = null, string? Source = null, string? Project = null) -> void
+HexIDE.Addins.AddinDiagnostic.Code.get -> string?
+HexIDE.Addins.AddinDiagnostic.Code.init -> void
+HexIDE.Addins.AddinDiagnostic.Column.get -> int
+HexIDE.Addins.AddinDiagnostic.Column.init -> void
+HexIDE.Addins.AddinDiagnostic.Deconstruct(out string! FileName, out int Line, out int Column, out string! Message, out HexIDE.Addins.AddinDiagnosticSeverity Severity, out string? Code, out string? Source, out string? Project) -> void
+HexIDE.Addins.AddinDiagnostic.FileName.get -> string!
+HexIDE.Addins.AddinDiagnostic.FileName.init -> void
+HexIDE.Addins.AddinDiagnostic.Line.get -> int
+HexIDE.Addins.AddinDiagnostic.Line.init -> void
+HexIDE.Addins.AddinDiagnostic.Message.get -> string!
+HexIDE.Addins.AddinDiagnostic.Message.init -> void
+HexIDE.Addins.AddinDiagnostic.Project.get -> string?
+HexIDE.Addins.AddinDiagnostic.Project.init -> void
+HexIDE.Addins.AddinDiagnostic.Severity.get -> HexIDE.Addins.AddinDiagnosticSeverity
+HexIDE.Addins.AddinDiagnostic.Severity.init -> void
+HexIDE.Addins.AddinDiagnostic.Source.get -> string?
+HexIDE.Addins.AddinDiagnostic.Source.init -> void
+HexIDE.Addins.AddinDiagnosticSeverity
+HexIDE.Addins.AddinDiagnosticSeverity.Error = 1 -> HexIDE.Addins.AddinDiagnosticSeverity
+HexIDE.Addins.AddinDiagnosticSeverity.Hint = 4 -> HexIDE.Addins.AddinDiagnosticSeverity
+HexIDE.Addins.AddinDiagnosticSeverity.Information = 3 -> HexIDE.Addins.AddinDiagnosticSeverity
+HexIDE.Addins.AddinDiagnosticSeverity.Warning = 2 -> HexIDE.Addins.AddinDiagnosticSeverity
+HexIDE.Addins.AddinDiagnosticsResult
+HexIDE.Addins.AddinDiagnosticsResult.AddinDiagnosticsResult(HexIDE.Addins.AddinDiagnosticsResult! original) -> void
+HexIDE.Addins.AddinDiagnosticsResult.AddinDiagnosticsResult(System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinDiagnostic!>! Diagnostics, string? Reason = null) -> void
+HexIDE.Addins.AddinDiagnosticsResult.Deconstruct(out System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinDiagnostic!>! Diagnostics, out string? Reason) -> void
+HexIDE.Addins.AddinDiagnosticsResult.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinDiagnostic!>!
+HexIDE.Addins.AddinDiagnosticsResult.Diagnostics.init -> void
+HexIDE.Addins.AddinDiagnosticsResult.Reason.get -> string?
+HexIDE.Addins.AddinDiagnosticsResult.Reason.init -> void
+HexIDE.Addins.AddinDiagnosticsResult.Refused.get -> bool
+HexIDE.Addins.AddinDocument
+HexIDE.Addins.AddinDocument.AddinDocument(HexIDE.Addins.AddinDocument! original) -> void
+HexIDE.Addins.AddinDocument.AddinDocument(string! FileName, string! FilePath, string! Content, HexIDE.Addins.AddinDocumentKind Kind, string? Project = null) -> void
+HexIDE.Addins.AddinDocument.Content.get -> string!
+HexIDE.Addins.AddinDocument.Content.init -> void
+HexIDE.Addins.AddinDocument.Deconstruct(out string! FileName, out string! FilePath, out string! Content, out HexIDE.Addins.AddinDocumentKind Kind, out string? Project) -> void
+HexIDE.Addins.AddinDocument.FileName.get -> string!
+HexIDE.Addins.AddinDocument.FileName.init -> void
+HexIDE.Addins.AddinDocument.FilePath.get -> string!
+HexIDE.Addins.AddinDocument.FilePath.init -> void
+HexIDE.Addins.AddinDocument.Kind.get -> HexIDE.Addins.AddinDocumentKind
+HexIDE.Addins.AddinDocument.Kind.init -> void
+HexIDE.Addins.AddinDocument.Project.get -> string?
+HexIDE.Addins.AddinDocument.Project.init -> void
+HexIDE.Addins.AddinDocumentKind
+HexIDE.Addins.AddinDocumentKind.Form = 0 -> HexIDE.Addins.AddinDocumentKind
+HexIDE.Addins.AddinDocumentKind.Module = 1 -> HexIDE.Addins.AddinDocumentKind
+HexIDE.Addins.AddinDocumentKind.Other = 3 -> HexIDE.Addins.AddinDocumentKind
+HexIDE.Addins.AddinDocumentKind.UserControl = 2 -> HexIDE.Addins.AddinDocumentKind
+HexIDE.Addins.AddinDocumentResult
+HexIDE.Addins.AddinDocumentResult.AddinDocumentResult(HexIDE.Addins.AddinDocument? Document, string? Reason = null) -> void
+HexIDE.Addins.AddinDocumentResult.AddinDocumentResult(HexIDE.Addins.AddinDocumentResult! original) -> void
+HexIDE.Addins.AddinDocumentResult.Deconstruct(out HexIDE.Addins.AddinDocument? Document, out string? Reason) -> void
+HexIDE.Addins.AddinDocumentResult.Document.get -> HexIDE.Addins.AddinDocument?
+HexIDE.Addins.AddinDocumentResult.Document.init -> void
+HexIDE.Addins.AddinDocumentResult.Reason.get -> string?
+HexIDE.Addins.AddinDocumentResult.Reason.init -> void
+HexIDE.Addins.AddinEditResult
+HexIDE.Addins.AddinEditResult.AddinEditResult(HexIDE.Addins.AddinEditResult! original) -> void
+HexIDE.Addins.AddinEditResult.AddinEditResult(bool Succeeded, string? Reason = null, bool HeaderKept = false) -> void
+HexIDE.Addins.AddinEditResult.Deconstruct(out bool Succeeded, out string? Reason, out bool HeaderKept) -> void
+HexIDE.Addins.AddinEditResult.HeaderKept.get -> bool
+HexIDE.Addins.AddinEditResult.HeaderKept.init -> void
+HexIDE.Addins.AddinEditResult.Reason.get -> string?
+HexIDE.Addins.AddinEditResult.Reason.init -> void
+HexIDE.Addins.AddinEditResult.Succeeded.get -> bool
+HexIDE.Addins.AddinEditResult.Succeeded.init -> void
+HexIDE.Addins.AddinFileEventArgs
+HexIDE.Addins.AddinFileEventArgs.AddinFileEventArgs(HexIDE.Addins.AddinFileEventArgs! original) -> void
+HexIDE.Addins.AddinFileEventArgs.AddinFileEventArgs(string! FilePath, string! FileName, string? Project = null) -> void
+HexIDE.Addins.AddinFileEventArgs.Deconstruct(out string! FilePath, out string! FileName, out string? Project) -> void
+HexIDE.Addins.AddinFileEventArgs.FileName.get -> string!
+HexIDE.Addins.AddinFileEventArgs.FileName.init -> void
+HexIDE.Addins.AddinFileEventArgs.FilePath.get -> string!
+HexIDE.Addins.AddinFileEventArgs.FilePath.init -> void
+HexIDE.Addins.AddinFileEventArgs.Project.get -> string?
+HexIDE.Addins.AddinFileEventArgs.Project.init -> void
+HexIDE.Addins.AddinFileHash
+HexIDE.Addins.AddinFileHash.<Clone>$() -> HexIDE.Addins.AddinFileHash!
+HexIDE.Addins.AddinFileHash.AddinFileHash() -> void
+HexIDE.Addins.AddinFileHash.Equals(HexIDE.Addins.AddinFileHash? other) -> bool
+HexIDE.Addins.AddinFileHash.Path.get -> string!
+HexIDE.Addins.AddinFileHash.Path.init -> void
+HexIDE.Addins.AddinFileHash.Sha256.get -> string!
+HexIDE.Addins.AddinFileHash.Sha256.init -> void
+HexIDE.Addins.AddinFileInfo
+HexIDE.Addins.AddinFileInfo.AddinFileInfo(HexIDE.Addins.AddinFileInfo! original) -> void
+HexIDE.Addins.AddinFileInfo.AddinFileInfo(string! FileName, string! FilePath, HexIDE.Addins.AddinDocumentKind Kind, string? Project = null) -> void
+HexIDE.Addins.AddinFileInfo.Deconstruct(out string! FileName, out string! FilePath, out HexIDE.Addins.AddinDocumentKind Kind, out string? Project) -> void
+HexIDE.Addins.AddinFileInfo.FileName.get -> string!
+HexIDE.Addins.AddinFileInfo.FileName.init -> void
+HexIDE.Addins.AddinFileInfo.FilePath.get -> string!
+HexIDE.Addins.AddinFileInfo.FilePath.init -> void
+HexIDE.Addins.AddinFileInfo.Kind.get -> HexIDE.Addins.AddinDocumentKind
+HexIDE.Addins.AddinFileInfo.Kind.init -> void
+HexIDE.Addins.AddinFileInfo.Project.get -> string?
+HexIDE.Addins.AddinFileInfo.Project.init -> void
+HexIDE.Addins.AddinInfo
+HexIDE.Addins.AddinInfo.AddinInfo(HexIDE.Addins.AddinInfo! original) -> void
+HexIDE.Addins.AddinInfo.AddinInfo(string! AssemblyPath, string! Title, string! Description, string! Version, string! Author, string! Publisher = "", string! Id = "", string! ManifestHash = "", string? LogoPath = null, HexIDE.Addins.TrustChain? Chain = null) -> void
+HexIDE.Addins.AddinInfo.AssemblyPath.get -> string!
+HexIDE.Addins.AddinInfo.AssemblyPath.init -> void
+HexIDE.Addins.AddinInfo.Author.get -> string!
+HexIDE.Addins.AddinInfo.Author.init -> void
+HexIDE.Addins.AddinInfo.Chain.get -> HexIDE.Addins.TrustChain?
+HexIDE.Addins.AddinInfo.Chain.init -> void
+HexIDE.Addins.AddinInfo.CompatibilityError.get -> string?
+HexIDE.Addins.AddinInfo.CompatibilityError.init -> void
+HexIDE.Addins.AddinInfo.CompatibilityMessage.get -> HexIDE.Addins.AddinMessage?
+HexIDE.Addins.AddinInfo.CompatibilityMessage.init -> void
+HexIDE.Addins.AddinInfo.Deconstruct(out string! AssemblyPath, out string! Title, out string! Description, out string! Version, out string! Author, out string! Publisher, out string! Id, out string! ManifestHash, out string? LogoPath, out HexIDE.Addins.TrustChain? Chain) -> void
+HexIDE.Addins.AddinInfo.Description.get -> string!
+HexIDE.Addins.AddinInfo.Description.init -> void
+HexIDE.Addins.AddinInfo.Id.get -> string!
+HexIDE.Addins.AddinInfo.Id.init -> void
+HexIDE.Addins.AddinInfo.LoadError.get -> HexIDE.Addins.AddinMessage?
+HexIDE.Addins.AddinInfo.LoadError.init -> void
+HexIDE.Addins.AddinInfo.LogoPath.get -> string?
+HexIDE.Addins.AddinInfo.LogoPath.init -> void
+HexIDE.Addins.AddinInfo.ManifestHash.get -> string!
+HexIDE.Addins.AddinInfo.ManifestHash.init -> void
+HexIDE.Addins.AddinInfo.Publisher.get -> string!
+HexIDE.Addins.AddinInfo.Publisher.init -> void
+HexIDE.Addins.AddinInfo.PublisherNamespaces.get -> string![]?
+HexIDE.Addins.AddinInfo.PublisherNamespaces.init -> void
+HexIDE.Addins.AddinInfo.Title.get -> string!
+HexIDE.Addins.AddinInfo.Title.init -> void
+HexIDE.Addins.AddinInfo.VerifiedDeclaration.get -> HexIDE.Addins.AddinCapabilityDeclaration?
+HexIDE.Addins.AddinInfo.VerifiedDeclaration.init -> void
+HexIDE.Addins.AddinInfo.Version.get -> string!
+HexIDE.Addins.AddinInfo.Version.init -> void
+HexIDE.Addins.AddinJsonContext
+HexIDE.Addins.AddinJsonContext.AddinJsonContext() -> void
+HexIDE.Addins.AddinJsonContext.AddinJsonContext(System.Text.Json.JsonSerializerOptions! options) -> void
+HexIDE.Addins.AddinLanguageServer
+HexIDE.Addins.AddinLanguageServer.<Clone>$() -> HexIDE.Addins.AddinLanguageServer!
+HexIDE.Addins.AddinLanguageServer.AddinLanguageServer(HexIDE.Lsp.LanguageServerEntry! Entry) -> void
+HexIDE.Addins.AddinLanguageServer.AfterStart.get -> System.Func<HexIDE.Addins.IAddinServerConnection!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>?
+HexIDE.Addins.AddinLanguageServer.AfterStart.init -> void
+HexIDE.Addins.AddinLanguageServer.BeforeLaunch.get -> System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task!>?
+HexIDE.Addins.AddinLanguageServer.BeforeLaunch.init -> void
+HexIDE.Addins.AddinLanguageServer.BeforeLaunchTimeout.get -> System.TimeSpan
+HexIDE.Addins.AddinLanguageServer.BeforeLaunchTimeout.init -> void
+HexIDE.Addins.AddinLanguageServer.ClientCommands.get -> System.Collections.Generic.IReadOnlyDictionary<string!, HexIDE.Addins.AddinClientCommand!>!
+HexIDE.Addins.AddinLanguageServer.ClientCommands.init -> void
+HexIDE.Addins.AddinLanguageServer.CommandPrefix.get -> string?
+HexIDE.Addins.AddinLanguageServer.CommandPrefix.init -> void
+HexIDE.Addins.AddinLanguageServer.Deconstruct(out HexIDE.Lsp.LanguageServerEntry! Entry) -> void
+HexIDE.Addins.AddinLanguageServer.Entry.get -> HexIDE.Lsp.LanguageServerEntry!
+HexIDE.Addins.AddinLanguageServer.Entry.init -> void
+HexIDE.Addins.AddinLanguageServer.Equals(HexIDE.Addins.AddinLanguageServer? other) -> bool
+HexIDE.Addins.AddinLanguageServer.MessagePrefix.get -> string?
+HexIDE.Addins.AddinLanguageServer.MessagePrefix.init -> void
+HexIDE.Addins.AddinLanguageServer.ServerMethods.get -> System.Collections.Generic.IReadOnlyDictionary<string!, HexIDE.Addins.AddinServerMethod!>!
+HexIDE.Addins.AddinLanguageServer.ServerMethods.init -> void
+HexIDE.Addins.AddinLaunchConfiguration
+HexIDE.Addins.AddinLaunchConfiguration.<Clone>$() -> HexIDE.Addins.AddinLaunchConfiguration!
+HexIDE.Addins.AddinLaunchConfiguration.AdapterId.get -> string!
+HexIDE.Addins.AddinLaunchConfiguration.AdapterId.init -> void
+HexIDE.Addins.AddinLaunchConfiguration.AddinLaunchConfiguration() -> void
+HexIDE.Addins.AddinLaunchConfiguration.Arguments.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.Addins.AddinLaunchConfiguration.Arguments.init -> void
+HexIDE.Addins.AddinLaunchConfiguration.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string?>!
+HexIDE.Addins.AddinLaunchConfiguration.Environment.init -> void
+HexIDE.Addins.AddinLaunchConfiguration.Equals(HexIDE.Addins.AddinLaunchConfiguration? other) -> bool
+HexIDE.Addins.AddinLaunchConfiguration.Executable.get -> string!
+HexIDE.Addins.AddinLaunchConfiguration.Executable.init -> void
+HexIDE.Addins.AddinLaunchConfiguration.Launch.get -> System.Text.Json.JsonElement
+HexIDE.Addins.AddinLaunchConfiguration.Launch.init -> void
+HexIDE.Addins.AddinLaunchConfiguration.WorkingDirectory.get -> string?
+HexIDE.Addins.AddinLaunchConfiguration.WorkingDirectory.init -> void
+HexIDE.Addins.AddinManifest
+HexIDE.Addins.AddinManifest.<Clone>$() -> HexIDE.Addins.AddinManifest!
+HexIDE.Addins.AddinManifest.AddinManifest() -> void
+HexIDE.Addins.AddinManifest.Author.get -> string!
+HexIDE.Addins.AddinManifest.Author.init -> void
+HexIDE.Addins.AddinManifest.Capabilities.get -> System.Text.Json.JsonElement?
+HexIDE.Addins.AddinManifest.Capabilities.init -> void
+HexIDE.Addins.AddinManifest.Description.get -> string!
+HexIDE.Addins.AddinManifest.Description.init -> void
+HexIDE.Addins.AddinManifest.Entry.get -> string!
+HexIDE.Addins.AddinManifest.Entry.init -> void
+HexIDE.Addins.AddinManifest.Equals(HexIDE.Addins.AddinManifest? other) -> bool
+HexIDE.Addins.AddinManifest.Files.get -> HexIDE.Addins.AddinFileHash![]!
+HexIDE.Addins.AddinManifest.Files.init -> void
+HexIDE.Addins.AddinManifest.Id.get -> string!
+HexIDE.Addins.AddinManifest.Id.init -> void
+HexIDE.Addins.AddinManifest.LogoPath.get -> string?
+HexIDE.Addins.AddinManifest.LogoPath.init -> void
+HexIDE.Addins.AddinManifest.MinHexideVersion.get -> string?
+HexIDE.Addins.AddinManifest.MinHexideVersion.init -> void
+HexIDE.Addins.AddinManifest.PublisherId.get -> string!
+HexIDE.Addins.AddinManifest.PublisherId.init -> void
+HexIDE.Addins.AddinManifest.Schema.get -> int
+HexIDE.Addins.AddinManifest.Schema.init -> void
+HexIDE.Addins.AddinManifest.Title.get -> string!
+HexIDE.Addins.AddinManifest.Title.init -> void
+HexIDE.Addins.AddinManifest.Unrecognized.get -> System.Collections.Generic.Dictionary<string!, System.Text.Json.JsonElement>?
+HexIDE.Addins.AddinManifest.Unrecognized.set -> void
+HexIDE.Addins.AddinManifest.Version.get -> string!
+HexIDE.Addins.AddinManifest.Version.init -> void
+HexIDE.Addins.AddinMemberKind
+HexIDE.Addins.AddinMemberKind.ClassModule = 1 -> HexIDE.Addins.AddinMemberKind
+HexIDE.Addins.AddinMemberKind.DocumentModule = 2 -> HexIDE.Addins.AddinMemberKind
+HexIDE.Addins.AddinMemberKind.Form = 4 -> HexIDE.Addins.AddinMemberKind
+HexIDE.Addins.AddinMemberKind.Other = 3 -> HexIDE.Addins.AddinMemberKind
+HexIDE.Addins.AddinMemberKind.PropertyPage = 6 -> HexIDE.Addins.AddinMemberKind
+HexIDE.Addins.AddinMemberKind.StandardModule = 0 -> HexIDE.Addins.AddinMemberKind
+HexIDE.Addins.AddinMemberKind.UserControl = 5 -> HexIDE.Addins.AddinMemberKind
+HexIDE.Addins.AddinMessage
+HexIDE.Addins.AddinMessage.<Clone>$() -> HexIDE.Addins.AddinMessage!
+HexIDE.Addins.AddinMessage.AddinMessage(string! Key, params object![]! Arguments) -> void
+HexIDE.Addins.AddinMessage.Arguments.get -> object![]!
+HexIDE.Addins.AddinMessage.Arguments.init -> void
+HexIDE.Addins.AddinMessage.Deconstruct(out string! Key, out object![]! Arguments) -> void
+HexIDE.Addins.AddinMessage.Equals(HexIDE.Addins.AddinMessage? other) -> bool
+HexIDE.Addins.AddinMessage.Key.get -> string!
+HexIDE.Addins.AddinMessage.Key.init -> void
+HexIDE.Addins.AddinProjectContent
+HexIDE.Addins.AddinProjectContent.<Clone>$() -> HexIDE.Addins.AddinProjectContent!
+HexIDE.Addins.AddinProjectContent.AddinProjectContent(string! Name) -> void
+HexIDE.Addins.AddinProjectContent.Deconstruct(out string! Name) -> void
+HexIDE.Addins.AddinProjectContent.Equals(HexIDE.Addins.AddinProjectContent? other) -> bool
+HexIDE.Addins.AddinProjectContent.Folders.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.Addins.AddinProjectContent.Folders.init -> void
+HexIDE.Addins.AddinProjectContent.Members.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinProjectMember!>!
+HexIDE.Addins.AddinProjectContent.Members.init -> void
+HexIDE.Addins.AddinProjectContent.Name.get -> string!
+HexIDE.Addins.AddinProjectContent.Name.init -> void
+HexIDE.Addins.AddinProjectContent.References.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinProjectReference!>!
+HexIDE.Addins.AddinProjectContent.References.init -> void
+HexIDE.Addins.AddinProjectEventArgs
+HexIDE.Addins.AddinProjectEventArgs.AddinProjectEventArgs(HexIDE.Addins.AddinProjectEventArgs! original) -> void
+HexIDE.Addins.AddinProjectEventArgs.AddinProjectEventArgs(string! ProjectPath, string! ProjectName) -> void
+HexIDE.Addins.AddinProjectEventArgs.Deconstruct(out string! ProjectPath, out string! ProjectName) -> void
+HexIDE.Addins.AddinProjectEventArgs.ProjectName.get -> string!
+HexIDE.Addins.AddinProjectEventArgs.ProjectName.init -> void
+HexIDE.Addins.AddinProjectEventArgs.ProjectPath.get -> string!
+HexIDE.Addins.AddinProjectEventArgs.ProjectPath.init -> void
+HexIDE.Addins.AddinProjectInfo
+HexIDE.Addins.AddinProjectInfo.AddinProjectInfo(HexIDE.Addins.AddinProjectInfo! original) -> void
+HexIDE.Addins.AddinProjectInfo.AddinProjectInfo(string! ProjectName, string! ProjectPath, System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinFileInfo!>! Files, string? StartupObject = null) -> void
+HexIDE.Addins.AddinProjectInfo.Deconstruct(out string! ProjectName, out string! ProjectPath, out System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinFileInfo!>! Files, out string? StartupObject) -> void
+HexIDE.Addins.AddinProjectInfo.Files.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinFileInfo!>!
+HexIDE.Addins.AddinProjectInfo.Files.init -> void
+HexIDE.Addins.AddinProjectInfo.ProjectName.get -> string!
+HexIDE.Addins.AddinProjectInfo.ProjectName.init -> void
+HexIDE.Addins.AddinProjectInfo.ProjectPath.get -> string!
+HexIDE.Addins.AddinProjectInfo.ProjectPath.init -> void
+HexIDE.Addins.AddinProjectInfo.StartupObject.get -> string?
+HexIDE.Addins.AddinProjectInfo.StartupObject.init -> void
+HexIDE.Addins.AddinProjectMember
+HexIDE.Addins.AddinProjectMember.<Clone>$() -> HexIDE.Addins.AddinProjectMember!
+HexIDE.Addins.AddinProjectMember.AddinProjectMember(string! Path, HexIDE.Addins.AddinMemberKind Kind) -> void
+HexIDE.Addins.AddinProjectMember.Deconstruct(out string! Path, out HexIDE.Addins.AddinMemberKind Kind) -> void
+HexIDE.Addins.AddinProjectMember.Equals(HexIDE.Addins.AddinProjectMember? other) -> bool
+HexIDE.Addins.AddinProjectMember.Kind.get -> HexIDE.Addins.AddinMemberKind
+HexIDE.Addins.AddinProjectMember.Kind.init -> void
+HexIDE.Addins.AddinProjectMember.Path.get -> string!
+HexIDE.Addins.AddinProjectMember.Path.init -> void
+HexIDE.Addins.AddinProjectReference
+HexIDE.Addins.AddinProjectReference.<Clone>$() -> HexIDE.Addins.AddinProjectReference!
+HexIDE.Addins.AddinProjectReference.AddinProjectReference(string! Name, System.Guid? Guid = null, int? Major = null, int? Minor = null, string? Path = null) -> void
+HexIDE.Addins.AddinProjectReference.Deconstruct(out string! Name, out System.Guid? Guid, out int? Major, out int? Minor, out string? Path) -> void
+HexIDE.Addins.AddinProjectReference.Equals(HexIDE.Addins.AddinProjectReference? other) -> bool
+HexIDE.Addins.AddinProjectReference.Guid.get -> System.Guid?
+HexIDE.Addins.AddinProjectReference.Guid.init -> void
+HexIDE.Addins.AddinProjectReference.Major.get -> int?
+HexIDE.Addins.AddinProjectReference.Major.init -> void
+HexIDE.Addins.AddinProjectReference.Minor.get -> int?
+HexIDE.Addins.AddinProjectReference.Minor.init -> void
+HexIDE.Addins.AddinProjectReference.Name.get -> string!
+HexIDE.Addins.AddinProjectReference.Name.init -> void
+HexIDE.Addins.AddinProjectReference.Path.get -> string?
+HexIDE.Addins.AddinProjectReference.Path.init -> void
+HexIDE.Addins.AddinProjectType
+HexIDE.Addins.AddinProjectType.<Clone>$() -> HexIDE.Addins.AddinProjectType!
+HexIDE.Addins.AddinProjectType.AddinProjectType(string! Title) -> void
+HexIDE.Addins.AddinProjectType.Deconstruct(out string! Title) -> void
+HexIDE.Addins.AddinProjectType.Equals(HexIDE.Addins.AddinProjectType? other) -> bool
+HexIDE.Addins.AddinProjectType.FileNames.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.Addins.AddinProjectType.FileNames.init -> void
+HexIDE.Addins.AddinProjectType.Format.get -> HexIDE.IDE.IProjectFileFormat?
+HexIDE.Addins.AddinProjectType.Format.init -> void
+HexIDE.Addins.AddinProjectType.Forms.get -> HexIDE.IDE.IFormFileReader?
+HexIDE.Addins.AddinProjectType.Forms.init -> void
+HexIDE.Addins.AddinProjectType.GroupFileNames.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.Addins.AddinProjectType.GroupFileNames.init -> void
+HexIDE.Addins.AddinProjectType.OpenAsync.get -> System.Func<string!, HexIDE.Addins.IAddinProjectChanges!, System.Threading.CancellationToken, System.Threading.Tasks.Task<HexIDE.Addins.AddinProjectContent!>!>?
+HexIDE.Addins.AddinProjectType.OpenAsync.init -> void
+HexIDE.Addins.AddinProjectType.ProjectFile.get -> HexIDE.IDE.IProjectFileWriter?
+HexIDE.Addins.AddinProjectType.ProjectFile.init -> void
+HexIDE.Addins.AddinProjectType.Title.get -> string!
+HexIDE.Addins.AddinProjectType.Title.init -> void
+HexIDE.Addins.AddinSelection
+HexIDE.Addins.AddinSelection.AddinSelection(HexIDE.Addins.AddinSelection! original) -> void
+HexIDE.Addins.AddinSelection.AddinSelection(string! FileName, string! SelectedText, int StartLine, int StartColumn, int EndLine, int EndColumn, string? Project = null) -> void
+HexIDE.Addins.AddinSelection.Deconstruct(out string! FileName, out string! SelectedText, out int StartLine, out int StartColumn, out int EndLine, out int EndColumn, out string? Project) -> void
+HexIDE.Addins.AddinSelection.EndColumn.get -> int
+HexIDE.Addins.AddinSelection.EndColumn.init -> void
+HexIDE.Addins.AddinSelection.EndLine.get -> int
+HexIDE.Addins.AddinSelection.EndLine.init -> void
+HexIDE.Addins.AddinSelection.FileName.get -> string!
+HexIDE.Addins.AddinSelection.FileName.init -> void
+HexIDE.Addins.AddinSelection.Project.get -> string?
+HexIDE.Addins.AddinSelection.Project.init -> void
+HexIDE.Addins.AddinSelection.SelectedText.get -> string!
+HexIDE.Addins.AddinSelection.SelectedText.init -> void
+HexIDE.Addins.AddinSelection.StartColumn.get -> int
+HexIDE.Addins.AddinSelection.StartColumn.init -> void
+HexIDE.Addins.AddinSelection.StartLine.get -> int
+HexIDE.Addins.AddinSelection.StartLine.init -> void
+HexIDE.Addins.AddinServerMethod
+HexIDE.Addins.AddinStatus
+HexIDE.Addins.AddinStatus.AwaitingConsent = 5 -> HexIDE.Addins.AddinStatus
+HexIDE.Addins.AddinStatus.ConsentDenied = 6 -> HexIDE.Addins.AddinStatus
+HexIDE.Addins.AddinStatus.DeveloperUnsigned = 4 -> HexIDE.Addins.AddinStatus
+HexIDE.Addins.AddinStatus.Disabled = 2 -> HexIDE.Addins.AddinStatus
+HexIDE.Addins.AddinStatus.Error = 1 -> HexIDE.Addins.AddinStatus
+HexIDE.Addins.AddinStatus.Incompatible = 8 -> HexIDE.Addins.AddinStatus
+HexIDE.Addins.AddinStatus.Loaded = 0 -> HexIDE.Addins.AddinStatus
+HexIDE.Addins.AddinStatus.Revoked = 7 -> HexIDE.Addins.AddinStatus
+HexIDE.Addins.AddinStatus.Untrusted = 3 -> HexIDE.Addins.AddinStatus
+HexIDE.Addins.AddinTextEdit
+HexIDE.Addins.AddinTextEdit.AddinTextEdit(HexIDE.Addins.AddinTextEdit! original) -> void
+HexIDE.Addins.AddinTextEdit.AddinTextEdit(int StartLine, int StartColumn, int EndLine, int EndColumn, string! NewText) -> void
+HexIDE.Addins.AddinTextEdit.Deconstruct(out int StartLine, out int StartColumn, out int EndLine, out int EndColumn, out string! NewText) -> void
+HexIDE.Addins.AddinTextEdit.EndColumn.get -> int
+HexIDE.Addins.AddinTextEdit.EndColumn.init -> void
+HexIDE.Addins.AddinTextEdit.EndLine.get -> int
+HexIDE.Addins.AddinTextEdit.EndLine.init -> void
+HexIDE.Addins.AddinTextEdit.NewText.get -> string!
+HexIDE.Addins.AddinTextEdit.NewText.init -> void
+HexIDE.Addins.AddinTextEdit.StartColumn.get -> int
+HexIDE.Addins.AddinTextEdit.StartColumn.init -> void
+HexIDE.Addins.AddinTextEdit.StartLine.get -> int
+HexIDE.Addins.AddinTextEdit.StartLine.init -> void
+HexIDE.Addins.AddinTitle
+HexIDE.Addins.AddinTitle.AddinTitle(string! text, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? translations = null) -> void
+HexIDE.Addins.AddinTitle.Key.get -> string?
+HexIDE.Addins.AddinTitle.Text.get -> string!
+HexIDE.Addins.AddinTitle.Translations.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>?
+HexIDE.Addins.AddinTitleAttribute
+HexIDE.Addins.AddinTitleAttribute.AddinTitleAttribute(string! title) -> void
+HexIDE.Addins.AddinTitleAttribute.Title.get -> string!
+HexIDE.Addins.AddinVersionAttribute
+HexIDE.Addins.AddinVersionAttribute.AddinVersionAttribute(string! version) -> void
+HexIDE.Addins.AddinVersionAttribute.Version.get -> string!
+HexIDE.Addins.ConsentDecisions
+HexIDE.Addins.IAddin
+HexIDE.Addins.IAddin.Initialize(HexIDE.Addins.IHexIdeHost! host) -> void
+HexIDE.Addins.IAddinCodeEditorActions
+HexIDE.Addins.IAddinCodeEditorActions.ShowReferencesAsync(System.Collections.Generic.IReadOnlyList<HexIDE.Lsp.Messages.Location!>! locations, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+HexIDE.Addins.IAddinCodeEditorActions.StartRenameAsync(string! uri, HexIDE.Lsp.Messages.Position! position, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+HexIDE.Addins.IAddinEvents
+HexIDE.Addins.IAddinEvents.FileClosed -> System.Action<HexIDE.Addins.AddinFileEventArgs!>?
+HexIDE.Addins.IAddinEvents.FileOpened -> System.Action<HexIDE.Addins.AddinFileEventArgs!>?
+HexIDE.Addins.IAddinEvents.ProjectLoaded -> System.Action<HexIDE.Addins.AddinProjectEventArgs!>?
+HexIDE.Addins.IAddinEvents.ProjectUnloaded -> System.Action<HexIDE.Addins.AddinProjectEventArgs!>?
+HexIDE.Addins.IAddinEvents.RunStarted -> System.Action?
+HexIDE.Addins.IAddinEvents.RunStopped -> System.Action?
+HexIDE.Addins.IAddinLoader
+HexIDE.Addins.IAddinLoader.LoadAll(HexIDE.Addins.IHexIdeHost! host) -> void
+HexIDE.Addins.IAddinLoader.PromptPendingConsentAsync() -> System.Threading.Tasks.Task!
+HexIDE.Addins.IAddinProjectChanges
+HexIDE.Addins.IAddinProjectChanges.Closed.get -> System.Threading.CancellationToken
+HexIDE.Addins.IAddinProjectChanges.MemberAdded(HexIDE.Addins.AddinProjectMember! member) -> void
+HexIDE.Addins.IAddinProjectChanges.MemberMoved(string! oldPath, string! newPath) -> void
+HexIDE.Addins.IAddinProjectChanges.MemberRemoved(string! path) -> void
+HexIDE.Addins.IAddinProjectChanges.ReferencesChanged(System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinProjectReference!>! references) -> void
+HexIDE.Addins.IAddinProjectTemplate
+HexIDE.Addins.IAddinProjectTemplate.Create(string! name) -> HexIDE.Runtime.ProjectElements.ProjectDefinition!
+HexIDE.Addins.IAddinProjectTemplate.Name.get -> string!
+HexIDE.Addins.IAddinProjectTemplate.Supported.get -> bool
+HexIDE.Addins.IAddinRegistry
+HexIDE.Addins.IAddinRegistry.GetAll() -> System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinInfo!>!
+HexIDE.Addins.IAddinRegistry.GetStatus(string! assemblyPath) -> HexIDE.Addins.AddinStatus
+HexIDE.Addins.IAddinRegistry.RevokeConsent(string! manifestHash) -> void
+HexIDE.Addins.IAddinRegistry.SetEnabled(string! assemblyPath, bool enabled) -> void
+HexIDE.Addins.IAddinServerConnection
+HexIDE.Addins.IAddinServerConnection.ApplyEditAsync(HexIDE.Lsp.Messages.WorkspaceEdit! edit, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<HexIDE.Lsp.Messages.ApplyWorkspaceEditResult!>!
+HexIDE.Addins.IAddinServerConnection.GetSettings() -> System.Text.Json.JsonElement?
+HexIDE.Addins.IAddinServerConnection.Id.get -> string!
+HexIDE.Addins.IAddinServerConnection.IsRunning.get -> bool
+HexIDE.Addins.IAddinServerConnection.NotifyAsync(string! method, System.Text.Json.JsonElement? parameters = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+HexIDE.Addins.IAddinServerConnection.RequestAsync(string! method, System.Text.Json.JsonElement? parameters = null, System.TimeSpan? timeout = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Text.Json.JsonElement?>!
+HexIDE.Addins.IAddinServerConnection.SetSettingsAsync(System.Text.Json.JsonElement settings, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+HexIDE.Addins.IAddinServerConnection.ShowReferencesAsync(System.Collections.Generic.IReadOnlyList<HexIDE.Lsp.Messages.Location!>! locations, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+HexIDE.Addins.IAddinServerConnection.StartRenameAsync(string! uri, HexIDE.Lsp.Messages.Position! position, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+HexIDE.Addins.IDiagnosticsAccess
+HexIDE.Addins.IDiagnosticsAccess.GetAll() -> System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinDiagnostic!>!
+HexIDE.Addins.IDiagnosticsAccess.GetFor(string! fileName) -> System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinDiagnostic!>!
+HexIDE.Addins.IDiagnosticsAccess.GetFor(string! fileName, string? project) -> System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinDiagnostic!>!
+HexIDE.Addins.IDiagnosticsAccess.TryGetFor(string! fileName, string? project) -> HexIDE.Addins.AddinDiagnosticsResult!
+HexIDE.Addins.IEditorAccess
+HexIDE.Addins.IEditorAccess.ApplyEdits(string! fileName, System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinTextEdit!>! edits) -> System.Threading.Tasks.Task!
+HexIDE.Addins.IEditorAccess.ApplyEdits(string! fileName, System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinTextEdit!>! edits, string? project) -> System.Threading.Tasks.Task<bool>!
+HexIDE.Addins.IEditorAccess.GetActiveDocument() -> HexIDE.Addins.AddinDocument?
+HexIDE.Addins.IEditorAccess.GetSelection() -> HexIDE.Addins.AddinSelection?
+HexIDE.Addins.IEditorAccess.NavigateTo(string! fileName, int line, int column) -> void
+HexIDE.Addins.IEditorAccess.NavigateTo(string! fileName, int line, int column, string? project) -> bool
+HexIDE.Addins.IEditorAccess.SetContent(string! fileName, string! content) -> System.Threading.Tasks.Task!
+HexIDE.Addins.IEditorAccess.SetContent(string! fileName, string! content, string? project) -> System.Threading.Tasks.Task<bool>!
+HexIDE.Addins.IEditorAccess.TryApplyEdits(string! fileName, System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinTextEdit!>! edits, string? project) -> System.Threading.Tasks.Task<HexIDE.Addins.AddinEditResult!>!
+HexIDE.Addins.IEditorAccess.TryGetDocument(string! fileName, string? project = null) -> System.Threading.Tasks.Task<HexIDE.Addins.AddinDocumentResult!>!
+HexIDE.Addins.IEditorAccess.TryNavigateTo(string! fileName, int line, int column, string? project) -> System.Threading.Tasks.Task<HexIDE.Addins.AddinEditResult!>!
+HexIDE.Addins.IEditorAccess.TrySetContent(string! fileName, string! content, string? project) -> System.Threading.Tasks.Task<HexIDE.Addins.AddinEditResult!>!
+HexIDE.Addins.IHexIdeHost
+HexIDE.Addins.IHexIdeHost.Diagnostics.get -> HexIDE.Addins.IDiagnosticsAccess!
+HexIDE.Addins.IHexIdeHost.Editor.get -> HexIDE.Addins.IEditorAccess!
+HexIDE.Addins.IHexIdeHost.Events.get -> HexIDE.Addins.IAddinEvents!
+HexIDE.Addins.IHexIdeHost.Menus.get -> HexIDE.Addins.IMenuContributor!
+HexIDE.Addins.IHexIdeHost.Options.get -> HexIDE.Addins.IOptionsPageContributor!
+HexIDE.Addins.IHexIdeHost.Project.get -> HexIDE.Addins.IProjectAccess!
+HexIDE.Addins.IHexIdeHost.RegisterCommand(string! id, HexIDE.Addins.AddinTitle! label, System.Action! onInvoke, string? gesture = null, System.Func<bool>? canExecute = null) -> System.IDisposable!
+HexIDE.Addins.IHexIdeHost.RegisterCommand(string! id, string! label, System.Action! onInvoke, string? gesture = null, System.Func<bool>? canExecute = null) -> System.IDisposable!
+HexIDE.Addins.IHexIdeHost.RegisterComponent(HexIDE.Runtime.Components.IComponentClass! component) -> System.IDisposable!
+HexIDE.Addins.IHexIdeHost.RegisterDebugLaunch(HexIDE.Addins.AddinDebugLaunch! launch) -> System.IDisposable!
+HexIDE.Addins.IHexIdeHost.RegisterLanguageServer(HexIDE.Addins.AddinLanguageServer! server) -> HexIDE.Addins.IAddinServerConnection!
+HexIDE.Addins.IHexIdeHost.RegisterProjectTemplate(HexIDE.Addins.IAddinProjectTemplate! template) -> System.IDisposable!
+HexIDE.Addins.IHexIdeHost.RegisterProjectType(HexIDE.Addins.AddinProjectType! type) -> System.IDisposable!
+HexIDE.Addins.IHexIdeHost.Registry.get -> HexIDE.Addins.IAddinRegistry!
+HexIDE.Addins.IHexIdeHost.RunProject() -> bool
+HexIDE.Addins.IHexIdeHost.ServerChatTools.get -> HexIDE.Addins.IServerChatTools!
+HexIDE.Addins.IHexIdeHost.StopProject() -> bool
+HexIDE.Addins.IHexIdeHost.ToolWindows.get -> HexIDE.Addins.IToolWindowContributor!
+HexIDE.Addins.IMenuContributor
+HexIDE.Addins.IMenuContributor.Add(string! parentPath, HexIDE.Addins.AddinTitle! label, object? icon, System.Action! onInvoke, System.Func<bool>? canExecute = null) -> System.IDisposable!
+HexIDE.Addins.IMenuContributor.Add(string! parentPath, string! label, object? icon, System.Action! onInvoke, System.Func<bool>? canExecute = null) -> System.IDisposable!
+HexIDE.Addins.IOptionsPageContributor
+HexIDE.Addins.IOptionsPageContributor.RegisterOptionsPage(System.Func<object!>! factory) -> HexIDE.Addins.IOptionsPageHandle!
+HexIDE.Addins.IOptionsPageHandle
+HexIDE.Addins.IPackageVerifier
+HexIDE.Addins.IPackageVerifier.Verify(string! packageDirectory) -> HexIDE.Addins.PackageVerificationResult!
+HexIDE.Addins.IProjectAccess
+HexIDE.Addins.IProjectAccess.GetActiveProject() -> HexIDE.Addins.AddinProjectInfo?
+HexIDE.Addins.IProjectAccess.GetFiles() -> System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinFileInfo!>!
+HexIDE.Addins.IProjectAccess.GetProjects() -> System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinProjectInfo!>!
+HexIDE.Addins.IServerChatTools
+HexIDE.Addins.IServerChatTools.CallAsync(HexIDE.Addins.ServerChatTool! tool, System.Text.Json.JsonElement? arguments, HexIDE.Addins.ServerChatToolApproval! approve, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<HexIDE.Addins.ServerChatToolResult!>!
+HexIDE.Addins.IServerChatTools.GetContextAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<HexIDE.Addins.ServerChatContext!>!>!
+HexIDE.Addins.IServerChatTools.ListAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<HexIDE.Addins.ServerChatTool!>!>!
+HexIDE.Addins.IToolWindowContributor
+HexIDE.Addins.IToolWindowContributor.Register(string! id, HexIDE.Addins.AddinTitle! title, object? icon, System.Func<object!>! factory) -> HexIDE.Addins.IToolWindowHandle!
+HexIDE.Addins.IToolWindowContributor.Register(string! id, string! title, object? icon, System.Func<object!>! factory) -> HexIDE.Addins.IToolWindowHandle!
+HexIDE.Addins.IToolWindowHandle
+HexIDE.Addins.IToolWindowHandle.Show() -> void
+HexIDE.Addins.IToolWindowMinimumWidth
+HexIDE.Addins.IToolWindowMinimumWidth.MeasureMinimumUsableWidth() -> double
+HexIDE.Addins.IntermediateRecord
+HexIDE.Addins.IntermediateRecord.<Clone>$() -> HexIDE.Addins.IntermediateRecord!
+HexIDE.Addins.IntermediateRecord.DisplayName.get -> string!
+HexIDE.Addins.IntermediateRecord.DisplayName.init -> void
+HexIDE.Addins.IntermediateRecord.Equals(HexIDE.Addins.IntermediateRecord? other) -> bool
+HexIDE.Addins.IntermediateRecord.IntermediateId.get -> string!
+HexIDE.Addins.IntermediateRecord.IntermediateId.init -> void
+HexIDE.Addins.IntermediateRecord.IntermediateRecord() -> void
+HexIDE.Addins.IntermediateRecord.PublicKey.get -> string!
+HexIDE.Addins.IntermediateRecord.PublicKey.init -> void
+HexIDE.Addins.PackageCrypto
+HexIDE.Addins.PackageVerdict
+HexIDE.Addins.PackageVerdict.Incompatible = 2 -> HexIDE.Addins.PackageVerdict
+HexIDE.Addins.PackageVerdict.Untrusted = 1 -> HexIDE.Addins.PackageVerdict
+HexIDE.Addins.PackageVerdict.Verified = 0 -> HexIDE.Addins.PackageVerdict
+HexIDE.Addins.PackageVerification
+HexIDE.Addins.PackageVerificationResult
+HexIDE.Addins.PackageVerificationResult.<Clone>$() -> HexIDE.Addins.PackageVerificationResult!
+HexIDE.Addins.PackageVerificationResult.Chain.get -> HexIDE.Addins.TrustChain?
+HexIDE.Addins.PackageVerificationResult.Chain.init -> void
+HexIDE.Addins.PackageVerificationResult.Deconstruct(out HexIDE.Addins.PackageVerdict Verdict, out HexIDE.Addins.AddinManifest? Manifest, out string? PublisherDisplayName, out string? PublisherId, out string? Error) -> void
+HexIDE.Addins.PackageVerificationResult.Equals(HexIDE.Addins.PackageVerificationResult? other) -> bool
+HexIDE.Addins.PackageVerificationResult.Error.get -> string?
+HexIDE.Addins.PackageVerificationResult.Error.init -> void
+HexIDE.Addins.PackageVerificationResult.IntermediateId.get -> string?
+HexIDE.Addins.PackageVerificationResult.IntermediateId.init -> void
+HexIDE.Addins.PackageVerificationResult.IsFirstParty.get -> bool
+HexIDE.Addins.PackageVerificationResult.IsFirstParty.init -> void
+HexIDE.Addins.PackageVerificationResult.IsVerified.get -> bool
+HexIDE.Addins.PackageVerificationResult.LogoPath.get -> string?
+HexIDE.Addins.PackageVerificationResult.LogoPath.init -> void
+HexIDE.Addins.PackageVerificationResult.Manifest.get -> HexIDE.Addins.AddinManifest?
+HexIDE.Addins.PackageVerificationResult.Manifest.init -> void
+HexIDE.Addins.PackageVerificationResult.ManifestHash.get -> string?
+HexIDE.Addins.PackageVerificationResult.ManifestHash.init -> void
+HexIDE.Addins.PackageVerificationResult.PackageVerificationResult(HexIDE.Addins.PackageVerdict Verdict, HexIDE.Addins.AddinManifest? Manifest, string? PublisherDisplayName, string? PublisherId, string? Error) -> void
+HexIDE.Addins.PackageVerificationResult.PublisherDisplayName.get -> string?
+HexIDE.Addins.PackageVerificationResult.PublisherDisplayName.init -> void
+HexIDE.Addins.PackageVerificationResult.PublisherId.get -> string?
+HexIDE.Addins.PackageVerificationResult.PublisherId.init -> void
+HexIDE.Addins.PackageVerificationResult.PublisherNamespaces.get -> string![]?
+HexIDE.Addins.PackageVerificationResult.PublisherNamespaces.init -> void
+HexIDE.Addins.PackageVerificationResult.Verdict.get -> HexIDE.Addins.PackageVerdict
+HexIDE.Addins.PackageVerificationResult.Verdict.init -> void
+HexIDE.Addins.PackageVerificationResult.VerifiedDeclaration.get -> HexIDE.Addins.AddinCapabilityDeclaration?
+HexIDE.Addins.PackageVerificationResult.VerifiedDeclaration.init -> void
+HexIDE.Addins.PublisherId
+HexIDE.Addins.PublisherNamespaces
+HexIDE.Addins.PublisherRecord
+HexIDE.Addins.PublisherRecord.<Clone>$() -> HexIDE.Addins.PublisherRecord!
+HexIDE.Addins.PublisherRecord.DisplayName.get -> string!
+HexIDE.Addins.PublisherRecord.DisplayName.init -> void
+HexIDE.Addins.PublisherRecord.Equals(HexIDE.Addins.PublisherRecord? other) -> bool
+HexIDE.Addins.PublisherRecord.IntermediateId.get -> string!
+HexIDE.Addins.PublisherRecord.IntermediateId.init -> void
+HexIDE.Addins.PublisherRecord.Namespaces.get -> string![]?
+HexIDE.Addins.PublisherRecord.Namespaces.init -> void
+HexIDE.Addins.PublisherRecord.PublicKey.get -> string!
+HexIDE.Addins.PublisherRecord.PublicKey.init -> void
+HexIDE.Addins.PublisherRecord.PublisherId.get -> string!
+HexIDE.Addins.PublisherRecord.PublisherId.init -> void
+HexIDE.Addins.PublisherRecord.PublisherRecord() -> void
+HexIDE.Addins.RevocationCheck
+HexIDE.Addins.RevocationJsonContext
+HexIDE.Addins.RevocationJsonContext.RevocationJsonContext() -> void
+HexIDE.Addins.RevocationJsonContext.RevocationJsonContext(System.Text.Json.JsonSerializerOptions! options) -> void
+HexIDE.Addins.RevocationList
+HexIDE.Addins.RevocationList.<Clone>$() -> HexIDE.Addins.RevocationList!
+HexIDE.Addins.RevocationList.Equals(HexIDE.Addins.RevocationList? other) -> bool
+HexIDE.Addins.RevocationList.IssuedUtc.get -> string!
+HexIDE.Addins.RevocationList.IssuedUtc.init -> void
+HexIDE.Addins.RevocationList.RevocationList() -> void
+HexIDE.Addins.RevocationList.Revoked.get -> HexIDE.Addins.RevokedSets!
+HexIDE.Addins.RevocationList.Revoked.init -> void
+HexIDE.Addins.RevocationList.Schema.get -> int
+HexIDE.Addins.RevocationList.Schema.init -> void
+HexIDE.Addins.RevokedSets
+HexIDE.Addins.RevokedSets.<Clone>$() -> HexIDE.Addins.RevokedSets!
+HexIDE.Addins.RevokedSets.Equals(HexIDE.Addins.RevokedSets? other) -> bool
+HexIDE.Addins.RevokedSets.IntermediateIds.get -> string![]!
+HexIDE.Addins.RevokedSets.IntermediateIds.init -> void
+HexIDE.Addins.RevokedSets.ManifestHashes.get -> string![]!
+HexIDE.Addins.RevokedSets.ManifestHashes.init -> void
+HexIDE.Addins.RevokedSets.PublisherIds.get -> string![]!
+HexIDE.Addins.RevokedSets.PublisherIds.init -> void
+HexIDE.Addins.RevokedSets.RevokedSets() -> void
+HexIDE.Addins.ServerChatContext
+HexIDE.Addins.ServerChatContext.<Clone>$() -> HexIDE.Addins.ServerChatContext!
+HexIDE.Addins.ServerChatContext.Deconstruct(out string! ServerId, out string! ServerName, out string! Text, out bool Truncated) -> void
+HexIDE.Addins.ServerChatContext.Equals(HexIDE.Addins.ServerChatContext? other) -> bool
+HexIDE.Addins.ServerChatContext.ServerChatContext(string! ServerId, string! ServerName, string! Text, bool Truncated = false) -> void
+HexIDE.Addins.ServerChatContext.ServerId.get -> string!
+HexIDE.Addins.ServerChatContext.ServerId.init -> void
+HexIDE.Addins.ServerChatContext.ServerName.get -> string!
+HexIDE.Addins.ServerChatContext.ServerName.init -> void
+HexIDE.Addins.ServerChatContext.Text.get -> string!
+HexIDE.Addins.ServerChatContext.Text.init -> void
+HexIDE.Addins.ServerChatContext.Truncated.get -> bool
+HexIDE.Addins.ServerChatContext.Truncated.init -> void
+HexIDE.Addins.ServerChatTool
+HexIDE.Addins.ServerChatTool.<Clone>$() -> HexIDE.Addins.ServerChatTool!
+HexIDE.Addins.ServerChatTool.Asks.get -> bool
+HexIDE.Addins.ServerChatTool.Asks.init -> void
+HexIDE.Addins.ServerChatTool.Deconstruct(out string! ServerId, out string! ServerName, out string! Name, out string! Description, out System.Text.Json.JsonElement InputSchema, out bool Asks) -> void
+HexIDE.Addins.ServerChatTool.Description.get -> string!
+HexIDE.Addins.ServerChatTool.Description.init -> void
+HexIDE.Addins.ServerChatTool.Equals(HexIDE.Addins.ServerChatTool? other) -> bool
+HexIDE.Addins.ServerChatTool.InputSchema.get -> System.Text.Json.JsonElement
+HexIDE.Addins.ServerChatTool.InputSchema.init -> void
+HexIDE.Addins.ServerChatTool.Name.get -> string!
+HexIDE.Addins.ServerChatTool.Name.init -> void
+HexIDE.Addins.ServerChatTool.ServerChatTool(string! ServerId, string! ServerName, string! Name, string! Description, System.Text.Json.JsonElement InputSchema, bool Asks) -> void
+HexIDE.Addins.ServerChatTool.ServerId.get -> string!
+HexIDE.Addins.ServerChatTool.ServerId.init -> void
+HexIDE.Addins.ServerChatTool.ServerName.get -> string!
+HexIDE.Addins.ServerChatTool.ServerName.init -> void
+HexIDE.Addins.ServerChatToolApproval
+HexIDE.Addins.ServerChatToolLimits
+HexIDE.Addins.ServerChatToolResult
+HexIDE.Addins.ServerChatToolResult.<Clone>$() -> HexIDE.Addins.ServerChatToolResult!
+HexIDE.Addins.ServerChatToolResult.Declined.get -> bool
+HexIDE.Addins.ServerChatToolResult.Declined.init -> void
+HexIDE.Addins.ServerChatToolResult.Deconstruct(out bool IsError, out string! Text, out bool Truncated, out bool Declined) -> void
+HexIDE.Addins.ServerChatToolResult.Equals(HexIDE.Addins.ServerChatToolResult? other) -> bool
+HexIDE.Addins.ServerChatToolResult.IsError.get -> bool
+HexIDE.Addins.ServerChatToolResult.IsError.init -> void
+HexIDE.Addins.ServerChatToolResult.ServerChatToolResult(bool IsError, string! Text, bool Truncated = false, bool Declined = false) -> void
+HexIDE.Addins.ServerChatToolResult.Text.get -> string!
+HexIDE.Addins.ServerChatToolResult.Text.init -> void
+HexIDE.Addins.ServerChatToolResult.Truncated.get -> bool
+HexIDE.Addins.ServerChatToolResult.Truncated.init -> void
+HexIDE.Addins.TrustChain
+HexIDE.Addins.TrustChain.<Clone>$() -> HexIDE.Addins.TrustChain!
+HexIDE.Addins.TrustChain.BuildHash.get -> string!
+HexIDE.Addins.TrustChain.BuildHash.init -> void
+HexIDE.Addins.TrustChain.BuildVersion.get -> string!
+HexIDE.Addins.TrustChain.BuildVersion.init -> void
+HexIDE.Addins.TrustChain.Equals(HexIDE.Addins.TrustChain? other) -> bool
+HexIDE.Addins.TrustChain.Intermediate.get -> HexIDE.Addins.TrustLink!
+HexIDE.Addins.TrustChain.Intermediate.init -> void
+HexIDE.Addins.TrustChain.IsFirstParty.get -> bool
+HexIDE.Addins.TrustChain.IsFirstParty.init -> void
+HexIDE.Addins.TrustChain.Publisher.get -> HexIDE.Addins.TrustLink!
+HexIDE.Addins.TrustChain.Publisher.init -> void
+HexIDE.Addins.TrustChain.Root.get -> HexIDE.Addins.TrustLink!
+HexIDE.Addins.TrustChain.Root.init -> void
+HexIDE.Addins.TrustChain.TrustChain() -> void
+HexIDE.Addins.TrustLink
+HexIDE.Addins.TrustLink.<Clone>$() -> HexIDE.Addins.TrustLink!
+HexIDE.Addins.TrustLink.Deconstruct(out string! Label, out string! Id, out string! KeyFingerprint) -> void
+HexIDE.Addins.TrustLink.Equals(HexIDE.Addins.TrustLink? other) -> bool
+HexIDE.Addins.TrustLink.Id.get -> string!
+HexIDE.Addins.TrustLink.Id.init -> void
+HexIDE.Addins.TrustLink.KeyFingerprint.get -> string!
+HexIDE.Addins.TrustLink.KeyFingerprint.init -> void
+HexIDE.Addins.TrustLink.Label.get -> string!
+HexIDE.Addins.TrustLink.Label.init -> void
+HexIDE.Addins.TrustLink.TrustLink(string! Label, string! Id, string! KeyFingerprint) -> void
+const HexIDE.Addins.AddinManifest.CurrentSchema = 2 -> int
+const HexIDE.Addins.ConsentDecisions.Allow = "allow" -> string!
+const HexIDE.Addins.ConsentDecisions.Block = "block" -> string!
+const HexIDE.Addins.PublisherNamespaces.Reserved = "hexide." -> string!
+const HexIDE.Addins.ServerChatToolLimits.MaxContext = 8192 -> int
+const HexIDE.Addins.ServerChatToolLimits.MaxDescription = 1024 -> int
+const HexIDE.Addins.ServerChatToolLimits.MaxName = 64 -> int
+const HexIDE.Addins.ServerChatToolLimits.MaxResult = 16384 -> int
+const HexIDE.Addins.ServerChatToolLimits.MaxSchemaBytes = 8192 -> int
+const HexIDE.Addins.ServerChatToolLimits.MaxToolsPerServer = 32 -> int
+override HexIDE.Addins.AddinConsentFile.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinConsentFile.GetHashCode() -> int
+override HexIDE.Addins.AddinConsentFile.ToString() -> string!
+override HexIDE.Addins.AddinConsentJsonContext.GeneratedSerializerOptions.get -> System.Text.Json.JsonSerializerOptions?
+override HexIDE.Addins.AddinConsentJsonContext.GetTypeInfo(System.Type! type) -> System.Text.Json.Serialization.Metadata.JsonTypeInfo?
+override HexIDE.Addins.AddinConsentRecord.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinConsentRecord.GetHashCode() -> int
+override HexIDE.Addins.AddinConsentRecord.ToString() -> string!
+override HexIDE.Addins.AddinDebugLaunch.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinDebugLaunch.GetHashCode() -> int
+override HexIDE.Addins.AddinDebugLaunch.ToString() -> string!
+override HexIDE.Addins.AddinDiagnostic.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinDiagnostic.GetHashCode() -> int
+override HexIDE.Addins.AddinDiagnostic.ToString() -> string!
+override HexIDE.Addins.AddinDiagnosticsResult.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinDiagnosticsResult.GetHashCode() -> int
+override HexIDE.Addins.AddinDiagnosticsResult.ToString() -> string!
+override HexIDE.Addins.AddinDocument.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinDocument.GetHashCode() -> int
+override HexIDE.Addins.AddinDocument.ToString() -> string!
+override HexIDE.Addins.AddinDocumentResult.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinDocumentResult.GetHashCode() -> int
+override HexIDE.Addins.AddinDocumentResult.ToString() -> string!
+override HexIDE.Addins.AddinEditResult.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinEditResult.GetHashCode() -> int
+override HexIDE.Addins.AddinEditResult.ToString() -> string!
+override HexIDE.Addins.AddinFileEventArgs.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinFileEventArgs.GetHashCode() -> int
+override HexIDE.Addins.AddinFileEventArgs.ToString() -> string!
+override HexIDE.Addins.AddinFileHash.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinFileHash.GetHashCode() -> int
+override HexIDE.Addins.AddinFileHash.ToString() -> string!
+override HexIDE.Addins.AddinFileInfo.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinFileInfo.GetHashCode() -> int
+override HexIDE.Addins.AddinFileInfo.ToString() -> string!
+override HexIDE.Addins.AddinInfo.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinInfo.GetHashCode() -> int
+override HexIDE.Addins.AddinInfo.ToString() -> string!
+override HexIDE.Addins.AddinJsonContext.GeneratedSerializerOptions.get -> System.Text.Json.JsonSerializerOptions?
+override HexIDE.Addins.AddinJsonContext.GetTypeInfo(System.Type! type) -> System.Text.Json.Serialization.Metadata.JsonTypeInfo?
+override HexIDE.Addins.AddinLanguageServer.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinLanguageServer.GetHashCode() -> int
+override HexIDE.Addins.AddinLanguageServer.ToString() -> string!
+override HexIDE.Addins.AddinLaunchConfiguration.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinLaunchConfiguration.GetHashCode() -> int
+override HexIDE.Addins.AddinLaunchConfiguration.ToString() -> string!
+override HexIDE.Addins.AddinManifest.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinManifest.GetHashCode() -> int
+override HexIDE.Addins.AddinManifest.ToString() -> string!
+override HexIDE.Addins.AddinMessage.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinMessage.GetHashCode() -> int
+override HexIDE.Addins.AddinMessage.ToString() -> string!
+override HexIDE.Addins.AddinProjectContent.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinProjectContent.GetHashCode() -> int
+override HexIDE.Addins.AddinProjectContent.ToString() -> string!
+override HexIDE.Addins.AddinProjectEventArgs.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinProjectEventArgs.GetHashCode() -> int
+override HexIDE.Addins.AddinProjectEventArgs.ToString() -> string!
+override HexIDE.Addins.AddinProjectInfo.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinProjectInfo.GetHashCode() -> int
+override HexIDE.Addins.AddinProjectInfo.ToString() -> string!
+override HexIDE.Addins.AddinProjectMember.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinProjectMember.GetHashCode() -> int
+override HexIDE.Addins.AddinProjectMember.ToString() -> string!
+override HexIDE.Addins.AddinProjectReference.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinProjectReference.GetHashCode() -> int
+override HexIDE.Addins.AddinProjectReference.ToString() -> string!
+override HexIDE.Addins.AddinProjectType.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinProjectType.GetHashCode() -> int
+override HexIDE.Addins.AddinProjectType.ToString() -> string!
+override HexIDE.Addins.AddinSelection.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinSelection.GetHashCode() -> int
+override HexIDE.Addins.AddinSelection.ToString() -> string!
+override HexIDE.Addins.AddinTextEdit.Equals(object? obj) -> bool
+override HexIDE.Addins.AddinTextEdit.GetHashCode() -> int
+override HexIDE.Addins.AddinTextEdit.ToString() -> string!
+override HexIDE.Addins.IntermediateRecord.Equals(object? obj) -> bool
+override HexIDE.Addins.IntermediateRecord.GetHashCode() -> int
+override HexIDE.Addins.IntermediateRecord.ToString() -> string!
+override HexIDE.Addins.PackageVerificationResult.Equals(object? obj) -> bool
+override HexIDE.Addins.PackageVerificationResult.GetHashCode() -> int
+override HexIDE.Addins.PackageVerificationResult.ToString() -> string!
+override HexIDE.Addins.PublisherRecord.Equals(object? obj) -> bool
+override HexIDE.Addins.PublisherRecord.GetHashCode() -> int
+override HexIDE.Addins.PublisherRecord.ToString() -> string!
+override HexIDE.Addins.RevocationJsonContext.GeneratedSerializerOptions.get -> System.Text.Json.JsonSerializerOptions?
+override HexIDE.Addins.RevocationJsonContext.GetTypeInfo(System.Type! type) -> System.Text.Json.Serialization.Metadata.JsonTypeInfo?
+override HexIDE.Addins.RevocationList.Equals(object? obj) -> bool
+override HexIDE.Addins.RevocationList.GetHashCode() -> int
+override HexIDE.Addins.RevocationList.ToString() -> string!
+override HexIDE.Addins.RevokedSets.Equals(object? obj) -> bool
+override HexIDE.Addins.RevokedSets.GetHashCode() -> int
+override HexIDE.Addins.RevokedSets.ToString() -> string!
+override HexIDE.Addins.ServerChatContext.Equals(object? obj) -> bool
+override HexIDE.Addins.ServerChatContext.GetHashCode() -> int
+override HexIDE.Addins.ServerChatContext.ToString() -> string!
+override HexIDE.Addins.ServerChatTool.Equals(object? obj) -> bool
+override HexIDE.Addins.ServerChatTool.GetHashCode() -> int
+override HexIDE.Addins.ServerChatTool.ToString() -> string!
+override HexIDE.Addins.ServerChatToolResult.Equals(object? obj) -> bool
+override HexIDE.Addins.ServerChatToolResult.GetHashCode() -> int
+override HexIDE.Addins.ServerChatToolResult.ToString() -> string!
+override HexIDE.Addins.TrustChain.Equals(object? obj) -> bool
+override HexIDE.Addins.TrustChain.GetHashCode() -> int
+override HexIDE.Addins.TrustChain.ToString() -> string!
+override HexIDE.Addins.TrustLink.Equals(object? obj) -> bool
+override HexIDE.Addins.TrustLink.GetHashCode() -> int
+override HexIDE.Addins.TrustLink.ToString() -> string!
+static HexIDE.Addins.AddinCapabilities.IsKnown(string? capability) -> bool
+static HexIDE.Addins.AddinCapabilities.IsValid(System.Text.Json.JsonElement? declaration) -> bool
+static HexIDE.Addins.AddinConsentFile.operator !=(HexIDE.Addins.AddinConsentFile? left, HexIDE.Addins.AddinConsentFile? right) -> bool
+static HexIDE.Addins.AddinConsentFile.operator ==(HexIDE.Addins.AddinConsentFile? left, HexIDE.Addins.AddinConsentFile? right) -> bool
+static HexIDE.Addins.AddinConsentJsonContext.Default.get -> HexIDE.Addins.AddinConsentJsonContext!
+static HexIDE.Addins.AddinConsentRecord.operator !=(HexIDE.Addins.AddinConsentRecord? left, HexIDE.Addins.AddinConsentRecord? right) -> bool
+static HexIDE.Addins.AddinConsentRecord.operator ==(HexIDE.Addins.AddinConsentRecord? left, HexIDE.Addins.AddinConsentRecord? right) -> bool
+static HexIDE.Addins.AddinDebugLaunch.operator !=(HexIDE.Addins.AddinDebugLaunch? left, HexIDE.Addins.AddinDebugLaunch? right) -> bool
+static HexIDE.Addins.AddinDebugLaunch.operator ==(HexIDE.Addins.AddinDebugLaunch? left, HexIDE.Addins.AddinDebugLaunch? right) -> bool
+static HexIDE.Addins.AddinDiagnostic.operator !=(HexIDE.Addins.AddinDiagnostic? left, HexIDE.Addins.AddinDiagnostic? right) -> bool
+static HexIDE.Addins.AddinDiagnostic.operator ==(HexIDE.Addins.AddinDiagnostic? left, HexIDE.Addins.AddinDiagnostic? right) -> bool
+static HexIDE.Addins.AddinDiagnosticsResult.operator !=(HexIDE.Addins.AddinDiagnosticsResult? left, HexIDE.Addins.AddinDiagnosticsResult? right) -> bool
+static HexIDE.Addins.AddinDiagnosticsResult.operator ==(HexIDE.Addins.AddinDiagnosticsResult? left, HexIDE.Addins.AddinDiagnosticsResult? right) -> bool
+static HexIDE.Addins.AddinDocument.operator !=(HexIDE.Addins.AddinDocument? left, HexIDE.Addins.AddinDocument? right) -> bool
+static HexIDE.Addins.AddinDocument.operator ==(HexIDE.Addins.AddinDocument? left, HexIDE.Addins.AddinDocument? right) -> bool
+static HexIDE.Addins.AddinDocumentResult.operator !=(HexIDE.Addins.AddinDocumentResult? left, HexIDE.Addins.AddinDocumentResult? right) -> bool
+static HexIDE.Addins.AddinDocumentResult.operator ==(HexIDE.Addins.AddinDocumentResult? left, HexIDE.Addins.AddinDocumentResult? right) -> bool
+static HexIDE.Addins.AddinEditResult.WithoutReason.get -> HexIDE.Addins.AddinEditResult!
+static HexIDE.Addins.AddinEditResult.operator !=(HexIDE.Addins.AddinEditResult? left, HexIDE.Addins.AddinEditResult? right) -> bool
+static HexIDE.Addins.AddinEditResult.operator ==(HexIDE.Addins.AddinEditResult? left, HexIDE.Addins.AddinEditResult? right) -> bool
+static HexIDE.Addins.AddinFileEventArgs.operator !=(HexIDE.Addins.AddinFileEventArgs? left, HexIDE.Addins.AddinFileEventArgs? right) -> bool
+static HexIDE.Addins.AddinFileEventArgs.operator ==(HexIDE.Addins.AddinFileEventArgs? left, HexIDE.Addins.AddinFileEventArgs? right) -> bool
+static HexIDE.Addins.AddinFileHash.operator !=(HexIDE.Addins.AddinFileHash? left, HexIDE.Addins.AddinFileHash? right) -> bool
+static HexIDE.Addins.AddinFileHash.operator ==(HexIDE.Addins.AddinFileHash? left, HexIDE.Addins.AddinFileHash? right) -> bool
+static HexIDE.Addins.AddinFileInfo.operator !=(HexIDE.Addins.AddinFileInfo? left, HexIDE.Addins.AddinFileInfo? right) -> bool
+static HexIDE.Addins.AddinFileInfo.operator ==(HexIDE.Addins.AddinFileInfo? left, HexIDE.Addins.AddinFileInfo? right) -> bool
+static HexIDE.Addins.AddinInfo.operator !=(HexIDE.Addins.AddinInfo? left, HexIDE.Addins.AddinInfo? right) -> bool
+static HexIDE.Addins.AddinInfo.operator ==(HexIDE.Addins.AddinInfo? left, HexIDE.Addins.AddinInfo? right) -> bool
+static HexIDE.Addins.AddinJsonContext.Default.get -> HexIDE.Addins.AddinJsonContext!
+static HexIDE.Addins.AddinLanguageServer.DefaultBeforeLaunchTimeout.get -> System.TimeSpan
+static HexIDE.Addins.AddinLanguageServer.MaxBeforeLaunchTimeout.get -> System.TimeSpan
+static HexIDE.Addins.AddinLanguageServer.operator !=(HexIDE.Addins.AddinLanguageServer? left, HexIDE.Addins.AddinLanguageServer? right) -> bool
+static HexIDE.Addins.AddinLanguageServer.operator ==(HexIDE.Addins.AddinLanguageServer? left, HexIDE.Addins.AddinLanguageServer? right) -> bool
+static HexIDE.Addins.AddinLaunchConfiguration.operator !=(HexIDE.Addins.AddinLaunchConfiguration? left, HexIDE.Addins.AddinLaunchConfiguration? right) -> bool
+static HexIDE.Addins.AddinLaunchConfiguration.operator ==(HexIDE.Addins.AddinLaunchConfiguration? left, HexIDE.Addins.AddinLaunchConfiguration? right) -> bool
+static HexIDE.Addins.AddinManifest.operator !=(HexIDE.Addins.AddinManifest? left, HexIDE.Addins.AddinManifest? right) -> bool
+static HexIDE.Addins.AddinManifest.operator ==(HexIDE.Addins.AddinManifest? left, HexIDE.Addins.AddinManifest? right) -> bool
+static HexIDE.Addins.AddinMessage.operator !=(HexIDE.Addins.AddinMessage? left, HexIDE.Addins.AddinMessage? right) -> bool
+static HexIDE.Addins.AddinMessage.operator ==(HexIDE.Addins.AddinMessage? left, HexIDE.Addins.AddinMessage? right) -> bool
+static HexIDE.Addins.AddinProjectContent.operator !=(HexIDE.Addins.AddinProjectContent? left, HexIDE.Addins.AddinProjectContent? right) -> bool
+static HexIDE.Addins.AddinProjectContent.operator ==(HexIDE.Addins.AddinProjectContent? left, HexIDE.Addins.AddinProjectContent? right) -> bool
+static HexIDE.Addins.AddinProjectEventArgs.operator !=(HexIDE.Addins.AddinProjectEventArgs? left, HexIDE.Addins.AddinProjectEventArgs? right) -> bool
+static HexIDE.Addins.AddinProjectEventArgs.operator ==(HexIDE.Addins.AddinProjectEventArgs? left, HexIDE.Addins.AddinProjectEventArgs? right) -> bool
+static HexIDE.Addins.AddinProjectInfo.operator !=(HexIDE.Addins.AddinProjectInfo? left, HexIDE.Addins.AddinProjectInfo? right) -> bool
+static HexIDE.Addins.AddinProjectInfo.operator ==(HexIDE.Addins.AddinProjectInfo? left, HexIDE.Addins.AddinProjectInfo? right) -> bool
+static HexIDE.Addins.AddinProjectMember.operator !=(HexIDE.Addins.AddinProjectMember? left, HexIDE.Addins.AddinProjectMember? right) -> bool
+static HexIDE.Addins.AddinProjectMember.operator ==(HexIDE.Addins.AddinProjectMember? left, HexIDE.Addins.AddinProjectMember? right) -> bool
+static HexIDE.Addins.AddinProjectReference.operator !=(HexIDE.Addins.AddinProjectReference? left, HexIDE.Addins.AddinProjectReference? right) -> bool
+static HexIDE.Addins.AddinProjectReference.operator ==(HexIDE.Addins.AddinProjectReference? left, HexIDE.Addins.AddinProjectReference? right) -> bool
+static HexIDE.Addins.AddinProjectType.operator !=(HexIDE.Addins.AddinProjectType? left, HexIDE.Addins.AddinProjectType? right) -> bool
+static HexIDE.Addins.AddinProjectType.operator ==(HexIDE.Addins.AddinProjectType? left, HexIDE.Addins.AddinProjectType? right) -> bool
+static HexIDE.Addins.AddinSelection.operator !=(HexIDE.Addins.AddinSelection? left, HexIDE.Addins.AddinSelection? right) -> bool
+static HexIDE.Addins.AddinSelection.operator ==(HexIDE.Addins.AddinSelection? left, HexIDE.Addins.AddinSelection? right) -> bool
+static HexIDE.Addins.AddinTextEdit.operator !=(HexIDE.Addins.AddinTextEdit? left, HexIDE.Addins.AddinTextEdit? right) -> bool
+static HexIDE.Addins.AddinTextEdit.operator ==(HexIDE.Addins.AddinTextEdit? left, HexIDE.Addins.AddinTextEdit? right) -> bool
+static HexIDE.Addins.AddinTitle.FromKey(string! key) -> HexIDE.Addins.AddinTitle!
+static HexIDE.Addins.IntermediateRecord.operator !=(HexIDE.Addins.IntermediateRecord? left, HexIDE.Addins.IntermediateRecord? right) -> bool
+static HexIDE.Addins.IntermediateRecord.operator ==(HexIDE.Addins.IntermediateRecord? left, HexIDE.Addins.IntermediateRecord? right) -> bool
+static HexIDE.Addins.PackageCrypto.ExportPrivateKey(System.Security.Cryptography.ECDsa! key) -> string!
+static HexIDE.Addins.PackageCrypto.ExportPublicKey(System.Security.Cryptography.ECDsa! key) -> string!
+static HexIDE.Addins.PackageCrypto.ImportPrivateKey(string! base64Pkcs8) -> System.Security.Cryptography.ECDsa!
+static HexIDE.Addins.PackageCrypto.ImportPublicKey(string! base64Spki) -> System.Security.Cryptography.ECDsa!
+static HexIDE.Addins.PackageCrypto.KeyFingerprint(string! base64Spki) -> string!
+static HexIDE.Addins.PackageCrypto.Sha256Hex(byte[]! data) -> string!
+static HexIDE.Addins.PackageCrypto.Sign(System.Security.Cryptography.ECDsa! privateKey, byte[]! data) -> string!
+static HexIDE.Addins.PackageCrypto.Verify(System.Security.Cryptography.ECDsa! publicKey, byte[]! data, string! base64Signature) -> bool
+static HexIDE.Addins.PackageVerification.RunningVersion.get -> System.Version!
+static HexIDE.Addins.PackageVerification.Verify(string! packageDirectory, string? rootPublicKeyBase64, string? firstPartyPublicKeyBase64 = null) -> HexIDE.Addins.PackageVerificationResult!
+static HexIDE.Addins.PackageVerificationResult.operator !=(HexIDE.Addins.PackageVerificationResult? left, HexIDE.Addins.PackageVerificationResult? right) -> bool
+static HexIDE.Addins.PackageVerificationResult.operator ==(HexIDE.Addins.PackageVerificationResult? left, HexIDE.Addins.PackageVerificationResult? right) -> bool
+static HexIDE.Addins.PublisherId.IsValid(string? value) -> bool
+static HexIDE.Addins.PublisherNamespaces.AllowsCommandPrefix(System.Collections.Generic.IReadOnlyList<string!>! namespaces, string! prefix) -> bool
+static HexIDE.Addins.PublisherNamespaces.AllowsMessagePrefix(System.Collections.Generic.IReadOnlyList<string!>! namespaces, string! prefix) -> bool
+static HexIDE.Addins.PublisherNamespaces.From(string![]? issued) -> string![]?
+static HexIDE.Addins.PublisherNamespaces.IsReserved(string! ns) -> bool
+static HexIDE.Addins.PublisherNamespaces.IsUsable(string? ns) -> bool
+static HexIDE.Addins.PublisherRecord.operator !=(HexIDE.Addins.PublisherRecord? left, HexIDE.Addins.PublisherRecord? right) -> bool
+static HexIDE.Addins.PublisherRecord.operator ==(HexIDE.Addins.PublisherRecord? left, HexIDE.Addins.PublisherRecord? right) -> bool
+static HexIDE.Addins.RevocationCheck.Reason(HexIDE.Addins.RevocationList! list, string? manifestHash, string? publisherId, string? intermediateId, bool isFirstParty) -> string?
+static HexIDE.Addins.RevocationJsonContext.Default.get -> HexIDE.Addins.RevocationJsonContext!
+static HexIDE.Addins.RevocationList.operator !=(HexIDE.Addins.RevocationList? left, HexIDE.Addins.RevocationList? right) -> bool
+static HexIDE.Addins.RevocationList.operator ==(HexIDE.Addins.RevocationList? left, HexIDE.Addins.RevocationList? right) -> bool
+static HexIDE.Addins.RevokedSets.operator !=(HexIDE.Addins.RevokedSets? left, HexIDE.Addins.RevokedSets? right) -> bool
+static HexIDE.Addins.RevokedSets.operator ==(HexIDE.Addins.RevokedSets? left, HexIDE.Addins.RevokedSets? right) -> bool
+static HexIDE.Addins.ServerChatContext.operator !=(HexIDE.Addins.ServerChatContext? left, HexIDE.Addins.ServerChatContext? right) -> bool
+static HexIDE.Addins.ServerChatContext.operator ==(HexIDE.Addins.ServerChatContext? left, HexIDE.Addins.ServerChatContext? right) -> bool
+static HexIDE.Addins.ServerChatTool.operator !=(HexIDE.Addins.ServerChatTool? left, HexIDE.Addins.ServerChatTool? right) -> bool
+static HexIDE.Addins.ServerChatTool.operator ==(HexIDE.Addins.ServerChatTool? left, HexIDE.Addins.ServerChatTool? right) -> bool
+static HexIDE.Addins.ServerChatToolResult.operator !=(HexIDE.Addins.ServerChatToolResult? left, HexIDE.Addins.ServerChatToolResult? right) -> bool
+static HexIDE.Addins.ServerChatToolResult.operator ==(HexIDE.Addins.ServerChatToolResult? left, HexIDE.Addins.ServerChatToolResult? right) -> bool
+static HexIDE.Addins.TrustChain.operator !=(HexIDE.Addins.TrustChain? left, HexIDE.Addins.TrustChain? right) -> bool
+static HexIDE.Addins.TrustChain.operator ==(HexIDE.Addins.TrustChain? left, HexIDE.Addins.TrustChain? right) -> bool
+static HexIDE.Addins.TrustLink.operator !=(HexIDE.Addins.TrustLink? left, HexIDE.Addins.TrustLink? right) -> bool
+static HexIDE.Addins.TrustLink.operator ==(HexIDE.Addins.TrustLink? left, HexIDE.Addins.TrustLink? right) -> bool
+virtual HexIDE.Addins.AddinClientCommand.Invoke(System.Text.Json.JsonElement[]? arguments, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+virtual HexIDE.Addins.AddinDiagnostic.<Clone>$() -> HexIDE.Addins.AddinDiagnostic!
+virtual HexIDE.Addins.AddinDiagnostic.EqualityContract.get -> System.Type!
+virtual HexIDE.Addins.AddinDiagnostic.Equals(HexIDE.Addins.AddinDiagnostic? other) -> bool
+virtual HexIDE.Addins.AddinDiagnostic.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Addins.AddinDiagnosticsResult.<Clone>$() -> HexIDE.Addins.AddinDiagnosticsResult!
+virtual HexIDE.Addins.AddinDiagnosticsResult.EqualityContract.get -> System.Type!
+virtual HexIDE.Addins.AddinDiagnosticsResult.Equals(HexIDE.Addins.AddinDiagnosticsResult? other) -> bool
+virtual HexIDE.Addins.AddinDiagnosticsResult.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Addins.AddinDocument.<Clone>$() -> HexIDE.Addins.AddinDocument!
+virtual HexIDE.Addins.AddinDocument.EqualityContract.get -> System.Type!
+virtual HexIDE.Addins.AddinDocument.Equals(HexIDE.Addins.AddinDocument? other) -> bool
+virtual HexIDE.Addins.AddinDocument.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Addins.AddinDocumentResult.<Clone>$() -> HexIDE.Addins.AddinDocumentResult!
+virtual HexIDE.Addins.AddinDocumentResult.EqualityContract.get -> System.Type!
+virtual HexIDE.Addins.AddinDocumentResult.Equals(HexIDE.Addins.AddinDocumentResult? other) -> bool
+virtual HexIDE.Addins.AddinDocumentResult.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Addins.AddinEditResult.<Clone>$() -> HexIDE.Addins.AddinEditResult!
+virtual HexIDE.Addins.AddinEditResult.EqualityContract.get -> System.Type!
+virtual HexIDE.Addins.AddinEditResult.Equals(HexIDE.Addins.AddinEditResult? other) -> bool
+virtual HexIDE.Addins.AddinEditResult.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Addins.AddinFileEventArgs.<Clone>$() -> HexIDE.Addins.AddinFileEventArgs!
+virtual HexIDE.Addins.AddinFileEventArgs.EqualityContract.get -> System.Type!
+virtual HexIDE.Addins.AddinFileEventArgs.Equals(HexIDE.Addins.AddinFileEventArgs? other) -> bool
+virtual HexIDE.Addins.AddinFileEventArgs.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Addins.AddinFileInfo.<Clone>$() -> HexIDE.Addins.AddinFileInfo!
+virtual HexIDE.Addins.AddinFileInfo.EqualityContract.get -> System.Type!
+virtual HexIDE.Addins.AddinFileInfo.Equals(HexIDE.Addins.AddinFileInfo? other) -> bool
+virtual HexIDE.Addins.AddinFileInfo.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Addins.AddinInfo.<Clone>$() -> HexIDE.Addins.AddinInfo!
+virtual HexIDE.Addins.AddinInfo.EqualityContract.get -> System.Type!
+virtual HexIDE.Addins.AddinInfo.Equals(HexIDE.Addins.AddinInfo? other) -> bool
+virtual HexIDE.Addins.AddinInfo.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Addins.AddinProjectEventArgs.<Clone>$() -> HexIDE.Addins.AddinProjectEventArgs!
+virtual HexIDE.Addins.AddinProjectEventArgs.EqualityContract.get -> System.Type!
+virtual HexIDE.Addins.AddinProjectEventArgs.Equals(HexIDE.Addins.AddinProjectEventArgs? other) -> bool
+virtual HexIDE.Addins.AddinProjectEventArgs.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Addins.AddinProjectInfo.<Clone>$() -> HexIDE.Addins.AddinProjectInfo!
+virtual HexIDE.Addins.AddinProjectInfo.EqualityContract.get -> System.Type!
+virtual HexIDE.Addins.AddinProjectInfo.Equals(HexIDE.Addins.AddinProjectInfo? other) -> bool
+virtual HexIDE.Addins.AddinProjectInfo.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Addins.AddinSelection.<Clone>$() -> HexIDE.Addins.AddinSelection!
+virtual HexIDE.Addins.AddinSelection.EqualityContract.get -> System.Type!
+virtual HexIDE.Addins.AddinSelection.Equals(HexIDE.Addins.AddinSelection? other) -> bool
+virtual HexIDE.Addins.AddinSelection.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Addins.AddinServerMethod.Invoke(System.Text.Json.JsonElement? parameters, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Text.Json.JsonElement?>!
+virtual HexIDE.Addins.AddinTextEdit.<Clone>$() -> HexIDE.Addins.AddinTextEdit!
+virtual HexIDE.Addins.AddinTextEdit.EqualityContract.get -> System.Type!
+virtual HexIDE.Addins.AddinTextEdit.Equals(HexIDE.Addins.AddinTextEdit? other) -> bool
+virtual HexIDE.Addins.AddinTextEdit.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual HexIDE.Addins.ServerChatToolApproval.Invoke(HexIDE.Addins.ServerChatTool! tool, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+~HexIDE.Addins.AddinConsentJsonContext.AddinConsentFile.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Addins.AddinConsentFile>
+~HexIDE.Addins.AddinConsentJsonContext.AddinConsentRecord.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Addins.AddinConsentRecord>
+~HexIDE.Addins.AddinConsentJsonContext.AddinConsentRecordArray.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Addins.AddinConsentRecord[]>
+~HexIDE.Addins.AddinConsentJsonContext.Int32.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<int>
+~HexIDE.Addins.AddinConsentJsonContext.String.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<string>
+~HexIDE.Addins.AddinJsonContext.AddinFileHash.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Addins.AddinFileHash>
+~HexIDE.Addins.AddinJsonContext.AddinFileHashArray.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Addins.AddinFileHash[]>
+~HexIDE.Addins.AddinJsonContext.AddinManifest.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Addins.AddinManifest>
+~HexIDE.Addins.AddinJsonContext.DictionaryStringJsonElement.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<System.Collections.Generic.Dictionary<string, System.Text.Json.JsonElement>>
+~HexIDE.Addins.AddinJsonContext.Int32.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<int>
+~HexIDE.Addins.AddinJsonContext.IntermediateRecord.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Addins.IntermediateRecord>
+~HexIDE.Addins.AddinJsonContext.JsonElement.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<System.Text.Json.JsonElement>
+~HexIDE.Addins.AddinJsonContext.NullableJsonElement.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<System.Text.Json.JsonElement?>
+~HexIDE.Addins.AddinJsonContext.PublisherRecord.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Addins.PublisherRecord>
+~HexIDE.Addins.AddinJsonContext.String.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<string>
+~HexIDE.Addins.AddinJsonContext.StringArray.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<string[]>
+~HexIDE.Addins.RevocationJsonContext.Int32.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<int>
+~HexIDE.Addins.RevocationJsonContext.RevocationList.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Addins.RevocationList>
+~HexIDE.Addins.RevocationJsonContext.RevokedSets.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<HexIDE.Addins.RevokedSets>
+~HexIDE.Addins.RevocationJsonContext.String.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<string>
+~HexIDE.Addins.RevocationJsonContext.StringArray.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<string[]>
