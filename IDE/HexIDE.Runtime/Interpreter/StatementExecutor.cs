@@ -1005,8 +1005,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitCircleStmt(VB6Parser.CircleStmtContext context)
     {
-        await DrawingTarget(context.receiver, "Circle");
-        throw RuntimeDrawing.Refused("Circle");
+        var target = await DrawingTarget(context.receiver, "Circle");
+        var args = new List<Vb6Value>();
+        foreach (var value in context.graphicsPoint().graphicsValue())
+            args.Add(await expressionExecutor.EvaluateScalar(value.valueStmt()));
+        // Keep positional omissions: graphicsValue() alone loses the empty colour/angle slots.
+        foreach (var child in context.children)
+        {
+            if (child is Antlr4.Runtime.Tree.ITerminalNode token && token.Symbol.Type == VB6Parser.COMMA)
+                args.Add(Vb6Value.Missing);
+            else if (child is VB6Parser.GraphicsValueContext value)
+                args[^1] = await expressionExecutor.EvaluateScalar(value.valueStmt());
+        }
+        RuntimeDrawing.Statement(target, "Circle", args, context.graphicsPoint().STEP() is not null);
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitScaleStmt(VB6Parser.ScaleStmtContext context)
