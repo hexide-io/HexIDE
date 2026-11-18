@@ -96,6 +96,10 @@ public sealed class VbCollection(BasicInterpreter interpreter) : ICSharpAsyncPro
                 ArgumentCount(args, 1, 1);
                 await Remove(args[0]);
                 return null;
+            case "[_newenum]":
+            case "_newenum":
+                ArgumentCount(args, 0, 0);
+                return new Vb6Value(new VbCollectionEnumerator(this));
             case "count":
                 ArgumentCount(args, 0, 0);
                 return new Vb6Value((long)items.Count);
@@ -310,4 +314,13 @@ public sealed class VbCollection(BasicInterpreter interpreter) : ICSharpAsyncPro
         if (given < least || (least > 0 && args[0].IsMissing))
             throw new VBCompileErrorException("Argument not optional");
     }
+}
+
+// An opaque IUnknown, not a late-bound Object (#4679, measured in the issue).
+internal sealed class VbCollectionEnumerator(VbCollection collection) : ICSharpProxy
+{
+    internal VbCollection Collection { get; } = collection;
+
+    public void Call(string method, List<Vb6Value> args) =>
+        throw new VBRunTimeException(VBStandardError.ObjectRequired);
 }

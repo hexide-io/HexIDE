@@ -1032,6 +1032,7 @@ subscript
 ambiguousIdentifier
    : (IDENTIFIER | ambiguousKeyword) +
    | L_SQUARE_BRACKET (IDENTIFIER | ambiguousKeyword) + R_SQUARE_BRACKET
+   | L_SQUARE_BRACKET {TokenStream.LT(1).Text.Equals("_NewEnum", StringComparison.OrdinalIgnoreCase)}? DESIGNER_KEY R_SQUARE_BRACKET
    ;
 
 asTypeClause

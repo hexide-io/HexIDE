@@ -8,6 +8,7 @@ public class PrePass : VB6BaseVisitor<object?>
     public enum DefaultMemberKind { Function, Property, Variable, Sub }
     public sealed record DefaultMemberInfo(string Name, DefaultMemberKind Kind);
     public DefaultMemberInfo? DefaultMember { get; private set; }
+    internal DefaultMemberInfo? EnumerationMember { get; private set; }
 
     private readonly ExecutionEnvironment rootEnv;
     private readonly ExecutionState state;
@@ -219,21 +220,27 @@ public class PrePass : VB6BaseVisitor<object?>
     /// </summary>
     public bool DeclaresDefaultMember => DefaultMember is not null;
 
-    private void NoteDefaultMember(Antlr4.Runtime.Tree.IParseTree? body, DefaultMemberKind kind)
+    private void NoteDefaultMember(Antlr4.Runtime.Tree.IParseTree? body, DefaultMemberKind kind, bool enumeration = false)
     {
-        if (body is null || body is VB6Parser.ValueStmtContext || DeclaresDefaultMember)
+        if (body is null || body is VB6Parser.ValueStmtContext)
             return;
         if (body is VB6Parser.AttributeStmtContext attribute
             && attribute.implicitCallStmt_InStmt().GetText() is var name
             && (name.EndsWith(".VB_UserMemId", StringComparison.OrdinalIgnoreCase)
                 || name.EndsWith(".VB_VarUserMemId", StringComparison.OrdinalIgnoreCase))
-            && attribute.signedLiteral().Length == 1 && attribute.signedLiteral(0).GetText() == "0")
+            && attribute.signedLiteral().Length == 1)
         {
-            DefaultMember = new DefaultMemberInfo(name[..name.LastIndexOf('.')], kind);
+            var member = new DefaultMemberInfo(name[..name.LastIndexOf('.')], kind);
+            if (attribute.signedLiteral(0).GetText() == "0")
+                DefaultMember ??= member;
+            else if (attribute.signedLiteral(0).GetText() == "-4"
+                     && enumeration
+                     && name.EndsWith(".VB_UserMemId", StringComparison.OrdinalIgnoreCase))
+                EnumerationMember ??= member;
             return;
         }
         for (var i = 0; i < body.ChildCount; i++)
-            NoteDefaultMember(body.GetChild(i), kind);
+            NoteDefaultMember(body.GetChild(i), kind, enumeration);
     }
 
     public PrePass(ExecutionEnvironment rootEnv, ExecutionState state, bool allowIndexedLet = false, bool allowIndexedSet = false)
@@ -803,7 +810,7 @@ public class PrePass : VB6BaseVisitor<object?>
             returnUdt != null && !returnType.IsArray ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
             returnsVariant, returnsObject) { Declaration = context, Accessor = "Get" });
-        NoteDefaultMember(context.block(), DefaultMemberKind.Property);
+        NoteDefaultMember(context.block(), DefaultMemberKind.Property, enumeration: true);
         return default;
     }
 
@@ -926,7 +933,7 @@ public class PrePass : VB6BaseVisitor<object?>
             returnUdt != null && !returnType.IsArray ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
             returnsVariant, returnsObject) { Declaration = context });
-        NoteDefaultMember(context.block(), DefaultMemberKind.Function);
+        NoteDefaultMember(context.block(), DefaultMemberKind.Function, enumeration: true);
         return default;
     }
 
