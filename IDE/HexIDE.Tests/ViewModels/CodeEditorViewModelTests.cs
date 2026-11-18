@@ -141,7 +141,7 @@ public class CodeEditorViewModelTests : IDisposable
 
         editor.SelectedObject.Should().Be("(General)");
         editor.ObjectNames.Should().Contain("Shape1");
-        editor.ProcedureNames.Should().Equal("(Declarations)", "Bump", "Form_Load", "Form", "Value", "ZeroWidth");
+        editor.ProcedureNames.Should().Equal("(Declarations)", "Bump", "Form", "Form_Load", "Value", "ZeroWidth");
     }
 
     [AvaloniaTheory]
@@ -165,7 +165,96 @@ public class CodeEditorViewModelTests : IDisposable
         await editor.RefreshSymbolsAsync();
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
-        editor.ProcedureNames.Should().Equal("(Declarations)", "Bump", "Value (Get)", "Value (Let)", "Value (Set)");
+        editor.ProcedureNames.Should().Equal("(Declarations)", "Bump", "Value [PropertyGet]", "Value [PropertyLet]", "Value [PropertySet]");
+    }
+
+    [AvaloniaFact]
+    public async Task GeneralProceduresDistinguishRdcoreAccessorsAndKeepSelection()
+    {
+        var editor = CreateSut().Initialize(TestHelpers.CreateModule());
+        editor.Document.Text = "Get\nLet\nSet\n";
+        _lspClient.IsRunning.Returns(true);
+        var symbols = new[] { "Get", "Let", "Set" }.Select((accessor, line) =>
+        {
+            var range = new HexIDE.Lsp.Messages.Range(new Position(line, 0), new Position(line + 1, 0));
+            return new DocumentSymbol("Value", SymbolKind.Property, range, range, Detail: "Property " + accessor);
+        }).ToArray();
+        _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(symbols);
+
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        editor.ProcedureNames.Should().Equal("(Declarations)", "Value [PropertyGet]", "Value [PropertyLet]", "Value [PropertySet]");
+        editor.SelectedProcedure = "Value [PropertyLet]";
+        editor.CaretOffset.Should().Be(editor.Document.GetLineByNumber(2).Offset);
+
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        editor.SelectedProcedure.Should().Be("Value [PropertyLet]");
+        editor.SelectedProcedure = null;
+        editor.SelectedProcedure = "Value [PropertySet]";
+        editor.CaretOffset.Should().Be(editor.Document.GetLineByNumber(3).Offset);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(SymbolKind.Property, "Value", "pRoPeRtY lEt", "Value [PropertyLet]")]
+    [InlineData(SymbolKind.Property, "Value (Set)", "Property Get", "Value (Set) [PropertyGet]")]
+    [InlineData(SymbolKind.Property, "Value (Let)", "Other", "Value [PropertyLet]")]
+    [InlineData(SymbolKind.Property, "Value", "Other", "Value")]
+    [InlineData(SymbolKind.Method, "Value (Get)", "Property Get", "Value (Get)")]
+    public async Task GeneralProcedureTextUsesOnlyPropertyAccessorMetadata(
+        SymbolKind kind, string name, string detail, string expected)
+    {
+        var editor = CreateSut().Initialize(TestHelpers.CreateModule());
+        var range = new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(1, 0));
+        _lspClient.IsRunning.Returns(true);
+        _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
+            [new DocumentSymbol(name, kind, range, range, Detail: detail)]);
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        editor.ProcedureNames.Should().Equal("(Declarations)", expected);
+    }
+
+    [AvaloniaFact]
+    public async Task DuplicateProcedureTextNavigatesToFirstSymbol()
+    {
+        var editor = CreateSut().Initialize(TestHelpers.CreateModule());
+        editor.Document.Text = "First\nSecond\nThird\n";
+        var first = new HexIDE.Lsp.Messages.Range(new Position(1, 0), new Position(2, 0));
+        var second = new HexIDE.Lsp.Messages.Range(new Position(2, 0), new Position(3, 0));
+        _lspClient.IsRunning.Returns(true);
+        _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
+            [new DocumentSymbol("Value", SymbolKind.Property, first, first, Detail: "Property Let"),
+             new DocumentSymbol("Value (Let)", SymbolKind.Property, second, second)]);
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        editor.ProcedureNames.Should().Equal("(Declarations)", "Value [PropertyLet]");
+        editor.SelectedProcedure = "Value [PropertyLet]";
+        editor.CaretOffset.Should().Be(editor.Document.GetLineByNumber(2).Offset);
+    }
+
+    [AvaloniaFact]
+    public async Task GeneralProceduresMatchMeasuredVb6Order()
+    {
+        // Measured list and declaration order: docs/vb6-fidelity-oracle/the-procedure-boxs-entries-for-a-propertys-accessors.md
+        var editor = CreateSut().Initialize(TestHelpers.CreateModule(kind: ModuleKind.ClassModule));
+        var range = new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(1, 0));
+        _lspClient.IsRunning.Returns(true);
+        _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
+            [new("Zed", SymbolKind.Method, range, range),
+             new("Value", SymbolKind.Property, range, range, Detail: "Property Get"),
+             new("Value", SymbolKind.Property, range, range, Detail: "Property Let"),
+             new("Value", SymbolKind.Property, range, range, Detail: "Property Set"),
+             new("Alpha", SymbolKind.Function, range, range),
+             new("Beta", SymbolKind.Property, range, range, Detail: "Property Get"),
+             new("Gamma", SymbolKind.Property, range, range, Detail: "Property Set"),
+             new("Gamma", SymbolKind.Property, range, range, Detail: "Property Let"),
+             new("Gamma", SymbolKind.Property, range, range, Detail: "Property Get")]);
+
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        editor.ProcedureNames.Should().Equal("(Declarations)", "Alpha", "Beta [PropertyGet]",
+            "Gamma [PropertyGet]", "Gamma [PropertyLet]", "Gamma [PropertySet]",
+            "Value [PropertyGet]", "Value [PropertyLet]", "Value [PropertySet]", "Zed");
     }
 
     [AvaloniaFact]
