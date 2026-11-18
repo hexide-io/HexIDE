@@ -26,6 +26,25 @@ options {
 }
 
 @members {
+    // Line is not reserved: an ordinary call still works, but a coordinate pair belongs to graphics syntax (#988).
+    private bool OrdinaryLineCallAhead()
+    {
+        if (TokenStream.LA(1) != LINE) return true;
+        var i = TokenStream.LA(2) == WS ? 3 : 2;
+        if (TokenStream.LA(i) is STEP or MINUS) return false;
+        if (TokenStream.LA(i) != LPAREN) return true;
+        var depth = 0;
+        do
+        {
+            var token = TokenStream.LA(i++);
+            if (token == TokenConstants.EOF) return true;
+            if (token == LPAREN) depth++;
+            if (token == RPAREN) depth--;
+            if (depth == 1 && token == COMMA) return false;
+        } while (depth > 0);
+        return true;
+    }
+
     // Keep inline-If branches and a continued Debug.Print statement outside the preceding list.
     // Both refusals are measured in corpus/conformance/results.json.
     private bool OutputAdjacentAhead()
@@ -362,6 +381,9 @@ blockStmt
     | rmdirStmt
     | rsetStmt
     | scaleStmt
+   | lineStmt
+   | psetStmt
+   | circleStmt
     | savepictureStmt
     | saveSettingStmt
     | seekStmt
@@ -722,6 +744,36 @@ rsetStmt
     : RSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt
     ;
 
+// VB6 graphics use coordinates and positional omissions, rather than tuple arithmetic (#988).
+lineStmt
+   : (receiver=implicitCallStmt_InStmt DOT WS?)? LINE WS?
+     (startPoint=graphicsPoint WS?)? MINUS WS? endPoint=graphicsPoint
+     (WS? COMMA WS? colour=graphicsValue? (WS? COMMA WS? graphicsBox)?)?
+   ;
+
+psetStmt
+   : (receiver=implicitCallStmt_InStmt DOT WS?)? PSET WS? graphicsPoint (WS? COMMA WS? graphicsValue)?
+   ;
+
+circleStmt
+   : (receiver=implicitCallStmt_InStmt DOT WS?)? CIRCLE WS? graphicsPoint WS? COMMA WS? graphicsValue
+     (WS? COMMA WS? graphicsValue? (WS? COMMA WS? graphicsValue?
+      (WS? COMMA WS? graphicsValue? (WS? COMMA WS? graphicsValue?)?)?)?)?
+   ;
+
+graphicsPoint
+   : (STEP WS?)? LPAREN WS? graphicsValue WS? COMMA WS? graphicsValue WS? RPAREN
+   ;
+
+graphicsValue
+   : valueStmt {!($valueStmt.ctx is VsAssignContext)}?
+   ;
+
+graphicsBox
+   : IDENTIFIER {string.Equals($IDENTIFIER.text, "B", StringComparison.OrdinalIgnoreCase)
+                 || string.Equals($IDENTIFIER.text, "BF", StringComparison.OrdinalIgnoreCase)}?
+   ;
+
 // A coordinate-system statement, not a call whose argument is the subtraction of two tuples (#990).
 scaleStmt
     : (receiver=implicitCallStmt_InStmt DOT WS?)? SCALE
@@ -902,14 +954,14 @@ implicitCallStmt_InBlock
 // parantheses are forbidden in case of args variables cannot be called in blocks certainIdentifier
 // instead of ambiguousIdentifier for preventing ambiguity with statement keywords
 iCS_B_ProcedureCall
-    : certainIdentifier (WS argsCall)?
+    : {OrdinaryLineCallAhead()}? certainIdentifier (WS argsCall)?
     ;
 
 // Without WS, only a parenthesised argument is admitted; keep the parentheses as an expression (#1064).
 iCS_B_MemberProcedureCall
     : implicitCallStmt_InStmt? DOT
         (PRINT (WS? outputList)?
-        | {TokenStream.LA(1) != PRINT}? ambiguousIdentifier typeHint? ((WS | {TokenStream.LA(1) == LPAREN}?) argsCall)? dictionaryCallStmt?)
+        | {TokenStream.LA(1) != PRINT && OrdinaryLineCallAhead()}? ambiguousIdentifier typeHint? ((WS | {TokenStream.LA(1) == LPAREN}?) argsCall)? dictionaryCallStmt?)
     ;
 
 // Prefer bare names in SLL, without splitting calls or member chains (#3248).
@@ -1016,6 +1068,7 @@ baseType
 certainIdentifier
     : IDENTIFIER (ambiguousKeyword | IDENTIFIER)*
     | ambiguousKeyword (ambiguousKeyword | IDENTIFIER)+
+    | LINE
     | PTRSAFE
     ;
 
@@ -1061,7 +1114,8 @@ labelName
     | BEEP
     | ERROR
     | KILL
-    | LOAD
+    | LINE
+   | LOAD
     | MID
     | NAME
     | RESET
@@ -1190,7 +1244,8 @@ ambiguousKeyword
     | IS
     | INTEGER
     | KILL
-    | LOAD
+    | LINE
+   | LOAD
     | LOCK
     | LONG
     | LOOP

@@ -122,7 +122,24 @@ public class PrePass : VB6BaseVisitor<object?>
             Declare(constant.ambiguousIdentifier().GetText());
         foreach (var local in procedure.DeclaredLocals)
             Declare(local.ambiguousIdentifier().GetText());
+        // A bare Cls: is a label, including VB6's duplicate-declaration check (#988).
+        var labels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (procedure.Body is { } body)
+            CheckLabels(body);
         return procedure;
+
+        void CheckLabels(Antlr4.Runtime.Tree.IParseTree tree)
+        {
+            var pending = new Stack<Antlr4.Runtime.Tree.IParseTree>();
+            pending.Push(tree);
+            while (pending.TryPop(out var node))
+            {
+                if (node is VB6Parser.LineLabelContext label && !labels.Add(label.labelName().GetText()))
+                    throw new VBCompileErrorException("Duplicate declaration in current scope");
+                for (var i = 0; i < node.ChildCount; i++)
+                    pending.Push(node.GetChild(i));
+            }
+        }
 
         void Declare(string name)
         {

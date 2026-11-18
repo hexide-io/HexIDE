@@ -961,6 +961,54 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new VBCompileErrorException("Invalid use of property");
     }
 
+    private async Task<Control> DrawingTarget(VB6Parser.ImplicitCallStmt_InStmtContext? qualifier, string method)
+    {
+        var target = qualifier is not null
+            ? await expressionExecutor.EvaluateValue(qualifier)
+            : interpreter.ExecutionContext.TryInspectVariable(currentEnv, "Me", out var me) ? me : Vb6Value.Nothing;
+        if (target.HeldAsVariant || string.Equals(target.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase))
+            throw RuntimeDrawing.Refused("Late-bound " + method);
+        if (target.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form)
+            return await interpreter.Loading(() => form.BuiltInMembersFor(method)!);
+        if (target.Value is Control control)
+            return control;
+        throw new VBCompileErrorException("Method not valid without suitable object");
+    }
+
+    public override async Task<ControlFlow> VisitLineStmt(VB6Parser.LineStmtContext context)
+    {
+        var target = await DrawingTarget(context.receiver, "Line");
+        var args = new List<Vb6Value>();
+        if (context.startPoint is { } start)
+            foreach (var value in start.graphicsValue())
+                args.Add(await expressionExecutor.EvaluateScalar(value.valueStmt()));
+        foreach (var value in context.endPoint.graphicsValue())
+            args.Add(await expressionExecutor.EvaluateScalar(value.valueStmt()));
+        if (context.colour is { } colour)
+            args.Add(await expressionExecutor.EvaluateScalar(colour.valueStmt()));
+        RuntimeDrawing.Statement(target, "Line", args, context.startPoint?.STEP() is not null,
+            context.endPoint.STEP() is not null, context.startPoint is null, context.graphicsBox()?.GetText());
+        return ControlFlow.Nothing;
+    }
+
+    public override async Task<ControlFlow> VisitPsetStmt(VB6Parser.PsetStmtContext context)
+    {
+        var target = await DrawingTarget(context.receiver, "PSet");
+        var args = new List<Vb6Value>();
+        foreach (var value in context.graphicsPoint().graphicsValue())
+            args.Add(await expressionExecutor.EvaluateScalar(value.valueStmt()));
+        if (context.graphicsValue() is { } colour)
+            args.Add(await expressionExecutor.EvaluateScalar(colour.valueStmt()));
+        RuntimeDrawing.Statement(target, "PSet", args, context.graphicsPoint().STEP() is not null);
+        return ControlFlow.Nothing;
+    }
+
+    public override async Task<ControlFlow> VisitCircleStmt(VB6Parser.CircleStmtContext context)
+    {
+        await DrawingTarget(context.receiver, "Circle");
+        throw RuntimeDrawing.Refused("Circle");
+    }
+
     public override async Task<ControlFlow> VisitScaleStmt(VB6Parser.ScaleStmtContext context)
     {
         var target = context.implicitCallStmt_InStmt() is { } qualifier
@@ -3054,6 +3102,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (SSTabMembers.TrySet(control, memberIdentifier, value))
                 return default;
 
+            if (RuntimeDrawing.TrySet(control, memberIdentifier, value))
+                return default;
             var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
             foreach (var prop in props)
