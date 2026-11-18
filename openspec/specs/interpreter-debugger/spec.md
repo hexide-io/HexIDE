@@ -124,7 +124,9 @@ Stepping from that stop retains the ordinary gate rules; its VB6 behavior remain
 #### Scenario: Continue restores the program window active at Pause
 - **WHEN** a Pause stop brings the IDE forward while a running program's window is active
 - **THEN** the IDE SHALL remember that window, including a modal form
+- **AND** Continue through the interpreter runner SHALL first request non-activating raises of the program's other shown, non-minimised forms, least recently activated first, on Windows, macOS and X11 (#4667; X11 window managers may decline the request; Wayland and unknown backends do not raise)
 - **AND** Continue through the interpreter runner SHALL activate it once if still shown
+- **AND** bringing these forms back SHALL add no form Activate or Deactivate events ([measured rows c/d](https://github.com/hexide-io/HexIDE/issues/4667))
 - **AND** Step Into and Step Over SHALL leave the IDE in front and retain that window for a later Continue
 - **AND** ending or starting the run SHALL forget the window
 
