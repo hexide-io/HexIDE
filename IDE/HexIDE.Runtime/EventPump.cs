@@ -63,6 +63,9 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
     {
         public string Name { get; } = name;
 
+        // The root event's instance, retained through its calls and isolated from nested walks (#4744).
+        public Interpreter.VbObject? EventInstance;
+
         /// <summary>What runs on when this walk stops running: its raiser's walk, or null for the dispatcher. Set when the
         /// walk starts, and again each time it resumes.</summary>
         public Walk? ReturnsTo;

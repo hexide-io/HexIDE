@@ -159,7 +159,7 @@
 
 | Item | Shortcut | Status | Notes |
 |---|---|---|---|
-| Start | F5 | Done | Runs project via HexIDE interpreter in a new window; Continue after Ctrl+Break restores the active program form, including a modal form, even after Into/Over steps (#4262; checked live 2026-11-18). Modal forms are now owned by the shown explicit owner or calling form (#4618, measured in the issue; headless ownership/events checked, Windows z-order needs live verification). Other modeless forms coming back remains #4667 |
+| Start | F5 | Done | Runs project via HexIDE interpreter in a new window; Continue after Ctrl+Break restores the active program form, including a modal form, even after Into/Over steps (#4262; checked live 2026-11-18). Modal forms use the displayed explicit owner, the current dispatch’s event form through any call depth, or the active form with no form event running (#4744, measured in the issue; headless ownership/events checked, Windows z-order needs live verification). Other modeless forms coming back remains #4667 |
 | Start With Full Compile | Ctrl+F5 | Stub | Calls same code path as Start; compile step not distinct |
 | Break | Ctrl+Break | Done | Requests a pause at the next statement gate while the interpreter is running; Ctrl+Break also reaches the IDE from a focused desktop running form and brings the IDE forward on entering break mode (#1297); the toolbar buttons remain available (#2179) |
 | End | — | Done | Standard and Debug toolbar buttons remain available while a running form has focus (#2319) |
