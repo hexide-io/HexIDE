@@ -70,6 +70,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private PrePass prepass;
     internal bool StartupMainReturned { get; private set; }
 
+    // The startup form's Initialize/Load dispatch keeps its unmeasured stepping positions (#4619).
+    internal bool InStartupDispatch { get; set; }
+
     // Weak entries preserve creation order without retaining objects after their last VB reference.
     private readonly List<WeakReference<VbObject>> createdClasses = new();
     private int compactCreatedClassesAt = MinCompactCreatedClasses;
@@ -1788,6 +1791,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         ExecutionEnvironment? baseEnv = null, Vb6Value? me = null, Stack<List<Vb6Value>>? callerFrames = null,
         bool isEntry = false)
     {
+        var breakpointOnlyEnd = isEntry && (InStartupDispatch || me is null);
         if (me?.Value is VbObject accessedInstance)
             NoteMemberAccess(accessedInstance, proc.Name);
         // Immediate-window evaluation forbids running USER code — its statements would hit the paused pause-gate on
@@ -1913,11 +1917,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     // goes on with what the call returned (#766).
                     if (Events is { } events)
                         await events.WaitForRaised();
-                    // Keep entry procedures' existing stepping positions while honouring their End breakpoints:
-                    // a startup step carries on from Initialize into Load's first statement (#2172 review).
+                    // Event handlers stop on End Sub (#4619). The startup dispatch and Sub Main keep
+                    // their unmeasured End positions; capture that choice before this activation yields.
                     if ((proc.Body == null || executor.ReachedProcedureEnd) && proc.Declaration is { } ending)
                         await executor.ProcedureBoundary(ending.Stop.Line,
-                            breakpointOnly: isEntry || ending is VB6Parser.PropertyGetStmtContext);
+                            breakpointOnly: breakpointOnlyEnd || ending is VB6Parser.PropertyGetStmtContext);
                 }
                 // Searched from the top, where the frame almost always is: Remove searched from the bottom, which made a
                 // return N calls deep cost N (#3250).
