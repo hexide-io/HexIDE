@@ -491,6 +491,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return interpreter.Events is { } events ? events.WhileSuspended(gate) : gate;
     }
 
+    internal ValueTask PauseAtModalWait(Debugging.IDebugGate dbg)
+    {
+        // Show is already executing, so Set Next Statement cannot repoint its suspended call.
+        _suspendedAtTopLevel = false;
+        var gate = dbg.OnModalPauseAsync(currentLine, currentModule.Name, this);
+        return interpreter.Events is { } events ? events.WhileSuspended(gate) : gate;
+    }
+
     public override async Task<ControlFlow> VisitBlock(VB6Parser.BlockContext context)
     {
         var stmts = context.blockStmt();
