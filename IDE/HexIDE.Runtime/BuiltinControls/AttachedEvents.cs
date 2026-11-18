@@ -301,8 +301,8 @@ public static class AttachedEvents
                     args.Add(new Vb6Value(i));
                 args.Add(new Vb6Value(button));
                 args.Add(new Vb6Value(shift));
-                args.Add(new Vb6Value(ControlPositions.MouseCoordinate(x, mode, vertical: false)));
-                args.Add(new Vb6Value(ControlPositions.MouseCoordinate(y, mode, vertical: true)));
+                args.Add(new Vb6Value(ControlPositions.MouseCoordinate(x, mode, vertical: false, origin as Control)));
+                args.Add(new Vb6Value(ControlPositions.MouseCoordinate(y, mode, vertical: true, origin as Control)));
                 return args;
             }, coalescing, when);
     }

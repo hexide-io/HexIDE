@@ -305,7 +305,7 @@ public class ControlPositionTests
     public void A_forms_other_ScaleModes_divide_whole_twips(string mode, string reads, string expected)
     {
         // Measured by setting the ScaleMode at run time: 120 twips is 6 points and 8.333334E-02 inches, and a character is
-        // 120 twips across and 240 down. HexIDE has no run-time ScaleMode yet (#990), so the form declares it here.
+        // 120 twips across and 240 down. #990 also covers changing the mode at run time.
         var run = RunLoad(Form($"   ScaleMode       =   {mode}\r\n", TextBox), reads.Replace('|', '\n'));
 
         run.Errors.Should().BeEmpty();
@@ -313,13 +313,21 @@ public class ControlPositionTests
     }
 
     [AvaloniaTheory]
+    [InlineData("6", "2.116669")]
+    [InlineData("7", "0.2116669")]
+    public void Metric_positions_use_the_measured_runtime_factor(string mode, string expected)
+    {
+        // #990 final decision; oracle: a-control-s-position-at-run-time (120 twips in cm/mm).
+        var run = RunLoad(Form($"   ScaleMode = {mode}\r\n", TextBox), "Debug.Print CStr(Text1.Left)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(expected);
+    }
+
+    [AvaloniaTheory]
     [InlineData("0  'User")]
-    [InlineData("6  'Millimeter")]
-    [InlineData("7  'Centimeter")]
     public void A_ScaleMode_HexIDE_cannot_convert_exactly_is_refused(string mode)
     {
-        // User needs the form's ScaleLeft and ScaleTop; centimetres and millimetres read 0.2116669 and 2.116669 for 120
-        // twips, which 1440 / 2.54 does not give (measured, unexplained). Each is refused rather than guessed.
+        // This saved User scale has no recorded extents. Its mapping remains unmeasured (#990).
         var run = RunLoad(Form($"   ScaleMode       =   {mode}\r\n", TextBox), "Debug.Print Text1.Left");
 
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()

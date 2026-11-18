@@ -53,7 +53,7 @@ public partial class VB6BuiltIns
 
     private static object ResourceIdentifier(Vb6Value value)
     {
-        if (value.Value is string text) return text;
+        if (value.WithoutOddBytes("VB6BuiltIns.Resources text use").Value is string text) return text;
         var id = ResourceNumber(value);
         return id is >= 0 and <= ushort.MaxValue ? (object)(ushort)id : id;
     }

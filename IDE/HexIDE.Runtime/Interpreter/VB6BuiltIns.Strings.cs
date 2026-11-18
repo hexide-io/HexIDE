@@ -16,15 +16,15 @@ public partial class VB6BuiltIns
         d["Left"]       = (_, a, _) => NullOrStr(a[0], s => Left(s, AsInt(a[1])));
         d["Right"]      = (_, a, _) => NullOrStr(a[0], s => Right(s, AsInt(a[1])));
         d["Mid"]        = (_, a, _) => NullOrStr(a[0], s => Mid(s, AsInt(a[1]), Supplied(a, 2) ? AsInt(a[2]) : (int?)null));
-        d["Len"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(a is IntrinsicArgumentValues { LenVariableSize: { } size } ? size : (long)AsStr(a[0]).Length);   // Long — see InStr
+        d["Len"]        = (_, a, _) => a[0].IsOddByteString ? new Vb6Value((long)a[0].StringBytes().Length / 2) : a[0].IsNull ? Vb6Value.Null : new Vb6Value(a is IntrinsicArgumentValues { LenVariableSize: { } size } ? size : (long)AsStr(a[0]).Length);   // Long — see InStr
         d["InStr"]      = (_, a, text) => InStr(a, text);
         d["LenB"]       = (_, a, _) => LenB(a);
         d["AscB"]       = (_, a, _) => AscB(a[0]);
         d["InStrB"]     = (_, a, _) => InStrB(a);
-        d["MidB"]       = (_, a, _) => NullOrStr(a[0], s => MidB(s, AsInt(a[1]), Supplied(a, 2) ? AsInt(a[2]) : null));
-        d["LeftB"]      = (_, a, _) => NullOrStr(a[0], s => LeftB(s, AsInt(a[1])));
-        d["RightB"]     = (_, a, _) => NullOrStr(a[0], s => RightB(s, AsInt(a[1])));
-        d["ChrB"]       = (_, _, _) => throw OddByteString("ChrB");
+        d["MidB"]       = (_, a, _) => NullOrBytes(a[0], s => MidB(s, AsInt(a[1]), Supplied(a, 2) ? AsInt(a[2]) : null));
+        d["LeftB"]      = (_, a, _) => NullOrBytes(a[0], s => LeftB(s, AsInt(a[1])));
+        d["RightB"]     = (_, a, _) => NullOrBytes(a[0], s => RightB(s, AsInt(a[1])));
+        d["ChrB"]       = (_, a, _) => ChrB(a[0]);
         d["InStrRev"]   = (_, a, text) => InStrRev(a, text);
         d["Replace"]    = (_, a, text) => new Vb6Value(Replace(a, text));
         d["Trim"]       = (_, a, _) => NullOrStr(a[0], s => s.Trim(' '));
@@ -78,7 +78,7 @@ public partial class VB6BuiltIns
     /// <item>The conversion is read first, as CLng reads it (1.5 is 2), a Null one being 94, and checked before the string:
     /// 1 is upper case, 2 lower and 3 proper, and 0 leaves the string alone. 4 to 32 (wide, narrow, katakana, hiragana)
     /// are 5 on a Western system, and so are 256, 512, and 64 or 128 with anything else. 64 (vbUnicode) and 128
-    /// (vbFromUnicode) alone make a byte string, which HexIDE does not have (#1510), so they are refused.</item>
+    /// (vbFromUnicode) alone are refused: their byte-string conversions remain unimplemented (#1510).</item>
     /// <item>An LCID Windows does not know is 5, and a Null one 94. A known one, even Turkish, changes nothing.</item>
     /// <item>A Null string is Null and an array 13; anything else is read as &amp; reads it, so True is "TRUE" in upper
     /// case.</item>
@@ -102,7 +102,7 @@ public partial class VB6BuiltIns
             return Vb6Value.Null;
         if (rest != 0)
             throw new NotImplementedException(
-                "StrConv with vbUnicode or vbFromUnicode makes a byte string, which HexIDE does not have yet (#1510).");
+                "StrConv with vbUnicode or vbFromUnicode is not implemented (#1510).");
         var s = AsStr(a[0]);
         return new Vb6Value(cases == 0 ? s : CaseThroughCodePage(s, (int)cases));
     }
@@ -140,6 +140,25 @@ public partial class VB6BuiltIns
     private static Vb6Value NullOrStr(Vb6Value v, Func<string, string> fn) =>
         v.IsNull ? Vb6Value.Null : new Vb6Value(fn(AsStr(v)));
 
+    private static Vb6Value NullOrBytes(Vb6Value v, Func<string, Vb6Value> fn) =>
+        v.IsNull ? Vb6Value.Null : fn(AsStr(v));
+
+    private static Vb6Value ChrB(Vb6Value value)
+    {
+        CheckChrBArgument(value);
+        var converted = VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Byte, null);
+        return Vb6Value.FromStringBytes([(byte)converted.Value!]);
+    }
+
+    private static void CheckChrBArgument(Vb6Value value)
+    {
+        var t = value.Type;
+        if (!(value.IsNull || t == Vb6Value.ValueType.Integer || t == Vb6Value.ValueType.Long
+            || t == Vb6Value.ValueType.Byte || t == Vb6Value.ValueType.Single || t == Vb6Value.ValueType.Double
+            || t == Vb6Value.ValueType.Currency || t == Vb6Value.ValueType.String))
+            throw Vb6Value.OddBytesNotImplemented("ChrB argument conversion");
+    }
+
     private static VBRunTimeException InvalidCall() => new(VBStandardError.InvalidProcedureCall);
 
     // The byte-string functions (#1510), measured on vb6.exe, native and p-code alike. A String is a run of bytes, two to a
@@ -152,6 +171,7 @@ public partial class VB6BuiltIns
     private static Vb6Value LenB(IReadOnlyList<Vb6Value> a)
     {
         if (a[0].IsNull) return Vb6Value.Null;
+        if (a[0].IsOddByteString) return new Vb6Value((long)a[0].StringBytes().Length);
         if (a is IntrinsicArgumentValues { FixedStringByteLength: { } bytes }) return new Vb6Value(bytes);
         if (a is IntrinsicArgumentValues { LenVariableSize: { } size }) return new Vb6Value(size);
         if (a[0].Type == Vb6Value.ValueType.UserDefinedType)
@@ -178,13 +198,15 @@ public partial class VB6BuiltIns
         if (Supplied(a, 3)) AsInt(a[3]);
         if (a[i].IsNull || a[i + 1].IsNull) return Vb6Value.Null;
         if (start < 1) throw InvalidCall();
-        string s1 = AsStr(a[i]), s2 = AsStr(a[i + 1]);
-        int bytes = 2 * s1.Length, findBytes = 2 * s2.Length;
+        byte[] Bytes(Vb6Value v) => v.IsOddByteString ? v.StringBytes() : new Vb6Value(AsStr(v)).StringBytes();
+        var s1 = Bytes(a[i]);
+        var s2 = Bytes(a[i + 1]);
+        int bytes = s1.Length, findBytes = s2.Length;
         if (bytes == 0 || start > bytes) return new Vb6Value(0L);
         for (var at = start - 1; at + findBytes <= bytes; at++)
         {
             var k = 0;
-            while (k < findBytes && ByteAt(s1, at + k) == ByteAt(s2, k))
+            while (k < findBytes && s1[at + k] == s2[k])
                 k++;
             if (k == findBytes)
                 return new Vb6Value((long)at + 1);
@@ -193,40 +215,33 @@ public partial class VB6BuiltIns
     }
 
     // MidB, LeftB and RightB: a start below 1 or a negative length is 5, and a length past the end takes what there is.
-    private static string MidB(string s, int start, int? length)
+    private static Vb6Value MidB(string s, int start, int? length)
     {
         if (start < 1 || length < 0) throw InvalidCall();
         var bytes = 2 * s.Length;
         if (start > bytes) return "";
-        return ByteSlice(s, start - 1, Math.Min(length ?? bytes, bytes - (start - 1)), "MidB");
+        return ByteSlice(s, start - 1, Math.Min(length ?? bytes, bytes - (start - 1)));
     }
 
-    private static string LeftB(string s, int length) =>
-        length < 0 ? throw InvalidCall() : ByteSlice(s, 0, Math.Min(length, 2 * s.Length), "LeftB");
+    private static Vb6Value LeftB(string s, int length) =>
+        length < 0 ? throw InvalidCall() : ByteSlice(s, 0, Math.Min(length, 2 * s.Length));
 
-    private static string RightB(string s, int length)
+    private static Vb6Value RightB(string s, int length)
     {
         if (length < 0) throw InvalidCall();
         var take = Math.Min(length, 2 * s.Length);
-        return ByteSlice(s, 2 * s.Length - take, take, "RightB");
+        return ByteSlice(s, 2 * s.Length - take, take);
     }
 
     private static byte ByteAt(string s, int i) => (byte)(i % 2 == 0 ? s[i / 2] : s[i / 2] >> 8);
 
-    // The bytes from the 0-based start, as a String. Bytes that pair up make characters, wherever they start: MidB("abc", 2, 2)
-    // is the character &H6200. An odd number of them is a String HexIDE cannot hold, its strings being whole characters.
-    private static string ByteSlice(string s, int start, int length, string function)
+    // Pair even results into ordinary Strings; retain the last byte of odd results (#4576).
+    private static Vb6Value ByteSlice(string s, int start, int length)
     {
-        if (length % 2 != 0) throw OddByteString(function);
-        var chars = new char[length / 2];
-        for (var k = 0; k < chars.Length; k++)
-            chars[k] = (char)(ByteAt(s, start + 2 * k) | ByteAt(s, start + 2 * k + 1) << 8);
-        return new string(chars);
+        var bytes = new byte[length];
+        for (var k = 0; k < length; k++) bytes[k] = ByteAt(s, start + k);
+        return Vb6Value.FromStringBytes(bytes);
     }
-
-    private static NotImplementedException OddByteString(string function) =>
-        new($"{function} gave a String of an odd number of bytes, which HexIDE cannot hold yet: its strings are whole "
-            + "characters (#1510). ChrB is always one byte.");
 
     private static string Left(string s, int n)
     {
@@ -257,6 +272,8 @@ public partial class VB6BuiltIns
     /// count UTF-16 bytes instead of characters (#2623).</summary>
     public static Vb6Value MidStatementReplace(Vb6Value target, Vb6Value start, Vb6Value? length, Vb6Value replacement, bool bytes = false)
     {
+        target.RefuseOddBytes(bytes ? "MidB statement" : "Mid statement");
+        replacement.RefuseOddBytes(bytes ? "MidB statement" : "Mid statement");
         if (target.IsNull || replacement.IsNull) throw InvalidUseOfNull();
         string s = AsStr(target);
         string repl = AsStr(replacement);

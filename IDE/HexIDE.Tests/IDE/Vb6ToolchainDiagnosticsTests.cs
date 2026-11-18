@@ -71,7 +71,7 @@ public class Vb6ToolchainDiagnosticsTests
     private sealed class StubbedBuild(
         ILspClient lsp, IWindowManager windows, ILocalizationService localization,
         Vb6ToolchainService.Vb6BuildOutcome? outcome, CodeTrust? trust = null)
-        : Vb6ToolchainService(lsp, Substitute.For<IEventBus>(), windows, localization, trust ?? new CodeTrust(windows, localization, _ => false))
+        : Vb6ToolchainService(lsp, Substitute.For<IEventBus>(), windows, localization, trust ?? new CodeTrust(windows, localization, _ => false), Substitute.For<HexIDE.Sidecar.IUserSidecarService>())
     {
         /// <summary>How many times vb6.exe would have been started.</summary>
         public int Builds { get; private set; }

@@ -37,7 +37,7 @@ internal static class FixedLengthString
 
     internal static Vb6Value Store(Vb6Value value, int width, ParserRuleContext? context = null)
     {
-        var text = (string)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, context).Value!;
+        var text = (string)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, context).WithoutOddBytes("FixedLengthString text conversion").Value!;
         return new Vb6Value(text.Length > width ? text[..width] : text.PadRight(width));
     }
 }

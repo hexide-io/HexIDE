@@ -215,7 +215,7 @@ public sealed class VBMaskEdBox : TextBox, ICSharpPropertyBag
     }
 
     private static string String(Vb6Value value) => value.Type == Vb6Value.ValueType.String
-        ? (string)value.Value! : throw Refused("String conversion");
+        ? (string)value.WithoutOddBytes("VBMaskEdBox text use").Value! : throw Refused("String conversion");
     private static bool Boolean(Vb6Value value) => value.Type == Vb6Value.ValueType.Boolean
         ? (bool)value.Value! : throw Refused("Boolean conversion");
     private static int Integer(Vb6Value value)

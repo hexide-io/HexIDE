@@ -201,10 +201,100 @@ The control's `ReadProperties`, `InitProperties` and `Show` each append one line
 - **`/make` itself loads the control at design time.** Building the EXE from the command line ran `ReadProperties` twice, with UserMode False and ShowHatching True, and no `Show`. A control that does work in `ReadProperties` does it during a build too.
 - **Not measured:**
   - a form with `RightToLeft` True;
-  - a container other than a form (a Frame or a PictureBox);
+  - a container other than a form (a Frame or a PictureBox). A PictureBox was measured on 2026-11-18, in the next
+    section: its UserControl takes its ambients from the form. So does a Frame's, measured the same day;
   - `Palette`;
   - `LocaleID` under another locale;
   - `AmbientChanged` when the form's colours change at design time.
+
+### AmbientChanged when a form's colours or font change at run time (2026-11-18, #4448, SP6)
+
+**The question.** When a running form changes its BackColor, ForeColor or Font, does a UserControl it hosts get
+`AmbientChanged`? With which `PropertyName`, how many times, and in what order against the form's own events? And
+where does a UserControl inside a PictureBox take its ambients from?
+
+**The probe.** A Standard EXE, `AmbProbe`, whose form hosts two instances of one private UserControl:
+- `UC11`, directly on the form;
+- `UC2`, inside a PictureBox, `Picture1`. The PictureBox comes before `UC11` in the `.frm`.
+
+The UserControl logs each of its events to a file. In `AmbientChanged` it also logs what `Ambient` reads at that
+moment:
+
+```vb
+Private Sub UserControl_AmbientChanged(PropertyName As String)
+    L "UC " & nm & " AmbientChanged """ & PropertyName & """ | " & Amb()
+End Sub
+' Amb() returns Ambient.BackColor and ForeColor in hex, and Ambient.Font's Name, Size, Bold and Italic.
+```
+
+The form logs its own events, and a marker line before each change:
+- **In `Form_Load`:** it changes BackColor and FontName.
+- **From a Timer:** it makes the changes in the table below, one statement each, then `DoEvents` and `Unload Me`.
+
+**Builds:** `/make` as native code (`CompilationType=0`) and as p-code (`CompilationType=-1`), with VB6.EXE 6.00.9782
+(SP6) and MSVBVM60 6.00.9848, in the `Win10` guest.
+- **Runs:** each build ran twice, in session 0 through PowerShell Direct and in the signed-in console session.
+- **The four runs logged the same lines,** except that no Paint event fired in session 0.
+
+| Statement | `AmbientChanged` raised | What `Ambient` read inside it |
+|---|---|---|
+| `Me.BackColor = &HC0FFC0`, in `Form_Load` | `"BackColor"`, on UC2 then UC11 | BackColor `C0FFC0` |
+| `Me.FontName = "Tahoma"`, in `Form_Load` | `"Font"`, on UC2 then UC11 | Font Tahoma, 8.25 |
+| `Me.BackColor = &HFF` | `"BackColor"`, on UC2 then UC11 | BackColor `FF` |
+| `Me.BackColor = &HFF` again, unchanged | nothing | |
+| `Me.BackColor = &H8000000F`, a system colour | `"BackColor"` | BackColor `8000000F`, the system colour itself |
+| `Me.ForeColor = &HFF0000` | `"ForeColor"` | ForeColor `FF0000` |
+| `Me.ForeColor = &HFF0000` again, unchanged | nothing | |
+| `Me.FontName = "Arial"` | `"Font"` | Arial, 8.25 |
+| `Me.FontSize = 14` | `"Font"` | Arial, **14.25** |
+| `Me.Font.Bold = True`, on the Font object | `"Font"` | Bold True |
+| `Me.FontItalic = True` | `"Font"` | Italic True |
+| `Me.FontItalic = True` again, unchanged | **`"Font"`, again** | Italic True |
+| `Set Me.Font = f`, a new StdFont set to Courier New, 10 | `"Font"` | Courier New, **9.75**, Bold False, Italic False |
+| `f.Bold = True`, on that StdFont after the `Set` | `"Font"` | Bold True |
+| `Me.Caption = "x"` | nothing | |
+| `Picture1.BackColor = &HFF00` | nothing, on either instance | |
+| `Picture1.FontName = "Arial Black"` | nothing, on either instance | |
+
+- **Synchronous, and once per instance.** Each `AmbientChanged` was logged between its change's marker and the next
+  marker, so it ran inside the assignment, before the next statement.
+  - Each instance got exactly one per change, UC2 before UC11.
+  - That's the order the two loaded in, which is also their order in the `.frm`. Which of the two decides it is
+    unmeasured.
+- **An unchanged colour raises nothing; an unchanged font property still raises it.**
+  - Assigning BackColor or ForeColor its current value was silent.
+  - Assigning FontItalic its current value raised `"Font"` again.
+- **Changes made through the form's Font object raise it.**
+  - `Me.Font.Bold = True` raised `"Font"`.
+  - So did changing a StdFont after it was `Set` as the form's Font, and `Ambient.Font` then read Bold True. So the form
+    kept that object rather than a copy. That's reasoned from the reading, not checked by comparing the references.
+- **Sizes read back as stored, not as assigned:** 14 read 14.25, and 10 read 9.75.
+- **In `Form_Load`, before the form is shown,** the event fires the same way, before `Form_Resize` and the
+  UserControls' `Show`.
+- **A UserControl in a PictureBox takes its ambients from the form, not the PictureBox.**
+  - UC2, inside `Picture1`, got every one of the form's changes.
+  - Its `Ambient.BackColor` and `Ambient.Font` read the form's values, `C0FFC0` and Tahoma, while `Picture1` still had
+    its defaults, `8000000F` and MS Sans Serif.
+  - Changing `Picture1`'s BackColor and FontName raised nothing on it.
+- **A UserControl in a Frame does the same** (a second run the same day, native and p-code, with identical logs).
+  - **The probe:** the same program with a Frame, `Frame1`, after `UC11` in the `.frm`, holding a third instance, `UC3`.
+    The Timer also set `Frame1.BackColor = &HFF00FF`, `Frame1.FontName = "Arial Black"` and `Frame1.ForeColor = &HFF`.
+  - **The order:** UC3 got every one of the form's changes, after UC2 and UC11, which is file order again.
+  - **Its reads:** its `Ambient` read the form's values, while `Frame1` kept its own defaults.
+  - **The Frame's own changes,** all three, raised nothing on any instance.
+  - **Loading:** UC3 loaded third (Initialize, `ReadProperties`, Resize) and was shown, hidden and terminated third.
+- **Paint, in the console session:**
+  - **The shown form:** `Form_Paint`, then `Picture1_Paint`, then each UserControl's Paint, UC2 then UC11. All of them
+    came after `Form_Activate` and before the Timer's first change.
+  - **After the changes:** none raised a Paint event on the form, the PictureBox or either UserControl, through to the
+    `DoEvents` before `Unload Me`.
+  - **In session 0,** no Paint event fired at all.
+- **During `/make`:** the build loaded the two instances twice. Each time it ran Initialize, `ReadProperties` with
+  UserMode False, and Resize for each instance in `.frm` order, then Terminate for each. No `AmbientChanged` fired.
+  That agrees with the "`/make` itself loads the control" row above, and adds that Resize and Terminate fire too.
+- **In HexIDE:** before #4448, `AmbientChanged` was raised only for `DisplayAsDefault`, and `Ambient` reads refused on a
+  UserControl that wasn't directly on a form. #4448 (PR #4657) raises these events and lets a PictureBox's or a
+  Frame's UserControl read the form's ambients.
 
 ### In HexIDE
 

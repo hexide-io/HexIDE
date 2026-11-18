@@ -133,7 +133,7 @@ public partial class VB6BuiltIns
         // A non-numeric string under a numeric mask is returned unchanged (verified: Format("abc","0.00")="abc").
         if (HasUnquotedPlaceholder(fmt))
         {
-            if (v.Value is string ns && !decimal.TryParse(ns, NumberStyles.Any, cc, out _))
+            if (v.WithoutOddBytes("VB6BuiltIns.Format text use").Value is string ns && !decimal.TryParse(ns, NumberStyles.Any, cc, out _))
                 return new Vb6Value(ns);
             return new Vb6Value(FormatNumericSections(v, fmt));
         }
@@ -503,7 +503,7 @@ public partial class VB6BuiltIns
         if (v.Value is bool b) return b ? -1m : 0m;
         if (v.Value is float f) return VbNumeric.FloatingToDecimal(f, 7);
         if (Vb6Value.TryNumericToDouble(v, out var d)) return VbNumeric.FloatingToDecimal(d);
-        if (v.Value is string s && decimal.TryParse(s, NumberStyles.Any, VbLocale.Current, out var ds)) return ds;
+        if (v.WithoutOddBytes("VB6BuiltIns.Format text use").Value is string s && decimal.TryParse(s, NumberStyles.Any, VbLocale.Current, out var ds)) return ds;
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }
 

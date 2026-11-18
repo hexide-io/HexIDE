@@ -82,7 +82,7 @@ internal sealed partial class TreeNodes : ICSharpAsyncProxy, ICSharpPropertyBag,
 
     private static int Relationship(Vb6Value value)
     {
-        if (value.Value is string text && !double.TryParse(text, System.Globalization.NumberStyles.Float,
+        if (value.WithoutOddBytes("TreeNodeAutomation text use").Value is string text && !double.TryParse(text, System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.InvariantCulture, out _))
             throw Error(13);
         var number = LookupValue(value);
@@ -95,7 +95,7 @@ internal sealed partial class TreeNodes : ICSharpAsyncProxy, ICSharpPropertyBag,
         };
     }
 
-    internal static string TextValue(Vb6Value value) => value.Value is string text
+    internal static string TextValue(Vb6Value value) => value.WithoutOddBytes("TreeNodeAutomation text use").Value is string text
         ? text : throw new NotImplementedException();
 
     internal static bool BooleanValue(Vb6Value value) => value.Value is bool flag

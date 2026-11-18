@@ -133,7 +133,7 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
             item.TryGetProperty("Value", out var value);
             item.TryGetProperty("Enabled", out var enabled);
             item.TryGetProperty("ToolTipText", out var tip);
-            var displayCaption = DisplayCaption((string)caption.Value!);
+            var displayCaption = DisplayCaption((string)caption.WithoutOddBytes("VBToolbar text use").Value!);
             object captionContent = displayCaption.Contains('&')
                 ? new AccessText { Text = displayCaption.Replace("_", "__").Replace("&", "_"), ShowAccessKey = true }
                 : displayCaption;
@@ -207,7 +207,7 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
             }
             visual.IsEnabled = (bool)enabled.Value!;
             if (style == 1) visual.Classes.Add("flat");
-            if (showTips && (string)tip.Value! != "") ToolTip.SetTip(visual, tip.Value);
+            if (showTips && (string)tip.WithoutOddBytes("VBToolbar text use").Value! != "") ToolTip.SetTip(visual, tip.WithoutOddBytes("VBToolbar text use").Value);
             targets[visual] = item;
             strip.Children.Add(visual);
             if (disabledImage is not null)
@@ -243,13 +243,13 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
     {
         // #4147: Strings are exact keys; numeric selectors use CInt rounding and storage.
         if (image.Type == Vb6Value.ValueType.Boolean && !(bool)image.Value!) throw ToolbarItems.Unmeasured();
-        if (image.IsNull || image.Type == Vb6Value.ValueType.String && ((string)image.Value!).Length == 0)
+        if (image.IsNull || image.WithoutOddBytes("VBToolbar text use").Type == Vb6Value.ValueType.String && ((string)image.Value!).Length == 0)
             throw ToolbarItems.Error(35603);
         if (image.Type == Vb6Value.ValueType.String)
         {
             if (ImageList is null) throw ToolbarItems.Error(35613);
             foreach (var entry in ImageList.Images.Values)
-                if (((ImageListImage)entry.Value!).Key == (string)image.Value!) return image;
+                if (((ImageListImage)entry.Value!).Key == (string)image.WithoutOddBytes("VBToolbar text use").Value!) return image;
             throw ToolbarItems.Error(35601);
         }
         if (image.Type != Vb6Value.ValueType.Integer && image.Type != Vb6Value.ValueType.Long &&
@@ -436,7 +436,7 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
             case "helpfile":
                 if (value.Type != Vb6Value.ValueType.String)
                     throw UnmeasuredConversion();
-                helpFile = (string)value.Value!;
+                helpFile = (string)value.WithoutOddBytes("VBToolbar text use").Value!;
                 return true;
             case "mousepointer": mousePointer = MeasuredChoice(value, 0); return true;
             case "oledropmode": oleDropMode = MeasuredChoice(value, 0); return true;
