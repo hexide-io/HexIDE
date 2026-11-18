@@ -454,7 +454,11 @@ public class VBWindowContext : IModuleExecutionRoot
         await StopControls();
         form.FormUnloaded = true;
         HoldControls(form);
-        if (Window is not null)
+        // A form's own hide clears ownership first: Avalonia hides a window's owned windows with it, and an unloaded owner
+        // must not take the modal form it owns off the screen (#4618 review).
+        if (Window is VBFormRuntime runtime)
+            runtime.HideForm();
+        else if (Window is not null)
             Window.IsVisible = false;
         terminatePending = true;
         if (Program is { } program)

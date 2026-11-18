@@ -295,9 +295,9 @@ with PublicApiAnalyzers. Today that includes the project model (`ProjectElements
 interfaces, the language-server entry and the LSP records the SDK reaches. A change to any of them is an
 add-in API change.
 
-The project, component and serializer types are covered because the SDK reaches them today, not because
-they have been settled as add-in contract. Whether they stay in the contract or become provider-fed is
-decided under [#3411](https://github.com/hexide-io/HexIDE/issues/3411). If that narrows the SDK, the guard
+The project, component and serializer types are add-in contract, marked provisional. They are covered
+because the SDK reaches them today, not because they have been settled as contract. Whether they stay in
+it or become provider-fed is decided under [#3411](https://github.com/hexide-io/HexIDE/issues/3411). If that narrows the SDK, the guard
 makes it a visible, reviewed break.
 
 Put additions in `PublicAPI.Unshipped.txt`; `PublicAPI.Shipped.txt` records the API already shipped. A

@@ -73,6 +73,8 @@ internal static class FormMembers
             return runtime.ActiveControl is { } control ? new Vb6Value(control) : Vb6Value.Nothing;
         if (IsControls(name) && form.Controls is { } controls)
             return new Vb6Value(controls);
+        if (RuntimeDrawing.TryGet(window, name, out var drawingValue))
+            return drawingValue;
         if (RuntimeScale.TryGet(window, name, out var scaleValue))
             return scaleValue;
         if (IsWindowState(name) && window is Avalonia.Controls.Window stateWindow)
@@ -98,6 +100,8 @@ internal static class FormMembers
         if (!member.CanLet)
             throw new VBCompileErrorException(AssignToReadOnly);
         var window = form.BuiltInMembersFor(name)!;
+        if (RuntimeDrawing.TrySet(window, name, value))
+            return;
         if (IsIcon(name))
         {
             WriteIcon(form, value);
@@ -119,9 +123,13 @@ internal static class FormMembers
         throw new NotImplementedException($"Setting {form.ClassName}'s {name} is not implemented{TrackedBy(name)}");
     }
 
-    /// <summary>Call a method of the form, as <c>Me.Hide</c> does: through its window, which says when it can't.</summary>
-    public static Vb6Value Call(VbObject form, string name, IReadOnlyList<Vb6Value> args) =>
-        form.BuiltInMembersFor(name)!.Call(name, args);
+    /// <summary>Read a method's result through the form's window; statements use CallAsync directly.</summary>
+    public static Vb6Value Call(VbObject form, string name, IReadOnlyList<Vb6Value> args)
+    {
+        if (name.Equals("Cls", StringComparison.OrdinalIgnoreCase))
+            throw RuntimeDrawing.Refused("Cls used as a value");
+        return form.BuiltInMembersFor(name)!.Call(name, args);
+    }
 
     internal static bool IsIcon(string name) => string.Equals(name, "Icon", StringComparison.OrdinalIgnoreCase);
 

@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
@@ -5,6 +7,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Labs.Input;
 using Avalonia.Media;
 using HexIDE.Keymaps;
+using Serilog;
 
 namespace HexIDE.Utils;
 
@@ -65,8 +68,25 @@ public class MenuUtils
         });
         KeymapService.GesturesChanged += () =>
         {
+            // An item kept only for finalization remains in the weak table, but its template
+            // bindings have lost their targets. Avalonia 12.1.x casts the UnsetValue they publish.
+            // Remove this guard once our Avalonia release contains AvaloniaUI/Avalonia#21552.
+            List<MenuItem>? discarded = null;
             foreach (var entry in CommandItems)
-                RefreshGesture(entry.Key);
+            {
+                try
+                {
+                    RefreshGesture(entry.Key);
+                }
+                catch (InvalidCastException e)
+                {
+                    (discarded ??= []).Add(entry.Key);
+                    Log.Debug(e, "Discarding menu item with a collected gesture binding target");
+                }
+            }
+            if (discarded is not null)
+                foreach (var item in discarded)
+                    CommandItems.Remove(item);
         };
     }
 }
