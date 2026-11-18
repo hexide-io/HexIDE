@@ -588,14 +588,20 @@ program that compiles and runs.
 - **THEN** the interpreter SHALL call that Sub on the current instance
 
 ### Requirement: CallByName SHALL dispatch class and implemented in-box members
-`CallByName` SHALL support Collection `Add` with item/key and `Item` with one index through VbMethod,
+`CallByName` SHALL support Collection `Count` without arguments, `Add` with one to three arguments,
+`Remove` and `Item` with one index through VbMethod (#4688, measured native and p-code; oracle PR #4690),
 and `Err.Number` through VbGet, as expressions or statements, bare or VBA-qualified (#2519).
+Collection object results SHALL retain identity for Set and TypeName; a C1 instance with no default member
+used without Set SHALL raise 438. Collection Add/Remove as values SHALL return Empty.
+Count with arguments and Item without an index SHALL raise 450, independently of late-bound Count
+arity error 451. Unknown Collection VbMethod names and Item via VbLet SHALL raise 438.
+Other Collection errors SHALL pass through unchanged.
 Class instances SHALL support public scalar field Get/Let, Property Get/Let/Set and method calls through the
 same procedure binder as direct calls, preserving conversions, Optional, ParamArray and ByRef writeback.
 Class object results SHALL be returned for Set; a Collection result used as a value raises 450.
 A Sub used as a value SHALL return Empty. Missing or empty class member names and call types 0/16 raise 438;
 Get on a method raises 450, too few arguments 449, and too many 450.
-Forms/controls, Collection object results, private members, non-scalar fields, field Set/indexing and
+Forms/controls, private members, non-scalar fields, field Set/indexing and
 unavailable accessors SHALL refuse as not implemented. So SHALL other unmeasured member/call-type/arity
 combinations, omitted arguments and name/call-type conversions. Named arguments SHALL raise the compile
 error "Argument in ParamArray may not be named" as the statement runs (#4145).
