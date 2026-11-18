@@ -31,7 +31,8 @@ public sealed class RevocationStoreTests : IDisposable
         new RevocationStore().IsRevoked("anyhash", "anypub", "anyinter", isFirstParty: false).Should().BeNull();
     }
 
-    [Fact(Skip = "#4534: the bundled list isn't signed by the shipped root until it's re-signed")]
+    // The pair was signed with a key outside the tree until #4534 re-signed it with the root.
+    [Fact]
     public void The_bundled_list_verifies_against_the_shipped_root()
     {
         TrustAnchors.RootPublicKey.Should().NotBeNull();

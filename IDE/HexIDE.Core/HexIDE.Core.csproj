@@ -12,6 +12,11 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" IncludeAssets="analyzers;build;buildtransitive" />
+        <GlobalAnalyzerConfigFiles Include="PublicAPI.globalconfig" />
+    </ItemGroup>
+
+    <ItemGroup>
         <InternalsVisibleTo Include="HexIDE.Tests" />
         <InternalsVisibleTo Include="HexIDE.Integration.Tests" />
         <InternalsVisibleTo Include="HexIDE.Runtime.Integration.Tests" />

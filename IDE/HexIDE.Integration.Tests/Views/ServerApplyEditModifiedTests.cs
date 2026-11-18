@@ -43,14 +43,14 @@ public class ServerApplyEditModifiedTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var (local, remote) = FullDuplexStream.CreatePair();
         var server = new EditServer();
-        using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()), server);
+        using var rpc = new JsonRpc(new LspMessageHandler(remote, remote, new SystemTextJsonFormatter()), server);
         server.Rpc = rpc;
         rpc.StartListening();
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.LeaveServerRunning.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>()).Returns(call =>
-            Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(local, local, call.Arg<IJsonRpcMessageFormatter>())));
+            Task.FromResult<IJsonRpcMessageHandler?>(new LspMessageHandler(local, local, call.Arg<IJsonRpcMessageFormatter>())));
         EditorService editors = null!;
         await using var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6",
             applyEdit: (edit, documentFor, token) => Dispatcher.UIThread.InvokeAsync(

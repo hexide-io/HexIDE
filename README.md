@@ -194,9 +194,9 @@ dotnet build HexIDE.Desktop/
 dotnet run --project HexIDE.Desktop/
 
 # Run the test suites, from IDE/ as above
-dotnet test HexIDE.Runtime.Tests/                     # VB6 interpreter
-dotnet test HexIDE.Tests/                             # IDE view-models
-cd ../LspServer && dotnet test HexIDE.VbLspServer.Tests/   # LSP server
+dotnet test --project HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj  # VB6 interpreter
+dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj  # IDE view-models
+cd ../LspServer && dotnet test --project HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj  # LSP server
 ```
 
 ### Making a program

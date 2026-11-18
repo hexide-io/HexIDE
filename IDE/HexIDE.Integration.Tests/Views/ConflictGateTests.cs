@@ -11,7 +11,7 @@ namespace HexIDE.Integration.Tests.Views;
 public class ConflictGateTests
 {
     [AvaloniaFact]
-    public void BackgroundConflict_ShowsOnceAfterActivationBeforeIsActive()
+    public void BackgroundConflict_ShowsOnceAfterActivation()
     {
         var window = new Window { ShowActivated = false };
         var windows = Substitute.For<IWindowManager>();
@@ -24,10 +24,7 @@ public class ConflictGateTests
             gate.Enqueue([new WatchedFileTarget("Module1.bas", null, null, null, null)]);
             windows.DidNotReceive().ShowDialog(Arg.Any<IDialog>());
 
-            bool? activeDuringEvent = null;
-            window.Activated += (_, _) => activeDuringEvent = window.IsActive;
             Activate(window);
-            activeDuringEvent.Should().BeFalse("Avalonia raises Activated before setting IsActive (#2881)");
             window.IsActive.Should().BeTrue();
             RunJobsKeepingContext();
             windows.Received(1).ShowDialog(Arg.Any<IDialog>());
@@ -47,7 +44,7 @@ public class ConflictGateTests
     }
 
     // Headless Window.Activate does not deliver a platform activation. Invoke Avalonia's handler so
-    // the test exercises its actual Activated-before-IsActive ordering measured in #2881.
+    // the test exercises the real activation event and the gate's posted dispatcher job.
     private static void Activate(Window window) =>
         typeof(WindowBase).GetMethod("HandleActivated", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(window, null);

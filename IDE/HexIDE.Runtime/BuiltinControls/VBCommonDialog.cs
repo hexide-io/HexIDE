@@ -75,7 +75,10 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             throw new NotImplementedException($"A CommonDialog's {name}, set in the form's file, is not implemented (#1084)");
     }
 
-    public bool TryGetProperty(string name, out Vb6Value value)
+    // The raw property bag is Automation-facing; the interpreter supplies the declared receiver binding (#4513).
+    public bool TryGetProperty(string name, out Vb6Value value) => TryGetProperty(name, out value, true);
+
+    internal bool TryGetProperty(string name, out Vb6Value value, bool throughObject)
     {
         Vb6Value? found = name.ToLowerInvariant() switch
         {
@@ -115,7 +118,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             "fontsize" => new Vb6Value(fontSize),
             "fontbold" => new Vb6Value(fontBold),
             "fontitalic" => new Vb6Value(fontItalic),
-            "color" => Vb6Value.NewAutomationUnsignedLong(unchecked((uint)color)),
+            "color" => throughObject ? Vb6Value.NewAutomationUnsignedLong(unchecked((uint)color)) : new Vb6Value((long)color),
             _ when NotModelled.Contains(name) => throw new NotImplementedException($"A CommonDialog's {name} is not implemented (#1084)"),
             _ => (Vb6Value?)null,
         };
@@ -123,7 +126,9 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
         return found is not null;
     }
 
-    public bool TrySetProperty(string name, Vb6Value value)
+    public bool TrySetProperty(string name, Vb6Value value) => TrySetProperty(name, value, true);
+
+    internal bool TrySetProperty(string name, Vb6Value value, bool throughObject)
     {
         switch (name.ToLowerInvariant())
         {
@@ -164,9 +169,16 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             case "fontbold": fontBold = (bool)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value!; return true;
             case "fontitalic": fontItalic = (bool)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value!; return true;
             case "color":
-                var assigned = (int)Number(value, Vb6Value.ValueType.Long);
-                if (assigned == -1 && (value.Type == Vb6Value.ValueType.Integer || value.Type == Vb6Value.ValueType.Long))
-                    throw new VBRunTimeException(VBStandardError.Overflow);
+                // The late-bound conversion rows do not form a general unsigned conversion rule (#4513).
+                if (throughObject && value.IsNull)
+                    throw new VBRunTimeException(VBStandardError.TypeMismatch);
+                if (throughObject && (value.Value is true || value.Value is double last && last == 4294967295d))
+                    throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+                var assigned = throughObject && value.Value is double system && system == 2147483653d
+                    ? unchecked((int)2147483653u)
+                    : (int)Number(value, Vb6Value.ValueType.Long, allowAutomationUnsignedLong: !throughObject);
+                if (assigned == -1 && (!throughObject || value.Type == Vb6Value.ValueType.Integer || value.Type == Vb6Value.ValueType.Long))
+                    throw new VBRunTimeException(throughObject ? VBStandardError.Overflow : VBStandardError.InvalidPropertyValue);
                 color = assigned;
                 return true;
             case "filetitle":
@@ -217,8 +229,8 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
 
     private static string Text(Vb6Value value) => (string)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).Value!;
 
-    private static double Number(Vb6Value value, Vb6Value.ValueType type) =>
-        Convert.ToDouble(VbNumeric.CoerceOnStore(value, type, null).Value, CultureInfo.InvariantCulture);
+    private static double Number(Vb6Value value, Vb6Value.ValueType type, bool allowAutomationUnsignedLong = true) =>
+        Convert.ToDouble(VbNumeric.CoerceOnStore(value, type, null, allowAutomationUnsignedLong).Value, CultureInfo.InvariantCulture);
 
     /// <summary>Whether <paramref name="method"/> is one of this control's own; any other is the control's as for any.</summary>
     public static bool Handles(string method) => method.ToLowerInvariant() is

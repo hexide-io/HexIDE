@@ -15,10 +15,9 @@
 >
 > **Living document.** Update a row the moment its status changes.
 > To recount after a merge, run from the repository root:
-> `HEXIDE_MISSING_LANGUAGE_FIX=1 dotnet test IDE/HexIDE.Tests/ -p:TestingPlatformCaptureOutput=false -- --filter-class "*MissingLanguageDocTests"`
-> (PowerShell: set `$env:HEXIDE_MISSING_LANGUAGE_FIX = "1"` before the same `dotnet test` command,
-> then `Remove-Item Env:HEXIDE_MISSING_LANGUAGE_FIX`). Disabling MTP output capture shows each change
-> in the terminal. The guard reports and rewrites derived counts
+> `HEXIDE_MISSING_LANGUAGE_FIX=1 pwsh scripts/test.ps1 IDE/HexIDE.Tests/ -- --filter-class "*MissingLanguageDocTests"`
+> (PowerShell: set `$env:HEXIDE_MISSING_LANGUAGE_FIX = "1"` before the same `pwsh` command,
+> then `Remove-Item Env:HEXIDE_MISSING_LANGUAGE_FIX`). The guard reports and rewrites derived counts
 > using its own recount, preserving line endings. It still rejects unknown ratings, duplicate names,
 > missing status rows and inconsistent constant-family ratings; fix those source rows by hand.
 > It also checks every table for an immediately following delimiter row, no misplaced delimiters,
@@ -1612,15 +1611,17 @@ values; FileTitle and hDC reject writes with 383. See the oracle's
 | `CommonDialog.ShowFont` effects | Partial | Font name, size, bold and italic use the existing host dialog, including with Flags 0. Underline, strikeout and Color writeback remain outstanding; existing behavior is unchanged. |
 | `CommonDialog.HelpContext` | Supported | [#4514](https://github.com/hexide-io/HexIDE/issues/4514): zero Long default, early/late-bound Long reads, Long store conversions and saved values load. Failed stores retain the previous value. Late-bound Null is unmeasured: error 94 follows the Long store as an allowed error-number approximation. |
 | `CommonDialog` control arrays / contained controls | Dies | Remain refused as not implemented; registration does not extend the measured scalar control to these unmeasured cases. |
-| `CommonDialog.Color` numeric conversions | Dies | Unsigned Automation Long reads have VarType 19 and preserve the measured value (including `&H80000005`); numeric use and declared-scalar conversion are refused pending measurements. Variant storage and VarType work. TypeName and IsNumeric retain their previous behavior; their CommonDialog results are unmeasured. |
+| `CommonDialog.Color` numeric conversions | Partial | [#4513](https://github.com/hexide-io/HexIDE/issues/4513), measured in oracle PR #4508: early-bound reads are Long; Object/Variant reads are unsigned Automation Long (VarType 19). Long stores/CLng wrap; Double stores/CDbl preserve the unsigned value; String stores/CStr/concatenation produce decimal digits. Integer stores are implemented in range (only 255 measured); CInt, late-bound assignments of unsigned Color values, larger Integer stores, Byte/Single stores and other unmeasured numeric uses remain refused. TypeName, addition, multiplication and equality raise 458; IsNumeric is False. Early-bound assignments convert to Long and reject -1 with 380; late-bound assignments follow the measured type/value rows, with other values retaining previous behavior. CallByName remains refused (#4520). |
 
 Runtime Left/Top reads raise 393 and writes raise 382; reads of Visible, Width, Height, Enabled and hWnd raise 438.
 FontName ignores a missing face and keeps an accepted name's spelling, using the existing cross-platform font-name
 policy. Empty FontName assignments, unavailable faces loaded from files, and unmeasured extender assignments and
 conversions retain their previous behavior; VarType/Is* default-member inspection is also unchanged. Library/component
 registration now uses the MSComDlg library record and a component class, without a loader text-block special case.
-Color reads carry VarType 19 and the measured unsigned value; assigning integral -1 raises 6. Unmeasured
-assignment conversions retain the previous coercion. Dialog return semantics are part B;
+Color reads are Long early-bound and unsigned Long (VarType 19) through Object/Variant.
+[#4513](https://github.com/hexide-io/HexIDE/issues/4513) pins the measured conversions and binding-dependent
+assignment errors (oracle PR #4508). Other late-bound assignment values retain their previous coercion.
+Dialog return semantics are part B;
 file persistence is part C (now measured).
 
 ## MaskedEdBox foundation (outside the baseline inventory)

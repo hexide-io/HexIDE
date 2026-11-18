@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using HexIDE.Conversations;
 using System.IO.Pipes;
 using System.Text;
@@ -173,7 +173,7 @@ public class ShutdownWireShapeTests : IAsyncDisposable
         transport.LeaveServerRunning.Returns(leaveServerRunning);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
         var optionsMember = options is null ? "" : ",\"initializationOptions\":" + options;
         var client = configured

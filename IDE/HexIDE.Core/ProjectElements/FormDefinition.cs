@@ -456,7 +456,8 @@ public partial class FormDefinition : INotifyPropertyChanged
     public void RecordLoadedCompanionBlobCount(int count) => LoadedCompanionBlobCount = count;
 
     /// <summary>
-    /// How many distinct companion offsets this form's designer file CITED when it was loaded.
+    /// How many distinct companion offsets this form's designer file CITED when it was loaded. Cleared after a
+    /// successful save without companion content, so the previous file's citations cannot claim an orphan at a new path.
     ///
     /// Distinct from <see cref="LoadedCompanionBlobCount"/> in the case that matters: a companion nothing
     /// cites is read by falling back to a flat walk, so it yields records while this stays zero. That is

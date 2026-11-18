@@ -47,13 +47,13 @@ public class DocumentCountNotificationTests
         {
             Server = new RecordingServer(syncKind);
             var (clientSide, serverSide) = FullDuplexStream.CreatePair();
-            _serverRpc = new JsonRpc(new HeaderDelimitedMessageHandler(
+            _serverRpc = new JsonRpc(new LspMessageHandler(
                 serverSide, serverSide, new SystemTextJsonFormatter()), Server);
             _serverRpc.StartListening();
             var transport = Substitute.For<ILspTransport>();
             transport.IsAlive.Returns(true);
             transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
-                .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(
+                .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(new LspMessageHandler(
                     clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
             Registry = new LspClientRegistry(
                 [new("python", "Python", [".py"], "python", () =>

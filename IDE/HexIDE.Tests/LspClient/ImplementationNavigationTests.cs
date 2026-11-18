@@ -52,12 +52,12 @@ public class ImplementationNavigationTests
         const string link = """[{"targetUri":"file:///target.cls","targetRange":{"start":{"line":0,"character":0},"end":{"line":9,"character":0}},"targetSelectionRange":{"start":{"line":7,"character":3},"end":{"line":7,"character":8}}}]""";
         var server = new Server(method + "Provider", advertised, shape switch { "array" => "[" + location + "]", "links" => link, _ => location });
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
-        using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
+        using var rpc = new JsonRpc(new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
         rpc.StartListening();
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
-            .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+            .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
         await using var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6);
         var ct = TestContext.Current.CancellationToken;
         await client.StartAsync(ct);

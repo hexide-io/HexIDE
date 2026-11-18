@@ -2,6 +2,7 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} มีอยู่แล้ว คุณต้องการแทนที่หรือไม่",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "โหลด {0} โดยมีข้อผิดพลาด จึงไม่สามารถบันทึกทับไฟล์ต้นฉบับได้ โปรดเลือกชื่อไฟล์ใหม่",
     "Str.ProjectLoad.PropertyNotSet": "บรรทัด {0}: ไม่สามารถตั้งค่าคุณสมบัติ {1} ใน {2} ได้",
     "Str.Menu.Edit.Refactor": "ปรับโครงสร้าง",

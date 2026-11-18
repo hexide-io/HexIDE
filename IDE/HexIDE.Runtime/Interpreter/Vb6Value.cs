@@ -60,7 +60,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         switch (v.Value)
         {
             case uint:
-                throw new NotImplementedException("Numeric use of an unsigned Automation Long is not implemented (#1084)");
+                throw new NotImplementedException("Numeric use of an unsigned Automation Long is not implemented (#4513)");
             case byte b: d = b; return true;
             case int i: d = i; return true;
             case long l: d = l; return true;

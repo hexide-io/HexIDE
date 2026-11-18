@@ -90,9 +90,9 @@ jobs:
     permissions:
       contents: read
     env:
-      # #4534: 0 only warns, because the published list doesn't verify until Jen re-signs it with the root key, and a
-      # failing step would block every release until then. Set it to 1 in the change that lands the re-signed list.
-      REVOCATIONS_MUST_VERIFY: 0
+      # 1 fails the release when the published list doesn't verify. 0 only warns: it was 0 until #4534 re-signed the
+      # list with the root key, since a failing step would have blocked every release.
+      REVOCATIONS_MUST_VERIFY: 1
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
@@ -121,7 +121,7 @@ jobs:
             echo "::error::$problem"
             exit 1
           fi
-          echo "::warning::$problem (a warning until #4534 re-signs the list)"
+          echo "::warning::$problem (only a warning: REVOCATIONS_MUST_VERIFY is 0)"
 
   build:
     name: ${{ matrix.name }}

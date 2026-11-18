@@ -27,7 +27,7 @@ public class WorkspaceConfigurationWireTests : IAsyncDisposable
         transport.LeaveServerRunning.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(local, local, ci.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(local, local, ci.Arg<IJsonRpcMessageFormatter>())));
         _client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6", settings: _settings, serverSettings: serverSettings);
         var starting = start is null ? _client.StartAsync(Token) : start();
         var initialize = await ReadAsync();
