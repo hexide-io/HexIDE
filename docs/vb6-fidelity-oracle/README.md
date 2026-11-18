@@ -846,3 +846,4 @@ added afterwards.
 - [A form's As New instance is in its slot during Form_Initialize (2026-11-18, #4640, SP6)](an-auto-made-object-is-in-its-slot-during-class-initialize.md#a-forms-as-new-instance-is-in-its-slot-during-form_initialize-2026-11-18-4640-sp6)
 - [Named arguments to a control's, a form's and a Collection's methods (2026-11-18, #1474, SP6)](named-arguments.md#named-arguments-to-a-controls-a-forms-and-a-collections-methods-2026-11-18-1474-sp6)
 - [A non-String PathName, access denied, and programs that can't start (2026-11-18, #4406)](shell.md#a-non-string-pathname-access-denied-and-programs-that-cant-start-2026-11-18-4406)
+- [A StdFont in a PropertyBag (2026-11-18, #4741)](a-propertybag-at-run-time.md#a-stdfont-in-a-bag-2026-11-18-4741)
