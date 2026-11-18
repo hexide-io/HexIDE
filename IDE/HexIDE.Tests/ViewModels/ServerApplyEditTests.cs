@@ -121,7 +121,7 @@ public class ServerApplyEditTests : IAsyncDisposable
         var (local, pairEnd) = FullDuplexStream.CreatePair();
         var remote = diagnosis.TapPeer(pairEnd);
         var stub = new EditServer();
-        var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()), stub);
+        var rpc = new JsonRpc(new LspMessageHandler(remote, remote, new SystemTextJsonFormatter()), stub);
         stub.Rpc = rpc;
         peers.Add(rpc);
         stubs.Add(stub);
@@ -133,7 +133,7 @@ public class ServerApplyEditTests : IAsyncDisposable
         transport.LeaveServerRunning.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(c => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(local, local, c.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(local, local, c.Arg<IJsonRpcMessageFormatter>())));
         var log = diagnosis.ClientLog<VBLspClient>(number);
         var connection = new VBLspClient(transport, log, "vb6",
             applyEdit: !withEditor ? null : (edit, documentFor, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(

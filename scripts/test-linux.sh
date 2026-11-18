@@ -93,4 +93,4 @@ cd "$copy/$project"
 # same user, but cannot write their output (#4133). Exports also reach probes built by the tests.
 export UseSharedCompilation=false
 export MSBUILDDISABLENODEREUSE=1
-exec dotnet test "${test_args[@]}"
+exec dotnet test --project "$(basename "$project").csproj" "${test_args[@]}"

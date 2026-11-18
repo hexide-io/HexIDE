@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} כבר קיים. האם ברצונך להחליף אותו?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} נטען עם שגיאות, ולכן לא ניתן לשמור אותו על גבי הקובץ המקורי. יש לבחור שם קובץ חדש.",
     "Str.ProjectLoad.PropertyNotSet": "שורה {0}: לא ניתן להגדיר את המאפיין {1} ב־{2}.",
     "Str.Menu.Edit.Refactor": "ארגון קוד מחדש",
@@ -400,6 +401,7 @@
     "Str.Menu.Help.LogFolder": "פתיחת תיקיית היומנים של HexIDE",
     "Str.Help.LogFolder.OpenFailed": "לא ניתן לפתוח את תיקיית היומנים. אפשר לפתוח אותה ידנית: {0}",
     "Str.Menu.Help.About": "אודות HexIDE...",
+    "Str.Menu.MacApp.About": "אודות HexIDE",
     "Str.Menu.GoToGithubRepo": "עבור אל מאגר github",
     "Str.NewProject.NoTemplates": "פרופיל זה אינו מציע תבניות לפרויקטים חדשים. יש לפתוח פרויקט קיים במקום זאת.",
     "Str.NewProject.Msg.NoStandardExe": "ב־{0} לא מותקן סוג פרויקט שיוצר פרויקט Standard EXE, ולכן ההפעלה בוצעה ללא פרויקט.",

@@ -2,6 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} esiste già. Sostituirlo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} è stato caricato con errori e non può quindi sovrascrivere il file originale. Scegliere un nuovo nome di file.",
     "Str.ProjectLoad.PropertyNotSet": "Riga {0}: impossibile impostare la proprietà {1} in {2}.",
     "Str.Menu.Edit.Refactor": "Re_factoring",
@@ -372,6 +373,7 @@
     "Str.Menu.Help.LogFolder": "Apri la cartella dei _log di HexIDE",
     "Str.Help.LogFolder.OpenFailed": "Impossibile aprire la cartella dei log. Puoi aprirla manualmente: {0}",
     "Str.Menu.Help.About": "_Informazioni su HexIDE...",
+    "Str.Menu.MacApp.About": "Informazioni su HexIDE",
     "Str.Menu.GoToGithubRepo": "Vai al repository github",
     "Str.NewProject.NoTemplates": "Questo profilo non offre modelli per nuovi progetti. Aprire un progetto esistente.",
     "Str.NewProject.Msg.NoStandardExe": "In {0} non è installato alcun tipo di progetto che crei un progetto Standard EXE, quindi l’avvio è avvenuto senza un progetto.",

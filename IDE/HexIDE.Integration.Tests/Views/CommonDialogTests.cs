@@ -24,6 +24,194 @@ namespace HexIDE.Integration.Tests.Views;
 /// </summary>
 public class CommonDialogTests
 {
+    // VB6 SP6 native and p-code measurements: hexide-io/HexIDE#4513 (oracle PR #4508).
+    [AvaloniaTheory]
+    [InlineData("name", "dlg.Color = &H80000005\nDebug.Print CStr(VarType(dlg.Color))", "3")]
+    [InlineData("name", "dlg.Color = &H80000005\nv = dlg.Color: Debug.Print CStr(VarType(v))", "3")]
+    [InlineData("name", "dlg.Color = &H80000005\nDim l As Long: l = dlg.Color: Debug.Print CStr(VarType(dlg.Color) & \" \" & l)", "3 -2147483643")]
+    [InlineData("name", "dlg.Color = &H80000005\nDim d As Double: d = dlg.Color: Debug.Print CStr(d)", "-2147483643")]
+    [InlineData("name", "dlg.Color = 255\nDebug.Print CStr(dlg.Color + 1)", "256")]
+    [InlineData("typed", "Dim o As CommonDialog: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(VarType(o.Color))", "3")]
+    [InlineData("typed", "Dim o As CommonDialog: Set o = dlg\ndlg.Color = &H80000005\nv = o.Color: Debug.Print CStr(VarType(v))", "3")]
+    [InlineData("typed", "Dim o As CommonDialog: Set o = dlg\ndlg.Color = &H80000005\nDim l As Long: l = o.Color: Debug.Print CStr(VarType(o.Color) & \" \" & l)", "3 -2147483643")]
+    [InlineData("typed", "Dim o As CommonDialog: Set o = dlg\ndlg.Color = &H80000005\nDim d As Double: d = o.Color: Debug.Print CStr(d)", "-2147483643")]
+    [InlineData("typed", "Dim o As CommonDialog: Set o = dlg\ndlg.Color = 255\nDebug.Print CStr(o.Color + 1)", "256")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(VarType(o.Color))", "19")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = &H80000005\nv = o.Color: Debug.Print CStr(VarType(v))", "19")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = &H80000005\nDim l As Long: l = o.Color: Debug.Print CStr(l)", "-2147483643")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = &H80000005\nDim d As Double: d = o.Color: Debug.Print CStr(d)", "2147483653")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(TypeName(o.Color)): Debug.Print CStr(Err.Number)", "458")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(IsNumeric(o.Color))", "False")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(o.Color + 1): Debug.Print CStr(Err.Number)", "458")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(o.Color * 2): Debug.Print CStr(Err.Number)", "458")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr((o.Color = 255)): Debug.Print CStr(Err.Number)", "458")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(CLng(o.Color))", "-2147483643")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(CDbl(o.Color))", "2147483653")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = &H80000005\nDim s As String: s = o.Color: Debug.Print CStr(s)", "2147483653")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = 255\nDim i As Integer: i = o.Color: Debug.Print CStr(i)", "255")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = 255\nDebug.Print CStr(o.Color)", "255")]
+    [InlineData("object", "Dim o As Object: Set o = dlg\ndlg.Color = 255\nDebug.Print CStr(o.Color & \"\")", "255")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(VarType(o.Color))", "19")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = &H80000005\nv = o.Color: Debug.Print CStr(VarType(v))", "19")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = &H80000005\nDim l As Long: l = o.Color: Debug.Print CStr(l)", "-2147483643")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = &H80000005\nDim d As Double: d = o.Color: Debug.Print CStr(d)", "2147483653")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(TypeName(o.Color)): Debug.Print CStr(Err.Number)", "458")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(IsNumeric(o.Color))", "False")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(o.Color + 1): Debug.Print CStr(Err.Number)", "458")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(o.Color * 2): Debug.Print CStr(Err.Number)", "458")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr((o.Color = 255)): Debug.Print CStr(Err.Number)", "458")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(CLng(o.Color))", "-2147483643")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = &H80000005\nDebug.Print CStr(CDbl(o.Color))", "2147483653")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = &H80000005\nDim s As String: s = o.Color: Debug.Print CStr(s)", "2147483653")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = 255\nDim i As Integer: i = o.Color: Debug.Print CStr(i)", "255")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = 255\nDebug.Print CStr(o.Color)", "255")]
+    [InlineData("variant", "Dim o: Set o = dlg\ndlg.Color = 255\nDebug.Print CStr(o.Color & \"\")", "255")]
+    public void Color_reads_follow_binding(string binding, string code, string expected)
+    {
+        var ran = Run(Form(Dialog, code + "\n"), Opening());
+        ran.Failures.Should().BeEmpty(binding);
+        ran.Printed.Should().Equal(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("name", "-1", "380 255")]
+    [InlineData("name", "True", "380 255")]
+    [InlineData("name", "4294967295#", "6")]
+    [InlineData("name", "4294967296#", "6")]
+    [InlineData("name", "2147483653#", "6")]
+    [InlineData("name", "Null", "94")]
+    [InlineData("name", "\"abc\"", "13")]
+    [InlineData("name", "&H80000005", "0 -2147483643")]
+    [InlineData("name", "-2147483648#", "0 -2147483648")]
+    [InlineData("name", "\"255\"", "0 255")]
+    [InlineData("name", "\"&HFF\"", "0 255")]
+    [InlineData("name", "1.5", "0 2")]
+    [InlineData("name", "2.5", "0 2")]
+    [InlineData("name", "Empty", "0 0")]
+    [InlineData("typed", "-1", "380 255")]
+    [InlineData("typed", "True", "380 255")]
+    [InlineData("typed", "4294967295#", "6")]
+    [InlineData("typed", "4294967296#", "6")]
+    [InlineData("typed", "2147483653#", "6")]
+    [InlineData("typed", "Null", "94")]
+    [InlineData("typed", "\"abc\"", "13")]
+    [InlineData("typed", "&H80000005", "0 -2147483643")]
+    [InlineData("typed", "-2147483648#", "0 -2147483648")]
+    [InlineData("typed", "\"255\"", "0 255")]
+    [InlineData("typed", "\"&HFF\"", "0 255")]
+    [InlineData("typed", "1.5", "0 2")]
+    [InlineData("typed", "2.5", "0 2")]
+    [InlineData("typed", "Empty", "0 0")]
+    [InlineData("object", "-1", "6")]
+    [InlineData("object", "True", "380")]
+    [InlineData("object", "4294967295#", "380")]
+    [InlineData("object", "Null", "13")]
+    [InlineData("object", "\"abc\"", "13")]
+    [InlineData("object", "&H80000005", "0 -2147483643")]
+    [InlineData("object", "2147483653#", "0 -2147483643")]
+    [InlineData("object", "\"255\"", "0 255")]
+    [InlineData("object", "1.5", "0 2")]
+    [InlineData("variant", "-1", "6")]
+    [InlineData("variant", "True", "380")]
+    [InlineData("variant", "4294967295#", "380")]
+    [InlineData("variant", "Null", "13")]
+    [InlineData("variant", "\"abc\"", "13")]
+    [InlineData("variant", "&H80000005", "0 -2147483643")]
+    [InlineData("variant", "2147483653#", "0 -2147483643")]
+    [InlineData("variant", "\"255\"", "0 255")]
+    [InlineData("variant", "1.5", "0 2")]
+    public void Color_assignments_follow_binding(string binding, string value, string expected)
+    {
+        var target = binding == "name" ? "dlg" : "o";
+        var declaration = binding switch
+        {
+            "typed" => "Dim o As CommonDialog: Set o = dlg\n",
+            "object" => "Dim o As Object: Set o = dlg\n",
+            "variant" => "Dim o: Set o = dlg\n",
+            _ => "",
+        };
+        var ran = Run(Form(Dialog, declaration + "dlg.Color = 255\nErr.Clear\n"
+            + target + ".Color = " + value + "\nDebug.Print Err.Number"
+            + (expected.Contains(' ') ? " & \" \" & dlg.Color" : " & \"\"") + "\n"), Opening());
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Debug.Print o.Color - 1")]
+    [InlineData("Debug.Print CInt(o.Color)")]
+    [InlineData("o.Color = o.Color")]
+    [InlineData("Dim v: Set v = dlg: v.Color = v.Color")]
+    [InlineData("Dim n As Byte: n = o.Color")]
+    [InlineData("Dim n As Single: n = o.Color")]
+    [InlineData("Dim n As Integer: dlg.Color = &H80000005: n = o.Color")]
+    public void Color_unmeasured_uses_stay_refused(string code)
+    {
+        var ran = Run(Form(Dialog, "Dim o As Object: Set o = dlg\ndlg.Color = 255\n" + code + "\n"), Opening());
+        ran.Failures.Should().ContainSingle().Which.Should().Contain("unsigned Automation Long");
+    }
+
+    // VB6 SP6 native and p-code measurements: https://github.com/hexide-io/HexIDE/issues/4514
+    [AvaloniaTheory]
+    [InlineData("5", "5", 0)]
+    [InlineData("\"9\"", "9", 0)]
+    [InlineData("1.5", "2", 0)]
+    [InlineData("2.5", "2", 0)]
+    [InlineData("-1", "-1", 0)]
+    [InlineData("True", "-1", 0)]
+    [InlineData("2147483647", "2147483647", 0)]
+    [InlineData("2147483648#", "7", 6)]
+    [InlineData("Null", "7", 94)]
+    [InlineData("\"abc\"", "7", 13)]
+    [InlineData("Empty", "0", 0)]
+    public void HelpContext_stores_as_a_Long(string expression, string expected, int error)
+    {
+        var ran = Run(Form(Dialog,
+            "    dlg.HelpContext = 7\r\n"
+          + "    Debug.Print \"\" & dlg.HelpContext\r\n"
+          + "    Err.Clear\r\n"
+          + $"    dlg.HelpContext = {expression}\r\n"
+          + "    Debug.Print Err.Number & \" \" & dlg.HelpContext & \" \" & TypeName(dlg.HelpContext)\r\n"), Opening());
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal("7", $"{error} {expected} Long");
+    }
+
+    [AvaloniaFact]
+    public void HelpContext_defaults_and_late_bound_reads_are_Long()
+    {
+        var ran = Run(Form(Dialog,
+            "    Dim obj As Object\r\n"
+          + "    Set obj = dlg\r\n"
+          + "    Debug.Print dlg.HelpContext & \" \" & TypeName(dlg.HelpContext) & \" \" & VarType(obj.HelpContext)\r\n"
+          + "    dlg.HelpContext = 5\r\n"
+          + "    Debug.Print obj.HelpContext & \" \" & (dlg.HelpContext + 1)\r\n"), Opening());
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal("0 Long 3", "5 6");
+    }
+
+    [AvaloniaFact]
+    public void HelpContext_late_bound_overflow_preserves_previous_value()
+    {
+        var ran = Run(Form(Dialog,
+            "    Dim obj As Object\r\n"
+          + "    Set obj = dlg\r\n"
+          + "    dlg.HelpContext = 7\r\n"
+          + "    Err.Clear\r\n"
+          + "    obj.HelpContext = 2147483648#\r\n"
+          + "    Debug.Print Err.Number & \" \" & obj.HelpContext\r\n"), Opening());
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal("6 7");
+    }
+
+    [AvaloniaFact]
+    public void HelpContext_loads_from_the_form_file()
+    {
+        var dialog = Dialog.Replace("      _Version", "      HelpContext     =   5\r\n      _Version");
+        var ran = Run(Form(dialog, "    Debug.Print \"\" & dlg.HelpContext\r\n"), Opening());
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal("5");
+    }
+
     [AvaloniaFact]
     public void Open_passes_every_selected_file_from_the_IDE_picker()
     {
@@ -272,7 +460,8 @@ public class CommonDialogTests
           + "    Debug.Print CStr(VarType(dlg.Color))\r\n"), windows);
 
         ran.Failures.Should().BeEmpty();
-        ran.Printed.Should().Equal("19");
+        // VarType 3 was measured without ShowColor; its staying unchanged after ShowColor is reasoned.
+        ran.Printed.Should().Equal("3");
         windows.Received(1).ShowColorDialog(expected);
     }
 
@@ -294,6 +483,50 @@ public class CommonDialogTests
         ran.Failures.Should().BeEmpty();
         ran.Printed.Should().Equal("1 1 0", "32755 1 1 0");
         windows.Received(2).ShowPrintDialog();
+    }
+
+    // VB6 SP6 native and p-code: #4515, measured in oracle PR #4508.
+    [AvaloniaTheory]
+    [InlineData("0.4", 380, false)]
+    [InlineData("\"0\"", 380, false)]
+    [InlineData("Empty", 380, false)]
+    [InlineData("True", 380, false)]
+    [InlineData("6.6", 380, false)]
+    [InlineData("7.4", 380, false)]
+    [InlineData("\"7\"", 380, false)]
+    [InlineData("32767", 380, false)]
+    [InlineData("32768", 6, false)]
+    [InlineData("-32769", 6, false)]
+    [InlineData("2147483648#", 6, false)]
+    [InlineData("Null", 94, false)]
+    [InlineData("\"abc\"", 13, false)]
+    [InlineData("0.4", 380, true)]
+    [InlineData("32768", 6, true)]
+    public void Action_converts_as_Integer_before_rejecting_an_invalid_value(string value, int error, bool lateBound)
+    {
+        var windows = Opening();
+        var target = lateBound ? "o" : "dlg";
+        var ran = Run(Form(Dialog,
+            (lateBound ? "    Dim o As Object\r\n    Set o = dlg\r\n" : "")
+          + $"    {target}.Action = {value}\r\n"
+          + "    Debug.Print CStr(Err.Number)\r\n"), windows);
+
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal(error.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        windows.DidNotReceive().OpenFilePickerAsync(Arg.Any<FilePickerOpenOptions>());
+        windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        windows.DidNotReceive().ShowColorDialog(Arg.Any<int>());
+        windows.DidNotReceive().ShowFontDialog(Arg.Any<FontDialogResult?>());
+        windows.DidNotReceive().ShowPrintDialog();
+    }
+
+    [AvaloniaFact]
+    public void Action_conversion_that_would_open_an_unmeasured_dialog_stays_refused()
+    {
+        var ran = Run(Form(Dialog, "    dlg.Action = 2.4\r\n"), Opening());
+
+        ran.Failures.Should().ContainSingle().Which.Should().Contain("#4148");
+        ran.Printed.Should().BeEmpty();
     }
 
     [AvaloniaFact]

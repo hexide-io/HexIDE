@@ -211,12 +211,12 @@ internal sealed class CapturingFormatter(
     /// <b>Found by declaring one capability.</b> Once this client says it can ask for diagnostics, rumdl
     /// sends <c>{"jsonrpc":"2.0","method":"workspace/diagnostic/refresh","params":null,"id":1}</c>.
     /// JSON-RPC 2.0 allows <c>params</c> to be an object or an array and nothing else, so <c>null</c> is
-    /// invalid and the reader is right to reject it — and the specification's own reading of
+    /// invalid; StreamJsonRpc 2.24.92 and earlier rejected it. The specification's own reading of
     /// <c>workspace/diagnostic/refresh</c> is that it takes no parameters at all, which is what "absent"
     /// means. So dropping the member yields exactly the message the server meant to send.
     /// Rechecked with rumdl 0.2.79 on 2026-11-16 (#4144): the raw frame still carries null.
-    /// The repair stays even if a later version fixes it, to tolerate this malformed frame from
-    /// servers we did not write without losing the connection.
+    /// StreamJsonRpc 2.26.150 decodes it directly, without a fault or repair (#4472). This repair
+    /// remains a fallback if a formatter rejects null params again, so the connection survives.
     /// </para>
     ///
     /// <para>

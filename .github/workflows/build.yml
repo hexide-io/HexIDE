@@ -170,11 +170,11 @@ jobs:
 
       - name: Run Runtime Tests
         timeout-minutes: 30
-        run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME }}
+        run: dotnet test --project HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME }}
 
       - name: Run container reader tests
         timeout-minutes: 30
-        run: dotnet test HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_TWINBASIC }}
+        run: dotnet test --project HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_TWINBASIC }}
 
       # The IDE half and the server half are separate builds, and nothing in this job produced the server
       # until now. One test needs it: the only one where HexIDE's own client speaks to HexIDE's own
@@ -213,9 +213,9 @@ jobs:
         run: |
           if [ "$CONTRIBUTOR_PR" = "true" ]; then
             echo "Outside contributor's pull request: translation completeness is reported by the next step, not here."
-            dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey" --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
+            dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey" --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
           else
-            dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
+            dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
           fi
 
       - name: Report resolved foreign servers
@@ -235,7 +235,7 @@ jobs:
         if: github.event_name == 'pull_request' && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
         continue-on-error: true
         # This step intentionally runs one test; a missing discovery result must still fail (#883).
-        run: dotnet test HexIDE.Tests/HexIDE.Tests.csproj --no-build -- --filter-method "*EveryShippedTranslationHasEveryCanonicalKey" --minimum-expected-tests 1
+        run: dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj --no-build -- --filter-method "*EveryShippedTranslationHasEveryCanonicalKey" --minimum-expected-tests 1
 
       # A step that fails under continue-on-error still shows the job as green, so the summary page would
       # say nothing. The annotation is what makes the result visible on the pull request itself.
@@ -246,14 +246,13 @@ jobs:
       # --hangdump: once the timeout passes with no test starting or finishing, write a dump and the names of the tests
       # still running, then end the run. A hang used to run out the step limit with no report (#2530). The dump keeps
       # the heap: a mini dump has none, so it can't name the test case that was running.
-      # Treat the timeout as a budget for the whole run, well above the suite's length: on macOS the timer fired 10m20s
-      # to 11m23s into healthy runs once the suite passed 10 minutes, naming a test seconds old, while other runs past
-      # 10 minutes passed (#3874). The step's 45 minutes cover the run, the timeout and the dump, so a real hang still
-      # ends with its dump rather than at the step limit.
+      # HangDump 1.x's mutex made macOS count the whole run (#3874); 2.x signals activity over the pipe.
+      # Keep the 20-minute timeout pending the macOS measurement. The step's 45 minutes cover the run,
+      # the timeout and the dump, so a real hang still ends with its dump rather than at the step limit.
       - name: Run Integration Tests (headless Avalonia UI)
         id: integration
         timeout-minutes: 45
-        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename integration-results.xml --hangdump --hangdump-timeout 20m --hangdump-type Heap
+        run: dotnet test --project HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory HexIDE.Integration.Tests/TestResults --report-xunit --report-xunit-filename integration-results.xml --hangdump --hangdump-timeout 20m --hangdump-type Heap
 
       # xunit records a test case that threw before its test started as an error, and MTP never counts it, so a run
       # could lose hundreds of tests and still pass (#2486). xunit's own report keeps the count.
@@ -277,7 +276,7 @@ jobs:
       - name: Run Runtime Integration Tests (headless Avalonia, the runtime alone)
         id: runtime-integration
         timeout-minutes: 30
-        run: dotnet test HexIDE.Runtime.Integration.Tests/HexIDE.Runtime.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename runtime-integration-results.xml --hangdump --hangdump-timeout 10m --hangdump-type Heap
+        run: dotnet test --project HexIDE.Runtime.Integration.Tests/HexIDE.Runtime.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME_INTEGRATION }} --results-directory HexIDE.Runtime.Integration.Tests/TestResults --report-xunit --report-xunit-filename runtime-integration-results.xml --hangdump --hangdump-timeout 10m --hangdump-type Heap
 
       - name: Check xunit's report for errors MTP does not count (Runtime Integration)
         if: ${{ !cancelled() && steps.runtime-integration.outcome != 'skipped' }}
@@ -328,6 +327,9 @@ jobs:
 
       - name: Build HexIDE.Standalone in Release
         run: dotnet build HexIDE.Standalone -f net11.0 -c Release
+
+      - name: Self-test macOS bundle orchestration
+        run: bash ../scripts/macos-bundle.selftest.sh
 
       - name: Self-test the Release output guard
         run: bash ../scripts/check-release-output.selftest.sh
@@ -400,6 +402,38 @@ jobs:
         with:
           dotnet-version: '11.0.x'
 
+      - name: Verify macOS bundle and repack seals
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rid="osx-arm64"
+          [ "$(uname -m)" = arm64 ] || rid="osx-x64"
+          dotnet publish HexIDE.Desktop -f net11.0 -c Release -r "$rid" --self-contained true -o bin/seal-probe
+          dotnet publish HexIDE.Standalone -f net11.0 -c Release -r "$rid" --self-contained true -o bin/seal-probe/standalone
+          mv bin/seal-probe/HexIDE.Desktop bin/seal-probe/HexIDE
+          # Keyless CI has no packed add-ins. Keep the dotted-folder regression represented.
+          mkdir -p bin/seal-probe/addins/com.hexide.sealprobe
+          cp bin/seal-probe/HexIDE.Desktop.dll bin/seal-probe/addins/com.hexide.sealprobe/probe.dll
+          ../scripts/macos-bundle.sh bin/seal-probe bin/seal-stock/HexIDE.app 0.0.0
+          mkdir -p bin/seal-brand
+          cp HexIDE/Icons/AppIcon/hexide-logo-256.png bin/seal-brand/logo.png
+          cat > bin/seal-brand/brand.json <<'JSON'
+          {"schemaVersion":1,"id":"seal-probe","name":"Seal Probe","logo":"logo.png"}
+          JSON
+          dotnet run --project HexIDE.Repack -- --input bin/seal-stock/HexIDE.app --brand bin/seal-brand/brand.json --output bin/seal-repacked
+          codesign --verify --strict --deep bin/seal-stock/HexIDE.app
+          codesign --verify --strict --deep "bin/seal-repacked/Seal Probe.app"
+          # Data files keep their ad-hoc signatures in extended attributes, so the seal has to survive the
+          # release's own archive format, and a browser's quarantine flag riding along with it (#4507).
+          for app in bin/seal-stock/HexIDE.app "bin/seal-repacked/Seal Probe.app"; do
+            rm -rf bin/seal-tar && mkdir -p bin/seal-tar/x
+            tar -czf bin/seal-tar/app.tar.gz -C "$(dirname "$app")" "$(basename "$app")"
+            xattr -w com.apple.quarantine "0081;$(printf %x "$(date +%s)");Safari;" bin/seal-tar/app.tar.gz
+            tar -xzf bin/seal-tar/app.tar.gz -C bin/seal-tar/x
+            codesign --verify --strict --deep "bin/seal-tar/x/$(basename "$app")"
+          done
+
       # dotnet's MSBuild has a different Roslyn layout; it cannot guard Visual Studio builds (#3124).
       - name: Build the solution with Visual Studio MSBuild
         if: runner.os == 'Windows'
@@ -444,11 +478,11 @@ jobs:
 
       - name: Run Runtime Tests
         timeout-minutes: 30
-        run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME }}
+        run: dotnet test --project HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME }}
 
       - name: Run container reader tests
         timeout-minutes: 30
-        run: dotnet test HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_TWINBASIC }}
+        run: dotnet test --project HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_TWINBASIC }}
 
       # One test speaks to HexIDE's own server over a real process, and nothing in this job has produced
       # it yet. Without this step it skips, and the variable below turns that skip into a failure.
@@ -519,9 +553,9 @@ jobs:
       # with no test failing. The cap is only a backstop for a hang, so headroom costs nothing on a good run.
       # --hangdump and 50 minutes (#2128): on macOS the step took 29 to 33 minutes on 2026-11-16 and once reached 45 while
       # its tests were still making progress. the test runner holds the host's output until the run ends, so that step
-      # kept nothing, not even --long-running's notices. On macOS the hang-dump timer counts the whole run (#3874), so at
-      # 40 minutes it ends a slow run as well as a hung one, with a _hang.log naming what was running. Elsewhere it fires
-      # only after 40 quiet minutes. The step's 50 minutes cover the build, the run, the timeout and the dump.
+      # kept nothing, not even --long-running's notices. HangDump 1.x's mutex made macOS count the whole run
+      # (#3874); 2.x signals activity over the pipe, so the timer counts quiet time on every platform.
+      # Keep 40 minutes pending the macOS measurement. The step's 50 minutes cover build, run, timeout and dump.
       - name: Run ViewModel Tests
         id: viewmodel
         timeout-minutes: 50
@@ -531,9 +565,9 @@ jobs:
           HEXIDE_FOREIGN_LSP_REPORT: ${{ runner.temp }}/foreign-lsp.txt
           HEXIDE_REQUIRE_MADE_PROGRAM: ${{ runner.os == 'Windows' && '1' || '0' }}
         run: >-
-          dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
+          dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
           --minimum-expected-tests ${{ env.MIN_TESTS_IDE }} --long-running 120
-          --results-directory TestResults --report-xunit --report-xunit-filename viewmodel-results.xml
+          --results-directory HexIDE.Tests/TestResults --report-xunit --report-xunit-filename viewmodel-results.xml
           --hangdump --hangdump-type Heap --hangdump-timeout 40m
 
       - name: Name a slow or hung ViewModel test
@@ -568,14 +602,13 @@ jobs:
       # --hangdump: once the timeout passes with no test starting or finishing, write a dump and the names of the tests
       # still running, then end the run. A hang used to run out the step limit with no report (#2530). The dump keeps
       # the heap: a mini dump has none, so it can't name the test case that was running.
-      # Treat the timeout as a budget for the whole run, well above the suite's length: on macOS the timer fired 10m20s
-      # to 11m23s into healthy runs once the suite passed 10 minutes, naming a test seconds old, while other runs past
-      # 10 minutes passed (#3874). The step's 45 minutes cover the run, the timeout and the dump, so a real hang still
-      # ends with its dump rather than at the step limit.
+      # HangDump 1.x's mutex made macOS count the whole run (#3874); 2.x signals activity over the pipe.
+      # Keep the 20-minute timeout pending the macOS measurement. The step's 45 minutes cover the run,
+      # the timeout and the dump, so a real hang still ends with its dump rather than at the step limit.
       - name: Run Integration Tests (headless Avalonia UI)
         id: integration
         timeout-minutes: 45
-        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename integration-results.xml --hangdump --hangdump-timeout 20m --hangdump-type Heap
+        run: dotnet test --project HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory HexIDE.Integration.Tests/TestResults --report-xunit --report-xunit-filename integration-results.xml --hangdump --hangdump-timeout 20m --hangdump-type Heap
 
       # As in build-ide: errors xunit records and MTP never counts (#2486).
       - name: Check xunit's report for errors MTP does not count
@@ -598,7 +631,7 @@ jobs:
       - name: Run Runtime Integration Tests (headless Avalonia, the runtime alone)
         id: runtime-integration
         timeout-minutes: 30
-        run: dotnet test HexIDE.Runtime.Integration.Tests/HexIDE.Runtime.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename runtime-integration-results.xml --hangdump --hangdump-timeout 10m --hangdump-type Heap
+        run: dotnet test --project HexIDE.Runtime.Integration.Tests/HexIDE.Runtime.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME_INTEGRATION }} --results-directory HexIDE.Runtime.Integration.Tests/TestResults --report-xunit --report-xunit-filename runtime-integration-results.xml --hangdump --hangdump-timeout 10m --hangdump-type Heap
 
       - name: Check xunit's report for errors MTP does not count (Runtime Integration)
         if: ${{ !cancelled() && steps.runtime-integration.outcome != 'skipped' }}
@@ -662,7 +695,7 @@ jobs:
 
       - name: Run VB LSP Server Tests
         timeout-minutes: 30
-        run: dotnet test HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_LSP_SERVER }}
+        run: dotnet test --project HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_LSP_SERVER }}
 
       - name: Build VB LSP Server
         run: dotnet build HexIDE.VbLspServer/HexIDE.VbLspServer.csproj

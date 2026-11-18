@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} już istnieje. Czy chcesz go zastąpić?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} został wczytany z błędami, więc nie można nim nadpisać oryginalnego pliku. Wybierz nową nazwę pliku.",
     "Str.ProjectLoad.PropertyNotSet": "Wiersz {0}: nie można ustawić właściwości {1} w {2}.",
     "Str.Menu.Edit.Refactor": "_Refaktoryzacja",
@@ -372,6 +373,7 @@
     "Str.Menu.Help.LogFolder": "Otwórz folder _dzienników HexIDE",
     "Str.Help.LogFolder.OpenFailed": "Nie można otworzyć folderu dzienników. Możesz otworzyć go ręcznie: {0}",
     "Str.Menu.Help.About": "_O programie HexIDE...",
+    "Str.Menu.MacApp.About": "O programie HexIDE",
     "Str.Menu.GoToGithubRepo": "Przejdź do repozytorium github",
     "Str.NewProject.NoTemplates": "Ten profil nie oferuje szablonów nowych projektów. Otwórz istniejący projekt.",
     "Str.NewProject.Msg.NoStandardExe": "W {0} nie zainstalowano typu projektu tworzącego projekt Standard EXE, więc program uruchomiono bez projektu.",

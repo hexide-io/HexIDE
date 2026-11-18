@@ -2,6 +2,7 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} jau yra. Ar norite jį pakeisti?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} įkeltas su klaidomis, todėl negalima jo įrašyti vietoje pradinio failo. Pasirinkite naują failo vardą.",
     "Str.ProjectLoad.PropertyNotSet": "{0} eilutė: nepavyko nustatyti {2} ypatybės {1}.",
     "Str.Menu.Edit.Refactor": "_Refaktorizavimas",
@@ -333,6 +334,7 @@
     "Str.Menu.Help.LogFolder": "Atverti HexIDE žurna_lų aplanką",
     "Str.Help.LogFolder.OpenFailed": "Nepavyko atverti žurnalų aplanko. Galite jį atverti rankiniu būdu: {0}",
     "Str.Menu.Help.About": "_Apie HexIDE...",
+    "Str.Menu.MacApp.About": "Apie HexIDE",
     "Str.Menu.GoToGithubRepo": "Atverti GitHub saugyklą",
     "Str.ProjectType.StandardEXE": "Standartinė EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",

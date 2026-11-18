@@ -169,6 +169,33 @@ public static class PackageSigner
         Console.WriteLine($"Signed revocation list -> {Path.Combine(outDir, "revocations.json")}");
     }
 
+    /// <summary>Checks a signed revocation list against a root public key, needing no private key. It reads the pair
+    /// as <c>HexIDE.Addins.RevocationStore</c> does: the JSON's exact bytes, the signature's text trimmed, then the JSON
+    /// parsed. Returns whether the list would be accepted, and says which way on the console.</summary>
+    public static bool VerifyRevocations(string jsonPath, string sigPath, string rootPublicKeyPath)
+    {
+        var jsonBytes = File.ReadAllBytes(jsonPath);
+        var signature = File.ReadAllText(sigPath).Trim();
+        var rootPub = File.ReadAllText(rootPublicKeyPath).Trim();
+        var fingerprint = PackageCrypto.KeyFingerprint(rootPub);
+        using var root = PackageCrypto.ImportPublicKey(rootPub);
+        if (!PackageCrypto.Verify(root, jsonBytes, signature))
+        {
+            Console.Error.WriteLine($"Revocation list {jsonPath} does NOT verify against root {fingerprint}");
+            return false;
+        }
+        RevocationList? list;
+        try { list = JsonSerializer.Deserialize(jsonBytes, RevocationJsonContext.Default.RevocationList); }
+        catch (JsonException ex) { list = null; Console.Error.WriteLine(ex.Message); }
+        if (list is null)
+        {
+            Console.Error.WriteLine($"Revocation list {jsonPath} verifies against root {fingerprint} but doesn't parse");
+            return false;
+        }
+        Console.WriteLine($"Verified: revocation list issued {list.IssuedUtc} verifies against root {fingerprint}");
+        return true;
+    }
+
     /// <summary>Issues a publisher's public key using an offline intermediate signing key.</summary>
     public static void SignPublisher(string rootPublicKeyPath, string intermediateKeyPath, string intermediateDir,
         string publisherId, string displayName, string publicKeyPath, string outDir, IReadOnlyList<string>? namespaces = null)

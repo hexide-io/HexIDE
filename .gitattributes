@@ -5,6 +5,11 @@ scripts/hooks/pre-commit text eol=lf
 # Read by check-licences.sh, whose awk keeps a CR as part of the last field, so a CRLF copy fails every licence (#2589).
 *.tsv text eol=lf
 
+# The bundled add-in revocation list is verified over its exact bytes against the root (#4534). Stored and checked
+# out unchanged on every OS: a CRLF copy no longer verifies, and RevocationStoreTests checks the pair verifies.
+IDE/HexIDE/Addins/Trust/revocations.json -text
+IDE/HexIDE/Addins/Trust/revocations.sig -text
+
 # VB6 source is CRLF by format convention: VB6 wrote it that way, HexIDE writes it that way, and
 # SerializationCorpusTests compares bytes. Without these rules a Linux/macOS checkout normalizes the
 # demo projects to LF, so every demo module fails the round-trip gate on CI while passing on a
@@ -43,3 +48,8 @@ scripts/hooks/pre-commit text eol=lf
 # 2026-10-26 lost a PR to exactly that. union keeps both sides. It is built into git, so the local batch merge honours
 # it, though GitHub's own mergeability check does not. Only for a file whose edits are pure appends.
 docs/vb6-fidelity-oracle/README.md merge=union
+
+# The first-party chain's records are signed over their exact bytes, which are CRLF. Stored and checked out
+# byte for byte on every OS: without this a Linux or macOS checkout got LF, and its release packed records its own
+# root refuses, so AI Chat didn't load there (#4529). CommittedFirstPartyChainTests verifies them on every OS.
+IDE/HexIDE.AddinPacker/firstparty/*.json -text

@@ -108,14 +108,14 @@ public class SignatureHelpShapeTests
         await using var log = new ConversationLog();
         log.Arm("probe", true);
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
-        using var server = new JsonRpc(new HeaderDelimitedMessageHandler(serverSide, serverSide,
+        using var server = new JsonRpc(new LspMessageHandler(serverSide, serverSide,
             new SystemTextJsonFormatter()), new Server(label));
         server.StartListening();
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
         await using var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(),
             "vb6", capture: log, connectionId: "probe");
         await client.StartAsync(TestContext.Current.CancellationToken);

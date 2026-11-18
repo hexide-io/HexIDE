@@ -193,6 +193,27 @@ Changing the UI language does not automatically restart servers (#2210).
 A connection records one `disconnected:` lifecycle entry even when client teardown finishes before
 the transport reports its hangup. A disconnection during client shutdown is not a fault (#4273).
 
+Byte-stream transports and test stand-ins use `LspMessageHandler` (#4484). It retains the stream
+ownership of StreamJsonRpc's Stream constructor, with explicit .NET adapters and a private read-buffer
+pool per connection. StreamJsonRpc's read loop can release a buffer in its last `AdvanceTo` while
+`DisposeReader` completes the reader on another thread. Returning the same shared buffer twice lets
+other connections rent it simultaneously and read each other's bytes. This is a StreamJsonRpc race,
+rather than a .NET or Nerdbank adapter fault. The connection pool wraps its own `ArrayPool<byte>`;
+each owner returns its array at most once using an interlocked swap. Second disposals are counted,
+and the first per connection is logged at Debug. Arrays are reused within that connection and become
+collectible with it. The handler closes its write stream after completing the writer and its separate
+read stream on disposal, including cancellation of reads that ignore their token. A stream used both ways
+(TCP, named pipes) is closed only once its last write ends, so a server that stops reading holds the
+connection open until its transport closes it. Every transport closes its socket or pipe right after RPC
+disposal, on stop, restart and reconnect, and `BlockedConnectionStopTests` checks TCP and named pipes.
+
+The [#3520 measurements](https://github.com/hexide-io/HexIDE/issues/3520) caught both release stacks
+as connections ended. Round 8 suppressed three second disposals and observed zero subsequent rents
+from those pools. The per-connection TCP arm checked 2.51 million frames over 240,000 teardowns; the
+in-memory arm checked 827,000 over 122,000. Both recorded zero bad frames. The race is reported upstream
+as [microsoft/vs-streamjsonrpc#1605](https://github.com/microsoft/vs-streamjsonrpc/issues/1605). These
+measurements support a mitigation, rather than a claim that teardown is race-free.
+
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
 Once `shutdown` is sent, the common outbound RPC gate permits no request or notification but `exit`, including
@@ -201,6 +222,18 @@ during a workspace-root restart (#2924). Replies still go: a server may ask some
 connection before `exit` could be sent. Pending folder updates and imports for that connection are dropped; the replacement
 receives the current folders in `initialize` and its own project import. When the connection ends,
 unanswered requests are marked Abandoned in the protocol inspector.
+When `exit` was sent successfully, stdio closes the server's stdin and TCP shuts down its send side.
+The client then waits at most `ServerOutputEndTimeout` (one second) for RPC completion, so the server
+can finish its output before reader disposal. Named pipes cannot half-close and use the pool guard;
+WebSockets are unchanged. An attached transport that leaves its server running is never half-closed.
+If sending `exit` timed out behind a blocked write, half-close and this wait are skipped. Afterwards
+the existing order remains: dispose RPC, then dispose the transport. Closing stdin is essential for
+servers such as rumdl that wait for end-of-input even after receiving `exit`. The other RPC disposal
+sites (abandoned handshake, reconnect and unanswered-initialize restart) retain their order and
+rely on the connection pool guard.
+The registry stops all its servers at once, so these waits overlap: stopping several servers takes
+about as long as the slowest one, not the sum of them.
+
 Before an initialize reply, neither message is sent. An externally owned pipe server receives neither
 on stop: HexIDE closes only its connection. On Windows, a launched pipe server gets two seconds to
 exit before HexIDE kills its remaining process tree, including during bring-up (#313). Windows stdio
@@ -376,6 +409,14 @@ Stopping has a deadline of its own, `VBLspClient.ShutdownTimeout` (two seconds),
 answer to `shutdown`, and once to sending `exit`. The second is what the first does not cover. A server that
 has stopped reading fills the pipe, so the write ahead of `exit` never finishes, and `exit` once waited behind
 it for good. Then the connection is disposed, which ends the stuck writes (#1221).
+
+`WireStressTests` independently checks framing beside unchecked connections torn down mid-write.
+Set `HEXIDE_WIRE_STRESS_SECONDS`, `HEXIDE_WIRE_STRESS_CHURN=12`, and
+`HEXIDE_WIRE_STRESS_CHURN_ORDER` to `stdio-client-first`, `stdio-half-close`, or `tcp-client-first`.
+The stdio arms use two anonymous pipes; the half-close arm drains sends, closes input and waits for
+output to end before RPC disposal. With no churn, a 60-second run reports allocations per checked
+frame and frames per second. All runs report checked frames, bad frames, teardowns and managed memory
+after full GC. Clients use `NullLogger`, so the harness does not retain logged cancellation exceptions.
 
 `FaultServerTests` drives these paths with a server that misbehaves on demand. It ignores `shutdown`, stops
 reading, never answers, stalls or dies halfway through a reply, and sends malformed frames, floods and
@@ -1494,8 +1535,9 @@ refresh requests are pending. Code windows replace their cached hints and semant
 Carried-file editors draw diagnostics only, with no hint or semantic-token renderer, so a refresh
 doesn't ask the server anything for them.
 
-`rdcore.showReferences` and `editor.action.showReferences` fill the existing Find References pane from
-the locations in the third argument, without asking for references again. Other lens commands use
+`rdcore.showReferences` (unless claimed by its offering connection) and `editor.action.showReferences`
+fill the existing Find References pane from the locations in the third argument, without asking for
+references again. Claimed commands use the contributed-command route below. Other lens commands use
 the declared-command routing below; undeclared commands are logged once per command.
 
 **A command is routed by who declared it, not by the document.** Every other request here is about a file,
@@ -1672,8 +1714,9 @@ already can't reach a server it didn't contribute.
 
 Code actions and lens commands route to their producing connection. A declared command still goes to
 that server as `workspace/executeCommand`; otherwise its claimed handler runs on the thread pool with
-the original arguments. Core's existing rename and references commands take precedence. Another
-server's action or lens cannot invoke the claim. Handler failures are logged in full and shown with
+the original arguments. A claim by the offering connection takes precedence over core's
+`rdcore.rename` and `rdcore.showReferences` handlers (#4259). The generic `editor.action.rename` and
+`editor.action.showReferences` commands always use core. Another server's action or lens cannot invoke the claim. Handler failures are logged in full and shown with
 only their message, through the action's refusal path or the lens's status bar.
 
 `IAddinServerConnection.ApplyEditAsync` uses the same workspace applier and user-command window as
@@ -1684,6 +1727,17 @@ window; removal and stop also cancel the handler's token. An accepted edit shows
 naming the server and the action or lens title. Code windows have no undo labels.
 `AddinServerRegistrationTests` and `ServerApplyEditTests` cover routing, isolation, checked edits,
 attribution and message-only failures. Settings and publisher namespace binding are separate work.
+
+`IAddinServerConnection.StartRenameAsync(uri, position, cancellationToken)` opens the document if needed,
+checks the position, navigates and uses the existing rename refusal checks and prompt. It returns false
+if the document cannot be opened or the position is outside it, and true when handled.
+`ShowReferencesAsync(locations, cancellationToken)` fills Find References with the supplied locations.
+Both marshal to the UI thread and are allowed only while that connection's claimed-command handler is
+running, like `ApplyEditAsync`. Outside that window they throw `InvalidOperationException` and show
+nothing. Core and the host calls share the same actions, including the code window's current VB6
+new-name validation. Core's `rdcore.*` cases remain until RDCore's add-in ships both claims (#4259 step 3).
+`AddinCodeEditorCommandTests` covers precedence, the host calls, their dispatcher route and their window;
+a live check with RDCore follows when its add-in claims them.
 
 ### Server questions (#2908)
 
@@ -1713,8 +1767,9 @@ After the code window's protected-line and declared-name checks, pending text is
 opened claimant advertising `renameProvider.prepareProvider: true` is asked `textDocument/prepareRename`.
 Any null or error reply prevents the prompt; an error's reason uses the existing refusal dialog.
 The first participating claimant's range or placeholder seeds the prompt. A `defaultBehavior: true`
-reply keeps the existing word, as do servers without preparation support. Menu and keymap Rename and
-the `rdcore.rename` / `editor.action.rename` client commands share this preparation and prompt flow. Initialize declares
+reply keeps the existing word, as do servers without preparation support. Menu and keymap Rename,
+`editor.action.rename`, the unclaimed `rdcore.rename` compatibility case and
+`IAddinServerConnection.StartRenameAsync` share this preparation and prompt flow. Initialize declares
 `textDocument.rename.prepareSupport: true` and `prepareSupportDefaultBehavior: 1`.
 
 ## Coverage against the specification
@@ -2099,8 +2154,10 @@ the connection first requests `workspace/diagnostic/refresh`, after which server
 for that connection alone. The client declares `workspace.diagnostics.refreshSupport: true` in
 `initialize`, so servers can request that refresh. Pinned rumdl 0.2.79 still sends this request
 with `"params":null` (measured 2026-11-16, [#4144](https://github.com/hexide-io/HexIDE/issues/4144));
-the formatter removes that invalid member and the client answers with `"result":null`. The repair
-remains for compatibility with servers that emit this shape.
+StreamJsonRpc 2.26.150 decodes it directly and the client answers with `"result":null`, without an
+undecodable-frame fault or a recovery note ([#4472](https://github.com/hexide-io/HexIDE/issues/4472)).
+The reply completes the refresh request's own conversation entry as `Answered`. The null-params
+repair remains a fallback if a formatter rejects this shape again.
 Automatic transport reconnect currently replays documents but does not re-import until the next
 project change; immediate imports cover registry startup and workspace-root replacement.
 Projects without a saved path are reported rather than assigned an invented project URI. Folder updates
@@ -2149,7 +2206,8 @@ flushed before its command runs. A command is sent to the originating server onl
 command in `executeCommandProvider.commands`.
 Client commands share the code-lens handler: `rdcore.rename` and `editor.action.rename` open HexIDE’s
 rename at the supplied URI and position; the show-references aliases display the supplied locations.
-Other unlisted commands produce a localized refusal naming the command. Server-initiated
+An offering connection's claim precedes either `rdcore.*` compatibility case (#4259). Other unlisted,
+unclaimed commands produce a localized refusal naming the command. Server-initiated
 `workspace/applyEdit` is handled separately (#2908); see its own section.
 
 The client declares `codeActionLiteralSupport`, `dataSupport`, `disabledSupport` and `resolveSupport`

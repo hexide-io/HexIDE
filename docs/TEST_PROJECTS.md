@@ -26,7 +26,7 @@ does.
 To run the corpus tests locally:
 
 ```
-cd IDE && dotnet test HexIDE.Runtime.Tests/ -- --filter-class "*SerializationCorpusTests"
+cd IDE && dotnet test --project HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --filter-class "*SerializationCorpusTests"
 ```
 
 There is no test category or trait to filter on — `[Trait]` is not used anywhere in `IDE/`, so filter by

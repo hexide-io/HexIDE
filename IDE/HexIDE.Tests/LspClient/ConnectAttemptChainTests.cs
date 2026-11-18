@@ -119,7 +119,7 @@ public class ConnectAttemptChainTests : IAsyncDisposable
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
         var sut = ClientOver(transport, initializeTimeout: TimeSpan.FromMilliseconds(250));
 
@@ -144,14 +144,14 @@ public class ConnectAttemptChainTests : IAsyncDisposable
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
         var server = new MinimalServer();
         var serverRpc = new JsonRpc(
-            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
+            new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
         serverRpc.StartListening();
 
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
         var sut = ClientOver(transport);
 

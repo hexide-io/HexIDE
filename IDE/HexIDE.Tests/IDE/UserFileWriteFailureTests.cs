@@ -109,14 +109,14 @@ public sealed class UserFileWriteFailureTests : IDisposable
             image.SetProperty(VBProperties.PictureProperty, new byte[] { 1, 2, 3, 4 });
             designer.FormPart!.UpdateComponents([.. designer.FormPart.Components, image]);
         }
-        var deletesCompanion = name == "cleared picture";
-        if (deletesCompanion)
+        var clearedPicture = name == "cleared picture";
+        if (clearedPicture)
         {
             form.RecordCitedCompanionBlobCount(1);
             form.Components[0].SetProperty(VBProperties.IconProperty, null);
         }
         string[] existing = name == "all" ? ["Form1.frm", "Form1.frx", "Module1.bas", "Project1.vbp"]
-            : [deletesCompanion ? "Form1.frx" : name];
+            : [clearedPicture ? "Form1.frx" : name];
         foreach (var file in existing)
             File.WriteAllText(Target(file), "user data");
         windows.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning)
@@ -128,8 +128,8 @@ public sealed class UserFileWriteFailureTests : IDisposable
             await save();
             foreach (var file in existing)
             {
-                if (deletesCompanion)
-                    File.Exists(Target(file)).Should().BeFalse();
+                if (clearedPicture)
+                    File.ReadAllText(Target(file)).Should().Be("user data", "a directory copy must not delete an orphan companion (#4505)");
                 else
                     File.ReadAllText(Target(file)).Should().NotBe("user data");
             }
@@ -226,6 +226,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
     [InlineData("Made.exe")]
     public async Task MakePreservesEachOutputOnPartialWrite(string name)
     {
+        windows.MessageBox(default!).ReturnsForAnyArgs(MessageBoxResult.Yes);
         var target = Target(name);
         Fail(target);
         windows.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning)
@@ -250,6 +251,9 @@ public sealed class UserFileWriteFailureTests : IDisposable
     [InlineData(MessageBoxResult.Cancel)]
     public async Task MakeAsksBeforeReplacingDerivedArchive(MessageBoxResult answer)
     {
+        // Agree to the executable replacement so this test still reaches the archive question (#4505).
+        windows.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning,
+            layout: MessageBoxLayout.SecondButtonDefault).Returns(MessageBoxResult.Yes);
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles").Returns("Replace these existing files?\n{0}");
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,

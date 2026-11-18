@@ -53,7 +53,7 @@ public static class VbDisplay
         decimal m => Exact(m, culture),
         VbDate dt => Date(dt.Instant, culture),
         // The integer types have no separator to take from the locale, only a sign, which is always ASCII.
-        byte or short or int or long => ((IFormattable)value.Value).ToString(null, CultureInfo.InvariantCulture),
+        byte or short or int or long or uint => ((IFormattable)value.Value).ToString(null, CultureInfo.InvariantCulture),
         _ => value.Value.ToString() ?? "",
     };
 

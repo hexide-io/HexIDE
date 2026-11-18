@@ -2,6 +2,7 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} 已存在。是否要取代它？",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} 載入時發生錯誤，因此無法覆寫原始檔案。請選擇新的檔案名稱。",
     "Str.ProjectLoad.PropertyNotSet": "第 {0} 行：無法設定 {2} 的屬性 {1}。",
     "Str.Menu.Edit.Refactor": "重構",
@@ -366,6 +367,7 @@
     "Str.Menu.Help.LogFolder": "開啟 HexIDE 記錄資料夾(_L)",
     "Str.Help.LogFolder.OpenFailed": "無法開啟記錄資料夾。您可以手動開啟：{0}",
     "Str.Menu.Help.About": "關於 HexIDE(_A)...",
+    "Str.Menu.MacApp.About": "關於 HexIDE",
     "Str.Menu.GoToGithubRepo": "前往 github 儲存庫",
     "Str.NewProject.NoTemplates": "此設定檔未提供新專案範本。請開啟現有專案。",
     "Str.NewProject.Msg.NoStandardExe": "{0} 未安裝可建立 Standard EXE 專案的專案類型，因此啟動時未建立專案。",

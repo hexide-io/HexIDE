@@ -2,6 +2,7 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} jau pastāv. Vai vēlaties to aizstāt?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} tika ielādēts ar kļūdām, tāpēc to nevar saglabāt, pārrakstot sākotnējo failu. Izvēlieties jaunu faila nosaukumu.",
     "Str.ProjectLoad.PropertyNotSet": "{0}. rinda: neizdevās iestatīt {2} rekvizītu {1}.",
     "Str.Menu.Edit.Refactor": "_Refaktorēšana",
@@ -333,6 +334,7 @@
     "Str.Menu.Help.LogFolder": "Atvērt HexIDE žurnā_lu mapi",
     "Str.Help.LogFolder.OpenFailed": "Neizdevās atvērt žurnālu mapi. Varat to atvērt manuāli: {0}",
     "Str.Menu.Help.About": "_Par HexIDE...",
+    "Str.Menu.MacApp.About": "Par HexIDE",
     "Str.Menu.GoToGithubRepo": "Atvērt GitHub repozitoriju",
     "Str.ProjectType.StandardEXE": "Standarta EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",

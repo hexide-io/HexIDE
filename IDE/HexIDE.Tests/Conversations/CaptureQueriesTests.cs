@@ -65,12 +65,12 @@ public class CaptureQueriesTests : IAsyncDisposable
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
 
         var peer = new JsonRpc(
-            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
+            new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
             new Server(_release.Task));
         peer.StartListening();
 
         var tapped = new CapturingFormatter(new SystemTextJsonFormatter(), _log, connectionId);
-        var client = new JsonRpc(new HeaderDelimitedMessageHandler(clientSide, clientSide, tapped));
+        var client = new JsonRpc(new LspMessageHandler(clientSide, clientSide, tapped));
         client.StartListening();
 
         _disposables.Add(peer);
@@ -703,12 +703,12 @@ public class CaptureQueriesTests : IAsyncDisposable
 
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
         var peer = new JsonRpc(
-            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
+            new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
             new Server(_release.Task));
         peer.StartListening();
         _disposables.Add(peer);
 
-        var client = new JsonRpc(new HeaderDelimitedMessageHandler(
+        var client = new JsonRpc(new LspMessageHandler(
             clientSide, clientSide, new CapturingFormatter(new SystemTextJsonFormatter(), armed, "late")));
         client.StartListening();
         _disposables.Add(client);

@@ -20,6 +20,23 @@ operations do.
 
 ## Requirements
 
+### Requirement: Windowless controls draw below windowed siblings regardless of file order
+
+Within each container, the designer SHALL draw Label, Shape, Line and Image below windowed siblings,
+regardless of their block order in the file. The existing first-block-on-top rule SHALL remain within
+each plane. An unedited form SHALL remain clean and SHALL NOT be rewritten. A save after an edit SHALL
+write windowed blocks before windowless blocks, preserving each plane's order and every property,
+including TabIndex, as measured in [#1517](https://github.com/hexide-io/HexIDE/issues/1517) and
+[oracle PR #4518](https://github.com/hexide-io/HexIDE/pull/4518).
+
+#### Scenario: A Label precedes a button in a hand-edited form
+
+- **WHEN** the form opens with a Label block before a CommandButton block in the same container
+- **THEN** the Label draws underneath the button and the form has no unsaved changes
+- **WHEN** the developer edits the code and saves
+- **THEN** the button block precedes the Label block, with their property lines unchanged
+- **AND** the same rule applies independently to nested containers
+
 ### Requirement: A control designer double-click writes its measured default event
 
 The designer SHALL use the declared default event independently of event-list order, matching the

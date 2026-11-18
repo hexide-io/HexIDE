@@ -2159,7 +2159,8 @@ public sealed class VBLspClient : ILspClient
                     await ExecuteCodeLensCommandAsync(cmd with { Title = title }, ct);
                 }, documentFor, cmd => ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, cmd.CommandName) || _claimedCommands.ContainsKey(cmd.CommandName),
                 Kind: payload.TryGetProperty("kind", out var kind) ? kind.GetString() : null,
-                IsQuickFix: payload.TryGetProperty("diagnostics", out var fixes) && fixes.ValueKind == JsonValueKind.Array && fixes.GetArrayLength() > 0);
+                IsQuickFix: payload.TryGetProperty("diagnostics", out var fixes) && fixes.ValueKind == JsonValueKind.Array && fixes.GetArrayLength() > 0,
+                IsClaimed: cmd => HasClaimedCommand(cmd.CommandName));
         }
 
         var response = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/codeAction",
@@ -2433,6 +2434,18 @@ public sealed class VBLspClient : ILspClient
     private Func<CancellationToken> _addinLifetime = () => default;
     internal void SetCommandLifetime(Func<CancellationToken> lifetime) => _addinLifetime = lifetime;
 
+    public bool IsClaimedCodeLensCommand(Command command) => HasClaimedCommand(command.CommandName);
+
+    internal CancellationToken ClaimedCommandLifetime() => !_stopping && RunningUserCommand(claimedOnly: true) is { } running
+        ? running.Lifetime
+        : throw new InvalidOperationException("Code-window actions require a running claimed-command handler.");
+
+    private UserCommand? RunningUserCommand(bool claimedOnly) => _userCommands.Keys
+        .Where(command => command.Connection == Volatile.Read(ref _connection)
+            && (!claimedOnly || command.Claimed) && !command.Lifetime.IsCancellationRequested
+            && Volatile.Read(ref command.Pending) is not { IsCompleted: true })
+        .OrderBy(command => command.Order).FirstOrDefault();
+
     public async Task ExecuteCodeLensCommandAsync(Command command, CancellationToken cancellationToken = default)
     {
         if (ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, command.CommandName))
@@ -2478,11 +2491,7 @@ public sealed class VBLspClient : ILspClient
                 { LocalizationKey = key, IsEditRefusal = true });
             return new(false, reason);
         }
-        var running = _userCommands.Keys
-            .Where(command => command.Connection == Volatile.Read(ref _connection)
-                && (!claimedOnly || command.Claimed) && !command.Lifetime.IsCancellationRequested
-                && Volatile.Read(ref command.Pending) is not { IsCompleted: true })
-            .OrderBy(command => command.Order).FirstOrDefault();
+        var running = RunningUserCommand(claimedOnly);
         if (_stopping || running is null)
             return Refuse(HexIDE.IDE.Distribution.DisplayName + " applies a server's edits only while a command the user started is running.", "Str.Lsp.EditRequiresUserCommand");
         if (_applyEdit is not { } apply)
@@ -2670,6 +2679,10 @@ public sealed class VBLspClient : ILspClient
     /// <summary>How long stopping waits on a server, once for the answer to <c>shutdown</c> and once for <c>exit</c> to go out.</summary>
     internal static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(2);
 
+    // One second lets a cooperative peer finish its last output; it bounds the extra stop cost
+    // when a peer accepts exit but keeps its output open (#4484).
+    internal static readonly TimeSpan ServerOutputEndTimeout = TimeSpan.FromSeconds(1);
+
     public async Task StopAsync()
     {
         if (_settings is not null) _settings.PropertyChanged -= OnSettingsChanged;
@@ -2718,6 +2731,13 @@ public sealed class VBLspClient : ILspClient
             {
                 await rpc.NotifyWithParameterObjectAsync("exit", null).WaitAsync(ShutdownTimeout);
                 if (shutdownAnswered) _transport.ShutdownCompleted();
+                // Only a sent exit permits half-close. If its write timed out, DisposeRpc below must
+                // end stuck writes immediately (#1221). Attached servers never enter this path.
+                if (_transport.TryEndOutput())
+                {
+                    try { await rpc.Completion.WaitAsync(ServerOutputEndTimeout); }
+                    catch { /* bounded best effort: retain RPC-before-transport disposal */ }
+                }
             }
             catch { }
         }

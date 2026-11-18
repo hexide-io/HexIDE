@@ -74,6 +74,17 @@ successful incoming response with matching `request_seq` and command. Incoming i
 output, exited and terminated frames are inspected; a returned call alone is never the assertion.
 The tests consume the session update queue and put a deadline around the whole exchange.
 
+For netcoredbg, each session sets `LOG_OUTPUT` to a file in its own folder, preserving the
+resolved environment. On any failure the test writes that native log after the DAP conversation,
+and includes its last 40 lines and the adapter's stderr tail in the exception message before
+removing the folder. Missing or empty logs are identified explicitly. At the pinned version,
+`IfFailRet` logs the failing call and HRESULT: a line naming `CreateProcessForLaunch`,
+`RegisterForRuntimeStartup` or `ResumeProcess` identifies that failure. The 5 s runtime-startup
+wait returns `E_FAIL` without logging a failing call, so no such line points toward that wait;
+it does not prove the cause. See [#4509](https://github.com/hexide-io/HexIDE/issues/4509).
+A real-adapter negative test launches a nonexistent program and requires the native failing-call
+line in the resulting exception message.
+
 ## Linux findings (2026-11-07)
 
 Both complete sessions passed against the existing client; no product-code accommodation was required.

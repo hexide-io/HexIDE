@@ -134,8 +134,9 @@ establishing VB6 receive them. Extension claims route them; the bundled server r
 Sessions send `didOpen` and `didClose`, with no changes, and close on tab/container close or reload.
 Locked projects have no modules and no sessions. Diagnostics appear as markers; no source is written back.
 F5, Run and Make cannot implicitly fall through to a loaded startup project while an Office node or tab
-is active; running Office code remains #1121. Synchronize Folder, Show Hidden, twinBASIC metadata and
-inactive-line shading remain twinBASIC capabilities.
+is active. Running Office code is [#4479](https://github.com/hexide-io/HexIDE/issues/4479), and it will ask first through the
+trust prompt #1121 built. Synchronize Folder, Show Hidden, twinBASIC metadata and inactive-line shading
+remain twinBASIC capabilities.
 
 `OfficeProjectBrowsingTests` use the [measured Office corpus](../corpus/office/m365-x64/README.md).
 Headless `ArchiveProjectBrowsingTests` exercise the tree, text notice, diagnostic markers, session lifetime

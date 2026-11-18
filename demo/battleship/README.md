@@ -50,4 +50,4 @@ arrays, and `WithEvents` — runs identically to VB6, which is exactly what this
 - **Build** (needs VB6 installed): `VB6.EXE /make Battleship.vbp`, then run `Battleship.exe`. It writes `output.txt`
   next to itself.
 - **In HexIDE's interpreter:** the same program is the `BattleshipChallenge` test in
-  `IDE/HexIDE.Runtime.Tests/` — from `IDE/`, `dotnet test HexIDE.Runtime.Tests/ -- --filter-class "*BattleshipChallenge"`.
+  `IDE/HexIDE.Runtime.Tests/` — from `IDE/`, `dotnet test --project HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --filter-class "*BattleshipChallenge"`.

@@ -233,18 +233,20 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
     // ── Faults: failures that are not a request's outcome (#945) ────────────
 
     [Fact]
-    public async Task A_frame_repaired_after_a_null_params_is_a_fault_and_its_repair_is_not()
+    public async Task A_null_params_frame_decodes_as_a_request_without_a_fault_or_repair()
     {
         using var formatter = Formatter();
 
-        formatter.Deserialize(new ReadOnlySequence<byte>(
-            Encoding.UTF8.GetBytes("""{"jsonrpc":"2.0","method":"window/logMessage","params":null}""")));
+        var message = formatter.Deserialize(new ReadOnlySequence<byte>(
+            Encoding.UTF8.GetBytes("""{"jsonrpc":"2.0","id":1,"method":"workspace/diagnostic/refresh","params":null}""")));
 
-        var notes = (await EntriesAsync()).Where(e => e.Kind == ConversationEntryKind.Note).ToList();
-        notes.Should().HaveCount(2);
-        notes[0].Fault.Should().BeTrue("the server sent a frame JSON-RPC does not permit");
-        notes[1].Detail.Should().StartWith("recovered:");
-        notes[1].Fault.Should().BeFalse("the repair is the capture's remark, not a second failure");
+        message.Should().BeAssignableTo<JsonRpcRequest>();
+        var entries = await EntriesAsync();
+        entries.Should().ContainSingle();
+        entries[0].Kind.Should().Be(ConversationEntryKind.Request);
+        entries[0].Method.Should().Be("workspace/diagnostic/refresh");
+        entries.Should().NotContain(e => e.Fault);
+        entries.Should().NotContain(e => e.Detail != null && e.Detail.StartsWith("recovered:"));
     }
 
     [Fact]
@@ -464,13 +466,13 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
             _clientSide = clientSide;
 
             var serverRpc = new JsonRpc(
-                new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
+                new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
                 new AnswersTheHandshake(this));
             _rpcs.Add(serverRpc);
             serverRpc.StartListening();
 
             return Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, formatter));
+                new LspMessageHandler(clientSide, clientSide, formatter));
         }
 
         public ValueTask DisposeAsync()

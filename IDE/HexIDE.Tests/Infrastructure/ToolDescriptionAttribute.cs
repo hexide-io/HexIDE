@@ -4,7 +4,7 @@ namespace HexIDE.Tests.Infrastructure;
 
 /// <summary>
 /// Includes a class in the tool and parameter description checks.
-/// Run from IDE with: dotnet test HexIDE.Tests/ -- --filter-trait "Category=ToolDescription"
+/// Run from IDE with: dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj -- --filter-trait "Category=ToolDescription"
 /// </summary>
 [AttributeUsage(AttributeTargets.Class)]
 public sealed class ToolDescriptionAttribute : Attribute, ITraitAttribute

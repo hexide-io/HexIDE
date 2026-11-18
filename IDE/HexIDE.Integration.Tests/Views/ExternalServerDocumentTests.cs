@@ -44,14 +44,14 @@ public class ExternalServerDocumentTests
                     () => ServerMessagePrompt.Show(owner, title, request, token, defaultAction)));
             var navigation = new ServerDocumentNavigation(queue, localization, launcher);
             var (local, remote) = FullDuplexStream.CreatePair();
-            using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()), new Server());
+            using var rpc = new JsonRpc(new LspMessageHandler(remote, remote, new SystemTextJsonFormatter()), new Server());
             rpc.StartListening();
             var transport = Substitute.For<ILspTransport>();
             transport.IsAlive.Returns(true);
             transport.LeaveServerRunning.Returns(true);
             transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
                 .Returns(c => Task.FromResult<IJsonRpcMessageHandler?>(
-                    new HeaderDelimitedMessageHandler(local, local, c.Arg<IJsonRpcMessageFormatter>())));
+                    new LspMessageHandler(local, local, c.Arg<IJsonRpcMessageFormatter>())));
             await using var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6",
                 showDocument: (request, token) => navigation.ShowExternalAsync("Test server", request.Uri, token));
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
