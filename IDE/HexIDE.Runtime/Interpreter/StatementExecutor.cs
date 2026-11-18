@@ -1082,6 +1082,22 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return next;
             }, iterator.Dispose);
         }
+        // #4516 measures a CommonDialog array with its sole design-time element left after Unload.
+        if (collection.Value is ControlArrayGroup dialogs && dialogs.Elements.Values.All(c => c is VBCommonDialog))
+        {
+            var snapshot = dialogs.Elements.ToArray();
+            if (snapshot.Length != 1)
+                throw new NotImplementedException("CommonDialog array enumeration with multiple elements is not measured (#4148)");
+            var visited = false;
+            return await ForEachItem(context, varName, (out Vb6Value item) =>
+            {
+                if (!snapshot.SequenceEqual(dialogs.Elements))
+                    throw new NotImplementedException("CommonDialog array mutation during For Each is not measured (#4148)");
+                item = visited ? default : new Vb6Value(snapshot[0].Value);
+                visited = true;
+                return item.Value is not null;
+            }, () => { });
+        }
         if (collection.Value is FormControls controls)
         {
             var cursor = controls.StartEnumeration();
@@ -3893,6 +3909,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return ControlFlow.Nothing;
         }
 
+        if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } indexedMembers
+            && indexedMembers.iCS_S_ProcedureOrArrayCall() is { } indexedLead
+            && interpreter.ExecutionContext.TryInspectVariable(currentEnv, indexedLead.ambiguousIdentifier().GetText(), out var indexedValue)
+            && indexedValue.Value is ControlArrayGroup indexedDialogs
+            && indexedDialogs.Elements.Values.All(c => c is VBCommonDialog)
+            && indexedMembers.iCS_S_MemberCall() is { Length: 1 } indexedMember
+            && UdtFieldName(indexedMember[0]).Equals("Container", StringComparison.OrdinalIgnoreCase))
+        {
+            var receiver = (Vb6Value)(await expressionExecutor.EvaluateProcedureOrArrayCall(indexedLead))!;
+            CommonDialogMembers.Check(receiver, "Container");
+        }
+
         // `Set obj.Member = New Foo` — an object-assign to another instance's member. A Property Set accessor
         // wins over a raw object-field write; otherwise store the reference in the field's slot.
         // NB `Set .Member = o` against a With target can't reach here: `Set .x` parses as a member-Let on a
@@ -4021,6 +4049,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             }
             else if (setLead && chainMembers.Length > 1)
                 target = await expressionExecutor.ResolveMemberChain(target, chainMembers[..^1], 0, context);
+            if (setLead)
+                CommonDialogMembers.Check(target, UdtFieldName(chainMembers[^1]));
             if (setLead && target.Value is VbUdt udtBag)
             {
                 var member = chainMembers[^1];

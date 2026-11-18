@@ -1969,6 +1969,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         var memberIdentifier = member.GetText().TrimStart('.') ?? throw new VBRunTimeException(ctx, VBStandardError.ObjectRequired, "Null member name");
 
+        CommonDialogMembers.Check(variable, memberIdentifier);
+
         // A CSharp property bag (e.g. Err.Number) resolves its own properties by name.
         if (variable.Value is ICSharpPropertyBag propertyBag && propertyBag.TryGetProperty(memberIdentifier, out var bagValue))
             return bagValue;

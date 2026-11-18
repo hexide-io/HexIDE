@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
@@ -142,6 +143,113 @@ public class CommonDialogTests
        + "    End\r\n"
        + "End Sub\r\n").ReplaceLineEndings("\r\n");
 
+    // VB6 SP6 native and p-code measurements: https://github.com/hexide-io/HexIDE/issues/4516.
+    private static string ArrayControls(bool nested) =>
+        (nested ? "   Begin VB.Frame Frame1\n      Caption = \"Frame1\"\n" : "")
+        + "   Begin MSComDlg.CommonDialog cd\n      Index = 0\n   End\n"
+        + (nested ? "   End\n" : "   Begin VB.Frame Frame1\n      Caption = \"Frame1\"\n   End\n")
+        + "   Begin MSComDlg.CommonDialog cd2\n      Left = 120\n   End\n";
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Control_array_loads_and_preserves_the_measured_lifecycle(bool nested)
+    {
+        var ran = Run(Form(ArrayControls(nested), """
+                Debug.Print cd(0).Index
+                Debug.Print cd(0).Parent.Name
+                Dim identity
+                identity = cd(0).Name
+                identity = cd(0).Tag
+                Debug.Print Err.Number
+                Load cd(1)
+                Debug.Print cd.Count
+                Debug.Print cd.UBound
+                cd(1).Color = 5
+                Debug.Print cd(0).Color
+                Debug.Print cd(1).Color
+                Unload cd(1)
+                Unload cd(0)
+                Debug.Print Err.Number
+                Dim c As Object
+                For Each c In cd
+                    Debug.Print c.Index
+                Next
+                Debug.Print TypeName(cd)
+                Debug.Print TypeName(cd2)
+                Debug.Print Controls.Count
+            """ + "\n"), Opening());
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Select(s => s.Trim()).Should().Equal("0", "Form1", "0", "2", "1", "0", "5", "362", "0", "Object", "CommonDialog", "3");
+    }
+
+    [AvaloniaFact]
+    public void Loaded_array_element_keeps_the_dialog_host()
+    {
+        var windows = Opening((string?)null);
+        var ran = Run(Form(ArrayControls(true), "Load cd(1)\ncd(1).ShowOpen\n"), windows);
+        ran.Failures.Should().BeEmpty();
+        _ = windows.Received(1).OpenFilePickerAsync(Arg.Any<FilePickerOpenOptions>());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Unmeasured_array_enumeration_order_and_mutation_are_refused(bool loadBefore)
+    {
+        var ran = Run(Form(ArrayControls(true),
+            (loadBefore ? "Load cd(1)\n" : "")
+            + "Dim c As Object\nFor Each c In cd\n"
+            + (loadBefore ? "Debug.Print c.Index\n" : "Load cd(1)\n")
+            + "Next\n"), Opening());
+        ran.Failures.Should().ContainSingle().Which.Should()
+            .Contain(loadBefore ? "CommonDialog array enumeration with multiple elements" : "CommonDialog array mutation during For Each")
+            .And.Contain("#4148");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("dlg", false)]
+    [InlineData("dlg", true)]
+    [InlineData("cd(0)", false)]
+    [InlineData("cd(0)", true)]
+    public void Early_bound_Container_is_a_compile_error_even_with_an_error_handler(string target, bool write)
+    {
+        var controls = target == "dlg" ? Dialog + "   Begin VB.Frame Frame1\n      Caption = \"Frame1\"\n   End\n" : ArrayControls(true);
+        var ran = Run(Form(controls, write ? $"Set {target}.Container = Frame1\n"
+            : $"Dim v As Object\nSet v = {target}.Container\n"), Opening());
+        ran.Failures.Should().ContainSingle().Which.Should().Contain("Method or data member not found (Container)");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("dlg")]
+    [InlineData("cd(0)")]
+    public void Object_Container_reads_and_sets_raise_438(string target)
+    {
+        var ran = Run(Form(target == "dlg" ? Dialog + "   Begin VB.Frame Frame1\n      Caption = \"Frame1\"\n   End\n" : ArrayControls(true),
+            $"Dim o As Object\nSet o = {target}\nDim v As Object\nSet v = o.Container\nDebug.Print Err.Number\nErr.Clear\nSet o.Container = Frame1\nDebug.Print Err.Number\n"), Opening());
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Select(s => s.Trim()).Should().Equal("438", "438");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Set v = o.Container")]
+    [InlineData("Set o.Container = Frame1")]
+    public void Variant_Container_is_explicitly_unmeasured(string statement)
+    {
+        var ran = Run(Form(Dialog + "   Begin VB.Frame Frame1\n      Caption = \"Frame1\"\n   End\n",
+            $"Dim o As Variant\nSet o = dlg\nDim v As Object\n{statement}\n"), Opening());
+        ran.Failures.Should().ContainSingle().Which.Should().Contain("Variant-held CommonDialog's Container").And.Contain("#4148");
+    }
+
+    [AvaloniaFact]
+    public void Nested_single_control_keeps_Parent_and_Left_errors()
+    {
+        var ran = Run(Form("   Begin VB.Frame Frame1\n      Caption = \"Frame1\"\n" + Dialog + "   End\n",
+            "Debug.Print dlg.Parent.Name\nDim v\nv = dlg.Left\nDebug.Print Err.Number\n"), Opening());
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Select(s => s.Trim()).Should().Equal("Form1", "393");
+    }
+
     private static ProjectDefinition Project(string form)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
@@ -178,6 +286,7 @@ public class CommonDialogTests
         var ran = new Ran([], []);
         runner.StartFailed += ran.Failures.Add;
         runner.RunFailed += ran.Failures.Add;
+        runner.ErrorMet += failure => ran.Failures.Add(failure.Text);
         Action<string> print = ran.Printed.Add;
         VBDebugConsole.Output += print;
         try
