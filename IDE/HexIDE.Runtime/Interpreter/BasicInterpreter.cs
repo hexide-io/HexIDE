@@ -167,6 +167,39 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             ? result.AsVariant() : result;
     }
 
+    // Giving a class instance arguments calls its default member (#4606), without scalar coercion.
+    internal async Task<Vb6Value> CallDefaultMember(Vb6Value value, List<CallArg> args,
+        ParserRuleContext ctx, Stack<List<Vb6Value>>? frames)
+    {
+        if (value.Value is null)
+            throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+        if (value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is not { } member)
+            throw new NotImplementedException("Arguments on a class without a default member are unmeasured (#4606)");
+        var proc = member.Kind switch
+        {
+            PrePass.DefaultMemberKind.Property => obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Get,
+            PrePass.DefaultMemberKind.Function => obj.ClassDef.PrePass.Procedures.GetValueOrDefault(member.Name),
+            _ => null
+        };
+        if (proc is null)
+            throw new NotImplementedException("Arguments on this default member kind are unmeasured (#4606)");
+        return await RunProcedure(obj.ClassDef, proc, args, obj.InstanceEnv, value, frames)
+            ?? throw new NotImplementedException("A default member without a value is unmeasured (#4606)");
+    }
+
+    internal async Task LetDefaultMember(Vb6Value value, List<CallArg> args, Vb6Value assigned,
+        ParserRuleContext ctx, Stack<List<Vb6Value>>? frames)
+    {
+        if (value.Value is null)
+            throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+        if (value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is not { } member
+            || member.Kind != PrePass.DefaultMemberKind.Property
+            || obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Let is not { } letter)
+            throw new NotImplementedException("Arguments assigned to a class without a default Property Let are unmeasured (#4606)");
+        args.Add(new CallArg(assigned, null));
+        await RunProcedure(obj.ClassDef, letter, args, obj.InstanceEnv, value, frames);
+    }
+
     /// <summary>
     /// A built-in call. With a pump, a built-in that waits (MsgBox, InputBox) is a suspension the pump is told of, and
     /// <c>DoEvents</c> runs what is waiting, as VB6's does (#766). Without one, DoEvents does nothing, as before.
