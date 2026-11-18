@@ -691,8 +691,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         await interpreter.ReleaseRef(old);
     }
 
+    internal HashSet<VB6Parser.ConstStmtContext> ConstantsEvaluatedAhead { get; init; } = new();
+
     public override async Task<ControlFlow> VisitConstStmt(VB6Parser.ConstStmtContext context)
     {
+        if (ownedSlots is null && ConstantsEvaluatedAhead.Contains(context))
+            return ControlFlow.Nothing;
         // Module-level const names are hoisted by PrePass so a Sub declared after the Const can see them; here we evaluate
         // the initializer and fill the slot. The slot is marked a constant, so any other store into it is refused (#1003).
         foreach (var sub in context.constSubStmt())
@@ -4883,6 +4887,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     && interpreter.TryResolveType(arrayName.Name, currentModule, arrayName.Qualifier, out var arrayDef))
                 {
                     await interpreter.EnsureTypeBounds(arrayDef);
+                    await ResolveOwnTypeBoundsAhead(arrayDef, subStmt);
                     value = interpreter.NewUdtArray(arrayDef, dimensions, dimensions is null);
                 }
                 else if (autoNew is not null)
@@ -4907,7 +4912,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                             && declaration.visibility()?.PUBLIC() != null)
                             throw new VBCompileErrorException(PrePass.PublicMemberOfObjectModule);
                         if (interpreter.TryResolveType(typeName, currentModule, qualifier, out var udtDef))
+                        {
                             await interpreter.EnsureTypeBounds(udtDef);
+                            await ResolveOwnTypeBoundsAhead(udtDef, subStmt);
+                        }
                         value = Vb6Value.NewUdt(interpreter.NewUdt(typeName, qualifier: qualifier, from: currentModule));
                     }
                     else if (qualifier is null && interpreter.TryResolveEnum(typeName, currentModule, out _))
@@ -5166,6 +5174,27 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     private static int ArrayBound(Vb6Value value) => value.Type == Vb6Value.ValueType.LongLong
         ? throw new NotImplementedException("A LongLong array bound is unmeasured (#1548)") : Subscript(value);
+
+    private async Task ResolveOwnTypeBoundsAhead(UdtTypeDef def, VB6Parser.VariableSubStmtContext variable)
+    {
+        if (!def.IsPrivate || !currentModule.PrePass.Types.Values.Contains(def)
+            || !def.Fields.Any(f => f.BoundSyntax != null && f.ResolvedBounds is null))
+            return;
+        var type = currentModule.PrePass.DeclarationItems.OfType<VB6Parser.TypeStmtContext>()
+            .First(t => currentModule.PrePass.Types[t.ambiguousIdentifier().GetText()] == def);
+        // Only intervening Consts run ahead (#4734). Re-running an earlier one can re-enter another module's walk.
+        foreach (var block in currentModule.PrePass.DeclarationItems.OfType<VB6Parser.BlockContext>())
+            foreach (var statement in block.blockStmt())
+                if (statement.constStmt() is { } constant
+                    && constant.Start.TokenIndex > variable.Start.TokenIndex
+                    && constant.Start.TokenIndex < type.Start.TokenIndex
+                    && !ConstantsEvaluatedAhead.Contains(constant))
+                {
+                    await VisitConstStmt(constant);
+                    ConstantsEvaluatedAhead.Add(constant);
+                }
+        await ResolveTypeBounds(type);
+    }
 
     internal async Task ResolveTypeBounds(VB6Parser.TypeStmtContext type)
     {

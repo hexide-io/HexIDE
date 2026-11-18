@@ -467,8 +467,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private VbUdt NewUdt(UdtTypeDef def, int depth)
     {
         var typeName = def.Name;
-        // EnsureTypeBounds has already run the owner's declarations where they could run; what is still unresolved is a
-        // Type allocated inside its own module's walk, above its declaration, or a class's before the instance's walk.
+        // EnsureTypeBounds runs the owner's declarations where possible; the allocation's executor resolves its own
+        // Private Type ahead (#4734). Other unresolved allocation orders keep this refusal pending measurement.
         if (def.Fields.Any(f => f.BoundSyntax != null && f.ResolvedBounds is null))
             throw new NotImplementedException($"Array bounds inside Type '{typeName}' before its declaration are not implemented (#4595)");
         if (depth > 64)
@@ -1397,11 +1397,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     private async Task RunDeclarationItems(ModuleInfo module, ExecutionEnvironment env, bool? moduleDeclarations = null)
     {
-        var executor = new StatementExecutor(this, env, module);
+        var constantsEvaluatedAhead = new HashSet<VB6Parser.ConstStmtContext>();
+        var executor = new StatementExecutor(this, env, module) { ConstantsEvaluatedAhead = constantsEvaluatedAhead };
         foreach (var item in module.PrePass.DeclarationItems)
         {
             if (moduleDeclarations is null)
-                executor = new StatementExecutor(this, env, module);
+                executor = new StatementExecutor(this, env, module) { ConstantsEvaluatedAhead = constantsEvaluatedAhead };
             if (item is VB6Parser.BlockContext block)
                 await executor.Execute(block, moduleDeclarations);
             else if (item is VB6Parser.TypeStmtContext type)

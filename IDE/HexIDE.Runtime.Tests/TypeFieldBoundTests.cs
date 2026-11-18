@@ -79,18 +79,61 @@ public class TypeFieldBoundTests : BaseVBTestFixture
         var error = await run.Should().ThrowAsync<VBCompileErrorException>();
         error.Which.Message.Should().EndWith("Constant expression required");
     }
-    // Policy for unmeasured allocation order and inverted bounds is explicit in #4595's latest comment.
+    // Native and p-code measurements: hexide-io/HexIDE#4734, oracle PR #4800.
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Allocation_before_type(bool inClass, bool constantAfterVariable)
+    {
+        const string constant = "Private Const N As Byte = 3\n";
+        const string variable = "Private x As T\n";
+        var declarations = (constantAfterVariable ? variable + constant : constant + variable)
+            + "Private Type T\na(1 To N) As Long\nEnd Type\n";
+        const string body = "Debug.Print LBound(x.a)\nDebug.Print UBound(x.a)\nx.a(N) = 7\nDebug.Print x.a(N)";
+        if (inClass)
+            await RunClasses("Dim o As New Class1\no.Test", ("Class1", declarations + "Public Sub Test()\n" + body + "\nEnd Sub"));
+        else
+            await RunModules(declarations + body);
+        AssertDebugLog([new Vb6Value(1L), new Vb6Value(3L), new Vb6Value(7L)]);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Allocation_before_type_is_refused(bool inClass)
+    public async Task Allocation_before_type_with_constant_chain(bool inClass)
     {
-        const string declarations = "Private Const N As Byte = 3\nPrivate x As T\nPrivate Type T\na(1 To N) As Long\nEnd Type\n";
+        const string declarations = "Private x As T\nPrivate Const M As Byte = 2\nPrivate Const N As Byte = M + 1\nPrivate Type T\na(1 To N) As Long\nEnd Type\n";
+        const string body = "Debug.Print LBound(x.a)\nDebug.Print UBound(x.a)\nx.a(N) = 7\nDebug.Print x.a(N)";
+        if (inClass)
+            await RunClasses("Dim o As New Class1\no.Test", ("Class1", declarations + "Public Sub Test()\n" + body + "\nEnd Sub"));
+        else
+            await RunModules(declarations + body);
+        AssertDebugLog([new Vb6Value(1L), new Vb6Value(3L), new Vb6Value(7L)]);
+    }
+
+    // A second instance finds the Type's bounds already resolved and runs its Consts in its own walk, not ahead of it.
+    [Fact]
+    public async Task Allocation_before_type_in_a_second_instance()
+    {
+        const string declarations = "Private x As T\nPrivate Const N As Byte = 3\nPrivate Type T\na(1 To N) As Long\nEnd Type\n";
+        await RunClasses("Dim o As New Class1\no.Test\nDim p As New Class1\np.Test",
+            ("Class1", declarations + "Public Sub Test()\nDebug.Print UBound(x.a)\nDebug.Print CLng(N)\nEnd Sub"));
+        AssertDebugLog([new Vb6Value(3L), new Vb6Value(3L), new Vb6Value(3L), new Vb6Value(3L)]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Allocation_before_type_const_below_type(bool inClass)
+    {
+        const string declarations = "Private x As T\nPrivate Type T\na(1 To N) As Long\nEnd Type\nPrivate Const N As Byte = 3\n";
         Func<Task> run = inClass
             ? () => RunClasses("Dim o As New Class1\no.Test", ("Class1", declarations + "Public Sub Test()\nEnd Sub"))
             : () => RunModules(declarations);
-        (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
-            .Be("Array bounds inside Type 'T' before its declaration are not implemented (#4595)");
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.Should()
+            .EndWith("Constant expression required");
     }
 
     [Fact]
