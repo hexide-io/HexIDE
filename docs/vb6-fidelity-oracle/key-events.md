@@ -43,3 +43,6 @@ Unmeasured: forms with controls but no focusable control; multiline TextBox
 Enter arbitration; CheckBox, OptionButton, ComboBox, scroll bars and PictureBox
 keyboard events; UserControl key events; auto-repeat; modal forms opened by
 key handlers. These are not inferred from the measured controls.
+
+The scroll bars and the PictureBox were measured on 2026-11-18:
+[The PictureBox and the scroll bars](key-events-keydown-keypress-and-keyup.md#the-picturebox-and-the-scroll-bars-2026-11-18-2325).
