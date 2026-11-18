@@ -3225,6 +3225,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private async Task<ControlFlow> JustifyString(VB6Parser.ImplicitCallStmt_InStmtContext target,
         VB6Parser.ValueStmtContext source, bool right)
     {
+        if (target.iCS_S_MembersCall() is { } members && members.iCS_S_ProcedureOrArrayCall() is null)
+        {
+            var lead = members.iCS_S_VariableOrProcedureCall();
+            var leadValue = lead is not null
+                ? (await interpreter.ReadVariable(currentEnv, lead.ambiguousIdentifier().GetText())).Item2
+                : WithTargetOrError(target);
+            if (leadValue.Value is VbObject)
+                throw new VBCompileErrorException(VariableRequired);
+        }
         if (target.iCS_S_VariableOrProcedureCall() is not { } variable || variable.dictionaryCallStmt() is not null)
             throw new NotImplementedException("LSet/RSet into this target is not implemented");
         var name = variable.ambiguousIdentifier().GetText();

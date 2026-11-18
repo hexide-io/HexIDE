@@ -401,13 +401,14 @@ blockStmt
    | inputStmt
    | killStmt
    | timeStmt
+   | lsetStmt
+   | rsetStmt
    | setStmt
    | letStmt
    | lineInputStmt
    | lineLabel
    | loadStmt
    | lockStmt
-   | lsetStmt
    | macroIfThenElseStmt
    | midStmt
    | mkdirStmt
@@ -425,7 +426,6 @@ blockStmt
    | resumeStmt
    | returnStmt
    | rmdirStmt
-   | rsetStmt
    | scaleStmt
    | savepictureStmt
    | saveSettingStmt
