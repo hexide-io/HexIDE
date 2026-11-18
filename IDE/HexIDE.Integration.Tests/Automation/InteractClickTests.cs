@@ -282,6 +282,97 @@ public class InteractClickTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData(true, 1, null, false)]
+    [InlineData(false, 1, null, false)]
+    [InlineData(true, 1.5, null, false)]
+    [InlineData(false, 1.5, null, false)]
+    [InlineData(true, 1, "double", false)]
+    [InlineData(true, 1.5, "double", false)]
+    [InlineData(true, 1, "10,10 to 20,10", false)]
+    [InlineData(true, 1.5, "10,10 to 20,10", false)]
+    [InlineData(true, 1, "10,10 to 20,10 hold", false)]
+    [InlineData(true, 1.5, "10,10 to 20,10 hold", false)]
+    [InlineData(true, 1, "no-frame", false)]
+    [InlineData(true, 1.5, "no-frame", false)]
+    [InlineData(false, 1, "10,25", true)]
+    [InlineData(false, 1.5, "10,25", true)]
+    public async Task A_clipped_click_scrolls_before_pressing(bool covered, double scaling, string? value, bool partial)
+    {
+        var target = new Border { Background = Brushes.White, Width = 80, Height = 30 };
+        var content = new Canvas { Width = 200, Height = 500 };
+        Canvas.SetTop(target, partial ? 80 : 300);
+        content.Children.Add(target);
+        var scroll = new ScrollViewer { Name = "Viewport", Content = content, Width = 200, Height = 100 };
+        var canvas = new Canvas();
+        canvas.Children.Add(scroll);
+        var cover = new Border { Background = Brushes.Gray, Width = 200, Height = 100, IsHitTestVisible = covered };
+        Canvas.SetTop(cover, 280);
+        canvas.Children.Add(cover);
+        var window = new Window { Content = canvas, Width = 400, Height = covered ? 450 : 200 };
+        window.Show();
+        try
+        {
+            window.SetRenderScaling(scaling);
+            window.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            var presses = 0;
+            var covers = 0;
+            target.PointerPressed += (_, _) => presses++;
+            cover.PointerPressed += (_, _) => covers++;
+
+            var outcome = await UiAutomationDriver.FinishAsync(await UiAutomationDriver.InteractAsync(target, "click",
+                value == "no-frame" ? null : value, value == "no-frame" ? TimeSpan.Zero : null));
+            if (value == "no-frame")
+            {
+                outcome.Success.Should().BeFalse();
+                outcome.Error.Should().Contain("drew no frame after scrolling").And.Contain("nothing was pressed");
+                presses.Should().Be(0);
+                covers.Should().Be(0);
+                return;
+            }
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            presses.Should().Be(value == "double" ? 2 : 1);
+            covers.Should().Be(0);
+            scroll.Offset.Y.Should().BeGreaterThan(0);
+            outcome.Detail.Should().Contain("scrolled into view first").And.Contain("ScrollViewer[Viewport]");
+        }
+        finally
+        {
+            await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(target, "release", null));
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1)]
+    [InlineData(1.5)]
+    public async Task A_non_scrolling_clip_refuses_without_pressing(double scaling)
+    {
+        var target = new Border { Background = Brushes.White, Width = 80, Height = 30 };
+        Canvas.SetTop(target, 150);
+        var panel = new Canvas { Name = "Clip", Width = 200, Height = 100, ClipToBounds = true };
+        panel.Children.Add(target);
+        var window = new Window { Content = panel, Width = 400, Height = 400 };
+        window.Show();
+        try
+        {
+            window.SetRenderScaling(scaling);
+            window.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            var presses = 0;
+            window.AddHandler(InputElement.PointerPressedEvent, (_, _) => presses++, RoutingStrategies.Tunnel, true);
+            var outcome = await UiAutomationDriver.FinishAsync(await UiAutomationDriver.InteractAsync(target, "click", null));
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("couldn't be brought into view").And.Contain("Canvas[Clip]");
+            presses.Should().Be(0);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public async Task A_click_on_a_covered_target_reaches_what_covers_it_and_says_so()
     {
