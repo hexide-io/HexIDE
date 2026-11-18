@@ -17,6 +17,7 @@ public class TestApp : Application
     public override void Initialize()
     {
         Console.Error.WriteLine("1085 probe: Initialize entered");
+        HexIDE.Automation.WaylandToolTips.Initialize();
         HeadlessFontWarmUp.Run();
         Console.Error.WriteLine("1085 probe: font warmup finished");
         RequestedThemeVariant = ThemeVariant.Light;

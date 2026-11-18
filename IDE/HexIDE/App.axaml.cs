@@ -38,7 +38,11 @@ public partial class App : Application
         Name = IDE.Distribution.DisplayName;
     }
 
-    internal void LoadMarkup() => AvaloniaXamlLoader.Load(this);
+    internal void LoadMarkup()
+    {
+        Automation.WaylandToolTips.Initialize();
+        AvaloniaXamlLoader.Load(this);
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {

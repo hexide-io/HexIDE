@@ -1516,6 +1516,8 @@ public partial class CodeEditorView : UserControl
 
         // GetPosition expects document coordinates, while pointer events are relative to the viewport.
         var tvPos = TextEditor.TextArea.TextView.GetPosition(point + TextEditor.TextArea.TextView.ScrollOffset);
+        if (tvPos is { } hovered)
+            _languageFeatures?.Hover?.ConfigurePlacement(new Position(hovered.Line - 1, hovered.Column - 1));
         switch (CurrentRoute(tvPos is not null))
         {
             case HoverRoute.NotOverText:

@@ -537,8 +537,10 @@ public class HoverThroughWindowInputTests
         }
     }
 
-    [AvaloniaFact]
-    public async Task External_hover_uses_a_stopped_frame_and_quick_info_after_continue()
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task External_hover_uses_a_stopped_frame_and_quick_info_after_continue(bool wayland)
     {
         // Read once, before any await: after continuations on Avalonia's dispatcher, TestContext.Current can resolve a
         // context already disposed, and a throw from the finally hides whatever the test body threw.
@@ -558,6 +560,7 @@ public class HoverThroughWindowInputTests
         var (window, editor, vm) = ShowEditor(external);
         try
         {
+            NativeWayland.ForTest = wayland ? _ => true : null;
             // The variables response raises Changed and cancels pending hovers; wait for that inspection too.
             await WaitForTip(editor, () => external.CanEvaluateHover && external.Variables.Count > 0,
                 "the stopped frame and its variables to finish loading", timeoutMs: AdapterStartupTimeoutMs);
@@ -570,6 +573,7 @@ public class HoverThroughWindowInputTests
             UiAutomationDriver.Hover(editor, target.X, target.Y, null, out _).Success.Should().BeTrue();
             await WaitForTip(editor);
             ToolTip.GetTip(editor)?.ToString().Should().Be("answer = frame:0:answer");
+            ToolTip.GetPlacement(editor).Should().Be(wayland ? PlacementMode.Custom : PlacementMode.Pointer);
             hoverAsks.Should().BeEmpty();
             UiAutomationDriver.EndHover(editor);
             await external.CommandAsync("continue");
@@ -580,9 +584,11 @@ public class HoverThroughWindowInputTests
             await WaitForTip(editor);
             hoverAsks.Should().ContainSingle();
             ToolTip.GetTip(editor)?.ToString().Should().Contain("Sub Foo()");
+            ToolTip.GetPlacement(editor).Should().Be(wayland ? PlacementMode.Custom : PlacementMode.Pointer);
         }
         finally
         {
+            NativeWayland.ForTest = null;
             window.Close(); vm.Dispose();
             await external.StopAsync();
             await run.WaitAsync(TimeSpan.FromSeconds(20), cancellationToken);

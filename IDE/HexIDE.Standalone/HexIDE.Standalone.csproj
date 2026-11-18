@@ -39,6 +39,8 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="../HexIDE/Automation/NativeWayland.cs" Link="NativeWayland.cs" />
+        <Compile Include="../HexIDE/Automation/WaylandToolTips.cs" Link="WaylandToolTips.cs" />
         <Compile Include="../HexIDE.Desktop/DisplayBackend.cs" Link="DisplayBackend.cs" />
         <PackageReference Include="Avalonia" />
         <PackageReference Include="Avalonia.Themes.Simple" />
