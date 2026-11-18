@@ -1474,6 +1474,9 @@
     "Str.Office.LockedCaption": "{0} ({1}) — lukustatud",
     "Str.Office.ProjectCaption": "{0} ({1})",
     "Str.Office.NoProject": "{0} ei sisalda VBA projekti.",
+    "Str.AIChat.EditContentMissing": "Sisu ei saadetud, seega midagi ei muudetud.",
+    "Str.AIChat.ProjectCannotStart": "Projekti ei saa käivitada (ühtegi pole laaditud või see juba töötab)",
+    "Str.AIChat.ProjectNotRunning": "Ükski projekt ei tööta praegu",
     "Str.SessionEnd.UnsavedWork": "Salvestamata muudatused: {0}"
   }
 }

@@ -1474,6 +1474,9 @@
     "Str.Office.LockedCaption": "{0} ({1}) — zárolva",
     "Str.Office.ProjectCaption": "{0} ({1})",
     "Str.Office.NoProject": "A(z) {0} nem tartalmaz VBA-projektet.",
+    "Str.AIChat.EditContentMissing": "Nem érkezett tartalom, ezért semmi sem változott.",
+    "Str.AIChat.ProjectCannotStart": "A projekt nem indítható (nincs betöltve vagy már fut)",
+    "Str.AIChat.ProjectNotRunning": "Jelenleg nem fut projekt",
     "Str.SessionEnd.UnsavedWork": "Nem mentett módosítások: {0}"
   }
 }

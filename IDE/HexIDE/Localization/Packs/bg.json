@@ -1474,6 +1474,9 @@
     "Str.Office.LockedCaption": "{0} ({1}) — заключен",
     "Str.Office.ProjectCaption": "{0} ({1})",
     "Str.Office.NoProject": "{0} няма проект VBA.",
+    "Str.AIChat.EditContentMissing": "Не е изпратено съдържание, затова нищо не е променено.",
+    "Str.AIChat.ProjectCannotStart": "Проектът не може да се стартира (няма зареден проект или вече се изпълнява)",
+    "Str.AIChat.ProjectNotRunning": "В момента няма изпълняващ се проект",
     "Str.SessionEnd.UnsavedWork": "Незаписани промени в {0}"
   }
 }

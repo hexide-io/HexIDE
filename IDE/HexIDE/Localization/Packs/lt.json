@@ -1474,6 +1474,9 @@
     "Str.Office.LockedCaption": "{0} ({1}) — užrakinta",
     "Str.Office.ProjectCaption": "{0} ({1})",
     "Str.Office.NoProject": "{0} neturi VBA projekto.",
+    "Str.AIChat.EditContentMissing": "Turinys neišsiųstas, todėl niekas nepakeista.",
+    "Str.AIChat.ProjectCannotStart": "Nepavyksta paleisti projekto (nė vienas neįkeltas arba jau veikia)",
+    "Str.AIChat.ProjectNotRunning": "Šiuo metu joks projektas neveikia",
     "Str.SessionEnd.UnsavedWork": "Neįrašyti pakeitimai: {0}"
   }
 }

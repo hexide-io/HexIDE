@@ -1474,6 +1474,9 @@
     "Str.Office.LockedCaption": "{0} ({1}) — locked",
     "Str.Office.ProjectCaption": "{0} ({1})",
     "Str.Office.NoProject": "{0} has no VBA project.",
+    "Str.AIChat.EditContentMissing": "No content was sent, so nothing was changed.",
+    "Str.AIChat.ProjectCannotStart": "Cannot start project (none loaded or already running)",
+    "Str.AIChat.ProjectNotRunning": "No project is currently running",
     "Str.SessionEnd.UnsavedWork": "Unsaved changes in {0}"
   }
 }

@@ -1474,6 +1474,9 @@
     "Str.Office.LockedCaption": "{0} ({1}) — låst",
     "Str.Office.ProjectCaption": "{0} ({1})",
     "Str.Office.NoProject": "{0} har inget VBA-projekt.",
+    "Str.AIChat.EditContentMissing": "Inget innehåll skickades, så ingenting ändrades.",
+    "Str.AIChat.ProjectCannotStart": "Kan inte starta projektet (inget inläst eller redan igång)",
+    "Str.AIChat.ProjectNotRunning": "Inget projekt körs för närvarande",
     "Str.SessionEnd.UnsavedWork": "Osparade ändringar i {0}"
   }
 }

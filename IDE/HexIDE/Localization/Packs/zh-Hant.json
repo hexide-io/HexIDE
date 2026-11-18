@@ -1474,6 +1474,9 @@
     "Str.Office.LockedCaption": "{0} ({1}) — 已鎖定",
     "Str.Office.ProjectCaption": "{0} ({1})",
     "Str.Office.NoProject": "{0} 沒有 VBA 專案。",
+    "Str.AIChat.EditContentMissing": "未傳送內容，因此未作任何變更。",
+    "Str.AIChat.ProjectCannotStart": "無法啟動專案（未載入專案或專案已在執行）",
+    "Str.AIChat.ProjectNotRunning": "目前沒有正在執行的專案",
     "Str.SessionEnd.UnsavedWork": "{0} 中有未儲存的變更"
   }
 }
