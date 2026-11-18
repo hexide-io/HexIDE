@@ -1473,6 +1473,9 @@
     "Str.Office.LockedMessage": "O projeto VBA está bloqueado e não é possível apresentar o seu código.",
     "Str.Office.LockedCaption": "{0} ({1}) — bloqueado",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} não contém nenhum projeto VBA."
+    "Str.Office.NoProject": "{0} não contém nenhum projeto VBA.",
+    "Str.AIChat.EditContentMissing": "Não foi enviado conteúdo, pelo que nada foi alterado.",
+    "Str.AIChat.ProjectCannotStart": "Não é possível iniciar o projeto (nenhum carregado ou já em execução)",
+    "Str.AIChat.ProjectNotRunning": "Não há nenhum projeto em execução"
   }
 }

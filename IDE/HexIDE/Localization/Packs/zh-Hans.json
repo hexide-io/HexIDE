@@ -1473,6 +1473,9 @@
     "Str.Office.LockedMessage": "VBA 工程已锁定，无法显示其代码。",
     "Str.Office.LockedCaption": "{0} ({1}) — 已锁定",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} 没有 VBA 工程。"
+    "Str.Office.NoProject": "{0} 没有 VBA 工程。",
+    "Str.AIChat.EditContentMissing": "未发送内容，因此未作任何更改。",
+    "Str.AIChat.ProjectCannotStart": "无法启动项目（未加载项目或项目已在运行）",
+    "Str.AIChat.ProjectNotRunning": "当前没有正在运行的项目"
   }
 }

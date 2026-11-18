@@ -1473,6 +1473,9 @@
     "Str.Office.LockedMessage": "Projekt VBA je uzamčen a jeho kód nelze zobrazit.",
     "Str.Office.LockedCaption": "{0} ({1}) — uzamčeno",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} nemá projekt VBA."
+    "Str.Office.NoProject": "{0} nemá projekt VBA.",
+    "Str.AIChat.EditContentMissing": "Nebyl odeslán žádný obsah, proto se nic nezměnilo.",
+    "Str.AIChat.ProjectCannotStart": "Projekt nelze spustit (žádný není načten nebo již běží)",
+    "Str.AIChat.ProjectNotRunning": "Momentálně neběží žádný projekt"
   }
 }

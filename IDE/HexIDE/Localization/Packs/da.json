@@ -1473,6 +1473,9 @@
     "Str.Office.LockedMessage": "VBA-projektet er låst, og koden kan ikke vises.",
     "Str.Office.LockedCaption": "{0} ({1}) — låst",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} har ikke noget VBA-projekt."
+    "Str.Office.NoProject": "{0} har ikke noget VBA-projekt.",
+    "Str.AIChat.EditContentMissing": "Intet indhold blev sendt, så intet blev ændret.",
+    "Str.AIChat.ProjectCannotStart": "Kan ikke starte projektet (intet indlæst eller kører allerede)",
+    "Str.AIChat.ProjectNotRunning": "Intet projekt kører i øjeblikket"
   }
 }

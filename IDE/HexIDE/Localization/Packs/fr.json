@@ -1473,6 +1473,9 @@
     "Str.Office.LockedMessage": "Le projet VBA est verrouillé et son code ne peut pas être affiché.",
     "Str.Office.LockedCaption": "{0} ({1}) — verrouillé",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} ne contient aucun projet VBA."
+    "Str.Office.NoProject": "{0} ne contient aucun projet VBA.",
+    "Str.AIChat.EditContentMissing": "Aucun contenu n’a été envoyé, donc rien n’a été modifié.",
+    "Str.AIChat.ProjectCannotStart": "Impossible de démarrer le projet (aucun projet chargé ou déjà en cours d’exécution)",
+    "Str.AIChat.ProjectNotRunning": "Aucun projet n’est actuellement en cours d’exécution"
   }
 }

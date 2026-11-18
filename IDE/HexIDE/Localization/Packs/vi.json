@@ -1473,6 +1473,9 @@
     "Str.Office.LockedMessage": "Dự án VBA bị khóa và không thể hiển thị mã.",
     "Str.Office.LockedCaption": "{0} ({1}) — bị khóa",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} không có dự án VBA."
+    "Str.Office.NoProject": "{0} không có dự án VBA.",
+    "Str.AIChat.EditContentMissing": "Không có nội dung được gửi nên không có gì thay đổi.",
+    "Str.AIChat.ProjectCannotStart": "Không thể khởi chạy dự án (chưa tải dự án nào hoặc đã chạy)",
+    "Str.AIChat.ProjectNotRunning": "Hiện không có dự án nào đang chạy"
   }
 }
