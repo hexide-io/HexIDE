@@ -68,16 +68,50 @@ save and return to. Before lifting that, what exactly does VB6 do?
 | G35 | `A` raises 5; `H` does `Return` with no Resume | `H5`, then `back 5`: Return leaves the handler, and Err is still 5 |
 | G40 | `A` does `GoSub A` with no end, under `On Error GoTo E` | see below |
 
-**G40, runaway recursion.** Native code and p-code disagree here, and both differ from a procedure's own recursion.
-Neither ran the procedure's own handler `E`: the error reached Main's handler instead.
+**G40, runaway recursion.** Native code and p-code disagree here. Neither printed the line `E` logs, and the error
+reached Main's handler instead.
 
 | Build | Main's handler logged |
 |---|---|
 | p-code | **28** "Out of stack space" |
 | native code | **14** "Out of string space" |
 
-HexIDE follows p-code. Why native code reports 14 resisted explanation. The depth reached isn't known, because
-the row's own log line never ran.
+HexIDE follows p-code. Why native code reports 14 resisted explanation.
+
+**Overturned: "`E` never runs."** This page first read G40 as runaway GoSub skipping the procedure's own handler and
+going straight to the caller's. That was inferred from `E`'s line never printing. But `E` printed by calling `Log`, a
+procedure, and a procedure call is just what a stack that runaway GoSub has exhausted can't make. G41 and G42 tell
+the two apart: `E` sets a module-level Long, which needs no call.
+
+```vb
+Sub G41()
+    On Error GoTo E
+    GoSub A
+    Exit Sub
+A:
+    Depth = Depth + 1
+    GoSub A
+    Return
+E:
+    EHit = Err.Number
+    Exit Sub
+End Sub
+
+' G42 is G41 with `EHit = EHit + 1000` after the first GoSub, and `Resume Next` in place of E's Exit Sub.
+' EHit and Depth are module-level Longs. Main calls each row, logs "<row> back EHit=... depth=...", and resets both.
+```
+
+| Row | p-code | native code |
+|---|---|---|
+| G41 | `G41 back EHit=28 depth=252154` | no output; still running at the 90-second timeout, and stopped |
+| G42 | `G42 back EHit=1028 depth=252154` | (the same run) |
+
+- **In p-code, the procedure's own handler traps runaway GoSub's 28.** `E` runs, and with `Exit Sub` the procedure
+  returns normally. G40's line was lost because `E`'s first statement made a procedure call with no stack left. That
+  raised 28 inside the handler, which went to the caller.
+- **G42's `Resume Next` resumes after the faulting GoSub.** The pending Returns then unwind until the statement after
+  the first GoSub runs, which is the `+ 1000`.
+- **The native build neither logged nor ended this time,** where the first run reported 14. Why resisted explanation.
 
 ### Readings
 
@@ -93,10 +127,11 @@ the row's own log line never ran.
   Return, and a handler can GoSub.
 - **A fault inside a routine keeps the routine pending.** `Resume Next` resumes inside the routine, and `Resume
   <label>` keeps the GoSub pending for a later Return. `Return` from the handler leaves the handler and keeps Err.
-- **Runaway GoSub reaches the caller,** past the procedure's own handler.
+- **Runaway GoSub raises 28 that the procedure's own handler traps** (G41, G42), at a depth of 252,154 in p-code.
+  This page first read G40 as the handler being skipped; see the overturn above.
 
 **Not measured:**
 - a selector beyond Integer's range;
 - `Resume` inside a routine reached from a handler, for the error that handler is handling;
-- the depth runaway GoSub reaches;
+- the depth native code reaches, and why it neither logged nor ended;
 - labels inside a block. These are already GoTo's own limit in HexIDE.
