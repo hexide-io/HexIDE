@@ -82,6 +82,27 @@ The same class with its `Private Const N` below the `Private Type` is "Constant 
 and a Const below the Type is a forward reference, refused as it is for a `Dim`. In a class they read the class's own
 Consts and Enums, which are the same for every instance.
 
+#### A variable declared above its Type (2026-11-18, #4734)
+
+**The question.** The variable `x` in the rows above sits below its Type. Does it matter if `x` is declared above the
+Type, with the Const above `x`, between the two, or below the Type?
+
+**The probe.** VB6 SP6, `/make`, native code and p-code, which agreed on every row. Each row is a project of its own,
+because a compile error stops the build. The declarations are at module level in `Module1`, in the order given.
+`Private Type T` holds `a(1 To N) As Long` and `s As String`, and `N` is `Private Const N As Byte = 3`. Sub Main
+logs `LBound(x.a) & " " & UBound(x.a)`, then does `x.a(3) = 7` and logs `x.a(3)`.
+
+| Row | Order | Result |
+|---|---|---|
+| TA1 | `Const N`, `Private x As T`, `Type T` | `1 3`, then `7` |
+| TA4 | `Private x As T`, `Const N`, `Type T` | `1 3`, then `7` |
+| TA2 | `Private x As T`, `Type T`, `Const N` | "Constant expression required" |
+| TA5 | `Const N`, `Type T`, `Private x As T` (control) | `1 3`, then `7` |
+| TA3 | TA1's order in `Class1`, read from a method after `New` | `1 3` |
+
+**What it shows:** where the variable stands doesn't matter, only where the Const stands relative to the Type. TA4's
+Const is below the variable and still counts, because it is above the Type.
+
 ### In HexIDE
 
 At `86dcc6c50`, in `HexIDE.Runtime.Tests` probes:
