@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "VBA 工程已锁定，无法显示其代码。",
     "Str.Office.LockedCaption": "{0} ({1}) — 已锁定",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} 没有 VBA 工程。"
+    "Str.Office.NoProject": "{0} 没有 VBA 工程。",
+    "Str.SessionEnd.UnsavedWork": "{0} 中有未保存的更改"
   }
 }

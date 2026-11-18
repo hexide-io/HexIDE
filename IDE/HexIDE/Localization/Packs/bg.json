@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "Проектът VBA е заключен и кодът му не може да бъде показан.",
     "Str.Office.LockedCaption": "{0} ({1}) — заключен",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} няма проект VBA."
+    "Str.Office.NoProject": "{0} няма проект VBA.",
+    "Str.SessionEnd.UnsavedWork": "Незаписани промени в {0}"
   }
 }

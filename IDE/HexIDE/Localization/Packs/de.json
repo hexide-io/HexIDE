@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "Das VBA-Projekt ist gesperrt und sein Code kann nicht angezeigt werden.",
     "Str.Office.LockedCaption": "{0} ({1}) — gesperrt",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} enthält kein VBA-Projekt."
+    "Str.Office.NoProject": "{0} enthält kein VBA-Projekt.",
+    "Str.SessionEnd.UnsavedWork": "Nicht gespeicherte Änderungen in {0}"
   }
 }

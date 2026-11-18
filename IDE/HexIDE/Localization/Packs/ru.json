@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "Проект VBA заблокирован, и его код невозможно показать.",
     "Str.Office.LockedCaption": "{0} ({1}) — заблокирован",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "В {0} нет проекта VBA."
+    "Str.Office.NoProject": "В {0} нет проекта VBA.",
+    "Str.SessionEnd.UnsavedWork": "Несохранённые изменения: {0}"
   }
 }

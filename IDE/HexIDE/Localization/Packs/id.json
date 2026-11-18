@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "Proyek VBA terkunci dan kodenya tidak dapat ditampilkan.",
     "Str.Office.LockedCaption": "{0} ({1}) — terkunci",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} tidak memiliki proyek VBA."
+    "Str.Office.NoProject": "{0} tidak memiliki proyek VBA.",
+    "Str.SessionEnd.UnsavedWork": "Perubahan yang belum disimpan di {0}"
   }
 }

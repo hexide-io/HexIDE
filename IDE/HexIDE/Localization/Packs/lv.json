@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "VBA projekts ir bloķēts, un tā kodu nevar parādīt.",
     "Str.Office.LockedCaption": "{0} ({1}) — bloķēts",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} nav VBA projekta."
+    "Str.Office.NoProject": "{0} nav VBA projekta.",
+    "Str.SessionEnd.UnsavedWork": "Nesaglabātas izmaiņas: {0}"
   }
 }

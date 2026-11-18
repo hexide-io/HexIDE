@@ -1040,6 +1040,33 @@ still goes away.
 - **WHEN** the user cancels the save-on-exit prompt
 - **THEN** the file watcher and language servers remain running
 
+### Requirement: The desktop IDE SHALL let Windows end the session, and stop its servers when it does
+On Windows, the IDE SHALL answer `WM_QUERYENDSESSION` itself, ahead of the desktop shutdown request, so that the
+exit-stop cancel is not a veto (#4646). It SHALL allow the query at once when nothing is unsaved or the end is
+forced (`ENDSESSION_CRITICAL`), and SHALL NOT start stopping or exiting on the query alone. With unsaved work it
+SHALL refuse the query with a block reason naming the project, then show the save-on-exit prompt; the prompt SHALL
+NOT be held open inside the query. On `WM_ENDSESSION` with the session ending, it SHALL stop the language client
+and the external debugger before returning, waiting at most 4.5 seconds in a nested dispatcher frame, then exit
+through the desktop shutdown without a second stop or prompt, keeping any unsaved work's recovery backup. On
+`WM_ENDSESSION` with the session continuing, it SHALL clear the block reason and do nothing else. If the hook can't
+be installed, the IDE SHALL log it and allow the query when nothing is unsaved. The stop covers the servers still
+running when `WM_ENDSESSION` arrives: Windows ends a launched console-subsystem server through its own console at a
+real sign-out, and may do so before the stop sends anything (#4666).
+
+#### Scenario: Sign-out with nothing unsaved
+- **WHEN** Windows asks whether the session may end and nothing is unsaved
+- **THEN** the IDE allows it at once, and its servers keep running
+- **AND WHEN** `WM_ENDSESSION` then says the session is ending
+- **THEN** each server still running receives `shutdown` and `exit` before the message returns, within 4.5 seconds
+
+#### Scenario: Sign-out with unsaved work
+- **WHEN** Windows asks whether the session may end and a project has unsaved work
+- **THEN** the IDE refuses with a reason naming the project, and shows the save prompt after replying
+
+#### Scenario: Another app keeps the session
+- **WHEN** the IDE allowed the query and `WM_ENDSESSION` says the session continues
+- **THEN** the IDE keeps running with its servers, and any block reason is cleared
+
 #### Scenario: First save races the project-change debounce
 - **WHEN** the first save moves the workspace root while the old server is awaiting shutdown
 - **THEN** the old server receives only `exit` after `shutdown`

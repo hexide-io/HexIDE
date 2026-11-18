@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "VBA-prosjektet er låst, og koden kan ikke vises.",
     "Str.Office.LockedCaption": "{0} ({1}) — låst",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} har ikke noe VBA-prosjekt."
+    "Str.Office.NoProject": "{0} har ikke noe VBA-prosjekt.",
+    "Str.SessionEnd.UnsavedWork": "Ulagrede endringer i {0}"
   }
 }

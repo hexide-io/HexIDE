@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "Το έργο VBA είναι κλειδωμένο και ο κώδικάς του δεν μπορεί να εμφανιστεί.",
     "Str.Office.LockedCaption": "{0} ({1}) — κλειδωμένο",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "Το {0} δεν έχει έργο VBA."
+    "Str.Office.NoProject": "Το {0} δεν έχει έργο VBA.",
+    "Str.SessionEnd.UnsavedWork": "Μη αποθηκευμένες αλλαγές: {0}"
   }
 }
