@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia;
@@ -9,6 +11,11 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Data.Core;
 using Avalonia.Interactivity;
+using Avalonia.Input;
+using Avalonia.Labs.Input;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using HexIDE.Keymaps;
 using Avalonia.LogicalTree;
 using HexIDE.Addins;
 using HexIDE.Forms.ViewModels;
@@ -328,6 +335,71 @@ public class MenuRendererTests
             }
         }
         finally { service.Apply("Default"); }
+    }
+
+    [AvaloniaFact]
+    public void Keymap_change_discards_items_kept_only_for_finalization()
+    {
+        RuntimeHelpers.RunClassConstructor(typeof(MenuUtils).TypeHandle);
+        var command = new RoutedCommand("FinalizingMenuTest");
+        command.Gestures.Add(new KeyGesture(Key.F8));
+        using var release = new ManualResetEventSlim();
+        var (shortReference, longReference) = CreateFinalizingItem(command, release);
+        try
+        {
+            var context = ExecutionContext.Capture();
+            Dispatcher.UIThread.RunJobs();
+            if (context is not null) ExecutionContext.Restore(context);
+            GC.Collect();
+            GC.Collect();
+            shortReference.IsAlive.Should().BeFalse("the template binding targets must have lost their short references");
+            ItemIsTracked(longReference).Should().BeTrue("the dependent handle still returns the finalization survivor");
+            command.Gestures.Clear();
+            command.Gestures.Add(new KeyGesture(Key.F9));
+            Action apply = () => new KeymapService().Apply("Default");
+            apply.Should().NotThrow();
+            ItemIsTracked(longReference).Should().BeFalse("the broken item is removed after refreshing");
+            apply.Should().NotThrow("later keymap changes must not revisit it");
+        }
+        finally
+        {
+            release.Set();
+            GC.WaitForPendingFinalizers();
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (WeakReference Short, WeakReference Long) CreateFinalizingItem(
+        RoutedCommand command, ManualResetEventSlim release)
+    {
+        var item = new MenuItem { Header = "Finalizing", Command = command };
+        var host = new Window { Content = item };
+        host.Show();
+        item.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_InputGestureText")
+            .Text.Should().NotBeNullOrEmpty();
+        host.Close();
+        host.Content = null;
+        var holder = new FinalizingMenuHolder(item, release);
+        GC.KeepAlive(holder);
+        return (new WeakReference(item), new WeakReference(item, trackResurrection: true));
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static bool ItemIsTracked(WeakReference reference)
+    {
+        reference.Target.Should().BeOfType<MenuItem>();
+        var table = (ConditionalWeakTable<MenuItem, object>)typeof(MenuUtils)
+            .GetField("CommandItems", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+        return table.TryGetValue((MenuItem)reference.Target!, out _);
+    }
+
+    private sealed class FinalizingMenuHolder(MenuItem item, ManualResetEventSlim release)
+    {
+        ~FinalizingMenuHolder()
+        {
+            release.Wait();
+            GC.KeepAlive(item);
+        }
     }
 
     [Theory]

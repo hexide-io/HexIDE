@@ -178,13 +178,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var number = stringOnLeft ? rightValue : leftValue;
             if (NumericRank(number.Type) >= 0 || number.Type == Vb6Value.ValueType.Boolean || number.Type == Vb6Value.ValueType.Date)
             {
-                if (number.Type == Vb6Value.ValueType.Decimal || (text.HeldAsVariant &&
-                    (number.Type == Vb6Value.ValueType.Currency || number.Type == Vb6Value.ValueType.Boolean || number.Type == Vb6Value.ValueType.Date)))
-                    throw new NotImplementedException("This String comparison domain is unmeasured (#211).");
+                // VB6 has no Decimal outside a Variant (#211).
+                var numberInVariant = number.HeldAsVariant || number.Type == Vb6Value.ValueType.Decimal;
 
-                if (text.HeldAsVariant && number.HeldAsVariant)
+                if (text.HeldAsVariant && numberInVariant)
                     return stringOnLeft ? (new Vb6Value(1), new Vb6Value(0)) : (new Vb6Value(0), new Vb6Value(1));
-                if (number.HeldAsVariant)
+                if (numberInVariant)
                 {
                     // Option Compare Text follows the two-String path too; this rule's Text mode is unmeasured.
                     number = VbNumeric.CoerceOnStore(number, Vb6Value.ValueType.String, context[0]);
@@ -1830,6 +1829,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     internal static void RequireMemberReceiver(Vb6Value value, Antlr4.Runtime.ParserRuleContext context)
     {
+        if (value.Value is VbCollectionEnumerator)
+            throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
         value.RefuseOddBytes("Member access");
         // Measured non-object Variant receivers (#257); other kinds keep their existing dispatch.
         if (value.Type == Vb6Value.ValueType.EmptyVariant || value.Type == Vb6Value.ValueType.Null
@@ -2011,6 +2012,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
         // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
         VBProps.RefuseIfRemoved(control);
+        if (control is VBPictureBox && RuntimeDrawing.IsMethod(MemberName(member)))
+        {
+            if (MemberName(member).Equals("Cls", StringComparison.OrdinalIgnoreCase))
+                throw RuntimeDrawing.Refused("Cls used as a value");
+            return RuntimeDrawing.Call(control, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
+        }
         if (control is VBPictureBox && RuntimeScale.IsConversion(MemberName(member)))
             return RuntimeScale.ConvertUnits(control, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
 
@@ -2041,6 +2048,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (AvaloniaInterop.SSTabMembers.TryGet(control, memberIdentifier, out var tabValue))
             return tabValue;
 
+        if (RuntimeDrawing.TryGet(control, memberIdentifier, out var drawingMember))
+            return drawingMember;
         var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
         foreach (var prop in props)
@@ -2742,6 +2751,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             ?? throw new VBCompileErrorException("Expected a class name after New");
         if (IsCollectionType(className) && !interpreter.Modules.TryGet(className, out _))
             return interpreter.AdoptNewTemp(new Vb6Value(interpreter.NewCollection()), stmtFrames);
+        if (className.Equals("PropertyBag", StringComparison.OrdinalIgnoreCase) && !interpreter.Modules.TryGet(className, out _))
+            return new Vb6Value(new VbPropertyBag());
         // VB6 compiles New ErrObject but refuses its creation at run time (#2627).
         if (className.Equals("ErrObject", StringComparison.OrdinalIgnoreCase) && !interpreter.Modules.TryGet(className, out _))
             throw new VBRunTimeException(context, new VBStandardError(-2147221164, "Class not registered"));

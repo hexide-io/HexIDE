@@ -32,14 +32,15 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   Form2 open. With Form2 open, though, F5 left Form1 behind the IDE: D36. Hidden/unloaded windows, Ctrl+F8, Step Out,
   and steps completing without re-entering code remain unmeasured.
 
-### D36. After F5 with a modal form open, the form beneath it stays behind the IDE (#4618)
-- **VB6:** F5 brings the modal form forward with the form beneath it directly behind: z-order Form2, Form1, the IDE
-  ([SP6 measurements, 2026-11-17](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md#which-window-comes-to-the-front-continue-a-step-and-a-modal-form-2026-11-17-4262-ide)).
-- **HexIDE:** Form2 comes forward and Form1 stays behind the IDE: z-order Form2, the IDE, Form1 (live, 2026-11-18,
-  checking #4262). HexIDE's modal form has no OS owner, since `VBProgram.ShowModal` holds the other forms in software,
-  so nothing brings Form1 along. Activating Form1 first would raise its `Activate` event, which VB6 doesn't.
-- **Why:** found during live verification; nothing chose it.
-- **Status:** **not implemented**, tracked by [#4618](https://github.com/hexide-io/HexIDE/issues/4618).
+### D36. After F5, other modeless forms can stay behind the IDE (#4667)
+- **VB6:** F5 brings the modal form forward with its owner directly behind it, and brings the other program forms back
+  ([SP6 measurements](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md#which-window-comes-to-the-front-continue-a-step-and-a-modal-form-2026-11-17-4262-ide),
+  [#4618's ownership measurements](https://github.com/hexide-io/HexIDE/issues/4618)).
+- **HexIDE:** modal forms now have OS ownership: the shown explicit owner, or the shown calling form when omitted
+  (#4618). Their taskbar button is suppressed during the modal loop; closing preserves the existing activation events.
+  Headless tests check ownership and events; Windows F5 z-order still needs live verification.
+- **Remaining:** other modeless forms have no shared hidden owner, so bringing every program form back is still
+  **not implemented**, tracked by [#4667](https://github.com/hexide-io/HexIDE/issues/4667).
 
 ## Edit-and-Continue
 

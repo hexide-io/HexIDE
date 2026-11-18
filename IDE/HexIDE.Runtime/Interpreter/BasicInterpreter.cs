@@ -1565,6 +1565,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             return;
         }
 
+        // #4680: a standalone PropertyBag, unless the project declares a class of that name.
+        if (need.AutoNew.ClassName.Equals("PropertyBag", StringComparison.OrdinalIgnoreCase) && !Modules.TryGet(need.AutoNew.ClassName, out _))
+        {
+            var bag = new Vb6Value(new VbPropertyBag());
+            AddRef(bag);
+            Store(bag);
+            return;
+        }
+
         VbObject? published = null;
         try
         {

@@ -89,3 +89,23 @@ These rows were run on HexIDE's runtime with the same guard, and #4605 is the fi
   `125ff7682`.
 - **Rows 2 to 5:** the first use gives 5, but the innermost nested object finished and was stored, so the second use
   gives 0 where VB6 gives 5.
+
+### A form's As New instance is in its slot during Form_Initialize (2026-11-18, #4640, SP6)
+
+**The probe.** A Sub Main project held Form2 and Module1. Module1 declared `Public g As New Form2`. Form2's
+Form_Initialize counted itself in a module variable and gave itself that number. It stopped after the third run,
+guarding against recursion as the classes above do, then logged `g Is Me`. Its Form_Terminate logged too. Sub Main ran
+under `On Error Resume Next`, and nothing showed or loaded the form. p-code and native code logged the same lines.
+
+| `Sub Main` | Logged |
+|---|---|
+| `g.Id`, a Public Function of Form2 | `Initialize #1`, and inside it `g Is Me` True with one Initialize so far. Then `g.Id` read 1; `Forms.Count` 0 |
+| `Set g = Nothing` | `Terminate #1` |
+| `TypeName(g)` | `Initialize #2`, and inside it `g Is Me` True with two so far. Then `TypeName(g)` read "Form2" |
+| after the end of Main | `Terminate #2` |
+
+- **A form's `As New` instance is in its variable before its Form_Initialize runs,** as a class's is (row 6 above).
+  `g Is Me` there is True, and it doesn't make a second instance.
+- **The same holds for the next instance** after `Set g = Nothing`.
+
+**Not measured:** a Form_Initialize that raises, and an `As New` form in an array element or a Type's field.

@@ -33,7 +33,7 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
         return FromFile(record[28..]);
     }
 
-    internal static PanelPicture FromFile(byte[] file)
+    internal static PanelPicture FromFile(byte[] file, bool loadPicture = false)
     {
         var kind = FrxImageHelper.DetectKind(file);
         // Metafiles and cursors have no LoadPicture measurements (#4597).
@@ -47,10 +47,57 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
         if (kind is not (FrxImageHelper.FrxBlobKind.Bitmap or FrxImageHelper.FrxBlobKind.Icon
             or FrxImageHelper.FrxBlobKind.Jpeg or FrxImageHelper.FrxBlobKind.Gif))
             throw new VBRunTimeException(VBStandardError.InvalidPicture);
+        if (loadPicture && kind == FrxImageHelper.FrxBlobKind.Icon)
+            file = LoadPictureIcon(file);
         var picture = new PanelPicture(file);
         if (picture.Bitmap == null)
             throw new NotImplementedException("This Panel.Picture image is not implemented (#1087)");
         return picture;
+    }
+
+    private static byte[] LoadPictureIcon(byte[] file)
+    {
+        // #4623: SP6 takes the first 32-by-32 image; other picture sources are unmeasured.
+        if (file.Length < 6) return file;
+        var count = BitConverter.ToUInt16(file, 4);
+        if (count == 0 || file.Length < 6 + count * 16) return file;
+        var selected = -1;
+        for (var entry = 6; entry < 6 + count * 16; entry += 16)
+        {
+            var length = BitConverter.ToUInt32(file, entry + 8);
+            var offset = BitConverter.ToUInt32(file, entry + 12);
+            if ((ulong)offset + length > (ulong)file.Length) return file;
+            if (count == 1 || (selected < 0 && file[entry] == 32 && file[entry + 1] == 32))
+                selected = entry;
+        }
+        if (selected < 0)
+            throw new NotImplementedException("LoadPicture icons with several images and no 32-by-32 image are unmeasured (#4623)");
+        var size = (int)BitConverter.ToUInt32(file, selected + 8);
+        var start = (int)BitConverter.ToUInt32(file, selected + 12);
+        var image = file.AsSpan(start, size);
+        if (image.StartsWith(new byte[] { 0x89, 0x50, 0x4e, 0x47 }))
+            throw new VBRunTimeException(VBStandardError.InvalidPicture);
+        if (image.Length >= 40 && BitConverter.ToUInt32(image) == 40)
+        {
+            var width = Math.Abs((long)BitConverter.ToInt32(image[4..]));
+            var height = Math.Abs((long)BitConverter.ToInt32(image[8..])) / 2;
+            var depth = BitConverter.ToUInt16(image[14..]);
+            var colours = BitConverter.ToUInt32(image[32..]);
+            var palette = (colours != 0 ? colours : depth <= 8 ? 1L << depth : 0) * 4;
+            var xor = (width * depth + 31) / 32 * 4 * (decimal)height;
+            var and = (width + 31) / 32 * 4 * height;
+            if (image.Length < 40 + palette + xor + and)
+            {
+                if (depth == 32) throw new VBRunTimeException(VBStandardError.InvalidPicture);
+                throw new NotImplementedException("LoadPicture icon images without a mask at depths other than 32 bpp are unmeasured (#4623)");
+            }
+        }
+        if (count == 1) return file;
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        writer.Write((ushort)0); writer.Write((ushort)1); writer.Write((ushort)1);
+        writer.Write(file.AsSpan(selected, 12)); writer.Write(22); writer.Write(image);
+        return stream.ToArray();
     }
 
     internal static PanelPicture FromResourceBitmap(byte[] dib)
@@ -120,7 +167,7 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
             var fullPath = files.FullPath(path);
             if (Directory.Exists(fullPath))
                 throw FileError(VBStandardError.PathFileAccessError);
-            return new Vb6Value(FromFile(File.ReadAllBytes(fullPath)));
+            return new Vb6Value(FromFile(File.ReadAllBytes(fullPath), loadPicture: true));
         }
         catch (FileNotFoundException) { throw FileError(VBStandardError.FileNotFound); }
         catch (DirectoryNotFoundException) { throw FileError(VBStandardError.PathNotFound); }
