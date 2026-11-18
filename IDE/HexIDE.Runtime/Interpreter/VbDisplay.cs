@@ -38,7 +38,9 @@ public static class VbDisplay
     public static string? ToTextOrNull(Vb6Value value) => value.Value is null ? null : ToText(value);
 
     /// <summary>The text VB6 makes of <paramref name="value"/>, in <paramref name="culture"/>.</summary>
-    public static string ToText(Vb6Value value, CultureInfo culture) => value.Type == Vb6Value.ValueType.Error
+    public static string ToText(Vb6Value value, CultureInfo culture) => value.IsOddByteString
+        ? throw Vb6Value.OddBytesNotImplemented("Display")
+        : value.Type == Vb6Value.ValueType.Error
         ? throw new VBRunTimeException(VBStandardError.TypeMismatch)
         : value.Value switch
     {

@@ -127,7 +127,7 @@ internal static class FontMembers
     {
         if (value.IsNull)
             throw new VBRunTimeException(VBStandardError.InvalidUseOfNull);
-        var asked = VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).Value as string ?? "";
+        var asked = VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).WithoutOddBytes("FontMembers text conversion").Value as string ?? "";
         var (name, charset) = Resolve(asked) ?? throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
         // The new family takes the size as it reads now, snapped to what that family has (measured).
         var readSize = VbFontSizes.Snap(font.FontFamilyName, font.Size).Size;

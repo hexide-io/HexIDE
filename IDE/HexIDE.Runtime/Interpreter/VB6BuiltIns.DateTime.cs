@@ -191,7 +191,7 @@ public partial class VB6BuiltIns
     private static VbDate AsSerialDate(Vb6Value v)
     {
         if (v.Value is VbDate date) return date;
-        if (v.Value is string s)
+        if (v.WithoutOddBytes("VB6BuiltIns.DateTime text use").Value is string s)
             return (VbDate)StringToDate(s, null).Value!;
         if (Vb6Value.TryNumericToDouble(v, out var serial))
             return VbDate.InRange(serial) ? new VbDate(serial) : throw InvalidCall();

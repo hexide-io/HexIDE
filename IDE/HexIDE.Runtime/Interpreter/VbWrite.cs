@@ -18,6 +18,7 @@ internal static class VbWrite
 {
     public static string ItemText(Vb6Value value)
     {
+        value.RefuseOddBytes("Write #");
         if (value.Value is VBArray || VbInput.IsOneOf(value.Type, Vb6Value.ValueType.Object, Vb6Value.ValueType.UserDefinedType,
                 Vb6Value.ValueType.Control, Vb6Value.ValueType.CSharpProxyObject))
             throw new NotImplementedException($"Write # of {value.Type} is not implemented (#1521)");

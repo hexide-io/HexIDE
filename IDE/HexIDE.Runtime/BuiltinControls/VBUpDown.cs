@@ -191,7 +191,7 @@ public sealed class VBUpDown : Control, ICSharpPropertyBag
         autoBuddy = properties.Any(p => p.Property == "AutoBuddy" && Long(p.Value) != 0);
         syncBuddy = properties.Any(p => p.Property == "SyncBuddy" && Long(p.Value) != 0);
         var dispatch = properties.FirstOrDefault(p => p.Property == "BuddyProperty").Value;
-        if (dispatch.Type == Vb6Value.ValueType.String && dispatch.Value as string != "Tag")
+        if (dispatch.WithoutOddBytes("VBUpDown text use").Type == Vb6Value.ValueType.String && dispatch.Value as string != "Tag")
             throw Unimplemented("BuddyProperty");
         buddyProperty = dispatch.Type == Vb6Value.ValueType.String || dispatch.Value is null ? "(Invalid)"
             : Long(dispatch) switch { 0 => null, 65540 => "Left", _ => throw Unimplemented("BuddyProperty") };
@@ -248,7 +248,7 @@ public sealed class VBUpDown : Control, ICSharpPropertyBag
             case "buddyproperty":
                 RequireBuddy();
                 if (value.Type != Vb6Value.ValueType.String) throw Unimplemented("BuddyProperty conversion");
-                var property = (string)value.Value!;
+                var property = (string)value.WithoutOddBytes("VBUpDown text use").Value!;
                 if (property.Length == 0 || !CanWrite(buddy!, property)) throw Invalid();
                 if (!property.Equals("Text", StringComparison.OrdinalIgnoreCase)
                     && !property.Equals("Caption", StringComparison.OrdinalIgnoreCase)
@@ -309,7 +309,7 @@ public sealed class VBUpDown : Control, ICSharpPropertyBag
         if (value.Value is Control control && form.All.Contains(control)) return control;
         if (value.Type == Vb6Value.ValueType.String)
         {
-            var name = (string)value.Value!;
+            var name = (string)value.WithoutOddBytes("VBUpDown text use").Value!;
             if (name.Length == 0) return null;
             return form.All.FirstOrDefault(c => string.Equals(VBProps.GetName(c), name, StringComparison.OrdinalIgnoreCase)) ?? throw Invalid();
         }

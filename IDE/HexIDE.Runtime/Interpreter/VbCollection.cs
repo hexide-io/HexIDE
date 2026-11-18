@@ -152,7 +152,7 @@ public sealed class VbCollection(BasicInterpreter interpreter) : ICSharpAsyncPro
                 throw new VBRunTimeException(NamesAnItem(key)
                     ? VBStandardError.ThisKeyIsAlreadyAssociatedWithAnElementOfThisCollection
                     : VBStandardError.TypeMismatch);
-            keyText = (string)key.Value!;
+            keyText = (string)key.WithoutOddBytes("VbCollection text use").Value!;
             if (byKey.ContainsKey(keyText))
                 throw new VBRunTimeException(VBStandardError.ThisKeyIsAlreadyAssociatedWithAnElementOfThisCollection);
         }
@@ -200,13 +200,14 @@ public sealed class VbCollection(BasicInterpreter interpreter) : ICSharpAsyncPro
     // for any index, a position, a key, Null or Empty, where a Collection with items gives 9, 5 or 13 (measured, #1492).
     private int Position(Vb6Value index)
     {
+        index.RefuseOddBytes("Collection.Item");
         if (index.IsMissing)
             throw new VBCompileErrorException("Argument not optional");
         if (items.Count == 0)
             throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
         if (index.Type == Vb6Value.ValueType.String)
         {
-            if (!byKey.TryGetValue((string)index.Value!, out var entry))
+            if (!byKey.TryGetValue((string)index.WithoutOddBytes("VbCollection text use").Value!, out var entry))
                 throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
             return items.IndexOf(entry) + 1;
         }
