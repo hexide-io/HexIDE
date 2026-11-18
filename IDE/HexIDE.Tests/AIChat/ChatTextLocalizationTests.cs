@@ -1,4 +1,9 @@
 using System.Xml.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using HexIDE.Lsp;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Reflection;
@@ -185,31 +190,100 @@ public class ChatTextLocalizationTests
     }
 
     [Fact]
-    public void ChatDoesNotPassLocalizedValuesIntoOtherLocalizedSentences()
+    public void ChatDoesNotPassLocalizedFragmentsIntoOtherLocalizedSentences()
     {
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !Directory.Exists(Path.Join(root.FullName, "IDE", "HexIDE.AIChat"))) root = root.Parent;
         root.Should().NotBeNull();
+        var localization = new LocalizationService();
+        string? English(string key) => localization.GetStringFrom("en", key) is var value && value != key ? value : null;
         foreach (var file in Directory.EnumerateFiles(Path.Join(root!.FullName, "IDE", "HexIDE.AIChat", "Views"), "*.cs"))
         {
             var syntax = CSharpSyntaxTree.ParseText(File.ReadAllText(file), cancellationToken: TestContext.Current.CancellationToken)
                 .GetRoot(TestContext.Current.CancellationToken);
-            static bool IsLocalizedCall(InvocationExpressionSyntax call) =>
-                call.Expression.ToString() is "ChatStrings.GetString" or "ChatStrings.Format";
-            var localizedVariables = syntax.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                .Where(v => v.Initializer?.DescendantNodes().OfType<InvocationExpressionSyntax>().Any(IsLocalizedCall) == true)
-                .Select(v => v.Identifier.ValueText).ToHashSet();
-            foreach (var call in syntax.DescendantNodes().OfType<InvocationExpressionSyntax>()
-                         .Where(c => c.Expression.ToString() == "ChatStrings.Format"))
-            foreach (var argument in call.ArgumentList.Arguments.Skip(1))
+            ComposedFragments(syntax, English).Should().BeEmpty($"{file}: localized sentences must be complete");
+        }
+    }
+
+    // The guard's one exemption has to bite: a localized value inserted mid-sentence still fails, wherever it is.
+    [Fact]
+    public void A_localized_value_mid_sentence_is_refused_and_one_after_a_closing_colon_is_not()
+    {
+        var syntax = CSharpSyntaxTree.ParseText("""
+            class C
             {
-                argument.DescendantNodes().OfType<InvocationExpressionSyntax>().Where(IsLocalizedCall)
-                    .Should().BeEmpty($"{file}: localized sentences must be complete");
-                argument.DescendantNodes().OfType<IdentifierNameSyntax>()
-                    .Where(i => localizedVariables.Contains(i.Identifier.ValueText))
-                    .Should().BeEmpty($"{file}: localized fragments must not be passed through variables");
+                void M(string tool)
+                {
+                    var reason = ChatStrings.Format("Str.Probe.Reason", 1);
+                    var shown = ChatStrings.Format("Str.Probe.Frame", tool, reason);
+                    var middle = ChatStrings.Format("Str.Probe.Middle", reason, tool);
+                    var word = ChatStrings.Format("Str.Probe.Middle", ChatStrings.GetString("Str.Probe.Word"), tool);
+                }
+            }
+            """, cancellationToken: TestContext.Current.CancellationToken).GetRoot(TestContext.Current.CancellationToken);
+        var english = new Dictionary<string, string>
+        {
+            ["Str.Probe.Reason"] = "The server isn't running.",
+            ["Str.Probe.Frame"] = "`{0}` failed: {1}",
+            ["Str.Probe.Middle"] = "Could not {0} the file {1}.",
+        };
+
+        ComposedFragments(syntax, key => english.GetValueOrDefault(key)).Should().Equal(
+            "Str.Probe.Middle {0}: reason", "Str.Probe.Middle {0}: ChatStrings.GetString(\"Str.Probe.Word\")");
+    }
+
+    [Theory]
+    [InlineData("`{0}` failed: {1}", 1, true)]
+    [InlineData("Not applied to {0}: {1}", 1, true)]
+    [InlineData("Not applied to the file: {0}", 0, true)]
+    [InlineData("Error: {0}.", 0, true)]
+    [InlineData("Not applied to {0}: {1}", 0, false)]
+    [InlineData("Could not open {0} today", 0, false)]
+    [InlineData("{0} failed: see {1} for details", 1, false)]
+    [InlineData("Failed: {1}!", 1, false)]
+    [InlineData("Failed: {10}", 1, false)]
+    [InlineData("Failed {1}", 1, false)]
+    public void A_whole_sentence_may_fill_only_a_placeholder_ending_the_sentence_after_a_colon(string english, int index, bool allowed) =>
+        PlaceholderTakesAWholeSentence(english, index).Should().Be(allowed);
+
+    /// <summary>
+    /// A localized whole sentence may fill a placeholder only where the composing sentence's English ends with it after a
+    /// colon, as <c>: {n}</c> or <c>: {n}.</c>, so the inserted text stands as its own sentence in every language (#4332).
+    /// Anywhere else it would be a translated fragment inside another translated sentence, whose word order other languages
+    /// don't share. This is the guard's only exemption: a rule about the sentence, not a list of call sites.
+    /// </summary>
+    private static bool PlaceholderTakesAWholeSentence(string english, int index) =>
+        english.EndsWith($": {{{index}}}", StringComparison.Ordinal) || english.EndsWith($": {{{index}}}.", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Each <c>ChatStrings.Format</c> argument that carries a localized value, directly or through a variable, into a
+    /// placeholder <see cref="PlaceholderTakesAWholeSentence"/> doesn't allow, as "key {n}: argument".
+    /// </summary>
+    private static List<string> ComposedFragments(SyntaxNode root, Func<string, string?> english)
+    {
+        static bool IsLocalizedCall(InvocationExpressionSyntax call) =>
+            call.Expression.ToString() is "ChatStrings.GetString" or "ChatStrings.Format";
+        var localizedVariables = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+            .Where(v => v.Initializer?.DescendantNodes().OfType<InvocationExpressionSyntax>().Any(IsLocalizedCall) == true)
+            .Select(v => (v.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault(), v.Identifier.ValueText)).ToHashSet();
+        var found = new List<string>();
+        foreach (var call in root.DescendantNodes().OfType<InvocationExpressionSyntax>()
+                     .Where(c => c.Expression.ToString() == "ChatStrings.Format"))
+        {
+            var key = call.ArgumentList.Arguments[0].Expression is LiteralExpressionSyntax literal ? literal.Token.ValueText : null;
+            var sentence = key is null ? null : english(key);
+            foreach (var (argument, index) in call.ArgumentList.Arguments.Skip(1).Select((a, i) => (a, i)))
+            {
+                if (sentence is not null && PlaceholderTakesAWholeSentence(sentence, index))
+                    continue;
+                var localized = argument.DescendantNodes().OfType<InvocationExpressionSyntax>().Any(IsLocalizedCall)
+                    || argument.DescendantNodes().OfType<IdentifierNameSyntax>().Any(i =>
+                        localizedVariables.Contains((i.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault(), i.Identifier.ValueText)));
+                if (localized)
+                    found.Add($"{key ?? call.ArgumentList.Arguments[0].ToString()} {{{index}}}: {argument}");
             }
         }
+        return found;
     }
 
     [AvaloniaTheory]
@@ -260,6 +334,105 @@ public class ChatTextLocalizationTests
             chat.SessionLog.Single().Content.Should().Contain("No project is currently running");
         }
         finally { Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ServerToolNotRunning", "The language server 'Probe' isn't running, or no longer offers AI Chat tools.", "LOCAL Probe")]
+    [InlineData("ServerToolListFailed", "The language server 'Probe' didn't list its tools, so nothing was called.", "LOCAL Probe")]
+    [InlineData("ServerToolNotOffered", "The language server 'Probe' doesn't offer a tool called 'read'.", "LOCAL Probe read")]
+    [InlineData("ServerToolCallFailed", "The language server 'Probe' didn't complete the call: raw exception", "LOCAL Probe raw exception")]
+    [InlineData("ServerToolsUnavailable", "Language servers' AI Chat tools are available only to HexIDE's own add-ins.", "LOCAL")]
+    [InlineData("server-error", "server's own error", "server's own error")]
+    public async Task ServerRefusalUsesResourcesAndResultStaysEnglish(string scenario, string english, string shown)
+    {
+        var key = "Str.AIChat." + scenario;
+        var resources = Application.Current!.Resources;
+        var hadKey = resources.TryGetValue(key, out var previous);
+        resources[key] = scenario switch
+        {
+            "ServerToolNotOffered" or "ServerToolCallFailed" => "LOCAL {0} {1}",
+            "ServerToolsUnavailable" => "LOCAL",
+            _ => "LOCAL {0}",
+        };
+        resources["Str.AIChat.ToolFailed"] = "FAILED {0}: {1}";
+        var directory = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var tool = new ServerChatTool("probe", "Probe", "read", "", JsonDocument.Parse("{}").RootElement.Clone(), false);
+            Task<JsonElement?> Request(string method, JsonElement? arguments, TimeSpan? timeout, CancellationToken token)
+            {
+                if (scenario == "ServerToolListFailed" || (scenario == "ServerToolCallFailed" && method == "call"))
+                    throw new InvalidOperationException("raw exception");
+                return Task.FromResult<JsonElement?>(JsonDocument.Parse(method == "list"
+                    ? scenario == "ServerToolNotOffered" ? """{"tools":[]}""" : """{"tools":[{"name":"read","annotations":{"readOnlyHint":true,"destructiveHint":false}}]}"""
+                    : """{"isError":true,"content":[{"type":"text","text":"server's own error"}]}""").RootElement.Clone());
+            }
+            IServerChatTools tools = scenario == "ServerToolsUnavailable"
+                ? ServerChatToolsUnavailable.Instance
+                : new ServerChatToolsService(() => scenario == "ServerToolNotRunning" ? [] :
+                    [new ChatToolsServer("probe", "Probe", ServerChatToolsPolicy.Hints,
+                        new ServerChatToolsCapability("list", "call", null), Request)], NullLogger.Instance);
+            // The assistant saw the tool before the server stopped/listing failed. List it for this send,
+            // then let the real host service decide what the call does now.
+            var offered = Substitute.For<IServerChatTools>();
+            offered.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<ServerChatTool>>([tool]));
+            offered.CallAsync(Arg.Any<ServerChatTool>(), Arg.Any<JsonElement?>(), Arg.Any<ServerChatToolApproval>(),
+                Arg.Any<CancellationToken>()).Returns(call => tools.CallAsync(call.ArgAt<ServerChatTool>(0),
+                    call.ArgAt<JsonElement?>(1), call.ArgAt<ServerChatToolApproval>(2), call.ArgAt<CancellationToken>(3)));
+            var host = Substitute.For<IHexIdeHost>();
+            host.ServerChatTools.Returns(offered);
+            File.WriteAllText(Path.Join(directory, "chat-settings.json"), """{"baseUrl":"http://localhost/v1"}""");
+            var handler = new ServerChatToolsLoopTests.ToolCallHandler("lsp1_read", "{}");
+            using var client = new ChatClient(new HttpClient(handler));
+            var chat = new ChatViewModel(host, directory, client) { InputText = "go" };
+            await chat.SendAsync().WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            Dispatcher.UIThread.RunJobs();
+
+            chat.Messages.Single(m => m.IsError).RawContent.Should().Be("FAILED Probe: read: " + shown);
+            var sessionResult = chat.SessionLog.Single(m => m.Role == "tool").Content;
+            JsonNode.Parse(sessionResult)!["result"]!.GetValue<string>().Should().Be(english);
+            var sentResult = handler.Bodies[1]["messages"]!.AsArray().Single(m => m!["role"]!.GetValue<string>() == "tool")!["content"]!.GetValue<string>();
+            JsonNode.Parse(sentResult)!["result"]!.GetValue<string>().Should().Be(english);
+        }
+        finally
+        {
+            if (hadKey) resources[key] = previous!; else resources.Remove(key);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task LocalizedServerRefusalIsCutAfterTranslation()
+    {
+        var resources = Application.Current!.Resources;
+        const string key = "Str.AIChat.ServerToolCallFailed";
+        var hadKey = resources.TryGetValue(key, out var previous);
+        resources[key] = new string('L', 310) + " {0}: {1}";
+        resources["Str.AIChat.ToolFailed"] = "FAILED {0}: {1}";
+        var directory = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var tools = Substitute.For<IServerChatTools>();
+            tools.CallAsync(Arg.Any<ServerChatTool>(), Arg.Any<JsonElement?>(), Arg.Any<ServerChatToolApproval>(),
+                Arg.Any<CancellationToken>()).Returns(new ServerChatToolResult(true, "English")
+                    { ReasonKey = key, ReasonArguments = ["Probe", "raw exception"] });
+            var host = Substitute.For<IHexIdeHost>();
+            host.ServerChatTools.Returns(tools);
+            var chat = new ChatViewModel(host, directory);
+            var tool = new ServerChatTool("probe", "Probe", "read", "", JsonDocument.Parse("{}").RootElement.Clone(), false);
+            await chat.RunServerToolCallAsync(new ToolCall("id", "lsp1_read", "{}"), tool, TestContext.Current.CancellationToken);
+            Dispatcher.UIThread.RunJobs();
+
+            chat.Messages.Last().RawContent.Should().Be("FAILED Probe: read: " + new string('L', 300) + "…");
+            JsonNode.Parse(chat.SessionLog.Single().Content)!["result"]!.GetValue<string>().Should().Be("English");
+        }
+        finally
+        {
+            if (hadKey) resources[key] = previous!; else resources.Remove(key);
+            Directory.Delete(directory, true);
+        }
     }
 
     [AvaloniaFact]

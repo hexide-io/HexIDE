@@ -69,7 +69,17 @@ public sealed record ServerChatTool(
 /// <param name="Text">The answer as text, cut to <see cref="ServerChatToolLimits.MaxResult"/>.</param>
 /// <param name="Truncated">True when the text was cut.</param>
 /// <param name="Declined">True when the call asked and the person said no, so nothing was sent to the server.</param>
-public sealed record ServerChatToolResult(bool IsError, string Text, bool Truncated = false, bool Declined = false);
+public sealed record ServerChatToolResult(bool IsError, string Text, bool Truncated = false, bool Declined = false)
+{
+    // Init-only, not positional: a new positional parameter would replace the record's constructor and Deconstruct,
+    // which add-ins compiled against the SDK call (#4566, #4567).
+
+    /// <summary>A localization key for a refusal HexIDE wrote, or null. <see cref="Text"/> stays English for the AI service.</summary>
+    public string? ReasonKey { get; init; }
+
+    /// <summary>The facts to insert in the localized refusal: server and tool names, an exception's message.</summary>
+    public object[]? ReasonArguments { get; init; }
+}
 
 /// <summary>A context fragment a server gave.</summary>
 public sealed record ServerChatContext(string ServerId, string ServerName, string Text, bool Truncated = false);

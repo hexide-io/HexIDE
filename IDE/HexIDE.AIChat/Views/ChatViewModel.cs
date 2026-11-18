@@ -537,7 +537,10 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
         if (result.IsError)
         {
-            var reason = result.Text.Length > 300 ? result.Text[..300] + "…" : result.Text;
+            var reason = result.ReasonKey is { } key
+                ? ChatStrings.Format(key, result.ReasonArguments ?? [])
+                : result.Text;
+            if (reason.Length > 300) reason = reason[..300] + "…";
             Dispatcher.UIThread.Post(() => Messages.Add(new ChatMessageViewModel("assistant", reason.Length == 0
                 ? ChatStrings.Format("Str.AIChat.ToolFailedNoReason", shown)
                 : ChatStrings.Format("Str.AIChat.ToolFailed", shown, reason), isError: true)));
