@@ -365,6 +365,17 @@ A click on Form1's taskbar button wasn't tried. The last row is a posted message
 isn't Form2's owner, and it came back above the IDE too, in the place it held before. Reasoned, not checked: every form
 is in one ownership tree under the hidden main window, and Windows raises an owned window's whole tree with it.
 
+**A break while a modal form waits, with no code running (2026-11-18, #4708).** Rows c and d broke with no code
+running: three-form Form1 has no ticking Timer, and row d's Timer disables itself before its `Show`. VB6 broke at once,
+opened the calling form's code window, and made the waiting `Show` statement the current one, with the yellow arrow and
+highlight:
+- **row c:** `Form2.Show vbModal, Form3` in `Command1_Click`;
+- **row d:** `Form2.Show vbModal` in `Timer1_Timer`.
+
+These come from the screens the driver took at each Ctrl+Break, in the second three-form run. F5 then resumed the wait,
+with Form2 still modal and in front (section 4's table). Rows a and b had Form1's Timer ticking throughout, so they don't
+show this case. Not measured: what F8 does from that stop.
+
 **What was overturned.** The obvious guess, and #4618's own wording, was "the form beneath the modal one", which reads
 as the active form. Rows d and e pull the active form and the owner apart, and the owner follows the code that ran
 `Show`. And bringing back the modal form's owner alone is not what F5 does: row c brings back a form that owns nothing.
