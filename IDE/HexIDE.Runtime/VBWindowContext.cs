@@ -560,6 +560,8 @@ public class VBWindowContext : IModuleExecutionRoot
         return await Events.Run("Form_Load", async () =>
         {
             var session = interpreter.DebugController?.Session;
+            var wasStartupDispatch = interpreter.InStartupDispatch;
+            interpreter.InStartupDispatch = true;
             interpreter.DebugController?.NotifyDispatchStarted();
             try
             {
@@ -585,6 +587,7 @@ public class VBWindowContext : IModuleExecutionRoot
             }
             finally
             {
+                interpreter.InStartupDispatch = wasStartupDispatch;
                 if (interpreter.DebugController?.Session == session)
                     interpreter.DebugController?.NotifyDispatchIdle();
             }
