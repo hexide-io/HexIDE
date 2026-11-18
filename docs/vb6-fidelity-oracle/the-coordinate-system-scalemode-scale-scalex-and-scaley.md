@@ -243,3 +243,79 @@ row continues from the one before.
 
 So `Scale` with its two points takes its object by name, or none, and not from `With`. Through `With`, even the bare
 `.Scale` that builds by name is refused. Other spellings through `With` weren't tried.
+
+### A UserControl's scale, late-bound Scale, and scales saved without extents (2026-11-18, #4693, SP6)
+
+**The probe.** A Standard EXE held:
+- **UserControl1:** 2400 by 1800 twips, holding Label1 at 150, 300, 600 by 255 twips, placed on Form1. Its Public
+  `Probe` ran from Form1's Form_Load.
+- **Picture1:** saved with ScaleMode 0, ScaleWidth 100 and ScaleHeight 100, holding Line1 from (10, 10) to (90, 90) in
+  those units.
+- **Picture2:** saved in centimetres, holding Line2 from (0.5, 0.5) to (2, 1.5).
+- **Form2:** saved with `ScaleMode = 0` and no ScaleWidth, ScaleHeight, ScaleLeft or ScaleTop lines.
+
+Every step ran under `On Error Resume Next` and logged any error. The run was in session 0, and p-code and native code
+logged the same lines.
+
+**Inside the UserControl:**
+
+| Step | Logged |
+|---|---|
+| read the state | ScaleMode 1, an Integer; ScaleWidth 2400, a Single; ScaleHeight 1800; ScaleLeft and ScaleTop 0 |
+| Label1 | 150, 300, 600, 255 |
+| `ScaleX(1, vbInches, vbTwips)` | 1440, a Single |
+| `ScaleX(1440)` | 816.378 |
+| `ScaleY(15, vbPixels, vbTwips)` | 225 |
+| `ScaleMode = 3` | ScaleWidth 160, ScaleHeight 120; Label1 10, 20, 40, 17 |
+| `Label1.Left = 20` | reads 20; `ScaleX(1440)` now 54.4252 |
+| `Scale (0, 0)-(100, 50)` | ScaleMode 0, ScaleWidth 100, ScaleHeight 50, ScaleLeft 0; Label1 12.5, 8.333333, 25, 7.083333 |
+| `Scale (10, 50)-(110, 0)` | ScaleTop 50, ScaleHeight -50; Label1.Left 22.5, Top 41.66667, Height 7.083333 |
+| bare `Scale` | ScaleMode 1, ScaleWidth 2400, ScaleLeft 0; Label1.Left 300 |
+| `ScaleMode = 7` | ScaleWidth 4.233337; Label1.Left 0.5291672 |
+
+**A UserControl's coordinate system follows this page's rules for a form and PictureBox.** Every row above fits
+them:
+- the same defaults and types;
+- `ScaleX`'s HiMetric default (1440 HiMetric is 1440 × 1440 / 2540 = 816.378 twips);
+- whole-twips positions;
+- a flipped scale with sizes as magnitudes;
+- a bare `Scale` back to twips.
+
+**On Form1 and its controls:**
+
+| Step | Logged |
+|---|---|
+| Picture1's state | ScaleMode 0, ScaleWidth 100, ScaleHeight 100 |
+| Line1's X1, Y1, X2, Y2 | 10.02123, 10.02849, 90.02123, 89.97151 |
+| then `Picture1.ScaleMode = 1` | 236, 176, 2120, 1579 |
+| Picture2's state | ScaleMode 7, ScaleWidth 4.153963 |
+| Line2's X1, Y1, X2, Y2 | 0.4991811, 0.4991811, 2.000252, 1.499307 |
+| then `Picture2.ScaleMode = 1` | 283, 283, 1134, 850 |
+| `Load Form2`, then read its state | ScaleMode 0, ScaleWidth 2400, ScaleHeight 1800, ScaleLeft 0, ScaleTop 0 |
+| `Form2.ScaleX(1, vbInches, vbUser)` | 1440 |
+| `o.Scale (0, 0)-(100, 100)`, with o As Object set to Form1 | runs: ScaleMode 0, ScaleWidth 100, ScaleHeight 100 |
+| then a bare `o.Scale` | runs: ScaleMode 1, ScaleWidth 6000 |
+| `o.ScaleX(1, vbInches, vbTwips)` | 1440 |
+| `o.Scale (0, 0)-(10, 10)`, o set to Picture1 | runs: ScaleMode 0, ScaleWidth 10 |
+| `o.Scale (0, 0)-(10, 10)`, o set to UserControl11, its extender | 438, Object doesn't support this property or method |
+
+**At compile time**, each in a project of its own:
+
+| `x = …` in Form_Load | `/make` |
+|---|---|
+| `ScaleX(1, 1, 1, 1)` | Wrong number of arguments or invalid property assignment |
+| `ScaleX()` | Argument not optional |
+
+- **A Line control's ends are kept in whole twips** when its container is scaled.
+  - **In centimetres:** each end is the nearest twip. 0.5 cm is 283.46 twips and loaded as 283; 2 cm loaded as 1134;
+    1.5 cm as 850.
+  - **In Picture1's User scale:** the logged ends put one unit at 23.55 twips across, since 2120 - 236 = 1884 = 80 ×
+    23.55, and about 17.55 down. So each end falls on a half twip. 235.5 went to 236, 2119.5 to 2120 and 175.5 to 176, but 1579.5 went to 1579. That fits neither
+    rounding half up nor half to even, so no rule is defended here. A Single product landing below the half would
+    explain it, but that wasn't checked.
+- **A form saved with ScaleMode 0 and no extents has a User scale of one twip a unit**, reading the client area's
+  size in twips.
+- **Late-bound `Scale` and `ScaleX` work** on a form and a PictureBox. A UserControl's extender has no `Scale`, so 438.
+
+**Not measured:** a PictureBox's scale after it is resized; a UserControl's scale seen from its container; and drawing
+methods on a UserControl.
