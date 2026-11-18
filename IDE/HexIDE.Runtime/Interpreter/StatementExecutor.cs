@@ -2846,6 +2846,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 && await asyncPropertyBag.TrySetPropertyAsync(memberIdentifier, value))
                 return default;
 
+            var throughObject = variable.HeldAsVariant || string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase);
+            if (variable.Value is VBCommonDialog dialog && dialog.TrySetProperty(memberIdentifier, value, throughObject))
+                return default;
+
             // A CSharp property bag (e.g. Err.Number = …) handles its own get/set by name.
             if (variable.Value is ICSharpPropertyBag propertyBag && propertyBag.TrySetProperty(memberIdentifier, value))
                 return default;
