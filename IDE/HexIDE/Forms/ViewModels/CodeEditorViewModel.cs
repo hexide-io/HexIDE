@@ -1344,7 +1344,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             {
                 ProcedureNames.Add(DeclarationsProc);
                 foreach (var s in FlattenedSymbols())
-                    if (s.Kind is SymbolKind.Method or SymbolKind.Function or SymbolKind.Property)
+                    // A form's controls can arrive as Property symbols too (RDCore, #4526); they belong in the Object
+                    // box. Only Property symbols are filtered: a procedure keeps its place even if it shares a name
+                    // FindComponent knows, such as the root's "Form".
+                    if (s.Kind is SymbolKind.Method or SymbolKind.Function ||
+                        (s.Kind is SymbolKind.Property && FindComponent(s.Name) is null))
                         ProcedureNames.Add(s.Name);
             }
             else
