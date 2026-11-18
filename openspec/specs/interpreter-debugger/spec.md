@@ -393,6 +393,15 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **THEN** the all-procedures context label SHALL refresh in existing Watches rows and the Add/Edit Watch dialog
 - **AND** named module/procedure contexts SHALL remain unchanged
 
+#### Scenario: The Watches window's row order
+- **WHEN** interpreter watch rows are rebuilt after adding, editing or deleting a watch
+- **THEN** the window SHALL sort by displayed Context, then Expression, both ordinal, with a blank Context first
+- **AND** equal Context and Expression SHALL retain added order, without reordering the watch store
+- **AND** `get_watches` SHALL return interpreter watches in that same order while retaining their stored context fields
+- **AND** external debugger watches SHALL retain their existing order
+- **AND** the measured rows SHALL be `m`, `v`, `g` for contexts `Class1`, `Class1.X(Let)`, `Module1`, and `1 + 1`, `Loc`, `g`, `p`, `zq` within a blank Context ([measurement](../../../docs/vb6-fidelity-oracle/a-watch-and-its-context.md), #4543)
+- **NOTE** Equal-row stability is HexIDE's retained behaviour; VB6 ties, Contexts differing only in case, and immediate re-sorting on add remain unmeasured.
+
 #### Scenario: Watching a value across breaks
 - **WHEN** an expression watch exists and the program breaks
 - **THEN** its current value is displayed, expandable in the same way as Locals

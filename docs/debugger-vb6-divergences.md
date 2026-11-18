@@ -678,13 +678,15 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   was ruled out (supervisor, #4452, 2026-11-17).
 - **Status:** divergence by decision.
 
-### D35. The Watches window lists watches in the order they were added (#4543)
+### D35. The Watches window lists watches in the order they were added (#4543) — fixed
 - **VB6:** the rows sort by Context, then Expression, a blank Context first and Expression case-sensitive: added as `v` at
   `Class1.X(Let)`, `m` at `Class1` and `g` at `Module1`, they read `m`, `v`, `g` (measured, hexide-int, vb6.exe SP6;
   [the oracle page](vb6-fidelity-oracle/a-watch-and-its-context.md)).
-- **HexIDE:** the same three read `v`, `m`, `g`, the order they were added in (live, 2026-11-18, found checking #4481).
-- **Why:** found during live verification; nothing chose it.
-- **Status:** **not implemented**, tracked by [#4543](https://github.com/hexide-io/HexIDE/issues/4543).
+- **HexIDE:** read `v`, `m`, `g`, the order they were added in (live, 2026-11-18, found checking #4481). Since #4543 the
+  interpreter's rows sort by the displayed Context, then Expression, ordinal and stable, and `get_watches` follows them:
+  the same three read `m`, `v`, `g` (live, 2026-11-18). External debugger watches keep the order added; nothing is
+  measured for them.
+- **Status:** **fixed** (#4543). Contexts that differ only in case, ties, and when VB6 re-sorts are unmeasured.
 
 ### D30. Locals rows beyond what is measured (#2329, #2700)
 - **VB6, measured** (hexide-int, #2289, #2329, #2700; oracle #2698 and #2702):

@@ -450,7 +450,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 
 | Feature | Status | Notes |
 |---|---|---|
-| Watch expression list | Partial | Expandable Expression/Value/Type/Context rows, re-evaluated each break; native debugger P6a; MCP `get_watches`. #2290: paused watches respect module/procedure scope, including caller frames and the measured context messages (`Empty` type); design-time and after-End rows also show type `Empty`. Design-time and after-End name resolution is out of bounds by design, and module selection/storage remains as #4354; see debugger divergence D32. |
+| Watch expression list | Partial | Expandable Expression/Value/Type/Context rows, re-evaluated each break; interpreter rows and `get_watches` sort by displayed Context then Expression, ordinal, with blank Context first (#4543; supervisor live check pending); native debugger P6a; MCP `get_watches`. #2290: paused watches respect module/procedure scope, including caller frames and the measured context messages (`Empty` type); design-time and after-End rows also show type `Empty`. Design-time and after-End name resolution is out of bounds by design, and module selection/storage remains as #4354; see debugger divergence D32. |
 | Add watch from editor selection | Done | Quick Watch (Shift+F9) opens the Add Watch dialog pre-filled with the identifier under the caret; native debugger P6a |
 
 ---
