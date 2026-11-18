@@ -97,9 +97,13 @@ public partial class ComponentInstanceViewModel : ObservableObject
                 module.Name = Name;
             OnPropertyChanged(nameof(Name));
             OnPropertyChanged(nameof(AddressedName));
+            parentViewModel.RefreshPreviewSelection();
         }
         else if (propertyClass == VBProperties.DesignIndexProperty)
+        {
             OnPropertyChanged(nameof(AddressedName));
+            parentViewModel.RefreshPreviewSelection();
+        }
         else if (propertyClass == VBProperties.TabIndexProperty)
             OnPropertyChanged(nameof(TabIndex));
         else if (propertyClass == VBProperties.TabStopProperty)
