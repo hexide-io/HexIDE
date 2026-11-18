@@ -108,6 +108,9 @@ public class WriteAtSaveTests : IDisposable
     [InlineData(true)]
     public async Task UnsavedProjectCarriesOnlyThisSavesPreviousPickerDirectory(bool scratch)
     {
+        // Agree to replacement so this test reaches the behavior it checks (#4505).
+        windowManager.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning,
+            layout: MessageBoxLayout.SecondButtonDefault).Returns(MessageBoxResult.Yes);
         var svc = MakeService();
         var project = Unsaved();
         await svc.AddNewForm(project, "Form1", interactive: false);

@@ -8,8 +8,8 @@ namespace HexIDE.Projects;
 /// </summary>
 public static class MakeOutcomes
 {
-    /// <summary>Where a Make has got to. <see cref="Asking"/> is the Yes/No box that asks before replacing an archive
-    /// already beside the program (#2718); a Yes goes back to <see cref="Writing"/>.</summary>
+    /// <summary>Where a Make has got to. <see cref="Asking"/> is the Yes/No box that asks before replacing the program
+    /// or its archive (#2718, #4505); a Yes continues the build.</summary>
     public enum Stage { Started, AtPicker, Writing, Asking, Finished }
 
     /// <summary>What a Make ended with: the program and project it wrote, or <see cref="WhyNot"/>.</summary>
@@ -38,7 +38,7 @@ public static class MakeOutcomes
 
         public Task<Outcome> Ended => ended.Task;
 
-        /// <summary>The archive Make asks whether to replace, once it has asked.</summary>
+        /// <summary>The file Make asks whether to replace, once it has asked.</summary>
         public string? Replacing => Volatile.Read(ref replacing);
 
         internal void Reached(Stage next)
@@ -47,9 +47,9 @@ public static class MakeOutcomes
             Volatile.Write(ref stage, (int)next);
         }
 
-        internal void Asking(string archivePath)
+        internal void Asking(string path)
         {
-            Volatile.Write(ref replacing, archivePath);
+            Volatile.Write(ref replacing, path);
             Reached(Stage.Asking);
         }
 

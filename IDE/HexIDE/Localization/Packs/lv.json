@@ -2,6 +2,7 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} jau pastāv. Vai vēlaties to aizstāt?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} tika ielādēts ar kļūdām, tāpēc to nevar saglabāt, pārrakstot sākotnējo failu. Izvēlieties jaunu faila nosaukumu.",
     "Str.ProjectLoad.PropertyNotSet": "{0}. rinda: neizdevās iestatīt {2} rekvizītu {1}.",
     "Str.Menu.Edit.Refactor": "_Refaktorēšana",

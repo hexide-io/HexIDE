@@ -453,6 +453,9 @@ public sealed class MemberAttributesFollowARenameTests : IDisposable
     [InlineData("form")]
     public async Task ItsOwnSaveAsToTheFileItWasReadFromRewritesAsItsSaveDoes(string kind)
     {
+        // Agree to replacement so this test reaches the behavior it checks (#4505).
+        windows.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning,
+            layout: MessageBoxLayout.SecondButtonDefault).Returns(MessageBoxResult.Yes);
         // A Save As is the document's own command wherever it is pointed, so one that picks the file the document
         // already lives at rewrites as its Save does, though nothing moves.
         var service = MakeService();

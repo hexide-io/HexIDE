@@ -2,6 +2,7 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} já existe. Deseja substituí-lo?",
     "Str.Office.ProjectFiles": "Arquivos de projeto e do Office",
     "Str.Office.AllFiles": "Todos os arquivos",
     "Str.Office.SourceNotice": "Somente leitura. O código exibido é o código-fonte armazenado no documento. O Office executa o p-code compilado armazenado ao lado quando a versão corresponde, portanto o código executado pode ser diferente.",

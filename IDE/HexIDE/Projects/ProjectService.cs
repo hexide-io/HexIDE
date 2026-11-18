@@ -1318,25 +1318,53 @@ public partial class ProjectService : IProjectService
     private async Task<string> ChooseFormPath(FormDefinition form, string? directory)
     {
         var ext = ProjectFormats.Of(form.Owner).FormExtension;
-        return await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions
+        return await ChooseSavePath(new FilePickerSaveOptions
         {
             DefaultExtension = ext,
             SuggestedFileName = form.Name + "." + ext,
             FileTypeChoices = [new(localization.GetString("Str.FilePicker.FormFiles")) { Patterns = [$"*.{ext}"] },
                 new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
-        }, directory) ?? throw new OperationCanceledException();
+        }, directory, form);
     }
 
     private async Task<string> ChooseModulePath(ModuleDefinition module, string? directory)
     {
         var ext = ProjectFormats.Of(module.Owner).MemberExtension(module.Kind);
-        return await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions
+        return await ChooseSavePath(new FilePickerSaveOptions
         {
             DefaultExtension = ext,
             SuggestedFileName = module.Name + "." + ext,
             FileTypeChoices = [new(localization.GetString("Str.FilePicker.ModuleFiles")) { Patterns = [$"*.{ext}"] },
                 new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
-        }, directory) ?? throw new OperationCanceledException();
+        }, directory, module);
+    }
+
+    private async Task<string> ChooseSavePath(FilePickerSaveOptions options, string? directory = null, object? document = null, MakeOutcomes.Make? make = null)
+    {
+        options.ShowOverwritePrompt = false;
+        while (true)
+        {
+            make?.Reached(MakeOutcomes.Stage.AtPicker);
+            var path = await windowManager.SaveFilePickerAsync(options, directory)
+                ?? throw new OperationCanceledException();
+            var existing = File.Exists(path) ? path : document switch
+            {
+                FormDefinition form when RenderForm(form, path).Companion is { Length: > 0 } => CompanionPathOf(form.Owner, path),
+                ModuleDefinition module when DesignerPartOf(module) is not null
+                    && RenderModule(module, path).Companion is { Length: > 0 } => CompanionPathOf(module.Owner, path),
+                _ => null,
+            };
+            if (existing is null || !File.Exists(existing))
+                return path;
+            make?.Asking(existing);
+            if (await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.FilePicker.ReplaceExisting"), Path.GetFileName(existing)),
+                    buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning,
+                    layout: MessageBoxLayout.SecondButtonDefault) == MessageBoxResult.Yes)
+                return path;
+            options.SuggestedFileName = Path.GetFileName(path);
+            directory = Path.GetDirectoryName(path);
+        }
     }
 
     private ContributedProjectType? TypeOf(ProjectDefinition project)
@@ -1359,26 +1387,26 @@ public partial class ProjectService : IProjectService
     {
         var patterns = TypeOf(project)!.Type.FileNames;
         var (extension, name) = PickerName(patterns[0], project.Name);
-        return await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions
+        return await ChooseSavePath(new FilePickerSaveOptions
         {
             DefaultExtension = extension,
             SuggestedFileName = name,
             FileTypeChoices = [new(localization.GetString("Str.FilePicker.ProjectFiles")) { Patterns = patterns },
                 new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
-        }, directory) ?? throw new OperationCanceledException();
+        }, directory);
     }
 
     private async Task<string> ChooseGroupPath(ProjectGroupDefinition group)
     {
         var patterns = GroupType(group.AbsolutePath)!.Type.GroupFileNames;
         var (extension, name) = PickerName(patterns[0], group.Name);
-        return await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions
+        return await ChooseSavePath(new FilePickerSaveOptions
         {
             Title = localization.GetString("Str.FilePicker.SaveProjectGroupAs"),
             DefaultExtension = extension,
             FileTypeChoices = [new(localization.GetString("Str.FilePicker.ProjectGroup")) { Patterns = patterns }],
             SuggestedFileName = name
-        }) ?? throw new OperationCanceledException();
+        });
     }
 
     /// <summary>
@@ -1431,6 +1459,7 @@ public partial class ProjectService : IProjectService
         foreach (var destination in destinations.ToArray())
         {
             if (destination.Document is not ProjectDefinition project || !ChecksOutsideChanges(project)
+                || destination.Chosen || !IsItsOwnFile(project.AbsolutePath, destination.Path)
                 || !File.Exists(destination.Path) || !ChangedOutside(destination.Path))
                 continue;
             if (!IsDirty(project))
@@ -1941,12 +1970,12 @@ public partial class ProjectService : IProjectService
         ]);
 
         make.Reached(MakeOutcomes.Stage.AtPicker);
-        var exePath = await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
+        var exePath = await ChooseSavePath(new FilePickerSaveOptions()
         {
             DefaultExtension = OperatingSystem.IsWindows() ? "exe" : "",
             SuggestedFileName = projectDefinition.Name + (OperatingSystem.IsWindows() ? ".exe" : ""),
             FileTypeChoices = OperatingSystem.IsWindows() ? [new("Windows EXE") { Patterns = ["*.exe"] }] : [new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
-        });
+        }, make: make);
 
         if (exePath == null)
             throw new OperationCanceledException();
@@ -2691,6 +2720,8 @@ public partial class ProjectService : IProjectService
         form.AbsolutePath = formPath;
         if (adoptHeader)
             form.LoadedWithErrors = false;
+        if (adoptHeader && frxContent is not { Length: > 0 })
+            form.RecordCitedCompanionBlobCount(0);
 
         // The second refresh trigger (#273 task 3.3a). The header the buffer shows becomes the header this
         // save wrote, which is NOT always the one it was opened with: the serializer is a reproduction
@@ -2768,7 +2799,7 @@ public partial class ProjectService : IProjectService
     /// SECOND refusal of its own, on a different measure from the caller's, which is what let a .frm be
     /// written beside a companion that was not — see <see cref="SerializeFormToFile"/> (#148).
     ///
-    /// It keeps one guard, and only one: a companion this form never cited is not ours to delete.
+    /// Only a previously cited companion beside the form's own current file is ours to delete.
     /// </summary>
     private void WriteCompanionBinary(string sourcePath, byte[]? content, FormDefinition form)
     {
@@ -2783,6 +2814,10 @@ public partial class ProjectService : IProjectService
         }
 
         if (!File.Exists(companionPath))
+            return;
+
+        // A different destination's companion is not ours to delete, even after replacing its designer file (#4505).
+        if (!IsItsOwnFile(form.AbsolutePath, sourcePath))
             return;
 
         // Producing no blobs means "delete it" only if this form had blobs to lose. A companion NOTHING
@@ -2915,7 +2950,11 @@ public partial class ProjectService : IProjectService
         module.AbsolutePath = modulePath;
         // Both halves are the one file, as every load gives them (#474).
         if (DesignerPartOf(module) is { } written)
+        {
             written.AbsolutePath = modulePath;
+            if (adoptHeader && companion is not { Length: > 0 })
+                written.RecordCitedCompanionBlobCount(0);
+        }
 
         // As SerializeFormToFile: the .ctl/.pag half of the same refresh trigger (#273 task 3.3a). The code here is
         // the MODULE's, which is the pairing this path writes and the one the code window composes from. Gated
