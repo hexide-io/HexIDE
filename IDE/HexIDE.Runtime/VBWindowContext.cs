@@ -754,7 +754,7 @@ public class VBWindowContext : IModuleExecutionRoot
     public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null)
     {
         var argList = args is null ? null : new List<Vb6Value>(args);
-        // Each element of a Timer array is a timer of its own, so its ticks are kept apart by Index.
+        // Each form instance and each Timer array element has its own ticks (#4785).
         var key = argList is { Count: > 0 } ? $"{name}({argList[0].Value})" : name;
         Raise(name, () => argList, EventCoalescing.Timer, key);
     }
@@ -837,7 +837,7 @@ public class VBWindowContext : IModuleExecutionRoot
             return;
         }
         // One handler at a time: at once if nothing runs or the running handler's own code raised it, else in turn (#766).
-        Events.Raise(key ?? name, Work, coalescing);
+        Events.Raise(key ?? name, Work, coalescing, coalescing == EventCoalescing.Timer ? form : null);
     }
 
     internal Task DispatchInput(Func<Task> work) => Dispatch(work);

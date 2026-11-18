@@ -62,6 +62,8 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
     internal sealed class Walk(string name)
     {
         public string Name { get; } = name;
+        // Timer identity includes its form instance; Name stays the handler name for activity reports (#4785).
+        public object? Scope { get; init; }
 
         /// <summary>What runs on when this walk stops running: its raiser's walk, or null for the dispatcher. Set when the
         /// walk starts, and again each time it resumes.</summary>
@@ -77,7 +79,7 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
         public bool ByTimer;
     }
 
-    private sealed record Waiting(string Name, Func<Task> Work, EventCoalescing Coalescing);
+    private sealed record Waiting(string Name, Func<Task> Work, EventCoalescing Coalescing, object? Scope = null);
 
     private readonly List<Waiting> queue = [];
     private readonly List<Func<Task>> whenIdle = [];
@@ -172,13 +174,16 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
     /// nothing runs, else queued.
     /// </summary>
     public void Raise(string name, Func<Task> work, EventCoalescing coalescing = EventCoalescing.None)
+        => Raise(name, work, coalescing, null);
+
+    internal void Raise(string name, Func<Task> work, EventCoalescing coalescing, object? scope)
     {
         if (closed)
             return;
         // Posted: it waits its turn behind the running walk, as a message Windows posts waits for the message loop.
         if (posting > 0 && (topLevel > 0 || Current is not null))
         {
-            Enqueue(new Waiting(name, work, coalescing));
+            Enqueue(new Waiting(name, work, coalescing, scope));
             return;
         }
         if (Current is { } raiser)
@@ -186,20 +191,20 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
             // A statement can raise several events before it can await any of them (#2547). A suspended
             // sibling must finish first, just as it would if its handler had never given up the thread.
             var started = raiser.Raised is { Count: > 0 } raised && !raised[^1].IsCompleted
-                ? StartAfter(raised[^1], name, work, coalescing == EventCoalescing.Timer)
-                : Start(name, work, coalescing == EventCoalescing.Timer);
+                ? StartAfter(raised[^1], name, work, coalescing == EventCoalescing.Timer, scope)
+                : Start(name, work, coalescing == EventCoalescing.Timer, scope);
             if (!started.IsCompleted)
                 (raiser.Raised ??= []).Add(started);
             return;
         }
-        if (coalescing == EventCoalescing.Timer && IsRunning(name))
+        if (coalescing == EventCoalescing.Timer && IsRunning(name, scope))
             return;
         if (topLevel > 0)
         {
-            Enqueue(new Waiting(name, work, coalescing));
+            Enqueue(new Waiting(name, work, coalescing, scope));
             return;
         }
-        RunFrom(new Waiting(name, work, coalescing)).ListenErrors();
+        RunFrom(new Waiting(name, work, coalescing, scope)).ListenErrors();
     }
 
     /// <summary>
@@ -354,7 +359,7 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
             await Suspended(walk, YieldToInput());
             while (Dequeue() is { } next)
             {
-                var started = Start(next.Name, next.Work, next.Coalescing == EventCoalescing.Timer);
+                var started = Start(next.Name, next.Work, next.Coalescing == EventCoalescing.Timer, next.Scope);
                 if (!started.IsCompleted)
                     await Suspended(walk, started);
                 await started;
@@ -386,7 +391,7 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
             {
                 if (Dequeue() is { } next)
                 {
-                    var started = Start(next.Name, next.Work, next.Coalescing == EventCoalescing.Timer);
+                    var started = Start(next.Name, next.Work, next.Coalescing == EventCoalescing.Timer, next.Scope);
                     if (!started.IsCompleted)
                         await Suspended(walk, started);
                     await started;
@@ -437,7 +442,8 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
         arrival?.TrySetResult();
     }
 
-    private bool IsRunning(string name) => running.TryGetValue(name, out var count) && count > 0;
+    private bool IsRunning(string name, object? scope) =>
+        live.Any(w => ReferenceEquals(w.Scope, scope) && string.Equals(w.Name, name, StringComparison.OrdinalIgnoreCase));
 
     private async Task RunFrom(Waiting first)
     {
@@ -446,7 +452,7 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
             topLevel++;
             try
             {
-                await Start(next.Name, next.Work, next.Coalescing == EventCoalescing.Timer);
+                await Start(next.Name, next.Work, next.Coalescing == EventCoalescing.Timer, next.Scope);
             }
             finally
             {
@@ -475,16 +481,16 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
         }
     }
 
-    private async Task StartAfter(Task previous, string name, Func<Task> work, bool byTimer)
+    private async Task StartAfter(Task previous, string name, Func<Task> work, bool byTimer, object? scope)
     {
         await previous;
         if (!closed)
-            await Start(name, work, byTimer);
+            await Start(name, work, byTimer, scope);
     }
 
-    private async Task Start(string name, Func<Task> work, bool byTimer = false)
+    private async Task Start(string name, Func<Task> work, bool byTimer = false, object? scope = null)
     {
-        var walk = new Walk(name) { ReturnsTo = Current, ByTimer = byTimer };
+        var walk = new Walk(name) { ReturnsTo = Current, ByTimer = byTimer, Scope = scope };
         Current = walk;
         live.Add(walk);
         running[name] = (running.TryGetValue(name, out var count) ? count : 0) + 1;
@@ -549,7 +555,7 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
     private void Enqueue(Waiting item)
     {
         if (item.Coalescing == EventCoalescing.Timer
-            && queue.FindIndex(w => string.Equals(w.Name, item.Name, StringComparison.OrdinalIgnoreCase)) >= 0)
+            && queue.FindIndex(w => ReferenceEquals(w.Scope, item.Scope) && string.Equals(w.Name, item.Name, StringComparison.OrdinalIgnoreCase)) >= 0)
             return;
         if (item.Coalescing == EventCoalescing.Latest && queue.Count > 0 && queue[^1].Coalescing == EventCoalescing.Latest)
             queue[^1] = item;
@@ -564,7 +570,7 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
         {
             var next = queue[0];
             queue.RemoveAt(0);
-            if (next.Coalescing == EventCoalescing.Timer && IsRunning(next.Name))
+            if (next.Coalescing == EventCoalescing.Timer && IsRunning(next.Name, next.Scope))
                 continue;
             return next;
         }

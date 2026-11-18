@@ -456,6 +456,76 @@ public class SeveralFormsTests
         run.Opened["Form1"].IsActive.Should().BeTrue();
     }
 
+    // VB6 SP6, IDE/p-code/native agree: #4785, oracle PR #4764 section 12, row m3.
+    [AvaloniaFact]
+    public void Another_forms_same_named_timer_runs_while_the_first_waits_in_Show_vbModal()
+    {
+        using var run = Start("""
+            Private Sub Timer1_Timer()
+                Form2.Show vbModal
+                Debug.Print "returned"
+            End Sub
+            """, """
+            Private Sub Timer1_Timer()
+                Debug.Print "second timer"
+                Unload Me
+            End Sub
+            """);
+        run.Opened["Form1"].ExecuteTimer("Timer1_Timer");
+        Pump();
+        run.Opened["Form2"].ExecuteTimer("Timer1_Timer");
+        Pump();
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("second timer", "returned");
+    }
+
+    [AvaloniaFact]
+    public void Another_instances_same_named_timer_runs_while_the_first_waits_in_Show_vbModal()
+    {
+        using var run = Start("""
+            Private other As Form1
+            Private Sub Timer1_Timer()
+                If Caption = "other" Then
+                    Debug.Print "second timer"
+                    Unload Me
+                Else
+                    Set other = New Form1
+                    other.Caption = "other"
+                    other.Show vbModal
+                    Debug.Print "returned"
+                End If
+            End Sub
+            """);
+        run.Opened["Form1"].ExecuteTimer("Timer1_Timer");
+        Pump();
+        run.Opened["other"].ExecuteTimer("Timer1_Timer");
+        Pump();
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("second timer", "returned");
+    }
+
+    [AvaloniaFact]
+    public void A_timer_does_not_reenter_its_own_handler_waiting_in_Show_vbModal()
+    {
+        using var run = Start("""
+            Private Sub Timer1_Timer()
+                Debug.Print "first timer"
+                Form2.Show vbModal
+                Debug.Print "returned"
+            End Sub
+            """);
+        run.Opened["Form1"].ExecuteTimer("Timer1_Timer");
+        Pump();
+        run.Printed.Clear();
+        run.Opened["Form1"].ExecuteTimer("Timer1_Timer");
+        Pump();
+        run.Printed.Should().BeEmpty();
+        run.Click("Form2");
+        Pump();
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 queryunload 1", "f2 unload", "returned");
+    }
+
     // ── Which use makes the instance, and which loads it ──────────────────────────────────────────────
 
     [AvaloniaTheory]
