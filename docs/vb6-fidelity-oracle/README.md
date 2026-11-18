@@ -840,3 +840,5 @@ added afterwards.
 - [The `Date` and `Time` statements (2026-11-18, #4681, SP6)](the-date-and-time-statements.md#the-date-and-time-statements-2026-11-18-4681-sp6)
 - [`_NewEnum`, and a class that makes itself enumerable (2026-11-18, #4679, SP6)](collection.md#_newenum-and-a-class-that-makes-itself-enumerable-2026-11-18-4679-sp6)
 - [Pictures on the Clipboard: `GetData` and `SetData` (2026-11-18, #4682, SP6)](text-clipboard.md#pictures-getdata-and-setdata-2026-11-18-4682-sp6)
+- [An HRESULT given to Err.Raise or Err.Number (2026-11-18, #4730, SP6)](an-hresult-given-to-err-raise-or-err-number.md#an-hresult-given-to-errraise-or-errnumber-2026-11-18-4730-sp6)
+- [In the IDE too: the line break is in the description itself (2026-11-18, #4676, SP6)](errobject-as-a-declared-type.md#in-the-ide-too-the-line-break-is-in-the-description-itself-2026-11-18-4676-sp6)
