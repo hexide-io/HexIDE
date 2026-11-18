@@ -177,7 +177,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (value.Value is null)
             throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
         if (value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is not { } member)
-            throw new NotImplementedException("Arguments on a class without a default member are unmeasured (#4606)");
+            throw new NotImplementedException("Arguments on a class without a default member are unmeasured (#4747)");
         var proc = member.Kind switch
         {
             PrePass.DefaultMemberKind.Property => obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Get,
@@ -185,9 +185,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             _ => null
         };
         if (proc is null)
-            throw new NotImplementedException("Arguments on this default member kind are unmeasured (#4606)");
+            throw new NotImplementedException("Arguments on this default member kind are unmeasured (#4747)");
         return await RunProcedure(obj.ClassDef, proc, args, obj.InstanceEnv, value, frames)
-            ?? throw new NotImplementedException("A default member without a value is unmeasured (#4606)");
+            ?? throw new NotImplementedException("A default member without a value is unmeasured (#4747)");
     }
 
     internal async Task LetDefaultMember(Vb6Value value, List<CallArg> args, Vb6Value assigned,
@@ -198,7 +198,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is not { } member
             || member.Kind != PrePass.DefaultMemberKind.Property
             || obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Let is not { } letter)
-            throw new NotImplementedException("Arguments assigned to a class without a default Property Let are unmeasured (#4606)");
+            throw new NotImplementedException("Arguments assigned to a class without a default Property Let are unmeasured (#4747)");
         args.Add(new CallArg(assigned, null));
         await RunProcedure(obj.ClassDef, letter, args, obj.InstanceEnv, value, frames);
     }
