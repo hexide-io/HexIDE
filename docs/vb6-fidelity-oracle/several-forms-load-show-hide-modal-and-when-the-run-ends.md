@@ -153,23 +153,25 @@ and p-code, which agree in every one. Compiled only, in session 0: the IDE is no
 every 200 ms, its Timer2 shows Form2 modally at 0.6 s, and each other form's Timer1 ticks every 200 ms from its Load.
 Every row ran under `On Error Resume Next`, logging `Err.Number` and `Err.Description` after the statement.
 
-| statement | where | result |
-|---|---|---|
-| `Form2.Show vbModal` | Form2 already shown, modelessly | **no error**: Form2 turns modal, and the statement returns when it has gone |
-| `Me.Show vbModal` | Form1 shown, no modal form displayed | **no error**: Form1 turns modal over itself, and the statement returns when its other Timer hides it |
-| `Me.Show vbModal` | inside Form2, which is modal | **405 "Unable to show modal form within this context"** |
-| `Form1.Show vbModal` | Form2 modal, Form1 beneath it | **no error**: Form1 turns modal over Form2, and Form2's statement returns once Form1 hides itself |
-| `Form2.Show vbModal` | Form2 shown, then hidden | no error, modal as usual |
-| `Form3.Show` (loaded, hidden) | Form2 modal | **401 "Can't show non-modal form when modal form is displayed"** |
-| `Form1.Show` (already shown) | Form2 modal | **401**, the same |
-| `Me.Show` | inside Form2, which is modal | **401**, the same |
-| `Load Form3` | Form2 modal | no error. Form3 loads hidden, and `Forms.Count` is 3 |
-| `Form1.Hide` | Form2 modal, Form1 not modal | **402 "Must close or hide topmost modal form first"** |
-| `Form2.Hide` | Form3 modal over Form2 | **402**, the same |
-| `Form2.Hide`, from Form1's Timer | Form2 modal and topmost | no error, and the modal returns |
-| `Me.Visible = False` | inside Form2, which is modal | the modal returns, as on Hide. Form2 stays loaded |
-| `Unload Form2`, from Form1's Timer | Form2 modal | the rest of Form1's Timer handler runs first, then the statement after `Show vbModal` |
-| `End` | inside Form2, which is modal | the run ends. The statement after `Show vbModal` never runs |
+**Re-run on the console (2026-11-18, #4744).** Session 0 displays no form: `Visible` and `IsWindowVisible` read False after `Show`, so every row below whose setup says a form is shown measured a hidden one. The rows were run again on the guest's console, in the IDE, p-code and native, which agree in every row. The last column has the result, and *A form displayed, and a form behind a modal one, re-measured on the console* below has the probe.
+
+| statement | where | result in session 0 | on the console |
+|---|---|---|---|
+| `Form2.Show vbModal` | Form2 already shown, modelessly | **no error**: Form2 turns modal, and the statement returns when it has gone | **400 "Form already displayed; can't show modally"** |
+| `Me.Show vbModal` | Form1 shown, no modal form displayed | **no error**: Form1 turns modal over itself, and the statement returns when its other Timer hides it | **400** |
+| `Me.Show vbModal` | inside Form2, which is modal | **405 "Unable to show modal form within this context"** | **400**, not 405 |
+| `Form1.Show vbModal` | Form2 modal, Form1 beneath it | **no error**: Form1 turns modal over Form2, and Form2's statement returns once Form1 hides itself | **400** |
+| `Form2.Show vbModal` | Form2 shown, then hidden | no error, modal as usual | the same |
+| `Form3.Show` (loaded, hidden) | Form2 modal | **401 "Can't show non-modal form when modal form is displayed"** | the same |
+| `Form1.Show` (already shown) | Form2 modal | **401**, the same | the same |
+| `Me.Show` | inside Form2, which is modal | **401**, the same | the same |
+| `Load Form3` | Form2 modal | no error. Form3 loads hidden, and `Forms.Count` is 3 | the same |
+| `Form1.Hide` | Form2 modal, Form1 not modal | **402 "Must close or hide topmost modal form first"** | 402, and **Form1 stays shown** |
+| `Form2.Hide` | Form3 modal over Form2 | **402**, the same | 402, and **Form2 stays shown** |
+| `Form2.Hide`, from Form1's Timer | Form2 modal and topmost | no error, and the modal returns | the same |
+| `Me.Visible = False` | inside Form2, which is modal | the modal returns, as on Hide. Form2 stays loaded | the same |
+| `Unload Form2`, from Form1's Timer | Form2 modal | the rest of Form1's Timer handler runs first, then the statement after `Show vbModal` | not re-run |
+| `End` | inside Form2, which is modal | the run ends. The statement after `Show vbModal` never runs | not re-run |
 
 **Show's style argument.** Form2 hid itself every fifth tick, so a modal Show returned about a second later.
 
@@ -189,11 +191,16 @@ So the style converts as `CInt` does, rounding 0.6 to 1 and 1.5 to 2, and only 0
 
 **The startup form's Load showing a form modally.** Form1 isn't shown while the modal is up, and reads `Visible` False.
 Load goes on once Form2 has unloaded, and Form1 is then shown as any startup form is, with its Resize after Load.
+The console agrees (2026-11-18, #4744): Form1 reads `Visible` False, and `IsWindowVisible` 0, while the modal is up.
 
 **What was overturned.**
 - **Err 400, "Form already displayed; can't show modally",** is documented for a modal Show of a form already shown.
   It never came: the shown form turned modal instead, in every case measured. The IDE wasn't measured, and an
   owner-form argument wasn't tried.
+  - **Overturned in its turn (2026-11-18, #4744).** On the console 400 comes, in all four rows where the form is
+    displayed, in the IDE, p-code and native. The same probe run in session 0 gave this table's results again: no
+    error, and 405 for `Me.Show vbModal` inside the modal form. Reasoned, not checked: 400 never came here because
+    session 0 displays no form.
 - **Err 402's text** is "Must close or hide topmost modal form first". HexIDE's table had "Code must close topmost modal
   form first".
 - **Err 5's text** is "Invalid procedure call or argument". HexIDE's table had "Invalid procedure call", and every Err 5
@@ -214,12 +221,12 @@ Activate runs the statements below under `On Error Resume Next`, logging `Err.Nu
 each, and ends with `Me.Hide`. Form2's Activate then starts its own Timer, which unloads Form2. vb6.exe SP6, compiled
 (`/make`), native and p-code agreeing in every row. The IDE wasn't measured.
 
-| Statement, in Form3 (modal over Form2, modal over Form1) | `Err.Number` | `Visible` afterwards |
-|---|---|---|
-| `Form2.Hide`: a modal form beneath the topmost | **402** | **False** |
-| `Form2.Visible = False`, in its place | **402** | **False** |
-| `Form1.Hide`: a modeless form beneath both | 402 | **False** |
-| `Me.Hide`: the topmost modal form | 0 | False, and its `Show vbModal` returns |
+| Statement, in Form3 (modal over Form2, modal over Form1) | `Err.Number` | `Visible` afterwards | on the console |
+|---|---|---|---|
+| `Form2.Hide`: a modal form beneath the topmost | **402** | **False** | 402, `Visible` **True** |
+| `Form2.Visible = False`, in its place | **402** | **False** | 402, `Visible` **True** |
+| `Form1.Hide`: a modeless form beneath both | 402 | **False** | 402, `Visible` **True** |
+| `Me.Hide`: the topmost modal form | 0 | False, and its `Show vbModal` returns | the same |
 
 **After Form3 returned,** Form2 was still hidden. **Its modal loop hadn't ended.** Form2's Timer fired, and Run's
 `Form2.Show vbModal` returned only once that Timer had unloaded Form2. So hiding a modal form from above takes it off the
@@ -237,6 +244,75 @@ raised 402 without hiding. vb6.exe raises 402 and hides the form anyway, so a pr
 
 **Not measured:** the IDE (F5); a modal form beneath that is hidden and then shown again while the topmost stays up;
 `Unload` of a modal form beneath.
+
+**Re-run on the console (2026-11-18, #4744): the 402 leaves the form shown.** This section's probe, rebuilt from its
+description, ran on the guest's console in the IDE (`/runexit`), p-code and native, which agree. Each 402 left its form
+shown, `Visible` True and `IsWindowVisible` 1, and Form2 was still shown when Form3's modal returned. The same probe in
+session 0 gave this section's table again, because there every form read `Visible` False before the statement as well
+as after it. So the 402 is a refusal that changes nothing, as 401 is for `Show`: the obvious reading that this section
+overturned was right. *The rule these rows support* and the paragraph after the table describe session 0, not VB6.
+`Form1.Hide` and `Form2.Hide` from a Timer, section 12's rows, leave their forms shown too.
+
+### A form displayed, and a form behind a modal one, re-measured on the console (2026-11-18, #4744, SP6)
+
+**Why.** Sections 12 and 14 ran their programs in session 0, which displays no form. A form there reads `Visible` False
+after `Show`, so every row that needed a displayed form measured a hidden one. These probes ran the same rows on the
+guest's console, and again in session 0 to check that they reproduce the earlier tables.
+
+**The probes.** vb6.exe SP6. Each project was built with `/make` as p-code and as native code, and each row also ran in the
+IDE with `/runexit`. All three ran on the guest's console session. A row is chosen by `Command$`, and every statement runs
+under `On Error Resume Next`, logging `Err.Number`, `Err.Description`, and each loaded form's `Visible`,
+`IsWindowVisible` and `IsWindowEnabled`.
+- **Section 12's rows:** Form1's Timer1 shows Form2 modally at 0.6 s, and Form2's Timer1 runs the row's statement 0.6 s
+  after Form2 loads. The rows that need Form2 shown first show it in Form1's Load. A Timer on Form1 logs every form
+  and ends the run at 5 s.
+- **Section 14's rows:** as section 14 describes. `Sub Main` shows Form1 and then Form2 modally. Form2's Activate shows
+  Form3 modally, and Form3's Activate runs the row's statement, then `Me.Hide`. Form2's Timer then unloads Form2.
+
+**Section 12's rows.** The IDE, p-code and native agree in every row.
+
+| Row | Statement | Where | Console | Session 0, this probe |
+|---|---|---|---|---|
+| m1 | `Form2.Show vbModal` | Form2 shown modelessly | **400** | no error logged: the statement still waiting at 5 s |
+| m2 | `Me.Show vbModal` | Form1 shown, no modal form | **400** | the same as m1 |
+| m3 | `Me.Show vbModal` | inside Form2, which is modal | **400** | 405 |
+| m4 | `Form1.Show vbModal` | Form2 modal, Form1 beneath it | **400** | the same as m1 |
+| m5 | `Form2.Show vbModal` | Form2 shown, then hidden | Form2 turns modal: Form1 disabled, the statement still waiting at 5 s | the same as m1 |
+| m6 | `Form3.Show` (loaded, hidden) | Form2 modal | 401 | 401 |
+| m7 | `Form1.Show` (shown) | Form2 modal | 401 | 401 |
+| m8 | `Me.Show` | inside Form2, which is modal | 401 | 401 |
+| m9 | `Load Form3` | Form2 modal | no error, `Forms.Count` 3 | the same |
+| m10 | `Form1.Hide` | Form2 modal | 402, **Form1 still shown** | 402, Form1 `Visible` False |
+| m11 | `Form2.Hide`, from Form3's Timer | Form3 modal over Form2 | 402, **Form2 still shown** | 402 |
+| m12 | `Form2.Hide`, from Form1's Timer | Form2 modal and topmost | no error, and the modal returns | the same |
+| m13 | `Me.Visible = False` | inside Form2, which is modal | no error, the modal returns, and Form2 stays loaded | the same |
+| m16 | `Form2.Show vbModal` | in the startup Form1's Load | no error; Form1 reads `Visible` False meanwhile | the same |
+
+The same `Form1.Show vbModal` under Form2's modal form also gave 400 from a Click on Form2, from Form2's Timer and from
+Form1's own Timer, in the IDE run by a driver, and in p-code (all three) and native (the Click and Form1's Timer).
+
+**Section 14's rows.** The IDE, p-code and native agree in every row.
+
+| Row | Statement, in Form3's Activate | Console | Session 0, this probe |
+|---|---|---|---|
+| h1 | `Form2.Hide`: a modal form beneath the topmost | 402; Form2 `Visible` **True** | 402; `Visible` False, as before it |
+| h2 | `Form2.Visible = False` | 402; Form2 `Visible` **True** | 402; `Visible` False, as before it |
+| h3 | `Form1.Hide`: a modeless form beneath both | 402; Form1 `Visible` **True** | 402; `Visible` False, as before it |
+
+After `Me.Hide`, Form2 was shown on the console, and Form2's Activate went on to start its Timer, which unloaded it.
+
+**The rule these rows support.**
+- **`Show vbModal` of a displayed form raises 400.** That includes a modal form showing itself again, which section 12
+  recorded as 405. A form that was shown and then hidden turns modal as usual (m5).
+- **Behind a modal form, `Hide` and a modal form's `Visible = False` raise 402 and change nothing.** The form stays shown.
+
+**What was overturned.** Section 12's "400 never came" and section 14's "402 still hides the form", both recorded in
+session 0. Each held there and in no other run. The session-0 runs of these probes reproduced both, so the earlier
+probes measured what they measured: the cause was where they ran. Not overturned: the 401 and 402 numbers, `Load`
+under a modal form, and the rows where the modal returns.
+
+**Not measured:** section 12's `Unload Form2` from Form1's Timer and `End` inside the modal form, on the console; a
+console path to 405; a minimised form as the target of `Show vbModal`.
 
 ### A form's name as a type: New, As New, an Object and an interface (2026-11-18, #4598, SP6)
 
@@ -317,6 +393,9 @@ logged `GetWindow(Me.hWnd, GW_OWNER)` itself.
 - **Two forms:** Form1, with a Timer retitling it and two buttons, and Form2. Rows a and b, run once.
 - **Three forms:** Form1, Form2 and Form3. Form1's Load shows Form3 modelessly. Rows c, d and e. Rows c and d ran twice
   and row e once, with the same owners each time.
+- **Three forms and a standard module (2026-11-18, #4744).** Module1's `OpenModal` runs `Form2.Show vbModal`. Rows f
+  and g ran once in the IDE, driven as above. Rows h to k ran in the self-driving project of *A form displayed,
+  re-measured on the console*, in the IDE (`/runexit`), p-code and native, which agree.
 
 **1. The owner.**
 
@@ -327,9 +406,23 @@ logged `GetWindow(Me.hWnd, GW_OWNER)` itself.
 | c | `Form2.Show vbModal, Form3`, in Form1's Click | Form1 | **Form3** |
 | d | `Form2.Show vbModal`, in Form1's Timer | **Form3**, by `Screen.ActiveForm` and the foreground | **Form1** |
 | e | `Form2.Show vbModal`, in Form3's Timer | **Form1**, by both | **Form3** |
+| f | `OpenModal`, called from Form1's Click | Form1 | Form1 |
+| g | `OpenModal`, called from Form1's Timer | **Form3** | **Form1** |
+| h | `OpenModal`, called from Form3's Timer | **Form1** | **Form3** |
+| i | Form1's Timer calls Form3's `CallOpen`, which calls `OpenModal` | Form1 | **Form1** |
+| j | Form1's Timer calls Form3's `ShowDirect`, which runs `Form2.Show vbModal` itself | Form1 | **Form1**, not Form3 |
+| k | `OpenModal`, called from `Sub Main` after `Form1.Show` and `Form3.Show` | Form3 | **Form3** |
+| l | `Form2.Show vbModal`, in the startup Form1's Load | not logged | the hidden main window |
 
 **The rule these rows support.** The modal form's owner is the owner-form argument when there is one. Otherwise it's the
-form whose code ran `Show`. It isn't the active form (rows d and e), and it isn't the program's hidden main window.
+form whose event is running, however deep the `Show` is: in a standard module (rows f to i) or in another form's
+method (row j). It isn't the active form (rows d, e, g and h). Two cases fall outside that:
+- **The startup form's Load,** before the form is displayed, gives the hidden main window (row l).
+- **With no form's event running,** as in `Sub Main`, the owner was the active form (row k). That row can't tell the
+  active form from the form shown last.
+
+Rows a to e were written up on 2026-11-18 as "the form whose code ran `Show`". Every `Show` in them was in the event
+handler itself, so that reading and this one agreed there. Row j separates them.
 
 **2. The same in every row.**
 - **Modeless forms are owned too, by the hidden main window.** Form1 and Form3 are each owned by an invisible
@@ -370,8 +463,9 @@ as the active form. Rows d and e pull the active form and the owner apart, and t
 `Show`. And bringing back the modal form's owner alone is not what F5 does: row c brings back a form that owns nothing.
 
 **Not measured:**
-- a modal `Show` from a standard module, or from `Sub Main` with no form loaded;
+- a modal `Show` from `Sub Main` with no form loaded;
+- row k with the active form different from the form shown last;
 - an owner form that is hidden or not loaded;
 - a modeless `Show` with an owner form, `Form2.Show , Form1`;
-- the compiled program;
+- the compiled program, for rows a to g;
 - whether Form1 or Form3 gets Activate or Deactivate as the modal form closes: the probes logged no events of theirs.
