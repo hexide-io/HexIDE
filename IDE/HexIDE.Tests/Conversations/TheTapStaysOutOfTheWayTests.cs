@@ -53,13 +53,13 @@ public class TheTapStaysOutOfTheWayTests : IAsyncDisposable
 
         var remote = _diagnosis.TapPeer(serverSide);
         var peer = new JsonRpc(
-            new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()), new Echo());
+            new LspMessageHandler(remote, remote, new SystemTextJsonFormatter()), new Echo());
         _diagnosis.Watch(peer, "stand-in", 1);
         peer.StartListening();
         _disposables.Add(peer);
 
         var tapped = new CapturingFormatter(new SystemTextJsonFormatter(), log, "vb6");
-        var client = new JsonRpc(new HeaderDelimitedMessageHandler(clientSide, clientSide, tapped));
+        var client = new JsonRpc(new LspMessageHandler(clientSide, clientSide, tapped));
         _diagnosis.Watch(client, "client", 1);
         client.StartListening();
         _disposables.Add(client);

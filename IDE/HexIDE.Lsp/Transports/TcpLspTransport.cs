@@ -174,7 +174,7 @@ public sealed class TcpLspTransport : ILspTransport
 
         var tapped = new ChannelTapStream(_stream!,
             text => Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.Lifecycle, text)));
-        return new HeaderDelimitedMessageHandler(tapped, tapped, formatter);
+        return new LspMessageHandler(tapped, tapped, formatter, _logger);
     }
 
     internal static bool TryAddress(string endpoint, out Uri? address)
@@ -332,6 +332,13 @@ public sealed class TcpLspTransport : ILspTransport
     {
         try { return _process?.HasExited == true ? _process.ExitCode : null; }
         catch (Exception) { return null; }
+    }
+
+    public bool TryEndOutput()
+    {
+        if (_client is null) return false;
+        try { _client.Client.Shutdown(SocketShutdown.Send); return true; }
+        catch { return false; /* already ended or disconnected */ }
     }
 
     public async ValueTask DisposeAsync()

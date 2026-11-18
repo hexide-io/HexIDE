@@ -395,7 +395,7 @@ public class ConfiguredServerTests : IDisposable
         var serving = pipe.WaitForConnectionAsync(TestContext.Current.CancellationToken).ContinueWith(_ =>
         {
             var rpc = new JsonRpc(
-                new HeaderDelimitedMessageHandler(pipe, pipe, new SystemTextJsonFormatter()), recorder);
+                new LspMessageHandler(pipe, pipe, new SystemTextJsonFormatter()), recorder);
             rpc.StartListening();
             return rpc;
         }, TaskScheduler.Default);

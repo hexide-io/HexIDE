@@ -23,6 +23,20 @@ namespace HexIDE.Tests.LspClient;
 /// </summary>
 public class StdioProcessLspTransportTests
 {
+    [Fact]
+    public async Task HalfCloseEndsStdinButStillReadsTheServersFinalFrame()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var server = typeof(global::HexIDE.Lsp.TestServer.Program).Assembly.Location;
+        await using var transport = new StdioProcessLspTransport(
+            new LspServerInfo("dotnet", "", Path.GetTempPath(), ArgumentList: [server, "eof"]),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<StdioProcessLspTransport>.Instance);
+        using var handler = (HeaderDelimitedMessageHandler)(await transport.ConnectAsync(Formatter(), token))!;
+        ((ILspTransport)transport).TryEndOutput().Should().BeTrue();
+        var message = await handler.ReadAsync(token).AsTask().WaitAsync(TimeSpan.FromSeconds(5), token);
+        message.Should().BeAssignableTo<StreamJsonRpc.Protocol.JsonRpcRequest>().Which.Method.Should().Be("probe/eof");
+    }
+
     private readonly ILogger<StdioProcessLspTransport> _logger =
         Substitute.For<ILogger<StdioProcessLspTransport>>();
 

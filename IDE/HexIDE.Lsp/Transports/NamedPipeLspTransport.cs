@@ -421,7 +421,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         // when a message was serialized (#390). One tap for both directions, as the pipe is one stream.
         var tapped = new ChannelTapStream(_pipe!,
             text => PublishNotice(new TransportNotice(TransportNoticeKind.Lifecycle, text)));
-        return new HeaderDelimitedMessageHandler(tapped, tapped, formatter);
+        return new LspMessageHandler(tapped, tapped, formatter, _logger);
     }
 
     /// <summary>

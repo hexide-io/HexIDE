@@ -60,14 +60,14 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
         var server = new HandshakeRecorder();
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
         var serverRpc = new JsonRpc(
-            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
+            new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
         serverRpc.StartListening();
 
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
         var logger = Substitute.For<ILogger<VBLspClient>>();
         var client = new VBLspClient(transport, logger, "markdown");
@@ -147,11 +147,11 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
             {
                 var (clientSide, serverSide) = FullDuplexStream.CreatePair();
                 var serverRpc = new JsonRpc(
-                    new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
+                    new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
                 serverRpc.StartListening();
                 _servers.Add(serverRpc);
                 return Task.FromResult<IJsonRpcMessageHandler?>(
-                    new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>()));
+                    new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>()));
             });
         var logger = Substitute.For<ILogger<VBLspClient>>();
         var client = new VBLspClient(transport, logger, "markdown", timeProvider: clock);

@@ -48,6 +48,13 @@ public static class Program
             {
                 if (await input.ReadAsync(one) == 0)
                 {
+                    if (mode == "eof")
+                    {
+                        var eof = "{\"jsonrpc\":\"2.0\",\"method\":\"probe/eof\"}";
+                        await output.WriteAsync(Encoding.UTF8.GetBytes($"Content-Length: {Encoding.UTF8.GetByteCount(eof)}\r\n\r\n{eof}"));
+                        await output.FlushAsync();
+                        return 0;
+                    }
                     await Task.Delay(Timeout.Infinite);
                     return 0;
                 }

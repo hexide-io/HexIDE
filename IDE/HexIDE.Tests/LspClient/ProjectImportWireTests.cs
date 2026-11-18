@@ -115,7 +115,7 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
-            .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(local, local, ci.Arg<IJsonRpcMessageFormatter>())));
+            .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(new LspMessageHandler(local, local, ci.Arg<IJsonRpcMessageFormatter>())));
         return _client = new VBLspClient(transport, _output, "vb6", workspace: workspace ?? _workspace, capture: _capture, connectionId: "probe");
     }
 

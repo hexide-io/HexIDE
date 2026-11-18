@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
@@ -502,7 +502,7 @@ public partial class PullDiagnosticsReportKindTests : IAsyncDisposable
                 _ = started.RunAsync(_stopServers.Token);
 
                 return Task.FromResult<IJsonRpcMessageHandler?>(
-                    new HeaderDelimitedMessageHandler(
+                    new LspMessageHandler(
                         clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>()));
             });
 
@@ -781,13 +781,13 @@ public partial class PullDiagnosticsReportKindTests : IAsyncDisposable
             {
                 var (clientSide, serverSide) = FullDuplexStream.CreatePair();
                 var serverRpc = new JsonRpc(
-                    new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
+                    new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
                     server);
                 serverRpc.StartListening();
                 lock (_disposables) _disposables.Add(serverRpc);
 
                 return Task.FromResult<IJsonRpcMessageHandler?>(
-                    new HeaderDelimitedMessageHandler(
+                    new LspMessageHandler(
                         clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>()));
             });
 

@@ -620,6 +620,40 @@ public class LspClientRegistryTests
     }
 
     [Fact]
+    public async Task StoppingStopsEveryServerAtOnce()
+    {
+        // #4484: a stop can wait on its server for a second or more (shutdown, exit, the end of its output). Three
+        // such servers stopped one after another took three times as long; stopped together, about as long as one.
+        var servers = Enumerable.Range(0, 3).Select(_ => FakeServer()).ToArray();
+        var started = 0;
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var allStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        foreach (var server in servers)
+            server.StopAsync().Returns(_ =>
+            {
+                if (Interlocked.Increment(ref started) == servers.Length) allStarted.TrySetResult();
+                return release.Task;
+            });
+        await using var sut = Registry(servers.Select((server, i) => Registration($"server{i}", server, priority: i)).ToArray());
+        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\nEnd Sub", TestContext.Current.CancellationToken);
+
+        var stopping = sut.StopAsync();
+        try
+        {
+            await allStarted.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+            stopping.IsCompleted.Should().BeFalse("no server has finished stopping yet");
+        }
+        finally
+        {
+            // Release the stops even when the assertion fails, or disposing the registry waits on them for good.
+            release.TrySetResult();
+        }
+        await stopping.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        foreach (var server in servers) await server.Received(1).StopAsync();
+    }
+
+    [Fact]
     public async Task ALaunchWaitingForAWorkspaceCanStartOnTheNextOpen()
     {
         var waiting = FakeServer(running: false);
