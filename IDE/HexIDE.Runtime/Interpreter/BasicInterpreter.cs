@@ -1476,7 +1476,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         var made = ExpressionExecutor.IsCollectionType(need.AutoNew.ClassName)
             ? new Vb6Value(NewCollection())
-            : Vb6Value.NewObject(await NewObject(need.AutoNew.ClassName));
+            : need.AutoNew.ClassName.Equals("PropertyBag", StringComparison.OrdinalIgnoreCase) && !Modules.TryGet(need.AutoNew.ClassName, out _)
+                ? new Vb6Value(new VbPropertyBag())
+                : Vb6Value.NewObject(await NewObject(need.AutoNew.ClassName));
         AddRef(made);
         if (need.Element is { } element)
         {

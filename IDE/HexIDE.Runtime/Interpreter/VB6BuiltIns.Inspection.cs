@@ -88,6 +88,7 @@ public partial class VB6BuiltIns
         VbScreen => "Screen",
         VbClipboard => "Clipboard",
         VbCollection => "Collection",
+        VbPropertyBag => "PropertyBag",
         ListViewItems => "IListItems",
         ListViewItem => "IListItem",
         ListViewColumns => "IColumnHeaders",

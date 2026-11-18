@@ -2725,6 +2725,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             ?? throw new VBCompileErrorException("Expected a class name after New");
         if (IsCollectionType(className) && !interpreter.Modules.TryGet(className, out _))
             return interpreter.AdoptNewTemp(new Vb6Value(interpreter.NewCollection()), stmtFrames);
+        if (className.Equals("PropertyBag", StringComparison.OrdinalIgnoreCase) && !interpreter.Modules.TryGet(className, out _))
+            return new Vb6Value(new VbPropertyBag());
         // VB6 compiles New ErrObject but refuses its creation at run time (#2627).
         if (className.Equals("ErrObject", StringComparison.OrdinalIgnoreCase) && !interpreter.Modules.TryGet(className, out _))
             throw new VBRunTimeException(context, new VBStandardError(-2147221164, "Class not registered"));

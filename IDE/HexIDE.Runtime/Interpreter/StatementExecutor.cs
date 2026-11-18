@@ -4822,6 +4822,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             made = "Collection";
         else if (interpreter.Modules.TryGet(typeName, out var classMod) && classMod.Kind == InterpreterModuleKind.Class)
             made = classMod.Name;
+        else if (qualifier is null && typeName.Equals("PropertyBag", StringComparison.OrdinalIgnoreCase))
+            made = "PropertyBag";
         else if (interpreter.TryResolveType(typeName, currentModule, qualifier, out _)
                  || (qualifier is null && interpreter.TryResolveEnum(typeName, currentModule, out _)))
             throw new VBCompileErrorException("Invalid use of New keyword");
