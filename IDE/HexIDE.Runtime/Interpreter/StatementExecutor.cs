@@ -946,6 +946,25 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new VBCompileErrorException("Invalid use of property");
     }
 
+    public override async Task<ControlFlow> VisitScaleStmt(VB6Parser.ScaleStmtContext context)
+    {
+        var target = context.implicitCallStmt_InStmt() is { } qualifier
+            ? await expressionExecutor.EvaluateValue(qualifier)
+            : interpreter.ExecutionContext.TryInspectVariable(currentEnv, "Me", out var me) ? me : Vb6Value.Nothing;
+        var points = new List<Vb6Value>();
+        foreach (var point in context.valueStmt())
+            points.Add(await expressionExecutor.EvaluateScalar(point));
+        if (target.HeldAsVariant || string.Equals(target.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase))
+            throw new NotImplementedException("Late-bound Scale is not implemented (#990)");
+        if (target.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form)
+            await interpreter.Loading(() => RuntimeScale.Statement(form.BuiltInMembersFor("Scale")!, points));
+        else if (target.Value is Control control)
+            RuntimeScale.Statement(control, points);
+        else
+            throw new VBCompileErrorException("Method not valid without suitable object");
+        return ControlFlow.Nothing;
+    }
+
     public override async Task<ControlFlow> VisitECS_ProcedureCall(VB6Parser.ECS_ProcedureCallContext context)
     {
         var subName = context.ambiguousIdentifier().GetText();
@@ -2900,6 +2919,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (AvaloniaInteroperability.TrySet(control, prop, value))
                     return default;
             }
+            if (RuntimeScale.TrySet(control, memberIdentifier, value))
+                return default;
             // FontName sets the control's font by name (#1141).
             if (FontMembers.TrySet(control, memberIdentifier, value))
                 return default;

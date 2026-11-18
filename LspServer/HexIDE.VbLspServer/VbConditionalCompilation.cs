@@ -83,11 +83,18 @@ internal static class VbConditionalCompilation
             var lexer = new VisualBasic6Lexer(new AntlrInputStream(text));
             lexer.RemoveErrorListeners();
             lexer.AddErrorListener(Refusal.Instance);
-            var parser = new VisualBasic6Parser(new CommonTokenStream(lexer)) { ErrorHandler = new BailErrorStrategy() };
+            // #990 reserves Scale in ordinary code. Its use as a directive name is unmeasured;
+            // keep the conditional evaluator's existing identifier handling.
+            var tokens = new CommonTokenStream(lexer);
+            var parser = new VisualBasic6Parser(tokens) { ErrorHandler = new BailErrorStrategy() };
             parser.RemoveErrorListeners();
             parser.AddParseListener(new ParseDepthGuard(64));
             try
             {
+                tokens.Fill();
+                foreach (var token in tokens.GetTokens())
+                    if (token is CommonToken { Type: VisualBasic6Lexer.SCALE } scale)
+                        scale.Type = VisualBasic6Lexer.IDENTIFIER;
                 var expression = parser.valueStmt();
                 return parser.CurrentToken.Type == TokenConstants.EOF ? expression : null;
             }

@@ -71,8 +71,8 @@ internal static class FormMembers
             return runtime.ActiveControl is { } control ? new Vb6Value(control) : Vb6Value.Nothing;
         if (IsControls(name) && form.Controls is { } controls)
             return new Vb6Value(controls);
-        if (IsScaleSize(name, out var vertical) && window is Avalonia.Controls.Window shown)
-            return AvaloniaInterop.ControlPositions.ScaleSize(shown, vertical);
+        if (RuntimeScale.TryGet(window, name, out var scaleValue))
+            return scaleValue;
         if (IsWindowState(name) && window is Avalonia.Controls.Window stateWindow)
             return ReadWindowState(stateWindow);
         foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(name, []))
@@ -95,9 +95,9 @@ internal static class FormMembers
             throw IdentityMembers.ReadOnlyAtRunTime("Name");
         if (!member.CanLet)
             throw new VBCompileErrorException(AssignToReadOnly);
-        if (IsScaleSize(name, out _))
-            throw new NotImplementedException($"Setting {form.ClassName}'s {name} is not implemented: it sets a scale of the program's own (#990)");
         var window = form.BuiltInMembersFor(name)!;
+        if (RuntimeScale.TrySet(window, name, value))
+            return;
         if (IsWindowState(name) && window is Avalonia.Controls.Window stateWindow)
         {
             WriteWindowState(stateWindow, value);
@@ -170,13 +170,6 @@ internal static class FormMembers
         2 => Avalonia.Controls.WindowState.Maximized,
         _ => null,
     };
-
-    // ScaleWidth and ScaleHeight, which no property of the window holds: the client area, in the form's units (#1071).
-    private static bool IsScaleSize(string name, out bool vertical)
-    {
-        vertical = string.Equals(name, "ScaleHeight", StringComparison.OrdinalIgnoreCase);
-        return vertical || string.Equals(name, "ScaleWidth", StringComparison.OrdinalIgnoreCase);
-    }
 
     /// <summary>
     /// The issue that tracks a Form member HexIDE lacks, as its refusal names it, or empty where no issue does yet. A
