@@ -1900,7 +1900,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// an Enum return is a Long (default 0); a <b>class</b>-typed return starts at <c>Nothing</c> — an
     /// object-returning Function that never <c>Set</c>s its name yields <c>Nothing</c> in VB6 (matching a
     /// <c>Dim … As Class</c>), not a UDT-typed null, so <c>Set x = obj.Fn()</c> assigns Nothing rather than
-    /// raising 424. Everything else uses the primitive default. (An Enum/class return name isn't in
+    /// raising 424. Other named objects and scalar aliases start as Dim does (#4622); everything else uses
+    /// the primitive default. (An Enum/class return name isn't in
     /// <c>Types</c>, so each must be checked before the fallback.)</summary>
     private Vb6Value SeedReturnValue(ProcedureInfo proc)
         => proc.ReturnUdtTypeName is { } rn
@@ -1908,7 +1909,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 : Enums.ContainsKey(rn) ? new Vb6Value(0L)
                 : Modules.TryGet(rn, out var rc) && rc.Kind == InterpreterModuleKind.Class
                     ? proc.ReturnType.IsArray ? ObjectArrayReturn(rn) : Vb6Value.Nothing
-                : new Vb6Value(proc.ReturnType))
+                : NamedReturnDefault(rn, proc.ReturnType))
             // An `As Object` return, DefObj's included, and an `As Collection` one start at Nothing too, so a Let into the
             // first before a Set is 91 (measured, #169). They started Empty, which took the value.
             : proc.ReturnType.IsArray && proc.CheckedArrayReturn == new Vb6Value.ValueType(Vb6Value.ValueType.Object, true)
@@ -1920,6 +1921,20 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 })
             : proc.ReturnsObject ? Vb6Value.Nothing
             : new Vb6Value(proc.ReturnType);
+
+    private Vb6Value NamedReturnDefault(string name, Vb6Value.ValueType returnType)
+    {
+        // Match Dim for in-box objects, project forms and stdole scalar aliases (#4622). Array returns keep their path.
+        if (!returnType.IsArray)
+        {
+            var dot = name.LastIndexOf('.');
+            var qualifier = dot < 0 ? null : name[..dot];
+            var typeName = dot < 0 ? name : name[(dot + 1)..];
+            if (IsObjectTypeWithoutClass(qualifier, typeName, out var aliasScalar))
+                return aliasScalar is { } scalar ? new Vb6Value(scalar) : Vb6Value.Nothing;
+        }
+        return new Vb6Value(returnType);
+    }
 
     // A module's procedure by name, or the Get of its property. A module's own properties are its names whatever its kind,
     // so a class's or form's own wins over a standard module's Public one; another module's are reached only in a standard

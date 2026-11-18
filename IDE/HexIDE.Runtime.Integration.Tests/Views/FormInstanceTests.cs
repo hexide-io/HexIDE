@@ -93,6 +93,22 @@ public class FormInstanceTests
     private static Run RunFormLoad(string body, params (string Name, ModuleKind Kind, string Code)[] modules) =>
         RunForm($"Private Sub Form_Load()\n{body}\nEnd Sub\n", modules);
 
+    [AvaloniaFact]
+    public void Unset_project_form_function_returns_Nothing()
+    {
+        // VB6 SP6, native and p-code: https://github.com/hexide-io/HexIDE/issues/4622.
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddForm(new FormDeserializer().Deserialize(project, OtherForm, new NullSink())!);
+        var run = RunFormIn(project, """
+            Private Sub Form_Load()
+                Debug.Print TypeName(Blank()) & " " & VarType(Blank()) & " " & (Blank() Is Nothing)
+            End Sub
+            """, ("Module1", ModuleKind.StandardModule, "Public Function Blank() As Form2\nEnd Function\n"));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Nothing 9 True");
+    }
+
     // ── Names inside a form ─────────────────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]
