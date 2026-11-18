@@ -16,11 +16,14 @@
   supplies AccessKeys and the measured form-hosted Ambient reads ([#4149](https://github.com/hexide-io/HexIDE/issues/4149)).
   The designer (`SpawnComponentsForDesigner`), property-page editor and form preview do not attach a UserControl
   interpreter: design-time ReadProperties/Show and build-time callbacks remain unavailable. Runtime UserMode is True
-  and ShowHatching False. Palette, non-form containers, and RightToLeft on a right-to-left form explicitly refuse
+  and ShowHatching False. Palette, unmeasured containers (an SSTab, or a UserControl that is a container), and RightToLeft on a right-to-left form explicitly refuse
   pending measurements. LocaleID reads 1033 whatever the user locale, as measured, and refuses where the system
   locale or an interface language isn't US English, or off Windows, because which of those VB6 follows is unmeasured
   ([#4266](https://github.com/hexide-io/HexIDE/issues/4266)). A refusal or error raised while a form loads its
-  UserControls is reported as any event's is (#4266). AmbientChanged for form colour changes remains unmeasured ([#4448](https://github.com/hexide-io/HexIDE/issues/4448)).
+  UserControls is reported as any event's is (#4266). Form BackColor/ForeColor changes now raise synchronous AmbientChanged only when the colour changes;
+  Font assignments (including unchanged values and shared Font mutations) raise "Font", in file order, during
+  Form_Load too, without Paint. PictureBox- and Frame-hosted UserControls read the form's ambients and are notified with the rest (both measured)
+  ([#4448 measured table](https://github.com/hexide-io/HexIDE/issues/4448), oracle PR #4630).
   The remaining UserControl surface and designer/file editing are later work. Part C supplies Container assignment and Count, bottom Align, transparent BackStyle, and measured focus/lifecycle ordering. Align assignments other than 2, BackStyle reads (whose return subtype is unmeasured here), ContainedControls operations other than Count, and PropertyBag operations are still refused. Unmeasured conversions of
   AccessKeys are explicitly refused, rather than assigned invented VB6 semantics.
   [#4337](https://github.com/hexide-io/HexIDE/issues/4337) also attaches runtime-loaded array elements,

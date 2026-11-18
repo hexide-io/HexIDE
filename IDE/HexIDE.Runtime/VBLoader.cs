@@ -114,7 +114,7 @@ public class VBLoader
             }
             if (control is VBUserControl userControl && program is not null)
                 userControl.Attach(program, component.BaseClass.ClassName,
-                    (component.Container is null || ReferenceEquals(component.Container, FormComponentOf(element))) && element.RootVBTypeName == "VB.Form" ? form : null,
+                    element.RootVBTypeName == "VB.Form" ? form : null,
                     component.GetPropertyOrDefault(VBProperties.NameProperty) ?? "",
                     RawDouble(FormComponentOf(element), "RightToLeft") is { } rtl && rtl != 0);
             if (component.GetPropertyOrDefault(VBProperties.NameProperty) is not { } name)
@@ -334,7 +334,11 @@ public class VBLoader
         foreach (var group in arrayGroups.Values)
             group.FormControls = controls;
         if (form is not null)
+        {
             form.Controls = controls;
+            if (form.FormWindow is { } window)
+                AvaloniaInterop.FormAmbients.Register(window, controls);
+        }
 
         var root = new DockPanel()
         {

@@ -3842,10 +3842,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // The value being replaced, read as it is: `Set Form2 = Nothing` must not make the instance it lets go of (#822).
             if (!interpreter.ExecutionContext.TryInspectVariable(currentEnv, id, out var oldVal))
             {
-                // A form's own object property, bare (`Set Picture = ...`, #995): not set through Set anywhere yet, as
-                // `Set Me.Picture` isn't either.
+                // #4448 supplies the measured shared Font assignment. Other built-in object properties
+                // (`Set Picture = ...`, #995) retain their refusal.
                 if (FormMembers.TryBare(interpreter.ExecutionContext, currentEnv, id, out var form, out _))
+                {
+                    if (id.Equals("Font", StringComparison.OrdinalIgnoreCase) && value.Value is ControlFont)
+                    {
+                        await interpreter.Loading((Form: form, Value: value),
+                            static s => ControlFont.Set(s.Form.BuiltInMembersFor("Font")!, s.Value));
+                        return default;
+                    }
                     throw new NotImplementedException($"Set on {form.ClassName}'s own {id} is not implemented");
+                }
                 // An undeclared name is made on its first use, as a Let makes it (#171), a Variant or the DefType's type
                 // (measured, #169: `Set o1 = New Collection` under DefObj, and with none). It was 424.
                 if (currentModule.PrePass.RequireVariableDefinitions)
@@ -4112,10 +4120,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 (setField, oldField) = await interpreter.ReadVariableAfter(targetObj.InstanceEnv, fieldName, setFieldNeed!);
             if (!setField)
             {
-                // A form's built-in object property (`Set Me.Picture = ...`) is not set through Set anywhere yet: a
-                // control's isn't either. Refused, rather than raising a trappable 438 VB6 would not (#822).
-                if (await interpreter.Loading((Form: targetObj, Member: fieldName), static s => s.Form.BuiltInMembersFor(s.Member)) is not null)
+                // #4448 supplies Set Me.Font from a shared font. Other built-in object properties
+                // retain their refusal, rather than raising a trappable 438 VB6 would not (#822).
+                if (await interpreter.Loading((Form: targetObj, Member: fieldName), static s => s.Form.BuiltInMembersFor(s.Member)) is { } formWindow)
+                {
+                    if (fieldName.Equals("Font", StringComparison.OrdinalIgnoreCase) && value.Value is ControlFont)
+                    {
+                        ControlFont.Set(formWindow, value);
+                        return default;
+                    }
                     throw new NotImplementedException($"Set on a form's own {fieldName} is not implemented");
+                }
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             }
             interpreter.AddRef(value);
