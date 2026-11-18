@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "VBA projektas užrakintas ir jo kodo negalima rodyti.",
     "Str.Office.LockedCaption": "{0} ({1}) — užrakinta",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} neturi VBA projekto."
+    "Str.Office.NoProject": "{0} neturi VBA projekto.",
+    "Str.SessionEnd.UnsavedWork": "Neįrašyti pakeitimai: {0}"
   }
 }

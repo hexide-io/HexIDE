@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "مشروع VBA مقفل ولا يمكن عرض تعليماته البرمجية.",
     "Str.Office.LockedCaption": "{0} ({1}) — مقفل",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "لا يحتوي {0} على مشروع VBA."
+    "Str.Office.NoProject": "لا يحتوي {0} على مشروع VBA.",
+    "Str.SessionEnd.UnsavedWork": "تغييرات غير محفوظة في {0}"
   }
 }

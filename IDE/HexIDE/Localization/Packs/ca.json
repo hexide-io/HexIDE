@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "El projecte VBA està bloquejat i no se’n pot mostrar el codi.",
     "Str.Office.LockedCaption": "{0} ({1}) — bloquejat",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} no conté cap projecte VBA."
+    "Str.Office.NoProject": "{0} no conté cap projecte VBA.",
+    "Str.SessionEnd.UnsavedWork": "Canvis no desats a {0}"
   }
 }

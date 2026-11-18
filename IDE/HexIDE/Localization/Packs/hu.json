@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "A VBA-projekt zárolva van, és a kódja nem jeleníthető meg.",
     "Str.Office.LockedCaption": "{0} ({1}) — zárolva",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "A(z) {0} nem tartalmaz VBA-projektet."
+    "Str.Office.NoProject": "A(z) {0} nem tartalmaz VBA-projektet.",
+    "Str.SessionEnd.UnsavedWork": "Nem mentett módosítások: {0}"
   }
 }

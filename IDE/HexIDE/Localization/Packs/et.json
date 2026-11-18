@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "VBA projekt on lukustatud ja selle koodi ei saa kuvada.",
     "Str.Office.LockedCaption": "{0} ({1}) — lukustatud",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} ei sisalda VBA projekti."
+    "Str.Office.NoProject": "{0} ei sisalda VBA projekti.",
+    "Str.SessionEnd.UnsavedWork": "Salvestamata muudatused: {0}"
   }
 }

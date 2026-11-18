@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "Projekt VBA je uzamknutý a jeho kód sa nedá zobraziť.",
     "Str.Office.LockedCaption": "{0} ({1}) — uzamknuté",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} nemá projekt VBA."
+    "Str.Office.NoProject": "{0} nemá projekt VBA.",
+    "Str.SessionEnd.UnsavedWork": "Neuložené zmeny: {0}"
   }
 }

@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "VBA projesi kilitli ve kodu gösterilemiyor.",
     "Str.Office.LockedCaption": "{0} ({1}) — kilitli",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} VBA projesi içermiyor."
+    "Str.Office.NoProject": "{0} VBA projesi içermiyor.",
+    "Str.SessionEnd.UnsavedWork": "Kaydedilmemiş değişiklikler: {0}"
   }
 }

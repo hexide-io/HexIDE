@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "VBA 프로젝트가 잠겨 있어 코드를 표시할 수 없습니다.",
     "Str.Office.LockedCaption": "{0} ({1}) — 잠김",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0}에 VBA 프로젝트가 없습니다."
+    "Str.Office.NoProject": "{0}에 VBA 프로젝트가 없습니다.",
+    "Str.SessionEnd.UnsavedWork": "{0}에 저장되지 않은 변경 내용이 있습니다"
   }
 }

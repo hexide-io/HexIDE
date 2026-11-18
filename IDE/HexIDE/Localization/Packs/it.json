@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "Il progetto VBA è bloccato e non è possibile mostrarne il codice.",
     "Str.Office.LockedCaption": "{0} ({1}) — bloccato",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} non contiene alcun progetto VBA."
+    "Str.Office.NoProject": "{0} non contiene alcun progetto VBA.",
+    "Str.SessionEnd.UnsavedWork": "Modifiche non salvate in {0}"
   }
 }

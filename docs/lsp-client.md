@@ -223,6 +223,34 @@ two seconds for a shutdown reply, two for exit, two for the server process to ex
 is sent waits up to one second for its output to end (#4484) in place of the exit's two. A failed or timed-out stop is logged and exit proceeds. Repeated requests during that wait
 remain cancelled. The bound covers the whole stop, including every configured server.
 
+**Windows ending the session** (a sign-out, shutdown or restart) takes its own path, because Avalonia turns
+`WM_QUERYENDSESSION` into that same shutdown request, and the cancel above became a veto of every sign-out
+(#4646). The IDE replaces the procedure of Avalonia's hidden platform window and answers Windows itself,
+following Microsoft's contract:
+- **With nothing unsaved,** or when the end is forced (`ENDSESSION_CRITICAL`), the query is allowed at once,
+  and nothing else happens yet: another app may still veto the session.
+- **With unsaved work,** the query is refused with a reason naming the project (`ShutdownBlockReasonCreate`),
+  and then the save prompt File > Exit shows appears. Yes or No closes the IDE as File > Exit does, and
+  Cancel keeps it open. The prompt is never held open inside the query, because after five seconds Windows
+  covers it with its own screen of the apps preventing sign-out. Someone who picks that screen's "Sign out
+  anyway" while the prompt is up has chosen to lose the unsaved work; it is still backed up for the next start
+  (#499).
+- **When `WM_ENDSESSION` says the session is ending,** the language servers and the external debugger are stopped
+  before the message returns, bounded at **4.5 seconds**, inside the five Windows waits. The stop runs in a nested
+  dispatcher frame, so work it posts to the UI thread still runs. The IDE then exits as File > Exit does,
+  disposing add-ins and flushing logging. When the session goes on, the refusal's reason is cleared and nothing
+  else happens.
+- **At a real sign-out, Windows may end a server first.** A launched server is started with a hidden console
+  (`CreateNoWindow`), and Windows ends a console's processes through it, independently of the IDE's window. On a
+  Win10 VM sign-out (`shutdown /l`), the recording stand-in ended with exit code `0x40010004` 8 ms after
+  `WM_ENDSESSION` arrived, and got neither message. So the stop reaches only servers still running. That isn't a
+  regression: before #4554 no server got `shutdown` or `exit` at sign-out. Launching servers without a console, so
+  that they last until the stop, is #4666.
+- **The internal it depends on** is the hidden window's class name. `PlatformWindowProbeTests` fails if Avalonia
+  stops creating that window. If it can't be found at run time, the IDE logs it and falls back to clearing the
+  cancel from a late subscriber to Avalonia's platform shutdown event, which allows the sign-out and closes the
+  IDE through its usual exit.
+
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
 Once `shutdown` is sent, the common outbound RPC gate permits no request or notification but `exit`, including

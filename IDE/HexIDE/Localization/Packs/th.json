@@ -1473,6 +1473,7 @@
     "Str.Office.LockedMessage": "โครงการ VBA ถูกล็อกและไม่สามารถแสดงโค้ดได้",
     "Str.Office.LockedCaption": "{0} ({1}) — ถูกล็อก",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} ไม่มีโครงการ VBA"
+    "Str.Office.NoProject": "{0} ไม่มีโครงการ VBA",
+    "Str.SessionEnd.UnsavedWork": "มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึกใน {0}"
   }
 }
