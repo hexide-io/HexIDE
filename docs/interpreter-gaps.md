@@ -383,8 +383,13 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   [CVar](vb6-fidelity-oracle/cvar.md), [subscripts](vb6-fidelity-oracle/subscripts-bounds-and-a-method-called-from-class_initialize.md).
   Parameterized Function/Get default reads and Property Let writes now run through variables, class fields,
   indexed results and parameterless class-returning procedures ([#4606 measurements](https://github.com/hexide-io/HexIDE/issues/4606)).
-  For parameterized access, classes without defaults, Variable/Sub defaults and defaults without a Property Let
-  on a write remain unmeasured and refuse naming #4606. Nothing in Variant/Object slots and object argument/value evaluation
+  [#4747 measurements](https://github.com/hexide-io/HexIDE/issues/4747) add missing-default error 438,
+  early-bound Sub/typed-field compile errors, late-bound Sub execution, early-bound Variant-array indexing
+  (writes check a copy without changing the field), scalar/Empty error 13 and late-bound variable error 451.
+  Get-only/Function assignments execute the member then raise 424 early-bound or 451 through As Object. Held in
+  a Variant, an assignment through a default Sub or Function raises 450 without calling it (measured).
+  Assignments through object-returning defaults and default members without a value remain unmeasured
+  and refuse naming #4747. Nothing in Variant/Object slots and object argument/value evaluation
   order retain today's behaviour, unmeasured.
   No-argument Lets into class/Object variables, class fields, With members and object-array elements now call
   the held class's default Property Let or store into its Variant default field, preserving the object

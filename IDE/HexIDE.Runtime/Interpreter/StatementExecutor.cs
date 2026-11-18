@@ -2870,8 +2870,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                             && members[0].iCS_S_ProcedureOrArrayCall() is { } getCall && getCall.argsCall().Length == 1)
                         {
                             var result = await interpreter.RunProcedure(vobj.ClassDef, getter, [], vobj.InstanceEnv, variable, stmtFrames)
-                                ?? throw new NotImplementedException("A parameterless Get without a value is unmeasured (#4606)");
-                            await interpreter.LetDefaultMember(result, await expressionExecutor.ResolveCallArgs(getCall.argsCall(0)), value, context, stmtFrames);
+                                ?? throw new NotImplementedException("A parameterless Get without a value is unmeasured (#4747)");
+                            await interpreter.LetDefaultMember(result, await expressionExecutor.ResolveCallArgs(getCall.argsCall(0)), value, context, stmtFrames, expressionExecutor);
                             return default;
                         }
                         if (indexedProperty.Let is not { } indexedLetter
@@ -3187,7 +3187,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 && (receiver.Value is VbObject || receiver.Value is null
                     && interpreter.ProjectClassFor(receiver.DeclaredAs ?? "") is not null))
             {
-                await interpreter.LetDefaultMember(receiver, [.. indexes.Select(v => new CallArg(v, null))], value, context, stmtFrames);
+                await interpreter.LetDefaultMember(receiver, [.. indexes.Select(v => new CallArg(v, null))], value, context, stmtFrames, expressionExecutor);
                 return default;
             }
             var indexesAsInt = await expressionExecutor.ResolveSubscripts(indexes);
@@ -3251,7 +3251,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             holder = await expressionExecutor.IndexResult(holder, subscripts, call);
         if (holder.Value is VbObject)
         {
-            await interpreter.LetDefaultMember(holder, [.. last.Select(v => new CallArg(v, null))], value, context, stmtFrames);
+            await interpreter.LetDefaultMember(holder, [.. last.Select(v => new CallArg(v, null))], value, context, stmtFrames, expressionExecutor);
             return ControlFlow.Nothing;
         }
         if (holder.Value is not VBArray inner)
