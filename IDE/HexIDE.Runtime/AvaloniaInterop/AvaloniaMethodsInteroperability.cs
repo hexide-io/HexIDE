@@ -12,6 +12,67 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 
 public static class AvaloniaMethodsInteroperability
 {
+    private sealed record Method(int Min, int Max, Func<Control, IReadOnlyList<Vb6Value>, Vb6Value> Invoke);
+
+    private static readonly IReadOnlyDictionary<string, Method> ListMethods = new Dictionary<string, Method>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["AddItem"] = new(1, 2, (c, args) =>
+        {
+            if (args.Count < 1)
+                throw new VBRunTimeException(VBStandardError.ArgumentNotOptionalOrInvalidPropertyAssignment);
+            ListMembers.AddItem((ItemsControl)c, args);
+            return Vb6Value.Nothing;
+        }),
+        ["RemoveItem"] = new(1, 1, (c, args) =>
+        {
+            ListMembers.RemoveItem((ItemsControl)c, args);
+            return Vb6Value.Nothing;
+        }),
+        ["Clear"] = new(0, 0, (c, _) =>
+        {
+            ((ItemsControl)c).Items.Clear();
+            return Vb6Value.Nothing;
+        }),
+    };
+
+    private static readonly IReadOnlyDictionary<string, Method> CommonMethods = new Dictionary<string, Method>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Move"] = new(1, 4, (c, args) => c is Window form ? MoveForm(form, args) : Move(c, args)),
+        ["ZOrder"] = new(0, 1, ZOrder),
+        ["SetFocus"] = new(0, 0, (c, _) => SetFocus(c)),
+    };
+
+    private static Method? ResolveMethod(Control control, string name)
+    {
+        if (control is ItemsControl && ListMethods.TryGetValue(name, out var listMethod)) return listMethod;
+        if (CommonMethods.TryGetValue(name, out var method)
+            && !(name.Equals("ZOrder", StringComparison.OrdinalIgnoreCase) && control is Window)
+            && !(name.Equals("SetFocus", StringComparison.OrdinalIgnoreCase) && FormRoot.View(control) is null && !control.Focusable))
+            return method;
+        return null;
+    }
+
+    internal static (int Min, int Max)? CallByNameArity(Control control, string name)
+    {
+        if (ResolveMethod(control, name) is { } method) return (method.Min, method.Max);
+        if (ListMembers.IsList(control) && ListMembers.IsExtension(control, name)) return (1, 2);
+        if (VB6FormMembers.TryGet(name, out var member) && member.IsMethod
+            && (name.Equals("Refresh", StringComparison.OrdinalIgnoreCase)
+                || control is VBPictureBox && (RuntimeDrawing.IsMethod(name) || RuntimeScale.IsConversion(name)
+                    || name.Equals("TextWidth", StringComparison.OrdinalIgnoreCase)
+                    || name.Equals("TextHeight", StringComparison.OrdinalIgnoreCase)
+                    || name.Equals("PaintPicture", StringComparison.OrdinalIgnoreCase))))
+            return (member.RequiredArgs, member.MaxArgs);
+        // Keep known but unimplemented methods on their existing refusal path.
+        if (VB6FormMembers.TryGet(name, out member) && member.IsMethod) return (0, int.MaxValue);
+        var typeName = VB6BuiltIns.ControlTypeName(control);
+        foreach (var component in Serialization.FormDeserializer.InBoxComponents)
+            if (component.ControlClassName.Equals(typeName, StringComparison.OrdinalIgnoreCase)
+                && component.Member(name) is { Kind: Components.InBox.MemberKind.Method })
+                return (0, int.MaxValue);
+        return null;
+    }
+
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
@@ -95,37 +156,9 @@ public static class AvaloniaMethodsInteroperability
         if (c is ItemsControl extensionList && ListMembers.IsList(c) && ListMembers.IsExtension(c, method))
             return ListMembers.CallExtension(extensionList, method, args);
 
-        if (c is ItemsControl itemsControl)
-        {
-            if (method.Equals("additem", StringComparison.OrdinalIgnoreCase))
-            {
-                // AddItem's item is required; calling it with no argument is a trappable "Argument not optional"
-                // (Err 449), not an uncatchable IndexOutOfRangeException off an empty args list.
-                if (args.Count < 1)
-                    throw new VBRunTimeException(VBStandardError.ArgumentNotOptionalOrInvalidPropertyAssignment);
-                ListMembers.AddItem(itemsControl, args);
-                return Vb6Value.Nothing;
-            }
-            if (method.Equals("removeitem", StringComparison.OrdinalIgnoreCase))
-            {
-                ListMembers.RemoveItem(itemsControl, args);
-                return Vb6Value.Nothing;
-            }
-            else if (method.Equals("clear", StringComparison.OrdinalIgnoreCase))
-            {
-                itemsControl.Items.Clear();
-                return Vb6Value.Nothing;
-            }
-        }
-
-        if (method.Equals("move", StringComparison.OrdinalIgnoreCase))
-            return c is Window form ? MoveForm(form, args) : Move(c, args);
-
-        if (method.Equals("zorder", StringComparison.OrdinalIgnoreCase) && c is not Window)
-            return ZOrder(c, args);
-
-        if (method.Equals("setfocus", StringComparison.OrdinalIgnoreCase) && args.Count == 0 && (FormRoot.View(c) is not null || c.Focusable))
-            return SetFocus(c);
+        if (ResolveMethod(c, method) is { } resolved
+            && (!method.Equals("SetFocus", StringComparison.OrdinalIgnoreCase) || args.Count == 0))
+            return resolved.Invoke(c, args);
 
         if (c is VBTreeView)
             throw new NotImplementedException($"TreeView.{method} (#1086)");

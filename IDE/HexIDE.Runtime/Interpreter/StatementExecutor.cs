@@ -2386,7 +2386,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // default-value read. Keep the original exception, including its number and message.
         try
         {
-            value = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(value, callerFrames: stmtFrames), context);
+            value = await interpreter.ResolveDefaultMember(value, callerFrames: stmtFrames);
+            // Returned controls and Container follow the measured Let-value reads (#4520).
+            if (value.Value is VBTextBox)
+                value = await ControlMembers.Read(value, "Text", null);
+            if (value.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } formValue
+                && !formValue.ClassDef.PrePass.DeclaresDefaultMember)
+                throw new VBRunTimeException(context, VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
+            value = ObjectAsValue.Scalar(value, context);
             if (value.Type == Vb6Value.ValueType.Object)
                 throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         }
@@ -2398,9 +2405,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
 
         // A control on the right of a Let stands for its default member in VB6: `s = Text1` reads Text1.Text,
-        // `v = Command1` reads its Value, `n = Check1` its Value (all measured). HexIDE has no default members for
-        // controls yet (#790), and storing the reference gave a wrong value: a String took the .NET type name, a
-        // Variant kept the control. Apart from Slider (#1091), a Let of one is refused until #790, whatever the target. A Let never stores a
+        // `v = Command1` reads its Value, `n = Check1` its Value (all measured). TextBox is resolved above (#4520),
+        // and Slider below (#1091); other intrinsic control defaults still refuse (#790). Storing the reference gave
+        // a wrong value: a String took the .NET type name, a Variant kept the control. A Let never stores a
         // reference in VB6, even into an object variable, where it assigns that object's default member. Set, For
         // Each and argument passing do not come here. The in-box objects (Err, App, Debug, a control array) were
         // settled by ObjectAsValue above, and controls are the one kind it leaves alone.
@@ -2988,12 +2995,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 if (UdtFieldName(members[0]).Equals("List", StringComparison.OrdinalIgnoreCase))
                 {
-                    ListMembers.WriteItem(listControl, await expressionExecutor.EvaluateCallArgs(listItem.argsCall(0)), value);
+                    ControlMembers.TryWrite(variable, "List", await expressionExecutor.EvaluateCallArgs(listItem.argsCall(0)), value);
                     return default;
                 }
                 if (listControl is VBListBox listBox && UdtFieldName(members[0]).Equals("Selected", StringComparison.OrdinalIgnoreCase))
                 {
-                    ListMembers.WriteSelected(listBox, await expressionExecutor.EvaluateCallArgs(listItem.argsCall(0)), value);
+                    ControlMembers.TryWrite(variable, "Selected", await expressionExecutor.EvaluateCallArgs(listItem.argsCall(0)), value);
                     return default;
                 }
             }
@@ -3055,12 +3062,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 && await asyncPropertyBag.TrySetPropertyAsync(memberIdentifier, value))
                 return default;
 
-            var throughObject = variable.HeldAsVariant || string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase);
-            if (variable.Value is VBCommonDialog dialog && dialog.TrySetProperty(memberIdentifier, value, throughObject))
-                return default;
-
-            // A CSharp property bag (e.g. Err.Number = …) handles its own get/set by name.
-            if (variable.Value is ICSharpPropertyBag propertyBag && propertyBag.TrySetProperty(memberIdentifier, value))
+            // Non-control property bags keep their own path; control bags share ControlMembers.
+            if (variable.Value is not Control && variable.Value is ICSharpPropertyBag propertyBag
+                && propertyBag.TrySetProperty(memberIdentifier, value))
                 return default;
 
             if (variable.Type != Vb6Value.ValueType.Control ||
@@ -3081,51 +3085,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             }
 
-            if (control is VBTimer)
-                TimerMembers.CheckWrite(memberIdentifier);
-
-            UserControlMembers.Check(variable, memberIdentifier);
-            if (UserControlMembers.TrySet(control, memberIdentifier, value))
+            if (ControlMembers.TryWrite(variable, memberIdentifier, null, value))
                 return default;
-
-            if (RichTextBoxMembers.TrySet(control, memberIdentifier, value))
-                return default;
-
-            // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
-            if (SliderMembers.TrySet(control, memberIdentifier, value) is { } slider)
-                return slider ? default : throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
-            if ((StatusBarMembers.TrySet(control, memberIdentifier, value)
-                 ?? ProgressBarMembers.TrySet(control, memberIdentifier, value)) is { } inBox)
-                return inBox ? default
-                    : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
-
-            if (SSTabMembers.TrySet(control, memberIdentifier, value))
-                return default;
-
-            if (RuntimeDrawing.TrySet(control, memberIdentifier, value))
-                return default;
-            var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
-
-            foreach (var prop in props)
-            {
-                if (AvaloniaInteroperability.TrySet(control, prop, value))
-                    return default;
-            }
-            if (RuntimeScale.TrySet(control, memberIdentifier, value))
-                return default;
-            // FontName sets the control's font by name (#1141).
-            if (FontMembers.TrySet(control, memberIdentifier, value))
-                return default;
-            // A TextBox's SelStart, SelLength and SelText (#1150).
-            if (TextBoxMembers.TrySet(control, memberIdentifier, value))
-                return default;
-            // A list's ListCount, which is read-only (#821), and a ListBox's Text (#1395).
-            if (ListMembers.TrySet(control, memberIdentifier, value))
-                return default;
-            // Any control's Name and Index, which are read-only at run time (#1431).
-            if (IdentityMembers.TrySet(control, memberIdentifier))
-                return default;
-
             throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
         }
         if (context.implicitCallStmt_InStmt().iCS_S_ProcedureOrArrayCall() is { } procedureOrArrayCall)
