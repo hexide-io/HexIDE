@@ -116,15 +116,37 @@ public class CommonDialogObjectModelTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(cancelError ? 32755L : 0L), new Vb6Value("keep.txt")]);
     }
 
+    // VB6 SP6 native and p-code: #4513 / oracle PR #4508.
     [Theory]
-    [InlineData("Dim n As Long\nn = dlg.Color")]
-    [InlineData("Debug.Print CDbl(dlg.Color)")]
-    [InlineData("Debug.Print dlg.Color + 1")]
-    public async Task Unmeasured_unsigned_numeric_conversions_are_refused(string code)
+    [InlineData("Dim n As Long: n = dlg.Color: Debug.Print n", false)]
+    [InlineData("Debug.Print CDbl(dlg.Color)", true)]
+    public async Task Early_bound_Color_conversions_are_signed(string code, bool asDouble)
     {
-        context.AllocVariable(rootEnv, "dlg", new Vb6Value(new VBCommonDialog(null!)));
-        var run = () => Run(code);
-        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*unsigned Automation Long*");
+        var dialog = new VBCommonDialog(null!);
+        dialog.TrySetProperty("Color", new Vb6Value(-2147483643L));
+        context.AllocVariable(rootEnv, "dlg", new Vb6Value(dialog));
+        await Run(code);
+        AssertDebugLog([asDouble ? new Vb6Value(-2147483643d) : new Vb6Value(-2147483643L)]);
+    }
+
+    [Fact]
+    public async Task Early_bound_Color_adds_as_a_Long()
+    {
+        var dialog = new VBCommonDialog(null!);
+        dialog.TrySetProperty("Color", new Vb6Value(255L));
+        context.AllocVariable(rootEnv, "dlg", new Vb6Value(dialog));
+        await Run("Debug.Print dlg.Color + 1");
+        AssertDebugLog([new Vb6Value(256L)]);
+    }
+
+    [Fact]
+    public async Task Early_bound_Color_reads_as_Long()
+    {
+        var dialog = new VBCommonDialog(null!);
+        dialog.TrySetProperty("Color", new Vb6Value(-2147483643L)).Should().BeTrue();
+        context.AllocVariable(rootEnv, "dlg", new Vb6Value(dialog));
+        await Run("v = dlg.Color\nDebug.Print VarType(v)");
+        AssertDebugLog([new Vb6Value(3L)]);
     }
 
     [Theory]
@@ -139,7 +161,7 @@ public class CommonDialogObjectModelTests : BaseVBTestFixture
         dialog.TryGetProperty("Color", out var value).Should().BeTrue();
         value.Value.Should().Be(expected);
         context.AllocVariable(rootEnv, "dlg", new Vb6Value(dialog));
-        await Run("v = dlg.Color\nDebug.Print VarType(v)");
+        await Run("Dim o As Object: Set o = dlg\nv = o.Color\nDebug.Print VarType(v)");
         AssertDebugLog([new Vb6Value(19L)]);
     }
 

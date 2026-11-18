@@ -313,6 +313,8 @@ public static class VbNumeric
     /// and range-checks (out of range -> Overflow). A non-core-numeric target is left unchanged (a later phase).</summary>
     public static Vb6Value Narrow(Vb6Value v, VT target, ParserRuleContext? ctx)
     {
+        if (v.Type == VT.AutomationUnsignedLong)
+            return ConvertAutomationUnsignedLong(v, target);
         if (v.Type == target)
             return v;
         if (target == VT.LongLong)
@@ -357,18 +359,30 @@ public static class VbNumeric
     /// scalar type, which is the whole distinction VB6 draws and HexIDE previously could not.
     /// </para>
     /// </summary>
-    public static Vb6Value CoerceOnStore(Vb6Value v, VT target, ParserRuleContext? ctx)
+    public static Vb6Value CoerceOnStore(Vb6Value v, VT target, ParserRuleContext? ctx) =>
+        CoerceOnStore(v, target, ctx, allowAutomationUnsignedLong: true);
+
+    // A late-bound CommonDialog Color write retains its unmeasured UInt refusal, including default members (#4513).
+    internal static Vb6Value CoerceOnStore(Vb6Value v, VT target, ParserRuleContext? ctx, bool allowAutomationUnsignedLong)
     {
         if (v.Type == VT.Error && (target == VT.Long || target == VT.String))
             throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
         if (v.Type == VT.Error)
             throw new NotImplementedException("Assignment of an Error Variant to this declared type is unmeasured (#2520)");
         if (v.Type == VT.AutomationUnsignedLong)
-            throw new NotImplementedException("Conversion of an unsigned Automation Long is not implemented (#1084)");
+        {
+            if (!allowAutomationUnsignedLong) throw UnmeasuredAutomationAssignment();
+            // Only the Integer store is measured (at 255), not CInt; overflow remains refused (#4513).
+            if (target == VT.Integer && (uint)v.Value! <= short.MaxValue)
+                return new Vb6Value((int)(uint)v.Value!);
+            return ConvertAutomationUnsignedLong(v, target);
+        }
         if (v.Type == target)
             return v;
         // A declared scalar slot takes an object's default member (ObjectAsValue).
         v = ObjectAsValue.Scalar(v, ctx);
+        if (!allowAutomationUnsignedLong && v.Type == VT.AutomationUnsignedLong)
+            throw UnmeasuredAutomationAssignment();
         if (v.Type == target)
             return v;
         // Before every branch, including String: `Dim s As String : s = Null` is Err 94, not "".
@@ -398,6 +412,19 @@ public static class VbNumeric
     /// UDT and arrays, whose slots are replaced wholesale rather than coerced.</summary>
     public static bool IsDeclarableScalar(VT t) =>
         !t.IsArray && (IsCoreNumeric(t) || t == VT.Decimal || t == VT.Date || t == VT.String || t == VT.Boolean);
+
+    private static NotImplementedException UnmeasuredAutomationAssignment() =>
+        new("Assignment of an unsigned Automation Long to this property is unmeasured (#4513)");
+
+    // Measured conversions in #4513 / oracle PR #4508, shared by stores and explicit conversions.
+    private static Vb6Value ConvertAutomationUnsignedLong(Vb6Value value, VT target)
+    {
+        var number = (uint)value.Value!;
+        if (target == VT.Long) return new Vb6Value((long)unchecked((int)number));
+        if (target == VT.Double) return new Vb6Value((double)number);
+        if (target == VT.String) return new Vb6Value(VbDisplay.ToText(value));
+        throw new NotImplementedException("Conversion of an unsigned Automation Long to this type is unmeasured (#4513)");
+    }
 
     /// <summary>True if <paramref name="t"/> is a fixed numeric subtype that coercion-on-store should target
     /// (i.e. a declared numeric variable, not a Variant/Empty/String/Object).</summary>

@@ -16,7 +16,9 @@ public partial class VB6BuiltIns
 {
     private static void RegisterInspection(Dictionary<string, BuiltinFn> d)
     {
-        d["TypeName"]  = (_, a, _) => new Vb6Value(TypeNameOf(a[0]));
+        d["TypeName"]  = (_, a, _) => a[0].Type == VT.AutomationUnsignedLong
+            ? throw new VBRunTimeException(VBStandardError.VariableUsesATypeNotSupportedInVisualBasic)
+            : new Vb6Value(TypeNameOf(a[0]));
         // Measured: VarType is LONG, despite every vbXxx code fitting an Integer — the comment here used to
         // say Integer and was wrong. Fixed declared return type, so not the magnitude rule. (#193)
         d["VarType"]   = (_, a, _) => new Vb6Value((long)TypeInfo(a[0]).code);
@@ -135,7 +137,7 @@ public partial class VB6BuiltIns
         VTP.Integer           => ("Integer", 2),
         VTP.Long              => ("Long", 3),
         VTP.LongLong          => ("LongLong", 20),
-        // CommonDialog's TypeName is unmeasured; retain its existing label while correcting VarType.
+        // The debugger label; the TypeName intrinsic refuses this Automation type (#4513).
         VTP.AutomationUnsignedLong => ("Long", 19),
         VTP.Single            => ("Single", 4),
         VTP.Double            => ("Double", 5),
@@ -165,7 +167,7 @@ public partial class VB6BuiltIns
     {
         switch (v.Value)
         {
-            case byte or int or long or uint or float or double or decimal:
+            case byte or int or long or float or double or decimal:
             case bool:
                 return true;
         }
