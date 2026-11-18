@@ -2,7 +2,7 @@
 
 > **Scope.** Every built-in of the VB6 *language*: statements, functions, operators, keywords and
 > modifiers, literals and type names, compiler directives, intrinsic constants, and the in-box objects a
-> program can touch without adding a reference, plus the measured 64-bit VBA7 additions. **1192 names**, each with HexIDE's current support level.
+> program can touch without adding a reference, plus the measured 64-bit VBA7 additions. **1193 names**, each with HexIDE's current support level.
 >
 > **Sibling docs.** This is the *positive* inventory — what runs. The *gap catalogue*, which classifies
 > why something is missing (Deferred / Walled / Platform / Partial), is
@@ -131,9 +131,9 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 0 | 20 | 0 | 33 | 53 |
 | Compiler directives and options | 0 | 0 | 0 | 14 | 19 | 14 | 47 |
-| In-box objects | 0 | 0 | 44 | 41 | 0 | 39 | 124 |
+| In-box objects | 0 | 0 | 44 | 42 | 0 | 39 | 125 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **0** | **0** | **59** | **506** | **20** | **607** | **1192** |
+| **Total** | **0** | **0** | **59** | **507** | **20** | **607** | **1193** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -169,7 +169,7 @@ visitor, not changing how the language is understood.
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
 damage is concentrated in **statements** and the **in-box object model**: 8% of VB6's statements (9
 of 109) and 35% of the
-in-box surface (`App`, `Printer`, `Clipboard`; 44 of 124) are unavailable. Both
+in-box surface (`App`, `Printer`, `Clipboard`; 44 of 125) are unavailable. Both
 figures are rounded to the nearest whole percent.
 
 That is the honest answer to "will my code run?" — the arithmetic will; the plumbing around it often will
@@ -866,7 +866,7 @@ missing.
 | `Option Base` | Supported | Collected by PrePass ('ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());', PrePass.cs) and applied on both declaration paths: module-level Dim arrays (PrePass.cs) and… | PrePass.cs |
 | `Version` | Supported | Handled on three independent paths. Form/control files: the deserializer skips the line ('if (line.StartsWith("VERSION")) { continue; }', VbFrmFormatDeserializer.cs) and the serializer… | VbFrmFormatDeserializer.cs |
 
-### In-box objects — 124 names (44 absent, 41 partial, 39 supported)
+### In-box objects — 125 names (44 absent, 42 partial, 39 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -958,6 +958,7 @@ missing.
 | `PSet` | **Dies** | throws `"Only single element supported"` — fails at run time on the coordinate pair, exactly as Circle does. VB6.g4 has no PSET token and no psetStmt rule. `PSet (10, 20), vbRed` parses as a… | ExpressionExecutor.cs |
 | `Scale` | **Dies** | throws `"Only single element supported"` — fails at run time. VB6.g4 has no SCALE token and no scaleStmt rule. `Scale (0, 0)-(100, 100)` parses as a bare procedure call with one argument - a… | ExpressionExecutor.cs |
 | `Screen` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** reached wherever nothing the program declares is named Screen, as `Clipboard` is, with or without Option Explicit: `TypeName` is "Screen", and `Dim s As Screen` holds it (measured, oracle "The Screen object"). Each member's row says what runs. `MouseIcon` is refused rather than guessed. A write to a member a program cannot write is 382, or 383 for TwipsPerPixelX and Y, naming it, as through an Object; early-bound, VB6 refuses it at compile time instead, and here it is refused as the statement runs. | VbScreen.cs |
+| `Form.Icon` | Partial | [#4603's SP6 measurements](https://github.com/hexide-io/HexIDE/issues/4603): Set and Let, bare or through Me/a default form instance, keep an icon picture's identity and Type 3 and update the window. A bitmap raises trappable 380 without replacing the picture. LoadPicture() stores the empty picture (Type 0) and leaves the window unchanged. Nothing stores an empty Picture, not Nothing, and gives the window the saved (None) state: generic icon for sizable, no caption icon for Fixed Dialog. Reading before the program assigns Icon (including a saved icon/default), other values reaching Icon's setter, and assignment without a runtime window remain explicitly not implemented. New form instances remain #4598; native Picture.Handle remains #2626. | FormMembers.cs, FormIcon.cs |
 | `Form.ActiveControl` | Partial | **[#2437](https://github.com/hexide-io/HexIDE/issues/2437), first slice:** remembers the last control focused on each form, including inactive and hidden forms. Nothing before showing, on a Label-only form, and after an unloaded form loads again on read (measured in #2437, oracle [#2279](https://github.com/hexide-io/HexIDE/issues/2279)). A shown form gives its first tab stop the focus (#2436, `VBWindowContext.FocusFirstControl`); Reactivation restores its remembered control with GotFocus (#3932), including visibility and unload handoff ([#3936](https://github.com/hexide-io/HexIDE/issues/3936), [measured oracle](vb6-fidelity-oracle/a-forms-resize-activate-and-deactivate.md)). | FormMembers.cs, VBFormRuntime.cs |
 | `Screen.ActiveControl` | Supported | The active form’s focused control, or Nothing without an error when no form is active or no control can take focus ([#2431](https://github.com/hexide-io/HexIDE/issues/2431), oracle “The Screen object”). Initial showing focuses the first control in tab order (#2436). Hide or `Visible = False` hands activation to another shown form and restores its own remembered control; unloading the active form does the same without LostFocus or Deactivate for the unloaded form. Hiding and showing the last visible form retains its control without focus or activation events ([#3936](https://github.com/hexide-io/HexIDE/issues/3936), measured [oracle](vb6-fidelity-oracle/a-forms-resize-activate-and-deactivate.md) and [own ActiveControl](vb6-fidelity-oracle/a-forms-own-activecontrol.md)). | VBProgram.cs |
 | `Screen.ActiveForm` | Supported | The form last activated, or Nothing without an error before any form is shown, after Load alone, or after the only loaded form unloads (#2431, oracle “The Screen object”). Hide and `Visible = False` hand activation to a previously active shown form; unloading the active form also hands activation on without waiting for the window system. Hiding and re-showing the last visible form retains that form without activation events ([#3936](https://github.com/hexide-io/HexIDE/issues/3936), measured [oracle](vb6-fidelity-oracle/a-forms-resize-activate-and-deactivate.md)). Selection among several shown forms keeps Hide’s existing most-recently-active rule (#3920); that selection and unloading the last visible form were not measured by #3936. | VBProgram.cs |
