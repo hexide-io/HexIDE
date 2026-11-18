@@ -26,6 +26,16 @@ public interface IDebugGate : IDebugController
     /// taken while the run was live tells it the run it belongs to has gone.</summary>
     int Session { get; }
 
+    /// <summary>Wake a modal message loop so its waiting statement can honor a pending pause.</summary>
+    event Action? PauseRequested { add { } remove { } }
+
+    /// <summary>A pause not yet consumed by a statement gate.</summary>
+    bool IsPauseRequested => false;
+
+    /// <summary>Pause inside an executing Show call, without re-testing its already-passed breakpoint.</summary>
+    ValueTask OnModalPauseAsync(int line, string module, IDebugFrame frame)
+        => OnStatementAsync(line, module, frame);
+
     /// <summary>A dispatch begins, including one nested in the running handler chain.</summary>
     void NotifyDispatchStarted() { }
 
