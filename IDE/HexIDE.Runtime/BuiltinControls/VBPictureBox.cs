@@ -99,6 +99,7 @@ public class VBPictureBox : TemplatedControl, IVBContainerControl
         // A PictureBox takes the focus, whether or not it holds controls (measured, #1101).
         FocusableProperty.OverrideDefaultValue<VBPictureBox>(true);
         AttachedEvents.AttachFocusEvents<VBPictureBox>();
+        ControlKeyEvents.Attach<VBPictureBox>();
         PictureDataProperty.Changed.AddClassHandler<VBPictureBox>((box, _) => box.OnPictureDataChanged());
     }
 

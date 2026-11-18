@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Primitives.PopupPositioning;
+using AvaloniaEdit.Rendering;
+using HexIDE.Automation;
 using Avalonia.Input;
 using AvaloniaEdit;
 using HexIDE.Controls;
@@ -130,8 +133,43 @@ internal sealed class EditorHoverFeatures : IDisposable
         lifetime.Dispose();
     }
 
+    public void ConfigurePlacement(Position pos)
+    {
+        if (TopLevel.GetTopLevel(editor) is not { } top || !NativeWayland.Hosts(top))
+        {
+            ToolTip.SetPlacement(editor, PlacementMode.Pointer);
+            ToolTip.SetCustomPopupPlacementCallback(editor, null);
+            return;
+        }
+
+        // Work around AvaloniaUI/Avalonia#22780. The callback's initial rectangle includes the
+        // surface decoration inset; retain that origin when anchoring below the hovered word.
+        var document = editor.Document;
+        var line = document.GetLineByNumber(pos.Line + 1);
+        var offset = document.GetOffset(pos.Line + 1, pos.Character + 1);
+        var start = offset;
+        var end = offset;
+        static bool IsWord(char c) => char.IsLetterOrDigit(c) || c == '_';
+        while (start > line.Offset && IsWord(document.GetCharAt(start - 1))) start--;
+        while (end < line.EndOffset && IsWord(document.GetCharAt(end))) end++;
+        var view = editor.TextArea.TextView;
+        var first = view.GetVisualPosition(new TextViewPosition(document.GetLocation(start)), VisualYPosition.LineTop) - view.ScrollOffset;
+        var last = view.GetVisualPosition(new TextViewPosition(document.GetLocation(end)), VisualYPosition.LineBottom) - view.ScrollOffset;
+        var firstInEditor = view.TranslatePoint(first, editor) ?? default;
+        var lastInEditor = view.TranslatePoint(last, editor) ?? firstInEditor;
+        ToolTip.SetCustomPopupPlacementCallback(editor, placement =>
+        {
+            var origin = placement.AnchorRectangle.Position;
+            placement.AnchorRectangle = new Rect(origin + (Vector)firstInEditor, origin + (Vector)lastInEditor);
+            placement.Anchor = PopupAnchor.BottomLeft;
+            placement.Gravity = PopupGravity.BottomRight;
+        });
+        ToolTip.SetPlacement(editor, PlacementMode.Custom);
+    }
+
     private void ShowDiagnosticTip(Position pos, MarkupContent? quickInfo)
     {
+        ConfigurePlacement(pos);
         var offset = editor.Document.GetOffset(pos.Line + 1, pos.Character + 1);
         var atPoint = markers().Where(m => offset >= m.StartOffset && offset < m.EndOffset).ToArray();
         if (quickInfo?.Kind != "markdown" && !atPoint.Any(m => m.RelatedInformation is { Length: > 0 }))

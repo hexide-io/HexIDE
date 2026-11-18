@@ -2,6 +2,43 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:builtinControls="clr-namespace:HexIDE.Runtime.BuiltinControls"
                     xmlns:common="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia">
+    <ControlTheme x:Key="{x:Type builtinControls:VBCommandButton}"
+                  TargetType="builtinControls:VBCommandButton"
+                  BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel>
+                    <Border x:Name="DefaultFrame" BorderThickness="1"
+                            BorderBrush="{DynamicResource {x:Static common:SystemColors.WindowFrameBrushKey}}"
+                            IsVisible="False" />
+                    <ClassicBorderDecorator x:Name="ButtonEdge" BorderStyle="Raised" BorderThickness="2"
+                                            Background="{TemplateBinding Background}"
+                                            BorderControlBrush="{DynamicResource {x:Static common:SystemColors.ControlBrushKey}}"
+                                            BorderLightBrush="{DynamicResource {x:Static common:SystemColors.ControlLightBrushKey}}"
+                                            BorderLightLightBrush="{DynamicResource {x:Static common:SystemColors.ControlLightLightBrushKey}}"
+                                            BorderDarkBrush="{DynamicResource {x:Static common:SystemColors.ControlDarkBrushKey}}"
+                                            BorderDarkDarkBrush="{DynamicResource {x:Static common:SystemColors.ControlDarkDarkBrushKey}}" />
+                    <!-- The edge moves inward; the caption keeps its position. -->
+                    <ContentPresenter x:Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Padding="{TemplateBinding Padding}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      RecognizesAccessKey="True" />
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:default /template/ Border#DefaultFrame">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:default /template/ ClassicBorderDecorator#ButtonEdge">
+            <Setter Property="Margin" Value="1" />
+        </Style>
+        <Style Selector="^:pressed /template/ ClassicBorderDecorator#ButtonEdge">
+            <Setter Property="BorderStyle" Value="Sunken" />
+        </Style>
+    </ControlTheme>
     <ControlTheme x:Key="{x:Type builtinControls:VBCheckBox}"
                   TargetType="builtinControls:VBCheckBox"
                   BasedOn="{StaticResource {x:Type CheckBox}}">

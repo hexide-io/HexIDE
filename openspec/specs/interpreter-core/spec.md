@@ -1840,8 +1840,16 @@ both keys. A hidden or disabled holder SHALL retain True without taking keys. Wi
 TextBox SHALL raise KeyDown, KeyPress and KeyUp with 13 or 27, leaving single-line text unchanged;
 Enter in a multi-line box SHALL insert its CRLF. These are [#4371's measured rows](https://github.com/hexide-io/HexIDE/issues/4371),
 including oracle PR #4376, and the [key-event oracle](../../../docs/vb6-fidelity-oracle/key-events-keydown-keypress-and-keyup.md).
-A separate default-border look, nested-container roles, focus-time role changes and Properties-grid
-exclusivity remain outside this slice.
+Nested-container roles, focus-time role changes and Properties-grid exclusivity remain outside this slice.
+The focused CommandButton SHALL display the default frame; otherwise only the eligible Enter receiver,
+if it is a CommandButton, SHALL display it. Changing Default in code SHALL refresh the frame.
+The frame SHALL occupy the outermost one DIP in the WindowFrame brush, moving the button edge inward
+one DIP without changing bounds or caption position ([#4391](https://github.com/hexide-io/HexIDE/issues/4391),
+including its pixel measurements from oracle PR #4577).
+
+#### Scenario: The default frame follows focus
+- **WHEN** focus moves from a TextBox to Default, Cancel, and an ordinary CommandButton
+- **THEN** the frame marks the Default button initially, then only the focused button at each step
 
 #### Scenario: A dialog takes Enter before KeyPreview
 - **WHEN** a TextBox or ListBox has focus, KeyPreview is True and an eligible Default CommandButton exists
@@ -1897,6 +1905,34 @@ Enter and Esc on a form holding controls SHALL follow the CommandButton Default 
 - **THEN** its measured KeyDown, character KeyPress and KeyUp reach the form's handlers
 - **AND** unmodified Enter and Esc use 13 and 27, and Tab raises KeyDown 9 and KeyPress 9 without KeyUp
 - **AND** unmeasured modified Enter/Esc/Tab remain unmapped
+
+### Requirement: PictureBox and scroll-bar keyboard delivery
+
+PictureBox, HScrollBar and VScrollBar SHALL declare KeyDown, KeyPress and KeyUp using the
+shared control delivery path, preserving their default designer event. The measured a, Space,
+Enter and Esc sequences SHALL follow [#4575](https://github.com/hexide-io/HexIDE/issues/4575)
+(oracle PR #4574). Tab SHALL navigate without control key events; eligible Default/Cancel
+buttons SHALL take Enter/Esc before the control. Child controls SHALL retain their own routing.
+
+#### Scenario: Scroll-bar navigation follows writable KeyDown
+- **WHEN** an unmodified arrow, PageUp, PageDown, Home or End reaches a focused scroll bar
+- **THEN** KeyDown precedes any Change and KeyUp follows, without Scroll
+- **AND** Left/Up and PageUp move toward Min by SmallChange and LargeChange respectively,
+  while Right/Down and PageDown move toward Max, clamped to the range through VbValue
+- **AND** Home goes to the lower endpoint and End to the higher, including reversed ranges
+- **AND** unchanged Value raises no Change
+- **AND** KeyCode 0 in the control or preview form suppresses the move, with the key handled
+  before Avalonia can move it; a nonzero replacement retains the originally pressed key's move
+- **AND** modified navigation retains Avalonia's existing movement
+
+#### Scenario: A preview form suppresses only KeyDown
+- **WHEN** Form KeyPreview is True and Form_KeyDown sets KeyCode to 0 on a bar
+- **THEN** the control raises no KeyDown and does not move
+- **AND** Form KeyUp precedes control KeyUp, and a/Space still raise form then control KeyPress
+
+#### Scenario: PictureBox remains usable outside the tab order
+- **WHEN** a PictureBox has TabStop False
+- **THEN** Tab passes it by, but clicking it gives it focus and subsequent key events
 
 ### Requirement: Runtime parsing has a sized synchronous stack
 

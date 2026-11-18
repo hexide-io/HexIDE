@@ -1,12 +1,15 @@
 using System;
 using Avalonia.Controls;
+using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
 public class VBCommandButton : Button
 {
-    protected override Type StyleKeyOverride => typeof(Button);
+    protected override Type StyleKeyOverride => typeof(VBCommandButton);
+
+    internal void SetDisplayAsDefault(bool value) => PseudoClasses.Set(":default", value);
 
     private bool defaultButton;
     private bool cancelButton;
@@ -39,6 +42,8 @@ public class VBCommandButton : Button
                     else
                         other.defaultButton = false;
                 }
+        if (!cancel)
+            UserControlKeys.UpdateDefault(this);
     }
 
     static VBCommandButton()

@@ -77,9 +77,8 @@ public sealed class CommonDialogComponentClass : InBoxComponentClass
 
     protected override Control InstantiateInternal(ComponentInstance instance)
     {
-        if (instance.ContainedControls.Count > 0
-            || instance.UnknownRawProperties.Any(p => p.Name.Equals("Index", StringComparison.OrdinalIgnoreCase)))
-            throw new NotImplementedException("A CommonDialog control array or nested control is not implemented (#1084)");
+        if (instance.ContainedControls.Count > 0)
+            throw new NotImplementedException("A CommonDialog holding controls is not implemented (#4148)");
         var dialog = new VBCommonDialog(null!);
         foreach (var property in instance.UnknownRawProperties)
         {

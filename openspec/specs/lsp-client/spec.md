@@ -970,7 +970,11 @@ backend under any licence can sit behind the seam without affecting the IDE's ow
 
 ### Requirement: The language client SHALL start and stop with the desktop session
 The client SHALL be started when the desktop IDE starts and stopped when it shuts down, requesting an
-orderly server shutdown before terminating the process. The shutdown request SHALL have a two-second
+orderly server shutdown before terminating the process. Desktop shutdown SHALL first confirm unsaved work,
+then cancel shutdown while awaiting client stop for at most seven seconds, dispose the file watcher before
+the stop, flush logging afterwards, and retry shutdown. Repeated requests during the stop SHALL remain
+cancelled. A failed or timed-out stop SHALL be logged and SHALL NOT prevent exit. A forced close SHALL
+skip the save prompt but SHALL still await the bounded stop. The shutdown request SHALL have a two-second
 deadline, and the client SHALL attempt `exit` whether shutdown answers, fails or times out, but only
 after `initialize` has been answered. An externally owned pipe server SHALL receive neither message;
 teardown SHALL close only its connection. On Windows, a launched pipe server SHALL get two seconds to
@@ -1021,6 +1025,20 @@ the group are outside this guarantee.
 An orphaned server process outliving the IDE would hold file handles and consume memory with nothing to
 serve. Asking first and terminating second means a well-behaved server exits cleanly while a wedged one
 still goes away.
+
+#### Scenario: Desktop exit waits for graceful stop
+- **WHEN** the desktop exits after save confirmation or a forced close
+- **THEN** the first shutdown request is cancelled while the client stops
+- **AND** a server that answers within the exit bound receives `shutdown` and `exit` before the retry
+- **AND** logging is flushed before the retry
+
+#### Scenario: Desktop exit outlasts the stop bound
+- **WHEN** client stop has not completed within seven seconds
+- **THEN** the failure is logged, logging is flushed, and desktop shutdown is retried
+
+#### Scenario: Save-on-exit is cancelled
+- **WHEN** the user cancels the save-on-exit prompt
+- **THEN** the file watcher and language servers remain running
 
 #### Scenario: First save races the project-change debounce
 - **WHEN** the first save moves the workspace root while the old server is awaiting shutdown

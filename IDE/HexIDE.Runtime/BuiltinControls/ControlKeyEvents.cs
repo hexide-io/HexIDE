@@ -54,8 +54,16 @@ internal static class ControlKeyEvents
         var code = TextBoxKeyEvents.KeyCode(e);
         if (code == 0)
             return;
+        var movingBar = !up && e.KeyModifiers == KeyModifiers.None && control is VBScrollBar
+            && e.Key is Key.Left or Key.Up or Key.Right or Key.Down or Key.PageUp or Key.PageDown or Key.Home or Key.End;
+        if (movingBar)
+            e.Handled = true; // Suppress Avalonia's move even if delivery completes after this routed event.
         TextBoxKeyEvents.Deliver(control, up ? ComponentBaseClass.KeyUpEvent : ComponentBaseClass.KeyDownEvent,
-            code, Shift(e.KeyModifiers), _ => { });
+            code, Shift(e.KeyModifiers), result =>
+            {
+                if (movingBar && result != 0)
+                    ((VBScrollBar)control).MoveFromKey(e.Key);
+            });
         if (!up && e.Key is Key.Enter or Key.Escape && e.KeyModifiers == KeyModifiers.None)
         {
             TextBoxKeyEvents.Deliver(control, ComponentBaseClass.KeyPressEvent, code, null, _ => { });

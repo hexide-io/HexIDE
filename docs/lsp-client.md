@@ -214,6 +214,15 @@ in-memory arm checked 827,000 over 122,000. Both recorded zero bad frames. The r
 as [microsoft/vs-streamjsonrpc#1605](https://github.com/microsoft/vs-streamjsonrpc/issues/1605). These
 measurements support a mitigation, rather than a claim that teardown is race-free.
 
+IDE exit cancels the first desktop shutdown request while the language servers stop, then requests
+shutdown again (#4554). Save-on-exit confirmation comes first: cancelling the save prompt leaves the
+servers running, and a confirmed or forced close does not prompt again. The file watcher is disposed
+before stopping, and logging is flushed afterwards. The exit wait is bounded to **seven seconds**:
+two seconds for a shutdown reply, two for exit, two for the server process to exit before it is ended
+(`LaunchedServerGuard.ExitTimeout`, 1.5 on Linux and macOS), and one of scheduling room. A server whose exit
+is sent waits up to one second for its output to end (#4484) in place of the exit's two. A failed or timed-out stop is logged and exit proceeds. Repeated requests during that wait
+remain cancelled. The bound covers the whole stop, including every configured server.
+
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
 Once `shutdown` is sent, the common outbound RPC gate permits no request or notification but `exit`, including

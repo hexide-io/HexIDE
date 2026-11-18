@@ -264,3 +264,8 @@ Serilog records the actual windowing implementation after startup. Native Waylan
 libwayland-client, libwayland-cursor and libxkbcommon; GPU rendering additionally needs libEGL and
 libwayland-egl. This opt-in is experimental pending desktop verification in [#868](https://github.com/hexide-io/HexIDE/issues/868).
 Under it only the compositor places a window, so a form's `Left`, `Top` and `StartUpPosition` have no effect.
+
+On native Wayland only, tooltips without their own placement open below their control, and editor hovers
+anchor below the hovered word. This works around [AvaloniaUI/Avalonia#22780](https://github.com/AvaloniaUI/Avalonia/issues/22780),
+whose pointer placement omits the client-side decoration inset (#3604). Explicit placements such as the
+slider's remain unchanged. Context menus still use the affected pointer path; X11 and XWayland are unchanged.
