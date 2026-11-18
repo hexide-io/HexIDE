@@ -294,7 +294,8 @@ public sealed class ProjectLoader
                 StringComparison.OrdinalIgnoreCase))
             project.StartsAtSubMain = true;
         else if (serializedProject.StartupFormName != null)
-            project.StartupForm = project.Forms.FirstOrDefault(x => x.Name == serializedProject.StartupFormName);
+            project.StartupForm = project.Forms.FirstOrDefault(x =>
+                string.Equals(x.Name, serializedProject.StartupFormName, StringComparison.OrdinalIgnoreCase));
 
         foreach (var reference in serializedProject.References)
             project.AddReference(reference);
