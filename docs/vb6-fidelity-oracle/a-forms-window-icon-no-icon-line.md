@@ -72,6 +72,13 @@ and error. p-code and native code logged the same lines. The first file was `ARW
   Icon (None) does (above).
 - **After `Set k2.Icon = LoadPicture()`, k2's title bar still shows the arrow it had,** though `k2.Icon` reads back
   Type 0 and Handle 0, as Nothing's does. The two clear the property alike, and the window differently.
+- **On a Fixed Dialog,** from a later run of New instances of a Fixed Dialog form beside a sizable one:
+  - after `Set d1.Icon = Nothing`, following an icon, its title bar shows **no icon at all**, as a Fixed Dialog saved
+    with Icon (None) does (above);
+  - after `Nothing` and then `LoadPicture()`, it still shows none;
+  - an untouched instance of the same form shows VB6's default icon.
+- **On the sizable form,** `Nothing` and then `LoadPicture()` shows Windows' generic icon, the same as `Nothing` alone.
+  So an empty picture leaves the window as it was, icon or none.
 
 **Which image `LoadPicture` takes from an icon file**, from hand-built files, each image a red square with a white centre:
 
@@ -97,5 +104,4 @@ and error. p-code and native code logged the same lines. The first file was `ARW
   found, naming the path.
 - **Every error here was trappable** under `On Error Resume Next`.
 
-**Not measured:** an icon file with several images and none of them 32 by 32, and an assignment of an empty picture
-to a form whose window had no icon.
+**Not measured:** an icon file with several images and none of them 32 by 32.
