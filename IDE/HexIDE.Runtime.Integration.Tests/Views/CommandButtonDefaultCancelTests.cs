@@ -1,5 +1,13 @@
+using System;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Headless;
+using Avalonia.Media;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using HexIDE.Runtime.BuiltinControls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using HexIDE.Runtime.Interpreter;
@@ -26,6 +34,72 @@ public class CommandButtonDefaultCancelTests
             $"Private Sub {name}_KeyDown(KeyCode As Integer, Shift As Integer)\nDebug.Print \"{name} down\" & CStr(KeyCode)\nEnd Sub\n"
             + $"Private Sub {name}_KeyPress(KeyAscii As Integer)\nDebug.Print \"{name} press\" & CStr(KeyAscii)\nEnd Sub\n"
             + $"Private Sub {name}_KeyUp(KeyCode As Integer, Shift As Integer)\nDebug.Print \"{name} up\" & CStr(KeyCode)\nEnd Sub\n"));
+
+    // #4391; docs/vb6-fidelity-oracle/default-and-cancel-buttons.md, focus table.
+    [AvaloniaTheory]
+    [InlineData(0, "Command1")]
+    [InlineData(1, "Command1")]
+    [InlineData(2, "Command2")]
+    [InlineData(3, "Command3")]
+    public void Default_look_follows_the_real_Tab_route(int tabs, string expected)
+    {
+        using var run = new Run("", blocks: DialogBlocks() + Block("VB.CommandButton", "Command3", 3));
+        run.Named("Text1").Focus().Should().BeTrue();
+        for (var i = 0; i < tabs; i++)
+            run.Key(Key.Tab);
+        run.Named(tabs == 0 ? "Text1" : $"Command{tabs}").IsFocused.Should().BeTrue();
+        foreach (var name in new[] { "Command1", "Command2", "Command3" })
+            run.Named(name).Classes.Contains(":default").Should().Be(name == expected);
+    }
+
+    // #4391 step 3 explicitly decides runtime changes while a TextBox has focus.
+    [AvaloniaFact]
+    public async Task Default_look_moves_when_the_program_moves_or_clears_Default()
+    {
+        using var run = new Run("", blocks: DialogBlocks());
+        run.Named("Text1").Focus().Should().BeTrue();
+        await run.Code("Command2.Default = True");
+        run.Named("Command1").Classes.Contains(":default").Should().BeFalse();
+        run.Named("Command2").Classes.Contains(":default").Should().BeTrue();
+        await run.Code("Command2.Default = False");
+        run.Named("Command1").Classes.Contains(":default").Should().BeFalse();
+        run.Named("Command2").Classes.Contains(":default").Should().BeFalse();
+    }
+
+    // #4391's pixel measurements (oracle PR #4577); 150% uses the issue's DIP decision.
+    [AvaloniaTheory]
+    [InlineData(1.0)]
+    [InlineData(1.5)]
+    public void Default_frame_occupies_the_outer_edge_without_resizing_or_moving_the_caption(double scaling)
+    {
+        using var run = new Run("", blocks: DialogBlocks());
+        run.Window.SetRenderScaling(scaling);
+        run.Named("Text1").Focus().Should().BeTrue();
+        Dispatcher.UIThread.RunJobs();
+        var button = (VBCommandButton)run.Named("Command1");
+        var plain = (VBCommandButton)run.Named("Command2");
+        button.Bounds.Size.Should().Be(plain.Bounds.Size);
+        var bounds = button.Bounds;
+        var presenter = button.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().Single();
+        var caption = presenter.TranslatePoint(default, button);
+        using var frame = run.Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("no frame");
+        using var buffer = frame.Lock();
+        var origin = button.TranslatePoint(default, run.Window)!.Value;
+        Color Pixel(double x, double y)
+        {
+            var offset = (int)((origin.Y + y) * scaling) * buffer.RowBytes + (int)((origin.X + x) * scaling) * 4;
+            byte At(int k) => Marshal.ReadByte(buffer.Address, offset + k);
+            return buffer.Format == Avalonia.Platform.PixelFormat.Bgra8888
+                ? Color.FromRgb(At(2), At(1), At(0)) : Color.FromRgb(At(0), At(1), At(2));
+        }
+        foreach (var point in new[] { new Point(0, 10), new Point(bounds.Width - 0.5, 10),
+                     new Point(10, 0), new Point(10, bounds.Height - 0.5) })
+            Pixel(point.X, point.Y).Should().Be(Color.FromRgb(100, 100, 100));
+        run.Named("Command2").Focus().Should().BeTrue();
+        Dispatcher.UIThread.RunJobs();
+        button.Bounds.Should().Be(bounds);
+        presenter.TranslatePoint(default, button).Should().Be(caption);
+    }
 
     [AvaloniaTheory]
     [InlineData("VB.TextBox", "", false)]

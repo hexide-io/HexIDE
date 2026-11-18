@@ -162,5 +162,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/UncreatableControlTests.cs` | split |
 | `Views/UnloadTests.cs` | split |
 | `Views/UnmodelledControlPlaceholderTests.cs` | split |
+| `Views/WaylandToolTipTests.cs` | split |
 | `Views/WindowShortcutFocusTests.cs` | split |
 | `WindowLifetimeTests.cs` | split |

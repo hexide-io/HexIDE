@@ -230,6 +230,53 @@ public class EventStubTests : IDisposable
             $"Private Sub Command1_{eventName}({arguments})\n\nEnd Sub");
     }
 
+    private static FormDefinition FormWithArray(string secondName = "Command1")
+    {
+        var source = FormWithCode.Replace("      Caption", "      Index = 0\r\n      Caption")
+            .Replace("   End\r\nEnd\r\n", "   End\r\n"
+                + $"   Begin VB.CommandButton {secondName} \r\n      Index = 1\r\n   End\r\nEnd\r\n");
+        return new FormDeserializer().Deserialize(Project, source, NullSink.Instance)!;
+    }
+
+    // The Object box lists an array once (hexide-io/HexIDE#4557).
+    [AvaloniaTheory]
+    [InlineData("Command1")]
+    [InlineData("cOMMAND1")]
+    public void The_Object_box_lists_an_array_once_preserving_the_first_names_spelling(string secondName)
+    {
+        var vm = Open(FormWithArray(secondName));
+
+        vm.ObjectNames.Should().Equal("(General)", "Form", "Command1");
+    }
+
+    [AvaloniaFact]
+    public void Choosing_an_array_event_lists_its_events_and_writes_one_indexed_stub()
+    {
+        var vm = Open(FormWithArray());
+        vm.SelectedObject = "Command1";
+        vm.ProcedureNames.Should().Contain("Click");
+
+        vm.SelectedProcedure = "Click";
+        vm.SelectedObject = "Form";
+        vm.SelectedObject = "Command1";
+        vm.SelectedProcedure = "Click";
+
+        vm.Document.Text.ReplaceLineEndings("\n").Should()
+            .Contain("Private Sub Command1_Click(Index As Integer)\n\nEnd Sub");
+        vm.Document.Text.Split("Private Sub Command1_Click(").Should().HaveCount(2);
+    }
+
+    [AvaloniaFact]
+    public void The_Object_box_keeps_every_non_array_control_in_component_order()
+    {
+        var source = FormWithCode.Replace("   End\r\nEnd\r\n", "   End\r\n"
+            + "   Begin VB.TextBox Text1 \r\n   End\r\n"
+            + "   Begin VB.CommandButton Command2 \r\n   End\r\nEnd\r\n");
+        var vm = Open(new FormDeserializer().Deserialize(Project, source, NullSink.Instance)!);
+
+        vm.ObjectNames.Should().Equal("(General)", "Form", "Command1", "Text1", "Command2");
+    }
+
     [AvaloniaFact]
     public void An_elements_Index_is_retained_when_its_frm_is_opened_from_disk()
     {

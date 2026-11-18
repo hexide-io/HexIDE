@@ -33,6 +33,16 @@ public sealed class ChangeCoalescer
         _maxWait = maxWait ?? TimeSpan.FromMilliseconds(3000);
     }
 
+    /// <summary>Whether any path is waiting for its burst to settle.</summary>
+    public bool HasPending
+    {
+        get
+        {
+            lock (_lock)
+                return _pending.Count > 0;
+        }
+    }
+
     /// <summary>Records a changed path and (re)starts the quiet-period window.</summary>
     public void Notify(string path)
     {

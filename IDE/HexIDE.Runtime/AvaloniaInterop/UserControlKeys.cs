@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -25,6 +26,13 @@ internal static class UserControlKeys
             used.Add(free);
         }
         root.AddHandler(InputElement.GotFocusEvent, (_, _) => Update(form), handledEventsToo: true);
+        foreach (var control in form.All.Prepend(root))
+            control.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == InputElement.IsEffectivelyEnabledProperty || e.Property == Visual.IsVisibleProperty)
+                    Update(form);
+            };
+        Update(form);
         Key? taken = null;
         root.AddHandler(InputElement.KeyUpEvent, (_, e) =>
         {
@@ -120,7 +128,12 @@ internal static class UserControlKeys
 
     private static void Update(FormControls form)
     {
-        var buttonFocused = form.All.OfType<VBCommandButton>().Any(c => c.IsKeyboardFocusWithin);
+        var focused = form.All.OfType<VBCommandButton>().FirstOrDefault(c => c.IsKeyboardFocusWithin);
+        var receivers = Receivers(form, Key.Enter);
+        var displayed = focused ?? (receivers.Length == 1 ? receivers[0] as VBCommandButton : null);
+        foreach (var button in form.All.OfType<VBCommandButton>())
+            button.SetDisplayAsDefault(button == displayed);
+        var buttonFocused = focused is not null;
         foreach (var control in form.All.OfType<VBUserControl>())
             control.SetDisplayAsDefault(UserControlMembers.IsDefault(control) && !buttonFocused);
     }

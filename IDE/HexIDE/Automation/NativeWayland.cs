@@ -12,7 +12,7 @@ namespace HexIDE.Automation;
 internal static class NativeWayland
 {
     /// <summary>Stands in for the backend in a headless test, which can't load it.</summary>
-    internal static Func<TopLevel, bool>? ForTest;
+    internal static Func<TopLevel, bool>? ForTest = null;
 
     /// <summary>
     /// Whether <paramref name="topLevel"/> is on that backend. It is a check on the name of the platform object's type,

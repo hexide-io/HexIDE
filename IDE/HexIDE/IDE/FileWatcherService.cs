@@ -43,6 +43,13 @@ public sealed class FileWatcherService : IFileWatcherService
     private readonly IDisposable savedSubscription;
 
     private readonly ChangeCoalescer coalescer;
+
+    /// <summary>
+    /// Whether a change the watchers reported is still waiting to be processed. Tests wait for this to clear: on macOS a
+    /// write made just before a watch starts can still reach it a few milliseconds later (#3650, #4573).
+    /// </summary>
+    internal bool HasPendingChanges => coalescer.HasPending;
+
     private readonly DirtyDetector dirtyDetector;
     private readonly FileReloader reloader;
     private readonly ConflictGate conflictGate;
