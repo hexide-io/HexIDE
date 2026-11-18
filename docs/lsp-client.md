@@ -1494,8 +1494,9 @@ refresh requests are pending. Code windows replace their cached hints and semant
 Carried-file editors draw diagnostics only, with no hint or semantic-token renderer, so a refresh
 doesn't ask the server anything for them.
 
-`rdcore.showReferences` and `editor.action.showReferences` fill the existing Find References pane from
-the locations in the third argument, without asking for references again. Other lens commands use
+`rdcore.showReferences` (unless claimed by its offering connection) and `editor.action.showReferences`
+fill the existing Find References pane from the locations in the third argument, without asking for
+references again. Claimed commands use the contributed-command route below. Other lens commands use
 the declared-command routing below; undeclared commands are logged once per command.
 
 **A command is routed by who declared it, not by the document.** Every other request here is about a file,
@@ -1672,8 +1673,9 @@ already can't reach a server it didn't contribute.
 
 Code actions and lens commands route to their producing connection. A declared command still goes to
 that server as `workspace/executeCommand`; otherwise its claimed handler runs on the thread pool with
-the original arguments. Core's existing rename and references commands take precedence. Another
-server's action or lens cannot invoke the claim. Handler failures are logged in full and shown with
+the original arguments. A claim by the offering connection takes precedence over core's
+`rdcore.rename` and `rdcore.showReferences` handlers (#4259). The generic `editor.action.rename` and
+`editor.action.showReferences` commands always use core. Another server's action or lens cannot invoke the claim. Handler failures are logged in full and shown with
 only their message, through the action's refusal path or the lens's status bar.
 
 `IAddinServerConnection.ApplyEditAsync` uses the same workspace applier and user-command window as
@@ -1684,6 +1686,17 @@ window; removal and stop also cancel the handler's token. An accepted edit shows
 naming the server and the action or lens title. Code windows have no undo labels.
 `AddinServerRegistrationTests` and `ServerApplyEditTests` cover routing, isolation, checked edits,
 attribution and message-only failures. Settings and publisher namespace binding are separate work.
+
+`IAddinServerConnection.StartRenameAsync(uri, position, cancellationToken)` opens the document if needed,
+checks the position, navigates and uses the existing rename refusal checks and prompt. It returns false
+if the document cannot be opened or the position is outside it, and true when handled.
+`ShowReferencesAsync(locations, cancellationToken)` fills Find References with the supplied locations.
+Both marshal to the UI thread and are allowed only while that connection's claimed-command handler is
+running, like `ApplyEditAsync`. Outside that window they throw `InvalidOperationException` and show
+nothing. Core and the host calls share the same actions, including the code window's current VB6
+new-name validation. Core's `rdcore.*` cases remain until RDCore's add-in ships both claims (#4259 step 3).
+`AddinCodeEditorCommandTests` covers precedence, the host calls, their dispatcher route and their window;
+a live check with RDCore follows when its add-in claims them.
 
 ### Server questions (#2908)
 
@@ -1713,8 +1726,9 @@ After the code window's protected-line and declared-name checks, pending text is
 opened claimant advertising `renameProvider.prepareProvider: true` is asked `textDocument/prepareRename`.
 Any null or error reply prevents the prompt; an error's reason uses the existing refusal dialog.
 The first participating claimant's range or placeholder seeds the prompt. A `defaultBehavior: true`
-reply keeps the existing word, as do servers without preparation support. Menu and keymap Rename and
-the `rdcore.rename` / `editor.action.rename` client commands share this preparation and prompt flow. Initialize declares
+reply keeps the existing word, as do servers without preparation support. Menu and keymap Rename,
+`editor.action.rename`, the unclaimed `rdcore.rename` compatibility case and
+`IAddinServerConnection.StartRenameAsync` share this preparation and prompt flow. Initialize declares
 `textDocument.rename.prepareSupport: true` and `prepareSupportDefaultBehavior: 1`.
 
 ## Coverage against the specification
@@ -2149,7 +2163,8 @@ flushed before its command runs. A command is sent to the originating server onl
 command in `executeCommandProvider.commands`.
 Client commands share the code-lens handler: `rdcore.rename` and `editor.action.rename` open HexIDE’s
 rename at the supplied URI and position; the show-references aliases display the supplied locations.
-Other unlisted commands produce a localized refusal naming the command. Server-initiated
+An offering connection's claim precedes either `rdcore.*` compatibility case (#4259). Other unlisted,
+unclaimed commands produce a localized refusal naming the command. Server-initiated
 `workspace/applyEdit` is handled separately (#2908); see its own section.
 
 The client declares `codeActionLiteralSupport`, `dataSupport`, `disabledSupport` and `resolveSupport`
