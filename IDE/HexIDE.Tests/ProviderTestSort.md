@@ -47,6 +47,7 @@ A test that reaches the provider only at run time, through the application's com
 | `IDE/UserFileWriteFailureTests.cs` | split |
 | `IDE/Vb6CompileLogTests.cs` | split |
 | `IDE/Vb6ToolchainDiagnosticsTests.cs` | split |
+| `Infrastructure/AppExitTests.cs` | split |
 | `Infrastructure/ArchiveFileToolsTests.cs` | split |
 | `Infrastructure/BreakpointConditionToolTests.cs` | split |
 | `Infrastructure/ControlArrayIndexTests.cs` | split |

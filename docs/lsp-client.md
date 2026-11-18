@@ -193,6 +193,15 @@ Changing the UI language does not automatically restart servers (#2210).
 A connection records one `disconnected:` lifecycle entry even when client teardown finishes before
 the transport reports its hangup. A disconnection during client shutdown is not a fault (#4273).
 
+IDE exit cancels the first desktop shutdown request while the language servers stop, then requests
+shutdown again (#4554). Save-on-exit confirmation comes first: cancelling the save prompt leaves the
+servers running, and a confirmed or forced close does not prompt again. The file watcher is disposed
+before stopping, and logging is flushed afterwards. The exit wait is bounded to **seven seconds**:
+two seconds for a shutdown reply, two for exit, two for the server process to exit before it is ended
+(`LaunchedServerGuard.ExitTimeout`, 1.5 on Linux and macOS), and one of scheduling room. A server whose exit
+is sent waits up to one second for its output to end (#4484) in place of the exit's two. A failed or timed-out stop is logged and exit proceeds. Repeated requests during that wait
+remain cancelled. The bound covers the whole stop, including every configured server.
+
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
 Once `shutdown` is sent, the common outbound RPC gate permits no request or notification but `exit`, including

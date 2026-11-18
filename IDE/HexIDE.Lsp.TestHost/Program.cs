@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
 using HexIDE.Lsp;
 using Microsoft.Extensions.Logging.Abstractions;
 using StreamJsonRpc;
@@ -12,6 +14,11 @@ public static class Program
 {
     public static async Task Main(string[] args)
     {
+        if (args[0] == "recording-server")
+        {
+            await RecordingServerAsync(args[1], args.Length > 2 && args[2] == "unanswered");
+            return;
+        }
         if (args[0] == "dispose-server")
         {
             Stream input = Console.OpenStandardInput();
@@ -126,6 +133,39 @@ public static class Program
         Console.WriteLine("ready");
         await Task.Delay(TimeSpan.FromMinutes(1));
         GC.KeepAlive(transport);
+    }
+
+    private static async Task RecordingServerAsync(string file, bool unanswered)
+    {
+        var input = Console.OpenStandardInput();
+        var output = Console.OpenStandardOutput();
+        while (true)
+        {
+            var header = new StringBuilder();
+            var one = new byte[1];
+            while (!header.ToString().EndsWith("\r\n\r\n", StringComparison.Ordinal))
+            {
+                if (await input.ReadAsync(one) == 0) return;
+                header.Append((char)one[0]);
+            }
+            var length = int.Parse(header.ToString().Split("\r\n")[0].Split(':')[1]);
+            var body = new byte[length];
+            await input.ReadExactlyAsync(body);
+            using var message = JsonDocument.Parse(body);
+            var root = message.RootElement;
+            if (!root.TryGetProperty("method", out var methodElement)) continue;
+            var method = methodElement.GetString();
+            await File.AppendAllTextAsync(file, method + Environment.NewLine);
+            if (method == "exit") return;
+            if (!root.TryGetProperty("id", out var id) || (method == "shutdown" && unanswered)) continue;
+            // Delay the reply so a fire-and-forget exit reliably loses the graceful handshake.
+            if (method == "shutdown") await Task.Delay(150);
+            var result = method == "initialize" ? "{\"capabilities\":{}}" : "null";
+            var reply = Encoding.UTF8.GetBytes($"{{\"jsonrpc\":\"2.0\",\"id\":{id.GetRawText()},\"result\":{result}}}");
+            await output.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {reply.Length}\r\n\r\n"));
+            await output.WriteAsync(reply);
+            await output.FlushAsync();
+        }
     }
 
     private static ProcessStartInfo StartInfo(params string[] args)
