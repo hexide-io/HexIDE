@@ -144,7 +144,7 @@ public class ControlsAddTests
         """;
 
     /// <summary>Run <paramref name="load"/> as Form_Load, with <paramref name="module"/> above it.</summary>
-    private static (List<string> Printed, List<Exception> Errors) Run(string load, string module, string designer = Designer,
+    internal static (List<string> Printed, List<Exception> Errors) Run(string load, string module, string designer = Designer,
         Action<VBFormRuntime>? inspect = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");

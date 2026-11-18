@@ -177,6 +177,7 @@ public static class AvaloniaInteroperability
         // A Label's BackStyle can be set by a program, as VB6 measured (#795): opaque, then a BackColor paints. Bound,
         // because without it the assignment was a trappable 461 that On Error Resume Next swallowed, and the
         // transparent-Label rule then dropped the BackColor that followed, a wrong value with no error.
+        Register<VBLabel, VBBorder>(VBProperties.BorderStyleProperty, VBLabel.BorderStyleProperty);
         Register<VBLabel, BackStyles>(VBProperties.BackStyleProperty, VBLabel.BackStyleProperty);
         Register<VBLabel, VBAppearance>(VBProperties.AppearanceProperty, VBLabel.AppearanceProperty);
         Register<VBCheckBox, VBCheckValue>(VBProperties.CheckValueProperty, VBCheckBox.ValueProperty);
