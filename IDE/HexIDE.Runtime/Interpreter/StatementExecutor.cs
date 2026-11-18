@@ -4058,9 +4058,35 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (setLead && target.Value is VbUdt udtBag)
             {
                 var member = chainMembers[^1];
-                if (MemberHasArgs(member))
-                    throw new NotImplementedException("Set through this Type field is not implemented (#3924)");
                 var name = UdtFieldName(member);
+                if (MemberHasArgs(member))
+                {
+                    if (!udtBag.TryInspect(name, out var field) || field.Value is not VBArray { ElementType: var elementType } array
+                        || elementType != Vb6Value.ValueType.Object
+                        || member.iCS_S_ProcedureOrArrayCall() is not { } call || call.argsCall().Length != 1)
+                        throw new NotImplementedException("Set through this Type field is not implemented (#3924)");
+                    var indices = await expressionExecutor.ResolveSubscripts(await expressionExecutor.EvaluateCallArgs(call.argsCall(0)));
+                    try
+                    {
+                        var oldElement = array.GetValue(indices);
+                        interpreter.AddRef(value);
+                        try
+                        {
+                            array.SetValue(indices, value);
+                        }
+                        catch
+                        {
+                            await interpreter.ReleaseRef(value);
+                            throw;
+                        }
+                        await interpreter.ReleaseRef(oldElement);
+                    }
+                    catch (IndexOutOfRangeException)
+                    {
+                        throw new VBRunTimeException(context, VBStandardError.SubscriptOutOfRange);
+                    }
+                    return default;
+                }
                 if (!udtBag.IsObjectField(name))
                     throw new NotImplementedException("Set on this Type field is not implemented (#3924)");
                 if (!udtBag.TryInspect(name, out var old))

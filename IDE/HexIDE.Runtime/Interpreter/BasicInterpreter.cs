@@ -428,6 +428,18 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             {
                 if (f.UdtTypeName is { } nestedType && Types.TryGetValue(nestedType, out var nestedDef))
                     fields[f.Name] = NewUdtArray(nestedDef, f.Bounds, f.Bounds is null, depth + 1);
+                else if (f.UdtTypeName is { } objectType && !Enums.ContainsKey(objectType)
+                    && (ProjectClassFor(objectType) is not null
+                        || objectType.Equals("Object", StringComparison.OrdinalIgnoreCase)
+                        || ExpressionExecutor.IsCollectionType(objectType)))
+                {
+                    var arrayType = new Vb6Value.ValueType(Vb6Value.ValueType.Object, true);
+                    fields[f.Name] = f.Bounds is null ? new Vb6Value(arrayType) : new Vb6Value(arrayType, f.Bounds);
+                    var array = (VBArray)fields[f.Name].Value!;
+                    array.IsDynamic = f.Bounds is null;
+                    array.DeclaredClass = ProjectClassFor(objectType)?.Name
+                        ?? (ExpressionExecutor.IsCollectionType(objectType) ? "Collection" : null);
+                }
                 else
                 {
                     var elementType = f.ScalarType ?? (f.UdtTypeName is { } enumType && Enums.ContainsKey(enumType)
