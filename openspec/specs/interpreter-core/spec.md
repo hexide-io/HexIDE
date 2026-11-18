@@ -119,9 +119,28 @@ SHALL keep the object itself. Measurements are recorded in
 - **AND** a Function Case value against Empty or Null raises the IDE's 450
 
 #### Scenario: Unmeasured default-member uses
-- **WHEN** a default is a Sub, requires arguments, returns an object, a typed Function default reaches Format or Abs, or a default reaches a later Format argument
+- **WHEN** a scalar default is a Sub, requires arguments but is given none, returns an object, a typed Function default reaches Format or Abs, or a default reaches a later Format argument
 - **THEN** execution refuses untrappably naming #174
-- **AND** default writes, array bounds, control-array indexes and synchronous helper reads retain their refusals
+- **AND** default writes without arguments, array bounds, control-array indexes and synchronous helper reads retain their refusals
+
+### Requirement: Parameterized source-class default members
+
+The interpreter SHALL route arguments on a source-class instance to its default Function/Get on a read
+or Property Let on a write, preserving the returned value without scalar coercion (#4606).
+
+#### Scenario: Measured receivers
+- **WHEN** arguments reach an instance in a local/module variable, class field, Variant/Object slot, indexed result or parameterless project-class-returning procedure
+- **THEN** the default member receives them
+- **AND** a typed class variable holding Nothing raises runtime error 91 on indexed reads and writes
+- **AND** the results match [#4606](https://github.com/hexide-io/HexIDE/issues/4606) and `docs/vb6-fidelity-oracle/with-new-default-instances-and-set-through-members.md`
+
+#### Scenario: Indexing a parameterless Get's result
+- **WHEN** Holder.State is a parameterless Get returning a Bag with default Item(key)
+- **THEN** `h.State("k")` reads Item("k") and `h.State("k") = "w"` runs its Property Let
+
+#### Scenario: Unmeasured parameterized defaults
+- **WHEN** arguments reach a class without a default, a Variable/Sub default, or a write without a default Property Let
+- **THEN** execution refuses untrappably naming #4606
 
 ### Requirement: Trailing argument and declared array type refusals
 

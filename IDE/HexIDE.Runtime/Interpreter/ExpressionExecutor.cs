@@ -1526,7 +1526,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return images.Item(indices[0]);
         if (value.Value is ImageComboItems)
             return ImageComboItem(value, indices);
-        if (value.Type == Vb6Value.ValueType.Object || value.Value is VbObject)
+        if (value.Value is VbObject)
+            return await interpreter.CallDefaultMember(value, [.. indices.Select(v => new CallArg(v, null))], ctx, stmtFrames);
+        if (value.Type == Vb6Value.ValueType.Object)
             throw new NotImplementedException(value.Value is null
                 ? $"indexing Nothing, as in {ctx.GetText()}, is not implemented: what VB6 raises is unmeasured (#1476)"
                 : $"indexing an object, as in {ctx.GetText()}, reads its default member, which is not implemented (#174)");
@@ -1549,11 +1551,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     }
 
     // A procedure with no parameters, given arguments, is called with none and its result indexed with them, where it
-    // returns a Variant or an object: `F(1)` is `F()(1)`, and an As Collection one's Item (measured, #1476). A typed return
-    // given arguments does not compile, which is #741's.
-    private static bool IndexesItsResult(ProcedureInfo procedure, VB6Parser.ArgsCallContext? args) =>
+    // returns a Variant or an object: `F(1)` is `F()(1)`, including a project class (#4606) or Collection (#1476).
+    // A typed scalar return given arguments does not compile (#741).
+    private bool IndexesItsResult(ProcedureInfo procedure, VB6Parser.ArgsCallContext? args) =>
         args is { } given && given.argCall().Length > 0 && procedure.Parameters.Count == 0
-        && (procedure.ReturnsVariant || procedure.ReturnsObject);
+        && (procedure.ReturnsVariant || procedure.ReturnsObject
+            || interpreter.ProjectClassFor(procedure.ReturnUdtTypeName ?? "") is not null);
 
     // The call or element of `name(first group)`, with no later index groups: EvaluateProcedureOrArrayCall's single group.
     internal async Task<object?> EvaluateCallOrElement(VB6Parser.ICS_S_ProcedureOrArrayCallContext procOrArrayCall,
@@ -1631,6 +1634,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         }
         if (named && maybeGroup.Value is StatusBarPanels panels)
             return new Vb6Value(panels.Item(await EvaluateCallArgs(argsCtx)));
+        if (named && !string.Equals(env.ReturnName, name, StringComparison.OrdinalIgnoreCase)
+            && (maybeGroup.Value is VbObject || maybeGroup.Value is null
+                && interpreter.ProjectClassFor(maybeGroup.DeclaredAs ?? "") is not null))
+            return await interpreter.CallDefaultMember(maybeGroup, await ResolveCallArgs(argsCtx, beforeLast), procOrArrayCall, stmtFrames);
         if (named && maybeGroup.Value is ImageListImages or ImageComboItems)
             return ImageCollectionItem(maybeGroup, await EvaluateCallArgs(argsCtx));
         // A form's Controls held in a variable, `o(1)` (#1060).

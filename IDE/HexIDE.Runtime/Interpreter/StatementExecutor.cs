@@ -2687,6 +2687,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     if (propertyName is not null
                         && vobj.ClassDef.PrePass.Properties.TryGetValue(propertyName, out var indexedProperty))
                     {
+                        if (indexedProperty.Let is null && indexedProperty.Get is { Parameters.Count: 0 } getter
+                            && interpreter.ProjectClassFor(getter.ReturnUdtTypeName ?? "") is not null
+                            && members[0].iCS_S_ProcedureOrArrayCall() is { } getCall && getCall.argsCall().Length == 1)
+                        {
+                            var result = await interpreter.RunProcedure(vobj.ClassDef, getter, [], vobj.InstanceEnv, variable, stmtFrames)
+                                ?? throw new NotImplementedException("A parameterless Get without a value is unmeasured (#4606)");
+                            await interpreter.LetDefaultMember(result, await expressionExecutor.ResolveCallArgs(getCall.argsCall(0)), value, context, stmtFrames);
+                            return default;
+                        }
                         if (indexedProperty.Let is not { } indexedLetter
                             || indexedLetter.Parameters.SkipLast(1).Any(p => p.Optional || p.ParamArray)
                             || members[0].iCS_S_ProcedureOrArrayCall() is not { } propertyCall
@@ -2985,6 +2994,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 panels.Item(indexes).SetText(value);
                 return default;
             }
+            if (!string.Equals(currentEnv.ReturnName, identifier, StringComparison.OrdinalIgnoreCase)
+                && await interpreter.ReadVariable(currentEnv, identifier) is (true, var receiver)
+                && (receiver.Value is VbObject || receiver.Value is null
+                    && interpreter.ProjectClassFor(receiver.DeclaredAs ?? "") is not null))
+            {
+                await interpreter.LetDefaultMember(receiver, [.. indexes.Select(v => new CallArg(v, null))], value, context, stmtFrames);
+                return default;
+            }
             var indexesAsInt = await expressionExecutor.ResolveSubscripts(indexes);
 
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var array))
@@ -3039,11 +3056,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             ?? throw new NotImplementedException($"storing into {call.GetText()} is not implemented (#1476)");
         foreach (var subscripts in middle)
             holder = await expressionExecutor.IndexResult(holder, subscripts, call);
+        if (holder.Value is VbObject)
+        {
+            await interpreter.LetDefaultMember(holder, [.. last.Select(v => new CallArg(v, null))], value, context, stmtFrames);
+            return ControlFlow.Nothing;
+        }
         if (holder.Value is not VBArray inner)
         {
             // `a(0)(1) = 5` with `a` an Integer array does not compile: "Type mismatch" (measured). A Variant holding no array
             // is unmeasured, and raises 13 as a read of it does.
-            if (holder.Value is VbCollection or VbObject || holder.Type == Vb6Value.ValueType.Object)
+            if (holder.Value is VbCollection || holder.Type == Vb6Value.ValueType.Object)
                 throw new NotImplementedException($"storing into {call.GetText()} is not implemented (#1476)");
             if (holder.HasFixedType)
                 throw new VBCompileErrorException("Type mismatch");
