@@ -565,7 +565,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         return CopyForStore(element, depth);
     }
 
-    /// <summary>Instantiate a class (<c>New ClassName</c>): build this instance's OWN field env by cloning the
+    /// <summary>Instantiate a class or form (<c>New ClassName</c>). A form gets its own window context (#4598).
+    /// For a class, build this instance's OWN field env by cloning the
     /// class template env (so the shared <c>Debug</c>/<c>Err</c>/global slots carry over) then re-running the
     /// class's top-level <c>Dim</c> declarations against it — each <c>Dim</c> allocates a FRESH slot, giving true
     /// per-instance field storage. Finally, if the class declares <c>Private Sub Class_Initialize()</c>, fire it
@@ -578,7 +579,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             throw new Debugging.ImmediateEvalException("Creating objects is not available in the Immediate window.");
         if (className.Equals("StdFont", StringComparison.OrdinalIgnoreCase) && !Modules.TryGet(className, out _))
             throw new NotImplementedException("New StdFont is not implemented: its initial member values are unmeasured (#934)");
-        if (!Modules.TryGet(className, out var classDef) || classDef.Kind != InterpreterModuleKind.Class || classDef.HostedControl)
+        if (!Modules.TryGet(className, out var classDef) || classDef.Kind is not (InterpreterModuleKind.Class or InterpreterModuleKind.Form) || classDef.HostedControl)
             throw new VBCompileErrorException("User-defined type not defined: " + className);
         // A class that claims an interface must supply all of it. VB6 refuses to BUILD such a program; with no
         // compile step to refuse at, the check runs here — once per class, before the first instance exists, so
@@ -587,6 +588,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             VbInterface.VerifyConformance(classDef, Modules);
             verifiedImplementers.Add(classDef.Name);
+        }
+        if (classDef.Kind == InterpreterModuleKind.Form)
+        {
+            if (Forms is null)
+                throw new NotImplementedException($"New {className} requires a forms program (#4598).");
+            return await Forms.MakeInstance(classDef);
         }
         var instanceEnv = classDef.ModuleEnv.Clone();
         foreach (var block in classDef.PrePass.topLevelBlocks)
@@ -762,6 +769,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (o.Statics is { } statics)
             foreach (var slot in statics.InSourceOrder())
                 await ReleaseRef(ExecutionContext.State[slot]);
+        if (o.ClassDef.Kind == InterpreterModuleKind.Form)
+            Forms?.Terminated(o);
     }
 
     // Class_Initialize / Class_Terminate are lifecycle HOOKS, not ordinary methods: their `Me` is not a counted
@@ -1483,7 +1492,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         if (form.Kind != InterpreterModuleKind.Form)
             throw new ArgumentException($"{form.Name} is not a form module", nameof(form));
-        var instance = new VbObject(form, form.ModuleEnv.Clone()) { Interpreter = this };
+        var instance = NewUnboundFormInstance(form);
         var reference = Vb6Value.NewObject(instance);
         SeedProgramGlobal(form.Name, () => reference);
         if (form.ModuleEnv.TryGetVariableLocation(form.Name, out var slot))
@@ -1491,6 +1500,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         AddRef(reference);
         return instance;
     }
+
+    internal VbObject NewUnboundFormInstance(ModuleInfo form) =>
+        new(form, form.ModuleEnv.Clone()) { Interpreter = this };
 
     /// <summary>
     /// Run a form instance's module-level declarations into its own env, as <see cref="NewObject"/> does for a class.
