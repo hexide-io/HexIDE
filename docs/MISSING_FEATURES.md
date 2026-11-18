@@ -551,7 +551,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Ctrl+Shift+F9 | Clear All Breakpoints | Done | |
 | Ctrl+E | Menu Editor | Done | |
 | Ctrl+T | Components | Done | Factory gesture in Default; uses the platform command key (#3397) |
-| Alt+F5 | Run with VB6 | Done | Asks before replacing an output unless its filename and SHA-256 match the last successful Run build, persisted in the user sidecar (#4504); working directory remains HexIDE's own |
+| Alt+F5 | Run with VB6 | Done | Asks before replacing an output unless its filename and SHA-256 match the last successful Run build, persisted in the user sidecar (#4504); Make and Run use the `Path32` output folder when `ExeName32` is also set, otherwise the `.vbp` folder (#4538, measured in [oracle PR #4756](https://github.com/hexide-io/HexIDE/pull/4756)); working directory remains HexIDE's own |
 | Shift+F2 | View Definition | Done | Routed GoToDefinitionCommand; F12 also remains available (#3) |
 | F2 | Object Browser | Done | OpenObjectBrowserCommand on F2; next and previous bookmark have no default gesture, so nothing else takes it |
 | Ctrl+Shift+F2 | Last Position | Missing | Menu item still disabled; Ctrl+Shift+F2 gesture consumed by ClearAllBookmarksCommand |
