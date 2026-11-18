@@ -50,11 +50,9 @@ Checked live with F5 on the probe's six forms: each window's `WM_GETICON` answer
 
 ### An Icon set at run time (2026-11-18, #4603, SP6)
 
-**The probe.** A running form set its own `Icon`, logging each result and error. p-code and native code logged the
-same lines. The files:
-- `ARW01UP.ICO`, VB6's own 32-by-32 sample from `Common\Graphics\Icons\Arrows`, 1078 bytes, in the classic format;
-- `x.ico`, one 32-by-32, 32-bit image stored as PNG, the format later versions of Windows write;
-- `x.bmp`, a 32-by-32 bitmap.
+**The probe.** A running form set its own `Icon`, and the Icon of New instances of a second form, logging each result
+and error. p-code and native code logged the same lines. The first file was `ARW01UP.ICO`, VB6's own sample from
+`Common\Graphics\Icons\Arrows`: 1078 bytes, a 32-by-32 and a 16-by-16 image at 4 bits a pixel.
 
 | Statement | Result |
 |---|---|
@@ -62,16 +60,39 @@ same lines. The files:
 | `Set p = LoadPicture(ARW01UP.ICO)` | ok: p.Type 3, Width 847, Height 847 (HiMetric, 32 pixels) |
 | `Set Me.Icon = p` | ok. `Me.Icon Is p` is True, with the same Handle |
 | `Me.Icon = LoadPicture(ARW01UP.ICO)`, without Set | ok |
-| `LoadPicture(x.ico)`, the PNG-stored icon | **error 481**, Invalid picture, raised by LoadPicture itself |
-| `Set Me.Icon = LoadPicture(x.bmp)` | **error 380**, Invalid property value, and the Icon keeps its Type 3 |
+| `Set Me.Icon = LoadPicture(x.bmp)`, a 32-by-32 bitmap | **error 380**, Invalid property value, and the Icon keeps its Type 3 |
 | `Set Me.Icon = LoadPicture()` | ok: Type 0, Handle 0 |
-| `Set Me.Icon = Nothing` | ok. `Me.Icon` then reads a Picture of Type 0 and Handle 0, **not Nothing** |
-| `LoadPicture(nosuch.ico)` | error 53, File not found, naming the path |
+| `Set k1.Icon = Nothing`, straight after an icon | ok. `k1.Icon` then reads TypeName Picture, Type 0, Handle 0. `k1.Icon Is Nothing` is False |
+| `k1.Icon = Nothing`, without Set | ok, no error |
 | `Set f2.Icon = …` on a `New Form2` not yet loaded | ok, and it loads the form |
 
-- **On screen:** after `Set Me.Icon`, the form's title bar and its taskbar button both showed the new icon (console
-  screenshot).
+**On screen** (console screenshots, on a sizable form):
+- **After `Set Me.Icon` to an icon,** the form's title bar and its taskbar button both show it.
+- **After `Set k1.Icon = Nothing`,** k1's title bar shows Windows' generic window icon, as a sizable form saved with
+  Icon (None) does (above).
+- **After `Set k2.Icon = LoadPicture()`, k2's title bar still shows the arrow it had,** though `k2.Icon` reads back
+  Type 0 and Handle 0, as Nothing's does. The two clear the property alike, and the window differently.
+
+**Which image `LoadPicture` takes from an icon file**, from hand-built files, each image a red square with a white centre:
+
+| The file's images, in order | Result |
+|---|---|
+| one 32-by-32 at 4, 8, 24 or 32 bits a pixel, each with its AND mask | ok, Type 3, Width 847 |
+| one 16-by-16 at 4 bits | ok, Width 423 |
+| one 48-by-48 at 4 bits | ok, Width 1270 |
+| 32 then 16, and 16 then 32, at 4 bits | ok, Width 847: the 32 |
+| a 256-by-256 stored as PNG, then a 32 at 4 bits | ok, Width 847: the 32 |
+| a 32 at 4 bits, then a 256 stored as PNG | ok, Width 847 |
+| one 32-by-32 stored as PNG | **481**, Invalid picture |
+| a 32-by-32 at 32 bits **with no AND mask** after its pixels, first before a 256 PNG, or among a 48 and a 16 alike | **481** |
+| a 256 PNG, then 48, 32 and 16 at 32 bits with no AND masks | **481** |
+
+- **The image it takes is the 32-by-32 one,** wherever it sits in the file. A file of one image loads it at its own size.
+  The masks were left out by Pillow, which writes 32-bit icon images that way; the same image written with its mask
+  loads.
+- **The 481 is LoadPicture's own,** raised before any assignment, and `LoadPicture(nosuch.ico)` is error 53, File not
+  found, naming the path.
 - **Every error here was trappable** under `On Error Resume Next`.
 
-**Not measured:** what the title bar shows after `LoadPicture()` or `Nothing`, and an icon file holding several
-sizes.
+**Not measured:** an icon file with several images and none of them 32 by 32, and an assignment of an empty picture
+to a form whose window had no icon.

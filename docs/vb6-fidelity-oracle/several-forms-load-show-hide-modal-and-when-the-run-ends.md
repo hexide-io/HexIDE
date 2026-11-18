@@ -240,11 +240,14 @@ raised 402 without hiding. vb6.exe raises 402 and hides the form anyway, so a pr
 
 ### A form's name as a type: New, As New, an Object and an interface (2026-11-18, #4598, SP6)
 
-**The probe.**
+**The probes.**
 - **The forms:** Form1 ran each step from a Timer and logged to a file. Form2 numbered its instances in its
   Initialize, and logged each event with that number. No handler read a property, so the log loaded nothing.
 - **The interface:** Form2 `Implements IThing`, a class with `Hello` and a `WhoAmI` property.
-- **The builds:** p-code and native code logged the same lines.
+- **The builds:** p-code and native code logged the same lines, in each of three runs.
+
+**In a form's code.** Every step ran inside `Tick1`, a Sub of Form1 called from the Timer, so `f`, `g`, `h`, `k`, `o`
+and `t` are Tick1's locals.
 
 | Step, in order | Events | Forms.Count after |
 |---|---|---|
@@ -266,9 +269,24 @@ raised 402 without hiding. vb6.exe raises 402 and hides the form anyway, so a pr
 | then `f.Tag` | **Load #1, with no Initialize.** It reads "" | 5 |
 | `Unload f`, then `Set f = Nothing` | QueryUnload #1, Unload #1, then Terminate #1 at the Set | 4 |
 | `Set k = Nothing`, with k showing | none: k stays loaded and shown | 4 |
-| the Timer's handler returns | Terminate #5 and #6, for o and t. Not #2, #3 or #4, which are loaded | |
+| Tick1 returns | Terminate #5 and #6, for o and t, before the Timer's handler ran its next line. Not #2, #3 or #4, which are loaded | |
 
-**From a first run**, whose handlers read `Me.Tag`:
+**In a standard module and a class**, from a third run with a Form2 holding a Label:
+
+| Step | Events and values |
+|---|---|
+| `Sub ModLocal` in Module1: `Dim f As Form2`, `Set f = New Form2`, then read `f.Id` | Initialize #1. `TypeName(f)` is "Form2". Terminate #1 as ModLocal returned |
+| `Sub ModGlobal` in Module1: `Set gf = New Form2`, gf a module-level `Public gf As Form2` | Initialize #2. From Form1, `TypeName(gf)` is "Form2" and `gf Is Form2` is False |
+| `Set x = Make()`, with `Function Make() As Form2` in Module1 doing `Set Make = New Form2` | Initialize #4, x.Id 4. Not loaded |
+| `Function Blank() As Form2` that sets nothing | `TypeName(Blank())` is "Nothing", and `Blank() Is Nothing` is True |
+| The same As Class1, and As Form | "Nothing", both |
+| `Take New Form2`, with `Sub Take(ByVal w As Form2)` in Module1 | Initialize #5, Take's own line reading "Form2", then Terminate #5 as the call returned |
+| `Set c = New Class1`, whose Class_Initialize does `Set SUT = New Form2` into a `Private SUT As Form2` | Initialize #6 inside Class_Initialize |
+| `Set c = Nothing` | Class1's Terminate, then Terminate #6 |
+| `Set x = New Form2` over x's earlier instance | Initialize #7, then Terminate #4 for the instance x held |
+| then `x.Label1.Caption` | **Load #7**: a control of a New instance loads it |
+
+**From the first run**, whose handlers read `Me.Tag`:
 - **Types:** `TypeName(f)` read "Nothing" before the Set. After it, `TypeOf f Is Form2`, `TypeOf f Is Form` and
   `TypeOf f Is IThing` were all True. `Set x = f`, with x As Form, worked, and `TypeName(x)` read "Form2".
 - **The default instance:** `f Is Form2` was False, and naming Form2 made the default instance.
@@ -276,14 +294,16 @@ raised 402 without hiding. vb6.exe raises 402 and hides the form anyway, so a pr
   Form_Load before Initialize's own line finished. So a log taken in Initialize can make Load look as if it came first.
 
 **What it shows**, extending section 5 above:
-- **A form's name is a type,** and `New` makes a new instance of it. That holds in a variable of the form's own type,
-  As Form, As Object, or As an interface the form implements.
-- **Only a built-in member loads an instance.** The form's own Public members don't, and nor does a call through an
-  interface it implements.
+- **A form's name is a type,** and `New` makes a new instance of it, from a form, a standard module or a class. That
+  holds in a variable of the form's own type, As Form, As Object, or As an interface the form implements, and in a
+  Function's result.
+- **A New instance loads as the default instance does:** on its first control or built-in member. The form's own
+  Public members don't load it, and nor does a call through an interface it implements.
 - **`As New` makes the instance when the variable is first used.**
-- **A temporary instance terminates as soon as the statement that used it ends.**
+- **A temporary instance terminates as soon as the statement or call that used it ends.**
+- **An instance that isn't loaded terminates when its last reference goes,** as a class's does: at the Set, or when
+  the procedure whose local held it returns.
 - **A loaded form outlives its variables.** `Set k = Nothing`, and a local going out of scope, neither unloads nor
   terminates it. The Forms collection keeps it.
 
-**Not measured:** a variable As Form2 declared in a standard module, which is the demo's own case, and `Unload Me`
-inside a New instance.
+**Not measured:** `Unload Me` inside a New instance.

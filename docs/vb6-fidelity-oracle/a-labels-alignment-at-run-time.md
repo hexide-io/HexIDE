@@ -8,7 +8,7 @@ added with `Controls.Add` take it too?
   second Label, `lblAdded`, the same size, with `Controls.Add("VB.Label", "lblAdded")`.
 - **The run:** a Timer ran the statements under `On Error Resume Next`, logging each value and error. Console
   screenshots were taken after its first tick and after its second.
-- **The builds:** p-code and native code logged the same lines.
+- **The builds:** p-code and native code logged the same lines, in each of two runs.
 
 | Statement | Result |
 |---|---|
@@ -17,9 +17,16 @@ added with `Controls.Add` take it too?
 | `Label1.Alignment = vbRightJustify` | ok, and it reads 1 |
 | `Label1.Alignment = 3` | **380**, Invalid property value. It still reads 1 |
 | `Label1.Alignment = -1` | 380 |
-| `Label1.Alignment = 1.5` | ok, and it reads **2**: rounded half to even |
 | `Label1.Alignment = "2"` | ok, and it reads 2 |
+| `Label1.Alignment = 0.5` | ok, and it reads **0** |
+| `Label1.Alignment = 1.5` | ok, and it reads 2 |
+| `Label1.Alignment = 2.5` | ok, and it reads **2** |
+| `Label1.Alignment = -0.5` | ok, and it reads 0 |
+| `Label1.Alignment = 2.6` | 380 |
 | `lblAdded.Alignment = 2`, on the added Label | ok, and it reads 2 |
+
+- **A fraction rounds half to even before the range check,** as CInt does: 0.5 reads 0 and 2.5 reads 2. Rounding
+  half up would have given 1 and 3, the 3 a 380.
 
 **On screen:**
 - **After the first tick,** with both labels at 2, both captions were centred.
