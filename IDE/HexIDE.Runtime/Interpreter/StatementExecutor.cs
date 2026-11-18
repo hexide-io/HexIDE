@@ -1212,6 +1212,30 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return item.Value is not null;
             }, () => { });
         }
+        if (collection.Value is ControlArrayGroup group)
+        {
+            // #4716: snapshot sorted indices, but resolve each control only when its turn is reached.
+            var indices = group.Elements.Keys.ToArray();
+            var at = 0;
+            return await ForEachItem(context, varName, (out Vb6Value item) =>
+            {
+                while (at < indices.Length)
+                {
+                    var index = indices[at++];
+                    if (group.TryGetElement(index, out var element))
+                    {
+                        item = new Vb6Value(element);
+                        return true;
+                    }
+                    var error = new VBRunTimeException(context, VBStandardError.ControlArrayElementIsMissing(index));
+                    if (!ResumesNext)
+                        throw error;
+                    CaptureError(error);
+                }
+                item = default;
+                return false;
+            }, () => { });
+        }
         if (collection.Value is FormControls controls)
         {
             var cursor = controls.StartEnumeration();

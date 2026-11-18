@@ -18,9 +18,9 @@ worse than one that is obviously incomplete.
 >   The measured non-object Variant, Nothing and Collection paths are covered by #257; a form member through
 >   Object likewise raises 438 when absent.
 >
-> `For Each` walks arrays, a Collection, a form's Controls, Forms, TabStrip Tabs and ImageList Images. Over any other
-> control or proxy, a control array included, it stops the run as not implemented rather than raising an error a handler could
-> trap. User classes dispatch their -4 enumeration member (#4679).
+> `For Each` walks arrays, a Collection, a form's Controls, Forms, TabStrip Tabs, ImageList Images and control arrays
+> (CommonDialog retains #4148's restrictions). Over any other control or proxy, it stops the run as not implemented
+> rather than raising an error a handler could trap. User classes dispatch their -4 enumeration member (#4679).
 >
 > Separately, some of the engine's own refusals carry no message of their own. Such a run does end, and its dialog
 > quotes the statement that reached the refusal, where that statement is known.
@@ -29,6 +29,20 @@ worse than one that is obviously incomplete.
 > here, not the intent.
 
 ## Requirements
+
+### Requirement: For Each walks control-array indices captured at entry
+
+The interpreter SHALL walk a control array in sorted index order, capturing the indices once and resolving each
+element when reached, following [#4716's SP6 native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/4716).
+CommonDialog's existing enumeration restrictions remain unchanged.
+
+#### Scenario: Controls change during the walk
+- **WHEN** a new index is loaded during the loop
+- **THEN** it is not visited
+- **WHEN** an index captured at entry is unloaded before its turn
+- **THEN** error 340 names that index; under On Error Resume Next the error is recorded and the walk continues at the next index
+- **WHEN** that index is unloaded and reloaded before its turn
+- **THEN** the replacement control is visited
 
 ### Requirement: A running form accepts Icon assignments
 
