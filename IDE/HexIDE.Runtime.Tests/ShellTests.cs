@@ -126,7 +126,26 @@ public class ShellTests : BaseVBTestFixture
     [InlineData("New Collection", 450)]
     public async Task MeasuredPathConversion(string expression, int error)
     {
-        await Run($"On Error Resume Next\nShell {expression}, 1\nDebug.Print Err.Number");
+        // A converted name is looked up like any other, so the 53 rows hold only where nothing of that name can be found.
+        // Git for Windows puts usr\bin, with its true.exe, on PATH, and Windows matches "True" to it whatever the case:
+        // Shell True then ran it and gave 0 on the Windows runner. Search an empty folder instead, PATH and current
+        // directory alike; the collection runs alone, so changing them can't reach another test.
+        var empty = Path.Combine(Path.GetTempPath(), "hexide-shell-" + Guid.NewGuid());
+        Directory.CreateDirectory(empty);
+        var originalPath = Environment.GetEnvironmentVariable("PATH");
+        var originalDirectory = Environment.CurrentDirectory;
+        try
+        {
+            Environment.SetEnvironmentVariable("PATH", empty);
+            Environment.CurrentDirectory = empty;
+            await Run($"On Error Resume Next\nShell {expression}, 1\nDebug.Print Err.Number");
+        }
+        finally
+        {
+            Environment.CurrentDirectory = originalDirectory;
+            Environment.SetEnvironmentVariable("PATH", originalPath);
+            Directory.Delete(empty, recursive: true);
+        }
         AssertDebugLog([new Vb6Value((long)error)]);
     }
 
