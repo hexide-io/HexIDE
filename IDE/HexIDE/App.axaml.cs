@@ -56,7 +56,11 @@ public partial class App : Application
         NativeMenu.SetMenu(this, new NativeMenu { Items = { about } });
     }
 
-    internal void LoadMarkup() => AvaloniaXamlLoader.Load(this);
+    internal void LoadMarkup()
+    {
+        Automation.WaylandToolTips.Initialize();
+        AvaloniaXamlLoader.Load(this);
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {
