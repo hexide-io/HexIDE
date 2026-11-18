@@ -2151,13 +2151,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             || currentModule.ModuleEnv.TryGetVariableLocation(name, out var moduleLocation) && moduleLocation == location;
     }
 
-    private static ValueTask<Vb6Value> CallControl(Vb6Value reference, string member, IReadOnlyList<Vb6Value> args)
+    private ValueTask<Vb6Value> CallControl(Vb6Value reference, string member, IReadOnlyList<Vb6Value> args)
     {
         foreach (var arg in args) arg.RefuseOddBytes(member);
         VBFlatScrollBar.RefuseEarlyBound(reference, member);
         UserControlMembers.Check(reference, member);
-        return ((Control)reference.Value!).CallAsync(member, args);
+        return ((Control)reference.Value!).CallAsync(member, args, CallingForm());
     }
+
+    private VbObject? CallingForm() =>
+        interpreter.ExecutionContext.TryInspectVariable(currentEnv, "Me", out var me)
+            && me.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form ? form : null;
 
     // Object-default assignment is off the scalar assignment's recursive frame (#2827).
     private bool TryLetIntoObject(Vb6Value oldLet, Vb6Value value, int letSlot, string identifier, ParserRuleContext context)
@@ -5509,7 +5513,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var callArgs = await expressionExecutor.EvaluateCallArgs(context.argsCall());
             // Loaded first, then called, so a modal Show can wait (#822).
             var window = await interpreter.Loading((Form: form, Name: subName), static s => s.Form.BuiltInMembersFor(s.Name));
-            await window!.CallAsync(subName, callArgs);
+            await window!.CallAsync(subName, callArgs, CallingForm());
             return ControlFlow.Nothing;
         }
         // A bare procedure statement (Foo a, b): a user Sub/Function (this module, or another module's Public)
