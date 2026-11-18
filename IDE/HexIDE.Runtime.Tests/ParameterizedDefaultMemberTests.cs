@@ -96,6 +96,6 @@ public class ParameterizedDefaultMemberTests : BaseVBTestFixture
     public async Task Unmeasured_members_refuse(string source, string statement)
     {
         var run = () => RunClasses("Dim c As New C\n" + statement + "\n", ("C", source));
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#4606*");
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#4747*");
     }
 }
