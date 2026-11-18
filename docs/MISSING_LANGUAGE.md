@@ -125,7 +125,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 0 | 0 | 9 | 53 | 0 | 47 | 109 |
+| Statements | 0 | 0 | 7 | 55 | 0 | 47 | 109 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 2 | 79 | 0 | 74 | 155 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
@@ -133,7 +133,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Compiler directives and options | 0 | 0 | 0 | 14 | 19 | 14 | 47 |
 | In-box objects | 0 | 0 | 44 | 42 | 0 | 39 | 125 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **0** | **0** | **58** | **508** | **20** | **607** | **1193** |
+| **Total** | **0** | **0** | **56** | **510** | **20** | **607** | **1193** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -167,7 +167,7 @@ visitor, not changing how the language is understood.
 ### Where the damage actually is
 
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
-damage is concentrated in **statements** and the **in-box object model**: 8% of VB6's statements (9
+damage is concentrated in **statements** and the **in-box object model**: 6% of VB6's statements (7
 of 109) and 35% of the
 in-box surface (`App`, `Printer`, `Clipboard`; 44 of 125) are unavailable. Both
 figures are rounded to the nearest whole percent.
@@ -274,7 +274,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 58 names
+## Dies mid-run — 56 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -303,7 +303,6 @@ most of the in-box object model.
 | `DataObject.GetFormat` | **Dies** | Current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (GetFormat(1))". | Exceptions.cs |
 | `DataObject.SetData` | **Dies** | Current diagnostic: 424 "Object required" on a Variant holder (#257), and 91 on a typed `Dim` holding Nothing. | StatementExecutor.cs |
 | `DataObjectFiles` | **Dies** | `Dim f As DataObjectFiles` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
-| `Date` | **Dies** | throws `"Date not implemented"` — The grammar has a dedicated rule `dateStmt : DATE WS? EQ WS? valueStmt` (VB6.g4), listed in the block alternatives at VB6.g4 ahead of letStmt so it… | StatementExecutor.cs |
 | `EventInfo` | **Dies** | `Dim e As EventInfo` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
 | `EventParameter` | **Dies** | `Dim e As EventParameter` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
 | `EventParameters` | **Dies** | `Dim e As EventParameters` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
@@ -338,7 +337,6 @@ most of the in-box object model.
 | `Scale` | **Dies** | throws `"Only single element supported"` — fails at run time. VB6.g4 has no SCALE token and no scaleStmt rule. `Scale (0, 0)-(100, 100)` parses as a bare procedure call with one argument - a… | ExpressionExecutor.cs |
 | `SelectedControls` | **Dies** | `Dim s As SelectedControls` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
 | `SendKeys` | **Dies** | throws `"Sendkeys not implemented"` — Grammar rule `sendkeysStmt : SENDKEYS WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real SENDKEYS token; the visitor body is a single… | StatementExecutor.cs |
-| `Time (statement)` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `Cls` | **Dies** | **[#995](https://github.com/hexide-io/HexIDE/issues/995):** in a form, a bare `Cls` is the form's method, refused as not implemented for the form, as `Me.Cls` is. — **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 
 ## Full inventory by category
@@ -348,17 +346,17 @@ load, Dies, Partial, No-op, Supported — because a reader of a coverage documen
 missing.
 
 
-### Statements — 109 names (0 silently wrong, 9 absent, 53 partial, 47 supported)
+### Statements — 109 names (0 silently wrong, 7 absent, 55 partial, 47 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
 | `On Error Resume Next` | Supported | **#767:** an unimplemented fault suppresses Class_Terminate during reference cleanup, so a raising termination hook cannot replace it with a trappable error.  **#839:** a block statement whose condition or header raises goes on into the block, as VB6 does: `If k Then` runs the Then branch, `ElseIf k` its branch, a one-line `If k` its Then part, and `Do While k`, `Do Until k` and `While k` run their bodies, asking again each time round, where the whole statement was skipped (measured by #840 and #839, native and in the IDE). Where native code and p-code differ, for a Select Case selector and a For loop's start, limit or step, HexIDE follows p-code, which is how the IDE runs a program. On Error GoTo with Resume Next in the handler still resumes after the whole top-level statement (see `Resume Next`) — Sets errorMode = ErrorMode.ResumeNext, trapped per statement in every nested block (VisitBlock) and at the top-level pc driver. **#877:** it clears Err, as every On Error does, and while a handler is running it traps nothing: an error inside the handler goes to the caller, as vb6.exe sends it (measured). | StatementExecutor.cs |
 | `Function` | Partial | **#2120:** procedure calls keep their own bindings and fall back to the module or instance, avoiding a copy of every module name on each call; name lookup and the Locals display are preserved. **#79:** activation slots are freed on return and error unwind; ByRef aliases and persistent Static slots are retained. **A type character declares the return ([#740](https://github.com/hexide-io/HexIDE/issues/740), measured for all six).** `Function F%()` returns an Integer, and `& ! # @ $` a Long, Single, Double, Currency and String, ahead of a DefType for the name's letter. A call may carry the character, `F%()` or `F% + 1`, and it is checked against the return type: another character, or one on a Variant Function, is VB6's compile error "Type-declaration character does not match declared data type". A character and an `As` clause together are "Expected: end of statement". The body may assign the return through the character, `F% = 7`, as VB6 does ([#739](https://github.com/hexide-io/HexIDE/issues/739)). **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Otherwise as before — PrePass.VisitFunctionStmt registers a ProcedureInfo (name, params, return type, body, IsPrivate). The return is by assignment to the procedure's own name; an unassigned return yields the… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 | `Function...End Function` | Partial | **#999, fixed:** object-array returns reject a Variant array with 13 and leave the caller's target unchanged. A named object array must have the exact declared element type (Object, Collection or class); through a Variant any object array is accepted, without checking the elements' classes (measured, native and p-code). **#79:** activation slots are freed on return and error unwind; ByRef aliases and persistent Static slots are retained. **A type character declares the return ([#740](https://github.com/hexide-io/HexIDE/issues/740)); the body may assign it through the character ([#739](https://github.com/hexide-io/HexIDE/issues/739)); see `Function`.** **[#975](https://github.com/hexide-io/HexIDE/issues/975):** one declared `As Long()` returns its array (measured), where it returned a Long 0, and **[#986](https://github.com/hexide-io/HexIDE/issues/986):** takes only an array of its own type, a mismatch raising 13 or VB6's compile error "Can't assign to array" as VB6 does (measured), and a String stored into one declared `As Byte()`, which VB6 converts, stops the run as not implemented ([#998](https://github.com/hexide-io/HexIDE/issues/998)). The production quoted below now has `typeHint?` after the name (#740). Otherwise as before — The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
-| `Time (statement)` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
+| `Time (statement)` | Partial | [#4681](https://github.com/hexide-io/HexIDE/issues/4681), measured SP6 native and p-code: plain and `$` assignments evaluate and convert before raising 70 (Permission denied); Double, Null, empty/invalid String and arrays raise 13; an Object holding Nothing raises 91. The host clock is never changed, even elevated. Integer, Long, Currency, Empty and other unmeasured operands explicitly refuse as not implemented. Out-of-range dates remain unmeasured. | StatementExecutor.cs |
 | `AppActivate` | **Dies** | throws `"AppActivate not implemented"` — Grammar rule `appActivateStmt : APPACTIVATE WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4); the visitor body is a single throw:… | StatementExecutor.cs |
 | `Close` | Supported | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** closes the numbered files, every open file with no number, and one that isn't open with no error, all as vb6.exe measured. A program's files also close at `End` and when it ends. | StatementExecutor.cs, VbFiles.cs |
-| `Date` | **Dies** | throws `"Date not implemented"` — The grammar has a dedicated rule `dateStmt : DATE WS? EQ WS? valueStmt` (VB6.g4), listed in the block alternatives at VB6.g4 ahead of letStmt so it… | StatementExecutor.cs |
+| `Date` | Partial | [#4681](https://github.com/hexide-io/HexIDE/issues/4681), measured SP6 native and p-code: plain and `$` assignments evaluate and convert before raising 70 (Permission denied); Double, Null, empty/invalid String and arrays raise 13; an Object holding Nothing raises 91. The host clock is never changed, even elevated. Integer, Long, Currency, Empty and other unmeasured operands explicitly refuse as not implemented. Out-of-range dates remain unmeasured. | StatementExecutor.cs |
 | `DefBool` | Supported | **#169:** types every declaration with no As clause by the first letter of its name, as vb6.exe does (measured): an undeclared variable, a `Dim` or `Static`, a field, a parameter and a Function's return. A `Const` keeps its value's type. An overlap, a DefType after a declaration or inside a procedure, and a name longer than a letter are VB6's compile errors. A ReDim that declares now takes the DefType element type ([#1495](https://github.com/hexide-io/HexIDE/issues/1495)). Not yet: a type character on such a variable ([#742](https://github.com/hexide-io/HexIDE/issues/742)). | PrePass.cs |
 | `DefByte` | Supported | **#169:** see `DefBool`. | PrePass.cs |
 | `DefCur` | Supported | **#169:** see `DefBool`. | PrePass.cs |
