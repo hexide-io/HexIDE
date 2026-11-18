@@ -581,6 +581,35 @@ may not be named", and named IMEStatus "Wrong number of arguments or invalid pro
 - **WHEN** `FV(Pmt:=-100, NPer:=12, Rate:=0.01)` executes
 - **THEN** its value equals `FV(0.01, 12, -100)`
 
+### Requirement: Measured control and form named arguments
+
+The interpreter SHALL bind the control/form parameter names measured by
+[#1474](https://github.com/hexide-io/HexIDE/issues/1474) in parameter order. Unknown/repeated names and
+missing required parameters SHALL raise the measured compile errors as the statement executes.
+Unmeasured names SHALL remain unimplemented. Name binding SHALL preserve existing method execution refusals.
+
+#### Scenario: Measured method signatures
+- **WHEN** an early-bound control or form method receives named arguments
+- **THEN** ListBox/ComboBox AddItem takes Item/Index and RemoveItem takes Index; TextBox/form Move takes Left/Top/Width/Height; ZOrder takes Position; form TextWidth takes Str; PictureBox ScaleX takes Width/FromScale/ToScale
+- **AND** form TextWidth and form ZOrder execution remain explicitly unimplemented
+
+#### Scenario: AddItem evaluates its parameters in order
+- **WHEN** `List1.AddItem Index:=F(1), Item:=F("c")` executes early-bound
+- **THEN** F receives "c" before 1 and c is inserted at index 1
+
+#### Scenario: A gap prevents a move
+- **WHEN** `Text1.Move 200, Height:=400` executes
+- **THEN** error 448 is raised and no position or size changes
+- **AND** optional gaps in TextBox/form Move and PictureBox ScaleX raise 448 whether named or positional
+
+#### Scenario: A late-bound control takes no names
+- **WHEN** an Object holding a ListBox executes `o.AddItem Item:="late"`
+- **THEN** error 448 is raised and the list stays unchanged
+- **AND** all named method arguments on the measured control/form targets through Object or Variant raise 448, including repeated names
+- **AND** `As Control` and `As VB.Control` ListBox AddItem and TextBox Move calls with names raise 448 without changing the target, while positional calls still work ([#4737](https://github.com/hexide-io/HexIDE/issues/4737), SP6 native/p-code, measuring PR #4753)
+- **AND** a variable declared as the control's or form's own class (`As ListBox`, `As TextBox`, `As Form`, `As Form1`) binds the names
+- **AND** a Collection retains its existing named binding
+
 ### Requirement: Measured straight-line and sum-of-years depreciation
 
 The interpreter SHALL implement positional `SLN` and `SYD` calls with Double results matching
