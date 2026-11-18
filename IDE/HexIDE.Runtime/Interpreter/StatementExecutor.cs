@@ -5185,6 +5185,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBRunTimeException(ctx, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             if (MemberHasArgs(member))
             {
+                // A project-class field holding Nothing raises 91 (#4725, measured); Nothing in an As Object field is
+                // unmeasured, so it keeps the refusal below, as the read does.
+                if (i == members.Length - 1 && bag.IsObjectField(fieldName)
+                    && field.Value is not VBArray && member.iCS_S_ProcedureOrArrayCall().argsCall().Length == 1
+                    && (field.Value is not null || interpreter.ProjectClassFor(field.DeclaredAs ?? "") is not null))
+                {
+                    await interpreter.LetDefaultMember(field,
+                        await expressionExecutor.ResolveCallArgs(member.iCS_S_ProcedureOrArrayCall().argsCall(0)),
+                        value, ctx, stmtFrames);
+                    return;
+                }
                 if (field.Value is not VBArray array || member.iCS_S_ProcedureOrArrayCall().argsCall().Length != 1)
                     throw new NotImplementedException("Only a single array index group on a UDT field is implemented (#178)");
                 var indices = await expressionExecutor.ResolveSubscripts(await expressionExecutor.EvaluateCallArgs(member.iCS_S_ProcedureOrArrayCall().argsCall(0)));
