@@ -2008,6 +2008,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
         // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
         VBProps.RefuseIfRemoved(control);
+        if (control is VBPictureBox && RuntimeDrawing.IsMethod(MemberName(member)))
+        {
+            if (MemberName(member).Equals("Cls", StringComparison.OrdinalIgnoreCase))
+                throw RuntimeDrawing.Refused("Cls used as a value");
+            return RuntimeDrawing.Call(control, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
+        }
         if (control is VBPictureBox && RuntimeScale.IsConversion(MemberName(member)))
             return RuntimeScale.ConvertUnits(control, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
 
@@ -2038,6 +2044,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (AvaloniaInterop.SSTabMembers.TryGet(control, memberIdentifier, out var tabValue))
             return tabValue;
 
+        if (RuntimeDrawing.TryGet(control, memberIdentifier, out var drawingMember))
+            return drawingMember;
         var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
         foreach (var prop in props)

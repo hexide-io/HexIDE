@@ -505,7 +505,7 @@ public static class AvaloniaInteroperability
     /// &amp;HFFFF) and 0x02 (palette-relative RGB, any), VB6 accepts and keeps as given; HexIDE has no colour that
     /// can hold one, so they are refused as not implemented rather than stored as the RGB of their low bytes (#786).
     /// </summary>
-    private static long OleColor(Vb6Value value)
+    internal static long OleColor(Vb6Value value)
     {
         var ole = System.Convert.ToInt64(Coerce(value, Vb6Value.ValueType.Long));
         var bits = (uint)ole;

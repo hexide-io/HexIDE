@@ -2384,3 +2384,57 @@ The measured metric factor and its accepted last-place precision difference are 
 - **THEN** the interpreter raises 380
 - **WHEN** a Scale statement supplies a zero extent
 - **THEN** it raises 11 and retains the previous scale
+
+### Requirement: Form and PictureBox drawing at pen width one
+
+The interpreter SHALL execute Cls, PSet, Line and Point on each form and PictureBox's own surface through its
+coordinate system, with the state, syntax, pixels and refusals measured for
+[#988](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md) and
+[#990](../../../docs/vb6-fidelity-oracle/the-coordinate-system-scalemode-scale-scalex-and-scaley.md).
+
+#### Scenario: Runtime state and coordinate storage
+- **WHEN** a form or PictureBox loads
+- **THEN** its bitmap sits behind every control, and drawing state comes from saved values or measured defaults
+- **AND** CurrentX/CurrentY are Singles, DrawWidth/DrawStyle/DrawMode/FillStyle Integers, FillColor Long,
+  and AutoRedraw/FontTransparent Booleans
+- **AND** current positions remain whole twips rounded half to even and keep their physical positions across scale changes
+
+#### Scenario: Drawing placement follows display scaling and resizing
+- **WHEN** a form or PictureBox displays its drawing surface at any render scaling, including after resizing
+- **THEN** each bitmap pixel covers one device-independent unit, aligned with the contained controls
+- **AND** neighbouring bitmap pixels retain their own colours without smoothing
+- **AND** the surface covers the client area while retained pixels keep their positions; Point's pixel rules are unchanged
+
+#### Scenario: Graphics syntax and unsuitable receivers
+- **WHEN** either grammar parses graphics statements
+- **THEN** Line, PSet and Circle accept qualified or bare receivers, Step coordinates, short Line, B/BF boxes
+  and omitted Circle arguments, and reject the measured invalid syntax
+- **AND** Circle/PSet are reserved, Line/Cls nonreserved, and Cls: is a label
+- **WHEN** a graphics statement runs in a standard module without a suitable object
+- **THEN** it reports VB6's compile error as the statement executes; bare Cls remains an undefined Sub
+
+#### Scenario: Later and unmeasured drawing members refuse explicitly
+- **WHEN** Circle executes, or drawing uses DrawWidth above 1, DrawStyle other than 0, DrawMode other than 13
+  or FillStyle other than 0/1
+- **THEN** execution refuses with NotImplementedException naming #988
+- **AND** late-bound Line/PSet/Circle, FontTransparent assignments, Cls used as a value and unmeasured Cls/Point argument counts refuse likewise
+- **AND** an unrepresentable saved FillColor refuses instead of silently using black
+- **AND** AutoRedraw assignments are retained; persistence and Paint-event timing remain #991, and text drawing #989
+
+#### Scenario: Drawing and readback use distinct rounding paths
+- **WHEN** a form draws PSet (7.5, 7.5) in twips
+- **THEN** the point is kept at 8 twips and lights pixel (1, 1)
+- **AND** Point(7.5, 7.5) reads pixel (0, 0), which is still the background
+
+#### Scenario: Lines, boxes and clearing
+- **WHEN** a pixel-scale form draws Line (10, 10)-(20, 10)
+- **THEN** pixels 10 through 19 are drawn and pixel 20 is excluded
+- **AND** a B or BF box includes its far corner; B with FillStyle 0 fills its interior with FillColor
+- **WHEN** Cls runs
+- **THEN** the surface is cleared to BackColor and the current position returns to zero in the default twip scale
+
+#### Scenario: Overflow preserves the current position
+- **WHEN** PSet or Line receives a coordinate that overflows a Long in twips
+- **THEN** error 6 is raised without changing either current coordinate
+- **AND** Point returns Long -1 at the two measured outside points, but raises 6 for Point(1E+30, 0)
+- **AND** no additional VB6 backing-store boundary is asserted beyond the measured row outside the client area
