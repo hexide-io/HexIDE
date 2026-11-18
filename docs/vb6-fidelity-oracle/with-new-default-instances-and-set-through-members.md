@@ -197,6 +197,18 @@ statement. The classes, each in its own module:
 `CV` read through `.Value(1)` comes from the `e(1) = 5` row's log line, which concatenated `e.Value(0)` to
 `e.Value(2)`, so its type was not recorded.
 
+**Held in a Variant.** The late-bound rows again, with `Dim o As Variant` in place of `As Object`, in one project.
+Every row matched `As Object` but three, all a Let through a default Sub or Function:
+
+| Class | Statement | Held in a Variant | `As Object`, from the table |
+|---|---|---|---|
+| `CS` | `o(1) = 5` | **450**, and `Sub 1` is not printed | prints `Sub 1`, then 451 |
+| `CF` | `o(1) = 5` | **450** | 451 |
+| `CF2` | `o(1) = 5` | **450**, and `Function 1` is not printed | prints `Function 1`, then 451 |
+
+450 is "Wrong number of arguments or invalid property assignment". The Get-only `CG2` behaves the same both ways:
+it prints `Get 1`, then raises 451. So does every read, the Sub's included, which prints `Sub 1` and gives Empty.
+
 **Readings:**
 - **No default member is 438 both ways,** read or assigned.
 - **Early-bound, a default Variant is indexed as its value.** An array gives its element, and an index past its
@@ -207,9 +219,11 @@ statement. The classes, each in its own module:
 - **A Let through a Get or Function with no Let calls it with the arguments first,** then needs an object from it. A
   number is 424 early-bound and 451 late-bound. That is the same route as `h.State("k2") = "w"` above, where the Get
   did return an object.
-- **Late-bound, every case but no default member and a Sub's read is 451.** Arguments to a default variable are 451
+- **Late-bound through `As Object`, every case but no default member and a Sub's read is 451.** Arguments to a default variable are 451
   even through its name, `o.Value(1)`. A default Sub is run for its arguments, and gives Empty to a read or 451 to an
   assignment.
+- **Held in a Variant, a Let through a default Sub or Function is 450, and the member isn't called.** That is the
+  one place a Variant and `As Object` part.
 
 **In HexIDE,** at `7929177e6`, probes of every row but `e(5) = 1` and the `CG2` and `CF2` rows were refused as
 unmeasured, citing #4606 (#4747 since then). The two `.Value(1)` reads are the exception: the late-bound one was
