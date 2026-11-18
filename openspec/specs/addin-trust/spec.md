@@ -176,6 +176,11 @@ its absence as a revocation would do far more damage than the case it guards aga
 - **WHEN** a retrieved list does not verify, or is older than the one already held
 - **THEN** it is ignored
 
+#### Scenario: The list the IDE ships does not verify
+- **WHEN** the build's own bundled list fails root verification
+- **THEN** the IDE SHALL still start, with the cached and retrieved lists, and SHALL log the refusal at error level,
+  because the build's own file failing is a defect in the build rather than a retrieval problem (#4537)
+
 #### Scenario: No retrieval configured
 - **WHEN** no revocation source is configured
 - **THEN** no retrieval is attempted and startup is not delayed
