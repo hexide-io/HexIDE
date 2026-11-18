@@ -166,11 +166,10 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
                 value = new Vb6Value(owner.DisplayAsDefault);
                 return true;
             }
-            // Only form-hosted controls were measured (#4149); resolve the current container on every read.
+            // #4448: a PictureBox or Frame child reads the form too; other containers remain unmeasured.
             if (UserControlContainers.TryGet(owner, "Container", out _)
                 || !ContainerMembers.TryGet(owner, "Container", out var container)
-                || container.Value is not VbObject form || !ReferenceEquals(form, owner.ambientForm)
-                || form.FormWindow is not { } window)
+                || !FormAmbients.TryForm(container.Value, owner.ambientForm, out var window))
                 throw new NotImplementedException($"Ambient.{name} on a non-form container is not implemented (#4149)");
             value = name.ToLowerInvariant() switch
             {
