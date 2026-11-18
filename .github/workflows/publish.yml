@@ -91,6 +91,9 @@ jobs:
     name: Check hexide.io's revocation list
     needs: preflight
     runs-on: ubuntu-latest
+    # It only reads the repository and fetches a public URL; the workflow's contents: write is for the release job.
+    permissions:
+      contents: read
     env:
       # #4534: 0 only warns, because the published list doesn't verify until Jen re-signs it with the root key, and a
       # failing step would block every release until then. Set it to 1 in the change that lands the re-signed list.
