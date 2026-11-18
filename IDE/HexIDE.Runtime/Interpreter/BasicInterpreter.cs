@@ -2302,6 +2302,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         for (int i = 0; i < proc.Parameters.Count; i++)
         {
             var p = proc.Parameters[i];
+            // A UDT parameter declared ByVal is VB6's compile error "User-defined type may not be passed ByVal" (measured,
+            // #4673). VB6 refuses the build, even when the procedure is never called; here it is refused as a call binds
+            // the parameter, so a procedure that is never called is not caught. Telling that `As T` names a Type relates a
+            // reference to a declaration, which CLAUDE.md's pre-pass rule keeps out of the load: interpreter-core's
+            // "An error VB6 reports before running" is the translation. A Declare's parameters are not bound here and
+            // build in VB6; Optional and Event parameters have their own compile errors, outside this check.
+            if (!p.ByRef && !p.Optional && p.TypeName is { } udtName
+                && TryResolveType(udtName, owner, null, out _))
+                throw new VBCompileErrorException("User-defined type may not be passed ByVal");
             // A ParamArray is the last parameter, and takes every argument left (#2462).
             if (p.ParamArray)
             {
