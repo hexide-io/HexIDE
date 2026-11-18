@@ -46,7 +46,8 @@ public class ModuleExecutionContext
             // interface. Anything else is Err 13 "Type mismatch" at the Set — measured, both for two unrelated
             // classes and for an interface-typed slot given a non-implementer. Nothing always stores (its Value
             // is null); a control or proxy is outside this model.
-            CheckObjectStore(value, state.DeclaredClassOf(loc), ctx);
+            CheckObjectStore(value, value.Value is VbCollectionEnumerator
+                ? state.DeclaredViewOf(loc) : state.DeclaredClassOf(loc), ctx);
             state[loc] = value;
             return true;
         }
@@ -57,6 +58,9 @@ public class ModuleExecutionContext
     // Scalar slots and array elements enforce the same object type (measured, #1482).
     internal static void CheckObjectStore(Vb6Value value, string? declaredClass, ParserRuleContext? ctx = null)
     {
+        if (value.Value is VbCollectionEnumerator && declaredClass is not null
+            && !declaredClass.Equals("IUnknown", StringComparison.OrdinalIgnoreCase))
+            throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
         if (declaredClass is not null && ControlObjectType.IsDeclared(declaredClass)
             && value.Value is not null
             && !declaredClass.Equals(ControlObjectType.Of(value.Value), StringComparison.OrdinalIgnoreCase))

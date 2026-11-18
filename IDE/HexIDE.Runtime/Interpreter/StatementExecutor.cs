@@ -1101,6 +1101,28 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return at <= snapshot.Length && item.Value is not null;
             }, () => { });
         }
+        if (collection.Value is VbObject { ClassDef: { Kind: InterpreterModuleKind.Class, HostedControl: false } } instance)
+        {
+            Vb6Value? result = null;
+            if (instance.ClassDef.PrePass.EnumerationMember is { } member)
+            {
+                var procedure = member.Kind == PrePass.DefaultMemberKind.Function
+                    ? instance.ClassDef.PrePass.Procedures.GetValueOrDefault(member.Name)
+                    : instance.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Get;
+                if (procedure is not null)
+                    result = await interpreter.RunProcedure(instance.ClassDef, procedure, [], instance.InstanceEnv, collection, stmtFrames);
+            }
+            if (result?.Value is VbCollectionEnumerator enumerator)
+                collection = new Vb6Value(enumerator.Collection);
+            else
+            {
+                var error = new VBRunTimeException(context, VBStandardError.ForLoopNotInitialized);
+                if (!ResumesNext)
+                    throw error;
+                CaptureError(error);
+                return await RunUninitialisedForEach(context, varName, emptiesElement: true);
+            }
+        }
         if (collection.Value is VbCollection items)
         {
             var cursor = items.StartEnumeration();
@@ -1151,7 +1173,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Next step over the whole loop.
             var refusal = collection.Value switch
             {
-                VBArray => new VBRunTimeException(context, VBStandardError.ForLoopNotInitialized),
+                VBArray or VbCollectionEnumerator => new VBRunTimeException(context, VBStandardError.ForLoopNotInitialized),
                 null when collection.Type == Vb6Value.ValueType.Object => new VBRunTimeException(context, VBStandardError.ObjectRequired),
                 VbObject or Avalonia.Controls.Control or ICSharpProxy => throw new NotImplementedException(
                     "For Each over this object, such as a control array, is not supported yet: only arrays, a Collection, a form's Controls and Forms are."),

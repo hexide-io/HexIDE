@@ -88,6 +88,7 @@ public partial class VB6BuiltIns
         VbScreen => "Screen",
         VbClipboard => "Clipboard",
         VbCollection => "Collection",
+        VbCollectionEnumerator => "Unknown",
         ListViewItems => "IListItems",
         ListViewItem => "IListItem",
         ListViewColumns => "IColumnHeaders",
@@ -118,6 +119,7 @@ public partial class VB6BuiltIns
     // Maps a value to its VB6 TypeName string and VbVarType code. Arrays append "()" / add vbArray (8192).
     private static (string name, int code) TypeInfo(Vb6Value v)
     {
+        if (v.Value is VbCollectionEnumerator) return ("Unknown", 13);
         var t = v.Type;
         if (t.IsArray)
         {
@@ -224,7 +226,7 @@ public partial class VB6BuiltIns
     }
 
     private static bool IsObjectValue(Vb6Value v) =>
-        v.Type == VT.Control || v.Type == VT.CSharpProxyObject || v.Type == VT.Nothing || v.Type == VT.Object;
+        v.Value is not VbCollectionEnumerator && (v.Type == VT.Control || v.Type == VT.CSharpProxyObject || v.Type == VT.Nothing || v.Type == VT.Object);
 
     // #2622's native/p-code measurements constrain identities, not addresses (measuring PRs #2624 and #2628).
     // Weak keys neither retain objects nor change Class_Terminate ownership; distinct objects never reuse an identity.

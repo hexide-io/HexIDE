@@ -19,8 +19,8 @@ worse than one that is obviously incomplete.
 >   Object likewise raises 438 when absent.
 >
 > `For Each` walks arrays, a Collection, a form's Controls, Forms, TabStrip Tabs and ImageList Images. Over any other
-> object, a control array included, it stops the run as not implemented rather than raising an error a handler could
-> trap.
+> control or proxy, a control array included, it stops the run as not implemented rather than raising an error a handler could
+> trap. User classes dispatch their -4 enumeration member (#4679).
 >
 > Separately, some of the engine's own refusals carry no message of their own. Such a run does end, and its dialog
 > quotes the statement that reached the refusal, where that statement is known.
@@ -197,6 +197,31 @@ raise "Variable not defined" during execution. These behaviours are
 #### Scenario: An existing module array
 - **WHEN** a procedure executes ReDim on its module's `Dim mArr() As Long`
 - **THEN** it resizes that module array instead of declaring a local
+
+### Requirement: Collection class enumeration
+
+The interpreter SHALL collect a Function or Property Get marked `VB_UserMemId = -4` and call it
+when For Each walks a user class held through its own type, Object or Variant. A returned Collection
+enumerator SHALL use the existing live Collection cursor. A missing member, Nothing or non-enumerator
+result SHALL raise 92 "For loop not initialized"; under Resume Next the body SHALL run once with Empty.
+These behaviours are measured in [#4679](https://github.com/hexide-io/HexIDE/issues/4679).
+
+#### Scenario: Appending during class enumeration
+
+- **WHEN** a class returns its Collection's `[_NewEnum]` from a -4 member and appends an item during the loop
+- **THEN** the loop visits that item after the existing items
+
+### Requirement: Opaque Collection enumerator
+
+`Collection.[_NewEnum]` SHALL return a fresh opaque value with TypeName "Unknown", VarType 13 and
+IsObject False. Set into IUnknown or Variant SHALL succeed; Set into Object and Let into Variant
+SHALL raise 13, following the measured p-code row in #4679. A late call SHALL raise 424 and direct
+For Each over the enumerator SHALL raise 92.
+
+#### Scenario: Independent reads
+
+- **WHEN** two reads of a Collection's `[_NewEnum]` are compared with Is
+- **THEN** the result is False
 
 ### Requirement: For Each collection references and declarations
 
