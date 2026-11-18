@@ -137,7 +137,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   and nested events stealing a step. Into/Over now carry only after the outermost chain returns; events raised within
   that chain retain the existing depth rule. #2320's clearing of break-mode chrome and release of frozen events at
   idle remains in place.
-- **Status:** **resolved (#4261, #4269)**. Step Out across idle and startup Main's step positions remain unmeasured and keep their previous behavior. Startup `Sub Main` stepping is also unmeasured here and keeps its existing statement positions ([#4449](https://github.com/hexide-io/HexIDE/issues/4449)).
+- **Status:** **resolved (#4261, #4269)**. Step Out across idle and the step positions through a startup `Sub Main` were measured on 2026-11-18 ([oracle](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md#step-out-across-idle-and-stepping-through-a-startup-sub-main-or-form-2026-11-18-4449-ide)): Step Out carries into the next event as Into and Over do, and past `Sub Main`'s end Into and Out carry while Over does not. HexIDE keeps its previous behaviour until [#4449](https://github.com/hexide-io/HexIDE/issues/4449) matches them.
 
 ### D5. Step Over / Step Out (v2·P5)
 - **VB6:** Shift+F8 (Step Over — run a called proc to completion, break at the next statement in the current frame),
@@ -394,6 +394,10 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   on one. So Step Into from idle breaks on the first statement of `Form_Initialize`, or of `Form_Load` when there is
   none, and a step off the end of Initialize goes on into Load (pinned in `FormInstanceTests`). A `Sub Main` start
   is not re-measured.
+- **Overturned, 2026-11-18:** VB6 does stop on declarations. F8 on a startup form breaks at
+  `Private Sub Form_Initialize()`, and a step off Initialize's end stops at `Private Sub Form_Load()`. A `Sub Main`
+  start breaks at `Sub Main()` ([oracle](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md#step-out-across-idle-and-stepping-through-a-startup-sub-main-or-form-2026-11-18-4449-ide)). So HexIDE's start, which skips declarations, diverges
+  again, and [#4449](https://github.com/hexide-io/HexIDE/issues/4449) tracks matching it.
 
 ### D20. A step from a function's last statement skips `End Function` — FIXED
 - **VB6:** stops there (measured 2026-10-26, #2172; the oracle's [A breakpoint on a procedure's End line or its

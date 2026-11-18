@@ -1,5 +1,5 @@
 [*.cs]
-# Only the add-in SDK is baselined; Core's other public abstractions remain outside this contract.
+# Guard the SDK and the Core types its public signatures reach; other abstractions remain unbaselined.
 dotnet_diagnostic.RS0016.severity = none
 
 # Existing SDK overloads use optional parameters; changing them would itself break compiled add-ins.
@@ -10,4 +10,108 @@ dotnet_diagnostic.RS0027.severity = none
 dotnet_diagnostic.RS0041.severity = none
 
 [Addins/**.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+# SDK-reachable contracts outside Addins/ (#4609).
+
+[Components/ComponentInstance.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Components/EventClass.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Components/IComponentClass.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Components/PropertyClass.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Conversations/CaptureLimits.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[IDE/IFormFileFormat.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[IDE/IFormFileReader.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[IDE/IProjectFileFormat.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[IDE/IProjectFileWriter.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[IDE/Vb6TextFile.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Language/ContentReplacement.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Language/HangingRegion.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Language/IReadOnlyRegionReader.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Language/IReadOnlyRegionRules.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Language/IReadOnlyRegionWriter.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Language/TextChange.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Language/TextRegion.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Lsp/LanguageServerConfig.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Lsp/Messages/AddinMessages.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Lsp/ProjectImportEntry.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Lsp/ServerArguments.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[ProjectElements/FormDefinition.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[ProjectElements/ModuleDefinition.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[ProjectElements/ModuleKind.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[ProjectElements/ObjectReference.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[ProjectElements/ProjectDefinition.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[ProjectElements/ProjectOffers.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[ProjectElements/RelatedDocumentDefinition.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[ProjectElements/UnfaithfulSaveCause.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[ProjectElements/VBProjectType.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[ProjectElements/VbReference.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[ProjectElements/VbaBitness.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Serialization/IDeserializeErrorSink.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Serialization/SerializedProjectGroup.cs]
 dotnet_diagnostic.RS0016.severity = error

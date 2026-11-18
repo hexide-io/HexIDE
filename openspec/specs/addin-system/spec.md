@@ -15,10 +15,12 @@ The trust decisions that gate loading — signing, consent, revocation — are a
 ## Requirements
 
 ### Requirement: The add-in SDK SHALL have a reviewed public API baseline
-The build SHALL check public symbols of types declared under `HexIDE.Core/Addins/`, including record
-constructors and `Deconstruct`, with PublicApiAnalyzers. Additions SHALL go in `PublicAPI.Unshipped.txt`;
-changes and removals from `PublicAPI.Shipped.txt` SHALL fail until the maintainer reviews them. Other Core
-namespaces SHALL remain outside the baseline, including types exposed by SDK signatures.
+The build SHALL check public symbols under `HexIDE.Core/Addins/` and every Core type its public signatures reach
+transitively, including record constructors and `Deconstruct`, with PublicApiAnalyzers. Additions SHALL go
+in `PublicAPI.Unshipped.txt`; changes and removals SHALL fail until reviewed. A reflection test SHALL enforce
+each reached Core type's API entry and source-file RS0016 `error` coverage, and reject non-BCL dependencies
+outside Core. Unrelated Core files SHALL remain unguarded. Covering a type SHALL NOT settle whether it stays
+SDK surface: the project and component models are covered because SDK signatures reach them today.
 
 #### Scenario: Changing a positional record signature
 - **WHEN** a positional parameter is added to or reordered in `AddinEditResult`
@@ -30,8 +32,17 @@ namespaces SHALL remain outside the baseline, including types exposed by SDK sig
 - **AND** recording the addition in `PublicAPI.Unshipped.txt` permits the build
 
 #### Scenario: Adding a public Core member outside the SDK
-- **WHEN** a public member is added outside `Addins/`
+- **WHEN** a public member is added in a Core file outside the SDK and its reachable contracts
 - **THEN** the API guard does not require a baseline entry for that member
+
+#### Scenario: Reaching a new contract type
+- **WHEN** an SDK signature starts reaching another Core type, directly or through another type's signatures
+- **AND** that type lacks either its API type entry or an RS0016 `error` section for a declaring source file
+- **THEN** the reachability test fails, naming the missing type or unguarded file and the path that reaches it
+
+#### Scenario: Changing a reachable contract
+- **WHEN** a public member is added to `FormDefinition` without an API entry
+- **THEN** the build fails with RS0016 even though its source is outside `Addins/`
 
 ### Requirement: Add-ins SHALL extend the IDE through a curated host surface
 An add-in SHALL receive a single host object at initialization and SHALL reach every IDE capability through

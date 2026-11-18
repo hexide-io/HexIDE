@@ -612,17 +612,14 @@ public class SeveralFormsTests
         run.Printed.Should().Equal("f2 initialize", "f2 load", "hidden");
     }
 
-    [AvaloniaTheory]
-    [InlineData("c = Form2.ScaleLeft", "Reading Form2's ScaleLeft is not implemented: the form's coordinate system is #990")]
-    public void A_use_HexIDE_lacks_loads_the_form_then_is_refused_naming_its_issue(string use, string refusal)
+    [AvaloniaFact]
+    public void Reading_another_forms_scale_loads_it_and_reads_the_measured_origin()
     {
-        // The load is the measured part: a built-in member or a control's loads the form. What follows is HexIDE's gap,
-        // and the refusal is the gap itself, the form's own scale, not the chain that reached it.
-        using var run = Start($"Private c As Variant\nPrivate Sub Form_Load()\n    {use}\n    Debug.Print \"not reached\"\nEnd Sub\n");
+        // #990: the coordinate-system oracle records a new form's Single 0 origin.
+        using var run = Start("Private Sub Form_Load()\n    Debug.Print CStr(Form2.ScaleLeft)\nEnd Sub\n");
 
-        run.Printed.Should().Equal("f2 initialize", "f2 load");
-        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
-            .Which.Message.Should().Be(refusal);
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "0");
+        run.Errors.Should().BeEmpty();
     }
 
     [AvaloniaFact]

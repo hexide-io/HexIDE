@@ -130,6 +130,12 @@ the non-empty lines outside the IDE's regions.
 
 ## 1. Error diagnostics (squiggles)
 
+The coordinate-system `Scale` statement parses both bare and qualified, with two points or no arguments
+(part of [#990](https://github.com/hexide-io/HexIDE/issues/990)). `ScaleMode = 3` remains an ordinary
+assignment. `Scale` is reserved as measured in the
+[coordinate-system oracle](vb6-fidelity-oracle/the-coordinate-system-scalemode-scale-scalex-and-scaley.md);
+this adds syntax handling only, without object/member binding diagnostics.
+
 **VB6 source-limit warnings (#3203).** The bundled server warns on a logical line's 25th continuation,
 counting each additional 1,023-character piece of a long physical line as a continuation, and on every physical
 line over 1,023 characters. The notices explain VB6's refusal or piece-reading behaviour, including split-token
