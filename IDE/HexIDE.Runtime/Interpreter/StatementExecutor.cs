@@ -3927,17 +3927,33 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         // `Set obj.Member = New Foo` — an object-assign to another instance's member. A Property Set accessor
         // wins over a raw object-field write; otherwise store the reference in the field's slot.
-        // NB `Set .Member = o` against a With target can't reach here: `Set .x` parses as a member-Let on a
-        // variable named "Set" (VB6 keyword-as-identifier ambiguity resolves to letStmt), so leading-dot Set is
-        // a grammar-level wall — use `Set obj.Member = o` with an explicit reference. (Property Let via With
-        // works — no Set keyword to alias.)
-        if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } membersCall
-            && membersCall.iCS_S_VariableOrProcedureCall() is { } leadPart)
+        // The receiver may be a name, an indexed read or the innermost With target (#4600, #4602, #4607).
+        if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } membersCall)
         {
-            if (await TryStoreModuleMember(membersCall, value, true, context))
-                return default;
-            if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out var setLead, out var target, out var setLeadNeed))
-                (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
+            var leadPart = membersCall.iCS_S_VariableOrProcedureCall();
+            var setLead = true;
+            Vb6Value target;
+            if (leadPart is not null)
+            {
+                if (await TryStoreModuleMember(membersCall, value, true, context))
+                    return default;
+                if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out setLead, out target, out var setLeadNeed))
+                    (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
+                if (!setLead && interpreter.TryResolveProcedure(leadPart.GetText(), currentModule, out _, out var procedure)
+                    && procedure.IsFunction)
+                {
+                    target = (Vb6Value)(await expressionExecutor.EvaluateValue(leadPart))!;
+                    setLead = true;
+                }
+            }
+            else if (membersCall.iCS_S_ProcedureOrArrayCall() is { } indexedReceiver)
+            {
+                target = (Vb6Value)(await expressionExecutor.EvaluateProcedureOrArrayCall(indexedReceiver))!;
+                if (target.Value is VbUdt)
+                    throw new NotImplementedException("Set through this Type field is not implemented (#3924)");
+            }
+            else
+                target = WithTargetOrError(context);
             if (setLead && target.Value is VBListView or ListViewItem or ListViewTextObject
                 && membersCall.iCS_S_MemberCall().Length == 1
                 && !MemberHasArgs(membersCall.iCS_S_MemberCall()[0])
@@ -4044,7 +4060,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             }
             var chainMembers = membersCall.iCS_S_MemberCall();
-            if (!setLead && chainMembers.Length > 1
+            if (!setLead && leadPart is not null && chainMembers.Length > 1
                 && interpreter.TryResolveQualifier(leadPart.GetText(), out var qualifier)
                 && qualifier.Kind == BasicInterpreter.QualifierKind.Module)
             {
