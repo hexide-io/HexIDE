@@ -77,10 +77,11 @@ This was done twice, with the same result. **The control:** F5 from that break r
   - Only the continue command clears the step, as the control shows.
 
 **Not measured:**
-- a step off the end of a handler entered at a breakpoint rather than by a step;
-- Step Out (Ctrl+Shift+F8) off the end of a handler;
+- a step off the end of a handler entered at a breakpoint rather than by a step. A handler entered at a `Stop` was
+  measured on 2026-11-18, in the last section: the step carries;
+- Step Out (Ctrl+Shift+F8) off the end of a handler. Measured on 2026-11-18, in the last section: it carries;
 - an event with no handler between the two clicks;
-- a program whose next event is a Timer's.
+- a program whose next event is a Timer's. Measured on 2026-11-18, in the last section.
 
 ## Which window comes to the front: Continue, a step, and a modal form (2026-11-17, #4262, IDE)
 
@@ -119,5 +120,90 @@ modal form open at the break, which window does F5 bring forward?
 
 **Not measured:**
 - a step that runs to completion without re-entering code, such as a program with no Timer;
-- Ctrl+F8 and Step Out;
+- Ctrl+F8 and Step Out. Step Out was measured on 2026-11-18, in the last section; Ctrl+F8 is still unmeasured;
 - Continue when the form that was active at the break has been hidden or unloaded.
+
+## Step Out across idle, and stepping through a startup Sub Main or form (2026-11-18, #4449, IDE)
+
+**The questions:**
+- **Step Out across idle:** what does Step Out do when the handler it leaves returns the program to idle?
+- **Startup positions:** where do Step Into and Step Over stop through a startup `Sub Main` that shows a form, and through a startup form?
+- **Past `Sub Main`'s end:** does a step carry into the next event, as #4270 found it does past an event handler's end?
+
+**The rig:**
+- **The IDE:** VB6.EXE (file version 6.00.9782) in the guest's console session, driven through the agent as in the first section, with keys sent by `SendKeys`.
+- **Recorded after each key:** the IDE's title, the code window's current-statement bar (read from a screenshot), and each program's log.
+- **Builds:** this is IDE behaviour, so there is no native or p-code build to compare.
+
+**The four programs:**
+- **A:** a form with a Timer at 700 ms. Its handler logs `tick n first`, runs `If n = 2 Then Stop`, then logs `tick n second`.
+- **B:** startup `Sub Main` in Module1, which logs `main 1`, runs `Form1.Show` and logs `main 2`. Form1 logs from `Form_Load` and `Form_Activate`.
+- **C:** B with a Timer at 1500 ms on the form in place of `Form_Activate`, so that an event follows `Sub Main`.
+- **D:** a startup form whose `Form_Initialize` and `Form_Load` each log one line.
+
+### Step Out across idle (program A)
+
+| From | Key | VB6 |
+|---|---|---|
+| `Stop`, on tick 2 | Ctrl+Shift+F8 | The rest of the handler ran (`tick 2 second`), then **[break] at `Private Sub Timer1_Timer()` for tick 3,** before any of its statements |
+| that declaration | Ctrl+Shift+F8 | Tick 3 ran whole, then [break] at the declaration again, for tick 4 |
+| that declaration | F5 | [run]. The ticks went on unbroken |
+| `Stop`, on tick 2 (a fresh run) | Shift+F8, twice | `Note "tick " & n & " second"`, then `End Sub` |
+| the handler's `End Sub` | Shift+F8 | [break] at `Private Sub Timer1_Timer()` for tick 3 |
+
+- **Step Out off the outermost handler carries,** like Step Into and Step Over (#4270). It arms for the next event, which breaks at its declaration.
+- **A handler entered at a `Stop`,** not by a step, carries the same way.
+
+### Through a startup `Sub Main` (programs B and C)
+
+| From | Key | VB6 stops at |
+|---|---|---|
+| design mode | F8 | **`Sub Main()`, the declaration line** |
+| design mode | Shift+F8 | `Sub Main()` |
+| `Sub Main()` | F8 or Shift+F8 | `Note "main 1"` |
+| `Note "main 1"` | Shift+F8 | `Form1.Show` |
+| `Form1.Show` | F8 | **`Private Sub Form_Load()`**, in Form1's code window |
+| `Private Sub Form_Load()` | F8 | `Note "load"` |
+| `Note "load"` | Shift+F8 | `End Sub` of `Form_Load` |
+| that `End Sub` | F8 | `Note "main 2"`, back in `Sub Main`. `Form_Activate` did not run |
+| `Form1.Show` | Shift+F8 | `Note "main 2"`. Load ran without a stop |
+| `Note "main 2"` | Shift+F8 | `End Sub` |
+| `Sub Main`'s `End Sub` | F8 | [run], then **[break] at `Private Sub Timer1_Timer()`** before the first tick ran (C) |
+| `Note "main 1"` | Ctrl+Shift+F8 | The rest of `Sub Main` ran (`main 1`, `load`, `main 2`), then **[break] at `Private Sub Timer1_Timer()`** (C) |
+| `Sub Main`'s `End Sub` | Shift+F8 | **[run], and the Timer ran freely: the step did not carry** (C) |
+
+- **Step Over past `Sub Main`'s end doesn't carry, but Step Into and Step Out do.**
+  - **Step Over:** measured twice, once from a run started with Shift+F8 and once from a run started with F8 with only the last key Shift+F8. Both times the IDE went to [run] and the ticks were logged.
+  - **The contrast:** Step Over past an event handler's `End Sub` carried in the same rig (program A), as #4270 found for a Click handler.
+  - **No rule I would defend.** `Sub Main` has no caller in the program, while an event handler is called by the runtime's dispatch, but that is a guess, not a measurement.
+- **The form never raised `Form_Activate` in program B's stepped run.**
+  - It showed while the IDE held the focus.
+  - With the IDE in [run] after `Sub Main` returned, bringing the form forward with `SetForegroundWindow` raised nothing either.
+  - So program B, which had no other event, gave no answer on carrying. Program C's Timer answered it.
+- **Unexplained:** in both Shift+F8 runs of C, three ticks were logged within about three seconds of [run], at a 1500 ms interval. The cause wasn't measured.
+
+### Through a startup form (program D)
+
+| From | Key | VB6 stops at |
+|---|---|---|
+| design mode | F8 | **`Private Sub Form_Initialize()`** |
+| that declaration | Shift+F8 | `Note "init"` |
+| `Note "init"` | Shift+F8 | `End Sub` of `Form_Initialize` |
+| that `End Sub` | Shift+F8 | **`Private Sub Form_Load()`** |
+| that declaration | Shift+F8 | `Note "load"` |
+
+### What this overturns
+
+`docs/debugger-vb6-divergences.md` D19 records that HexIDE's start skips declarations, "as VB6 never stops on one".
+VB6 stopped on a declaration at every entry measured here:
+- **The start:** `Sub Main()`, or `Form_Initialize`.
+- **A Step Into on a call:** `Form1.Show` into `Form_Load`.
+- **From one start event to the next:** `Form_Initialize`'s end into `Form_Load`.
+- **The next event after a carried step:** `Timer1_Timer`.
+
+**Not measured:**
+- a breakpoint (F9), as opposed to `Stop`, at the start of the carried handler;
+- a Click or other user event after `Sub Main`, rather than a Timer;
+- `Sub Main` with no form;
+- Step Out from a procedure called by a handler (an ordinary return, not across idle);
+- Ctrl+F8.
