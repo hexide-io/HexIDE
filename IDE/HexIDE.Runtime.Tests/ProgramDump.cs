@@ -101,7 +101,12 @@ internal sealed partial class ProgramDump
     /// from the statements it governs.
     /// </para>
     /// </summary>
-    internal static (string? Wrapped, bool Bare, string? Refused) Wrap(string source)
+    internal static (string? Wrapped, bool Bare, string? Refused) Wrap(string source) =>
+        // The interpreter parses on ParseStack's 64 MB thread (#3210), so the depth-guard tests' 10,000 nested
+        // parentheses reach its guard; on a test thread's default stack this parse overflowed and ended the run.
+        ParseStack.Run(() => WrapOnStack(source));
+
+    private static (string? Wrapped, bool Bare, string? Refused) WrapOnStack(string source)
     {
         var errors = new FirstError();
         var input = new AntlrInputStream(new StringReader(Directive().Replace(source, m => m.Groups[1].Value + "'")));
