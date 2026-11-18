@@ -1840,8 +1840,16 @@ both keys. A hidden or disabled holder SHALL retain True without taking keys. Wi
 TextBox SHALL raise KeyDown, KeyPress and KeyUp with 13 or 27, leaving single-line text unchanged;
 Enter in a multi-line box SHALL insert its CRLF. These are [#4371's measured rows](https://github.com/hexide-io/HexIDE/issues/4371),
 including oracle PR #4376, and the [key-event oracle](../../../docs/vb6-fidelity-oracle/key-events-keydown-keypress-and-keyup.md).
-A separate default-border look, nested-container roles, focus-time role changes and Properties-grid
-exclusivity remain outside this slice.
+Nested-container roles, focus-time role changes and Properties-grid exclusivity remain outside this slice.
+The focused CommandButton SHALL display the default frame; otherwise only the eligible Enter receiver,
+if it is a CommandButton, SHALL display it. Changing Default in code SHALL refresh the frame.
+The frame SHALL occupy the outermost one DIP in the WindowFrame brush, moving the button edge inward
+one DIP without changing bounds or caption position ([#4391](https://github.com/hexide-io/HexIDE/issues/4391),
+including its pixel measurements from oracle PR #4577).
+
+#### Scenario: The default frame follows focus
+- **WHEN** focus moves from a TextBox to Default, Cancel, and an ordinary CommandButton
+- **THEN** the frame marks the Default button initially, then only the focused button at each step
 
 #### Scenario: A dialog takes Enter before KeyPreview
 - **WHEN** a TextBox or ListBox has focus, KeyPreview is True and an eligible Default CommandButton exists
