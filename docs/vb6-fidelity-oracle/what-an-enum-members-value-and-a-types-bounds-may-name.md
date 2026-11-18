@@ -50,6 +50,27 @@ found".
 
 #4594 also records `VBA.VbCompareMethod.vbDatabaseCompare` in an Enum member as 2, measured separately.
 
+#### A nonnumeric constant, or a member a container lacks (2026-11-18, #4745)
+
+VB6 SP6, `/make`, native code and p-code, which agreed on every row. Each row is `Enum E` / `M = …` in a project of
+its own, because a compile error stops the build. Sub Main logs `CStr(M) & "|" & TypeName(M)`.
+
+| Member's value | VB6 | The same as a module-level `Const M = …` |
+|---|---|---|
+| `vbCrLf` | "Type mismatch" | a String, CR LF |
+| `VBA.vbCrLf` | "Type mismatch" | a String, CR LF |
+| `vbNullString` | "Type mismatch" | not measured |
+| `vbTab` | "Type mismatch" | not measured |
+| `VbCompareMethod.vbRed` | "Method or data member not found" | "Method or data member not found" |
+| `VBA.VbCompareMethod.vbRed` | "Method or data member not found" | "Method or data member not found" |
+| `VBA.ColorConstants.vbRed`, a container of another library | "Method or data member not found" | not measured |
+| `VBRUN.VbCompareMethod.vbBinaryCompare`, the same | "Method or data member not found" | not measured |
+| `VBRUN.ColorConstants.vbRed` (control) | 255, a Long | not measured |
+
+**What it shows:** an Enum member must be numeric, so a String constant that a Const takes is "Type mismatch" in an
+Enum. A container must hold the member and belong to the library that qualifies it, or the name is "Method or data
+member not found", in an Enum and a Const alike.
+
 ### A Type's array bounds
 
 | Field, in `Type T` in `Module1` | `LBound`, `UBound` |
