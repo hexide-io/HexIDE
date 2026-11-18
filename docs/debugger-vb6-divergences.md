@@ -19,15 +19,16 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 
 ## Desktop foreground after Continue
 
-### D33. Continue does not request the running form's activation
-- **VB6:** after Ctrl+Break with the form active, F5 returns that form to the foreground (vb6.exe SP6,
-  [#1297's 2026-11-16 measurement](https://github.com/hexide-io/HexIDE/issues/1297)).
-- **HexIDE:** `ProjectRunnerService.ContinueProject` resumes the debugger without requesting activation of a
-  running form. This is a code inspection; native foreground behavior has not been checked in this run.
-- **Why:** the scoped #1297 actions address dialog modality, shortcut routing and bringing the IDE forward on
-  Debug/Break. Foreground restoration on Continue remains separate work.
-- **Status:** **not implemented**, tracked by [#4262](https://github.com/hexide-io/HexIDE/issues/4262). The
-  measurement covers one non-modal form and a maximized IDE only.
+### D33. Continue restores the window active at Ctrl+Break — fixed
+- **VB6:** F5 restores the form active at the break, including a modal form with its owner behind it.
+  F8 and Shift+F8 leave the IDE in front; F5 after those steps still restores the same form
+  ([SP6 measurements, 2026-11-17](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md#which-window-comes-to-the-front-continue-a-step-and-a-modal-form-2026-11-17-4262-ide)).
+- **HexIDE:** remembers the active program window before the Pause notification raises the IDE, and
+  `ContinueProject` requests its activation once if still visible. Steps retain that window without activating it;
+  ending or starting a run forgets it. Breakpoint and `Stop` continuations and external debugging are unchanged.
+- **Status:** **fixed** (#4262), with headless platform activation-request tests. Native foreground and modal-owner
+  z-order need a live desktop check. Hidden/unloaded windows, Ctrl+F8, Step Out, and steps completing without
+  re-entering code remain unmeasured.
 
 ## Edit-and-Continue
 

@@ -111,6 +111,13 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 - **WHEN** the developer presses F5 while paused
 - **THEN** the program resumes, the current-statement bar clears, the inspection windows blank, and any frozen event handlers are released
 
+#### Scenario: Continue restores the program window active at Pause
+- **WHEN** a Pause stop brings the IDE forward while a running program's window is active
+- **THEN** the IDE SHALL remember that window, including a modal form
+- **AND** Continue through the interpreter runner SHALL activate it once if still shown
+- **AND** Step Into and Step Over SHALL leave the IDE in front and retain that window for a later Continue
+- **AND** ending or starting the run SHALL forget the window
+
 #### Scenario: A step returns to event idle
 - **WHEN** Step Into or Step Over runs off the outermost event handler
 - **THEN** break-mode chrome clears and frozen events are released
