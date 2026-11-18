@@ -652,6 +652,9 @@ added afterwards.
 - [Tab and the arrow keys among option buttons (2026-10-23, #1583)](tab-and-the-arrow-keys-among-option-buttons.md#tab-and-the-arrow-keys-among-option-buttons-2026-10-23-1583)
 - [Where the arrow keys go from a button (2026-10-23, #1625)](where-the-arrow-keys-go-from-a-button.md#where-the-arrow-keys-go-from-a-button-2026-10-23-1625)
 - [Conditional compilation (2026-10-23, #1112)](conditional-compilation.md#conditional-compilation-2026-10-23-1112)
+- [A built-in redefined, and a module's `#Const` against a project argument (2026-11-18, #4821, SP6)](conditional-compilation.md#a-built-in-redefined-and-a-modules-const-against-a-project-argument-2026-11-18-4821-sp6)
+- [Off Windows: what `#If` reads in Excel for Mac (2026-11-18, #4821)](conditional-compilation.md#off-windows-what-if-reads-in-excel-for-mac-2026-11-18-4821), measured in Excel for Mac, not vb6.exe
+- [A Declare whose library or entry point is missing (2026-11-18, #4820, SP6)](a-declare-whose-library-or-entry-point-is-missing.md#a-declare-whose-library-or-entry-point-is-missing-2026-11-18-4820-sp6)
 - [LongLong and LongPtr in 64-bit VBA7 (2026-11-14, #1548)](longlong-and-longptr-in-64-bit-vba7.md#longlong-and-longptr-in-64-bit-vba7-2026-11-14-1548), measured in Excel's VBA7, not vb6.exe
 - [LongLong and LongPtr in 32-bit VBA7 (2026-11-17, #1548)](longlong-and-longptr-in-32-bit-vba7.md#longlong-and-longptr-in-32-bit-vba7-2026-11-17-1548)
 - [VBA7's 64-bit syntax in vb6.exe, in active code (2026-11-16, #1548, SP6)](vba7s-64-bit-syntax-in-vb6exe.md#vba7s-64-bit-syntax-in-vb6exe-in-active-code-2026-11-16-1548-sp6)
