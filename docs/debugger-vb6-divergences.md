@@ -41,6 +41,23 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Why:** found during live verification; nothing chose it.
 - **Status:** **not implemented**, tracked by [#4618](https://github.com/hexide-io/HexIDE/issues/4618).
 
+## Break during a modal wait
+
+### D37. Stepping and nested modal waits remain unmeasured (#4708)
+- **VB6:** Ctrl+Break while a handler waits in `Show vbModal`, with no other code running, breaks
+  immediately on that Show line in the calling procedure. F5 resumes the wait with the form still modal
+  and in front. Measured for a one-shot Timer and a click with an explicit owner in
+  [#4708, rows c/d](https://github.com/hexide-io/HexIDE/issues/4708) (oracle PR #4724).
+- **HexIDE:** wakes the innermost modal wait and runs the waiting statement's debugger gate with its
+  caller frame. Continue keeps waiting; another Pause can stop there again. Step commands retain the
+  gate's ordinary step rules for subsequent statements. Nested modal waits stop at the innermost Show.
+- **Why:** the measured pause must not depend on another Timer or input event executing code.
+- **Status:** single-wait Pause/Continue covered headlessly, and live-checked on Windows (hexide-mcp, 2026-11-18,
+  Win10 VM, row d's shape): a real Ctrl+Break gave `[break]` with `Form2.Show vbModal` current, F5 resumed the wait, and a
+  second Ctrl+Break in the same wait stopped there again. VB6 stepping
+  from this stop and nested modal pauses are **unmeasured**. Nesting is an explicit #4708 design choice,
+  not a fidelity claim. Set Next Statement is refused while Show's call is already executing.
+
 ## Edit-and-Continue
 
 ### D1. True E&C is a permanent wall

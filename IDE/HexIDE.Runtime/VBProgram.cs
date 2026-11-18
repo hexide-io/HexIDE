@@ -435,13 +435,16 @@ public sealed class VBProgram : IFormProgram
             }
         modals.Add(context);
         var over = interpreter.BuiltIns.WatchRunEnd?.Invoke();
+        var caller = interpreter.ActivationStack.LastOrDefault();
+        var debug = caller is not null ? interpreter.DebugController : null;
         try
         {
             view.ShowForm();
             var form = context.FormInstance!;
             // Hidden as the innermost form, it is done; hidden while another modal form was over it, it waits on.
             await Events.WhileModal(() => form.FormLoaded && (view.IsShown || hiddenBeneath.Contains(context))
-                && over?.Invoke() != true);
+                && over?.Invoke() != true, debug,
+                caller is not null && debug is not null ? () => caller.PauseAtModalWait(debug) : null);
         }
         finally
         {
