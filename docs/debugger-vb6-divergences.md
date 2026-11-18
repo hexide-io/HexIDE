@@ -122,7 +122,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 ## Stepping
 
 ### D4. A step carries from an outermost event into the next event
-- **VB6:** Step Into and Step Over remain armed when the outermost event handler returns: the IDE shows [run], and
+- **VB6:** Step Into, Step Over and Step Out remain armed when the outermost event handler returns: the IDE shows [run], and
   the next event breaks at its handler's declaration line before any statement runs. Break while idle enters break
   mode at once, with no current statement. Continue clears the step; Into/Over resume and arm it for the next event.
   Measured in the VB6 IDE on 2026-11-16, in [#4261's comments](https://github.com/hexide-io/HexIDE/issues/4261) and the
@@ -138,7 +138,10 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   and nested events stealing a step. Into/Over now carry only after the outermost chain returns; events raised within
   that chain retain the existing depth rule. #2320's clearing of break-mode chrome and release of frozen events at
   idle remains in place.
-- **Status:** **resolved (#4261, #4269)**. Step Out across idle and the step positions through a startup `Sub Main` were measured on 2026-11-18 ([oracle](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md#step-out-across-idle-and-stepping-through-a-startup-sub-main-or-form-2026-11-18-4449-ide)): Step Out carries into the next event as Into and Over do, and past `Sub Main`'s end Into and Out carry while Over does not. HexIDE keeps its previous behaviour until [#4449](https://github.com/hexide-io/HexIDE/issues/4449) matches them.
+- **Status:** **resolved (#4261, #4269, #4449)**. [#4449's measurements](https://github.com/hexide-io/HexIDE/issues/4449)
+  (2026-11-18, oracle PR #4651) extend carry to Step Out, including a handler entered at `Stop` and Out again from
+  the next declaration. Continue clears it. Into and Out also carry past startup `Sub Main`; Over past Main's
+  `End Sub` runs freely, unlike Over past an event handler's end.
 
 ### D5. Step Over / Step Out (v2·P5)
 - **VB6:** Shift+F8 (Step Over — run a called proc to completion, break at the next statement in the current frame),
@@ -147,7 +150,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   activation is pushed, NOT the live stack size — so an overlapping re-entrant event frame can't inflate it): Step
   Over breaks when the executing frame's depth ≤ the armed depth (a called Sub runs to completion; a non-call
   statement is same-depth so it behaves like Step Into — matches VB6); Step Out breaks when depth < the armed depth
-  (the proc returned). Into/Over carry across the outermost event-dispatch boundary (D4); Out retains its previous disarm. Module top-level
+  (the proc returned). Into/Over/Out carry across the outermost event-dispatch boundary (D4); only Into/Out carry past startup Main (#4449). Module top-level
   code has depth 0 (below any proc), so Step Over from top-level does not descend into a callee and Step Out from a
   top-level-called proc reaches the top-level caller.
 - **Why per-frame (not live count):** the first P5 cut read the live `ActivationStack.Count` with a `Max(1, …)`
@@ -377,28 +380,30 @@ via `gotoTargets` and `goto`; the interpreter granularity limit above does not c
 ([#2914](https://github.com/hexide-io/HexIDE/issues/2914)). A refused move keeps the caret and scroll
 position, and so does a refused step. What VB6 does with the caret there hasn't been measured.
 
-### D19. Step Into from design mode runs the program without breaking
-- **VB6:** F8 in design mode starts the program and breaks on the first executable line, so the developer watches
-  it begin one statement at a time.
-- **HexIDE:** from idle, Step Into starts the program and it runs straight through. Measured 2026-09-22 on a
-  `--newproject` form whose `Form_Load` called a function: through the Debug toolbar's Step Into button and through
-  `step_into` alike, the state stayed `Running` and the Immediate window showed the load had completed. Stepping
-  from a pause works, and so do breakpoints.
-- **Why:** not known yet. The start path is meant to arm "the starting run's first statement"; the defect is there
-  or in how the first statement of a form's load is reached.
-- **Status:** **bug**, [#656](https://github.com/hexide-io/HexIDE/issues/656). What VB6 does on exactly this form is
-  still owed to the oracle.
-- **Resolved for a startup form by #1010 (#822's first slice):** the cause, read from the code rather than traced at
-  the time, was that the start was more than one dispatch. Resize was raised first, and the end of its dispatch
-  disarmed the armed step before Load ran. The start
-  is now one dispatch, declarations, Initialize and Load, and the gate is skipped on declarations, as VB6 never stops
-  on one. So Step Into from idle breaks on the first statement of `Form_Initialize`, or of `Form_Load` when there is
-  none, and a step off the end of Initialize goes on into Load (pinned in `FormInstanceTests`). A `Sub Main` start
-  is not re-measured.
-- **Overturned, 2026-11-18:** VB6 does stop on declarations. F8 on a startup form breaks at
-  `Private Sub Form_Initialize()`, and a step off Initialize's end stops at `Private Sub Form_Load()`. A `Sub Main`
-  start breaks at `Sub Main()` ([oracle](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md#step-out-across-idle-and-stepping-through-a-startup-sub-main-or-form-2026-11-18-4449-ide)). So HexIDE's start, which skips declarations, diverges
-  again, and [#4449](https://github.com/hexide-io/HexIDE/issues/4449) tracks matching it.
+### D19. Step positions through program startup — measured cases FIXED
+- **VB6:** F8 and Shift+F8 from design mode stop at startup `Sub Main()`'s declaration. F8 from design mode with
+  `Form_Initialize` stops at its declaration; Shift+F8 then stops at its statement, its `End Sub`, `Form_Load`'s
+  declaration and Load's first statement. Into on `Form1.Show` inside Main stops at `Form_Load`'s declaration;
+  Over runs Load without stopping. Over from Main's last statement stops at its `End Sub`.
+  Measured in VB6 SP6 on 2026-11-18: [#4449](https://github.com/hexide-io/HexIDE/issues/4449), oracle PR #4651.
+- **HexIDE:** matches those measured positions, pinned through running forms in `FormInstanceTests` and
+  `IdleBreakTests`. Module-level variable declarations still run without a step stop. Direct procedure calls retain
+  their existing declaration handling; they were not measured here.
+- **History:** #1010 fixed a startup split across dispatches that disarmed the starting step before Load. Its
+  first-statement expectation, and #2172's startup End exception, were not measurements; #4449 overturns them.
+- **Startup form with no Initialize, and after Load:** measured in VB6 SP6 on 2026-11-18
+  ([#4449](https://github.com/hexide-io/HexIDE/issues/4449), oracle PR #4683): F8 stops at `Form_Load`'s
+  declaration, then Over stops at its statement and `End Sub`. With or without Initialize, Over off Load's
+  `End Sub` runs Resize without stopping and breaks at `Form_Activate`'s declaration, then its statement,
+  its `End Sub`, then runs. HexIDE matches these positions and the Load → Resize → Activate output order.
+- **Unmeasured:** Step Into off the startup form's Load `End Sub`, including whether it stops in Resize;
+  its existing stepping path is unchanged. UserControl and other module startup positions remain unchanged.
+- **Reasoned, not measured:**
+  - **A form loaded from an event handler:** Into on `Load Form2` or `Form2.Show` there stops at `Form_Load`'s or
+    `Form_Initialize`'s declaration. That's what the measured `Form1.Show` inside `Sub Main` does, and no other
+    load from code was measured.
+  - **An MDI form:** its `MDIForm_Load` and `MDIForm_Initialize` keep the old first-statement stop. Where VB6
+    stops in them isn't measured.
 
 ### D20. A step from a function's last statement skips `End Function` — FIXED
 - **VB6:** stops there (measured 2026-10-26, #2172; the oracle's [A breakpoint on a procedure's End line or its
@@ -409,9 +414,7 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
 - **HexIDE:** a called procedure's natural end now passes through the debugger gate before returning (#2172).
   Event handlers also stop on `End Sub` ([#4619](https://github.com/hexide-io/HexIDE/issues/4619)), as measured
   in [the idle-break oracle](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md).
-  The startup dispatch and `Sub Main` retain breakpoint-only End positions pending measurement (#4449 for
-  `Sub Main`): startup stepping advances from Initialize's last statement into Load's first statement, as
-  required by #2172's supervisor review. Before that, paused on
+  Startup procedures now stop on their End lines too (#4449, measured in the issue, oracle PR #4651). Before that, paused on
   `Twice = n * 2`, the only statement of a `Private Function`, a Step Into went straight to the caller's next line
   without stopping on `End Function` (2026-09-22).
 - **Why it happened:** the walk's gate ran before each statement of a body, and the `End` line isn't one, so there
@@ -737,6 +740,14 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   - Other controls' member lists follow as each is measured.
   - `get_locals` marks a row that reopens an object open above it, such as a Timer's `Parent` under `Me`, with `repeats`,
     and leaves its children out. The Locals window opens it, as VB6's does.
+
+### D36. Cancelling a host while Main is loading a form can re-show its closed window
+- **Observed in HexIDE's headless host during #4449:** run Main containing `Form1.Show`, pause inside Form_Load,
+  then call the debugger's Stop and cancel the host before pumping the dispatcher. Awaiting the run raises
+  `InvalidOperationException: Cannot re-show a closed window`. The resumed Show reaches a view the host already closed.
+- **VB6:** this exact cancellation sequence is not measured; no VB6 stop position or error value is inferred here.
+- **Status:** **open**, discovered in test teardown. The stepping tests finish Show with Continue before cancelling
+  their host. A live check must determine whether the IDE's End path can reach the same host-lifetime race.
 
 ---
 
