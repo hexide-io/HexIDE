@@ -5122,13 +5122,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitWithStmt(VB6Parser.WithStmtContext context)
     {
         // Push the target so leading-dot members resolve against it, pop in finally.
-        if (context.NEW() != null)
-            throw new NotImplementedException("With New is not supported yet (needs the object model)");
-
         Vb6Value target;
         try
         {
-            target = await expressionExecutor.EvaluateValue(context.implicitCallStmt_InStmt());
+            // The With statement's temporary frame spans the block and releases its New target at End With (#4599).
+            // A form's With New lifetime is unmeasured, so it is refused rather than guessed at (#435).
+            if (context.NEW() != null
+                && context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier()?.GetText() is { } newName
+                && interpreter.Modules.TryGet(newName, out var newDef) && newDef.Kind == InterpreterModuleKind.Form)
+                throw new NotImplementedException($"With New {newName} is not implemented: a form's With New lifetime is unmeasured (#435)");
+            target = context.NEW() != null
+                ? await expressionExecutor.CreateNewObject(context.implicitCallStmt_InStmt(), context)
+                : await expressionExecutor.EvaluateValue(context.implicitCallStmt_InStmt());
             target.RefuseOddBytes("With");
             if (target.Value is DebugProxy)
                 throw new VBCompileErrorException("Syntax error");

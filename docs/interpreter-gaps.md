@@ -346,8 +346,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   with spaces, `!key` works inside `With c`, and `c!key = 1` is 424 (all measured). On any other object it is still
   refused, since it is a call of that object's default member with the key as a String, and only the Collection's is
   modelled. Not a boundary.
-- **Object-model class features** — `With New`, `Friend`, and same-project qualified `New` are runtime lookups, not
-  analysis. **`As New` is done (#435):** the object is made where the variable is first read, through the same request
+- **Object-model class features** — `Friend` and same-project qualified `New` are runtime lookups, not
+  analysis. **`With New` is done ([#4599](https://github.com/hexide-io/HexIDE/issues/4599)):** creation shares the `New` expression path; the statement frame releases the target at `End With` unless retained elsewhere ([measured lifetime](vb6-fidelity-oracle/class_terminate-lifecycle.md)). **`As New` is done (#435):** the object is made where the variable is first read, through the same request
   and retry that make a form's default instance (#822), including each element of an array `As New` ([#4150](https://github.com/hexide-io/HexIDE/issues/4150), [measured core rules](vb6-fidelity-oracle/as-new.md)). For Each does not make untouched elements; Set to Nothing and Erase release made ones. A Type's field makes its object on first use too (#1488);
   copying the Type shares the object. (`Friend` treated as Public is arguably not
   a gap at all in a single-project interpreter — there are no external clients to hide from.)

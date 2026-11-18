@@ -2723,11 +2723,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return await Visit(context.valueStmt(0));
     }
 
-    public override async Task<object?> VisitVsNew(VB6Parser.VsNewContext context)
+    public override async Task<object?> VisitVsNew(VB6Parser.VsNewContext context) =>
+        await CreateNewObject((context.valueStmt() as VB6Parser.VsICSContext)?.implicitCallStmt_InStmt(), context);
+
+    internal async Task<Vb6Value> CreateNewObject(VB6Parser.ImplicitCallStmt_InStmtContext? call,
+        Antlr4.Runtime.ParserRuleContext context)
     {
         // `New ClassName` — the class name is a nested bare identifier; extract it SYNTACTICALLY (evaluating it
         // would try to resolve a variable and throw). `Dim o As New C1` makes its object where it is read (#435).
-        var call = (context.valueStmt() as VB6Parser.VsICSContext)?.implicitCallStmt_InStmt();
         if (call is not null && interpreter.LibraryClassFor(call.GetText()) is { } libraryClass)
             return interpreter.AdoptNewTemp(interpreter.NewLibraryObject(libraryClass), stmtFrames);
         if (call?.GetText().Equals("stdole.StdFont", StringComparison.OrdinalIgnoreCase) == true)
