@@ -1265,11 +1265,11 @@ Part of [#990](https://github.com/hexide-io/HexIDE/issues/990), measured in the
 | Member | Coverage and remaining limits |
 |---|---|
 | Form/PictureBox ScaleMode, ScaleLeft, ScaleTop, ScaleWidth, ScaleHeight | Read and set; ScaleMode is Integer and the other four are Single. Setting an origin or extent selects User; modes 1–7 reset the client mapping, mode 0 retains it. Invalid modes and zero property extents raise 380. A zero Scale-statement extent raises 11 without changing the scale. Positions keep whole twips, half to even. In flipped user scales, Left/Top retain signed units and Width/Height use magnitudes; negative CommandButton sizes still raise 380 from properties and 5 from Move, without moving anything (issue #990 round-2 measurements). |
-| ScaleX/ScaleY argument counts outside 1–3 | Not implemented pending measurements; calls refuse naming #990. |
+| ScaleX/ScaleY argument counts outside 1–3 | Not implemented pending measurements; calls refuse ([#4693](https://github.com/hexide-io/HexIDE/issues/4693)). |
 | Metric precision | The final #990 decision uses 566.928588867188 twips/cm and one tenth per mm, double arithmetic and Single results. ScaleX(1, vbInches, vbCentimeters) knowingly prints 2.540002 against VB6’s 2.540003; the maintainer accepted that last-place difference. |
 | Scale as a conditional-compilation constant name | Unmeasured; its previous identifier handling remains unchanged. Ordinary-code Dim/Sub/label uses follow the measured reserved-word refusals. |
-| Late-bound Scale | Not implemented: the oracle measured compile acceptance of `o.Scale`, but did not run it. Execution refuses naming #990 rather than guessing late-binding behaviour. |
-| Saved User scale without extents | Not implemented; no measured mapping can be recovered. Access needing its unit refuses with a message naming #990. |
+| Late-bound Scale | Not implemented: the oracle measured compile acceptance of `o.Scale`, but did not run it. Execution refuses rather than guessing late-binding behaviour ([#4693](https://github.com/hexide-io/HexIDE/issues/4693)). |
+| Saved User scale without extents | Not implemented; no measured mapping can be recovered. Access needing its unit refuses ([#4693](https://github.com/hexide-io/HexIDE/issues/4693)). |
 | UserControl scales and PictureBox resize | UserControl coordinate members remain unimplemented. PictureBox resize, non-96-dpi conversion fidelity, and late-bound Scale execution remain unmeasured; no new values are pinned. Mouse coordinates in a user scale follow the position mapping by the issue’s explicit decision, without a new fidelity test. |
 
 ## Not yet enumerated
