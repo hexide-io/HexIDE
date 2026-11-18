@@ -8,11 +8,11 @@ These constructs are what separates a program from a script. A large share of re
 collection of objects with properties and events, so an engine without them can run examples but not
 anything a developer recognises as their own code.
 
-This capability carries the scope statement for the whole interpreter, because this is where the pressure to
-keep going is strongest. Everything below the object model looks like a missing feature; almost none of it
-is. The rules that govern *what does not get built* are requirements here in the same way the behaviour is,
-and they are expected to hold after the project is public and taking contributions — which is precisely when
-they will be tested. Behavioural fidelity within the implemented surface, and the rule that uncertain
+This capability carries the scope statement for the whole interpreter. The interpreter is an engine that runs
+VB6 programs, a peer behind the same seams as any other engine rather than a fallback, and a construct VB6 runs
+that it refuses is a gap to fill. What it does not build is a language engine's work: binding and static
+analysis. That limit is a requirement here in the same way the behaviour is, and it is expected to hold after
+the project is public and taking contributions, which is precisely when it will be tested. Behavioural fidelity within the implemented surface, and the rule that uncertain
 semantics are verified against the original product rather than guessed, are specified in `interpreter-core`
 and apply here unchanged.
 
@@ -57,21 +57,27 @@ evaluate the member once and never invoke a corresponding `Property Let`.
 Measurements: [#173](https://github.com/hexide-io/HexIDE/issues/173), vb6.exe SP6 native and p-code,
 2026-11-14. Class-typed UDT fields also support these chained stores (#3924, measured B3/B4).
 
-### Requirement: The interpreter SHALL remain an approximation by design
-The interpreter SHALL be maintained as an out-of-the-box demonstrator rather than developed toward parity
-with a production VB6 runtime, and changes that increase completeness at the cost of that character SHALL be
-declined on principle rather than on quality.
+### Requirement: The interpreter SHALL run VB6 programs within the syntax-tree limit
+The interpreter SHALL aim to run every valid VB6 program as VB6 runs it, and SHALL do so by executing the
+concrete syntax tree: it SHALL NOT build a bound syntax tree or perform static semantic analysis. Within that
+limit it MAY approximate when and how an error surfaces, and it SHALL NOT approximate a result.
 
-The reason to write this down is that every individual step toward completeness looks reasonable. Exhaustive
-quirk coverage, a bytecode virtual machine, static checking — each is
-defensible alone, and together they are a second-rate reimplementation of something another engine already
-does properly behind the replaceable backend seam. The triage question is therefore whether a change keeps
-this a simple demonstrator, not whether it makes it more correct; a change can be entirely correct and still
-be out of scope.
+Coverage is the goal, so a change that makes the engine run more of VB6 is in scope, provided the behaviour it
+implements was measured on vb6.exe rather than guessed. The limit is binding: relating one symbol to another
+without executing either, which is a language engine's work behind the replaceable backend seam. Collecting
+symbols ahead of execution stays inside the limit, and relating them does not. The cost of the limit is
+diagnostics, not constructs. An error VB6 finds before the program runs may surface here as the statement
+executes, with VB6's error number, and an error on a path the program never takes may not surface at all.
+What is never acceptable is a value VB6 would not produce: a construct the engine cannot run faithfully is
+refused, not approximated.
 
-#### Scenario: A contribution that improves fidelity but grows the engine
-- **WHEN** a change would move the engine toward being a production runtime
-- **THEN** it is declined on scope, independently of its quality
+#### Scenario: A change that runs more of VB6
+- **WHEN** a change makes the engine run a construct VB6 runs, with the construct's behaviour measured on vb6.exe
+- **THEN** it is in scope, whatever it adds to the engine's coverage
+
+#### Scenario: An approximation that would change a value
+- **WHEN** the only way to run a construct would produce a value VB6 does not
+- **THEN** the engine refuses the construct instead
 
 #### Scenario: A capability that belongs to a real engine
 - **WHEN** a capability requires whole-program analysis, a compilation stage, or an execution model this
@@ -103,11 +109,11 @@ surface is not advertised as compatible, and no part of it appears as planned wo
 - **THEN** it claims only the classic dialect family, and lists no extended-surface feature as planned
 
 ### Requirement: Unimplemented constructs SHALL be documented as boundaries
-Each construct the engine does not implement SHALL be recorded as a documented boundary stating where the
-demonstrator ends, rather than as outstanding work.
+Each construct the engine does not implement SHALL be recorded with what stops it: binding, which is a
+permanent boundary; the tree-walk execution model; or a missing input, such as a type library. A construct
+stopped only because its behaviour is unmeasured SHALL be recorded as a gap to fill, not as a boundary.
 
-The distinction is not presentational. A backlog implies the list should shrink and that its length is a
-measure of failure; a boundary map is a deliverable that tells a developer exactly when to reach for a real
+The permanent part of that record is a deliverable: it tells a developer exactly when to reach for a real
 engine, which is more useful than a partial implementation that fails somewhere they cannot predict. It also
 makes the deferrals coherent — someone can read the whole edge at once instead of discovering it one crash
 at a time.

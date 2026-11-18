@@ -39,6 +39,7 @@ internal static class ObjectAsValue
     /// as it is.</summary>
     public static Vb6Value Scalar(Vb6Value value, ParserRuleContext? context) => value.Value switch
     {
+        VbCollectionEnumerator => throw new VBRunTimeException(context, VBStandardError.TypeMismatch),
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
         VbObject => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
         VBAnimation => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),

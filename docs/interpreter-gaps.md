@@ -25,10 +25,14 @@
   Form_Load too, without Paint. PictureBox- and Frame-hosted UserControls read the form's ambients and are notified with the rest (both measured)
   ([#4448 measured table](https://github.com/hexide-io/HexIDE/issues/4448), oracle PR #4630).
   The remaining UserControl surface and designer/file editing are later work. Part C supplies Container assignment and Count, bottom Align, transparent BackStyle, and measured focus/lifecycle ordering. Align assignments other than 2, BackStyle reads (whose return subtype is unmeasured here), ContainedControls operations other than Count, and PropertyBag operations are still refused. Unmeasured conversions of
+
+  UserControls is reported as any event's is (#4266). AmbientChanged for a form's colour and font changes is measured but not raised yet, and a PictureBox-hosted
+  UserControl's Ambient reads, measured as the form's, still refuse ([#4448](https://github.com/hexide-io/HexIDE/issues/4448)).
+  The remaining UserControl surface and designer/file editing are later work. Part C supplies Container assignment and Count, bottom Align, transparent BackStyle, and measured focus/lifecycle ordering. Align assignments other than 2, BackStyle reads (whose return subtype is unmeasured here), ContainedControls operations other than Count, and UserControl PropertyBag operations are still refused. Unmeasured conversions of
   AccessKeys are explicitly refused, rather than assigned invented VB6 semantics.
   [#4337](https://github.com/hexide-io/HexIDE/issues/4337) also attaches runtime-loaded array elements,
   with measured Initialize/Resize/ReadProperties, deferred Show, and index-ordered form teardown;
-  PropertyBag operations remain refused, and standalone element Unload and missing saved custom
+  UserControl PropertyBag operations remain refused, and standalone element Unload and missing saved custom
   properties have no additional measured semantics.
 - **Clipboard text is now partial (#1156):** Clear, SetText, GetText and GetFormat(vbCFText) use the host clipboard.
   Image/data methods, non-text format queries and RTF/Link text are deferred and explicitly refused. VB6 preserves
@@ -150,7 +154,7 @@ Platform: 5 · Partial: 11 · Other: 1. An entry fixed since the audit is not co
 >   clause; oracle-pinned) · **Conditional compilation** (#1112: `#If` and `#Const` applied to the module's text before the
 >   parse, so an inactive branch is never parsed; oracle-pinned).
 > - **→ Deferred:** Load/Unload (since built, for control-array elements and for whole forms, #822/#973) · chained
->   index groups (`Split(s)(0)`; since fixed, #1476) · AddressOf · unmeasured String/number comparison domains (#211) · **Declare … Lib** (no longer
+>   index groups (`Split(s)(0)`; since fixed, #1476) · AddressOf · **Declare … Lib** (no longer
 >   fails the module load — a compatible declaration is skipped, so the module runs;
 >   [#4245](https://github.com/hexide-io/HexIDE/issues/4245) rejects `PtrSafe` for VB6 and requires it for
 >   64-bit VBA7 before that skip, using the issue's measured rows; an actual
@@ -183,8 +187,8 @@ _Original per-item findings (retained for detail; dispositions above supersede t
   route two-string operands through the ordinal (`Option Compare Binary`) `TryCompareTo`, oracle-pinned.
   (Audit nit corrected: the cause was that `TryUnpack<TT>` has *no `string` branch*, not a numeric coincidence.)
   **String/number comparisons fixed (#211):** [measured typed/Variant rules](vb6-fidelity-oracle/a-string-compared-with-a-number.md)
-  now run. Decimal/String and Variant String against Currency, Boolean or Date remain unmeasured and refuse
-  untrappably. Default-member reads retain typed/Variant origin for these comparisons (#174; [measurements](vb6-fidelity-oracle/an-object-used-as-a-value.md#a-default-members-value-compared-with-a-string-2026-11-14-174s-review)).
+  now run, including Decimal as a Variant number and Variant Strings against typed Currency, Boolean
+  or Date ([#211, 2026-11-18 measurements](https://github.com/hexide-io/HexIDE/issues/211), oracle PR #4687). Default-member reads retain typed/Variant origin for these comparisons (#174; [measurements](vb6-fidelity-oracle/an-object-used-as-a-value.md#a-default-members-value-compared-with-a-string-2026-11-14-174s-review)).
 - **Declare Sub/Function … Lib** — PrePass.cs:161-162 throws so any module with a `Declare` fails to load; VB6 foundational for Win32 API. Undocumented (absent from the boundary map — violates the spec's every-wall-documented rule).
 - ~~**Option Compare [Binary|Text] / Option Private Module** — PrePass.cs:46-50 throws for both (module fails to load).~~ Both load. **`Option Compare Text` is done (#1567)** for the comparison operators, `Select Case` and, with a compare of 1, InStr, InStrRev, Replace, Split, Filter and a Collection's keys, all through `VbTextCompare`, whose rows are vb6.exe's measured order. A string function given no compare takes the module's mode too (#1572). Two things remain:
   - **Other locales are a wrong-value risk, not just a gap.** The rows were measured under en-GB and are applied in every locale. Where Windows tailors the sort, such as Swedish å, ä and ö, or Turkish i, HexIDE would give en-GB's answer and nothing would say so (#1573).
@@ -210,7 +214,7 @@ _Original per-item findings (retained for detail; dispositions above supersede t
 - **Named arguments** (`:=`) — **Done for procedures, methods and intrinsics (#1465):** a named argument binds to the parameter of its name, in a call to the program's own Sub, Function or class method and to the 118 intrinsics with measured parameter names (#4145 measured the remaining names; ChrB runs its measured conversions (#4576); IRR and MIRR run with documented precision differences (#2525)), and named arguments are evaluated in parameter order, not the order written (measured; oracle, "Named arguments"). VB6's compile errors ("Named argument not found", "Named argument already specified", and the rest) are raised as the statement runs. **Still refused:** a control's, a form's or an object's method, whose parameter names HexIDE has no table of ([#1474](https://github.com/hexide-io/HexIDE/issues/1474)). It is not a wall: it is a table to measure.
 - **Const semantics** (type hints, read-only enforcement, cross-module ordering, a procedure's Consts) — measured (#873): within a module, and within a procedure, a Const may read only what is declared above it, at every scope probed; across modules the order is free, but the modules' Consts must not form a cycle ("Circular dependencies between modules", checked per module). VB6 also accepts type characters and rejects reassignment. **Done in #873:** a module-level Const is checked against those rules as it runs, and a Const's `As` type converts its value as a store does, at both levels. **Done in #893:** another module's Const read initialises that module's declarations on demand, with the measured per-module cycle error; the startup module completes its declarations before harness statements create a class that reads them. **Done in #894:** forward-local-Const reads are checked at procedure entry; other procedure constant-expression checks remain unchanged. Reassignment is refused (#1003). Type characters are done in [#1614](https://github.com/hexide-io/HexIDE/issues/1614): one is the As clause it stands for, measured.
 - **Missing string/format intrinsics** — StrConv, StrComp, LenB, AscB, MidB, LeftB, RightB and InStrB are registered and run (`VB6BuiltIns.Strings.cs`). ChrB and odd MidB/LeftB/RightB results run with the measured uses in [#4576](https://github.com/hexide-io/HexIDE/issues/4576); other odd-String uses and InputB remain refused ([#1510](https://github.com/hexide-io/HexIDE/issues/1510)). AscW and ChrW landed with #1134. FormatDateTime landed with #2516. FormatNumber, FormatCurrency and FormatPercent landed with #2515; named calls are accepted (#4145); unmeasured positional argument counts, decimal widths and tri-state values remain explicitly refused (the precise limits are in MISSING_LANGUAGE.md).
-- **Collection object, For Each over non-array enumerables, CreateObject/GetObject** — **Collection and For Each over a Collection are done ([#1471](https://github.com/hexide-io/HexIDE/issues/1471)),** measured on vb6.exe as native and p-code (oracle, "Collection"). `Dim c As New Collection` works since [#435](https://github.com/hexide-io/HexIDE/issues/435). An array `As Collection` runs since [#1482](https://github.com/hexide-io/HexIDE/issues/1482), and keys compare as `vbTextCompare` compares since [#1479](https://github.com/hexide-io/HexIDE/issues/1479), through `VbTextCompare`'s measured rows (#1567). Calling the hidden `_NewEnum` member directly is still unsupported. CreateObject/GetObject is a documented COM wall.
+- **Collection object, For Each over non-array enumerables, CreateObject/GetObject** — **Class enumeration is done ([#4679](https://github.com/hexide-io/HexIDE/issues/4679)):** a -4 Function or Property Get returns a Collection enumerator; the walk visits appended items. The hidden Collection member exposes the measured opaque IUnknown behaviour, following p-code for Let (13). Unsupported controls and other proxies remain refused. **Collection and For Each over a Collection are done ([#1471](https://github.com/hexide-io/HexIDE/issues/1471)),** measured on vb6.exe as native and p-code (oracle, "Collection"). `Dim c As New Collection` works since [#435](https://github.com/hexide-io/HexIDE/issues/435). An array `As Collection` runs since [#1482](https://github.com/hexide-io/HexIDE/issues/1482), and keys compare as `vbTextCompare` compares since [#1479](https://github.com/hexide-io/HexIDE/issues/1479), through `VbTextCompare`'s measured rows (#1567). CreateObject/GetObject is a documented COM wall.
 - **Resume granularity (fault nested in a construct)** — nested-granular Resume is a stated 5b limitation (needs CFG/bytecode). interpreter-core Subset 5b. **Narrowed by #839:** under `On Error Resume Next` a fault in a block statement's condition or header now resumes into the block, as VB6 does, because the trap sits where the condition is evaluated and never needs to jump. What remains is a handler's `Resume` or `Resume Next` for a fault nested in a construct, which must get back inside the block. For `Resume Next`, VB6 measurably gives the same answers as Resume Next there (the If's branch, the raising Case's body, the loop's body), and HexIDE resumes after the whole top-level statement, since getting back inside the block from the handler is exactly the jump a tree-walk cannot make. **Measured by #877:** a `Resume` for an `Err.Raise` inside a one-line `If` retries the `Err.Raise` itself, not the `If`, so it raises again whatever the handler changed. HexIDE retries the `If`, re-reading its condition.
   - **Raised For Each collection declarations (#969):** the fallback reads project Functions, early-bound class Functions and Property Gets,
     module-qualified Functions and untyped array elements from runtime declarations. #3213 corrects the
@@ -369,6 +373,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
 
 ## Partial
 
+- **Standalone `PropertyBag`** ([#4680](https://github.com/hexide-io/HexIDE/issues/4680), oracle PR #4686) supports the measured scalar, Byte-array and Nothing values and VB6 Contents layout. Persistable object streams and other objects remain explicitly unimplemented; the UserControl bag is unchanged. Unpaired UTF-16 text, non-String property-name conversions, unresolved default comparisons, argument-count errors, other Contents conversions, and the VB6 description of error 330 remain unmeasured (the number is implemented with an explicit HexIDE diagnostic).
+
 - **Source-class default members (#174):** async scalar reads execute the collected Function, Property Get or
   variable, including Let, ByVal scalar arguments, operators, builtin value arguments, conditions, Select Case,
   For bounds, Print and array subscripts. Measured Function/Variant `Format`, `Abs` and `Not`, and Function
@@ -377,11 +383,17 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   [CVar](vb6-fidelity-oracle/cvar.md), [subscripts](vb6-fidelity-oracle/subscripts-bounds-and-a-method-called-from-class_initialize.md).
   Parameterized Function/Get default reads and Property Let writes now run through variables, class fields,
   indexed results and parameterless class-returning procedures ([#4606 measurements](https://github.com/hexide-io/HexIDE/issues/4606)).
-  Classes without defaults, Variable/Sub defaults given arguments and defaults without a Property Let on a write
-  remain unmeasured and refuse naming #4606. Nothing in Variant/Object slots and object argument/value evaluation
+  For parameterized access, classes without defaults, Variable/Sub defaults and defaults without a Property Let
+  on a write remain unmeasured and refuse naming #4606. Nothing in Variant/Object slots and object argument/value evaluation
   order retain today's behaviour, unmeasured.
+  No-argument Lets into class/Object variables, class fields, With members and object-array elements now call
+  the held class's default Property Let or store into its Variant default field, preserving the object
+  ([#4694 measurements](https://github.com/hexide-io/HexIDE/issues/4694)). Get-only and Function defaults raise
+  the measured early/late-bound errors. UDT object fields and other object-array element cases (including Nothing,
+  no default, Sub or typed-field defaults) retain today's behaviour, unmeasured.
   Still refused naming #174: a Sub default used as a scalar, a member requiring arguments used without them,
-  nested scalar defaults, typed Function Format/Abs and later Format arguments (unmeasured), and default-member writes without arguments. Synchronous Join/Filter reads,
+  nested scalar defaults, typed Function Format/Abs and later Format arguments (unmeasured), and no-argument
+  writes through variables or class fields to Sub or typed-field defaults (unmeasured). Synchronous Join/Filter reads,
   `IndexResult` and `FieldElement` subscript conversion retain their refusals; the Immediate window still
   refuses calls into the program. Array bounds and control-array indexes remain unmeasured with defaults.
 

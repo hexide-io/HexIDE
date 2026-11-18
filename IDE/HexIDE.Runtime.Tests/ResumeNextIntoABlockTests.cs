@@ -777,11 +777,13 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task A_For_Each_over_an_object_is_refused_rather_than_stepped_over()
+    public async Task A_For_Each_over_a_class_without_an_enumerator_runs_once_with_92()
     {
-        var run = () => RunClasses("Dim o, x\nOn Error Resume Next\nSet o = New Plain\nFor Each x In o\nNext\n", ("Plain", Plain));
+        // SP6 native/p-code, #4679: no VB_UserMemId -4 means 92, then one body pass under Resume Next.
+        await RunClasses("Dim o, x\nOn Error Resume Next\nSet o = New Plain\nFor Each x In o\n"
+            + "Debug.Print Err.Number\nDebug.Print IsEmpty(x)\nNext\n", ("Plain", Plain));
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*only arrays*");
+        AssertDebugLog([new Vb6Value(92L), true]);
     }
 
     [Fact]
