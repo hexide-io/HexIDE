@@ -4491,6 +4491,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new NotImplementedException("ReDim As on a fixed-length String array is not implemented (#179): its width rules are unmeasured");
             var objectClass = redim.asTypeClause() is { } objectClause
                 ? ObjectArrayClass(objectClause) : (value.Value as VBArray)?.DeclaredClass;
+            if (redim.asTypeClause()?.type()?.complexType() is { } redimType
+                && SplitTypeName(redimType.GetText()) is var redimNamed
+                && interpreter.TryResolveType(redimNamed.Name, currentModule, redimNamed.Qualifier, out var redimDef))
+                await interpreter.EnsureTypeBounds(redimDef);
             Vb6Value NewArray(List<(int, int)>? bounds = null)
             {
                 Vb6Value result;
@@ -4714,6 +4718,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     && SplitTypeName(arrayElement.GetText()) is var arrayName
                     && interpreter.TryResolveType(arrayName.Name, currentModule, arrayName.Qualifier, out var arrayDef))
                 {
+                    await interpreter.EnsureTypeBounds(arrayDef);
                     value = interpreter.NewUdtArray(arrayDef, dimensions, dimensions is null);
                 }
                 else if (autoNew is not null)
@@ -4737,6 +4742,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                             && subStmt.Parent?.Parent is VB6Parser.VariableStmtContext declaration
                             && declaration.visibility()?.PUBLIC() != null)
                             throw new VBCompileErrorException(PrePass.PublicMemberOfObjectModule);
+                        if (interpreter.TryResolveType(typeName, currentModule, qualifier, out var udtDef))
+                            await interpreter.EnsureTypeBounds(udtDef);
                         value = Vb6Value.NewUdt(interpreter.NewUdt(typeName, qualifier: qualifier, from: currentModule));
                     }
                     else if (qualifier is null && interpreter.TryResolveEnum(typeName, currentModule, out _))
@@ -4993,6 +5000,21 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     private static int ArrayBound(Vb6Value value) => value.Type == Vb6Value.ValueType.LongLong
         ? throw new NotImplementedException("A LongLong array bound is unmeasured (#1548)") : Subscript(value);
+
+    internal async Task ResolveTypeBounds(VB6Parser.TypeStmtContext type)
+    {
+        var def = currentModule.PrePass.Types[type.ambiguousIdentifier().GetText()];
+        foreach (var field in def.Fields)
+        {
+            if (field.BoundSyntax is not { } syntax || field.ResolvedBounds != null)
+                continue;
+            await ModuleLevelBounds.CheckTypeField(interpreter, currentModule, currentEnv, syntax, type, field.Name);
+            var bounds = (await ExtractDimensions(syntax))!;
+            if (bounds.Any(b => b.Item2 < b.Item1))
+                throw new NotImplementedException($"An inverted array bound inside Type '{def.Name}' is not implemented (#178)");
+            field.ResolvedBounds = bounds;
+        }
+    }
 
     private async Task<List<(int, int)>?> ExtractDimensions(VB6Parser.SubscriptsContext? subscripts)
     {
