@@ -326,6 +326,13 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   allocation before their Type resolves, inverted bounds and array fields As New remain refused. Get/Put of UDT
   arrays and Types containing array fields also remain refused pending record-layout measurements. The existing acceptance of ByVal UDT parameters
   and UDT-to-Variant assignments remains a divergence from the compile refusals measured for #178.
+
+  Array fields have indexed reads/writes and whole-array store checks. Nonliteral or inverted Type-field bounds,
+  array fields As New remain refused. Get/Put of UDT arrays and Types containing array
+  fields also remain refused pending record-layout measurements. ByVal UDT parameters are refused when a call
+  binds them ([#4673’s measurements](https://github.com/hexide-io/HexIDE/issues/4673)); VB6 refuses the build, so one in a
+  procedure that is never called goes uncaught here.
+  UDT-to-Variant assignments remain a divergence from the compile refusals measured for #178.
 - **`LSet` / `RSet`** — named String variables and Variants holding a String or Integer justify their text
   since #2517. Other target types, unmeasured source conversions and
   Type, Nothing, control and indexed member targets remain refused as not implemented. Project class-instance

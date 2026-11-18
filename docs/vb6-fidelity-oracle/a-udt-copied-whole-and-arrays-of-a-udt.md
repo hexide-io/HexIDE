@@ -92,8 +92,9 @@ whole-element store, `arr(1) = u`, puts the value into the array without copying
 `UdtArrayTests` exercises the measured allocation, copy, resize, reset, ByRef and For Each results.
 Array fields use [the measured array-variable store rule](a-let-into-an-array-variable.md), including
 String-to-Byte() conversion. Fixed-length strings, nonliteral or inverted Type-field bounds, and array
-fields declared As New retain their refusal. This change does not alter the pre-existing acceptance of
-ByVal UDT parameters or UDT-to-Variant assignments; those compile-time restrictions remain divergences.
+fields declared As New retain their refusal. [#4673](https://github.com/hexide-io/HexIDE/issues/4673) now refuses
+ByVal UDT parameters when a call binds them; vb6.exe refuses the build, so a procedure never called is not caught. UDT-to-Variant assignments
+remain a divergence from the measured compile-time restriction.
 
 Get/Put of UDT arrays and of Types containing array fields remain explicitly refused: their record-file
 layout is not established by these copy probes. Four Linux-runnable guard cases in `UdtArrayTests` keep
