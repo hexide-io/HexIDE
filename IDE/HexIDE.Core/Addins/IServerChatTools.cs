@@ -69,7 +69,10 @@ public sealed record ServerChatTool(
 /// <param name="Text">The answer as text, cut to <see cref="ServerChatToolLimits.MaxResult"/>.</param>
 /// <param name="Truncated">True when the text was cut.</param>
 /// <param name="Declined">True when the call asked and the person said no, so nothing was sent to the server.</param>
-public sealed record ServerChatToolResult(bool IsError, string Text, bool Truncated = false, bool Declined = false);
+/// <param name="ReasonKey">An optional localization key for a refusal HexIDE wrote; Text stays English for the service.</param>
+/// <param name="ReasonArguments">The facts to insert in the localized refusal.</param>
+public sealed record ServerChatToolResult(bool IsError, string Text, bool Truncated = false, bool Declined = false,
+    string? ReasonKey = null, object[]? ReasonArguments = null);
 
 /// <summary>A context fragment a server gave.</summary>
 public sealed record ServerChatContext(string ServerId, string ServerName, string Text, bool Truncated = false);

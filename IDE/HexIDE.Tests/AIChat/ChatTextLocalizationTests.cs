@@ -1,4 +1,8 @@
 using System.Xml.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using HexIDE.Lsp;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Reflection;
@@ -185,7 +189,7 @@ public class ChatTextLocalizationTests
     }
 
     [Fact]
-    public void ChatDoesNotPassLocalizedValuesIntoOtherLocalizedSentences()
+    public void ChatDoesNotPassLocalizedFragmentsIntoOtherLocalizedSentences()
     {
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !Directory.Exists(Path.Join(root.FullName, "IDE", "HexIDE.AIChat"))) root = root.Parent;
@@ -198,15 +202,22 @@ public class ChatTextLocalizationTests
                 call.Expression.ToString() is "ChatStrings.GetString" or "ChatStrings.Format";
             var localizedVariables = syntax.DescendantNodes().OfType<VariableDeclaratorSyntax>()
                 .Where(v => v.Initializer?.DescendantNodes().OfType<InvocationExpressionSyntax>().Any(IsLocalizedCall) == true)
-                .Select(v => v.Identifier.ValueText).ToHashSet();
+                .Select(v => (v.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault(), v.Identifier.ValueText)).ToHashSet();
             foreach (var call in syntax.DescendantNodes().OfType<InvocationExpressionSyntax>()
                          .Where(c => c.Expression.ToString() == "ChatStrings.Format"))
             foreach (var argument in call.ArgumentList.Arguments.Skip(1))
             {
+                // #4332 deliberately wraps a complete host refusal sentence in ToolFailed. Other chat
+                // messages must still choose whole sentences rather than composing translated fragments.
+                if (argument.Expression is IdentifierNameSyntax { Identifier.ValueText: "reason" }
+                    && call.ArgumentList.Arguments[0].Expression is LiteralExpressionSyntax literal
+                    && literal.Token.ValueText == "Str.AIChat.ToolFailed"
+                    && call.Ancestors().OfType<MethodDeclarationSyntax>().First().Identifier.ValueText == "RunServerToolCallAsync")
+                    continue;
                 argument.DescendantNodes().OfType<InvocationExpressionSyntax>().Where(IsLocalizedCall)
                     .Should().BeEmpty($"{file}: localized sentences must be complete");
                 argument.DescendantNodes().OfType<IdentifierNameSyntax>()
-                    .Where(i => localizedVariables.Contains(i.Identifier.ValueText))
+                    .Where(i => localizedVariables.Contains((i.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault(), i.Identifier.ValueText)))
                     .Should().BeEmpty($"{file}: localized fragments must not be passed through variables");
             }
         }
@@ -260,6 +271,105 @@ public class ChatTextLocalizationTests
             chat.SessionLog.Single().Content.Should().Contain("No project is currently running");
         }
         finally { Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ServerToolNotRunning", "The language server 'Probe' isn't running, or no longer offers AI Chat tools.", "LOCAL Probe")]
+    [InlineData("ServerToolListFailed", "The language server 'Probe' didn't list its tools, so nothing was called.", "LOCAL Probe")]
+    [InlineData("ServerToolNotOffered", "The language server 'Probe' doesn't offer a tool called 'read'.", "LOCAL Probe read")]
+    [InlineData("ServerToolCallFailed", "The language server 'Probe' didn't complete the call: raw exception", "LOCAL Probe raw exception")]
+    [InlineData("ServerToolsUnavailable", "Language servers' AI Chat tools are available only to HexIDE's own add-ins.", "LOCAL")]
+    [InlineData("server-error", "server's own error", "server's own error")]
+    public async Task ServerRefusalUsesResourcesAndResultStaysEnglish(string scenario, string english, string shown)
+    {
+        var key = "Str.AIChat." + scenario;
+        var resources = Application.Current!.Resources;
+        var hadKey = resources.TryGetValue(key, out var previous);
+        resources[key] = scenario switch
+        {
+            "ServerToolNotOffered" or "ServerToolCallFailed" => "LOCAL {0} {1}",
+            "ServerToolsUnavailable" => "LOCAL",
+            _ => "LOCAL {0}",
+        };
+        resources["Str.AIChat.ToolFailed"] = "FAILED {0}: {1}";
+        var directory = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var tool = new ServerChatTool("probe", "Probe", "read", "", JsonDocument.Parse("{}").RootElement.Clone(), false);
+            Task<JsonElement?> Request(string method, JsonElement? arguments, TimeSpan? timeout, CancellationToken token)
+            {
+                if (scenario == "ServerToolListFailed" || (scenario == "ServerToolCallFailed" && method == "call"))
+                    throw new InvalidOperationException("raw exception");
+                return Task.FromResult<JsonElement?>(JsonDocument.Parse(method == "list"
+                    ? scenario == "ServerToolNotOffered" ? """{"tools":[]}""" : """{"tools":[{"name":"read","annotations":{"readOnlyHint":true,"destructiveHint":false}}]}"""
+                    : """{"isError":true,"content":[{"type":"text","text":"server's own error"}]}""").RootElement.Clone());
+            }
+            IServerChatTools tools = scenario == "ServerToolsUnavailable"
+                ? ServerChatToolsUnavailable.Instance
+                : new ServerChatToolsService(() => scenario == "ServerToolNotRunning" ? [] :
+                    [new ChatToolsServer("probe", "Probe", ServerChatToolsPolicy.Hints,
+                        new ServerChatToolsCapability("list", "call", null), Request)], NullLogger.Instance);
+            // The assistant saw the tool before the server stopped/listing failed. List it for this send,
+            // then let the real host service decide what the call does now.
+            var offered = Substitute.For<IServerChatTools>();
+            offered.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<ServerChatTool>>([tool]));
+            offered.CallAsync(Arg.Any<ServerChatTool>(), Arg.Any<JsonElement?>(), Arg.Any<ServerChatToolApproval>(),
+                Arg.Any<CancellationToken>()).Returns(call => tools.CallAsync(call.ArgAt<ServerChatTool>(0),
+                    call.ArgAt<JsonElement?>(1), call.ArgAt<ServerChatToolApproval>(2), call.ArgAt<CancellationToken>(3)));
+            var host = Substitute.For<IHexIdeHost>();
+            host.ServerChatTools.Returns(offered);
+            File.WriteAllText(Path.Join(directory, "chat-settings.json"), """{"baseUrl":"http://localhost/v1"}""");
+            var handler = new ServerChatToolsLoopTests.ToolCallHandler("lsp1_read", "{}");
+            using var client = new ChatClient(new HttpClient(handler));
+            var chat = new ChatViewModel(host, directory, client) { InputText = "go" };
+            await chat.SendAsync().WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            Dispatcher.UIThread.RunJobs();
+
+            chat.Messages.Single(m => m.IsError).RawContent.Should().Be("FAILED Probe: read: " + shown);
+            var sessionResult = chat.SessionLog.Single(m => m.Role == "tool").Content;
+            JsonNode.Parse(sessionResult)!["result"]!.GetValue<string>().Should().Be(english);
+            var sentResult = handler.Bodies[1]["messages"]!.AsArray().Single(m => m!["role"]!.GetValue<string>() == "tool")!["content"]!.GetValue<string>();
+            JsonNode.Parse(sentResult)!["result"]!.GetValue<string>().Should().Be(english);
+        }
+        finally
+        {
+            if (hadKey) resources[key] = previous!; else resources.Remove(key);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task LocalizedServerRefusalIsCutAfterTranslation()
+    {
+        var resources = Application.Current!.Resources;
+        const string key = "Str.AIChat.ServerToolCallFailed";
+        var hadKey = resources.TryGetValue(key, out var previous);
+        resources[key] = new string('L', 310) + " {0}: {1}";
+        resources["Str.AIChat.ToolFailed"] = "FAILED {0}: {1}";
+        var directory = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var tools = Substitute.For<IServerChatTools>();
+            tools.CallAsync(Arg.Any<ServerChatTool>(), Arg.Any<JsonElement?>(), Arg.Any<ServerChatToolApproval>(),
+                Arg.Any<CancellationToken>()).Returns(new ServerChatToolResult(true, "English",
+                    ReasonKey: key, ReasonArguments: ["Probe", "raw exception"]));
+            var host = Substitute.For<IHexIdeHost>();
+            host.ServerChatTools.Returns(tools);
+            var chat = new ChatViewModel(host, directory);
+            var tool = new ServerChatTool("probe", "Probe", "read", "", JsonDocument.Parse("{}").RootElement.Clone(), false);
+            await chat.RunServerToolCallAsync(new ToolCall("id", "lsp1_read", "{}"), tool, TestContext.Current.CancellationToken);
+            Dispatcher.UIThread.RunJobs();
+
+            chat.Messages.Last().RawContent.Should().Be("FAILED Probe: read: " + new string('L', 300) + "…");
+            JsonNode.Parse(chat.SessionLog.Single().Content)!["result"]!.GetValue<string>().Should().Be("English");
+        }
+        finally
+        {
+            if (hadKey) resources[key] = previous!; else resources.Remove(key);
+            Directory.Delete(directory, true);
+        }
     }
 
     [AvaloniaFact]

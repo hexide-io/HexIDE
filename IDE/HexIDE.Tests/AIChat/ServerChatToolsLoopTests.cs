@@ -148,7 +148,7 @@ public sealed class ServerChatToolsLoopTests : IAsyncDisposable
     }
 
     // An OpenAI-shaped service: the first reply calls one tool, the next ends the turn. Every request body is kept.
-    private sealed class ToolCallHandler(string name, string arguments) : HttpMessageHandler
+    internal sealed class ToolCallHandler(string name, string arguments) : HttpMessageHandler
     {
         public List<JsonObject> Bodies { get; } = [];
 

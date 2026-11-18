@@ -151,7 +151,7 @@ internal sealed class ServerChatToolsService(Func<IReadOnlyList<ChatToolsServer>
         ArgumentNullException.ThrowIfNull(approve);
         // Found again, by id: the call goes only to the server that offered the tool, with the method it names now.
         if (servers().FirstOrDefault(s => string.Equals(s.Id, tool.ServerId, StringComparison.Ordinal)) is not { } server)
-            return new ServerChatToolResult(true, $"The language server '{tool.ServerName}' isn't running, or no longer offers AI Chat tools.");
+            return new ServerChatToolResult(true, $"The language server '{tool.ServerName}' isn't running, or no longer offers AI Chat tools.", ReasonKey: "Str.AIChat.ServerToolNotRunning", ReasonArguments: [tool.ServerName]);
 
         // Listed again, so whether it asks is this host's reading of what the server says now, not the caller's.
         JsonElement? listing;
@@ -162,11 +162,11 @@ internal sealed class ServerChatToolsService(Func<IReadOnlyList<ChatToolsServer>
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             logger.LogWarning("The language server '{Id}' did not list its AI Chat tools before a call: {Reason}", server.Id, ex.Message);
-            return new ServerChatToolResult(true, $"The language server '{server.DisplayName}' didn't list its tools, so nothing was called.");
+            return new ServerChatToolResult(true, $"The language server '{server.DisplayName}' didn't list its tools, so nothing was called.", ReasonKey: "Str.AIChat.ServerToolListFailed", ReasonArguments: [server.DisplayName]);
         }
         if (ReadTools(server, listing, log: false).FirstOrDefault(t => string.Equals(t.Name, tool.Name, StringComparison.Ordinal))
             is not { } current)
-            return new ServerChatToolResult(true, $"The language server '{server.DisplayName}' doesn't offer a tool called '{tool.Name}'.");
+            return new ServerChatToolResult(true, $"The language server '{server.DisplayName}' doesn't offer a tool called '{tool.Name}'.", ReasonKey: "Str.AIChat.ServerToolNotOffered", ReasonArguments: [server.DisplayName, tool.Name]);
         if (current.Asks && !await approve(current, cancellationToken))
             return new ServerChatToolResult(true, "The user declined this action.", Declined: true);
 
@@ -181,7 +181,8 @@ internal sealed class ServerChatToolsService(Func<IReadOnlyList<ChatToolsServer>
         {
             logger.LogWarning("The language server '{Id}' failed AI Chat's call to its tool '{Tool}': {Reason}", server.Id, tool.Name, ex.Message);
             return new ServerChatToolResult(true, Cut($"The language server '{server.DisplayName}' didn't complete the call: {ex.Message}",
-                ServerChatToolLimits.MaxResult, out _));
+                ServerChatToolLimits.MaxResult, out _), ReasonKey: "Str.AIChat.ServerToolCallFailed",
+                ReasonArguments: [server.DisplayName, ex.Message]);
         }
 
         var (isError, text) = ReadResult(answer);

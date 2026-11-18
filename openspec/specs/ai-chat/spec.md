@@ -321,6 +321,26 @@ SHALL be labelled as the server's.
 - **WHEN** a third-party add-in asks for language servers' tools
 - **THEN** it is given none, and cannot call one
 
+### Requirement: Host refusals for server tools SHALL distinguish the person from the service
+When HexIDE refuses a language server's tool call, AI Chat SHALL show its reason in the IDE's language
+while sending the existing English result to the AI service. Server and tool names and exception messages
+SHALL remain untranslated arguments. A server's own error text SHALL pass through unchanged. The displayed
+reason SHALL be cut at 300 characters, with an ellipsis when cut.
+
+#### Scenario: A server no longer offers a tool
+- **WHEN** HexIDE refuses a tool that the language server no longer lists
+- **THEN** the transcript shows HexIDE's translated reason with the server and tool names
+- **AND** the service receives the English reason
+
+#### Scenario: A call fails with an exception
+- **WHEN** a language server's tool call throws
+- **THEN** the transcript shows the translated refusal with the exception message unchanged
+- **AND** the service receives the English refusal with that same message
+
+#### Scenario: A server supplies its own error
+- **WHEN** the server answers with an error text of its own
+- **THEN** the transcript and service receive that text unchanged
+
 ### Requirement: The developer SHALL choose, per server, whether the assistant uses its tools
 The IDE SHALL let the developer choose, for each server that can offer tools, between following its entry,
 using its tools and asking unless a tool only reads, asking before every call, and not using them. The
