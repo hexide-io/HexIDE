@@ -21,6 +21,7 @@ public class AddWatchDialogTests
         var watch = new WatchExpression("inner", WatchType.Expression, context);
         store.Add(watch);
         localization.GetString("Str.Dialog.AddWatch.AllContext").Returns("(All Procedures)");
+        localization.GetString("Str.Dialog.AddWatch.AllModules").Returns("(All Modules)");
         var vm = new AddWatchDialogViewModel(localization, store, context, editing: watch,
             modules: [new WatchContextModule("Form1", ["Square", "Form_Load"]), new WatchContextModule("Module2", ["Other"]) ]);
         var view = new AddWatchDialog { DataContext = vm };
@@ -33,18 +34,45 @@ public class AddWatchDialogTests
             store.Watches.Single().Context.Should().Be(context);
             var module = view.FindControl<ComboBox>("ModulePicker")!;
             var procedure = view.FindControl<ComboBox>("ProcedurePicker")!;
-            vm.Modules.Select(m => m.Name).Should().Equal("Form1", "Module2");
+            vm.Modules.Select(m => m.Name).Should().Equal("(All Modules)", "Form1", "Module2");
             vm.Procedures.Should().Equal("(All Procedures)", "Square", "Form_Load");
-            module.SelectedIndex = 1;
+            module.SelectedIndex = 2;
             vm.Procedures.Should().Equal("(All Procedures)", "Other");
             procedure.SelectedIndex.Should().Be(0);
-            module.SelectedIndex = 0;
+            module.SelectedIndex = 1;
             procedure.SelectedIndex = 1;
             vm.OkCommand.Execute(null);
             store.Watches.Single().Context.Should().Be("Form1.Square");
         }
         finally { window.Close(); }
     }
+    // VB6's Module list starts with (All Modules), and a watch stored on it reopens there (measured, #4452).
+    [AvaloniaFact]
+    public void AllModulesHeadsTheListAndAnEditReopensOnIt()
+    {
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Dialog.AddWatch.AllContext").Returns("(All Procedures)");
+        localization.GetString("Str.Dialog.AddWatch.AllModules").Returns("(All Modules)");
+        var store = new WatchService();
+        var watch = new WatchExpression("g", WatchType.Expression, WatchExpression.AllModulesContext);
+        store.Add(watch);
+        var vm = new AddWatchDialogViewModel(localization, store, watch.Context, editing: watch,
+            modules: [new WatchContextModule("Module1", ["Helper"])]);
+        var view = new AddWatchDialog { DataContext = vm };
+        var window = new Window { Content = view };
+        window.Show();
+        try
+        {
+            var module = view.FindControl<ComboBox>("ModulePicker")!;
+            module.SelectedIndex.Should().Be(0);
+            vm.Modules.Select(m => m.Name).Should().Equal("(All Modules)", "Module1");
+            vm.Procedures.Should().Equal("(All Procedures)");
+            vm.OkCommand.Execute(null);
+            store.Watches.Single().Context.Should().Be(WatchExpression.AllModulesContext);
+        }
+        finally { window.Close(); }
+    }
+
     // A module whose symbols are unavailable lists no procedures; an unchanged Edit must still keep the stored one (#4354).
     [AvaloniaFact]
     public void EditKeepsAStoredProcedureTheListCannotName()

@@ -21,7 +21,7 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
     private LspDocumentSession? session;
     public IReadOnlyList<LspMarker> Markers { get; private set; } = [];
     public event Action<IReadOnlyList<LspMarker>>? MarkersChanged;
-    public string DocumentUri => ArchiveEntryUri.ForEntry(Entry.Identity.ContainerPath, Entry.Identity.Segments);
+    public string DocumentUri => Entry.DocumentUri;
     public ContainerEntry Entry { get; private set; }
     [Notify] private TextDocument document = new();
     [Notify] private string notice = "";
@@ -82,9 +82,9 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
             ? InactiveLinesOf(preview.Text!, buildType)
             : [];
         Title = ComputeTitle();
-        if (entry.Archive != null && lspClient != null && preview?.Status == ArchiveTextStatus.Available)
+        if (lspClient != null && preview?.Status == ArchiveTextStatus.Available)
         {
-            session = new LspDocumentSession(lspClient, Document, DocumentUri);
+            session = new LspDocumentSession(lspClient, Document, DocumentUri, isProjectMember: entry.Source != null);
             session.MarkersChanged += markers =>
             {
                 Markers = markers;

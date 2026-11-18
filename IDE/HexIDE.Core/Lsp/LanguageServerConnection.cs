@@ -102,7 +102,12 @@ public sealed record LanguageServerConnection(
     int OpenDocumentCount = 0,
     string? WorkspaceRootUri = null,
     // Who contributed the connection: an add-in's title, or null for the configuration file and the bundled server.
-    string? Origin = null);
+    string? Origin = null,
+    /// <summary>
+    /// What the server's entry says about AI Chat using its tools, or null where its route can't offer any (#4257). The
+    /// person's own setting in Options wins over it.
+    /// </summary>
+    ServerChatToolsPolicy? ChatTools = null);
 
 /// <summary>
 /// How far a connection attempt got. Ordered, and the order is the sequence itself.

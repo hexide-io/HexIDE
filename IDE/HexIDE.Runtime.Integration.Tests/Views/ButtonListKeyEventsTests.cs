@@ -179,17 +179,55 @@ public class ButtonListKeyEventsTests
         ((VBComboBox)run.Control!).IsDropDownOpen.Should().BeFalse();
     }
 
+    // #4418: VB6 SP6 measured these keys without a holder, with KeyPreview off and on. Enter on a focused button is its Click.
+    public static IEnumerable<object[]> DialogKeyCases =>
+        from kind in new[] { "CheckBox", "OptionButton", "ListBox", "Combo0", "Combo2", "CommandButton" }
+        from key in new[] { Key.Enter, Key.Escape }
+        where !(kind == "CommandButton" && key == Key.Enter)
+        from preview in new[] { false, true }
+        select new object[] { kind, key, preview };
+
     [AvaloniaTheory]
-    [MemberData(nameof(Controls))]
-    public void Enter_and_Esc_keep_the_existing_control_path(string kind, bool preview)
+    [MemberData(nameof(DialogKeyCases))]
+    public void Dialog_keys_without_holders_raise_events(string kind, Key key, bool preview)
     {
         using var run = new Run(kind, preview);
-        run.Key(Key.Enter);
-        run.Log.Where(value => value.Any(char.IsDigit)).Should().BeEmpty();
-        if (kind == "CommandButton") run.Log.Should().Equal("Click");
-        run.Log.Clear();
-        run.Key(Key.Escape);
-        run.Log.Where(value => value.Any(char.IsDigit)).Should().BeEmpty();
+        run.Key(key);
+        var code = key == Key.Enter ? 13 : 27;
+        run.Log.Should().Equal(run.Events(code, code));
+    }
+
+    // The one-holder Style 2 cases were measured in oracle PR #4486.
+    public static IEnumerable<object[]> OpenComboCases =>
+        from style in new[] { 0, 2 }
+        from holders in (style == 0 ? new[] { 0, 3 } : new[] { 0, 1, 2, 3 })
+        from key in new[] { Key.Enter, Key.Escape }
+        select new object[] { style, holders, key };
+
+    [AvaloniaTheory]
+    [MemberData(nameof(OpenComboCases))]
+    public async System.Threading.Tasks.Task Open_combo_closes_and_delivers_dialog_keys(int style, int holders, Key key)
+    {
+        var blocks = UserControlKeyTests.Block("VB.ComboBox", "Text1", 0, extra: $"Style = {style}")
+            + UserControlKeyTests.Block("VB.CommandButton", "Command1", 1, extra: (holders & 1) != 0 ? "Default = -1" : "")
+            + UserControlKeyTests.Block("VB.CommandButton", "Command2", 2, extra: (holders & 2) != 0 ? "Cancel = -1" : "");
+        var code = "Private Sub Text1_KeyDown(KeyCode As Integer, Shift As Integer)\nDebug.Print \"D\" & KeyCode\nEnd Sub\n"
+            + "Private Sub Text1_KeyPress(KeyAscii As Integer)\nDebug.Print \"P\" & KeyAscii\nEnd Sub\n"
+            + "Private Sub Text1_KeyUp(KeyCode As Integer, Shift As Integer)\nDebug.Print \"U\" & KeyCode\nEnd Sub\n"
+            + "Private Sub Command1_Click()\nDebug.Print \"Click\"\nEnd Sub\n"
+            + "Private Sub Command2_Click()\nDebug.Print \"Click\"\nEnd Sub\n";
+        using var run = new UserControlKeyTests.Run("", formCode: code, blocks: blocks);
+        await run.Code("Text1.AddItem \"apple\"");
+        var combo = (VBComboBox)run.Named("Text1");
+        if (style == 0) combo.GetVisualDescendants().OfType<TextBox>().First().Focus();
+        else combo.Focus().Should().BeTrue();
+        combo.IsDropDownOpen = true;
+        run.Key(key);
+        var value = key == Key.Enter ? 13 : 27;
+        var expected = new List<string> { $"D{value}", $"P{value}" };
+        if ((holders & (key == Key.Enter ? 1 : 2)) == 0) expected.Add($"U{value}");
+        run.Lib.Printed.Select(v => v.Value).Should().Equal(expected);
+        combo.IsDropDownOpen.Should().BeFalse();
     }
 
     [AvaloniaTheory]

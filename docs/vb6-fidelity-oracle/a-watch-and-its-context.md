@@ -76,7 +76,7 @@ What does the Watches window show while that procedure is paused, while another 
 - what the Immediate window prints for `?inner` paused in Form_Load, which the probe's keystrokes didn't reach;
 - the same procedure twice on the call stack;
 - the two Break When watch types;
-- a watch whose context is another module.
+- a watch whose context is another module (measured in the last section, #4481).
 
 ## Add Watch's Module and Procedure lists, for a property (2026-11-17, #4401)
 
@@ -246,6 +246,8 @@ The blank Context column was seen on every `(All Modules)` watch, across all thr
     before `Loc`. It fits a binary (case-sensitive) sort by Expression.
   - That's one discriminating probe, so it's a candidate rule, not an established one. How rows with the same
     Expression are ordered is unmeasured.
+  - **Overturned by the next section's run:** the rows sort by Context first, then by Expression. These rows all had a
+    blank Context, which is why Expression alone fitted them.
 - **The recasing.** `loc` becoming `Loc` matches an intrinsic's case. Whether the first section's `inner` becoming
   `Inner` has the same cause isn't established.
 
@@ -253,3 +255,76 @@ The blank Context column was seen on every `(All Modules)` watch, across all thr
 - under `(All Modules)`, a standard module's Public constant, a form's Public variable, and a call to a Public function;
 - `m` under `(All Modules)` in design mode;
 - a `Property Set`.
+
+## A watch scoped to another module, and the Watches window's row order (2026-11-17, #4481)
+
+**The questions.**
+- Paused in one module, does a watch scoped to another module's procedure, or to a class, read that module's frame?
+- Is a watch scoped to a standard module live while that module isn't on the call stack?
+- In what order does the Watches window list its rows?
+
+**The probe:**
+- **The software:** VB6's IDE, SP6, on the oracle VM (Windows 10). Measured by the hexide-int session, at hexide-mcp's
+  request.
+- **The project:** a Standard EXE with Form1, Module1 and Class1.
+
+  ```vb
+  ' Module1
+  Public g As Long
+
+  Public Sub Helper()
+      Stop
+  End Sub
+
+  ' Class1
+  Private m As Long
+
+  Public Property Let X(ByVal v As Long)
+      Helper
+      m = v
+  End Property
+
+  ' Form1
+  Private Sub Form_Load()
+      g = 7
+      Dim c As New Class1
+      c.X = 5
+      Stop
+  End Sub
+  ```
+
+- **The watches,** added in this order: `v` at `Class1.X(Let)`, `m` at `Class1` (All Procedures), and `g` at `Module1`
+  (All Procedures).
+- **The run:** read in design mode, then at the `Stop` in Helper and at the `Stop` in Form_Load. At the first stop,
+  Helper is the paused frame in Module1, and Class1's `X(Let)` is the frame directly below it. At the second, neither
+  Module1 nor Class1 is on the call stack.
+- **How it was read:** from the Watches window, with screenshots kept by hexide-int.
+
+**What it showed** (Value / Type):
+
+| Watch, and its Context column | Design mode | Stop in Helper | Stop in Form_Load |
+|---|---|---|---|
+| `v`, `Class1.X(Let)` | `<Out of context>` / Empty | **5 / Long** | `<Out of context>` / Empty |
+| `m`, `Class1` | `<Out of context>` / Empty | **0 / Long** | `<Out of context>` / Empty |
+| `g`, `Module1` | **0 / Long** | 7 / Long | **7 / Long** |
+
+The rows were listed `m`, `v`, `g`: Context `Class1`, then `Class1.X(Let)`, then `Module1`.
+
+**What it shows:**
+- **A procedure's watch, and a class's, read their frame one level below the paused one, across modules.** Paused in
+  Module1's Helper, `v` reads X(Let)'s argument, and `m` reads the instance, before `m = v` has run. With neither on the
+  stack, both read `<Out of context>`.
+- **A standard module's watch is live whenever the program runs,** with its module off the stack, and in design mode too.
+- **The rows sort by Context, then Expression.** Added as `v`, `m`, `g`, they came out as `m`, `v`, `g`, which isn't
+  Expression order. All four runs on this page fit Context first:
+  - a blank Context sorts first;
+  - then `Class1`, `Class1.X(Get)`, `Class1.X(Let)`;
+  - Expression breaks ties within one Context, case-sensitively, as in the previous section's `Loc` and `g` row.
+- **The guess this overturns:** the previous section's candidate rule, a binary sort by Expression. It held only because
+  those rows shared a Context. Two runs now discriminate between the two rules, and both fit Context first.
+
+**Unmeasured:**
+- a frame more than one level below the paused one, in another module;
+- a procedure on the call stack twice;
+- a form's watch with the form not on the stack;
+- the row order between Contexts that differ only in case.

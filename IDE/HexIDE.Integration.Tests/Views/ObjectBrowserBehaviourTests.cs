@@ -76,6 +76,37 @@ public class ObjectBrowserBehaviourTests
         vm.FilteredMembers.Should().ContainSingle().Which.Name.Should().Be("Abs");
     }
 
+    // The IDE raises LanguageChanged on the UI thread (Apply swaps Application.Resources), and the browser refreshes there
+    // at once rather than queuing it (#4382).
+    [AvaloniaFact]
+    public void LanguageSwitchRefreshesStatusAtOnceOnTheUiThread()
+    {
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns(new List<ProjectDefinition>());
+        var loc = Substitute.For<ILocalizationService>();
+        loc.GetString(Arg.Any<string>()).Returns(ci => "Old " + ci.Arg<string>());
+        var vm = new ObjectBrowserToolViewModel(projects, Substitute.For<ILspClient>(),
+            Substitute.For<IEditorService>(), Substitute.For<IComponentRegistry>(),
+            Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(), loc,
+            Substitute.For<ILanguageConnectionRegistry>());
+        vm.SelectedLibrary = vm.Libraries.Single(l => l.Name == "VBA");
+        vm.SelectedClass = vm.FilteredClasses.Single();
+        var cls = vm.SelectedClass;
+        var changedOnUiThread = false;
+        cls.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(cls.Name))
+                changedOnUiThread = Avalonia.Threading.Dispatcher.UIThread.CheckAccess();
+        };
+        loc.GetString(Arg.Any<string>()).Returns(ci => "New " + ci.Arg<string>());
+
+        loc.LanguageChanged += Raise.Event<System.Action>();
+
+        cls.Name.Should().Be("New Str.Tool.ObjectBrowser.Vba.NoServer");
+        vm.SelectedClass.Should().BeSameAs(cls);
+        changedOnUiThread.Should().BeTrue();
+    }
+
     private static DocumentSymbol Symbol(string name) => new(name, SymbolKind.Method,
         new LspRange(new Position(7, 0), new Position(12, 0)),
         new LspRange(new Position(8, 11), new Position(8, 11 + name.Length)));

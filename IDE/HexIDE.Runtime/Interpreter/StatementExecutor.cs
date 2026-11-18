@@ -226,6 +226,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     async Task<Debugging.DebugEvalResult> Debugging.IDebugFrame.EvaluateScopedWatchAsync(string expression, string context)
     {
+        // A watch added with Module (All Modules) reads the project's Public names only, wherever the program is paused. A
+        // name it can't see misses as the expression is evaluated, and reads <Expression not defined in context> (#4452).
+        if (context == "(All Modules)")
+            return await new StatementExecutor(interpreter, interpreter.ProjectScope(), currentModule).EvaluateStoredWatch(expression);
         var dot = context.LastIndexOf('.');
         var module = dot < 0 ? context : context[..dot];
         var procedure = dot < 0 ? null : context[(dot + 1)..];

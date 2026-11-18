@@ -17,6 +17,18 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 
 ---
 
+## Desktop foreground after Continue
+
+### D33. Continue does not request the running form's activation
+- **VB6:** after Ctrl+Break with the form active, F5 returns that form to the foreground (vb6.exe SP6,
+  [#1297's 2026-11-16 measurement](https://github.com/hexide-io/HexIDE/issues/1297)).
+- **HexIDE:** `ProjectRunnerService.ContinueProject` resumes the debugger without requesting activation of a
+  running form. This is a code inspection; native foreground behavior has not been checked in this run.
+- **Why:** the scoped #1297 actions address dialog modality, shortcut routing and bringing the IDE forward on
+  Debug/Break. Foreground restoration on Continue remains separate work.
+- **Status:** **not implemented**, tracked by [#4262](https://github.com/hexide-io/HexIDE/issues/4262). The
+  measurement covers one non-modal form and a maximized IDE only.
+
 ## Edit-and-Continue
 
 ### D1. True E&C is a permanent wall
@@ -650,6 +662,18 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
 - **Status:** **partial by design** for design-time and after-End name resolution (above). Context selection and
   storage remain, as #4354. Recursion, cross-module contexts, Break When types and running-state refresh were not
   measured and keep their previous behavior.
+
+### D34. A watch on (All Modules) doesn't evaluate in design mode (#4452)
+- **VB6:** a watch added with Module (All Modules) evaluates in design mode as well as at a break. Before the program
+  runs, a standard module's `Public g As Long` reads 0 / Long and `1 + 1` reads 2 / Integer, while every watch scoped
+  to a module or procedure reads `<Out of context>` (measured on #4452, hexide-int, vb6.exe SP6;
+  [the oracle page](vb6-fidelity-oracle/a-watch-and-its-context.md)).
+- **HexIDE:** while paused it evaluates as VB6's does, against the project's Public module-level names only. Outside
+  break mode it reads `<Out of context>`, like every other watch.
+- **Why:** HexIDE evaluates only in break mode, and its Immediate window doesn't evaluate in design mode either
+  (`DebugController.EvaluateAsync` returns nothing unless paused). Building design-mode evaluation for watches alone
+  was ruled out (supervisor, #4452, 2026-11-17).
+- **Status:** divergence by decision.
 
 ### D30. Locals rows beyond what is measured (#2329, #2700)
 - **VB6, measured** (hexide-int, #2289, #2329, #2700; oracle #2698 and #2702):

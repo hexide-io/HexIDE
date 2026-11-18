@@ -146,6 +146,16 @@ public abstract class BaseVBTestFixture
         return (vb, dbg);
     }
 
+    /// <summary>As <see cref="NewDebuggable"/>, with standard modules beside the startup module as well as classes.</summary>
+    protected (BasicInterpreter vb, DebugController dbg) NewDebuggableProject(string code,
+        (string Name, string Code)[] modules, (string Name, string Code)[] classModules)
+    {
+        var dbg = new DebugController();
+        var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs, SettingsStore), context, rootEnv, code, "Module1", modules,
+            classModules) { DebugController = dbg };
+        return (vb, dbg);
+    }
+
     /// <summary>Run <paramref name="primaryCode"/> as the startup module "Module1", with additional named
     /// standard modules also loaded into the project-wide registry (for cross-module resolution tests).</summary>
     protected async Task RunModules(string primaryCode, params (string Name, string Code)[] modules) =>

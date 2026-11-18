@@ -308,3 +308,17 @@ browsing a library cannot register it. This intentionally avoids VB6's unsafe re
 #### Scenario: A reference names a local file
 - **WHEN** a reference names an existing fully qualified local file accepted by the shared check
 - **THEN** the browser reads its types without registering the library
+
+### Requirement: Live localization of browser status text
+
+The browser SHALL refresh cached localized status entries, the VBA globals class name and HexIDE
+extension descriptions when the IDE language changes, on the UI thread, preserving the selected
+library and class. It SHALL clear or re-resolve the last search status without rerunning the search.
+
+#### Scenario: Switch language with a cached library selected
+- **GIVEN** a loaded reference library or VBA library with localized status text
+- **WHEN** the developer switches the IDE language
+- **THEN** every keyed status entry and extension description shows the new language immediately
+- **AND** the VBA globals name and members header use the new language
+- **AND** the selected library and class remain selected
+- **AND** the search status is cleared or translated without another search
