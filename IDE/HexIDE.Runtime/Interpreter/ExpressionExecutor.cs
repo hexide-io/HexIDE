@@ -607,10 +607,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return await EvaluateCallArgs(context);
         // A control or form held as Object/Variant takes no names, even correct or repeated ones (#1474), while one
         // declared as its own class (`As ListBox`, `As TextBox`, `As Form`, `As Form1`) binds them (measured).
-        // `As Control` is 448 in VB6 too, but its slot records no declared view to tell it apart yet (#4737).
+        // `As Control` takes no names either (#4737, SP6 native/p-code).
         // Keep the reference's binding before unwrapping a form, and retain the existing evaluation of positional
         // prefixes: their side effects before a late-bound refusal were not measured.
-        if (control && (reference.HeldAsVariant || string.Equals(reference.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)))
+        if (control && (reference.HeldAsVariant || string.Equals(reference.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(reference.DeclaredAs, "Control", StringComparison.OrdinalIgnoreCase)))
             throw new VBRunTimeException(VBStandardError.NamedArgumentNotFound);
         if (!source.TryGetParameters(member, out var names, out var required))
             throw new NotImplementedException($"Named arguments to {member} are not implemented yet (#1474)");

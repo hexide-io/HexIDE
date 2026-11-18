@@ -606,6 +606,7 @@ Unmeasured names SHALL remain unimplemented. Name binding SHALL preserve existin
 - **WHEN** an Object holding a ListBox executes `o.AddItem Item:="late"`
 - **THEN** error 448 is raised and the list stays unchanged
 - **AND** all named method arguments on the measured control/form targets through Object or Variant raise 448, including repeated names
+- **AND** `As Control` and `As VB.Control` ListBox AddItem and TextBox Move calls with names raise 448 without changing the target, while positional calls still work ([#4737](https://github.com/hexide-io/HexIDE/issues/4737), SP6 native/p-code, measuring PR #4753)
 - **AND** a variable declared as the control's or form's own class (`As ListBox`, `As TextBox`, `As Form`, `As Form1`) binds the names
 - **AND** a Collection retains its existing named binding
 

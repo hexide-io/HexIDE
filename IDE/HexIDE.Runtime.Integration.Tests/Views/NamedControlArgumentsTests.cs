@@ -221,8 +221,38 @@ public sealed class NamedControlArgumentsTests
                 """, "448|Named argument not found", "0|0", "120|600", "1200|1200");
     }
 
+    // SP6 native/p-code: https://github.com/hexide-io/HexIDE/issues/4737 (measuring PR #4753).
+    [AvaloniaTheory]
+    [InlineData("Control", "List1", "c.AddItem Item:=\"viaControl\"")]
+    [InlineData("VB.Control", "List1", "c.AddItem Item:=\"viaControl\"")]
+    [InlineData("Control", "Text1", "c.Move Left:=300, Top:=2600")]
+    public void Control_variables_refuse_names_without_changing_the_target(string type, string target, string statement) => Check($"""
+        Dim c As {type}
+        Set c = {target}
+        On Error Resume Next
+        {statement}
+        Debug.Print CStr(Err.Number) & "|" & Err.Description
+        Debug.Print CStr(List1.ListCount)
+        Debug.Print Text1.Left & "|" & Text1.Top
+        """, "448|Named argument not found", "0", "120|600");
+
+    // Preserve the existing non-named paths when recording the new view (#4737).
+    [AvaloniaTheory]
+    [InlineData("Control")]
+    [InlineData("VB.Control")]
+    public void Control_view_preserves_Set_properties_positional_calls_and_TypeOf(string type) => Check($"""
+        Dim c As {type}
+        Set c = List1
+        c.AddItem "posControl"
+        Debug.Print CStr(c.ListCount) & "|" & c.List(0)
+        Debug.Print TypeOf c Is ListBox
+        Set c = Text1
+        Debug.Print c.Text
+        Debug.Print CStr(c.Left)
+        Debug.Print CStr(Err.Number)
+        """, "1|posControl", "True", "", "120", "0");
+
     // Measured in review (2026-11-18, SP6 native and p-code): a variable declared as the control's own class binds names.
-    // `As Control` raises 448 in VB6 and still binds here (#4737).
     [AvaloniaTheory]
     [InlineData("As ListBox", "List1", "o.AddItem Item:=\"typed\"", "1|0|120|600|0|0")]
     [InlineData("As ComboBox", "Combo1", "o.AddItem Item:=\"typed\"", "0|1|120|600|0|0")]
