@@ -132,6 +132,7 @@ public sealed class ConflictGate
         subscribedToActivated = true;
     }
 
-    // Avalonia raises Activated before setting IsActive; wait for that update before checking it.
+    // Avalonia before 12.1.6 raised Activated before setting IsActive (#2881); 12.1.6 sets it first
+    // (AvaloniaUI/Avalonia#22716). Posting TryShow keeps the check right in either order.
     private void OnMainWindowActivated(object? sender, EventArgs e) => Dispatcher.UIThread.Post(TryShow);
 }
