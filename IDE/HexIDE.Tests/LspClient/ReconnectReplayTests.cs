@@ -93,13 +93,13 @@ public class ReconnectReplayTests : IAsyncDisposable
             var (clientSide, serverSide) = FullDuplexStream.CreatePair();
             _clientSide = clientSide;
             var serverRpc = new JsonRpc(
-                new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
+                new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
                 server);
             rpcs.Add(serverRpc);
             serverRpc.StartListening();
             IsAlive = true;
             return Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, formatter));
+                new LspMessageHandler(clientSide, clientSide, formatter));
         }
 
         /// <summary>Drops the connection the way a server exiting would.</summary>

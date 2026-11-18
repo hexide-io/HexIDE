@@ -2,6 +2,7 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} existe déjà. Voulez-vous le remplacer ?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} a été chargé avec des erreurs et ne peut donc pas remplacer son fichier d’origine. Choisissez un nouveau nom de fichier.",
     "Str.ProjectLoad.PropertyNotSet": "Ligne {0} : la propriété {1} de {2} n’a pas pu être définie.",
     "Str.Menu.Edit.Refactor": "Re_factoriser",
@@ -371,6 +372,7 @@
     "Str.Menu.Help.LogFolder": "Ouvrir le dossier des _journaux HexIDE",
     "Str.Help.LogFolder.OpenFailed": "Impossible d’ouvrir le dossier des journaux. Vous pouvez l’ouvrir manuellement : {0}",
     "Str.Menu.Help.About": "À _propos de HexIDE...",
+    "Str.Menu.MacApp.About": "À propos de HexIDE",
     "Str.Menu.GoToGithubRepo": "Accéder au dépôt github",
     "Str.NewProject.NoTemplates": "Ce profil ne propose aucun modèle de nouveau projet. Ouvrez plutôt un projet existant.",
     "Str.NewProject.Msg.NoStandardExe": "Aucun type de projet installé dans {0} ne permet de créer un projet Standard EXE. Le démarrage s’est donc effectué sans projet.",

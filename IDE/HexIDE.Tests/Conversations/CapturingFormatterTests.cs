@@ -54,11 +54,11 @@ public class CapturingFormatterTests : IAsyncDisposable
 
         var peerTarget = new Server();
         var peer = new JsonRpc(
-            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), peerTarget);
+            new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), peerTarget);
         peer.StartListening();
 
         var tapped = new CapturingFormatter(new SystemTextJsonFormatter(), _log, connectionId);
-        var client = new JsonRpc(new HeaderDelimitedMessageHandler(clientSide, clientSide, tapped));
+        var client = new JsonRpc(new LspMessageHandler(clientSide, clientSide, tapped));
 
         _disposables.Add(peer);
         _disposables.Add(client);
@@ -76,12 +76,12 @@ public class CapturingFormatterTests : IAsyncDisposable
 
         var clientTarget = new Server();
         var tapped = new CapturingFormatter(new SystemTextJsonFormatter(), _log, "vb6");
-        var client = new JsonRpc(new HeaderDelimitedMessageHandler(clientSide, clientSide, tapped), clientTarget);
+        var client = new JsonRpc(new LspMessageHandler(clientSide, clientSide, tapped), clientTarget);
         client.StartListening();
         _disposables.Add(client);
 
         var peer = new JsonRpc(
-            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()));
+            new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()));
         peer.StartListening();
         _disposables.Add(peer);
 

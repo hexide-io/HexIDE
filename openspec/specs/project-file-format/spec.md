@@ -10,6 +10,56 @@ specified in `contributed-projects`, and what the code window does with read-onl
 
 ## Requirements
 
+### Requirement: Save pickers SHALL ask explicitly before replacement
+The IDE SHALL ask its own localized Yes/No replacement question, with No the default, after a form, module, project,
+group or interpreter Make picker selects an existing file. It SHALL disable the platform overwrite prompt and apply
+the same rule to scripted answers, first Save and Save As onto the current file. The separate Make archive question
+SHALL remain unchanged (#4505).
+
+#### Scenario: Confirming a picked file
+- **WHEN** a picker returns an existing file
+- **THEN** the IDE asks “{0} already exists. Do you want to replace it?”, naming the file
+
+#### Scenario: Declining an existing destination
+- **WHEN** the developer answers No to the replacement question
+- **THEN** the same picker reopens with the chosen name and folder retained
+- **AND** cancelling it leaves destinations and model paths unchanged
+
+#### Scenario: Ordinary Save
+- **WHEN** an item already has a file and Save does not open a picker
+- **THEN** the IDE does not ask this replacement question
+
+### Requirement: Companion writes SHALL respect replacement consent
+A render with companion content SHALL replace an existing designer file's companion after the designer's one
+confirmation. An orphan companion SHALL be confirmed only when companion content will be written, and otherwise
+preserved. A render without companion content SHALL delete a previously cited companion only beside the item's own
+current file. Orphan protection deliberately exceeds VB6's behavior (#4505; oracle PR #4501).
+
+#### Scenario: An orphan companion
+- **WHEN** a designer's selected destination does not exist but its companion does
+- **THEN** the IDE asks about the companion only if the render will write companion content
+- **AND** a render without companion content leaves that companion untouched, including on a later ordinary Save
+
+#### Scenario: Replacing a designer and its companion
+- **WHEN** the developer agrees to replace an existing designer file at a different destination
+- **THEN** its companion is replaced without another question if the render has companion content
+- **AND** a render without companion content leaves that destination's companion untouched
+- **AND** later saves do not claim ownership of an unwritten companion
+
+### Requirement: Project outside-change checks SHALL apply only at the current project path
+The IDE SHALL check a project destination for outside changes only when its path is the project's current file.
+A picked destination SHALL be written after replacement consent whether the project is locally edited or clean,
+including when the developer picked its current file (#4505).
+
+#### Scenario: Save Project As to a different existing file
+- **WHEN** the developer agrees to replace a different project destination
+- **THEN** the project is written there without outside-change conflict handling
+- **AND** an ordinary Save at the project's own current file still checks for outside changes
+
+#### Scenario: Confirming the current project file in Save As
+- **WHEN** the developer picks the current project file and agrees to replace it
+- **THEN** Save As writes it without a second outside-change question
+
 ### Requirement: File pickers SHALL use the owning type's file names and format's extensions
 Save As SHALL offer the project's type's `FileNames`, matching its contributor and format when one contributor registers
 several types. The first pattern SHALL supply the default extension and suggested name; a whole-name entry SHALL itself

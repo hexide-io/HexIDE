@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} は既に存在します。置き換えますか？",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} はエラーを伴って読み込まれたため、元のファイルに上書き保存できません。新しいファイル名を選択してください。",
     "Str.ProjectLoad.PropertyNotSet": "行 {0}: {2} のプロパティ {1} を設定できませんでした。",
     "Str.Menu.Edit.Refactor": "リファクタリング",
@@ -405,6 +406,7 @@
     "Str.Menu.Help.LogFolder": "HexIDE のログフォルダーを開く(_L)",
     "Str.Help.LogFolder.OpenFailed": "ログフォルダーを開けませんでした。手動で開くことができます: {0}",
     "Str.Menu.Help.About": "HexIDE のバージョン情報(_A)...",
+    "Str.Menu.MacApp.About": "HexIDE のバージョン情報",
     "Str.Menu.GoToGithubRepo": "github リポジトリへ移動",
     "Str.NewProject.NoTemplates": "このプロファイルには新規プロジェクトのテンプレートがありません。既存のプロジェクトを開いてください。",
     "Str.NewProject.Msg.NoStandardExe": "{0} には Standard EXE プロジェクトを作成するプロジェクトの種類がインストールされていないため、プロジェクトなしで起動しました。",

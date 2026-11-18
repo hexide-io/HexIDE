@@ -1,11 +1,14 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO.Pipes;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Nerdbank.Streams;
 using StreamJsonRpc;
 
@@ -18,6 +21,7 @@ public class WireStressTests(ITestOutputHelper output)
         public readonly ConcurrentQueue<string> Failures = new();
         public readonly Dictionary<string, Queue<byte[]>> Starts = [];
         public long Frames;
+        public readonly Stopwatch Clock = Stopwatch.StartNew();
         public readonly ConcurrentDictionary<string, int> Methods = new();
 
         public void Remember(string side, byte[] bytes)
@@ -112,7 +116,7 @@ public class WireStressTests(ITestOutputHelper output)
         {
             failed = true;
             var at = Math.Clamp(offset, 0, bytes.Length);
-            ledger.Failures.Enqueue($"#3520 pair/side {side} {(writing ? "write" : "read")}: header={Escape([.. header])}; "
+            ledger.Failures.Enqueue($"#3520 at {ledger.Clock.Elapsed.TotalSeconds:F3} s pair/side {side} {(writing ? "write" : "read")}: header={Escape([.. header])}; "
                 + $"offset={offset}; around={Escape(bytes[Math.Max(0, at - 64)..Math.Min(bytes.Length, at + 128)])}; "
                 + $"frame-start matches={ledger.Matches(bytes.AsSpan(at))}; reason={reason}; last4096={Escape([.. recent])}");
         }
@@ -189,11 +193,150 @@ public class WireStressTests(ITestOutputHelper output)
         [JsonRpcMethod("exit")] public void Exit() { }
     }
 
+    private sealed class ChurnReader
+    {
+        public readonly TaskCompletionSource Ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        [JsonRpcMethod("hexide/wireReady", UseSingleObjectParameterDeserialization = true)]
+        public void Signal(JsonElement _) => Ready.TrySetResult();
+    }
+
+    private static readonly TimeSpan StdioSetupTimeout = TimeSpan.FromSeconds(30);
+
+    private static async Task StdioRound(int round, bool halfClose, CancellationToken token)
+    {
+        var text = new string('z', 8192 + round % 8192);
+        using var toPeer = new AnonymousPipeServerStream(PipeDirection.Out);
+        using var peerIn = new AnonymousPipeClientStream(PipeDirection.In, toPeer.ClientSafePipeHandle);
+        using var fromPeer = new AnonymousPipeServerStream(PipeDirection.In);
+        using var peerOut = new AnonymousPipeClientStream(PipeDirection.Out, fromPeer.ClientSafePipeHandle);
+        var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { jsonrpc = "2.0", method = "window/logMessage", @params = new { type = 4, message = text } }));
+        var frame = Encoding.ASCII.GetBytes($"Content-Length: {body.Length}\r\n\r\n").Concat(body).ToArray();
+        var readyBody = "{\"jsonrpc\":\"2.0\",\"method\":\"hexide/wireReady\",\"params\":{}}"u8.ToArray();
+        var readyFrame = Encoding.ASCII.GetBytes($"Content-Length: {readyBody.Length}\r\n\r\n").Concat(readyBody).ToArray();
+        using var endOfInput = new ManualResetEventSlim();
+        using var startFlood = new ManualResetEventSlim();
+        var inputSeen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var drain = Task.Factory.StartNew(() =>
+        {
+            var buffer = new byte[65536];
+            try { while (peerIn.Read(buffer, 0, buffer.Length) > 0) inputSeen.TrySetResult(); } catch (IOException) { } catch (ObjectDisposedException) { }
+            endOfInput.Set();
+        }, TaskCreationOptions.LongRunning);
+        var pump = Task.Factory.StartNew(() =>
+        {
+            try
+            {
+                peerOut.Write(readyFrame);
+                startFlood.Wait(token);
+                for (var k = 0; k < 64 && !endOfInput.IsSet; k++) peerOut.Write(frame);
+            }
+            catch (IOException) { }
+            catch (ObjectDisposedException) { }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+            endOfInput.Wait(TimeSpan.FromSeconds(10));
+            peerOut.Dispose();
+        }, TaskCreationOptions.LongRunning);
+        var receiver = new ChurnReader();
+        var rpc = new JsonRpc(new LspMessageHandler(toPeer, fromPeer, new SystemTextJsonFormatter()), receiver);
+        rpc.StartListening();
+        Task sends = Task.CompletedTask;
+        try
+        {
+            // Model an established connection. On Unix a pipe's first async I/O lazily creates a
+            // socket wrapper; a diagnostic run stalled when that setup raced disposal (#4484).
+            // These waits establish the round; they measure nothing. On Windows an anonymous pipe's
+            // async read blocks a thread-pool thread until data or end of input arrives, and a torn-down
+            // round's read can hold its thread until the peer closes its end. With twelve churners on four
+            // cores, a new round's first read could wait several seconds for a thread, past the 5 s these
+            // waits had (measured: setup timeouts in 2 of 8 45-second runs, on the old and new handlers
+            // alike, with 0 bad frames). The guard measures frames, not setup speed.
+            await receiver.Ready.Task.WaitAsync(StdioSetupTimeout, token);
+            await rpc.NotifyAsync("textDocument/didChange", "warmup").WaitAsync(StdioSetupTimeout, token);
+            await inputSeen.Task.WaitAsync(StdioSetupTimeout, token);
+            sends = Task.Run(async () => { for (var k = 0; k < 64; k++) await rpc.NotifyAsync("textDocument/didChange", text); });
+            startFlood.Set();
+            await Task.Delay(round % 3, token);
+            if (halfClose)
+            {
+                await sends.WaitAsync(TimeSpan.FromSeconds(5), token);
+                toPeer.Dispose();
+                await Task.WhenAny(rpc.Completion, Task.Delay(TimeSpan.FromSeconds(1), token));
+            }
+        }
+        finally
+        {
+            // Main disposes RPC, then ends the transport. Do not wait for cancelled sends before
+            // closing the pipes: that wait can depend on the very stream closure it postpones.
+            startFlood.Set();
+            rpc.Dispose();
+            toPeer.Dispose();
+            fromPeer.Dispose();
+        }
+        try { await sends.WaitAsync(TimeSpan.FromSeconds(5), token); }
+        catch (Exception e) when (e is not TimeoutException) { /* torn down mid-write on purpose */ }
+        await Task.WhenAll(drain, pump).WaitAsync(TimeSpan.FromSeconds(15), token);
+    }
+
+    private static async Task<(Stream Client, Stream Server)> TcpPair(TcpListener listener, CancellationToken token)
+    {
+        var client = new TcpClient { NoDelay = true };
+        var accepting = listener.AcceptTcpClientAsync(token).AsTask();
+        await client.ConnectAsync(IPAddress.Loopback, ((IPEndPoint)listener.LocalEndpoint).Port, token);
+        var server = await accepting;
+        server.NoDelay = true;
+        return (client.GetStream(), server.GetStream());
+    }
+
+    private static async Task TcpRound(int round, TcpListener listener, CancellationToken token)
+    {
+        var (local, remote) = await TcpPair(listener, token);
+        using var peer = new JsonRpc(new LspMessageHandler(remote, remote, new SystemTextJsonFormatter()), new Server());
+        using var client = new JsonRpc(new LspMessageHandler(local, local, new SystemTextJsonFormatter()), new Server());
+        peer.StartListening();
+        client.StartListening();
+        var text = new string('z', 8192 + round % 8192);
+        async Task Push(JsonRpc rpc)
+        {
+            try
+            {
+                for (var k = 0; k < 64; k++)
+                    await rpc.NotifyWithParameterObjectAsync("window/logMessage", new Dictionary<string, object> { ["type"] = 3, ["message"] = text });
+            }
+            catch (Exception) { /* torn down mid-write on purpose */ }
+        }
+        var pushes = Push(peer);
+        var sends = Push(client);
+        await Task.Delay(round % 3, token);
+        // As the client does: dispose RPC, then close the transport's socket (VBLspClient.StopAsync, the
+        // restart, and a reconnect, whose ConnectAsync first disposes the old client). A handler closes a
+        // stream it shares for reading and writing only once its last write ends, so a round that leaves the
+        // sockets to the handlers alone keeps both connections whenever both peers' writes are blocked on
+        // each other (measured: about 1 round in 1,000 on Windows, each keeping its read buffers). The closes
+        // here are abortive (a reset, no TIME_WAIT): graceful ones exhausted Windows' loopback ports within
+        // five minutes of churn, where the client closes a connection once.
+        client.Dispose();
+        Abort(local);
+        peer.Dispose();
+        Abort(remote);
+        await Task.WhenAll(pushes, sends).WaitAsync(TimeSpan.FromSeconds(15), token);
+    }
+
+    private static void Abort(Stream stream)
+    {
+        try
+        {
+            var socket = ((NetworkStream)stream).Socket;
+            socket.LingerState = new LingerOption(true, 0);
+            socket.Close();
+        }
+        catch (Exception e) when (e is SocketException or ObjectDisposedException) { /* already closed */ }
+    }
+
     private static int Setting(string name, int fallback) =>
         int.TryParse(Environment.GetEnvironmentVariable(name), out var n) && n > 0 ? n : fallback;
 
-    // Opt-in: the load deliberately occupies thread-pool workers, and test classes run in parallel, so in the
-    // default suite it could starve the in-memory pairs of other classes, which is the kind of flake it hunts.
+    // Opt-in: sustained load deliberately occupies workers and tears connections down mid-write.
+    // Run it separately so the measured frame rates and stop timings have a known load.
     public static bool StressRequested => Setting("HEXIDE_WIRE_STRESS_SECONDS", 0) > 0;
 
     [Fact(Skip = "Set HEXIDE_WIRE_STRESS_SECONDS to run the wire stress test (#3520)", SkipUnless = nameof(StressRequested))]
@@ -202,6 +345,10 @@ public class WireStressTests(ITestOutputHelper output)
         var seconds = Setting("HEXIDE_WIRE_STRESS_SECONDS", 3);
         var pairs = Setting("HEXIDE_WIRE_STRESS_PAIRS", 8);
         var ledger = new Ledger();
+        var allocated = GC.GetTotalAllocatedBytes(precise: true);
+        long churnRounds = 0;
+        using var progressStop = new CancellationTokenSource();
+        Task progress = Task.CompletedTask;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         deadline.CancelAfter(TimeSpan.FromSeconds(seconds + 30));
         var token = deadline.Token;
@@ -212,28 +359,65 @@ public class WireStressTests(ITestOutputHelper output)
         Thread? releaser = null;
         try
         {
+            var arm = Environment.GetEnvironmentVariable("HEXIDE_WIRE_STRESS_CHURN_ORDER") ?? "stdio-client-first";
+            if (arm is not ("stdio-client-first" or "stdio-half-close" or "tcp-client-first"))
+                throw new ArgumentException("CHURN_ORDER must be stdio-client-first, stdio-half-close or tcp-client-first.");
+            using var checkedListener = new TcpListener(IPAddress.Loopback, 0);
+            if (arm == "tcp-client-first") checkedListener.Start();
             for (var i = 0; i < pairs; i++)
             {
-                var (local, remote) = FullDuplexStream.CreatePair();
+                var (local, remote) = arm == "tcp-client-first"
+                    ? await TcpPair(checkedListener, token) : FullDuplexStream.CreatePair();
                 var a = new CheckingStream(local, ledger, $"{i}/client");
                 var b = new CheckingStream(remote, ledger, $"{i}/server");
-                var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(b, b, new SystemTextJsonFormatter()), new Server());
+                var rpc = new JsonRpc(new LspMessageHandler(b, b, new SystemTextJsonFormatter()), new Server());
                 peers.Add(rpc);
                 rpc.StartListening();
                 var transport = Substitute.For<ILspTransport>();
                 transport.IsAlive.Returns(true);
                 transport.LeaveServerRunning.Returns(true);
                 transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
-                    .Returns(c => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(a, a, c.Arg<IJsonRpcMessageFormatter>())));
-                clients.Add(new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6"));
+                    .Returns(c => Task.FromResult<IJsonRpcMessageHandler?>(new LspMessageHandler(a, a, c.Arg<IJsonRpcMessageFormatter>())));
+                clients.Add(new VBLspClient(transport, NullLogger<VBLspClient>.Instance, "vb6"));
             }
             await Task.WhenAll(clients.Select(c => c.StartAsync(token)));
             clients.Should().OnlyContain(c => c.IsRunning);
             var clock = Stopwatch.StartNew();
+            progress = Task.Run(async () =>
+            {
+                try
+                {
+                    while (true)
+                    {
+                        await Task.Delay(TimeSpan.FromMinutes(1), progressStop.Token);
+                        output.WriteLine($"#4484 progress: elapsed={clock.Elapsed.TotalSeconds:F0}s; frames={Interlocked.Read(ref ledger.Frames)}; bad={ledger.Failures.Count}; teardowns={Interlocked.Read(ref churnRounds)}");
+                    }
+                }
+                catch (OperationCanceledException) when (progressStop.IsCancellationRequested) { }
+            }, token);
+            var churners = Enumerable.Range(0, Setting("HEXIDE_WIRE_STRESS_CHURN", 0)).Select(_ => Task.Run(async () =>
+            {
+                using var listener = new TcpListener(IPAddress.Loopback, 0);
+                if (arm == "tcp-client-first") listener.Start();
+                for (var round = 0; clock.Elapsed.TotalSeconds < seconds && ledger.Failures.IsEmpty; round++)
+                {
+                    try
+                    {
+                        if (arm == "tcp-client-first") await TcpRound(round, listener, token);
+                        else await StdioRound(round, arm == "stdio-half-close", token);
+                    }
+                    catch (Exception e)
+                    {
+                        output.WriteLine($"#4484 churn failed ({arm}, round {round}): {e}");
+                        throw;
+                    }
+                    Interlocked.Increment(ref churnRounds);
+                }
+            }, token)).ToArray();
             var load = Task.WhenAll(clients.Select(async (client, i) =>
             {
                 var version = 0;
-                while (clock.Elapsed.TotalSeconds < seconds)
+                while (clock.Elapsed.TotalSeconds < seconds && ledger.Failures.IsEmpty)
                 {
                     var uri = $"file:///stress-{i}-{version / 4}.bas";
                     var text = new string((char)('a' + i % 26), 16384 + (int)((version * 7919L + i * 997) % 49153));
@@ -256,16 +440,38 @@ public class WireStressTests(ITestOutputHelper output)
             releaser = new Thread(() => { release.Wait(TimeSpan.FromSeconds(seconds / 2.0)); release.Set(); });
             releaser.Start();
             await load;
+            output.WriteLine("#4484: checked load finished; waiting for churn cleanup");
+            release.Set();
+            await Task.WhenAll(churners);
             await Task.WhenAll(blockers);
+            var bytes = GC.GetTotalAllocatedBytes(precise: true) - allocated;
+            output.WriteLine($"#4484 cost: allocated/frame={(double)bytes / ledger.Frames:F1} bytes; frames/s={ledger.Frames / clock.Elapsed.TotalSeconds:F1}; elapsed={clock.Elapsed.TotalSeconds:F3} s");
         }
         finally
         {
             release.Set();
             releaser?.Join();
-            foreach (var client in clients) await client.DisposeAsync();
-            foreach (var peer in peers) peer.Dispose();
-            output.WriteLine($"#3520: pairs={pairs}; seconds={seconds}; checked frames={ledger.Frames}; bad={ledger.Failures.Count}");
-            ledger.Failures.Should().BeEmpty(string.Join(Environment.NewLine, ledger.Failures));
+            await progressStop.CancelAsync();
+            await progress;
+            output.WriteLine($"#4484: closing checked connections; frames={ledger.Frames}; bad={ledger.Failures.Count}; teardowns={churnRounds}");
+            // Cleanup watchdogs must survive cancellation of the load's deadline.
+            try
+            {
+                foreach (var client in clients)
+                    #pragma warning disable xUnit1051
+                    await client.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(10));
+#pragma warning restore xUnit1051
+            }
+            finally
+            {
+                // A hung disposal must fail even after the load token has expired.
+#pragma warning disable xUnit1051
+                await Task.WhenAll(peers.Select(peer => Task.Run(peer.Dispose)))
+                    .WaitAsync(TimeSpan.FromSeconds(10));
+#pragma warning restore xUnit1051
+                output.WriteLine($"#3520: pairs={pairs}; seconds={seconds}; checked frames={ledger.Frames}; bad={ledger.Failures.Count}; teardowns={churnRounds}; memory after full GC={GC.GetTotalMemory(true)} bytes");
+                ledger.Failures.Should().BeEmpty(string.Join(Environment.NewLine, ledger.Failures));
+            }
         }
         ledger.Frames.Should().BeGreaterThan(pairs * 10);
         foreach (var method in new[] { "textDocument/didOpen", "textDocument/didChange", "textDocument/hover",

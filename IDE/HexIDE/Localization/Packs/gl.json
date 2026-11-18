@@ -2,6 +2,7 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} xa existe. Quere substituílo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} cargouse con erros, polo que non se pode gardar sobre o ficheiro orixinal. Escolla un nome de ficheiro novo.",
     "Str.ProjectLoad.PropertyNotSet": "Liña {0}: non se puido definir a propiedade {1} en {2}.",
     "Str.Menu.Edit.Refactor": "Re_factorizar",
@@ -332,6 +333,7 @@
     "Str.Menu.Help.LogFolder": "Abrir o cartafol de _rexistros de HexIDE",
     "Str.Help.LogFolder.OpenFailed": "Non se puido abrir o cartafol de rexistros. Pode abrilo manualmente: {0}",
     "Str.Menu.Help.About": "_Sobre HexIDE...",
+    "Str.Menu.MacApp.About": "Sobre HexIDE",
     "Str.Menu.GoToGithubRepo": "Ir ao repositorio de GitHub",
     "Str.ProjectType.StandardEXE": "EXE estándar",
     "Str.ProjectType.ActiveXEXE": "EXE ActiveX",

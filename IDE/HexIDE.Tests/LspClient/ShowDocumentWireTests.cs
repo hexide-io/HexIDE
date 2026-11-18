@@ -28,7 +28,7 @@ public class ShowDocumentWireTests : IAsyncDisposable
         transport.LeaveServerRunning.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(local, local, ci.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(local, local, ci.Arg<IJsonRpcMessageFormatter>())));
         _client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6", showDocument: show ?? _show);
         var starting = _client.StartAsync(Token);
         var initialize = await ReadAsync();

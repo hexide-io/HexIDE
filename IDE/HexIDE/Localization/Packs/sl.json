@@ -2,6 +2,7 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} že obstaja. Ali ga želite zamenjati?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} je bil naložen z napakami, zato ne more prepisati izvirne datoteke. Izberite novo ime datoteke.",
     "Str.ProjectLoad.PropertyNotSet": "Vrstica {0}: lastnosti {1} v {2} ni bilo mogoče nastaviti.",
     "Str.Menu.Edit.Refactor": "Pre_oblikovanje kode",
@@ -299,6 +300,7 @@
     "Str.Menu.Help.LogFolder": "Odpri mapo dnevni_kov HexIDE",
     "Str.Help.LogFolder.OpenFailed": "Mape dnevnikov ni bilo mogoče odpreti. Odprete jo lahko ročno: {0}",
     "Str.Menu.Help.About": "_O programu HexIDE...",
+    "Str.Menu.MacApp.About": "O programu HexIDE",
     "Str.Menu.GoToGithubRepo": "Pojdi v repozitorij GitHub",
     "Str.ProjectType.StandardEXE": "Standardni EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",

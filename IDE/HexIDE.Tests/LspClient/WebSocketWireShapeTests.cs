@@ -153,7 +153,7 @@ public class WebSocketWireShapeTests
         // this assertion saw an empty buffer roughly two runs in five. A read completes when the bytes
         // arrive, which is the only version of this that is not a race.
         var (mine, theirs) = FullDuplexStream.CreatePair();
-        var handler = new HeaderDelimitedMessageHandler(mine, mine, new SystemTextJsonFormatter());
+        var handler = new LspMessageHandler(mine, mine, new SystemTextJsonFormatter());
 
         await handler.WriteAsync(
             new JsonRpcRequest { RequestId = new RequestId(1), Method = "hexide/ping" },

@@ -11,6 +11,64 @@ namespace HexIDE.Tests.ViewModels;
 
 public class WatchesToolViewModelTests
 {
+    // Measured rows: docs/vb6-fidelity-oracle/a-watch-and-its-context.md (#4543).
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Interpreter_rows_follow_measured_context_then_expression_order(bool allModules)
+    {
+        var expressions = allModules ? new[] { "p", "Loc", "zq", "g", "1 + 1" } : new[] { "v", "m", "g" };
+        var contexts = allModules ? Enumerable.Repeat(WatchExpression.AllModulesContext, 5).ToArray()
+            : new[] { "Class1.X(Let)", "Class1", "Module1" };
+        var sut = CreateSut();
+        for (var i = 0; i < expressions.Length; ++i)
+            _watchService.Add(new WatchExpression(expressions[i], WatchType.Expression, contexts[i]));
+
+        sut.Rows.Select(r => r.Expression).Should().Equal(allModules
+            ? new[] { "1 + 1", "Loc", "g", "p", "zq" } : new[] { "m", "v", "g" });
+        _watchService.Watches.Select(w => w.Expression).Should().Equal(expressions);
+    }
+
+    [AvaloniaFact]
+    public void Blank_context_sorts_first_and_equal_rows_keep_added_order()
+    {
+        var named = new WatchExpression("a", WatchType.Expression, "Class1");
+        var first = new WatchExpression("z", WatchType.Expression, WatchExpression.AllModulesContext);
+        var second = new WatchExpression("z", WatchType.BreakWhenTrue, WatchExpression.AllModulesContext);
+        _watchService.Add(named);
+        _watchService.Add(first);
+        _watchService.Add(second);
+        var sut = CreateSut();
+
+        sut.Rows.Select(r => r.Watch).Should().Equal(first, second, named);
+        _watchService.Watches.Should().Equal(named, first, second);
+    }
+
+    [AvaloniaFact]
+    public async Task Editing_and_deleting_a_sorted_row_targets_its_definition()
+    {
+        var later = new WatchExpression("zq", WatchType.Expression, "Module1");
+        var earlier = new WatchExpression("g", WatchType.Expression, "Module1");
+        _watchService.Add(later);
+        _watchService.Add(earlier);
+        var sut = CreateSut();
+        sut.SelectedItem = sut.Rows[0];
+        await sut.EditSelected();
+        var dialog = (HexIDE.Forms.ViewModels.AddWatchDialogViewModel)
+            _windowManager.ReceivedCalls().Single(c => c.GetMethodInfo().Name == "ShowDialog").GetArguments()[0]!;
+        dialog.Expression = "zz";
+        dialog.OkCommand.Execute(null);
+
+        earlier.Expression.Should().Be("zz");
+        sut.Rows.Select(r => r.Watch).Should().Equal(later, earlier);
+        _watchService.Watches.Should().Equal(later, earlier);
+        sut.SelectedRow.Should().BeNull();
+        sut.SelectedItem = sut.Rows[0];
+        sut.DeleteSelected();
+        _watchService.Watches.Should().Equal(earlier);
+        sut.Rows.Single().Watch.Should().BeSameAs(earlier);
+    }
+
     [Fact]
     public void External_watch_dialog_disables_and_refuses_break_condition_types()
     {

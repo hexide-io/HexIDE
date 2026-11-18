@@ -98,7 +98,7 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
             new AddinOptionsService(), new ComponentRegistry(), runner,
             new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance), [],
-                NullLogger<LanguageServerContributions>.Instance),
+                NullLogger<LanguageServerContributions>.Instance, null),
             _launches, _types);
     }
 

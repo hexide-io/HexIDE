@@ -2,6 +2,7 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} badago lehendik. Ordeztu nahi duzu?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} erroreekin kargatu da, beraz ezin da jatorrizko fitxategia gainidatziz gorde. Aukeratu beste fitxategi-izen bat.",
     "Str.ProjectLoad.PropertyNotSet": "{0}. lerroa: ezin izan da {2} elementuaren {1} propietatea ezarri.",
     "Str.Menu.Edit.Refactor": "Birfaktorizat_u",
@@ -299,6 +300,7 @@
     "Str.Menu.Help.LogFolder": "Ireki HexIDEren _egunkari-karpeta",
     "Str.Help.LogFolder.OpenFailed": "Ezin izan da egunkari-karpeta ireki. Eskuz ireki dezakezu: {0}",
     "Str.Menu.Help.About": "HexIDEri _buruz...",
+    "Str.Menu.MacApp.About": "HexIDEri buruz",
     "Str.Menu.GoToGithubRepo": "Joan GitHub biltegira",
     "Str.ProjectType.StandardEXE": "EXE estandarra",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",

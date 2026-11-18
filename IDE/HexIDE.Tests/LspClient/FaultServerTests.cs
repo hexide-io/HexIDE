@@ -28,10 +28,11 @@ namespace HexIDE.Tests.LspClient;
 /// with the foreign-server tests and a follow-up.
 /// </para>
 /// </summary>
-public sealed class FaultServerTests : IAsyncDisposable
+public sealed class FaultServerTests(ITestOutputHelper output) : IAsyncDisposable
 {
     private static CancellationToken Token => TestContext.Current.CancellationToken;
     private readonly List<IAsyncDisposable> _owned = [];
+    private ILspTransport? _transport;
 
     public async ValueTask DisposeAsync()
     {
@@ -51,12 +52,12 @@ public sealed class FaultServerTests : IAsyncDisposable
         server.Start();
         _owned.Add(server);
 
-        var transport = Substitute.For<ILspTransport>();
+        var transport = _transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.CanReconnect.Returns(false);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
         var log = new RecordingLogger();
         var client = new VBLspClient(transport, log, DocumentLanguage.Vb6, workspace: null,
             initializeTimeout: TimeSpan.FromSeconds(10));
@@ -94,11 +95,13 @@ public sealed class FaultServerTests : IAsyncDisposable
         client.IsRunning.Should().BeTrue();
 
         var watch = Stopwatch.StartNew();
+        var stopClock = Stopwatch.StartNew();
         await Within(client.StopAsync(), TimeSpan.FromSeconds(10), "a server that ignores shutdown must not hold the client open");
 
         watch.Elapsed.Should().BeGreaterThanOrEqualTo(VBLspClient.ShutdownTimeout - TimeSpan.FromMilliseconds(100),
             "the client waits its shutdown deadline for an answer that never comes, and not less");
         await Eventually(() => server.Saw("exit"), TimeSpan.FromSeconds(5), "exit still follows an unanswered shutdown");
+        output.WriteLine($"StopAsync: {stopClock.Elapsed.TotalMilliseconds:F0} ms");
         client.IsRunning.Should().BeFalse();
     }
 
@@ -113,9 +116,12 @@ public sealed class FaultServerTests : IAsyncDisposable
 
         _ = client.OpenDocumentAsync(Uri, new string('x', 4 * 1024 * 1024), Token); // never completes: nobody reads it
 
+        var stopClock = Stopwatch.StartNew();
         await Within(client.StopAsync(), TimeSpan.FromSeconds(15),
             "a server that stops reading must not hold the client open, however full the pipe");
+        output.WriteLine($"StopAsync: {stopClock.Elapsed.TotalMilliseconds:F0} ms");
         client.IsRunning.Should().BeFalse();
+        _transport!.DidNotReceive().TryEndOutput();
     }
 
     // ---- Requests ----
@@ -173,7 +179,9 @@ public sealed class FaultServerTests : IAsyncDisposable
         await Within(hover, TimeSpan.FromSeconds(10), "a reply that stops halfway ends at the request's deadline");
         (await hover).Should().BeNull();
 
+        var stopClock = Stopwatch.StartNew();
         await Within(client.StopAsync(), TimeSpan.FromSeconds(15), "stopping does not wait for the rest of a stalled message");
+        output.WriteLine($"StopAsync: {stopClock.Elapsed.TotalMilliseconds:F0} ms");
     }
 
     [Fact]

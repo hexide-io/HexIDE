@@ -1,0 +1,5 @@
+#nullable enable
+HexIDE.Addins.ServerChatToolResult.ReasonArguments.get -> object![]?
+HexIDE.Addins.ServerChatToolResult.ReasonArguments.init -> void
+HexIDE.Addins.ServerChatToolResult.ReasonKey.get -> string?
+HexIDE.Addins.ServerChatToolResult.ReasonKey.init -> void

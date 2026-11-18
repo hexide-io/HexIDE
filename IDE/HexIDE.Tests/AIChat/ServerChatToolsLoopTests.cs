@@ -136,7 +136,7 @@ public sealed class ServerChatToolsLoopTests : IAsyncDisposable
         var tools = new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), router,
             new LanguageServerRegistrationFactory(_loggerFactory),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
-            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>()).ChatTools;
+            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>(), null).ChatTools;
         await router.OpenDocumentAsync("file:///c:/p/README.md", "x", Token);
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(Token);

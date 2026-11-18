@@ -2,6 +2,7 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} bestaat al. Wilt u het vervangen?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} is met fouten geladen en kan daarom het oorspronkelijke bestand niet overschrijven. Kies een nieuwe bestandsnaam.",
     "Str.ProjectLoad.PropertyNotSet": "Regel {0}: eigenschap {1} in {2} kon niet worden ingesteld.",
     "Str.Menu.Edit.Refactor": "Re_factoren",
@@ -372,6 +373,7 @@
     "Str.Menu.Help.LogFolder": "HexIDE-_logboekmap openen",
     "Str.Help.LogFolder.OpenFailed": "De logboekmap kon niet worden geopend. U kunt deze handmatig openen: {0}",
     "Str.Menu.Help.About": "_Over HexIDE...",
+    "Str.Menu.MacApp.About": "Over HexIDE",
     "Str.Menu.GoToGithubRepo": "Ga naar github-repo",
     "Str.NewProject.NoTemplates": "Dit profiel biedt geen sjablonen voor nieuwe projecten. Open een bestaand project.",
     "Str.NewProject.Msg.NoStandardExe": "In {0} is geen projecttype geïnstalleerd dat een Standard EXE-project maakt. Daarom is het programma zonder project gestart.",

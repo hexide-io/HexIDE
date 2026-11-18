@@ -2,6 +2,7 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} on juba olemas. Kas soovite selle asendada?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} laaditi vigadega, seega ei saa seda algse faili peale salvestada. Valige uus failinimi.",
     "Str.ProjectLoad.PropertyNotSet": "Rida {0}: omadust {1} elemendis {2} ei saanud määrata.",
     "Str.Menu.Edit.Refactor": "_Refaktoreeri",
@@ -299,6 +300,7 @@
     "Str.Menu.Help.LogFolder": "Ava HexIDE _logikaust",
     "Str.Help.LogFolder.OpenFailed": "Logikausta ei saanud avada. Saate selle käsitsi avada: {0}",
     "Str.Menu.Help.About": "_Teave HexIDE kohta...",
+    "Str.Menu.MacApp.About": "Teave HexIDE kohta",
     "Str.Menu.GoToGithubRepo": "Ava GitHubi hoidla",
     "Str.ProjectType.StandardEXE": "Standardne EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",

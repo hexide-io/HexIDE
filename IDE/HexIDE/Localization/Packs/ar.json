@@ -2,6 +2,7 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} موجود بالفعل. هل تريد استبداله؟",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "تم تحميل {0} مع وجود أخطاء، لذا لا يمكن حفظه فوق ملفه الأصلي. اختر اسم ملف جديدًا.",
     "Str.ProjectLoad.PropertyNotSet": "السطر {0}: تعذر تعيين الخاصية {1} في {2}.",
     "Str.Menu.Edit.Refactor": "إعادة الهيكلة",
@@ -371,6 +372,7 @@
     "Str.Menu.Help.LogFolder": "فتح مجلد سجلات HexIDE",
     "Str.Help.LogFolder.OpenFailed": "تعذر فتح مجلد السجلات. يمكنك فتحه يدويًا: {0}",
     "Str.Menu.Help.About": "حول HexIDE...",
+    "Str.Menu.MacApp.About": "حول HexIDE",
     "Str.Menu.GoToGithubRepo": "الانتقال إلى مستودع github",
     "Str.NewProject.NoTemplates": "لا يوفر ملف التعريف هذا قوالب مشاريع جديدة. افتح مشروعًا موجودًا بدلاً من ذلك.",
     "Str.NewProject.Msg.NoStandardExe": "لا يوجد في {0} نوع مشروع مثبت ينشئ مشروع Standard EXE، لذا بدأ دون مشروع.",

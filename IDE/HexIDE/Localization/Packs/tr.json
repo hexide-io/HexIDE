@@ -2,6 +2,7 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} zaten var. Değiştirmek istiyor musunuz?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} hatalarla yüklendiği için özgün dosyasının üzerine kaydedilemez. Yeni bir dosya adı seçin.",
     "Str.ProjectLoad.PropertyNotSet": "Satır {0}: {2} içindeki {1} özelliği ayarlanamadı.",
     "Str.Menu.Edit.Refactor": "Ye_niden düzenle",
@@ -338,6 +339,7 @@
     "Str.Menu.Help.LogFolder": "HexIDE _Günlük Klasörünü Aç",
     "Str.Help.LogFolder.OpenFailed": "Günlük klasörü açılamadı. Elle açabilirsiniz: {0}",
     "Str.Menu.Help.About": "HexIDE _Hakkında...",
+    "Str.Menu.MacApp.About": "HexIDE Hakkında",
     "Str.Menu.GoToGithubRepo": "github deposuna git",
     "Str.NewProject.NoTemplates": "Bu profil yeni proje şablonu sunmuyor. Bunun yerine mevcut bir projeyi açın.",
     "Str.NewProject.Msg.NoStandardExe": "{0} içinde Standard EXE projesi oluşturan bir proje türü yüklü olmadığından program projesiz başlatıldı.",

@@ -983,6 +983,12 @@ The process exit code SHALL remain observable in the conversation during client 
 except for a timeout termination after a successful `shutdown` answer and a sent `exit`: that end SHALL
 be recorded once as a stop with the elapsed grace period, without a fault or killed-process exit code.
 Natural non-zero exits and kills without a successful shutdown SHALL retain their exit code and fault.
+After a successfully sent `exit`, an owned stdio or TCP connection SHALL end its send side and wait
+at most one second for server output to end before disposing RPC, then disposing the transport.
+The client SHALL skip this wait if sending `exit` times out, half-close is unsupported, or the server
+is externally owned. Each byte-stream connection SHALL use its own read-buffer pool, whose owners
+return each array at most once even when read-loop completion races handler disposal (#4484).
+The registry SHALL stop its servers concurrently, so their stop waits overlap.
 After sending `shutdown`, the client SHALL send no request or notification but `exit` on that connection.
 Pending workspace-folder updates, project imports and cancellations SHALL be dropped for the old
 connection rather than queued for it. Replies to the server's own requests SHALL still be sent. When a connection ends, its unanswered requests SHALL be recorded as Abandoned.
@@ -1301,7 +1307,8 @@ independently of other servers.
 The client SHALL route offered actions and lenses to their producing connection, sending declared commands
 to the server before considering an add-in claim. Otherwise a claimed handler SHALL run on the thread pool
 with the original arguments and cancellation on contribution removal or client stop. Core client commands
-SHALL retain precedence. Handler failures SHALL be logged in full but displayed with their message only.
+SHALL retain precedence except for rdcore.rename and rdcore.showReferences when the offering connection
+claims them (#4259). Handler failures SHALL be logged in full but displayed with their message only.
 
 A connection SHALL expose checked edit application only while its claimed handler task remains incomplete.
 It SHALL share the server edit applier and command-window tracking, using the snapshot at handler start
@@ -3280,3 +3287,32 @@ and cancel its predecessor on the connection.
 - **WHEN** a document closes on a connection offering workspace diagnostics
 - **THEN** its last findings remain until a workspace answer replaces them
 - **AND** a connection without that capability retains its existing close-clearing behaviour
+### Requirement: Claimed commands can request shared code-window actions
+
+The host SHALL expose StartRenameAsync and ShowReferencesAsync only within a running claimed handler
+on that connection, marshalled to the UI thread through core's shared actions. Outside that window both
+SHALL throw InvalidOperationException and show nothing. An offering connection's claim SHALL precede
+core's rdcore.rename and rdcore.showReferences cases; editor.action.rename and
+editor.action.showReferences SHALL remain core's.
+
+#### Scenario: An add-in takes over a compatibility command
+- **GIVEN** a server's add-in claims rdcore.rename or rdcore.showReferences
+- **WHEN** the user runs that server's action or lens carrying the command
+- **THEN** the command routes through that connection and core's compatibility case does not run
+
+#### Scenario: A handler requests a rename in another document
+- **WHEN** a running claimed handler calls StartRenameAsync with an available document and valid position
+- **THEN** the document opens, the position is checked, the caret navigates, and the existing rename prompt or refusal is shown
+- **AND** the host returns true
+
+#### Scenario: A rename target is unavailable
+- **WHEN** a running claimed handler calls StartRenameAsync with an unavailable document or out-of-range position
+- **THEN** the host returns false without a rename prompt
+
+#### Scenario: A handler supplies reference locations
+- **WHEN** a running claimed handler calls ShowReferencesAsync
+- **THEN** the supplied locations populate Find References
+
+#### Scenario: A host call outlives its authorization
+- **WHEN** the add-in calls either action without a running claimed handler on its connection
+- **THEN** InvalidOperationException is thrown and no UI is shown

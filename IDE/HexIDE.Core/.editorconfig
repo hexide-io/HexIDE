@@ -1,0 +1,13 @@
+[*.cs]
+# Only the add-in SDK is baselined; Core's other public abstractions remain outside this contract.
+dotnet_diagnostic.RS0016.severity = none
+
+# Existing SDK overloads use optional parameters; changing them would itself break compiled add-ins.
+dotnet_diagnostic.RS0026.severity = none
+# Preserve existing optional overloads rather than changing product code while baselining it.
+dotnet_diagnostic.RS0027.severity = none
+# JSON source generators emit oblivious framework types; the baseline retains their ~ annotations.
+dotnet_diagnostic.RS0041.severity = none
+
+[Addins/**.cs]
+dotnet_diagnostic.RS0016.severity = error

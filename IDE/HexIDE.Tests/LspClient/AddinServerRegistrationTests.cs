@@ -49,7 +49,7 @@ public class AddinServerRegistrationTests : IDisposable
         new(Substitute.For<HexIDE.IDE.ISettingsService>(), router, new LanguageServerRegistrationFactory(_loggerFactory),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
             configured.ToHashSet(StringComparer.Ordinal),
-            _loggerFactory.CreateLogger<LanguageServerContributions>());
+            _loggerFactory.CreateLogger<LanguageServerContributions>(), null);
 
     /// <summary>
     /// A macOS runner's temp directory: a session's own folder under <c>/var/folders/</c>, 49 characters as the CI
@@ -93,7 +93,7 @@ public class AddinServerRegistrationTests : IDisposable
             var contributions = new LanguageServerContributions(settings, router,
                 new LanguageServerRegistrationFactory(_loggerFactory),
                 new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
-                new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>());
+                new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>(), null);
             await using var connection = contributions.Register(new AddinLanguageServer(PipeEntry("one", name)), "Same title");
             await using var other = contributions.Register(new AddinLanguageServer(PipeEntry("two", otherName)), "Same title");
             var options = new HexIDE.Addins.AddinOptionsService();
@@ -175,7 +175,7 @@ public class AddinServerRegistrationTests : IDisposable
             var contributions = new LanguageServerContributions(settings, router,
                 new LanguageServerRegistrationFactory(_loggerFactory),
                 new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
-                new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>());
+                new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>(), null);
             var connection = contributions.Register(new AddinLanguageServer(PipeEntry("one", name)), "Owner");
             await router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
             await server.Initialized.WaitAsync(TimeSpan.FromSeconds(30), Token);
@@ -220,7 +220,7 @@ public class AddinServerRegistrationTests : IDisposable
             var contributions = new LanguageServerContributions(settings, router,
                 new LanguageServerRegistrationFactory(_loggerFactory),
                 new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
-                new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>());
+                new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>(), null);
             var entry = PipeEntry("one", name);
             entry.Settings = JsonDocument.Parse("""{"rdcore":{"fromEntry":true}}""").RootElement.Clone();
             await using var connection = contributions.Register(new AddinLanguageServer(entry), "Owner");
@@ -699,7 +699,7 @@ public class AddinServerRegistrationTests : IDisposable
         var router = Router();
         var contributions = new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), router, new LanguageServerRegistrationFactory(_loggerFactory),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
-            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>(), clock: clock);
+            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>(), null, clock: clock);
         var told = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var connection = contributions.Register(new AddinLanguageServer(PipeEntry("probe", PipeName()))
         {
@@ -749,7 +749,7 @@ public class AddinServerRegistrationTests : IDisposable
         var router = Router();
         var contributions = new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), router, new LanguageServerRegistrationFactory(_loggerFactory),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
-            new HashSet<string>(StringComparer.Ordinal), logged, clock: clock);
+            new HashSet<string>(StringComparer.Ordinal), logged, null, clock: clock);
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var connection = contributions.Register(new AddinLanguageServer(PipeEntry("probe", PipeName()))
         {
@@ -1207,7 +1207,7 @@ public class AddinServerRegistrationTests : IDisposable
         using var pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         var serving = pipe.WaitForConnectionAsync(Token).ContinueWith(_ =>
         {
-            var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(pipe, pipe, new SystemTextJsonFormatter()), server);
+            var rpc = new JsonRpc(new LspMessageHandler(pipe, pipe, new SystemTextJsonFormatter()), server);
             server.Rpc = rpc;
             rpc.StartListening();
             return rpc;
@@ -1217,7 +1217,7 @@ public class AddinServerRegistrationTests : IDisposable
         var router = Router();
         var contributions = new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), router, new LanguageServerRegistrationFactory(_loggerFactory, capture: capture),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
-            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>());
+            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>(), null);
         var asked = new TaskCompletionSource<JsonElement?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var connection = contributions.Register(new AddinLanguageServer(PipeEntry("probe", pipeName))
         {
@@ -1280,7 +1280,7 @@ public class AddinServerRegistrationTests : IDisposable
         var router = Router();
         var contributions = new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), router, new LanguageServerRegistrationFactory(_loggerFactory, capture: capture),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
-            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>());
+            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>(), null);
         await using var connection = contributions.Register(
             new AddinLanguageServer(PipeEntry("probe", pipeName)) { MessagePrefix = "probe/" }, "My Add-in");
         await router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
@@ -1382,6 +1382,8 @@ public class AddinServerRegistrationTests : IDisposable
         await router.OpenDocumentAsync(uri, "# hi", Token);
         var lenses = await router.RequestCodeLensesAsync(uri, Token);
         lenses.Should().HaveCount(2);
+        router.IsClaimedCodeLensCommand(lenses[0].Command!).Should().BeTrue();
+        router.IsClaimedCodeLensCommand(lenses[1].Command!).Should().BeFalse();
         var otherActions = await other.Client!.RequestCodeActionsAsync(uri, new(new(0, 0), new(0, 1)), [], Token);
         otherActions[0].CanExecute!(otherActions[0].Command!).Should().BeFalse();
         await otherActions[0].Execute!(otherActions[0].Command!, Token);
@@ -1417,7 +1419,7 @@ public class AddinServerRegistrationTests : IDisposable
                     try { await pipe.WaitForConnectionAsync(_stop.Token); }
                     catch (OperationCanceledException) { await pipe.DisposeAsync(); return; }
                     var probe = server();
-                    var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(pipe, pipe, new SystemTextJsonFormatter()), probe);
+                    var rpc = new JsonRpc(new LspMessageHandler(pipe, pipe, new SystemTextJsonFormatter()), probe);
                     probe.Rpc = rpc;
                     rpc.StartListening();
                     lock (_connections) _connections.Add((pipe, rpc));
@@ -1440,7 +1442,7 @@ public class AddinServerRegistrationTests : IDisposable
         var router = new LspClientRegistry([], _loggerFactory.CreateLogger<LspClientRegistry>(), workspace);
         return (new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), router, new LanguageServerRegistrationFactory(_loggerFactory),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
-            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>()), router);
+            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>(), null), router);
     }
 
     [Fact]

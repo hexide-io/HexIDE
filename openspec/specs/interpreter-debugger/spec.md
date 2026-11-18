@@ -365,6 +365,13 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **AND** a watch stored as `Module.Name(Get)` SHALL evaluate only while that accessor runs, reading `<Out of context>` while another accessor of the same property runs (measured, #4401)
 - **AND** the shared VB-family collector SHALL collect Sub, Function, Property Get/Let/Set, Enum and Type headers without binding names or selecting conditional-compilation branches
 
+#### Scenario: A watch scoped to another module
+- **WHEN** the program is paused in one module and a watch is scoped to another
+- **THEN** a watch scoped to a procedure SHALL read that procedure's frame below the paused one, in whichever module it is, and SHALL read `<Out of context>` with no such frame (measured one frame down across modules, #4481)
+- **AND** a watch scoped to a class or form SHALL read the instance whose procedure is on the call stack below the paused one, and SHALL read `<Out of context>` with none there (measured for a class, #4481)
+- **AND** a watch scoped to a standard module SHALL evaluate at that module's scope wherever the program is paused, the module on the call stack or not (measured, #4481)
+- **AND** it SHALL never evaluate in the paused frame instead, where a name of the same spelling could give another variable's value
+
 #### Scenario: A watch on (All Modules)
 - **WHEN** the developer opens Add Watch
 - **THEN** the Module list SHALL start with `(All Modules)`, which offers `(All Procedures)` alone, and SHALL default to it when no code window is active and no program is paused (measured, #4452)
@@ -385,6 +392,15 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **WHEN** the IDE language changes
 - **THEN** the all-procedures context label SHALL refresh in existing Watches rows and the Add/Edit Watch dialog
 - **AND** named module/procedure contexts SHALL remain unchanged
+
+#### Scenario: The Watches window's row order
+- **WHEN** interpreter watch rows are rebuilt after adding, editing or deleting a watch
+- **THEN** the window SHALL sort by displayed Context, then Expression, both ordinal, with a blank Context first
+- **AND** equal Context and Expression SHALL retain added order, without reordering the watch store
+- **AND** `get_watches` SHALL return interpreter watches in that same order while retaining their stored context fields
+- **AND** external debugger watches SHALL retain their existing order
+- **AND** the measured rows SHALL be `m`, `v`, `g` for contexts `Class1`, `Class1.X(Let)`, `Module1`, and `1 + 1`, `Loc`, `g`, `p`, `zq` within a blank Context ([measurement](../../../docs/vb6-fidelity-oracle/a-watch-and-its-context.md), #4543)
+- **NOTE** Equal-row stability is HexIDE's retained behaviour; VB6 ties, Contexts differing only in case, and immediate re-sorting on add remain unmeasured.
 
 #### Scenario: Watching a value across breaks
 - **WHEN** an expression watch exists and the program breaks

@@ -2,6 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} findes allerede. Vil du erstatte den?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} blev indlæst med fejl og kan derfor ikke overskrive den oprindelige fil. Vælg et nyt filnavn.",
     "Str.ProjectLoad.PropertyNotSet": "Linje {0}: Egenskaben {1} i {2} kunne ikke angives.",
     "Str.Menu.Edit.Refactor": "_Refaktorer",
@@ -338,6 +339,7 @@
     "Str.Menu.Help.LogFolder": "Åbn HexIDE-_logmappen",
     "Str.Help.LogFolder.OpenFailed": "Logmappen kunne ikke åbnes. Du kan åbne den manuelt: {0}",
     "Str.Menu.Help.About": "_Om HexIDE...",
+    "Str.Menu.MacApp.About": "Om HexIDE",
     "Str.Menu.GoToGithubRepo": "Gå til GitHub-lager",
     "Str.NewProject.NoTemplates": "Denne profil tilbyder ingen nye projektskabeloner. Åbn et eksisterende projekt i stedet.",
     "Str.NewProject.Msg.NoStandardExe": "{0} har ingen installeret projekttype, der opretter et Standard EXE-projekt, og startede derfor uden et projekt.",

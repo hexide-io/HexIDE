@@ -2,6 +2,7 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} ist bereits vorhanden. Möchten Sie die Datei ersetzen?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} wurde mit Fehlern geladen und kann daher seine ursprüngliche Datei nicht überschreiben. Wählen Sie einen neuen Dateinamen.",
     "Str.ProjectLoad.PropertyNotSet": "Zeile {0}: Die Eigenschaft {1} in {2} konnte nicht festgelegt werden.",
     "Str.Menu.Edit.Refactor": "Refa_ctoring",
@@ -371,6 +372,7 @@
     "Str.Menu.Help.LogFolder": "HexIDE-_Logordner öffnen",
     "Str.Help.LogFolder.OpenFailed": "Der Logordner konnte nicht geöffnet werden. Sie können ihn manuell öffnen: {0}",
     "Str.Menu.Help.About": "Ü_ber HexIDE...",
+    "Str.Menu.MacApp.About": "Über HexIDE",
     "Str.Menu.GoToGithubRepo": "Zum GitHub-Repository wechseln",
     "Str.NewProject.NoTemplates": "Dieses Profil bietet keine Vorlagen für neue Projekte. Öffnen Sie stattdessen ein vorhandenes Projekt.",
     "Str.NewProject.Msg.NoStandardExe": "In {0} ist kein Projekttyp installiert, der ein Standard-EXE-Projekt erstellt. Daher wurde ohne Projekt gestartet.",

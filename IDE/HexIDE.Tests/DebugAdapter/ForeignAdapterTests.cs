@@ -44,7 +44,19 @@ public class ForeignAdapterTests
     [ForeignAdapterFact("netcoredbg")]
     public Task Netcoredbg_runs_a_complete_session() => Run("netcoredbg");
 
-    private static async Task Run(string adapter)
+    [ForeignAdapterFact("netcoredbg")]
+    public async Task Netcoredbg_launch_failure_includes_the_native_call_log()
+    {
+        var run = () => Run("netcoredbg", missingProgram: true);
+
+        var failure = (await run.Should().ThrowAsync<Exception>()).Which;
+        failure.Message.Should().MatchRegex(@"CreateProcessForLaunch[^\r\n]* : 0x[0-9a-fA-F]{8}");
+        failure.Message.Should().Contain("netcoredbg log:").And.Contain("Adapter stderr tail:");
+        failure.Should().BeOfType<IOException>();
+        failure.InnerException.Should().BeOfType<DapRequestException>();
+    }
+
+    private static async Task Run(string adapter, bool missingProgram = false)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Token);
         deadline.CancelAfter(TimeSpan.FromSeconds(90));
@@ -54,6 +66,7 @@ public class ForeignAdapterTests
         await using var log = new ConversationLog();
         log.Arm(adapter, true);
         Task<DapProcessResult>? adapterEnded = null;
+        var nativeLog = adapter == "netcoredbg" ? Path.Combine(directory, "netcoredbg.log") : null;
         try
         {
             var python = adapter == "debugpy";
@@ -70,10 +83,12 @@ public class ForeignAdapterTests
                 var project = Path.Combine(directory, "Probe.csproj");
                 await File.WriteAllTextAsync(project,
                     "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net11.0</TargetFramework><DebugType>portable</DebugType><Optimize>false</Optimize></PropertyGroup></Project>", token);
-                await Build(project, directory, token);
-                launch = JsonSerializer.SerializeToElement(new { program = Path.Combine(directory, "bin", "Debug", "net11.0", "Probe.dll"), cwd = directory });
+                if (!missingProgram) await Build(project, directory, token);
+                launch = JsonSerializer.SerializeToElement(new { program = missingProgram ? Path.Combine(directory, "missing-executable") : Path.Combine(directory, "bin", "Debug", "net11.0", "Probe.dll"), cwd = directory });
             }
             var options = ForeignAdapterAcquisition.Resolve(adapter).Options! with { WorkingDirectory = directory, Capture = new(log, adapter) };
+            if (nativeLog is not null)
+                options = options with { Environment = new Dictionary<string, string?>(options.Environment) { ["LOG_OUTPUT"] = nativeLog } };
             await using var session = DapSession.Start(options);
             adapterEnded = session.ProcessCompletion;
             var stoppedEvent = new TaskCompletionSource<DapSessionUpdate>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -135,10 +150,20 @@ public class ForeignAdapterTests
                 if (entry.AnswerSequence is { } answer && log.Body(adapter, answer) is { } reply)
                     TestContext.Current.TestOutputHelper?.WriteLine(System.Text.Encoding.UTF8.GetString(reply.Head));
             }
-            // A run's log shows only the exception, and "the connection closed" doesn't say why the adapter left.
-            if (error is IOException && adapterEnded is { IsCompletedSuccessfully: true } ended)
-                throw new IOException($"{adapter} ended the connection with exit code {ended.Result.ExitCode}: {ended.Result.StandardErrorTail}", error);
-            throw;
+            var diagnostics = "";
+            if (nativeLog is not null)
+            {
+                string contents;
+                try { contents = File.Exists(nativeLog) ? await File.ReadAllTextAsync(nativeLog, Token) : "(missing)"; }
+                catch (Exception readError) when (readError is IOException or UnauthorizedAccessException)
+                { contents = $"(unreadable: {readError.Message})"; }
+                if (contents.Length == 0) contents = "(empty)";
+                TestContext.Current.TestOutputHelper?.WriteLine($"netcoredbg log:\n{contents}");
+                diagnostics = $"\nnetcoredbg log:\n{string.Join("\n", contents.ReplaceLineEndings("\n").Split('\n').TakeLast(40))}";
+            }
+            var stderr = adapterEnded is { IsCompletedSuccessfully: true } ended
+                ? $"exit code {ended.Result.ExitCode}: {ended.Result.StandardErrorTail}" : "(unavailable)";
+            throw new IOException($"{adapter}: {error.Message}{diagnostics}\nAdapter stderr tail: {stderr}", error);
         }
         finally { DeleteWhenReleased(directory); }
     }

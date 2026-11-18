@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace HexIDE.Tests.LspClient;
 
-public class SlowShutdownTests
+public class SlowShutdownTests(ITestOutputHelper output)
 {
     [Theory]
     [InlineData(false, "slow")]
@@ -45,6 +45,7 @@ public class SlowShutdownTests
         client.IsRunning.Should().BeTrue();
         var elapsed = Stopwatch.StartNew();
         await client.StopAsync().WaitAsync(TimeSpan.FromSeconds(20), token);
+        output.WriteLine($"StopAsync: {elapsed.Elapsed.TotalMilliseconds:F0} ms");
         await log.DrainAsync();
         killHeldExitGate.Should().NotBeNull($"the {mode} server must outlast the exit wait; stop took {elapsed.Elapsed.TotalMilliseconds:F0} ms");
         killHeldExitGate.Should().BeFalse("process termination must never hold the exit handler's lock (#3217)");

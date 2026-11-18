@@ -51,6 +51,8 @@ same commands without a `dotnet` prefix. No CI artifact is added by this command
 - `HexIDE.AddinPacker.exe sign-revocations --in IDE/HexIDE/Addins/Trust/revocations.json --root-key signing/root/root.key --out signing/revocations`
 - `signing/revocations/revocations.json` → `IDE/HexIDE/Addins/Trust/revocations.json`
 - `signing/revocations/revocations.sig` → `IDE/HexIDE/Addins/Trust/revocations.sig`
+- `dotnet run --project IDE/HexIDE.AddinPacker/ -- verify-revocations --json IDE/HexIDE/Addins/Trust/revocations.json --sig IDE/HexIDE/Addins/Trust/revocations.sig --root IDE/HexIDE/Addins/Trust/hexide-root.pub`, after the copy and on the committed files, since the check is on the bytes the build embeds
+- publish the same two files at `https://hexide.io/revocations.json` and `.sig`, and set `REVOCATIONS_MUST_VERIFY` to 1 in `.github/workflows/publish.yml`
 - `signing/public/hexide-root.pub` → `IDE/HexIDE.AddinPacker/firstparty/hexide-root.pub`
 - `signing/public/hexide-firstparty.pub` → `IDE/HexIDE.AddinPacker/firstparty/hexide-firstparty.pub`
 - `signing/public/intermediate.json` → `IDE/HexIDE.AddinPacker/firstparty/intermediate.json`
@@ -60,6 +62,16 @@ same commands without a `dotnet` prefix. No CI artifact is added by this command
 - `signing/firstparty/firstparty.key` → `HEXIDE_FIRSTPARTY_KEY` (CI secret)
 - `IDE/HexIDE.AddinPacker/firstparty/README.md`
 - `TRUST.md` — `HexIDE root`, `First-party publisher` SHA-256 fingerprints
+
+## Checking a revocation list
+
+`verify-revocations --json <file> --sig <file> --root <public key>` needs no private key. It reads the list as the IDE's
+revocation store does: the JSON's exact bytes, the signature's text trimmed, then the JSON parsed. It exits 0 when the
+list would be accepted, 2 when it wouldn't, and 1 for a usage or file error. A list re-saved with other line endings no
+longer verifies, so check the bytes that ship, not a copy.
+
+`.github/workflows/publish.yml` runs it against hexide.io's list on every release, and a list that doesn't verify fails
+the release. `REVOCATIONS_MUST_VERIFY: 0` in that workflow makes it a warning instead.
 
 ## Replacing package output
 

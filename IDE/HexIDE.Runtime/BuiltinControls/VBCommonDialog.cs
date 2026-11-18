@@ -42,7 +42,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
     // Members VB6's CommonDialog has that this doesn't model: refused as not implemented, since 438 would say it has none.
     private static readonly HashSet<string> NotModelled = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Action", "hDC", "HelpContext",
+        "Action", "hDC",
     };
 
     internal IBasicStandardLibrary host;
@@ -51,7 +51,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
     private short maxFileSize = 260, copies = 1, fromPage, toPage, min, max, orientation = 1, helpCommand;
     private string helpFile = "", helpKey = "";
     private bool printerDefault = true, fontUnderline, fontStrikethru;
-    private int flags, color;
+    private int flags, color, helpContext;
     private bool cancelError, fontBold, fontItalic;
     private float fontSize = 8;
     private bool filterIndexUnknown, printAccepted;
@@ -75,7 +75,10 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             throw new NotImplementedException($"A CommonDialog's {name}, set in the form's file, is not implemented (#1084)");
     }
 
-    public bool TryGetProperty(string name, out Vb6Value value)
+    // The raw property bag is Automation-facing; the interpreter supplies the declared receiver binding (#4513).
+    public bool TryGetProperty(string name, out Vb6Value value) => TryGetProperty(name, out value, true);
+
+    internal bool TryGetProperty(string name, out Vb6Value value, bool throughObject)
     {
         Vb6Value? found = name.ToLowerInvariant() switch
         {
@@ -91,6 +94,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             "min" => new Vb6Value((int)min),
             "max" => new Vb6Value((int)max),
             "orientation" => new Vb6Value((int)orientation),
+            "helpcontext" => new Vb6Value((long)helpContext),
             "helpcommand" => new Vb6Value((int)helpCommand),
             "helpfile" => new Vb6Value(helpFile),
             "helpkey" => new Vb6Value(helpKey),
@@ -114,7 +118,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             "fontsize" => new Vb6Value(fontSize),
             "fontbold" => new Vb6Value(fontBold),
             "fontitalic" => new Vb6Value(fontItalic),
-            "color" => Vb6Value.NewAutomationUnsignedLong(unchecked((uint)color)),
+            "color" => throughObject ? Vb6Value.NewAutomationUnsignedLong(unchecked((uint)color)) : new Vb6Value((long)color),
             _ when NotModelled.Contains(name) => throw new NotImplementedException($"A CommonDialog's {name} is not implemented (#1084)"),
             _ => (Vb6Value?)null,
         };
@@ -122,7 +126,9 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
         return found is not null;
     }
 
-    public bool TrySetProperty(string name, Vb6Value value)
+    public bool TrySetProperty(string name, Vb6Value value) => TrySetProperty(name, value, true);
+
+    internal bool TrySetProperty(string name, Vb6Value value, bool throughObject)
     {
         switch (name.ToLowerInvariant())
         {
@@ -136,6 +142,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             case "min": min = Integer(value); return true;
             case "max": max = Integer(value); return true;
             case "orientation": orientation = Integer(value, n => n is 1 or 2); return true;
+            case "helpcontext": helpContext = (int)Number(value, Vb6Value.ValueType.Long); return true;
             case "helpcommand": helpCommand = Integer(value); return true;
             case "helpfile": helpFile = Text(value); return true;
             case "helpkey": helpKey = Text(value); return true;
@@ -162,9 +169,16 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             case "fontbold": fontBold = (bool)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value!; return true;
             case "fontitalic": fontItalic = (bool)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value!; return true;
             case "color":
-                var assigned = (int)Number(value, Vb6Value.ValueType.Long);
-                if (assigned == -1 && (value.Type == Vb6Value.ValueType.Integer || value.Type == Vb6Value.ValueType.Long))
-                    throw new VBRunTimeException(VBStandardError.Overflow);
+                // The late-bound conversion rows do not form a general unsigned conversion rule (#4513).
+                if (throughObject && value.IsNull)
+                    throw new VBRunTimeException(VBStandardError.TypeMismatch);
+                if (throughObject && (value.Value is true || value.Value is double last && last == 4294967295d))
+                    throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+                var assigned = throughObject && value.Value is double system && system == 2147483653d
+                    ? unchecked((int)2147483653u)
+                    : (int)Number(value, Vb6Value.ValueType.Long, allowAutomationUnsignedLong: !throughObject);
+                if (assigned == -1 && (!throughObject || value.Type == Vb6Value.ValueType.Integer || value.Type == Vb6Value.ValueType.Long))
+                    throw new VBRunTimeException(throughObject ? VBStandardError.Overflow : VBStandardError.InvalidPropertyValue);
                 color = assigned;
                 return true;
             case "filetitle":
@@ -180,13 +194,13 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
     {
         if (!name.Equals("Action", StringComparison.OrdinalIgnoreCase))
             return false;
-        // The dialog mappings and these invalid integral values have been measured.
-        if (value.Type != Vb6Value.ValueType.Integer && value.Type != Vb6Value.ValueType.Long)
-            throw new NotImplementedException("CommonDialog Action assignment conversion is not measured (#1084)");
-        switch (Convert.ToInt64(value.Value, CultureInfo.InvariantCulture))
+        // #4515: Integer storage errors precede validation of the action number.
+        var action = (int)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Integer, null).Value!;
+        switch (action)
         {
             case >= 1 and <= 6:
-                var action = Convert.ToInt32(value.Value, CultureInfo.InvariantCulture);
+                if (value.Type != Vb6Value.ValueType.Integer && value.Type != Vb6Value.ValueType.Long)
+                    throw new NotImplementedException("CommonDialog Action assignment conversion opening a dialog is not measured (#4148)");
                 await CallAsync(action switch
                 {
                     1 => "ShowOpen",
@@ -197,10 +211,8 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
                     _ => "ShowHelp",
                 }, []);
                 return true;
-            case 0 or 7 or 8 or -1:
-                throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
             default:
-                throw new NotImplementedException("This CommonDialog Action value is not measured (#1084)");
+                throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
         }
     }
 
@@ -217,8 +229,8 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
 
     private static string Text(Vb6Value value) => (string)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).Value!;
 
-    private static double Number(Vb6Value value, Vb6Value.ValueType type) =>
-        Convert.ToDouble(VbNumeric.CoerceOnStore(value, type, null).Value, CultureInfo.InvariantCulture);
+    private static double Number(Vb6Value value, Vb6Value.ValueType type, bool allowAutomationUnsignedLong = true) =>
+        Convert.ToDouble(VbNumeric.CoerceOnStore(value, type, null, allowAutomationUnsignedLong).Value, CultureInfo.InvariantCulture);
 
     /// <summary>Whether <paramref name="method"/> is one of this control's own; any other is the control's as for any.</summary>
     public static bool Handles(string method) => method.ToLowerInvariant() is

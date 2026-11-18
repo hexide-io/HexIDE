@@ -81,3 +81,27 @@ and otherwise the focused button, which Enter clicks whatever `Default` says (ke
 - a Default button on a frame or other container, or inside a UserControl;
 - changing `Default` while a button has the focus;
 - whether `Cancel` on a disabled or hidden button behaves differently from `Default` in any case other than Esc.
+
+### The default border's pixels (2026-11-18, #4391)
+
+**The probe:** a form from #2325's key-events probe (`key-events-keydown-keypress-and-keyup.md`, mode D), holding
+Command1 `OK`, the Default button, and Command2 `Cancel`, the Cancel button. Each was 975 by 375 twips, one above the
+other. A PictureBox had the focus. One screenshot of the guest's console at 100%, before any key was pressed, read pixel
+by pixel. **That screenshot is 16-bit colour,** so a grey of 100 reads (99,101,99) and a grey of 105 reads
+(107,105,107).
+
+| From the outside in | OK, the Default button | Cancel |
+|---|---|---|
+| Left and top, 1st pixel | **the frame**, (99,101,99) | white (255,255,255) |
+| 2nd | white | light grey (231,227,231) |
+| 3rd | the face | the face |
+| Right and bottom, 1st pixel | **the frame**, (99,101,99) | dark shadow (107,105,107) |
+| 2nd | dark shadow | shadow (165,162,165) |
+| 3rd | shadow | the face |
+
+- **The default border is a one-pixel frame on the button's outermost pixels,** and the usual 3D edge moves in by one
+  pixel inside it. Both buttons span the same 65 by 25 pixels, so the frame doesn't change the button's size.
+- **The frame is Windows' window-frame colour, 100 grey, not the dark shadow of 105.** Both appear on OK, and they
+  quantise differently: the frame to (99,101,99), the shadow inside it to (107,105,107).
+
+**Not measured:** the frame on a focused button in pixels (the section above saw it by eye), and a display above 100%.

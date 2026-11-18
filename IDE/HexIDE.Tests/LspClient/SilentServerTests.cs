@@ -157,7 +157,7 @@ public class SilentServerTests : IAsyncDisposable
                 var (clientSide, serverSide) = FullDuplexStream.CreatePair();
                 var peer = diagnosis.TapPeer(serverSide);
                 var serverRpc = new JsonRpc(
-                    new HeaderDelimitedMessageHandler(peer, peer, new SystemTextJsonFormatter()),
+                    new LspMessageHandler(peer, peer, new SystemTextJsonFormatter()),
                     server);
                 diagnosis.Watch(serverRpc, "stand-in", number);
                 serverRpc.Disconnected += (_, _) =>
@@ -174,7 +174,7 @@ public class SilentServerTests : IAsyncDisposable
                 lock (_disposables) _disposables.Add(serverRpc);
 
                 return Task.FromResult<IJsonRpcMessageHandler?>(
-                    new HeaderDelimitedMessageHandler(
+                    new LspMessageHandler(
                         clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>()));
             });
 

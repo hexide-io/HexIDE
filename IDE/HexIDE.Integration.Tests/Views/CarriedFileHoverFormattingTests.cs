@@ -222,13 +222,13 @@ public sealed class CarriedFileHoverFormattingTests : IDisposable
     {
         var server = new ScriptedServer(advertised);
         var (local, remote) = FullDuplexStream.CreatePair();
-        using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()), server);
+        using var rpc = new JsonRpc(new LspMessageHandler(remote, remote, new SystemTextJsonFormatter()), server);
         rpc.StartListening();
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.LeaveServerRunning.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
-            .Returns(c => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(local, local, c.Arg<IJsonRpcMessageFormatter>())));
+            .Returns(c => Task.FromResult<IJsonRpcMessageHandler?>(new LspMessageHandler(local, local, c.Arg<IJsonRpcMessageFormatter>())));
         await using var actualClient = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "cpp");
         await actualClient.StartAsync(TestContext.Current.CancellationToken);
         var editor = Show(actualClient);

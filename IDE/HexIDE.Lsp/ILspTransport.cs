@@ -37,6 +37,9 @@ public interface ILspTransport : IAsyncDisposable
     /// <summary>Called after shutdown answered successfully and exit was sent.</summary>
     void ShutdownCompleted() { }
 
+    /// <summary>Ends our output without closing the server's output; false when half-close is unsupported.</summary>
+    bool TryEndOutput() => false;
+
     /// <summary>True while the underlying channel is connected and usable.</summary>
     bool IsAlive { get; }
 
