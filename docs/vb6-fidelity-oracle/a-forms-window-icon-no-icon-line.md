@@ -45,5 +45,63 @@ Checked live with F5 on the probe's six forms: each window's `WM_GETICON` answer
 
 **Not measured:**
 - An icon with several sizes, and which of them VB6 picks for the small icon.
-- An Icon changed at run time, `Me.Icon = LoadPicture(…)`. HexIDE reads the Icon once, as the window is made.
+- An Icon changed at run time, `Me.Icon = LoadPicture(…)`. HexIDE reads the Icon once, as the window is made. Measured since: "An Icon set at run time", below.
 
+
+### An Icon set at run time (2026-11-18, #4603, SP6)
+
+**The probe.** A running form set its own `Icon`, and the Icon of New instances of a second form, logging each result
+and error. p-code and native code logged the same lines. The first file was `ARW01UP.ICO`, VB6's own sample from
+`Common\Graphics\Icons\Arrows`: 1078 bytes, and by its directory a 32-by-32 and a 16-by-16 image at 4 bits a pixel.
+
+| Statement | Result |
+|---|---|
+| reading `Me.Icon` on a new form | TypeName Picture, Type 3, a Handle that isn't 0 |
+| `Set p = LoadPicture(ARW01UP.ICO)` | ok: p.Type 3, Width 847, Height 847 (HiMetric, 32 pixels) |
+| `Set Me.Icon = p` | ok. `Me.Icon Is p` is True, with the same Handle |
+| `Me.Icon = LoadPicture(ARW01UP.ICO)`, without Set | ok |
+| `Set Me.Icon = LoadPicture(x.bmp)`, a 32-by-32 bitmap | **error 380**, Invalid property value, and the Icon keeps its Type 3 |
+| `Set Me.Icon = LoadPicture()` | ok: Type 0, Handle 0 |
+| `Set k1.Icon = Nothing`, straight after an icon | ok. `k1.Icon` then reads TypeName Picture, Type 0, Handle 0. `k1.Icon Is Nothing` is False |
+| `k1.Icon = Nothing`, without Set | ok, no error |
+| `Set f2.Icon = …` on a `New Form2` not yet loaded | ok, and it loads the form |
+
+**On screen** (console screenshots, on a sizable form):
+- **After `Set Me.Icon` to an icon,** the form's title bar and its taskbar button both show it.
+- **After `Set k1.Icon = Nothing`,** k1's title bar shows Windows' generic window icon, as a sizable form saved with
+  Icon (None) does (above).
+- **After `Set k2.Icon = LoadPicture()`, k2's title bar still shows the arrow it had,** though `k2.Icon` reads back
+  Type 0 and Handle 0, as Nothing's does. The two clear the property alike, and the window differently.
+- **On a Fixed Dialog,** from a later run of New instances of a Fixed Dialog form beside a sizable one:
+  - after `Set d1.Icon = Nothing`, following an icon, its title bar shows **no icon at all**, as a Fixed Dialog saved
+    with Icon (None) does (above);
+  - after `Nothing` and then `LoadPicture()`, it still shows none;
+  - an untouched instance of the same form shows VB6's default icon.
+- **On the sizable form,** `Nothing` and then `LoadPicture()` shows Windows' generic icon, the same as `Nothing` alone.
+  So an empty picture leaves the window as it was, icon or none.
+
+**Which image `LoadPicture` takes from an icon file**, from hand-built files, each image a red square with a white centre:
+
+| The file's images, in order | Result |
+|---|---|
+| one 32-by-32 at 4, 8, 24 or 32 bits a pixel, each with its AND mask | ok, Type 3, Width 847 |
+| one 16-by-16 at 4 bits | ok, Width 423 |
+| one 48-by-48 at 4 bits | ok, Width 1270 |
+| 32 then 16, and 16 then 32, at 4 bits | ok, Width 847: the 32 |
+| a 256-by-256 stored as PNG, then a 32 at 4 bits | ok, Width 847: the 32 |
+| a 32 at 4 bits, then a 256 stored as PNG | ok, Width 847 |
+| one 32-by-32 stored as PNG | **481**, Invalid picture |
+| a 32-by-32 at 32 bits **with no AND mask** after its pixels, first before a 256 PNG, or among a 48 and a 16 alike | **481** |
+| a 256 PNG, then 48, 32 and 16 at 32 bits with no AND masks | **481** |
+| one 32-by-32 at 32 bits with its mask, its header's image size and resolution set (4096, and 3780 a metre) or left 0 | ok, either way |
+| one 32-by-32 at 32 bits without its mask, its header's image size and resolution set or left 0 | **481**, either way |
+
+- **The image it takes is the 32-by-32 one,** wherever it sits in the file. A file of one image loads it at its own size.
+  The masks were left out by Pillow, which writes 32-bit icon images that way, and fills in the header's image size
+  and resolution. The last two rows cross the two: **the missing mask is what VB6 refuses**, and the header fields
+  make no difference.
+- **The 481 is LoadPicture's own,** raised before any assignment, and `LoadPicture(nosuch.ico)` is error 53, File not
+  found, naming the path.
+- **Every error here was trappable** under `On Error Resume Next`.
+
+**Not measured:** an icon file with several images and none of them 32 by 32.
