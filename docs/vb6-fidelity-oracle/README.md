@@ -851,3 +851,4 @@ added afterwards.
 - [A non-String PathName, access denied, and programs that can't start (2026-11-18, #4406)](shell.md#a-non-string-pathname-access-denied-and-programs-that-cant-start-2026-11-18-4406)
 - [An HRESULT given to Err.Raise or Err.Number (2026-11-18, #4730, SP6)](an-hresult-given-to-err-raise-or-err-number.md#an-hresult-given-to-errraise-or-errnumber-2026-11-18-4730-sp6)
 - [In the IDE too: the line break is in the description itself (2026-11-18, #4676, SP6)](errobject-as-a-declared-type.md#in-the-ide-too-the-line-break-is-in-the-description-itself-2026-11-18-4676-sp6)
+- [A control's and a form's members through CallByName (2026-11-18, #4520)](callbyname.md#a-controls-and-a-forms-members-through-callbyname-2026-11-18-4520)
