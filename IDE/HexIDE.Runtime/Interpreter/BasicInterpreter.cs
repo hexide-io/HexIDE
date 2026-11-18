@@ -167,6 +167,39 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             ? result.AsVariant() : result;
     }
 
+    // Giving a class instance arguments calls its default member (#4606), without scalar coercion.
+    internal async Task<Vb6Value> CallDefaultMember(Vb6Value value, List<CallArg> args,
+        ParserRuleContext ctx, Stack<List<Vb6Value>>? frames)
+    {
+        if (value.Value is null)
+            throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+        if (value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is not { } member)
+            throw new NotImplementedException("Arguments on a class without a default member are unmeasured (#4606)");
+        var proc = member.Kind switch
+        {
+            PrePass.DefaultMemberKind.Property => obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Get,
+            PrePass.DefaultMemberKind.Function => obj.ClassDef.PrePass.Procedures.GetValueOrDefault(member.Name),
+            _ => null
+        };
+        if (proc is null)
+            throw new NotImplementedException("Arguments on this default member kind are unmeasured (#4606)");
+        return await RunProcedure(obj.ClassDef, proc, args, obj.InstanceEnv, value, frames)
+            ?? throw new NotImplementedException("A default member without a value is unmeasured (#4606)");
+    }
+
+    internal async Task LetDefaultMember(Vb6Value value, List<CallArg> args, Vb6Value assigned,
+        ParserRuleContext ctx, Stack<List<Vb6Value>>? frames)
+    {
+        if (value.Value is null)
+            throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+        if (value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is not { } member
+            || member.Kind != PrePass.DefaultMemberKind.Property
+            || obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Let is not { } letter)
+            throw new NotImplementedException("Arguments assigned to a class without a default Property Let are unmeasured (#4606)");
+        args.Add(new CallArg(assigned, null));
+        await RunProcedure(obj.ClassDef, letter, args, obj.InstanceEnv, value, frames);
+    }
+
     /// <summary>
     /// A built-in call. With a pump, a built-in that waits (MsgBox, InputBox) is a suspension the pump is told of, and
     /// <c>DoEvents</c> runs what is waiting, as VB6's does (#766). Without one, DoEvents does nothing, as before.
@@ -571,7 +604,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// class's top-level <c>Dim</c> declarations against it — each <c>Dim</c> allocates a FRESH slot, giving true
     /// per-instance field storage. Finally, if the class declares <c>Private Sub Class_Initialize()</c>, fire it
     /// on the new instance (after the field Dims, so it can set fields) — VB6's construction hook.</summary>
-    public async Task<VbObject> NewObject(string className)
+    public Task<VbObject> NewObject(string className) => NewObject(className, null);
+
+    private async Task<VbObject> NewObject(string className, Action<VbObject>? publish)
     {
         // `New` in the Immediate window would run field-init + Class_Initialize (statements → the paused gate →
         // deadlock) and mutate state. Blocked here, before construction. Scoped to Paused (see RunProcedure).
@@ -607,6 +642,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             createdClasses.RemoveAll(e => !e.TryGetTarget(out var o) || o.Terminated);
             compactCreatedClassesAt = Math.Max(MinCompactCreatedClasses, createdClasses.Count * 2);
         }
+        publish?.Invoke(instance);
         if (classDef.PrePass.Procedures.TryGetValue("Class_Initialize", out var init))
         {
             // The object under construction is held while Class_Initialize runs, as the New expression holds it in
@@ -1474,23 +1510,57 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </summary>
     private async Task MakeAutoInstance(AutoInstanceNeeded need)
     {
-        var made = ExpressionExecutor.IsCollectionType(need.AutoNew.ClassName)
-            ? new Vb6Value(NewCollection())
-            : need.AutoNew.ClassName.Equals("PropertyBag", StringComparison.OrdinalIgnoreCase) && !Modules.TryGet(need.AutoNew.ClassName, out _)
-                ? new Vb6Value(new VbPropertyBag())
-                : Vb6Value.NewObject(await NewObject(need.AutoNew.ClassName));
-        AddRef(made);
-        if (need.Element is { } element)
+        void Store(Vb6Value value)
         {
-            if (element.Read().Value is null) element.Write(made);
-            else await ReleaseRef(made);
+            if (need.Element is { } element) element.Write(value);
+            else if (need.Field is { } field) field.Write(value);
+            else ExecutionContext.State[need.Location] = value;
         }
-        else if (need.Field is { } field)
-            field.Write(made);
-        else if (ExecutionContext.State[need.Location] is { Value: null })
-            ExecutionContext.State[need.Location] = made;
-        else
-            await ReleaseRef(made);   // Initialize filled the variable itself
+
+        if (ExpressionExecutor.IsCollectionType(need.AutoNew.ClassName))
+        {
+            var collection = new Vb6Value(NewCollection());
+            AddRef(collection);
+            Store(collection);
+            return;
+        }
+
+        // #4680: a standalone PropertyBag, unless the project declares a class of that name.
+        if (need.AutoNew.ClassName.Equals("PropertyBag", StringComparison.OrdinalIgnoreCase) && !Modules.TryGet(need.AutoNew.ClassName, out _))
+        {
+            var bag = new Vb6Value(new VbPropertyBag());
+            AddRef(bag);
+            Store(bag);
+            return;
+        }
+
+        VbObject? published = null;
+        try
+        {
+            await NewObject(need.AutoNew.ClassName, instance =>
+            {
+                var value = Vb6Value.NewObject(instance);
+                AddRef(value);
+                Store(value); // #4605: Initialize must find this object in its own slot.
+                published = instance;
+            });
+        }
+        catch
+        {
+            if (published is not null)
+            {
+                var current = need.Element is { } element ? element.Read()
+                    : need.Field is { } field ? (field.Bag.TryInspect(field.Name, out var value) ? value : Vb6Value.Nothing)
+                    : ExecutionContext.State[need.Location];
+                if (ReferenceEquals(current.Value, published))
+                {
+                    Store(Vb6Value.Nothing);
+                    // A failed Initialize drops the slot's reference without Class_Terminate (#4605).
+                    published.RefCount--;
+                }
+            }
+            throw;
+        }
     }
 
     private async ValueTask<T> LoadingSlowly<TState, T>(TState state, Func<TState, T> read, Exception need)
@@ -1957,7 +2027,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// an Enum return is a Long (default 0); a <b>class</b>-typed return starts at <c>Nothing</c> — an
     /// object-returning Function that never <c>Set</c>s its name yields <c>Nothing</c> in VB6 (matching a
     /// <c>Dim … As Class</c>), not a UDT-typed null, so <c>Set x = obj.Fn()</c> assigns Nothing rather than
-    /// raising 424. Everything else uses the primitive default. (An Enum/class return name isn't in
+    /// raising 424. Other named objects and scalar aliases start as Dim does (#4622); everything else uses
+    /// the primitive default. (An Enum/class return name isn't in
     /// <c>Types</c>, so each must be checked before the fallback.)</summary>
     private Vb6Value SeedReturnValue(ProcedureInfo proc)
         => proc.ReturnUdtTypeName is { } rn
@@ -1965,7 +2036,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 : Enums.ContainsKey(rn) ? new Vb6Value(0L)
                 : Modules.TryGet(rn, out var rc) && rc.Kind == InterpreterModuleKind.Class
                     ? proc.ReturnType.IsArray ? ObjectArrayReturn(rn) : Vb6Value.Nothing
-                : new Vb6Value(proc.ReturnType))
+                : NamedReturnDefault(rn, proc.ReturnType))
             // An `As Object` return, DefObj's included, and an `As Collection` one start at Nothing too, so a Let into the
             // first before a Set is 91 (measured, #169). They started Empty, which took the value.
             : proc.ReturnType.IsArray && proc.CheckedArrayReturn == new Vb6Value.ValueType(Vb6Value.ValueType.Object, true)
@@ -1977,6 +2048,20 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 })
             : proc.ReturnsObject ? Vb6Value.Nothing
             : new Vb6Value(proc.ReturnType);
+
+    private Vb6Value NamedReturnDefault(string name, Vb6Value.ValueType returnType)
+    {
+        // Match Dim for in-box objects, project forms and stdole scalar aliases (#4622). Array returns keep their path.
+        if (!returnType.IsArray)
+        {
+            var dot = name.LastIndexOf('.');
+            var qualifier = dot < 0 ? null : name[..dot];
+            var typeName = dot < 0 ? name : name[(dot + 1)..];
+            if (IsObjectTypeWithoutClass(qualifier, typeName, out var aliasScalar))
+                return aliasScalar is { } scalar ? new Vb6Value(scalar) : Vb6Value.Nothing;
+        }
+        return new Vb6Value(returnType);
+    }
 
     // A module's procedure by name, or the Get of its property. A module's own properties are its names whatever its kind,
     // so a class's or form's own wins over a standard module's Public one; another module's are reached only in a standard

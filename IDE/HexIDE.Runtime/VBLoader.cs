@@ -373,6 +373,8 @@ public class VBLoader
             foreach (var control in controls.All)
                 AvaloniaInterop.UserControlMembers.Align(control);
         };
+        if (form?.FormWindow is Window window)
+            AvaloniaInterop.RuntimeScale.Initialize(window, canvas, element);
         return root;
     }
 
@@ -820,6 +822,8 @@ public class VBLoader
         // none, so its children stay in twips.
         if (componentClass.TryGetChildHost(control, out var ownHost) && DeclaredScaleMode(component) is { } scaleMode)
             VBProps.SetScaleMode(ownHost, scaleMode);
+        if (control is VBPictureBox picture)
+            AvaloniaInterop.RuntimeScale.Initialize(picture, component);
         // Where a 3-D bordered TextBox's or ListBox's client area starts, which is where its mouse X and Y count from: 2
         // pixels in, and at the edge when it is flat or has no border (measured with GetClientRect, #974).
         if (componentClass is TextBoxComponentClass or ListBoxComponentClass)
