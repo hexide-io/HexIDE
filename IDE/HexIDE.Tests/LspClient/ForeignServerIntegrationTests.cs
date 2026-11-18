@@ -327,6 +327,7 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
         timeout.CancelAfter(TimeSpan.FromSeconds(30));
         JsonElement refresh = default;
         JsonElement reply = default;
+        var refreshSequence = -1L;
         while (reply.ValueKind == JsonValueKind.Undefined)
         {
             await _capture.DrainAsync();
@@ -340,13 +341,21 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
                 if (entry.Direction == ConversationDirection.Received
                     && frame.TryGetProperty("method", out var method)
                     && method.GetString() == "workspace/diagnostic/refresh")
+                {
                     refresh = frame.Clone();
-                if (entry.Direction == ConversationDirection.Sent
-                    && refresh.ValueKind != JsonValueKind.Undefined
-                    && !frame.TryGetProperty("method", out _)
-                    && frame.TryGetProperty("id", out var id)
-                    && JsonElement.DeepEquals(id, refresh.GetProperty("id")))
-                    reply = frame.Clone();
+                    refreshSequence = entry.Sequence;
+                    if (entry.Outcome == ConversationOutcome.Answered)
+                    {
+                        entry.AnswerSequence.Should().NotBeNull();
+                        var answer = _capture.Body("foreign.markdown", entry.AnswerSequence!.Value);
+                        answer.Should().NotBeNull();
+                        answer!.IsTruncated.Should().BeFalse();
+                        using var answerJson = JsonDocument.Parse(answer.Head);
+                        reply = answerJson.RootElement.Clone();
+                        JsonElement.DeepEquals(reply.GetProperty("id"), refresh.GetProperty("id")).Should().BeTrue();
+                        entry.Outcome.Should().Be(ConversationOutcome.Answered);
+                    }
+                }
             }
             if (timeout.IsCancellationRequested)
                 throw new InvalidOperationException("No refresh reply. Frames: " + string.Join(" | ",
@@ -362,6 +371,19 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
             $"rumdl {ForeignServerAcquisition.Markdown.Version} was measured for #4144; frame: {refresh.GetRawText()}");
         reply.TryGetProperty("error", out _).Should().BeFalse(reply.GetRawText());
         reply.GetProperty("result").ValueKind.Should().Be(JsonValueKind.Null);
+
+        // The answer is what rumdl sees; acting on the refresh is what the person sees. The handler asks for the
+        // document's diagnostics again, so a pull follows the refresh on the record (#4472).
+        var pulledAgain = false;
+        while (!pulledAgain)
+        {
+            await _capture.DrainAsync();
+            pulledAgain = _capture.Snapshot("foreign.markdown").Any(e => e.Sequence > refreshSequence
+                && e.Direction == ConversationDirection.Sent && e.Method == "textDocument/diagnostic");
+            if (pulledAgain) break;
+            timeout.IsCancellationRequested.Should().BeFalse("HexIDE pulls the document's diagnostics again after rumdl's refresh");
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+        }
     }
 
     [ForeignServerFact]

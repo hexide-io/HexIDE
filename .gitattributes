@@ -43,3 +43,8 @@ scripts/hooks/pre-commit text eol=lf
 # 2026-10-26 lost a PR to exactly that. union keeps both sides. It is built into git, so the local batch merge honours
 # it, though GitHub's own mergeability check does not. Only for a file whose edits are pure appends.
 docs/vb6-fidelity-oracle/README.md merge=union
+
+# The first-party chain's records are signed over their exact bytes, which are CRLF. Stored and checked out
+# byte for byte on every OS: without this a Linux or macOS checkout got LF, and its release packed records its own
+# root refuses, so AI Chat didn't load there (#4529). CommittedFirstPartyChainTests verifies them on every OS.
+IDE/HexIDE.AddinPacker/firstparty/*.json -text

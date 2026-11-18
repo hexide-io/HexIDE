@@ -36,7 +36,7 @@ public class OptionsViewIntegrationTests
             new HexIDE.Lsp.LanguageServerRegistrationFactory(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance),
             new HexIDE.Lsp.LanguageServerConfigLoader(Microsoft.Extensions.Logging.Abstractions.NullLogger<HexIDE.Lsp.LanguageServerConfigLoader>.Instance),
             new HashSet<string>(StringComparer.Ordinal),
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<HexIDE.Lsp.LanguageServerContributions>.Instance);
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<HexIDE.Lsp.LanguageServerContributions>.Instance, null);
         await using var connection = contributions.Register(new AddinLanguageServer(new HexIDE.Lsp.LanguageServerEntry
         {
             Id = "example", DisplayName = "Example server", Extensions = [".example"], LanguageId = "example",

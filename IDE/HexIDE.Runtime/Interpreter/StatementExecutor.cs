@@ -233,18 +233,37 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var dot = context.LastIndexOf('.');
         var module = dot < 0 ? context : context[..dot];
         var procedure = dot < 0 ? null : context[(dot + 1)..];
-        // Cross-module contexts and recursive-frame selection have not been measured (#2290).
-        if (module != "(All Procedures)" && !string.Equals(module, currentModule.Name, StringComparison.OrdinalIgnoreCase))
-            return await ((Debugging.IDebugFrame)this).EvaluateTypedAsync(expression);
+        var stack = interpreter.ActivationStack;
+        var index = -1;
+        for (var i = stack.Count - 1; i >= 0; i--)
+            if (ReferenceEquals(stack[i], this)) { index = i; break; }
         StatementExecutor target = this;
         if (procedure is null)
-            target = new StatementExecutor(interpreter, currentEnv.ModuleScope, currentModule);
+        {
+            if (module == "(All Procedures)" || string.Equals(module, currentModule.Name, StringComparison.OrdinalIgnoreCase))
+                target = new StatementExecutor(interpreter, currentEnv.ModuleScope, currentModule);
+            else
+            {
+                // Another module (measured, #4481). A class's watch reads the instance whose procedure is on the call stack
+                // below the paused one, and reads <Out of context> with none there; a standard module's is live wherever the
+                // program is paused. A form is a template as a class is, so it is taken the same way (unmeasured). Which of
+                // several frames of one class is read is unmeasured too: the nearest is.
+                StatementExecutor? frame = null;
+                for (var i = index; i >= 0 && frame is null; i--)
+                    if (string.Equals(stack[i].currentModule.Name, module, StringComparison.OrdinalIgnoreCase))
+                        frame = stack[i];
+                if (frame is not null)
+                    target = new StatementExecutor(interpreter, frame.currentEnv.ModuleScope, frame.currentModule);
+                else if (interpreter.Modules.TryGet(module, out var named) && named.Kind == InterpreterModuleKind.Standard)
+                    target = new StatementExecutor(interpreter, named.ModuleEnv, named);
+                else
+                    return ContextError("<Out of context>");
+            }
+        }
         else
         {
-            var stack = interpreter.ActivationStack;
-            var index = -1;
-            for (var i = stack.Count - 1; i >= 0; i--)
-                if (ReferenceEquals(stack[i], this)) { index = i; break; }
+            // A procedure's watch reads that procedure's frame below the paused one, in any module: measured one frame down
+            // across modules (#4481) and as a caller within one (#2290). Deeper frames across modules are unmeasured.
             var matches = new List<StatementExecutor>();
             for (var i = index; i >= 0; i--)
                 if (string.Equals(stack[i].currentModule.Name, module, StringComparison.OrdinalIgnoreCase)

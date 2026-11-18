@@ -366,6 +366,7 @@
     "Str.Menu.Help.LogFolder": "開啟 HexIDE 記錄資料夾(_L)",
     "Str.Help.LogFolder.OpenFailed": "無法開啟記錄資料夾。您可以手動開啟：{0}",
     "Str.Menu.Help.About": "關於 HexIDE(_A)...",
+    "Str.Menu.MacApp.About": "關於 HexIDE",
     "Str.Menu.GoToGithubRepo": "前往 github 儲存庫",
     "Str.NewProject.NoTemplates": "此設定檔未提供新專案範本。請開啟現有專案。",
     "Str.NewProject.Msg.NoStandardExe": "{0} 未安裝可建立 Standard EXE 專案的專案類型，因此啟動時未建立專案。",

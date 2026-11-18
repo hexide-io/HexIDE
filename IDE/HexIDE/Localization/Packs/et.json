@@ -299,6 +299,7 @@
     "Str.Menu.Help.LogFolder": "Ava HexIDE _logikaust",
     "Str.Help.LogFolder.OpenFailed": "Logikausta ei saanud avada. Saate selle käsitsi avada: {0}",
     "Str.Menu.Help.About": "_Teave HexIDE kohta...",
+    "Str.Menu.MacApp.About": "Teave HexIDE kohta",
     "Str.Menu.GoToGithubRepo": "Ava GitHubi hoidla",
     "Str.ProjectType.StandardEXE": "Standardne EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",

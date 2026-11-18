@@ -338,6 +338,7 @@
     "Str.Menu.Help.LogFolder": "Відкрити папку журналів HexIDE",
     "Str.Help.LogFolder.OpenFailed": "Не вдалося відкрити папку журналів. Ви можете відкрити її вручну: {0}",
     "Str.Menu.Help.About": "Про HexIDE...",
+    "Str.Menu.MacApp.About": "Про HexIDE",
     "Str.Menu.GoToGithubRepo": "Перейти до репозиторію github",
     "Str.NewProject.NoTemplates": "Цей профіль не пропонує шаблонів нових проєктів. Відкрийте наявний проєкт.",
     "Str.NewProject.Msg.NoStandardExe": "У {0} не встановлено типу проєкту, що створює проєкт Standard EXE, тому запуск виконано без проєкту.",

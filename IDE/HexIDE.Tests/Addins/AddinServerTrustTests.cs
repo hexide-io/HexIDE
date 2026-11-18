@@ -54,7 +54,7 @@ public sealed class AddinServerTrustTests : IDisposable
             new AddinOptionsService(), new ComponentRegistry(), runner,
             new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance), [],
-                NullLogger<LanguageServerContributions>.Instance),
+                NullLogger<LanguageServerContributions>.Instance, null),
             new HexIDE.Debugging.DebugLaunchService(new HexIDE.Debugging.ExternalDebugService(new HexIDE.Conversations.ConversationLog())),
             new HexIDE.Projects.ContributedProjects());
     }

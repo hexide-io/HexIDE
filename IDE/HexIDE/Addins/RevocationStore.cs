@@ -103,11 +103,19 @@ internal sealed class RevocationStore
 
     // ── candidate loading + selection ────────────────────────────
 
-    private RevocationList? LoadBundled()
+    internal RevocationList? LoadBundled()
     {
         var json = ReadEmbedded("revocations.json");
         var sig = ReadEmbeddedText("revocations.sig");
-        return json is null || sig is null ? null : ParseIfValid(json, sig);
+        if (json is null || sig is null)
+            return null;
+        var list = ParseIfValid(json, sig);
+        // A fetched list can fail for reasons outside the build. This one is the build's own file, so its failing is a
+        // defect, and it leaves revocation resting on the network (#4534, #4537).
+        if (list is null && _rootPub is not null)
+            Log.Error("RevocationStore: this build's own revocation list was refused: it fails root verification or "
+                + "doesn't parse, so revocation rests on the cached and fetched lists alone");
+        return list;
     }
 
     private RevocationList? LoadCached()

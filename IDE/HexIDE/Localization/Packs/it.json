@@ -372,6 +372,7 @@
     "Str.Menu.Help.LogFolder": "Apri la cartella dei _log di HexIDE",
     "Str.Help.LogFolder.OpenFailed": "Impossibile aprire la cartella dei log. Puoi aprirla manualmente: {0}",
     "Str.Menu.Help.About": "_Informazioni su HexIDE...",
+    "Str.Menu.MacApp.About": "Informazioni su HexIDE",
     "Str.Menu.GoToGithubRepo": "Vai al repository github",
     "Str.NewProject.NoTemplates": "Questo profilo non offre modelli per nuovi progetti. Aprire un progetto esistente.",
     "Str.NewProject.Msg.NoStandardExe": "In {0} non è installato alcun tipo di progetto che crei un progetto Standard EXE, quindi l’avvio è avvenuto senza un progetto.",

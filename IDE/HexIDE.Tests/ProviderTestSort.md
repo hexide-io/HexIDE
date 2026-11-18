@@ -86,6 +86,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/ProjectTextReadTests.cs` | provider |
 | `Projects/SaveRecordsTheHeaderTests.cs` | split |
 | `Projects/SourceEncodingPersistenceTests.cs` | split |
+| `Projects/StartupFormCaseTests.cs` | provider |
 | `Projects/SubMainStartupObjectTests.cs` | split |
 | `Projects/UnsavedMemberRefusalTests.cs` | split |
 | `Projects/UserControlSaveRoundTripTests.cs` | split |

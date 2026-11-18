@@ -52,6 +52,42 @@ The module-name collection and save order follows [measurement #3777](../../../d
 
 ## Requirements
 
+### Requirement: Known designer type names ignore case
+
+The form reader SHALL match known control and visual-root type names without regard to case and
+write their canonical root or library spelling on save, retaining the control's library identity.
+VB6 SP6 measured `vb.label`, `VB.LABEL`, `vb.form` and `mscomctllib.progressbar` this way
+([#824](https://github.com/hexide-io/HexIDE/issues/824), oracle PR #4517).
+
+#### Scenario: A Label's type uses another case
+- **WHEN** a form declares `Begin vb.label Label1` or `Begin VB.LABEL Label1`
+- **THEN** the reader creates a Label whose Caption is readable by the running program
+- **AND** the writer emits `Begin VB.Label Label1`
+
+#### Scenario: The form root uses another case
+- **WHEN** the root declares `Begin vb.form Form1`
+- **THEN** the form loads and saves as `Begin VB.Form Form1`
+
+#### Scenario: An in-box control's type uses another case
+- **WHEN** a form declares `Begin mscomctllib.progressbar ProgressBar1`
+- **THEN** the reader creates a ProgressBar
+- **AND** the writer emits `Begin MSComctlLib.ProgressBar ProgressBar1`
+
+### Requirement: Startup form names ignore case
+The project loader SHALL match a `.vbp`'s `Startup=` form name with `OrdinalIgnoreCase`.
+When that form is found, the project writer SHALL write the form's own spelling.
+Measured source: [#823, VB6 SP6, oracle PR #4517](https://github.com/hexide-io/HexIDE/issues/823).
+
+#### Scenario: Startup names the form in another case
+- **GIVEN** a project with form `Form1` and `Startup="form1"` or `Startup="FORM1"`
+- **WHEN** the project is loaded and saved
+- **THEN** its startup form is `Form1` and its saved setting is `Startup="Form1"`
+
+#### Scenario: Startup already uses the form's spelling
+- **GIVEN** a project with form `Form1` and `Startup="Form1"`
+- **WHEN** the project is loaded and saved
+- **THEN** its startup form and saved startup spelling remain `Form1`
+
 ### Requirement: Project groups retain membership and order
 The reader SHALL treat `StartupProject=` as a member in file order and select it as startup.
 It SHALL consume both `VBGROUP 5.0` and `VBGROUP 5.00` as headers and retain other unknown lines as before.

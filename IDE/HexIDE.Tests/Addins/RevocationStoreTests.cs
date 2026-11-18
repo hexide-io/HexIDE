@@ -23,10 +23,44 @@ public sealed class RevocationStoreTests : IDisposable
         catch { /* best-effort */ }
     }
 
+    // This doesn't check that the bundled list verifies: a refused list and an empty valid one both revoke nothing.
+    // The_bundled_list_verifies_against_the_shipped_root does (#4534).
     [Fact]
     public void Default_store_with_the_bundled_empty_floor_revokes_nothing()
     {
         new RevocationStore().IsRevoked("anyhash", "anypub", "anyinter", isFirstParty: false).Should().BeNull();
+    }
+
+    [Fact(Skip = "#4534: the bundled list isn't signed by the shipped root until it's re-signed")]
+    public void The_bundled_list_verifies_against_the_shipped_root()
+    {
+        TrustAnchors.RootPublicKey.Should().NotBeNull();
+
+        new RevocationStore(TrustAnchors.RootPublicKey, _dir).LoadBundled().Should().NotBeNull(
+            "the build's own revocation list must verify against the root it trusts, or revocation rests on the network");
+    }
+
+    [Fact]
+    public void A_bundled_list_that_fails_root_verification_is_logged_as_an_error()
+    {
+        using var root = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var events = new LevelLog();
+        var previous = Serilog.Log.Logger;
+        Serilog.Log.Logger = new Serilog.LoggerConfiguration().MinimumLevel.Verbose().WriteTo.Sink(events).CreateLogger();
+        try
+        {
+            _ = new RevocationStore(PackageCrypto.ExportPublicKey(root), _dir);   // the bundled list isn't signed by this root
+        }
+        finally { Serilog.Log.Logger = previous; }
+
+        events.Events.Should().Contain(e => e.Level == Serilog.Events.LogEventLevel.Error
+            && e.Message.Contains("this build's own revocation list was refused"));
+    }
+
+    private sealed class LevelLog : Serilog.Core.ILogEventSink
+    {
+        public List<(Serilog.Events.LogEventLevel Level, string Message)> Events { get; } = [];
+        public void Emit(Serilog.Events.LogEvent logEvent) => Events.Add((logEvent.Level, logEvent.RenderMessage()));
     }
 
     [Fact]
