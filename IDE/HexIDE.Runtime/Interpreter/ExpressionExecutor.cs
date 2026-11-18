@@ -2334,7 +2334,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 static s => s.Bag.TryGet(s.Name, out var value) ? value
                     : throw new VBRunTimeException(s.Context, VBStandardError.MethodOrDataMemberNotFound, s.Name));
             if (MemberArgs(m) is { } args)
-                current = await IndexResult(current, await EvaluateCallArgs(args), ctx);
+            {
+                var indices = await EvaluateCallArgs(args);
+                // A project-class Type field holding Nothing raises 91 (#4725); other Nothing indexing is unmeasured.
+                if (bag.IsObjectField(fieldName) && current.Type == Vb6Value.ValueType.Object && current.Value is null
+                    && interpreter.ProjectClassFor(current.DeclaredAs ?? "") is not null)
+                    throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+                current = await IndexResult(current, indices, ctx);
+            }
         }
         return current;
     }
