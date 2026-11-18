@@ -1191,9 +1191,16 @@ a control in it SHALL have no `boundingRect`, rather than a position that reads 
 - **THEN** the button is pressed, and its `boundingRect` is where `take_snapshot` shows it
 
 #### Scenario: Popup geometry on native Wayland
-- **WHEN** a menu or tooltip is open under `--platform wayland` with Avalonia 12.1.5 or later
+- **WHEN** a menu or tooltip is open and placed by the compositor under `--platform wayland` with Avalonia 12.1.5 or later
 - **THEN** `take_snapshot` includes the popup at its reported position, `inspect_element` reports `boundingRect` inside it,
   and `hover` reports the open tooltip's `tipBounds` in the selected window's coordinates
+
+#### Scenario: A native Wayland popup has not been placed yet
+- **WHEN** an open popup's platform position is still default on native Wayland
+- **THEN** `inspect_element` SHALL omit its `boundingRect` and `take_snapshot` SHALL leave it out of the image,
+  each explaining that the compositor has not placed it yet and asking the caller to retry
+- **AND** `hover` SHALL wait up to 500 ms for the tooltip popup's first position change before reading its bounds;
+  if it remains unplaced, it SHALL omit `tipBounds` and explain that its position is unknown and hovering again reads it
 
 ### Requirement: A DPI-unaware IDE's window state SHALL say why its scale is 1
 An IDE started with `--dpi-unaware` SHALL give every window-state rectangle in the pixels Windows reports to it, the

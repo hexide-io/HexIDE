@@ -217,6 +217,7 @@ public class DecoratedWindowTests : WindowTestFixture
             var expected = UiAutomationDriver.Inspect(item, path, window).BoundingRect;
             expected.Should().NotBeNull();
             NativeWayland.ForTest = _ => true;
+            NativeWayland.PlacedForTest = _ => true;
 
             var detail = UiAutomationDriver.Inspect(item, path, window);
 
@@ -226,6 +227,7 @@ public class DecoratedWindowTests : WindowTestFixture
         finally
         {
             NativeWayland.ForTest = null;
+            NativeWayland.PlacedForTest = null;
             menu.Close();
         }
     }
@@ -252,6 +254,7 @@ public class DecoratedWindowTests : WindowTestFixture
             using var expected = await SnapshotComposerTests.Drawn(SnapshotComposer.CaptureAsync(window));
             expected!.LeftOut.Should().BeEmpty();
             NativeWayland.ForTest = _ => true;
+            NativeWayland.PlacedForTest = _ => true;
 
             using var snapshot = await SnapshotComposerTests.Drawn(SnapshotComposer.CaptureAsync(window));
 
@@ -263,6 +266,7 @@ public class DecoratedWindowTests : WindowTestFixture
         finally
         {
             NativeWayland.ForTest = null;
+            NativeWayland.PlacedForTest = null;
             menu.Close();
         }
     }
