@@ -406,17 +406,18 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   the calling line `x = F()` again. A Sub's `End Sub` behaved the same. Measured with Step Over (Shift+F8); `F = 1`
   calls nothing, so Step Into has nothing different to do there.
 - **HexIDE:** a called procedure's natural end now passes through the debugger gate before returning (#2172).
-  Entry procedures retain breakpoint-only End positions: startup stepping advances from Initialize's last
-  statement into Load's first statement, as required by #2172's supervisor review. An event handler is an entry
-  procedure too, and VB6 does stop on its `End Sub`, so a step through one skips a stop VB6 makes (live, 2026-11-18:
-  `Timer1_Timer`'s last statement stepped to the next tick's `Sub` line), tracked by
-  [#4619](https://github.com/hexide-io/HexIDE/issues/4619). Before that, paused on
+  Event handlers also stop on `End Sub` ([#4619](https://github.com/hexide-io/HexIDE/issues/4619)), as measured
+  in [the idle-break oracle](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md).
+  The startup dispatch and `Sub Main` retain breakpoint-only End positions pending measurement (#4449 for
+  `Sub Main`): startup stepping advances from Initialize's last statement into Load's first statement, as
+  required by #2172's supervisor review. Before that, paused on
   `Twice = n * 2`, the only statement of a `Private Function`, a Step Into went straight to the caller's next line
   without stopping on `End Function` (2026-09-22).
 - **Why it happened:** the walk's gate ran before each statement of a body, and the `End` line isn't one, so there
   was nothing to stop on.
-- **Status:** **fixed** by [#2172](https://github.com/hexide-io/HexIDE/issues/2172); headless breakpoint and step
-  regression tests cover the boundary. It is the stepping side of D29. First recorded on
+- **Status:** **fixed** by [#2172](https://github.com/hexide-io/HexIDE/issues/2172) and
+  [#4619](https://github.com/hexide-io/HexIDE/issues/4619); headless breakpoint and step regression tests cover
+  called procedures and pointer/Timer event handlers. It is the stepping side of D29. First recorded on
   [#656](https://github.com/hexide-io/HexIDE/issues/656).
 
 ### D29. A breakpoint on a procedure's `End` line or its declaration line never pauses — FIXED
