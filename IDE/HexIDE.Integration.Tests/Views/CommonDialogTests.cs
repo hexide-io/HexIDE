@@ -296,6 +296,50 @@ public class CommonDialogTests
         windows.Received(2).ShowPrintDialog();
     }
 
+    // VB6 SP6 native and p-code: #4515, measured in oracle PR #4508.
+    [AvaloniaTheory]
+    [InlineData("0.4", 380, false)]
+    [InlineData("\"0\"", 380, false)]
+    [InlineData("Empty", 380, false)]
+    [InlineData("True", 380, false)]
+    [InlineData("6.6", 380, false)]
+    [InlineData("7.4", 380, false)]
+    [InlineData("\"7\"", 380, false)]
+    [InlineData("32767", 380, false)]
+    [InlineData("32768", 6, false)]
+    [InlineData("-32769", 6, false)]
+    [InlineData("2147483648#", 6, false)]
+    [InlineData("Null", 94, false)]
+    [InlineData("\"abc\"", 13, false)]
+    [InlineData("0.4", 380, true)]
+    [InlineData("32768", 6, true)]
+    public void Action_converts_as_Integer_before_rejecting_an_invalid_value(string value, int error, bool lateBound)
+    {
+        var windows = Opening();
+        var target = lateBound ? "o" : "dlg";
+        var ran = Run(Form(Dialog,
+            (lateBound ? "    Dim o As Object\r\n    Set o = dlg\r\n" : "")
+          + $"    {target}.Action = {value}\r\n"
+          + "    Debug.Print CStr(Err.Number)\r\n"), windows);
+
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal(error.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        windows.DidNotReceive().OpenFilePickerAsync(Arg.Any<FilePickerOpenOptions>());
+        windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        windows.DidNotReceive().ShowColorDialog(Arg.Any<int>());
+        windows.DidNotReceive().ShowFontDialog(Arg.Any<FontDialogResult?>());
+        windows.DidNotReceive().ShowPrintDialog();
+    }
+
+    [AvaloniaFact]
+    public void Action_conversion_that_would_open_an_unmeasured_dialog_stays_refused()
+    {
+        var ran = Run(Form(Dialog, "    dlg.Action = 2.4\r\n"), Opening());
+
+        ran.Failures.Should().ContainSingle().Which.Should().Contain("#4148");
+        ran.Printed.Should().BeEmpty();
+    }
+
     [AvaloniaFact]
     public void What_the_form_s_file_sets_is_read_and_a_member_it_does_not_model_is_refused()
     {
