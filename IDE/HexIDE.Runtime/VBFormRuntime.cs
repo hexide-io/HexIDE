@@ -290,7 +290,7 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
 
     private void ClearLeavingOwnership()
     {
-        // VB6 hides only the requested form, even beneath a modal one (#3936, #4032); Avalonia hides owned children too.
+        // VB6 hides only the requested form (#3936); Avalonia hides owned children too.
         foreach (var child in OwnedWindows)
             if (child is VBFormRuntime form)
                 form.ClearModalOwner();
