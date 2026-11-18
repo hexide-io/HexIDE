@@ -282,6 +282,33 @@ public sealed class VBProgram : IFormProgram
         await context.InitializeAsync();
     }
 
+    /// <inheritdoc/>
+    public async Task<VbObject> MakeInstance(ModuleInfo form)
+    {
+        var context = Open(form, existing: null, defaultInstance: false);
+        var instance = context.FormInstance!;
+        // Initialize can call its own members. Hold the unfinished instance until New hands it to its statement.
+        instance.RefCount++;
+        try
+        {
+            await context.InitializeAsync();
+        }
+        finally
+        {
+            instance.RefCount--;
+        }
+        return instance;
+    }
+
+    /// <inheritdoc/>
+    public void Terminated(VbObject form)
+    {
+        ExecutionContext.State.ClearPendingControls(form);
+        if (contexts.Remove(form, out var context))
+            context.CloseOnce();
+        created.Remove(form);
+    }
+
     /// <summary>
     /// Load <paramref name="form"/> if it isn't loaded, inside the statement that asked. Form_Load is an event, and its
     /// error is not the statement's: an <c>On Error</c> around <c>Load Form2</c>, <c>Form2.Show</c> or a use of one of its
@@ -304,7 +331,7 @@ public sealed class VBProgram : IFormProgram
     }
 
     // A window for `form`, from the host, and its controls put into the instance: a new instance, or an unloaded one.
-    private VBWindowContext Open(ModuleInfo form, VbObject? existing)
+    private VBWindowContext Open(ModuleInfo form, VbObject? existing, bool defaultInstance = true)
     {
         if (!definitions.TryGetValue(form.Name, out var definition))
             throw new NotImplementedException($"{form.Name} has no form definition to run (#822).");
@@ -314,7 +341,7 @@ public sealed class VBProgram : IFormProgram
                 : $"{form.Name} is used after it has unloaded, and this host can't load it again yet (#822).");
         var view = openForm(definition);
         var context = view.Context;
-        context.Attach(this, form, FormCodeText.WholeFile(definition), existing);
+        context.Attach(this, form, FormCodeText.WholeFile(definition), existing, defaultInstance);
         var instance = context.FormInstance!;
         view.SetContent(VBLoader.SpawnComponents(definition, ExecutionContext, instance.InstanceEnv, context.StandardLibrary, instance, this, context));
         context.HoldControlsUntilLoad();

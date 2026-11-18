@@ -73,7 +73,7 @@ public sealed class FormControls : ICSharpAsyncProxy
         var index = args[0];
         if (index.IsNull)
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
-        if (index.Type == Vb6Value.ValueType.String && index.Value is string name && !(name.Length > 0 && char.IsAsciiDigit(name[0])))
+        if (index.WithoutOddBytes("FormControls text use").Type == Vb6Value.ValueType.String && index.Value is string name && !(name.Length > 0 && char.IsAsciiDigit(name[0])))
             return Named(name);
         var position = Convert.ToInt32(VB6BuiltIns.NarrowNum(index, Vb6Value.ValueType.Integer).Value);
         return position >= 0 && position < controls.Count
@@ -209,7 +209,7 @@ public sealed class FormControls : ICSharpAsyncProxy
         if (value.IsNull)
             throw new VBRunTimeException(VBStandardError.DispatchTypeMismatch);
         if (value.Type == Vb6Value.ValueType.String)
-            return (string)value.Value!;
+            return (string)value.WithoutOddBytes("FormControls text use").Value!;
         if (value.Type == Vb6Value.ValueType.EmptyVariant)
             return "";
         if (Vb6Value.TryNumericToDouble(value, out _) && value.Type != Vb6Value.ValueType.Date)
@@ -279,7 +279,7 @@ public sealed class FormControls : ICSharpAsyncProxy
             return controls.Contains(control)
                 ? control
                 : throw new NotImplementedException("Controls.Remove of a control not on this form is not implemented (#1556)");
-        if (what.Type == Vb6Value.ValueType.String && what.Value is string name && !(name.Length > 0 && char.IsAsciiDigit(name[0])))
+        if (what.WithoutOddBytes("Controls.Remove").Type == Vb6Value.ValueType.String && what.Value is string name && !(name.Length > 0 && char.IsAsciiDigit(name[0])))
         {
             // A control array's name is the late-bound E_NOINTERFACE (measured).
             if (name.Length > 0 && arrays.ContainsKey(name))

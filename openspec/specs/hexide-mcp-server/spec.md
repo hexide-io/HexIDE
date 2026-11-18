@@ -1190,6 +1190,11 @@ a control in it SHALL have no `boundingRect`, rather than a position that reads 
 - **WHEN** `interact` clicks a button in a window set in from its surface by a title bar and shadow
 - **THEN** the button is pressed, and its `boundingRect` is where `take_snapshot` shows it
 
+#### Scenario: Popup geometry on native Wayland
+- **WHEN** a menu or tooltip is open under `--platform wayland` with Avalonia 12.1.5 or later
+- **THEN** `take_snapshot` includes the popup at its reported position, `inspect_element` reports `boundingRect` inside it,
+  and `hover` reports the open tooltip's `tipBounds` in the selected window's coordinates
+
 ### Requirement: A DPI-unaware IDE's window state SHALL say why its scale is 1
 An IDE started with `--dpi-unaware` SHALL give every window-state rectangle in the pixels Windows reports to it, the
 frame included, and its window-state reply SHALL carry a `note` saying why `scale` is 1 on a scaled display.

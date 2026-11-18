@@ -48,6 +48,7 @@ public class VBWindowContext : IModuleExecutionRoot
 
     // The form module this context's instance is made from: the program's primary module unless attached to another.
     private ModuleInfo? template;
+    private bool defaultInstance = true;
 
     /// <summary>The library the program's built-ins reach the host through, from the startup form's window.</summary>
     internal IBasicStandardLibrary StandardLibrary => standardLibrary;
@@ -144,7 +145,9 @@ public class VBWindowContext : IModuleExecutionRoot
             throw new InvalidOperationException("The form has no code yet: SetCode comes first.");
         if (instance is null)
         {
-            instance = interpreter.NewFormInstance(template ?? interpreter.PrimaryModule);
+            instance = defaultInstance
+                ? interpreter.NewFormInstance(template ?? interpreter.PrimaryModule)
+                : interpreter.NewUnboundFormInstance(template ?? interpreter.PrimaryModule);
             instance.FormWindow = Window;
             // The context's own hold, apart from the one the form's name has: in VB6 a loaded form is kept alive by
             // Forms, so `Set Form1 = Nothing` from a module clears the name and leaves the running form be (#1010
@@ -162,7 +165,7 @@ public class VBWindowContext : IModuleExecutionRoot
     /// loading again in this window. <paramref name="code"/> is the text the program parsed for the form, its whole
     /// file (#273), which <see cref="Code"/> then reports as <see cref="SetCode"/>'s path does.
     /// </summary>
-    internal void Attach(VBProgram program, ModuleInfo form, string code, VbObject? existing = null)
+    internal void Attach(VBProgram program, ModuleInfo form, string code, VbObject? existing = null, bool defaultInstance = true)
     {
         Program = program;
         Code = code;
@@ -170,6 +173,7 @@ public class VBWindowContext : IModuleExecutionRoot
         ExecutionContext = program.ExecutionContext;
         Events = program.Events;
         template = form;
+        this.defaultInstance = defaultInstance;
         instance = existing;
         // An instance loading again has had its declarations and its Initialize: VB6 raises Load alone (measured).
         formDeclarationsRun = existing is not null;
