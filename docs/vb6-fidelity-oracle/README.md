@@ -417,6 +417,25 @@ Phase-4.2 refcount oracle):
    the `C:\Program Files (x86)\…` path in the same command — the path-guard blocks it; let `/make` overwrite and
    `For Output` truncate instead.
 
+**A form or display probe runs on the console session, and logs its session id.** A program started through
+PowerShell Direct, or by `scripts/vb6-oracle.ps1`'s default route, runs in session 0, which displays no form: `Visible`
+reads False after `Show`, and nothing takes focus or comes to the front. That is fine for an expression. It is wrong for
+any row that reads a form's, a control's or the screen's state, and three such rows were wrong for that reason
+(#4768). Run those through the console agent instead, and write the session id into the probe's log, so a reader can
+see where each row was measured. The console is session 1 on the oracle guest:
+
+```vb
+Private Declare Function GetCurrentProcessId Lib "kernel32" () As Long
+Private Declare Function ProcessIdToSessionId Lib "kernel32" (ByVal dwProcessId As Long, pSessionId As Long) As Long
+
+Public Function SessionId() As Long
+    Dim s As Long
+    If ProcessIdToSessionId(GetCurrentProcessId(), s) <> 0 Then SessionId = s Else SessionId = -1
+End Function
+```
+
+Measured 2026-11-18: the same build logged 1 run through the console agent and 0 run through PowerShell Direct.
+
 ---
 
 ## Extending the oracle (future phases)
