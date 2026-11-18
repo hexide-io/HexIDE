@@ -820,3 +820,4 @@ added afterwards.
 - [The CommonDialog: Color, HelpContext and Action conversions, control arrays and containers (2026-11-17, #4148, SP6)](in-box-controls-the-commondialog.md#color-helpcontext-and-action-conversions-control-arrays-and-containers-2026-11-17-4148)
 - [The coordinate system: ScaleMode, Scale, ScaleX and ScaleY (2026-11-18, #990, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#the-coordinate-system-scalemode-scale-scalex-and-scaley-2026-11-18-990-sp6)
 - [The drawing methods: Line, PSet, Circle, Cls and Point (2026-11-18, #988, SP6)](the-drawing-methods-line-pset-circle-cls-and-point.md#the-drawing-methods-line-pset-circle-cls-and-point-2026-11-18-988-sp6)
+- [With New, a default instance in its own Class_Initialize, and Set through members (2026-11-18, #4599 to #4607, SP6)](with-new-default-instances-and-set-through-members.md#with-new-a-default-instance-in-its-own-class_initialize-and-set-through-members-2026-11-18-4599-to-4607)
