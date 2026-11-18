@@ -307,3 +307,40 @@ and `t` are Tick1's locals.
   terminates it. The Forms collection keeps it.
 
 **Not measured:** `Unload Me` inside a New instance.
+
+### As New on a form: Is Nothing, Unload, Set Nothing, and a module's As New (2026-11-18, #4640, SP6)
+
+**The probe.** It used the same forms as the section above. Form2 numbered its instances in its Initialize, and logged
+Load, Unload and Terminate with that number. Form1's Timer called `Tick1`, a Sub of Form1, which declared
+`Dim g As New Form2` as its local. Module1 declared `Public gg As New Form2`. p-code and native code logged the same
+lines.
+
+| Step in Tick1, in order | Events | Value | Forms.Count after |
+|---|---|---|---|
+| `Dim g As New Form2` | none | | 1 |
+| `g Is Nothing` | Initialize #1 | False | 1: not loaded |
+| `TypeName(g)` | none | "Form2" | 1 |
+| `g.Id`, a Public Function of Form2 | none | 1 | 1 |
+| `g.Caption = "g"` | Load #1 | | 2 |
+| `Unload g` | Unload #1 | | 1 |
+| then `g Is Nothing` | none | False | 1 |
+| then `g.Id` | none | 1: the same instance | 1 |
+| then `g.Caption = "g again"` | **Load #1, with no Initialize** | | 2 |
+| `Unload g`, then `Set g = Nothing` | Unload #1, then Terminate #1 at the Set | | 1 |
+| then `g Is Nothing` | **Initialize #2** | False | 1 |
+| then `g.Id` | none | 2 | 1 |
+| `gg.Id`, the module's `As New` | Initialize #3 | 3 | 1 |
+| `gg.Show` | Load #3 | | 2 |
+| `gg Is Form2` | Initialize #4, the default instance, which naming Form2 makes | False | 2 |
+| Tick1 returns | Terminate #2, g's unloaded instance | | 2 |
+
+At the end, unloading every other form and then `Set gg = Nothing` logged Unload #3, then Terminate #3. Terminate #4,
+the default instance that was never loaded, came last, as the program ended.
+
+**What it shows**, extending the section above:
+- **`g Is Nothing` read False each time it was asked.** It makes the instance when g has none: before g's first use,
+  and after `Set g = Nothing`, when the instance is a new one.
+- **`Unload` keeps the instance.** The variable still holds it, and `g.Caption` loads it again with no second
+  Initialize, as `f.Tag` does after `Unload f` for a plain `New` above.
+- **A module-level `As New` is its own instance,** not the form's default instance.
+- **An unloaded `As New` local terminates when its procedure returns,** as a plain `New` local does.
