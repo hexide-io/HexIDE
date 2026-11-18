@@ -4872,7 +4872,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     }
 
     /// <summary>
-    /// What a declaration <c>As New</c> makes: a class's name, or "Collection" (#435). VB6 refuses the rest before the program
+    /// What a declaration <c>As New</c> makes: a class or form's name, or "Collection" (#435, #4640). VB6 refuses the rest before the program
     /// runs, as measured: a scalar, a Variant or Object is "Syntax error", and a UDT or an Enum "Invalid use of New
     /// keyword".
     /// </summary>
@@ -4886,7 +4886,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         string made;
         if (ExpressionExecutor.IsCollectionType(typeText))
             made = "Collection";
-        else if (interpreter.Modules.TryGet(typeName, out var classMod) && classMod.Kind == InterpreterModuleKind.Class)
+        else if (interpreter.Modules.TryGet(typeName, out var classMod) && classMod.Kind is InterpreterModuleKind.Class or InterpreterModuleKind.Form)
             made = classMod.Name;
         else if (interpreter.TryResolveType(typeName, currentModule, qualifier, out _)
                  || (qualifier is null && interpreter.TryResolveEnum(typeName, currentModule, out _)))
