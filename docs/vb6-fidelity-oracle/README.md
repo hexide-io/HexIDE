@@ -821,3 +821,4 @@ added afterwards.
 - [The coordinate system: ScaleMode, Scale, ScaleX and ScaleY (2026-11-18, #990, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#the-coordinate-system-scalemode-scale-scalex-and-scaley-2026-11-18-990-sp6)
 - [Centimetres and millimetres, to the last bit (2026-11-18, #990, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#centimetres-and-millimetres-to-the-last-bit-2026-11-18-990-sp6)
 - [The drawing methods: Line, PSet, Circle, Cls and Point (2026-11-18, #988, SP6)](the-drawing-methods-line-pset-circle-cls-and-point.md#the-drawing-methods-line-pset-circle-cls-and-point-2026-11-18-988-sp6)
+- [What an Enum member's value and a Type's array bounds may name (2026-11-18, #4594, #4595, SP6)](what-an-enum-members-value-and-a-types-bounds-may-name.md#what-an-enum-members-value-and-a-types-array-bounds-may-name-2026-11-18-4594-4595-sp6)
