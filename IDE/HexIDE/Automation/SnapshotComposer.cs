@@ -108,6 +108,12 @@ public static class SnapshotComposer
         var noArea = new List<LeftOutPopup>();
         foreach (var popup in popups)
         {
+            if (!NativeWayland.Placed(popup))
+            {
+                noArea.Add(new LeftOutPopup(KindOf(popup), new PixelRect(default, PixelSize.FromSize(popup.ClientSize, scaling)),
+                    "which the compositor has not placed yet; its position is unknown. Take the snapshot again", Located: false));
+                continue;
+            }
             var rect = ScreenRect(popup, popup.ClientSize, scaling);
             if (rect.Width <= 0 || rect.Height <= 0)
             {

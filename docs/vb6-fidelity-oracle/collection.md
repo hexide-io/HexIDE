@@ -368,7 +368,62 @@ item opens to its fields. That is HexIDE's choice: VB6's Locals window was not m
 - `Err.Source` (#1483);
 - the emptied Variant (#1485);
 - the one-line For Each (#1486);
-- `c.[_NewEnum]` called directly.
+- `c.[_NewEnum]` called directly, measured in VB6 in the section below (#4679).
 
 **`CollectionTests`.** It pins seven programs and twelve compile errors, each made with vb6.exe as written.
 
+### `_NewEnum`, and a class that makes itself enumerable (2026-11-18, #4679, SP6)
+
+**The rig:**
+- **Build and run:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0 of the oracle guest.
+- **The answers:** both builds gave the same answers except in one row, marked below.
+- **Logging:** every statement ran under `On Error Resume Next`, and was logged with the error it raised or `ok`.
+
+**The classes:** all hold a `Private m As New Collection` and add to it through a `Public Sub Add`.
+
+| Class | Its `NewEnum` |
+|---|---|
+| `CList` | `Public Function NewEnum() As IUnknown`, with `Attribute NewEnum.VB_UserMemId = -4` and `Attribute NewEnum.VB_MemberFlags = "40"` on the lines after the declaration, and `Set NewEnum = m.[_NewEnum]` |
+| `CPlain` | the same Function, without either attribute |
+| `CProp` | a `Property Get NewEnum() As IUnknown` with the -4 attribute |
+| `CNull` | a -4 Function that sets nothing, so it returns Nothing |
+| `CWrong` | a -4 Function that returns `m` itself, the Collection, not its enumerator |
+
+**`c.[_NewEnum]`, on a Collection holding 1 and "two":**
+
+| Probe | VB6 |
+|---|---|
+| `Set u = c.[_NewEnum]`, `u As IUnknown` | ok. `TypeName(u)` is `Unknown`, and `u Is Nothing` is False |
+| `Set v = c.[_NewEnum]`, `v` a Variant | ok. `TypeName(v)` `Unknown`, `VarType(v)` **13**, and `IsObject(v)` **False** |
+| `Set o = c.[_NewEnum]`, `o As Object` | **13** Type mismatch; `o` stays Nothing |
+| `TypeName(c.[_NewEnum])` | `Unknown` |
+| `x = c.[_NewEnum]`, a Let into a Variant | **native: ok**, and `TypeName(x)` is `Unknown`. **P-code: 13**, and `x` stays Empty |
+| `v.Next 1`, a late call on the enumerator in `v` | **424** Object required |
+| `c.[_NewEnum] Is c.[_NewEnum]` | False: each read is a new enumerator |
+| `For Each x In u`, over the `IUnknown` | **92** For loop not initialized |
+
+**`For Each` over the classes:**
+
+| Loop | VB6 |
+|---|---|
+| `For Each x In lst`, `lst As New CList` holding 10, "b" and 3.5 | 10 (Integer), b (String), 3.5 (Double), in order, and no error |
+| the same through an `Object` variable, and through a `Variant` holding the instance | the same three items |
+| `lst.NewEnum` called directly | `TypeName` `Unknown`, and no error |
+| `For Each` over `CList` while adding an item on the first pass | 10, b, 3.5, then the added item: an item added at the end is reached, as for a Collection itself |
+| `For Each` over `CProp`, the `Property Get` with -4 | its items, in order |
+| `For Each` over `CPlain`, no -4 attribute | **92** For loop not initialized |
+| `For Each` over `CNull` | **92** |
+| `For Each` over `CWrong` | **92** |
+
+- **The enumerator is what `For Each` needs, and only the -4 member supplies it.**
+  - A class without the attribute raises 92.
+  - So does a -4 member that returns Nothing or the Collection object.
+  - So does an `IUnknown` that holds an enumerator, which `For Each` will not take directly.
+- **92, not 438.** Under Resume Next, each of these 92s **ran the loop's body once**, with the variable Empty, and then
+  left the loop. That is the same shape as a For Each over Nothing (#1486).
+- **The Let row is the one place native code and p-code differ.** HexIDE follows p-code there: 13.
+- **Not measured:**
+  - a -4 member returning a Variant;
+  - a class whose -4 enumerator comes from something other than a Collection;
+  - `Exit For` out of a class's loop;
+  - `For Each` over a class with -4 nested inside a loop over the same instance.

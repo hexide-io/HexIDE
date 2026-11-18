@@ -68,3 +68,63 @@ Public Sub Twice(ByRef n As Integer)                   ' n = n * 2
 | `CallByName(Err, "Number", VbGet)` | `0` | Long | 0 |
 | `VBA.CallByName(c, "x", VbGet)` | `5` | Integer | 0 |
 | `TypeName(CallByName(c, "F", VbMethod, 1, 1))` | `Long` | String | 0 |
+
+## A Collection's methods through CallByName (2026-11-18, #4688)
+
+**The question.** The section above measured `Add` with an item and a key, and `Item` with an index. That leaves the
+rest of a Collection's surface through `CallByName`, and whether its errors are `CallByName`'s own or the
+Collection's.
+
+**The probe.**
+- **Build:** VB6 SP6, `/make`, native code and p-code, which logged all 26 rows identically.
+- **The setup:**
+  - `k` is a module-level `Collection`, and `Fill` makes it hold `"x"` keyed `"kx"` and `"y"` keyed `"ky"`;
+  - `C1` is a class with one Public field and no default member;
+  - `v` is a Variant and `o` an Object.
+- **The read:** each row stops at its first error and logs the error number.
+
+| Setup | Statement | VB6 |
+|---|---|---|
+| empty `k` | `v = CallByName(k, "Count", VbMethod)` | `TypeName(v)` Long, 0 |
+| `Fill` | `CallByName(k, "Count", VbMethod)` | 2 |
+| `Fill`, `Set vk = k` (a Variant) | `CallByName(vk, "Count", VbMethod)` | 2 |
+| `Fill` | `v = CallByName(k, "Add", VbMethod, "a")` | `TypeName(v)` Empty; `k.Count` 3, `k(3)` "a" |
+| `Fill` | `CallByName k, "Add", VbMethod, "b", "kb", 1` | `k.Count` 3, `k(1)` "b", `k("kb")` "b" |
+| `Fill` | `CallByName k, "Add", VbMethod, "c", "kc", "kx"` | `k.Count` 3, `k(1)` "c" |
+| `Fill` | `CallByName k, "Add", VbMethod, "d", "kx"` | 457 |
+| `Fill` | `CallByName k, "Remove", VbMethod, 1` | `k.Count` 1, `k(1)` "y" |
+| `Fill` | `CallByName k, "Remove", VbMethod, "ky"` | `k.Count` 1, `k(1)` "x" |
+| `Fill` | `v = CallByName(k, "Remove", VbMethod, 1)` | `TypeName(v)` Empty, `k.Count` 1 |
+| `Fill` | `CallByName k, "Remove", VbMethod, 5` | 9 |
+| `Fill` | `CallByName k, "Remove", VbMethod, "nokey"` | 5 |
+| `Fill` | `v = CallByName(k, "Item", VbMethod, 5)` | 9 |
+| `Fill` | `v = CallByName(k, "Count", VbMethod, 1)` | **450** |
+| `Fill` | `v = CallByName(k, "Item", VbMethod)` | 450 |
+| `Fill` | `v = CallByName(k, "Nope", VbMethod)` | 438 |
+| `Fill` | `v = CallByName(k, "Item", VbLet, "a")` | 438 |
+| `k` holds a `New C1` | `TypeName(CallByName(k, "Item", VbMethod, 1))` | C1 |
+| `k` holds a `New C1` | `Set o = CallByName(k, "Item", VbMethod, 1)` | `TypeName(o)` C1, `o Is k(1)` True |
+| `k` holds a `New C1` | `Set v = CallByName(k, "Item", VbMethod, 1)` | C1, True |
+| `k` holds a `New C1` | `v = CallByName(k, "Item", VbMethod, 1)`, without `Set` | 438 |
+| `k` holds a `New Collection` | `TypeName(CallByName(k, "Item", VbMethod, 1))` | Collection |
+| `Fill` | `k.Remove 5` (direct) | 9 |
+| `Fill` | `k.Remove "nokey"` (direct) | 5 |
+| `Fill` | `v = k(5)` (direct) | 9 |
+| `k` holds a `New C1` | `v = k(1)` (direct), without `Set` | 438 |
+
+**Readings:**
+- **`VbMethod` reaches all four members:**
+  - `Count` gives a Long;
+  - `Add` takes one to three arguments, including a Before index or key;
+  - `Remove` takes an index or a key;
+  - `Add` and `Remove` used as values give Empty.
+- **The Collection's own errors pass through unchanged,** as the direct calls in the last four rows show: 9 for an
+  index out of range, 5 for an unknown key, 457 for a key already used.
+- **The arity errors are `CallByName`'s own:** `Count` given an argument and `Item` given none are both 450. A
+  late-bound call of `Count` with an argument is 451 ([`collection.md`](collection.md), `o.Count(1)`), so this isn't the late-bound path either.
+- **An object item comes back as an object.** It needs `Set`. Without it, the assignment reads the object's default
+  member, so a class with none is 438, as the direct `v = k(1)` is, and a Collection, whose `Item` needs an argument,
+  is 450, as the section above found for a property.
+- `VbLet` on `Item` and an unknown name with `VbMethod` are both 438.
+
+**Not measured:** `Add` with four arguments, or with none; `Remove` with none or two; `VbSet`; omitted arguments.

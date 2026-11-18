@@ -1473,6 +1473,10 @@
     "Str.Office.LockedMessage": "VBA projekts ir bloķēts, un tā kodu nevar parādīt.",
     "Str.Office.LockedCaption": "{0} ({1}) — bloķēts",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} nav VBA projekta."
+    "Str.Office.NoProject": "{0} nav VBA projekta.",
+    "Str.AIChat.EditContentMissing": "Saturs netika nosūtīts, tāpēc nekas netika mainīts.",
+    "Str.AIChat.ProjectCannotStart": "Nevar palaist projektu (neviens nav ielādēts vai jau darbojas)",
+    "Str.AIChat.ProjectNotRunning": "Pašlaik neviens projekts nedarbojas",
+    "Str.SessionEnd.UnsavedWork": "Nesaglabātas izmaiņas: {0}"
   }
 }

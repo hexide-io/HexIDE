@@ -204,5 +204,5 @@ internal static class FormMembers
     /// refusal that names its issue tells the reader whether it is known, and where to look.
     /// </summary>
     internal static string TrackedBy(string name) =>
-        name.StartsWith("Scale", StringComparison.OrdinalIgnoreCase) ? ": the form's coordinate system is #990" : "";
+        name.StartsWith("Scale", StringComparison.OrdinalIgnoreCase) ? ": the rest of the form's coordinate system is #4693" : "";
 }

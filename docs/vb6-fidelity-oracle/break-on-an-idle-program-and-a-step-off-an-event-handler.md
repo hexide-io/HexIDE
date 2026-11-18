@@ -192,6 +192,44 @@ modal form open at the break, which window does F5 bring forward?
 | that `End Sub` | Shift+F8 | **`Private Sub Form_Load()`** |
 | that declaration | Shift+F8 | `Note "load"` |
 
+### A startup form with no `Form_Initialize`, and the events after `Load` (programs E and F, 2026-11-18)
+
+Asked in #4449's review: the lane left a startup form without `Form_Initialize` at its old first-statement start
+because no row above measured it.
+
+**The programs:** two startup forms, each logging one line from `Form_Load`, `Form_Resize` and `Form_Activate`.
+**E** has no `Form_Initialize`, and **F** has one that logs `init`.
+
+**The keys:**
+- **Step Over came from the Debug menu**, as Alt+D then O, in place of Shift+F8.
+- **Why:** in a first pass, after the console agent had been restarted, one Shift+F8 sent through `SendKeys`
+  stepped into `Note`, as F8 does. That pass is not counted.
+- **Another key was lost** to the toolbar's tooltip, which took the focus while the mouse rested on Find. So the
+  counted passes first click an empty part of the IDE's window.
+
+| Program | From | Key | VB6 stops at | Log so far |
+|---|---|---|---|---|
+| E | design mode | F8 | **`Private Sub Form_Load()`** | |
+| E | that declaration | Step Over | `Note "load"` | |
+| E | `Note "load"` | Step Over | `End Sub` of `Form_Load` | `load` |
+| E | that `End Sub` | Step Over | **`Private Sub Form_Activate()`**, with no stop in `Form_Resize` | `load`, `resize` |
+| E | that declaration | Step Over, twice | `Note "activate"`, then its `End Sub` | `load`, `resize`, `activate` |
+| E | that `End Sub` | Step Over | [run] | |
+| F | design mode | F8 | `Private Sub Form_Initialize()` | |
+| F | then | Step Over, five times | `Note "init"`, `End Sub`, `Private Sub Form_Load()`, `Note "load"`, `End Sub` | `init`, `load` |
+| F | Load's `End Sub` | Step Over | **`Private Sub Form_Activate()`**, with no stop in `Form_Resize` | `init`, `load`, `resize` |
+| F | that declaration | Step Over, three times | `Note "activate"`, `End Sub`, then [run] | `init`, `load`, `resize`, `activate` |
+
+- **With no `Form_Initialize`, F8 from design mode stops at `Form_Load`'s declaration.** So a startup form's first
+  stop is the declaration of its first event procedure, whichever that is.
+- **Step Over off `Load`'s end runs `Form_Resize` without a stop and stops at `Form_Activate`'s declaration.**
+  - **Both programs** behave the same here.
+  - **The order of events is unchanged:** `Form_Resize` ran after Load and before Activate, as it does unstepped.
+  - **No rule I would defend** for why Resize gets no stop while Activate does. One guess is that VB6 raises
+    Resize inside the start's own Show, so a step over the start steps over it, and posts Activate as an event of
+    its own. That is a guess, not a measurement.
+- **Not measured here:** F8 (Step Into) off `Load`'s end, which might stop in `Form_Resize`.
+
 ### What this overturns
 
 `docs/debugger-vb6-divergences.md` D19 records that HexIDE's start skips declarations, "as VB6 never stops on one".
@@ -199,6 +237,7 @@ VB6 stopped on a declaration at every entry measured here:
 - **The start:** `Sub Main()`, or `Form_Initialize`.
 - **A Step Into on a call:** `Form1.Show` into `Form_Load`.
 - **From one start event to the next:** `Form_Initialize`'s end into `Form_Load`.
+- **A startup form with no `Form_Initialize`:** `Form_Load`'s declaration (programs E and F).
 - **The next event after a carried step:** `Timer1_Timer`.
 
 **Not measured:**

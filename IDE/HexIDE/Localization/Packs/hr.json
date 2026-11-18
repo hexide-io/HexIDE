@@ -1473,6 +1473,10 @@
     "Str.Office.LockedMessage": "Projekt VBA je zaključan i njegov se kod ne može prikazati.",
     "Str.Office.LockedCaption": "{0} ({1}) — zaključano",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} nema projekt VBA."
+    "Str.Office.NoProject": "{0} nema projekt VBA.",
+    "Str.AIChat.EditContentMissing": "Nije poslan sadržaj pa ništa nije promijenjeno.",
+    "Str.AIChat.ProjectCannotStart": "Nije moguće pokrenuti projekt (nijedan nije učitan ili je već pokrenut)",
+    "Str.AIChat.ProjectNotRunning": "Trenutačno nije pokrenut nijedan projekt",
+    "Str.SessionEnd.UnsavedWork": "Nespremljene promjene: {0}"
   }
 }

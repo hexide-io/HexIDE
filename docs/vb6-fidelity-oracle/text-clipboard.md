@@ -110,3 +110,43 @@ A function also shadows Clipboard when it supplies the object of a member chain.
 `Clipboard.GetText` returned `shadow`, **String**, native and p-code. The member-lead resolver must check that
 function before returning the host Clipboard object.
 
+### Pictures: `GetData` and `SetData` (2026-11-18, #4682, SP6)
+
+**The rig:**
+- **Build and run:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0 of the oracle guest. Both builds gave identical answers.
+- **Whose clipboard:** session 0's window station's, not the console user's.
+- **The program:** from a startup form, `Picture1.AutoRedraw = True` and a red filled box were drawn into a PictureBox, and `Picture1.Image` gave the source, `p`.
+  - `p` is a bitmap (Type 1), Width 2540 and Height 1482 in HiMetric.
+  - Each statement was logged with its error under Resume Next.
+  - `GetFormat` was read for formats 1, 2, 3, 8, 9, 14, `vbCFLink` and `vbCFRTF`.
+  - A returned picture was described by its `Type`, whether `Handle` is nonzero, and its `Width` and `Height`.
+
+| Probe | VB6 |
+|---|---|
+| `Clipboard.Clear`, then the formats | none |
+| `Set q = Clipboard.GetData()` on the empty clipboard | ok: **a Picture of Type 0**, Handle 0, Width and Height 0. Not Nothing |
+| `Set q = Clipboard.GetData(vbCFBitmap)` on the empty clipboard | the same empty picture |
+| `Clipboard.SetData p` | ok. The formats are **2 and 8**: a bitmap and, synthesised from it, a DIB |
+| `GetData()`, `GetData(vbCFBitmap)`, `GetData(vbCFDIB)` | each a **Type 1** picture, Width 2540, Height 1482 |
+| `GetData(vbCFPalette)`, `GetData(vbCFMetafile)`, `GetData(vbCFEMetafile)` | each the empty Type 0 picture, no error |
+| `GetData(vbCFText)` | **460** Invalid Clipboard format |
+| `GetData(99)` | **460** |
+| `v = Clipboard.GetData()`, a Let into a Variant | ok: a **Long**, nonzero (the picture's handle, its default member) |
+| `Clipboard.SetData p, vbCFDIB` | ok. The formats are 2 and 8, and `GetData(vbCFDIB)` is the Type 1 picture |
+| `Clipboard.SetData p, vbCFMetafile`, a bitmap as a metafile | **461** Specified format doesn't match format of data; nothing is put on the clipboard |
+| `Clipboard.SetData p, vbCFText` | **461** |
+| `Clipboard.SetData p, 99` | **461** |
+| `Clipboard.SetData Me.Icon` | **460** Invalid Clipboard format, and `GetData()` afterwards is the empty picture |
+| `Clipboard.SetData q` with `q` Nothing | **91** |
+| `Clipboard.SetData v` with `v` a Variant holding "text" | **424** Object required |
+| `Clipboard.SetText "abc"`, then `Set q = Clipboard.GetData()` | the empty Type 0 picture |
+| then `Clipboard.SetData p` | the formats are **1, 2 and 8**, and `GetText` is still `abc`: **`SetData` does not clear the clipboard** |
+
+- **A missing format is not an error for `GetData`;** an empty picture comes back. Only a format that is not a picture
+  format (text, or a number VB6 doesn't know) raises 460.
+- **`SetData` checks the format against the picture.** A bitmap can be set as a bitmap or a DIB, not as a metafile.
+- **A literal String passed to `SetData` is a compile error,** "Type mismatch", so the String row goes through a Variant.
+- **Not measured:**
+  - a metafile or an icon picture from `LoadPicture`;
+  - `SetData` of an icon as `vbCFBitmap`;
+  - the console session's own clipboard.

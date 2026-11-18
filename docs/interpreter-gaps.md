@@ -16,12 +16,14 @@
   supplies AccessKeys and the measured form-hosted Ambient reads ([#4149](https://github.com/hexide-io/HexIDE/issues/4149)).
   The designer (`SpawnComponentsForDesigner`), property-page editor and form preview do not attach a UserControl
   interpreter: design-time ReadProperties/Show and build-time callbacks remain unavailable. Runtime UserMode is True
-  and ShowHatching False. Palette, non-form containers, and RightToLeft on a right-to-left form explicitly refuse
+  and ShowHatching False. Palette, unmeasured containers (an SSTab, or a UserControl that is a container), and RightToLeft on a right-to-left form explicitly refuse
   pending measurements. LocaleID reads 1033 whatever the user locale, as measured, and refuses where the system
   locale or an interface language isn't US English, or off Windows, because which of those VB6 follows is unmeasured
   ([#4266](https://github.com/hexide-io/HexIDE/issues/4266)). A refusal or error raised while a form loads its
-  UserControls is reported as any event's is (#4266). AmbientChanged for a form's colour and font changes is measured but not raised yet, and a PictureBox-hosted
-  UserControl's Ambient reads, measured as the form's, still refuse ([#4448](https://github.com/hexide-io/HexIDE/issues/4448)).
+  UserControls is reported as any event's is (#4266). Form BackColor/ForeColor changes now raise synchronous AmbientChanged only when the colour changes;
+  Font assignments (including unchanged values and shared Font mutations) raise "Font", in file order, during
+  Form_Load too, without Paint. PictureBox- and Frame-hosted UserControls read the form's ambients and are notified with the rest (both measured)
+  ([#4448 measured table](https://github.com/hexide-io/HexIDE/issues/4448), oracle PR #4630).
   The remaining UserControl surface and designer/file editing are later work. Part C supplies Container assignment and Count, bottom Align, transparent BackStyle, and measured focus/lifecycle ordering. Align assignments other than 2, BackStyle reads (whose return subtype is unmeasured here), ContainedControls operations other than Count, and PropertyBag operations are still refused. Unmeasured conversions of
   AccessKeys are explicitly refused, rather than assigned invented VB6 semantics.
   [#4337](https://github.com/hexide-io/HexIDE/issues/4337) also attaches runtime-loaded array elements,
@@ -201,7 +203,7 @@ _Original per-item findings (retained for detail; dispositions above supersede t
 - **File/directory management** (Kill, Name…As, FileCopy, MkDir, RmDir, SetAttr) — implemented from compiled EXE measurements (#1561). Host attributes and long-name matching diverge as recorded in the fidelity oracle.
 - **Remaining file-related functions** — FileAttr runs for all five modes, including Input 1; ReturnType converts as CInt, defaults to 1, and other values raise 5 ([#4145](https://github.com/hexide-io/HexIDE/issues/4145)). InputB remains deferred; LOF, Loc, Seek and Input/Input$ run ([#1645](https://github.com/hexide-io/HexIDE/issues/1645)). FreeFile/EOF and the sequential statements run (#1145); FileLen, Dir/Dir$, CurDir, GetAttr and FileDateTime now run (#1561). Their named arguments are accepted with the measured names (#4145).
 - **GoSub/Return, On expr GoTo/GoSub** — all four throw; VB6 legacy in-procedure computed branching. Deferred pending linearized CFG/bytecode, the tree-walking limit CLAUDE.md describes.
-- **Date / Time statements** (set system clock) — both throw (StatementExecutor.cs:156, 1010); VB6 sets host clock. No spec names them.
+- **Date / Time statements** — plain and `$` assignments reproduce the conversion errors (13 and 91) and unprivileged error 70 measured in [#4681](https://github.com/hexide-io/HexIDE/issues/4681), SP6 native and p-code. HexIDE deliberately never changes the host clock and raises 70 even elevated, where VB6 sets it. Integer, Long, Currency, Empty and other unmeasured operand types explicitly refuse as not implemented; out-of-range dates remain unmeasured.
 - **Project resource functions (#2626)** — LoadResString and LoadResData read the project's snapshot; LoadResPicture loads measured 24-bit bitmaps and icon/cursor groups. Named arguments and program-locale selection run, including a sole other-language block and no fallback for empty string slots. Ambiguous unmatched languages, animated cursors, other image layouts and other argument conversions remain explicitly refused. Picture Type is Integer and Width/Height are Long HiMetric, including LoadPicture; native Handle and default Long handle conversion remain unimplemented. Group image selection (32×32 if present, otherwise largest scaled) is rendering policy, not a measured VB6 choice. Provenance: [original resource measurements](vb6-fidelity-oracle/loadresstring-loadresdata-and-loadrespicture.md) and [#2626's 2026-11-14 measurement comment](https://github.com/hexide-io/HexIDE/issues/2626).
 - **SavePicture statement** — throws (StatementExecutor.cs:810-812); VB6 runtime-library statement writing a Picture to a bitmap file. Deferred family-level (graphics/VB-objects; sibling LoadPicture accepts a BMP/ICO file for StatusBar panels in #1087 and PictureBox in #922, with LoadPicture() clearing a PictureBox; its remaining surface is deferred) but not named individually.
 - **Type-hint suffixes & $-typed string twins** (`Left$`, `Mid$`, `Format$`, `x%`, `s$`) — tracked by [#742](https://github.com/hexide-io/HexIDE/issues/742). A read through a character is the variable of the bare name, checked against its type, for all six, since #742 (measured, oracle "A name read with a type character"), and a declaration with one, `Dim n$`, takes its type since #2409. **#739 fixed:** a suffixed assignment now reaches the bare variable, checks its declared type and implicitly creates a typed variable on first use. The oracle's 2026-10-11 assignment probes measure all six characters, module and local, with and without Option Explicit. A `For` counter through any of `% & ! # @` is the variable of the bare name at every scope, and `Next i%` runs, measured on 2026-10-27 ("A For counter written with a type character"); an undeclared `$` counter is refused, unmeasured. A module-qualified read checks the character too. A `Function` declared with one (`Function GetName$()`) parses, and returns the type the character declares; a call may carry the character, checked against that type, and the body may assign the return through it, `GetName$ = …` ([#740](https://github.com/hexide-io/HexIDE/issues/740), measured for all six). VB6 core syntax, $-intrinsics return String not Variant. A call written with a `$` now runs (#1071): `Trim$(s)` and the other 22 library `$` forms answer as their plain form with a String, a Null raising 94, and a user `Function Trim` declared `As String` answers `Trim$` (oracle, "The library's `$` forms"). A `$` the oracle has not measured on that name stops the run naming #742. What is deferred is a `$` call the oracle has not measured, `Date$` and `Time$` read bare, and a character on a form's member (#742); #739 fixed assignment targets and #740 the Function declaration, and neither waited on it. `MISSING_FEATURES.md`'s "VB6 built-in functions" row records what remains.
@@ -319,13 +321,22 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   is unmeasured and keeps its existing behaviour.
 - **Arrays OF a UDT, and array fields inside a UDT** — implemented (#178): elements own their fields,
   assignments copy every field deeply, and ReDim/Preserve/Erase and ByRef element locks follow the measurements.
+  Array fields have indexed reads/writes and whole-array store checks. Constant-expression Type-field bounds
+  resolve in declaration order ([#4595, measured](https://github.com/hexide-io/HexIDE/issues/4595));
+  allocation before their Type resolves, inverted bounds and array fields As New remain refused. Get/Put of UDT
+  arrays and Types containing array fields also remain refused pending record-layout measurements. The existing acceptance of ByVal UDT parameters
+  and UDT-to-Variant assignments remains a divergence from the compile refusals measured for #178.
+
   Array fields have indexed reads/writes and whole-array store checks. Nonliteral or inverted Type-field bounds,
   array fields As New remain refused. Get/Put of UDT arrays and Types containing array
-  fields also remain refused pending record-layout measurements. The existing acceptance of ByVal UDT parameters
-  and UDT-to-Variant assignments remains a divergence from the compile refusals measured for #178.
+  fields also remain refused pending record-layout measurements. ByVal UDT parameters are refused when a call
+  binds them ([#4673’s measurements](https://github.com/hexide-io/HexIDE/issues/4673)); VB6 refuses the build, so one in a
+  procedure that is never called goes uncaught here.
+  UDT-to-Variant assignments remain a divergence from the compile refusals measured for #178.
 - **`LSet` / `RSet`** — named String variables and Variants holding a String or Integer justify their text
   since #2517. Other target types, unmeasured source conversions and
-  member/indexed targets remain refused.
+  Type, Nothing, control and indexed member targets remain refused as not implemented. Project class-instance
+  member targets instead raise the measured compile error when executed ([#4626](https://github.com/hexide-io/HexIDE/issues/4626)).
   `LSet` between named plain-data UDT variables now copies the measured aligned layout, including fixed Strings,
   fixed arrays and nested types ([#2518](https://github.com/hexide-io/HexIDE/issues/2518)). Noncanonical Boolean
   bits remain explicitly not implemented; HexIDE stores Booleans as true/false. RSet between UDTs and
@@ -335,8 +346,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   with spaces, `!key` works inside `With c`, and `c!key = 1` is 424 (all measured). On any other object it is still
   refused, since it is a call of that object's default member with the key as a String, and only the Collection's is
   modelled. Not a boundary.
-- **Object-model class features** — `With New`, `Friend`, and same-project qualified `New` are runtime lookups, not
-  analysis. **`As New` is done (#435):** the object is made where the variable is first read, through the same request
+- **Object-model class features** — `Friend` and same-project qualified `New` are runtime lookups, not
+  analysis. **`With New` is done ([#4599](https://github.com/hexide-io/HexIDE/issues/4599)):** creation shares the `New` expression path; the statement frame releases the target at `End With` unless retained elsewhere ([measured lifetime](vb6-fidelity-oracle/class_terminate-lifecycle.md)). **`As New` is done (#435):** the object is made where the variable is first read, through the same request
   and retry that make a form's default instance (#822), including each element of an array `As New` ([#4150](https://github.com/hexide-io/HexIDE/issues/4150), [measured core rules](vb6-fidelity-oracle/as-new.md)). For Each does not make untouched elements; Set to Nothing and Erase release made ones. A Type's field makes its object on first use too (#1488);
   copying the Type shares the object. (`Friend` treated as Public is arguably not
   a gap at all in a single-project interpreter — there are no external clients to hide from.)

@@ -562,11 +562,12 @@ public sealed class ChatViewModel : INotifyPropertyChanged
             ChatStrings.Format("Str.AIChat.UsingTool", tc.Name), isStatusLine: true);
         Dispatcher.UIThread.Post(() => Messages.Add(statusVm));
 
-        var result = await _tools.ExecuteAsync(tc);
+        var reply = await _tools.ExecuteReplyAsync(tc);
+        var result = reply.Json;
         _session.Add(new ConversationMessage("tool", result,
             toolCallId: tc.Id, toolName: tc.Name));
 
-        if (DescribeWriteOutcome(tc, result) is { } outcome)
+        if (DescribeWriteOutcome(tc, reply) is { } outcome)
             Dispatcher.UIThread.Post(() => Messages.Add(outcome));
     }
 
@@ -574,10 +575,11 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     /// The transcript line for what a write tool came to: an <c>apply_edit</c> applied or refused, or another
     /// write refused. Null for a read tool, and for a write that did what it was asked and has nothing to add.
     /// </summary>
-    private static ChatMessageViewModel? DescribeWriteOutcome(ToolCall tc, string result)
+    private static ChatMessageViewModel? DescribeWriteOutcome(ToolCall tc, IdeToolReply toolReply)
     {
         if (!IdeToolExecutor.WriteTools.Contains(tc.Name)) return null;
 
+        var result = toolReply.Json;
         bool succeeded;
         string? reason;
         try
@@ -591,6 +593,9 @@ public sealed class ChatViewModel : INotifyPropertyChanged
             succeeded = false;
             reason = result;
         }
+
+        if (toolReply.ReasonKey is { } key)
+            reason = ChatStrings.Format(key, toolReply.ReasonArguments ?? []);
 
         var file = FileNameOf(tc);
         if (tc.Name == "apply_edit")

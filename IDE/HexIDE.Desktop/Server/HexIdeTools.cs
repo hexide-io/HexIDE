@@ -1356,7 +1356,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     private const string WindowStateParameter =
         "Which window. Omitted, or \"ide\", is the IDE's own, as before this parameter existed. A running form's name such "
         + "as \"Form2\", or a window's title, reaches that window, minimized ones included, and \"auto\" picks as "
-        + "dump_visual_tree does. An unknown name is refused with the open windows listed.";
+        + "dump_visual_tree does. Use Form1#2 for the second visible match in opening order; exact names win. An unknown name is refused with the open windows listed.";
 
     // The window get_window_state and set_window_state act on: the IDE's own when 'window' is omitted, as it was before the
     // parameter existed, though the tree tools default to "auto" (#2357). Named as a caller passes it to reach it again.
@@ -3256,7 +3256,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         + "while it is paused at a breakpoint; among several, a dialog wins, then the one with focus, then the one opened "
         + "last, else the IDE's own. Floating IDE tools are skipped by auto; use their stable layout key (such as \"immediate\") or window title. \"ide\" reaches the IDE's own window; a window's title, or a running form's name such as \"Form2\", reaches that "
         + "window, or of two stacked under one name the one on top, which is how a form behind another form of the program is reached. An unknown name is refused with "
-        + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle.";
+        + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle. Use Form1#2 for the second visible match in opening order; exact names win.";
 
     [McpServerTool(Name = "dump_visual_tree")]
     [Description("Returns the active window's live control tree to address controls (see 'window'). Uses the UIA 'control view': None-type wrappers without focus, AutomationId, an automation Name of their own or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Adorners are under their control. Overflow never inserts a path segment. Context menus and flyouts have a ContextMenu or Flyout segment under their owner; owner paths stay stable. Each node carries its addressing 'path' (feed it back as a target), ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers and isEnabled. Providers and their interact actions: invoke → invoke, selection and selectionItem → select and remove_from_selection, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. Nodes may carry 'isHidden' and 'isOffscreen'; 'flagsNote' says what each means when a node has one. A long ListBox makes rows only for what is in view and a focused row, so its dump lists those; interact 'select' with a value scrolls to the rest. Top-level 'focusedPath' names the keyboard focus anywhere in the window, or 'focusReason' says why there is none. Scope a dump with 'root', or search with 'match'; 'maxDepth' and 'interactiveOnly' say what is kept and when a node is 'truncated'. A tree over about 40,000 characters is cut to fit, keeping the active document, and the 'note', written first, says what was cut.")]
@@ -3789,6 +3789,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         (Rect Bounds, Point Hovered)? placed = null;
         // What 'stay' adds to the reply, once the watch has run to its end (#2562).
         string? stayed = null;
+        string? placementNote = null;
         // In a code window, why no tip opened (#2574).
         string? quickInfo = null;
         try
@@ -3800,10 +3801,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             while (tip is null && Environment.TickCount64 < deadline)
             {
                 await Task.Delay(50, ct);
+                Control? tipOwner = null;
                 (tip, placed) = await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     if (DescribeOpenToolTip(hovered) is not { } open)
                         return ((string?)null, placed);
+                    tipOwner = open.Owner;
                     var window = TopLevel.GetTopLevel(hovered);
                     return (open.Text,
                         window is not null && UiAutomationDriver.OpenTipBounds(open.Owner, window) is { } bounds
@@ -3812,6 +3815,19 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 });
                 if (tip is not null)
                     openedAfter ??= sinceMove.ElapsedMilliseconds;
+                if (tipOwner is not null && placed is null)
+                {
+                    var positioned = await Dispatcher.UIThread.InvokeAsync(() =>
+                        UiAutomationDriver.WaitForTipPlacementAsync(tipOwner, ct));
+                    if (!positioned)
+                        placementNote = "; the compositor has not placed the tip yet, so its position is unknown; hover again to read it";
+                    else
+                        placed = await Dispatcher.UIThread.InvokeAsync(() =>
+                            TopLevel.GetTopLevel(hovered) is { } window
+                            && UiAutomationDriver.OpenTipBounds(tipOwner, window) is { } bounds
+                            && at.Receiver.TranslatePoint(at.Point, window) is { } point
+                                ? ((Rect Bounds, Point Hovered)?)(bounds, point) : null);
+                }
                 if (tip is not null && tip.EndsWith(UiAutomationDriver.NoTextToRead, StringComparison.Ordinal))
                     (textless, tip) = (tip, null);
             }
@@ -3866,7 +3882,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
         if (tip is not null)
             return await WaitForProgramAsync(program, placed is not { } where
-                ? raised with { Detail = raised.Detail + "; tip: " + tip + TipOpenedAfter(openedAfter ?? 0) + stayed }
+                ? raised with { Detail = raised.Detail + "; tip: " + tip + TipOpenedAfter(openedAfter ?? 0) + placementNote + stayed }
                 : raised with
                 {
                     Detail = raised.Detail + "; tip: " + tip + " (" + TipPlacement(where.Bounds, where.Hovered) + ")"
