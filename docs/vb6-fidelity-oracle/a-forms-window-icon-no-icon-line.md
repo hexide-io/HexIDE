@@ -52,7 +52,7 @@ Checked live with F5 on the probe's six forms: each window's `WM_GETICON` answer
 
 **The probe.** A running form set its own `Icon`, and the Icon of New instances of a second form, logging each result
 and error. p-code and native code logged the same lines. The first file was `ARW01UP.ICO`, VB6's own sample from
-`Common\Graphics\Icons\Arrows`: 1078 bytes, a 32-by-32 and a 16-by-16 image at 4 bits a pixel.
+`Common\Graphics\Icons\Arrows`: 1078 bytes, and by its directory a 32-by-32 and a 16-by-16 image at 4 bits a pixel.
 
 | Statement | Result |
 |---|---|
@@ -86,10 +86,13 @@ and error. p-code and native code logged the same lines. The first file was `ARW
 | one 32-by-32 stored as PNG | **481**, Invalid picture |
 | a 32-by-32 at 32 bits **with no AND mask** after its pixels, first before a 256 PNG, or among a 48 and a 16 alike | **481** |
 | a 256 PNG, then 48, 32 and 16 at 32 bits with no AND masks | **481** |
+| one 32-by-32 at 32 bits with its mask, its header's image size and resolution set (4096, and 3780 a metre) or left 0 | ok, either way |
+| one 32-by-32 at 32 bits without its mask, its header's image size and resolution set or left 0 | **481**, either way |
 
 - **The image it takes is the 32-by-32 one,** wherever it sits in the file. A file of one image loads it at its own size.
-  The masks were left out by Pillow, which writes 32-bit icon images that way; the same image written with its mask
-  loads.
+  The masks were left out by Pillow, which writes 32-bit icon images that way, and fills in the header's image size
+  and resolution. The last two rows cross the two: **the missing mask is what VB6 refuses**, and the header fields
+  make no difference.
 - **The 481 is LoadPicture's own,** raised before any assignment, and `LoadPicture(nosuch.ico)` is error 53, File not
   found, naming the path.
 - **Every error here was trappable** under `On Error Resume Next`.
