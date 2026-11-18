@@ -89,3 +89,38 @@ counted it as one for reading.
 took the value where vb6.exe raises 91, and an unset `As Object` or `As Collection` Function returned Empty. It starts
 Nothing now, and `LetIntoObjectTests` pins a fourth program.
 
+
+### An unset Function of an object type returns Nothing (2026-11-18, #4622, SP6)
+
+**The probe.** A standard module in a Sub Main project held one Function per type, each with an empty body. It
+logged each one's `TypeName`, `VarType` and `Is Nothing`. The project also held a form, Form2, and a class, Class1, and
+referenced nothing beyond VB's own libraries. p-code and native code logged the same lines. The run was in session 0.
+
+| `Function F() As …` | `TypeName(F())` | `VarType(F())` | `F() Is Nothing` |
+|---|---|---|---|
+| `Form2`, the project's form | Nothing | 9 | True |
+| `Form`, and `VB.Form` | Nothing | 9 | True |
+| `Control` | Nothing | 9 | True |
+| `TextBox`, `VB.TextBox`, and `PictureBox` | Nothing | 9 | True |
+| `Object` | Nothing | 9 | True |
+| `Collection` | Nothing | 9 | True |
+| `Class1`, the project's class | Nothing | 9 | True |
+| `Variant` | Empty | 0 | (not asked) |
+
+**A second run** added the OLE Automation reference, `stdole2.tlb`, to reach `OLE_COLOR` and `StdFont`:
+
+| Declaration | `TypeName` | `VarType` | value, or `Is Nothing` |
+|---|---|---|---|
+| `Function F() As OLE_COLOR`, unset | Long | 3 | 0 |
+| `Function F() As stdole.OLE_COLOR`, unset | Long | 3 | 0 |
+| `Dim c As OLE_COLOR` | Long | 3 | 0 |
+| `Function F() As StdFont`, unset | Nothing | 9 | True |
+| `Dim f As StdFont` | Nothing | | True |
+
+- **Every object type starts at Nothing,** whether VB's own, stdole's, a form of the project, or a class. Only the
+  Variant starts Empty.
+- **`OLE_COLOR` is a Long,** in a Function's result as in a `Dim`: it starts at 0.
+- **HexIDE's own reading, found with it:** an unset Function `As Form2` or `As Form` read TypeName "Variant", where
+  `As Class1` and `As Object` read "Nothing" (#4622).
+
+**Not measured:** a referenced library's own class, a Property Get, and a Function returning an array of these.

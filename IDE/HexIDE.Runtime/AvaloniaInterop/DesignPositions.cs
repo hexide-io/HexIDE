@@ -120,7 +120,7 @@ public static class DesignPositions
         return Scale.Twips;
     }
 
-    private readonly record struct Scale(string Unit, double AcrossTwips, double DownTwips, double Left, double Top)
+    internal readonly record struct Scale(string Unit, double AcrossTwips, double DownTwips, double Left, double Top)
     {
         public static readonly Scale Twips = new("twips", 1, 1, 0, 0);
 
