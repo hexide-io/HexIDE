@@ -357,6 +357,11 @@ recorded in #1866; the dockable pane uses selection/double-click rather than VB6
 
 ## Execution control
 
+### D37. Stepping over GoSub is unmeasured (#4726)
+- **VB6:** stepping over a GoSub has not been measured; the [runtime rows](https://github.com/hexide-io/HexIDE/issues/4726) do not establish debugger behaviour.
+- **HexIDE:** step logic is unchanged. Nested passes use the existing statement gates; each pass applies Set Next Statement at its own gate.
+- **Status:** unmeasured; runtime support does not claim stepping fidelity.
+
 ### D18. Set Next Statement is TOP-LEVEL-BODY granularity only (v2·P7b)
 - **VB6:** you can drag the yellow arrow to — or `Ctrl+F9` on — **any** executable line in the current procedure,
   including a line nested inside an `If`/`For`/`Do`/`Select` block. VB6 is compiled to a flat instruction stream with

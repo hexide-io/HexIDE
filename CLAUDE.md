@@ -775,9 +775,11 @@ run that module's declarations first, once, and treat re-entering a module still
 own "Circular dependencies between modules" (#893). Same behaviour as VB6, at VB6's granularity, and the
 pre-pass stays pure collection.
 
-What it still refuses, for the same reason rather than a different one: the linearized CFG that `GoSub` /
-`Return` / `On expr GoTo` and nested-granular `Resume` are deferred pending. A control-flow graph relates
-statements to each other; it is a map of the program, not a lookup for the walk.
+What it still refuses, for the same reason rather than a different one: a linearized CFG. `GoSub`, `Return`
+and `On expr GoTo`/`GoSub` run inside the walk for labels at the top of a procedure body, because the body's
+driver already keeps an index over its top-level statements, and a GoSub is a nested pass of that driver
+(#4726). What still can't run is what would need the CFG: a label inside a block, and nested-granular `Resume`.
+A control-flow graph relates statements to each other; it is a map of the program, not a lookup for the walk.
 
 **The interpreter is an APPROXIMATION, not a reimplementation.** If a program is valid VB6 and can be made
 to run, running it beats refusing it — even at a different evaluation point, even with an error raised later
@@ -820,11 +822,13 @@ holds it. What is out of reach is:
    consequence worth stating: VB6 compiles the
    whole program and HexIDE only sees executed statements, so an error on a never-taken path is invisible
    here and fatal there.
-2. **Tree-walking — an execution-strategy limit, NOT the AST limit.** `GoSub`/`Return`, `On expr
-   GoTo`/`GoSub`, and nested-granular `Resume` need "jump to label L, then resume where I was" — a position
-   in a linear statement sequence. A tree-walk's position is a stack of visitor frames, not an index, so
-   there is nothing to save and return to. The CST has the labels and the statements; a linearized CFG or
-   bytecode would lift this without touching the binding question. **This is the only limit that costs
+2. **Tree-walking — an execution-strategy limit, NOT the AST limit.** A `GoTo` or `GoSub` to a label inside
+   a block, and nested-granular `Resume`, need "jump to a statement inside that block" — a position in a
+   linear statement sequence. Inside a block, a tree-walk's position is a stack of visitor frames, not an
+   index, so there is nothing to jump into. Labels at the top of a procedure body are different: the body's
+   driver keeps an index over its top-level statements, so `GoSub`/`Return` and `On expr GoTo`/`GoSub` to them
+   run as nested passes of that driver (#4726). The CST has every label and statement; a linearized CFG or
+   bytecode would lift the rest without touching the binding question. **This is the only limit that costs
    actual constructs.**
 3. **Missing input — platform.** Type libraries: an OCX's default member, `New Excel.Application`, COM
    instancing. Not a comprehension failure at all. COM/OLE is *in scope and Windows-gated* per
