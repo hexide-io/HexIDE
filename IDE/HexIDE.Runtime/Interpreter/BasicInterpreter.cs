@@ -557,7 +557,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// class's top-level <c>Dim</c> declarations against it — each <c>Dim</c> allocates a FRESH slot, giving true
     /// per-instance field storage. Finally, if the class declares <c>Private Sub Class_Initialize()</c>, fire it
     /// on the new instance (after the field Dims, so it can set fields) — VB6's construction hook.</summary>
-    public async Task<VbObject> NewObject(string className)
+    public Task<VbObject> NewObject(string className) => NewObject(className, null);
+
+    private async Task<VbObject> NewObject(string className, Action<VbObject>? publish)
     {
         // `New` in the Immediate window would run field-init + Class_Initialize (statements → the paused gate →
         // deadlock) and mutate state. Blocked here, before construction. Scoped to Paused (see RunProcedure).
@@ -587,6 +589,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             createdClasses.RemoveAll(e => !e.TryGetTarget(out var o) || o.Terminated);
             compactCreatedClassesAt = Math.Max(MinCompactCreatedClasses, createdClasses.Count * 2);
         }
+        publish?.Invoke(instance);
         if (classDef.PrePass.Procedures.TryGetValue("Class_Initialize", out var init))
         {
             // The object under construction is held while Class_Initialize runs, as the New expression holds it in
@@ -1410,21 +1413,48 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </summary>
     private async Task MakeAutoInstance(AutoInstanceNeeded need)
     {
-        var made = ExpressionExecutor.IsCollectionType(need.AutoNew.ClassName)
-            ? new Vb6Value(NewCollection())
-            : Vb6Value.NewObject(await NewObject(need.AutoNew.ClassName));
-        AddRef(made);
-        if (need.Element is { } element)
+        void Store(Vb6Value value)
         {
-            if (element.Read().Value is null) element.Write(made);
-            else await ReleaseRef(made);
+            if (need.Element is { } element) element.Write(value);
+            else if (need.Field is { } field) field.Write(value);
+            else ExecutionContext.State[need.Location] = value;
         }
-        else if (need.Field is { } field)
-            field.Write(made);
-        else if (ExecutionContext.State[need.Location] is { Value: null })
-            ExecutionContext.State[need.Location] = made;
-        else
-            await ReleaseRef(made);   // Initialize filled the variable itself
+
+        if (ExpressionExecutor.IsCollectionType(need.AutoNew.ClassName))
+        {
+            var collection = new Vb6Value(NewCollection());
+            AddRef(collection);
+            Store(collection);
+            return;
+        }
+
+        VbObject? published = null;
+        try
+        {
+            await NewObject(need.AutoNew.ClassName, instance =>
+            {
+                var value = Vb6Value.NewObject(instance);
+                AddRef(value);
+                Store(value); // #4605: Initialize must find this object in its own slot.
+                published = instance;
+            });
+        }
+        catch
+        {
+            if (published is not null)
+            {
+                var current = need.Element is { } element ? element.Read()
+                    : need.Field is { } field ? (field.Bag.TryInspect(field.Name, out var value) ? value : Vb6Value.Nothing)
+                    : ExecutionContext.State[need.Location];
+                if (ReferenceEquals(current.Value, published))
+                {
+                    Store(Vb6Value.Nothing);
+                    // A failed Initialize drops the slot's reference without Class_Terminate (#4605).
+                    published.RefCount--;
+                }
+            }
+            throw;
+        }
     }
 
     private async ValueTask<T> LoadingSlowly<TState, T>(TState state, Func<TState, T> read, Exception need)
