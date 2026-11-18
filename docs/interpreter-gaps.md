@@ -383,11 +383,17 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   [CVar](vb6-fidelity-oracle/cvar.md), [subscripts](vb6-fidelity-oracle/subscripts-bounds-and-a-method-called-from-class_initialize.md).
   Parameterized Function/Get default reads and Property Let writes now run through variables, class fields,
   indexed results and parameterless class-returning procedures ([#4606 measurements](https://github.com/hexide-io/HexIDE/issues/4606)).
-  Classes without defaults, Variable/Sub defaults given arguments and defaults without a Property Let on a write
-  remain unmeasured and refuse naming #4606. Nothing in Variant/Object slots and object argument/value evaluation
+  For parameterized access, classes without defaults, Variable/Sub defaults and defaults without a Property Let
+  on a write remain unmeasured and refuse naming #4606. Nothing in Variant/Object slots and object argument/value evaluation
   order retain today's behaviour, unmeasured.
+  No-argument Lets into class/Object variables, class fields, With members and object-array elements now call
+  the held class's default Property Let or store into its Variant default field, preserving the object
+  ([#4694 measurements](https://github.com/hexide-io/HexIDE/issues/4694)). Get-only and Function defaults raise
+  the measured early/late-bound errors. UDT object fields and other object-array element cases (including Nothing,
+  no default, Sub or typed-field defaults) retain today's behaviour, unmeasured.
   Still refused naming #174: a Sub default used as a scalar, a member requiring arguments used without them,
-  nested scalar defaults, typed Function Format/Abs and later Format arguments (unmeasured), and default-member writes without arguments. Synchronous Join/Filter reads,
+  nested scalar defaults, typed Function Format/Abs and later Format arguments (unmeasured), and no-argument
+  writes through variables or class fields to Sub or typed-field defaults (unmeasured). Synchronous Join/Filter reads,
   `IndexResult` and `FieldElement` subscript conversion retain their refusals; the Immediate window still
   refuses calls into the program. Array bounds and control-array indexes remain unmeasured with defaults.
 
