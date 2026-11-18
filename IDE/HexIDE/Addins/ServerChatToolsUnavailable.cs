@@ -21,8 +21,8 @@ internal sealed class ServerChatToolsUnavailable : IServerChatTools
 
     public Task<ServerChatToolResult> CallAsync(ServerChatTool tool, JsonElement? arguments, ServerChatToolApproval approve,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(new ServerChatToolResult(true, "Language servers' AI Chat tools are available only to HexIDE's own add-ins.",
-            ReasonKey: "Str.AIChat.ServerToolsUnavailable"));
+        Task.FromResult(new ServerChatToolResult(true, "Language servers' AI Chat tools are available only to HexIDE's own add-ins.")
+            { ReasonKey = "Str.AIChat.ServerToolsUnavailable" });
 
     public Task<IReadOnlyList<ServerChatContext>> GetContextAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<ServerChatContext>>([]);

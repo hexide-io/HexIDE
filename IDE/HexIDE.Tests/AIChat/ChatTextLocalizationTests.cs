@@ -416,8 +416,8 @@ public class ChatTextLocalizationTests
         {
             var tools = Substitute.For<IServerChatTools>();
             tools.CallAsync(Arg.Any<ServerChatTool>(), Arg.Any<JsonElement?>(), Arg.Any<ServerChatToolApproval>(),
-                Arg.Any<CancellationToken>()).Returns(new ServerChatToolResult(true, "English",
-                    ReasonKey: key, ReasonArguments: ["Probe", "raw exception"]));
+                Arg.Any<CancellationToken>()).Returns(new ServerChatToolResult(true, "English")
+                    { ReasonKey = key, ReasonArguments = ["Probe", "raw exception"] });
             var host = Substitute.For<IHexIdeHost>();
             host.ServerChatTools.Returns(tools);
             var chat = new ChatViewModel(host, directory);
