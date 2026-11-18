@@ -14,9 +14,6 @@
         <Nullable>enable</Nullable>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <OutputType>Exe</OutputType>
-        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
-        <!-- As in HexIDE.Integration.Tests: a failing run names the test, its message, file, line and stack. -->
-        <TestingPlatformShowTestsFailure>true</TestingPlatformShowTestsFailure>
         <IsPackable>false</IsPackable>
         <IsTestProject>true</IsTestProject>
     </PropertyGroup>
@@ -27,7 +24,11 @@
         <PackageReference Include="AwesomeAssertions" />
         <PackageReference Include="Microsoft.Testing.Extensions.HangDump" />
         <PackageReference Include="NSubstitute" />
-        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="xunit.v3.mtp-v2" />
+        <PackageReference Include="Microsoft.Testing.Extensions.Telemetry" />
+        <PackageReference Include="Microsoft.Testing.Extensions.TrxReport.Abstractions" />
+        <PackageReference Include="Microsoft.Testing.Platform" />
+        <PackageReference Include="Microsoft.Testing.Platform.MSBuild" />
     </ItemGroup>
 
     <!-- HexIDE.Integration.Tests' guards and helpers that need nothing of the IDE's, shared rather than copied. -->

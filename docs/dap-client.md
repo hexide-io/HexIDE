@@ -206,7 +206,7 @@ reverse requests in their descriptions; other requests travel to the adapter and
 including support marks and headline counts. Do not hand-edit the table. To regenerate it:
 
 ```sh
-HEXIDE_UPDATE_DAP_COVERAGE=1 dotnet test IDE/HexIDE.Tests/ -- --filter-method '*CoverageMatchesSchemaAndClientCode'
+HEXIDE_UPDATE_DAP_COVERAGE=1 dotnet test --project IDE/HexIDE.Tests/HexIDE.Tests.csproj -- --filter-method '*CoverageMatchesSchemaAndClientCode'
 ```
 
 The schema downloads on demand and every copy, including an override, must match the pinned digest.
@@ -297,8 +297,8 @@ fast stops, refused/cancelled resumes, startup deadlines, terminal state, output
 queues are full.
 
 ```text
-dotnet test IDE/HexIDE.Tests -- --filter-class "*DapConnectionTests"
-dotnet test IDE/HexIDE.Tests -- --filter-class "*DapProcessTests"
+dotnet test --project IDE/HexIDE.Tests/HexIDE.Tests.csproj -- --filter-class "*DapConnectionTests"
+dotnet test --project IDE/HexIDE.Tests/HexIDE.Tests.csproj -- --filter-class "*DapProcessTests"
 ```
 
 Launch-file breakpoint entries accept `condition`, `hitCondition` and `logMessage` strings (#4143).

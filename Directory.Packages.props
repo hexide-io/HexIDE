@@ -88,10 +88,14 @@
          AvaloniaFactDiscoverer.CreateTestCase, AvaloniaUI/Avalonia#22072, open and confirmed upstream.
          The package's own dependency is an open ">= 3.2.2", so NuGet resolves 4.0.0 happily and it fails
          only at test DISCOVERY — no build error, no restore warning. Raise this when #22072 closes. -->
-    <PackageVersion Include="xunit.v3" Version="[3.2.2,4.0.0)" />
-    <!-- At the Microsoft.Testing.Platform version xunit.v3 brings (1.9.1), which the extension must match. CI runs
-         the Integration steps with hang dumps on, so a hung test is named and dumped inside the step limit (#2530). -->
-    <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="1.9.1" />
+    <PackageVersion Include="xunit.v3.mtp-v2" Version="[3.2.2,4.0.0)" />
+    <!-- Pin the platform and MSBuild runner with HangDump: xunit permits 2.0.2, whose mutex-based
+         activity signal breaks on macOS (#3874). 2.5.3 uses pipe heartbeats; the extension must match. -->
+    <PackageVersion Include="Microsoft.Testing.Extensions.Telemetry" Version="2.5.3" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport.Abstractions" Version="2.5.3" />
+    <PackageVersion Include="Microsoft.Testing.Platform" Version="2.5.3" />
+    <PackageVersion Include="Microsoft.Testing.Platform.MSBuild" Version="2.5.3" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="2.5.3" />
   </ItemGroup>
   <!-- MCP server -->
   <ItemGroup>
