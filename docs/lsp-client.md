@@ -1614,6 +1614,9 @@ catalogue keeps its names. The shapes follow MCP's `tools/list` and `tools/call`
 - **Only HexIDE's own add-ins reach the tools** (`IHexIdeHost.ServerChatTools`): the caller supplies the approval
   callback, so another add-in sees an empty list. A developer-unsigned add-in exists only in a Debug build's
   developer mode.
+- **Refusals HexIDE writes have two readers** (#4332). The AI service receives the existing English text;
+  the chat shows the reason in the IDE's language, with server/tool names and exception messages left as
+  arguments. A server's own error text passes through unchanged. The displayed reason is cut at 300 characters.
 - Control characters and format characters (the bidirectional overrides among them) are removed from what a
   server returns. The limits are in [`language-servers.md`](language-servers.md#tools-for-ai-chat).
 
