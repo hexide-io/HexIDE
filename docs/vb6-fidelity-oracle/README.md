@@ -852,3 +852,4 @@ added afterwards.
 - [An HRESULT given to Err.Raise or Err.Number (2026-11-18, #4730, SP6)](an-hresult-given-to-err-raise-or-err-number.md#an-hresult-given-to-errraise-or-errnumber-2026-11-18-4730-sp6)
 - [In the IDE too: the line break is in the description itself (2026-11-18, #4676, SP6)](errobject-as-a-declared-type.md#in-the-ide-too-the-line-break-is-in-the-description-itself-2026-11-18-4676-sp6)
 - [A control's and a form's members through CallByName (2026-11-18, #4520)](callbyname.md#a-controls-and-a-forms-members-through-callbyname-2026-11-18-4520)
+- [Where `/make` puts its output: Path32, /outdir, a failed build, and an ActiveX DLL's registration (2026-11-18, #4538, #2503, SP6)](where-make-puts-its-output.md#where-make-puts-its-output-path32-outdir-a-failed-build-and-an-activex-dlls-registration-2026-11-18-4538-2503-sp6)
