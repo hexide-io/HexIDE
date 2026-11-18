@@ -20,7 +20,8 @@
   pending measurements. LocaleID reads 1033 whatever the user locale, as measured, and refuses where the system
   locale or an interface language isn't US English, or off Windows, because which of those VB6 follows is unmeasured
   ([#4266](https://github.com/hexide-io/HexIDE/issues/4266)). A refusal or error raised while a form loads its
-  UserControls is reported as any event's is (#4266). AmbientChanged for form colour changes remains unmeasured ([#4448](https://github.com/hexide-io/HexIDE/issues/4448)).
+  UserControls is reported as any event's is (#4266). AmbientChanged for a form's colour and font changes is measured but not raised yet, and a PictureBox-hosted
+  UserControl's Ambient reads, measured as the form's, still refuse ([#4448](https://github.com/hexide-io/HexIDE/issues/4448)).
   The remaining UserControl surface and designer/file editing are later work. Part C supplies Container assignment and Count, bottom Align, transparent BackStyle, and measured focus/lifecycle ordering. Align assignments other than 2, BackStyle reads (whose return subtype is unmeasured here), ContainedControls operations other than Count, and PropertyBag operations are still refused. Unmeasured conversions of
   AccessKeys are explicitly refused, rather than assigned invented VB6 semantics.
   [#4337](https://github.com/hexide-io/HexIDE/issues/4337) also attaches runtime-loaded array elements,
@@ -512,4 +513,4 @@ moves it here (#3364). The *Missed* section keeps its own fixed entries, as the 
   elements and another module's Public UDT included, and a chained `Set` stores the final object reference. A field
   store through a UDT-returning property or function writes only the returned copy, calls the getter once, and never
   calls its Let, as [measured](vb6-fidelity-oracle/chained-writes-qualified-set-and-udt-returning-members.md) natively
-  and as p-code. `Set` through a class-typed UDT field is supported by #3924, including module-qualified chains; other recognised object field types beyond Object and Collection remain explicitly refused pending measurements.
+  and as p-code. `Set` through a class-typed UDT field is supported by #3924, including module-qualified chains. Object, Collection and project-class array fields allocate and take element `Set` since [#4596](https://github.com/hexide-io/HexIDE/issues/4596), with independent array copies sharing object references and measured Erase/scope-exit release timing; other recognised object field types beyond Object and Collection remain explicitly refused pending measurements.

@@ -310,7 +310,7 @@ public class DynamicRegistrationProbe : IAsyncDisposable
         foreach (var e in events) (kind & (1 << (e.GetProperty("type").GetInt32() - 1))).Should().NotBe(0);
     }
 
-    [NotOnMacFact]
+    [Fact]
     public async Task DiskChangesAndDeletesUseDefaultKinds()
     {
         var root = DirectoryForTest();
@@ -347,7 +347,7 @@ public class DynamicRegistrationProbe : IAsyncDisposable
         events[0].GetProperty("uri").GetString().Should().Be(new Uri(path).AbsoluteUri);
     }
 
-    [NotOnMacFact]
+    [Fact]
     public async Task UnregisterDropsQueuedEventsAndOtherConnectionsReceiveNothing()
     {
         var root = DirectoryForTest();
@@ -358,6 +358,8 @@ public class DynamicRegistrationProbe : IAsyncDisposable
             new object[] { Path.Combine(root, "queued.toml"), 1 });
         await server.UnregisterAsync();
         await File.WriteAllTextAsync(Path.Combine(root, "ignored.toml"), "test", TestContext.Current.CancellationToken);
+        // #3650: macOS can deliver a pre-watch write about 10 ms after an immediate registration.
+        await Task.Delay(1000, TestContext.Current.CancellationToken);
         await server.RegisterAsync(new[] { new { globPattern = "**/*.toml", kind = 2 } });
         var path = Path.Combine(root, "queued.toml");
         typeof(VBLspClient).GetMethod("NotifyWatchedFile")!.Invoke(client, new object[] { path, 2 });
@@ -472,17 +474,4 @@ public class DynamicRegistrationProbe : IAsyncDisposable
         events[0].GetProperty("uri").GetString().Should().Be(new Uri(Path.Combine(root, "accepted.bas")).AbsoluteUri);
     }
 
-}
-
-/// <summary>Skips, visibly, on macOS, where FSEvents reports a watched file's events differently (#3650).</summary>
-public sealed class NotOnMacFactAttribute : FactAttribute
-{
-    public NotOnMacFactAttribute(
-        [System.Runtime.CompilerServices.CallerFilePath] string? sourceFilePath = null,
-        [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = -1)
-            : base(sourceFilePath, sourceLineNumber)
-    {
-        if (OperatingSystem.IsMacOS())
-            Skip = "macOS: FSEvents can report a change as a creation and deliver after a later registration (#3650).";
-    }
 }

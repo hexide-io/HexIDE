@@ -30,7 +30,7 @@
 | Print… | — | Missing | Disabled until printing is implemented ([#3395](https://github.com/hexide-io/HexIDE/issues/3395)) |
 | Print Setup… | — | Missing | Disabled until print setup is implemented ([#3395](https://github.com/hexide-io/HexIDE/issues/3395)) |
 | Make *{project}*… | — | Partial | Invokes HexIDE interpreter export; no real native-code compile. Carried files and their item lines are omitted from the package, keeping their source paths private (#750). Repeated Makes to the same path ask before replacing the derived project archive with the current source (#748, #2504); No/cancel preserves both outputs. The made program runs every form, standard module and class module of the project, from its startup form or from `Sub Main`, read by the loader the IDE's own open uses ([#1062](https://github.com/hexide-io/HexIDE/issues/1062)). Its packaged source copies use UTF-8 with a BOM so non-ASCII text survives a different host code page (#731). The program is the standalone runner, one self-contained file, renamed beside the archive, so it needs neither .NET nor HexIDE where it runs. Programs made by v0.2.0 do not start ([#1971](https://github.com/hexide-io/HexIDE/issues/1971)), and macOS's are not yet verified. An unhandled run-time error freezes the made program, shows its name and a warning with OK only, and exits without unload or terminate events on dismissal; compile errors and engine faults are visible too (#757) |
-| Make *{project}* with VB6… | — | Done | Shells out to VB6.EXE if installed; a build stopped after 180 seconds reports the timeout and a possible waiting dialog (#979) |
+| Make *{project}* with VB6… | — | Done | Shells out to VB6.EXE if installed; a build stopped after 180 seconds reports the timeout and a possible waiting dialog (#979). Asks before replacing an existing output exe, with No the default (#4504) |
 | Make Project Group… | — | Stub | Offered only with a group open, as in VB6 (#746); removes `DisabledCommand`. VB6's builds the group's projects through a "Build the following projects" dialog. HexIDE's says the feature isn't implemented yet and writes nothing ([#1515](https://github.com/hexide-io/HexIDE/issues/1515)). It used to save every project and the group, which is Save Project Group's job |
 | MRU file list | — | Done | "Recent Projects ►" submenu in File menu; backed by `IRecentProjectsService`; refreshes on project open/close |
 | Exit | Ctrl+Q | Done | Calls `IClassicDesktopStyleApplicationLifetime.Shutdown()` |
@@ -159,7 +159,7 @@
 
 | Item | Shortcut | Status | Notes |
 |---|---|---|---|
-| Start | F5 | Done | Runs project via HexIDE interpreter in a new window |
+| Start | F5 | Done | Runs project via HexIDE interpreter in a new window; Continue after Ctrl+Break restores the active program form, including a modal form, even after Into/Over steps (#4262; checked live 2026-11-18). With a modal form open, the form beneath it stays behind the IDE (#4618) |
 | Start With Full Compile | Ctrl+F5 | Stub | Calls same code path as Start; compile step not distinct |
 | Break | Ctrl+Break | Done | Requests a pause at the next statement gate while the interpreter is running; Ctrl+Break also reaches the IDE from a focused desktop running form and brings the IDE forward on entering break mode (#1297); the toolbar buttons remain available (#2179) |
 | End | — | Done | Standard and Debug toolbar buttons remain available while a running form has focus (#2319) |
@@ -551,7 +551,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Ctrl+Shift+F9 | Clear All Breakpoints | Done | |
 | Ctrl+E | Menu Editor | Done | |
 | Ctrl+T | Components | Done | Factory gesture in Default; uses the platform command key (#3397) |
-| Alt+F5 | Run with VB6 | Done | |
+| Alt+F5 | Run with VB6 | Done | Asks before replacing an output unless its filename and SHA-256 match the last successful Run build, persisted in the user sidecar (#4504); working directory remains HexIDE's own |
 | Shift+F2 | View Definition | Done | Routed GoToDefinitionCommand; F12 also remains available (#3) |
 | F2 | Object Browser | Done | OpenObjectBrowserCommand on F2; next and previous bookmark have no default gesture, so nothing else takes it |
 | Ctrl+Shift+F2 | Last Position | Missing | Menu item still disabled; Ctrl+Shift+F2 gesture consumed by ClearAllBookmarksCommand |
