@@ -89,3 +89,7 @@ These rows were run on HexIDE's runtime with the same guard, and #4605 is the fi
   `125ff7682`.
 - **Rows 2 to 5:** the first use gives 5, but the innermost nested object finished and was stored, so the second use
   gives 0 where VB6 gives 5.
+
+**Since fixed** by #4605 in batch 384 (`1f2d7eede`). An auto-made object is in its slot before its Initialize runs, and a
+raising Initialize leaves the slot Nothing with no `Class_Terminate`. `PredeclaredClassTests` and `AsNewTests` pin
+rows 1 to 8.
