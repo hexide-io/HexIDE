@@ -6,8 +6,8 @@ command line's `/outdir`? What does a failed build leave behind? What else does 
 two, to decide whether Make can build into a staging folder and then swap the result in.
 
 **The probe.**
-- **The projects:** fourteen Standard EXE projects, each one form, and two ActiveX DLL projects, each one `MultiUse`
-  class.
+- **The projects:** fourteen Standard EXE projects, each one form, and three ActiveX DLL projects, each one `MultiUse`
+  class. Two said `Startup="(None)"`, and one had no `Startup=` line.
 - **The runs:** in the Win10 guest's session 0, through PowerShell Direct. Each ran `/make "<project>.vbp" /out
   "<log>"`, adding `/outdir "<folder>"` where a row says so.
 - **vb6.exe's working folder** was an empty folder elsewhere, so a relative path resolved against it would have shown
@@ -32,6 +32,7 @@ two, to decide whether Make can build into a staging folder and then swap the re
 | the same compile error, the older exe in the `/outdir` folder | failed | nothing: the older exe keeps its bytes |
 | a good build over an older exe beside the `.vbp` | succeeded | the exe replaced where it was, and nothing set aside |
 | ActiveX DLL, `ExeName32="HxMkA2.dll"`, no `/outdir` | succeeded | `HxMkA2.dll`, `.exp` and `.lib` beside the `.vbp`. The class registered machine-wide, in the 32-bit view, with `InprocServer32` naming that `.dll` |
+| ActiveX DLL, no `Startup=` line | "Sub Main() doesn't exist", failed | nothing |
 | ActiveX DLL, `/outdir` an existing folder | succeeded | `.dll`, `.exp` and `.lib` in the `/outdir` folder. **`InprocServer32` names the `.dll` in the `/outdir` folder** |
 
 **The `.vbp` that `AutoIncrementVer=1` wrote back under `/outdir`.** The project file held fifteen lines. VB6 wrote
@@ -45,11 +46,12 @@ back thirty:
 **What it shows:**
 - **`Path32` is the exe's folder only when `ExeName32` names the exe.** A relative `Path32` is resolved against the
   `.vbp`'s folder, not the working folder. Without `ExeName32`, `/make` ignores `Path32` and writes `<Name>.exe` beside
-  the `.vbp`.
+  the `.vbp`. That fits [What Save Project As does to the paths in a project file](what-save-project-as-does-to-the-paths-in-a-project-file.md),
+  where Save Project As drops a `Path32` that has no `ExeName32`.
 - **`/make` makes no folder.** A missing `Path32` or `/outdir` folder fails the build with "Path not found".
 - **`/outdir` beats `Path32`.** The `.vbp` itself is left alone, unless VB6 writes it back for another reason.
-- **When VB6 does write the `.vbp` back, it records the `/outdir` folder as `Path32`,** as the IDE's File > Make records
-  the folder it last made into. `AutoIncrementVer=1` is one such reason.
+- **When VB6 does write the `.vbp` back, it records the `/outdir` folder as `Path32`.** `AutoIncrementVer=1` is one
+  such reason.
 - **A failed compile writes nothing,** and leaves an older exe as it was, p-code and native, with or without
   `/outdir`.
 - **A good build replaces the exe in place.** Nothing is staged or kept aside.
