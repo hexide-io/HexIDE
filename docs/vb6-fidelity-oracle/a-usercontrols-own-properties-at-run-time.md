@@ -202,7 +202,7 @@ The control's `ReadProperties`, `InitProperties` and `Show` each append one line
 - **Not measured:**
   - a form with `RightToLeft` True;
   - a container other than a form (a Frame or a PictureBox). A PictureBox was measured on 2026-11-18, in the next
-    section: its UserControl takes its ambients from the form. A Frame is still unmeasured;
+    section: its UserControl takes its ambients from the form. So does a Frame's, measured the same day;
   - `Palette`;
   - `LocaleID` under another locale;
   - `AmbientChanged` when the form's colours change at design time.
@@ -276,7 +276,13 @@ The form logs its own events, and a marker line before each change:
   - Its `Ambient.BackColor` and `Ambient.Font` read the form's values, `C0FFC0` and Tahoma, while `Picture1` still had
     its defaults, `8000000F` and MS Sans Serif.
   - Changing `Picture1`'s BackColor and FontName raised nothing on it.
-  - A Frame as container is still unmeasured.
+- **A UserControl in a Frame does the same** (a second run the same day, native and p-code, with identical logs).
+  - **The probe:** the same program with a Frame, `Frame1`, after `UC11` in the `.frm`, holding a third instance, `UC3`.
+    The Timer also set `Frame1.BackColor = &HFF00FF`, `Frame1.FontName = "Arial Black"` and `Frame1.ForeColor = &HFF`.
+  - **The order:** UC3 got every one of the form's changes, after UC2 and UC11, which is file order again.
+  - **Its reads:** its `Ambient` read the form's values, while `Frame1` kept its own defaults.
+  - **The Frame's own changes,** all three, raised nothing on any instance.
+  - **Loading:** UC3 loaded third (Initialize, `ReadProperties`, Resize) and was shown, hidden and terminated third.
 - **Paint, in the console session:**
   - **The shown form:** `Form_Paint`, then `Picture1_Paint`, then each UserControl's Paint, UC2 then UC11. All of them
     came after `Form_Activate` and before the Timer's first change.
@@ -286,8 +292,9 @@ The form logs its own events, and a marker line before each change:
 - **During `/make`:** the build loaded the two instances twice. Each time it ran Initialize, `ReadProperties` with
   UserMode False, and Resize for each instance in `.frm` order, then Terminate for each. No `AmbientChanged` fired.
   That agrees with the "`/make` itself loads the control" row above, and adds that Resize and Terminate fire too.
-- **In HexIDE:** `AmbientChanged` is raised only for `DisplayAsDefault`. `Ambient` reads refuse on a UserControl that
-  isn't directly on a form. Both are #4448.
+- **In HexIDE:** before #4448, `AmbientChanged` was raised only for `DisplayAsDefault`, and `Ambient` reads refused on a
+  UserControl that wasn't directly on a form. #4448 (PR #4657) raises these events and lets a PictureBox's or a
+  Frame's UserControl read the form's ambients.
 
 ### In HexIDE
 
