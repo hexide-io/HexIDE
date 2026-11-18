@@ -3789,6 +3789,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         (Rect Bounds, Point Hovered)? placed = null;
         // What 'stay' adds to the reply, once the watch has run to its end (#2562).
         string? stayed = null;
+        string? placementNote = null;
         // In a code window, why no tip opened (#2574).
         string? quickInfo = null;
         try
@@ -3800,10 +3801,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             while (tip is null && Environment.TickCount64 < deadline)
             {
                 await Task.Delay(50, ct);
+                Control? tipOwner = null;
                 (tip, placed) = await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     if (DescribeOpenToolTip(hovered) is not { } open)
                         return ((string?)null, placed);
+                    tipOwner = open.Owner;
                     var window = TopLevel.GetTopLevel(hovered);
                     return (open.Text,
                         window is not null && UiAutomationDriver.OpenTipBounds(open.Owner, window) is { } bounds
@@ -3812,6 +3815,19 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 });
                 if (tip is not null)
                     openedAfter ??= sinceMove.ElapsedMilliseconds;
+                if (tipOwner is not null && placed is null)
+                {
+                    var positioned = await Dispatcher.UIThread.InvokeAsync(() =>
+                        UiAutomationDriver.WaitForTipPlacementAsync(tipOwner, ct));
+                    if (!positioned)
+                        placementNote = "; the compositor has not placed the tip yet, so its position is unknown; hover again to read it";
+                    else
+                        placed = await Dispatcher.UIThread.InvokeAsync(() =>
+                            TopLevel.GetTopLevel(hovered) is { } window
+                            && UiAutomationDriver.OpenTipBounds(tipOwner, window) is { } bounds
+                            && at.Receiver.TranslatePoint(at.Point, window) is { } point
+                                ? ((Rect Bounds, Point Hovered)?)(bounds, point) : null);
+                }
                 if (tip is not null && tip.EndsWith(UiAutomationDriver.NoTextToRead, StringComparison.Ordinal))
                     (textless, tip) = (tip, null);
             }
@@ -3866,7 +3882,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
         if (tip is not null)
             return await WaitForProgramAsync(program, placed is not { } where
-                ? raised with { Detail = raised.Detail + "; tip: " + tip + TipOpenedAfter(openedAfter ?? 0) + stayed }
+                ? raised with { Detail = raised.Detail + "; tip: " + tip + TipOpenedAfter(openedAfter ?? 0) + placementNote + stayed }
                 : raised with
                 {
                     Detail = raised.Detail + "; tip: " + tip + " (" + TipPlacement(where.Bounds, where.Hovered) + ")"

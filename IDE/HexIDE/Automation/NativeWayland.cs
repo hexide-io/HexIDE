@@ -1,5 +1,8 @@
 using System;
+using System.Reflection;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Platform;
 
 namespace HexIDE.Automation;
 
@@ -12,6 +15,16 @@ internal static class NativeWayland
 {
     /// <summary>Stands in for the backend in a headless test, which can't load it.</summary>
     internal static Func<TopLevel, bool>? ForTest = null;
+
+    internal static Func<TopLevel, bool>? PlacedForTest = null;
+
+    // PopupImpl's position remains default until xdg_popup.configure (#4627). The platform property is internal.
+    private static readonly PropertyInfo? PlatformPosition = typeof(IWindowBaseImpl)
+        .GetProperty("Position", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    public static bool Placed(TopLevel popup) => !Hosts(popup)
+        || (PlacedForTest?.Invoke(popup) ?? popup.PlatformImpl is IWindowBaseImpl platform
+            && PlatformPosition?.GetValue(platform) is PixelPoint position && position != default);
 
     /// <summary>
     /// Whether <paramref name="topLevel"/> is on that backend. It is a check on the name of the platform object's type,
