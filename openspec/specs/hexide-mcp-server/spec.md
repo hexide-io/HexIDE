@@ -1132,7 +1132,12 @@ unknown name's refusal SHALL say that the IDE's window is the default here.
 A `window` named by a title or a running form's name SHALL reach the one visible window of that name. Where several
 share it and sit on one another, each owning the next, the name SHALL reach the one on top, the one a person can use,
 and a path that fails there SHALL say that the name reached the window on top of another of that name. Where several
-share it side by side, the refusal SHALL name what does reach one of them, rather than advice no caller can follow.
+share it side by side, the refusal SHALL list each window's indexed address and title, explain that each address
+reaches that window, and retain the explanation of what `auto` reaches.
+When no window matches a value exactly, a trailing `#n` with a positive integer SHALL select the n-th visible
+window answering to the preceding name, in opening order starting at 1. Hidden windows SHALL NOT count.
+An index past the count SHALL be refused with the count. Exact titles, form names and floating-tool keys
+containing `#` SHALL keep their existing meaning.
 
 #### Scenario: A dialog and its own message box share a title
 - **WHEN** the Find dialog has raised a message box also titled "Find", and a tool is called with `window: "Find"`
@@ -1141,8 +1146,17 @@ share it side by side, the refusal SHALL name what does reach one of them, rathe
 
 #### Scenario: Two instances of one form are open
 - **WHEN** two instances of Form1 are showing side by side, and a tool is called with `window: "Form1"`
-- **THEN** it is refused, naming both
+- **THEN** it is refused, listing `Form1#1` and `Form1#2` with their titles and saying each address reaches that window
 - **AND** the refusal says which of them `auto` reaches
+
+#### Scenario: An indexed window address
+- **WHEN** two visible instances answer to Form1 and no window matches the exact value `Form1#2`
+- **THEN** `window: "Form1#2"` reaches the second instance in opening order
+- **AND** `window: "Form1#3"` is refused, saying two windows answer to Form1
+
+#### Scenario: An exact title includes an index
+- **WHEN** a window is titled "Form1#2" while two other windows answer to Form1
+- **THEN** `window: "Form1#2"` reaches the window with that exact title
 
 ### Requirement: Floating tools SHALL remain part of the IDE
 Automatic window selection SHALL exclude the IDE's Dock host windows, while explicit window titles and

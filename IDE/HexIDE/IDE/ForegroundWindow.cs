@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Numerics;
 using Avalonia.Controls;
 
 namespace HexIDE.IDE;
@@ -46,7 +48,8 @@ public static class ForegroundWindow
     /// <param name="scope">
     /// <c>"auto"</c> or null prefers any other visible window to the IDE, whether or not it is on top:
     /// a dialog first, then the one with focus, then the one opened last. <c>"ide"</c> (or <c>"main"</c>)
-    /// picks the IDE's own window; a window's title or a running form's name picks that window. A program
+    /// picks the IDE's own window; a window's title or a running form's name picks that window. A trailing #n
+    /// selects the n-th visible match in opening order when the whole value has no exact match. A program
     /// of several forms (#822) needs a name to reach a form the default does not pick.
     /// </param>
     /// <param name="ideByDefault">
@@ -64,11 +67,21 @@ public static class ForegroundWindow
             return (mainWindow, null);
 
         // A window by its title, or a running form by its name, which outlives a caption the program changes.
-        var named = windows.Where(w => w != mainWindow
-            && (string.Equals(w.Title, scope, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(RunningProgram.Current.Form(w)?.Name, scope, StringComparison.OrdinalIgnoreCase)
-                || MainViewViewModel.DockFactory.FloatingTools(w).Any(t => string.Equals(t.Key, scope, StringComparison.OrdinalIgnoreCase)))).ToList();
+        var named = windows.Where(w => w != mainWindow && AnswersTo(w, scope)).ToList();
         var shown = named.Where(w => w.IsVisible).ToList();
+        // Exact names containing # keep their meaning. The lifetime appends on WindowOpened, so this list is opening order.
+        var hash = scope.LastIndexOf('#');
+        if (named.Count == 0 && hash > 0
+            && BigInteger.TryParse(scope.AsSpan(hash + 1), NumberStyles.None, CultureInfo.InvariantCulture, out var index)
+            && index > 0)
+        {
+            var name = scope[..hash];
+            var indexed = windows.Where(w => w != mainWindow && w.IsVisible && AnswersTo(w, name)).ToList();
+            return index <= indexed.Count
+                ? (indexed[(int)index - 1], null)
+                : (null, $"Window '{scope}' is out of range: {indexed.Count} open windows answer to '{name}'. "
+                         + "Indexes start at 1 and count only visible windows in opening order.");
+        }
         if (shown.Count == 1)
             return (shown[0], null);
         // Windows of one name stacked on one another, as a dialog and the message box it raised share a title: the one on
@@ -77,15 +90,13 @@ public static class ForegroundWindow
             return (top, null);
         if (shown.Count > 1)
         {
-            // Side by side, as two instances of one form are. No name tells them apart while both are open, so say what does
-            // reach one, rather than to name one by a title only it has, which may not exist.
             var auto = Pick(mainWindow, windows);
+            var addresses = string.Join(", ", shown.Select((w, i) => $"{scope}#{i + 1} (\"{w.Title}\")"));
             return (null, $"{shown.Count} open windows answer to '{scope}', as two instances of one form do: "
-                          + $"{Titles(shown)}. "
+                          + $"{addresses}; each address reaches that window. "
                           + (shown.Contains(auto)
-                              ? $"\"auto\" reaches one of them, {Titles([auto])}, the one {AutoReason(auto)}; "
-                                + "a name reaches one only once it is the only window of that name or title."
-                              : "A name reaches one only once it is the only window of that name or title."));
+                              ? $"\"auto\" reaches one of them, {Titles([auto])}, the one {AutoReason(auto)}."
+                              : ""));
         }
         if (named.Count > 0)
             return (null, $"'{scope}' is hidden, as a form after Hide is, and a hidden window can't be reached: a "
@@ -107,6 +118,12 @@ public static class ForegroundWindow
                         : $"window: {Titles(open)}. A form's name is the stable handle: its caption can be empty, or change "
                           + "as the program runs."));
     }
+
+    private static bool AnswersTo(Window window, string name) =>
+        string.Equals(window.Title, name, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(RunningProgram.Current.Form(window)?.Name, name, StringComparison.OrdinalIgnoreCase)
+        || MainViewViewModel.DockFactory.FloatingTools(window)
+            .Any(t => string.Equals(t.Key, name, StringComparison.OrdinalIgnoreCase));
 
     // The one of these windows that sits over all the others, through the windows that own it, or null when they are not
     // stacked so. A modal window's Owner is the window it was shown over.
@@ -158,7 +175,7 @@ public static class ForegroundWindow
     /// Floating IDE tool hosts are excluded, both as candidates and as windows covering their owners.
     /// </summary>
     /// <param name="mainWindow">The application's main window; returned when no other candidate exists.</param>
-    /// <param name="windows">All top-level windows, in creation order (as the lifetime reports them).</param>
+    /// <param name="windows">All top-level windows, in opening order (as the lifetime reports them).</param>
     public static Window Pick(Window mainWindow, IReadOnlyList<Window> windows)
     {
         // A window that owns a visible window has that window sitting on top of it.
