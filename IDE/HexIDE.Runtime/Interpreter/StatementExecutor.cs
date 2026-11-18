@@ -1051,6 +1051,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return await RunUninitialisedForEach(context, varName, empties);
         }
 
+        collection.RefuseOddBytes("For Each");
         if (collection.Value is VBArray elements && (elements.ElementType == Vb6Value.ValueType.UserDefinedType || elements.FixedStringWidth is not null))
             throw new VBCompileErrorException("For Each may not be used on array of user-defined type or fixed-length strings");
 
@@ -1809,6 +1810,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // An object is read here rather than by EvaluateScalar, so that its 438 names the statement as the 13 and
             // 91 below do, not the operand.
             var value = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(operand, callerFrames: stmtFrames), null);
+            value.RefuseOddBytes("Condition");
             // Null is False, where CBool raises 94 (measured). Empty is False to CBool already; it is named here because
             // it is half of the measured rule.
             if (value.IsNull || value.Type == Vb6Value.ValueType.EmptyVariant)
@@ -2016,6 +2018,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     private Vb6Value ArrayStore(Vb6Value.ValueType declared, Vb6Value value, VB6Parser.LetStmtContext context, string? declaredClass = null)
     {
+        value.RefuseOddBytes("Array assignment");
         // Object is not a wildcard in a named array assignment; through a Variant only the array type counts (#999).
         if (value.Type == declared && value.Value is VBArray { ElementType: var element } source
             && element == Vb6Value.ValueType.Object && IsDeclaredArrayVariable(context.valueStmt())
@@ -2094,6 +2097,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     private static ValueTask<Vb6Value> CallControl(Vb6Value reference, string member, IReadOnlyList<Vb6Value> args)
     {
+        foreach (var arg in args) arg.RefuseOddBytes(member);
         VBFlatScrollBar.RefuseEarlyBound(reference, member);
         UserControlMembers.Check(reference, member);
         return ((Control)reference.Value!).CallAsync(member, args);
@@ -2102,6 +2106,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // Object-default assignment is off the scalar assignment's recursive frame (#2827).
     private bool TryLetIntoObject(Vb6Value oldLet, Vb6Value value, int letSlot, string identifier, ParserRuleContext context)
     {
+        if (oldLet.Type == Vb6Value.ValueType.Object || oldLet.Type == Vb6Value.ValueType.Control
+            || oldLet.Type == Vb6Value.ValueType.CSharpProxyObject)
+            value.RefuseOddBytes("Object default assignment");
         if (interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) is { } letClass && ExpressionExecutor.IsCollectionType(letClass))
             throw new VBCompileErrorException("Argument not optional");
         if (TrySetInBoxDefaultValue(oldLet, value))
@@ -2760,6 +2767,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             }
 
+            value.RefuseOddBytes("Property assignment " + UdtFieldName(members[0]));
             if (members[0].iCS_S_ProcedureOrArrayCall() is { } tabStripCall && tabStripCall.argsCall().Length == 1)
             {
                 var tabName = UdtFieldName(members[0]);
@@ -3256,7 +3264,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             : context.BINARY() != null ? VbFileMode.Binary
             : VbFileMode.Random;
         var path = (string)VbNumeric.CoerceOnStore(await expressionExecutor.EvaluateValue(context.valueStmt(0)),
-            Vb6Value.ValueType.String, context.valueStmt(0)).Value!;
+            Vb6Value.ValueType.String, context.valueStmt(0)).WithoutOddBytes("Open path").Value!;
         var locked = context.LOCK_READ() != null || context.LOCK_WRITE() != null || context.LOCK_READ_WRITE() != null;
         var number = await FileNumber(context.valueStmt(1));
         var recordLength = 128;
@@ -3361,6 +3369,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         async Task PrintItem(VB6Parser.ValueStmtContext expression)
         {
             var value = await expressionExecutor.EvaluateScalar(expression);
+            value.RefuseOddBytes(printed is not null ? "Debug.Print" : "Print #");
             if (printed is not null)
             {
                 // An object prints its default member, and one with none is 438 (ObjectAsValue).
@@ -3534,6 +3543,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // code otherwise goes on to test the Cases against a selector it never computed, or reaches Case Else for an
         // object selector (measured, #839), which is not something to reproduce.
         var value = await expressionExecutor.EvaluateScalar(context.valueStmt());
+        value.RefuseOddBytes("Select Case");
         if (value.Type == Vb6Value.ValueType.LongLong)
             throw new NotImplementedException("Select Case with a LongLong selector is unmeasured (#1548)");
         foreach (var @case in context.sC_Case())
@@ -3638,6 +3648,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// (measured both ways round, native and p-code, #2520). Two Error values compare by their numbers.</summary>
     private static void RefuseErrorAgainstOther(Vb6Value selector, Vb6Value caseValue)
     {
+        selector.RefuseOddBytes("Select Case");
+        caseValue.RefuseOddBytes("Select Case");
         if ((selector.Type == Vb6Value.ValueType.Error) != (caseValue.Type == Vb6Value.ValueType.Error))
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }
@@ -4934,6 +4946,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         try
         {
             target = await expressionExecutor.EvaluateValue(context.implicitCallStmt_InStmt());
+            target.RefuseOddBytes("With");
             if (target.Value is DebugProxy)
                 throw new VBCompileErrorException("Syntax error");
         }

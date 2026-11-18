@@ -82,7 +82,7 @@ public sealed class VBDTPicker : Control, ICSharpPropertyBag
             case "updown": upDown = Boolean(value); break;
             case "customformat":
                 if (value.Type != Vb6Value.ValueType.String) throw Unimplemented("CustomFormat conversion");
-                customFormat = (string)value.Value!;
+                customFormat = (string)value.WithoutOddBytes("VBDTPicker text use").Value!;
                 break;
             case "format":
                 var next = Integer(value);

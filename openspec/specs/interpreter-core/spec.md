@@ -474,7 +474,8 @@ by value will run such a program to completion while producing the wrong answer.
 The interpreter SHALL accept the intrinsic parameter names and required omissions measured in
 [#4145](https://github.com/hexide-io/HexIDE/issues/4145), placing arguments in parameter order and
 retaining positional values and optional defaults. Financial flags SHALL be named Due, arrays ValueArray,
-and pointer operands Ptr. ChrB execution SHALL remain refused; IRR and MIRR SHALL use the cash-flow models below.
+and pointer operands Ptr. ChrB SHALL accept the conversions and odd-byte String uses scoped by
+[#4576](https://github.com/hexide-io/HexIDE/issues/4576), refusing other uses with #1510; IRR and MIRR SHALL use the cash-flow models below.
 Wrong names SHALL raise "Named argument not found" and omitted required arguments "Argument not optional"
 as the statement runs. Named InStrB SHALL raise "Syntax error", named CallByName "Argument in ParamArray
 may not be named", and named IMEStatus "Wrong number of arguments or invalid property assignment".

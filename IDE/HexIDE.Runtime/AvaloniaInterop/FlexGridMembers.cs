@@ -198,6 +198,6 @@ internal static class FlexGridMembers
         long n when n >= int.MinValue && n <= int.MaxValue => (int)n,
         _ => throw Refused("numeric conversion"),
     };
-    private static string Text(Vb6Value value) => value.Value is string s ? s : throw Refused("text conversion");
+    private static string Text(Vb6Value value) => value.WithoutOddBytes("FlexGridMembers text use").Value is string s ? s : throw Refused("text conversion");
     internal static NotImplementedException Refused(string name) => new($"MSFlexGrid.{name} is not implemented (#1099)");
 }

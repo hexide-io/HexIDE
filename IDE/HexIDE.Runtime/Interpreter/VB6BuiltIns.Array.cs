@@ -225,6 +225,6 @@ public partial class VB6BuiltIns
         if (element.Value is VBArray) throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (IsNothing(element))
             throw new VBRunTimeException(VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-        return VbNumeric.CoerceOnStore(element, Vb6Value.ValueType.String, null).Value as string ?? "";
+        return VbNumeric.CoerceOnStore(element, Vb6Value.ValueType.String, null).WithoutOddBytes("VB6BuiltIns.Array text conversion").Value as string ?? "";
     }
 }

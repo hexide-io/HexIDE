@@ -115,7 +115,7 @@ public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
                 var mode = LoggingNumber(args[1]);
                 if (mode is not (1 or 2 or 3 or 18))
                     throw new NotImplementedException("App.StartLogging mode is unmeasured (#2552)");
-                var path = (string)args[0].Value!;
+                var path = (string)args[0].WithoutOddBytes("VbApp argument").Value!;
                 if (mode == 3 && path.Length != 0)
                     throw new NotImplementedException("App.StartLogging NT with a nonempty path is unmeasured (#2552)");
                 logMode = mode == 18 ? 1 : mode;
@@ -152,7 +152,7 @@ public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
             _ => throw new NotImplementedException("App.LogEvent type is unmeasured (#2552)"),
         };
         var message = args[0].Type == Vb6Value.ValueType.String
-            ? (string)args[0].Value!
+            ? (string)args[0].WithoutOddBytes("VbApp argument").Value!
             : LoggingNumber(args[0]).ToString(System.Globalization.CultureInfo.InvariantCulture);
         if (!loggingStarted)
         {
@@ -229,7 +229,7 @@ public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
             case "helpfile":
                 if (value.Type != Vb6Value.ValueType.String)
                     throw new NotImplementedException("App.HelpFile conversion is not implemented (#2551)");
-                helpFile = (string)value.Value!;
+                helpFile = (string)value.WithoutOddBytes("VbApp text use").Value!;
                 return true;
             case "taskvisible":
                 if (value.Type != Vb6Value.ValueType.Boolean)

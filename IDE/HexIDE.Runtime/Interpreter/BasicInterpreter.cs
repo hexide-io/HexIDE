@@ -174,7 +174,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     internal async Task<Vb6Value?> CallBuiltIn(string name, List<Vb6Value> args, bool compareText)
     {
         if (name.Equals("CreateObject", StringComparison.OrdinalIgnoreCase) && args.Count == 1
-            && args[0].Value is string progId && progId.Contains('.') && LibraryClassFor(progId) is { } cls)
+            && args[0].WithoutOddBytes("CreateObject").Value is string progId && progId.Contains('.') && LibraryClassFor(progId) is { } cls)
             return NewLibraryObject(cls);
         if (Events is not { } events)
             return await BuiltIns.EvaluateBuiltInFunction(name, args, compareText);
@@ -188,6 +188,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     internal async Task<Vb6Value?> CallProxy(ICSharpProxy proxy, string name, List<Vb6Value> args)
     {
+        foreach (var arg in args) arg.RefuseOddBytes(name);
         if (proxy is VbErr && name.Equals("Raise", StringComparison.OrdinalIgnoreCase))
             for (var i = 0; i < Math.Min(3, args.Count); i++)
                 args[i] = await ResolveDefaultMember(args[i]);
@@ -2153,6 +2154,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private async Task BindParameters(ProcedureInfo proc, IReadOnlyList<CallArg> args, ExecutionEnvironment callee, ModuleInfo owner,
         List<int> ownedSlots, List<int> refSlots, List<(int Slot, IByRefTarget Target)> fixedStringCopies)
     {
+        foreach (var arg in args) arg.Value.RefuseOddBytes("Argument to " + proc.Name);
         for (int i = 0; i < proc.Parameters.Count; i++)
         {
             var p = proc.Parameters[i];
@@ -2231,6 +2233,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     var passed = p.DeclaredType is { } declared && VbNumeric.IsDeclarableScalar(declared)
                         ? ObjectAsValue.Scalar(await ResolveDefaultMember(arg.Value), proc.Body as Antlr4.Runtime.ParserRuleContext)
                         : arg.Value;
+                    passed.RefuseOddBytes("Argument to " + proc.Name);
                     // Converted as a store into a variable of the type converts, before the procedure runs, so a value
                     // that will not convert raises in the caller (measured, #874: `B "abc"` with `ByVal x As Boolean` is
                     // 13 at the call, `S 5` with `ByVal x As String` is "5", `D "1/2/2000"` As Date is that date, and

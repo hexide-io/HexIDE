@@ -28,7 +28,7 @@ public sealed class ToolbarItems(VBToolbar toolbar, ToolbarItem? parent = null) 
 
     internal static long Number(Vb6Value value) => value.Type == Vb6Value.ValueType.Integer || value.Type == Vb6Value.ValueType.Long
         ? Convert.ToInt64(value.Value, CultureInfo.InvariantCulture) : throw Unmeasured();
-    internal static string Text(Vb6Value value) => value.Type == Vb6Value.ValueType.String ? (string)value.Value! : throw Unmeasured();
+    internal static string Text(Vb6Value value) => value.WithoutOddBytes("ToolbarItems text use").Type == Vb6Value.ValueType.String ? (string)value.Value! : throw Unmeasured();
     internal static bool Boolean(Vb6Value value) => value.Type == Vb6Value.ValueType.Boolean ? (bool)value.Value! : throw Unmeasured();
 
     internal void ValidateKey(string key, ToolbarItem? except = null)
