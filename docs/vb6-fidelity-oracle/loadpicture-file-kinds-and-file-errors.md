@@ -29,10 +29,28 @@ The last statement, `LoadPicture` of the PNG under `Main`'s `On Error Resume Nex
 - **A JPEG and a GIF load as a bitmap,** `Type` 1, with the same size in HiMetric as the BMP of the same pixels: 529 by
   265 for 20 by 10, at 96 dpi.
 - **A PNG does not load.** VB6's `LoadPicture` refuses it as it refuses a file that isn't a picture at all, with 481
-  "Invalid picture". The extension decides nothing: the text file named `.png` is refused for its content, and the
-  real images load whatever they're called.
+  "Invalid picture". The extension decides nothing, measured in the second probe below.
 - **Every failure is an ordinary run-time error,** trappable with `On Error`. The file errors name the path in their
   description, in single quotes: here the full path the call passed, since no relative path was tried.
+
+**The second probe: content or extension?** The rows above can't tell the two apart. The PNG and the two files that
+weren't pictures were all named `.png`, so they would be refused alike whether `LoadPicture` read the content or went
+by the name, and every image that loaded carried its own format's extension. The first version of this page said "the
+extension decides nothing" from those rows alone. That was a reading, not a measurement, and this probe was added to
+test it. The same files were copied under other formats' extensions, and one with none, and each was passed to the same
+`Try` routine. Native and p-code agreed on every row.
+
+| File | Its content | `Err.Number` | `Err.Description` | `TypeName(p)` | `Type`, `Width`, `Height` |
+|---|---|---|---|---|---|
+| `jpg-as.png` | the JPEG | 0 | | Picture | 1, 529, 265 |
+| `bmp-as.dat` | the BMP | 0 | | Picture | 1, 529, 265 |
+| `gif-as.jpg` | the GIF | 0 | | Picture | 1, 529, 265 |
+| `jpg-noext`, no extension | the JPEG | 0 | | Picture | 1, 529, 265 |
+| `png-as.bmp` | the PNG | **481** | Invalid picture | Nothing | |
+| `text-as.bmp` | the text file | **481** | Invalid picture | Nothing | |
+
+So the content decides. An image loads under any name, or none, and a PNG or a text file is refused even when it's
+named `.bmp`.
 
 **Unmeasured:** a relative path, a path through a mapped drive or UNC share, a GIF with several frames, a progressive
 JPEG, a CMYK JPEG, and the description when the path is longer than `Err.Description` holds.
