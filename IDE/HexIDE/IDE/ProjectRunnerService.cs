@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Interactivity;
 using Avalonia.Labs.Input;
 using Avalonia.Platform;
@@ -26,6 +28,19 @@ namespace HexIDE.IDE;
 
 public partial class ProjectRunnerService : IProjectRunnerService
 {
+    // The program window that was active when a Pause stop brought the IDE forward, for Continue to restore (#4262).
+    private Window? _pauseWindow;
+    // Every open window. The desktop lifetime lists them too, but a headless session has no desktop lifetime.
+    private static readonly HashSet<Window> opened = TrackWindows();
+
+    private static HashSet<Window> TrackWindows()
+    {
+        var windows = new HashSet<Window>();
+        Window.WindowOpenedEvent.AddClassHandler<Window>((window, _) => windows.Add(window));
+        Window.WindowClosedEvent.AddClassHandler<Window>((window, _) => windows.Remove(window));
+        return windows;
+    }
+
     private readonly IEventBus eventBus;
     private readonly IProjectManager projectManager;
     private readonly ILocalizationService localization;
@@ -104,6 +119,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
         get => runScope.RunningProject;
         private set
         {
+            _pauseWindow = null;
             runScope.RunningProject = value;
             if (value is null) runScope.End();
             else
@@ -131,6 +147,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
         IStatusBarService? statusBar = null,
         CodeTrust? trust = null)
     {
+        _ = opened;   // registers the tracker's handlers before a program opens its first window
         this.trust = trust;
         this.debugLaunches = debugLaunches;
         this.runChoices = runChoices;
@@ -175,7 +192,19 @@ public partial class ProjectRunnerService : IProjectRunnerService
             };
         // Break/Continue toggle the debug state without touching `runningProject`, so re-query the run commands
         // when the controller pauses/resumes (otherwise the Break/Continue buttons stay stale).
-        debugController.Stopped += _ => CommandManager.InvalidateRequerySuggested();
+        // This subscription precedes the view model's Pause notification, which raises the IDE (#4262).
+        debugController.Stopped += info =>
+        {
+            if (info.Reason == StopReason.Pause && externalDebugger?.IsActive != true)
+            {
+                var windows = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Windows ?? [];
+                var active = windows.Concat(opened).FirstOrDefault(window => window.IsActive);
+                _pauseWindow = active is not null && RunningProgram.Current.Form(active) is { IsRunning: true }
+                    ? active : null;
+            }
+            else if (info.Reason != StopReason.Step) _pauseWindow = null;
+            CommandManager.InvalidateRequerySuggested();
+        };
         debugController.Continued += CommandManager.InvalidateRequerySuggested;
 
         // A breakpoint toggled (in the gutter or via MCP) while a run is live takes effect immediately, matching
@@ -508,13 +537,18 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public void ContinueProject()
     {
         if (externalDebugger?.IsActive == true) { _ = externalDebugger.CommandAsync("continue"); return; }
-        // Resume from a break (F5 in break mode).
+        // Steps retain the Pause window; only F5 restores it, once, before releasing the interpreter gate.
+        var window = _pauseWindow;
+        _pauseWindow = null;
+        if (window is { IsVisible: true } && debugController.State == DebugState.Paused)
+            window.Activate();
         debugController.Continue();
     }
 
     public void EndProject()
     {
         if (externalDebugger?.IsActive == true) { _ = externalDebugger.StopAsync(); return; }
+        _pauseWindow = null;
         // Abort first so a paused interpreter unwinds via StopExecutionSignal, then cancel the token (closes the
         // window). Order matters: Stop() releases the break gate that Dispose()'s cancel alone cannot.
         debugController.Stop();

@@ -159,7 +159,7 @@
 
 | Item | Shortcut | Status | Notes |
 |---|---|---|---|
-| Start | F5 | Done | Runs project via HexIDE interpreter in a new window |
+| Start | F5 | Done | Runs project via HexIDE interpreter in a new window; Continue after Ctrl+Break restores the active program form, including a modal form, even after Into/Over steps (#4262; checked live 2026-11-18). With a modal form open, the form beneath it stays behind the IDE (#4618) |
 | Start With Full Compile | Ctrl+F5 | Stub | Calls same code path as Start; compile step not distinct |
 | Break | Ctrl+Break | Done | Requests a pause at the next statement gate while the interpreter is running; Ctrl+Break also reaches the IDE from a focused desktop running form and brings the IDE forward on entering break mode (#1297); the toolbar buttons remain available (#2179) |
 | End | — | Done | Standard and Debug toolbar buttons remain available while a running form has focus (#2319) |
