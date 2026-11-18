@@ -323,7 +323,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Move control | Done | Drag via title grip; preserves the declared size at display scaling above 100% (#2180) |
 | Resize control (all 8 handles) | Done | Full ResizeAdorner |
 | Delete selected control | Done | |
-| Bring to Front / Send to Back | Done | |
+| Bring to Front / Send to Back | Done | Windowless controls draw below windowed siblings even in hand-ordered files; opening stays clean, and saving after an edit writes windowed blocks first without changing properties (#1517; live check pending). |
 | Center Horizontally / Vertically | Done | Single control only |
 | Double-click → open event handler | Done | Uses the 15 measured in-box controls’ declared defaults independently of event-list order (#4411, oracle PR #4460): TextBox Change, Frame DragDrop with its arguments, and no stub for Shape/Line; unmeasured controls and array arguments retain existing behavior. Generates handler stub; opens code editor. Handler searches start after the header (#711), so designer properties naming a handler do not intercept navigation or stub generation. Handler searches skip read-only member `Attribute` lines too; double-click navigation lands after the handler's attribute run, keeping it folded (#702) |
 | Properties grid integration | Done | Bidirectional; all property types. Index creates or moves a control-array element (0–32767), or clears a lone element, through the grid and `set_control_property` (#2701). Invalid values, duplicate indexes and clearing with same-name siblings are refused; undo and form save/load retain the index. VB6 IDE prompts remain unmeasured; event-signature rewriting and indexed handler stubs remain #4205 |
