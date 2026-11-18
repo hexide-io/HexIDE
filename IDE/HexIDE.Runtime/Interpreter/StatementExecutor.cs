@@ -2167,6 +2167,26 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         && interpreter.ExecutionContext.TryInspectVariable(currentEnv, comboLead.GetText(), out var combo)
         && combo.Value is ImageComboModel or VBImageCombo;
 
+    private async Task<bool> IsFormIconLet(VB6Parser.ImplicitCallStmt_InStmtContext target)
+    {
+        if (target.iCS_S_VariableOrProcedureCall() is { } bare)
+            return FormMembers.IsIcon(bare.GetText())
+                && !interpreter.ExecutionContext.TryInspectVariable(currentEnv, bare.GetText(), out _)
+                && !currentModule.PrePass.Properties.ContainsKey(bare.GetText())
+                && FormMembers.TryBare(interpreter.ExecutionContext, currentEnv, bare.GetText(), out _, out _);
+        if (target.iCS_S_MembersCall() is { } call
+            && call.iCS_S_VariableOrProcedureCall() is { } lead
+            && call.iCS_S_MemberCall() is [var member]
+            && !MemberHasArgs(member) && FormMembers.IsIcon(UdtFieldName(member)))
+        {
+            var (_, value) = await interpreter.ReadVariable(currentEnv, lead.GetText());
+            return value.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form
+                && !form.ClassDef.PrePass.Properties.ContainsKey("Icon")
+                && !form.InstanceEnv.TryGetVariableLocation("Icon", out _);
+        }
+        return false;
+    }
+
     // The value a Let stores, with the refusals every Let makes of it.
     private async Task<Vb6Value> LetValue(VB6Parser.LetStmtContext context, bool intoArray = false, Vb6Value? evaluated = null)
     {
@@ -2177,6 +2197,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         if (value.Type == Vb6Value.ValueType.Object && (intoArray || IsBareUdtArrayField(context.implicitCallStmt_InStmt())))
             return value;   // ArrayStore refuses it
+
+        // Form.Icon accepts a picture reference through Let too (#4603), without reading its native Handle.
+        if (await IsFormIconLet(context.implicitCallStmt_InStmt()))
+            return value;
 
         // SSTab picture puts accept the object through Let too (#3426 / #4297).
         if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } pictureCall
@@ -3854,10 +3878,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // The value being replaced, read as it is: `Set Form2 = Nothing` must not make the instance it lets go of (#822).
             if (!interpreter.ExecutionContext.TryInspectVariable(currentEnv, id, out var oldVal))
             {
-                // A form's own object property, bare (`Set Picture = ...`, #995): not set through Set anywhere yet, as
-                // `Set Me.Picture` isn't either.
+                // A form's built-in object property, bare (#995).
                 if (FormMembers.TryBare(interpreter.ExecutionContext, currentEnv, id, out var form, out _))
+                {
+                    if (FormMembers.IsIcon(id))
+                    {
+                        await interpreter.Loading((Form: form, Value: value), static s => FormMembers.WriteIcon(s.Form, s.Value));
+                        return default;
+                    }
                     throw new NotImplementedException($"Set on {form.ClassName}'s own {id} is not implemented");
+                }
                 // An undeclared name is made on its first use, as a Let makes it (#171), a Variant or the DefType's type
                 // (measured, #169: `Set o1 = New Collection` under DefObj, and with none). It was 424.
                 if (currentModule.PrePass.RequireVariableDefinitions)
@@ -4150,8 +4180,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 (setField, oldField) = await interpreter.ReadVariableAfter(targetObj.InstanceEnv, fieldName, setFieldNeed!);
             if (!setField)
             {
-                // A form's built-in object property (`Set Me.Picture = ...`) is not set through Set anywhere yet: a
-                // control's isn't either. Refused, rather than raising a trappable 438 VB6 would not (#822).
+                if (targetObj.ClassDef.Kind == InterpreterModuleKind.Form && FormMembers.IsIcon(fieldName))
+                {
+                    await interpreter.Loading((Form: targetObj, Value: value), static s => FormMembers.WriteIcon(s.Form, s.Value));
+                    return default;
+                }
+                // Other built-in object properties remain refused rather than raising a trappable 438 (#822).
                 if (await interpreter.Loading((Form: targetObj, Member: fieldName), static s => s.Form.BuiltInMembersFor(s.Member)) is not null)
                     throw new NotImplementedException($"Set on a form's own {fieldName} is not implemented");
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);

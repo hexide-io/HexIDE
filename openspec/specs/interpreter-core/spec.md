@@ -30,6 +30,28 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: A running form accepts Icon assignments
+
+A running form's default instance SHALL accept icon pictures or Nothing through Set or Let on Icon, bare or through Me or the form's name, without reading the picture's default Handle, following [#4603's SP6 measurements](https://github.com/hexide-io/HexIDE/issues/4603). Native handles and New instances remain outside this slice.
+
+#### Scenario: Assign an icon or a bitmap
+- **WHEN** a program assigns an icon picture to the form's Icon
+- **THEN** Icon returns the same picture, Type 3, and the window displays it, replacing any previous icon hook
+- **WHEN** it then assigns a bitmap picture
+- **THEN** trappable error 380, Invalid property value, leaves Icon unchanged
+
+#### Scenario: Empty pictures and Nothing clear the property differently on screen
+- **WHEN** a program assigns LoadPicture() to Icon
+- **THEN** Icon returns that empty picture, Type 0, and the window keeps its previous icon state
+- **WHEN** a program assigns Nothing to Icon
+- **THEN** Icon returns an empty Picture, Type 0, not Nothing, and the window takes the saved (None) state: Windows' generic icon on a sizable form and no caption icon on a Fixed Dialog
+- **AND** a subsequent LoadPicture() leaves that window state unchanged
+
+#### Scenario: Reads before assignment
+- **WHEN** a program reads Icon before assigning it
+- **THEN** the interpreter SHALL refuse it as not implemented
+
+
 ### Requirement: Measured 32-bit VBA7 integer support
 
 The runtime SHALL start projects targeting `VbaBitness.Bit32` with the Excel x86 behaviour recorded in
