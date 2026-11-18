@@ -100,7 +100,7 @@ public partial class UserControlKeyTests
         run.Faults.Should().ContainSingle().Which.Message.Should().Match("Ambient.LocaleID*#4266*");
     }
 
-    // These are explicit HexIDE refusals, not invented VB6 results (#4149).
+    // These are explicit HexIDE refusals, not invented VB6 results (#4732, left from #4149).
     [AvaloniaTheory]
     [InlineData("Palette", "en-US", "", false)]
     [InlineData("RightToLeft", "en-US", "RightToLeft = -1\n", false)]
@@ -112,7 +112,7 @@ public partial class UserControlKeyTests
             formSettings: settings, blocks: frame ? Block("VB.Frame", "Frame1", 0, Block("P.Dial", "uc1", 1)) : null);
         // Reported as the run's fault, as a refusal anywhere else is, not thrown past the start (#4266).
         run.Faults.Should().ContainSingle().Which.Should().BeOfType<System.NotImplementedException>()
-            .Which.Message.Should().Match($"Ambient.{member}*#4149*");
+            .Which.Message.Should().Match($"Ambient.{member}*#4732*");
     }
     // vb6.exe SP6 native and p-code: https://github.com/hexide-io/HexIDE/issues/4448 (oracle PR #4630).
     [AvaloniaTheory]
