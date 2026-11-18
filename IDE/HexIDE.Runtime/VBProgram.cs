@@ -437,6 +437,8 @@ public sealed class VBProgram : IFormProgram
         var over = interpreter.BuiltIns.WatchRunEnd?.Invoke();
         var window = view as VBFormRuntime;
         var showInTaskbar = window?.ShowInTaskbar ?? false;
+        var caller = interpreter.ActivationStack.LastOrDefault();
+        var debug = caller is not null ? interpreter.DebugController : null;
         try
         {
             if (window is not null)
@@ -446,7 +448,8 @@ public sealed class VBProgram : IFormProgram
             var form = context.FormInstance!;
             // Hidden as the innermost form, it is done; hidden while another modal form was over it, it waits on.
             await Events.WhileModal(() => form.FormLoaded && (view.IsShown || hiddenBeneath.Contains(context))
-                && over?.Invoke() != true);
+                && over?.Invoke() != true, debug,
+                caller is not null && debug is not null ? () => caller.PauseAtModalWait(debug) : null);
         }
         finally
         {
