@@ -250,6 +250,19 @@ The description SHALL preserve the passed path; relative-path spelling remains u
 Metafiles and file cursors SHALL refuse as unmeasured, and recognised but undecodable images and other I/O
 failures SHALL retain their not-implemented refusals. No-argument clearing and other argument refusals remain unchanged.
 
+For ICO files, `LoadPicture` SHALL take the first 32×32 directory entry when several images exist,
+following [#4623](https://github.com/hexide-io/HexIDE/issues/4623) and [the order measurements](https://github.com/hexide-io/HexIDE/pull/4692).
+A single-image file SHALL keep its own dimensions. A selected PNG image or a 32-bpp BITMAPINFOHEADER
+image missing its AND mask SHALL raise trappable 481 regardless of image-size/resolution header fields.
+Several images without a 32×32 entry, and missing masks at other depths, SHALL refuse as unmeasured.
+Saved pictures, SSTab pictures and resource groups SHALL retain their existing decoding paths.
+
+#### Scenario: An icon contains a larger PNG beside a 32×32 bitmap
+
+- **WHEN** LoadPicture reads an ICO with a 256×256 PNG and a masked 32×32 bitmap in either order
+- **THEN** the Picture reports Type 3 and Width 847 HiMetric
+- **AND** it draws the 32×32 bitmap
+
 #### Scenario: A program falls back after a picture error
 
 - **WHEN** a program calls LoadPicture on a PNG or a missing file, folder or directory path
