@@ -521,6 +521,7 @@ added afterwards.
 - [Seven system colours (2026-10-22, #908)](seven-system-colours.md#seven-system-colours-2026-10-22-908)
 - [The fonts a form names (2026-10-17, #1132, #1133)](the-fonts-a-form-names.md#the-fonts-a-form-names-2026-10-17-1132-1133)
 - [A Label's border (2026-10-17, #1077)](a-labels-border.md#a-labels-border-2026-10-17-1077)
+- [A Label's BorderStyle at run time (2026-11-18, #4647, SP6)](a-labels-border.md#a-labels-borderstyle-at-run-time-2026-11-18-4647-sp6)
 - [A Label's Alignment at run time (2026-11-18, #4604, SP6)](a-labels-alignment-at-run-time.md#a-labels-alignment-at-run-time-2026-11-18-4604-sp6)
 - [A caption's access key (2026-10-22, #920)](a-captions-access-key.md#a-captions-access-key-2026-10-22-920)
 - [MousePointer's names and pointers (2026-10-22, #120)](mousepointers-names-and-pointers.md#mousepointers-names-and-pointers-2026-10-22-120)
