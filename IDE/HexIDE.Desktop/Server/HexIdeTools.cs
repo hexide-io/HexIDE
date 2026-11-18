@@ -2881,8 +2881,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return new WatchesResult(true, null, remoteRows.ToArray(), Note: "External watches evaluate in the selected adapter frame; context is its name, and project is unavailable.");
         }
         var rows = new List<WatchRow>();
-        foreach (var w in ctx.RootViewModel.Watches.Service.Watches)
+        foreach (var row in ctx.RootViewModel.Watches.BuildInterpreterRows())
         {
+            var w = row.Watch;
             var result = await ctx.DebugController.EvaluateScopedWatchAsync(w.Expression, w.Context);
             rows.Add(new WatchRow(
                 w.Expression, w.Type.ToString(), w.Context,

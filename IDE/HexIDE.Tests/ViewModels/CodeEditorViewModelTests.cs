@@ -221,7 +221,7 @@ public class CodeEditorViewModelTests : IDisposable
         dialog.Procedures.Should().Equal("(All Procedures)");
         dialog.OkCommand.Execute(null);
         watches.Service.Watches.Last().Context.Should().Be("(All Modules)");
-        watches.Rows.Last().Context.Should().BeEmpty();
+        watches.Rows.Single(row => row.Watch == watches.Service.Watches.Last()).Context.Should().BeEmpty();
     }
 
     [AvaloniaFact]
