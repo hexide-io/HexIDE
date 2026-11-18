@@ -107,9 +107,20 @@ referenced nothing beyond VB's own libraries. p-code and native code logged the 
 | `Class1`, the project's class | Nothing | 9 | True |
 | `Variant` | Empty | 0 | (not asked) |
 
-- **Every object type starts at Nothing,** whether VB's own, a form of the project, or a class. Only the Variant starts
-  Empty.
+**A second run** added the OLE Automation reference, `stdole2.tlb`, to reach `OLE_COLOR` and `StdFont`:
+
+| Declaration | `TypeName` | `VarType` | value, or `Is Nothing` |
+|---|---|---|---|
+| `Function F() As OLE_COLOR`, unset | Long | 3 | 0 |
+| `Function F() As stdole.OLE_COLOR`, unset | Long | 3 | 0 |
+| `Dim c As OLE_COLOR` | Long | 3 | 0 |
+| `Function F() As StdFont`, unset | Nothing | 9 | True |
+| `Dim f As StdFont` | Nothing | | True |
+
+- **Every object type starts at Nothing,** whether VB's own, stdole's, a form of the project, or a class. Only the
+  Variant starts Empty.
+- **`OLE_COLOR` is a Long,** in a Function's result as in a `Dim`: it starts at 0.
 - **HexIDE's own reading, found with it:** an unset Function `As Form2` or `As Form` read TypeName "Variant", where
   `As Class1` and `As Object` read "Nothing" (#4622).
 
-**Not measured:** a referenced library's class, StdFont, a Property Get, and a Function returning an array of these.
+**Not measured:** a referenced library's own class, a Property Get, and a Function returning an array of these.
