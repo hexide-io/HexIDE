@@ -1,10 +1,12 @@
 using System;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Threading;
 using HexIDE.Runtime.BuiltinControls;
@@ -27,6 +29,8 @@ public class LabelBorderTests : WindowTestFixture
         VERSION 5.00
         Begin VB.Form Form1
            Caption         =   "Form1"
+           ClientWidth     =   6000
+           ClientHeight    =   4500
            Begin VB.Label L3DPair
               BackColor       =   &H00C0C0C0&
               BorderStyle     =   1  'Fixed Single
@@ -198,5 +202,90 @@ public class LabelBorderTests : WindowTestFixture
 
         Line(window, Label(canvas, "L3DPair", 0), row: true, at: 10)[19].Should().Be(Highlight);
         Line(window, Label(canvas, "L3DPair", 1), row: true, at: 10)[0].Should().Be(Shadow);
+    }
+
+    // SP6 p-code and native measurements: https://github.com/hexide-io/HexIDE/issues/4647.
+    [AvaloniaTheory]
+    [InlineData("1", 0, 1)]
+    [InlineData("0", 0, 0)]
+    [InlineData("2", 380, 0)]
+    [InlineData("-1", 380, 0)]
+    [InlineData("0.4", 0, 0)]
+    [InlineData("0.5", 0, 0)]
+    [InlineData("0.6", 0, 1)]
+    [InlineData("1.5", 380, 0)]
+    [InlineData("1.6", 380, 0)]
+    [InlineData("\"1\"", 0, 1)]
+    [InlineData("\"x\"", 13, 0)]
+    [InlineData("True", 380, 0)]
+    [InlineData("Empty", 0, 0)]
+    [InlineData("Null", 94, 0)]
+    public async Task BorderStyle_assignments_convert_validate_and_preserve_the_previous_value(
+        string expression, int error, int expected)
+    {
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
+        var debug = await ContainerRuntimeHarness.Run(ctx, env,
+            $"On Error Resume Next\r\nLNone.BorderStyle = 0\r\nErr.Clear\r\nLNone.BorderStyle = {expression}\r\nDebug.Print Err.Number\r\nDebug.Print LNone.BorderStyle\r\n");
+
+        debug.Select(v => v.Value).Should().Equal(error, expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("LNone", 0)]
+    [InlineData("L3D", 1)]
+    public async Task BorderStyle_reads_the_saved_value(string name, int expected)
+    {
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
+        var debug = await ContainerRuntimeHarness.Run(ctx, env, $"Debug.Print {name}.BorderStyle\r\n");
+
+        debug[0].Value.Should().Be(expected);
+    }
+
+    [AvaloniaFact]
+    public async Task BorderStyle_reads_as_Integer()
+    {
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
+        var debug = await ContainerRuntimeHarness.Run(ctx, env,
+            "Debug.Print TypeName(LNone.BorderStyle)\r\nDebug.Print VarType(LNone.BorderStyle)\r\n");
+
+        debug.Select(v => v.Value).Should().Equal("Integer", 2);
+    }
+
+    [AvaloniaFact]
+    public async Task BorderStyle_can_be_assigned_through_Object()
+    {
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
+        var debug = await ContainerRuntimeHarness.Run(ctx, env,
+            "Dim o As Object\r\nSet o = LNone\r\nOn Error Resume Next\r\no.BorderStyle = 1\r\nDebug.Print Err.Number\r\nDebug.Print o.BorderStyle\r\n");
+
+        debug.Select(v => v.Value).Should().Equal(0, 1);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("", 0, 0)]
+    [InlineData("lblAdded.BorderStyle = 1", 0, 1)]
+    [InlineData("lblAdded.BorderStyle = 1\r\nErr.Clear\r\nlblAdded.BorderStyle = 2", 380, 1)]
+    public void An_added_Label_has_a_writable_validated_BorderStyle(string assignment, int error, int expected)
+    {
+        var (printed, errors) = ControlsAddTests.Run(
+            $"Dim lblAdded As Object\r\nSet lblAdded = Controls.Add(\"VB.Label\", \"lblAdded\")\r\nOn Error Resume Next\r\n{assignment}\r\nDebug.Print CStr(Err.Number)\r\nDebug.Print CStr(lblAdded.BorderStyle)\r\n", "", Form);
+
+        errors.Should().BeEmpty();
+        printed.Should().Equal(error.ToString(), expected.ToString());
+    }
+
+    [AvaloniaFact]
+    public void An_added_Label_draws_a_border_after_the_runtime_assignment()
+    {
+        var (_, errors) = ControlsAddTests.Run(
+            "Dim lblAdded As Object\r\nSet lblAdded = Controls.Add(\"VB.Label\", \"lblAdded\")\r\nlblAdded.Move 150, 150, 300, 300\r\nlblAdded.BackColor = &HC0C0C0\r\nlblAdded.Visible = True\r\nlblAdded.BorderStyle = 1\r\n", "", Form,
+            window =>
+            {
+                var label = window.GetLogicalDescendants().OfType<VBLabel>()
+                    .Single(l => ContainerRuntimeHarness.NameOf(l) == "lblAdded");
+                Line(window, label, row: true, at: 0).Should().Contain(c => c != Grey);
+            });
+
+        errors.Should().BeEmpty();
     }
 }
