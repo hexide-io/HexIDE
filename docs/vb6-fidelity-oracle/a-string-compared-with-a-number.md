@@ -66,8 +66,94 @@ typed String `"abc" > 1` is 13. That leaves open:
 So the rule depends on which operand is a Variant, not only on the values. That's why one probe of `"1" = 1` can't tell
 the rules apart. This is also not `Select Case`'s rule, which converts the Case value to the selector's type (#211).
 
-**Not measured:**
-- Decimal;
-- a Variant holding a String against Currency, Boolean or Date;
-- Empty, Null and Error against a String;
-- `Option Compare Text`.
+**Not measured** at the time: Decimal, and a Variant holding a String against Currency, Boolean or Date, both
+measured in the next section; Empty, Null and Error against a String; `Option Compare Text`.
+
+## The domains left open: Decimal, and a Variant String against Currency, Boolean and Date (2026-11-18, #211)
+
+**The question.** The section above left two domains unmeasured, and HexIDE refused both. One probe of each, such
+as `"1" = CCur(1)`, can't tell the candidate rules apart, since numeric and textual comparison both give True. So
+every row below sits where at least two of these disagree:
+- numeric, the String converted to Double;
+- textual, the number converted to a String;
+- "a Variant String sorts above a Variant number", the two-Variant rule above;
+- the String converted to the partner's own type: Currency, Boolean or Date.
+
+**The probe.**
+- **Build:** VB6 SP6, `/make`, native code and p-code. Both logged all 43 rows identically, and no row raised an
+  error.
+- **The read:** each row sets one variable, then logs the comparison's value under `On Error Resume Next`, logging
+  the error number instead when one is raised.
+- **The variables** are local: `s As String`, `v As Variant`, `nC1 As Currency` 1, `bT As Boolean` True,
+  `dt As Date` 1 January 2000.
+- `CDec` returns a Variant: VB6 has no Decimal type outside one.
+
+**A typed String against a Decimal:**
+
+| Setup | Comparison | VB6 |
+|---|---|---|
+| `s = "1"` | `s = CDec(1)` | True |
+| `s = "1.0"` | `s = CDec(1)`, `CDec(1) = s` | **False**, False |
+| `s = "1.00001"` | `s = CDec(1)` | False |
+| `s = "10"` | `s < CDec(9)`, `CDec(9) > s` | **True**, True |
+| `s = "2"` | `s > CDec(10)` | **True** |
+| `s = "abc"` | `s = CDec(1)` | **False, no error** |
+
+**A Variant holding a String, against a Decimal:**
+
+| Setup | Comparison | VB6 |
+|---|---|---|
+| `v = "1"` | `v = CDec(1)`, `v > CDec(1)`, `CDec(1) < v` | False, **True**, True |
+| `v = "0"` | `v > CDec(5)` | **True** |
+| `v = "9"` | `v < CDec(10)` | **False** |
+| `v = "abc"` | `v < CDec(1)` | False, no error |
+
+**A Variant holding a String, against a typed Currency:**
+
+| Setup | Comparison | VB6 |
+|---|---|---|
+| `v = "1"` | `v = CCur(1)` | True |
+| `v = "1.0"` | `v = CCur(1)`, `v = nC1` | **True**, True |
+| `v = "1.00001"` | `v = CCur(1)` | **True** |
+| `v = "10"` | `v < CCur(9)`, `CCur(9) > v` | False, False |
+| `v = "0"` | `v > CCur(5)` | **False** |
+| `v = "abc"` | `v = CCur(1)`, `v > CCur(1)` | False, True, no error |
+
+**A Variant holding a String, against a typed Boolean:**
+
+| Setup | Comparison | VB6 |
+|---|---|---|
+| `v = "1"` | `v = True`, `v > True` | True, False |
+| `v = "2"` | `v = True`, `v = bT`, `True = v` | **True** each |
+| `v = "True"` | `v = True` | True |
+| `v = "-1"` | `v = True` | True |
+| `v = "0"` | `v < True`, `v = False` | False, True |
+| `v = "abc"` | `v = True`, `v > True` | False, True, no error |
+
+**A Variant holding a String, against a typed Date:**
+
+| Setup | Comparison | VB6 |
+|---|---|---|
+| `v = "1"` | `v = #1/1/2000#` | False |
+| `v = "2000-01-01"` | `v = dt`, `v = #1/1/2000#`, `#1/1/2000# = v` | **True** each |
+| `v = "1999-12-31"` | `v < dt` | **True** |
+| `v = "36526"` | `v = dt` | True |
+| `v = "10"` | `v > dt` | False |
+| `v = "abc"` | `v = dt`, `v > dt` | False, True, no error |
+
+**Readings:**
+- **A Decimal is a Variant number,** and both existing rules apply to it unchanged:
+  - **against a typed String it compares as text:** `"1.0" = CDec(1)` is False, `"10" < CDec(9)` True and
+    `"2" > CDec(10)` True. That is the section above's "a Variant holding a number, against a typed String";
+  - **against a Variant String the String is greater:** `"1" > CDec(1)` and `"0" > CDec(5)` are True,
+    `"1" = CDec(1)` and `"9" < CDec(10)` False. That is the two-Variant rule.
+- **A Variant String against typed Currency, Boolean or Date converts to that type,** as a typed String does there:
+  - `"1.00001"` equals Currency 1, which Double would not;
+  - `"2"` equals True, which numeric (2 against -1) and textual (`"2"` against `"True"`) comparison would not;
+  - `"2000-01-01"` equals 1 January 2000, and `"1999-12-31"` is less.
+- **When the String won't convert, it is greater, with no error,** as against the other typed numbers: `"abc"` is
+  above Currency 1, True and 1 January 2000, and equal to none of them.
+- `"0" < True` is False and `"0" = False` True: once converted, the pair compares as Booleans, where True is -1.
+
+**Not measured:** Empty, Null and Error against a String; `Option Compare Text`; a String against a Variant holding
+Currency, Boolean or Date (the two-Variant rule would predict it, but no row here asks).

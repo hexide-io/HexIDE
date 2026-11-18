@@ -726,7 +726,22 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitDateStmt(VB6Parser.DateStmtContext context)
     {
-        throw new NotImplementedException("Date not implemented");
+        return await AssignClock(context.valueStmt());
+    }
+
+    private async Task<ControlFlow> AssignClock(VB6Parser.ValueStmtContext context)
+    {
+        // SP6 native and p-code, #4681: conversion precedes the clock privilege check.
+        var value = await expressionExecutor.EvaluateValue(context);
+        if (value.Type == Vb6Value.ValueType.Double || value.IsNull || value.Value is VBArray)
+            throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+        if (value.Type == Vb6Value.ValueType.Object && value.Value is null)
+            throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+        if (value.Type != Vb6Value.ValueType.Date && value.Type != Vb6Value.ValueType.String)
+            throw new NotImplementedException("Date/Time assignment conversion from this type is not implemented (#4681)");
+        _ = VB6BuiltIns.CDate(value);
+        // Deliberate divergence (#4681): never change the host clock, even elevated, where VB6 would set it.
+        throw new VBRunTimeException(context, VBStandardError.PermissionDenied);
     }
 
     public override async Task<ControlFlow> VisitDeleteSettingStmt(VB6Parser.DeleteSettingStmtContext context)
@@ -955,7 +970,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         foreach (var point in context.valueStmt())
             points.Add(await expressionExecutor.EvaluateScalar(point));
         if (target.HeldAsVariant || string.Equals(target.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase))
-            throw new NotImplementedException("Late-bound Scale is not implemented (#990)");
+            throw new NotImplementedException("Late-bound Scale is not implemented (#4693)");
         if (target.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form)
             await interpreter.Loading(() => RuntimeScale.Statement(form.BuiltInMembersFor("Scale")!, points));
         else if (target.Value is Control control)
@@ -2675,6 +2690,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (!leadFound && interpreter.TryResolveProperty(identifier, currentModule, out _, out var leadProperty)
                     && leadProperty.Get is not null)
                     (leadFound, variable) = (true, await expressionExecutor.EvaluateValue(leadPart));
+                if (!leadFound && interpreter.TryResolveProcedure(identifier, currentModule, out _, out var leadFunction)
+                    && leadFunction.IsFunction)
+                    (leadFound, variable) = (true, await expressionExecutor.EvaluateValue(leadPart));
                 if (!leadFound)
                     throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Can't find variable " + identifier);
             }
@@ -3222,6 +3240,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private async Task<ControlFlow> JustifyString(VB6Parser.ImplicitCallStmt_InStmtContext target,
         VB6Parser.ValueStmtContext source, bool right)
     {
+        if (target.iCS_S_MembersCall() is { } members && members.iCS_S_ProcedureOrArrayCall() is null)
+        {
+            var lead = members.iCS_S_VariableOrProcedureCall();
+            var leadValue = lead is not null
+                ? (await interpreter.ReadVariable(currentEnv, lead.ambiguousIdentifier().GetText())).Item2
+                : WithTargetOrError(target);
+            if (leadValue.Value is VbObject)
+                throw new VBCompileErrorException(VariableRequired);
+        }
         if (target.iCS_S_VariableOrProcedureCall() is not { } variable || variable.dictionaryCallStmt() is not null)
             throw new NotImplementedException("LSet/RSet into this target is not implemented");
         var name = variable.ambiguousIdentifier().GetText();
@@ -3921,9 +3948,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // The value being replaced, read as it is: `Set Form2 = Nothing` must not make the instance it lets go of (#822).
             if (!interpreter.ExecutionContext.TryInspectVariable(currentEnv, id, out var oldVal))
             {
-                // A form's built-in object property, bare (#995).
+                // A form's built-in object property, bare: Font from a shared font (#4448) and Icon (#995).
+                // Other built-in object properties (`Set Picture = ...`, #995) retain their refusal.
                 if (FormMembers.TryBare(interpreter.ExecutionContext, currentEnv, id, out var form, out _))
                 {
+                    if (id.Equals("Font", StringComparison.OrdinalIgnoreCase) && value.Value is ControlFont)
+                    {
+                        await interpreter.Loading((Form: form, Value: value),
+                            static s => ControlFont.Set(s.Form.BuiltInMembersFor("Font")!, s.Value));
+                        return default;
+                    }
                     if (FormMembers.IsIcon(id))
                     {
                         await interpreter.Loading((Form: form, Value: value), static s => FormMembers.WriteIcon(s.Form, s.Value));
@@ -4244,9 +4278,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     await interpreter.Loading((Form: targetObj, Value: value), static s => FormMembers.WriteIcon(s.Form, s.Value));
                     return default;
                 }
-                // Other built-in object properties remain refused rather than raising a trappable 438 (#822).
-                if (await interpreter.Loading((Form: targetObj, Member: fieldName), static s => s.Form.BuiltInMembersFor(s.Member)) is not null)
+                // #4448 supplies Set Me.Font from a shared font. Other built-in object properties
+                // retain their refusal, rather than raising a trappable 438 VB6 would not (#822).
+                if (await interpreter.Loading((Form: targetObj, Member: fieldName), static s => s.Form.BuiltInMembersFor(s.Member)) is { } formWindow)
+                {
+                    if (fieldName.Equals("Font", StringComparison.OrdinalIgnoreCase) && value.Value is ControlFont)
+                    {
+                        ControlFont.Set(formWindow, value);
+                        return default;
+                    }
                     throw new NotImplementedException($"Set on a form's own {fieldName} is not implemented");
+                }
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             }
             interpreter.AddRef(value);
@@ -4315,7 +4357,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitTimeStmt(VB6Parser.TimeStmtContext context)
     {
-        throw new NotImplementedException("Time not implemented");
+        return await AssignClock(context.valueStmt());
     }
 
     public override async Task<ControlFlow> VisitUnloadStmt(VB6Parser.UnloadStmtContext context)
@@ -4491,6 +4533,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new NotImplementedException("ReDim As on a fixed-length String array is not implemented (#179): its width rules are unmeasured");
             var objectClass = redim.asTypeClause() is { } objectClause
                 ? ObjectArrayClass(objectClause) : (value.Value as VBArray)?.DeclaredClass;
+            if (redim.asTypeClause()?.type()?.complexType() is { } redimType
+                && SplitTypeName(redimType.GetText()) is var redimNamed
+                && interpreter.TryResolveType(redimNamed.Name, currentModule, redimNamed.Qualifier, out var redimDef))
+                await interpreter.EnsureTypeBounds(redimDef);
             Vb6Value NewArray(List<(int, int)>? bounds = null)
             {
                 Vb6Value result;
@@ -4714,6 +4760,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     && SplitTypeName(arrayElement.GetText()) is var arrayName
                     && interpreter.TryResolveType(arrayName.Name, currentModule, arrayName.Qualifier, out var arrayDef))
                 {
+                    await interpreter.EnsureTypeBounds(arrayDef);
                     value = interpreter.NewUdtArray(arrayDef, dimensions, dimensions is null);
                 }
                 else if (autoNew is not null)
@@ -4737,6 +4784,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                             && subStmt.Parent?.Parent is VB6Parser.VariableStmtContext declaration
                             && declaration.visibility()?.PUBLIC() != null)
                             throw new VBCompileErrorException(PrePass.PublicMemberOfObjectModule);
+                        if (interpreter.TryResolveType(typeName, currentModule, qualifier, out var udtDef))
+                            await interpreter.EnsureTypeBounds(udtDef);
                         value = Vb6Value.NewUdt(interpreter.NewUdt(typeName, qualifier: qualifier, from: currentModule));
                     }
                     else if (qualifier is null && interpreter.TryResolveEnum(typeName, currentModule, out _))
@@ -4994,6 +5043,21 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private static int ArrayBound(Vb6Value value) => value.Type == Vb6Value.ValueType.LongLong
         ? throw new NotImplementedException("A LongLong array bound is unmeasured (#1548)") : Subscript(value);
 
+    internal async Task ResolveTypeBounds(VB6Parser.TypeStmtContext type)
+    {
+        var def = currentModule.PrePass.Types[type.ambiguousIdentifier().GetText()];
+        foreach (var field in def.Fields)
+        {
+            if (field.BoundSyntax is not { } syntax || field.ResolvedBounds != null)
+                continue;
+            await ModuleLevelBounds.CheckTypeField(interpreter, currentModule, currentEnv, syntax, type, field.Name);
+            var bounds = (await ExtractDimensions(syntax))!;
+            if (bounds.Any(b => b.Item2 < b.Item1))
+                throw new NotImplementedException($"An inverted array bound inside Type '{def.Name}' is not implemented (#178)");
+            field.ResolvedBounds = bounds;
+        }
+    }
+
     private async Task<List<(int, int)>?> ExtractDimensions(VB6Parser.SubscriptsContext? subscripts)
     {
         List<(int, int)>? dimensions = null;
@@ -5058,13 +5122,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitWithStmt(VB6Parser.WithStmtContext context)
     {
         // Push the target so leading-dot members resolve against it, pop in finally.
-        if (context.NEW() != null)
-            throw new NotImplementedException("With New is not supported yet (needs the object model)");
-
         Vb6Value target;
         try
         {
-            target = await expressionExecutor.EvaluateValue(context.implicitCallStmt_InStmt());
+            // The With statement's temporary frame spans the block and releases its New target at End With (#4599).
+            // A form's With New lifetime is unmeasured, so it is refused rather than guessed at (#435).
+            if (context.NEW() != null
+                && context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier()?.GetText() is { } newName
+                && interpreter.Modules.TryGet(newName, out var newDef) && newDef.Kind == InterpreterModuleKind.Form)
+                throw new NotImplementedException($"With New {newName} is not implemented: a form's With New lifetime is unmeasured (#435)");
+            target = context.NEW() != null
+                ? await expressionExecutor.CreateNewObject(context.implicitCallStmt_InStmt(), context)
+                : await expressionExecutor.EvaluateValue(context.implicitCallStmt_InStmt());
             target.RefuseOddBytes("With");
             if (target.Value is DebugProxy)
                 throw new VBCompileErrorException("Syntax error");

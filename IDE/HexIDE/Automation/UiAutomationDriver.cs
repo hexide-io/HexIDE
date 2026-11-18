@@ -264,6 +264,9 @@ public static class UiAutomationDriver
             var window = root is null ? source as Window : TopLevel.GetTopLevel(root);
             if (source is not null && window is not null)
             {
+                if (!ReferenceEquals(source, window) && !NativeWayland.Placed(source))
+                    return (null, "The compositor has not placed this popup yet, so its position is unknown; "
+                                  + "boundingRect is unavailable. Inspect it again.");
                 // A peer measures from the surface, which under client-side decorations starts above the window's own
                 // first row (#3575).
                 var rect = peer.GetBoundingRectangle();
@@ -4639,9 +4642,26 @@ public static class UiAutomationDriver
     {
         if (ToolTipInstanceProperty is null || !ToolTip.GetIsOpen(owner)
             || owner.GetValue(ToolTipInstanceProperty) is not ToolTip { IsEffectivelyVisible: true } tip
-            || TopLevel.GetTopLevel(tip) is null)
+            || TopLevel.GetTopLevel(tip) is not { } popup || !NativeWayland.Placed(popup))
             return null;
         return Safe<Rect?>(() => new Rect(window.PointToClient(tip.PointToScreen(default)), tip.Bounds.Size), null);
+    }
+
+    internal static async Task<bool> WaitForTipPlacementAsync(Control owner, CancellationToken ct)
+    {
+        if (ToolTipInstanceProperty is null || owner.GetValue(ToolTipInstanceProperty) is not ToolTip tip
+            || TopLevel.GetTopLevel(tip) is not PopupRoot popup || NativeWayland.Placed(popup))
+            return true;
+        var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnPositionChanged(object? sender, PixelPointEventArgs args) => changed.TrySetResult();
+        popup.PositionChanged += OnPositionChanged;
+        try
+        {
+            await changed.Task.WaitAsync(TimeSpan.FromMilliseconds(500), ct);
+        }
+        catch (TimeoutException) { }
+        finally { popup.PositionChanged -= OnPositionChanged; }
+        return NativeWayland.Placed(popup);
     }
 
     /// <inheritdoc cref="Hover(Control, double?, double?)"/>

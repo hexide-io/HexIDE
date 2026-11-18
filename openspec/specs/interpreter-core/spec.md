@@ -2363,7 +2363,7 @@ Height SHALL use the unit’s magnitude even in flipped user scales. Negative Co
 raise 380 from a property assignment and 5 from Move, before anything moves (issue #990 round-2 measurements).
 Form and PictureBox mouse coordinates SHALL use the object’s
 own mapping; other controls retain their existing mouse units. A form resize SHALL retain the size
-of a user unit. UserControl scales and PictureBox resize are outside this slice (part of #990).
+of a user unit. UserControl scales and PictureBox resize are outside this slice ([#4693](https://github.com/hexide-io/HexIDE/issues/4693)).
 
 The interpreter and bundled LSP grammars SHALL parse the bare and qualified Scale statement with either
 two points or no arguments. ScaleX and ScaleY SHALL default from HiMetric to the current scale, returning
@@ -2384,3 +2384,17 @@ The measured metric factor and its accepted last-place precision difference are 
 - **THEN** the interpreter raises 380
 - **WHEN** a Scale statement supplies a zero extent
 - **THEN** it raises 11 and retains the previous scale
+
+### Requirement: UDT parameters declared ByVal are refused
+
+The interpreter SHALL refuse a call to a Sub, Function or Property whose non-Optional parameter is declared ByVal with a UDT type, using `VBCompileErrorException("User-defined type may not be passed ByVal")`, as the call binds its parameters. vb6.exe refuses the build instead, even when the procedure is never called (measured, [#4673](https://github.com/hexide-io/HexIDE/issues/4673)); deciding that `As T` names a Type is binding, which the pre-pass does not do, so the refusal comes at the call. Declare, Event and Optional signatures SHALL retain their existing behaviour.
+
+#### Scenario: A call to a procedure with a ByVal UDT parameter
+- **WHEN** a statement calls a procedure that takes a UDT ByVal
+- **THEN** the statements before the call SHALL have run
+- **AND** the call SHALL raise "User-defined type may not be passed ByVal"
+
+#### Scenario: A procedure with a ByVal UDT parameter that is never called
+- **WHEN** a module declares a procedure that takes a UDT ByVal, and nothing calls it
+- **THEN** the module SHALL load and run, unlike in VB6
+- **AND** the difference SHALL be recorded as a missing error on a path never taken

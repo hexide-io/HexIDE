@@ -48,18 +48,17 @@ public class SilentFailureTests : BaseVBTestFixture
         // Was: silently created a variable named Time, shadowing the intrinsic, and `Debug.Print Time`
         // then printed whatever had been assigned. The grammar now matches timeStmt first, as it always
         // did for dateStmt.
-        var act = async () => await Run("Time = #1:00:00 AM#\n");
-        (await act.Should().ThrowAsync<NotImplementedException>())
-            .Which.Message.Should().Contain("Time");
+        // #4681 measures the unprivileged refusal, after conversion.
+        await Run("On Error Resume Next\nTime = Now\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value(70L)]);
     }
 
     [Fact]
     public async Task DateAssignment_StillRaises_TheCaseThatAlreadyWorked()
     {
-        // The control. Date = x threw before this change and must still throw — the grammar edit moved
-        // timeStmt to sit beside dateStmt, and must not have displaced it.
-        var act = async () => await Run("Date = \"1/1/2000\"\n");
-        await act.Should().ThrowAsync<NotImplementedException>();
+        // #4681: still refuses without changing the clock, now as VB6's trappable error 70.
+        await Run("On Error Resume Next\nDate = CStr(Date)\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value(70L)]);
     }
 
     // ── Guards: none of the above may break VB6's ordinary rules ────────────────────────────────────

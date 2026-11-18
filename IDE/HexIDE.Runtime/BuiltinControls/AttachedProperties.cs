@@ -27,7 +27,15 @@ public class AttachedProperties
 
     public static readonly AttachedProperty<VBFont?> FontProperty = AvaloniaProperty.RegisterAttached<VBProps, TemplatedControl, VBFont?>("Font", null);
     public static VBFont? GetFont(AvaloniaObject element) => element.GetValue(FontProperty);
-    public static void SetFont(AvaloniaObject element, VBFont? value) => element.SetValue(FontProperty, value);
+    public static void SetFont(AvaloniaObject element, VBFont? value)
+    {
+        if (element is Control control && value is { } font
+            && AvaloniaInterop.ControlFont.DescriptorChanged(control, font))
+            return;
+        element.SetValue(FontProperty, value);
+        if (element is Control owner)
+            AvaloniaInterop.FormAmbients.Changed(owner, "Font");
+    }
 
     static AttachedProperties()
     {
@@ -49,7 +57,6 @@ public class AttachedProperties
         {
             if (e.NewValue is VBFont font)
             {
-                AvaloniaInterop.ControlFont.DescriptorChanged(control, font);
                 control.FontFamily = font.ToFontFamily();
                 control.FontWeight = font.ToFontWeight();
                 control.FontSize = font.ToFontSize();

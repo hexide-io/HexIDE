@@ -539,8 +539,11 @@ The interpreter debugger SHALL honour breakpoints on Sub declarations before
 executing their bodies, and on Sub, Function and Property Get natural End lines after the last statement and before returning.
 A step from the last statement of a called Sub or Function SHALL stop on its End line; the following step
 SHALL reach the caller's next line. These positions retain the callee's frame until return (#2172).
-Entry procedures SHALL retain breakpoint-only End positions, so startup stepping advances from
-Initialize's last statement into Load's first statement.
+Event handlers SHALL also stop on their End Sub when stepping (#4619, measured in
+[the idle-break oracle](../../../docs/vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md)).
+The startup dispatch and Sub Main SHALL retain breakpoint-only End positions pending measurement (#4449 for
+Sub Main), so startup stepping advances from Initialize's last statement into Load's first statement.
+Property Get's End line SHALL remain breakpoint-only.
 
 #### Scenario: Break on a procedure's natural End line
 - **WHEN** a procedure finishes its last statement with a breakpoint on its End line
@@ -551,6 +554,14 @@ Initialize's last statement into Load's first statement.
 - **WHEN** Step Over runs the Function's last statement
 - **THEN** execution pauses on End Function
 - **AND** the next Step Over pauses on the caller's next line
+
+#### Scenario: Step off an event handler
+- **WHEN** Step Over runs Form_Click's last statement
+- **THEN** execution pauses on End Sub
+- **AND** the next Step Over runs off the handler, retaining a step for the next event's declaration
+- **WHEN** Step Into runs Timer1_Timer's last statement
+- **THEN** execution pauses on End Sub
+- **AND** the next Step Into pauses on the declaration at the next tick
 
 #### Scenario: Step through form startup
 - **WHEN** Step Into from design mode starts a form with Form_Initialize

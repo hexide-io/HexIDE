@@ -72,6 +72,12 @@ internal sealed class ModuleLevelBounds
         => new ModuleLevelBounds(interpreter, module, env, dim.ambiguousIdentifier().GetText() + "'s bounds", plural: true)
             .Walk(bounds, inConst: false, position: dim.Start.TokenIndex);
 
+    internal static Task CheckTypeField(BasicInterpreter interpreter, ModuleInfo module, ExecutionEnvironment env,
+        VB6Parser.SubscriptsContext bounds, VB6Parser.TypeStmtContext type, string field)
+        => new ModuleLevelBounds(interpreter, module, env,
+            $"Type {type.ambiguousIdentifier().GetText()}'s field {field}'s bounds", plural: true)
+            .Walk(bounds, inConst: false, position: type.Start.TokenIndex);
+
     /// <summary>
     /// A module-level Const's value, as the Const runs and before it is evaluated. Every Const above it was checked
     /// when it ran, so a same-module Const it names is a constant expression already, and the walk need go no deeper.

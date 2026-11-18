@@ -1473,6 +1473,10 @@
     "Str.Office.LockedMessage": "مشروع VBA مقفل ولا يمكن عرض تعليماته البرمجية.",
     "Str.Office.LockedCaption": "{0} ({1}) — مقفل",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "لا يحتوي {0} على مشروع VBA."
+    "Str.Office.NoProject": "لا يحتوي {0} على مشروع VBA.",
+    "Str.AIChat.EditContentMissing": "لم يُرسل أي محتوى، لذا لم يتغير شيء.",
+    "Str.AIChat.ProjectCannotStart": "يتعذر بدء المشروع (لم يُحمّل أي مشروع أو أنه قيد التشغيل بالفعل)",
+    "Str.AIChat.ProjectNotRunning": "لا يوجد مشروع قيد التشغيل حاليًا",
+    "Str.SessionEnd.UnsavedWork": "تغييرات غير محفوظة في {0}"
   }
 }

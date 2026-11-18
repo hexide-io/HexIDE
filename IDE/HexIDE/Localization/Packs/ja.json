@@ -1473,6 +1473,10 @@
     "Str.Office.LockedMessage": "VBA プロジェクトはロックされており、コードを表示できません。",
     "Str.Office.LockedCaption": "{0} ({1}) — ロック済み",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} には VBA プロジェクトがありません。"
+    "Str.Office.NoProject": "{0} には VBA プロジェクトがありません。",
+    "Str.AIChat.EditContentMissing": "内容が送信されなかったため、何も変更されませんでした。",
+    "Str.AIChat.ProjectCannotStart": "プロジェクトを開始できません（読み込まれていないか、既に実行中です）",
+    "Str.AIChat.ProjectNotRunning": "現在実行中のプロジェクトはありません",
+    "Str.SessionEnd.UnsavedWork": "{0} に保存されていない変更があります"
   }
 }

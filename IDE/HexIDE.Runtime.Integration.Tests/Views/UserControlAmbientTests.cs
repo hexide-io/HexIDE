@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Globalization;
 using Avalonia.Headless.XUnit;
 using HexIDE.Runtime.Interpreter;
@@ -103,7 +104,6 @@ public partial class UserControlKeyTests
     [AvaloniaTheory]
     [InlineData("Palette", "en-US", "", false)]
     [InlineData("RightToLeft", "en-US", "RightToLeft = -1\n", false)]
-    [InlineData("UserMode", "en-US", "", true)]
     public void Ambient_refuses_unmeasured_cases(string member, string culture, string settings, bool frame)
     {
         using var locale = VbLocale.Use(CultureInfo.GetCultureInfo(culture));
@@ -114,4 +114,112 @@ public partial class UserControlKeyTests
         run.Faults.Should().ContainSingle().Which.Should().BeOfType<System.NotImplementedException>()
             .Which.Message.Should().Match($"Ambient.{member}*#4149*");
     }
+    // vb6.exe SP6 native and p-code: https://github.com/hexide-io/HexIDE/issues/4448 (oracle PR #4630).
+    [AvaloniaTheory]
+    [InlineData("Me.BackColor = 255", "BackColor", "255")]
+    [InlineData("Me.BackColor = &H8000000F&", "BackColor", "-2147483633")]
+    [InlineData("Me.BackColor = Me.BackColor", "", "")]
+    [InlineData("Me.ForeColor = 65280", "ForeColor", "65280")]
+    [InlineData("Me.ForeColor = Me.ForeColor", "", "")]
+    [InlineData("Me.FontName = \"Tahoma\"", "Font", "Tahoma:12:False:False")]
+    [InlineData("Me.FontName = Me.FontName", "Font", "Arial:12:False:False")]
+    [InlineData("Me.FontSize = 9", "Font", "Arial:9:False:False")]
+    [InlineData("Me.FontSize = Me.FontSize", "Font", "Arial:12:False:False")]
+    [InlineData("Me.FontItalic = True", "Font", "Arial:12:True:False")]
+    [InlineData("Me.FontItalic = Me.FontItalic", "Font", "Arial:12:False:False")]
+    [InlineData("Me.Font.Bold = True", "Font", "Arial:12:False:True")]
+    [InlineData("Set Me.Font = Picture1.Font", "Font", "Tahoma:9:False:False")]
+    [InlineData("Set Font = Picture1.Font", "Font", "Tahoma:9:False:False")]
+    [InlineData("Me.Caption = \"x\"", "", "")]
+    [InlineData("Picture1.BackColor = 255", "", "")]
+    [InlineData("Picture1.FontName = \"Arial\"", "", "")]
+    public async System.Threading.Tasks.Task Form_ambient_changes_are_synchronous_and_in_file_order(string statement, string property, string value)
+    {
+        using var run = AmbientRun("Private Sub Form_Click()\n" + statement + "\nDebug.Print \"after\"\nEnd Sub\n");
+        await run.Context.Events.Run("Form_Click", async () =>
+        {
+            await run.Context.ExecuteControlEventAsync("Form_Click", []);
+            return true;
+        });
+        run.Faults.Should().BeEmpty();
+        run.Lib.Printed.Should().Equal(property.Length == 0
+            ? [new Vb6Value("after")]
+            : new[] { new Vb6Value("UC2:" + property + ":" + value), new Vb6Value("UC11:" + property + ":" + value), new Vb6Value("after") });
+    }
+
+    [AvaloniaFact]
+    public async System.Threading.Tasks.Task Shared_font_mutation_notifies_the_form()
+    {
+        using var run = AmbientRun("Private Sub Form_Click()\nDim f As Object\nSet f = Picture1.Font\nSet Me.Font = f\nf.Bold = True\nDebug.Print \"after\"\nEnd Sub\n");
+        await run.Context.Events.Run("Form_Click", async () =>
+        {
+            await run.Context.ExecuteControlEventAsync("Form_Click", []);
+            return true;
+        });
+        run.Lib.Printed.Should().Equal(new[] { "UC2:Font:Tahoma:9:False:False", "UC11:Font:Tahoma:9:False:False", "UC2:Font:Tahoma:9:False:True", "UC11:Font:Tahoma:9:False:True", "after" }.Select(s => new Vb6Value(s)));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Me.BackColor = 255", "UC2:BackColor:255")]
+    [InlineData("Me.FontName = \"Tahoma\"", "UC2:Font:Tahoma:12:False:False")]
+    [InlineData("Picture1.BackColor = 255", "")]
+    [InlineData("Picture1.FontName = \"Arial\"", "")]
+    public async System.Threading.Tasks.Task A_Frames_UserControl_is_notified_of_the_forms_changes_and_not_the_Frames(string statement, string first)
+    {
+        // The container is named Picture1 by AmbientRun whatever its type; here it is a Frame.
+        using var run = AmbientRun("Private Sub Form_Click()\n" + statement + "\nDebug.Print \"after\"\nEnd Sub\n", container: "VB.Frame");
+        await run.Context.Events.Run("Form_Click", async () =>
+        {
+            await run.Context.ExecuteControlEventAsync("Form_Click", []);
+            return true;
+        });
+        run.Faults.Should().BeEmpty();
+        run.Lib.Printed.Should().Equal(first.Length == 0
+            ? [new Vb6Value("after")]
+            : new[] { new Vb6Value(first), new Vb6Value(first.Replace("UC2:", "UC11:")), new Vb6Value("after") });
+    }
+
+    [AvaloniaFact]
+    public void Form_Load_changes_notify_before_the_form_is_shown()
+    {
+        using var run = AmbientRun("Private Sub Form_Load()\nMe.BackColor = 255\nDebug.Print \"after\"\nEnd Sub\n");
+        run.Lib.Printed.Should().Equal(new[] { "UC2:BackColor:255", "UC11:BackColor:255", "after" }.Select(s => new Vb6Value(s)));
+    }
+
+    // A Frame was measured with the PictureBox (#4448): its UserControl reads the form's ambients too.
+    [AvaloniaTheory]
+    [InlineData("BackColor", "VB.PictureBox")]
+    [InlineData("ForeColor", "VB.PictureBox")]
+    [InlineData("Font.Name", "VB.PictureBox")]
+    [InlineData("Font.Size", "VB.PictureBox")]
+    [InlineData("BackColor", "VB.Frame")]
+    [InlineData("ForeColor", "VB.Frame")]
+    [InlineData("Font.Name", "VB.Frame")]
+    [InlineData("Font.Size", "VB.Frame")]
+    public void A_PictureBox_or_Frame_child_reads_the_forms_ambient(string member, string container)
+    {
+        using var run = AmbientRun(readMember: member, container: container);
+        var expected = new Vb6Value(member == "Font.Name" ? "Arial" : member == "Font.Size" ? "12" : member == "BackColor" ? "12648447" : "255");
+        run.Lib.Printed.Should().Equal(expected, expected);
+    }
+
+    private static Run AmbientRun(string formCode = "", string? readMember = null, string container = "VB.PictureBox") => new("", formCode: formCode,
+        formSettings: "BackColor = &H00C0FFFF&\nForeColor = &H000000FF&\nBeginProperty Font\nName = \"Arial\"\nSize = 12\nWeight = 400\nItalic = 0\nEndProperty\n",
+        blocks: Block(container, "Picture1", 0, Block("P.Dial", "UC2", 1),
+            "BackColor = &H00000000&\nForeColor = &H00000000&\nBeginProperty Font\nName = \"Tahoma\"\nSize = 9\nWeight = 400\nItalic = 0\nEndProperty") + Block("P.Dial", "UC11", 2),
+        controlCode: """
+            Private Sub UserControl_AmbientChanged(PropertyName As String)
+                If PropertyName = "Font" Then
+                    Debug.Print Ambient.DisplayName & ":" & PropertyName & ":" & Ambient.Font.Name & ":" & CStr(Ambient.Font.Size) & ":" & CStr(Ambient.Font.Italic) & ":" & CStr(Ambient.Font.Bold)
+                ElseIf PropertyName = "BackColor" Then
+                    Debug.Print Ambient.DisplayName & ":" & PropertyName & ":" & CStr(Ambient.BackColor)
+                ElseIf PropertyName = "ForeColor" Then
+                    Debug.Print Ambient.DisplayName & ":" & PropertyName & ":" & CStr(Ambient.ForeColor)
+                End If
+            End Sub
+            Private Sub UserControl_Paint()
+                Debug.Print "unexpected Paint"
+            End Sub
+            """ + (readMember is null ? "" : "\nPrivate Sub UserControl_ReadProperties(PropBag As PropertyBag)\nDebug.Print CStr(Ambient." + readMember + ")\nEnd Sub\n"));
+
 }

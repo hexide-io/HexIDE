@@ -74,6 +74,18 @@ sealed partial class Program
     [STAThread]
     public static void Main(string[] args)
     {
+#if DEBUG
+        // PlatformWindowProbeTests (#4646): start Avalonia's Win32 platform alone, with no app, window or profile, and say
+        // whether it still creates the hidden window Win32SessionEndHook answers Windows' end of session on.
+        if (OperatingSystem.IsWindows() && Environment.GetEnvironmentVariable("HEXIDE_PROBE_PLATFORM_WINDOW") == "1")
+        {
+            AppBuilder.Configure<Application>().UsePlatformDetect().SetupWithoutStarting();
+            var found = HexIDE.Infrastructure.Win32SessionEndHook.FindPlatformWindow() != 0;
+            Console.WriteLine(found ? "platform window: found" : "platform window: missing");
+            Environment.ExitCode = found ? 0 : 1;
+            return;
+        }
+#endif
         // Read before FixCurrentWorkingDictionary moves it. A relative path on the command line means
         // relative to the shell it was typed in; resolved after the move, ../demo/x.vbp pointed inside
         // bin/ and the IDE opened nothing, without a word.

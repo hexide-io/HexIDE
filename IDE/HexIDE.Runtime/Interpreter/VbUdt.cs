@@ -8,7 +8,11 @@ namespace HexIDE.Runtime.Interpreter;
 /// a nested-UDT field carries the referenced type's name (resolved against the program's type table at
 /// instantiation). Array fields carry their bounds and String fields their declared width.</summary>
 public sealed record UdtField(string Name, Vb6Value.ValueType? ScalarType, string? UdtTypeName, string? AutoNewClass = null,
-    bool IsArray = false, IReadOnlyList<(int, int)>? Bounds = null, VB6Parser.FieldLengthContext? FixedLength = null);
+    bool IsArray = false, IReadOnlyList<(int, int)>? Bounds = null, VB6Parser.FieldLengthContext? FixedLength = null)
+{
+    internal VB6Parser.SubscriptsContext? BoundSyntax { get; init; }
+    internal IReadOnlyList<(int, int)>? ResolvedBounds { get; set; }
+}
 
 /// <summary>A user-defined <c>Type … End Type</c> definition, owned by the module that declares it.
 ///

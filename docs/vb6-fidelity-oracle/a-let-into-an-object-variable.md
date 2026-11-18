@@ -124,3 +124,62 @@ referenced nothing beyond VB's own libraries. p-code and native code logged the 
   `As Class1` and `As Object` read "Nothing" (#4622).
 
 **Not measured:** a referenced library's own class, a Property Get, and a Function returning an array of these.
+
+## A default member, by kind and by target (2026-11-18, #4694)
+
+**The question.** The section above found that `d = 11` calls the default `Property Let`. Real code reaches the same
+Let through fields, `With`, ByRef parameters, a Function's own name and array elements, and a default member can
+also be Get-only, a field, or a Function. What does each do?
+
+**The probe.**
+- **Build:** VB6 SP6, `/make`, native code and p-code, which logged every row identically.
+- **The classes:**
+  - `D`: a default `Property Get/Let Value` As Variant, whose Let logs `Let <x>`;
+  - `DG`: a Get-only default;
+  - `DF`: a default Public field `Value As Variant`, by `VB_VarUserMemId = 0`;
+  - `DFn`: a default Function;
+  - `DL`: a default Get/Let As Long;
+  - `DT`: like `D`, and logs its Terminate;
+  - `H`: `Public d As D`.
+- **The two compile errors** were each built as a project of their own.
+
+| Target and statement | VB6 |
+|---|---|
+| `Dim d As D`, holding a `D`: `d = 11` | `Let 11`; `d` still the `D`, `d.Value` 11 |
+| `Dim o As Object`, holding a `D`: `o = 12` | `Let 12`, `o` still the `D` |
+| `d = 13` with `keep` also holding it | `Let 13`; `d Is keep` True |
+| `Dim g As DG`: `g = 14` | compile error **"Invalid use of property"** |
+| `Dim f As DF`: `f = 15` | the field takes 15; `f` still the `DF` |
+| `Dim fn As DFn`: `fn = 16` | compile error **"Type mismatch"** |
+| `Dim l As DL`: `l = "17"`; `l = "abc"` | `l.Value` Long 17; 13 |
+| a class field `h.d = 18`; `With h`: `.d = 19` | `Let 18`, `h.d` still the `D`; `Let 19` |
+| a ByRef parameter `x As D`: `x = 20` | `Let 20`, on the caller's object |
+| inside `Function GetD() As D`, after `Set GetD = New D`: `GetD = 21` | `Let 21`; the Function returns the `D` |
+| inside `Function GetO() As Object`, the same: `GetO = 27` | `Let 27` |
+| `Dim arr(1 To 2) As D`, holding a `D`: `arr(1) = 22` | `Let 22`; `arr(1)` still the `D` |
+| `Dim n As D`, holding Nothing: `n = 23` | 91 |
+| `Dim v As Variant`, holding a `D`: `v = 24` | `v` is Integer 24, the object dropped |
+| `Dim og As Object`, holding a `DG`: `og = 25` | **451** |
+| `Dim o As Object`, holding a `DF`: `o = 28`; holding a `DFn`: `o = 29` | the field takes 28; **450** |
+| `Dim t As DT`: `t = 26`, then `Set t = Nothing` | `Let 26`, and Terminate at the `Set`, not at the Let |
+
+The probe's `TypeName(d)` printed `d`, not `D`. VB6 recases an identifier project-wide to its last-typed spelling,
+and the variable `d` shares the class's name. That's the probe's naming, not a finding.
+
+**Readings:**
+- **Every object-typed target hands the value to the default member, and keeps its object:** a variable, a field, a
+  `With` member, a ByRef parameter, a Function's own name and an array element alike. Only a Variant takes the value.
+- **A default Property Let converts the value** as a call converts its argument: `"17"` into a Long Let is 17, and
+  `"abc"` is 13.
+- **A default field takes the value.**
+- **A default that can't take a Let** is a compile error through a class-typed variable, and a run-time error
+  through `As Object`:
+  - Get-only: "Invalid use of property", or 451;
+  - a Function: "Type mismatch", or 450.
+- **The Let doesn't release the object.** Terminate runs when the last reference goes, as before.
+
+**Not measured:**
+- a Sub as the default;
+- a typed (non-Variant) field as the default;
+- a UDT's object field;
+- an element of an object array holding a class with no default member.

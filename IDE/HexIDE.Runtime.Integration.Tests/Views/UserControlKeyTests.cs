@@ -40,9 +40,18 @@ public partial class UserControlKeyTests
         public Task<string?> InputBox(string prompt, string? title, string defaultText) => throw new NotImplementedException();
     }
 
-    internal sealed class RunWindow : Window, IModuleExecutionRoot
+    internal sealed class RunWindow : Window, IModuleExecutionRoot, IFormView
     {
         internal VBWindowContext? Context;
+        VBWindowContext IFormView.Context => Context!;
+        public void SetContent(Control content) => Content = content;
+        public void ShowForm() => Show();
+        public bool IsShown => IsVisible;
+        public (Avalonia.Size Size, WindowState State) Extent => (ClientSize, WindowState);
+        public IFormView? HeldBy { get; set; }
+        public void ActivateForm() => Activate();
+        public void HideForm() => Hide();
+        public void CloseForm() => Close();
         public Task<bool> UnloadAsync(int mode) => Context!.UnloadAsync(mode);
         public EventPump? Events => Context?.Events;
         public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null) => Context?.ExecuteSub(name, args);
