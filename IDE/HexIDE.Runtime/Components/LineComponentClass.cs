@@ -75,7 +75,7 @@ public class LineComponentClass : ComponentBaseClass
         {
             var mode = VBLoader.DeclaredScaleMode(container) ?? VBScaleMode.Twip;
             if (mode == VBScaleMode.User)
-                throw new NotImplementedException("A Line in a PictureBox whose ScaleMode is User is not implemented (#990)");
+                throw new NotImplementedException("A Line in a PictureBox whose ScaleMode is User is not implemented (#4693)");
             return Known(mode);
         }
         return (1, 1);
@@ -84,7 +84,7 @@ public class LineComponentClass : ComponentBaseClass
         {
             VBScaleMode.Twip or VBScaleMode.Point or VBScaleMode.Pixel or VBScaleMode.Character or VBScaleMode.Inch =>
                 mode.TwipsPerUnit(),
-            _ => throw new NotImplementedException($"A Line in a container whose ScaleMode is {mode} is not implemented (#990)"),
+            _ => throw new NotImplementedException($"A Line in a container whose ScaleMode is {mode} is not implemented (#4693)"),
         };
     }
 }

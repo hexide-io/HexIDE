@@ -70,7 +70,7 @@ internal sealed class RuntimeScale
     public double Origin(bool vertical) => mode == VBScaleMode.User ? mapping.Origin(vertical) : 0;
 
     public double TwipsPerUnit(bool vertical) => mode == VBScaleMode.User
-        ? missingMapping ? throw new NotImplementedException("A saved User scale without extents is not implemented (#990)")
+        ? missingMapping ? throw new NotImplementedException("A saved User scale without extents is not implemented (#4693)")
             : mapping.TwipsPerUnit(vertical)
         : Unit(mode, vertical);
 
@@ -141,7 +141,7 @@ internal sealed class RuntimeScale
 
     public static void Statement(Control owner, IReadOnlyList<Vb6Value> points)
     {
-        var scale = Of(owner) ?? throw new NotImplementedException("Scale on this object is not implemented (#990)");
+        var scale = Of(owner) ?? throw new NotImplementedException("Scale on this object is not implemented (#4693)");
         if (points.Count == 0)
         {
             scale.SetMode(VBScaleMode.Twip);
@@ -161,9 +161,9 @@ internal sealed class RuntimeScale
 
     public static Vb6Value ConvertUnits(Control owner, string name, IReadOnlyList<Vb6Value> args)
     {
-        var scale = Of(owner) ?? throw new NotImplementedException($"{name} on this object is not implemented (#990)");
+        var scale = Of(owner) ?? throw new NotImplementedException($"{name} on this object is not implemented (#4693)");
         if (args.Count is < 1 or > 3)
-            throw new NotImplementedException($"{name} with this argument count is not implemented (#990)");
+            throw new NotImplementedException($"{name} with this argument count is not implemented (#4693)");
         var vertical = name.Equals("ScaleY", StringComparison.OrdinalIgnoreCase);
         var from = args.Count > 1 && !args[1].IsMissing ? Mode(args[1]) : 8;
         var to = args.Count > 2 && !args[2].IsMissing ? Mode(args[2]) : (int)scale.mode;

@@ -955,7 +955,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         foreach (var point in context.valueStmt())
             points.Add(await expressionExecutor.EvaluateScalar(point));
         if (target.HeldAsVariant || string.Equals(target.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase))
-            throw new NotImplementedException("Late-bound Scale is not implemented (#990)");
+            throw new NotImplementedException("Late-bound Scale is not implemented (#4693)");
         if (target.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form)
             await interpreter.Loading(() => RuntimeScale.Statement(form.BuiltInMembersFor("Scale")!, points));
         else if (target.Value is Control control)

@@ -327,11 +327,11 @@ public class ControlPositionTests
     [InlineData("0  'User")]
     public void A_ScaleMode_HexIDE_cannot_convert_exactly_is_refused(string mode)
     {
-        // This saved User scale has no recorded extents. Its mapping remains unmeasured (#990).
+        // This saved User scale has no recorded extents. Its mapping remains unmeasured (#4693).
         var run = RunLoad(Form($"   ScaleMode       =   {mode}\r\n", TextBox), "Debug.Print Text1.Left");
 
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
-            .Which.Message.Should().Contain("#990");
+            .Which.Message.Should().Contain("#4693");
         run.Printed.Should().BeEmpty();
     }
 
