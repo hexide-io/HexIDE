@@ -245,6 +245,36 @@ public sealed class FontNameTests : IDisposable
             """, (printed, _) => printed.Should().Equal(
                 "380 Invalid property value Tahoma", "380 Tahoma", "380 Tahoma", "380 Tahoma", "94 Tahoma"));
 
+    // vb6.exe took each by name on a stock Windows 10 guest, on a Label and on the form, native and p-code (#1370). They
+    // count as the machine's whether or not they're installed here: WildEcstasy's FontName = "Arial Black" was 380 in the
+    // headless smoke worker, which sees no installed fonts.
+    [AvaloniaTheory]
+    [InlineData("Arial Black")]
+    [InlineData("Lucida Console")]
+    [InlineData("Times New Roman")]
+    [InlineData("Verdana")]
+    [InlineData("Georgia")]
+    [InlineData("Comic Sans MS")]
+    [InlineData("Impact")]
+    [InlineData("Trebuchet MS")]
+    [InlineData("Palatino Linotype")]
+    [InlineData("Lucida Sans Unicode")]
+    [InlineData("Consolas")]
+    [InlineData("Calibri")]
+    [InlineData("Cambria")]
+    [InlineData("Segoe Print")]
+    public Task A_stock_Windows_text_face_is_taken_installed_or_not(string face) => Check($"""
+            On Error Resume Next
+            Label1.FontName = "{face}"
+            Debug.Print Err.Number & " " & Label1.FontName: Err.Clear
+            Me.FontName = "{face}"
+            Debug.Print Err.Number & " " & Me.FontName: Err.Clear
+            """, (printed, window) =>
+        {
+            printed.Should().Equal($"0 {face}", $"0 {face}");
+            AttachedProperties.GetFont(Named(window, "Label1"))!.Value.Charset.Should().Be(0);
+        });
+
     [AvaloniaFact]
     public Task The_charset_is_the_familys_own_and_the_size_and_weight_stay() => Check("""
             Label1.FontName = "Terminal"
