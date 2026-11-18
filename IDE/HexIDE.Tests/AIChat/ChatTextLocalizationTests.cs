@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using HexIDE.Lsp;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Reflection;
@@ -194,33 +195,95 @@ public class ChatTextLocalizationTests
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !Directory.Exists(Path.Join(root.FullName, "IDE", "HexIDE.AIChat"))) root = root.Parent;
         root.Should().NotBeNull();
+        var localization = new LocalizationService();
+        string? English(string key) => localization.GetStringFrom("en", key) is var value && value != key ? value : null;
         foreach (var file in Directory.EnumerateFiles(Path.Join(root!.FullName, "IDE", "HexIDE.AIChat", "Views"), "*.cs"))
         {
             var syntax = CSharpSyntaxTree.ParseText(File.ReadAllText(file), cancellationToken: TestContext.Current.CancellationToken)
                 .GetRoot(TestContext.Current.CancellationToken);
-            static bool IsLocalizedCall(InvocationExpressionSyntax call) =>
-                call.Expression.ToString() is "ChatStrings.GetString" or "ChatStrings.Format";
-            var localizedVariables = syntax.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                .Where(v => v.Initializer?.DescendantNodes().OfType<InvocationExpressionSyntax>().Any(IsLocalizedCall) == true)
-                .Select(v => (v.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault(), v.Identifier.ValueText)).ToHashSet();
-            foreach (var call in syntax.DescendantNodes().OfType<InvocationExpressionSyntax>()
-                         .Where(c => c.Expression.ToString() == "ChatStrings.Format"))
-            foreach (var argument in call.ArgumentList.Arguments.Skip(1))
+            ComposedFragments(syntax, English).Should().BeEmpty($"{file}: localized sentences must be complete");
+        }
+    }
+
+    // The guard's one exemption has to bite: a localized value inserted mid-sentence still fails, wherever it is.
+    [Fact]
+    public void A_localized_value_mid_sentence_is_refused_and_one_after_a_closing_colon_is_not()
+    {
+        var syntax = CSharpSyntaxTree.ParseText("""
+            class C
             {
-                // #4332 deliberately wraps a complete host refusal sentence in ToolFailed. Other chat
-                // messages must still choose whole sentences rather than composing translated fragments.
-                if (argument.Expression is IdentifierNameSyntax { Identifier.ValueText: "reason" }
-                    && call.ArgumentList.Arguments[0].Expression is LiteralExpressionSyntax literal
-                    && literal.Token.ValueText == "Str.AIChat.ToolFailed"
-                    && call.Ancestors().OfType<MethodDeclarationSyntax>().First().Identifier.ValueText == "RunServerToolCallAsync")
+                void M(string tool)
+                {
+                    var reason = ChatStrings.Format("Str.Probe.Reason", 1);
+                    var shown = ChatStrings.Format("Str.Probe.Frame", tool, reason);
+                    var middle = ChatStrings.Format("Str.Probe.Middle", reason, tool);
+                    var word = ChatStrings.Format("Str.Probe.Middle", ChatStrings.GetString("Str.Probe.Word"), tool);
+                }
+            }
+            """, cancellationToken: TestContext.Current.CancellationToken).GetRoot(TestContext.Current.CancellationToken);
+        var english = new Dictionary<string, string>
+        {
+            ["Str.Probe.Reason"] = "The server isn't running.",
+            ["Str.Probe.Frame"] = "`{0}` failed: {1}",
+            ["Str.Probe.Middle"] = "Could not {0} the file {1}.",
+        };
+
+        ComposedFragments(syntax, key => english.GetValueOrDefault(key)).Should().Equal(
+            "Str.Probe.Middle {0}: reason", "Str.Probe.Middle {0}: ChatStrings.GetString(\"Str.Probe.Word\")");
+    }
+
+    [Theory]
+    [InlineData("`{0}` failed: {1}", 1, true)]
+    [InlineData("Not applied to {0}: {1}", 1, true)]
+    [InlineData("Not applied to the file: {0}", 0, true)]
+    [InlineData("Error: {0}.", 0, true)]
+    [InlineData("Not applied to {0}: {1}", 0, false)]
+    [InlineData("Could not open {0} today", 0, false)]
+    [InlineData("{0} failed: see {1} for details", 1, false)]
+    [InlineData("Failed: {1}!", 1, false)]
+    [InlineData("Failed: {10}", 1, false)]
+    [InlineData("Failed {1}", 1, false)]
+    public void A_whole_sentence_may_fill_only_a_placeholder_ending_the_sentence_after_a_colon(string english, int index, bool allowed) =>
+        PlaceholderTakesAWholeSentence(english, index).Should().Be(allowed);
+
+    /// <summary>
+    /// A localized whole sentence may fill a placeholder only where the composing sentence's English ends with it after a
+    /// colon, as <c>: {n}</c> or <c>: {n}.</c>, so the inserted text stands as its own sentence in every language (#4332).
+    /// Anywhere else it would be a translated fragment inside another translated sentence, whose word order other languages
+    /// don't share. This is the guard's only exemption: a rule about the sentence, not a list of call sites.
+    /// </summary>
+    private static bool PlaceholderTakesAWholeSentence(string english, int index) =>
+        english.EndsWith($": {{{index}}}", StringComparison.Ordinal) || english.EndsWith($": {{{index}}}.", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Each <c>ChatStrings.Format</c> argument that carries a localized value, directly or through a variable, into a
+    /// placeholder <see cref="PlaceholderTakesAWholeSentence"/> doesn't allow, as "key {n}: argument".
+    /// </summary>
+    private static List<string> ComposedFragments(SyntaxNode root, Func<string, string?> english)
+    {
+        static bool IsLocalizedCall(InvocationExpressionSyntax call) =>
+            call.Expression.ToString() is "ChatStrings.GetString" or "ChatStrings.Format";
+        var localizedVariables = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+            .Where(v => v.Initializer?.DescendantNodes().OfType<InvocationExpressionSyntax>().Any(IsLocalizedCall) == true)
+            .Select(v => (v.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault(), v.Identifier.ValueText)).ToHashSet();
+        var found = new List<string>();
+        foreach (var call in root.DescendantNodes().OfType<InvocationExpressionSyntax>()
+                     .Where(c => c.Expression.ToString() == "ChatStrings.Format"))
+        {
+            var key = call.ArgumentList.Arguments[0].Expression is LiteralExpressionSyntax literal ? literal.Token.ValueText : null;
+            var sentence = key is null ? null : english(key);
+            foreach (var (argument, index) in call.ArgumentList.Arguments.Skip(1).Select((a, i) => (a, i)))
+            {
+                if (sentence is not null && PlaceholderTakesAWholeSentence(sentence, index))
                     continue;
-                argument.DescendantNodes().OfType<InvocationExpressionSyntax>().Where(IsLocalizedCall)
-                    .Should().BeEmpty($"{file}: localized sentences must be complete");
-                argument.DescendantNodes().OfType<IdentifierNameSyntax>()
-                    .Where(i => localizedVariables.Contains((i.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault(), i.Identifier.ValueText)))
-                    .Should().BeEmpty($"{file}: localized fragments must not be passed through variables");
+                var localized = argument.DescendantNodes().OfType<InvocationExpressionSyntax>().Any(IsLocalizedCall)
+                    || argument.DescendantNodes().OfType<IdentifierNameSyntax>().Any(i =>
+                        localizedVariables.Contains((i.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault(), i.Identifier.ValueText)));
+                if (localized)
+                    found.Add($"{key ?? call.ArgumentList.Arguments[0].ToString()} {{{index}}}: {argument}");
             }
         }
+        return found;
     }
 
     [AvaloniaTheory]
