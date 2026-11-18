@@ -172,6 +172,45 @@ public class FormInstanceTests
             "unload 3", "terminate 3", "released 1");
     }
 
+    // Measured on VB6 SP6, native and p-code agreeing (#4640's PR): a module's `Public g As New Form2` holds the new
+    // instance while its Form_Initialize runs, so `g Is Me` there is True and no second instance is made. The same holds
+    // after `Set g = Nothing`, for the next instance. A class's slot does the same (#4605).
+    [AvaloniaFact]
+    public void An_As_New_form_is_in_its_variable_while_its_Form_Initialize_runs()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddForm(new FormDeserializer().Deserialize(project,
+            (FormHeader.Replace("Form1", "Form2") + """
+            Private number As Integer
+            Private Sub Form_Initialize()
+                nextId = nextId + 1
+                number = nextId
+                If nextId > 3 Then Exit Sub
+                Debug.Print "initialize " & number & " " & (g Is Me) & " " & nextId
+            End Sub
+            Private Sub Form_Terminate()
+                Debug.Print "terminate " & number
+            End Sub
+            Public Function Id() As Integer
+                Id = number
+            End Function
+            """).ReplaceLineEndings("\r\n"), new NullSink())!);
+        var run = RunFormIn(project, """
+            Private Sub Form_Load()
+                Debug.Print "id " & g.Id
+                Debug.Print "made " & nextId
+                Set g = Nothing
+                Debug.Print TypeName(g)
+                Debug.Print "made " & nextId
+            End Sub
+            """, ("Module1", ModuleKind.StandardModule, "Public nextId As Integer\nPublic g As New Form2"));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(
+            "initialize 1 True 1", "id 1", "made 1", "terminate 1",
+            "initialize 2 True 2", "Form2", "made 2");
+    }
+
     // Measured VB6 SP6, native and p-code: #4598, oracle PR #4613.
     private static ProjectDefinition NewFormProject(string declarations = "", string members = "")
     {
