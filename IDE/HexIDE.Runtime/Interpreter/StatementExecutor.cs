@@ -1281,11 +1281,45 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         || !interpreter.ExecutionContext.State.IsVariant(slot) && !env.VariantParameters.Contains(name)
            && !(VariantReturn && string.Equals(name, procName, StringComparison.OrdinalIgnoreCase));
 
+    private async Task<bool> LetClassDefault(Vb6Value held, Vb6Value value, bool earlyBound, ParserRuleContext context)
+    {
+        if (held.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is not { } member)
+            return false;
+        switch (member.Kind)
+        {
+            case PrePass.DefaultMemberKind.Property:
+                if (obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Let is { } letter)
+                {
+                    await interpreter.RunProcedure(obj.ClassDef, letter, [new CallArg(value, null)], obj.InstanceEnv, held, stmtFrames);
+                    return true;
+                }
+                if (earlyBound)
+                    throw new VBCompileErrorException("Invalid use of property");
+                throw new VBRunTimeException(context, VBStandardError.ObjectNotACollection);
+            case PrePass.DefaultMemberKind.Function:
+                if (earlyBound)
+                    throw new VBCompileErrorException("Type mismatch");
+                throw new VBRunTimeException(context, VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
+            case PrePass.DefaultMemberKind.Variable:
+                if (obj.InstanceEnv.TryGetVariableLocation(member.Name, out var slot)
+                    && interpreter.ExecutionContext.State.IsVariant(slot))
+                {
+                    interpreter.ExecutionContext.TryGetVariable(obj.InstanceEnv, member.Name, out var old);
+                    interpreter.ExecutionContext.TryUpdateVariable(obj.InstanceEnv, member.Name, interpreter.CopyForStore(value));
+                    await interpreter.ReleaseRef(old);
+                    return true;
+                }
+                return false;
+            default:
+                return false;
+        }
+    }
+
     /// <summary>
     /// A Let into an object variable assigns the default member of the object it holds, and the object stays (measured,
     /// #1493): 438 for a class instance with none, as for a Collection, and 91 for Nothing. It released the object and
-    /// stored the value. A class's own default member (#174) and a control's (#790) are not implemented, so those are
-    /// refused. Anything else the variable holds is left to the store.
+    /// stored the value. Unmeasured class defaults (#174) and control defaults (#790) are refused.
+    /// Anything else the variable holds is left to the store.
     /// </summary>
     private static void RefuseLetIntoObject(Vb6Value held, string target, ParserRuleContext context)
     {
@@ -2599,7 +2633,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // not optional" (measured, #1471). Into any other object variable it is the held object's default member, and a
             // Variant simply takes the value (#1493).
             if (currentEnv.TryGetVariableLocation(identifier, out var letSlot) && IsObjectVariable(currentEnv, identifier, letSlot)
-                && TryLetIntoObject(oldLet, value, letSlot, identifier, context))
+                && (await LetClassDefault(oldLet, value,
+                        interpreter.ProjectClassFor(interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) ?? "") is not null, context)
+                    || TryLetIntoObject(oldLet, value, letSlot, identifier, context)))
                 return default;
             if (checkedArrayReturn is { } declaredReturn && string.Equals(identifier, procName, StringComparison.OrdinalIgnoreCase))
                 value = ArrayStore(declaredReturn, value, context, (oldLet.Value as VBArray)?.DeclaredClass);
@@ -2794,7 +2830,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     // An object field takes a Let as an object variable does (measured, #1493: `h.o = 8` is 438).
                     if (vobj.InstanceEnv.TryGetVariableLocation(fieldName, out var fieldSlot)
                         && !interpreter.ExecutionContext.State.IsVariant(fieldSlot))
+                    {
+                        if (await LetClassDefault(oldFieldLet, value,
+                                interpreter.ProjectClassFor(interpreter.ExecutionContext.State.DeclaredClassOf(fieldSlot) ?? "") is not null, context))
+                            return default;
                         RefuseLetIntoObject(oldFieldLet, context.implicitCallStmt_InStmt().GetText(), context);
+                    }
                     interpreter.ExecutionContext.TryUpdateVariable(vobj.InstanceEnv, fieldName, interpreter.CopyForStore(value));
                     // A field that held an object, now overwritten by a scalar via Let, drops that reference.
                     await interpreter.ReleaseRef(oldFieldLet);
@@ -3070,12 +3111,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             try
             {
                 oldElement = arr.GetValue(indexesAsInt);
-                arr.SetValue(indexesAsInt, interpreter.CopyForStore(value));
             }
             catch (IndexOutOfRangeException)
             {
                 throw new VBRunTimeException(procedureOrArrayCall, VBStandardError.SubscriptOutOfRange);
             }
+            // An object element holding a class with a default member hands the value to it, and keeps the object (#4694).
+            // Outside the try, so the Let's own code is not read as a subscript out of range.
+            if (array.Type == new Vb6Value.ValueType(Vb6Value.ValueType.Object, true)
+                && await LetClassDefault(oldElement, value, interpreter.ProjectClassFor(arr.DeclaredClass ?? "") is not null, context))
+                return default;
+            arr.SetValue(indexesAsInt, interpreter.CopyForStore(value));
             await interpreter.ReleaseRef(oldElement);
 
             return ControlFlow.Nothing;
