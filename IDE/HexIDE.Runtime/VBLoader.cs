@@ -336,8 +336,8 @@ public class VBLoader
         if (form is not null)
         {
             form.Controls = controls;
-            if (form.FormWindow is { } window)
-                AvaloniaInterop.FormAmbients.Register(window, controls);
+            if (form.FormWindow is { } formWindow)
+                AvaloniaInterop.FormAmbients.Register(formWindow, controls);
         }
 
         var root = new DockPanel()
