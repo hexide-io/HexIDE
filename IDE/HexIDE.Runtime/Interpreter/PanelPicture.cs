@@ -35,8 +35,18 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
 
     internal static PanelPicture FromFile(byte[] file)
     {
-        if (FrxImageHelper.DetectKind(file) is not (FrxImageHelper.FrxBlobKind.Bitmap or FrxImageHelper.FrxBlobKind.Icon))
-            throw new NotImplementedException("This Panel.Picture file format is not implemented (#1087)");
+        var kind = FrxImageHelper.DetectKind(file);
+        // Metafiles and cursors have no LoadPicture measurements (#4597).
+        if (kind == FrxImageHelper.FrxBlobKind.Cursor
+            || file.AsSpan().StartsWith(new byte[] { 0xd7, 0xcd, 0xc6, 0x9a })
+            || file.AsSpan().StartsWith(new byte[] { 1, 0, 9, 0 })
+            || file.AsSpan().StartsWith(new byte[] { 2, 0, 9, 0 })
+            || (file.Length >= 44 && file.AsSpan().StartsWith(new byte[] { 1, 0, 0, 0 })
+                && file.AsSpan(40, 4).SequenceEqual(" EMF"u8)))
+            throw new NotImplementedException("LoadPicture metafiles and cursors are unmeasured (#4597)");
+        if (kind is not (FrxImageHelper.FrxBlobKind.Bitmap or FrxImageHelper.FrxBlobKind.Icon
+            or FrxImageHelper.FrxBlobKind.Jpeg or FrxImageHelper.FrxBlobKind.Gif))
+            throw new VBRunTimeException(VBStandardError.InvalidPicture);
         var picture = new PanelPicture(file);
         if (picture.Bitmap == null)
             throw new NotImplementedException("This Panel.Picture image is not implemented (#1087)");
@@ -105,9 +115,19 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
             return new Vb6Value(new PanelPicture([]));
         if (args.Count != 1 || args[0].Type != Vb6Value.ValueType.String || args[0].Value is not string { Length: > 0 } path)
             throw new NotImplementedException("This LoadPicture argument combination is unmeasured (#1087)");
-        try { return new Vb6Value(FromFile(File.ReadAllBytes(files.FullPath(path)))); }
+        try
+        {
+            var fullPath = files.FullPath(path);
+            if (Directory.Exists(fullPath))
+                throw FileError(VBStandardError.PathFileAccessError);
+            return new Vb6Value(FromFile(File.ReadAllBytes(fullPath)));
+        }
+        catch (FileNotFoundException) { throw FileError(VBStandardError.FileNotFound); }
+        catch (DirectoryNotFoundException) { throw FileError(VBStandardError.PathNotFound); }
         catch (IOException) { throw new NotImplementedException("LoadPicture file errors are unmeasured (#1087)"); }
         catch (UnauthorizedAccessException) { throw new NotImplementedException("LoadPicture file errors are unmeasured (#1087)"); }
+
+        VBRunTimeException FileError(VBStandardError error) => new(new VBStandardError(error.ErrNo, $"{error.Description}: '{path}'"));
     }
 
     public bool TryGetProperty(string name, out Vb6Value value)

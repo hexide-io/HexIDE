@@ -197,6 +197,24 @@ lookup rules below; ambiguous unmatched languages SHALL refuse as not implemente
 - **WHEN** the counted string for an ID has length zero
 - **THEN** the reader reports no string for that ID
 
+### Requirement: LoadPicture recognises measured file content and errors
+
+`LoadPicture` SHALL load BMP, ICO, JPEG and GIF content, independent of extension, following the
+[#4597 measurements](https://github.com/hexide-io/HexIDE/issues/4597). JPEG and GIF SHALL return Picture
+objects with Integer Type 1; the measured 20×10 images SHALL report Long Width 529 and Height 265 HiMetric.
+PNG, empty files and unknown content SHALL raise trappable 481, `Invalid picture`.
+Missing files in existing folders SHALL raise 53, missing folders 76 and directory paths 75, with descriptions
+`File not found: '<path>'`, `Path not found: '<path>'` and `Path/File access error: '<path>'` respectively.
+The description SHALL preserve the passed path; relative-path spelling remains unmeasured.
+Metafiles and file cursors SHALL refuse as unmeasured, and recognised but undecodable images and other I/O
+failures SHALL retain their not-implemented refusals. No-argument clearing and other argument refusals remain unchanged.
+
+#### Scenario: A program falls back after a picture error
+
+- **WHEN** a program calls LoadPicture on a PNG or a missing file, folder or directory path
+- **THEN** On Error Resume Next exposes the measured Err.Number and Err.Description
+- **AND** On Error GoTo reaches its handler so the program can use its fallback
+
 ### Requirement: Resource intrinsics read the project snapshot
 
 `LoadResString` SHALL return counted UTF-16 strings and `LoadResData` SHALL return zero-based Byte arrays
