@@ -346,7 +346,7 @@ public class CoordinateSystemTests
     {
         var run = RunLoad(Form, $"Dim v\nv = {call}");
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
-            .Which.Message.Should().Contain("argument count").And.Contain("#990");
+            .Which.Message.Should().Contain("argument count").And.Contain("#4693");
     }
 
     [AvaloniaTheory]
@@ -358,7 +358,7 @@ public class CoordinateSystemTests
     {
         var run = RunLoad(Form, $"Dim o {declaration}\nSet o = Me\n{statement}");
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
-            .Which.Message.Should().Contain("Late-bound Scale").And.Contain("#990");
+            .Which.Message.Should().Contain("Late-bound Scale").And.Contain("#4693");
     }
 
     [AvaloniaTheory]
