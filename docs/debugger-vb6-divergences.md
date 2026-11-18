@@ -19,15 +19,27 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 
 ## Desktop foreground after Continue
 
-### D33. Continue does not request the running form's activation
-- **VB6:** after Ctrl+Break with the form active, F5 returns that form to the foreground (vb6.exe SP6,
-  [#1297's 2026-11-16 measurement](https://github.com/hexide-io/HexIDE/issues/1297)).
-- **HexIDE:** `ProjectRunnerService.ContinueProject` resumes the debugger without requesting activation of a
-  running form. This is a code inspection; native foreground behavior has not been checked in this run.
-- **Why:** the scoped #1297 actions address dialog modality, shortcut routing and bringing the IDE forward on
-  Debug/Break. Foreground restoration on Continue remains separate work.
-- **Status:** **not implemented**, tracked by [#4262](https://github.com/hexide-io/HexIDE/issues/4262). The
-  measurement covers one non-modal form and a maximized IDE only.
+### D33. Continue restores the window active at Ctrl+Break — fixed
+- **VB6:** F5 restores the form active at the break, including a modal form with its owner behind it.
+  F8 and Shift+F8 leave the IDE in front; F5 after those steps still restores the same form
+  ([SP6 measurements, 2026-11-17](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md#which-window-comes-to-the-front-continue-a-step-and-a-modal-form-2026-11-17-4262-ide)).
+- **HexIDE:** remembers the active program window before the Pause notification raises the IDE, and
+  `ContinueProject` requests its activation once if still visible. Steps retain that window without activating it;
+  ending or starting a run forgets it. Breakpoint and `Stop` continuations and external debugging are unchanged.
+- **Status:** **fixed** (#4262), with headless platform activation-request tests, and checked live on Windows (hexide-mcp,
+  2026-11-18, the oracle's project and steps, reading `GetForegroundWindow`). The foreground matched VB6 at every step:
+  Run, a real Ctrl+Break, F8 (read after the first and the sixth), F5, Ctrl+Break then Shift+F8, and F5 with modal
+  Form2 open. With Form2 open, though, F5 left Form1 behind the IDE: D36. Hidden/unloaded windows, Ctrl+F8, Step Out,
+  and steps completing without re-entering code remain unmeasured.
+
+### D36. After F5 with a modal form open, the form beneath it stays behind the IDE (#4618)
+- **VB6:** F5 brings the modal form forward with the form beneath it directly behind: z-order Form2, Form1, the IDE
+  ([SP6 measurements, 2026-11-17](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md#which-window-comes-to-the-front-continue-a-step-and-a-modal-form-2026-11-17-4262-ide)).
+- **HexIDE:** Form2 comes forward and Form1 stays behind the IDE: z-order Form2, the IDE, Form1 (live, 2026-11-18,
+  checking #4262). HexIDE's modal form has no OS owner, since `VBProgram.ShowModal` holds the other forms in software,
+  so nothing brings Form1 along. Activating Form1 first would raise its `Activate` event, which VB6 doesn't.
+- **Why:** found during live verification; nothing chose it.
+- **Status:** **not implemented**, tracked by [#4618](https://github.com/hexide-io/HexIDE/issues/4618).
 
 ## Edit-and-Continue
 
@@ -125,7 +137,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   and nested events stealing a step. Into/Over now carry only after the outermost chain returns; events raised within
   that chain retain the existing depth rule. #2320's clearing of break-mode chrome and release of frozen events at
   idle remains in place.
-- **Status:** **resolved (#4261, #4269)**. Step Out across idle and startup Main's step positions remain unmeasured and keep their previous behavior. Startup `Sub Main` stepping is also unmeasured here and keeps its existing statement positions ([#4449](https://github.com/hexide-io/HexIDE/issues/4449)).
+- **Status:** **resolved (#4261, #4269)**. Step Out across idle and the step positions through a startup `Sub Main` were measured on 2026-11-18 ([oracle](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md#step-out-across-idle-and-stepping-through-a-startup-sub-main-or-form-2026-11-18-4449-ide)): Step Out carries into the next event as Into and Over do, and past `Sub Main`'s end Into and Out carry while Over does not. HexIDE keeps its previous behaviour until [#4449](https://github.com/hexide-io/HexIDE/issues/4449) matches them.
 
 ### D5. Step Over / Step Out (v2·P5)
 - **VB6:** Shift+F8 (Step Over — run a called proc to completion, break at the next statement in the current frame),
@@ -382,6 +394,10 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   on one. So Step Into from idle breaks on the first statement of `Form_Initialize`, or of `Form_Load` when there is
   none, and a step off the end of Initialize goes on into Load (pinned in `FormInstanceTests`). A `Sub Main` start
   is not re-measured.
+- **Overturned, 2026-11-18:** VB6 does stop on declarations. F8 on a startup form breaks at
+  `Private Sub Form_Initialize()`, and a step off Initialize's end stops at `Private Sub Form_Load()`. A `Sub Main`
+  start breaks at `Sub Main()` ([oracle](vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md#step-out-across-idle-and-stepping-through-a-startup-sub-main-or-form-2026-11-18-4449-ide)). So HexIDE's start, which skips declarations, diverges
+  again, and [#4449](https://github.com/hexide-io/HexIDE/issues/4449) tracks matching it.
 
 ### D20. A step from a function's last statement skips `End Function` — FIXED
 - **VB6:** stops there (measured 2026-10-26, #2172; the oracle's [A breakpoint on a procedure's End line or its
@@ -391,7 +407,10 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   calls nothing, so Step Into has nothing different to do there.
 - **HexIDE:** a called procedure's natural end now passes through the debugger gate before returning (#2172).
   Entry procedures retain breakpoint-only End positions: startup stepping advances from Initialize's last
-  statement into Load's first statement, as required by #2172's supervisor review. Before that, paused on
+  statement into Load's first statement, as required by #2172's supervisor review. An event handler is an entry
+  procedure too, and VB6 does stop on its `End Sub`, so a step through one skips a stop VB6 makes (live, 2026-11-18:
+  `Timer1_Timer`'s last statement stepped to the next tick's `Sub` line), tracked by
+  [#4619](https://github.com/hexide-io/HexIDE/issues/4619). Before that, paused on
   `Twice = n * 2`, the only statement of a `Private Function`, a Step Into went straight to the caller's next line
   without stopping on `End Function` (2026-09-22).
 - **Why it happened:** the walk's gate ran before each statement of a body, and the `End` line isn't one, so there

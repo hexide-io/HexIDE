@@ -92,7 +92,7 @@ public sealed class StatusBarPanels : ICSharpAsyncProxy, ICSharpPropertyBag, INa
         var index = args[0];
         if (index.Type == Vb6Value.ValueType.String)
         {
-            var key = (string)index.Value!;
+            var key = (string)index.WithoutOddBytes("StatusBarPanels text use").Value!;
             if (key.Length == 0) throw Error(35603);
             if (Items.FirstOrDefault(p => p.Key == key) is { } found) return found;
             RefuseUnmeasuredKeyCase(key);

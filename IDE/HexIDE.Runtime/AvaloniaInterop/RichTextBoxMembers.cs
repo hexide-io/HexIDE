@@ -172,7 +172,7 @@ internal static class RichTextBoxMembers
         var position = Integer(value);
         return position < 0 ? throw new VBRunTimeException(VBStandardError.InvalidPropertyValue) : position;
     }
-    private static string Text(Vb6Value value) => value.Value is string text
+    private static string Text(Vb6Value value) => value.WithoutOddBytes("RichTextBoxMembers text use").Value is string text
         ? text : throw Unsupported("unmeasured String conversion");
     private static NotImplementedException Unsupported(string name) => new($"RichTextBox {name} is not implemented (#1100)");
 }

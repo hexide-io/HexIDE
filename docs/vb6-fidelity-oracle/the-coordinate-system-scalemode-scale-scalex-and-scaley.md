@@ -206,3 +206,40 @@ CurrentX and CurrentY read the same every time.
 - **Measured, but no rule defended at the last bit.**
 
 **The maintainer's decision, 2026-11-18:** HexIDE implements the measured factor, accepting that one-digit miss (#990).
+
+### A control's size in a flipped scale, and Scale inside With (2026-11-18, #990, SP6)
+
+**The probe.** A form with a client area of 4560 by 3015 twips, and Command1 at Left 150, Top 150, 1215 by 495 twips. A
+Timer ran each row under `On Error Resume Next`, logging values and errors. The "twips" column is
+`ScaleY(value, vbUser, vbTwips)`, so it carries the scale's sign. p-code and native code logged the same lines. Each
+row continues from the one before.
+
+| Statement | Result |
+|---|---|
+| `Scale (0, 100)-(10, 0)` | ScaleTop 100, ScaleHeight -100 |
+| reading Command1 | Left 0.3289474, Top 95.02487, Width 2.664474, **Height 16.41791**: positive, -495 in twips |
+| `Command1.Height = 10` | ok. Height 10.01658: 302 twips, as 301.5 rounds half to even |
+| `Command1.Height = -10` | **380**, Invalid property value, and Height stays 10.01658 |
+| `Command1.Move 1, 90, 3, 10` | ok. Left 1, Top 89.98341, Width 3, Height 10.01658 |
+| `Command1.Move 1, 90, 3, -10` | **5**, Invalid procedure call or argument, and nothing moves |
+| `Command1.Top = 50` | Top 49.98342: 1508 twips |
+| `Scale (10, 0)-(0, 10)` | ScaleLeft 10, ScaleWidth -10 |
+| reading Command1 | **Left 9**, Top 5.001658, **Width 3**: positive, Height 1.001658 |
+| `Command1.Width = 2`, then `Command1.Left = 5` | Width 2, then Left 5 |
+
+- **A position follows the scale, sign and all.** Left and Top map through the origin and the signed unit, as
+  `Scale (10, 10)-(110, 60)` above showed for an upright scale.
+- **A size is a magnitude.** Width and Height read positive in a flipped scale, and a size set there converts with
+  the unit's absolute size: 10 units of -30.15 twips is 301.5 twips, kept as 302.
+- **A negative size is refused,** as in twips: 380 from the property, 5 from `Move`.
+
+**`Scale` inside `With`**, each in a project of its own, at `/make`:
+
+| Code | Result |
+|---|---|
+| `With Picture1`, then `.Scale (0, 0)-(100, 50)` | **Syntax error** |
+| `With Picture1`, then a bare `.Scale` | **Argument not optional** |
+| `Picture1.Scale` and `Me.Scale`, bare | builds |
+
+So `Scale` with its two points takes its object by name, or none, and not from `With`. Through `With`, even the bare
+`.Scale` that builds by name is refused. Other spellings through `With` weren't tried.

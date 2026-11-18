@@ -93,6 +93,174 @@ public class FormInstanceTests
     private static Run RunFormLoad(string body, params (string Name, ModuleKind Kind, string Code)[] modules) =>
         RunForm($"Private Sub Form_Load()\n{body}\nEnd Sub\n", modules);
 
+    // Measured VB6 SP6, native and p-code: #4598, oracle PR #4613.
+    private static ProjectDefinition NewFormProject(string declarations = "", string members = "")
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var code = declarations + "\n" + """
+            Private Sub Form_Initialize()
+                Debug.Print "initialize"
+            End Sub
+            Private Sub Form_Load()
+                Debug.Print "load"
+            End Sub
+            Private Sub Form_Terminate()
+                Debug.Print "terminate"
+            End Sub
+            Public Function Id() As String
+                Id = "Form2"
+            End Function
+
+            """ + members;
+        project.AddForm(new FormDeserializer().Deserialize(project,
+            (FormHeader.Replace("Form1", "Form2") + code).ReplaceLineEndings("\r\n"), new NullSink())!);
+        return project;
+    }
+
+    [AvaloniaFact]
+    public void New_forms_from_module_locals_globals_results_and_ByVal_arguments_have_class_lifetimes()
+    {
+        var run = RunFormIn(NewFormProject(), """
+            Private Sub Form_Load()
+                ModLocal
+                Set gf = New Form2
+                Debug.Print TypeName(gf)
+                Debug.Print gf Is Form2
+                Dim x As Form2
+                Set x = Make()
+                Debug.Print Forms.Count
+                Take New Form2
+                Set x = New Form2
+                Debug.Print "replaced"
+            End Sub
+            """, ("Module1", ModuleKind.StandardModule, """
+            Public gf As Form2
+            Public Sub ModLocal()
+                Dim f As Form2
+                Set f = New Form2
+                Debug.Print TypeName(f)
+                Debug.Print f.Id
+            End Sub
+            Public Function Make() As Form2
+                Set Make = New Form2
+            End Function
+            Public Sub Take(ByVal w As Form2)
+                Debug.Print TypeName(w)
+            End Sub
+            """));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("initialize", "Form2", "Form2", "terminate", "initialize", "Form2",
+            "initialize", "False", "initialize", " 1 ", "initialize", "Form2", "terminate",
+            "initialize", "terminate", "replaced", "terminate");
+    }
+
+    [AvaloniaFact]
+    public void A_class_initializer_can_make_a_form_and_its_field_releases_after_Class_Terminate()
+    {
+        var run = RunFormIn(NewFormProject(), """
+            Private Sub Form_Load()
+                Dim c As Class1
+                Set c = New Class1
+                Set c = Nothing
+                Debug.Print "after"
+            End Sub
+            """, ("Class1", ModuleKind.ClassModule, """
+            Private SUT As Form2
+            Private Sub Class_Initialize()
+                Set SUT = New Form2
+            End Sub
+            Private Sub Class_Terminate()
+                Debug.Print "class terminate"
+            End Sub
+            """));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("initialize", "class terminate", "terminate", "after");
+    }
+
+    [AvaloniaFact]
+    public void A_New_form_conforms_to_its_form_base_and_implemented_interface_without_loading()
+    {
+        var run = RunFormIn(NewFormProject("Implements IThing", """
+            Private Sub IThing_Hello()
+                Debug.Print "hello"
+            End Sub
+            """), """
+            Private Sub Form_Load()
+                Dim f As Form2
+                Dim x As Form
+                Dim t As IThing
+                Set f = New Form2
+                Debug.Print TypeOf f Is Form2
+                Debug.Print TypeOf f Is Form
+                Debug.Print TypeOf f Is IThing
+                Set x = f
+                Set t = New Form2
+                t.Hello
+                Debug.Print Forms.Count
+            End Sub
+            """, ("IThing", ModuleKind.ClassModule, "Public Sub Hello()\nEnd Sub\n"));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("initialize", "True", "True", "True", "initialize", "hello", " 1 ", "terminate", "terminate");
+    }
+
+    [AvaloniaFact]
+    public void Each_New_form_runs_its_own_declarations_and_Initialize()
+    {
+        var run = RunFormIn(NewFormProject("Private number As Integer", """
+            Public Sub NumberIt()
+                Debug.Print number
+                number = number + 1
+            End Sub
+            """), """
+            Private Sub Form_Load()
+                Dim f As Form2
+                Dim h As Form2
+                Set f = New Form2
+                Set h = New Form2
+                f.NumberIt
+                h.NumberIt
+            End Sub
+            """);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("initialize", "initialize", " 0 ", " 0 ", "terminate", "terminate");
+    }
+
+    [AvaloniaFact]
+    public void A_New_form_checks_implemented_interface_conformance_before_initializing()
+    {
+        // Same conformance rule and measured message as ImplementsTests; #4598 requires it for forms too.
+        var run = RunFormIn(NewFormProject("Implements IThing"), """
+            Private Sub Form_Load()
+                Dim f As Form2
+                Set f = New Form2
+            End Sub
+            """, ("IThing", ModuleKind.ClassModule, "Public Sub Hello()\nEnd Sub\n"));
+
+        run.Printed.Should().BeEmpty();
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<VBCompileErrorException>()
+            .Which.Message.Should().EndWith("Object module needs to implement 'Hello' for interface 'IThing'");
+    }
+
+    [AvaloniaFact]
+    public void Unset_project_form_function_returns_Nothing()
+    {
+        // VB6 SP6, native and p-code: https://github.com/hexide-io/HexIDE/issues/4622.
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddForm(new FormDeserializer().Deserialize(project, OtherForm, new NullSink())!);
+        var run = RunFormIn(project, """
+            Private Sub Form_Load()
+                Debug.Print TypeName(Blank()) & " " & VarType(Blank()) & " " & (Blank() Is Nothing)
+            End Sub
+            """, ("Module1", ModuleKind.StandardModule, "Public Function Blank() As Form2\nEnd Function\n"));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Nothing 9 True");
+    }
+
     // ── Names inside a form ─────────────────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]
@@ -526,8 +694,6 @@ public class FormInstanceTests
 
     [AvaloniaTheory]
     [InlineData("    CurrentX = 0", "Setting Form1's CurrentX")]
-    [InlineData("    Debug.Print ScaleMode", "Reading Form1's ScaleMode")]
-    [InlineData("    Debug.Print Me.ScaleMode", "Reading Form1's ScaleMode")]
     [InlineData("    Cls", "Cls method")]
     [InlineData("    Debug.Print TextWidth(\"abc\")", "TextWidth method")]
     public void A_member_VB6s_Form_has_and_HexIDE_lacks_is_refused_as_not_implemented(string statement, string named)

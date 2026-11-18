@@ -237,3 +237,141 @@ raised 402 without hiding. vb6.exe raises 402 and hides the form anyway, so a pr
 
 **Not measured:** the IDE (F5); a modal form beneath that is hidden and then shown again while the topmost stays up;
 `Unload` of a modal form beneath.
+
+### A form's name as a type: New, As New, an Object and an interface (2026-11-18, #4598, SP6)
+
+**The probes.**
+- **The forms:** Form1 ran each step from a Timer and logged to a file. Form2 numbered its instances in its
+  Initialize, and logged each event with that number. No handler read a property, so the log loaded nothing.
+- **The interface:** Form2 `Implements IThing`, a class with `Hello` and a `WhoAmI` property.
+- **The builds:** p-code and native code logged the same lines, in each of three runs.
+
+**In a form's code.** Every step ran inside `Tick1`, a Sub of Form1 called from the Timer, so `f`, `g`, `h`, `k`, `o`
+and `t` are Tick1's locals.
+
+| Step, in order | Events | Forms.Count after |
+|---|---|---|
+| at the start | | 1 |
+| `Set f = New Form2`, with f As Form2 | Initialize #1 | 1: not loaded |
+| `f.Id`, a Public Function of Form2 | none | 1 |
+| `f.Tag = "one"` | Load #1 | 2 |
+| `Dim g As New Form2`, before g is used | none | 2 |
+| `g.Id` | Initialize #2 | 2 |
+| `g.Caption = "g"` | Load #2 | 3 |
+| `Set h = New Form2`, then `Load h` | Initialize #3, Load #3. h.Visible is False | 4 |
+| `Set k = New Form2`, then `k.Show` | Initialize #4, Load #4. Activate #4 came only after the Timer's handler returned | 5 |
+| `Set o = New Form2`, with o As Object | Initialize #5. `TypeName(o)` is "Form2", and `o.Id` is 5 | 5 |
+| `Set t = New Form2`, with t As IThing, then `t.Hello` | Initialize #6, IThing_Hello #6 | 5: a call through the interface doesn't load it |
+| `UseIt New Form2`, with `Sub UseIt(ByVal w As IThing)` reading `w.WhoAmI` | Initialize #7, then UseIt's own line, then Terminate #7 as the call returned | 5 |
+| `TypeName(New Form2)` | Initialize #8, then Terminate #8. It reads "Form2" | 5 |
+| `Unload f` | QueryUnload #1 with UnloadMode 1, Unload #1 | 4 |
+| then `f.Id` | none. It reads 1 | 4 |
+| then `f.Tag` | **Load #1, with no Initialize.** It reads "" | 5 |
+| `Unload f`, then `Set f = Nothing` | QueryUnload #1, Unload #1, then Terminate #1 at the Set | 4 |
+| `Set k = Nothing`, with k showing | none: k stays loaded and shown | 4 |
+| Tick1 returns | Terminate #5 and #6, for o and t, before the Timer's handler ran its next line. Not #2, #3 or #4, which are loaded | |
+
+**In a standard module and a class**, from a third run with a Form2 holding a Label:
+
+| Step | Events and values |
+|---|---|
+| `Sub ModLocal` in Module1: `Dim f As Form2`, `Set f = New Form2`, then read `f.Id` | Initialize #1. `TypeName(f)` is "Form2". Terminate #1 as ModLocal returned |
+| `Sub ModGlobal` in Module1: `Set gf = New Form2`, gf a module-level `Public gf As Form2` | Initialize #2. From Form1, `TypeName(gf)` is "Form2" and `gf Is Form2` is False |
+| `Set x = Make()`, with `Function Make() As Form2` in Module1 doing `Set Make = New Form2` | Initialize #4, x.Id 4. Not loaded |
+| `Function Blank() As Form2` that sets nothing | `TypeName(Blank())` is "Nothing", and `Blank() Is Nothing` is True |
+| The same As Class1, and As Form | "Nothing", both |
+| `Take New Form2`, with `Sub Take(ByVal w As Form2)` in Module1 | Initialize #5, Take's own line reading "Form2", then Terminate #5 as the call returned |
+| `Set c = New Class1`, whose Class_Initialize does `Set SUT = New Form2` into a `Private SUT As Form2` | Initialize #6 inside Class_Initialize |
+| `Set c = Nothing` | Class1's Terminate, then Terminate #6 |
+| `Set x = New Form2` over x's earlier instance | Initialize #7, then Terminate #4 for the instance x held |
+| then `x.Label1.Caption` | **Load #7**: a control of a New instance loads it |
+
+**From the first run**, whose handlers read `Me.Tag`:
+- **Types:** `TypeName(f)` read "Nothing" before the Set. After it, `TypeOf f Is Form2`, `TypeOf f Is Form` and
+  `TypeOf f Is IThing` were all True. `Set x = f`, with x As Form, worked, and `TypeName(x)` read "Form2".
+- **The default instance:** `f Is Form2` was False, and naming Form2 made the default instance.
+- **A property read in Initialize loads the form there and then.** Reading `Me.Tag` inside Form_Initialize ran
+  Form_Load before Initialize's own line finished. So a log taken in Initialize can make Load look as if it came first.
+
+**What it shows**, extending section 5 above:
+- **A form's name is a type,** and `New` makes a new instance of it, from a form, a standard module or a class. That
+  holds in a variable of the form's own type, As Form, As Object, or As an interface the form implements, and in a
+  Function's result.
+- **A New instance loads as the default instance does:** on its first control or built-in member. The form's own
+  Public members don't load it, and nor does a call through an interface it implements.
+- **`As New` makes the instance when the variable is first used.**
+- **A temporary instance terminates as soon as the statement or call that used it ends.**
+- **An instance that isn't loaded terminates when its last reference goes,** as a class's does: at the Set, or when
+  the procedure whose local held it returns.
+- **A loaded form outlives its variables.** `Set k = Nothing`, and a local going out of scope, neither unloads nor
+  terminates it. The Forms collection keeps it.
+
+**Not measured:** `Unload Me` inside a New instance.
+
+### Who owns a modal form, and what F5 brings back (2026-11-18, #4618, SP6, IDE)
+
+**The probes.** vb6.exe SP6's IDE, run with F5 (p-code), on the guest's console session. A driver in that session clicked
+the buttons and pressed the keys. After each step it read the foreground window and every top-level window of VB6.EXE in
+z-order, each with `GetWindow(GW_OWNER)`, `IsWindowEnabled`, `IsIconic` and its extended style. Form2's Activate also
+logged `GetWindow(Me.hWnd, GW_OWNER)` itself.
+- **Two forms:** Form1, with a Timer retitling it and two buttons, and Form2. Rows a and b, run once.
+- **Three forms:** Form1, Form2 and Form3. Form1's Load shows Form3 modelessly. Rows c, d and e. Rows c and d ran twice
+  and row e once, with the same owners each time.
+
+**1. The owner.**
+
+| Row | Statement, and whose code runs it | Active form when it runs | Form2's owner |
+|---|---|---|---|
+| a | `Form2.Show vbModal`, in Form1's Click | Form1 | Form1 |
+| b | `Form2.Show vbModal, Form1`, in Form1's Click | Form1 | Form1 |
+| c | `Form2.Show vbModal, Form3`, in Form1's Click | Form1 | **Form3** |
+| d | `Form2.Show vbModal`, in Form1's Timer | **Form3**, by `Screen.ActiveForm` and the foreground | **Form1** |
+| e | `Form2.Show vbModal`, in Form3's Timer | **Form1**, by both | **Form3** |
+
+**The rule these rows support.** The modal form's owner is the owner-form argument when there is one. Otherwise it's the
+form whose code ran `Show`. It isn't the active form (rows d and e), and it isn't the program's hidden main window.
+
+**2. The same in every row.**
+- **Modeless forms are owned too, by the hidden main window.** Form1 and Form3 are each owned by an invisible
+  `ThunderMain` window titled with the project's name, whose extended style is &H80 (a tool window). Each form carries
+  &H40000, `WS_EX_APPWINDOW`, which is what gives it a taskbar button.
+- **The modal form has no taskbar button.** Form2's extended style is &H100 alone, without `WS_EX_APPWINDOW`, although
+  its `.frm` sets no `ShowInTaskbar`. During row a, Alt+Tab listed two entries, Form1 and the IDE, and none for Form2.
+- **Every other form is disabled.** Form1 and Form3 alike read `IsWindowEnabled` 0, whichever owns the modal form, and 1
+  again once Form2 has closed. The IDE's windows stay enabled.
+- **Closing Form2 brings back the form that was active before it, not its owner.** The foreground went to Form1 after
+  rows c and e, and to Form3 after row d.
+
+**3. Minimise and restore,** in rows a and b alike. The driver posted `WM_SYSCOMMAND` to each window, as its title-bar
+button would send.
+
+| Step | Foreground afterwards | VB6.EXE's windows afterwards, top first |
+|---|---|---|
+| `SC_MINIMIZE` to Form2 | the IDE | the IDE, Form2 minimised, Form1. **Form1 wasn't minimised** |
+| `SC_RESTORE` to Form2 | Form2 | Form2, Form1, the IDE |
+| `SC_MINIMIZE` to Form1, disabled under Form2 | Form2 | as before: **Form1 wasn't minimised** |
+
+A click on Form1's taskbar button wasn't tried. The last row is a posted message only.
+
+**4. Ctrl+Break, then F5.** The hidden main window, always directly below the forms, is left out.
+
+| Row | After Ctrl+Break: foreground; windows, top first | After F5 |
+|---|---|---|
+| a, b (owner Form1) | the IDE; the IDE, Form2, Form1 | Form2; Form2, Form1, the IDE |
+| c (owner Form3) | the IDE; the IDE, Form2, Form3, Form1 | Form2; Form2, Form3, **Form1**, the IDE |
+| d (owner Form1) | the IDE; the IDE, Form2, Form1, Form3 | Form2; Form2, Form1, **Form3**, the IDE |
+
+**F5 brings back every form of the program, not only the modal form and its owner.** In row c, Form1 owns nothing and
+isn't Form2's owner, and it came back above the IDE too, in the place it held before. Reasoned, not checked: every form
+is in one ownership tree under the hidden main window, and Windows raises an owned window's whole tree with it.
+
+**What was overturned.** The obvious guess, and #4618's own wording, was "the form beneath the modal one", which reads
+as the active form. Rows d and e pull the active form and the owner apart, and the owner follows the code that ran
+`Show`. And bringing back the modal form's owner alone is not what F5 does: row c brings back a form that owns nothing.
+
+**Not measured:**
+- a modal `Show` from a standard module, or from `Sub Main` with no form loaded;
+- an owner form that is hidden or not loaded;
+- a modeless `Show` with an owner form, `Form2.Show , Form1`;
+- the compiled program;
+- whether Form1 or Form3 gets Activate or Deactivate as the modal form closes: the probes logged no events of theirs.

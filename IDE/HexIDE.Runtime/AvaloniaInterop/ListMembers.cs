@@ -270,5 +270,5 @@ internal static class ListMembers
 
     // An item is a String, as CStr makes it; Null is 94 (measured).
     private static string Text(Vb6Value value) =>
-        (string)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).Value!;
+        (string)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).WithoutOddBytes("ListMembers text conversion").Value!;
 }

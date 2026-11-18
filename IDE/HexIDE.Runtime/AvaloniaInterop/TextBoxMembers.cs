@@ -87,7 +87,7 @@ internal static class TextBoxMembers
             {
                 if (value.IsNull)
                     throw new VBRunTimeException(VBStandardError.InvalidUseOfNull);
-                var insert = (string)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).Value!;
+                var insert = (string)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).WithoutOddBytes("TextBoxMembers text conversion").Value!;
                 var (start, length) = Selection(box);
                 var text = TextOf(box);
                 box.Text = text[..start] + insert + text[(start + length)..];

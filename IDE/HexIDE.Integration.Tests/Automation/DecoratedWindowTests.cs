@@ -196,25 +196,32 @@ public class DecoratedWindowTests : WindowTestFixture
         backend.GetType("Avalonia.Wayland.PopupImpl").Should().NotBeNull();
     }
 
-    [AvaloniaFact]
-    public void A_control_in_a_popup_on_native_Wayland_has_no_boundingRect_and_the_reply_says_why()
+    [AvaloniaTheory]
+    [InlineData(1.0)]
+    [InlineData(1.5)]
+    public void A_control_in_a_popup_on_native_Wayland_has_the_same_boundingRect(double scaling)
     {
         var item = new MenuItem { Header = "Edit Watch..." };
         var menu = new ContextMenu { Items = { item } };
         var owner = new Border { ContextMenu = menu };
-        var window = PopupBoundsTests.NativePopupWindow(1.0);
+        var window = PopupBoundsTests.NativePopupWindow(scaling);
         window.Content = owner;
         window.Show();
-        NativeWayland.ForTest = _ => true;
         try
         {
             menu.Open(owner);
             Dispatcher.UIThread.RunJobs();
 
-            var detail = UiAutomationDriver.Inspect(item, UiAutomationDriver.PathWithin(window, "Window", item)!, window);
+            TopLevel.GetTopLevel(item).Should().NotBeSameAs(window);
+            var path = UiAutomationDriver.PathWithin(window, "Window", item)!;
+            var expected = UiAutomationDriver.Inspect(item, path, window).BoundingRect;
+            expected.Should().NotBeNull();
+            NativeWayland.ForTest = _ => true;
 
-            detail.BoundingRect.Should().BeNull();
-            detail.BoundingRectNote.Should().Contain("compositor");
+            var detail = UiAutomationDriver.Inspect(item, path, window);
+
+            detail.BoundingRect.Should().Equal(expected!);
+            detail.BoundingRectNote.Should().BeNull();
         }
         finally
         {
@@ -223,33 +230,52 @@ public class DecoratedWindowTests : WindowTestFixture
         }
     }
 
-    [AvaloniaFact]
-    public async Task A_snapshot_on_native_Wayland_leaves_a_popup_out_and_says_why_rather_than_guessing_its_place()
+    [AvaloniaTheory]
+    [InlineData(1.0)]
+    [InlineData(1.5)]
+    public async Task A_snapshot_on_native_Wayland_draws_the_popup_in_the_same_place(double scaling)
     {
         var item = new MenuItem { Header = "Edit Watch..." };
         var menu = new ContextMenu { Items = { item } };
         var owner = new Border { ContextMenu = menu, Background = Brushes.White };
-        var window = PopupBoundsTests.NativePopupWindow(1.0);
+        var window = PopupBoundsTests.NativePopupWindow(scaling);
         window.Content = owner;
         window.Width = 300;
         window.Height = 200;
         window.Show();
-        NativeWayland.ForTest = _ => true;
         try
         {
             menu.Open(owner);
             Dispatcher.UIThread.RunJobs();
 
+            TopLevel.GetTopLevel(item).Should().NotBeSameAs(window);
+            using var expected = await SnapshotComposerTests.Drawn(SnapshotComposer.CaptureAsync(window));
+            expected!.LeftOut.Should().BeEmpty();
+            NativeWayland.ForTest = _ => true;
+
             using var snapshot = await SnapshotComposerTests.Drawn(SnapshotComposer.CaptureAsync(window));
 
-            snapshot!.LeftOut.Should().ContainSingle().Which.Reason.Should().Contain("compositor");
-            snapshot.Image.PixelSize.Should().Be(new PixelSize(300, 200));
+            snapshot!.LeftOut.Should().BeEmpty();
+            snapshot.WindowOffset.Should().Be(expected.WindowOffset);
+            snapshot.Image.PixelSize.Should().Be(expected.Image.PixelSize);
+            Pixels(snapshot.Image).Should().Equal(Pixels(expected.Image));
         }
         finally
         {
             NativeWayland.ForTest = null;
             menu.Close();
         }
+    }
+
+    private static byte[] Pixels(Bitmap image)
+    {
+        using var bitmap = SnapshotComposerTests.Readable(image);
+        var stride = bitmap.PixelSize.Width * 4;
+        var pixels = new byte[stride * bitmap.PixelSize.Height];
+        var handle = System.Runtime.InteropServices.GCHandle.Alloc(pixels, System.Runtime.InteropServices.GCHandleType.Pinned);
+        try { bitmap.CopyPixels(new PixelRect(default, bitmap.PixelSize), handle.AddrOfPinnedObject(), pixels.Length, stride); }
+        finally { handle.Free(); }
+        return pixels;
     }
 
     // The colour of a row's middle pixel, in BGRA byte order.

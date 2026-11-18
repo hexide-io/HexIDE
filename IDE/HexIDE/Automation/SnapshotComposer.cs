@@ -109,12 +109,6 @@ public static class SnapshotComposer
         foreach (var popup in popups)
         {
             var rect = ScreenRect(popup, popup.ClientSize, scaling);
-            if (NativeWayland.Hosts(popup))
-            {
-                // Drawn at what it does report, it landed over the window's top left corner (#3575).
-                noArea.Add(new LeftOutPopup(KindOf(popup), rect, $"which can't be placed because {NativeWayland.NoPopupPlace}", Located: false));
-                continue;
-            }
             if (rect.Width <= 0 || rect.Height <= 0)
             {
                 noArea.Add(new LeftOutPopup(KindOf(popup), rect, "which has no area to draw"));

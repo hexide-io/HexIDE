@@ -28,8 +28,27 @@ public class EventPumpTests
     // The real pump runs on one UI thread. Keep its continuations serialized here too (#3516).
     private sealed class PumpContext : SynchronizationContext
     {
+        private readonly object sync = new();
+        private bool ended;
         public readonly BlockingCollection<(SendOrPostCallback Callback, object? State)> Pending = new();
-        public override void Post(SendOrPostCallback callback, object? state) => Pending.Add((callback, state));
+        public override void Post(SendOrPostCallback callback, object? state)
+        {
+            lock (sync)
+            {
+                if (ended)
+                    return;
+                Pending.Add((callback, state));
+            }
+        }
+
+        public void End()
+        {
+            lock (sync)
+            {
+                ended = true;
+                Pending.Dispose();
+            }
+        }
     }
 
     private static void OnPump(Func<Task> test)
@@ -50,7 +69,7 @@ public class EventPumpTests
         finally
         {
             SynchronizationContext.SetSynchronizationContext(previous);
-            context.Pending.Dispose();
+            context.End();
         }
     }
 
@@ -63,6 +82,23 @@ public class EventPumpTests
             return Task.CompletedTask;
         });
         return finished.Task;
+    }
+
+    [Fact]
+    public void A_post_after_the_test_pump_ends_is_dropped()
+    {
+        // A continuation can post after OnPump returns; it must neither kill the host nor run outside the pump (#4638).
+        SynchronizationContext? captured = null;
+        OnPump(() =>
+        {
+            captured = SynchronizationContext.Current;
+            return Task.CompletedTask;
+        });
+
+        var ran = false;
+        Action post = () => captured!.Post(_ => ran = true, null);
+        post.Should().NotThrow();
+        ran.Should().BeFalse();
     }
 
     [Fact]
