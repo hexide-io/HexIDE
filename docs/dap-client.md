@@ -138,9 +138,13 @@ checks this order with a held response and observes stdin EOF only after the rep
 timeout and transport failure still permit bounded cleanup without a response (#3894).
 
 For an adapter process, the reply doesn't end what it writes. debugpy answers `disconnect` and then sends a
-`debugpySockets` event. So `DisconnectAsync` closes stdin after the reply and goes on reading the adapter's stdout
+`debugpySockets` event. So `DisconnectAsync` waits for 250 ms without an incoming message (restarted by each message, capped by
+`ShutdownTimeout`, and ended early by stdout EOF), then closes stdin and goes on reading the adapter's stdout
 until the adapter closes it, for at most `ShutdownTimeout`, before disposal closes the rest. It used to close stdout
 on the reply too, and when that won the race, debugpy's late write failed with a broken pipe and it exited 1 (#3894).
+The quiet window mitigates debugpy's race when stdin ends between its reply and trailing event (#4580);
+there is no DAP signal for "done writing", and measured debugpy 1.8.22 waits for stdin EOF before ending stdout
+([measurement](https://github.com/hexide-io/HexIDE/issues/4580)).
 `DapProcessTests.Disconnect_reads_what_the_adapter_writes_after_its_reply` checks that an event written 300 ms after
 the reply still reaches the capture. A session over a bare connection closes on the reply as before, since its
 stream may never end.
