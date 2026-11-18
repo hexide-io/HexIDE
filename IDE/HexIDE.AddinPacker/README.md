@@ -70,8 +70,8 @@ revocation store does: the JSON's exact bytes, the signature's text trimmed, the
 list would be accepted, 2 when it wouldn't, and 1 for a usage or file error. A list re-saved with other line endings no
 longer verifies, so check the bytes that ship, not a copy.
 
-`.github/workflows/publish.yml` runs it against hexide.io's list on every release. Until #4534 re-signs that list, a
-failure there is a warning, not a failed release.
+`.github/workflows/publish.yml` runs it against hexide.io's list on every release, and a list that doesn't verify fails
+the release. `REVOCATIONS_MUST_VERIFY: 0` in that workflow makes it a warning instead.
 
 ## Replacing package output
 
