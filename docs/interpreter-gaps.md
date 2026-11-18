@@ -325,7 +325,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   and UDT-to-Variant assignments remains a divergence from the compile refusals measured for #178.
 - **`LSet` / `RSet`** — named String variables and Variants holding a String or Integer justify their text
   since #2517. Other target types, unmeasured source conversions and
-  member/indexed targets remain refused.
+  Type, Nothing, control and indexed member targets remain refused as not implemented. Project class-instance
+  member targets instead raise the measured compile error when executed ([#4626](https://github.com/hexide-io/HexIDE/issues/4626)).
   `LSet` between named plain-data UDT variables now copies the measured aligned layout, including fixed Strings,
   fixed arrays and nested types ([#2518](https://github.com/hexide-io/HexIDE/issues/2518)). Noncanonical Boolean
   bits remain explicitly not implemented; HexIDE stores Booleans as true/false. RSet between UDTs and
