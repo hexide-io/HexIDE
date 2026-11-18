@@ -16,6 +16,10 @@ hexide-root.pub     root PUBLIC key — a copy is embedded in HexIDE at IDE/HexI
 The HexIDE app embeds `hexide-root.pub` as its baked-in root of trust and verifies every
 package against it (see `HexIDE.Addins.PackageVerifier`).
 
+**The signed records are exact bytes.** `intermediate.json` and `publisher.json` were signed over CRLF, and
+`.gitattributes` stores and checks them out unchanged (`-text`) on every OS. Don't re-save them in an editor.
+`CommittedFirstPartyChainTests` verifies them against the root and first-party keys the IDE embeds (#4529).
+
 ## Release tooling
 
 `genkeys <dir>` produces development identities only. For explicit release identities, separate

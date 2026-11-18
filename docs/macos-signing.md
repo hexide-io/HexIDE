@@ -9,51 +9,36 @@ The release workflow is [`.github/workflows/publish.yml`](../.github/workflows/p
 
 ## What ships today
 
-Nothing is signed with a real identity and nothing is notarised. macOS binaries are **ad-hoc signed**
-(`codesign --sign -`), which does exactly one thing: it stops Apple Silicon killing the process.
+The bundle is sealed with an **ad-hoc signature**, without a signing identity or notarisation.
+The release pipeline retains its per-Mach-O verification and also requires
+`codesign --verify --strict --deep` on the assembled bundle.
 
-An arm64 Mach-O with a missing or broken signature is `SIGKILL`ed at exec, unconditionally — that is
-a loader rule, not Gatekeeper, and it applies even to a binary the user compiled themselves. Renaming
-`HexIDE.Desktop` to `HexIDE` invalidates the linker's own ad-hoc signature, so the bundle step
-re-signs every Mach-O inner-out and then asserts that each one verifies.
+A downloaded archive can carry `com.apple.quarantine`, including through tar extraction.
+The measurements on [#4507](https://github.com/hexide-io/HexIDE/issues/4507) correct the earlier claim
+that tar avoided Gatekeeper. macOS says it cannot verify HexIDE because the build is not notarised.
+The user then chooses Done, and Open Anyway in System Settings → Privacy & Security, which asks for an
+administrator's password and opens the app. That was measured on macOS 15.5 with a bundle sealed this way.
+On 27.2.1 the warning is the same, and Open Anyway wasn't checked. Before the bundle was sealed, macOS
+called the download "damaged" and offered no Open Anyway at all (#4507).
+Notarisation is still needed to remove that warning.
 
-Two things follow, and they are easy to conflate:
+## How the bundle is sealed
 
-- **Ad-hoc signing is not identity.** There is no certificate and no chain. `codesign -dvvv` reports
-  `Signature=adhoc`, and Gatekeeper learns nothing from it.
-- **Gatekeeper is avoided, not satisfied.** The download is `.tar.gz` rather than `.zip` because tar
-  does not carry the `com.apple.quarantine` extended attribute, so the quarantine check never fires.
-  A `.zip` or `.dmg` would fire it and be refused.
+[`scripts/macos-bundle.sh`](../scripts/macos-bundle.sh) implements
+[#4495](https://github.com/hexide-io/HexIDE/issues/4495). It copies the staged payload into
+`Contents/MacOS`, moves `addins/` to `Contents/Resources/addins`, and writes the icon and property list.
+It attempts ad-hoc signing on every regular file under `Contents/MacOS`, then signs the bundle last,
+without `--deep`, and requires strict deep verification to succeed. The main executable's path resolves
+to the bundle, so that final step signs it. Language folders and `standalone/` stay in place.
 
-That is a deliberate workaround with a known shape: it depends on Apple continuing not to propagate
-quarantine through tar, and on users extracting from a terminal. Notarisation replaces the workaround
-with an actual guarantee.
+The dotted add-in folders were the structural obstacle: codesign treated them as nested bundles.
+The measurements recorded on #4507 sealed this layout without moving the rest of the .NET payload
+or changing apphost assembly resolution. Both add-in lookup sites use the Resources location in a
+macOS bundle, and the usual `BaseDirectory/addins` elsewhere.
 
-## The bundle is not currently sealable
-
-Before anything else: **notarisation requires a properly signed bundle, and the `.app` cannot
-currently be sealed at all.** This is a prerequisite, not a detail.
-
-`Contents/MacOS` holds the entire .NET publish payload — four apphost executables (`HexIDE`,
-`HexIDE.VbLspServer`, `HexIDE.AddinPacker`, `HexIDE.LspGuard`), a `*.runtimeconfig.json` beside each,
-a `standalone/` subdirectory, and per-language satellite assembly directories. codesign rejects that
-two different ways depending on flags, and both are the same underlying fact:
-
-| invocation | failure |
-|---|---|
-| `codesign --sign - "$APP"` | `code object is not signed at all` / `In subcomponent: <a runtimeconfig.json>` |
-| `codesign --deep --sign - "$APP"` | `bundle format unrecognized, invalid, or unsuitable` |
-
-Without `--deep` it stops at the first `*.runtimeconfig.json`: data that cannot be signed and cannot
-be removed, so signing more file types first only advances the error to the next one. With `--deep`
-it reads `standalone/` and the language directories as nested bundles, finds no `Info.plist`, and
-rejects the structure outright.
-
-The fix is structural. `Contents/MacOS` is meant to hold executables; the payload belongs in
-`Contents/Resources`, with assembly resolution pointed at it. That means either an apphost
-configuration change or a small launcher shim, applied to all five executables, `standalone/`'s included. Until that is done,
-the release gates on **per-binary** signature verification instead — which checks the property users
-actually depend on and is achievable against the current layout.
+The repack tool accepts sealed bundles and re-seals the rewritten bundle ad hoc on macOS, then
+requires the same strict deep verification. No signing key is used. CI assembles a self-contained
+bundle and repacks it on macOS, checking both seals.
 
 ## Prerequisites for notarisation
 
@@ -88,8 +73,8 @@ Against the current `Build macOS .app bundles` step:
 | `--timestamp=none` | `--timestamp` — a secure timestamp is mandatory |
 | no runtime hardening | `--options runtime` |
 | no entitlements | `--entitlements` (see below) |
-| per-binary verify gate | plus a bundle seal, once the layout allows it |
-| `.tar.gz` to dodge quarantine | `.dmg` or `.zip`, because quarantine *should* now engage |
+| per-binary and strict deep bundle verification | retain both gates |
+| `.tar.gz` (can carry quarantine) | submit a supported archive for notarisation |
 | — | `xcrun notarytool submit --wait` |
 | — | `xcrun stapler staple` |
 
@@ -130,10 +115,10 @@ longer confer instant SmartScreen reputation, so an EV certificate buys a warnin
 download volume rather than one that never appears. Azure Trusted Signing is the current
 recommendation and requires an organisation with three years of verifiable history.
 
-So both platforms currently ship unsigned, and on both the blocker is an identity/enrolment
+So both platforms currently ship without a signing identity, and on both the blocker is an identity/enrolment
 question rather than a technical one.
 
 ## Status
 
 Deferred. The technical work is understood and written down above; the enrolment decision is the
-gate, and the bundle restructure is the prerequisite that has to land first either way.
+gate. The ad-hoc bundle seal is implemented; notarisation remains deferred.

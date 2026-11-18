@@ -97,9 +97,12 @@ public sealed class MacRepackerTests : IDisposable
     private void WriteStock(byte[]? executable = null, UnixFileMode executableMode = Executable)
     {
         WriteFile(Path.Combine(Programs, MacRepacker.StockExecutable), executable ?? MachO, executableMode);
-        WriteFile(Path.Combine(Programs, "HexIDE.VbLspServer"), [1, 2, 3], Executable);
-        WriteFile(Path.Combine(Programs, "standalone", "HexIDE.Standalone"), [4, 5, 6], Executable);
-        WriteFile(Path.Combine(Programs, "HexIDE.Desktop.dll"), "managed"u8.ToArray(), PlainFile);
+        WriteFile(Path.Combine(Programs, "HexIDE.VbLspServer"), OperatingSystem.IsMacOS() ? MachO : [1, 2, 3], Executable);
+        WriteFile(Path.Combine(Programs, "standalone", "HexIDE.Standalone"), OperatingSystem.IsMacOS() ? MachO : [4, 5, 6], Executable);
+        WriteFile(Path.Combine(Programs, "HexIDE.Desktop.dll"),
+            OperatingSystem.IsMacOS() ? File.ReadAllBytes(typeof(MacRepacker).Assembly.Location) : "managed"u8.ToArray(), PlainFile);
+        if (OperatingSystem.IsMacOS())
+            RunTool("/usr/bin/codesign", "--force", "-s", "-", Path.Combine(Programs, "HexIDE.Desktop.dll"));
         WriteFile(Path.Combine(Programs, "LICENSE"), "licence text"u8.ToArray(), PlainFile);
         WriteFile(Path.Combine(Programs, "THIRD-PARTY-NOTICES.md"), "notices text"u8.ToArray(), PlainFile);
         WriteFile(Path.Combine(Input, "Contents", "Info.plist"), Encoding.UTF8.GetBytes(StockPlist), PlainFile);
@@ -331,13 +334,15 @@ public sealed class MacRepackerTests : IDisposable
     }
 
     [UnixOnlyFact]
-    public void A_bundle_signed_as_a_whole_is_refused_rather_than_broken()
+    public void A_bundle_signed_as_a_whole_is_accepted_for_resealing()
     {
         WriteStock();
         WriteBrand();
         Directory.CreateDirectory(Path.Combine(Input, "Contents", "_CodeSignature"));
 
-        ShouldRefuse("signed as a whole");
+        MacRepacker.Run(Input, BrandFile, Output);
+
+        File.Exists(RepackedExecutable).Should().BeTrue();
     }
 
     [UnixOnlyFact]
@@ -399,8 +404,11 @@ public sealed class MacRepackerTests : IDisposable
         var result = MacRepacker.Run(Input, BrandFile, Output);
 
         result.ExecutableName.Should().Be("acme-ide");
-        result.RemovedSignature.Should().BeFalse("a macOS executable's bytes aren't touched");
-        File.ReadAllBytes(RepackedExecutable).Should().Equal(MachO);
+        result.RemovedSignature.Should().BeFalse("the macOS output is re-signed rather than stripped");
+        // On macOS, sealing the bundle signs its executable afresh; macOS_accepts_the_property_list_signature_and_icon
+        // checks that seal. Elsewhere nothing signs, so the bytes are stock's.
+        if (!OperatingSystem.IsMacOS())
+            File.ReadAllBytes(RepackedExecutable).Should().Equal(MachO);
         Payload.ModeOf(RepackedExecutable).Should().Be(Executable);
         File.Exists(Path.Combine(Bundle, "Contents", "MacOS", MacRepacker.StockExecutable)).Should().BeFalse();
     }
@@ -641,10 +649,7 @@ public sealed class MacRepackerTests : IDisposable
 
         RunTool("/usr/bin/plutil", "-lint", Path.Combine(Bundle, "Contents", "Info.plist"));
 
-        // codesign answers for the bundle when asked about its main executable, and this bundle isn't sealed.
-        var outside = Path.Combine(_root, "acme-ide");
-        File.Copy(RepackedExecutable, outside);
-        RunTool("/usr/bin/codesign", "--verify", outside);
+        RunTool("/usr/bin/codesign", "--verify", "--strict", "--deep", Bundle);
 
         var iconset = Path.Combine(_root, "acme.iconset");
         RunTool("/usr/bin/iconutil", "-c", "iconset", "-o", iconset, Path.Combine(Bundle, "Contents", "Resources", "acme-ide.icns"));
@@ -652,13 +657,22 @@ public sealed class MacRepackerTests : IDisposable
     }
 
     [MacOnlyFact]
-    public void A_signature_macOS_rejects_stops_the_run_and_leaves_nothing()
+    public void A_sealed_bundle_is_resealed_after_branding()
     {
-        var damaged = MachO;
-        damaged[damaged.Length / 2] ^= 0xFF;
-        WriteStock(executable: damaged);
+        WriteStock();
         WriteBrand();
+        // Sealed as scripts/macos-bundle.sh seals a published build: each file first, then the bundle, which signs the
+        // executable, since codesign resolves the executable's own path to the bundle.
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(Input, "Contents", "MacOS"), "*", SearchOption.AllDirectories))
+        {
+            if (Path.GetFileName(file) != "HexIDE")
+                RunTool("/usr/bin/codesign", "--force", "-s", "-", file);
+        }
+        RunTool("/usr/bin/codesign", "--force", "-s", "-", Input);
+        RunTool("/usr/bin/codesign", "--verify", "--strict", "--deep", Input);
 
-        ShouldRefuse("doesn't accept the signature");
+        MacRepacker.Run(Input, BrandFile, Output);
+
+        RunTool("/usr/bin/codesign", "--verify", "--strict", "--deep", Bundle);
     }
 }

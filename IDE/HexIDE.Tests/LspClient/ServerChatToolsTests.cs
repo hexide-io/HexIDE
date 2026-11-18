@@ -433,7 +433,7 @@ public sealed class ServerChatToolsTests : IAsyncDisposable
         var contributions = new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), router,
             new LanguageServerRegistrationFactory(_loggerFactory),
             new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
-            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>())
+            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>(), null)
         {
             ChatToolsSetting = user,
         };
@@ -457,7 +457,7 @@ public sealed class ServerChatToolsTests : IAsyncDisposable
             _cleanup.Add(router);
             var contributions = new LanguageServerContributions(settings, router, new LanguageServerRegistrationFactory(_loggerFactory),
                 new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
-                new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>())
+                new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>(), null)
             {
                 ChatToolsSetting = ServerChatToolsSetting.FromUserSettings(settings),
             };

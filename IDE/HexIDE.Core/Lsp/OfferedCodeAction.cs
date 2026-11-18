@@ -10,4 +10,5 @@ public sealed record OfferedCodeAction(string Server, string Title, string? Disa
     Func<Command, bool>? CanExecute = null,
     string? ServerDisplayName = null,
     string? Kind = null,
-    bool IsQuickFix = false);
+    bool IsQuickFix = false,
+    Func<Command, bool>? IsClaimed = null);

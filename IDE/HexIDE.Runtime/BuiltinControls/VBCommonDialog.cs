@@ -42,7 +42,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
     // Members VB6's CommonDialog has that this doesn't model: refused as not implemented, since 438 would say it has none.
     private static readonly HashSet<string> NotModelled = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Action", "hDC", "HelpContext",
+        "Action", "hDC",
     };
 
     internal IBasicStandardLibrary host;
@@ -51,7 +51,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
     private short maxFileSize = 260, copies = 1, fromPage, toPage, min, max, orientation = 1, helpCommand;
     private string helpFile = "", helpKey = "";
     private bool printerDefault = true, fontUnderline, fontStrikethru;
-    private int flags, color;
+    private int flags, color, helpContext;
     private bool cancelError, fontBold, fontItalic;
     private float fontSize = 8;
     private bool filterIndexUnknown, printAccepted;
@@ -91,6 +91,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             "min" => new Vb6Value((int)min),
             "max" => new Vb6Value((int)max),
             "orientation" => new Vb6Value((int)orientation),
+            "helpcontext" => new Vb6Value((long)helpContext),
             "helpcommand" => new Vb6Value((int)helpCommand),
             "helpfile" => new Vb6Value(helpFile),
             "helpkey" => new Vb6Value(helpKey),
@@ -136,6 +137,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             case "min": min = Integer(value); return true;
             case "max": max = Integer(value); return true;
             case "orientation": orientation = Integer(value, n => n is 1 or 2); return true;
+            case "helpcontext": helpContext = (int)Number(value, Vb6Value.ValueType.Long); return true;
             case "helpcommand": helpCommand = Integer(value); return true;
             case "helpfile": helpFile = Text(value); return true;
             case "helpkey": helpKey = Text(value); return true;
@@ -180,13 +182,13 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
     {
         if (!name.Equals("Action", StringComparison.OrdinalIgnoreCase))
             return false;
-        // The dialog mappings and these invalid integral values have been measured.
-        if (value.Type != Vb6Value.ValueType.Integer && value.Type != Vb6Value.ValueType.Long)
-            throw new NotImplementedException("CommonDialog Action assignment conversion is not measured (#1084)");
-        switch (Convert.ToInt64(value.Value, CultureInfo.InvariantCulture))
+        // #4515: Integer storage errors precede validation of the action number.
+        var action = (int)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Integer, null).Value!;
+        switch (action)
         {
             case >= 1 and <= 6:
-                var action = Convert.ToInt32(value.Value, CultureInfo.InvariantCulture);
+                if (value.Type != Vb6Value.ValueType.Integer && value.Type != Vb6Value.ValueType.Long)
+                    throw new NotImplementedException("CommonDialog Action assignment conversion opening a dialog is not measured (#4148)");
                 await CallAsync(action switch
                 {
                     1 => "ShowOpen",
@@ -197,10 +199,8 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
                     _ => "ShowHelp",
                 }, []);
                 return true;
-            case 0 or 7 or 8 or -1:
-                throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
             default:
-                throw new NotImplementedException("This CommonDialog Action value is not measured (#1084)");
+                throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
         }
     }
 

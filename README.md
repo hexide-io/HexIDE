@@ -174,8 +174,8 @@ message saying the `llvmpipe` renderer is blacklisted is expected in that case; 
 **Windows portable:** extract the `.zip` into its own folder and run `HexIDE.exe`.
 The installer and portable builds are unsigned; SmartScreen shows a warning: More info → Run anyway.
 
-**macOS:** extract in Terminal with `tar -xzf <file>.tar.gz`, then open `HexIDE.app`.
-The builds are not notarised; Finder extraction applies a quarantine flag that the unsigned app cannot clear.
+**macOS:** the builds aren't notarised, so the first time you open `HexIDE.app` macOS says it can't verify it. Choose
+Done, then System Settings → Privacy & Security → Open Anyway, and confirm with an administrator's password.
 
 ### Build requirements
 
