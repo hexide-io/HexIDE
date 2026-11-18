@@ -178,13 +178,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var number = stringOnLeft ? rightValue : leftValue;
             if (NumericRank(number.Type) >= 0 || number.Type == Vb6Value.ValueType.Boolean || number.Type == Vb6Value.ValueType.Date)
             {
-                if (number.Type == Vb6Value.ValueType.Decimal || (text.HeldAsVariant &&
-                    (number.Type == Vb6Value.ValueType.Currency || number.Type == Vb6Value.ValueType.Boolean || number.Type == Vb6Value.ValueType.Date)))
-                    throw new NotImplementedException("This String comparison domain is unmeasured (#211).");
+                // VB6 has no Decimal outside a Variant (#211).
+                var numberInVariant = number.HeldAsVariant || number.Type == Vb6Value.ValueType.Decimal;
 
-                if (text.HeldAsVariant && number.HeldAsVariant)
+                if (text.HeldAsVariant && numberInVariant)
                     return stringOnLeft ? (new Vb6Value(1), new Vb6Value(0)) : (new Vb6Value(0), new Vb6Value(1));
-                if (number.HeldAsVariant)
+                if (numberInVariant)
                 {
                     // Option Compare Text follows the two-String path too; this rule's Text mode is unmeasured.
                     number = VbNumeric.CoerceOnStore(number, Vb6Value.ValueType.String, context[0]);
