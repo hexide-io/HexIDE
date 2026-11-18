@@ -53,19 +53,6 @@ public class LetIntoObjectTests : BaseVBTestFixture
 
         """;
 
-    // A default member, which HexIDE does not implement for a class yet (#174).
-    private const string D = """
-        Private m As Variant
-        Public Property Get Value() As Variant
-        Attribute Value.VB_UserMemId = 0
-            Value = m
-        End Property
-        Public Property Let Value(ByVal x As Variant)
-            m = x
-        End Property
-
-        """;
-
     [Fact]
     public async Task A_Let_into_an_object_variable_is_438_and_keeps_the_object()
     {
@@ -393,12 +380,86 @@ public class LetIntoObjectTests : BaseVBTestFixture
             """));
     }
 
-    [Fact]
-    public async Task A_class_with_a_default_member_is_refused_by_name()
-    {
-        // vb6.exe assigns the default member: `d = 11` runs D's Property Let Value with 11 (measured).
-        var run = () => RunClasses("Dim d As D\nSet d = New D\nd = 11\n", ("D", D));
+    // vb6.exe SP6 native and p-code measurements: https://github.com/hexide-io/HexIDE/issues/4694.
+    private const string Dc = """
+        Private m As Variant
+        Public Property Get Value() As Variant
+        Attribute Value.VB_UserMemId = 0
+            Value = m
+        End Property
+        Public Property Let Value(ByVal x As Variant)
+            Debug.Print "Let " & x
+            m = x
+        End Property
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*default member of the D it holds*#174*");
+        """;
+    private const string Dg = """
+        Public Property Get Value() As Variant
+        Attribute Value.VB_UserMemId = 0
+            Value = 1
+        End Property
+
+        """;
+    private const string Df = """
+        Public Value As Variant
+        Attribute Value.VB_VarUserMemId = 0
+
+        """;
+    private const string Dfn = """
+        Public Function Value() As Variant
+        Attribute Value.VB_UserMemId = 0
+            Value = 1
+        End Function
+
+        """;
+    private const string Dl = """
+        Private m As Long
+        Public Property Get Value() As Long
+        Attribute Value.VB_UserMemId = 0
+            Value = m
+        End Property
+        Public Property Let Value(ByVal x As Long)
+            m = x
+        End Property
+
+        """;
+
+    [Theory]
+    [InlineData("Dim d As Dc\nSet d = New Dc\nd = 11\nDebug.Print TypeName(d) & \":\" & d.Value", "Let 11\nDc:11")]
+    [InlineData("Dim o As Object\nSet o = New Dc\no = 12\nDebug.Print TypeName(o)", "Let 12\nDc")]
+    [InlineData("Dim d As Dc, keep As Dc\nSet d = New Dc\nSet keep = d\nd = 13\nDebug.Print CStr(d Is keep)", "Let 13\nTrue")]
+    [InlineData("Dim f As Df\nSet f = New Df\nf = 15\nDebug.Print TypeName(f) & \":\" & f.Value", "Df:15")]
+    [InlineData("Dim l As Dl\nSet l = New Dl\nl = \"17\"\nDebug.Print TypeName(l.Value) & \":\" & l.Value", "Long:17")]
+    [InlineData("Dim l As Dl\nSet l = New Dl\nOn Error Resume Next\nl = \"abc\"\nDebug.Print CStr(Err.Number)", "13")]
+    [InlineData("Dim h As Holder\nSet h = New Holder\nSet h.d = New Dc\nh.d = 18\nDebug.Print TypeName(h.d)", "Let 18\nDc")]
+    [InlineData("Dim h As Holder\nSet h = New Holder\nSet h.d = New Dc\nWith h\n.d = 19\nEnd With\nDebug.Print TypeName(h.d)", "Let 19\nDc")]
+    [InlineData("Private Sub Assign(x As Dc)\nx = 20\nEnd Sub\nDim d As Dc\nSet d = New Dc\nAssign d\nDebug.Print CStr(d.Value)", "Let 20\n20")]
+    [InlineData("Private Function GetD() As Dc\nSet GetD = New Dc\nGetD = 21\nEnd Function\nDim d As Dc\nSet d = GetD()\nDebug.Print TypeName(d)", "Let 21\nDc")]
+    [InlineData("Dim arr(1 To 2) As Dc\nSet arr(1) = New Dc\narr(1) = 22\nDebug.Print TypeName(arr(1)) & \":\" & arr(1).Value", "Let 22\nDc:22")]
+    [InlineData("Dim n As Dc\nOn Error Resume Next\nn = 23\nDebug.Print CStr(Err.Number)", "91")]
+    [InlineData("Dim v As Variant\nSet v = New Dc\nv = 24\nDebug.Print TypeName(v) & \":\" & v", "Integer:24")]
+    [InlineData("Dim og As Object\nSet og = New Dg\nOn Error Resume Next\nog = 25\nDebug.Print CStr(Err.Number)", "451")]
+    [InlineData("Dim t As Dt\nSet t = New Dt\nt = 26\nDebug.Print \"before Set\"\nSet t = Nothing", "Let 26\nbefore Set\nTerminate")]
+    [InlineData("Private Function GetO() As Object\nSet GetO = New Dc\nGetO = 27\nEnd Function\nDim o As Object\nSet o = GetO()\nDebug.Print TypeName(o)", "Let 27\nDc")]
+    [InlineData("Dim o As Object\nSet o = New Df\no = 28\nDebug.Print CStr(o.Value)", "28")]
+    [InlineData("Dim o As Object\nSet o = New Dfn\nOn Error Resume Next\no = 29\nDebug.Print CStr(Err.Number)", "450")]
+    public async Task Measured_Let_into_a_class_default(string code, string expected)
+    {
+        await RunDefaultClasses(code);
+        AssertDebugLog(Lines(expected));
     }
+
+    [Theory]
+    [InlineData("Dg", "14", "Invalid use of property")]
+    [InlineData("Dfn", "16", "Type mismatch")]
+    public async Task Early_bound_defaults_that_cannot_take_a_Let_report_compile_errors(string cls, string value, string message)
+    {
+        var run = () => RunDefaultClasses($"Dim target As {cls}\nSet target = New {cls}\ntarget = {value}\n");
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*" + message + "*");
+    }
+
+    private Task RunDefaultClasses(string code) => RunClasses(code + "\n",
+        ("Dc", Dc), ("Dg", Dg), ("Df", Df), ("Dfn", Dfn), ("Dl", Dl),
+        ("Dt", Dc + "Private Sub Class_Terminate()\nDebug.Print \"Terminate\"\nEnd Sub\n"),
+        ("Holder", "Public d As Dc\n"));
 }

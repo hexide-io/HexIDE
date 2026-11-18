@@ -1046,16 +1046,19 @@ public class MouseEventTests
     }
 
     [AvaloniaFact]
-    public void A_ScaleMode_HexIDE_cannot_convert_refuses_the_forms_event_as_the_runs_error()
+    public void A_centimetre_forms_event_uses_the_measured_runtime_conversion()
     {
-        // A centimetre form's X is unexplained (#990): refused when the event runs, reported as the run's error, never
-        // thrown out of the input handler.
-        using var run = Start(Form("   ScaleMode       =   7  'Centimeter\r\n", Controls), Handlers("Form", click: false));
+        // #990 final factor decision. Drive the real pointer route; compare with the program's ScaleX/ScaleY conversion.
+        var code = Handlers("Form", click: false).Replace("Debug.Print \"Form MouseDown ",
+            "Debug.Print CStr(Me.ScaleX(300, vbPixels, vbCentimeters)) & \" \" & CStr(Me.ScaleY(10, vbPixels, vbCentimeters))\r\n    Debug.Print \"Form MouseDown ");
+        using var run = Start(Form("   ScaleMode       =   7  'Centimeter\r\n", Controls), code);
+        run.Window.SetRenderScaling(1.5);
 
         run.Click(new Point(300, 10));
 
-        run.Errors.Should().NotBeEmpty();
-        run.Errors[0].Should().BeOfType<System.NotImplementedException>().Which.Message.Should().Contain("#990");
-        run.Printed.Should().BeEmpty();
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().HaveCount(4);
+        run.Printed.Skip(1).Should().Equal("Form MouseDown 1 0 " + run.Printed[0], "Form MouseUp 1 0 " + run.Printed[0],
+            "Form MouseMove 0 0 " + run.Printed[0]);
     }
 }

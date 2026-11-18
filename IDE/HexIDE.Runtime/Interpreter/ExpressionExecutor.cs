@@ -178,13 +178,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var number = stringOnLeft ? rightValue : leftValue;
             if (NumericRank(number.Type) >= 0 || number.Type == Vb6Value.ValueType.Boolean || number.Type == Vb6Value.ValueType.Date)
             {
-                if (number.Type == Vb6Value.ValueType.Decimal || (text.HeldAsVariant &&
-                    (number.Type == Vb6Value.ValueType.Currency || number.Type == Vb6Value.ValueType.Boolean || number.Type == Vb6Value.ValueType.Date)))
-                    throw new NotImplementedException("This String comparison domain is unmeasured (#211).");
+                // VB6 has no Decimal outside a Variant (#211).
+                var numberInVariant = number.HeldAsVariant || number.Type == Vb6Value.ValueType.Decimal;
 
-                if (text.HeldAsVariant && number.HeldAsVariant)
+                if (text.HeldAsVariant && numberInVariant)
                     return stringOnLeft ? (new Vb6Value(1), new Vb6Value(0)) : (new Vb6Value(0), new Vb6Value(1));
-                if (number.HeldAsVariant)
+                if (numberInVariant)
                 {
                     // Option Compare Text follows the two-String path too; this rule's Text mode is unmeasured.
                     number = VbNumeric.CoerceOnStore(number, Vb6Value.ValueType.String, context[0]);
@@ -1054,6 +1053,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             && getter.Declaration is VB6Parser.PropertyGetStmtContext
             && await interpreter.CallProcedure(identifier, [], currentModule, callerEnv: env, callerFrames: stmtFrames) is { } propertyResult)
             return propertyResult;
+        if (interpreter.TryResolveProcedure(identifier, currentModule, out _, out var function) && function.IsFunction
+            && await interpreter.CallProcedure(identifier, [], currentModule, callerEnv: env, callerFrames: stmtFrames) is { } functionResult)
+            return functionResult;
         if (identifier.Equals("Clipboard", StringComparison.OrdinalIgnoreCase))
         {
             // A function named Clipboard can supply the member-chain's object too, not just a bare value.
@@ -1535,7 +1537,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return images.Item(indices[0]);
         if (value.Value is ImageComboItems)
             return ImageComboItem(value, indices);
-        if (value.Type == Vb6Value.ValueType.Object || value.Value is VbObject)
+        if (value.Value is VbObject)
+            return await interpreter.CallDefaultMember(value, [.. indices.Select(v => new CallArg(v, null))], ctx, stmtFrames);
+        if (value.Type == Vb6Value.ValueType.Object)
             throw new NotImplementedException(value.Value is null
                 ? $"indexing Nothing, as in {ctx.GetText()}, is not implemented: what VB6 raises is unmeasured (#1476)"
                 : $"indexing an object, as in {ctx.GetText()}, reads its default member, which is not implemented (#174)");
@@ -1558,11 +1562,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     }
 
     // A procedure with no parameters, given arguments, is called with none and its result indexed with them, where it
-    // returns a Variant or an object: `F(1)` is `F()(1)`, and an As Collection one's Item (measured, #1476). A typed return
-    // given arguments does not compile, which is #741's.
-    private static bool IndexesItsResult(ProcedureInfo procedure, VB6Parser.ArgsCallContext? args) =>
+    // returns a Variant or an object: `F(1)` is `F()(1)`, including a project class (#4606) or Collection (#1476).
+    // A typed scalar return given arguments does not compile (#741).
+    private bool IndexesItsResult(ProcedureInfo procedure, VB6Parser.ArgsCallContext? args) =>
         args is { } given && given.argCall().Length > 0 && procedure.Parameters.Count == 0
-        && (procedure.ReturnsVariant || procedure.ReturnsObject);
+        && (procedure.ReturnsVariant || procedure.ReturnsObject
+            || interpreter.ProjectClassFor(procedure.ReturnUdtTypeName ?? "") is not null);
 
     // The call or element of `name(first group)`, with no later index groups: EvaluateProcedureOrArrayCall's single group.
     internal async Task<object?> EvaluateCallOrElement(VB6Parser.ICS_S_ProcedureOrArrayCallContext procOrArrayCall,
@@ -1640,6 +1645,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         }
         if (named && maybeGroup.Value is StatusBarPanels panels)
             return new Vb6Value(panels.Item(await EvaluateCallArgs(argsCtx)));
+        if (named && !string.Equals(env.ReturnName, name, StringComparison.OrdinalIgnoreCase)
+            && (maybeGroup.Value is VbObject || maybeGroup.Value is null
+                && interpreter.ProjectClassFor(maybeGroup.DeclaredAs ?? "") is not null))
+            return await interpreter.CallDefaultMember(maybeGroup, await ResolveCallArgs(argsCtx, beforeLast), procOrArrayCall, stmtFrames);
         if (named && maybeGroup.Value is ImageListImages or ImageComboItems)
             return ImageCollectionItem(maybeGroup, await EvaluateCallArgs(argsCtx));
         // A form's Controls held in a variable, `o(1)` (#1060).
@@ -1820,6 +1829,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     internal static void RequireMemberReceiver(Vb6Value value, Antlr4.Runtime.ParserRuleContext context)
     {
+        if (value.Value is VbCollectionEnumerator)
+            throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
         value.RefuseOddBytes("Member access");
         // Measured non-object Variant receivers (#257); other kinds keep their existing dispatch.
         if (value.Type == Vb6Value.ValueType.EmptyVariant || value.Type == Vb6Value.ValueType.Null
@@ -2001,6 +2012,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
         // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
         VBProps.RefuseIfRemoved(control);
+        if (control is VBPictureBox && RuntimeDrawing.IsMethod(MemberName(member)))
+        {
+            if (MemberName(member).Equals("Cls", StringComparison.OrdinalIgnoreCase))
+                throw RuntimeDrawing.Refused("Cls used as a value");
+            return RuntimeDrawing.Call(control, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
+        }
+        if (control is VBPictureBox && RuntimeScale.IsConversion(MemberName(member)))
+            return RuntimeScale.ConvertUnits(control, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
 
         if (control is VBShape or VBLine && memberIdentifier.Equals("MousePointer", StringComparison.OrdinalIgnoreCase))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
@@ -2029,6 +2048,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (AvaloniaInterop.SSTabMembers.TryGet(control, memberIdentifier, out var tabValue))
             return tabValue;
 
+        if (RuntimeDrawing.TryGet(control, memberIdentifier, out var drawingMember))
+            return drawingMember;
         var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
         foreach (var prop in props)
@@ -2036,6 +2057,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             if (AvaloniaInteroperability.TryGet(control, prop, out var value))
                 return value;
         }
+        if (RuntimeScale.TryGet(control, memberIdentifier, out var scaleMember))
+            return scaleMember;
         // FontName, which is no property of its own here but the name of the control's font (#1141).
         if (FontMembers.TryGet(control, memberIdentifier, out var fontMember))
             return fontMember;
@@ -2709,11 +2732,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return await Visit(context.valueStmt(0));
     }
 
-    public override async Task<object?> VisitVsNew(VB6Parser.VsNewContext context)
+    public override async Task<object?> VisitVsNew(VB6Parser.VsNewContext context) =>
+        await CreateNewObject((context.valueStmt() as VB6Parser.VsICSContext)?.implicitCallStmt_InStmt(), context);
+
+    internal async Task<Vb6Value> CreateNewObject(VB6Parser.ImplicitCallStmt_InStmtContext? call,
+        Antlr4.Runtime.ParserRuleContext context)
     {
         // `New ClassName` — the class name is a nested bare identifier; extract it SYNTACTICALLY (evaluating it
         // would try to resolve a variable and throw). `Dim o As New C1` makes its object where it is read (#435).
-        var call = (context.valueStmt() as VB6Parser.VsICSContext)?.implicitCallStmt_InStmt();
         if (call is not null && interpreter.LibraryClassFor(call.GetText()) is { } libraryClass)
             return interpreter.AdoptNewTemp(interpreter.NewLibraryObject(libraryClass), stmtFrames);
         if (call?.GetText().Equals("stdole.StdFont", StringComparison.OrdinalIgnoreCase) == true)
@@ -2725,6 +2751,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             ?? throw new VBCompileErrorException("Expected a class name after New");
         if (IsCollectionType(className) && !interpreter.Modules.TryGet(className, out _))
             return interpreter.AdoptNewTemp(new Vb6Value(interpreter.NewCollection()), stmtFrames);
+        if (className.Equals("PropertyBag", StringComparison.OrdinalIgnoreCase) && !interpreter.Modules.TryGet(className, out _))
+            return new Vb6Value(new VbPropertyBag());
         // VB6 compiles New ErrObject but refuses its creation at run time (#2627).
         if (className.Equals("ErrObject", StringComparison.OrdinalIgnoreCase) && !interpreter.Modules.TryGet(className, out _))
             throw new VBRunTimeException(context, new VBStandardError(-2147221164, "Class not registered"));

@@ -134,6 +134,9 @@ public partial class App : Application
             _diSetup.Recovery.Start();
 
             var windowStateService = _diSetup.WindowStateService;
+            // Subscribed below, after App's own handler; made here so the Windows session-end hook can use it too.
+            var exitStop = new ExitStop(desktop, _diSetup.FileWatcherService.Dispose,
+                _diSetup.LspClient.StopAsync, LoggingSetup.Shutdown, ExitStop.StopTimeout);
 
             if (Static.ForceSingleView)
             {
@@ -234,10 +237,60 @@ public partial class App : Application
                     closeConfirmed = true;
                     mainWindow.Close();
                 }
+
+                // Windows' end of session: answer the query at once, and stop the servers only when the session
+                // really ends. Through ShutdownRequested, ExitStop's cancel vetoed every sign-out (#4646). Only on
+                // Avalonia's Win32 platform: the headless one the tests run on has no window to answer on.
+                if (OperatingSystem.IsWindows() && mainWindow.TryGetPlatformHandle() is { HandleDescriptor: "HWND" })
+                {
+                    var sessionEnd = new SessionEnd(
+                        _diSetup.ProjectService.FirstUnsavedProjectName,
+                        project => string.Format(_diSetup.LocalizationService.GetString("Str.SessionEnd.UnsavedWork"),
+                            project),
+                        // The save prompt File > Exit shows. Yes or No closes the IDE; Cancel keeps it open.
+                        () => mainWindow.Close(),
+                        StopForSessionEnd,
+                        SessionEnd.WaitInNestedFrame,
+                        CloseForSessionEnd,
+                        SessionEnd.EndBound,
+                        () => _diSetup.LspClient is HexIDE.Lsp.ILanguageConnectionRegistry registry
+                            ? registry.Connections.Where(c => c.State == HexIDE.Lsp.LanguageConnectionState.Running)
+                                .Select(c => c.Id).ToList()
+                            : [],
+                        id => _diSetup.LspClient is HexIDE.Lsp.ILanguageConnectionRegistry registry
+                            ? registry.RestartAsync(id)
+                            : Task.CompletedTask);
+                    Win32SessionEndHook.Install(sessionEnd, () => mainWindow.TryGetPlatformHandle()?.Handle ?? 0,
+                        desktop);
+                    sessionEnd.Observe();
+                    var observe = new Avalonia.Threading.DispatcherTimer { Interval = SessionEnd.ObserveEvery };
+                    observe.Tick += (_, _) => sessionEnd.Observe();
+                    observe.Start();
+                }
+
+                async Task StopForSessionEnd()
+                {
+                    _diSetup.FileWatcherService.Dispose();
+                    await Task.WhenAll(_diSetup.LspClient.StopAsync(), _diSetup.ExternalDebugger.StopAsync());
+                }
+
+                void CloseForSessionEnd()
+                {
+                    // Unsaved work left now was not answered for: the person chose Windows' "Sign out anyway" over the
+                    // save prompt, or the end was forced. Its backup is kept for the next start (#499), as on a
+                    // terminate signal.
+                    if (_diSetup.ProjectService.FirstUnsavedProjectName() is not null)
+                        _diSetup.Recovery.KeepForRecovery();
+                    // The exit File > Exit takes, without its prompt or a second stop: App's handler and ExitStop let
+                    // the request through, the add-ins are disposed, Closing saves the window state, and the
+                    // dispatcher ends once this message returns.
+                    closeConfirmed = true;
+                    exitStop.MarkStopped();
+                    desktop.TryShutdown();
+                    LoggingSetup.Shutdown();
+                }
             }
 
-            var exitStop = new ExitStop(desktop, _diSetup.FileWatcherService.Dispose,
-                _diSetup.LspClient.StopAsync, LoggingSetup.Shutdown, ExitStop.StopTimeout);
             desktop.ShutdownRequested += exitStop.OnShutdownRequested;
 
             // The language pack was applied before the shell existed, so push its reading direction

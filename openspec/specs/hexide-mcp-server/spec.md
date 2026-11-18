@@ -1132,7 +1132,12 @@ unknown name's refusal SHALL say that the IDE's window is the default here.
 A `window` named by a title or a running form's name SHALL reach the one visible window of that name. Where several
 share it and sit on one another, each owning the next, the name SHALL reach the one on top, the one a person can use,
 and a path that fails there SHALL say that the name reached the window on top of another of that name. Where several
-share it side by side, the refusal SHALL name what does reach one of them, rather than advice no caller can follow.
+share it side by side, the refusal SHALL list each window's indexed address and title, explain that each address
+reaches that window, and retain the explanation of what `auto` reaches.
+When no window matches a value exactly, a trailing `#n` with a positive integer SHALL select the n-th visible
+window answering to the preceding name, in opening order starting at 1. Hidden windows SHALL NOT count.
+An index past the count SHALL be refused with the count. Exact titles, form names and floating-tool keys
+containing `#` SHALL keep their existing meaning.
 
 #### Scenario: A dialog and its own message box share a title
 - **WHEN** the Find dialog has raised a message box also titled "Find", and a tool is called with `window: "Find"`
@@ -1141,8 +1146,17 @@ share it side by side, the refusal SHALL name what does reach one of them, rathe
 
 #### Scenario: Two instances of one form are open
 - **WHEN** two instances of Form1 are showing side by side, and a tool is called with `window: "Form1"`
-- **THEN** it is refused, naming both
+- **THEN** it is refused, listing `Form1#1` and `Form1#2` with their titles and saying each address reaches that window
 - **AND** the refusal says which of them `auto` reaches
+
+#### Scenario: An indexed window address
+- **WHEN** two visible instances answer to Form1 and no window matches the exact value `Form1#2`
+- **THEN** `window: "Form1#2"` reaches the second instance in opening order
+- **AND** `window: "Form1#3"` is refused, saying two windows answer to Form1
+
+#### Scenario: An exact title includes an index
+- **WHEN** a window is titled "Form1#2" while two other windows answer to Form1
+- **THEN** `window: "Form1#2"` reaches the window with that exact title
 
 ### Requirement: Floating tools SHALL remain part of the IDE
 Automatic window selection SHALL exclude the IDE's Dock host windows, while explicit window titles and
@@ -1191,9 +1205,16 @@ a control in it SHALL have no `boundingRect`, rather than a position that reads 
 - **THEN** the button is pressed, and its `boundingRect` is where `take_snapshot` shows it
 
 #### Scenario: Popup geometry on native Wayland
-- **WHEN** a menu or tooltip is open under `--platform wayland` with Avalonia 12.1.5 or later
+- **WHEN** a menu or tooltip is open and placed by the compositor under `--platform wayland` with Avalonia 12.1.5 or later
 - **THEN** `take_snapshot` includes the popup at its reported position, `inspect_element` reports `boundingRect` inside it,
   and `hover` reports the open tooltip's `tipBounds` in the selected window's coordinates
+
+#### Scenario: A native Wayland popup has not been placed yet
+- **WHEN** an open popup's platform position is still default on native Wayland
+- **THEN** `inspect_element` SHALL omit its `boundingRect` and `take_snapshot` SHALL leave it out of the image,
+  each explaining that the compositor has not placed it yet and asking the caller to retry
+- **AND** `hover` SHALL wait up to 500 ms for the tooltip popup's first position change before reading its bounds;
+  if it remains unplaced, it SHALL omit `tipBounds` and explain that its position is unknown and hovering again reads it
 
 ### Requirement: A DPI-unaware IDE's window state SHALL say why its scale is 1
 An IDE started with `--dpi-unaware` SHALL give every window-state rectangle in the pixels Windows reports to it, the

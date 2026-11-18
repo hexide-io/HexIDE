@@ -16,7 +16,8 @@ public static class Program
     {
         if (args[0] == "recording-server")
         {
-            await RecordingServerAsync(args[1], args.Length > 2 && args[2] == "unanswered");
+            await RecordingServerAsync(args[1], args.Length > 2 && args[2] == "unanswered",
+                args.Length > 2 && args[2] == "documents");
             return;
         }
         if (args[0] == "dispose-server")
@@ -135,7 +136,9 @@ public static class Program
         GC.KeepAlive(transport);
     }
 
-    private static async Task RecordingServerAsync(string file, bool unanswered)
+    // "documents" advertises full text sync and answers each didOpen and didChange with one diagnostic, so a live check
+    // can see a restarted server given the open documents and the editor showing its diagnostics again (#4646).
+    private static async Task RecordingServerAsync(string file, bool unanswered, bool documents = false)
     {
         var input = Console.OpenStandardInput();
         var output = Console.OpenStandardOutput();
@@ -157,10 +160,36 @@ public static class Program
             var method = methodElement.GetString();
             await File.AppendAllTextAsync(file, method + Environment.NewLine);
             if (method == "exit") return;
+            if (documents && method is "textDocument/didOpen" or "textDocument/didChange")
+            {
+                var uri = root.GetProperty("params").GetProperty("textDocument").GetProperty("uri").GetString();
+                var note = JsonSerializer.Serialize(new
+                {
+                    jsonrpc = "2.0",
+                    method = "textDocument/publishDiagnostics",
+                    @params = new
+                    {
+                        uri,
+                        diagnostics = new[]
+                        {
+                            new
+                            {
+                                range = new { start = new { line = 0, character = 0 }, end = new { line = 0, character = 1 } },
+                                severity = 2, source = "stand-in", message = $"Stand-in diagnostic (#4646), process {Environment.ProcessId}"
+                            }
+                        }
+                    }
+                });
+                var bytes = Encoding.UTF8.GetBytes(note);
+                await output.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {bytes.Length}\r\n\r\n"));
+                await output.WriteAsync(bytes);
+                await output.FlushAsync();
+            }
             if (!root.TryGetProperty("id", out var id) || (method == "shutdown" && unanswered)) continue;
             // Delay the reply so a fire-and-forget exit reliably loses the graceful handshake.
             if (method == "shutdown") await Task.Delay(150);
-            var result = method == "initialize" ? "{\"capabilities\":{}}" : "null";
+            var result = method != "initialize" ? "null"
+                : documents ? "{\"capabilities\":{\"textDocumentSync\":1}}" : "{\"capabilities\":{}}";
             var reply = Encoding.UTF8.GetBytes($"{{\"jsonrpc\":\"2.0\",\"id\":{id.GetRawText()},\"result\":{result}}}");
             await output.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {reply.Length}\r\n\r\n"));
             await output.WriteAsync(reply);

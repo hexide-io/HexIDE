@@ -1473,6 +1473,10 @@
     "Str.Office.LockedMessage": "Проект VBA заблокирован, и его код невозможно показать.",
     "Str.Office.LockedCaption": "{0} ({1}) — заблокирован",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "В {0} нет проекта VBA."
+    "Str.Office.NoProject": "В {0} нет проекта VBA.",
+    "Str.AIChat.EditContentMissing": "Содержимое не отправлено, поэтому ничего не изменено.",
+    "Str.AIChat.ProjectCannotStart": "Невозможно запустить проект (ни один не загружен или уже выполняется)",
+    "Str.AIChat.ProjectNotRunning": "Сейчас ни один проект не выполняется",
+    "Str.SessionEnd.UnsavedWork": "Несохранённые изменения: {0}"
   }
 }

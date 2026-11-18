@@ -207,6 +207,9 @@
     "Str.Tool.LanguageServers.Problem.SharedProjectFolder": "Os projetos {0} compartilham a pasta {1}; apenas {2} é gravado ou importado.",
     "Str.Dialog.ProjectGroup.OtherKindRefused": "Não é possível salvar {0} como grupo de projetos: o VB6 abriria {1} como módulos de código, não como projetos. Remova-os do grupo ou salve cada projeto separadamente. Nada foi gravado.",
     "Str.PropDesc.Index": "Índice do elemento da matriz de controles, ou vazio para um controle simples.",
-    "Str.FilePicker.ReplaceExisting": "{0} já existe. Deseja substituí-lo?"
+    "Str.AIChat.EditContentMissing": "Nenhum conteúdo foi enviado, então nada foi alterado.",
+    "Str.AIChat.ProjectNotRunning": "Nenhum projeto está em execução no momento",
+    "Str.FilePicker.ReplaceExisting": "{0} já existe. Deseja substituí-lo?",
+    "Str.SessionEnd.UnsavedWork": "Alterações não salvas em {0}"
   }
 }

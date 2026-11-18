@@ -17,7 +17,6 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
     private static readonly ConditionalWeakTable<Control, ControlFont> fonts = new();
     private readonly List<WeakReference<Control>> owners = new();
     private VBFont font;
-    private bool publishing;
 
     private ControlFont(VBFont font) => this.font = font;
 
@@ -31,7 +30,7 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
         if (fonts.TryGetValue(control, out var existing))
             return existing;
         var result = new ControlFont(FontMembers.Snapped(AttachedProperties.GetFont(control) ?? VBFont.Default));
-        result.Attach(control);
+        result.Attach(control, notify: false);
         return result;
     }
 
@@ -59,27 +58,33 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
         shared.Attach(control);
     }
 
-    private void Attach(Control control)
+    private void Attach(Control control, bool notify = true)
     {
         if (fonts.TryGetValue(control, out var previous))
         {
             if (ReferenceEquals(previous, this))
+            {
+                if (notify)
+                    Publish();
                 return;
+            }
             previous.owners.RemoveAll(owner => !owner.TryGetTarget(out var target) || ReferenceEquals(target, control));
             fonts.Remove(control);
         }
         fonts.Add(control, this);
         owners.Add(new WeakReference<Control>(control));
-        Publish();
+        Publish(notify);
     }
 
-    internal static void DescriptorChanged(Control control, VBFont descriptor)
+    internal static bool DescriptorChanged(Control control, VBFont descriptor)
     {
-        if (fonts.TryGetValue(control, out var reference) && !reference.publishing)
+        if (fonts.TryGetValue(control, out var reference))
         {
             reference.font = descriptor;
             reference.Publish();
+            return true;
         }
+        return false;
     }
 
     internal static bool TryDescriptor(Control control, out VBFont descriptor)
@@ -93,17 +98,19 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
         return false;
     }
 
-    private void Publish()
+    private void Publish(bool notify = true)
     {
-        publishing = true;
-        try
-        {
-            owners.RemoveAll(owner => !owner.TryGetTarget(out _));
-            foreach (var owner in owners)
-                if (owner.TryGetTarget(out var control))
-                    AttachedProperties.SetFont(control, font);
-        }
-        finally { publishing = false; }
+        owners.RemoveAll(owner => !owner.TryGetTarget(out _));
+        var targets = new List<Control>();
+        foreach (var owner in owners)
+            if (owner.TryGetTarget(out var control))
+                targets.Add(control);
+        foreach (var control in targets)
+            control.SetValue(AttachedProperties.FontProperty, font);
+        // Publish every owner's descriptor before calling code which may itself change the shared font.
+        if (notify)
+            foreach (var control in targets)
+                FormAmbients.Changed(control, "Font");
     }
 
     internal Vb6Value DefaultValue => new(font.FontFamilyName);
@@ -125,6 +132,15 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
 
     public bool TrySetProperty(string name, Vb6Value value)
     {
+        // #4448 measured Bold = True, including a StdFont shared with Set Font.
+        if (name.Equals("Bold", StringComparison.OrdinalIgnoreCase)
+            && value.Type == Vb6Value.ValueType.Boolean && value.Value is true)
+        {
+            font = new VBFont(font.FontFamilyName, font.Size, italic: font.Italic, charset: font.Charset,
+                underline: font.Underline, strikethrough: font.Strikethrough, weight: VBFont.BoldWeight);
+            Publish();
+            return true;
+        }
         // Only the issue's measured Size assignments; other object-member coercions and writes remain unmeasured.
         if (name.Equals("Size", StringComparison.OrdinalIgnoreCase)
             && value.Type == Vb6Value.ValueType.Integer && value.Value is int size

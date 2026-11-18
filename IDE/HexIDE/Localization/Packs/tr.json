@@ -1473,6 +1473,10 @@
     "Str.Office.LockedMessage": "VBA projesi kilitli ve kodu gösterilemiyor.",
     "Str.Office.LockedCaption": "{0} ({1}) — kilitli",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} VBA projesi içermiyor."
+    "Str.Office.NoProject": "{0} VBA projesi içermiyor.",
+    "Str.AIChat.EditContentMissing": "İçerik gönderilmediği için hiçbir şey değiştirilmedi.",
+    "Str.AIChat.ProjectCannotStart": "Proje başlatılamıyor (yüklü proje yok veya zaten çalışıyor)",
+    "Str.AIChat.ProjectNotRunning": "Şu anda çalışan bir proje yok",
+    "Str.SessionEnd.UnsavedWork": "Kaydedilmemiş değişiklikler: {0}"
   }
 }

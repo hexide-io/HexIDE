@@ -8,6 +8,7 @@ public class PrePass : VB6BaseVisitor<object?>
     public enum DefaultMemberKind { Function, Property, Variable, Sub }
     public sealed record DefaultMemberInfo(string Name, DefaultMemberKind Kind);
     public DefaultMemberInfo? DefaultMember { get; private set; }
+    internal DefaultMemberInfo? EnumerationMember { get; private set; }
 
     private readonly ExecutionEnvironment rootEnv;
     private readonly ExecutionState state;
@@ -28,6 +29,7 @@ public class PrePass : VB6BaseVisitor<object?>
     // by then are both already built.
     public List<string> Implemented = new();
     public List<VB6Parser.BlockContext> topLevelBlocks = new();
+    internal List<Antlr4.Runtime.ParserRuleContext> DeclarationItems { get; } = new();
 
     /// <summary>True for a class or a form: an object module, where VB6 refuses some Public members outright.</summary>
     public bool ObjectModule { get; init; }
@@ -120,7 +122,24 @@ public class PrePass : VB6BaseVisitor<object?>
             Declare(constant.ambiguousIdentifier().GetText());
         foreach (var local in procedure.DeclaredLocals)
             Declare(local.ambiguousIdentifier().GetText());
+        // A bare Cls: is a label, including VB6's duplicate-declaration check (#988).
+        var labels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (procedure.Body is { } body)
+            CheckLabels(body);
         return procedure;
+
+        void CheckLabels(Antlr4.Runtime.Tree.IParseTree tree)
+        {
+            var pending = new Stack<Antlr4.Runtime.Tree.IParseTree>();
+            pending.Push(tree);
+            while (pending.TryPop(out var node))
+            {
+                if (node is VB6Parser.LineLabelContext label && !labels.Add(label.labelName().GetText()))
+                    throw new VBCompileErrorException("Duplicate declaration in current scope");
+                for (var i = 0; i < node.ChildCount; i++)
+                    pending.Push(node.GetChild(i));
+            }
+        }
 
         void Declare(string name)
         {
@@ -219,21 +238,27 @@ public class PrePass : VB6BaseVisitor<object?>
     /// </summary>
     public bool DeclaresDefaultMember => DefaultMember is not null;
 
-    private void NoteDefaultMember(Antlr4.Runtime.Tree.IParseTree? body, DefaultMemberKind kind)
+    private void NoteDefaultMember(Antlr4.Runtime.Tree.IParseTree? body, DefaultMemberKind kind, bool enumeration = false)
     {
-        if (body is null || body is VB6Parser.ValueStmtContext || DeclaresDefaultMember)
+        if (body is null || body is VB6Parser.ValueStmtContext)
             return;
         if (body is VB6Parser.AttributeStmtContext attribute
             && attribute.implicitCallStmt_InStmt().GetText() is var name
             && (name.EndsWith(".VB_UserMemId", StringComparison.OrdinalIgnoreCase)
                 || name.EndsWith(".VB_VarUserMemId", StringComparison.OrdinalIgnoreCase))
-            && attribute.signedLiteral().Length == 1 && attribute.signedLiteral(0).GetText() == "0")
+            && attribute.signedLiteral().Length == 1)
         {
-            DefaultMember = new DefaultMemberInfo(name[..name.LastIndexOf('.')], kind);
+            var member = new DefaultMemberInfo(name[..name.LastIndexOf('.')], kind);
+            if (attribute.signedLiteral(0).GetText() == "0")
+                DefaultMember ??= member;
+            else if (attribute.signedLiteral(0).GetText() == "-4"
+                     && enumeration
+                     && name.EndsWith(".VB_UserMemId", StringComparison.OrdinalIgnoreCase))
+                EnumerationMember ??= member;
             return;
         }
         for (var i = 0; i < body.ChildCount; i++)
-            NoteDefaultMember(body.GetChild(i), kind);
+            NoteDefaultMember(body.GetChild(i), kind, enumeration);
     }
 
     public PrePass(ExecutionEnvironment rootEnv, ExecutionState state, bool allowIndexedLet = false, bool allowIndexedSet = false)
@@ -263,6 +288,7 @@ public class PrePass : VB6BaseVisitor<object?>
     public override object? VisitModuleBlock(VB6Parser.ModuleBlockContext context)
     {
         topLevelBlocks.Add(context.block());
+        DeclarationItems.Add(context.block());
         Visit(context.block());
         NoteDefaultMember(context.block(), DefaultMemberKind.Variable);   // a Public variable's VB_VarUserMemId follows it here
         return default;
@@ -803,7 +829,7 @@ public class PrePass : VB6BaseVisitor<object?>
             returnUdt != null && !returnType.IsArray ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
             returnsVariant, returnsObject) { Declaration = context, Accessor = "Get" });
-        NoteDefaultMember(context.block(), DefaultMemberKind.Property);
+        NoteDefaultMember(context.block(), DefaultMemberKind.Property, enumeration: true);
         return default;
     }
 
@@ -867,7 +893,10 @@ public class PrePass : VB6BaseVisitor<object?>
                     var lower = ArrayBase;
                     if ((values.Length == 2 && !TryReadLiteralBound(values[0], out lower))
                         || !TryReadLiteralBound(values[^1], out var upper))
-                        throw new NotImplementedException($"Nonliteral array bounds for field '{fieldName}' inside Type '{name}' are not implemented (#178)");
+                    {
+                        bounds = null;
+                        break;
+                    }
                     if (upper < lower)
                         throw new NotImplementedException($"An inverted array bound inside Type '{name}' is not implemented (#178)");
                     bounds.Add((lower, upper));
@@ -900,10 +929,15 @@ public class PrePass : VB6BaseVisitor<object?>
                         ?? throw new NotImplementedException($"Unsupported field type for '{fieldName}' in Type '{name}'"),
                     null, IsArray: isArray, Bounds: bounds, FixedLength: asType.fieldLength()));
         }
+        for (var i = 0; i < fields.Count; i++)
+            if (fields[i].IsArray && fields[i].Bounds is null && context.typeStmt_Element(i).subscripts() is { } pending)
+                fields[i] = fields[i] with { BoundSyntax = pending };
         // Visibility is RECORDED rather than ignored. `Private` means invisible outside this module, and
         // measured means it: a foreign Private Type is "User-defined type not defined" whether the
         // reference is bare or qualified. Reading it here is what lets two modules each own a Point.
         Types[name] = new UdtTypeDef(name, fields, IsPrivateVisibility(context.visibility()?.GetText()));
+        if (fields.Any(f => f.BoundSyntax != null))
+            DeclarationItems.Add(context);
         return default;
     }
 
@@ -926,13 +960,22 @@ public class PrePass : VB6BaseVisitor<object?>
             returnUdt != null && !returnType.IsArray ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
             returnsVariant, returnsObject) { Declaration = context });
-        NoteDefaultMember(context.block(), DefaultMemberKind.Function);
+        NoteDefaultMember(context.block(), DefaultMemberKind.Function, enumeration: true);
         return default;
     }
+
+    // Measured for Sub names only, not other declarations (#4674).
+    private static readonly HashSet<string> RefusedSubNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Close", "Debug", "End", "Get", "Input", "Len", "Lock", "Open",
+        "Print", "Put", "Seek", "Spc", "Stop", "Tab", "Unlock", "Write"
+    };
 
     public override object? VisitSubStmt(VB6Parser.SubStmtContext context)
     {
         var name = context.ambiguousIdentifier().GetText();
+        if (RefusedSubNames.Contains(name))
+            throw new VBCompileErrorException("Expected: identifier");
         DeclareModuleName(name, exported: !IsPrivate(context.visibility()));
         Procedures[name] = CheckedLocals(new ProcedureInfo(name, false, ParseParams(context.argList()),
             Vb6Value.ValueType.EmptyVariant, context.block(), IsPrivate(context.visibility())) { Declaration = context });

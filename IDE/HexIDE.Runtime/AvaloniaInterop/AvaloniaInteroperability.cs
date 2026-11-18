@@ -177,6 +177,7 @@ public static class AvaloniaInteroperability
         // A Label's BackStyle can be set by a program, as VB6 measured (#795): opaque, then a BackColor paints. Bound,
         // because without it the assignment was a trappable 461 that On Error Resume Next swallowed, and the
         // transparent-Label rule then dropped the BackColor that followed, a wrong value with no error.
+        Register<VBLabel, VBBorder>(VBProperties.BorderStyleProperty, VBLabel.BorderStyleProperty);
         Register<VBLabel, BackStyles>(VBProperties.BackStyleProperty, VBLabel.BackStyleProperty);
         Register<VBLabel, VBTextAlignment>(VBProperties.AlignmentProperty, VBLabel.AlignmentProperty);
         Register<VBLabel, VBAppearance>(VBProperties.AppearanceProperty, VBLabel.AppearanceProperty);
@@ -365,6 +366,10 @@ public static class AvaloniaInteroperability
                 // first, so one VB6 refuses is still refused.
                 if (control is VBLabel { BackStyle: BackStyles.Transparent } && ReferenceEquals(property, VBProperties.BackColorProperty))
                     return true;
+                // #4448: colours notify only on a changed value, after the new ambient is readable.
+                var ambient = ReferenceEquals(property, VBProperties.BackColorProperty) ? "BackColor"
+                    : ReferenceEquals(property, VBProperties.ForeColorProperty) ? "ForeColor" : null;
+                var ambientChanged = ambient is not null && !Equals(prop.GetUntyped(control), converted);
                 // A VB size assignment raises Resize inside the setter; native window notifications settle together (#2389).
                 using (control is VBFormRuntime runtime && (ReferenceEquals(property, VBProperties.WidthProperty)
                     || ReferenceEquals(property, VBProperties.HeightProperty)) ? runtime.ResizeOnce() : null)
@@ -372,6 +377,8 @@ public static class AvaloniaInteroperability
                     prop.SetUntyped(control, converted);
                     ControlPositions.EnforceOtherDimension(control, property);
                 }
+                if (ambientChanged)
+                    FormAmbients.Changed(control, ambient!);
                 // VB6 resets BackColor with a Label's Appearance (measured, #796).
                 if (control is VBLabel label && ReferenceEquals(property, VBProperties.AppearanceProperty))
                     label.BackColor = VBColor.FromSystemColor(label.Appearance == VBAppearance._3D
@@ -505,7 +512,7 @@ public static class AvaloniaInteroperability
     /// &amp;HFFFF) and 0x02 (palette-relative RGB, any), VB6 accepts and keeps as given; HexIDE has no colour that
     /// can hold one, so they are refused as not implemented rather than stored as the RGB of their low bytes (#786).
     /// </summary>
-    private static long OleColor(Vb6Value value)
+    internal static long OleColor(Vb6Value value)
     {
         var ole = System.Convert.ToInt64(Coerce(value, Vb6Value.ValueType.Long));
         var bits = (uint)ole;

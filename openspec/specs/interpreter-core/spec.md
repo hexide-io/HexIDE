@@ -19,8 +19,8 @@ worse than one that is obviously incomplete.
 >   Object likewise raises 438 when absent.
 >
 > `For Each` walks arrays, a Collection, a form's Controls, Forms, TabStrip Tabs and ImageList Images. Over any other
-> object, a control array included, it stops the run as not implemented rather than raising an error a handler could
-> trap.
+> control or proxy, a control array included, it stops the run as not implemented rather than raising an error a handler could
+> trap. User classes dispatch their -4 enumeration member (#4679).
 >
 > Separately, some of the engine's own refusals carry no message of their own. Such a run does end, and its dialog
 > quotes the statement that reached the refusal, where that statement is known.
@@ -141,9 +141,28 @@ SHALL keep the object itself. Measurements are recorded in
 - **AND** a Function Case value against Empty or Null raises the IDE's 450
 
 #### Scenario: Unmeasured default-member uses
-- **WHEN** a default is a Sub, requires arguments, returns an object, a typed Function default reaches Format or Abs, or a default reaches a later Format argument
+- **WHEN** a scalar default is a Sub, requires arguments but is given none, returns an object, a typed Function default reaches Format or Abs, or a default reaches a later Format argument
 - **THEN** execution refuses untrappably naming #174
-- **AND** default writes, array bounds, control-array indexes and synchronous helper reads retain their refusals
+- **AND** default writes without arguments, array bounds, control-array indexes and synchronous helper reads retain their refusals
+
+### Requirement: Parameterized source-class default members
+
+The interpreter SHALL route arguments on a source-class instance to its default Function/Get on a read
+or Property Let on a write, preserving the returned value without scalar coercion (#4606).
+
+#### Scenario: Measured receivers
+- **WHEN** arguments reach an instance in a local/module variable, class field, Variant/Object slot, indexed result or parameterless project-class-returning procedure
+- **THEN** the default member receives them
+- **AND** a typed class variable holding Nothing raises runtime error 91 on indexed reads and writes
+- **AND** the results match [#4606](https://github.com/hexide-io/HexIDE/issues/4606) and `docs/vb6-fidelity-oracle/with-new-default-instances-and-set-through-members.md`
+
+#### Scenario: Indexing a parameterless Get's result
+- **WHEN** Holder.State is a parameterless Get returning a Bag with default Item(key)
+- **THEN** `h.State("k")` reads Item("k") and `h.State("k") = "w"` runs its Property Let
+
+#### Scenario: Unmeasured parameterized defaults
+- **WHEN** arguments reach a class without a default, a Variable/Sub default, or a write without a default Property Let
+- **THEN** execution refuses untrappably naming #4606
 
 ### Requirement: Trailing argument and declared array type refusals
 
@@ -178,6 +197,31 @@ raise "Variable not defined" during execution. These behaviours are
 #### Scenario: An existing module array
 - **WHEN** a procedure executes ReDim on its module's `Dim mArr() As Long`
 - **THEN** it resizes that module array instead of declaring a local
+
+### Requirement: Collection class enumeration
+
+The interpreter SHALL collect a Function or Property Get marked `VB_UserMemId = -4` and call it
+when For Each walks a user class held through its own type, Object or Variant. A returned Collection
+enumerator SHALL use the existing live Collection cursor. A missing member, Nothing or non-enumerator
+result SHALL raise 92 "For loop not initialized"; under Resume Next the body SHALL run once with Empty.
+These behaviours are measured in [#4679](https://github.com/hexide-io/HexIDE/issues/4679).
+
+#### Scenario: Appending during class enumeration
+
+- **WHEN** a class returns its Collection's `[_NewEnum]` from a -4 member and appends an item during the loop
+- **THEN** the loop visits that item after the existing items
+
+### Requirement: Opaque Collection enumerator
+
+`Collection.[_NewEnum]` SHALL return a fresh opaque value with TypeName "Unknown", VarType 13 and
+IsObject False. Set into IUnknown or Variant SHALL succeed; Set into Object and Let into Variant
+SHALL raise 13, following the measured p-code row in #4679. A late call SHALL raise 424 and direct
+For Each over the enumerator SHALL raise 92.
+
+#### Scenario: Independent reads
+
+- **WHEN** two reads of a Collection's `[_NewEnum]` are compared with Is
+- **THEN** the result is False
 
 ### Requirement: For Each collection references and declarations
 
@@ -230,6 +274,19 @@ Missing files in existing folders SHALL raise 53, missing folders 76 and directo
 The description SHALL preserve the passed path; relative-path spelling remains unmeasured.
 Metafiles and file cursors SHALL refuse as unmeasured, and recognised but undecodable images and other I/O
 failures SHALL retain their not-implemented refusals. No-argument clearing and other argument refusals remain unchanged.
+
+For ICO files, `LoadPicture` SHALL take the first 32×32 directory entry when several images exist,
+following [#4623](https://github.com/hexide-io/HexIDE/issues/4623) and [the order measurements](https://github.com/hexide-io/HexIDE/pull/4692).
+A single-image file SHALL keep its own dimensions. A selected PNG image or a 32-bpp BITMAPINFOHEADER
+image missing its AND mask SHALL raise trappable 481 regardless of image-size/resolution header fields.
+Several images without a 32×32 entry, and missing masks at other depths, SHALL refuse as unmeasured.
+Saved pictures, SSTab pictures and resource groups SHALL retain their existing decoding paths.
+
+#### Scenario: An icon contains a larger PNG beside a 32×32 bitmap
+
+- **WHEN** LoadPicture reads an ICO with a 256×256 PNG and a masked 32×32 bitmap in either order
+- **THEN** the Picture reports Type 3 and Width 847 HiMetric
+- **AND** it draws the 32×32 bitmap
 
 #### Scenario: A program falls back after a picture error
 
@@ -569,14 +626,20 @@ program that compiles and runs.
 - **THEN** the interpreter SHALL call that Sub on the current instance
 
 ### Requirement: CallByName SHALL dispatch class and implemented in-box members
-`CallByName` SHALL support Collection `Add` with item/key and `Item` with one index through VbMethod,
+`CallByName` SHALL support Collection `Count` without arguments, `Add` with one to three arguments,
+`Remove` and `Item` with one index through VbMethod (#4688, measured native and p-code; oracle PR #4690),
 and `Err.Number` through VbGet, as expressions or statements, bare or VBA-qualified (#2519).
+Collection object results SHALL retain identity for Set and TypeName; a C1 instance with no default member
+used without Set SHALL raise 438. Collection Add/Remove as values SHALL return Empty.
+Count with arguments and Item without an index SHALL raise 450, independently of late-bound Count
+arity error 451. Unknown Collection VbMethod names and Item via VbLet SHALL raise 438.
+Other Collection errors SHALL pass through unchanged.
 Class instances SHALL support public scalar field Get/Let, Property Get/Let/Set and method calls through the
 same procedure binder as direct calls, preserving conversions, Optional, ParamArray and ByRef writeback.
 Class object results SHALL be returned for Set; a Collection result used as a value raises 450.
 A Sub used as a value SHALL return Empty. Missing or empty class member names and call types 0/16 raise 438;
 Get on a method raises 450, too few arguments 449, and too many 450.
-Forms/controls, Collection object results, private members, non-scalar fields, field Set/indexing and
+Forms/controls, private members, non-scalar fields, field Set/indexing and
 unavailable accessors SHALL refuse as not implemented. So SHALL other unmeasured member/call-type/arity
 combinations, omitted arguments and name/call-type conversions. Named arguments SHALL raise the compile
 error "Argument in ParamArray may not be named" as the statement runs (#4145).
@@ -2332,3 +2395,104 @@ unmeasured unsigned numeric uses. CallByName remains outside this support (#4520
 - **WHEN** TypeName, addition, multiplication or equality uses a late-bound Color
 - **THEN** error 458 is raised
 - **AND** IsNumeric on that Color is False
+
+### Requirement: A running form and PictureBox own their coordinate system
+
+The interpreter SHALL expose ScaleMode as Integer and ScaleLeft, ScaleTop, ScaleWidth and ScaleHeight as
+Single on each running form and PictureBox, initialized from the saved scale. Setting an origin or extent
+SHALL select User mode; selecting mode 0 SHALL retain the current mapping, and modes 1–7 SHALL map the
+client area in the chosen unit. Child positions SHALL use their container’s mapping, with assigned positions
+retained as whole twips rounded half to even. Left and Top SHALL use the signed unit and origin; Width and
+Height SHALL use the unit’s magnitude even in flipped user scales. Negative CommandButton sizes SHALL still
+raise 380 from a property assignment and 5 from Move, before anything moves (issue #990 round-2 measurements).
+Form and PictureBox mouse coordinates SHALL use the object’s
+own mapping; other controls retain their existing mouse units. A form resize SHALL retain the size
+of a user unit. UserControl scales and PictureBox resize are outside this slice ([#4693](https://github.com/hexide-io/HexIDE/issues/4693)).
+
+The interpreter and bundled LSP grammars SHALL parse the bare and qualified Scale statement with either
+two points or no arguments. ScaleX and ScaleY SHALL default from HiMetric to the current scale, returning
+Single lengths. Container-position/container-size units and vbUser outside a user scale SHALL raise 5.
+The measured metric factor and its accepted last-place precision difference are recorded in
+[#990](https://github.com/hexide-io/HexIDE/issues/990); the other values come from the
+[coordinate oracle](../../../docs/vb6-fidelity-oracle/the-coordinate-system-scalemode-scale-scalex-and-scaley.md).
+
+#### Scenario: An upward user scale
+
+- **WHEN** a form executes `Scale (0, 100)-(10, 0)`
+- **THEN** ScaleMode is 0, ScaleLeft is 0, ScaleTop is 100, ScaleWidth is 10 and ScaleHeight is -100
+- **AND** a later bare Scale returns the form to its client-area twip mapping
+
+#### Scenario: Invalid scales leave the mapping intact
+
+- **WHEN** a program sets an invalid ScaleMode or a zero ScaleWidth/ScaleHeight
+- **THEN** the interpreter raises 380
+- **WHEN** a Scale statement supplies a zero extent
+- **THEN** it raises 11 and retains the previous scale
+
+### Requirement: UDT parameters declared ByVal are refused
+
+The interpreter SHALL refuse a call to a Sub, Function or Property whose non-Optional parameter is declared ByVal with a UDT type, using `VBCompileErrorException("User-defined type may not be passed ByVal")`, as the call binds its parameters. vb6.exe refuses the build instead, even when the procedure is never called (measured, [#4673](https://github.com/hexide-io/HexIDE/issues/4673)); deciding that `As T` names a Type is binding, which the pre-pass does not do, so the refusal comes at the call. Declare, Event and Optional signatures SHALL retain their existing behaviour.
+
+#### Scenario: A call to a procedure with a ByVal UDT parameter
+- **WHEN** a statement calls a procedure that takes a UDT ByVal
+- **THEN** the statements before the call SHALL have run
+- **AND** the call SHALL raise "User-defined type may not be passed ByVal"
+
+#### Scenario: A procedure with a ByVal UDT parameter that is never called
+- **WHEN** a module declares a procedure that takes a UDT ByVal, and nothing calls it
+- **THEN** the module SHALL load and run, unlike in VB6
+- **AND** the difference SHALL be recorded as a missing error on a path never taken
+
+### Requirement: Form and PictureBox drawing at pen width one
+
+The interpreter SHALL execute Cls, PSet, Line and Point on each form and PictureBox's own surface through its
+coordinate system, with the state, syntax, pixels and refusals measured for
+[#988](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md) and
+[#990](../../../docs/vb6-fidelity-oracle/the-coordinate-system-scalemode-scale-scalex-and-scaley.md).
+
+#### Scenario: Runtime state and coordinate storage
+- **WHEN** a form or PictureBox loads
+- **THEN** its bitmap sits behind every control, and drawing state comes from saved values or measured defaults
+- **AND** CurrentX/CurrentY are Singles, DrawWidth/DrawStyle/DrawMode/FillStyle Integers, FillColor Long,
+  and AutoRedraw/FontTransparent Booleans
+- **AND** current positions remain whole twips rounded half to even and keep their physical positions across scale changes
+
+#### Scenario: Drawing placement follows display scaling and resizing
+- **WHEN** a form or PictureBox displays its drawing surface at any render scaling, including after resizing
+- **THEN** each bitmap pixel covers one device-independent unit, aligned with the contained controls
+- **AND** neighbouring bitmap pixels retain their own colours without smoothing
+- **AND** the surface covers the client area while retained pixels keep their positions; Point's pixel rules are unchanged
+
+#### Scenario: Graphics syntax and unsuitable receivers
+- **WHEN** either grammar parses graphics statements
+- **THEN** Line, PSet and Circle accept qualified or bare receivers, Step coordinates, short Line, B/BF boxes
+  and omitted Circle arguments, and reject the measured invalid syntax
+- **AND** Circle/PSet are reserved, Line/Cls nonreserved, and Cls: is a label
+- **WHEN** a graphics statement runs in a standard module without a suitable object
+- **THEN** it reports VB6's compile error as the statement executes; bare Cls remains an undefined Sub
+
+#### Scenario: Later and unmeasured drawing members refuse explicitly
+- **WHEN** Circle executes, or drawing uses DrawWidth above 1, DrawStyle other than 0, DrawMode other than 13
+  or FillStyle other than 0/1
+- **THEN** execution refuses with NotImplementedException naming #988
+- **AND** late-bound Line/PSet/Circle, FontTransparent assignments, Cls used as a value and unmeasured Cls/Point argument counts refuse likewise
+- **AND** an unrepresentable saved FillColor refuses instead of silently using black
+- **AND** AutoRedraw assignments are retained; persistence and Paint-event timing remain #991, and text drawing #989
+
+#### Scenario: Drawing and readback use distinct rounding paths
+- **WHEN** a form draws PSet (7.5, 7.5) in twips
+- **THEN** the point is kept at 8 twips and lights pixel (1, 1)
+- **AND** Point(7.5, 7.5) reads pixel (0, 0), which is still the background
+
+#### Scenario: Lines, boxes and clearing
+- **WHEN** a pixel-scale form draws Line (10, 10)-(20, 10)
+- **THEN** pixels 10 through 19 are drawn and pixel 20 is excluded
+- **AND** a B or BF box includes its far corner; B with FillStyle 0 fills its interior with FillColor
+- **WHEN** Cls runs
+- **THEN** the surface is cleared to BackColor and the current position returns to zero in the default twip scale
+
+#### Scenario: Overflow preserves the current position
+- **WHEN** PSet or Line receives a coordinate that overflows a Long in twips
+- **THEN** error 6 is raised without changing either current coordinate
+- **AND** Point returns Long -1 at the two measured outside points, but raises 6 for Point(1E+30, 0)
+- **AND** no additional VB6 backing-store boundary is asserted beyond the measured row outside the client area

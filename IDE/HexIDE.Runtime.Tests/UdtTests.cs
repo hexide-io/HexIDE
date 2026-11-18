@@ -4,7 +4,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// Interpreter-advanced Phase 2 — user-defined types (Type…End Type). The defining property is VALUE semantics:
-/// copy-on-assign at Let/ByVal/return, ByRef aliases, nested-field navigation. Array coverage lives in UdtArrayTests;
+/// copy-on-assign at Let/return, ByRef aliases, nested-field navigation. Array coverage lives in UdtArrayTests;
 /// fixed-length strings remain deferred.
 /// </summary>
 public class UdtTests : BaseVBTestFixture
@@ -91,18 +91,62 @@ public class UdtTests : BaseVBTestFixture
         AssertDebugLog([42]);
     }
 
-    [Fact]
-    public async Task ByVal_DoesNotMutate()
+    // A UDT parameter declared ByVal is VB6's compile error "User-defined type may not be passed ByVal" (measured native
+    // and p-code, #4673). It is refused as the call binds the parameter, after the statements before the call have run:
+    // telling that `As Point` names a Type is binding, which the pre-pass does not do (CLAUDE.md).
+    [Theory]
+    [InlineData("Sub NoFill(ByVal p As Point)\np.X = 42\nEnd Sub\nDim q As Point\nDebug.Print 1\nNoFill q\nDebug.Print 2\n")]
+    [InlineData("Function F(ByVal p As Point) As Integer\nF = p.X\nEnd Function\nDim q As Point\nDebug.Print 1\nDebug.Print F(q)\n")]
+    [InlineData("Property Let P(ByVal v As Point)\nEnd Property\nDim q As Point\nDebug.Print 1\nP = q\nDebug.Print 2\n")]
+    [InlineData("Property Get P(ByVal v As Point) As Integer\nP = v.X\nEnd Property\nDim q As Point\nDebug.Print 1\nDebug.Print P(q)\n")]
+    public async Task ByVal_UdtParameter_IsRefusedAtTheCall(string program)
     {
-        await Run(Point +
-            "Sub NoFill(ByVal p As Point)\n" +
-            "p.X = 42\n" +
-            "End Sub\n" +
-            "Dim q As Point\n" +
-            "q.X = 1\n" +
-            "NoFill q\n" +
-            "Debug.Print q.X\n");        // 1 — the copy was mutated, not q
+        Func<Task> run = () => Run(Point + program);
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*User-defined type may not be passed ByVal*");
         AssertDebugLog([1]);
+    }
+
+    [Fact]
+    public async Task ByVal_PrivateClassUdtParameter_IsRefusedAtTheCall()
+    {
+        Func<Task> run = () => RunClasses("Dim c As New C\nDebug.Print 1\nc.Go\n",
+            ("C", "Private " + Point + "Private Sub Take(ByVal p As Point)\nEnd Sub\nPublic Sub Go()\nDim r As Point\nTake r\nEnd Sub\n"));
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*User-defined type may not be passed ByVal*");
+        AssertDebugLog([1]);
+    }
+
+    [Fact]
+    public async Task ByVal_ForeignPublicUdtParameter_IsRefusedAtTheCall()
+    {
+        Func<Task> run = () => RunModules(
+            "Sub Take(ByVal p As Point)\nEnd Sub\nDim q As Point\nTake q\n", ("Shared", Point));
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*User-defined type may not be passed ByVal*");
+    }
+
+    [Fact]
+    public async Task A_ByVal_UDT_parameter_in_a_procedure_never_called_is_not_caught()
+    {
+        // vb6.exe refuses this build (#4673). The walk only binds parameters at a call, so a procedure nothing calls is
+        // a missing error on a path never taken: documented, in docs/MISSING_LANGUAGE.md and interpreter-core's spec.
+        await Run(Point + "Sub NeverCalled(ByVal p As Point)\nEnd Sub\nDebug.Print 1\n");
+        AssertDebugLog([1]);
+    }
+
+    [Fact]
+    public async Task ByVal_UdtDeclareParameter_StillLoads()
+    {
+        // #4673: this declaration builds in VB6; no native call is made here.
+        await Run(Point + "Private Declare Sub ZeroIt Lib \"kernel32\" Alias \"RtlZeroMemory\" (ByVal p As Point, ByVal n As Long)\n" +
+            "Debug.Print 1\n");
+        AssertDebugLog([1]);
+    }
+
+    [Fact]
+    public async Task ByVal_ClassAndEnumParameters_StillBind()
+    {
+        await RunClasses("Enum E\nValue = 1\nEnd Enum\nSub F(ByVal p As C, ByVal v As E)\nDebug.Print v\nEnd Sub\nDim o As New C\nF o, 1\n",
+            ("C", ""));
+        AssertDebugLog([new Vb6Value(1L)]);   // an Enum parameter is a Long (#1005)
     }
 
     [Fact]

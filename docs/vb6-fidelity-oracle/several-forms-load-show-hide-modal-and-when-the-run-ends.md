@@ -344,3 +344,71 @@ the default instance that was never loaded, came last, as the program ended.
   Initialize, as `f.Tag` does after `Unload f` for a plain `New` above.
 - **A module-level `As New` is its own instance,** not the form's default instance.
 - **An unloaded `As New` local terminates when its procedure returns,** as a plain `New` local does.
+
+### Who owns a modal form, and what F5 brings back (2026-11-18, #4618, SP6, IDE)
+
+**The probes.** vb6.exe SP6's IDE, run with F5 (p-code), on the guest's console session. A driver in that session clicked
+the buttons and pressed the keys. After each step it read the foreground window and every top-level window of VB6.EXE in
+z-order, each with `GetWindow(GW_OWNER)`, `IsWindowEnabled`, `IsIconic` and its extended style. Form2's Activate also
+logged `GetWindow(Me.hWnd, GW_OWNER)` itself.
+- **Two forms:** Form1, with a Timer retitling it and two buttons, and Form2. Rows a and b, run once.
+- **Three forms:** Form1, Form2 and Form3. Form1's Load shows Form3 modelessly. Rows c, d and e. Rows c and d ran twice
+  and row e once, with the same owners each time.
+
+**1. The owner.**
+
+| Row | Statement, and whose code runs it | Active form when it runs | Form2's owner |
+|---|---|---|---|
+| a | `Form2.Show vbModal`, in Form1's Click | Form1 | Form1 |
+| b | `Form2.Show vbModal, Form1`, in Form1's Click | Form1 | Form1 |
+| c | `Form2.Show vbModal, Form3`, in Form1's Click | Form1 | **Form3** |
+| d | `Form2.Show vbModal`, in Form1's Timer | **Form3**, by `Screen.ActiveForm` and the foreground | **Form1** |
+| e | `Form2.Show vbModal`, in Form3's Timer | **Form1**, by both | **Form3** |
+
+**The rule these rows support.** The modal form's owner is the owner-form argument when there is one. Otherwise it's the
+form whose code ran `Show`. It isn't the active form (rows d and e), and it isn't the program's hidden main window.
+
+**2. The same in every row.**
+- **Modeless forms are owned too, by the hidden main window.** Form1 and Form3 are each owned by an invisible
+  `ThunderMain` window titled with the project's name, whose extended style is &H80 (a tool window). Each form carries
+  &H40000, `WS_EX_APPWINDOW`, which is what gives it a taskbar button.
+- **The modal form has no taskbar button.** Form2's extended style is &H100 alone, without `WS_EX_APPWINDOW`, although
+  its `.frm` sets no `ShowInTaskbar`. During row a, Alt+Tab listed two entries, Form1 and the IDE, and none for Form2.
+- **Every other form is disabled.** Form1 and Form3 alike read `IsWindowEnabled` 0, whichever owns the modal form, and 1
+  again once Form2 has closed. The IDE's windows stay enabled.
+- **Closing Form2 brings back the form that was active before it, not its owner.** The foreground went to Form1 after
+  rows c and e, and to Form3 after row d.
+
+**3. Minimise and restore,** in rows a and b alike. The driver posted `WM_SYSCOMMAND` to each window, as its title-bar
+button would send.
+
+| Step | Foreground afterwards | VB6.EXE's windows afterwards, top first |
+|---|---|---|
+| `SC_MINIMIZE` to Form2 | the IDE | the IDE, Form2 minimised, Form1. **Form1 wasn't minimised** |
+| `SC_RESTORE` to Form2 | Form2 | Form2, Form1, the IDE |
+| `SC_MINIMIZE` to Form1, disabled under Form2 | Form2 | as before: **Form1 wasn't minimised** |
+
+A click on Form1's taskbar button wasn't tried. The last row is a posted message only.
+
+**4. Ctrl+Break, then F5.** The hidden main window, always directly below the forms, is left out.
+
+| Row | After Ctrl+Break: foreground; windows, top first | After F5 |
+|---|---|---|
+| a, b (owner Form1) | the IDE; the IDE, Form2, Form1 | Form2; Form2, Form1, the IDE |
+| c (owner Form3) | the IDE; the IDE, Form2, Form3, Form1 | Form2; Form2, Form3, **Form1**, the IDE |
+| d (owner Form1) | the IDE; the IDE, Form2, Form1, Form3 | Form2; Form2, Form1, **Form3**, the IDE |
+
+**F5 brings back every form of the program, not only the modal form and its owner.** In row c, Form1 owns nothing and
+isn't Form2's owner, and it came back above the IDE too, in the place it held before. Reasoned, not checked: every form
+is in one ownership tree under the hidden main window, and Windows raises an owned window's whole tree with it.
+
+**What was overturned.** The obvious guess, and #4618's own wording, was "the form beneath the modal one", which reads
+as the active form. Rows d and e pull the active form and the owner apart, and the owner follows the code that ran
+`Show`. And bringing back the modal form's owner alone is not what F5 does: row c brings back a form that owns nothing.
+
+**Not measured:**
+- a modal `Show` from a standard module, or from `Sub Main` with no form loaded;
+- an owner form that is hidden or not loaded;
+- a modeless `Show` with an owner form, `Form2.Show , Form1`;
+- the compiled program;
+- whether Form1 or Form3 gets Activate or Deactivate as the modal form closes: the probes logged no events of theirs.

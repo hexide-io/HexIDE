@@ -289,11 +289,27 @@ The container has no Node, so the three JSON-server tests skip there.
 
 ### Changing the add-in API
 
-`HexIDE.Core` guards the public API declared under `Addins/` with PublicApiAnalyzers. Put additions in
-`PublicAPI.Unshipped.txt`; `PublicAPI.Shipped.txt` records the existing SDK. A change or removal breaks
-compiled add-ins, RDCore's included, and needs the maintainer's decision. On SDK records, add init-only
-properties, never new positional parameters: those replace the constructor and `Deconstruct` (#4566).
-Ten types the SDK exposes from other Core namespaces are not baselined by this guard yet (#4609).
+`HexIDE.Core` guards the public API declared under `Addins/` and every Core type its signatures reach,
+with PublicApiAnalyzers. Today that includes the project model (`ProjectElements`), the component model
+(`Components`), the region types (`Language`), the project and form file interfaces, the serializer
+interfaces, the language-server entry and the LSP records the SDK reaches. A change to any of them is an
+add-in API change.
+
+The project, component and serializer types are add-in contract, marked provisional. They are covered
+because the SDK reaches them today, not because they have been settled as contract. Whether they stay in
+it or become provider-fed is decided under [#3411](https://github.com/hexide-io/HexIDE/issues/3411). If that narrows the SDK, the guard
+makes it a visible, reviewed break.
+
+Put additions in `PublicAPI.Unshipped.txt`; `PublicAPI.Shipped.txt` records the API already shipped. A
+change or removal breaks compiled add-ins, RDCore's included, and needs the maintainer's decision. On SDK
+records, add init-only properties, never new positional parameters: those replace the constructor and
+`Deconstruct` (#4566). The Debug-only host-code-page probe's entry is in
+`PublicAPI.Debug/PublicAPI.Shipped.txt`.
+
+`AddinPublicApiTests` walks the public signatures transitively. It fails when a signature reaches a new
+Core type without both an API type entry and an RS0016 `error` section for its declaring source file in
+`.editorconfig`, or reaches a type from another non-BCL assembly. Types unrelated to the SDK remain
+outside the guard; the SDK-reachable LSP messages live in `Lsp/Messages/AddinMessages.cs` (#4609).
 
 ### Add-ins without the signing key
 

@@ -50,9 +50,6 @@ public class CallByNameTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("CallByName(k, \"Count\", VbMethod)")]
-    [InlineData("CallByName(k, \"Item\", VbLet, \"a\")")]
-    [InlineData("CallByName(k, \"Add\", VbMethod, \"a\")")]
     [InlineData("CallByName(k, \"Item\")")]
     [InlineData("CallByName(k, 1, VbGet)")]
     [InlineData("CallByName(k, \"Item\", 1#, \"ka\")")]
@@ -60,6 +57,59 @@ public class CallByNameTests : BaseVBTestFixture
     {
         var run = () => Run("Dim k As New Collection\nDebug.Print " + expression + "\n");
         await run.Should().ThrowAsync<NotImplementedException>();
+    }
+
+    // Measured on vb6.exe SP6, native and p-code: hexide-io/HexIDE#4688 (oracle PR #4690).
+    // The six rows already matching main (duplicate key, missing Item and four direct calls) are regression guards.
+    [Theory]
+    [InlineData("Set k = New Collection", "v = CallByName(k, \"Count\", VbMethod)\nDebug.Print TypeName(v) & \" \" & v", "Long 0")]
+    [InlineData("Fill", "Debug.Print CallByName(k, \"Count\", VbMethod)", 2L)]
+    [InlineData("Fill\nSet vk = k", "Debug.Print CallByName(vk, \"Count\", VbMethod)", 2L)]
+    [InlineData("Fill", "v = CallByName(k, \"Add\", VbMethod, \"a\")\nDebug.Print TypeName(v) & \"|\" & k.Count & \"|\" & k(3)", "Empty|3|a")]
+    [InlineData("Fill", "CallByName k, \"Add\", VbMethod, \"b\", \"kb\", 1\nDebug.Print k.Count & \"|\" & k(1) & \"|\" & k(\"kb\")", "3|b|b")]
+    [InlineData("Fill", "CallByName k, \"Add\", VbMethod, \"c\", \"kc\", \"kx\"\nDebug.Print k.Count & \"|\" & k(1)", "3|c")]
+    [InlineData("Fill", "CallByName k, \"Add\", VbMethod, \"d\", \"kx\"", "err 457")]
+    [InlineData("Fill", "CallByName k, \"Remove\", VbMethod, 1\nDebug.Print k.Count & \"|\" & k(1)", "1|y")]
+    [InlineData("Fill", "CallByName k, \"Remove\", VbMethod, \"ky\"\nDebug.Print k.Count & \"|\" & k(1)", "1|x")]
+    [InlineData("Fill", "v = CallByName(k, \"Remove\", VbMethod, 1)\nDebug.Print TypeName(v) & \"|\" & k.Count", "Empty|1")]
+    [InlineData("Fill", "CallByName k, \"Remove\", VbMethod, 5", "err 9")]
+    [InlineData("Fill", "CallByName k, \"Remove\", VbMethod, \"nokey\"", "err 5")]
+    [InlineData("Fill", "v = CallByName(k, \"Item\", VbMethod, 5)", "err 9")]
+    [InlineData("Fill", "v = CallByName(k, \"Count\", VbMethod, 1)", "err 450")]
+    [InlineData("Fill", "v = CallByName(k, \"Item\", VbMethod)", "err 450")]
+    [InlineData("Fill", "v = CallByName(k, \"Nope\", VbMethod)", "err 438")]
+    [InlineData("Fill", "v = CallByName(k, \"Item\", VbLet, \"a\")", "err 438")]
+    [InlineData("Set k = New Collection\nk.Add New C1", "Debug.Print TypeName(CallByName(k, \"Item\", VbMethod, 1))", "C1")]
+    [InlineData("Set k = New Collection\nk.Add New C1", "Set o = CallByName(k, \"Item\", VbMethod, 1)\nDebug.Print TypeName(o) & \"|\" & (o Is k(1))", "C1|True")]
+    [InlineData("Set k = New Collection\nk.Add New C1", "Set v = CallByName(k, \"Item\", VbMethod, 1)\nDebug.Print TypeName(v) & \"|\" & (v Is k(1))", "C1|True")]
+    [InlineData("Set k = New Collection\nk.Add New C1", "v = CallByName(k, \"Item\", VbMethod, 1)", "err 438")]
+    [InlineData("Set k = New Collection\nk.Add New Collection", "Debug.Print TypeName(CallByName(k, \"Item\", VbMethod, 1))", "Collection")]
+    [InlineData("Fill", "k.Remove 5", "err 9")]
+    [InlineData("Fill", "k.Remove \"nokey\"", "err 5")]
+    [InlineData("Fill", "v = k(5)", "err 9")]
+    [InlineData("Set k = New Collection\nk.Add New C1", "v = k(1)", "err 438")]
+    public async Task Collection_MeasuredMembers(string setup, string statements, object expected)
+    {
+        await RunClasses($"""
+            Public k As Collection
+            Private Sub Fill()
+                Set k = New Collection
+                k.Add "x", "kx"
+                k.Add "y", "ky"
+            End Sub
+            Sub Main()
+                Dim v As Variant, vk As Variant, o As Object
+                On Error GoTo Failed
+                {setup}
+                {statements}
+                Exit Sub
+            Failed:
+                Debug.Print "err " & Err.Number
+            End Sub
+            Main
+
+            """, ("C1", "Public X As Long\n"));
+        AssertDebugLog([expected is long number ? new Vb6Value(number) : new Vb6Value((string)expected)]);
     }
 
     private const string Box = """
@@ -160,13 +210,6 @@ public class CallByNameTests : BaseVBTestFixture
     {
         await RunClasses("Dim c As New Box\nDim k As New Collection\nSet c.O = k\nDim v\nOn Error Resume Next\nv = CallByName(c, \"O\", VbGet)\nDebug.Print Err.Number\n", ("Box", Box));
         AssertDebugLog([new Vb6Value(450L)]);
-    }
-
-    [Fact]
-    public async Task ObjectResult_RefusesUntilSetHandlingIsImplemented()
-    {
-        var run = () => Run("Dim k As New Collection\nDim inner As New Collection\nk.Add inner, \"obj\"\nDim got As Object\nSet got = CallByName(k, \"Item\", VbMethod, \"obj\")\n");
-        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*object result*#2519*");
     }
 
     [Theory]

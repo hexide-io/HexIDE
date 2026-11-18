@@ -73,8 +73,10 @@ internal static class FormMembers
             return runtime.ActiveControl is { } control ? new Vb6Value(control) : Vb6Value.Nothing;
         if (IsControls(name) && form.Controls is { } controls)
             return new Vb6Value(controls);
-        if (IsScaleSize(name, out var vertical) && window is Avalonia.Controls.Window shown)
-            return AvaloniaInterop.ControlPositions.ScaleSize(shown, vertical);
+        if (RuntimeDrawing.TryGet(window, name, out var drawingValue))
+            return drawingValue;
+        if (RuntimeScale.TryGet(window, name, out var scaleValue))
+            return scaleValue;
         if (IsWindowState(name) && window is Avalonia.Controls.Window stateWindow)
             return ReadWindowState(stateWindow);
         foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(name, []))
@@ -97,14 +99,16 @@ internal static class FormMembers
             throw IdentityMembers.ReadOnlyAtRunTime("Name");
         if (!member.CanLet)
             throw new VBCompileErrorException(AssignToReadOnly);
-        if (IsScaleSize(name, out _))
-            throw new NotImplementedException($"Setting {form.ClassName}'s {name} is not implemented: it sets a scale of the program's own (#990)");
         var window = form.BuiltInMembersFor(name)!;
+        if (RuntimeDrawing.TrySet(window, name, value))
+            return;
         if (IsIcon(name))
         {
             WriteIcon(form, value);
             return;
         }
+        if (RuntimeScale.TrySet(window, name, value))
+            return;
         if (IsWindowState(name) && window is Avalonia.Controls.Window stateWindow)
         {
             WriteWindowState(stateWindow, value);
@@ -119,9 +123,13 @@ internal static class FormMembers
         throw new NotImplementedException($"Setting {form.ClassName}'s {name} is not implemented{TrackedBy(name)}");
     }
 
-    /// <summary>Call a method of the form, as <c>Me.Hide</c> does: through its window, which says when it can't.</summary>
-    public static Vb6Value Call(VbObject form, string name, IReadOnlyList<Vb6Value> args) =>
-        form.BuiltInMembersFor(name)!.Call(name, args);
+    /// <summary>Read a method's result through the form's window; statements use CallAsync directly.</summary>
+    public static Vb6Value Call(VbObject form, string name, IReadOnlyList<Vb6Value> args)
+    {
+        if (name.Equals("Cls", StringComparison.OrdinalIgnoreCase))
+            throw RuntimeDrawing.Refused("Cls used as a value");
+        return form.BuiltInMembersFor(name)!.Call(name, args);
+    }
 
     internal static bool IsIcon(string name) => string.Equals(name, "Icon", StringComparison.OrdinalIgnoreCase);
 
@@ -199,17 +207,10 @@ internal static class FormMembers
         _ => null,
     };
 
-    // ScaleWidth and ScaleHeight, which no property of the window holds: the client area, in the form's units (#1071).
-    private static bool IsScaleSize(string name, out bool vertical)
-    {
-        vertical = string.Equals(name, "ScaleHeight", StringComparison.OrdinalIgnoreCase);
-        return vertical || string.Equals(name, "ScaleWidth", StringComparison.OrdinalIgnoreCase);
-    }
-
     /// <summary>
     /// The issue that tracks a Form member HexIDE lacks, as its refusal names it, or empty where no issue does yet. A
     /// refusal that names its issue tells the reader whether it is known, and where to look.
     /// </summary>
     internal static string TrackedBy(string name) =>
-        name.StartsWith("Scale", StringComparison.OrdinalIgnoreCase) ? ": the form's coordinate system is #990" : "";
+        name.StartsWith("Scale", StringComparison.OrdinalIgnoreCase) ? ": the rest of the form's coordinate system is #4693" : "";
 }
