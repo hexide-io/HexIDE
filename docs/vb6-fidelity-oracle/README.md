@@ -830,6 +830,7 @@ added afterwards.
 - [Centimetres and millimetres, to the last bit (2026-11-18, #990, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#centimetres-and-millimetres-to-the-last-bit-2026-11-18-990-sp6)
 - [A control's size in a flipped scale, and Scale inside With (2026-11-18, #990, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#a-controls-size-in-a-flipped-scale-and-scale-inside-with-2026-11-18-990-sp6)
 - [The drawing methods: Line, PSet, Circle, Cls and Point (2026-11-18, #988, SP6)](the-drawing-methods-line-pset-circle-cls-and-point.md#the-drawing-methods-line-pset-circle-cls-and-point-2026-11-18-988-sp6)
+- [Circles, arcs, sectors and thick pens, pixel by pixel (2026-11-18, #988, SP6)](circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md#circles-arcs-sectors-and-thick-pens-pixel-by-pixel-2026-11-18-988-sp6)
 - [What an Enum member's value and a Type's array bounds may name (2026-11-18, #4594, #4595, SP6)](what-an-enum-members-value-and-a-types-bounds-may-name.md#what-an-enum-members-value-and-a-types-array-bounds-may-name-2026-11-18-4594-4595-sp6)
 - [Object array fields in a Type (2026-11-18, #4596, SP6)](object-array-fields-in-a-type.md#object-array-fields-in-a-type-2026-11-18-4596-sp6)
 - [With New, a default instance in its own Class_Initialize, and Set through members (2026-11-18, #4599 to #4607, SP6)](with-new-default-instances-and-set-through-members.md#with-new-a-default-instance-in-its-own-class_initialize-and-set-through-members-2026-11-18-4599-to-4607)
