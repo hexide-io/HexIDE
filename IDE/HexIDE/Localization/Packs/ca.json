@@ -2,6 +2,7 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} ja existeix. Voleu substituir-lo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} s’ha carregat amb errors i no es pot desar sobre el fitxer original. Trieu un nom de fitxer nou.",
     "Str.ProjectLoad.PropertyNotSet": "Línia {0}: no s’ha pogut definir la propietat {1} de {2}.",
     "Str.Menu.Edit.Refactor": "Refact_oritza",
@@ -327,6 +328,7 @@
     "Str.Menu.Help.LogFolder": "Obre la carpeta de _registres del HexIDE",
     "Str.Help.LogFolder.OpenFailed": "No s’ha pogut obrir la carpeta de registres. La podeu obrir manualment: {0}",
     "Str.Menu.Help.About": "_Quant a HexIDE...",
+    "Str.Menu.MacApp.About": "Quant a HexIDE",
     "Str.Menu.GoToGithubRepo": "Ves al repositori de GitHub",
     "Str.ProjectType.StandardEXE": "EXE estàndard",
     "Str.ProjectType.ActiveXEXE": "EXE ActiveX",

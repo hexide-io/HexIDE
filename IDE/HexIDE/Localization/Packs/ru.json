@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} уже существует. Заменить его?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} загружен с ошибками, поэтому сохранить его поверх исходного файла нельзя. Выберите новое имя файла.",
     "Str.ProjectLoad.PropertyNotSet": "Строка {0}: не удалось задать свойство {1} в {2}.",
     "Str.Menu.Edit.Refactor": "Рефакторинг",
@@ -338,6 +339,7 @@
     "Str.Menu.Help.LogFolder": "Открыть папку журналов HexIDE",
     "Str.Help.LogFolder.OpenFailed": "Не удалось открыть папку журналов. Вы можете открыть её вручную: {0}",
     "Str.Menu.Help.About": "О программе HexIDE...",
+    "Str.Menu.MacApp.About": "О программе HexIDE",
     "Str.Menu.GoToGithubRepo": "Перейти в репозиторий github",
     "Str.NewProject.NoTemplates": "В этом профиле нет шаблонов новых проектов. Откройте существующий проект.",
     "Str.NewProject.Msg.NoStandardExe": "В {0} не установлен тип проекта, создающий проект Standard EXE, поэтому запуск выполнен без проекта.",

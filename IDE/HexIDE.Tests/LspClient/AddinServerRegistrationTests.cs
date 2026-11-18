@@ -1207,7 +1207,7 @@ public class AddinServerRegistrationTests : IDisposable
         using var pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         var serving = pipe.WaitForConnectionAsync(Token).ContinueWith(_ =>
         {
-            var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(pipe, pipe, new SystemTextJsonFormatter()), server);
+            var rpc = new JsonRpc(new LspMessageHandler(pipe, pipe, new SystemTextJsonFormatter()), server);
             server.Rpc = rpc;
             rpc.StartListening();
             return rpc;
@@ -1419,7 +1419,7 @@ public class AddinServerRegistrationTests : IDisposable
                     try { await pipe.WaitForConnectionAsync(_stop.Token); }
                     catch (OperationCanceledException) { await pipe.DisposeAsync(); return; }
                     var probe = server();
-                    var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(pipe, pipe, new SystemTextJsonFormatter()), probe);
+                    var rpc = new JsonRpc(new LspMessageHandler(pipe, pipe, new SystemTextJsonFormatter()), probe);
                     probe.Rpc = rpc;
                     rpc.StartListening();
                     lock (_connections) _connections.Add((pipe, rpc));

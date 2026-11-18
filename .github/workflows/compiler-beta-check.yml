@@ -183,7 +183,7 @@ jobs:
             $title = "twinBASIC beta $beta fails the compiler adapter's tests"
             $log = Join-Path $env:RUNNER_TEMP test.log
             $excerpt = if (Test-Path $log) {
-              (Select-String -Path $log -Pattern 'error test failed|differs at offset|is only in beta|before \(beta|now \(beta|Failed!' |
+              (Select-String -Path $log -Pattern 'error test failed|^\s*failed |differs at offset|is only in beta|before \(beta|now \(beta|Failed!' |
                Select-Object -First 40 | ForEach-Object { $_.Line.Trim() }) -join "`n"
             }
             $body = "The [compiler beta check]($env:RUN) failed on beta $beta.`n`n" +

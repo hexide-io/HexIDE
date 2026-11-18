@@ -108,6 +108,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var leftValue = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(leftRaw, callerFrames: stmtFrames), context[0]);
         var rightRaw = await EvaluateValue(context[1]);
         var rightValue = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(rightRaw, callerFrames: stmtFrames), context[1]);
+        if (!leftValue.IsNull && !rightValue.IsNull
+            && (leftValue.Type == Vb6Value.ValueType.AutomationUnsignedLong || rightValue.Type == Vb6Value.ValueType.AutomationUnsignedLong))
+        {
+            if (context[0].Parent is VB6Parser.VsCompareContext comparison && comparison.EQ() != null)
+                throw new VBRunTimeException(context[0], VBStandardError.VariableUsesATypeNotSupportedInVisualBasic);
+            throw new NotImplementedException("Comparison of an unsigned Automation Long is unmeasured (#4513)");
+        }
         if (leftValue.Type == Vb6Value.ValueType.LongLong || rightValue.Type == Vb6Value.ValueType.LongLong)
         {
             if (leftValue.IsNull || rightValue.IsNull)
@@ -1970,6 +1977,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var memberIdentifier = member.GetText().TrimStart('.') ?? throw new VBRunTimeException(ctx, VBStandardError.ObjectRequired, "Null member name");
 
         CommonDialogMembers.Check(variable, memberIdentifier);
+        var throughObject = variable.HeldAsVariant || string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase);
+        if (variable.Value is VBCommonDialog dialog && dialog.TryGetProperty(memberIdentifier, out var dialogValue, throughObject))
+            return dialogValue;
 
         // A CSharp property bag (e.g. Err.Number) resolves its own properties by name.
         if (variable.Value is ICSharpPropertyBag propertyBag && propertyBag.TryGetProperty(memberIdentifier, out var bagValue))
@@ -2367,6 +2377,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     {
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
+        if (!subtract && (leftValue.Type == Vb6Value.ValueType.AutomationUnsignedLong || rightValue.Type == Vb6Value.ValueType.AutomationUnsignedLong))
+            throw new VBRunTimeException(context, VBStandardError.VariableUsesATypeNotSupportedInVisualBasic);
         if (subtract)
             return Typed(leftValue, rightValue, VbNumeric.Sub(leftValue, rightValue, context));
         if (leftValue.Type == Vb6Value.ValueType.String && rightValue.Type == Vb6Value.ValueType.String)
@@ -2392,6 +2404,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     {
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
+        if (!divide && (leftValue.Type == Vb6Value.ValueType.AutomationUnsignedLong || rightValue.Type == Vb6Value.ValueType.AutomationUnsignedLong))
+            throw new VBRunTimeException(context, VBStandardError.VariableUsesATypeNotSupportedInVisualBasic);
         return Typed(leftValue, rightValue, divide
             ? VbNumeric.RealDivide(leftValue, rightValue, context)
             : VbNumeric.Mul(leftValue, rightValue, context));

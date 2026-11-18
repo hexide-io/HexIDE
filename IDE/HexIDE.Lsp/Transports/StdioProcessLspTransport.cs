@@ -263,10 +263,10 @@ public sealed class StdioProcessLspTransport : ILspTransport
         NoteChannel($"process started with pid {_process.Id}");
         _input = new ChannelTapStream(ServerInput(_process.StandardInput.BaseStream), NoteChannel);
         _output = new ChannelTapStream(_process.StandardOutput.BaseStream, NoteChannel);
-        var handler = new HeaderDelimitedMessageHandler(
+        var handler = new LspMessageHandler(
             _input,
             _output,
-            formatter);
+            formatter, _logger);
 
         return Task.FromResult<IJsonRpcMessageHandler?>(handler);
     }
@@ -338,6 +338,13 @@ public sealed class StdioProcessLspTransport : ILspTransport
     {
         try { return _process?.HasExited == true ? _process.ExitCode : null; }
         catch (Exception) { return null; }
+    }
+
+    public bool TryEndOutput()
+    {
+        if (_input is null) return false;
+        try { _input.Dispose(); return true; }
+        catch { return false; /* already ended or disconnected */ }
     }
 
     public async ValueTask DisposeAsync()

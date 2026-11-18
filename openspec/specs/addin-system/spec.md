@@ -14,6 +14,25 @@ The trust decisions that gate loading — signing, consent, revocation — are a
 
 ## Requirements
 
+### Requirement: The add-in SDK SHALL have a reviewed public API baseline
+The build SHALL check public symbols of types declared under `HexIDE.Core/Addins/`, including record
+constructors and `Deconstruct`, with PublicApiAnalyzers. Additions SHALL go in `PublicAPI.Unshipped.txt`;
+changes and removals from `PublicAPI.Shipped.txt` SHALL fail until the maintainer reviews them. Other Core
+namespaces SHALL remain outside the baseline, including types exposed by SDK signatures.
+
+#### Scenario: Changing a positional record signature
+- **WHEN** a positional parameter is added to or reordered in `AddinEditResult`
+- **THEN** the build fails with API diagnostics for its constructor and `Deconstruct`
+
+#### Scenario: Adding a public SDK member
+- **WHEN** a public SDK member is added without an API entry
+- **THEN** the build fails with RS0016
+- **AND** recording the addition in `PublicAPI.Unshipped.txt` permits the build
+
+#### Scenario: Adding a public Core member outside the SDK
+- **WHEN** a public member is added outside `Addins/`
+- **THEN** the API guard does not require a baseline entry for that member
+
 ### Requirement: Add-ins SHALL extend the IDE through a curated host surface
 An add-in SHALL receive a single host object at initialization and SHALL reach every IDE capability through
 it, and the IDE SHALL NOT require an add-in to reference its internal assemblies.

@@ -2,6 +2,7 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.FilePicker.ReplaceExisting": "{0} už existuje. Chcete ho nahradiť?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} bol načítaný s chybami, preto nemôže prepísať pôvodný súbor. Vyberte nový názov súboru.",
     "Str.ProjectLoad.PropertyNotSet": "Riadok {0}: vlastnosť {1} v {2} sa nepodarilo nastaviť.",
     "Str.Menu.Edit.Refactor": "Re_faktoring",
@@ -299,6 +300,7 @@
     "Str.Menu.Help.LogFolder": "Otvoriť priečinok _záznamov HexIDE",
     "Str.Help.LogFolder.OpenFailed": "Priečinok záznamov sa nepodarilo otvoriť. Môžete ho otvoriť ručne: {0}",
     "Str.Menu.Help.About": "_O programe HexIDE...",
+    "Str.Menu.MacApp.About": "O programe HexIDE",
     "Str.Menu.GoToGithubRepo": "Prejsť do repozitára na GitHube",
     "Str.ProjectType.StandardEXE": "Štandardný EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",

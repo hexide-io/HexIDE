@@ -31,6 +31,9 @@ public class MakeOutcomesTests : IDisposable
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         windows.MessageBox(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>())
             .ReturnsForAnyArgs(unanswered.Task);
+        // Agree to replacement so this test reaches the behavior it checks (#4505).
+        windows.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning,
+            layout: MessageBoxLayout.SecondButtonDefault).Returns(MessageBoxResult.Yes);
     }
 
     public void Dispose() => Directory.Delete(ide, true);

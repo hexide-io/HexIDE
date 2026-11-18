@@ -52,13 +52,13 @@ public class SelectionRangeTests
         var server = new Server(provider, answer);
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
         using var serverRpc = new JsonRpc(
-            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
+            new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
         serverRpc.StartListening();
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
-                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+                new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
         await using var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6");
         await client.StartAsync(TestContext.Current.CancellationToken);
 

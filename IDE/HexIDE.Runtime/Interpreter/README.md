@@ -116,10 +116,10 @@ integration tests cover it on forms.
 
 ```sh
 # All interpreter tests (from repo root)
-cd IDE && dotnet test HexIDE.Runtime.Tests/
+cd IDE && dotnet test --project HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj
 
 # A single test
-cd IDE && dotnet test HexIDE.Runtime.Tests/ -- --filter-method "*CopyOnAssign_IsIndependent"
+cd IDE && dotnet test --project HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --filter-method "*CopyOnAssign_IsIndependent"
 ```
 
 Runtime tests inherit `BaseVBTestFixture`: call `await Run("<VB6 code>")` (or `RunModules(...)` for multi-module),

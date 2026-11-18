@@ -2679,6 +2679,10 @@ public sealed class VBLspClient : ILspClient
     /// <summary>How long stopping waits on a server, once for the answer to <c>shutdown</c> and once for <c>exit</c> to go out.</summary>
     internal static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(2);
 
+    // One second lets a cooperative peer finish its last output; it bounds the extra stop cost
+    // when a peer accepts exit but keeps its output open (#4484).
+    internal static readonly TimeSpan ServerOutputEndTimeout = TimeSpan.FromSeconds(1);
+
     public async Task StopAsync()
     {
         if (_settings is not null) _settings.PropertyChanged -= OnSettingsChanged;
@@ -2727,6 +2731,13 @@ public sealed class VBLspClient : ILspClient
             {
                 await rpc.NotifyWithParameterObjectAsync("exit", null).WaitAsync(ShutdownTimeout);
                 if (shutdownAnswered) _transport.ShutdownCompleted();
+                // Only a sent exit permits half-close. If its write timed out, DisposeRpc below must
+                // end stuck writes immediately (#1221). Attached servers never enter this path.
+                if (_transport.TryEndOutput())
+                {
+                    try { await rpc.Completion.WaitAsync(ServerOutputEndTimeout); }
+                    catch { /* bounded best effort: retain RPC-before-transport disposal */ }
+                }
             }
             catch { }
         }

@@ -2213,3 +2213,23 @@ measuring PR #4241).
 #### Scenario: Noncanonical Boolean bits cannot be represented
 - **WHEN** copying bytes would put `01 00` into a Boolean field
 - **THEN** the statement explicitly refuses as not implemented rather than normalising the bits
+
+### Requirement: CommonDialog Color follows runtime binding
+The interpreter SHALL return a Long for early-bound CommonDialog Color reads and an unsigned Automation Long
+(VarType 19) through Object or Variant, using the measured conversions and assignment rows in
+[#4513](https://github.com/hexide-io/HexIDE/issues/4513) (oracle PR #4508). It SHALL retain explicit refusals for
+unmeasured unsigned numeric uses. CallByName remains outside this support (#4520).
+
+#### Scenario: The same system colour is read through different bindings
+- **WHEN** Color is `&H80000005`
+- **THEN** an early-bound Double store receives -2147483643, while a late-bound Double store receives 2147483653
+- **AND** a late-bound Long store or CLng wraps to -2147483643
+
+#### Scenario: Minus one is assigned through different bindings
+- **WHEN** the Integer -1 is assigned to Color
+- **THEN** early binding raises 380 and late binding raises 6, leaving Color unchanged
+
+#### Scenario: Unsupported Automation operations are measured
+- **WHEN** TypeName, addition, multiplication or equality uses a late-bound Color
+- **THEN** error 458 is raised
+- **AND** IsNumeric on that Color is False

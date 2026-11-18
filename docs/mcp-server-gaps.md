@@ -132,7 +132,7 @@ reply — a field that is always populated stops being read.
 - A reply that mutates reports the new state, and reports it even when the answer is empty.
 
 Tool and parameter descriptions have a 2,048-character cap (`ToolDescriptionLengthTests`). After editing
-one, run `cd IDE && dotnet test HexIDE.Tests/ -- --filter-trait "Category=ToolDescription"` (#2903).
+one, run `cd IDE && dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj -- --filter-trait "Category=ToolDescription"` (#2903).
 `[ToolDescription]` marks every class that pins this text, including classes whose names do not mention
 descriptions. `ToolDescriptionMarkerTests` guards against an unmarked class reading `Description` or
 `AllText` from `ToolSource`; run the same filter when adding a pin.

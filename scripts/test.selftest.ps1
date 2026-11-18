@@ -28,6 +28,12 @@ function Check($project, $arguments, $expected, $status = 0) {
         ConvertTo-Json | Set-Content (Join-Path $fixture 'invocation.json')
     $output = & $powerShell -NoProfile -File $child 2>&1 | Out-String
     if ($LASTEXITCODE -ne $status) { throw "Wrong exit code for ${project}: $LASTEXITCODE; $output" }
+    $expected = @($expected)
+    if ($expected.Count -gt 0) {
+        $path = [string]$expected[1]
+        if (-not $path.EndsWith('.csproj')) { $path = Join-Path $path ((Split-Path $path -Leaf) + '.csproj') }
+        $expected = @('test', '--project', $path) + @($expected | Select-Object -Skip 2)
+    }
     $captured = @()
     if (Test-Path $capturePath) { $captured = @(Get-Content $capturePath -Raw | ConvertFrom-Json | Write-Output) }
     if (($captured -join '|') -cne ($expected -join '|')) {
@@ -62,6 +68,18 @@ try {
         'test', (Join-Path $root 'IDE/HexIDE.Tests/HexIDE.Tests.csproj'), '--', '--minimum-expected-tests', '7')
     Check 'IDE/HexIDE.Tests' @('--', '--minimum-expected-tests=7') @(
         'test', (Join-Path $root 'IDE/HexIDE.Tests'), '--', '--minimum-expected-tests=7')
+    Check 'IDE/HexIDE.Tests' @('--', '--results-directory', 'TestResults') @(
+        'test', (Join-Path $root 'IDE/HexIDE.Tests'), '--', '--minimum-expected-tests',
+        ([regex]::Match($workflow, '(?m)^  MIN_TESTS_IDE: *([0-9]+)').Groups[1].Value),
+        '--results-directory', (Join-Path $root 'IDE/HexIDE.Tests/TestResults'))
+    Check 'IDE/HexIDE.Tests' @('--', '--filter-class', '*Example*', '--results-directory=reports') @(
+        'test', (Join-Path $root 'IDE/HexIDE.Tests'), '--', '--minimum-expected-tests', '1',
+        '--filter-class', '*Example*', ('--results-directory=' + (Join-Path $root 'IDE/HexIDE.Tests/reports')))
+    $absoluteResults = Join-Path $fixture 'reports'
+    Check 'IDE/HexIDE.Tests' @('--', '--results-directory', $absoluteResults) @(
+        'test', (Join-Path $root 'IDE/HexIDE.Tests'), '--', '--minimum-expected-tests',
+        ([regex]::Match($workflow, '(?m)^  MIN_TESTS_IDE: *([0-9]+)').Groups[1].Value),
+        '--results-directory', $absoluteResults)
     $fakeResult = 1
     Check 'IDE/HexIDE.Tests' @('--', '--filter-class', '*Example*') @(
         'test', (Join-Path $root 'IDE/HexIDE.Tests'), '--', '--minimum-expected-tests', '1', '--filter-class', '*Example*') 1

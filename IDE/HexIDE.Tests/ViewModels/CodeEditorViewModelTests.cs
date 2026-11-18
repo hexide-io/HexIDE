@@ -100,6 +100,74 @@ public class CodeEditorViewModelTests : IDisposable
         result.Modules.Single().Procedures.Should().Equal("Bump", "Value(Get)", "Value(Let)", "Value(Set)");
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GeneralProceduresExcludeDesignerControlsFromNestedSymbols(bool controlArray)
+    {
+        // RDCore's designer members share Property kind with accessors (#4526).
+        var root = new HexIDE.Runtime.Components.ComponentInstance(
+            HexIDE.Runtime.Components.FormComponentClass.Instance, "Form1");
+        var shape = new HexIDE.Runtime.Components.ComponentInstance(
+            HexIDE.Runtime.Components.ShapeComponentClass.Instance, "Shape1");
+        if (controlArray)
+            shape.UnknownRawProperties.Add(new HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty("Index", ["      Index = 0"]));
+        var components = new List<HexIDE.Runtime.Components.ComponentInstance> { root, shape };
+        if (controlArray)
+        {
+            var second = new HexIDE.Runtime.Components.ComponentInstance(
+                HexIDE.Runtime.Components.ShapeComponentClass.Instance, "Shape1");
+            second.UnknownRawProperties.Add(new HexIDE.Runtime.Components.ComponentInstance.UnknownRawProperty("Index", ["      Index = 1"]));
+            components.Add(second);
+        }
+        var form = new FormDefinition(TestHelpers.CreateProject(), components, "");
+        var editor = CreateSut().Initialize(form);
+        var range = new HexIDE.Lsp.Messages.Range(new Position(18, 0), new Position(22, 28));
+        var empty = new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(0, 0));
+        _lspClient.IsRunning.Returns(true);
+        _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
+            [new DocumentSymbol("Form1", SymbolKind.Class, range, range, Children:
+            [
+                new("Shape1", SymbolKind.Property, empty, empty),
+                new("Bump", SymbolKind.Method, range, range),
+                new("Form_Load", SymbolKind.Method, range, range),
+                new("Form", SymbolKind.Method, range, range),
+                new("Value", SymbolKind.Property, range, range),
+                new("ZeroWidth", SymbolKind.Function, empty, empty)
+            ])]);
+
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        editor.SelectedObject.Should().Be("(General)");
+        editor.ObjectNames.Should().Contain("Shape1");
+        editor.ProcedureNames.Should().Equal("(Declarations)", "Bump", "Form_Load", "Form", "Value", "ZeroWidth");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(null)]
+    [InlineData(ModuleKind.StandardModule)]
+    [InlineData(ModuleKind.ClassModule)]
+    public async Task GeneralProceduresKeepFlatSymbols(ModuleKind? kind)
+    {
+        var vm = CreateSut();
+        var editor = kind is { } moduleKind
+            ? vm.Initialize(TestHelpers.CreateModule(kind: moduleKind))
+            : vm.Initialize(TestHelpers.CreateForm());
+        var range = new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(1, 0));
+        _lspClient.IsRunning.Returns(true);
+        _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
+            [new DocumentSymbol("Bump", SymbolKind.Method, range, range),
+             new DocumentSymbol("Value (Get)", SymbolKind.Property, range, range),
+             new DocumentSymbol("Value (Let)", SymbolKind.Property, range, range),
+             new DocumentSymbol("Value (Set)", SymbolKind.Property, range, range)]);
+
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        editor.ProcedureNames.Should().Equal("(Declarations)", "Bump", "Value (Get)", "Value (Let)", "Value (Set)");
+    }
+
     [AvaloniaFact]
     public async Task PropertyChosenThroughDialogEvaluatesInItsFrame()
     {
@@ -221,7 +289,7 @@ public class CodeEditorViewModelTests : IDisposable
         dialog.Procedures.Should().Equal("(All Procedures)");
         dialog.OkCommand.Execute(null);
         watches.Service.Watches.Last().Context.Should().Be("(All Modules)");
-        watches.Rows.Last().Context.Should().BeEmpty();
+        watches.Rows.Single(row => row.Watch == watches.Service.Watches.Last()).Context.Should().BeEmpty();
     }
 
     [AvaloniaFact]

@@ -425,6 +425,9 @@ public sealed class ContributedProjectFileTests : IDisposable
         using var type = Contribute();
         var project = await Opened();
         PickForSave(ProjectFile);
+        // Agree to replacement so the member-over-project refusal is still reached (#4505).
+        _windows.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning,
+            layout: MessageBoxLayout.SecondButtonDefault).Returns(MessageBoxResult.Yes);
 
         var save = () => _service.SaveModule(project.Modules.Single(), saveAs: true);
 
@@ -442,6 +445,9 @@ public sealed class ContributedProjectFileTests : IDisposable
         await _service.OpenProject(vbp);
         var project = _loaded.Should().ContainSingle().Subject;
         PickForSave(vbp);
+        // Agree to replacement so the member-over-project refusal is still reached (#4505).
+        _windows.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning,
+            layout: MessageBoxLayout.SecondButtonDefault).Returns(MessageBoxResult.Yes);
 
         var save = () => _service.SaveModule(project.Modules.Single(), saveAs: true);
 

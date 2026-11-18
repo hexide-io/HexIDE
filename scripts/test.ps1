@@ -46,7 +46,26 @@ try {
             @('--minimum-expected-tests', $floor) + $runnerArgs
     }
     Write-Host "test.ps1: $project; minimum expected tests: $floor"
-    & dotnet test $projectPath @testArgs
+    if (Test-Path $projectPath -PathType Container) {
+        $projectPath = Join-Path $projectPath ((Split-Path $projectPath -Leaf) + ".csproj")
+    }
+    # Native MTP resolves report paths from the caller, whereas forwarding used the project directory.
+    $projectDirectory = Split-Path $projectPath -Parent
+    for ($i = $separator + 1; $i -lt $testArgs.Count; $i++) {
+        $option = [string]$testArgs[$i]
+        if ($option -eq '--results-directory' -and $i + 1 -lt $testArgs.Count) {
+            $i++
+            if (-not [System.IO.Path]::IsPathRooted([string]$testArgs[$i])) {
+                $testArgs[$i] = Join-Path $projectDirectory ([string]$testArgs[$i])
+            }
+        } elseif ($option.StartsWith('--results-directory=')) {
+            $path = $option.Substring('--results-directory='.Length)
+            if (-not [System.IO.Path]::IsPathRooted($path)) {
+                $testArgs[$i] = '--results-directory=' + (Join-Path $projectDirectory $path)
+            }
+        }
+    }
+    & dotnet test --project $projectPath @testArgs
     $result = $LASTEXITCODE
     # MTP can print Passed! even when its minimum-test policy fails. The exit code is authoritative.
     if ($result -eq 0) {

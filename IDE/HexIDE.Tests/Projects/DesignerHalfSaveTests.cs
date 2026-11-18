@@ -125,6 +125,9 @@ public class DesignerHalfSaveTests : IDisposable
     [Fact]
     public async Task Save_As_from_a_designer_half_asks_for_a_ctl()
     {
+        // Save As selects the existing .ctl; agree so the test reaches the module writer (#4505).
+        windowManager.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning,
+            layout: MessageBoxLayout.SecondButtonDefault).Returns(MessageBoxResult.Yes);
         var svc = MakeService();
         var module = await AddNew(svc, SavedProject(), "UserControl");
         await svc.SaveForm(module.FormPart!, saveAs: false, interactive: false);

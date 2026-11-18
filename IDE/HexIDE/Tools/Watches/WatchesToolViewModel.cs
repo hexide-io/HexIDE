@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -94,11 +95,18 @@ public partial class WatchesToolViewModel : Tool
         if (externalDebugger is not null) externalDebugger.Changed += () => RefreshExternal();
     }
 
+    // Stable ordinal ordering matches the measured VB6 rows (#4543); the store keeps added order.
+    public IEnumerable<WatchRowViewModel> BuildInterpreterRows()
+        => _watchService.Watches.Select(w => new WatchRowViewModel(w, _localization))
+            .OrderBy(row => row.Context, StringComparer.Ordinal)
+            .ThenBy(row => row.Expression, StringComparer.Ordinal);
+
     private void RebuildRows()
     {
         SelectedItem = null;
         Rows = new ObservableCollection<WatchRowViewModel>(
-            ActiveService.Watches.Select(w => new WatchRowViewModel(w, _localization)));
+            showingExternal ? ExternalService.Watches.Select(w => new WatchRowViewModel(w, _localization))
+                : BuildInterpreterRows());
         foreach (var row in Rows)
             row.Update(null, inactive: !showingExternal && !_debug.IsSessionActive);
     }

@@ -51,13 +51,13 @@ public class EditorRedockTests
         using var serverSide = serverStream;
         var server = new Server();
         if (!answersPending) server.ReleaseAnswers();
-        using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(serverStream, serverStream,
+        using var rpc = new JsonRpc(new LspMessageHandler(serverStream, serverStream,
             new SystemTextJsonFormatter()), server);
         rpc.StartListening();
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(
+            .Returns(call => Task.FromResult<IJsonRpcMessageHandler?>(new LspMessageHandler(
                 clientStream, clientStream, call.Arg<IJsonRpcMessageFormatter>())));
         await using var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6);
         await client.StartAsync(cancellation);
@@ -315,13 +315,13 @@ public class EditorRedockTests
         VBLspClient Connect(Server server)
         {
             var (clientSide, serverSide) = FullDuplexStream.CreatePair();
-            var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
+            var rpc = new JsonRpc(new LspMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
             servers.Add(rpc);
             rpc.StartListening();
             var transport = Substitute.For<ILspTransport>();
             transport.IsAlive.Returns(true);
             transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
-                .Returns(call => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(
+                .Returns(call => Task.FromResult<IJsonRpcMessageHandler?>(new LspMessageHandler(
                     clientSide, clientSide, call.Arg<IJsonRpcMessageFormatter>())));
             var connected = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6);
             return connected;
