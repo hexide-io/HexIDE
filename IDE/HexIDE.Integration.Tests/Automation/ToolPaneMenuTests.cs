@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Dock.Avalonia.Controls;
 using HexIDE.Automation;
+using HexIDE.IDE;
 
 namespace HexIDE.Integration.Tests.Automation;
 
@@ -17,7 +18,14 @@ public class ToolPaneMenuTests
     [AvaloniaFact]
     public async Task Immediate_title_bar_opens_its_menu_and_collapse_removes_the_overlay()
     {
+        // The profile is shared by every test in the process (TemporaryProfile), and a composition builds its layout from the
+        // profile's saved dock-layout.json. One saved after a test opened the Immediate pane lists it, which is the state
+        // #4521 failed in, so start from that state rather than from whatever ran before.
+        using var layout = new ImmediateOpenLayout();
         await using var owned = new RealComposition();
+        // DISetup's Root is transient: every read builds a new MainViewViewModel, whose layout adopts the singleton panes
+        // it lists, the Immediate pane among them. So read it once, and find the chrome by the dock built here (#4521).
+        var main = owned.Composition.Root;
         var window = ToolbarAutomationNameTests.ShowMainView();
         var app = new App();
         app.LoadMarkup();
@@ -31,8 +39,8 @@ public class ToolPaneMenuTests
             window.Styles.Add(style);
         }
         window.DataTemplates.Add(new ViewLocator());
-        ((MainView)window.Content!).DataContext = owned.Composition.Root;
-        var immediate = owned.Composition.Root.Immediate;
+        ((MainView)window.Content!).DataContext = main;
+        var immediate = main.Immediate;
         var factory = new Dock.Model.Mvvm.Factory();
         var tools = new Dock.Model.Mvvm.Controls.ToolDock
         {
@@ -49,7 +57,7 @@ public class ToolPaneMenuTests
         try
         {
             var chrome = window.GetVisualDescendants().OfType<ToolChromeControl>()
-                .Single(c => ReferenceEquals(c.DataContext, owned.Composition.Root.Immediate.Owner));
+                .Single(c => ReferenceEquals(c.DataContext, tools));
             var border = chrome.GetVisualDescendants().OfType<Border>().Single(c => c.Name == "PART_Border" && ReferenceEquals(c.TemplatedParent, chrome));
             var flyout = (PopupFlyoutBase)border.ContextFlyout!;
             var peer = ControlAutomationPeer.CreatePeerForElement(chrome);
@@ -85,5 +93,27 @@ public class ToolPaneMenuTests
             flyout.Hide();
         }
         finally { window.Close(); }
+    }
+
+    /// <summary>Saves a layout that lists the Immediate pane as open, and puts back what was saved before.</summary>
+    private sealed class ImmediateOpenLayout : IDisposable
+    {
+        private readonly string path = UserDataPath.For("dock-layout.json");
+        private readonly string? saved;
+
+        public ImmediateOpenLayout()
+        {
+            saved = File.Exists(path) ? File.ReadAllText(path) : null;
+            File.WriteAllText(path, LayoutManifestJson.Serialize(LayoutManifest.Default with
+            {
+                Tools = LayoutManifest.Default.Tools.Select(t => t.Key == "immediate" ? t with { Open = true } : t).ToArray(),
+            }));
+        }
+
+        public void Dispose()
+        {
+            if (saved is null) File.Delete(path);
+            else File.WriteAllText(path, saved);
+        }
     }
 }
