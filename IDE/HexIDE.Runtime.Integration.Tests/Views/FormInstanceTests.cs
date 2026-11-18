@@ -811,18 +811,26 @@ public class FormInstanceTests
     }
 
     [AvaloniaTheory]
-    [InlineData("    CurrentX = 0", "Setting Form1's CurrentX")]
-    [InlineData("    Cls", "Cls method")]
     [InlineData("    Debug.Print TextWidth(\"abc\")", "TextWidth method")]
     public void A_member_VB6s_Form_has_and_HexIDE_lacks_is_refused_as_not_implemented(string statement, string named)
     {
-        // VB6 has each (measured where it matters: Cls runs, TextWidth is a Single). Quietly making a variable of CurrentX, or
-        // saying "Sub or Function not defined" for Cls, would hide that HexIDE lacks it. Controls was here until #1060.
+        // Controls runs since #1060, and CurrentX/Cls since #988. Text output remains #989.
         var run = RunFormLoad(statement + "\n    Debug.Print \"ran\"");
 
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
             .Which.Message.Should().Contain(named);
         run.Printed.Should().BeEmpty();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("    CurrentX = 0")]
+    [InlineData("    CurrentX = 100\n    CurrentY = 200\n    Cls")]
+    public void CurrentX_and_Cls_are_the_forms_drawing_members(string statement)
+    {
+        // #988: docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md.
+        var run = RunFormLoad(statement + "\n    Debug.Print CStr(CurrentX) & \" \" & TypeName(CurrentX)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("0 Single");
     }
 
     [AvaloniaTheory]

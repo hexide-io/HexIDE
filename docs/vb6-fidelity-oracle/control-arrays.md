@@ -121,3 +121,49 @@ saved with Ctrl+S and read back from the `.frm`.
   - an element whose Index is set to something other than 0;
   - a control array made by naming or pasting a second control (that's #1397);
   - a handler whose other parameters are wrong, such as a MouseDown with a mistyped `Button`.
+
+### For Each over a control array (2026-11-18, #4716)
+
+**The question.** One earlier row, in [a form-based game's runtime surface](a-form-based-games-runtime-surface.md),
+found that `For Each c In lblCell` visits elements 0, 1 and 5. What order does the walk take when the file, the
+indices and the loads disagree? What may the loop variable be, what does it hold afterwards, and what happens when
+the program loads or unloads elements during the walk?
+
+**The probe.**
+- **Build:** VB6 SP6, `/make`, native code and p-code, which logged every row identically.
+- **The form:** a Label array `L`, whose blocks are written in the file as `L(5)`, `L(0)`, `L(2)`; a TextBox array
+  `T(0)`, `T(1)`; and a menu array `mnuA(0)`, `mnuA(1)`.
+- **The run:** a Sub Main program loads Form1 and runs each loop from a module, through `Form1.L`.
+- **The String-typed loop variable** was built as a project of its own.
+
+| Row | VB6 |
+|---|---|
+| `For Each c In L` (Variant `c`), printing `Index` and `TypeName` | `0:Label 2:Label 5:Label` |
+| `c` after the loop runs out | `Empty` |
+| `Load L(9)`, then `Load L(3)`, then walk | `0 2 3 5 9` |
+| `Load L(9)`, `Load L(3)`, `Unload L(9)`, `Load L(9)`, then walk | `0 2 3 5 9` |
+| `ct As Control`, `o As Object`, or `lb As Label` | `0 2 5`, and the variable is `Nothing` afterwards |
+| `tb As TextBox`, over the Labels | **13** at the first element |
+| `sv As String` | compile error "For Each control variable must be Variant or Object" |
+| `Exit For` at index 2 | `0 2`; `c.Index` is 2 afterwards |
+| `Load L(9)`; at index 2, `Unload L(9)` | `0 2 5`, then **340** "Control array element '9' doesn't exist" |
+| `L(7)` and `L(9)` loaded; at index 2, `Unload L(7)`, under `On Error Resume Next` | `0 2 5 9`. The body for 9 starts with `Err.Number` 340; `c` is `Empty` after |
+| at index 2, `Load L(4)` | `0 2 5` |
+| `Load L(3)`; at index 3, `Unload L(3)` | `0 2 3 5` |
+| `Load L(7)`; at index 2, `Unload L(7)`, `Load L(7)`, and its Caption set to `new` | `0=L0 2=L2 5=L5 7=new` |
+| `Set c = Nothing` inside the body | `0 2 5` |
+| a `For Each` over `L` nested in another | 9 passes |
+| the TextBox array; the menu array | `0=t0 1=t1`; `0=A0 1=A1` |
+| `Set a = L` (`a As Object`), then `For Each c In a`; the same through a Variant | `0 2 5`; `TypeName(a)` is `Object` |
+
+**Readings:**
+- **The walk takes the indices, sorted, when the loop starts:** not the order the file lists the blocks in, nor the
+  order the program loaded them in. An element loaded during the walk isn't visited.
+- **It looks each element up when the walk reaches it.** One unloaded since the start raises 340 there. One
+  unloaded and loaded again is visited as the new control. Under Resume Next the 340 is recorded and the walk goes on
+  to the next index: the 340 belongs to the step, not to the body.
+- **The loop variable** is a Variant or an object reference, as for a Collection. A loop that runs out leaves a
+  Variant `Empty` and an object variable `Nothing`, and `Exit For` leaves it holding the element it reached.
+  Reassigning it inside the body doesn't disturb the walk.
+
+**Not measured:** a CommonDialog array of more than one element (#4148).

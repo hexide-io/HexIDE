@@ -88,20 +88,67 @@ public class StringNumberComparisonTests : BaseVBTestFixture
             """);
         AssertDebugLog([new Vb6Value(expected)]);
     }
+    // Measured on vb6.exe SP6, native and p-code: #211's 2026-11-18 comment, oracle PR #4687.
     [Theory]
-    [InlineData("String", "CDec(1)")]
-    [InlineData("Variant", "CDec(1)")]
-    [InlineData("Variant", "CCur(1)")]
-    [InlineData("Variant", "True")]
-    [InlineData("Variant", "#1/1/2000#")]
-    public async Task Unmeasured_domains_refuse_untrappably(string declaredType, string number)
+    [InlineData("s = \"1\"", "s = CDec(1)", "True")]
+    [InlineData("s = \"1.0\"", "s = CDec(1)", "False")]
+    [InlineData("s = \"1.0\"", "CDec(1) = s", "False")]
+    [InlineData("s = \"1.00001\"", "s = CDec(1)", "False")]
+    [InlineData("s = \"10\"", "s < CDec(9)", "True")]
+    [InlineData("s = \"10\"", "CDec(9) > s", "True")]
+    [InlineData("s = \"2\"", "s > CDec(10)", "True")]
+    [InlineData("s = \"abc\"", "s = CDec(1)", "False")]
+    [InlineData("v = \"1\"", "v = CDec(1)", "False")]
+    [InlineData("v = \"1\"", "v > CDec(1)", "True")]
+    [InlineData("v = \"1\"", "CDec(1) < v", "True")]
+    [InlineData("v = \"0\"", "v > CDec(5)", "True")]
+    [InlineData("v = \"9\"", "v < CDec(10)", "False")]
+    [InlineData("v = \"abc\"", "v < CDec(1)", "False")]
+    [InlineData("v = \"1\"", "v = CCur(1)", "True")]
+    [InlineData("v = \"1.0\"", "v = CCur(1)", "True")]
+    [InlineData("v = \"1.0\"", "v = nC1", "True")]
+    [InlineData("v = \"1.00001\"", "v = CCur(1)", "True")]
+    [InlineData("v = \"10\"", "v < CCur(9)", "False")]
+    [InlineData("v = \"10\"", "CCur(9) > v", "False")]
+    [InlineData("v = \"0\"", "v > CCur(5)", "False")]
+    [InlineData("v = \"abc\"", "v = CCur(1)", "False")]
+    [InlineData("v = \"abc\"", "v > CCur(1)", "True")]
+    [InlineData("v = \"1\"", "v = True", "True")]
+    [InlineData("v = \"1\"", "v > True", "False")]
+    [InlineData("v = \"2\"", "v = True", "True")]
+    [InlineData("v = \"2\"", "v = bT", "True")]
+    [InlineData("v = \"2\"", "True = v", "True")]
+    [InlineData("v = \"True\"", "v = True", "True")]
+    [InlineData("v = \"-1\"", "v = True", "True")]
+    [InlineData("v = \"0\"", "v < True", "False")]
+    [InlineData("v = \"0\"", "v = False", "True")]
+    [InlineData("v = \"abc\"", "v = True", "False")]
+    [InlineData("v = \"abc\"", "v > True", "True")]
+    [InlineData("v = \"1\"", "v = #1/1/2000#", "False")]
+    [InlineData("v = \"2000-01-01\"", "v = dt", "True")]
+    [InlineData("v = \"2000-01-01\"", "v = #1/1/2000#", "True")]
+    [InlineData("v = \"2000-01-01\"", "#1/1/2000# = v", "True")]
+    [InlineData("v = \"1999-12-31\"", "v < dt", "True")]
+    [InlineData("v = \"36526\"", "v = dt", "True")]
+    [InlineData("v = \"10\"", "v > dt", "False")]
+    [InlineData("v = \"abc\"", "v = dt", "False")]
+    [InlineData("v = \"abc\"", "v > dt", "True")]
+    public async Task Remaining_measured_domains(string setup, string comparison, string expected)
     {
-        foreach (var op in new[] { "=", "<>", "<", ">", "<=", ">=" })
-        foreach (var expression in new[] { $"s {op} {number}", $"{number} {op} s" })
-        {
-            var run = () => Run($"Dim s As {declaredType}\ns = \"1\"\nOn Error Resume Next\nDebug.Print {expression}");
-            (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#211*");
-        }
+        await Run($"""
+            Dim s As String, v As Variant, nC1 As Currency, bT As Boolean, dt As Date
+            nC1 = 1: bT = True: dt = #1/1/2000#
+            {setup}
+            On Error Resume Next
+            Dim r
+            r = ({comparison})
+            If Err.Number <> 0 Then
+                Debug.Print "err " & Err.Number
+            Else
+                Debug.Print CStr(r)
+            End If
+            """);
+        AssertDebugLog([new Vb6Value(expected)]);
     }
 
 }
