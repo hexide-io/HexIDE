@@ -4085,6 +4085,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         await interpreter.Loading((Form: form, Value: value), static s => FormMembers.WriteIcon(s.Form, s.Value));
                         return default;
                     }
+                    if (id.Equals("ActiveControl", StringComparison.OrdinalIgnoreCase))
+                        throw new VBRunTimeException(context, new VBStandardError(383, "'ActiveControl' property is read-only"));
                     throw new NotImplementedException($"Set on {form.ClassName}'s own {id} is not implemented");
                 }
                 // An undeclared name is made on its first use, as a Let makes it (#171), a Variant or the DefType's type
