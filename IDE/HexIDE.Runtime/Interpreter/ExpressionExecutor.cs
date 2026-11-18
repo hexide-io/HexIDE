@@ -1054,6 +1054,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             && getter.Declaration is VB6Parser.PropertyGetStmtContext
             && await interpreter.CallProcedure(identifier, [], currentModule, callerEnv: env, callerFrames: stmtFrames) is { } propertyResult)
             return propertyResult;
+        if (interpreter.TryResolveProcedure(identifier, currentModule, out _, out var function) && function.IsFunction
+            && await interpreter.CallProcedure(identifier, [], currentModule, callerEnv: env, callerFrames: stmtFrames) is { } functionResult)
+            return functionResult;
         if (identifier.Equals("Clipboard", StringComparison.OrdinalIgnoreCase))
         {
             // A function named Clipboard can supply the member-chain's object too, not just a bare value.
