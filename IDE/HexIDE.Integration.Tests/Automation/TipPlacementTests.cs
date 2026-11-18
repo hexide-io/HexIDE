@@ -69,12 +69,14 @@ public class TipPlacementTests
             var expected = UiAutomationDriver.OpenTipBounds(button, window);
             expected.Should().NotBeNull();
             NativeWayland.ForTest = _ => true;
+            NativeWayland.PlacedForTest = _ => true;
 
             UiAutomationDriver.OpenTipBounds(button, window).Should().Be(expected);
         }
         finally
         {
             NativeWayland.ForTest = null;
+            NativeWayland.PlacedForTest = null;
             ToolTip.SetIsOpen(button, false);
             window.Close();
         }

@@ -105,3 +105,36 @@ and error. p-code and native code logged the same lines. The first file was `ARW
 - **Every error here was trappable** under `On Error Resume Next`.
 
 **Not measured:** an icon file with several images and none of them 32 by 32.
+
+### Several 32-by-32 images in one icon file (2026-11-18, #4623, SP6)
+
+**The question.** The rows above show `LoadPicture` taking an icon file's 32-by-32 image wherever it sits. Many real
+icon files hold more than one 32-by-32 image, at different bit depths. Which one does it take?
+
+**The probe.**
+- **Build:** VB6 SP6, `/make`, native code and p-code, which logged the same lines.
+- **The files:** hand-built icons in which every image is one solid colour, with its AND mask:
+  - red at 4 bits a pixel;
+  - green at 8 or 24;
+  - blue at 32.
+- **The read:** an unshown form's PictureBox, with AutoRedraw on and ScaleMode in pixels, draws the picture with
+  `PaintPicture p, 0, 0`. `Point(10, 10)` then reads a pixel back, as `&HBBGGRR`.
+
+| The file's images, in order | Width | `Point(10, 10)` |
+|---|---|---|
+| 32 at 4 bits (red), then 32 at 32 (blue) | 847 | `FF`: red |
+| 32 at 32 (blue), then 32 at 4 (red) | 847 | `FF0000`: blue |
+| 32 at 8 (green), then 32 at 32 (blue) | 847 | `FF00`: green |
+| 32 at 4 (red), then 32 at 8 (green) | 847 | `FF`: red |
+| 32 at 8 (green), then 32 at 4 (red) | 847 | `FF00`: green |
+| 32 at 4 (red), 32 at 24 (green), 32 at 32 (blue) | 847 | `FF`: red |
+| 32 at 32 (blue), 32 at 24 (green), 32 at 4 (red) | 847 | `FF0000`: blue |
+| one 32 at 4 (red); at 32 (blue); at 8 (green); at 24 (green) | 847 each | red; blue; green; green |
+| 16 at 4 (red), then 32 at 4 (blue) | 847 | `FF0000`: blue |
+
+**Reading:** **the image it takes is the first 32-by-32 one in the file,** whatever the bit depths of the others.
+It isn't the deepest one, and it isn't the one nearest the display's depth. The single-image rows check that each
+colour is drawn as built. The last row repeats the section above's "the 32, wherever it sits".
+
+**Not measured:** the display's colour depth, which wasn't recorded. The probe ran as a service-session process on
+the guest, so a display set to fewer colours wasn't tried.

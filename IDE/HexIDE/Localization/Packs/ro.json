@@ -1473,6 +1473,10 @@
     "Str.Office.LockedMessage": "Proiectul VBA este blocat și codul său nu poate fi afișat.",
     "Str.Office.LockedCaption": "{0} ({1}) — blocat",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} nu conține niciun proiect VBA."
+    "Str.Office.NoProject": "{0} nu conține niciun proiect VBA.",
+    "Str.AIChat.EditContentMissing": "Nu s-a trimis conținut, așa că nu s-a modificat nimic.",
+    "Str.AIChat.ProjectCannotStart": "Proiectul nu poate fi pornit (niciunul încărcat sau rulează deja)",
+    "Str.AIChat.ProjectNotRunning": "Niciun proiect nu rulează în prezent",
+    "Str.SessionEnd.UnsavedWork": "Modificări nesalvate în {0}"
   }
 }

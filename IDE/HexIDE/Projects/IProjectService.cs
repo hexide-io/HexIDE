@@ -135,6 +135,12 @@ public interface IProjectService
     bool HasUnsavedChanges(ProjectDefinition project);
 
     /// <summary>
+    /// The name of the first loaded project with anything the save prompt on exit would offer to save, its project file,
+    /// a form or a module, after open editors are applied to the model as that prompt does; or null when there is none.
+    /// </summary>
+    string? FirstUnsavedProjectName();
+
+    /// <summary>
     /// Asked before an add-in is turned off or its consent withdrawn, while its format can still write: whether any form,
     /// UserControl or PropertyPage it reads has unsaved changes, and if so what to do, as closing a project asks. Save writes
     /// them now, Don't Save lets them go, and Cancel keeps the add-in.

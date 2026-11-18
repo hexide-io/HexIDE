@@ -156,6 +156,16 @@ public abstract class BaseVBTestFixture
         return (vb, dbg);
     }
 
+    protected async Task RunModulesAndClasses(string primaryCode, (string Name, string Code)[] modules,
+        (string Name, string Code)[] classModules) =>
+        await Dumped([("Module1", false, primaryCode), .. modules.Select(m => (m.Name, false, m.Code)),
+            .. classModules.Select(m => (m.Name, true, m.Code))], async () =>
+        {
+            var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs, SettingsStore), context, rootEnv,
+                primaryCode, "Module1", modules, classModules, compilationConstants: Compilation);
+            await vb.Execute();
+        });
+
     /// <summary>Run <paramref name="primaryCode"/> as the startup module "Module1", with additional named
     /// standard modules also loaded into the project-wide registry (for cross-module resolution tests).</summary>
     protected async Task RunModules(string primaryCode, params (string Name, string Code)[] modules) =>

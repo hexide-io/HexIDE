@@ -223,8 +223,8 @@ internal static class ControlPositions
                 or VBScaleMode.Centimiter or VBScaleMode.Millimiter:
                 return RuntimeScale.Unit(mode, vertical);
             default:
-                // A User scale outside the running form/PictureBox mapping still has no measured unit (#990).
-                throw new NotImplementedException($"{what} in a container whose ScaleMode is {mode} is not implemented (#990)");
+                // A User scale outside the running form/PictureBox mapping still has no measured unit (#4693).
+                throw new NotImplementedException($"{what} in a container whose ScaleMode is {mode} is not implemented (#4693)");
         }
     }
 }

@@ -3036,6 +3036,16 @@ public partial class ProjectService : IProjectService
     }
 
     public bool HasUnsavedChanges(ProjectDefinition project) => IsDirty(project);
+
+    public string? FirstUnsavedProjectName()
+    {
+        // The same check UnloadAllProjects makes before its save prompt.
+        eventBus.Publish(new ApplyAllUnsavedChangesEvent());
+        foreach (var project in projectManager.LoadedProjects)
+            if (IsDirty(project) || project.Forms.Any(IsDirty) || project.Modules.Any(IsDirty))
+                return project.Name;
+        return null;
+    }
     public bool HasUnsavedChanges(FormDefinition form) => IsDirty(form);
     public bool HasUnsavedChanges(ModuleDefinition module) => IsDirty(module);
 

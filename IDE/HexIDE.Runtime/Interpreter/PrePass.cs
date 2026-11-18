@@ -28,6 +28,7 @@ public class PrePass : VB6BaseVisitor<object?>
     // by then are both already built.
     public List<string> Implemented = new();
     public List<VB6Parser.BlockContext> topLevelBlocks = new();
+    internal List<Antlr4.Runtime.ParserRuleContext> DeclarationItems { get; } = new();
 
     /// <summary>True for a class or a form: an object module, where VB6 refuses some Public members outright.</summary>
     public bool ObjectModule { get; init; }
@@ -263,6 +264,7 @@ public class PrePass : VB6BaseVisitor<object?>
     public override object? VisitModuleBlock(VB6Parser.ModuleBlockContext context)
     {
         topLevelBlocks.Add(context.block());
+        DeclarationItems.Add(context.block());
         Visit(context.block());
         NoteDefaultMember(context.block(), DefaultMemberKind.Variable);   // a Public variable's VB_VarUserMemId follows it here
         return default;
@@ -867,7 +869,10 @@ public class PrePass : VB6BaseVisitor<object?>
                     var lower = ArrayBase;
                     if ((values.Length == 2 && !TryReadLiteralBound(values[0], out lower))
                         || !TryReadLiteralBound(values[^1], out var upper))
-                        throw new NotImplementedException($"Nonliteral array bounds for field '{fieldName}' inside Type '{name}' are not implemented (#178)");
+                    {
+                        bounds = null;
+                        break;
+                    }
                     if (upper < lower)
                         throw new NotImplementedException($"An inverted array bound inside Type '{name}' is not implemented (#178)");
                     bounds.Add((lower, upper));
@@ -900,10 +905,15 @@ public class PrePass : VB6BaseVisitor<object?>
                         ?? throw new NotImplementedException($"Unsupported field type for '{fieldName}' in Type '{name}'"),
                     null, IsArray: isArray, Bounds: bounds, FixedLength: asType.fieldLength()));
         }
+        for (var i = 0; i < fields.Count; i++)
+            if (fields[i].IsArray && fields[i].Bounds is null && context.typeStmt_Element(i).subscripts() is { } pending)
+                fields[i] = fields[i] with { BoundSyntax = pending };
         // Visibility is RECORDED rather than ignored. `Private` means invisible outside this module, and
         // measured means it: a foreign Private Type is "User-defined type not defined" whether the
         // reference is bare or qualified. Reading it here is what lets two modules each own a Point.
         Types[name] = new UdtTypeDef(name, fields, IsPrivateVisibility(context.visibility()?.GetText()));
+        if (fields.Any(f => f.BoundSyntax != null))
+            DeclarationItems.Add(context);
         return default;
     }
 
@@ -930,9 +940,18 @@ public class PrePass : VB6BaseVisitor<object?>
         return default;
     }
 
+    // Measured for Sub names only, not other declarations (#4674).
+    private static readonly HashSet<string> RefusedSubNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Close", "Debug", "End", "Get", "Input", "Len", "Lock", "Open",
+        "Print", "Put", "Seek", "Spc", "Stop", "Tab", "Unlock", "Write"
+    };
+
     public override object? VisitSubStmt(VB6Parser.SubStmtContext context)
     {
         var name = context.ambiguousIdentifier().GetText();
+        if (RefusedSubNames.Contains(name))
+            throw new VBCompileErrorException("Expected: identifier");
         DeclareModuleName(name, exported: !IsPrivate(context.visibility()));
         Procedures[name] = CheckedLocals(new ProcedureInfo(name, false, ParseParams(context.argList()),
             Vb6Value.ValueType.EmptyVariant, context.block(), IsPrivate(context.visibility())) { Declaration = context });

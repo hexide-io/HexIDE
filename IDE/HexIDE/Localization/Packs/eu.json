@@ -1473,6 +1473,10 @@
     "Str.Office.LockedMessage": "VBA proiektua blokeatuta dago eta ezin da haren kodea erakutsi.",
     "Str.Office.LockedCaption": "{0} ({1}) — blokeatuta",
     "Str.Office.ProjectCaption": "{0} ({1})",
-    "Str.Office.NoProject": "{0} dokumentuak ez du VBA proiekturik."
+    "Str.Office.NoProject": "{0} dokumentuak ez du VBA proiekturik.",
+    "Str.AIChat.EditContentMissing": "Ez da edukirik bidali, beraz ez da ezer aldatu.",
+    "Str.AIChat.ProjectCannotStart": "Ezin da proiektua abiarazi (ez dago kargatuta edo abian da dagoeneko)",
+    "Str.AIChat.ProjectNotRunning": "Une honetan ez dago proiekturik abian",
+    "Str.SessionEnd.UnsavedWork": "Gorde gabeko aldaketak: {0}"
   }
 }
