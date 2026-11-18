@@ -171,6 +171,8 @@ public partial class UserSidecarService : IUserSidecarService
         /// <summary>A change has been made, or a write attempted, that has not yet reached the file.</summary>
         public bool Owed;
 
+        public LastRunExe? PendingLastRunExe;
+
         /// <summary>The debounce the latest change is waiting on, if one is.</summary>
         public CancellationTokenSource? Pending;
     }
@@ -419,6 +421,7 @@ public partial class UserSidecarService : IUserSidecarService
             HeaderBreakpointConditions = data.HeaderBreakpointConditions,
             HeaderBookmarks = data.HeaderBookmarks,
             HeaderBreakpoints = data.HeaderBreakpoints,
+            LastRunExe = data.LastRunExe,
             Extra = data.Extra,
         };
         return (migrated, new Entries(consumedBookmarks, consumedBreakpoints),
@@ -674,6 +677,34 @@ public partial class UserSidecarService : IUserSidecarService
         return Task.CompletedTask;
     }
 
+    public LastRunExe? GetLastRunExe(ProjectDefinition project)
+    {
+        lock (gate)
+        {
+            try
+            {
+                var path = SidecarPath(project);
+                return path != null && File.Exists(path) ? TryRead(File.ReadAllText(path))?.LastRunExe : null;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log.Warning(ex, "Could not read last VB6 run for {Path}", project.AbsolutePath);
+                return null;
+            }
+        }
+    }
+
+    public void RecordLastRunExe(ProjectDefinition project, LastRunExe exe)
+    {
+        lock (gate)
+        {
+            var state = StateOf(project);
+            state.PendingLastRunExe = exe;
+            state.Owed = true;
+            Save(project);
+        }
+    }
+
     /// <summary>Writes every change still owed to any project's sidecar.</summary>
     /// <remarks>
     /// For closing the IDE without closing its projects first, which is what a forced close does: the save on a
@@ -766,6 +797,8 @@ public partial class UserSidecarService : IUserSidecarService
             var extra = source?.Extra is { Count: > 0 } unrecognised ? unrecognised : null;
             var runWith = runChoices is null ? source?.RunWith : runChoices.Get(project) ?? (runChoices.HasChoice(project) ? "" : null);
 
+            var lastRunExe = state.PendingLastRunExe ?? source?.LastRunExe;
+
             // A sidecar is created only when there is something to record, and content this build does not
             // understand is something, as are the entries it keeps without understanding where they go. One that
             // exists is rewritten even when its last mark has gone, rather than deleted: it may hold what this build
@@ -773,7 +806,7 @@ public partial class UserSidecarService : IUserSidecarService
             if (!exists && bookmarks.Count == 0 && breakpoints.Count == 0 && oldBookmarks == null &&
                 oldBreakpoints == null && fileBookmarks == null && fileBreakpoints == null &&
                 headerBookmarks.Count == 0 && headerBreakpoints.Count == 0 &&
-                codeConditions.Count == 0 && headerConditions.Count == 0 && extra == null && runWith == null &&
+                codeConditions.Count == 0 && headerConditions.Count == 0 && extra == null && runWith == null && lastRunExe == null &&
                 version == CurrentVersion)
             {
                 // Nothing lies here, so the place is the project's own from now on: a sidecar that appears here
@@ -800,6 +833,7 @@ public partial class UserSidecarService : IUserSidecarService
                 Bookmarks = oldBookmarks,
                 Breakpoints = oldBreakpoints,
                 RunWith = runWith,
+                LastRunExe = lastRunExe,
                 Extra = extra,
             };
 
@@ -811,6 +845,7 @@ public partial class UserSidecarService : IUserSidecarService
             }
 
             Adopt(state, path, data, ours, oursHeader);
+            state.PendingLastRunExe = null;
         }
         catch (Exception ex)
         {
@@ -1081,6 +1116,9 @@ internal class UserSidecarData
     /// <summary>What F5 runs for the project, for this user: a launch's key, empty for an explicit interpreter choice, absent for the default.</summary>
     [JsonPropertyName("runWith")]
     public string? RunWith { get; set; }
+
+    [JsonPropertyName("lastRunExe")]
+    public LastRunExe? LastRunExe { get; set; }
 
     /// <summary>Everything this build does not recognise, written back as it was read.</summary>
     [JsonExtensionData]

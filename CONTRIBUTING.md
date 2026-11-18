@@ -293,7 +293,7 @@ The container has no Node, so the three JSON-server tests skip there.
 `PublicAPI.Unshipped.txt`; `PublicAPI.Shipped.txt` records the existing SDK. A change or removal breaks
 compiled add-ins, RDCore's included, and needs the maintainer's decision. On SDK records, add init-only
 properties, never new positional parameters: those replace the constructor and `Deconstruct` (#4566).
-Types exposed from other Core namespaces are not baselined by this guard (#4567).
+Ten types the SDK exposes from other Core namespaces are not baselined by this guard yet (#4609).
 
 ### Add-ins without the signing key
 

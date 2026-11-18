@@ -1614,6 +1614,9 @@ catalogue keeps its names. The shapes follow MCP's `tools/list` and `tools/call`
 - **Only HexIDE's own add-ins reach the tools** (`IHexIdeHost.ServerChatTools`): the caller supplies the approval
   callback, so another add-in sees an empty list. A developer-unsigned add-in exists only in a Debug build's
   developer mode.
+- **Refusals HexIDE writes have two readers** (#4332). The AI service receives the existing English text;
+  the chat shows the reason in the IDE's language, with server/tool names and exception messages left as
+  arguments. A server's own error text passes through unchanged. The displayed reason is cut at 300 characters.
 - Control characters and format characters (the bidirectional overrides among them) are removed from what a
   server returns. The limits are in [`language-servers.md`](language-servers.md#tools-for-ai-chat).
 
@@ -2053,6 +2056,12 @@ Three clusters account for nearly all of the gap:
   recursively watch a filesystem root (including a missing base whose existing ancestor is a root) are
   logged and refused with `InvalidParams`, installing nothing. Recursive disk watches feed
   the same matcher as completed project saves and workspace artefact writes, with 150 ms batching.
+  On macOS, disk Created events are corrected to Changed at batch flush when the file was already
+  reported without a subsequent Deleted, or its birth time predates the disk watch
+  ([#3650](https://github.com/hexide-io/HexIDE/issues/3650)).
+  The corrected kind is checked against the registration again. Unreadable files retain the reported type;
+  IDE reports and Windows/Linux disk events retain their existing handling. A file moved in from outside
+  the watched folders retains its birth time and is consequently reported Changed on macOS.
   Direct writes work independently of editor reload watching. Unregistering removes pending matches.
   `showMessageRequest` uses a queued IDE message box (#2908).
 

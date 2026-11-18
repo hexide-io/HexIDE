@@ -42,6 +42,8 @@ public partial class DISetup
     [Conditional("DI")]
     static void Setup() =>
         DI.Setup()
+            // A second view model would move the singleton panes into its own layout (#4587).
+            .Bind<MainViewViewModel>().As(Singleton).To<MainViewViewModel>()
             .Bind<ILogFolderOpener>().As(Singleton).To<PlatformLogFolderOpener>()
             .Bind().As(Singleton).To<ToolBoxToolViewModel>()
             .Bind().As(Singleton).To<PropertiesToolViewModel>()

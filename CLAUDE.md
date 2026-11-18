@@ -44,9 +44,9 @@ cd LspServer && dotnet build HexIDE.VbLspServer/
 
 **A test run that could hang carries a hang-dump timeout**, as CI's headless steps do:
 `pwsh scripts/test.ps1 IDE/HexIDE.Integration.Tests/ -- --hangdump --hangdump-timeout 20m`. Set it well above
-the suite's length, as a budget for the whole run. The timer is meant to count only quiet time, minutes in
-which no test starts or finishes, and on Windows it does (#2618). But on macOS it fired 10 to 11 minutes into
-healthy runs once the suite outgrew it (#3874). The two headless suites and `HexIDE.Tests` (#2128)
+the suite's length, as a budget for the whole run. The timer counts only quiet time, minutes in which no test
+starts or finishes (#2618). Before #2008 it didn't on macOS: the old HangDump's activity signal never reached it
+there, so it counted the whole run (#3874). The two headless suites and `HexIDE.Tests` (#2128)
 reference `Microsoft.Testing.Extensions.HangDump` today. Another project rejects the option until it has
 the package, with its licence line.
 
@@ -64,7 +64,7 @@ when the suites grow. Both scripts use a floor of one for a filtered run, or acc
 with `pwsh scripts/test.ps1 <project> [arguments]` (Windows PowerShell 5.1 also works via
 `powershell -ExecutionPolicy Bypass -File scripts/test.ps1`). Its final PASS/FAIL follows the exit
 code: MTP can print `Passed!` even when the floor fails. Bare `dotnet test` has no default floor.
-A project default was checked with this tree's MTP 1.9.1 for #2264: filters do not disable it
+A project default was checked with MTP 1.9.1, then this tree's, for #2264: filters do not disable it
 and a later floor is rejected
 as a duplicate, so it would break filtered runs. Argument checks run with
 `pwsh scripts/test.selftest.ps1` and `bash scripts/test-linux.selftest.sh`.
@@ -326,7 +326,8 @@ test case that throws before its test starts as an error, not a failure, and its
 error. The summary, the exit code and a floor with room to spare all see nothing but a smaller total. So
 read xunit's own report: add `--report-xunit --report-xunit-filename x.xml` after the `--`, then run
 `bash scripts/check-xunit-report.sh` on the file. A relative `--results-directory TestResults` puts it in the
-project's own `TestResults/`, on Windows and under WSL alike. CI does both on every step of the two headless
+project's own `TestResults/` when run through `scripts/test.ps1` or `test-linux.sh`, on Windows and under WSL
+alike. A bare `dotnet test` resolves it from the current folder, so CI names `<project>/TestResults`. CI does both on every step of the two headless
 suites, `HexIDE.Integration.Tests` and `HexIDE.Runtime.Integration.Tests`. The cause measured was
 Avalonia.Headless 12.0.2 starting each test on whatever context the dispatcher thread was left holding,
 fixed by moving to 12.0.4. **Keep the headless packages at Avalonia's version.** `HeadlessTestContextTests`
@@ -342,8 +343,8 @@ to fall short of.
 
 **A hung headless run ends with a report naming what was running**
 ([#2530](https://github.com/hexide-io/HexIDE/issues/2530)). Every step of the two headless suites passes
-`--hangdump --hangdump-type Heap` (`Microsoft.Testing.Extensions.HangDump`, kept at the Microsoft.Testing.Platform
-version xunit.v3 brings) with a timeout well above the suite's length: 20 minutes for `HexIDE.Integration.Tests`,
+`--hangdump --hangdump-type Heap` (`Microsoft.Testing.Extensions.HangDump`, pinned with Microsoft.Testing.Platform
+at 2.5.3) with a timeout well above the suite's length: 20 minutes for `HexIDE.Integration.Tests`,
 which takes 11 to 13 minutes on macOS, and 10 for `HexIDE.Runtime.Integration.Tests`, which takes about one. The
 results directory then holds a `*_hang.log` listing each
 test still running and how long it had run, beside a heap dump with managed stacks
@@ -1078,11 +1079,10 @@ widening visibility to `public` just for a test. When a new test project needs r
   xUnit restores test-body execution contexts before the exit hook, so the regression tests invoke the
   hook while their deliberate leak is still active; setup leaks that survive to the hook fail the test.
 - **Avalonia 12 breaking changes** (already migrated, for reference): `GotFocusEventArgs` → `FocusChangedEventArgs`; `CaptionButtons` (chrome control) removed — replaced with custom `MDICaptionButtons : TemplatedControl`; `GetVisualRoot()` → `TopLevel.GetTopLevel(this)`; `RenderOptions.SetTextRenderingMode` → `TextOptions.SetTextRenderingMode`; `RenderOptions.TextRenderingMode="Alias"` in AXAML → `TextOptions.TextRenderingMode="Alias"`; `<CompiledBinding Path="X" />` inside `MultiBinding` → `<Binding Path="X" />`.
-- **Test frameworks are mid-migration** ([#297](https://github.com/hexide-io/HexIDE/issues/297)).
-  All six test projects are on **xunit v3** and the **MTP** runner — the VSTest/MTP split is closed.
-  `Microsoft.NET.Test.Sdk`, `xunit.runner.visualstudio` and `coverlet.collector` are gone from all of
-  them; a v3 project under MTP needs `<OutputType>Exe</OutputType>` and
-  `<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>` and nothing else. (While
+- **All six test projects are on xunit v3 through `xunit.v3.mtp-v2`, on Microsoft.Testing.Platform 2.5.3,**
+  the SDK's native runner chosen in `global.json` ([#297](https://github.com/hexide-io/HexIDE/issues/297),
+  [#2008](https://github.com/hexide-io/HexIDE/issues/2008)). A project needs `<OutputType>Exe</OutputType>`
+  and nothing else. (While
   `Microsoft.NET.Test.Sdk` was still present it supplied the executable output itself, so the explicit
   `OutputType` only became necessary when that package was removed.)
 - **A custom `FactAttribute` must never throw from its constructor.** xunit v2 reported that as a test
@@ -1091,15 +1091,13 @@ widening visibility to `public` just for a test. When a new test project needs r
   with servers absent the suite went green at 978 instead of red, fourteen tests simply not there.
   Enforcement now lives in `RequiredServersTests` as ordinary `[Fact]`s, which are discovered whatever
   the environment. Put availability checks in a test, not in an attribute.
-- **`xunit.v3` is capped at `[3.2.2,4.0.0)` and that is deliberate.** 4.0.0 (still "Core Framework v3" — the
+- **`xunit.v3.mtp-v2` is capped at `[3.2.2,4.0.0)` and that is deliberate.** 4.0.0 (still "Core Framework v3" — the
   package version and the framework generation are decoupled) breaks `Avalonia.Headless.XUnit` with a
   `MissingMethodException` at test **discovery**: no build error, no restore warning. The package's own
   dependency is an open `>= 3.2.2`, so a routine bump resolves it happily. See the comment in
   `Directory.Packages.props`.
-- **`--filter` is ignored with warning MTP0001. All six projects are on MTP.** Passing VSTest's
-  `--filter "FullyQualifiedName~Foo"` warns that VSTestTestCaseFilter is ignored and runs **every** test
-  in the project, so a run you believe was scoped to one class was actually the whole suite. Measured:
-  153 tests instead of 27.
+- **VSTest's `--filter` is refused, with exit code 5.** Before #2008 it was ignored with warning MTP0001
+  and the whole suite ran: 153 tests instead of 27.
   — Use `-- --filter-class "*Name"`, `-- --filter-method "*Name"`, or `-- --filter-query "/*/*/Class/*"`.
   The `--` matters: everything after it goes to the test executable rather than to `dotnet test`.
   Use `scripts/test.ps1` for local runs: full suites get the CI floor, filtered runs get one,

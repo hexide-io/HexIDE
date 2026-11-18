@@ -66,6 +66,20 @@ project's, and it belongs with their breakpoints.
 - **THEN** the explicit interpreter choice is retained instead of the add-in default
 
 
+### Requirement: Run with VB6 SHALL remember its last built executable
+Run with VB6 SHALL persist its successful output's filename and SHA-256 as `lastRunExe` (`fileName`,
+`hash`). The record SHALL survive reopening and sidecar saves. Run SHALL ask once before replacing
+existing output unless both fields match, with No the default; No SHALL build and run nothing.
+Make with VB6 SHALL always ask before replacement and SHALL NOT record this state (#4504).
+
+#### Scenario: Running again after reopening
+- **WHEN** a project is reopened and Run with VB6 finds its last output with the recorded filename and hash
+- **THEN** it builds and runs without a replacement question
+
+#### Scenario: Another build replaces the executable
+- **WHEN** Run with VB6 finds different bytes in the output file and the user answers No
+- **THEN** it asks once and leaves the executable untouched without building or starting it
+
 ### Requirement: The sidecar SHALL be named predictably from the project
 The sidecar SHALL be named from the project file's name with a distinct extension, in the same directory.
 

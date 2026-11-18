@@ -4,6 +4,8 @@ using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Addins;
+using HexIDE.Desktop;
 using HexIDE.IDE;
 using HexIDE.Infrastructure;
 using HexIDE.Lsp;
@@ -33,6 +35,7 @@ public class AppExitTests
             .Single(field => field.FieldType == typeof(IApplicationLifetime));
         var oldLifetime = lifetimeField.GetValue(application);
         DISetup? setup = null;
+        var loader = Substitute.For<IAddinLoader>();
         using var desktop = new ClassicDesktopStyleApplicationLifetime();
         try
         {
@@ -45,7 +48,11 @@ public class AppExitTests
             }));
             Static.ForceCloseWithoutPrompt = force;
             Static.StartupProjectHook = (_, _) => Task.CompletedTask;
-            Static.DesktopStartupHook = (di, _) => setup = di;
+            Static.DesktopStartupHook = (di, lifetime) =>
+            {
+                setup = di;
+                DesktopStartup.DisposeOnShutdown(lifetime, loader);
+            };
             lifetimeField.SetValue(application, desktop);
             // The headless runner has already set up its application. Invoke the lifetime's internal
             // setup hook to track real windows without starting a second dispatcher main loop.
@@ -71,12 +78,14 @@ public class AppExitTests
             };
 
             desktop.TryShutdown().Should().BeFalse();
+            loader.DidNotReceive().Dispose();
             if (!force)
             {
                 var prompt = await SavePrompt();
                 ExitStopTests.ReadMethods(file).Should().NotContain("shutdown", "the save prompt precedes server stop");
                 prompt.Cancel();
                 await Task.Yield();
+                loader.DidNotReceive().Dispose();
                 desktop.MainWindow.IsVisible.Should().BeTrue();
                 ExitStopTests.ReadMethods(file).Should().NotContain("shutdown", "cancelling save must keep the connection alive");
                 desktop.TryShutdown().Should().BeFalse();
@@ -84,6 +93,7 @@ public class AppExitTests
             }
             var received = await retry.Task.WaitAsync(TimeSpan.FromSeconds(15), TestContext.Current.CancellationToken);
             received.Should().ContainInOrder("shutdown", "exit");
+            loader.Received(1).Dispose();
             cancelledRequests.Should().BeGreaterThan(0);
             desktop.MainWindow.IsVisible.Should().BeFalse("save-on-exit finished before the retry");
 
