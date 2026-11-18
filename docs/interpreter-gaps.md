@@ -373,7 +373,7 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
 
 ## Partial
 
-- **Standalone `PropertyBag`** ([#4680](https://github.com/hexide-io/HexIDE/issues/4680), oracle PR #4686) supports the measured scalar, Byte-array and Nothing values and VB6 Contents layout. Persistable object streams and other objects remain explicitly unimplemented; the UserControl bag is unchanged. Unpaired UTF-16 text, non-String property-name conversions, unresolved default comparisons, argument-count errors, other Contents conversions, and the VB6 description of error 330 remain unmeasured (the number is implemented with an explicit HexIDE diagnostic).
+- **Standalone `PropertyBag`** ([#4680](https://github.com/hexide-io/HexIDE/issues/4680), oracle PR #4686) supports the measured scalar, Byte-array and Nothing values and VB6 Contents layout. Persistable object streams and other objects remain explicitly unimplemented; the UserControl bag is unchanged. Unpaired UTF-16 text, non-String property-name conversions, unresolved default comparisons, argument-count errors, and other Contents conversions remain unmeasured ([#4741](https://github.com/hexide-io/HexIDE/issues/4741)). Error 330 carries VB6's measured description.
 
 - **Source-class default members (#174):** async scalar reads execute the collected Function, Property Get or
   variable, including Let, ByVal scalar arguments, operators, builtin value arguments, conditions, Select Case,
