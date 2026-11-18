@@ -2675,6 +2675,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (!leadFound && interpreter.TryResolveProperty(identifier, currentModule, out _, out var leadProperty)
                     && leadProperty.Get is not null)
                     (leadFound, variable) = (true, await expressionExecutor.EvaluateValue(leadPart));
+                if (!leadFound && interpreter.TryResolveProcedure(identifier, currentModule, out _, out var leadFunction)
+                    && leadFunction.IsFunction)
+                    (leadFound, variable) = (true, await expressionExecutor.EvaluateValue(leadPart));
                 if (!leadFound)
                     throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Can't find variable " + identifier);
             }
