@@ -1,0 +1,2 @@
+#nullable enable
+static HexIDE.IDE.Vb6TextEncoding.SimulateHostCodePage(int codePage) -> void

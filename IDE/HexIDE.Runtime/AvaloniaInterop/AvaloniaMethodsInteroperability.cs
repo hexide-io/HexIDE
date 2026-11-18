@@ -15,6 +15,8 @@ public static class AvaloniaMethodsInteroperability
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (RuntimeScale.Of(c) is not null && RuntimeScale.IsConversion(method))
+            return RuntimeScale.ConvertUnits(c, method, args);
         if (c is VBMSFlexGrid grid) return FlexGridMembers.Call(grid, method, args);
 
         if (c is VBMonthView monthView && (Components.InBox.MonthViewComponentClass.Instance.Member(method) is not null
