@@ -1898,6 +1898,34 @@ Enter and Esc on a form holding controls SHALL follow the CommandButton Default 
 - **AND** unmodified Enter and Esc use 13 and 27, and Tab raises KeyDown 9 and KeyPress 9 without KeyUp
 - **AND** unmeasured modified Enter/Esc/Tab remain unmapped
 
+### Requirement: PictureBox and scroll-bar keyboard delivery
+
+PictureBox, HScrollBar and VScrollBar SHALL declare KeyDown, KeyPress and KeyUp using the
+shared control delivery path, preserving their default designer event. The measured a, Space,
+Enter and Esc sequences SHALL follow [#4575](https://github.com/hexide-io/HexIDE/issues/4575)
+(oracle PR #4574). Tab SHALL navigate without control key events; eligible Default/Cancel
+buttons SHALL take Enter/Esc before the control. Child controls SHALL retain their own routing.
+
+#### Scenario: Scroll-bar navigation follows writable KeyDown
+- **WHEN** an unmodified arrow, PageUp, PageDown, Home or End reaches a focused scroll bar
+- **THEN** KeyDown precedes any Change and KeyUp follows, without Scroll
+- **AND** Left/Up and PageUp move toward Min by SmallChange and LargeChange respectively,
+  while Right/Down and PageDown move toward Max, clamped to the range through VbValue
+- **AND** Home goes to the lower endpoint and End to the higher, including reversed ranges
+- **AND** unchanged Value raises no Change
+- **AND** KeyCode 0 in the control or preview form suppresses the move, with the key handled
+  before Avalonia can move it; a nonzero replacement retains the originally pressed key's move
+- **AND** modified navigation retains Avalonia's existing movement
+
+#### Scenario: A preview form suppresses only KeyDown
+- **WHEN** Form KeyPreview is True and Form_KeyDown sets KeyCode to 0 on a bar
+- **THEN** the control raises no KeyDown and does not move
+- **AND** Form KeyUp precedes control KeyUp, and a/Space still raise form then control KeyPress
+
+#### Scenario: PictureBox remains usable outside the tab order
+- **WHEN** a PictureBox has TabStop False
+- **THEN** Tab passes it by, but clicking it gives it focus and subsequent key events
+
 ### Requirement: Runtime parsing has a sized synchronous stack
 
 Module parsing and PrePass, SyntaxChecker and standalone expression/statement parsing SHALL run on a
