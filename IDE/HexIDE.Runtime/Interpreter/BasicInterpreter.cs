@@ -1979,11 +1979,13 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             // A Function or Property Get declared as a scalar or an Enum returns a typed value, and an untyped, Variant or
             // Object one a Variant's (measured: #987, `F() * 7000` with `F` As Integer returning 5 is 6, and `FV() * 7000`
             // is 35000; #1005, `GetColor()` As an Enum is a typed Long, and `GetObj().P` As Object is late-bound). A class,
-            // UDT, array or Collection return is left as it is: a class's members are early-bound and typed already.
+            // UDT, array or Collection return keeps its value; a project class return reads through its declared view (#4601).
             if (ret is { } returned)
                 ret = proc.ReturnUdtTypeName is null && VbNumeric.IsDeclarableScalar(proc.ReturnType) ? returned.AsFixedType()
                     : proc.ReturnUdtTypeName is { } named && !named.Contains('.') && !Types.ContainsKey(named)
                       && TryResolveEnum(named, owner, out _) ? returned.AsFixedType()
+                    : proc.ReturnUdtTypeName is { } className && ProjectClassFor(className) is { } declaredClass
+                        ? returned.ViewedAs(declaredClass.Name)
                     : proc.ReturnsVariant ? returned.AsVariant()
                     : returned;
             foreach (var (slot, target) in fixedStringCopies)
@@ -2428,7 +2430,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     var stored = DeclaredSlotType(p) is { } dt
                         ? VbNumeric.CoerceOnStore(passed, dt, proc.Body as Antlr4.Runtime.ParserRuleContext).CopyString()
                         : CopyForStore(passed);
-                    ExecutionContext.AllocVariable(callee, p.Name, stored, DeclaredSlotType(p));
+                    ExecutionContext.AllocVariable(callee, p.Name, stored, DeclaredSlotType(p),
+                        declaredClass: !p.ByRef && p.TypeName is { } parameterClassName ? ProjectClassFor(parameterClassName)?.Name : null);
                     MarkParameterSlot(p, callee);
                     // A ByVal object param is a counted hold for the call's duration (so a `New T` passed straight
                     // into a call terminates right after the call, per the oracle); release it at scope-exit. A ByVal

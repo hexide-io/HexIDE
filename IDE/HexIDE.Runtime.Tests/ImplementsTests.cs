@@ -30,6 +30,114 @@ public class ImplementsTests : BaseVBTestFixture
     // The same member by name, no Implements — the control for every "does it actually check?" case below.
     private const string Impostor = "Public Function Area() As Integer\n    Area = 1\nEnd Function\n";
 
+    // Parameter and return measurements: https://github.com/hexide-io/HexIDE/issues/4601.
+    private const string IHas = """
+        Public Property Get P() As Object
+        End Property
+        Public Property Set P(ByVal value As Object)
+        End Property
+        Public Function Q() As String
+        End Function
+        """;
+
+    private const string Impl = """
+        Implements IHas
+        Private held As Object
+        Private Property Get IHas_P() As Object
+            Set IHas_P = held
+        End Property
+        Private Property Set IHas_P(ByVal value As Object)
+            Set held = value
+        End Property
+        Private Function IHas_Q() As String
+            IHas_Q = "q"
+        End Function
+        """;
+
+    private const string InterfaceProcedures = """
+        Public Function Ask(ByVal x As IHas) As String
+            Set x.P = New Collection
+            Ask = x.Q & " " & TypeName(x.P)
+        End Function
+        Public Function AskRef(x As IHas) As String
+            AskRef = x.Q
+        End Function
+        Public Function AskOpt(Optional ByVal x As IHas) As String
+            AskOpt = x.Q
+        End Function
+        Public Function GetIt() As IHas
+            Set GetIt = New Impl
+        End Function
+        """;
+
+    private Task RunInterfaceCalls(string code) => RunClasses(code + "\n" + InterfaceProcedures,
+        ("IHas", IHas), ("Impl", Impl),
+        ("Holder", """
+            Public Property Get Thing() As IHas
+                Set Thing = New Impl
+            End Property
+            """));
+
+    [Theory]
+    [InlineData("IHas")]
+    [InlineData("Impl")]
+    public async Task ByValInterfaceParameter_DispatchesGetSetAndMethod(string callerType)
+    {
+        await RunInterfaceCalls($"Dim x As {callerType}\nSet x = New Impl\nDebug.Print Ask(x)\n");
+        AssertDebugLog(["q Collection"]);
+    }
+
+    [Fact]
+    public async Task OptionalByValInterfaceParameter_WithArgumentDispatchesMethod()
+    {
+        await RunInterfaceCalls("Dim i As IHas\nSet i = New Impl\nDebug.Print AskOpt(i)\n");
+        AssertDebugLog(["q"]);
+    }
+
+    [Fact]
+    public async Task InterfaceFunctionResult_DispatchesMethod()
+    {
+        await RunInterfaceCalls("Debug.Print GetIt().Q\n");
+        AssertDebugLog(["q"]);
+    }
+
+    [Fact]
+    public async Task InterfacePropertyGetResult_DispatchesMethod()
+    {
+        await RunInterfaceCalls("Dim h As Holder\nSet h = New Holder\nDebug.Print h.Thing.Q\n");
+        AssertDebugLog(["q"]);
+    }
+
+    [Fact]
+    public async Task LocalAndSharedByRefInterface_KeepTheirView()
+    {
+        await RunInterfaceCalls("""
+            Dim i As IHas
+            Set i = New Impl
+            Set i.P = New Collection
+            Debug.Print i.Q
+            Debug.Print TypeName(i.P)
+            Debug.Print AskRef(i)
+            """);
+        AssertDebugLog(["q", "Collection", "q"]);
+    }
+
+    [Fact]
+    public async Task InterfaceFunctionResult_TypeNameReportsConcreteClass()
+    {
+        await RunInterfaceCalls("Debug.Print TypeName(GetIt)\n");
+        AssertDebugLog(["Impl"]);
+    }
+
+    [Fact]
+    public async Task CopiedByRefInterface_DoesNotDispatchThroughInterface()
+    {
+        // VB6 raises 438; HexIDE's current error differs. Guard only against the wrong successful value.
+        var failure = await Record.ExceptionAsync(() => RunInterfaceCalls(
+            "Dim i As IHas\nSet i = New Impl\nDebug.Print AskRef((i))\n"));
+        failure.Should().NotBeNull();
+    }
+
     [Fact]
     public async Task InterfaceTypedVariable_DispatchesToTheImplementation()
     {
