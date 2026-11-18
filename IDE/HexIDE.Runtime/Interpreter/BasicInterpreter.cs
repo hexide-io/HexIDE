@@ -981,7 +981,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             foreach (var read in module.PrePass.EnumLibraryNames)
             {
                 NotImplementedException Unsupported() => new(
-                    $"Enum {read.Enum}, member '{read.Member}': project name '{read.Name}' is not implemented (#4614)");
+                    $"Enum {read.Enum}, member '{read.Member}': project name '{read.Name}' is not implemented (#4762)");
                 if (read.Qualified)
                 {
                     var lead = read.Name.Split('.')[0];
@@ -1004,7 +1004,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     {
                         if (own && constant.Declaration.Start.TokenIndex >= module.PrePass.EnumDeclaredAt[read.Enum])
                             throw new VBCompileErrorException("Constant expression required");
-                        throw Unsupported();
+                        if (module.Kind == InterpreterModuleKind.Standard)
+                            module.PrePass.DeferEnum(read.Enum, read.Member);
+                        else
+                            throw Unsupported();
+                        continue;
                     }
                     if (own && kind is not null)
                         throw Unsupported();
@@ -1406,6 +1410,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 await executor.Execute(block, moduleDeclarations);
             else if (item is VB6Parser.TypeStmtContext type)
                 await executor.ResolveTypeBounds(type);
+            else if (item is VB6Parser.EnumerationStmtContext enumeration)
+                await executor.ResolveEnumValues(enumeration);
         }
     }
 

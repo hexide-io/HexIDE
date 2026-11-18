@@ -5167,6 +5167,39 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private static int ArrayBound(Vb6Value value) => value.Type == Vb6Value.ValueType.LongLong
         ? throw new NotImplementedException("A LongLong array bound is unmeasured (#1548)") : Subscript(value);
 
+    internal async Task ResolveEnumValues(VB6Parser.EnumerationStmtContext enumeration)
+    {
+        var name = enumeration.ambiguousIdentifier().GetText();
+        if (!currentModule.PrePass.DeferredEnums.TryGetValue(name, out var deferred)) return;
+        var members = enumeration.enumerationStmt_Constant();
+        var values = currentModule.PrePass.Enums[name];
+        long next = deferred.First == 0 ? 0 : values[members[deferred.First - 1].ambiguousIdentifier().GetText()] + 1;
+        for (var i = deferred.First; i < members.Length; i++)
+        {
+            var member = members[i];
+            var memberName = member.ambiguousIdentifier().GetText();
+            Vb6Value value;
+            if (member.valueStmt() is { } expression)
+            {
+                try
+                {
+                    await ModuleLevelBounds.CheckEnumMember(interpreter, currentModule, currentEnv, member);
+                }
+                catch (VBCompileErrorException ex) when (ex.Message.Contains("Constant expression required"))
+                {
+                    throw new VBCompileErrorException($"Constant expression required (Enum {name}, member '{memberName}': '{expression.GetText().Trim()}')");
+                }
+                value = VB6BuiltIns.NarrowNum(await expressionExecutor.EvaluateValue(expression), Vb6Value.ValueType.Long);
+            }
+            else value = new Vb6Value(next);
+            var number = Convert.ToInt64(value.Value);
+            values[memberName] = number;
+            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, memberName, value, fillingConstant: true);
+            next = number + 1;
+        }
+        currentModule.PrePass.DeferredEnums.Remove(name);
+    }
+
     internal async Task ResolveTypeBounds(VB6Parser.TypeStmtContext type)
     {
         var def = currentModule.PrePass.Types[type.ambiguousIdentifier().GetText()];
