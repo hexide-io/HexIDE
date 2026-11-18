@@ -1529,6 +1529,28 @@ as not implemented.
 - **THEN** Print # writes "Error 5" and Write # writes "#ERROR 5#"
 - **AND** implicit string coercion still raises 13
 
+### Requirement: New on a form creates a separate instance
+
+Explicit `New Form2` SHALL create an instance distinct from the form's default instance, from any executing
+module. Its declarations and Initialize SHALL run inside that statement. Its own Public members and calls
+through an implemented interface SHALL leave it unloaded; controls and built-in members SHALL load it.
+A loaded instance SHALL be retained by Forms until Unload, and an unloaded instance SHALL terminate at
+its last reference's release, including statement temporaries. Forms SHALL receive the same interface
+conformance check as classes when constructed. Without a forms program, construction SHALL refuse with
+NotImplementedException naming #4598. These are #4598's measured VB6 SP6 rows, native and p-code agreeing;
+`As New Form2` remains outside this change.
+
+#### Scenario: A temporary instance does not become the default
+
+- **WHEN** a statement reads `TypeName(New Form2)`
+- **THEN** Initialize runs, TypeName is "Form2", and Terminate runs at statement end without loading it
+- **AND** a later read of the name Form2 creates its own default instance
+
+#### Scenario: Unload preserves a referenced instance
+
+- **WHEN** an instance created by New is loaded, unloaded and then used through a built-in member
+- **THEN** Load runs again without Initialize, and the instance rejoins Forms
+
 ### Requirement: Forms SHALL hold the program's loaded forms as VB6's does
 `Forms` SHALL be a program global, reached where nothing the program declares claims the name. It SHALL hold the loaded
 forms in the order they loaded, a form from the start of its own Load to the end of its own Unload. Its index SHALL be a
