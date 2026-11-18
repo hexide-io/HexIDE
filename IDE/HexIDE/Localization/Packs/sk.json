@@ -299,6 +299,7 @@
     "Str.Menu.Help.LogFolder": "Otvoriť priečinok _záznamov HexIDE",
     "Str.Help.LogFolder.OpenFailed": "Priečinok záznamov sa nepodarilo otvoriť. Môžete ho otvoriť ručne: {0}",
     "Str.Menu.Help.About": "_O programe HexIDE...",
+    "Str.Menu.MacApp.About": "O programe HexIDE",
     "Str.Menu.GoToGithubRepo": "Prejsť do repozitára na GitHube",
     "Str.ProjectType.StandardEXE": "Štandardný EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",

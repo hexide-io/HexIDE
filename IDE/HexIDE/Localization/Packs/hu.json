@@ -333,6 +333,7 @@
     "Str.Menu.Help.LogFolder": "HexIDE-nap_lómappa megnyitása",
     "Str.Help.LogFolder.OpenFailed": "Nem sikerült megnyitni a naplómappát. Kézzel is megnyithatja: {0}",
     "Str.Menu.Help.About": "A HexIDE _névjegye...",
+    "Str.Menu.MacApp.About": "A HexIDE névjegye",
     "Str.Menu.GoToGithubRepo": "GitHub-tároló megnyitása",
     "Str.ProjectType.StandardEXE": "Szokásos EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",

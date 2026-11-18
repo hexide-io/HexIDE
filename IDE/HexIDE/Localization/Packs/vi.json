@@ -338,6 +338,7 @@
     "Str.Menu.Help.LogFolder": "Mở thư mục nhật _ký HexIDE",
     "Str.Help.LogFolder.OpenFailed": "Không thể mở thư mục nhật ký. Bạn có thể mở thủ công: {0}",
     "Str.Menu.Help.About": "_Giới thiệu về HexIDE...",
+    "Str.Menu.MacApp.About": "Giới thiệu về HexIDE",
     "Str.Menu.GoToGithubRepo": "Đến kho GitHub",
     "Str.NewProject.NoTemplates": "Hồ sơ này không cung cấp mẫu dự án mới. Hãy mở một dự án hiện có.",
     "Str.NewProject.Msg.NoStandardExe": "{0} chưa cài đặt loại dự án nào tạo được dự án Standard EXE, nên đã khởi động mà không có dự án.",
