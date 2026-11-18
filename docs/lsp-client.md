@@ -2003,6 +2003,12 @@ Three clusters account for nearly all of the gap:
   recursively watch a filesystem root (including a missing base whose existing ancestor is a root) are
   logged and refused with `InvalidParams`, installing nothing. Recursive disk watches feed
   the same matcher as completed project saves and workspace artefact writes, with 150 ms batching.
+  On macOS, disk Created events are corrected to Changed at batch flush when the file was already
+  reported without a subsequent Deleted, or its birth time predates the disk watch
+  ([#3650](https://github.com/hexide-io/HexIDE/issues/3650)).
+  The corrected kind is checked against the registration again. Unreadable files retain the reported type;
+  IDE reports and Windows/Linux disk events retain their existing handling. A file moved in from outside
+  the watched folders retains its birth time and is consequently reported Changed on macOS.
   Direct writes work independently of editor reload watching. Unregistering removes pending matches.
   `showMessageRequest` uses a queued IDE message box (#2908).
 
