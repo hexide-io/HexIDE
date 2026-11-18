@@ -889,6 +889,48 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             }
         }
 
+        // Library folds must not outrank project declarations collected by a later pre-pass (#4594).
+        foreach (var module in Modules.All)
+            foreach (var read in module.PrePass.EnumLibraryNames)
+            {
+                NotImplementedException Unsupported() => new(
+                    $"Enum {read.Enum}, member '{read.Member}': project name '{read.Name}' is not implemented (#4614)");
+                if (read.Qualified)
+                {
+                    var lead = read.Name.Split('.')[0];
+                    if (Modules.All.Any(m => m.Kind == InterpreterModuleKind.Standard
+                            && m.Name.Equals(lead, StringComparison.OrdinalIgnoreCase)
+                            || m.PrePass.Enums.ContainsKey(lead)))
+                        throw Unsupported();
+                    if (read.Refusal is { } qualifiedRefusal) throw qualifiedRefusal;
+                    continue;
+                }
+                foreach (var other in Modules.All)
+                {
+                    var own = ReferenceEquals(module, other);
+                    var kind = other.PrePass.ModuleName(read.Name);
+                    if (own && kind == PrePass.ModuleNameKind.Variable
+                        || !own && other.Kind == InterpreterModuleKind.Standard && other.PrePass.PublicVariables.Contains(read.Name))
+                        throw new VBCompileErrorException("Constant expression required");
+                    if (other.PrePass.ModuleConsts.TryGetValue(read.Name, out var constant)
+                        && (own || other.Kind == InterpreterModuleKind.Standard && constant.Public))
+                    {
+                        if (own && constant.Declaration.Start.TokenIndex >= module.PrePass.EnumDeclaredAt[read.Enum])
+                            throw new VBCompileErrorException("Constant expression required");
+                        throw Unsupported();
+                    }
+                    if (own && kind is not null)
+                        throw Unsupported();
+                    if (!own && other.Kind == InterpreterModuleKind.Standard
+                        && other.PrePass.HasOtherModuleName(read.Name))
+                        throw Unsupported();
+                    foreach (var (name, members) in other.PrePass.Enums)
+                        if (!other.PrePass.PrivateEnums.Contains(name) && members.ContainsKey(read.Name))
+                            throw Unsupported();
+                }
+                if (read.Refusal is { } refusal) throw refusal;
+            }
+
         // Seed the program-global Debug and Err objects into EVERY module env, each at a SINGLE shared slot
         // (never a per-env alloc, which would mint N distinct objects). Sharing the slot also removes the old
         // Err field/slot divergence across a SetCode recompile.
