@@ -716,6 +716,7 @@ added afterwards.
 - [A breakpoint on a procedure's End line or its header (2026-10-26, #2172, IDE)](a-breakpoint-on-a-procedures-end-line-or-its-header.md#a-breakpoint-on-a-procedures-end-line-or-its-header-2026-10-26-2172-ide)
 - [Break on an idle program, and a step off the end of an event handler (2026-11-16, #4261, IDE)](break-on-an-idle-program-and-a-step-off-an-event-handler.md#break-on-an-idle-program-and-a-step-off-the-end-of-an-event-handler-2026-11-16-4261-ide)
 - [Which window comes to the front: Continue, a step, and a modal form (2026-11-17, #4262, IDE)](break-on-an-idle-program-and-a-step-off-an-event-handler.md#which-window-comes-to-the-front-continue-a-step-and-a-modal-form-2026-11-17-4262-ide)
+- [Step Out across idle, and stepping through a startup Sub Main or form (2026-11-18, #4449, IDE)](break-on-an-idle-program-and-a-step-off-an-event-handler.md#step-out-across-idle-and-stepping-through-a-startup-sub-main-or-form-2026-11-18-4449-ide)
 - [A multiple selection in the designer, and Align (2026-10-26, #2181, design-time, IDE)](a-multiple-selection-in-the-designer-and-align.md#a-multiple-selection-in-the-designer-and-align-2026-10-26-2181-design-time-ide)
 - [A UserControl's own properties at run time (2026-10-26, #1631)](a-usercontrols-own-properties-at-run-time.md#a-usercontrols-own-properties-at-run-time-2026-10-26-1631)
 - [Ambient, at design time and at run time (2026-11-16, #4149, design-time, IDE, SP6)](a-usercontrols-own-properties-at-run-time.md#ambient-at-design-time-and-at-run-time-2026-11-16-4149-design-time-ide-sp6)
