@@ -358,6 +358,8 @@ logged the same lines.
 | `o.ScaleX(1, vbInches, vbTwips)`, o set to Picture1 | 1440 |
 | `o.Scale (0, 0)-(10, 10)`, o set to Text1 | 438, Object doesn't support this property or method |
 | `o.ScaleX(1, vbInches, vbTwips)`, o set to Text1 | 438 |
+| `o.ScaleY(1, vbInches, vbTwips)`, o set to Text1, as a value and as a statement | 438, each |
+| `o.ScaleX` and `o.ScaleY`, o set to UserControl11, its extender, as values, and `o.ScaleX` as a statement | 438, each |
 
 **At compile time**, each in a project of its own:
 
@@ -372,7 +374,9 @@ logged the same lines.
   in pixels wasn't checked, so this says how VB6 reads such a file, not that the IDE writes one.
 - **A PictureBox saved with ScaleMode 0 and no extents has one twip a unit,** as a form does: 1155 by 555 is its client
   area, inside a 30-twip border on each side.
-- **Late-bound `ScaleY`, and `ScaleX` on a PictureBox, work.** A TextBox has neither `Scale` nor `ScaleX`, so 438.
+- **Late-bound `ScaleY`, and `ScaleX` on a PictureBox, work.** A TextBox and a UserControl's extender have no `Scale`,
+  `ScaleX` or `ScaleY`, so each is 438, as a value or as a statement. The last two rows of the table above came from a
+  second run of the same project the same day, also p-code and native.
 
 **Against the centimetre factor.** Picture2's client area is 2355 by 1755 twips, and Line2's ends load as 283, 283, 1134
 and 850 twips. Dividing each by 566.928588867188, the factor in "Centimetres and millimetres, to the last bit" above, and
