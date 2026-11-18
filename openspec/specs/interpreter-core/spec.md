@@ -30,6 +30,33 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Set checks intrinsic control classes before storing
+
+Scalar slots declared as an intrinsic VB control class or Form SHALL retain that class, bare or
+`VB.`-qualified. Set SHALL check the actual object rather than the right-hand side's declared type,
+following [#1563's VB6 SP6 measurements](https://github.com/hexide-io/HexIDE/issues/1563)
+(native and p-code, oracle PR #4796).
+
+#### Scenario: An incompatible intrinsic control preserves the previous reference
+- **WHEN** a ListBox is assigned to a TextBox slot, directly or through Object or Variant
+- **THEN** error 13 is raised before the store and the slot retains Nothing or its previous TextBox
+- **AND** HScrollBar and VScrollBar are distinct classes, using the same names as TypeOf and TypeName
+- **AND** an intrinsic control is refused with 13 by a Form or project-class slot
+
+#### Scenario: Compatible controls and form references
+- **WHEN** a control is assigned to its own class, Control, Object or Variant
+- **THEN** the slot retains that same control
+- **AND** a project form can be stored in a Form slot
+- **AND** a form or project-class instance assigned to a control-class slot raises 13
+
+#### Scenario: For Each uses the same store check
+- **GIVEN** a form whose first control is a Timer
+- **WHEN** `For Each t In Controls` runs with `t As TextBox` under On Error Resume Next
+- **THEN** Err.Number is 13, the body runs once and t remains Nothing
+
+Arrays, UserControls, other OCX controls, `As Form1`, and assigning a form to `As Control` retain their
+existing behaviour outside this slice.
+
 ### Requirement: A running form accepts Icon assignments
 
 A running form's default instance SHALL accept icon pictures or Nothing through Set or Let on Icon, bare or through Me or the form's name, without reading the picture's default Handle, following [#4603's SP6 measurements](https://github.com/hexide-io/HexIDE/issues/4603). Native handles and New instances remain outside this slice.
@@ -580,6 +607,35 @@ may not be named", and named IMEStatus "Wrong number of arguments or invalid pro
 #### Scenario: Reordered financial parameters with omitted optionals
 - **WHEN** `FV(Pmt:=-100, NPer:=12, Rate:=0.01)` executes
 - **THEN** its value equals `FV(0.01, 12, -100)`
+
+### Requirement: Measured control and form named arguments
+
+The interpreter SHALL bind the control/form parameter names measured by
+[#1474](https://github.com/hexide-io/HexIDE/issues/1474) in parameter order. Unknown/repeated names and
+missing required parameters SHALL raise the measured compile errors as the statement executes.
+Unmeasured names SHALL remain unimplemented. Name binding SHALL preserve existing method execution refusals.
+
+#### Scenario: Measured method signatures
+- **WHEN** an early-bound control or form method receives named arguments
+- **THEN** ListBox/ComboBox AddItem takes Item/Index and RemoveItem takes Index; TextBox/form Move takes Left/Top/Width/Height; ZOrder takes Position; form TextWidth takes Str; PictureBox ScaleX takes Width/FromScale/ToScale
+- **AND** form TextWidth and form ZOrder execution remain explicitly unimplemented
+
+#### Scenario: AddItem evaluates its parameters in order
+- **WHEN** `List1.AddItem Index:=F(1), Item:=F("c")` executes early-bound
+- **THEN** F receives "c" before 1 and c is inserted at index 1
+
+#### Scenario: A gap prevents a move
+- **WHEN** `Text1.Move 200, Height:=400` executes
+- **THEN** error 448 is raised and no position or size changes
+- **AND** optional gaps in TextBox/form Move and PictureBox ScaleX raise 448 whether named or positional
+
+#### Scenario: A late-bound control takes no names
+- **WHEN** an Object holding a ListBox executes `o.AddItem Item:="late"`
+- **THEN** error 448 is raised and the list stays unchanged
+- **AND** all named method arguments on the measured control/form targets through Object or Variant raise 448, including repeated names
+- **AND** `As Control` and `As VB.Control` ListBox AddItem and TextBox Move calls with names raise 448 without changing the target, while positional calls still work ([#4737](https://github.com/hexide-io/HexIDE/issues/4737), SP6 native/p-code, measuring PR #4753)
+- **AND** a variable declared as the control's or form's own class (`As ListBox`, `As TextBox`, `As Form`, `As Form1`) binds the names
+- **AND** a Collection retains its existing named binding
 
 ### Requirement: Measured straight-line and sum-of-years depreciation
 
