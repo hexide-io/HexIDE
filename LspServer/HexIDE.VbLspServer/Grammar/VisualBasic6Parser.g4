@@ -361,6 +361,7 @@ blockStmt
     | returnStmt
     | rmdirStmt
     | rsetStmt
+    | scaleStmt
     | savepictureStmt
     | saveSettingStmt
     | seekStmt
@@ -719,6 +720,14 @@ rmdirStmt
 
 rsetStmt
     : RSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt
+    ;
+
+// A coordinate-system statement, not a call whose argument is the subtraction of two tuples (#990).
+scaleStmt
+    : (receiver=implicitCallStmt_InStmt DOT WS?)? SCALE
+      (WS? LPAREN WS? valueStmt WS? COMMA WS? valueStmt WS? RPAREN WS? MINUS WS?
+       LPAREN WS? valueStmt WS? COMMA WS? valueStmt WS? RPAREN
+       | {$receiver.ctx != null || (TokenStream.LA(1) != COLON && (TokenStream.LA(1) != WS || TokenStream.LA(2) != COLON))}?)
     ;
 
 savepictureStmt

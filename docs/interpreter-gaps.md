@@ -305,7 +305,7 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   Standard-module indexed Let dispatches through the procedure binder (#977); standard-module indexed Set
   remains unmeasured and refused. Mismatched accessor signatures run here but are refused at compile time
   by VB6; the consistency diagnostic requires binding and is not implemented. Optional/ParamArray indexes
-  and default-member indexed writes (#174) are outside #177. A class's parameterized `Property Get` now
+  remain refused; parameterized default-member reads and writes run separately (#4606). A class's parameterized `Property Get` now
   passes its index arguments through the ordinary procedure binder (#741), including the surplus-argument
   compile error. A Collection's `Item` is separately implemented as an in-box object's member (#1471).
 - **Fixed-length strings** (`Dim s As String * n`) — scalar module/local/Static slots now initialise to N NULs
@@ -365,8 +365,13 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   Case values against Empty/Null, raise 450. `CVar`, TypeName, IsObject and ByVal Variant keep the object.
   [Value measurements](vb6-fidelity-oracle/an-object-used-as-a-value.md),
   [CVar](vb6-fidelity-oracle/cvar.md), [subscripts](vb6-fidelity-oracle/subscripts-bounds-and-a-method-called-from-class_initialize.md).
-  Still refused naming #174: a Sub default, a member requiring arguments, nested defaults, typed Function
-  Format/Abs and later Format arguments (unmeasured), default-member writes and parameterized access. Synchronous Join/Filter reads,
+  Parameterized Function/Get default reads and Property Let writes now run through variables, class fields,
+  indexed results and parameterless class-returning procedures ([#4606 measurements](https://github.com/hexide-io/HexIDE/issues/4606)).
+  Classes without defaults, Variable/Sub defaults given arguments and defaults without a Property Let on a write
+  remain unmeasured and refuse naming #4606. Nothing in Variant/Object slots and object argument/value evaluation
+  order retain today's behaviour, unmeasured.
+  Still refused naming #174: a Sub default used as a scalar, a member requiring arguments used without them,
+  nested scalar defaults, typed Function Format/Abs and later Format arguments (unmeasured), and default-member writes without arguments. Synchronous Join/Filter reads,
   `IndexResult` and `FieldElement` subscript conversion retain their refusals; the Immediate window still
   refuses calls into the program. Array bounds and control-array indexes remain unmeasured with defaults.
 
