@@ -366,6 +366,8 @@ PrinterDefault, ToPage, Orientation
 
 ShowOpen, ShowSave and ShowFont run through the host (#1148). The scalar object-model slice of #1084
 adds the measured defaults and assignment checks; initial hDC reads remain refused because no native printer DC is owned.
+HelpContext now uses the runtime Long store for reads, writes and form loading ([#4514](https://github.com/hexide-io/HexIDE/issues/4514)).
+Late-bound Null remains unmeasured: HexIDE raises 94 through that store as an allowed error-number approximation.
 The control now loads through the MSComDlg library record and its component class, with own file properties carried
 verbatim. Color reads preserve VarType 19 and the unsigned value; assigning -1 overflows. Unmeasured unsigned numeric
 conversions remain refused. Single-file Open/Save now add PathMustExist even on Cancel, set ExtensionDifferent for an extension differing from
