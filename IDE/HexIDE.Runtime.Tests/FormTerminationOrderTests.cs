@@ -9,6 +9,15 @@ namespace HexIDE.Runtime.Tests;
 
 public class FormTerminationOrderTests : BaseVBTestFixture
 {
+    [Fact]
+    public async Task New_form_without_a_forms_program_refuses_with_the_issue_instead_of_a_compile_error()
+    {
+        var interpreter = new BasicInterpreter(new MockStdLib(debug), context, rootEnv,
+            "Sub Main()\nEnd Sub\n", formModules: [("Form2", "")]);
+        var make = () => interpreter.NewObject("Form2");
+        await make.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4598*");
+    }
+
     private sealed class Sink : IDeserializeErrorSink
     {
         public void LogError(string message) => throw new InvalidOperationException(message);
@@ -32,7 +41,7 @@ public class FormTerminationOrderTests : BaseVBTestFixture
 
     // #2496's two sequences, native and p-code agreeing:
     // docs/vb6-fidelity-oracle/the-forms-collection.md#the-terminates-at-the-runs-end.
-    // MakeDefaultInstance supplies the second instance directly: New Form2 remains unsupported (#822).
+    // MakeDefaultInstance supplies both instances directly to isolate shutdown ordering.
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

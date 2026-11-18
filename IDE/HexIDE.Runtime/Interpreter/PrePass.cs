@@ -74,18 +74,29 @@ public class PrePass : VB6BaseVisitor<object?>
     // first: a Property's Get, Let and Set share its name, each once, and two Enums' members may share one, which is
     // ambiguous only where it is read (AmbiguousEnumMembers). Collected, not related: each name meets only the names before
     // it in the same module.
-    private readonly Dictionary<string, (HashSet<string>? Enums, HashSet<string>? Accessors)> moduleNames =
+    internal enum ModuleNameKind { Other, Variable, Const }
+    internal bool HasOtherModuleName(string name) => moduleNames.TryGetValue(name, out var entry)
+        && entry.Kind == ModuleNameKind.Other && entry.Enums is null && entry.Exported;
+    internal ModuleNameKind? ModuleName(string name) => moduleNames.TryGetValue(name, out var entry) ? entry.Kind : null;
+
+    internal sealed record EnumLibraryName(string Enum, string Member, string Name, bool Qualified, Exception? Refusal);
+    internal List<EnumLibraryName> EnumLibraryNames { get; } = new();
+    private string foldingMember = "";
+
+    private readonly Dictionary<string, (HashSet<string>? Enums, HashSet<string>? Accessors, ModuleNameKind Kind, bool Exported)> moduleNames =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> moduleTypeNames = new(StringComparer.OrdinalIgnoreCase);
 
-    private void DeclareModuleName(string name, string? inEnum = null, string? accessor = null)
+    private void DeclareModuleName(string name, string? inEnum = null, string? accessor = null, ModuleNameKind kind = ModuleNameKind.Other, bool exported = true)
     {
         if (!moduleNames.TryGetValue(name, out var earlier))
             moduleNames[name] = (inEnum is null ? null : new(StringComparer.OrdinalIgnoreCase) { inEnum },
-                                 accessor is null ? null : new(StringComparer.Ordinal) { accessor });
+                                 accessor is null ? null : new(StringComparer.Ordinal) { accessor }, kind, exported);
         else if (!(inEnum is not null && earlier.Enums?.Add(inEnum) == true)
                  && !(accessor is not null && earlier.Accessors?.Add(accessor) == true))
             throw new VBCompileErrorException("Ambiguous name detected: " + name);
+        else if (exported && !earlier.Exported)
+            moduleNames[name] = (earlier.Enums, earlier.Accessors, earlier.Kind, true);
     }
 
     private void DeclareModuleTypeName(string name)
@@ -298,7 +309,7 @@ public class PrePass : VB6BaseVisitor<object?>
                 continue;
             // Only this declarator is an event sink; the declared class is not validated here.
             var name = subStmt.ambiguousIdentifier().GetText();
-            DeclareModuleName(name);
+            DeclareModuleName(name, kind: ModuleNameKind.Variable);
             WithEventsNames.Add(name);
             rootEnv.DefineVariable(name, state.Alloc(Vb6Value.Nothing));
         }
@@ -316,7 +327,7 @@ public class PrePass : VB6BaseVisitor<object?>
             {
                 if (subStmt.WITHEVENTS() != null)
                     continue;
-                DeclareModuleName(subStmt.ambiguousIdentifier().GetText());
+                DeclareModuleName(subStmt.ambiguousIdentifier().GetText(), kind: ModuleNameKind.Variable);
                 // `Dim s$` is `Dim s As String`, typed when the Dim runs (DeclareLocal); with an As clause as well it is
                 // VB6's compile error (measured, #742).
                 if (subStmt.typeHint() != null && subStmt.asTypeClause() != null)
@@ -458,7 +469,7 @@ public class PrePass : VB6BaseVisitor<object?>
         // the initializer). Sub/Function bodies aren't visited here, so local consts stay out of rootEnv.
         foreach (var sub in context.constSubStmt())
         {
-            DeclareModuleName(sub.ambiguousIdentifier().GetText());
+            DeclareModuleName(sub.ambiguousIdentifier().GetText(), kind: ModuleNameKind.Const);
             var location = state.Alloc(Vb6Value.Variant);
             state.MarkConstant(location);
             if (IsVariantConst(sub))
@@ -488,7 +499,7 @@ public class PrePass : VB6BaseVisitor<object?>
         if (ObjectModule && context.visibility()?.PUBLIC() != null)
             throw new VBCompileErrorException(PublicMemberOfObjectModule);
         declared = true;
-        DeclareModuleName(context.ambiguousIdentifier().GetText());
+        DeclareModuleName(context.ambiguousIdentifier().GetText(), exported: !IsPrivate(context.visibility()));
         return default;
     }
 
@@ -516,6 +527,7 @@ public class PrePass : VB6BaseVisitor<object?>
             long value;
             if (c.valueStmt() is { } vs)
             {
+                foldingMember = constName;
                 if (!TryFoldEnumValue(vs, enumName, members, out value))
                     throw new VBCompileErrorException(
                         $"Constant expression required (Enum {enumName}, member '{constName}': '{vs.GetText().Trim()}')");
@@ -564,7 +576,7 @@ public class PrePass : VB6BaseVisitor<object?>
     /// </para>
     ///
     /// <para>
-    /// Names resolve against members already folded, which is the whole of the scoping rule: earlier
+    /// Names resolve against members already folded and in-box constants (#4594): earlier
     /// members of this enum (bare or qualified with this enum's own name — both measured legal), and
     /// members of enums declared earlier. A forward reference simply is not found, which is the right
     /// answer for the right reason.
@@ -683,18 +695,19 @@ public class PrePass : VB6BaseVisitor<object?>
     private static long ToWhole(double d) => (long)Math.Round(d, MidpointRounding.ToEven);
 
     /// <summary>Resolve a name inside an Enum member value: `Earlier`, `ThisEnum.Earlier`, `OtherEnum.Member`.</summary>
-    private bool TryResolveFoldedName(string text, string enumName, Dictionary<string, long> soFar, out long result)
+    private bool TryResolveFoldedName(string text, string enumName, Dictionary<string, long> soFar, out double result)
     {
         result = 0;
+        long folded;
         var dot = text.LastIndexOf('.');
         if (dot < 0)
         {
             // Bare: this enum's earlier members first, then any earlier enum's members. Both are measured
             // legal; a name declared by two enums is ambiguous in VB6 and is left for the collision work.
-            if (soFar.TryGetValue(text, out result)) return true;
+            if (soFar.TryGetValue(text, out folded)) { result = folded; return true; }
             foreach (var (_, members) in Enums)
-                if (members.TryGetValue(text, out result)) return true;
-            return false;
+                if (members.TryGetValue(text, out folded)) { result = folded; return true; }
+            return TryLibraryName(text, enumName, out result);
         }
 
         var qualifier = text[..dot].Trim();
@@ -703,7 +716,46 @@ public class PrePass : VB6BaseVisitor<object?>
         var table = string.Equals(qualifier, enumName, StringComparison.OrdinalIgnoreCase)
             ? soFar
             : Enums.TryGetValue(qualifier, out var t) ? t : null;
-        return table is not null && table.TryGetValue(member, out result);
+        if (table is not null && table.TryGetValue(member, out folded)) { result = folded; return true; }
+        return TryLibraryName(text, enumName, out result);
+    }
+
+    // #4594: library values are provisional until every module's declarations have been collected.
+    // Defer refusals too: a project qualifier must win even when the library lookup would fail.
+    private bool TryLibraryName(string text, string enumName, out double result)
+    {
+        result = 0;
+        var parts = text.Split('.');
+        if (parts.Length > 3 || text.Contains('(')) return false;
+        Vb6Value value = default;
+        bool found;
+        Exception? refusal = null;
+        if (parts.Length == 1)
+            found = VB6InBoxLibraries.TryBare(text, out value);
+        else if (VB6InBoxLibraries.IsLibrary(parts[0]))
+        {
+            found = parts.Length == 2
+                ? VB6InBoxLibraries.TryInLibrary(parts[0], parts[1], out value)
+                : parts.Length == 3 && VB6InBoxLibraries.ContainerBelongsTo(parts[0], parts[1])
+                    && VB6InBoxLibraries.TryInLibraryContainer(parts[0], parts[1], parts[2], out value);
+            if (!found)
+                refusal = parts.Length == 2
+                    ? new VBCompileErrorException("Method or data member not found")
+                    : new NotImplementedException($"Enum {enumName}, member '{foldingMember}': in-box container member '{text}' is not implemented (#4594)");
+        }
+        else if (parts.Length == 2 && VB6InBoxLibraries.IsContainer(parts[0]))
+        {
+            found = VB6InBoxLibraries.TryInContainer(parts[0], parts[1], out value);
+            if (!found)
+                refusal = new NotImplementedException($"Enum {enumName}, member '{foldingMember}': in-box container member '{text}' is not implemented (#4594)");
+        }
+        else
+            return false;
+        if (!found && refusal is null) return false;
+        if (found && !TryAsDouble(value, out result))
+            refusal = new NotImplementedException($"Enum {enumName}, member '{foldingMember}': nonnumeric in-box constant '{text}' is not implemented (#4594)");
+        EnumLibraryNames.Add(new(enumName, foldingMember, text, parts.Length > 1, refusal));
+        return true;
     }
 
     /// <summary>A numeric literal's value, whatever width the classifier gave it.</summary>
@@ -741,7 +793,7 @@ public class PrePass : VB6BaseVisitor<object?>
         // A complexType return
         // (`As Node`) carries its concrete name so the return slot seeds a real UDT / Nothing (see RunProcedure).
         var name = context.ambiguousIdentifier().GetText();
-        DeclareModuleName(name, accessor: "Get");
+        DeclareModuleName(name, accessor: "Get", exported: !IsPrivate(context.visibility()));
         var args = ParseParams(context.argList());
         var returnUdt = NamedType(context.asTypeClause());
         // `Property Get P$()` returns a String, as a Function's character declares its return. Unlike a Function's, it
@@ -760,7 +812,7 @@ public class PrePass : VB6BaseVisitor<object?>
     public override object? VisitPropertyLetStmt(VB6Parser.PropertyLetStmtContext context)
     {
         var name = context.ambiguousIdentifier().GetText();
-        DeclareModuleName(name, accessor: "Let");
+        DeclareModuleName(name, accessor: "Let", exported: !IsPrivate(context.visibility()));
         GetOrAddProperty(name).Let = ParsePropertyMutator("Let", name, context.argList(), context.block(), context.visibility());
         NoteDefaultMember(context.block(), DefaultMemberKind.Property);
         return default;
@@ -769,7 +821,7 @@ public class PrePass : VB6BaseVisitor<object?>
     public override object? VisitPropertySetStmt(VB6Parser.PropertySetStmtContext context)
     {
         var name = context.ambiguousIdentifier().GetText();
-        DeclareModuleName(name, accessor: "Set");
+        DeclareModuleName(name, accessor: "Set", exported: !IsPrivate(context.visibility()));
         GetOrAddProperty(name).Set = ParsePropertyMutator("Set", name, context.argList(), context.block(), context.visibility());
         NoteDefaultMember(context.block(), DefaultMemberKind.Property);
         return default;
@@ -879,7 +931,7 @@ public class PrePass : VB6BaseVisitor<object?>
         var (returnType, returnsVariant, returnsObject) = hint is not null
             ? (BaseTypeMapper.Map(hint), false, false)
             : ReturnOf(context.asTypeClause(), name);
-        DeclareModuleName(name);
+        DeclareModuleName(name, exported: !IsPrivate(context.visibility()));
         Procedures[name] = CheckedLocals(new ProcedureInfo(name, true, ParseParams(context.argList()),
             returnUdt != null && !returnType.IsArray ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
@@ -891,7 +943,7 @@ public class PrePass : VB6BaseVisitor<object?>
     public override object? VisitSubStmt(VB6Parser.SubStmtContext context)
     {
         var name = context.ambiguousIdentifier().GetText();
-        DeclareModuleName(name);
+        DeclareModuleName(name, exported: !IsPrivate(context.visibility()));
         Procedures[name] = CheckedLocals(new ProcedureInfo(name, false, ParseParams(context.argList()),
             Vb6Value.ValueType.EmptyVariant, context.block(), IsPrivate(context.visibility())) { Declaration = context });
         NoteDefaultMember(context.block(), DefaultMemberKind.Sub);

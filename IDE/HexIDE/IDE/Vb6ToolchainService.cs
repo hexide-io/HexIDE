@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HexIDE.Events;
@@ -11,6 +12,7 @@ using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using Serilog;
+using HexIDE.Sidecar;
 
 namespace HexIDE.IDE;
 
@@ -58,11 +60,13 @@ public class Vb6ToolchainService : IVb6ToolchainService
     public bool IsAvailable => Vb6ExePath != null;
 
     private readonly CodeTrust trust;
+    private readonly IUserSidecarService sidecar;
 
     public Vb6ToolchainService(ILspClient lspClient, IEventBus eventBus, IWindowManager windowManager, ILocalizationService localization,
-        CodeTrust trust)
+        CodeTrust trust, IUserSidecarService sidecar)
     {
         this.trust = trust;
+        this.sidecar = sidecar;
         this.lspClient = lspClient;
         this.eventBus = eventBus;
         this.windowManager = windowManager;
@@ -74,7 +78,9 @@ public class Vb6ToolchainService : IVb6ToolchainService
             : DefaultPaths.FirstOrDefault(File.Exists);
     }
 
-    public async Task<bool> MakeWithVb6Async(ProjectDefinition project)
+    public Task<bool> MakeWithVb6Async(ProjectDefinition project) => BuildAsync(project, forRun: false);
+
+    private async Task<bool> BuildAsync(ProjectDefinition project, bool forRun)
     {
         if (!IsAvailable)
         {
@@ -90,6 +96,16 @@ public class Vb6ToolchainService : IVb6ToolchainService
                 _localization.GetString("Str.Vb6Toolchain.ProjectNotSaved"),
                 _localization.GetString("Str.Vb6Toolchain.BuildFailedTitle"), MessageBoxButtons.Ok, MessageBoxIcon.Warning);
             return false;
+        }
+
+        var exePath = OutputExePath(project);
+        if (File.Exists(exePath) && !(forRun && IsLastRunExe(project, exePath)))
+        {
+            if (await windowManager.MessageBox(
+                    string.Format(_localization.GetString("Str.FilePicker.ReplaceExisting"), Path.GetFileName(exePath)),
+                    buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning,
+                    layout: MessageBoxLayout.SecondButtonDefault) != MessageBoxResult.Yes)
+                return false;
         }
 
         // Flush any pending in-memory changes to disk.
@@ -207,14 +223,13 @@ public class Vb6ToolchainService : IVb6ToolchainService
         // VB6 runs the code it makes, so code from outside this computer is asked about first, as F5 asks (#1121).
         if (trust.Unapproved(project) is { Count: > 0 } files && !await trust.AskAsync(project.Name, files))
             return;
-        var success = await MakeWithVb6Async(project);
+        var success = await BuildAsync(project, forRun: true);
         if (!success)
             return;
 
         // VB6 puts the EXE in the same directory as the .vbp file, named by ExeName32 if the project
         // sets it (otherwise <ProjectName>.exe) — so assuming project.Name would miss a renamed output.
-        var projectDir = Path.GetDirectoryName(project.AbsolutePath!)!;
-        var exePath = Path.Combine(projectDir, ResolveOutputExeName(project));
+        var exePath = OutputExePath(project);
 
         if (!File.Exists(exePath))
         {
@@ -224,8 +239,35 @@ public class Vb6ToolchainService : IVb6ToolchainService
             return;
         }
 
-        Process.Start(new ProcessStartInfo(exePath) { UseShellExecute = true });
+        if (HashOf(exePath) is { } hash)
+            sidecar.RecordLastRunExe(project, new LastRunExe(Path.GetFileName(exePath), hash));
+        StartExe(exePath);
     }
+
+    internal virtual void StartExe(string exePath) =>
+        Process.Start(new ProcessStartInfo(exePath) { UseShellExecute = true });
+
+    private bool IsLastRunExe(ProjectDefinition project, string exePath) =>
+        sidecar.GetLastRunExe(project) is { } previous &&
+        HexIDE.IO.HostFilePath.Comparer.Equals(previous.FileName, Path.GetFileName(exePath)) &&
+        HashOf(exePath) is { } hash && hash == previous.Hash;
+
+    private static string? HashOf(string exePath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(exePath);
+            return Convert.ToHexString(SHA256.HashData(stream));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.Warning(ex, "Could not hash VB6 output {Path}", exePath);
+            return null;
+        }
+    }
+
+    private static string OutputExePath(ProjectDefinition project) =>
+        Path.Combine(Path.GetDirectoryName(project.AbsolutePath!)!, ResolveOutputExeName(project));
 
     private static string GetFormUri(FormDefinition form) => DocumentWireName.For(form);
 

@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
@@ -30,9 +31,9 @@ internal enum FormIconKind
 /// generic icon. VB98's own dialog templates save this to keep a dialog's caption bare.</item>
 /// <item>An icon of its own: that icon as both the big and the small icon.</item>
 /// </list>
-/// Read once, as the window is made, as <see cref="FormChrome"/> is.
+/// The file is read as the window is made; runtime Icon assignments replace this state (#4603).
 /// </remarks>
-internal readonly record struct FormIcon(FormIconKind Kind, byte[]? Image)
+internal readonly partial record struct FormIcon(FormIconKind Kind, byte[]? Image)
 {
     private const uint WmGetIcon = 0x007F, WmSetIcon = 0x0080;
     private static readonly IntPtr IconSmall = 0;
@@ -61,6 +62,8 @@ internal readonly record struct FormIcon(FormIconKind Kind, byte[]? Image)
     /// <summary>Give <paramref name="window"/> this icon.</summary>
     public void Apply(Window window)
     {
+        Win32Properties.RemoveWndProcHookCallback(window, NoIcon);
+        Win32Properties.RemoveWndProcHookCallback(window, BigIconOnly);
         switch (Kind)
         {
             case FormIconKind.Own:
@@ -77,6 +80,14 @@ internal readonly record struct FormIcon(FormIconKind Kind, byte[]? Image)
                 // Avalonia gives a window with no Icon the executable's own. On Windows the icon is set with WM_SETICON and
                 // read back with WM_GETICON, which Avalonia answers itself, so both are answered here: no icon is kept,
                 // and none is reported. Elsewhere the window has no icon of its own to clear.
+                window.Icon = null;
+                // A shown Window substitutes the executable's icon for null. Clear the native slots before the hook
+                // takes over; swallowing WM_SETICON alone would leave the previously displayed icon in those slots.
+                if (OperatingSystem.IsWindows() && window.TryGetPlatformHandle() is { HandleDescriptor: "HWND" } handle)
+                {
+                    DefWindowProc(handle.Handle, WmSetIcon, IconSmall, IntPtr.Zero);
+                    DefWindowProc(handle.Handle, WmSetIcon, new IntPtr(1), IntPtr.Zero);
+                }
                 Win32Properties.AddWndProcHookCallback(window, NoIcon);
                 break;
             case FormIconKind.Default:
@@ -88,6 +99,9 @@ internal readonly record struct FormIcon(FormIconKind Kind, byte[]? Image)
                 break;
         }
     }
+
+    [LibraryImport("user32.dll", EntryPoint = "DefWindowProcW")]
+    private static partial IntPtr DefWindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     private static IntPtr NoIcon(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {

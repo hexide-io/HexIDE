@@ -64,6 +64,8 @@ internal static class FormMembers
     public static Vb6Value Read(VbObject form, string name)
     {
         var window = form.BuiltInMembersFor(name)!;
+        if (IsIcon(name) && form.FormIconPicture is { } icon)
+            return new Vb6Value(icon);
         // A form's Name is its module's, read-only at run time: no property of the window holds it.
         if (IsName(name))
             return new Vb6Value(form.ClassName);
@@ -98,6 +100,11 @@ internal static class FormMembers
         if (IsScaleSize(name, out _))
             throw new NotImplementedException($"Setting {form.ClassName}'s {name} is not implemented: it sets a scale of the program's own (#990)");
         var window = form.BuiltInMembersFor(name)!;
+        if (IsIcon(name))
+        {
+            WriteIcon(form, value);
+            return;
+        }
         if (IsWindowState(name) && window is Avalonia.Controls.Window stateWindow)
         {
             WriteWindowState(stateWindow, value);
@@ -115,6 +122,27 @@ internal static class FormMembers
     /// <summary>Call a method of the form, as <c>Me.Hide</c> does: through its window, which says when it can't.</summary>
     public static Vb6Value Call(VbObject form, string name, IReadOnlyList<Vb6Value> args) =>
         form.BuiltInMembersFor(name)!.Call(name, args);
+
+    internal static bool IsIcon(string name) => string.Equals(name, "Icon", StringComparison.OrdinalIgnoreCase);
+
+    internal static void WriteIcon(VbObject form, Vb6Value value)
+    {
+        var window = form.BuiltInMembersFor("Icon") as Avalonia.Controls.Window
+            ?? throw new NotImplementedException("Setting a form's Icon without a window is not implemented (#4603)");
+        var nothing = value.Type == Vb6Value.ValueType.Object && value.Value is null;
+        var picture = nothing ? new PanelPicture([]) : value.Value as PanelPicture
+            ?? throw new NotImplementedException("This Form.Icon assignment is unmeasured (#4603)");
+        // #4603's SP6 measurements: a bitmap is 380; an empty picture leaves the window alone, Nothing clears it.
+        if (picture.FileBytes.Length != 0)
+        {
+            if (Serialization.FrxImageHelper.DetectKind(picture.FileBytes) != Serialization.FrxImageHelper.FrxBlobKind.Icon)
+                throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+            new FormIcon(FormIconKind.Own, picture.FileBytes).Apply(window);
+        }
+        else if (nothing)
+            new FormIcon(FormIconKind.None, null).Apply(window);
+        form.FormIconPicture = picture;
+    }
 
     private static bool IsName(string name) => string.Equals(name, "Name", StringComparison.OrdinalIgnoreCase);
 

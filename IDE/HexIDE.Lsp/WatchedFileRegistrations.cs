@@ -15,15 +15,19 @@ internal sealed class WatchedFileRegistrations : IDisposable
     private readonly Dictionary<string, JsonElement> _options = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Watch[]> _registrations = new(StringComparer.Ordinal);
     private readonly Dictionary<string, FileSystemWatcher> _directories = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, (string Uri, int Type)> _pending = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (string Uri, int Type, string? DiskRoot)> _pending = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DateTime> _watchStarts = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _reported = new(StringComparer.Ordinal);
+    private readonly bool _correctDiskCreates;
     private readonly Func<string[]> _roots;
     private readonly Func<DidChangeWatchedFilesParams, Task> _send;
     private readonly ILogger _log;
     private readonly Timer _timer;
     private bool _disposed;
 
-    public WatchedFileRegistrations(Func<string[]> roots, Func<DidChangeWatchedFilesParams, Task> send, ILogger log)
+    public WatchedFileRegistrations(Func<string[]> roots, Func<DidChangeWatchedFilesParams, Task> send, ILogger log, bool? correctDiskCreates = null)
     {
+        _correctDiskCreates = correctDiskCreates ?? OperatingSystem.IsMacOS();
         _roots = roots;
         _send = send;
         _log = log;
@@ -101,7 +105,7 @@ internal sealed class WatchedFileRegistrations : IDisposable
         }
         catch
         {
-            foreach (var root in added) { _directories[root].Dispose(); _directories.Remove(root); }
+            foreach (var root in added) { _directories[root].Dispose(); _directories.Remove(root); _watchStarts.Remove(root); }
             throw;
         }
         foreach (var entry in parsed) _registrations[entry.Key] = entry.Value;
@@ -169,11 +173,12 @@ internal sealed class WatchedFileRegistrations : IDisposable
         var existing = ExistingWatchDirectory(root);
         var watcher = new FileSystemWatcher(existing) { IncludeSubdirectories = true,
             NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.DirectoryName };
-        watcher.Created += (_, e) => Notify(e.FullPath, 1);
-        watcher.Changed += (_, e) => Notify(e.FullPath, 2);
-        watcher.Deleted += (_, e) => Notify(e.FullPath, 3);
-        watcher.Renamed += (_, e) => { Notify(e.OldFullPath, 3); Notify(e.FullPath, 1); };
+        watcher.Created += (_, e) => NotifyFromDisk(e.FullPath, 1, root);
+        watcher.Changed += (_, e) => NotifyFromDisk(e.FullPath, 2, root);
+        watcher.Deleted += (_, e) => NotifyFromDisk(e.FullPath, 3, root);
+        watcher.Renamed += (_, e) => { NotifyFromDisk(e.OldFullPath, 3, root); NotifyFromDisk(e.FullPath, 1, root); };
         watcher.Error += (_, e) => _log.LogWarning(e.GetException(), "LSP watched-file watcher failed for {Root}", root);
+        _watchStarts[root] = DateTime.UtcNow;
         watcher.EnableRaisingEvents = true;
         return watcher;
     }
@@ -185,7 +190,9 @@ internal sealed class WatchedFileRegistrations : IDisposable
         {
             _directories[root].Dispose();
             _directories.Remove(root);
+            _watchStarts.Remove(root);
         }
+        _reported.RemoveWhere(path => !Matches(path, 1) && !Matches(path, 2) && !Matches(path, 3));
         foreach (var path in _pending.Where(e => !Matches(e.Key, e.Value.Type)).Select(e => e.Key).ToArray())
             _pending.Remove(path);
     }
@@ -207,7 +214,11 @@ internal sealed class WatchedFileRegistrations : IDisposable
         return false;
     }
 
-    public void Notify(string path, int type)
+    public void Notify(string path, int type) => Queue(path, type, null);
+
+    internal void NotifyFromDisk(string path, int type, string root) => Queue(path, type, root);
+
+    private void Queue(string path, int type, string? diskRoot)
     {
         if (type is < 1 or > 3) throw new ArgumentOutOfRangeException(nameof(type));
         path = Path.GetFullPath(path);
@@ -215,8 +226,20 @@ internal sealed class WatchedFileRegistrations : IDisposable
         {
             if (_disposed || !Matches(path, type)) return;
             var wasEmpty = _pending.Count == 0;
-            if (_pending.TryGetValue(path, out var previous) && previous.Type == 1 && type == 2) type = 1;
-            _pending[path] = (new Uri(path).AbsoluteUri, type);
+            if (_pending.TryGetValue(path, out var previous) && previous.Type == 1 && type == 2)
+            {
+                type = 1;
+                diskRoot = previous.DiskRoot;
+            }
+            // Where disk Created is corrected (macOS), the IDE's own report is never corrected (#3650): the disk's Created or
+            // Changed for the same write, arriving in the same batch, leaves it as the IDE said it. A deletion still replaces
+            // it, as the last event does. Elsewhere the last event wins, as before.
+            if (_correctDiskCreates && previous.Uri is not null && previous.DiskRoot is null && diskRoot is not null && type != 3)
+            {
+                type = previous.Type;
+                diskRoot = null;
+            }
+            _pending[path] = (new Uri(path).AbsoluteUri, type, diskRoot);
             // A fixed batching window, not a sliding debounce: continuous changes still drain.
             if (wasEmpty) _timer.Change(150, Timeout.Infinite);
         }
@@ -229,11 +252,35 @@ internal sealed class WatchedFileRegistrations : IDisposable
             lock (_gate)
             {
                 if (_disposed) return;
-                var changes = _pending.Where(e => Matches(e.Key, e.Value.Type))
-                    .Select(e => new WatchedFileEvent(e.Value.Uri, e.Value.Type)).ToArray();
+                var changes = new List<WatchedFileEvent>();
+                foreach (var (path, pending) in _pending)
+                {
+                    var type = pending.Type;
+                    if (_correctDiskCreates && type == 1 && pending.DiskRoot is { } root)
+                    {
+                        // #3650: FSEvents reports Created after Changed on edits. A file moved in from
+                        // outside the watched folders retains its birth time, so macOS reports it Changed.
+                        try
+                        {
+                            var file = new FileInfo(path);
+                            if (file.Exists)
+                            {
+                                var birth = file.CreationTimeUtc;
+                                if (_reported.Contains(path) || (_watchStarts.TryGetValue(root, out var start) && birth < start))
+                                    type = 2;
+                            }
+                        }
+                        catch (IOException) { /* Keep the reported type when metadata cannot be read. */ }
+                        catch (UnauthorizedAccessException) { /* Keep the reported type when metadata cannot be read. */ }
+                    }
+                    if (!Matches(path, type)) continue;
+                    changes.Add(new WatchedFileEvent(pending.Uri, type));
+                    if (type == 3) _reported.Remove(path);
+                    else _reported.Add(path);
+                }
                 _pending.Clear();
                 // Queue while holding the lifetime lock so disposal cannot replace this connection.
-                if (changes.Length > 0) _ = SendAsync(new DidChangeWatchedFilesParams(changes));
+                if (changes.Count > 0) _ = SendAsync(new DidChangeWatchedFilesParams(changes.ToArray()));
             }
         }
         catch (Exception ex) { _log.LogWarning(ex, "Could not batch LSP watched-file changes"); }
@@ -254,6 +301,8 @@ internal sealed class WatchedFileRegistrations : IDisposable
             _timer.Dispose();
             foreach (var watcher in _directories.Values) watcher.Dispose();
             _directories.Clear();
+            _watchStarts.Clear();
+            _reported.Clear();
             _registrations.Clear();
             _options.Clear();
             _pending.Clear();

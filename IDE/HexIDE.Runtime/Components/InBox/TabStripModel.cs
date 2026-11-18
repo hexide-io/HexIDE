@@ -38,7 +38,7 @@ internal sealed class TabStripModel
     {
         if (index.Type == Vb6Value.ValueType.String)
         {
-            var key = (string)index.Value!;
+            var key = (string)index.WithoutOddBytes("TabStripModel text use").Value!;
             foreach (var tab in tabs)
                 if (tab.Key.Length != 0 && string.Equals(tab.Key, key, StringComparison.Ordinal))
                     return tab;

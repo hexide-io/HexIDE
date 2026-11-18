@@ -227,7 +227,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
     private static bool Boolean(Vb6Value value) =>
         (bool)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value!;
 
-    private static string Text(Vb6Value value) => (string)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).Value!;
+    private static string Text(Vb6Value value) => (string)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).WithoutOddBytes("VBCommonDialog text conversion").Value!;
 
     private static double Number(Vb6Value value, Vb6Value.ValueType type, bool allowAutomationUnsignedLong = true) =>
         Convert.ToDouble(VbNumeric.CoerceOnStore(value, type, null, allowAutomationUnsignedLong).Value, CultureInfo.InvariantCulture);
