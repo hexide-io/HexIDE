@@ -3059,7 +3059,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                             && members[0].iCS_S_ProcedureOrArrayCall() is { } getCall && getCall.argsCall().Length == 1)
                         {
                             var result = await interpreter.RunProcedure(vobj.ClassDef, getter, [], vobj.InstanceEnv, variable, stmtFrames)
-                                ?? throw new NotImplementedException("A parameterless Get without a value is unmeasured (#4747)");
+                                ?? throw new NotImplementedException("A parameterless Get without a value is unmeasured (#4906)");
                             await interpreter.LetDefaultMember(result, await expressionExecutor.ResolveCallArgs(getCall.argsCall(0)), value, context, stmtFrames, expressionExecutor);
                             return default;
                         }

@@ -267,7 +267,7 @@ or Property Let on a write, preserving the returned value without scalar coercio
 - **WHEN** an indexed assignment reaches a default Get without a Let, or a default Function
 - **THEN** the member runs with the index arguments and a scalar result raises 424 early-bound or 451 late-bound
 - **AND** held in a Variant, a write through a default Function raises 450 without running it
-- **AND** an object result refuses untrappably naming #4747, pending measurement
+- **AND** an object result refuses untrappably naming #4906, pending measurement
 
 ### Requirement: Trailing argument and declared array type refusals
 

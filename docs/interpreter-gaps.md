@@ -390,7 +390,7 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   Get-only/Function assignments execute the member then raise 424 early-bound or 451 through As Object. Held in
   a Variant, an assignment through a default Sub or Function raises 450 without calling it (measured).
   Assignments through object-returning defaults and default members without a value remain unmeasured
-  and refuse naming #4747. Nothing in Variant/Object slots and object argument/value evaluation
+  and refuse naming #4906. Nothing in Variant/Object slots and object argument/value evaluation
   order retain today's behaviour, unmeasured.
   No-argument Lets into class/Object variables, class fields, With members and object-array elements now call
   the held class's default Property Let or store into its Variant default field, preserving the object
