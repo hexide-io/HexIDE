@@ -141,6 +141,38 @@ Each row follows the ones above it on the same list.
   - Setting MaskColor to grey, with no new Add, unmasked it.
   - An image added while UseMaskColor was False was masked once it was True again.
 
+### Where Draw draws: the hDC (2026-11-19, #4849)
+
+**The probe.** A 16×16 image, its left half masked, drawn into a PictureBox whose BackColor is yellow; each object's
+`hDC` read before and after each change. vb6.exe SP6 on the Win10 guest: the console, native and p-code, the IDE with
+`/runexit`, and session 0, all agreeing on every row below.
+
+**`hDC` values.** A program reads one as a `Long`, and can rely only on these:
+
+| Read | Result |
+|---|---|
+| a form loaded and never shown | nonzero, the same on a second read |
+| that form after `Show`, read twice, then after `Hide` and `Show` again | the same value throughout |
+| a PictureBox on the form | its own value, not the form's; the same on a second read |
+| `AutoRedraw = True`, on the PictureBox or the form | a **new** value, stable across reads |
+| then `Cls`, or a resize, with `AutoRedraw` still True | a **new** value each time |
+| `AutoRedraw = False` again | **the first value** back |
+
+**Draw into a handle:**
+
+| Statement | Result |
+|---|---|
+| `Draw 0, 0, 0, 0`; `Draw 12345, 0, 0, 0` | no error, and nothing to be seen |
+| `Draw h, 0, 0, 0`, `h` read before a `Cls` (`AutoRedraw` True) | no error; nothing drawn, and `Point` reads the background |
+| `Draw P.hDC, 0, 0, 0` with `AutoRedraw` False | no error; drawn on the window, where the console's `Point` reads red. Session 0's reads -1 |
+| Style 2 at x 15 twips, 1 pixel | pixel 1 highlight, 2 red, 3 highlight: **the checkerboard counts from the image's corner**, not the target's |
+| Style 3 at 0 | the same checkerboard as Style 2 |
+
+- **A stale handle is not an error.** VB6 doesn't check the value it is given: the GDI call fails and nothing is drawn.
+  That is reasoned from these rows, not checked against GDI.
+- **HexIDE:** #4849 gives a form and a PictureBox an `hDC` from a table of its own, with these identity rules, and draws
+  into the surface the handle names.
+
 ### Double-clicked onto a form
 
 ```
