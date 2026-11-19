@@ -605,6 +605,7 @@ added afterwards.
 - [The CommonDialog control (2026-10-17, #1084)](the-commondialog-control.md#the-commondialog-control-2026-10-17-1084)
 - [A font's size, and the default font (2026-10-22, #910)](a-fonts-size-and-the-default-font.md#a-fonts-size-and-the-default-font-2026-10-22-910)
 - [A font's FontSize, FontBold and the rest (2026-10-22, #1343, #915)](a-fonts-fontsize-fontbold-and-the-rest.md#a-fonts-fontsize-fontbold-and-the-rest-2026-10-22-1343-915)
+- [Underline and Strikethrough are drawn, on every control that draws text (2026-11-19, #4971, SP6)](a-fonts-fontsize-fontbold-and-the-rest.md#underline-and-strikethrough-are-drawn-on-every-control-that-draws-text-2026-11-19-4971-sp6)
 - [Command, and Left$ in a form's code (2026-10-17, #742)](command-and-left-in-a-forms-code.md#command-and-left-in-a-forms-code-2026-10-17-742)
 - [A TextBox's selection (2026-10-17, #1150)](a-textboxs-selection.md#a-textboxs-selection-2026-10-17-1150)
 - [A form's WindowState (2026-10-17, #1152)](a-forms-windowstate.md#a-forms-windowstate-2026-10-17-1152)
