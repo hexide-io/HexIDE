@@ -82,7 +82,9 @@ console session and in the probe runner's session, and all four logs agreed line
   - Two more rows used Left 607.
 - **The fourth form:** one Label for each Alignment. They started from a Left of 610 or 615, a Top 10 twips off the
   pixel, and a Width of 600, 615 or 3000.
-- **The builds:** `/make` as native code and as p-code, in session 0. Each logged the same 160 rows.
+- **The fifth form:** four WordWrap Labels, and three plain ones in MS Sans Serif 8.25, Arial 9.75 and Tahoma 8.25 for
+  line breaks and tabs.
+- **The builds:** `/make` as native code and as p-code, in session 0. Each logged the same 202 rows.
 
 **Without a border or an overhang, the Label is the text's size.** Width is `TextWidth` of the caption as drawn, and
 Height is `TextHeight`:
@@ -118,13 +120,30 @@ Spaces count, leading and trailing alike. CR, LF and CRLF each end a line.
 
 The height stays one line: 195, 195, 240 and 435.
 
-**A tab measures as a space:**
+**A tab isn't expanded.** `TextWidth` expands a tab to a tab stop. The Label measures the tab as one more character of
+the font, which in MS Sans Serif is as wide as a space and in the TrueType fonts is not:
 
-| Caption | Width | `TextWidth` |
-|---|---|---|
-| `"a" & vbTab & "b"` | 225, as `"a b"` is | 690 |
-| `vbTab` alone | 45, one space | 600 |
-| `"tab" & vbTab & "x"` | 345 | 675 |
+| Font | `"a" & vbTab & "b"`: Width / `TextWidth` | `"a b"` | So the tab is |
+|---|---|---|---|
+| MS Sans Serif 8.25 | 225 / 690 | 225 | 45, a space's width |
+| Arial 9.75 | 360 / 825 | 270 | 150, where a space is 60 |
+| Tahoma 8.25 | 345 / 690 | 225 | 165, where a space is 45 |
+
+`vbTab` alone is 45 wide in MS Sans Serif (`TextWidth` 600) and 150 in Arial (`TextWidth` 720). In MS Sans Serif,
+`"tab" & vbTab & "x"` is 345 wide, where `TextWidth` gives 675. That the tab's width is the font's own glyph for the
+character is reasoned from these rows, not read from the font.
+
+**Line breaks** each start a line, empty or not, and the widest line sets the width (MS Sans Serif 8.25):
+
+| Caption | Width | Height | `TextWidth`, `TextHeight` |
+|---|---|---|---|
+| `"a" & vbCrLf` | 90 | 390 | 90, 390 |
+| `vbCrLf & "a"` | 90 | 390 | 90, 390 |
+| `"a" & vbCrLf & vbCrLf & "b"` | 90 | 585 | 90, 585 |
+| `vbCrLf` alone | **15** | 390 | 0, 390 |
+
+`vbCrLf` alone is one pixel wide, where an empty caption is a space wide. Nothing measured here joins the two, and I
+have no rule for it.
 
 **A mnemonic follows `UseMnemonic`.**
 - **On:** `&File` is 240 wide, the width of `File`. `a&&b` is 270, which is `a&&b`'s 360 less one `&` of 90.
@@ -182,17 +201,50 @@ new content's width in pixels: the text, then any overhang, then any border.
   `x` again kept Width 3000, for each Alignment.
 - **What the rows don't separate:** rounding the right edge, against rounding Left and Width apart. Every row gave the
   same pixel either way.
+- **When the size and place come out the same in pixels, nothing is re-read.**
+  - With WordWrap, a Left Justify Label at Width 1000 (66⅔ pixels) given `Hi` kept Width 1000. The size it worked out
+    was the 67 by 13 pixels it already had.
+  - Given the four-line sentence, its height changed, and it read Width 1005.
+  - Whenever the rectangle changes, all four values are read back from whole pixels, Top included.
+
+**With WordWrap.** The earlier rows say the width stays, widens only for a word that doesn't fit, and never narrows.
+Four WordWrap Labels, Left, Center and Right Justify and a Center one with a 3-D border, were moved to Left 600, Height
+195 and a Width of 1000 or 990 (67 or 66 pixels) before each sequence. Center and Right Justify follow the rules above, with *c* in pixels taken as the larger of the Label's old width
+and its widest word plus any border:
+
+| Center, WordWrap, from Left 600 | Old Width (pixels) | *c* | Left, Width, Height |
+|---|---|---|---|
+| The sentence, four lines | 1000 (67) | 67 | **585, 1035**, 780 |
+| then `Antidisestablishmentarianism` | 1035 (69) | 133 | 90, 2025, 195 |
+| then `Hi` | 2025 (135) | 135 | **75, 2055**, 195 |
+| The sentence, four lines | 990 (66) | 66 | 600, 990, 780 |
+| then the long word | 990 (66) | 133 | 90, 2010, 195 |
+| then `Hi` | 2010 (134) | 134 | 90, 2010, 195 |
+
+| Right Justify, WordWrap, from Left 600 | Old Width (pixels) | *c* | Left, Width |
+|---|---|---|---|
+| The sentence | 1000 (67) | 67 | 600, 1005 |
+| then the long word | 1005 (67) | 133 | −390, 1995 |
+| then `Hi` | 1995 (133) | 133 | −390, 1995 |
+
+- **A Center Label of odd width grows by two pixels on every caption change,** one on each side, because the width it
+  works out from is already its own odd width. That is what the formula gives, and what vb6.exe did.
+- **A 3-D border** adds its 4 pixels to *c*: Center from 1000 widened to 2085, then 2115.
+- **All 32 WordWrap rows fit,** Left Justify's and the bordered Label's included.
 
 **The rule these rows fit:**
 - **Width:** `TextWidth` of the caption as drawn, plus the font's overhang, plus the border.
-  - An empty caption measures as one space, and so does a tab.
+  - An empty caption measures as one space. A tab isn't expanded, and measures as the font's own character.
   - With `UseMnemonic` on, each lone `&` is dropped and `&&` measures as one `&`.
+  - With WordWrap, the width is the larger of the old width and the widest word.
   - Center then rounds it, as above.
 - **Height:** `TextHeight`, one line for each line break, plus the border.
-- **Placing it:** round to the pixel, then keep the edge or the centre that Alignment names.
+- **Placing it:** round to the pixel, then keep the edge or the centre that Alignment names. If that leaves the
+  rectangle as it was, nothing changes.
 
 **Not measured:**
 - other raster fonts, other sizes of MS Sans Serif in bold or italic, and bold italic together;
 - a display other than 15 twips a pixel;
-- the exact place with WordWrap True;
+- which words go on which line with WordWrap. Only the line counts were read, not where each line broke;
+- a caption of only line breaks other than `vbCrLf`;
 - an AutoSize Label at design time.
