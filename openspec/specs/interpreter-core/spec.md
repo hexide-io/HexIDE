@@ -30,6 +30,31 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: InputB reads bytes without code-page conversion
+
+The interpreter SHALL implement InputB and InputB$ for Binary and Input files according to
+[#4895's VB6 SP6 native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/4895)
+([oracle PR #4896](https://github.com/hexide-io/HexIDE/pull/4896)). The result SHALL be a String
+holding exactly the bytes read, including odd byte counts and unchanged CR/LF bytes. File numbers
+SHALL be accepted with or without `#`. InputB SHALL retain the existing refusal of named arguments.
+
+#### Scenario: Binary bytes and positions
+- **WHEN** InputB reads two bytes followed by one byte from `41 42 43` opened for Binary
+- **THEN** the results contain `41 42` and `43`, with LenB/Len of 2/1 and 1/0
+- **AND** Loc/Seek/EOF are 2/3/False and then 3/4/False
+- **AND** a zero count reads nothing, while a negative count raises error 5 without moving or assigning
+
+#### Scenario: Input bytes and end markers
+- **WHEN** InputB reads from an Input file
+- **THEN** it counts bytes, sharing Input's error 62 and positions at physical EOF or Ctrl+Z
+- **AND** a failed read leaves the target unchanged
+- **AND** an Output or Random file raises 54, and an unopened number raises 52
+
+#### Scenario: Unmeasured file reads
+- **WHEN** a Binary read would run past the end, InputB targets an Append file, or the file's size or modification time changed outside the program
+- **THEN** the interpreter SHALL refuse with NotImplementedException naming #4895 before moving the position or assigning the result
+- **AND** it SHALL NOT invent the bytes VB6 fills from its previous buffer contents
+
 ### Requirement: For Each walks control-array indices captured at entry
 
 The interpreter SHALL walk a control array in sorted index order, capturing the indices once and resolving each

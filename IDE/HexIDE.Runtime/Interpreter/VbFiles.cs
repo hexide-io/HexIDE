@@ -121,6 +121,8 @@ internal sealed partial class VbFiles
         public long Counted { get; set; }
         // A Binary file's bytes, for Line Input, Input # and the Input function, until something writes to the file.
         public byte[]? Snapshot { get; set; }
+        // InputB refuses a file changed outside this program (#4895); Put refreshes this version for our own writes.
+        public (long Length, DateTime Written) InputBVersion { get; set; }
     }
 
     private readonly Dictionary<int, OpenFile> open = new();
@@ -168,6 +170,8 @@ internal sealed partial class VbFiles
         if (record)
         {
             OpenRecords(full, mode, locked, number, access, share, recordLength);
+            if (mode == VbFileMode.Binary)
+                open[number].InputBVersion = FileVersion(full);
             return;
         }
         try
@@ -178,6 +182,8 @@ internal sealed partial class VbFiles
                 VbFileMode.Append => Appending(full, locked),
                 _ => new OpenFile(full, mode, locked) { Output = new FileStream(full, FileMode.Create, FileAccess.Write, FileShare.Read) },
             };
+            if (mode == VbFileMode.Input)
+                open[number].InputBVersion = FileVersion(full);
         }
         catch (FileNotFoundException)
         {
@@ -500,6 +506,49 @@ internal sealed partial class VbFiles
         }
         MoveText(file, p, past: false);
         return text.ToString();
+    }
+
+    /// <summary>
+    /// InputB counts bytes without code-page conversion (#4895, VB6 SP6 native and p-code). Input files share Read's
+    /// end/Ctrl+Z errors and positions. Binary past-end bytes have no reproducible rule and are refused before moving.
+    /// </summary>
+    public byte[] ReadBytes(int number, int count)
+    {
+        var file = Get(number);
+        if (file.Mode == VbFileMode.Append)
+            throw new NotImplementedException("InputB on an Append file is unmeasured (#4895).");
+        if (file.Mode is VbFileMode.Input or VbFileMode.Binary && file.InputBVersion != FileVersion(file.Path))
+            throw new NotImplementedException("InputB on a file changed outside the program is unmeasured (#4895).");
+        if (count < 0)
+            throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
+        var (bytes, start, _) = TextSource(file);
+        if (file.Mode == VbFileMode.Binary && count > 0 && (long)start + count > bytes.Length)
+            throw new NotImplementedException("InputB past the end of a Binary file is not implemented (#4895).");
+        var p = start;
+        for (var read = 0; read < count; read++)
+        {
+            if (p >= bytes.Length)
+            {
+                file.Position = Math.Max(file.Position, bytes.Length);
+                throw new VBRunTimeException(VBStandardError.InputPastEndOfFile);
+            }
+            if (file.Mode == VbFileMode.Input && bytes[p] == CtrlZ)
+            {
+                file.Position = p;
+                file.CtrlZAt ??= p;
+                throw new VBRunTimeException(VBStandardError.InputPastEndOfFile);
+            }
+            p++;
+        }
+        var result = bytes.AsSpan(start, count).ToArray();
+        MoveText(file, p, past: false);
+        return result;
+    }
+
+    private static (long Length, DateTime Written) FileVersion(string path)
+    {
+        var info = new FileInfo(path);
+        return info.Exists ? (info.Length, info.LastWriteTimeUtc) : (-1, DateTime.MinValue);
     }
 
     public void SetWidth(int number, int width)

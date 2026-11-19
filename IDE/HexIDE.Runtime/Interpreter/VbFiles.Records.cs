@@ -92,7 +92,10 @@ internal sealed partial class VbFiles
     {
         foreach (var other in open.Values)
             if (SamePath(other.Path, path))
+            {
                 other.Snapshot = null;
+                other.InputBVersion = FileVersion(path);
+            }
     }
 
     // A Binary or Random file for Get or Put: 54 for any other mode, and 75 for a handle that may not read or write
