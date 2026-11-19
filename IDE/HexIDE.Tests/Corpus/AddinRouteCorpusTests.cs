@@ -19,11 +19,13 @@ public sealed class AddinRouteCorpusTests
     private static readonly AddinOrigin Route = new("route-probe", "A route probe");
     private const string ProjectFileName = "Contributed.routeproj";
 
-    [AvaloniaFact]
-    public async Task Every_corpus_designer_file_saves_through_an_add_in_s_type_as_through_its_vbp()
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Every_corpus_designer_file_saves_through_an_add_in_s_type_as_through_its_vbp(bool named)
     {
         var roots = ProjectCorpusSmokeTests.Roots();
-        var evidence = Path.Join(AppContext.BaseDirectory, "TestResults", "addin-route-evidence");
+        var evidence = Path.Join(AppContext.BaseDirectory, "TestResults", named ? "named-format-evidence" : "addin-route-evidence");
         if (Directory.Exists(evidence)) Directory.Delete(evidence, true);
 
         var outcomes = new List<RouteOutcome>();
@@ -31,10 +33,10 @@ public sealed class AddinRouteCorpusTests
         {
             Directory.Exists(root).Should().BeTrue("a configured corpus must exist: " + root);
             foreach (var vbp in ProjectSmokeHarness.Discover([root]))
-                outcomes.Add(await Compare(vbp, Path.Join(evidence, outcomes.Count.ToString())));
+                outcomes.Add(await Compare(vbp, Path.Join(evidence, outcomes.Count.ToString()), named));
         }
 
-        var report = Path.Join(AppContext.BaseDirectory, "TestResults", "hexide-addin-route-report.json");
+        var report = Path.Join(AppContext.BaseDirectory, "TestResults", named ? "hexide-named-format-report.json" : "hexide-addin-route-report.json");
         Directory.CreateDirectory(Path.GetDirectoryName(report)!);
         File.WriteAllText(report, JsonSerializer.Serialize(outcomes, new JsonSerializerOptions { WriteIndented = true }));
         outcomes.Should().NotBeEmpty("an empty corpus proves nothing");
@@ -48,7 +50,7 @@ public sealed class AddinRouteCorpusTests
     private sealed record RouteOutcome(string Project, IReadOnlyList<string> Designers, IReadOnlyList<string> Kinds,
         IReadOnlyList<string> Differences);
 
-    private static async Task<RouteOutcome> Compare(string vbp, string evidence)
+    private static async Task<RouteOutcome> Compare(string vbp, string evidence, bool named)
     {
         var source = Path.GetDirectoryName(vbp)!;
         var name = Path.GetRelativePath(RepoTree.Root(), vbp);
@@ -59,7 +61,8 @@ public sealed class AddinRouteCorpusTests
         {
             var (vbpService, vbpProject) = await OpenThroughVbp(Path.Join(builtIn, Path.GetFileName(vbp)));
             var types = new ContributedProjects { ReadFile = path => File.ReadAllBytesAsync(path) };
-            using var type = types.Register(TypeListing(vbpProject, builtIn, addin), Route);
+            using var vb6 = Vb6ProjectType.Register(types, new Vb6ProjectFileFormat());
+            using var type = types.Register(TypeListing(vbpProject, builtIn, addin, named), Route);
             var (addinService, addinProject) = await Open(Path.Join(addin, ProjectFileName), types);
 
             var pairs = Designers(vbpProject).Select(designer => (designer,
@@ -152,7 +155,7 @@ public sealed class AddinRouteCorpusTests
                 .Select(module => new Designer(module.Name, module.Kind.ToString(), module.FormPart!, module)));
 
     // The add-in's listing of the project the .vbp opened: the same members, at the same places in the other copy.
-    private static AddinProjectType TypeListing(ProjectDefinition project, string from, string to)
+    private static AddinProjectType TypeListing(ProjectDefinition project, string from, string to, bool named)
     {
         string There(string path) => Path.Join(to, Path.GetRelativePath(from, path));
         var members = project.Forms.Select(form => new AddinProjectMember(There(form.AbsolutePath!), AddinMemberKind.Form))
@@ -169,7 +172,8 @@ public sealed class AddinRouteCorpusTests
         return new AddinProjectType("Route probe projects")
         {
             FileNames = ["*.routeproj"],
-            Forms = new Vb6ProjectFileFormat(),
+            Forms = named ? null : new Vb6ProjectFileFormat(),
+            FormFormat = named ? "vb6" : null,
             OpenAsync = (_, _, _) => Task.FromResult(content),
         };
     }

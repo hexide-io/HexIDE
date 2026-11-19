@@ -7,7 +7,7 @@ using Avalonia.Platform;
 namespace HexIDE.Automation;
 
 /// <summary>Reads the actual HWND, and captures the window with its frame as Windows renders it (#1595, #2182).</summary>
-internal static class NativeWindowFrame
+internal static partial class NativeWindowFrame
 {
     /// <summary>
     /// A frame capture: the image, the frame rectangle it shows and the client area's origin, both in screen pixels, and,
@@ -18,21 +18,54 @@ internal static class NativeWindowFrame
     private static nint Handle(Window window) =>
         window.TryGetPlatformHandle() is { HandleDescriptor: "HWND" } handle ? handle.Handle : 0;
 
-    internal static (uint? Style, uint? ExStyle, string? Note) Read(Window window)
+    internal static (uint? Style, uint? ExStyle, string? Note, System.Text.Json.JsonElement? Owner) Read(Window window)
     {
         var hwnd = Handle(window);
         if (!OperatingSystem.IsWindows() || hwnd == 0)
-            return (null, null, "Native window styles are not reported: this window has no Windows HWND.");
+            return (null, null, "Native window styles are not reported: this window has no Windows HWND.", null);
+        var ownerHandle = GetWindow(hwnd, 4);
+        WindowOwnerState? owner = null;
+        if (ownerHandle != 0)
+        {
+            var known = FindWindow(window, ownerHandle);
+            if (known is not null)
+                owner = UiAutomationDriver.DescribeOwner(known);
+            else
+            {
+                var title = new char[GetWindowTextLength(ownerHandle) + 1];
+                var className = new char[256];
+                // Not one of HexIDE's windows, so no 'window' selector reaches it: its class says what it is.
+                owner = new WindowOwnerState(null, new string(title, 0, GetWindowText(ownerHandle, title, title.Length)),
+                    new string(className, 0, GetClassName(ownerHandle, className, className.Length)));
+            }
+        }
+        var identity = System.Text.Json.JsonSerializer.SerializeToElement(owner,
+            new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
         Marshal.SetLastPInvokeError(0);
         var style = GetWindowLong(hwnd, -16);
         var error = Marshal.GetLastPInvokeError();
         if (error != 0)
-            return (null, null, $"GWL_STYLE could not be read (Win32 error {error}).");
+            return (null, null, $"GWL_STYLE could not be read (Win32 error {error}).", identity);
         Marshal.SetLastPInvokeError(0);
         var exStyle = GetWindowLong(hwnd, -20);
         error = Marshal.GetLastPInvokeError();
-        return error == 0 ? (style, exStyle, null)
-            : (null, null, $"GWL_EXSTYLE could not be read (Win32 error {error}).");
+        return error == 0 ? (style, exStyle, null, identity)
+            : (null, null, $"GWL_EXSTYLE could not be read (Win32 error {error}).", identity);
+    }
+
+    private static Window? FindWindow(Window window, nint handle)
+    {
+        var roots = (Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.Windows ?? [];
+        var pending = new Stack<Window>(roots.Append(window));
+        var seen = new HashSet<Window>();
+        while (pending.TryPop(out var candidate))
+        {
+            if (!seen.Add(candidate)) continue;
+            if (Handle(candidate) == handle) return candidate;
+            if (candidate.Owner is Window owner) pending.Push(owner);
+            foreach (var owned in candidate.OwnedWindows) pending.Push(owned);
+        }
+        return null;
     }
 
     /// <summary>
@@ -357,9 +390,13 @@ internal static class NativeWindowFrame
     [DllImport("user32.dll")] private static extern bool GetWindowRect(nint hwnd, out NativeRect rect);
     [DllImport("user32.dll")] private static extern bool GetWindowInfo(nint hwnd, ref WindowInfo info);
     [DllImport("user32.dll")] private static extern bool PhysicalToLogicalPointForPerMonitorDPI(nint hwnd, ref NativePoint point);
-    [DllImport("user32.dll")] private static extern nint GetWindow(nint hwnd, uint command);
-    [DllImport("user32.dll", EntryPoint = "GetWindowTextW", CharSet = CharSet.Unicode)]
-    private static extern int GetWindowText(nint hwnd, char[] text, int count);
+    [LibraryImport("user32.dll")] private static partial nint GetWindow(nint hwnd, uint command);
+    [LibraryImport("user32.dll", EntryPoint = "GetClassNameW", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial int GetClassName(nint hwnd, [Out] char[] text, int count);
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowTextLengthW")]
+    private static partial int GetWindowTextLength(nint hwnd);
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowTextW", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial int GetWindowText(nint hwnd, [Out] char[] text, int count);
     [DllImport("user32.dll")] private static extern bool PrintWindow(nint hwnd, nint dc, uint flags);
     [DllImport("user32.dll")] private static extern int GetSystemMetrics(int index);
     [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(nint hwnd, int attribute, out NativeRect rect, int size);

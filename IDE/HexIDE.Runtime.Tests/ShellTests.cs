@@ -2,12 +2,19 @@ using System;
 using System.IO;
 using System.Diagnostics;
 using System.Linq;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Threading.Tasks;
 using HexIDE.IDE;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;
 
+// The Windows conversion probe changes the process's current directory.
+[CollectionDefinition(DisableParallelization = true)]
+public sealed class ShellCollection;
+
+[Collection<ShellCollection>]
 public class ShellTests : BaseVBTestFixture
 {
     private static string Command => OperatingSystem.IsWindows() ? "cmd /c exit" : "/bin/sh -c true";
@@ -101,26 +108,188 @@ public class ShellTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(53L)]);
     }
 
-    [Fact]
-    public async Task NonStringPathRemainsUnmeasured()
+    // vb6.exe SP6, native and p-code: issue #4406, oracle PR #4721.
+    [Theory]
+    [InlineData("123", 53)]
+    [InlineData("True", 53)]
+    [InlineData("CCur(5)", 53)]
+    [InlineData("1.5", 53)]
+    [InlineData("#1/1/2000#", 53)]
+    [InlineData("CByte(7)", 53)]
+    [InlineData("CLng(71000)", 53)]
+    [InlineData("CSng(8)", 53)]
+    [InlineData("CDec(9)", 53)]
+    [InlineData("Empty", 5)]
+    [InlineData("Array(1)", 13)]
+    [InlineData("CVErr(5)", 13)]
+    [InlineData("Nothing", 91)]
+    [InlineData("New Collection", 450)]
+    public async Task MeasuredPathConversion(string expression, int error)
     {
-        Func<Task> run = () => Run("Shell 123, 1");
-        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*non-string PathName*#4146*");
+        // A converted name is looked up like any other, so the 53 rows hold only where nothing of that name can be found.
+        // Git for Windows puts usr\bin, with its true.exe, on PATH, and Windows matches "True" to it whatever the case:
+        // Shell True then ran it and gave 0 on the Windows runner. Search an empty folder instead, PATH and current
+        // directory alike; the collection runs alone, so changing them can't reach another test.
+        var empty = Path.Combine(Path.GetTempPath(), "hexide-shell-" + Guid.NewGuid());
+        Directory.CreateDirectory(empty);
+        var originalPath = Environment.GetEnvironmentVariable("PATH");
+        var originalDirectory = Environment.CurrentDirectory;
+        try
+        {
+            Environment.SetEnvironmentVariable("PATH", empty);
+            Environment.CurrentDirectory = empty;
+            await Run($"On Error Resume Next\nShell {expression}, 1\nDebug.Print Err.Number");
+        }
+        finally
+        {
+            Environment.CurrentDirectory = originalDirectory;
+            Environment.SetEnvironmentVariable("PATH", originalPath);
+            Directory.Delete(empty, recursive: true);
+        }
+        AssertDebugLog([new Vb6Value((long)error)]);
     }
 
     [Fact]
-    public async Task UnstartableExecutableRemainsUnmeasured()
+    public async Task OtherLiveObjectsRemainUnmeasured()
     {
-        var path = Path.Combine(Path.GetTempPath(), "hexide-shell-" + Guid.NewGuid() + ".exe");
-        File.WriteAllText(path, "Not an executable image.");
+        Func<Task> run = () => RunClasses("Dim o As New Widget\nShell o",
+            ("Widget", "Public Property Get Value() As String\nAttribute Value.VB_UserMemId = 0\nValue = \"missing.exe\"\nEnd Property"));
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*PathName default member*#4406*");
+    }
+
+    [UnixOnlyFact]
+    public async Task ExecutableBadImageIs5()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "hexide-shell-" + Guid.NewGuid());
+        // Avoid MZ magic: WSL can hand that image to Windows interop instead of returning ENOEXEC.
+        File.WriteAllBytes(path, Enumerable.Range(0, 256).Select(i => (byte)i).ToArray());
         try
         {
-            Func<Task> run = () => Run($"Shell {Literal(path)}, 1");
-            await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*process launch failure*#4146*");
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+            await Run($"On Error Resume Next\nShell {Literal(path)}, 1\nDebug.Print Err.Number");
+            AssertDebugLog([new Vb6Value(5L)]);
         }
         finally
         {
             File.Delete(path);
+        }
+    }
+
+    [WindowsOnlyTheory]
+    [InlineData("123", "123")]
+    [InlineData("True", "True")]
+    [InlineData("CCur(5)", "5")]
+    [InlineData("CByte(7)", "7")]
+    [InlineData("CLng(70000)", "70000")]
+    [InlineData("CSng(8)", "8")]
+    [InlineData("CDec(9)", "9")]
+    public async Task ConvertedPathFindsExecutableInCurrentDirectory(string expression, string name)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-shell-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var original = Environment.CurrentDirectory;
+        // CreateProcess leaves the current directory out of its search while NoDefaultCurrentDirectoryInExePath is
+        // set, as some shells and agent harnesses set it, and Shell(123) then finds nothing. Clear it for the call.
+        const string noCurrentDirectory = "NoDefaultCurrentDirectoryInExePath";
+        var originalSearch = Environment.GetEnvironmentVariable(noCurrentDirectory);
+        try
+        {
+            File.Copy(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "where.exe"),
+                Path.Combine(directory, name + ".exe"));
+            Environment.CurrentDirectory = directory;
+            Environment.SetEnvironmentVariable(noCurrentDirectory, null);
+            await Run($"Debug.Print Shell({expression}, vbHide) > 0");
+            AssertDebugLog([true]);
+            await WaitForHelper(ShellLaunches.All.Last().ProcessId);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(noCurrentDirectory, originalSearch);
+            Environment.CurrentDirectory = original;
+            DeleteHelperDirectory(directory);
+        }
+    }
+
+    [WindowsOnlyFact]
+    public async Task ExecuteDeniedIs5()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-shell-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var file = new FileInfo(Path.Combine(directory, "denied.exe"));
+        File.Copy(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "where.exe"), file.FullName);
+        var security = file.GetAccessControl();
+        var deny = new FileSystemAccessRule(WindowsIdentity.GetCurrent().User!,
+            FileSystemRights.ExecuteFile, AccessControlType.Deny);
+        security.AddAccessRule(deny);
+        file.SetAccessControl(security);
+        try
+        {
+            await Run($"On Error Resume Next\nShell {Literal(file.FullName)}, 1\nDebug.Print Err.Number");
+            AssertDebugLog([new Vb6Value(5L)]);
+        }
+        finally
+        {
+            security.RemoveAccessRuleSpecific(deny);
+            file.SetAccessControl(security);
+            DeleteHelperDirectory(directory);
+        }
+    }
+
+    [WindowsOnlyFact]
+    public async Task BatchFileRuns()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-shell-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var batch = Path.Combine(directory, "helper.bat");
+        var output = Path.Combine(directory, "result.txt");
+        File.WriteAllText(batch, "@echo measured>\"" + output + "\"\r\n");
+        try
+        {
+            await Run($"Debug.Print Shell({Literal("\"" + batch + "\"")}, vbHide) > 0");
+            AssertDebugLog([true]);
+            await WaitForHelper(ShellLaunches.All.Last().ProcessId);
+            File.ReadAllText(output).Trim().Should().Be("measured");
+        }
+        finally
+        {
+            DeleteHelperDirectory(directory);
+        }
+    }
+
+    [Theory]
+    [InlineData(".exe", false)]
+    [InlineData(".exe", true)]
+    [InlineData(".dat", true)]
+    [InlineData("", false)]
+    public async Task UnstartableFileIs5(string extension, bool binary)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-shell-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "image" + extension);
+        if (binary)
+        {
+            var bytes = Enumerable.Range(0, 256).Select(i => (byte)i).ToArray();
+            if (extension == ".exe")
+            {
+                bytes = new byte[512];
+                bytes[0] = (byte)'M';
+                bytes[1] = (byte)'Z';
+            }
+            File.WriteAllBytes(path, bytes);
+        }
+        else
+            File.WriteAllText(path, "Not an executable image.");
+        try
+        {
+            await Run($"On Error Resume Next\nShell {Literal(path)}, 1\nDebug.Print Err.Number");
+            AssertDebugLog([new Vb6Value(5L)]);
+        }
+        finally
+        {
+            DeleteHelperDirectory(directory);
         }
     }
 
@@ -134,7 +303,7 @@ public class ShellTests : BaseVBTestFixture
             if (!OperatingSystem.IsWindows())
                 File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserExecute);
             Func<Task> run = () => Run($"Shell {Literal(path)}, 1");
-            await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*process launch failure*#4146*");
+            await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*process launch error 2*#4406*");
         }
         finally
         {
@@ -143,7 +312,7 @@ public class ShellTests : BaseVBTestFixture
     }
 
     [UnixOnlyFact]
-    public async Task NonExecutableBinaryIsNotMistakenForADocument()
+    public async Task NonExecutableBinaryIs5()
     {
         var path = Path.Combine(Path.GetTempPath(), "hexide-shell-" + Guid.NewGuid() + ".bin");
         File.Copy(Command.Split(' ')[0], path);
@@ -151,8 +320,8 @@ public class ShellTests : BaseVBTestFixture
         {
             if (!OperatingSystem.IsWindows())
                 File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-            Func<Task> run = () => Run($"Shell {Literal(path)}, 1");
-            await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*process launch failure*#4146*");
+            await Run($"On Error Resume Next\nShell {Literal(path)}, 1\nDebug.Print Err.Number");
+            AssertDebugLog([new Vb6Value(5L)]);
         }
         finally
         {

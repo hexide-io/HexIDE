@@ -94,7 +94,7 @@ public static class Vb6ProjectType
     public static IDisposable Register(ContributedProjects types, IProjectFileFormat format)
     {
         var type = types.Register(For(format), Origin);
-        var members = types.RegisterMembers(MemberKinds, forms: true, format, Origin);
+        var members = types.RegisterMembers(MemberKinds, forms: true, format, Origin, formFormat: "vb6");
         return new HexIDE.Utils.ActionDisposable(() =>
         {
             members.Dispose();

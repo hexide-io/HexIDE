@@ -157,6 +157,7 @@
     "Str.Archive.FolderReadyFormat": "Pirminio kodo aplankas sinchronizuotas iš įrašyto archyvo:\n{0}\n\nPakeitimai aplanke sustabdo sinchronizavimą; jie neimportuojami. Įkelkite projektą iš naujo, kad atnaujintumėte peržiūras.",
     "Str.Archive.FolderErrorFormat": "Pirminio kodo aplanko sinchronizavimas sustabdytas:\n{0}\n\nArchyvas nepakeistas.",
     "Str.Archive.OpenErrorFormat": "Nepavyko atverti {0}:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "joks įdiegtas formatas neskaito „{0}“ formų",
     "Str.ContributedProject.OpenError": "Nepavyko atidaryti {0} naudojant {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} atidaro {1}: jo failus prideda ir pašalina programa, kuriai jis priklauso, o ne HexIDE.",
     "Str.ContributedProject.RemovedWithChanges": "Programa, kuriai priklauso {1}, pašalino {0} iš projekto. Pirmiausia įrašyti jūsų pakeitimus?",
