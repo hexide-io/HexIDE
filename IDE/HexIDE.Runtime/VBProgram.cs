@@ -283,10 +283,11 @@ public sealed class VBProgram : IFormProgram
     }
 
     /// <inheritdoc/>
-    public async Task<VbObject> MakeInstance(ModuleInfo form)
+    public async Task<VbObject> MakeInstance(ModuleInfo form, Action<VbObject>? publish = null)
     {
         var context = Open(form, existing: null, defaultInstance: false);
         var instance = context.FormInstance!;
+        publish?.Invoke(instance);
         // Initialize can call its own members. Hold the unfinished instance until New hands it to its statement.
         instance.RefCount++;
         try

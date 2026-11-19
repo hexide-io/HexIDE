@@ -658,7 +658,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             if (Forms is null)
                 throw new NotImplementedException($"New {className} requires a forms program (#4598).");
-            return await Forms.MakeInstance(classDef);
+            return await Forms.MakeInstance(classDef, publish);
         }
         var instanceEnv = classDef.ModuleEnv.Clone();
         await RunDeclarationItems(classDef, instanceEnv);

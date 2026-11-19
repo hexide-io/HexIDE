@@ -93,6 +93,124 @@ public class FormInstanceTests
     private static Run RunFormLoad(string body, params (string Name, ModuleKind Kind, string Code)[] modules) =>
         RunForm($"Private Sub Form_Load()\n{body}\nEnd Sub\n", modules);
 
+    // Every row, in order: https://github.com/hexide-io/HexIDE/issues/4640 (VB6 SP6, native and p-code).
+    [AvaloniaFact]
+    public void As_New_forms_keep_identity_across_Unload_and_recreate_after_Nothing_in_local_and_module_slots()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddForm(new FormDeserializer().Deserialize(project,
+            (FormHeader.Replace("Form1", "Form2") + """
+            Private number As Integer
+            Private Sub Form_Initialize()
+                nextId = nextId + 1
+                number = nextId
+                Debug.Print "initialize " & number
+            End Sub
+            Private Sub Form_Load()
+                Debug.Print "load " & number
+            End Sub
+            Private Sub Form_Unload(Cancel As Integer)
+                Debug.Print "unload " & number
+            End Sub
+            Private Sub Form_Terminate()
+                Debug.Print "terminate " & number
+            End Sub
+            Public Function Id() As Integer
+                Id = number
+            End Function
+            """).ReplaceLineEndings("\r\n"), new NullSink())!);
+        var run = RunFormIn(project, """
+            Private Sub Form_Load()
+                Probe
+                Debug.Print "returned " & Forms.Count
+                Unload gg
+                Set gg = Nothing
+                Debug.Print "released " & Forms.Count
+            End Sub
+            Private Sub Probe()
+                Dim g As New Form2
+                Debug.Print "declared " & Forms.Count
+                Debug.Print g Is Nothing
+                Debug.Print "nothing " & Forms.Count
+                Debug.Print TypeName(g)
+                Debug.Print "type " & Forms.Count
+                Debug.Print "id " & g.Id
+                Debug.Print "member " & Forms.Count
+                g.Caption = "g"
+                Debug.Print "caption " & Forms.Count
+                Unload g
+                Debug.Print g Is Nothing
+                Debug.Print "unloaded " & Forms.Count
+                Debug.Print "id " & g.Id
+                Debug.Print "member " & Forms.Count
+                g.Caption = "g again"
+                Debug.Print "reloaded " & Forms.Count
+                Unload g
+                Set g = Nothing
+                Debug.Print "cleared " & Forms.Count
+                Debug.Print g Is Nothing
+                Debug.Print "recreated " & Forms.Count
+                Debug.Print "id " & g.Id
+                Debug.Print "member " & Forms.Count
+                Debug.Print "global " & gg.Id
+                Debug.Print "global member " & Forms.Count
+                gg.Show
+                Debug.Print "shown " & Forms.Count
+                Debug.Print gg Is Form2
+                Debug.Print "default " & Forms.Count
+            End Sub
+            """, ("Module1", ModuleKind.StandardModule, "Public nextId As Integer\nPublic gg As New Form2"));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(
+            "declared 1", "initialize 1", "False", "nothing 1", "Form2", "type 1", "id 1", "member 1",
+            "load 1", "caption 2", "unload 1", "False", "unloaded 1", "id 1", "member 1",
+            "load 1", "reloaded 2", "unload 1", "terminate 1", "cleared 1",
+            "initialize 2", "False", "recreated 1", "id 2", "member 1",
+            "initialize 3", "global 3", "global member 1", "load 3", "shown 2",
+            "initialize 4", "False", "default 2", "terminate 2", "returned 2",
+            "unload 3", "terminate 3", "released 1");
+    }
+
+    // Measured on VB6 SP6, native and p-code agreeing (#4640's PR): a module's `Public g As New Form2` holds the new
+    // instance while its Form_Initialize runs, so `g Is Me` there is True and no second instance is made. The same holds
+    // after `Set g = Nothing`, for the next instance. A class's slot does the same (#4605).
+    [AvaloniaFact]
+    public void An_As_New_form_is_in_its_variable_while_its_Form_Initialize_runs()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddForm(new FormDeserializer().Deserialize(project,
+            (FormHeader.Replace("Form1", "Form2") + """
+            Private number As Integer
+            Private Sub Form_Initialize()
+                nextId = nextId + 1
+                number = nextId
+                If nextId > 3 Then Exit Sub
+                Debug.Print "initialize " & number & " " & (g Is Me) & " " & nextId
+            End Sub
+            Private Sub Form_Terminate()
+                Debug.Print "terminate " & number
+            End Sub
+            Public Function Id() As Integer
+                Id = number
+            End Function
+            """).ReplaceLineEndings("\r\n"), new NullSink())!);
+        var run = RunFormIn(project, """
+            Private Sub Form_Load()
+                Debug.Print "id " & g.Id
+                Debug.Print "made " & nextId
+                Set g = Nothing
+                Debug.Print TypeName(g)
+                Debug.Print "made " & nextId
+            End Sub
+            """, ("Module1", ModuleKind.StandardModule, "Public nextId As Integer\nPublic g As New Form2"));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(
+            "initialize 1 True 1", "id 1", "made 1", "terminate 1",
+            "initialize 2 True 2", "Form2", "made 2");
+    }
+
     // Measured VB6 SP6, native and p-code: #4598, oracle PR #4613.
     private static ProjectDefinition NewFormProject(string declarations = "", string members = "")
     {
