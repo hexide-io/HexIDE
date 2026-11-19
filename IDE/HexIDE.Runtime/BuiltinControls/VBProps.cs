@@ -66,6 +66,14 @@ public class VBProps
             throw new VBRunTimeException(VBStandardError.ControlRemoved);
     }
 
+    // Whether the run a control belongs to takes RDCore's additions to VB6 (#4967): BasicInterpreter.RDCoreAdditions, set
+    // on a form's client area as its controls are spawned and inherited by every control under it, one Controls.Add or Load
+    // puts there later included. A control nothing has placed yet reads False.
+    public static readonly AttachedProperty<bool> RDCoreAdditionsProperty =
+        AvaloniaProperty.RegisterAttached<VBProps, Control, bool>("RDCoreAdditions", inherits: true);
+    public static bool GetRDCoreAdditions(AvaloniaObject element) => element.GetValue(RDCoreAdditionsProperty);
+    public static void SetRDCoreAdditions(AvaloniaObject element, bool value) => element.SetValue(RDCoreAdditionsProperty, value);
+
     // The ScaleMode a container gives the controls on it: the unit a program reads and writes their Left, Top, Width and
     // Height in (#933). Set on the canvas they are placed on: the form's own, and a PictureBox's child host; a Frame has
     // none, and its children stay in twips even on a pixel form (measured).

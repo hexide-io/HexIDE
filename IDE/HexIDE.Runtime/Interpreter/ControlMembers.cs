@@ -122,6 +122,9 @@ internal static class ControlMembers
 
         if (RuntimeDrawing.TryGet(control, memberIdentifier, out var drawingMember))
             return drawingMember;
+        // An Image's Opacity, in a run that takes RDCore's additions (#4967).
+        if (RDCoreMembers.TryGet(control, memberIdentifier, out var rdcoreMember))
+            return rdcoreMember;
         var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
         foreach (var prop in props)
@@ -197,6 +200,8 @@ internal static class ControlMembers
             return true;
 
         if (RuntimeDrawing.TrySet(control, memberIdentifier, value))
+            return true;
+        if (RDCoreMembers.TrySet(control, memberIdentifier, value))
             return true;
         var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
