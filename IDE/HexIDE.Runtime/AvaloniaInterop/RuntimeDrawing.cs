@@ -183,7 +183,6 @@ internal sealed class RuntimeDrawing
 
     private void CheckPen()
     {
-        if (drawWidth != 1) throw Refused("Drawing with DrawWidth above 1");
         if (drawStyle != 0) throw Refused("Drawing with DrawStyle other than 0");
         if (drawMode != 13) throw Refused("Drawing with DrawMode other than 13");
         if (fillStyle is not (0 or 1)) throw Refused("Drawing with FillStyle other than 0 or 1");
@@ -199,6 +198,8 @@ internal sealed class RuntimeDrawing
             return;
         }
         drawing.CheckPen();
+        if (drawing.drawWidth != 1 && (method != "PSet" || drawing.drawWidth is not (>= 2 and <= 8 or 10)))
+            throw Refused("Drawing with DrawWidth above 1");
         var x1 = shortLine ? drawing.currentX : drawing.Twips(args[0], false, firstStep, drawing.currentX);
         var y1 = shortLine ? drawing.currentY : drawing.Twips(args[1], true, firstStep, drawing.currentY);
         var end = shortLine ? 0 : 2;
@@ -212,7 +213,11 @@ internal sealed class RuntimeDrawing
         var py1 = Whole((double)y1 / VBScaleModeExtensions.PixelToTwips);
         var px2 = Whole((double)x2 / VBScaleModeExtensions.PixelToTwips);
         var py2 = Whole((double)y2 / VBScaleModeExtensions.PixelToTwips);
-        if (method == "PSet") drawing.Put(px1, py1, colour);
+        if (method == "PSet")
+        {
+            if (drawing.drawWidth == 1) drawing.Put(px1, py1, colour);
+            else drawing.Stamp(px1, py1, colour, PointPens[drawing.drawWidth]);
+        }
         else if (box is not null) drawing.Box(px1, py1, px2, py2, colour, box.Equals("BF", StringComparison.OrdinalIgnoreCase));
         else drawing.Line(px1, py1, px2, py2, colour);
         drawing.currentX = x2;
@@ -235,15 +240,24 @@ internal sealed class RuntimeDrawing
         var unit = Math.Abs(Scale.TwipsPerUnit(false));
         if (unit != Math.Abs(Scale.TwipsPerUnit(true)))
             throw Refused("Circle with unequal scale units");
+        if (drawWidth != 1 && (drawWidth is not (2 or 3) || fillStyle != 1
+            || radius * unit != 10 * VBScaleModeExtensions.PixelToTwips))
+            throw Refused("Circle with this thick pen shape or fill");
         var x = Twips(args[0], false, step, currentX);
         var y = Twips(args[1], true, step, currentY);
         var aspect = args.Count > 6 && !args[6].IsMissing ? Math.Abs(Number(args[6])) : 1;
+        if (drawWidth != 1 && (aspect != 1
+            || (args.Count > 6 && !args[6].IsMissing && Number(args[6]) != 1)
+            || x % VBScaleModeExtensions.PixelToTwips != 0 || y % VBScaleModeExtensions.PixelToTwips != 0))
+            throw Refused("Circle with this thick pen shape or fill");
         var r = Whole(radius * unit);
         var rx = Whole((aspect > 1 ? r / aspect : r) / VBScaleModeExtensions.PixelToTwips);
         var ry = Whole((aspect > 1 ? r : r * aspect) / VBScaleModeExtensions.PixelToTwips);
         var colour = args.Count > 3 && !args[3].IsMissing ? MethodColor(args[3]) : Foreground();
         EnsureSurface();
-        if (r != 0)
+        if (drawWidth != 1)
+            Stamp(x / VBScaleModeExtensions.PixelToTwips, y / VBScaleModeExtensions.PixelToTwips, colour, CirclePens[drawWidth - 2]);
+        else if (r != 0)
             Ellipse(Whole((double)x / VBScaleModeExtensions.PixelToTwips),
                 Whole((double)y / VBScaleModeExtensions.PixelToTwips), rx, ry, colour);
         currentX = x;
@@ -319,6 +333,87 @@ internal sealed class RuntimeDrawing
                 Plot(Whole(a.X), Whole(a.Y));
             previousHorizontal = horizontal;
         }
+    }
+
+    // #4813: measured finite pen footprints from the two drawing oracle pages. No symmetry or
+    // ideal-circle rule is imposed on these asymmetric pixels. Width 9 has not been measured.
+    private sealed record PenPixels(int X, int Y, string[] Rows);
+
+    private static readonly PenPixels?[] PointPens =
+    [
+        null,
+        null,
+        new(-1, 0, ["##", "##"]),
+        new(-1, -1, [".#.", "###", "###", ".#."]),
+        new(-2, -1, [".###", "####", ".###", ".###"]),
+        new(-2, -2, [".###.", "#####", "#####", "#####", "#####", ".###."]),
+        new(-3, -2, ["..###.", ".#####", "######", ".#####", ".#####", "..###."]),
+        new(-3, -3, ["..###..", ".#####.", "#######", "#######", "#######", "#######", ".#####.", "..###.."]),
+        new(-4, -3, ["..#####.", ".#######", ".#######", "########", "########", ".#######", ".#######", "..#####."]),
+        null,
+        new(-5, -4, ["...#####..", "..#######.", ".#########", ".#########", "##########", "##########", ".#########", ".#########", "..#######.", "...#####.."]),
+    ];
+
+    private static readonly PenPixels[] CirclePens =
+    [
+        new(-11, -10,
+        [
+            ".......#########......",
+            ".....#############....",
+            "....####.......####...",
+            "...###...........###..",
+            "...##.............##..",
+            "..##...............##.",
+            ".###...............###",
+            ".##.................##",
+            ".##.................##",
+            ".##.................##",
+            "##..................##",
+            ".##.................##",
+            ".##.................##",
+            ".##.................##",
+            ".###...............###",
+            "..##...............##.",
+            "...##.............##..",
+            "...###...........###..",
+            "....####.......####...",
+            ".....#############....",
+            ".......#########......",
+        ]),
+        new(-11, -11,
+        [
+            ".........####..........",
+            "......###########......",
+            ".....#############.....",
+            "...#######....######...",
+            "...####.........####...",
+            "..####...........####..",
+            ".####.............####.",
+            ".###...............###.",
+            "####...............####",
+            "###.................###",
+            "###.................###",
+            "###.................###",
+            "###.................###",
+            "###.................###",
+            ".##.................##.",
+            ".###...............###.",
+            ".####.............####.",
+            "..####...........####..",
+            "...####.........####...",
+            "...#######....######...",
+            ".....#############.....",
+            "......###########......",
+            ".........####..........",
+        ]),
+    ];
+
+    private void Stamp(int x, int y, int colour, PenPixels? pen)
+    {
+        if (pen is null) throw Refused("Drawing with DrawWidth above 1");
+        for (var row = 0; row < pen.Rows.Length; row++)
+        for (var column = 0; column < pen.Rows[row].Length; column++)
+            if (pen.Rows[row][column] == '#') Put(x + pen.X + column, y + pen.Y + row, colour);
     }
 
     private int Background() => PropertyColor(VBProperties.BackColorProperty);

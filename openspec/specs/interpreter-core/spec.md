@@ -2646,7 +2646,7 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **THEN** it reports VB6's compile error as the statement executes; bare Cls remains an undefined Sub
 
 #### Scenario: Later and unmeasured drawing members refuse explicitly
-- **WHEN** Circle requests an arc/sector or unequal x/y scale-unit sizes, or drawing uses DrawWidth above 1, DrawStyle other than 0, DrawMode other than 13
+- **WHEN** Circle requests an arc/sector or unequal x/y scale-unit sizes, or drawing uses an unsupported thick pen, DrawStyle other than 0, DrawMode other than 13
   or FillStyle other than 0/1
 - **THEN** execution refuses with NotImplementedException naming #988
 - **AND** late-bound Line/PSet/Circle, FontTransparent assignments, Cls used as a value and unmeasured Cls/Point argument counts refuse likewise
@@ -2674,6 +2674,14 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **WHEN** a radius is negative or either angle has magnitude above 2π
 - **THEN** error 5 is raised before drawing; the current position after an error is not specified by these measurements
 - **AND** arcs and sectors remain explicitly refused with #988, because no rasteriser tried reproduces all five measured grids (#4771)
+
+#### Scenario: Measured finite thick-pen footprints
+- **WHEN** PSet draws with width 2–8 or 10, or a full transparent Circle draws with width 2/3, physical radius 10 pixels, aspect 1 and a whole-pixel centre
+- **THEN** the pixels SHALL match the corresponding grids on the [drawing oracle](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md) and [circle/thick-pen oracle](../../../docs/vb6-fidelity-oracle/circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md), as scoped by [#4813](https://github.com/hexide-io/HexIDE/issues/4813)
+- **AND** PSet ends at its whole-twip point and Circle ends at its centre
+- **WHEN** PSet uses width 9 or above 10, or a thick Circle requests any other shape, width or solid fill
+- **THEN** execution SHALL refuse with NotImplementedException naming #988 before drawing or moving CurrentX/Y
+- **AND** thick Line, B and BF SHALL remain refused together (#4841): neither tried capsule nor stamped-disc model reproduces all measured line grids; width-one drawing is unchanged
 
 #### Scenario: Overflow preserves the current position
 - **WHEN** PSet or Line receives a coordinate that overflows a Long in twips
