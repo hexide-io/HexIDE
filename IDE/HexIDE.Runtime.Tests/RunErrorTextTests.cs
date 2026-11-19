@@ -16,9 +16,9 @@ public class RunErrorTextTests : BaseVBTestFixture
     public void Something_HexIDE_does_not_implement_says_so_and_carries_no_error_number()
     {
         // VB6 would have run it, so a VB6 error number would blame the program for HexIDE's gap.
-        var text = RunErrorText.ForFault(new NotImplementedException("GoSub not implemented"), NotImplementedYet);
+        var text = RunErrorText.ForFault(new NotImplementedException("AppActivate not implemented"), NotImplementedYet);
 
-        text.Should().Be("Not implemented yet: GoSub not implemented");
+        text.Should().Be("Not implemented yet: AppActivate not implemented");
     }
 
     [Theory]

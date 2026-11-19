@@ -20,7 +20,7 @@ public partial class VB6BuiltIns
     private static Vb6Value FinancialCashFlow(IReadOnlyList<Vb6Value> args, bool modified)
     {
         string name = modified ? "MIRR" : "IRR";
-        NotImplementedException Unmeasured() => new($"{name}: this argument or arithmetic domain is unmeasured (#2525)");
+        NotImplementedException Unmeasured() => new($"{name}: this argument or arithmetic domain is unmeasured (#4883)");
         int required = modified ? 3 : 1;
         if (args.Count < required || args.Count > (modified ? 3 : 2) || !Supplied(args, 0))
             throw Unmeasured();
@@ -111,14 +111,14 @@ public partial class VB6BuiltIns
     private static Vb6Value FinancialNpv(IReadOnlyList<Vb6Value> args)
     {
         if (args.Count != 2 || !Supplied(args, 0) || !Supplied(args, 1))
-            throw new NotImplementedException("NPV argument-count and missing-argument errors are unmeasured (#2525)");
+            throw new NotImplementedException("NPV argument-count and missing-argument errors are unmeasured (#4883)");
         if (args[0].IsNull || args[0].Value is VbDate || !Vb6Value.TryNumericToDouble(args[0], out double rate)
             || args[1].Value is not VBArray array
             || array.ElementType != Vb6Value.ValueType.Double)
-            throw new NotImplementedException("This NPV argument conversion is unmeasured (#2525)");
+            throw new NotImplementedException("This NPV argument conversion is unmeasured (#4883)");
         if (!array.IsDefined) throw InvalidCall();
         if (array.Rank != 1 || array.Length() == 0)
-            throw new NotImplementedException("Empty and multidimensional NPV arrays are unmeasured (#2525)");
+            throw new NotImplementedException("Empty and multidimensional NPV arrays are unmeasured (#4883)");
         if (rate == -1) throw InvalidCall();
         var basis = 1 + FinancialNumber.FromDouble(rate);
         FinancialNumber power = 1, total = 0;
@@ -127,13 +127,13 @@ public partial class VB6BuiltIns
         {
             double discount = (power * basis).ToDouble();
             if (discount == 0 || !double.IsFinite(discount))
-                throw new NotImplementedException("This NPV arithmetic domain is unmeasured (#2525)");
+                throw new NotImplementedException("This NPV arithmetic domain is unmeasured (#4883)");
             power = FinancialNumber.FromDouble(discount);
             total += FinancialNumber.FromDouble((double)value.Value!) / power;
         }
         double result = total.ToDouble();
         if (!double.IsFinite(result))
-            throw new NotImplementedException("NPV overflow errors are unmeasured (#2525)");
+            throw new NotImplementedException("NPV overflow errors are unmeasured (#4883)");
         return new Vb6Value(result);
     }
 
@@ -142,22 +142,22 @@ public partial class VB6BuiltIns
     private static Vb6Value Financial(IReadOnlyList<Vb6Value> args, string name)
     {
         if (args.Count < 3 || args.Count > 5)
-            throw new NotImplementedException("Financial argument-count errors are unmeasured (#2523)");
+            throw new NotImplementedException("Financial argument-count errors are unmeasured (#4883)");
         var values = new double[5];
         for (int i = 0; i < args.Count; i++)
         {
             if (!Supplied(args, i))
             {
-                if (i < 3) throw new NotImplementedException("Missing required financial arguments are unmeasured (#2523)");
+                if (i < 3) throw new NotImplementedException("Missing required financial arguments are unmeasured (#4883)");
                 continue;
             }
             if (args[i].IsNull)
             {
                 if (name == "Pmt" && i == 0) throw InvalidUseOfNull();
-                throw new NotImplementedException("This Null financial argument is unmeasured (#2523)");
+                throw new NotImplementedException("This Null financial argument is unmeasured (#4883)");
             }
             if (args[i].Value is VbDate)
-                throw new NotImplementedException("Date financial arguments are unmeasured (#2523)");
+                throw new NotImplementedException("Date financial arguments are unmeasured (#4883)");
             if (!Vb6Value.TryNumericToDouble(args[i], out values[i]))
             {
                 if (name == "Pmt" && i == 0 && args[i].Type == Vb6Value.ValueType.String)
@@ -165,10 +165,10 @@ public partial class VB6BuiltIns
                     try { values[i] = AsDouble(args[i]); }
                     catch (VBRunTimeException)
                     {
-                        throw new NotImplementedException("This financial String conversion is unmeasured (#2523)");
+                        throw new NotImplementedException("This financial String conversion is unmeasured (#4883)");
                     }
                 }
-                else throw new NotImplementedException("This financial argument conversion is unmeasured (#2523)");
+                else throw new NotImplementedException("This financial argument conversion is unmeasured (#4883)");
             }
         }
         double rate = values[0], periods = values[1];
@@ -199,18 +199,18 @@ public partial class VB6BuiltIns
         int required = interest ? 4 : 3;
         int maximum = name == "NPer" ? 5 : 6;
         if (args.Count < required || args.Count > maximum)
-            throw new NotImplementedException("Financial argument-count errors are unmeasured (#2523)");
+            throw new NotImplementedException("Financial argument-count errors are unmeasured (#4883)");
         var v = new double[maximum];
         if (name == "Rate") v[5] = 0.1;
         for (int i = 0; i < args.Count; i++)
         {
             if (!Supplied(args, i))
             {
-                if (i < required) throw new NotImplementedException("Missing required financial arguments are unmeasured (#2523)");
+                if (i < required) throw new NotImplementedException("Missing required financial arguments are unmeasured (#4883)");
                 continue;
             }
             if (args[i].IsNull || args[i].Value is VbDate || !Vb6Value.TryNumericToDouble(args[i], out v[i]))
-                throw new NotImplementedException("This financial argument conversion is unmeasured (#2523)");
+                throw new NotImplementedException("This financial argument conversion is unmeasured (#4883)");
         }
         var r = FinancialNumber.FromDouble(v[0]);
         var a = FinancialNumber.FromDouble(v[1]);
@@ -299,7 +299,7 @@ public partial class VB6BuiltIns
     {
         double value = number.ToDouble();
         if (!double.IsFinite(value))
-            throw new NotImplementedException("Financial overflow errors are unmeasured (#2523)");
+            throw new NotImplementedException("Financial overflow errors are unmeasured (#4883)");
         return new Vb6Value(value);
     }
 }

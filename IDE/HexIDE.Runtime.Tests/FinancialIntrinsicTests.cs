@@ -82,6 +82,6 @@ public class FinancialIntrinsicTests : BaseVBTestFixture
     public async Task Unmeasured_edges_refuse(string expression)
     {
         var run = () => Run($"Dim answer\nanswer = {expression}\n");
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#2523*");
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#4883*");
     }
 }

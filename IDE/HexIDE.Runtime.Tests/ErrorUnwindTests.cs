@@ -201,6 +201,164 @@ public class ErrorUnwindTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(28L), BasicInterpreter.MaxCallDepth]);
     }
 
+    // The same for GoSub (#4726). Within one procedure each pending GoSub is a nested pass, and each pass throws what
+    // leaves it afresh, as each procedure does. Without that, a 28 leaving 2,000 passes took 7.6 to 11.5 s to reach the
+    // caller's handler in Debug, and 3.1 s with it, against 1.6 to 1.8 s for 1,999 passes returning normally (#4775
+    // has that deep-stack cost). Unlike the procedure tests above, these read the longest trace the error carries on
+    // its way, not the one it leaves the procedure with: RunProcedure throws afresh too, which hides the passes' trace.
+    [Fact]
+    public async Task AnErrorRaisedDeepInGoSub_CarriesNoMoreTraceOnItsWayThanOneRaisedShallow()
+    {
+        var shallow = await LongestTraceOnTheWay<VBRunTimeException>(GoSubsDeep(20, "Err.Raise 5"));
+        var deep = await LongestTraceOnTheWay<VBRunTimeException>(GoSubsDeep(400, "Err.Raise 5"));
+
+        deep.Should().BeLessThanOrEqualTo(shallow,
+            "the error carries only the trace of the GoSub pass it last left, however deep it was raised");
+    }
+
+    [Fact]
+    public async Task AnEndReachedDeepInGoSub_CarriesNoMoreTraceOnItsWayThanOneReachedShallow()
+    {
+        var shallow = await LongestTraceOnTheWay<HexIDE.Runtime.Debugging.StopExecutionSignal>(GoSubsDeep(20, "End"));
+        var deep = await LongestTraceOnTheWay<HexIDE.Runtime.Debugging.StopExecutionSignal>(GoSubsDeep(400, "End"));
+
+        deep.Should().BeLessThanOrEqualTo(shallow,
+            "the signal carries only the trace of the GoSub pass it last left, however deep End was reached");
+    }
+
+    /// <summary>The most stack-trace lines a <typeparamref name="T"/> carried at any throw while <paramref name="code"/>
+    /// ran, on the thread running it.</summary>
+    private async Task<int> LongestTraceOnTheWay<T>(string code) where T : Exception
+    {
+        var longest = 0;
+        var thread = 0;
+        EventHandler<System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs> watch = (_, e) =>
+        {
+            if (e.Exception is T && Environment.CurrentManagedThreadId == thread)
+                longest = Math.Max(longest, e.Exception.StackTrace?.Split('\n').Length ?? 0);
+        };
+        AppDomain.CurrentDomain.FirstChanceException += watch;
+        try
+        {
+            await RunOnSizedStack(code, onThread: () => thread = Environment.CurrentManagedThreadId);
+        }
+        catch (VBRunTimeException)
+        {
+            // The unhandled error ends the run; only its trace on the way matters here.
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.FirstChanceException -= watch;
+        }
+        longest.Should().BePositive("the run throws on its way out");
+        return longest;
+    }
+
+    [Fact]
+    public void UnboundedGoSub_UnderADebuggerThatYieldsEveryStatement_RaisesError28AtTheGoSubCap()
+    {
+        // As for procedures above: a yield releases the native frames, so only the count can stop a runaway GoSub
+        // under F5 or in a made EXE. The procedure's own handler traps that 28 (measured, G41).
+        var (vb, dbg) = NewDebuggable(
+            "Dim deepest\n" +
+            "Up deepest\n" +
+            "Debug.Print deepest\n" +
+            "Sub Up(deepest)\n" +
+            "  On Error GoTo E\n" +
+            "  GoSub A\n" +
+            "  Exit Sub\n" +
+            "A:\n" +
+            "  deepest = deepest + 1\n" +
+            "  GoSub A\n" +
+            "  Return\n" +
+            "E:\n" +
+            "  Debug.Print Err.Number\n" +
+            "End Sub\n", "M");
+        dbg.TimeSliceMs = -1;
+        var previous = SynchronizationContext.Current;
+        var pump = new Pump();
+        SynchronizationContext.SetSynchronizationContext(pump);
+        try
+        {
+            var run = vb.Execute();
+            pump.Drain();
+            run.IsCompletedSuccessfully.Should().BeTrue();
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+        AssertDebugLog([new Vb6Value(28L), StatementExecutor.MaxGoSubDepth]);
+    }
+
+    [Fact(Timeout = 300_000)]
+    public async Task ARunawayGoSubOnTheUiThreadsStack_UnderATimeSlicingDebugger_ReachesItsHandler()
+    {
+        // As ARunawayOnTheUiThreadsStack_UnderATimeSlicingDebugger_ReachesItsHandler, for nested GoSub passes: a 28 at
+        // MaxGoSubDepth unwinds every pass to Main2's handler. The yield GoSub makes every few passes on the way down
+        // matters here: measured in Debug, 1.9 s to the handler with it and 8.3 s without. Five minutes bounds a hang.
+        var failure = default(Exception);
+        await Task.Run(() => UiThread.RunOnNewThread(() =>
+        {
+            try
+            {
+                var (vb, dbg) = NewDebuggable(
+                    "Main2\n" +
+                    "Sub Main2()\n" +
+                    "  On Error GoTo H\n" +
+                    "  Up\n" +
+                    "  Exit Sub\n" +
+                    "H:\n" +
+                    "  Debug.Print Err.Number\n" +
+                    "End Sub\n" +
+                    "Sub Up()\n" +
+                    "  GoSub A\n" +
+                    "  Exit Sub\n" +
+                    "A:\n" +
+                    "  GoSub A\n" +
+                    "  Return\n" +
+                    "End Sub\n", "M");
+                dbg.TimeSliceMs = 15;
+                dbg.HaltHost = _ => Task.FromResult(false);
+                var previous = SynchronizationContext.Current;
+                var pump = new Pump();
+                SynchronizationContext.SetSynchronizationContext(pump);
+                try
+                {
+                    var run = vb.Execute();
+                    pump.Drain();
+                    run.IsCompletedSuccessfully.Should().BeTrue(
+                        "the runaway GoSub must finish unwinding on the UI thread and reach its error handler");
+                }
+                finally
+                {
+                    SynchronizationContext.SetSynchronizationContext(previous);
+                }
+            }
+            catch (Exception error)
+            {
+                failure = error;
+            }
+            return 0;
+        }, UiThread.StackBytes), TestContext.Current.CancellationToken);
+        if (failure is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(failure);
+        AssertDebugLog([new Vb6Value(28L)]);
+    }
+
+    private static string GoSubsDeep(int passes, string then) =>
+        "Call Up\n" +
+        "Sub Up()\n" +
+        "  Dim n As Long\n" +
+        "  GoSub A\n" +
+        "  Exit Sub\n" +
+        "A:\n" +
+        "  n = n + 1\n" +
+        $"  If n >= {passes} Then {then}\n" +
+        "  GoSub A\n" +
+        "  Return\n" +
+        "End Sub\n";
+
     /// <summary>Runs posted continuations on the calling thread, until there are none.</summary>
     private sealed class Pump : SynchronizationContext
     {

@@ -130,12 +130,15 @@ public static class LoggingSetup
         }
     }
 
+    /// <summary>The message <see cref="RecordUnobserved"/> logs, which a test's captured log tells apart by it (#4809).</summary>
+    internal const string UnobservedTaskMessage = "A task faulted and nothing observed its exception";
+
     /// <summary>Logs a faulted task nobody observed. It is left unobserved, so nothing changes but the log.</summary>
     internal static void RecordUnobserved(AggregateException exception)
     {
         try
         {
-            Log.Error(exception, "A task faulted and nothing observed its exception");
+            Log.Error(exception, UnobservedTaskMessage);
         }
         catch
         {

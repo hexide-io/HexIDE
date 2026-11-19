@@ -29,7 +29,7 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
             || !record.AsSpan(4, 16).SequenceEqual(clsid)
             || BitConverter.ToInt32(record, 20) != 0x746c
             || BitConverter.ToInt32(record, 24) != record.Length - 28)
-            throw new NotImplementedException("This Panel.Picture record is not implemented (#1087)");
+            throw new NotImplementedException("This Panel.Picture record is not implemented (#4882)");
         return FromFile(record[28..]);
     }
 
@@ -51,13 +51,13 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
             file = LoadPictureIcon(file);
         var picture = new PanelPicture(file);
         if (picture.Bitmap == null)
-            throw new NotImplementedException("This Panel.Picture image is not implemented (#1087)");
+            throw new NotImplementedException("This Panel.Picture image is not implemented (#4882)");
         return picture;
     }
 
     private static byte[] LoadPictureIcon(byte[] file)
     {
-        // #4623: SP6 takes the first 32-by-32 image; other picture sources are unmeasured.
+        // #4623 / #4748: SP6 takes the first 32-by-32 image, or the first image if none is 32-by-32.
         if (file.Length < 6) return file;
         var count = BitConverter.ToUInt16(file, 4);
         if (count == 0 || file.Length < 6 + count * 16) return file;
@@ -71,7 +71,7 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
                 selected = entry;
         }
         if (selected < 0)
-            throw new NotImplementedException("LoadPicture icons with several images and no 32-by-32 image are unmeasured (#4623)");
+            selected = 6;
         var size = (int)BitConverter.ToUInt32(file, selected + 8);
         var start = (int)BitConverter.ToUInt32(file, selected + 12);
         var image = file.AsSpan(start, size);
@@ -87,10 +87,7 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
             var xor = (width * depth + 31) / 32 * 4 * (decimal)height;
             var and = (width + 31) / 32 * 4 * height;
             if (image.Length < 40 + palette + xor + and)
-            {
-                if (depth == 32) throw new VBRunTimeException(VBStandardError.InvalidPicture);
-                throw new NotImplementedException("LoadPicture icon images without a mask at depths other than 32 bpp are unmeasured (#4623)");
-            }
+                throw new VBRunTimeException(VBStandardError.InvalidPicture);
         }
         if (count == 1) return file;
         using var stream = new MemoryStream();
@@ -161,7 +158,7 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
         if (args.Count == 0)
             return new Vb6Value(new PanelPicture([]));
         if (args.Count != 1 || args[0].Type != Vb6Value.ValueType.String || args[0].Value is not string { Length: > 0 } path)
-            throw new NotImplementedException("This LoadPicture argument combination is unmeasured (#1087)");
+            throw new NotImplementedException("This LoadPicture argument combination is unmeasured (#4882)");
         try
         {
             var fullPath = files.FullPath(path);
@@ -171,8 +168,8 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
         }
         catch (FileNotFoundException) { throw FileError(VBStandardError.FileNotFound); }
         catch (DirectoryNotFoundException) { throw FileError(VBStandardError.PathNotFound); }
-        catch (IOException) { throw new NotImplementedException("LoadPicture file errors are unmeasured (#1087)"); }
-        catch (UnauthorizedAccessException) { throw new NotImplementedException("LoadPicture file errors are unmeasured (#1087)"); }
+        catch (IOException) { throw new NotImplementedException("LoadPicture file errors are unmeasured (#4882)"); }
+        catch (UnauthorizedAccessException) { throw new NotImplementedException("LoadPicture file errors are unmeasured (#4882)"); }
 
         VBRunTimeException FileError(VBStandardError error) => new(new VBStandardError(error.ErrNo, $"{error.Description}: '{path}'"));
     }
@@ -194,12 +191,12 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
                 value = new Vb6Value((long)Math.Round(decoded.PixelSize.Width * 2540d / 96));
             else if (name.Equals("Height", StringComparison.OrdinalIgnoreCase))
                 value = new Vb6Value((long)Math.Round(decoded.PixelSize.Height * 2540d / 96));
-            else throw new NotImplementedException($"Panel.Picture.{name} is not implemented (#1087)");
+            else throw new NotImplementedException($"Panel.Picture.{name} is not implemented (#4882)");
             return true;
         }
-        throw new NotImplementedException($"Panel.Picture.{name} is not implemented (#1087)");
+        throw new NotImplementedException($"Panel.Picture.{name} is not implemented (#4882)");
     }
 
-    public bool TrySetProperty(string name, Vb6Value value) => throw new NotImplementedException($"Panel.Picture.{name} is not implemented (#1087)");
-    public void Call(string method, List<Vb6Value> args) => throw new NotImplementedException($"Panel.Picture.{method} is not implemented (#1087)");
+    public bool TrySetProperty(string name, Vb6Value value) => throw new NotImplementedException($"Panel.Picture.{name} is not implemented (#4882)");
+    public void Call(string method, List<Vb6Value> args) => throw new NotImplementedException($"Panel.Picture.{method} is not implemented (#4882)");
 }
