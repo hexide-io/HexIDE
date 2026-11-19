@@ -88,8 +88,12 @@ internal static class RunnerLoad
             if (selected.Length == 0) return prefix + "no samples; " + current;
             var delays = selected.SelectMany(s => s.Dispatches).Distinct().Select(d => d.DelayAt(now)).Order().ToArray();
             var cpus = selected.Select(s => s.CpuPercent).Order().ToArray();
+            // The sampler is a thread of its own that wakes every 250 ms. A gap of seconds means nothing in the process
+            // ran, as when a VM is paused, where a starved pool still leaves the sampler on time (#4433).
+            var gap = selected.Skip(1).Zip(selected, (later, earlier) => Stopwatch.GetElapsedTime(earlier.At, later.At))
+                .Append(Stopwatch.GetElapsedTime(selected[^1].At, now)).Max().TotalMilliseconds;
             return prefix + string.Create(CultureInfo.InvariantCulture,
-                $"dispatch worst={delays.DefaultIfEmpty(0).Max():F1} ms, median={Median(delays):F1} ms; queue max={selected.Max(s => s.Queue)}; threads={selected[0].Threads}->{selected[^1].Threads}; CPU median={Median(cpus):F1}%, max={cpus[^1]:F1}%; GC pause={selected.Sum(s => s.PauseMs):F1} ms; lock contention={selected.Sum(s => s.Contention)}; ") + current;
+                $"dispatch worst={delays.DefaultIfEmpty(0).Max():F1} ms, median={Median(delays):F1} ms; queue max={selected.Max(s => s.Queue)}; threads={selected[0].Threads}->{selected[^1].Threads}; CPU median={Median(cpus):F1}%, max={cpus[^1]:F1}%; GC pause={selected.Sum(s => s.PauseMs):F1} ms; lock contention={selected.Sum(s => s.Contention)}; sampler gap worst={gap:F0} ms; ") + current;
         }
 
         private static double Median(double[] values) => values.Length == 0 ? 0

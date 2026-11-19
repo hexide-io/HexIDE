@@ -17,7 +17,7 @@ public class RunnerLoadTests
         ring.Add(new(now + Stopwatch.Frequency, [Done(999)], 99, 999, 999, 999, 999));
 
         ring.Describe(TimeSpan.FromSeconds(5), now).Should().StartWith(
-            "runner load over the last 5 s: dispatch worst=8.0 ms, median=5.0 ms; queue max=7; threads=4->6; CPU median=20.0%, max=30.0%; GC pause=6.0 ms; lock contention=8;")
+            "runner load over the last 5 s: dispatch worst=8.0 ms, median=5.0 ms; queue max=7; threads=4->6; CPU median=20.0%, max=30.0%; GC pause=6.0 ms; lock contention=8; sampler gap worst=1000 ms;")
             .And.Contain("min threads=").And.Contain("available threads=")
             .And.EndWith($"processors={Environment.ProcessorCount}");
     }
@@ -30,6 +30,23 @@ public class RunnerLoadTests
         ring.Add(new(now, [new(now - Stopwatch.Frequency * 2)], 1, 1, 0, 0, 0));
         ring.Describe(TimeSpan.FromMinutes(10), now).Should()
             .StartWith("runner load over the last 150 s: dispatch worst=2000.0 ms, median=2000.0 ms;");
+    }
+
+    [Fact]
+    public void SamplerGapIsTheLongestWithoutASample_UpToNow()
+    {
+        var ring = new RunnerLoad.Ring();
+        var now = Stopwatch.GetTimestamp();
+        long Ago(int seconds) => now - seconds * Stopwatch.Frequency;
+        ring.Add(new(Ago(20), [], 1, 0, 0, 0, 0));
+        ring.Add(new(Ago(19), [], 1, 0, 0, 0, 0));
+        ring.Add(new(Ago(2), [], 1, 0, 0, 0, 0));
+        ring.Describe(TimeSpan.FromSeconds(30), now).Should().Contain("sampler gap worst=17000 ms;");
+
+        // A sampler that has not run since is a gap too: the process may still be stopped as the wait runs out.
+        var stopped = new RunnerLoad.Ring();
+        stopped.Add(new(Ago(16), [], 1, 0, 0, 0, 0));
+        stopped.Describe(TimeSpan.FromSeconds(30), now).Should().Contain("sampler gap worst=16000 ms;");
     }
 
     [Fact]

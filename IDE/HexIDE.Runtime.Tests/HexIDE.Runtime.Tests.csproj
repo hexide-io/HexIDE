@@ -37,6 +37,11 @@
         <Compile Include="..\HexIDE.Integration.Tests\TemporaryProfileTests.cs" Link="Infrastructure\TemporaryProfileTests.cs" />
     </ItemGroup>
 
+    <!-- The runner's load, for what DebuggerSignalGuard says when a debugger signal runs out (#4433). -->
+    <ItemGroup>
+        <Compile Include="..\HexIDE.Tests\Infrastructure\RunnerLoad.cs" Link="Infrastructure\RunnerLoad.cs" />
+    </ItemGroup>
+
   <ItemGroup>
     <!-- One cleanup per test class: xunit v3 never calls Dispose beside DisposeAsync (#3411 slice 10b-3). -->
     <Compile Include="..\HexIDE.Tests\Infrastructure\TestClassCleanupTests.cs" Link="Infrastructure\TestClassCleanupTests.cs" />
