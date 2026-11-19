@@ -39,6 +39,9 @@ respect, and stores anything in it.
 - **The check is made at the `Set`, on the object itself.** Through `As Object` or a Variant, a form or class
   instance is 13 and a control is accepted, as #1563 measured for `As TextBox`.
 - **A failed `Set` leaves the variable as it was,** holding a control or Nothing.
+- **`As VB.Control` is the same,** measured in a second build of the same form: `Text1`, and `Timer1` through
+  `As Object`, are accepted; `Me` (leaving `Text1` in place), `New Class1`, `New Collection` and `Me` through
+  `As Object` are 13.
 
 **In HexIDE (#4864):** on main at 1b061986e every row stores with `Err.Number` 0, measured with a throwaway test in
 `FormControlsTests` that used `Command1` for `Text1` and `New Collection` for `New Class1`.
@@ -46,5 +49,4 @@ respect, and stores anything in it.
 **Not measured:**
 - a UserControl, an OCX control or a control array's element;
 - a control array itself, such as `Set c = Text1` where `Text1` is an array;
-- a parameter, Type field or array declared `As Control`;
-- `As VB.Control`.
+- a parameter, Type field or array declared `As Control`.
