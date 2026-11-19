@@ -181,7 +181,7 @@ public class TabIndexAssignmentTests
     }
 
     // A control HexIDE does not model keeps its TabIndex in the text it is carried as, and holds its place in the tab
-    // order all the same: here the highest, 6, on a control nested in another carried control.
+    // order all the same: here the highest, 2, on a control nested in another carried control.
     private const string FormWithCarriedControls =
         "VERSION 5.00\r\n" +
         "Begin VB.Form Form1 \r\n" +
@@ -189,7 +189,7 @@ public class TabIndexAssignmentTests
         "   Begin NoSuchLib.Toolbar Toolbar1 \r\n" +
         "      Height          =   540\r\n" +
         "      Left            =   0\r\n" +
-        "      TabIndex        =   4\r\n" +
+        "      TabIndex        =   0\r\n" +
         "      Top             =   0\r\n" +
         "      Width           =   6000\r\n" +
         "      BeginProperty Buttons {66833FE8-8583-11D1-B16A-00C0F0283628} \r\n" +
@@ -197,7 +197,7 @@ public class TabIndexAssignmentTests
         "      EndProperty\r\n" +
         "      Begin NoSuchLib.Gauge Gauge1 \r\n" +
         "         Left            =   120\r\n" +
-        "         TabIndex        =   6\r\n" +
+        "         TabIndex        =   2\r\n" +
         "         Top             =   60\r\n" +
         "      End\r\n" +
         "   End\r\n" +
@@ -205,7 +205,7 @@ public class TabIndexAssignmentTests
         "      Caption         =   \"Command1\"\r\n" +
         "      Height          =   495\r\n" +
         "      Left            =   240\r\n" +
-        "      TabIndex        =   5\r\n" +
+        "      TabIndex        =   1\r\n" +
         "      Top             =   960\r\n" +
         "      Width           =   1215\r\n" +
         "   End\r\n" +
@@ -222,8 +222,8 @@ public class TabIndexAssignmentTests
 
         var name = Add(vm, CommandButtonComponentClass.Instance);
 
-        TabIndex(vm, form, name).Should().Be("7",
-            "Gauge1, carried as text inside Toolbar1, holds 6; a property block's 99 is no control's TabIndex");
+        TabIndex(vm, form, name).Should().Be("3",
+            "Gauge1, carried as text inside Toolbar1, holds 2; a property block's 99 is no control's TabIndex");
     }
 
     // The reader joins a carried block's lines with CRLF whatever the file used, so the theory above cannot reach a lone
@@ -249,7 +249,7 @@ public class TabIndexAssignmentTests
     }
 
     // #4825: ListView is modelled, but its TabIndex is carried as a raw property.
-    // Consecutive values only: VB6 renumbers a form's TabIndexes when it loads it, which HexIDE doesn't yet (#4843).
+    // Consecutive values only, which the load keeps as saved; VB6 renumbers any others (#4843).
     private static string FormWithListView(string tabIndex, bool withTextBox = false) =>
         "VERSION 5.00\r\n" +
         "Begin VB.Form Form1 \r\n" +

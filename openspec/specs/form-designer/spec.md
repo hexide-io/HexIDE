@@ -18,10 +18,6 @@ operations do.
 > form is pasted without it unless that form declares the libraries the first one did. Tracked in
 > [#1458](https://github.com/hexide-io/HexIDE/issues/1458). Cut and paste within a form keeps it (#1453).
 
-> **Known divergence.** "Saved TabIndexes normalize when a form loads" is not met where the rule would move a
-> control carried as text: carried text isn't rewritten, so that form keeps all its saved TabIndexes. Tracked in
-> [#4884](https://github.com/hexide-io/HexIDE/issues/4884).
-
 ## Requirements
 
 ### Requirement: Windowless controls draw below windowed siblings regardless of file order
