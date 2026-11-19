@@ -39,7 +39,8 @@ So what does `Len` count for each kind of field, does it depend on what the fiel
 | a `Private Type` in a class module: Integer, Variant, `String * 3`, read by a method of the class | 21 |
 
 **Its type:**
-- Every row above is an **Integer**: `Len` of the Integer and `String * 4` Type is 6, an Integer.
+- Every row above is an **Integer**, read straight into a Variant. The exception is the String holding "hello",
+  which was read through a Function As Long. `Len` of the Integer and `String * 4` Type is 6, an Integer.
 - A Type of `b(39999) As Byte` gives 40000, a **Long**.
 - A Type with one `s As String * 40000` field doesn't compile at module level: "Fixed or static data can't be larger
   than 64K". That 40,000 characters take 80,000 bytes in memory is reasoned, not checked.
