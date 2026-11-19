@@ -42,6 +42,9 @@ So what does `Len` count for each kind of field, does it depend on what the fiel
 - Every row above is an **Integer**, read straight into a Variant. The exception is the String holding "hello",
   which was read through a Function As Long. `Len` of the Integer and `String * 4` Type is 6, an Integer.
 - A Type of `b(39999) As Byte` gives 40000, a **Long**.
+- **The line is at 32,767:** `b(32766) As Byte` gives 32767, an Integer, and `b(32767) As Byte` gives 32768, a Long. A
+  single `s As String * 20000` field gives 20000, an Integer. Two nested Types, each holding `v(1049) As Variant`,
+  give 33600, a Long.
 - A Type with one `s As String * 40000` field doesn't compile at module level: "Fixed or static data can't be larger
   than 64K". That 40,000 characters take 80,000 bytes in memory is reasoned, not checked.
 
@@ -52,9 +55,9 @@ So what does `Len` count for each kind of field, does it depend on what the fiel
   - A fixed-length String counts its width, and a fixed array its elements.
   - A nested Type counts its own `Len`.
   - `LenB` pads (`a-nested-user-defined-type-is-a-record-of-its-own.md`); `Len` doesn't.
-- **It never depends on what the fields hold, and its type follows its size:** 6 is an Integer and 40,000 a Long,
-  as a literal of that value would be. Where the line falls between them wasn't measured.
+- **It never depends on what the fields hold, and its type follows its size:** an Integer up to 32,767, and a Long
+  from 32,768, as a literal of that value would be.
 - `fixed-length-strings.md` found `LenB(fx)` an Integer where `Len(fx)` is a Long. A length fixed when the program is
   compiled would explain both. That's reasoned, not checked.
 
-**Not measured:** the size between 32,767 and 40,000 where the type changes.
+**Not measured:** a Type in a form or a UserControl.
