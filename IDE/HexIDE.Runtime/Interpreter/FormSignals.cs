@@ -73,8 +73,12 @@ public interface IFormProgram
     /// <summary>Make the default instance of <paramref name="form"/>, stored in the form's name: Initialize runs here.</summary>
     Task MakeDefaultInstance(ModuleInfo form);
 
-    /// <summary>Make a separate form instance for <c>New</c>, without binding its default name (#4598).</summary>
-    Task<VbObject> MakeInstance(ModuleInfo form);
+    /// <summary>
+    /// Make a separate form instance for <c>New</c>, without binding its default name (#4598). <paramref name="publish"/>
+    /// receives the instance before Form_Initialize runs, so an <c>As New</c> variable holds it there, as it does for a
+    /// class (measured for a form, #4640: <c>g Is Me</c> in Form_Initialize is True, and no second instance is made).
+    /// </summary>
+    Task<VbObject> MakeInstance(ModuleInfo form, Action<VbObject>? publish = null);
 
     /// <summary>Release an instance's window once its last reference has gone.</summary>
     void Terminated(VbObject form);

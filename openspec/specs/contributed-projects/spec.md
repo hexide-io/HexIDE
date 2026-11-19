@@ -139,6 +139,33 @@ it through VB6's writer would change the file silently, which `docs/serializatio
 a format like any other here, so a type MAY supply it, and what it writes then SHALL be byte for byte what the same
 project writes when opened from its `.vbp`.
 
+A type MAY instead name a built-in form format through `FormFormat`; `"vb6"` selects HexIDE's VB6 reader,
+writer and controls for forms, UserControls and PropertyPages. `Forms` and `FormFormat` together SHALL be refused at
+registration. The id SHALL be resolved at each use, not at registration; an unknown id SHALL leave each listed form out
+and name it with the explanation that no installed format reads that id. Only first-party registrations MAY supply ids.
+The whole-project `Format` restriction SHALL remain unchanged.
+
+A contributed project's `Components` SHALL declare its component libraries by GUID, major and minor version, and file
+name. The IDE SHALL apply these as project `Object=` lines, with hexadecimal versions, and its designer toolbox SHALL
+offer the listed libraries' in-box controls. A form's own library lines SHALL continue to suffice for reading its controls.
+
+While any member was left out at open, the IDE SHALL NOT write that project's file or offer membership, References or
+Project Properties changes. Saving SHALL still write the members it holds, leaving the project file's bytes unchanged.
+The open warning SHALL name each omitted member and explain why it was left out.
+
+#### Scenario: A type names VB6's form format
+- **WHEN** a type names `"vb6"` and lists forms, UserControls and PropertyPages
+- **THEN** they open editable and save byte for byte as the `.vbp` route does, including their companions
+
+#### Scenario: No installed format answers the id
+- **WHEN** a type names an unknown form-format id
+- **THEN** registration succeeds, each listed form is left out and named with the missing-format message, and modules open
+
+#### Scenario: A member was left out at open
+- **WHEN** a contributed project opens with an unreadable member or a form whose format id is unknown, and is then saved
+- **THEN** held members save, the project file remains byte for byte unchanged, and membership, References and Project
+  Properties changes are unavailable
+
 #### Scenario: A provider's form opens
 - **WHEN** a project type lists a form and supplies only a reader
 - **THEN** the form is in the Project Explorer and opens in the designer, read-only

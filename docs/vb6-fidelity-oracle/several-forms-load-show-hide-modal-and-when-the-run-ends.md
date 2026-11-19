@@ -29,6 +29,10 @@ of them shows it.
 **2. `Load Form2`, then `Form2.Show`.**
 - **Load:** raises Initialize and Load, and returns with the form loaded and not visible.
 - **Show:** raises Resize and returns. Form1's Deactivate and Form2's Activate come after the statement has returned.
+- **Re-run on the console (2026-11-18, #4768): the same.** The events, their order and the activation after the
+  statement were the same in the IDE (`/runexit`), p-code and native, with the probe logging session id 1. One reading
+  differed: after `Form2.Show`, `Form2.Visible` and `IsWindowVisible` read True on the console, where session 0 read
+  False for both.
 
 **3. Hide.**
 - **`Form2.Hide`:** the form stays loaded, and `Forms.Count` is still 2.
@@ -50,6 +54,10 @@ of them shows it.
 - **`Form2.Show` after that:** makes the **default instance**, a third Initialize and Load, so three forms are
   loaded. `f Is Form2` is False, and the captions are "second" and "Form2".
 - **`Set f = Nothing`, after `Unload f`:** raises f's Terminate.
+- **Re-run on the console (2026-11-18, #4768): the same,** in the IDE, p-code and native: three forms loaded,
+  `f Is Form2` False, and, once the handler had returned, Form1's Deactivate, f's Activate, f's Deactivate and the
+  default instance's Activate. The re-run's Initialize read `Me.Name`, which loads the form, so it doesn't test again
+  that `New` alone leaves the form unloaded. That row doesn't depend on a display.
 
 **6. `Show vbModal`.** Form1's Timer1 ticks every 200 ms throughout. Its Timer2 shows Form2 modally at 0.6 s, and
 Form2's own timer reports on Form1, then unloads (6a) or hides (6b) Form2 at its fifth tick.
@@ -61,6 +69,9 @@ Form2's own timer reports on Form1, then unloads (6a) or hides (6b) Form2 at its
 
   Both runs were in session 0. So a modal form lets other events run in either build, and a MsgBox holds them, but
   only in the IDE.
+  **Re-run on the console (2026-11-18, #4768): the same.** A 100 ms Timer on the form that called `MsgBox` didn't
+  tick while the box was up in the IDE (`/runexit`). Compiled, it had ticked 47 times (p-code) and 46 (native) by the
+  time a box closed after about 5 s returned. The probe logged its session id, 1.
 - **Form1 is disabled while Form2 is modal.** On the console, `Form1.Enabled` reads False and so does
   `IsWindowEnabled(Form1.hWnd)`, and both read True again once the modal form has gone. In session 0 both read True
   throughout, the one place that session misled.
@@ -73,7 +84,8 @@ Form2's own timer reports on Form1, then unloads (6a) or hides (6b) Form2 at its
 
 **7. When the run ends.**
 - **Sub Main showing a form and returning:** Main ends straight after the form's Resize, before its Activate (as E3
-  had it). The run then lasts until the form unloads.
+  had it). The run then lasts until the form unloads. Re-run on the console (2026-11-18, #4768): the same, in the IDE,
+  p-code and native.
 - **Sub Main loading a form hidden and returning:** the run goes on; its Timer ticked until it unloaded itself.
 - **Sub Main showing a form modally:** Main waits. Once the form has unloaded, Main goes on with no form loaded, and
   returns.
@@ -209,7 +221,9 @@ The console agrees (2026-11-18, #4744): Form1 reads `Visible` False, and `IsWind
 **13. A method call statement with no space before its parenthesised argument.** A form's Timer ran `Form2.Show(0)`
 and `Text1.Move(100)`, written into the `.frm` that way. Both builds compile, and both statements run: Form2 loads and
 shows, and `Text1.Left` reads 100 after the Move. VB6's editor would have rewritten each with a space, so this is what
-a file written elsewhere gets. HexIDE's grammar refused both; #1064 now accepts them in the interpreter and language server.
+a file written elsewhere gets. HexIDE's grammar refused both; #1064 now accepts them in the interpreter and language server. Re-run on the console
+(2026-11-18, #4768): `Form2.Show(0)` the same in the IDE, p-code and native, with Form2 displayed (`Visible` True,
+where session 0 read False). `Text1.Move(100)` wasn't run again, since it doesn't depend on a display.
 
 **14. A 402 still hides the form, and a modal form hidden from above keeps waiting (2026-11-16, #4032, #3936).** Section
 12's table records `Form1.Hide` and `Form2.Hide` behind a modal form as 402, and nothing more. HexIDE read that as a
@@ -383,6 +397,43 @@ and `t` are Tick1's locals.
   terminates it. The Forms collection keeps it.
 
 **Not measured:** `Unload Me` inside a New instance.
+
+### As New on a form: Is Nothing, Unload, Set Nothing, and a module's As New (2026-11-18, #4640, SP6)
+
+**The probe.** It used the same forms as the section above. Form2 numbered its instances in its Initialize, and logged
+Load, Unload and Terminate with that number. Form1's Timer called `Tick1`, a Sub of Form1, which declared
+`Dim g As New Form2` as its local. Module1 declared `Public gg As New Form2`. p-code and native code logged the same
+lines.
+
+| Step in Tick1, in order | Events | Value | Forms.Count after |
+|---|---|---|---|
+| `Dim g As New Form2` | none | | 1 |
+| `g Is Nothing` | Initialize #1 | False | 1: not loaded |
+| `TypeName(g)` | none | "Form2" | 1 |
+| `g.Id`, a Public Function of Form2 | none | 1 | 1 |
+| `g.Caption = "g"` | Load #1 | | 2 |
+| `Unload g` | Unload #1 | | 1 |
+| then `g Is Nothing` | none | False | 1 |
+| then `g.Id` | none | 1: the same instance | 1 |
+| then `g.Caption = "g again"` | **Load #1, with no Initialize** | | 2 |
+| `Unload g`, then `Set g = Nothing` | Unload #1, then Terminate #1 at the Set | | 1 |
+| then `g Is Nothing` | **Initialize #2** | False | 1 |
+| then `g.Id` | none | 2 | 1 |
+| `gg.Id`, the module's `As New` | Initialize #3 | 3 | 1 |
+| `gg.Show` | Load #3 | | 2 |
+| `gg Is Form2` | Initialize #4, the default instance, which naming Form2 makes | False | 2 |
+| Tick1 returns | Terminate #2, g's unloaded instance | | 2 |
+
+At the end, unloading every other form and then `Set gg = Nothing` logged Unload #3, then Terminate #3. Terminate #4,
+the default instance that was never loaded, came last, as the program ended.
+
+**What it shows**, extending the section above:
+- **`g Is Nothing` read False each time it was asked.** It makes the instance when g has none: before g's first use,
+  and after `Set g = Nothing`, when the instance is a new one.
+- **`Unload` keeps the instance.** The variable still holds it, and `g.Caption` loads it again with no second
+  Initialize, as `f.Tag` does after `Unload f` for a plain `New` above.
+- **A module-level `As New` is its own instance,** not the form's default instance.
+- **An unloaded `As New` local terminates when its procedure returns,** as a plain `New` local does.
 
 ### Who owns a modal form, and what F5 brings back (2026-11-18, #4618, SP6, IDE)
 

@@ -150,6 +150,7 @@
     "Str.Archive.FolderReadyFormat": "已從儲存的封存檔同步原始碼資料夾：\n{0}\n\n資料夾中的修改會停止同步，且不會被匯入。重新載入專案以更新預覽。",
     "Str.Archive.FolderErrorFormat": "原始碼資料夾同步已停止：\n{0}\n\n封存檔未被修改。",
     "Str.Archive.OpenErrorFormat": "無法開啟 {0}：\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "沒有已安裝的格式可以讀取「{0}」表單",
     "Str.ContributedProject.OpenError": "無法使用 {1} 開啟 {0}：\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} 由 {1} 開啟，其檔案由它所屬的程式新增與移除，而非由 HexIDE。",
     "Str.ContributedProject.RemovedWithChanges": "{0} 已被 {1} 所屬的程式移出該專案。是否先儲存你對它的變更？",
