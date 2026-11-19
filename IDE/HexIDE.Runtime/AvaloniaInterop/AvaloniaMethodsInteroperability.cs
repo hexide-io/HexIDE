@@ -211,7 +211,10 @@ public static class AvaloniaMethodsInteroperability
     /// </summary>
     private static Vb6Value Move(Control c, IReadOnlyList<Vb6Value> args)
     {
-        // An omitted argument, `Move 1, , 3`, and Move with none at all, are not measured.
+        // #1474: a TextBox's optional gap, by name or position, raises 448 before anything moves.
+        if (c is VBTextBox && args.Skip(1).Any(a => a.IsMissing))
+            throw new VBRunTimeException(VBStandardError.NamedArgumentNotFound);
+        // Other controls' omitted arguments, and Move with none at all, retain their unmeasured refusal.
         if (args.Count is 0 or > 4 || args.Any(a => a.IsMissing))
             throw new NotImplementedException($"The Move method with {args.Count} arguments, or with one omitted, is not implemented");
         for (var i = 2; i < args.Count; i++)

@@ -134,14 +134,14 @@ gave the probe the foreground as it started.
 - **The modal loop:** a 2-second Timer on Form3, enabled just before its own statement, would have shown a modal loop
   still running. It never fired.
 
-| Statement, run from modal Form3 | vb6.exe |
-|---|---|
-| `Form2.Visible = True`, Form2 loaded and hidden | **401**, and Form2 stays hidden |
-| `Form2.Show` | 401, and Form2 stays hidden |
-| `Form1.Visible = False`, Form1 shown | **no error, and Form1 is hidden** |
-| `Form1.Hide` | **402, and Form1 is hidden anyway** |
-| `Me.Visible = False` | no error. **The modal loop ends**: `Show vbModal` returns, and Form3 stays loaded, hidden |
-| `Me.Hide` | the same: no error, and the loop ends |
+| Statement, run from modal Form3 | vb6.exe | on the console (2026-11-18) |
+|---|---|---|
+| `Form2.Visible = True`, Form2 loaded and hidden | **401**, and Form2 stays hidden | the same |
+| `Form2.Show` | 401, and Form2 stays hidden | the same |
+| `Form1.Visible = False`, Form1 shown | **no error, and Form1 is hidden** | the same |
+| `Form1.Hide` | **402, and Form1 is hidden anyway** | 402, and **Form1 stays shown** |
+| `Me.Visible = False` | no error. **The modal loop ends**: `Show vbModal` returns, and Form3 stays loaded, hidden | the same |
+| `Me.Hide` | the same: no error, and the loop ends | the same |
 
 **Readings:**
 - **`Visible = True` on another form raises `Show`'s 401** while a form is modal.
@@ -149,6 +149,15 @@ gave the probe the foreground as it started.
 - **`Hide`'s 402 comes after the form is hidden.** The obvious reading, that the error leaves the form as it was, is
   wrong.
 - **A modal form's own `Visible = False` ends its modal loop,** as `Hide` does, and leaves the form loaded.
+
+**Re-run on the console (2026-11-18, #4744): `Hide`'s 402 leaves the form shown.** This probe doesn't say where it
+ran. Rebuilt from its description, it ran on the guest's console in the IDE (`/runexit`), p-code and native, which
+agree, and again in session 0. Every row matched on the console except `Form1.Hide`, which raised 402 and left Form1
+shown, `Visible` True and `IsWindowVisible` 1. In session 0 every form read `Visible` False before each statement as
+well as after it, so the row above is what session 0 gives, and the second and third readings describe session 0. On
+the console `Visible = False` hides a modeless form with no error, and `Hide` raises 402 and changes nothing. The
+several-forms page's *A form displayed, and a form behind a modal one, re-measured on the console* has the same
+result from two more probes.
 
 ### In HexIDE (#994)
 

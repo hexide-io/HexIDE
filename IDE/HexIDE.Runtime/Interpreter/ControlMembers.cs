@@ -12,7 +12,8 @@ namespace HexIDE.Runtime.Interpreter;
 internal static class ControlMembers
 {
     internal static async Task<Vb6Value> Read(Vb6Value variable, string memberIdentifier, IReadOnlyList<Vb6Value>? args,
-        string? propertySpelling = null, Func<Task<List<Vb6Value>>>? evaluateArgs = null)
+        string? propertySpelling = null, Func<Task<List<Vb6Value>>>? evaluateArgs = null,
+        Func<Task<List<Vb6Value>>>? evaluateMemberArgs = null)
     {
         var memberName = memberIdentifier;
         var hasArgs = args is not null || evaluateArgs is not null;
@@ -78,7 +79,8 @@ internal static class ControlMembers
             return RuntimeDrawing.Call(control, memberName, await Arguments());
         }
         if (control is VBPictureBox && RuntimeScale.IsConversion(memberName))
-            return RuntimeScale.ConvertUnits(control, memberName, await Arguments());
+            return RuntimeScale.ConvertUnits(control, memberName,
+                evaluateMemberArgs is not null ? await evaluateMemberArgs() : await Arguments());
 
         if (control is VBShape or VBLine && memberIdentifier.Equals("MousePointer", StringComparison.OrdinalIgnoreCase))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);

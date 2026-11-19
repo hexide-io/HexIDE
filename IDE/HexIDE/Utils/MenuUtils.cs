@@ -70,7 +70,8 @@ public class MenuUtils
         {
             // An item kept only for finalization remains in the weak table, but its template
             // bindings have lost their targets. Avalonia 12.1.x casts the UnsetValue they publish.
-            // Remove this guard once our Avalonia release contains AvaloniaUI/Avalonia#21552.
+            // Remove this guard once our Avalonia release contains AvaloniaUI/Avalonia#21552. Its backport to 12.1.x
+            // is requested in AvaloniaUI/Avalonia#22882 (#3867).
             List<MenuItem>? discarded = null;
             foreach (var entry in CommandItems)
             {
