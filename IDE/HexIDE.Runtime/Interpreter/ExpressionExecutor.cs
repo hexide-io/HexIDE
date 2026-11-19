@@ -2076,6 +2076,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 if (memberName.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
                     return await ThenTheRest(await interpreter.CallByName(await ResolveCallArgs(argsCtx), stmtFrames));
                 var args = argsCtx != null ? await EvaluateIntrinsicArgs(memberName, argsCtx) : new List<Vb6Value>();
+                if ((memberName.Equals("Len", StringComparison.OrdinalIgnoreCase) ||
+                     memberName.Equals("LenB", StringComparison.OrdinalIgnoreCase)) &&
+                    args.Count == 1 && args[0].Value is VbUdt)
+                    throw new VBCompileErrorException("Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions");
                 if (await EvaluateFunction(memberName, args) is { } fn)
                     return await ThenTheRest(fn);
                 if (args.Count == 0 && VB6InBoxLibraries.TryInLibrary(library, memberName, out var c))
