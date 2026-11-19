@@ -3,7 +3,6 @@ using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using HexIDE.Runtime.BuiltinControls;
@@ -69,7 +68,10 @@ internal static class MenuMembers
             {
                 if (caption == "-")
                     throw new VBRunTimeException(SeparatorAsName);
+                if (item.Parent is VBMenuBar captionBar)
+                    CheckRows(captionBar, item, caption: caption);
                 item.Header = caption;
+                if (item.Parent is VBMenuBar updatedBar) updatedBar.Refresh();
             }
             else if (caption != "-")
                 throw new System.NotImplementedException("Giving a menu separator a caption, which makes it an item, is not implemented (#1126)");
@@ -91,7 +93,10 @@ internal static class MenuMembers
             if (!visible && menu.Parent is MenuItem owner && !AnyOtherVisible(owner, menu))
                 throw CantSet("Visible");
             if (menu.Parent is Menu bar)
+            {
+                if (bar is VBMenuBar wrapped) CheckRows(wrapped, menu, visible);
                 ChangeBar(bar, visible || AnyOtherVisible(bar, menu));
+            }
         }
         if (ReferenceEquals(property, VBProperties.WindowListProperty))
             throw new System.NotImplementedException("Setting a menu's WindowList at run time is not implemented (#1126)");
@@ -131,7 +136,7 @@ internal static class MenuMembers
         };
         if (context?.FormDefinition is { } definition && IsMdiChild(definition))
             throw new System.NotImplementedException("Changing an MDI child's menu bar is not implemented (#4946)");
-        RefuseWrapped(bar, window);
+        RefuseWrapped(bar);
 
         Task Apply()
         {
@@ -148,7 +153,7 @@ internal static class MenuMembers
             {
                 // A bar first shown from code has no item extents until this layout.
                 if (target)
-                    RefuseWrapped(bar, window);
+                    RefuseWrapped(bar);
             }
             catch (NotImplementedException)
             {
@@ -171,14 +176,18 @@ internal static class MenuMembers
             Apply().GetAwaiter().GetResult();
     }
 
-    private static void RefuseWrapped(Menu bar, Window? window)
+    private static void RefuseWrapped(Menu bar)
     {
-        var width = bar.Bounds.Width > 0 ? bar.Bounds.Width : window?.Width ?? 0;
-        if (width <= 0 || double.IsNaN(width))
-            return;
-        bar.Measure(new Size(width, double.PositiveInfinity));
-        if (bar.Items.OfType<Control>().Where(item => item.IsVisible)
-            .Sum(item => item.DesiredSize.Width) > width)
+        if (bar is VBMenuBar wrapped && wrapped.RowCount() > 1)
+            throw new NotImplementedException("Changing a wrapped menu bar is not implemented (#4946)");
+    }
+
+    internal static void CheckRows(VBMenuBar bar, Control? changed = null, bool? visible = null,
+        string? caption = null, Control? added = null, int position = -1)
+    {
+        var before = bar.RowCount();
+        var after = bar.RowCount(changed, visible, caption, added, position);
+        if (before != after && Math.Max(before, after) > 1)
             throw new NotImplementedException("Changing a wrapped menu bar is not implemented (#4946)");
     }
 

@@ -33,6 +33,23 @@ internal static partial class ToolbarCaptionMetrics
             (FontWeight)BitConverter.ToInt32(metrics, 424)), Math.Abs(BitConverter.ToInt32(metrics, 408)));
     }
 
+    internal static (Typeface Typeface, double Size)? MenuFont()
+    {
+        var metrics = new byte[504];
+        BitConverter.GetBytes(metrics.Length).CopyTo(metrics, 0);
+        try
+        {
+            if (!SystemParametersInfoForDpi(0x29, (uint)metrics.Length, metrics, 0, 96)) return null;
+        }
+        catch (EntryPointNotFoundException) { return null; }
+        var face = System.Text.Encoding.Unicode.GetString(metrics, 252, 64);
+        if (face.IndexOf('\0') is var end and >= 0)
+            face = face[..end];
+        return face.Length == 0 ? null : (new Typeface(face,
+            metrics[244] != 0 ? FontStyle.Italic : FontStyle.Normal,
+            (FontWeight)BitConverter.ToInt32(metrics, 240)), Math.Abs(BitConverter.ToInt32(metrics, 224)));
+    }
+
     [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool SystemParametersInfoForDpi(uint action, uint parameter, [In, Out] byte[] metrics, uint flags, uint dpi);

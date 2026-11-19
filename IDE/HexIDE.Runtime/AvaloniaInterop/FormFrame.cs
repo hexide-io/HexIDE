@@ -17,7 +17,7 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 /// <item>the border, across and down: 240 for Sizable and Sizable ToolWindow, 90 for the fixed styles, and none for None;</item>
 /// <item>a caption bar, 345 more down, unless ControlBox is False and the Caption is empty. Then Fixed Single and Fixed
 /// ToolWindow have a border of 30;</item>
-/// <item>a menu bar, 300 more down. A borderless form with a menu has Fixed Single's border and caption bar.</item>
+/// <item>a one-row menu bar, 300 more down, and 285 for each further row (#4978). A borderless form with a menu has Fixed Single's border and caption bar.</item>
 /// </list>
 /// </para>
 /// <para>
@@ -73,6 +73,15 @@ internal static class FormFrame
         state.Frame = (state.Frame.Across, state.Frame.Down + (visible ? MenuBar : -MenuBar));
         if (state.Height is { } assigned)
             state.Height = (assigned.Twips, assigned.Client + (visible ? -MenuBar : MenuBar) / VBScaleModeExtensions.PixelToTwips);
+    }
+
+    // The counted bar belongs to VB's frame, though it occupies the window here (#4978).
+    internal static void ChangeMenuHeight(Window window, double pixels)
+    {
+        var state = states.GetOrCreateValue(window);
+        state.Frame = (state.Frame.Across, state.Frame.Down + pixels * VBScaleModeExtensions.PixelToTwips);
+        if (state.Height is { } assigned)
+            state.Height = (assigned.Twips, assigned.Client - pixels);
     }
 
     /// <summary>The form's Width or Height, in twips: what was assigned, or the client area and the frame.</summary>
