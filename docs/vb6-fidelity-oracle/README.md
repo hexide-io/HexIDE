@@ -735,6 +735,7 @@ added afterwards.
 - [The Components dialog and an in-box library's lines (2026-10-26, #1103, design-time)](the-components-dialog-and-an-in-box-librarys-lines.md#the-components-dialog-and-an-in-box-librarys-lines-2026-10-26-1103-design-time)
 - [Data-bound TextBox startup value (#859, #856)](data-bound-textbox-startup-value.md#data-bound-textbox-startup-value-859-856)
 - [The byte-string functions (2026-10-25, #1510)](the-byte-string-functions.md#the-byte-string-functions-2026-10-25-1510)
+- [InputB, by file mode (2026-11-19, #4895, SP6)](the-byte-string-functions.md#inputb-by-file-mode-2026-11-19-4895-sp6)
 - [A form's Move (2026-10-26, #1569)](a-forms-move.md#a-forms-move-2026-10-26-1569)
 - [A date's fraction of a second (2026-10-26, #783)](a-dates-fraction-of-a-second.md#a-dates-fraction-of-a-second-2026-10-26-783)
 - [Rnd and Randomize (2026-10-26, #2117)](rnd-and-randomize.md#rnd-and-randomize-2026-10-26-2117)
