@@ -145,9 +145,9 @@ public class FontMembersTests
     [AvaloniaFact]
     public void FontSize_takes_the_size_vb6_exe_gave_and_refuses_what_it_refused()
     {
-        // The probe's second TrueType face was Lucida Console. Linux has none, and FontName refuses a face the machine
-        // lacks unless it is one of the Windows fonts it always takes, so this uses Courier New, which is, and which the
-        // every-height run measured exactly as it measured Lucida Console.
+        // The probe's second TrueType face was Lucida Console. Linux has none, and FontName took it there only once it
+        // joined the Windows fonts it always takes (#1370). This uses Courier New, which the every-height run measured
+        // exactly as it measured Lucida Console.
         Run("""
                 Sizes Text1, "Text1/Arial", Array(8, 9, 10, 11, 12, 13, 14, 16, 7.5, 9.7, 36, 0.5, 1, 9.375, 11.625, 0.1, 0, -1, 2000, 2048, 2160, 2161, 1E+30, "12", "abc", Null, True)
                 Text1.FontName = "Courier New"
