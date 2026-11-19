@@ -73,6 +73,19 @@ Arial each time, and read back FontName, `Font.Charset` and FontSize. Native and
 | `Command1.FontName = "Wingdings"` | taken, Charset 2 |
 | `Me.FontName = "Courier New"` | taken; a Label on the form keeps MS Sans Serif |
 
+**More stock text faces (2026-11-18, #1370).** The same probe, on a Label in Arial 12 and on the form, from Arial 12
+each time, built native and p-code. The guest is Windows 10 Enterprise LTSC (10.0.19044) with VB6 6.00.9782 and no Office.
+Native and p-code agree on every row, and the Label and the form agree.
+
+| Names | Logged |
+|---|---|
+| Arial Black, Lucida Console, Times New Roman, Verdana, Georgia, Comic Sans MS, Impact, Trebuchet MS, Palatino Linotype, Lucida Sans Unicode, Consolas, Calibri, Cambria, Segoe Print | taken, read back as written, Charset 0, Size 12 |
+| Arial Narrow, Century Gothic | **380**; FontName stays Arial. Both come with Office, not Windows, and the guest has no Office |
+| `NoSuchFont123` | 380 |
+
+So "taken" here means installed on that machine: the two Office faces are the same kind of TrueType text face, and the
+guest refused them only because it lacks them.
+
 **The size is snapped to one a bitmap font has.** The 12 points became 9.75 under System and Courier, 9 under Terminal
 and 8.25 under Small Fonts, and setting Arial back afterwards didn't restore them: every later row read 8.25. That is
 why the Size column stops at Small Fonts. FontName returns the family's own spelling, except for the names Windows
@@ -84,10 +97,13 @@ substitutes, Helvetica and Times, which read back as written.
   255 for the four OEM names above; otherwise 0. The size and weight stay. `""`, padding, `5` and a missing family are
   380, and Null is 94.
 - **Which families count as the machine's** is a decision, because HexIDE runs where Windows' fonts mostly aren't. A
-  family installed here by its exact name counts, and so does any text family from the table above, drawn in a
+  family installed here by its exact name counts, and so does any text family from the tables above, drawn in a
   substitute where it isn't installed, as a form naming it at design time is. A symbol font has no substitute, since
   letters aren't its glyphs, so one that isn't installed is 380: VB6's own answer on a machine without it, which a
   program can trap. Wingdings by name is therefore 380 on Linux.
+- **The 2026-11-18 faces joined the table (#1370).** Before then, a program setting one of them was 380 wherever the face
+  wasn't installed, as on Linux and in the headless smoke worker. That's how WildEcstasy's `FontName = "Arial Black"`
+  turned main's corpus smoke test red. The Office faces stay out, since vb6.exe on a stock Windows refuses them.
 - Not modelled: the size snapping for a bitmap font. HexIDE can't read a size yet, so nothing reads wrong. FontSize,
   FontBold and the other font members are still 461.
 

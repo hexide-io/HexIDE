@@ -69,6 +69,22 @@ internal static class FontMembers
         ["Tahoma"] = ("Tahoma", 0),
         ["Courier New"] = ("Courier New", 0),
         ["MS Gothic"] = ("MS Gothic", 0),
+        // Measured on a stock Windows 10 LTSC guest, native and p-code (#1370). Without them, Linux and the headless
+        // smoke worker refused a demo's FontName = "Arial Black" with 380, which vb6.exe takes.
+        ["Arial Black"] = ("Arial Black", 0),
+        ["Lucida Console"] = ("Lucida Console", 0),
+        ["Times New Roman"] = ("Times New Roman", 0),
+        ["Verdana"] = ("Verdana", 0),
+        ["Georgia"] = ("Georgia", 0),
+        ["Comic Sans MS"] = ("Comic Sans MS", 0),
+        ["Impact"] = ("Impact", 0),
+        ["Trebuchet MS"] = ("Trebuchet MS", 0),
+        ["Palatino Linotype"] = ("Palatino Linotype", 0),
+        ["Lucida Sans Unicode"] = ("Lucida Sans Unicode", 0),
+        ["Consolas"] = ("Consolas", 0),
+        ["Calibri"] = ("Calibri", 0),
+        ["Cambria"] = ("Cambria", 0),
+        ["Segoe Print"] = ("Segoe Print", 0),
     };
 
     private enum Member { Name, Size, Bold, Italic, Underline, Strikethru }

@@ -1005,6 +1005,40 @@ the Avalonia frame properties. Other controls SHALL have no frame section.
 - **WHEN** a caller inspects the `Window` of a running form on Windows
 - **THEN** `nativeStyle` and `nativeExStyle` equal the window's `GWL_STYLE` and `GWL_EXSTYLE`
 
+### Requirement: Window ownership is observable
+
+Window inspection SHALL report `frame.owner` from Avalonia's `Window.Owner` as `{ name, title }`, or
+null when there is none. The name SHALL be the value the `window` parameter resolves to that window:
+`ide` for the main window, else the running form's name or the window's title, with `#n` when several
+visible windows answer to it.
+
+#### Scenario: A window is shown with an owner
+
+- **WHEN** a window shown with an owner is inspected
+- **THEN** `frame.owner` names that owner and gives its current title
+
+#### Scenario: The owner is one of two instances of a form
+
+- **WHEN** two visible windows answer to one name and the second owns the inspected window
+- **THEN** `frame.owner.name` is that name with `#2`, which the `window` parameter resolves to the owner
+
+#### Scenario: An unowned window is inspected
+
+- **WHEN** a window with no Avalonia owner is inspected
+- **THEN** `frame.owner` is null
+
+### Requirement: Native window ownership is observable
+
+On a Windows HWND inspection SHALL report `frame.nativeOwner` from `GetWindow(hwnd, GW_OWNER)`, using
+the same identity as `owner` for a known window, or the title and `className` with no `name` otherwise, and null
+when there is no native owner. Without a Windows HWND it SHALL omit `nativeOwner`. The two owners can
+differ; Windows stacking and minimization follow the native owner.
+
+#### Scenario: A native owner is outside the managed windows
+
+- **WHEN** an inspected HWND's owner is not a known Avalonia window
+- **THEN** `frame.nativeOwner` gives its native class name as `className` and its title as `title`, with no `name`
+
 ### Requirement: A frame snapshot SHALL show the window whatever covers it
 
 The snapshot tool SHALL accept optional `includeFrame`, default false. When true on Windows, it SHALL

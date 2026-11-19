@@ -57,7 +57,7 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
 
     private static byte[] LoadPictureIcon(byte[] file)
     {
-        // #4623: SP6 takes the first 32-by-32 image; other picture sources are unmeasured.
+        // #4623 / #4748: SP6 takes the first 32-by-32 image, or the first image if none is 32-by-32.
         if (file.Length < 6) return file;
         var count = BitConverter.ToUInt16(file, 4);
         if (count == 0 || file.Length < 6 + count * 16) return file;
@@ -71,7 +71,7 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
                 selected = entry;
         }
         if (selected < 0)
-            throw new NotImplementedException("LoadPicture icons with several images and no 32-by-32 image are unmeasured (#4623)");
+            selected = 6;
         var size = (int)BitConverter.ToUInt32(file, selected + 8);
         var start = (int)BitConverter.ToUInt32(file, selected + 12);
         var image = file.AsSpan(start, size);
@@ -87,10 +87,7 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
             var xor = (width * depth + 31) / 32 * 4 * (decimal)height;
             var and = (width + 31) / 32 * 4 * height;
             if (image.Length < 40 + palette + xor + and)
-            {
-                if (depth == 32) throw new VBRunTimeException(VBStandardError.InvalidPicture);
-                throw new NotImplementedException("LoadPicture icon images without a mask at depths other than 32 bpp are unmeasured (#4623)");
-            }
+                throw new VBRunTimeException(VBStandardError.InvalidPicture);
         }
         if (count == 1) return file;
         using var stream = new MemoryStream();

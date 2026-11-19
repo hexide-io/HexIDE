@@ -227,8 +227,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
         if (!success)
             return;
 
-        // VB6 puts the EXE in the same directory as the .vbp file, named by ExeName32 if the project
-        // sets it (otherwise <ProjectName>.exe) — so assuming project.Name would miss a renamed output.
+        // /make uses Path32 only with ExeName32; otherwise the EXE sits beside the .vbp (#4538).
         var exePath = OutputExePath(project);
 
         if (!File.Exists(exePath))
@@ -266,15 +265,33 @@ public class Vb6ToolchainService : IVb6ToolchainService
         }
     }
 
-    private static string OutputExePath(ProjectDefinition project) =>
-        Path.Combine(Path.GetDirectoryName(project.AbsolutePath!)!, ResolveOutputExeName(project));
+    private static string OutputExePath(ProjectDefinition project)
+    {
+        var directory = Path.GetDirectoryName(project.AbsolutePath!)!;
+        var name = ResolveOutputExeName(project);
+        if (name is not null)
+        {
+            // Read the quoted path exactly as the serializer does, then resolve on the host filesystem.
+            foreach (var raw in project.UnknownPreSectionLines.Select(line => line.Item2)
+                         .Concat((project.ExtensionTail ?? "").ReplaceLineEndings("\n").Split('\n')))
+            {
+                if (SerializedProject.ItemLineFile(raw) is not { } file
+                    || !file.Key.Equals(SerializedProject.MakePathKey, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var folder = SerializedProject.ToHostPath(raw.Substring(file.Start, file.Length));
+                directory = Path.Combine(directory, folder);
+                break;
+            }
+        }
+        return Path.Combine(directory, name ?? project.Name + ".exe");
+    }
 
     private static string GetFormUri(FormDefinition form) => DocumentWireName.For(form);
 
     // The compiled EXE's file name: a .vbp may specify ExeName32="Foo.exe"; otherwise VB6 names the
     // output after the project. ExeName32 is a top-level .vbp key, preserved verbatim among the unparsed
     // lines (and, defensively, scanned in the preserved section tail too).
-    private static string ResolveOutputExeName(ProjectDefinition project)
+    private static string? ResolveOutputExeName(ProjectDefinition project)
     {
         foreach (var (_, raw) in project.UnknownPreSectionLines)
         {
@@ -288,7 +305,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
             if (m.Success && m.Groups[1].Value.Trim() is { Length: > 0 } name)
                 return name;
         }
-        return project.Name + ".exe";
+        return null;
     }
 
     private static string ReadAndDeleteLog(string logPath)

@@ -598,10 +598,21 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// placed by the member's parameter names and evaluated in parameter order, as an intrinsic's are (#1471); an object
     /// that names no parameters for the member refuses them, as before (#1474).
     /// </summary>
-    public async Task<List<Vb6Value>> EvaluateMemberArgs(object? target, string member, VB6Parser.ArgsCallContext? context)
+    public async Task<List<Vb6Value>> EvaluateMemberArgs(Vb6Value reference, string member, VB6Parser.ArgsCallContext? context)
     {
-        if (target is not INamedParameterSource source || await NamedCallArgs(context) is not { } args)
+        var target = reference.Value;
+        var control = ControlMethodParameters.IsTarget(target);
+        var source = target as INamedParameterSource ?? (control ? new ControlMethodParameters(target!) : null);
+        if (source is null || await NamedCallArgs(context) is not { } args)
             return await EvaluateCallArgs(context);
+        // A control or form held as Object/Variant takes no names, even correct or repeated ones (#1474), while one
+        // declared as its own class (`As ListBox`, `As TextBox`, `As Form`, `As Form1`) binds them (measured).
+        // `As Control` takes no names either (#4737, SP6 native/p-code).
+        // Keep the reference's binding before unwrapping a form, and retain the existing evaluation of positional
+        // prefixes: their side effects before a late-bound refusal were not measured.
+        if (control && (reference.HeldAsVariant || string.Equals(reference.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(reference.DeclaredAs, "Control", StringComparison.OrdinalIgnoreCase)))
+            throw new VBRunTimeException(VBStandardError.NamedArgumentNotFound);
         if (!source.TryGetParameters(member, out var names, out var required))
             throw new NotImplementedException($"Named arguments to {member} are not implemented yet (#1474)");
         var arranged = await NamedArguments.Arrange(args, names, i => i < required);
@@ -1538,7 +1549,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (value.Value is ImageComboItems)
             return ImageComboItem(value, indices);
         if (value.Value is VbObject)
-            return await interpreter.CallDefaultMember(value, [.. indices.Select(v => new CallArg(v, null))], ctx, stmtFrames);
+            return await interpreter.CallDefaultMember(value, [.. indices.Select(v => new CallArg(v, null))], ctx, stmtFrames, this);
         if (value.Type == Vb6Value.ValueType.Object)
             throw new NotImplementedException(value.Value is null
                 ? $"indexing Nothing, as in {ctx.GetText()}, is not implemented: what VB6 raises is unmeasured (#1476)"
@@ -1641,14 +1652,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             if (dollar)
                 throw new NotImplementedException($"{name}$ on a Collection is not implemented (#742)");
-            return await AsBound(maybeGroup, "Item", async () => items.Default(await EvaluateMemberArgs(items, "Item", argsCtx)));
+            return await AsBound(maybeGroup, "Item", async () => items.Default(await EvaluateMemberArgs(maybeGroup, "Item", argsCtx)));
         }
         if (named && maybeGroup.Value is StatusBarPanels panels)
             return new Vb6Value(panels.Item(await EvaluateCallArgs(argsCtx)));
         if (named && !string.Equals(env.ReturnName, name, StringComparison.OrdinalIgnoreCase)
             && (maybeGroup.Value is VbObject || maybeGroup.Value is null
                 && interpreter.ProjectClassFor(maybeGroup.DeclaredAs ?? "") is not null))
-            return await interpreter.CallDefaultMember(maybeGroup, await ResolveCallArgs(argsCtx, beforeLast), procOrArrayCall, stmtFrames);
+            return await interpreter.CallDefaultMember(maybeGroup, await ResolveCallArgs(argsCtx, beforeLast), procOrArrayCall, stmtFrames, this);
         if (named && maybeGroup.Value is ImageListImages or ImageComboItems)
             return ImageCollectionItem(maybeGroup, await EvaluateCallArgs(argsCtx));
         // A form's Controls held in a variable, `o(1)` (#1060).
@@ -1721,7 +1732,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             if (ownHint is not null)
                 throw new NotImplementedException($"{name}{ownHint.GetText()} on a member of the form is not implemented (#742)");
-            var formArgs = await EvaluateCallArgs(argsCtx);
+            var formArgs = formMember.IsMethod
+                ? await EvaluateMemberArgs(Vb6Value.NewObject(form), name, argsCtx)
+                : await EvaluateCallArgs(argsCtx);
             // `Left$("abc", 1)` in a form's code is VBA's Left$, a String, as `Left("abc", 1)` is VBA's Left (measured).
             if (dollar && !FormMembers.CallIsVbas(name, formArgs.Count))
                 throw new NotImplementedException($"{name}$ on a member of the form is not implemented (#742)");
@@ -1875,7 +1888,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             if (name.Equals("Refresh", StringComparison.OrdinalIgnoreCase))
                 throw new NotImplementedException("ListView.Refresh as a value is unmeasured (#1085)");
             if (Components.InBox.ListViewComponentClass.Instance.Member(name) is { Kind: Components.InBox.MemberKind.Method })
-                return listView.CallMember(name, await EvaluateMemberArgs(listView, name, MemberArgs(member)));
+                return listView.CallMember(name, await EvaluateMemberArgs(variable, name, MemberArgs(member)));
         }
         if (variable.Value is BuiltinControls.VBStatusBar statusBar && MemberName(member).Equals("Panels", StringComparison.OrdinalIgnoreCase))
             return MemberArgs(member) is { } panelArgs
@@ -1889,7 +1902,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         }
         else if (variable.Value is ICSharpAsyncProxy proxy)
             return await AsBound(variable, MemberName(member), async () =>
-                await interpreter.CallProxy(proxy, MemberName(member), await EvaluateMemberArgs(proxy, MemberName(member), MemberArgs(member)))
+                await interpreter.CallProxy(proxy, MemberName(member), await EvaluateMemberArgs(variable, MemberName(member), MemberArgs(member)))
                     ?? throw new VBSubOrFunctionNotDefinedException(MemberName(member)));
         // A class instance member (`obj.Method(args)` or `obj.Field`) — method dispatch wins over a field of
         // the same name. Nothing.Member → Error 91.
@@ -1952,7 +1965,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 if (vobj.ClassDef.Kind == InterpreterModuleKind.Form && FormMembers.IsMember(memberName, out var formMember))
                 {
                     if (formMember.IsMethod)
-                        return FormMembers.Call(vobj, memberName, await EvaluateCallArgs(MemberArgs(member)));
+                        return FormMembers.Call(vobj, memberName, await EvaluateMemberArgs(variable, memberName, MemberArgs(member)));
                     if (MemberArgs(member) == null)
                         return FormMembers.Read(vobj, memberName);
                     if (FormMembers.IsControls(memberName))
@@ -1963,118 +1976,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
         }
 
-        if (variable.Value is VBMSFlexGrid grid)
-        {
-            VBProps.RefuseIfRemoved(grid);
-            return FlexGridMembers.Read(grid, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
-        }
-
-        if (variable.Value is VBTreeView capacityTree && MemberName(member).Equals("GetVisibleCount", StringComparison.OrdinalIgnoreCase))
-        {
-            if ((await EvaluateCallArgs(MemberArgs(member))).Count != 0) throw new NotImplementedException();
-            return new Vb6Value(capacityTree.GetVisibleCount());
-        }
-
-        if (variable.Value is VBTreeView treeView && MemberName(member).Equals("Nodes", StringComparison.OrdinalIgnoreCase)
-            && MemberArgs(member) is { } nodeIndexes)
-            return treeView.Nodes.Default(await EvaluateCallArgs(nodeIndexes));
-
-        if (variable.Value is VBSSTab tab && SSTabMembers.IsIndexed(MemberName(member))
-            && MemberArgs(member) is { } tabIndexes)
-            return SSTabMembers.ReadIndexed(tab, MemberName(member), await EvaluateCallArgs(tabIndexes));
-
-        if (variable.Value is ItemsControl searchList && ListMembers.IsList(searchList) && ListMembers.IsExtension(searchList, MemberName(member)))
-            return ListMembers.CallExtension(searchList, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
-
-        // A list's List(i) and a ListBox's Selected(i), the control members here that take an index (#821, #1395).
-        if (variable.Value is Control listControl && ListMembers.IsList(listControl) && MemberArgs(member) is { } listIndexes)
-        {
-            if (MemberName(member).Equals("List", StringComparison.OrdinalIgnoreCase))
-                return ListMembers.ReadItem(listControl, await EvaluateCallArgs(listIndexes));
-            if (listControl is VBListBox listBox && MemberName(member).Equals("Selected", StringComparison.OrdinalIgnoreCase))
-                return ListMembers.ReadSelected(listBox, await EvaluateCallArgs(listIndexes));
-        }
-
-        var memberIdentifier = member.GetText().TrimStart('.') ?? throw new VBRunTimeException(ctx, VBStandardError.ObjectRequired, "Null member name");
-
-        var throughObject = variable.HeldAsVariant || string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase);
-        if (variable.Value is VBCommonDialog dialog && dialog.TryGetProperty(memberIdentifier, out var dialogValue, throughObject))
-            return dialogValue;
-
-        CommonDialogMembers.Check(variable, memberIdentifier);
-
-        // A CSharp property bag (e.g. Err.Number) resolves its own properties by name.
-        if (variable.Value is ICSharpPropertyBag propertyBag && propertyBag.TryGetProperty(memberIdentifier, out var bagValue))
-            return bagValue;
-
-        if (variable.Type != Vb6Value.ValueType.Control ||
-            variable.Value is not Control control)
-            throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
-        // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
-        VBProps.RefuseIfRemoved(control);
-        if (control is VBPictureBox && RuntimeDrawing.IsMethod(MemberName(member)))
-        {
-            if (MemberName(member).Equals("Cls", StringComparison.OrdinalIgnoreCase))
-                throw RuntimeDrawing.Refused("Cls used as a value");
-            return RuntimeDrawing.Call(control, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
-        }
-        if (control is VBPictureBox && RuntimeScale.IsConversion(MemberName(member)))
-            return RuntimeScale.ConvertUnits(control, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
-
-        if (control is VBShape or VBLine && memberIdentifier.Equals("MousePointer", StringComparison.OrdinalIgnoreCase))
-            throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
-
-        if (control is VBTimer && TimerMembers.TryGet(control, memberIdentifier, out var timerValue,
-                throughObject: string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)))
-            return timerValue;
-
-        AvaloniaInterop.UserControlMembers.Check(variable, memberIdentifier, reading: true);
-        if (AvaloniaInterop.UserControlMembers.TryGet(control, memberIdentifier, out var userControlValue))
-            return userControlValue;
-
-        if (AvaloniaInterop.UserControlContainers.TryGet(control, memberIdentifier, out var containerValue))
-            return containerValue;
-
-        if (AvaloniaInterop.RichTextBoxMembers.TryGet(control, memberIdentifier, out var richTextValue))
-            return richTextValue;
-
-        // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
-        if (AvaloniaInterop.SliderMembers.TryGet(control, memberIdentifier, out var sliderValue) is { } slider)
-            return slider ? sliderValue : throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
-        if ((AvaloniaInterop.StatusBarMembers.TryGet(control, memberIdentifier, out var inBoxValue)
-             ?? AvaloniaInterop.ProgressBarMembers.TryGet(control, memberIdentifier, out inBoxValue)) is { } inBox)
-            return inBox ? inBoxValue : throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
-
-        if (AvaloniaInterop.SSTabMembers.TryGet(control, memberIdentifier, out var tabValue))
-            return tabValue;
-
-        if (RuntimeDrawing.TryGet(control, memberIdentifier, out var drawingMember))
-            return drawingMember;
-        var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
-
-        foreach (var prop in props)
-        {
-            if (AvaloniaInteroperability.TryGet(control, prop, out var value))
-                return value;
-        }
-        if (RuntimeScale.TryGet(control, memberIdentifier, out var scaleMember))
-            return scaleMember;
-        // FontName, which is no property of its own here but the name of the control's font (#1141).
-        if (FontMembers.TryGet(control, memberIdentifier, out var fontMember))
-            return fontMember;
-        // A TextBox's SelStart, SelLength and SelText, which exist only at run time (#1150).
-        if (TextBoxMembers.TryGet(control, memberIdentifier, out var textBoxMember))
-            return textBoxMember;
-        // A list's ListCount (#821), and a ListBox's SelCount and Text (#1395).
-        if (ListMembers.TryGet(control, memberIdentifier, out var listMember))
-            return listMember;
-        if (ContainerMembers.TryGet(control, memberIdentifier, out var containerMember))
-            return containerMember;
-        // Any control's Name, and an array element's Index (#1431).
-        if (IdentityMembers.TryGet(control, memberIdentifier, out var identityMember))
-            return identityMember;
-
-        throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
+        // ScaleX and the other unit conversions bind named arguments, as #4750 measured; other members keep their
+        // positional evaluation.
+        return await ControlMembers.Read(variable, MemberName(member), null, member.GetText().TrimStart('.'),
+            MemberArgs(member) is { } controlArgs ? () => EvaluateCallArgs(controlArgs) : null,
+            () => EvaluateMemberArgs(variable, MemberName(member), MemberArgs(member)));
     }
 
     /// <summary>
@@ -2334,7 +2240,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 static s => s.Bag.TryGet(s.Name, out var value) ? value
                     : throw new VBRunTimeException(s.Context, VBStandardError.MethodOrDataMemberNotFound, s.Name));
             if (MemberArgs(m) is { } args)
-                current = await IndexResult(current, await EvaluateCallArgs(args), ctx);
+            {
+                var indices = await EvaluateCallArgs(args);
+                // A project-class Type field holding Nothing raises 91 (#4725); other Nothing indexing is unmeasured.
+                if (bag.IsObjectField(fieldName) && current.Type == Vb6Value.ValueType.Object && current.Value is null
+                    && interpreter.ProjectClassFor(current.DeclaredAs ?? "") is not null)
+                    throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+                current = await IndexResult(current, indices, ctx);
+            }
         }
         return current;
     }
@@ -2755,7 +2668,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return new Vb6Value(new VbPropertyBag());
         // VB6 compiles New ErrObject but refuses its creation at run time (#2627).
         if (className.Equals("ErrObject", StringComparison.OrdinalIgnoreCase) && !interpreter.Modules.TryGet(className, out _))
-            throw new VBRunTimeException(context, new VBStandardError(-2147221164, "Class not registered"));
+            throw new VBRunTimeException(context, new VBStandardError(-2147221164, "Class not registered\r\n"));
         var created = Vb6Value.NewObject(await interpreter.NewObject(className));
         // Hold the transient in the current statement frame so a New that is never stored (consumed by a built-in
         // arg, a condition, a member read) still terminates at statement-end; a subsequent Set / ByVal-bind

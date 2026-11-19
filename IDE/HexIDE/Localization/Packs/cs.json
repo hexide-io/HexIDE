@@ -150,6 +150,7 @@
     "Str.Archive.FolderReadyFormat": "Složka zdrojů byla synchronizována z uloženého archivu:\n{0}\n\nÚpravy ve složce zastaví synchronizaci; neimportují se. Náhledy aktualizujete opětovným načtením projektu.",
     "Str.Archive.FolderErrorFormat": "Synchronizace složky zdrojů se zastavila:\n{0}\n\nArchiv nebyl změněn.",
     "Str.Archive.OpenErrorFormat": "Nelze otevřít {0}:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "žádný nainstalovaný formát nečte formuláře „{0}“",
     "Str.ContributedProject.OpenError": "{0} nelze otevřít pomocí {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} otevírá {1}: jeho soubory přidává a odebírá program, ke kterému patří, nikoli HexIDE.",
     "Str.ContributedProject.RemovedWithChanges": "Program, ke kterému patří {1}, vyřadil {0} z projektu. Uložit nejprve vaše změny?",

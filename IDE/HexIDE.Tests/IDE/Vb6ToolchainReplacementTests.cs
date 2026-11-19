@@ -35,11 +35,11 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
         build = NewBuild(sidecar);
     }
 
-    private Build NewBuild(IUserSidecarService store)
+    private Build NewBuild(IUserSidecarService store, string? outputPath = null)
     {
         var previous = Environment.GetEnvironmentVariable("VB6_EXE");
         Environment.SetEnvironmentVariable("VB6_EXE", Environment.ProcessPath);
-        try { return new Build(windows, events, strings, store, ExePath); }
+        try { return new Build(windows, events, strings, store, outputPath ?? ExePath); }
         finally { Environment.SetEnvironmentVariable("VB6_EXE", previous); }
     }
 
@@ -239,6 +239,83 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
         await build.RunWithVb6Async(project);
         build.Starts.Should().Be(0);
         File.Exists(SidecarPath).Should().BeFalse();
+    }
+
+    // Output locations measured in oracle PR #4756, recorded in issue #4538.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Make_Path32_checks_the_output_folder(bool staleBesideProject)
+    {
+        var output = Path.Combine(directory, "out", "Output.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        project.UnknownPreSectionLines.Add((1, "Path32=\"out\""));
+        File.WriteAllText(staleBesideProject ? ExePath : output, "original");
+        var compiler = NewBuild(sidecar, output);
+        (await compiler.MakeWithVb6Async(project)).Should().BeTrue();
+        await Asked(staleBesideProject ? 0 : 1);
+        if (staleBesideProject) File.ReadAllText(ExePath).Should().Be("original");
+    }
+
+    [Fact]
+    public async Task Run_Path32_starts_and_records_the_output_in_that_folder()
+    {
+        var output = Path.Combine(directory, "out", "Output.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        project.UnknownPreSectionLines.Add((1, "Path32=\"out\""));
+        File.WriteAllText(ExePath, "stale");
+        await sidecar.LoadAsync(project);
+        var compiler = NewBuild(sidecar, output);
+        await compiler.RunWithVb6Async(project);
+        compiler.Starts.Should().Be(1);
+        await Asked(0);
+        sidecar.GetLastRunExe(project)!.Hash.Should().Be(
+            Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(output))));
+        File.ReadAllText(ExePath).Should().Be("stale");
+    }
+
+    [Fact]
+    public async Task Failed_build_with_missing_Path32_creates_no_folder_or_Run_record()
+    {
+        project.UnknownPreSectionLines.Add((1, "Path32=\"out\""));
+        var compiler = NewBuild(sidecar, Path.Combine(directory, "out", "Output.exe"));
+        compiler.ExitCode = 1;
+        await compiler.RunWithVb6Async(project);
+        Directory.Exists(Path.Combine(directory, "out")).Should().BeFalse();
+        compiler.Starts.Should().Be(0);
+        sidecar.GetLastRunExe(project).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Path32_without_ExeName32_Make_and_Run_use_the_project_name_beside_the_project()
+    {
+        project.UnknownPreSectionLines.Clear();
+        project.UnknownPreSectionLines.Add((0, "Path32=\"out\""));
+        var output = Path.Combine(directory, project.Name + ".exe");
+        File.WriteAllText(output, "original");
+        var compiler = NewBuild(sidecar, output);
+        (await compiler.MakeWithVb6Async(project)).Should().BeTrue();
+        await compiler.RunWithVb6Async(project);
+        compiler.Starts.Should().Be(1);
+        await windows.Received(2).MessageBox(
+            project.Name + ".exe already exists. Do you want to replace it?", null,
+            MessageBoxButtons.YesNo, MessageBoxIcon.Warning, null, false, MessageBoxLayout.SecondButtonDefault);
+        Directory.Exists(Path.Combine(directory, "out")).Should().BeFalse();
+    }
+
+    [WindowsOnlyFact]
+    public async Task Absolute_Path32_Make_and_Run_use_that_folder()
+    {
+        var outputDirectory = Path.Combine(directory, "absolute");
+        Directory.CreateDirectory(outputDirectory);
+        var output = Path.Combine(outputDirectory, "Output.exe");
+        project.UnknownPreSectionLines.Add((1, $"Path32=\"{outputDirectory}\""));
+        File.WriteAllText(output, "original");
+        var compiler = NewBuild(sidecar, output);
+        (await compiler.MakeWithVb6Async(project)).Should().BeTrue();
+        await compiler.RunWithVb6Async(project);
+        await Asked(2);
+        compiler.Starts.Should().Be(1);
     }
 
     public void Dispose() => Directory.Delete(directory, recursive: true);

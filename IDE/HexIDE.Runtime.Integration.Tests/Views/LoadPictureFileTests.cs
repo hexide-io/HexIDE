@@ -59,6 +59,7 @@ public class LoadPictureFileTests : WindowTestFixture
     }
 
 
+    // Additional no-32 and mask measurements: https://github.com/hexide-io/HexIDE/issues/4748 (oracle PR #4837).
     // SP6 native/p-code: #4623's latest comment, including order measurements from oracle PR #4692.
     [AvaloniaTheory]
     [InlineData("32:4", 847)]
@@ -78,6 +79,19 @@ public class LoadPictureFileTests : WindowTestFixture
     [InlineData("256:png,48:32:n,32:32:n,16:32:n", 481)]
     [InlineData("32:32:nh", 481)]
     [InlineData("32:32:n", 481)]
+    [InlineData("16:4,48:4", 423)]
+    [InlineData("48:4,16:4", 1270)]
+    [InlineData("16:32,48:32", 423)]
+    [InlineData("16:8,24:8,48:8", 423)]
+    [InlineData("48:4,64:4", 1270)]
+    [InlineData("16:4,24:4", 423)]
+    [InlineData("32:4:n", 481)]
+    [InlineData("32:8:n", 481)]
+    [InlineData("32:24:n", 481)]
+    [InlineData("256:png,48:4", 481)]
+    [InlineData("48:4:n,16:4", 481)]
+    [InlineData("16:4,48:32:n", 423)]
+    [InlineData("48:32:n,16:4", 481)]
     public void MeasuredIconFiles(string images, int expected)
     {
         var bytes = Icon(images);
@@ -104,6 +118,13 @@ public class LoadPictureFileTests : WindowTestFixture
     [InlineData("32:8,32:32,32:4")]
     [InlineData("32:32,32:4,32:8")]
     [InlineData("32:32,32:8,32:4")]
+    [InlineData("16:4,48:4")]
+    [InlineData("48:4,16:4")]
+    [InlineData("16:32,48:32")]
+    [InlineData("16:8,24:8,48:8")]
+    [InlineData("48:4,64:4")]
+    [InlineData("16:4,24:4")]
+    [InlineData("16:4,48:32:n")]
     public void MeasuredIconOrderTakesFirstColour(string images)
     {
         var picture = PanelPicture.FromFile(Icon(images), loadPicture: true);
@@ -116,17 +137,6 @@ public class LoadPictureFileTests : WindowTestFixture
         pixels[red].Should().Be(255);
         pixels[1].Should().Be(0);
         pixels[2 - red].Should().Be(0);
-    }
-
-    [AvaloniaTheory]
-    [InlineData("48:4,16:4")]
-    [InlineData("32:4:n")]
-    [InlineData("32:8:n")]
-    [InlineData("32:24:n")]
-    public void UnmeasuredIconLayoutsRefuse(string images)
-    {
-        var load = () => PanelPicture.FromFile(Icon(images), loadPicture: true);
-        load.Should().Throw<NotImplementedException>().WithMessage("*(#4623)");
     }
 
     [AvaloniaTheory]
