@@ -23,6 +23,8 @@ internal sealed class RuntimeScale
 
     // Issue #990's measured factor and maintainer decision, 2026-11-18. Compute in double, return Single.
     // Known accepted miss: ScaleX(1, vbInches, vbCentimeters) prints 2.540002, where VB6 prints 2.540003.
+    // #4693: a centimetre PictureBox Line's X1 and Y1 read 0.49918103218078613 instead of VB6's
+    // 0.499181061983109 (one Single step), also accepted by Desk card q-990-centimetres.
     internal const double TwipsPerCentimetre = 566.928588867188;
 
     private RuntimeScale(Control owner, Canvas host, int mode, double left, double top, double? width, double? height,
@@ -31,7 +33,8 @@ internal sealed class RuntimeScale
         this.owner = owner;
         this.host = host;
         this.mode = (VBScaleMode)mode;
-        missingMapping = mode == 0 && (width is null or 0 || height is null or 0);
+        missingMapping = mode == 0 && (width is null or 0 || height is null or 0)
+            && !(owner is (Window or VBPictureBox) && width is null && height is null && left == 0 && top == 0);
         mapping = DesignPositions.Scale.Of(mode, left, top, width, height, clientWidth, clientHeight);
         VBProps.SetScaleMode(host, this.mode);
         scales.Add(owner, this);
@@ -57,6 +60,15 @@ internal sealed class RuntimeScale
             ClientTwips(box, false), ClientTwips(box, true));
     }
 
+    public static void Initialize(VBUserControl control, Canvas host, FormDefinition definition)
+    {
+        var root = VBLoader.FormComponentOf(definition);
+        _ = new RuntimeScale(control, host, definition.Scale?.Mode ?? 1,
+            VBLoader.RawDouble(root, "ScaleLeft") ?? 0, VBLoader.RawDouble(root, "ScaleTop") ?? 0,
+            definition.Scale?.Width, definition.Scale?.Height,
+            control.Width * VBScaleModeExtensions.PixelToTwips, control.Height * VBScaleModeExtensions.PixelToTwips);
+    }
+
     public static RuntimeScale? Of(Control control) => scales.TryGetValue(control, out var scale) ? scale : null;
 
     private static double ClientTwips(Control control, bool vertical) => (control switch
@@ -64,10 +76,17 @@ internal sealed class RuntimeScale
         Window window => ControlPositions.ClientPixels(window, vertical),
         VBPictureBox box => vertical ? box.Height - box.ClientInset.Top - box.ClientInset.Bottom
             : box.Width - box.ClientInset.Left - box.ClientInset.Right,
+        VBUserControl userControl => vertical ? userControl.Height : userControl.Width,
         _ => 0,
     }) * VBScaleModeExtensions.PixelToTwips;
 
-    public double Origin(bool vertical) => mode == VBScaleMode.User ? mapping.Origin(vertical) : 0;
+    public double Origin(bool vertical)
+    {
+        if (mode != VBScaleMode.User) return 0;
+        if (missingMapping && owner is VBUserControl)
+            throw new NotImplementedException("A saved User scale without extents is not implemented (#4693)");
+        return mapping.Origin(vertical);
+    }
 
     public double TwipsPerUnit(bool vertical) => mode == VBScaleMode.User
         ? missingMapping ? throw new NotImplementedException("A saved User scale without extents is not implemented (#4693)")
@@ -162,7 +181,11 @@ internal sealed class RuntimeScale
     public static Vb6Value ConvertUnits(Control owner, string name, IReadOnlyList<Vb6Value> args)
     {
         var scale = Of(owner) ?? throw new NotImplementedException($"{name} on this object is not implemented (#4693)");
-        if (args.Count is < 1 or > 3)
+        if (args.Count == 0)
+            throw new VBCompileErrorException("Argument not optional");
+        if (args.Count == 4 || args.Count == 5 && name.Equals("ScaleX", StringComparison.OrdinalIgnoreCase))
+            throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
+        if (args.Count > 3)
             throw new NotImplementedException($"{name} with this argument count is not implemented (#4693)");
         // #1474: ScaleX on a PictureBox refuses an optional gap, including a positional blank.
         if (owner is VBPictureBox && name.Equals("ScaleX", StringComparison.OrdinalIgnoreCase)
@@ -175,7 +198,9 @@ internal sealed class RuntimeScale
         {
             0 when scale.mode == VBScaleMode.User => scale.TwipsPerUnit(vertical),
             0 => throw new VBRunTimeException(VBStandardError.InvalidProcedureCall),
-            8 => 1440d / 2540,
+            // The oracle's measured HiMetric factor is Single 0.566929161548615 (#990);
+            // using the double ratio instead misses #4693's ScaleX(1440) = 816.378 row.
+            8 => (float)(1440d / 2540),
             _ => Unit((VBScaleMode)unit, vertical),
         };
         return new Vb6Value((float)(Single(args[0]) * Factor(from) / Factor(to)));
