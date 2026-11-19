@@ -121,7 +121,7 @@ internal sealed partial class VbFiles
         public long Counted { get; set; }
         // A Binary file's bytes, for Line Input, Input # and the Input function, until something writes to the file.
         public byte[]? Snapshot { get; set; }
-        // InputB refuses a file changed outside this program (#4927); Put refreshes this version for our own writes.
+        // InputB refuses an Input file changed while open (#4944); Put refreshes this version for our own writes.
         public (long Length, DateTime Written) InputBVersion { get; set; }
     }
 
@@ -170,8 +170,6 @@ internal sealed partial class VbFiles
         if (record)
         {
             OpenRecords(full, mode, locked, number, access, share, recordLength);
-            if (mode == VbFileMode.Binary)
-                open[number].InputBVersion = FileVersion(full);
             return;
         }
         try
@@ -470,8 +468,7 @@ internal sealed partial class VbFiles
     /// The <c>Input</c> function: the next <paramref name="count"/> characters, in the ANSI code page, line breaks, commas and
     /// quotes as they are (measured, #1645). A negative count is 5, and 0 reads nothing, at the end too. Fewer characters than
     /// the count before the end or a Ctrl+Z is 62, the variable keeping its value and the file left at its end, or at the
-    /// Ctrl+Z. A file open for Output or Append is 54. Which of 5 and 54 a negative count on an Output file gives is not
-    /// measured: 5, as an argument is checked first.
+    /// Ctrl+Z. A file open for Output or Append is 54, or 5 for a negative count: the count is checked first (measured, #4927).
     /// </summary>
     public string Read(int number, int count)
     {
@@ -515,15 +512,25 @@ internal sealed partial class VbFiles
     public byte[] ReadBytes(int number, int count)
     {
         var file = Get(number);
-        if (file.Mode == VbFileMode.Append)
-            throw new NotImplementedException("InputB on an Append file is unmeasured (#4927).");
-        if (file.Mode is VbFileMode.Input or VbFileMode.Binary && file.InputBVersion != FileVersion(file.Path))
-            throw new NotImplementedException("InputB on a file changed outside the program is unmeasured (#4927).");
+        if (file.Mode == VbFileMode.Input && file.InputBVersion != FileVersion(file.Path))
+            throw new NotImplementedException("InputB on an Input file changed while it is open is not implemented (#4944).");
         if (count < 0)
             throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
+        if (file.Mode == VbFileMode.Binary)
+        {
+            if ((file.Access & VbAccess.Read) == 0)
+                throw new VBRunTimeException(VBStandardError.PathFileAccessError);
+            // Read the live, unbuffered handle, including changes from a still-open writer (#4927, oracle PR #4942).
+            var stream = file.Stream!;
+            if (count > 0 && stream.Position + count > stream.Length)
+                throw new NotImplementedException("InputB past the end of a Binary file is refused: VB6 returns stale bytes there (#4927)");
+            var read = new byte[count];
+            stream.ReadExactly(read);
+            file.Counted = stream.Position;
+            file.ShortRead = false;
+            return read;
+        }
         var (bytes, start, _) = TextSource(file);
-        if (file.Mode == VbFileMode.Binary && count > 0 && (long)start + count > bytes.Length)
-            throw new NotImplementedException("InputB past the end of a Binary file is not implemented (#4927).");
         var p = start;
         for (var read = 0; read < count; read++)
         {
