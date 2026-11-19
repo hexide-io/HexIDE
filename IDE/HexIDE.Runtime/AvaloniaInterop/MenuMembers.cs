@@ -119,7 +119,7 @@ internal static class MenuMembers
         if (change.Pending is { } pending)
         {
             if (pending != visible)
-                throw new NotImplementedException("Reversing a menu bar change before message delivery is not implemented (#1140)");
+                throw new NotImplementedException("Reversing a menu bar change before message delivery is not implemented (#4946)");
             return;
         }
         if (bar.IsVisible == visible)
@@ -131,7 +131,7 @@ internal static class MenuMembers
             _ => null
         };
         if (context?.FormDefinition is { } definition && IsMdiChild(definition))
-            throw new System.NotImplementedException("Changing an MDI child's menu bar is not implemented (#1140)");
+            throw new System.NotImplementedException("Changing an MDI child's menu bar is not implemented (#4946)");
         RefuseWrapped(bar, window);
 
         Task Apply()
@@ -179,7 +179,7 @@ internal static class MenuMembers
         bar.Measure(new Size(width, double.PositiveInfinity));
         if (bar.Items.OfType<Control>().Where(item => item.IsVisible)
             .Sum(item => item.DesiredSize.Width) > width)
-            throw new NotImplementedException("Changing a wrapped menu bar is not implemented (#1140)");
+            throw new NotImplementedException("Changing a wrapped menu bar is not implemented (#4946)");
     }
 
     private static bool IsMdiChild(ProjectElements.FormDefinition definition)
