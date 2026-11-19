@@ -117,6 +117,7 @@
     "Str.Archive.FolderReadyFormat": "Kaynak klasörü kaydedilmiş arşivden eşitlendi:\n{0}\n\nKlasördeki düzenlemeler eşitlemeyi durdurur; içe aktarılmazlar. Önizlemeleri yenilemek için projeyi yeniden yükleyin.",
     "Str.Archive.FolderErrorFormat": "Kaynak klasörü eşitlemesi durduruldu:\n{0}\n\nArşiv değiştirilmedi.",
     "Str.Archive.OpenErrorFormat": "{0} açılamadı:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "yüklü hiçbir biçim '{0}' formlarını okuyamıyor",
     "Str.ContributedProject.OpenError": "{0}, {1} ile açılamadı:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} projesini {1} açar: dosyalarını HexIDE değil, ait olduğu program ekler ve kaldırır.",
     "Str.ContributedProject.RemovedWithChanges": "{0}, {1} projesinin ait olduğu program tarafından projeden çıkarıldı. Önce değişikliklerinizi kaydetmek ister misiniz?",
