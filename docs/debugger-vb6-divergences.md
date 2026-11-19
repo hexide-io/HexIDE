@@ -381,7 +381,7 @@ recorded in #1866; the dockable pane uses selection/double-click rather than VB6
 
 ## Execution control
 
-### D37. Stepping over GoSub is unmeasured (#4726)
+### D37. Stepping over GoSub is unmeasured (#4880)
 - **VB6:** stepping over a GoSub has not been measured; the [runtime rows](https://github.com/hexide-io/HexIDE/issues/4726) do not establish debugger behaviour.
 - **HexIDE:** step logic is unchanged. Nested passes use the existing statement gates; each pass applies Set Next Statement at its own gate.
 - **Status:** unmeasured; runtime support does not claim stepping fidelity.
