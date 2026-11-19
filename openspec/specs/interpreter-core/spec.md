@@ -68,6 +68,56 @@ The interpreter SHALL execute GoSub, Return, On selector GoTo and On selector Go
 - **WHEN** pending GoSubs reach HexIDE's 2,000-level cap or the execution stack guard fails
 - **THEN** ordinary trappable error 28 allows the procedure's own handler to run, including Exit Sub and Resume Next
 
+### Requirement: Set checks intrinsic control classes before storing
+
+Scalar slots declared as an intrinsic VB control class or Form SHALL retain that class, bare or
+`VB.`-qualified. Set SHALL check the actual object rather than the right-hand side's declared type,
+following [#1563's VB6 SP6 measurements](https://github.com/hexide-io/HexIDE/issues/1563)
+(native and p-code, oracle PR #4796).
+
+#### Scenario: An incompatible intrinsic control preserves the previous reference
+- **WHEN** a ListBox is assigned to a TextBox slot, directly or through Object or Variant
+- **THEN** error 13 is raised before the store and the slot retains Nothing or its previous TextBox
+- **AND** HScrollBar and VScrollBar are distinct classes, using the same names as TypeOf and TypeName
+- **AND** an intrinsic control is refused with 13 by a Form or project-class slot
+
+#### Scenario: Compatible controls and form references
+- **WHEN** a control is assigned to its own class, Control, Object or Variant
+- **THEN** the slot retains that same control
+- **AND** a project form can be stored in a Form slot
+- **AND** a form or project-class instance assigned to a control-class slot raises 13
+
+#### Scenario: For Each uses the same store check
+- **GIVEN** a form whose first control is a Timer
+- **WHEN** `For Each t In Controls` runs with `t As TextBox` under On Error Resume Next
+- **THEN** Err.Number is 13, the body runs once and t remains Nothing
+
+Arrays, UserControls, other OCX controls, `As Form1`, and assigning a form to `As Control` retain their
+existing behaviour outside this slice.
+
+### Requirement: Let into an object target checks its declared view during execution
+
+The interpreter SHALL refuse Let into a variable declared As Collection, or as a project class whose default member's first parameter is required, with "Argument not optional" when the statement executes. It SHALL apply the same check to a module property without Let, using the Get's declared type before running the getter. These outcomes are measured in [#4675](https://github.com/hexide-io/HexIDE/issues/4675).
+
+#### Scenario: Early-bound target and an uncalled procedure
+- **WHEN** a Let into such a target executes
+- **THEN** the interpreter raises the compile-error exception even under On Error Resume Next
+- **AND** a line in a procedure never called remains undiagnosed, unlike VB6's build check
+
+#### Scenario: Late-bound default requires an argument
+- **WHEN** an As Object target holds a project class whose default member requires its first argument
+- **THEN** Let raises run-time error 449 and retains the object
+- **AND** a Collection held As Object or a class without a default member raises 438
+- **AND** a variable declared as an interface uses the interface's default member, so one with none raises 438
+- **AND** a parameterless project default member takes the value, through a module property as through a variable
+
+#### Scenario: A module property has no Let accessor
+- **WHEN** a class or Object getter returns Nothing
+- **THEN** Let raises 91
+- **WHEN** a Variant getter returns a non-object
+- **THEN** Let raises 424
+- **AND** a Variant getter returning an object remains unmeasured and refused as not implemented (#4675)
+
 ### Requirement: A running form accepts Icon assignments
 
 A running form's default instance SHALL accept icon pictures or Nothing through Set or Let on Icon, bare or through Me or the form's name, without reading the picture's default Handle, following [#4603's SP6 measurements](https://github.com/hexide-io/HexIDE/issues/4603). Native handles and New instances remain outside this slice.
@@ -707,7 +757,16 @@ same procedure binder as direct calls, preserving conversions, Optional, ParamAr
 Class object results SHALL be returned for Set; a Collection result used as a value raises 450.
 A Sub used as a value SHALL return Empty. Missing or empty class member names and call types 0/16 raise 438;
 Get on a method raises 450, too few arguments 449, and too many 450.
-Forms/controls, private members, non-scalar fields, field Set/indexing and
+TextBox, ListBox, ComboBox, PictureBox and form access SHALL share the existing parse-tree property and method helpers (#4520,
+[SP6 native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/4520), oracle PR #4759).
+Names SHALL be case-insensitive; call type 3 SHALL read properties. A mismatched call type SHALL raise 438,
+and measured method/property arity errors SHALL raise 450. List Get without an index SHALL raise 385;
+ListCount Let SHALL raise 383. Indexed Let SHALL take its index before its value.
+An empty TextBox member name SHALL read Text. Object results SHALL preserve identity for Set; a TextBox
+consumed by a Let assignment SHALL read Text, a Font its Name, and a form without its default index SHALL raise 450.
+Let arguments SHALL use the same default-value conversion as direct assignment. Members the direct paths
+refuse SHALL remain refused, including TextWidth and New StdFont; no initial StdFont values SHALL be invented.
+Private members, non-scalar fields, field Set/indexing and
 unavailable accessors SHALL refuse as not implemented. So SHALL other unmeasured member/call-type/arity
 combinations, omitted arguments and name/call-type conversions. Named arguments SHALL raise the compile
 error "Argument in ParamArray may not be named" as the statement runs (#4145).
@@ -1717,8 +1776,7 @@ through an implemented interface SHALL leave it unloaded; controls and built-in 
 A loaded instance SHALL be retained by Forms until Unload, and an unloaded instance SHALL terminate at
 its last reference's release, including statement temporaries. Forms SHALL receive the same interface
 conformance check as classes when constructed. Without a forms program, construction SHALL refuse with
-NotImplementedException naming #4598. These are #4598's measured VB6 SP6 rows, native and p-code agreeing;
-`As New Form2` remains outside this change.
+NotImplementedException naming #4598. These are #4598's measured VB6 SP6 rows, native and p-code agreeing.
 
 #### Scenario: A temporary instance does not become the default
 
@@ -1730,6 +1788,27 @@ NotImplementedException naming #4598. These are #4598's measured VB6 SP6 rows, n
 
 - **WHEN** an instance created by New is loaded, unloaded and then used through a built-in member
 - **THEN** Load runs again without Initialize, and the instance rejoins Forms
+
+### Requirement: As New on a form creates a separate instance on first use
+
+A local or standard-module variable declared `As New Form2` SHALL create nothing at declaration and
+SHALL make its instance on first use, including `Is Nothing`, `TypeName` and a Public member. The instance
+SHALL follow explicit New's loading and Unload rules. Set to Nothing SHALL release an unloaded instance;
+the next use SHALL make another. An unloaded local SHALL terminate on procedure return.
+Measured VB6 SP6, native and p-code: [#4640](https://github.com/hexide-io/HexIDE/issues/4640).
+
+#### Scenario: Reusing and releasing an auto-instantiated form
+
+- **WHEN** a local As New form is loaded through Caption, unloaded, and used through Caption again
+- **THEN** Load runs again without Initialize, on the same instance
+- **WHEN** it is unloaded and set to Nothing, then read with Is Nothing
+- **THEN** the old instance terminates at Set and a new instance initializes, with Is Nothing reading False
+
+#### Scenario: A module variable is distinct from the default instance
+
+- **WHEN** a Public As New form variable is first used through its Id member, then shown and compared to Form2
+- **THEN** its own Initialize precedes Show's Load and Form2 initializes a separate default instance
+- **AND** the comparison reads False
 
 ### Requirement: Forms SHALL hold the program's loaded forms as VB6's does
 `Forms` SHALL be a program global, reached where nothing the program declares claims the name. It SHALL hold the loaded
@@ -2456,7 +2535,7 @@ measuring PR #4241).
 The interpreter SHALL return a Long for early-bound CommonDialog Color reads and an unsigned Automation Long
 (VarType 19) through Object or Variant, using the measured conversions and assignment rows in
 [#4513](https://github.com/hexide-io/HexIDE/issues/4513) (oracle PR #4508). It SHALL retain explicit refusals for
-unmeasured unsigned numeric uses. CallByName remains outside this support (#4520).
+unmeasured unsigned numeric uses. CallByName SHALL use this same late-bound path (#4520).
 
 #### Scenario: The same system colour is read through different bindings
 - **WHEN** Color is `&H80000005`
@@ -2572,3 +2651,24 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **THEN** error 6 is raised without changing either current coordinate
 - **AND** Point returns Long -1 at the two measured outside points, but raises 6 for Point(1E+30, 0)
 - **AND** no additional VB6 backing-store boundary is asserted beyond the measured row outside the client area
+
+### Requirement: Date and Time statements convert before denying clock changes
+
+The interpreter SHALL evaluate `Date`, `Date$`, `Time` and `Time$` assignment operands before
+raising the measured conversion error or error 70. It SHALL never change the host clock, even
+elevated (deliberate divergence from VB6). Measurements: #4681 and
+[#4733](https://github.com/hexide-io/HexIDE/issues/4733), SP6 native and p-code, measurement PR #4777.
+
+#### Scenario: Scalar conversion precedes permission
+- **WHEN** a clock statement receives Integer, Long, Byte, Single, Double, Currency, Decimal, Boolean, Empty, Error, Null or an array
+- **THEN** it raises error 13
+- **WHEN** it receives a Date or a convertible String, including the measured boundary dates
+- **THEN** it raises error 70 without changing the host clock
+- **AND** String `"1/1/10000"` or `"25:00"` raises error 13
+
+#### Scenario: An object operand
+- **WHEN** the object holds Nothing
+- **THEN** it raises error 91
+- **WHEN** a class default member returns a Date, including through an As Object variable
+- **THEN** the member is read and the statement raises error 70
+- **AND** an object with no default member or a default returning anything other than Date or String explicitly refuses as not implemented, citing #4733, pending measurement

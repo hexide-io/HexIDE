@@ -117,6 +117,7 @@
     "Str.Archive.FolderReadyFormat": "Đã đồng bộ thư mục mã nguồn từ tệp lưu trữ đã lưu:\n{0}\n\nCác chỉnh sửa trong thư mục sẽ dừng đồng bộ; chúng không được nhập lại. Tải lại dự án để cập nhật bản xem trước.",
     "Str.Archive.FolderErrorFormat": "Đã dừng đồng bộ thư mục mã nguồn:\n{0}\n\nTệp lưu trữ không bị sửa đổi.",
     "Str.Archive.OpenErrorFormat": "Không thể mở {0}:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "không có định dạng đã cài đặt nào đọc biểu mẫu '{0}'",
     "Str.ContributedProject.OpenError": "Không thể mở {0} bằng {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} được mở bởi {1}: tệp của dự án do chương trình sở hữu thêm và xóa, không phải HexIDE.",
     "Str.ContributedProject.RemovedWithChanges": "{0} đã bị chương trình sở hữu {1} đưa ra khỏi dự án. Lưu thay đổi của bạn trước không?",
