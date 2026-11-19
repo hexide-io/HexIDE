@@ -657,6 +657,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "הגדרות קוד",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "דרוש הצהרת משתנים",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "רשימת חברים אוטומטית",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "הצגת חברים תוך כדי הקלדה",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "מידע מהיר אוטומטי",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "הזחה אוטומטית",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "עיצוב בעת שמירה",

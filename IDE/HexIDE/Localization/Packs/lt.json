@@ -628,6 +628,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Kodo nuostatos",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Reikalauti kintamųjų deklaravimo",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Automatiškai rodyti narius",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Rodyti narius rašant",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatiškai rodyti trumpąją informaciją",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatinė įtrauka",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatuoti įrašant",

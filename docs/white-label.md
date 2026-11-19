@@ -117,7 +117,7 @@ with `defaults.json` in the same folder:
 Every file a profile names is a path inside its folder. A `settingsDefaults` file may set:
 - the numbers `tabWidth`, `gridWidth` and `gridHeight`;
 - the names `activeTheme`, `activeKeymap` and `activeLanguage`;
-- `true` or `false` for `requireVariableDeclaration`, `autoListMembers`, `autoQuickInfo`, `autoIndent`,
+- `true` or `false` for `requireVariableDeclaration`, `autoListMembers`, `listMembersAsYouType`, `autoQuickInfo`, `autoIndent`,
   `formatOnSave`, `showGrid`, `alignToGrid`, `promptForProjectOnStartup`, `isStandardToolbarVisible`,
   `isEditToolbarVisible`, `isDebugToolbarVisible`, `isFormEditorToolbarVisible` and `isMinimapVisible`.
 

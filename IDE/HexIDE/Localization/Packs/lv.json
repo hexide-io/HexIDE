@@ -628,6 +628,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Koda iestatījumi",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Pieprasīt mainīgo deklarēšanu",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Automātiski uzskaitīt dalībniekus",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Rādīt dalībniekus rakstīšanas laikā",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automātiska ātrā informācija",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automātiska atkāpe",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatēt saglabājot",

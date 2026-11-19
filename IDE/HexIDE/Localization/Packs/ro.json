@@ -594,6 +594,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Setări pentru cod",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Solicită declararea variabilelor",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Listează automat membrii",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Listează membrii în timpul tastării",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Informații rapide automate",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Indentare automată",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatare la salvare",

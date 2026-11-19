@@ -627,6 +627,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Configuración do código",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Esixir a declaración de variables",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Listar membros automaticamente",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Listar membros ao escribir",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Información rápida automática",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Sangría automática",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatar ao gardar",

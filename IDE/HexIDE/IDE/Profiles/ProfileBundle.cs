@@ -119,7 +119,7 @@ internal static class ProfileBundleLoader
                 "tabWidth" or "gridWidth" or "gridHeight" =>
                     kind == JsonValueKind.Number && property.Value.TryGetInt32(out _),
                 "activeTheme" or "activeKeymap" or "activeLanguage" => kind == JsonValueKind.String,
-                "requireVariableDeclaration" or "autoListMembers" or "autoQuickInfo" or "autoIndent"
+                "requireVariableDeclaration" or "autoListMembers" or "listMembersAsYouType" or "autoQuickInfo" or "autoIndent"
                     or "formatOnSave" or "showGrid" or "alignToGrid" or "promptForProjectOnStartup"
                     or "isStandardToolbarVisible" or "isEditToolbarVisible" or "isDebugToolbarVisible"
                     or "isFormEditorToolbarVisible" or "isMinimapVisible" =>

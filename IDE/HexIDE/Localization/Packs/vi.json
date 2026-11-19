@@ -590,6 +590,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Cài đặt mã",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Yêu cầu khai báo biến",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Tự động liệt kê thành viên",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Liệt kê thành viên khi nhập",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Tự động thông tin nhanh",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Tự động thụt lề",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Định dạng khi lưu",

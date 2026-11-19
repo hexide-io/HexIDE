@@ -32,6 +32,7 @@ public interface IEditorDocumentQueries
 internal interface IEditorCompletionRules
 {
     bool MayOpenCompletion();
+    bool LettersOpenCompletion { get; }
     bool LettersSelect { get; }
     bool RefusesTyping(int offset, int length);
     bool Commits(Key key);
@@ -128,7 +129,10 @@ internal sealed class EditorLanguageFeatures : IDisposable
     {
         if (e.Text is not { Length: > 0 }) return;
         var ch = e.Text[0];
-        if (char.IsLetter(ch)) TriggerCompletion(typedLetter: true);
+        if (char.IsLetter(ch))
+        {
+            if (rules.LettersOpenCompletion || RefreshesCompletion) TriggerCompletion(typedLetter: true);
+        }
         else if (queries.CompletionTriggerCharacters.Contains(e.Text)) TriggerCompletion(e.Text);
         if ((rules.FixedSignatureTriggers ?? queries.SignatureHelpTriggerCharacters).Contains(e.Text))
             TriggerSignatureHelp(e.Text);
@@ -181,6 +185,9 @@ internal sealed class EditorLanguageFeatures : IDisposable
         CompletionSnippet.Deactivate(area);
     }
 
+    private bool RefreshesCompletion => _completionWindow is not null
+        || (!_completionShown.IsCompleted && _completionCts is { IsCancellationRequested: false });
+
     public void TriggerCompletion(string? triggerCharacter = null, bool completeWord = false, bool typedLetter = false)
     {
         if (!rules.MayOpenCompletion())
@@ -191,8 +198,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
         }
 
         // Letters refresh an existing list (or its pending request) without changing how it was opened.
-        var refreshesCompletion = _completionWindow is not null
-            || (!_completionShown.IsCompleted && _completionCts is { IsCancellationRequested: false });
+        var refreshesCompletion = RefreshesCompletion;
         _selectCompletionMatch = !typedLetter || rules.LettersSelect || (refreshesCompletion && _selectCompletionMatch);
 
         _completionCts?.Cancel();

@@ -99,7 +99,7 @@ without stacking them when the view is reattached. The code window SHALL share t
 retaining its own completion position, commit keys and editing rules.
 
 #### Scenario: Completion in a carried file
-- **WHEN** Auto List Members is enabled and the developer types a letter, types an advertised completion trigger, or invokes Complete Word
+- **WHEN** Auto List Members is enabled and the developer types a letter with List members as you type on, types an advertised completion trigger, or invokes Complete Word
 - **THEN** an advertising server's completion items appear
 - **AND** Enter accepts an item without a line break, Tab also accepts, and Space closes the list without accepting
 - **AND** with nothing selected, Enter closes the list and starts a new line, while Tab accepts the first item
@@ -2406,6 +2406,11 @@ and finding no match for an empty or unmatched word. When a typed letter opens t
 SHALL keep the match available to Tab without selecting it, including when the caret moves. A list opened by
 a trigger character or Complete Word SHALL select the match if present. VB6 SP6 opens no list for a bare word.
 HexIDE keeps its suggestions and preserves ordinary Space and Enter typing in that case ([#3613](https://github.com/hexide-io/HexIDE/issues/3613)).
+With List members as you type off, a typed letter SHALL open no new list, as in VB6
+([measured](../../../docs/vb6-fidelity-oracle/complete-word-a-bare-word-and-the-selected-item.md)).
+The setting SHALL default to on for every built-in profile and be configurable through `settingsDefaults`
+as `listMembersAsYouType`. Letters SHALL still refresh a list opened by a trigger character or Complete Word,
+including a request still pending; Auto List Members SHALL continue to gate all completion.
 It SHALL show string or MarkupContent documentation with detail as plain text and reuse Object Browser
 glyphs for corresponding kinds, using none without a counterpart.
 If no item matches the opening word, the editor SHALL retain the server's list for explicit acceptance with Tab.
@@ -2419,10 +2424,16 @@ If no item matches the opening word, the editor SHALL retain the server's list f
 - **THEN** `x` is selected, and Space leaves `x`
 
 #### Scenario: Typing a letter opens completion in the VB6 code window
-- **WHEN** the user types `tot` and the letter-opened list offers `total`
+- **WHEN** List members as you type is on and the user types `tot` and the letter-opened list offers `total`
 - **THEN** the list has no selection
 - **AND** Space and Enter type through, while Tab accepts `total`
 - **AND** the first Down or Up selects `total`
+
+#### Scenario: Letters do not open a list when List members as you type is off
+- **WHEN** List members as you type is off and the user types `tot`
+- **THEN** no list opens and no completion request is sent
+- **AND** with Auto List Members enabled, `.` and Complete Word still open a list
+- **AND** typing a letter refreshes that list, including while its request is still pending
 
 #### Scenario: Filter text differs from label
 - **WHEN** an item labelled `Display` has filterText `needle` and the user types `nee`

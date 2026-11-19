@@ -590,6 +590,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Koodiasetukset",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Vaadi muuttujien esittely",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Luettele jäsenet automaattisesti",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Luettele jäsenet kirjoitettaessa",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Näytä pikatiedot automaattisesti",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automaattinen sisennys",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Muotoile tallennettaessa",

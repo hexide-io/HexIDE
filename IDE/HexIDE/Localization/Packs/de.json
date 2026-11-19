@@ -623,6 +623,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Code-Einstellungen",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Variablendeklaration erforderlich",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Elemente automatisch auflisten",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Elemente während der Eingabe auflisten",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatische Kurzinfo",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatischer Einzug",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Beim Speichern formatieren",

@@ -590,6 +590,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Ρυθμίσεις κώδικα",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Απαίτηση δήλωσης μεταβλητών",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Αυτόματη λίστα μελών",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Εμφάνιση μελών κατά την πληκτρολόγηση",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Αυτόματες γρήγορες πληροφορίες",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Αυτόματη εσοχή",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Μορφοποίηση κατά την αποθήκευση",

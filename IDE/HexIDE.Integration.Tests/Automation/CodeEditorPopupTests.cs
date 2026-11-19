@@ -69,7 +69,7 @@ public class CodeEditorPopupTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private (Window Window, CodeEditorView View, TextEditor Editor) Show(ILspClient? client = null)
+    private (Window Window, CodeEditorView View, TextEditor Editor) Show(ILspClient? client = null, bool lettersOpenCompletion = true)
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
@@ -79,6 +79,7 @@ public class CodeEditorPopupTests : IDisposable
         var settings = Substitute.For<ISettingsService>();
         settings.TabWidth.Returns(4);
         settings.AutoListMembers.Returns(true);
+        settings.ListMembersAsYouType.Returns(lettersOpenCompletion);
 
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
@@ -105,6 +106,84 @@ public class CodeEditorPopupTests : IDisposable
     {
         for (var i = 0; i < 10; i++)
             Dispatcher.UIThread.RunJobs();
+    }
+
+    // Off-state reference: docs/vb6-fidelity-oracle/complete-word-a-bare-word-and-the-selected-item.md.
+    [AvaloniaFact]
+    public async Task ListMembersAsYouTypeOffMakesNoCompletionRequest()
+    {
+        var (window, _, editor) = Show(lettersOpenCompletion: false);
+        editor.Text = "";
+        editor.CaretOffset = 0;
+        lsp.ClearReceivedCalls();
+        foreach (var ch in "tot")
+        {
+            window.KeyTextInput(ch.ToString());
+            Pump();
+        }
+        CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Should().BeEmpty();
+        await lsp.DidNotReceive().RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        await lsp.DidNotReceive().RequestCompletionForTriggerAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        editor.Text.Should().Be("tot");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ListMembersAsYouTypeOffRefreshesTriggeredList(bool pending)
+    {
+        lsp.CompletionTriggerCharacters(Arg.Any<string>()).Returns(new[] { "." });
+        var answer = new TaskCompletionSource<CompletionItem[]>();
+        CompletionItem[] items = [new CompletionItem("member", CompletionItemKind.Field), new CompletionItem("method", CompletionItemKind.Method)];
+        lsp.RequestCompletionForTriggerAsync(Arg.Any<string>(), Arg.Any<Position>(), ".", Arg.Any<CancellationToken>())
+            .Returns(pending ? answer.Task : Task.FromResult(items));
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(items);
+        var (window, _, editor) = Show(lettersOpenCompletion: false);
+        editor.Text = "";
+        editor.CaretOffset = 0;
+        editor.Text = "object";
+        editor.CaretOffset = editor.Text.Length;
+        lsp.ClearReceivedCalls();
+        window.KeyTextInput(".");
+        Pump();
+        var request = CodeEditorView.PendingKeyRequestsOf(editor);
+        if (!pending) CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Should().ContainSingle();
+        window.KeyTextInput("m");
+        Pump();
+        if (pending)
+        {
+            answer.SetResult(items);
+            await request!.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+            Pump();
+        }
+        await lsp.Received(1).RequestCompletionForTriggerAsync(Arg.Any<string>(), Arg.Any<Position>(), ".", Arg.Any<CancellationToken>());
+        await lsp.Received(1).RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Should().ContainSingle().Which.CompletionList.SelectedItem
+            .Should().BeOfType<VbCompletionData>().Which.Text.Should().Be("member");
+        editor.Text.Should().Be("object.m");
+    }
+
+    [AvaloniaFact]
+    public async Task ListMembersAsYouTypeOffAllowsCompleteWordAndRefresh()
+    {
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
+            [new CompletionItem("total", CompletionItemKind.Variable), new CompletionItem("totalCount", CompletionItemKind.Variable)]);
+        var (window, _, editor) = Show(lettersOpenCompletion: false);
+        editor.Text = "";
+        editor.CaretOffset = 0;
+        editor.Text = "tot";
+        editor.CaretOffset = 3;
+        lsp.ClearReceivedCalls();
+        var gesture = HexIDE.ApplicationCommands.CompleteWordCommand.Gestures.Single();
+        HexIDE.Automation.UiAutomationDriver.PressKey(editor, gesture.Key.ToString(), gesture.KeyModifiers.ToString()).Success.Should().BeTrue();
+        Pump();
+        CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Should().ContainSingle();
+        window.KeyTextInput("a");
+        Pump();
+        await lsp.Received(2).RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Should().ContainSingle().Which.CompletionList.SelectedItem
+            .Should().BeOfType<VbCompletionData>().Which.Text.Should().Be("total");
+        editor.Text.Should().Be("tota");
     }
 
     [AvaloniaTheory]

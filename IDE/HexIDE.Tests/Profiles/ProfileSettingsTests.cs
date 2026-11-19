@@ -21,6 +21,16 @@ public sealed class ProfileSettingsTests : IDisposable
         return new SettingsService(SettingsPath, profile);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ListMembersAsYouTypeProfileDefaultAndSavedOverride(bool savedOverride)
+    {
+        if (savedOverride) File.WriteAllText(SettingsPath, """{"listMembersAsYouType":true}""");
+        var settings = Create("""{"listMembersAsYouType":false}""");
+        settings.ListMembersAsYouType.Should().Be(savedOverride);
+    }
+
     [Fact]
     [Trait("Issue", "4307")]
     public void ServerSettingsReplaceOneDefaultWholeAndResetWithoutTouchingOtherIdsOrProfile()

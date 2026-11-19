@@ -627,6 +627,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Configuració del codi",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Exigeix la declaració de variables",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Llista automàtica de membres",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Llista els membres mentre escriviu",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Informació ràpida automàtica",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Sagnat automàtic",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Dona format en desar",

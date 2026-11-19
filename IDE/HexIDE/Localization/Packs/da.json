@@ -590,6 +590,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Kodeindstillinger",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Kræv variabeldeklaration",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Vis medlemmer automatisk",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Vis medlemmer, mens du skriver",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatisk hurtig info",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatisk indrykning",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatér ved gem",

@@ -590,6 +590,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Параметры кода",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Требовать объявление переменных",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Автосписок членов",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Показывать список членов при вводе",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Автоматическая краткая справка",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Автоотступ",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Форматировать при сохранении",
