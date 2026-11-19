@@ -59,7 +59,8 @@ same commands without a `dotnet` prefix. No CI artifact is added by this command
 - `signing/public/intermediate.sig` → `IDE/HexIDE.AddinPacker/firstparty/intermediate.sig`
 - `signing/public/publisher.json` → `IDE/HexIDE.AddinPacker/firstparty/publisher.json`
 - `signing/public/publisher.sig` → `IDE/HexIDE.AddinPacker/firstparty/publisher.sig`
-- `signing/firstparty/firstparty.key` → `HEXIDE_FIRSTPARTY_KEY` (CI secret)
+- `signing/firstparty/firstparty.key` → `HEXIDE_FIRSTPARTY_KEY` (CI secret, read by `publish.yml` only: `build.yml` packs with a
+  throwaway chain it generates and deletes in each run, #4740)
 - `IDE/HexIDE.AddinPacker/firstparty/README.md`
 - `TRUST.md` — `HexIDE root`, `First-party publisher` SHA-256 fingerprints
 
