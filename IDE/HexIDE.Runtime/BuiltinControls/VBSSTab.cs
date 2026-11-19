@@ -227,17 +227,27 @@ public sealed class VBSSTab : Decorator, IVBContainerControl
                 Canvas.SetLeft(child, Canvas.GetLeft(child) + distance);
         }
     }
-    private double tabHeight = 295d / 15;
+    private double tabHeightHimetric = 520;
+    internal double TabHeightHimetric
+    {
+        get => tabHeightHimetric;
+        set { tabHeightHimetric = value; strip.Refresh(); }
+    }
     public double TabHeight
     {
-        get => tabHeight;
-        set { tabHeight = value; strip.Refresh(); }
+        get => TabHeightHimetric * 96 / 2540;
+        set => TabHeightHimetric = value * 2540 / 96;
     }
-    private double tabMaxWidth;
+    private double tabMaxWidthHimetric;
+    internal double TabMaxWidthHimetric
+    {
+        get => tabMaxWidthHimetric;
+        set { tabMaxWidthHimetric = value; strip.Refresh(); }
+    }
     public double TabMaxWidth
     {
-        get => tabMaxWidth;
-        set { tabMaxWidth = value; strip.Refresh(); }
+        get => TabMaxWidthHimetric * 96 / 2540;
+        set => TabMaxWidthHimetric = value * 2540 / 96;
     }
     private bool wordWrap = true;
     public bool WordWrap
