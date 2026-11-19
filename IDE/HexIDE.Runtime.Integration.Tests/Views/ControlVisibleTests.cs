@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using HexIDE.IDE;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -49,6 +50,15 @@ public class ControlVisibleTests
         End Sub
         Public Sub ReportProgress()
             Debug.Print Form2.ProgressBar1.Visible
+        End Sub
+        Public Sub ReportKinds()
+            Debug.Print Form2.Label1.Visible
+            Debug.Print Form2.Image1.Visible
+            Debug.Print Form2.Shape1.Visible
+            Debug.Print Form2.mnuGame.Visible
+            Debug.Print Form2.mnuNew.Visible
+            Debug.Print Form2.UCW1.Visible
+            Debug.Print Form2.UCN1.Visible
         End Sub
         Public Sub LoadElement()
             Form2.LoadOwnElement
@@ -104,13 +114,62 @@ public class ControlVisibleTests
         }
     }
 
+    private const string Kinds = """
+           Begin VB.Label Label1
+              Caption = "Lbl"
+              Height = 255
+              Width = 1200
+           End
+           Begin VB.Image Image1
+              Height = 480
+              Width = 480
+           End
+           Begin VB.Shape Shape1
+              Height = 400
+              Width = 600
+           End
+           Begin P.UCW UCW1
+              Height = 600
+              Width = 600
+           End
+           Begin P.UCN UCN1
+              Height = 600
+              Width = 600
+           End
+           Begin VB.Menu mnuGame
+              Caption = "&Game"
+              Begin VB.Menu mnuNew
+                 Caption = "&New"
+              End
+           End
+        """;
+
+    // The project's own UserControls the Kinds form places: UCW windowless, UCN with a window.
+    private static Dictionary<string, ComponentBaseClass> UserControls(ProjectDefinition project)
+    {
+        var registry = new Dictionary<string, ComponentBaseClass>();
+        foreach (var (name, settings) in new[] { ("UCW", "Windowless = -1\n"), ("UCN", "") })
+        {
+            var definition = new FormDeserializer().Deserialize(project,
+                $"VERSION 5.00\nBegin VB.UserControl {name}\nClientWidth = 600\n{settings}End\nAttribute VB_Name = \"{name}\"\n"
+                    .ReplaceLineEndings("\r\n"), new NullSink())!;
+            var module = new ModuleDefinition(project, name, ModuleKind.UserControl);
+            module.UpdateCode($"Attribute VB_Name = \"{name}\"\n");
+            module.UpdateFormPart(definition);
+            project.AddModule(module);
+            registry[$"P.{name}"] = UserControlComponentClass.ForModule($"P.{name}", definition, registry);
+        }
+        return registry;
+    }
+
     private static Run Start(string controls)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form1 = new FormDeserializer().Deserialize(project, Form("").ReplaceLineEndings("\r\n"), new NullSink())!;
         project.AddForm(form1);
         project.AddForm(new FormDeserializer().Deserialize(project,
-            Form(controls).Replace("Form1", "Form2").ReplaceLineEndings("\r\n"), new NullSink())!);
+            Form(controls).Replace("Form1", "Form2").ReplaceLineEndings("\r\n"), new NullSink(),
+            extraComponents: controls.Contains("P.UC") ? UserControls(project) : null)!);
 
         var printed = new List<string>();
         var errors = new List<Exception>();
@@ -170,6 +229,22 @@ public class ControlVisibleTests
         if (step >= 1) run.Call("ShowOther");
         if (step >= 2) run.Call("HideOther");
         run.Call("Report").Should().Equal(button, "True", form);
+        run.Errors.Should().BeEmpty();
+    }
+
+    // Label, Image, Shape and menus keep their own value; a UserControl follows its form, windowless or not. VB6 SP6 on the
+    // console, p-code, native and the IDE agreeing: docs/vb6-fidelity-oracle/visible-before-a-form-is-shown.md (#4829).
+    [AvaloniaTheory]
+    [InlineData(0, "False")]
+    [InlineData(1, "True")]
+    [InlineData(2, "False")]
+    public void Lightweight_controls_and_menus_keep_their_own_and_UserControls_follow_the_form(int step, string userControls)
+    {
+        using var run = Start(Kinds);
+        run.Call("LoadOther");
+        if (step >= 1) run.Call("ShowOther");
+        if (step >= 2) run.Call("HideOther");
+        run.Call("ReportKinds").Should().Equal("True", "True", "True", "True", "True", userControls, userControls);
         run.Errors.Should().BeEmpty();
     }
 
