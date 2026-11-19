@@ -777,6 +777,7 @@ added afterwards.
 - [A UserControl's own properties in the designer and the files (2026-10-26, #1631, design-time, IDE)](a-usercontrols-own-properties-in-the-designer-and-the-files.md#a-usercontrols-own-properties-in-the-designer-and-the-files-2026-10-26-1631-design-time-ide)
 - [In-box controls: the ImageList (2026-10-26, #1083)](in-box-controls-the-imagelist.md#in-box-controls-the-imagelist-2026-10-26-1083)
 - [In-box controls: the StatusBar (2026-10-26, #1087)](in-box-controls-the-statusbar.md#in-box-controls-the-statusbar-2026-10-26-1087)
+- [StatusBar: Panels: argument counts, keys by case, conversions, Tag, Picture, a removed panel and lengths (2026-11-19, #4882)](in-box-controls-the-statusbar.md#panels-argument-counts-keys-by-case-conversions-tag-picture-a-removed-panel-and-lengths-2026-11-19-4882)
 - [In-box controls: the Toolbar (2026-10-26, #1088)](in-box-controls-the-toolbar.md#in-box-controls-the-toolbar-2026-10-26-1088)
 - [Toolbar: A button's Image from other types, keys by case, and the Hot and Disabled lists (2026-11-16, #4147)](in-box-controls-the-toolbar.md#a-buttons-image-from-other-types-keys-by-case-and-the-hot-and-disabled-lists-2026-11-16-4147)
 - [In-box controls: the ListView (2026-10-26, #1085)](in-box-controls-the-listview.md#in-box-controls-the-listview-2026-10-26-1085)
