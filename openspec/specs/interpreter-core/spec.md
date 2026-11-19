@@ -50,10 +50,25 @@ SHALL be accepted with or without `#`. InputB SHALL retain the existing refusal 
 - **AND** a failed read leaves the target unchanged
 - **AND** an Output or Random file raises 54, and an unopened number raises 52
 
-#### Scenario: Unmeasured file reads
-- **WHEN** a Binary read would run past the end, InputB targets an Append file, or the file's size or modification time changed outside the program
+#### Scenario: Append checks the count before the mode
+- **WHEN** InputB or InputB$ targets an Append file
+- **THEN** the interpreter SHALL raise 54, or 5 for a negative count, without moving or assigning
+- **AND** InputB on Output and Input on Output or Append SHALL also check a negative count before the mode
+- **AND** these errors SHALL follow [#4927's native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/4927) ([oracle PR #4942](https://github.com/hexide-io/HexIDE/pull/4942))
+
+#### Scenario: A Binary file changes while open
+- **WHEN** InputB reads a Binary file changed through another handle while it is open
+- **THEN** the interpreter SHALL read the current contents through the file's own stream at its position, retaining the read-access check
+- **AND** it SHALL use the current length, including growth, truncation and rewriting, whether or not the file's timestamp changed, as measured in #4927
+
+#### Scenario: A Binary read past the end is refused
+- **WHEN** a Binary read would run past the file's current end
 - **THEN** the interpreter SHALL refuse with NotImplementedException naming #4927 before moving the position or assigning the result
-- **AND** it SHALL NOT invent the bytes VB6 fills from its previous buffer contents
+- **AND** it SHALL NOT invent the stale bytes VB6 returns from its previous buffer contents
+
+#### Scenario: An Input file changed while open is refused
+- **WHEN** an Input file's size or modification time changed while it is open
+- **THEN** InputB SHALL refuse with NotImplementedException naming #4944 before moving or assigning, until the Input-mode buffer model is implemented
 
 ### Requirement: Missing Declare libraries off Windows
 

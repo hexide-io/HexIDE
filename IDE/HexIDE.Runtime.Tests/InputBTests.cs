@@ -6,7 +6,9 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// InputB's bytes and positions, measured in VB6 SP6 native and p-code on
 /// https://github.com/hexide-io/HexIDE/issues/4895 (oracle PR #4896).
-/// Refusals below are HexIDE policy from that issue, not invented VB6 results.
+/// Append and externally changed Binary files: https://github.com/hexide-io/HexIDE/issues/4927
+/// (oracle PR #4942, native and p-code identical).
+/// Refusals below are HexIDE policy, not invented VB6 results.
 /// </summary>
 public class InputBTests : BaseVBTestFixture, IDisposable
 {
@@ -198,7 +200,7 @@ public class InputBTests : BaseVBTestFixture, IDisposable
         try
         {
             var run = () => vb.Execute();
-            (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*InputB*past*end*#4927*");
+            (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("InputB past the end of a Binary file is refused: VB6 returns stale bytes there (#4927)");
             Bytes("s", "7800");
             vb.BuiltIns.Files.SeekPosition(1).Should().Be(start);
             vb.BuiltIns.Files.Loc(1).Should().Be(start - 1);
@@ -208,18 +210,40 @@ public class InputBTests : BaseVBTestFixture, IDisposable
     }
 
     [Theory]
-    [InlineData(1)]
-    [InlineData(-1)]
-    public async Task Append_is_explicitly_refused(int count)
+    [InlineData("Append", "InputB", 1, false, false, 54)]
+    [InlineData("Append", "InputB", 0, false, false, 54)]
+    [InlineData("Append", "InputB", -1, false, false, 5)]
+    [InlineData("Append", "InputB$", 1, false, false, 54)]
+    [InlineData("Append", "InputB", 1, true, false, 54)]
+    [InlineData("Append", "InputB", 1, false, true, 54)]
+    [InlineData("Output", "InputB", -1, false, false, 5)]
+    [InlineData("Output", "InputB", 0, false, false, 54)]
+    [InlineData("Append", "Input", -1, false, false, 5)]
+    [InlineData("Output", "Input", -1, false, false, 5)]
+    public async Task Append_and_Output_check_the_count_before_the_mode(string mode, string function, int count,
+        bool seek, bool empty, int error)
     {
-        var path = Make("414243");
-        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv,
-            $"Open \"{path}\" For Append As #1\nDim s As String\ns = InputB({count}, #1)\n");
+        var path = Make(Convert.ToHexString(Letters(26)));
+        if (empty) File.Delete(path);
+        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, $$"""
+            On Error Resume Next
+            Dim s As String
+            s = "x"
+            Open "{{path}}" For {{mode}} As #1
+            {{(seek ? "Seek #1, 1" : "")}}
+            {{Position}}
+            Debug.Print CStr(Err.Number)
+            s = {{function}}({{count}}, #1)
+            Debug.Print CStr(Err.Number)
+            {{Position}}
+            """);
         try
         {
-            var run = () => vb.Execute();
-
-            (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*InputB*Append*#4927*");
+            await vb.Execute();
+            Bytes("s", "7800");
+            var position = $"0 1 True {(empty || mode == "Output" ? 0 : 26)}";
+            debug.Select(v => v.Value as string).Should().Equal(position, "0",
+                error.ToString(System.Globalization.CultureInfo.InvariantCulture), position);
         }
         finally { vb.BuiltIns.Files.CloseAll(); }
     }
@@ -229,7 +253,7 @@ public class InputBTests : BaseVBTestFixture, IDisposable
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(true, true)]
-    public async Task A_file_changed_outside_the_program_is_refused(bool binary, bool alreadyRead)
+    public async Task An_external_change_is_read_in_Binary_and_refused_in_Input(bool binary, bool alreadyRead)
     {
         var path = Make("414243");
         var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv,
@@ -246,11 +270,176 @@ public class InputBTests : BaseVBTestFixture, IDisposable
             File.SetLastWriteTimeUtc(path, writtenAt.AddSeconds(2));
             var run = () => vb.Execute();
 
-            (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*InputB*changed*#4927*");
-            Bytes("s", "7800");
-            files.SeekPosition(1).Should().Be(position);
+            if (binary)
+            {
+                await run();
+                Bytes("s", alreadyRead ? "45" : "44");
+                files.SeekPosition(1).Should().Be(position + 1);
+            }
+            else
+            {
+                (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage(
+                    "InputB on an Input file changed while it is open is not implemented (#4944).");
+                Bytes("s", "7800");
+                files.SeekPosition(1).Should().Be(position);
+            }
         }
         finally { files.CloseAll(); }
+    }
+
+    private static byte[] Letters(int count, byte first = (byte)'A') =>
+        Enumerable.Range(0, count).Select(i => (byte)(first + i % 26)).ToArray();
+
+    [Theory]
+    [InlineData(0, false, false, false)]
+    [InlineData(10, false, false, false)]
+    [InlineData(10, true, false, false)]
+    [InlineData(600, false, false, false)]
+    [InlineData(10, false, true, false)]
+    [InlineData(10, false, false, true)]
+    public async Task Binary_reads_every_external_mark_from_its_current_position(int firstRead, bool chunks,
+        bool seek, bool writerStaysOpen)
+    {
+        var bytes = Letters(10000);
+        var path = Make(Convert.ToHexString(bytes));
+        var remaining = writerStaysOpen ? 600 : bytes.Length - firstRead;
+        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, $$"""
+            Dim s As String
+            {{(seek ? "Seek #1, 11" : "")}}
+            {{(chunks ? "For i = 1 To 99: s = s & InputB(100, #1): Next i: s = s & InputB(90, #1)" : $"s = InputB({remaining}, #1)")}}
+            Debug.Print CStr(Err.Number)
+            {{Position}}
+            """);
+        var files = vb.BuiltIns.Files;
+        FileStream? writer = null;
+        try
+        {
+            files.Open(path, VbFileMode.Binary, false, 1);
+            if (firstRead > 0) files.ReadBytes(1, firstRead).Should().Equal(bytes.Take(firstRead));
+            var writtenAt = File.GetLastWriteTimeUtc(path);
+            writer = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite, bufferSize: 0);
+            int[] marks = writerStaysOpen ? [11, 520] :
+                [11, 256, 257, 512, 513, 514, 1024, 1025, 2048, 2049, 4096, 4097, 4098, 8192, 8193, 10000];
+            foreach (var mark in marks)
+            {
+                writer.Position = mark - 1;
+                writer.WriteByte((byte)'#');
+                bytes[mark - 1] = (byte)'#';
+            }
+            if (!writerStaysOpen)
+            {
+                writer.Dispose();
+                writer = null;
+            }
+            // The still-open writer row must work even when length and timestamp match the Open version.
+            File.SetLastWriteTimeUtc(path, writerStaysOpen ? writtenAt : writtenAt.AddSeconds(2));
+            await vb.Execute();
+
+            context.TryGetVariable(rootEnv, "s", out var value).Should().BeTrue();
+            value.StringBytes().Should().Equal(bytes.Skip(firstRead).Take(remaining));
+            var end = firstRead + remaining;
+            debug.Select(v => v.Value as string).Should().Equal("0", $"{end} {end + 1} False 10000");
+        }
+        finally
+        {
+            writer?.Dispose();
+            files.CloseAll();
+        }
+    }
+
+    [Theory]
+    [InlineData("grow", false, 2990, 10, "3000 3001 False 3010", "3010 3011 False 3010")]
+    [InlineData("cut", false, 90, 0, "100 101 False 100", null)]
+    [InlineData("rewrite", false, 2990, 2000, "3000 3001 False 5000", "5000 5001 False 5000")]
+    [InlineData("rewrite", true, 2990, 2000, "3000 3001 False 5000", "5000 5001 False 5000")]
+    public async Task Binary_reads_the_current_length_and_contents(string change, bool seek, int count, int nextCount,
+        string position, string? nextPosition)
+    {
+        var bytes = Letters(3000);
+        var path = Make(Convert.ToHexString(bytes));
+        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, $$"""
+            Dim s As String, t As String
+            {{(seek ? "Seek #1, 11" : "")}}
+            s = InputB({{count}}, #1)
+            Debug.Print CStr(Err.Number)
+            {{Position}}
+            {{(nextCount == 0 ? "" : $"t = InputB({nextCount}, #1)\nDebug.Print CStr(Err.Number)\n{Position}")}}
+            """);
+        var files = vb.BuiltIns.Files;
+        try
+        {
+            files.Open(path, VbFileMode.Binary, false, 1);
+            files.ReadBytes(1, 10).Should().Equal(bytes.Take(10));
+            bytes = change switch
+            {
+                "grow" => [.. bytes, .. Enumerable.Repeat((byte)'#', 10)],
+                "cut" => bytes[..100],
+                _ => Letters(5000, (byte)'a'),
+            };
+            using (var writer = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
+            {
+                writer.SetLength(bytes.Length);
+                writer.Write(bytes);
+            }
+            await vb.Execute();
+
+            context.TryGetVariable(rootEnv, "s", out var value).Should().BeTrue();
+            value.StringBytes().Should().Equal(bytes.Skip(10).Take(count));
+            if (nextCount > 0)
+            {
+                context.TryGetVariable(rootEnv, "t", out value).Should().BeTrue();
+                value.StringBytes().Should().Equal(bytes.Skip(10 + count).Take(nextCount));
+                debug.Select(v => v.Value as string).Should().Equal("0", position, "0", nextPosition);
+            }
+            else debug.Select(v => v.Value as string).Should().Equal("0", position);
+        }
+        finally { files.CloseAll(); }
+    }
+
+    [Fact]
+    public async Task Binary_past_end_after_an_external_cut_is_refused_at_the_current_end()
+    {
+        var bytes = Letters(3000);
+        var path = Make(Convert.ToHexString(bytes));
+        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, """
+            Dim s As String
+            s = InputB(90, #1)
+            s = InputB(10, #1)
+            """);
+        var files = vb.BuiltIns.Files;
+        try
+        {
+            files.Open(path, VbFileMode.Binary, false, 1);
+            files.ReadBytes(1, 10);
+            using (var writer = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
+                writer.SetLength(100);
+            var run = () => vb.Execute();
+            (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage(
+                "InputB past the end of a Binary file is refused: VB6 returns stale bytes there (#4927)");
+            context.TryGetVariable(rootEnv, "s", out var value).Should().BeTrue();
+            value.StringBytes().Should().Equal(bytes.Skip(10).Take(90));
+            files.SeekPosition(1).Should().Be(101);
+            files.Loc(1).Should().Be(100);
+        }
+        finally { files.CloseAll(); }
+    }
+
+    // Preserve SnapshotOf's access check (Random and Binary files oracle, #1646); this already passes on main.
+    [Fact]
+    public async Task Binary_without_read_access_keeps_error_75_and_the_target()
+    {
+        var path = Make("414243");
+        await Run($$"""
+            On Error Resume Next
+            Dim s As String
+            s = "x"
+            Open "{{path}}" For Binary Access Write As #1
+            s = InputB(1, #1)
+            Debug.Print CStr(Err.Number)
+            Close #1
+            """);
+        Bytes("s", "7800");
+        AssertDebugLog([new Vb6Value("75")]);
     }
 
     // Argument rules shared with Input (lof-loc-seek-and-the-input-function.md); three pass on main already.
