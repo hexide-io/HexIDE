@@ -95,6 +95,29 @@ following [#1563's VB6 SP6 measurements](https://github.com/hexide-io/HexIDE/iss
 Arrays, UserControls, other OCX controls, `As Form1`, and assigning a form to `As Control` retain their
 existing behaviour outside this slice.
 
+### Requirement: Let into an object target checks its declared view during execution
+
+The interpreter SHALL refuse Let into a variable declared As Collection, or as a project class whose default member's first parameter is required, with "Argument not optional" when the statement executes. It SHALL apply the same check to a module property without Let, using the Get's declared type before running the getter. These outcomes are measured in [#4675](https://github.com/hexide-io/HexIDE/issues/4675).
+
+#### Scenario: Early-bound target and an uncalled procedure
+- **WHEN** a Let into such a target executes
+- **THEN** the interpreter raises the compile-error exception even under On Error Resume Next
+- **AND** a line in a procedure never called remains undiagnosed, unlike VB6's build check
+
+#### Scenario: Late-bound default requires an argument
+- **WHEN** an As Object target holds a project class whose default member requires its first argument
+- **THEN** Let raises run-time error 449 and retains the object
+- **AND** a Collection held As Object or a class without a default member raises 438
+- **AND** a variable declared as an interface uses the interface's default member, so one with none raises 438
+- **AND** a parameterless project default member takes the value, through a module property as through a variable
+
+#### Scenario: A module property has no Let accessor
+- **WHEN** a class or Object getter returns Nothing
+- **THEN** Let raises 91
+- **WHEN** a Variant getter returns a non-object
+- **THEN** Let raises 424
+- **AND** a Variant getter returning an object remains unmeasured and refused as not implemented (#4675)
+
 ### Requirement: A running form accepts Icon assignments
 
 A running form's default instance SHALL accept icon pictures or Nothing through Set or Let on Icon, bare or through Me or the form's name, without reading the picture's default Handle, following [#4603's SP6 measurements](https://github.com/hexide-io/HexIDE/issues/4603). Native handles and New instances remain outside this slice.
