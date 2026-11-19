@@ -19,3 +19,4 @@ HexIDE.Addins.AddinProjectType.FormFormat.get -> string?
 HexIDE.Addins.AddinProjectType.FormFormat.init -> void
 HexIDE.Lsp.WorkspaceProjectReference.IsProject.get -> bool
 HexIDE.Lsp.WorkspaceProjectReference.IsProject.init -> void
+HexIDE.Runtime.Components.ComponentInstance.SetPreservedChildText(int index, string! text) -> void
