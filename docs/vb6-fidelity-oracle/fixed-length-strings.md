@@ -254,3 +254,40 @@ element, not a design, so it's recorded here and not offered as a rule.
 - a Type holding a fixed-length String array, in a Random file, and read back with `Get` in either kind;
 - a double-byte code page;
 - `Erase` of a dynamic one, and `ReDim Preserve` of a two-dimensional one.
+
+## Arrays of fixed-length Strings: more targets and parameters (2026-11-19, #179)
+
+**Why a second pass.** Reviewing the change that built the arrays section above found forms its tables don't cover. The
+change answered each one anyway, so each needed vb6.exe's answer. VB6 SP6, `/make`, native code and p-code, which
+logged the same lines, each form its own program. `e()` is a dynamic `String * 3` array.
+
+| Form | vb6.exe |
+|---|---|
+| `s = e`, `s As String`; `n = e`, `n As Long` | compile error "Type mismatch"; the same |
+| `w = u.d`, a Type's field `d() As String * 3`, into a Variant | compile error "Can't assign or coerce array of fixed-length string or user-defined type to Variant" |
+| `F = e` inside `Function F() As String()` | compile error "Can't assign to array" |
+| `d = G()`, `d() As String * 3`, `G` declared `As String()` | compile error "Can't assign to array" |
+| `ReDim Preserve b(1) As String * 6`, `b() As String * 4` | compile error "Can't change data types of array elements" |
+| `Const W = "2.5"`, then `Dim x As String * W` | `Len(x)` 2, a Long |
+| `Const W = False`, likewise | compile error "Invalid length for fixed-length string" |
+| a `Long()`, a `Variant()`, or a Variant holding a `String()`, passed to `Sub P(x() As String * 3)` | compile error "Type mismatch: array or user-defined type expected", all three |
+
+**A Variant parameter, one store per call.** `fx` is a module-level `String * 5` holding "ab", passed to
+`Sub P(x As Variant)`. The section above read `fx` only after several stores in one call.
+
+| In the callee | then `x` | `fx` after the call |
+|---|---|---|
+| `x = "variantset"` | String, Len 10 | `[varia]` |
+| `x = Empty` | String `""` | `[{20}{20}{20}{20}{20}]` |
+| `x = Null` | **94**, and `x` is still `[ab{20}{20}{20}]` | `[ab{20}{20}{20}]` |
+
+**Found by accident:** `ReDim G(1)` inside `Function G() As String()` doesn't compile: "Function call on left-hand
+side of assignment must return Variant or Object".
+
+**Readings:**
+- **A fixed-length String array assigned to a typed scalar is "Type mismatch";** only a Variant target gets the
+  coercion message.
+- **An array parameter with a width takes only an array of that width.** Every other array, and a Variant
+  whatever it holds, is the same compile error as a `String()`.
+- **A typed array a Function returns is seen while compiling,** as a declared array variable is, so `d = G()` is
+  "Can't assign to array" where `d = Split(…)`, which returns a Variant, is 13 at run time.
