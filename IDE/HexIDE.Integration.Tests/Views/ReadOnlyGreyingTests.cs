@@ -362,6 +362,8 @@ public class ReadOnlyGreyingTests : IDisposable
         await WaitForConditionalEvaluation(view);
         var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         grey.Should().Be(((ISolidColorBrush)view.FindResource("ReadOnlyTextBrush")!).Color);
+        // #4821: on a Mac, VBA 64-bit is Excel for Mac's table, where Win32 is 0, so VBA6 And Win32 takes its #Else.
+        var win32Branch = target == 1 || (target == 2 && !OperatingSystem.IsMacOS());
         foreach (var line in new[] { 2, 4, 6 })
         {
             var text = "Debug.Print " + (line == 2 ? "7" : line == 4 ? "64" : "6");
@@ -369,9 +371,9 @@ public class ReadOnlyGreyingTests : IDisposable
             if (line == activeLine) ColoursOn(editor, actual).Should().Contain(c => c != grey);
             else ColoursOn(editor, actual).Should().OnlyContain(c => c == grey);
         }
-        ColoursOn(editor, LineOf(editor, target == 0 ? "Debug.Print 32" : "Debug.Print 0"))
+        ColoursOn(editor, LineOf(editor, win32Branch ? "Debug.Print 0" : "Debug.Print 32"))
             .Should().OnlyContain(c => c == grey);
-        ColoursOn(editor, LineOf(editor, target == 0 ? "Debug.Print 0" : "Debug.Print 32"))
+        ColoursOn(editor, LineOf(editor, win32Branch ? "Debug.Print 32" : "Debug.Print 0"))
             .Should().Contain(c => c != grey);
         var runtimeConstants = CompilationConstants.ForProject(vm.ModuleDefinition!.Owner);
         runtimeConstants.BuiltIns.Should().BeSameAs(CompilationConstants.Vb6BuiltIns);
@@ -385,7 +387,7 @@ public class ReadOnlyGreyingTests : IDisposable
         RunJobsKeepingContext();
         var switchedGrey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         switchedGrey.Should().Be(((ISolidColorBrush)view.FindResource("ReadOnlyTextBrush")!).Color);
-        ColoursOn(editor, LineOf(editor, target == 0 ? "Debug.Print 32" : "Debug.Print 0"))
+        ColoursOn(editor, LineOf(editor, win32Branch ? "Debug.Print 0" : "Debug.Print 32"))
             .Should().OnlyContain(c => c == switchedGrey);
     }
 
