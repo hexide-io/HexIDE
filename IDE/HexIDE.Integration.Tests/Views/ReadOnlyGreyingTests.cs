@@ -311,10 +311,11 @@ public class ReadOnlyGreyingTests : IDisposable
 
     // #4821: use the real selector, debounce and rendered line transformer on this host.
     [AvaloniaTheory]
-    [InlineData(ProjectTarget.RDCore)]
-    [InlineData(ProjectTarget.None)]
-    public async Task Project_target_greys_the_same_NavalBattle_branch_as_the_run(ProjectTarget target)
+    [InlineData(nameof(ProjectTarget.RDCore))]
+    [InlineData(nameof(ProjectTarget.None))]
+    public async Task Project_target_greys_the_same_NavalBattle_branch_as_the_run(string targetName)
     {
+        var target = Enum.Parse<ProjectTarget>(targetName);
         var themes = new ThemeService();
         using var scope = TheIdesThemes(themes);
         var project = new ProjectDefinition(VBProjectType.EXE, "NavalBattle") { Target = target, VbaBitness = VbaBitness.Bit64 };

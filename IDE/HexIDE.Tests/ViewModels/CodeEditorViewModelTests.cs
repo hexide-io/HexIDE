@@ -351,12 +351,13 @@ public class CodeEditorViewModelTests : IDisposable
 
     // #4821: RDCore.SDK PredefinedConditionalConstants.cs (Of), SDK 0.1.8-alpha; Excel for Mac 16.115.
     [AvaloniaTheory]
-    [InlineData("WINDOWS", ProjectTarget.RDCore, "0,1,1,0,0,0,1,1")]
-    [InlineData("OSX", ProjectTarget.RDCore, "0,0,0,1,0,0,1,1")]
-    [InlineData("LINUX", ProjectTarget.RDCore, "0,0,0,0,1,1,1,1")]
-    [InlineData("OSX", ProjectTarget.None, "0,0,1,1,0,0,1,1")]
-    public void Editor_greying_uses_the_recorded_host_table(string host, ProjectTarget target, string row)
+    [InlineData("WINDOWS", nameof(ProjectTarget.RDCore), "0,1,1,0,0,0,1,1")]
+    [InlineData("OSX", nameof(ProjectTarget.RDCore), "0,0,0,1,0,0,1,1")]
+    [InlineData("LINUX", nameof(ProjectTarget.RDCore), "0,0,0,0,1,1,1,1")]
+    [InlineData("OSX", nameof(ProjectTarget.None), "0,0,1,1,0,0,1,1")]
+    public void Editor_greying_uses_the_recorded_host_table(string host, string targetName, string row)
     {
+        var target = Enum.Parse<ProjectTarget>(targetName);
         var builtIns = HexIDE.Forms.Views.CodeEditorView.TargetBuiltIns(target, VbaBitness.Bit64,
             System.Runtime.InteropServices.OSPlatform.Create(host));
         var names = new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Linux64", "VBA6", "VBA7" };

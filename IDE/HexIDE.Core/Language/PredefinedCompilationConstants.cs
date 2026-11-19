@@ -29,7 +29,7 @@ public static class PredefinedCompilationConstants
         Numbers(("VBA6", 1), ("VBA7", 1), ("Win32", 0), ("Win64", 1), ("Win16", 0), ("Mac", 1));
 
     /// <summary>Select the target's table on the current or specified host; this selects constants only.</summary>
-    public static IReadOnlyDictionary<string, int> ForTarget(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null)
+    internal static IReadOnlyDictionary<string, int> ForTarget(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null)
     {
         host ??= OperatingSystem.IsWindows() ? OSPlatform.Windows :
             OperatingSystem.IsMacOS() ? OSPlatform.OSX : OperatingSystem.IsLinux() ? OSPlatform.Linux : default;

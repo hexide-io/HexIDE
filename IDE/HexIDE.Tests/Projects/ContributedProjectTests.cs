@@ -110,11 +110,12 @@ public sealed class ContributedProjectTests : IDisposable
 
     // #4821: select the table from the type which read the project, not the add-in's display title.
     [AvaloniaTheory]
-    [InlineData(".rdproj", ProjectTarget.RDCore)]
-    [InlineData("*.RDPROJ", ProjectTarget.RDCore)]
-    [InlineData("*.other", ProjectTarget.None)]
-    public async Task Project_type_selects_the_predefined_constants_target(string pattern, ProjectTarget expected)
+    [InlineData(".rdproj", nameof(ProjectTarget.RDCore))]
+    [InlineData("*.RDPROJ", nameof(ProjectTarget.RDCore))]
+    [InlineData("*.other", nameof(ProjectTarget.None))]
+    public async Task Project_type_selects_the_predefined_constants_target(string pattern, string expectedName)
     {
+        var expected = Enum.Parse<ProjectTarget>(expectedName);
         var type = new ContributedProjectType(new AddinProjectType("Projects") { FileNames = [pattern] }, "backend", "Backend");
         var (project, problems) = await _types.BuildAsync(ProjectFile, Content(), type, Vb6TextEncoding.Ansi,
             null, Substitute.For<ILocalizationService>());

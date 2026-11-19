@@ -17,8 +17,3 @@ HexIDE.Addins.AddinProjectContent.Components.get -> System.Collections.Generic.I
 HexIDE.Addins.AddinProjectContent.Components.init -> void
 HexIDE.Addins.AddinProjectType.FormFormat.get -> string?
 HexIDE.Addins.AddinProjectType.FormFormat.init -> void
-HexIDE.Runtime.ProjectElements.ProjectDefinition.Target.get -> HexIDE.Runtime.ProjectElements.ProjectTarget
-HexIDE.Runtime.ProjectElements.ProjectDefinition.Target.set -> void
-HexIDE.Runtime.ProjectElements.ProjectTarget
-HexIDE.Runtime.ProjectElements.ProjectTarget.None = 0 -> HexIDE.Runtime.ProjectElements.ProjectTarget
-HexIDE.Runtime.ProjectElements.ProjectTarget.RDCore = 1 -> HexIDE.Runtime.ProjectElements.ProjectTarget

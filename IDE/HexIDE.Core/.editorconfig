@@ -95,9 +95,6 @@ dotnet_diagnostic.RS0016.severity = error
 [ProjectElements/ProjectOffers.cs]
 dotnet_diagnostic.RS0016.severity = error
 
-[ProjectElements/ProjectTarget.cs]
-dotnet_diagnostic.RS0016.severity = error
-
 [ProjectElements/RelatedDocumentDefinition.cs]
 dotnet_diagnostic.RS0016.severity = error
 

@@ -68,7 +68,7 @@ public sealed class CompilationConstants
         { VbaBitness = project.VbaBitness };
 
     /// <summary>The predefined constants shared by interpreter runs and editor previews, on the current or specified host.</summary>
-    public static IReadOnlyDictionary<string, Vb6Value> BuiltInsFor(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null) =>
+    internal static IReadOnlyDictionary<string, Vb6Value> BuiltInsFor(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null) =>
         Tables.GetOrAdd(PredefinedCompilationConstants.ForTarget(target, bitness, host), static table => Variants(table));
 
     /// <summary>An argument's or a built-in's value, as the Variant a constant is.</summary>

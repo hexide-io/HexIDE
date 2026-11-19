@@ -10,12 +10,13 @@ namespace HexIDE.Runtime.Tests;
 public class HostPredefinedConstantsTests : BaseVBTestFixture
 {
     [Theory]
-    [InlineData("WINDOWS", ProjectTarget.RDCore, "0,1,1,0,0,0,1,1")]
-    [InlineData("OSX", ProjectTarget.RDCore, "0,0,0,1,0,0,1,1")]
-    [InlineData("LINUX", ProjectTarget.RDCore, "0,0,0,0,1,1,1,1")]
-    [InlineData("OSX", ProjectTarget.None, "0,0,1,1,0,0,1,1")]
-    public async Task Target_and_host_select_the_recorded_row(string host, ProjectTarget target, string row)
+    [InlineData("WINDOWS", nameof(ProjectTarget.RDCore), "0,1,1,0,0,0,1,1")]
+    [InlineData("OSX", nameof(ProjectTarget.RDCore), "0,0,0,1,0,0,1,1")]
+    [InlineData("LINUX", nameof(ProjectTarget.RDCore), "0,0,0,0,1,1,1,1")]
+    [InlineData("OSX", nameof(ProjectTarget.None), "0,0,1,1,0,0,1,1")]
+    public async Task Target_and_host_select_the_recorded_row(string host, string targetName, string row)
     {
+        var target = Enum.Parse<ProjectTarget>(targetName);
         Compilation = CompilationConstants.ForProject(new ProjectDefinition(VBProjectType.EXE, "Test")
             { Target = target, VbaBitness = VbaBitness.Bit64 }, OSPlatform.Create(host));
         var names = new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Linux64", "VBA6", "VBA7" };
@@ -46,11 +47,12 @@ public class HostPredefinedConstantsTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("OSX", ProjectTarget.RDCore, "Timer")]
-    [InlineData("LINUX", ProjectTarget.RDCore, "Timer")]
-    [InlineData("OSX", ProjectTarget.None, "Declare")]
-    public async Task NavalBattle_pause_selects_the_target_branch(string host, ProjectTarget target, string expected)
+    [InlineData("OSX", nameof(ProjectTarget.RDCore), "Timer")]
+    [InlineData("LINUX", nameof(ProjectTarget.RDCore), "Timer")]
+    [InlineData("OSX", nameof(ProjectTarget.None), "Declare")]
+    public async Task NavalBattle_pause_selects_the_target_branch(string host, string targetName, string expected)
     {
+        var target = Enum.Parse<ProjectTarget>(targetName);
         Compilation = CompilationConstants.ForProject(new ProjectDefinition(VBProjectType.EXE, "NavalBattle")
             { Target = target, VbaBitness = VbaBitness.Bit64 }, OSPlatform.Create(host));
         await Run("""

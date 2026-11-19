@@ -17,7 +17,7 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     public VbaBitness VbaBitness { get; set; }
 
     /// <summary>The target whose predefined #If constants are used; it does not select the run engine (#4821).</summary>
-    public ProjectTarget Target { get; set; }
+    internal ProjectTarget Target { get; set; }
 
     private FormDefinition? startupForm;
     private bool startsAtSubMain;
