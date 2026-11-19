@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -29,14 +30,22 @@ public class EventPumpTests
     private sealed class PumpContext : SynchronizationContext
     {
         private readonly object sync = new();
+        private readonly int pumpThread = Environment.CurrentManagedThreadId;
         private bool ended;
         public readonly BlockingCollection<(SendOrPostCallback Callback, object? State)> Pending = new();
+
+        // Posts that came from another thread. Each one waited for a thread-pool thread to make it, and under a loaded
+        // full run that wait outlasted OnPump's 10 seconds (#4478).
+        public int FromOtherThreads { get; private set; }
+
         public override void Post(SendOrPostCallback callback, object? state)
         {
             lock (sync)
             {
                 if (ended)
                     return;
+                if (Environment.CurrentManagedThreadId != pumpThread)
+                    FromOtherThreads++;
                 Pending.Add((callback, state));
             }
         }
@@ -58,13 +67,19 @@ public class EventPumpTests
         SynchronizationContext.SetSynchronizationContext(context);
         try
         {
+            // The whole test's time limit is kept here, on the pump's own thread. A test that awaited WaitAsync with a
+            // timeout instead depended on the thread pool to come back (#4478).
+            var clock = Stopwatch.StartNew();
             var finished = test();
             while (!finished.IsCompleted)
             {
-                context.Pending.TryTake(out var work, TimeSpan.FromSeconds(10)).Should().BeTrue("the test must finish");
+                var left = TimeSpan.FromSeconds(10) - clock.Elapsed;
+                context.Pending.TryTake(out var work, left > TimeSpan.Zero ? left : TimeSpan.Zero)
+                    .Should().BeTrue("the test must finish within 10 seconds");
                 work.Callback(work.State);
             }
             finished.GetAwaiter().GetResult();
+            context.FromOtherThreads.Should().Be(0, "every continuation must come back on the pump's own thread (#4478)");
         }
         finally
         {
@@ -121,7 +136,7 @@ public class EventPumpTests
 
         ran.Should().BeEmpty();
         gate.SetResult();
-        await finished.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await finished;
         ran.Should().Equal("SelChange", "Change");
         pump.IsIdle.Should().BeTrue();
     });
@@ -140,7 +155,7 @@ public class EventPumpTests
         ran.Should().BeEmpty("both wait for the suspended handler");
         var finished = WhenIdle(pump);
         gate.SetResult();
-        await finished.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await finished;
         ran.Should().Equal("busy", "one", "two");
     });
 
@@ -161,7 +176,7 @@ public class EventPumpTests
         pump.Raise("Label1_MouseMove", Logs(ran, "label move"), EventCoalescing.Latest);
         var finished = WhenIdle(pump);
         gate.SetResult();
-        await finished.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await finished;
 
         ran.Should().Equal("busy", "move 1", "down", "label move");
     });
@@ -179,7 +194,7 @@ public class EventPumpTests
         pump.Raise("Timer1_Timer", Logs(ran, "timer 1 again"), EventCoalescing.Timer);
         var finished = WhenIdle(pump);
         gate.SetResult();
-        await finished.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await finished;
 
         ran.Should().Equal("busy", "timer 1", "timer 2");
     });
@@ -202,7 +217,7 @@ public class EventPumpTests
         pump.Close();
         pump.Raise("Command2_Click", Logs(ran, "after the end"));
         gate.SetResult();
-        await finished.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await finished;
 
         ran.Should().Equal("busy");
     });
@@ -224,7 +239,7 @@ public class EventPumpTests
         var finished = WhenIdle(pump);
         gate.SetResult();
         timerGate.SetResult();
-        await finished.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await finished;
 
         pump.FinishedSince(before).Should().Equal("Busy_Click");
     });

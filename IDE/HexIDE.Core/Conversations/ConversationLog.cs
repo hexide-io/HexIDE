@@ -563,6 +563,8 @@ public sealed class ConversationLog : IAsyncDisposable
 
         if (TryComplete(connection, pending, sequence)) return;
 
+        if (pending.Body is { } body) connection.Bodies.TryAdd(sequence, body);
+
         connection.Ring.Add(new ConversationEnvelope(
             sequence,
             pending.ConnectionId,
@@ -578,8 +580,6 @@ public sealed class ConversationLog : IAsyncDisposable
 
         if (pending.Kind == ConversationEntryKind.Request && pending.CorrelationId is { } id)
             connection.Outstanding[(pending.Direction, id)] = (sequence, Stopwatch.GetTimestamp());
-
-        if (pending.Body is { } body) connection.Bodies.TryAdd(sequence, body);
     }
 
     /// <summary>
