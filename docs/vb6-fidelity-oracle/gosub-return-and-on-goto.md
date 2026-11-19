@@ -131,7 +131,74 @@ End Sub
   This page first read G40 as the handler being skipped; see the overturn above.
 
 **Not measured:**
-- a selector beyond Integer's range;
-- `Resume` inside a routine reached from a handler, for the error that handler is handling;
+- a selector beyond Integer's range, measured since, below (#4880);
+- `Resume` inside a routine reached from a handler, for the error that handler is handling, measured since, below;
 - the depth native code reaches, and why it neither logged nor ended;
 - labels inside a block. These are already GoTo's own limit in HexIDE.
+
+## A selector beyond Integer, and Resume from a routine a handler called (2026-11-19, #4880)
+
+**The probes.** Two projects with `Sub Main` in a module, built with `/make` native and p-code and run in session 0.
+Native and p-code agreed line for line. The first ran each selector through `On v GoTo A, B` and `On v GoSub A, B`, in
+a Sub with `On Error GoTo E` that logged `Err.Number`, then four of them again under `On Error Resume Next`. The second
+ran the Resume rows. Each Resume row is a Sub with `On Error GoTo H`, called under `On Error Resume Next`, so an error
+it doesn't handle reaches the caller and is logged.
+
+**A selector beyond Integer's range is 6, Overflow,** for GoTo and GoSub alike:
+
+| Selector, as passed in a Variant | VB6 |
+|---|---|
+| `2`, and `CByte(2)` | `B` |
+| `255` | falls through |
+| `256`, `32767`, `-32768` | **5** |
+| `32768`, `-32769`, `65537`, `65538`, `-65534`, `131074`, `2147483647` (Long) | **6** |
+| `2147483648#`, `1E+20` (Double); `CSng(32768)`; `CCur(32768)`; `CDec(32768)`; `"32768"` | **6** |
+| `32767.5`, `32768.4` | **6** |
+| `-32768.5` | **5** |
+
+- **The selector converts as `CInt` does, and only then is checked against 0 to 255.**
+  - 65537 and 65538 overflow rather than wrapping to 1 and 2.
+  - 32767.5 rounds to the even 32768, which overflows.
+  - -32768.5 rounds to the even -32768, which converts and is then out of range: 5.
+- **Under `On Error Resume Next` the next statement runs.** `On 32768 GoTo` and `On 32768 GoSub` each went on to the
+  following line with `Err.Number` 6. `On 256 GoTo` did the same with 5.
+
+**`Resume` in a routine the handler reached by GoSub resumes the handler's error, and leaves the GoSub pending.**
+Each row raises 5 in the main flow, and its handler `H` does `GoSub A`, unless the row says otherwise:
+
+| Row | What `A` does | VB6 |
+|---|---|---|
+| R1 | `Resume Next` | the main flow goes on after the raise, with `Err.Number` 0; `H`'s own lines after the GoSub don't run |
+| R2 | `Resume`; the fault was `v = Boom()`, which raises only on its first call | `Boom` runs again: `v=2`, `Err.Number` 0 |
+| R3 | `Resume L1`, a label in the main flow | at `L1`, with `Err.Number` 0 |
+| R4 | `Resume Next`; the main flow then raises 6 | `H` traps the 6, so the handler is armed again |
+| R5 | `GoSub B`, and `B` does `Resume Next` | the main flow goes on after the raise |
+| R6 | `Resume Next`; `H` reached it by `On 1 GoSub A` | the main flow goes on after the raise |
+| R7 | `Resume Next`; the main flow then does `Return` | the Return comes back into `H`, after its `GoSub A`, with `Err.Number` 0 |
+| R8 | as R7; `H`'s code after the GoSub then raises 7 | the line after the raise runs, and nothing reaches the caller: `H` took the 7 and its `A` resumed after it, as R1b logs `H` doing |
+| R1b | as R7; `H`'s code after the GoSub then does `Resume Next` | error **20**, trapped by `H`, and so on; the probe stopped it after three passes |
+
+What these show:
+- **A routine's `Resume`, `Resume Next` or `Resume <label>` does what the handler's own would.** It clears Err, arms
+  the handler again, and goes on at the resume point. It does that from a routine the handler reached directly, by
+  `On … GoSub`, or by a GoSub nested inside that routine.
+- **The handler's GoSub stays pending** (R7). A `Return` reached later comes back to the line after the handler's
+  `GoSub`, and that code then runs as ordinary code, not as the handler:
+  - an error there is trapped by the handler, as anywhere (R8);
+  - a `Resume` there has no error to resume, so it is 20, "Resume without error", which the handler traps (R1b).
+- **R1b's loop follows from those two.** Each 20 sends `H` round its `GoSub A` again, and `A`'s `Resume Next`
+  resumes after the statement that raised the 20.
+  - The first time, that statement is `H`'s `Resume Next`, and the line after it is `A`'s own `Resume Next`. So a
+    second 20 comes at once.
+  - The second time, it resumes after `A`'s `Resume Next`, and `A` returns into `H`, whose `Resume Next` starts the
+    next pass.
+  - The first run of this probe, without the stop, looped until the 60-second timeout, in both builds.
+
+**Not measured:** a selector held in a typed variable rather than a Variant; and stepping over a GoSub in VB6's
+debugger (D37 in `docs/debugger-vb6-divergences.md`).
+
+**In HexIDE (#4880),** read from the code on main at d5c6dc78d:
+- **A selector that overflows Integer** is refused as not implemented, even under `On Error Resume Next`
+  (`StatementExecutor.cs:3676`).
+- **A `Resume` in a routine reached from an active handler,** with no error in the routine's own pass, is refused as
+  not implemented (`StatementExecutor.cs:6189`).
