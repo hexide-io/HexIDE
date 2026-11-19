@@ -640,6 +640,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </summary>
     public Vb6Value CopyForStore(Vb6Value v) => CopyForStore(v, 0);
 
+    // Whole fixed String arrays are only copyable into matching declared arrays (#179 / PR #4923).
+    internal Vb6Value CopyDeclaredArrayForStore(Vb6Value v) => v.Value is VBArray array
+        ? v.WithArray(array.CopyForLet(element => CopyElement(element, 1))) : CopyForStore(v);
+
     private Vb6Value CopyForStore(Vb6Value v, int depth) => v.Value switch
     {
         string => v.CopyString(),
@@ -2502,15 +2506,47 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 IByRefTarget? fixedTarget = arg.Location is { } fixedSlot
                     && ExecutionContext.State.FixedStringWidthOf(fixedSlot) is not null
                     ? new SlotRef(ExecutionContext.State, fixedSlot) : arg.Ref;
+                var parameterWidth = p.FixedStringLength is { } length
+                    ? FixedLengthString.Width(length, owner.ModuleEnv, ExecutionContext.State) : (int?)null;
+                if (arg.Value.Value is VBArray { FixedStringWidth: not null } fixedArray)
+                {
+                    if (p.ReadsAsVariant && !p.DeclaredObject)
+                        throw new VBCompileErrorException("Can't assign or coerce array of fixed-length string or user-defined type to Variant");
+                    if (p.IsArray && p.DeclaredType == new Vb6Value.ValueType(Vb6Value.ValueType.String, true))
+                    {
+                        if (parameterWidth is null)
+                            throw new VBCompileErrorException("Type mismatch: array or user-defined type expected");
+                        if (parameterWidth != fixedArray.FixedStringWidth)
+                            throw new NotImplementedException("Passing an array of another fixed-length String width is not implemented (#179)");
+                    }
+                    else
+                        throw new NotImplementedException("Fixed-length String array to this parameter type is not implemented (#179)");
+                }
+                // Any other array, or a Variant holding one, is VB6's compile error (measured for String(), Long(), Variant()
+                // and a Variant holding a String(), #179 review).
+                else if (parameterWidth is not null && arg.Value.Value is VBArray)
+                    throw new VBCompileErrorException("Type mismatch: array or user-defined type expected");
                 if (p.ByRef && fixedTarget?.FixedStringWidth is not null)
                 {
-                    var stringOrVariant = !p.IsArray && !p.DeclaredObject && p.TypeName is null
+                    if (p.IsArray)
+                    {
+                        if (p.DeclaredType == new Vb6Value.ValueType(Vb6Value.ValueType.String, true)
+                            || p.DeclaredType == new Vb6Value.ValueType(Vb6Value.ValueType.EmptyVariant, true))
+                            throw new VBCompileErrorException("Type mismatch: array or user-defined type expected");
+                        throw new NotImplementedException("ByRef fixed-length String to this parameter type is not implemented (#179)");
+                    }
+                    var stringOrVariant = !p.DeclaredObject && p.TypeName is null
                         && (p.DeclaredType == Vb6Value.ValueType.String || p.ReadsAsVariant);
                     if (!stringOrVariant)
+                    {
+                        if (p.DeclaredObject || p.TypeName is null && p.DeclaredType is { } scalar
+                            && scalar != Vb6Value.ValueType.LongLong && VbNumeric.IsDeclarableScalar(scalar))
+                            throw new VBCompileErrorException("ByRef argument type mismatch");
                         throw new NotImplementedException("ByRef fixed-length String to this parameter type is not implemented (#179)");
-                    // #179 measures copy in/out. The parameter's own post-assignment Len is unmeasured;
-                    // use an ordinary String/Variant slot here, applying the width only on return.
-                    ExecutionContext.AllocVariable(callee, p.Name, arg.Value.CopyString(), DeclaredSlotType(p));
+                    }
+                    // #179 / PR #4923: an ordinary String slot until copy-out, even for As Variant.
+                    // Its stores convert to String and Null raises 94; only the caller has a width.
+                    ExecutionContext.AllocVariable(callee, p.Name, arg.Value.CopyString(), Vb6Value.ValueType.String);
                     callee.TryGetOwnVariableLocation(p.Name, out var slot);
                     fixedStringCopies.Add((slot, fixedTarget));
                     continue;
