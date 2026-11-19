@@ -510,8 +510,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 return await EvaluatePointerArgs(name, assign.valueStmt());
             return arranged;
         }
-        // Input(n, #f): the second argument may be a file number written with its #, `#f` being f's value (#1645).
-        if (name.Equals("Input", StringComparison.OrdinalIgnoreCase) && slots.Count == 2 && slots[0] is { } count
+        // Input/InputB(n, #f): the second argument may be a file number written with its # (#1645, #4895).
+        if ((name.Equals("Input", StringComparison.OrdinalIgnoreCase) || name.Equals("InputB", StringComparison.OrdinalIgnoreCase))
+            && slots.Count == 2 && slots[0] is { } count
             && slots[1]?.valueStmt() is { } file && file.GetText().StartsWith('#'))
         {
             var input = new VB6BuiltIns.IntrinsicArgumentValues(2);
@@ -1404,7 +1405,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// <summary>The library's functions that have a <c>$</c> form, every one measured to compile and answer a String.</summary>
     private static readonly HashSet<string> DollarForms = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Chr", "ChrB", "ChrW", "Command", "CurDir", "Dir", "Environ", "Error", "Format", "Hex", "Input", "LCase", "Left", "LeftB", "LTrim", "Mid",
+        "Chr", "ChrB", "ChrW", "Command", "CurDir", "Dir", "Environ", "Error", "Format", "Hex", "Input", "InputB", "LCase", "Left", "LeftB", "LTrim", "Mid",
         "MidB", "Oct", "Right", "RightB", "RTrim", "Space", "Str", "String", "Trim", "UCase",
     };
 

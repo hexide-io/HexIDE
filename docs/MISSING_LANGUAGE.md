@@ -127,13 +127,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 0 | 0 | 3 | 59 | 0 | 47 | 109 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 2 | 79 | 0 | 74 | 155 |
+| Intrinsic functions | 0 | 0 | 1 | 80 | 0 | 74 | 155 |
 | Keywords and modifiers | 0 | 0 | 0 | 24 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 0 | 20 | 0 | 33 | 53 |
 | Compiler directives and options | 0 | 0 | 0 | 14 | 19 | 14 | 47 |
 | In-box objects | 0 | 0 | 35 | 50 | 0 | 40 | 125 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **0** | **0** | **41** | **524** | **20** | **608** | **1193** |
+| **Total** | **0** | **0** | **40** | **525** | **20** | **608** | **1193** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -274,7 +274,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 41 names
+## Dies mid-run — 40 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -306,7 +306,6 @@ most of the in-box object model.
 | `EventParameters` | **Dies** | `Dim e As EventParameters` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
 | `GetObject` | **Dies** | Not in BuildRegistry, though listed as an intrinsic name (`VbIntrinsicNames`) and in the named-parameter table. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (GetObject)". docs/interpreter-gaps.md pairs it with… | ExpressionExecutor.cs |
 | `Hyperlink` | **Dies** | `Dim h As Hyperlink` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
-| `InputB` | **Dies** | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** refused as not implemented: vb6.exe returns a byte string, `LenB` 3 and `Len` 1 for three bytes (measured), whose file input remains outside #4576 ([#1510](https://github.com/hexide-io/HexIDE/issues/1510)). | VB6BuiltIns.cs |
 | `LicenseInfo` | **Dies** | `Dim l As LicenseInfo` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
 | `Licenses` | **Dies** | Measured for `Debug.Print Licenses.Count`: VBVariableNotDefinedException: "Variable not defined (Licenses)" (ExpressionExecutor.cs) — the global object is not seeded; only Debug, Err and… | BasicInterpreter.cs |
 | `ParentControls` | **Dies** | `Dim p As ParentControls` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
@@ -484,7 +483,7 @@ missing.
 | `TypeOf ... Is` | Supported | #1962: CommonDialog takes its library identity from the registered component class. **#2265:** measured MSComctlLib/ComctlLib class names, including their collection and item objects, follow the first declaring library in combined project `Reference=`/`Object=` read order; qualified names select their own library. The other measured in-box names (oracle PR #4023, recorded in #2265) also answer bare and qualified, including ComboItems and ComboItem. Project classes retain precedence. Two-library binding beyond ListView, ListItem and ProgressBar follows the measured lookup rule; combinations involving the other in-box libraries are unmeasured. **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 155 names (2 absent, 79 partial, 74 supported)
+### Intrinsic functions — 155 names (1 absent, 80 partial, 74 supported)
 
 
 **array** (3)
@@ -556,7 +555,7 @@ missing.
 | `FileLen` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
 | `GetAttr` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
 | `Input` | Supported | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** `Input(n, #f)`, or with no `#`, reads the next n characters in the ANSI code page, line breaks, commas and quotes included, as vb6.exe measured: the count rounds to even, 0 reads nothing, negative is 5, short of the count before the end or a Ctrl+Z is 62 with the variable kept, and an Output or Append file is 54. `Input(LOF(f), f)` reads the whole file. On a Binary file a short read is no error: what there is, and EOF True; a Random file is 54 ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). `Input$` is Input. Takes no names, as measured. | VbFiles.cs |
-| `InputB` | **Dies** | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** refused as not implemented: vb6.exe returns a byte string, `LenB` 3 and `Len` 1 for three bytes (measured), whose file input remains outside #4576 ([#1510](https://github.com/hexide-io/HexIDE/issues/1510)). | VB6BuiltIns.cs |
+| `InputB` | Partial | **[#4895](https://github.com/hexide-io/HexIDE/issues/4895), [oracle PR #4896](https://github.com/hexide-io/HexIDE/pull/4896):** InputB/InputB$ read raw bytes from Binary and Input files into a String, odd counts included, with no code-page or CR/LF conversion. Measured errors and Loc/Seek/EOF match Input's EOF/Ctrl+Z rules. Binary reads past the end (VB6 returns stale buffer bytes), Append reads, and detected external file changes (size or modification time) remain not implemented, naming #4895, before position or assignment changes. Other unmeasured conversions keep their existing behavior. | VB6BuiltIns.cs, VbFiles.cs |
 | `Loc` | Supported | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** in 128-byte blocks, as vb6.exe measured: an Input file's the bytes read divided by 128, rounded up and at least 1; an Output or Append file's the bytes written divided by 128, rounded down. Takes `FileNumber` by name. A Binary file's is the last byte read or written, and a Random file's the last record ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). | VbFiles.cs |
 | `LOF` | Supported | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** the file's length in bytes, a Long, as vb6.exe measured: an Output or Append file's counts what is printed and not yet written out, where `FileLen` still reads 0. Takes `FileNumber` by name; `LOF(#1)` is "Syntax error". A Binary or Random file's is its length ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). | VbFiles.cs |
 | `Seek (function)` | Supported | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** the byte the next read or write is at, from 1, a Long, as vb6.exe measured. An Append file's counts from 1 at its opening, and after a read reaches a Ctrl+Z it is the length plus the Ctrl+Z's position plus 1, both as measured. Takes `FileNumber` by name. A Binary file's is the next byte and a Random file's the next record, counting on past a read that ran past the end ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). | VbFiles.cs |
