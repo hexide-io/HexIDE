@@ -94,7 +94,7 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
     private int posting;
     private bool closed;
 
-    // Completed when an event is queued or the run ends, for a modal form's wait to wake on.
+    // Completed when an event is queued, a pause is requested or the run ends, for a modal form's wait to wake on.
     private TaskCompletionSource? arrival;
 
     /// <summary>The walk running now, or null when none is.</summary>
@@ -374,7 +374,9 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
     /// returned (measured). Every form's events come, as Form1's Timer ticks under Form2's modal form, except a Timer whose
     /// own handler is the one waiting, which never runs inside itself (measured). The wait also ends with the run.
     /// </summary>
-    public async Task WhileModal(Func<bool> shown)
+    public Task WhileModal(Func<bool> shown) => WhileModal(shown, null, null);
+
+    internal async Task WhileModal(Func<bool> shown, Debugging.IDebugGate? debug, Func<ValueTask>? pause)
     {
         var walk = Current;
         if (walk is not null)
@@ -396,14 +398,27 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
                 // that raised this one waits for it at its next statement, so no walk runs meanwhile, and an event that comes is
                 // top-level and waits in the queue for this loop, as VB6's modal loop takes it from the message queue.
                 var arrived = arrival = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                var pauseRequested = false;
+                void WakeForPause()
+                {
+                    pauseRequested = true;
+                    arrived.TrySetResult();
+                }
+                if (debug is not null) debug.PauseRequested += WakeForPause;
+                // Continue and another Pause may arrive before the previous break's continuation resumes.
+                if (debug?.IsPauseRequested == true) WakeForPause();
                 try
                 {
                     await Suspended(walk, arrived.Task);
                 }
                 finally
                 {
+                    if (debug is not null) debug.PauseRequested -= WakeForPause;
                     arrival = null;
                 }
+                // Only the innermost waiting loop subscribes: outer loops await its handler, not arrival.
+                if (!closed && pauseRequested && pause is not null)
+                    await pause();
             }
         }
         finally

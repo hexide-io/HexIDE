@@ -842,19 +842,19 @@ public class PrePass : VB6BaseVisitor<object?>
             if (!found)
                 refusal = parts.Length == 2
                     ? new VBCompileErrorException("Method or data member not found")
-                    : new NotImplementedException($"Enum {enumName}, member '{foldingMember}': in-box container member '{text}' is not implemented (#4594)");
+                    : new NotImplementedException($"Enum {enumName}, member '{foldingMember}': in-box container member '{text}' is not implemented (#4745)");
         }
         else if (parts.Length == 2 && VB6InBoxLibraries.IsContainer(parts[0]))
         {
             found = VB6InBoxLibraries.TryInContainer(parts[0], parts[1], out value);
             if (!found)
-                refusal = new NotImplementedException($"Enum {enumName}, member '{foldingMember}': in-box container member '{text}' is not implemented (#4594)");
+                refusal = new NotImplementedException($"Enum {enumName}, member '{foldingMember}': in-box container member '{text}' is not implemented (#4745)");
         }
         else
             return false;
         if (!found && refusal is null) return false;
         if (found && !TryAsDouble(value, out result))
-            refusal = new NotImplementedException($"Enum {enumName}, member '{foldingMember}': nonnumeric in-box constant '{text}' is not implemented (#4594)");
+            refusal = new NotImplementedException($"Enum {enumName}, member '{foldingMember}': nonnumeric in-box constant '{text}' is not implemented (#4745)");
         EnumLibraryNames.Add(new(enumName, foldingMember, text, parts.Length > 1, refusal));
         return true;
     }

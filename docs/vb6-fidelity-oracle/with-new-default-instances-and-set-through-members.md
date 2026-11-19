@@ -20,6 +20,8 @@ returning `Me`. Each block is followed by a log line, so the order shows where `
 So the object is made when the `With` line runs and held for the block. It is released at `End With`, and
 terminates there unless the block stored another reference.
 
+**In HexIDE:** fixed by #4599 in batch 385 (`88ddab7cb`).
+
 ## A class's default instance named in its own `Class_Initialize` (#4605)
 
 `Class1` with `Attribute VB_PredeclaredId = True`, whose initializer is:
@@ -45,6 +47,9 @@ built.** It isn't made a second time, so there is no recursion. `If Me Is ClassN
 its default instance apart from the start. The obvious guess, that the name isn't bound until `Initialize`
 returns, would recurse, and that is what HexIDE did: error 28 (#4605).
 
+**In HexIDE:** fixed by #4605 in batch 384 (`1f2d7eede`). The [auto-made object page](an-auto-made-object-is-in-its-slot-during-class-initialize.md#an-auto-made-object-is-in-its-slot-while-its-class_initialize-runs-2026-11-18-4605-sp6) measures the same for
+every `As New` slot, which the fix covers too.
+
 ## Set through members (#4600, #4601, #4602, #4606, #4607)
 
 Measured with `scripts/vb6-oracle.ps1 -Classes`, plus the same script with `CompilationType=-1` added. The classes:
@@ -66,6 +71,7 @@ Measured with `scripts/vb6-oracle.ps1 -Classes`, plus the same script with `Comp
 
 Every row raised nothing. These are ordinary VB6, so none was in doubt. They are recorded because HexIDE failed
 each one when this page was written (450, 461, 91, 13, and a refusal), and the issues pin these values.
+**Since fixed:** #4600, #4602, #4606 and #4607 in batch 384 (`1f2d7eede`), and #4601 in batch 385 (`88ddab7cb`).
 
 ## Measured by hexide-int: interface views, a bare Function, and LSet on a member (#4601, #4624, #4626)
 
@@ -103,6 +109,8 @@ parameter loses the view, and `x.Q` is 438. Giving that copy the view would answ
 - `GetIt.Q` and `GetC.Count` were 424 "Object required": a Function called bare at the head of a chain wasn't
   called (#4624).
 - `LSet .S` and `RSet .S` parsed as a Let on a variable named `LSet` (#4626).
+
+**Since fixed:** #4601, #4624 and #4626, all in batch 385 (`88ddab7cb`).
 
 ## Measured by hexide-int: a default member that takes arguments (#4606)
 
@@ -145,6 +153,9 @@ the object the Get returns. Nothing raises 91 either way.
 
 **In HexIDE,** at `23a38af17`, every row above failed (#4606). For example, `v("x") = "v"` was 13, `f("q")` the
 compile error "Sub or Function not defined", and `MakeBag()("x")` a refusal naming #174.
+
+**Since fixed** by #4606 in batch 384 (`1f2d7eede`). One holder was left out: a Let through an object held in a Type
+field, `t.d("k") = v`, is #4725.
 
 **Still unmeasured:**
 - a Variant or `As Object` holding Nothing, given arguments;

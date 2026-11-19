@@ -159,9 +159,9 @@
 
 | Item | Shortcut | Status | Notes |
 |---|---|---|---|
-| Start | F5 | Done | Runs project via HexIDE interpreter in a new window; Continue after Ctrl+Break restores the active program form, including a modal form, even after Into/Over steps (#4262; checked live 2026-11-18). Modal forms are now owned by the shown explicit owner or calling form (#4618, measured in the issue; headless ownership/events checked, Windows z-order needs live verification). Other modeless forms coming back remains #4667 |
+| Start | F5 | Done | Runs project via HexIDE interpreter in a new window; Continue after Ctrl+Break restores the active program form, including a modal form, even after Into/Over steps (#4262; checked live 2026-11-18). Modal forms are now owned by the shown explicit owner or calling form (#4618, measured in the issue; headless ownership/events checked, Windows z-order needs live verification). Continue now requests non-activating raises of the other shown, non-minimised forms in activation order on Windows, macOS and X11 (#4667; [measured rows](https://github.com/hexide-io/HexIDE/issues/4667)). Headless order/events checked; native stacking needs live verification. Wayland cannot raise client windows; X11 window managers may decline the request |
 | Start With Full Compile | Ctrl+F5 | Stub | Calls same code path as Start; compile step not distinct |
-| Break | Ctrl+Break | Done | Requests a pause at the next statement gate while the interpreter is running; Ctrl+Break also reaches the IDE from a focused desktop running form and brings the IDE forward on entering break mode (#1297); the toolbar buttons remain available (#2179) |
+| Break | Ctrl+Break | Done | Breaks on the waiting `Show` line during a quiet modal wait (#4708, measured rows c/d); otherwise requests a pause at the next statement gate while the interpreter is running; Ctrl+Break also reaches the IDE from a focused desktop running form and brings the IDE forward on entering break mode (#1297); the toolbar buttons remain available (#2179) |
 | End | — | Done | Standard and Debug toolbar buttons remain available while a running form has focus (#2319) |
 | Restart | Shift+F5 | Done | |
 | Start with VB6 | Alt+F5 | Done | Shells out to VB6.EXE if installed; a build stopped after 180 seconds reports the timeout and a possible waiting dialog (#979); shortcut appears only in the live keymap's gesture column, not the localized label (#897) |
@@ -247,7 +247,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Undo | Done | |
 | Redo | Done | |
 | Start | Done | |
-| Break | Done | Requests a pause at the next statement gate while the interpreter is running; Ctrl+Break also reaches the IDE from a focused desktop running form and brings the IDE forward on entering break mode (#1297); the toolbar buttons remain available (#2179) |
+| Break | Done | Breaks on the waiting `Show` line during a quiet modal wait (#4708, measured rows c/d); otherwise requests a pause at the next statement gate while the interpreter is running; Ctrl+Break also reaches the IDE from a focused desktop running form and brings the IDE forward on entering break mode (#1297); the toolbar buttons remain available (#2179) |
 | End | Done | |
 | Project Explorer | Done | Opens/focuses tool window |
 | Properties | Done | Opens/focuses tool window |
@@ -539,7 +539,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Ctrl+R | Project Explorer | Done | Functional; Replace is Ctrl+H (Cmd+Alt+F on macOS) |
 | F5 | Start | Done | |
 | Ctrl+F5 | Start with Full Compile | Stub | Same as F5 |
-| Ctrl+Break | Break | Done | Pauses the running interpreter at the next statement, including from a focused desktop running form; entering break mode activates the IDE (#1297). Windows accepts both Ctrl+Cancel (the keyboard’s Ctrl+Break) and Ctrl+Pause, with one Break binding in Options (#4260) |
+| Ctrl+Break | Break | Done | Pauses the running interpreter at the next statement, or on the waiting `Show` line during a quiet modal wait (#4708), including from a focused desktop running form; entering break mode activates the IDE (#1297). Windows accepts both Ctrl+Cancel (the keyboard’s Ctrl+Break) and Ctrl+Pause, with one Break binding in Options (#4260) |
 | Shift+F5 | Restart | Done | |
 | F8 | Step Into | Done | Step one statement / start-and-step from design mode (native debugger, Phase 2) |
 | Shift+F8 | Step Over | Done | Run called proc to completion, break in current frame (native debugger, Phase 5); factory gesture also available in Default (#3343) |
