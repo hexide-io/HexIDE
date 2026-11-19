@@ -180,9 +180,9 @@ public class ToolbarRuntimeTests
     }
 
     [AvaloniaFact]
-    public async Task Right_aligned_text_changes_button_height()
+    public async Task Right_aligned_text_preserves_fresh_button_height()
     {
-        (await Run("Toolbar1.TextAlignment = 1\nDebug.Print Abs(Toolbar1.ButtonHeight - 329.9528) < 0.001"))
+        (await Run("Toolbar1.TextAlignment = 1\nDebug.Print Abs(Toolbar1.ButtonHeight - 569.7643) < 0.001"))
             .Should().Equal("True");
     }
 
@@ -276,7 +276,7 @@ public class ToolbarRuntimeTests
             Debug.Print v, m.Parent Is b
             """)).Should().Equal("IButtons", "Integer", "0", "IButton", "1", "Integer", "Alpha", "a",
                 "", "", "", "True", "True", "False", "0", "Long", "0", "Long", "0", "Integer",
-                "Alpha", "IButtonMenus", "0", "630", "IButtonMenu", "1", "m1", "Menu one", "True", "True", "", "Menu one", "True");
+                "Alpha", "IButtonMenus", "0", "660", "IButtonMenu", "1", "m1", "Menu one", "True", "True", "", "Menu one", "True");
     }
 
     [AvaloniaFact]
@@ -293,7 +293,7 @@ public class ToolbarRuntimeTests
             Debug.Print c.Count, b.Index
             c.Clear
             Debug.Print c.Count, Toolbar1.Height
-            """)).Should().Equal("3", "Beta", "2", "Alpha", "Alpha", "", "2", "2", "0", "630");
+            """)).Should().Equal("3", "Beta", "2", "Alpha", "Alpha", "", "2", "2", "0", "660");
     }
 
     [AvaloniaTheory]
@@ -470,7 +470,7 @@ public class ToolbarRuntimeTests
     [InlineData(2, 0)]
     [InlineData(3, 120)]
     [InlineData(4, 0)]
-    [InlineData(5, 195.0237)]
+    [InlineData(5, 225)]
     public async Task Measured_button_styles_have_their_measured_geometry(int style, double width)
     {
         (await Run($"""
@@ -481,7 +481,7 @@ public class ToolbarRuntimeTests
             Debug.Print Abs(b.Left - a.Width) < 0.001, Abs(b.Width - {(style is 3 or 4 ? "0" : "a.Width")} - {width.ToString(CultureInfo.InvariantCulture)}) < 0.001
             Debug.Print Abs(a.Height - 570) < 0.001, TypeName(b.Width), TypeName(b.Left)
             Debug.Print Abs(Toolbar1.ButtonWidth - a.Width) < 0.001, Abs(Toolbar1.ButtonHeight - 570) < 0.001, Toolbar1.Height
-            """)).Should().Equal("True", "True", "True", "True", "True", "Single", "Single", "True", "True", "630");
+            """)).Should().Equal("True", "True", "True", "True", "True", "Single", "Single", "True", "True", "660");
     }
 
     [AvaloniaFact]
@@ -507,7 +507,7 @@ public class ToolbarRuntimeTests
             Debug.Print Abs(b.Left - 120 - 1500) < 0.001
             Toolbar1.Buttons.Clear
             Debug.Print Toolbar1.Height
-            """)).Should().Equal("True", "True", "0", "0", "True", "True", "True", "True", "630");
+            """)).Should().Equal("True", "True", "0", "0", "True", "True", "True", "True", "660");
     }
 
     [AvaloniaFact]
@@ -524,7 +524,7 @@ public class ToolbarRuntimeTests
             Debug.Print Err.Number, Abs(Toolbar1.ButtonWidth - originalWidth) < 0.001, Abs(Toolbar1.ButtonHeight - 570) < 0.001, Toolbar1.Height
             Toolbar1.TextAlignment = 1
             Debug.Print Abs(Toolbar1.ButtonHeight - 330) < 0.001
-            """)).Should().Equal("0", "True", "True", "630", "True");
+            """)).Should().Equal("0", "True", "True", "660", "True");
     }
 
     [AvaloniaTheory]
@@ -536,6 +536,69 @@ public class ToolbarRuntimeTests
             .Should().Equal("True");
         var act = () => Run($"Dim b As Object, p As Object\nSet b = Toolbar1.Buttons.Add(, , \"Alpha\")\n{change}\nDebug.Print {read}");
         await act.Should().ThrowAsync<NotImplementedException>().WithMessage("Toolbar item conversions or geometry are not implemented (#1088)");
+    }
+
+    [AvaloniaFact]
+    public async Task Standard_dropdown_adds_fifteen_pixels()
+    {
+        // #4802 console measurement; compare widths so this runs with portable fonts too.
+        (await Run("Dim a As Object, b As Object\nSet a = Toolbar1.Buttons.Add(, , \"Alpha\")\nSet b = Toolbar1.Buttons.Add(, , \"Alpha\", 5)\nDebug.Print b.Width - a.Width"))
+            .Should().Equal("225");
+    }
+
+    [AvaloniaFact]
+    public async Task First_add_applies_right_aligned_height()
+    {
+        // #4802; retain today's whole-twip read as requested.
+        (await Run("Toolbar1.TextAlignment = 1\nDim b As Object\nSet b = Toolbar1.Buttons.Add(, , \"Alpha\")\nDebug.Print b.Height, Toolbar1.Height"))
+            .Should().Equal("330", "420");
+    }
+
+    // Measured on VB6's console, Align 1 and 2 against 0 (#4802; the oracle's Toolbar page records the table, #4805).
+    [AvaloniaTheory]
+    [InlineData(1, 0, 660)]
+    [InlineData(1, 1, 600)]
+    [InlineData(2, 0, 660)]
+    [InlineData(2, 1, 600)]
+    public async Task Console_bar_height_depends_on_alignment(int align, int style, int height)
+    {
+        (await Run($"Dim b As Object\nSet b = Toolbar1.Buttons.Add(, , \"Alpha\")\nToolbar1.Style = {style}\nDebug.Print Toolbar1.Height",
+            Form.Replace("Height = 660", $"Height = 660\nAlign = {align}", StringComparison.Ordinal)))
+            .Should().Equal(height.ToString(CultureInfo.InvariantCulture));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0, 630)]
+    [InlineData(1, 570)]
+    public async Task Unaligned_bar_preserves_existing_height(int style, int height)
+    {
+        // Align=0 file loading is still refused; pin the existing layout without changing that surface.
+        var bar = new HexIDE.Runtime.BuiltinControls.VBToolbar { LoadedAlign = 0 };
+        await bar.Buttons.CallAsync("Add", [Vb6Value.Missing, Vb6Value.Missing, new Vb6Value("Alpha")]);
+        bar.TrySetProperty("Style", new Vb6Value(style));
+        bar.TryGetProperty("Height", out var value).Should().BeTrue();
+        Convert.ToSingle(value.Value).Should().Be(height);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Set b = Toolbar1.Buttons.Add(, , \"Alpha\")", "b.Width", 569.7638)]
+    [InlineData("Set b = Toolbar1.Buttons.Add(, , \"Alpha\")", "b.Height", 569.7638)]
+    [InlineData("Set b = Toolbar1.Buttons.Add(, , \"Alpha\")", "Toolbar1.Height", 660)]
+    [InlineData("Set b = Toolbar1.Buttons.Add(, , \"Alpha\", 5)", "b.Width", 794.8347)]
+    [InlineData("Toolbar1.TextAlignment = 1", "Toolbar1.ButtonHeight", 569.7643)]
+    [InlineData("Toolbar1.TextAlignment = 1: Set b = Toolbar1.Buttons.Add(, , \"Alpha\")", "b.Width", 870.2363)]
+    [InlineData("Toolbar1.TextAlignment = 1: Set b = Toolbar1.Buttons.Add(, , \"Alpha\")", "b.Height", 329.9528)]
+    [InlineData("Toolbar1.TextAlignment = 1: Set b = Toolbar1.Buttons.Add(, , \"Alpha\")", "Toolbar1.Height", 420)]
+    public async Task Running_bar_uses_console_message_font(string setup, string property, double measured)
+    {
+        if (!OperatingSystem.IsWindows())
+            throw Xunit.Sdk.SkipException.ForSkip("Requires Windows with Segoe UI 9 message font");
+        var font = HexIDE.Runtime.BuiltinControls.ToolbarCaptionMetrics.MessageFont() ?? throw Xunit.Sdk.SkipException.ForSkip("Windows reports no message font");
+        if (font.Typeface.FontFamily.Name != "Segoe UI" || font.Size != 12)
+            throw Xunit.Sdk.SkipException.ForSkip("Requires Segoe UI 9 message font");
+        // Whole-twip reads are deliberately retained by #4802; allow its HIMETRIC rounding.
+        (await Run($"Dim b As Object\n{setup}\nDebug.Print Abs({property} - {measured.ToString(CultureInfo.InvariantCulture)}) < 0.3"))
+            .Should().Equal("True");
     }
 
 }

@@ -5,6 +5,38 @@ namespace HexIDE.Runtime.BuiltinControls;
 
 internal static partial class ToolbarCaptionMetrics
 {
+    /// <summary>
+    /// The host's message font, which a running Toolbar measures its captions in (#4802), or null when Windows won't say:
+    /// a caller then measures in the control's own font rather than failing a layout over it.
+    /// </summary>
+    internal static (Typeface Typeface, double Size)? MessageFont()
+    {
+        // NONCLIENTMETRICSW contains five 92-byte LOGFONTW records; lfMessageFont is last.
+        var metrics = new byte[504];
+        BitConverter.GetBytes(metrics.Length).CopyTo(metrics, 0);
+        try
+        {
+            // Query at 96 DPI: these extents feed Avalonia DIPs, not device pixels (#4802).
+            if (!SystemParametersInfoForDpi(0x29, (uint)metrics.Length, metrics, 0, 96))
+                return null;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return null; // Windows before 10 1607 has no ...ForDpi.
+        }
+        var face = System.Text.Encoding.Unicode.GetString(metrics, 436, 64);
+        if (face.IndexOf('\0') is var end and >= 0)
+            face = face[..end];
+        if (face.Length == 0)
+            return null;
+        return (new Typeface(face, metrics[428] != 0 ? FontStyle.Italic : FontStyle.Normal,
+            (FontWeight)BitConverter.ToInt32(metrics, 424)), Math.Abs(BitConverter.ToInt32(metrics, 408)));
+    }
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SystemParametersInfoForDpi(uint action, uint parameter, [In, Out] byte[] metrics, uint flags, uint dpi);
+
     // #2334: GDI's whole-string extent differs from summed Skia advances.
     internal static double Measure(string caption, Typeface typeface, double size)
     {

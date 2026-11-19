@@ -70,7 +70,10 @@ public class ToolbarCaptionTests
         var family = new FontFamily("Segoe UI");
         (FontManager.Current.TryGetGlyphTypeface(new Typeface(family), out var glyphs) ? glyphs.FamilyName : null)
             .Should().Be("Segoe UI", "the oracle-font run must use the actual font, never a fallback");
-        var bar = new VBToolbar { FontFamily = family, FontSize = 12 };
+        var messageFont = ToolbarCaptionMetrics.MessageFont() ?? throw Xunit.Sdk.SkipException.ForSkip("Windows reports no message font");
+        if (messageFont.Typeface.FontFamily.Name != "Segoe UI" || messageFont.Size != 12)
+            throw Xunit.Sdk.SkipException.ForSkip("Requires Segoe UI 9 message font");
+        var bar = new VBToolbar();
         (string Caption, int Width)[] cases =
         [
             ("", 23), ("A", 23), ("i", 23), ("W", 23), ("OK", 23), ("Ab", 23),
@@ -92,7 +95,10 @@ public class ToolbarCaptionTests
     public async Task Windows_caption_width_follows_installed_fonts_Gdi_extent()
     {
         if (!OperatingSystem.IsWindows()) throw Xunit.Sdk.SkipException.ForSkip("Requires Windows GDI");
-        var bar = new VBToolbar { FontFamily = new FontFamily("Segoe UI"), FontSize = 12 };
+        var messageFont = ToolbarCaptionMetrics.MessageFont() ?? throw Xunit.Sdk.SkipException.ForSkip("Windows reports no message font");
+        if (messageFont.Typeface.FontFamily.Name != "Segoe UI" || messageFont.Size != 12)
+            throw Xunit.Sdk.SkipException.ForSkip("Requires Segoe UI 9 message font");
+        var bar = new VBToolbar();
         foreach (var caption in new[] { "OK", "iiiiiiii", "MMMMMMMM", "A much longer caption here", "Twolines", "&File" })
         {
             await bar.Buttons.CallAsync("Clear", []);
@@ -108,7 +114,10 @@ public class ToolbarCaptionTests
     private static double GlyphExtent(VBToolbar bar, string caption)
     {
         if (OperatingSystem.IsWindows())
-            return ToolbarCaptionMetrics.Measure(caption, new Typeface(bar.FontFamily), bar.FontSize);
+        {
+            var (face, size) = ToolbarCaptionMetrics.MessageFont() ?? (new Typeface(bar.FontFamily), bar.FontSize);
+            return ToolbarCaptionMetrics.Measure(caption, face, size);
+        }
         var glyphs = new Typeface(bar.FontFamily).GlyphTypeface;
         return caption.EnumerateRunes().Sum(rune =>
         {
@@ -218,7 +227,8 @@ public class ToolbarCaptionTests
     [AvaloniaFact]
     public async Task Narrow_bars_wrap_and_unwrap_in_model_and_visuals()
     {
-        var bar = new VBToolbar { Width = 50 };
+        // #2373 measured unaligned bars; #4802 distinguishes their height from aligned bars.
+        var bar = new VBToolbar { Width = 50, LoadedAlign = 0 };
         var items = new ToolbarItem[6];
         for (var i = 0; i < items.Length; i++) items[i] = await Add(bar, "A");
         Read(items[2], "Left").Should().Be(0);
