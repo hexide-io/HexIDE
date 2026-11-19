@@ -21,8 +21,8 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A program of several forms (#822, slice 2a): default instances made where a form's name is first used, Load, Show,
-/// Hide, Unload of another form, and the run lasting until no form is loaded. Every expectation here was measured on
-/// vb6.exe, native and p-code agreeing: the oracle's <i>Several forms: load, show, hide, modal, and when the run ends</i>.
+/// Hide, Unload of another form, and the run lasting until no form is loaded. Expectations come from vb6.exe:
+/// the oracle's <i>Several forms: load, show, hide, modal, and when the run ends</i>, or the issue cited at the test.
 /// Run from <see cref="VBLoader.RunForm"/>, where F5 starts on the desktop and where the Standalone runner starts.
 /// </summary>
 public class SeveralFormsTests
@@ -125,8 +125,8 @@ public class SeveralFormsTests
     private static FormDefinition Form(ProjectDefinition project, string name, string code) =>
         new FormDeserializer().Deserialize(project, (Header(name) + code).ReplaceLineEndings("\r\n"), new NullSink())!;
 
-    /// <summary>Run a project of Form1 and Form2, and Form3 if given, from Form1, as F5 does, and let its start run.</summary>
-    private static Run Start(string form1Code, string form2Code = Form2Code, string? form3Code = null, string? moduleCode = null)
+    /// <summary>Run Form1 and Form2, and Form3 if given, from Form1 or Sub Main, and let the start run.</summary>
+    private static Run Start(string form1Code, string form2Code = Form2Code, string? form3Code = null, string? moduleCode = null, bool subMain = false)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form1 = Form(project, "Form1", form1Code);
@@ -162,7 +162,10 @@ public class SeveralFormsTests
         // End ends the run as every host makes it: by cancelling it.
         void OnEnd(BasicInterpreter _) => Dispatcher.UIThread.Post(() => cancel.Cancel());
         BasicInterpreter.EndReached += OnEnd;
-        var task = VBLoader.RunForm(form1, cancel.Token, out _);
+        project.StartsAtSubMain = subMain;
+        var task = subMain
+            ? VBLoader.RunMadeProgram(project, cancel.Token, out _)
+            : VBLoader.RunForm(form1, cancel.Token, out _);
         Pump();
         return new Run
         {
@@ -188,6 +191,29 @@ public class SeveralFormsTests
     {
         for (var i = 0; i < 20; i++)
             Dispatcher.UIThread.RunJobs();
+    }
+
+    // Measured VB6 SP6, native and p-code: https://github.com/hexide-io/HexIDE/issues/4640.
+    [AvaloniaTheory]
+    [InlineData("Debug.Print g Is Nothing", "False")]
+    [InlineData("Debug.Print TypeName(g)", "Form2")]
+    [InlineData("g.Foo", "f2 foo")]
+    public void As_New_form_is_made_on_first_use_and_released_on_return(string use, string result)
+    {
+        using var run = Start($$"""
+            Private Sub Command1_Click()
+                Dim g As New Form2
+                Debug.Print "declared " & Forms.Count
+                {{use}}
+                Debug.Print "used " & Forms.Count
+            End Sub
+            """);
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("declared 1", "f2 initialize", result, "used 1", "f2 terminate");
+        run.Opened.Should().NotContainKey("Form2");
     }
 
     // VB6 SP6, native and p-code: #4598's measured rows (oracle PR #4613).
@@ -370,6 +396,7 @@ public class SeveralFormsTests
                     Form2.Show
                     Exit Sub
                 End If
+                Form2.Hide
                 Form2.Show vbModal
                 Form2.Show
             End Sub
@@ -390,15 +417,76 @@ public class SeveralFormsTests
         modal.IsVisible.Should().BeTrue();
     }
 
+    // Row f, VB6 SP6: https://github.com/hexide-io/HexIDE/issues/4744.
     [AvaloniaFact]
-    public void Modal_from_a_standard_module_keeps_no_owner()
+    public void Modal_from_a_standard_module_is_owned_by_the_Click_event_form()
     {
         using var run = Start("Private Sub Command1_Click()\nOpenModal\nEnd Sub\n",
             moduleCode: "Public Sub OpenModal()\nForm2.Show vbModal\nEnd Sub\n");
         run.Click("Form1");
         Pump();
         run.Errors.Should().BeEmpty();
-        run.Opened["Form2"].Owner.Should().BeNull("the standard-module case is unmeasured and stays unowned (#4618)");
+        run.Opened["Form2"].Owner.Should().BeSameAs(run.Opened["Form1"]);
+    }
+
+    // Rows g-j, VB6 SP6: https://github.com/hexide-io/HexIDE/issues/4744.
+    [AvaloniaTheory]
+    [InlineData("Form1", "Form3", "OpenModal", "")]
+    [InlineData("Form3", "Form1", "OpenModal", "")]
+    [InlineData("Form1", "Form1", "Form3.CallOpen", "Public Sub CallOpen()\nOpenModal\nEnd Sub\n")]
+    [InlineData("Form1", "Form1", "Form3.ShowDirect", "Public Sub ShowDirect()\nWith Form2: .Show vbModal: End With\nEnd Sub\n")]
+    public void Modal_owner_follows_the_Timer_event_through_module_and_other_form_calls(
+        string eventForm, string active, string call, string form3Code)
+    {
+        var handler = $"Private Sub Timer1_Timer()\n{call}\nEnd Sub\n";
+        using var run = Start("Private Sub Command1_Click()\nForm3.Show\nEnd Sub\n"
+            + (eventForm == "Form1" ? handler : ""),
+            form3Code: form3Code + (eventForm == "Form3" ? handler : ""),
+            moduleCode: "Public Sub OpenModal()\nForm2.Show vbModal\nEnd Sub\n");
+        run.Click("Form1");
+        Pump();
+        run.Opened[active].Activate();
+        Pump();
+        run.Opened[eventForm].ExecuteTimer("Timer1_Timer");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Opened["Form2"].Owner.Should().BeSameAs(run.Opened[eventForm]);
+    }
+
+    // Row k, VB6 SP6: https://github.com/hexide-io/HexIDE/issues/4744.
+    [AvaloniaFact]
+    public void Modal_from_Sub_Main_is_owned_by_the_active_form()
+    {
+        using var run = Start("", form3Code: "", moduleCode: """
+            Sub Main()
+                Form1.Show
+                Form3.Show
+                OpenModal
+            End Sub
+            Public Sub OpenModal()
+                Form2.Show vbModal
+            End Sub
+            """, subMain: true);
+
+        run.Errors.Should().BeEmpty();
+        run.Opened["Form2"].Owner.Should().BeSameAs(run.Opened["Form3"]);
+    }
+
+    // The innermost dispatch supplies the event form, even while an outer handler waits in Show (#4744).
+    [AvaloniaFact]
+    public void Modal_owner_uses_the_event_inside_the_modal_wait()
+    {
+        using var run = Start("Private Sub Command1_Click()\nForm3.Show vbModal\nEnd Sub\n",
+            form3Code: "Private Sub Command1_Click()\nOpenModal\nEnd Sub\n",
+            moduleCode: "Public Sub OpenModal()\nForm2.Show vbModal\nEnd Sub\n");
+        run.Click("Form1");
+        Pump();
+        run.Click("Form3");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Opened["Form2"].Owner.Should().BeSameAs(run.Opened["Form3"]);
     }
 
     // Avalonia hides a window's owned windows with it. Unloading a form hides its window, so the hide must clear ownership
@@ -454,6 +542,76 @@ public class SeveralFormsTests
             "f2 queryunload 1", "f2 unload", "returned", "f1 activate");
         run.Opened["Form2"].Owner.Should().BeNull();
         run.Opened["Form1"].IsActive.Should().BeTrue();
+    }
+
+    // VB6 SP6, IDE/p-code/native agree: #4785, oracle PR #4764 section 12, row m3.
+    [AvaloniaFact]
+    public void Another_forms_same_named_timer_runs_while_the_first_waits_in_Show_vbModal()
+    {
+        using var run = Start("""
+            Private Sub Timer1_Timer()
+                Form2.Show vbModal
+                Debug.Print "returned"
+            End Sub
+            """, """
+            Private Sub Timer1_Timer()
+                Debug.Print "second timer"
+                Unload Me
+            End Sub
+            """);
+        run.Opened["Form1"].ExecuteTimer("Timer1_Timer");
+        Pump();
+        run.Opened["Form2"].ExecuteTimer("Timer1_Timer");
+        Pump();
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("second timer", "returned");
+    }
+
+    [AvaloniaFact]
+    public void Another_instances_same_named_timer_runs_while_the_first_waits_in_Show_vbModal()
+    {
+        using var run = Start("""
+            Private other As Form1
+            Private Sub Timer1_Timer()
+                If Caption = "other" Then
+                    Debug.Print "second timer"
+                    Unload Me
+                Else
+                    Set other = New Form1
+                    other.Caption = "other"
+                    other.Show vbModal
+                    Debug.Print "returned"
+                End If
+            End Sub
+            """);
+        run.Opened["Form1"].ExecuteTimer("Timer1_Timer");
+        Pump();
+        run.Opened["other"].ExecuteTimer("Timer1_Timer");
+        Pump();
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("second timer", "returned");
+    }
+
+    [AvaloniaFact]
+    public void A_timer_does_not_reenter_its_own_handler_waiting_in_Show_vbModal()
+    {
+        using var run = Start("""
+            Private Sub Timer1_Timer()
+                Debug.Print "first timer"
+                Form2.Show vbModal
+                Debug.Print "returned"
+            End Sub
+            """);
+        run.Opened["Form1"].ExecuteTimer("Timer1_Timer");
+        Pump();
+        run.Printed.Clear();
+        run.Opened["Form1"].ExecuteTimer("Timer1_Timer");
+        Pump();
+        run.Printed.Should().BeEmpty();
+        run.Click("Form2");
+        Pump();
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 queryunload 1", "f2 unload", "returned");
     }
 
     // ── Which use makes the instance, and which loads it ──────────────────────────────────────────────
@@ -889,11 +1047,11 @@ public class SeveralFormsTests
         run.Closed.Should().NotContain("Form2", "a hidden form is still loaded");
     }
 
-    // #3936's modal Visible measurements (native and p-code), including Hide's side effect before 402 (#4032).
+    // #3936's modal Visible measurements, corrected by #4766's console measurements: 402 leaves the form shown.
     [AvaloniaTheory]
     [InlineData("Form3.Visible = True", "Form3", 401, false, false)]
     [InlineData("Form1.Visible = False", "Form1", 0, false, false)]
-    [InlineData("Form1.Hide", "Form1", 402, false, false)]
+    [InlineData("Form1.Hide", "Form1", 402, true, false)]
     [InlineData("Me.Visible = False", "Me", 0, false, true)]
     public void Modal_visibility_reports_the_error_and_visibility_before_Show_returns(
         string statement, string target, int error, bool visible, bool returned)
@@ -925,8 +1083,9 @@ public class SeveralFormsTests
         run.Closed.Should().BeEmpty("hiding keeps the forms loaded");
     }
 
+    // #4765 corrects the displayed modal form’s own Show from session 0’s 405 to console 400.
     [AvaloniaFact]
-    public void Under_a_modal_form_a_modeless_Show_is_401_hiding_another_form_402_and_its_own_modal_Show_405()
+    public void Under_a_modal_form_a_modeless_Show_is_401_hiding_another_form_402_and_its_own_modal_Show_400()
     {
         using var run = Start(ShowsForm2Modally, Form2Clicked("""
                 On Error Resume Next
@@ -957,49 +1116,93 @@ public class SeveralFormsTests
             "Form1.Show 401 Can't show non-modal form when modal form is displayed",
             "Me.Show 401",
             "Form1.Hide 402 Must close or hide topmost modal form first",
-            "Me.Show vbModal 405 Unable to show modal form within this context",
+            "Me.Show vbModal 400 Form already displayed; can't show modally",
             "Load Form3 0",
             "f2 queryunload 1", "f2 unload", "after, form1 enabled True");
     }
 
+    // Console measurements in #4765 (IDE, p-code and native agree); session 0's earlier rows did not display forms.
     [AvaloniaFact]
-    public void A_form_shown_modelessly_turns_modal_with_no_error()
+    public void A_form_shown_modelessly_refuses_modal_Show_with_400_and_stays_modeless()
     {
-        // VB6's documented 400, "Form already displayed; can't show modally", never came (measured).
         using var run = Start("""
-            Private shown As Boolean
             Private Sub Command1_Click()
-                If Not shown Then
-                    shown = True
-                    Form2.Show
-                    Exit Sub
-                End If
+                Form2.Show
+                On Error Resume Next
                 Form2.Show vbModal
-                Debug.Print "after " & Err.Number
+                Debug.Print Err.Number & " " & Err.Description
+                Debug.Print "form1 enabled " & Me.Enabled & ", form2 visible " & Form2.Visible
             End Sub
 
             """);
         run.Click("Form1");
         Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "400 Form already displayed; can't show modally",
+            "form1 enabled True, form2 visible True");
+        run.Opened["Form1"].HeldBy.Should().BeNull();
+        run.Opened["Form2"].HeldBy.Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public void A_displayed_startup_form_refuses_its_own_modal_Show_with_400()
+    {
+        // #4765: Me.Show vbModal with no modal form already open.
+        using var run = Start("""
+            Private Sub Command1_Click()
+                On Error Resume Next
+                Me.Show vbModal
+                Debug.Print Err.Number & " " & Err.Description
+                Debug.Print "visible " & Me.Visible & ", enabled " & Me.Enabled
+            End Sub
+
+            """);
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("400 Form already displayed; can't show modally", "visible True, enabled True");
+        run.Opened["Form1"].HeldBy.Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public void A_form_shown_then_hidden_can_turn_modal_without_error()
+    {
+        // #4765: a hidden target is not already displayed, even when previously shown.
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Form2.Show
+                Form2.Hide
+                On Error Resume Next
+                Form2.Show vbModal
+                Debug.Print "after " & Err.Number & ", form1 enabled " & Me.Enabled
+            End Sub
+
+            """);
         run.Click("Form1");
         Pump();
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("f2 initialize", "f2 load");
-        run.Opened["Form1"].HeldBy.Should().NotBeNull();
+        run.Opened["Form2"].IsVisible.Should().BeTrue();
+        run.Opened["Form1"].HeldBy.Should().BeSameAs(run.Opened["Form2"]);
+        run.Opened["Form2"].HeldBy.Should().BeNull();
 
         run.Click("Form2");
         Pump();
-        run.Printed.Should().Equal("f2 initialize", "f2 load", "f2 queryunload 1", "f2 unload", "after 0");
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "f2 queryunload 1", "f2 unload",
+            "after 0, form1 enabled True");
+        run.Opened["Form1"].HeldBy.Should().BeNull();
     }
 
     [AvaloniaTheory]
     [InlineData("Form2.Hide")]
     [InlineData("Form2.Visible = False")]
-    public void A_modal_form_beneath_the_innermost_is_hidden_with_402_and_its_modal_loop_waits_on(string statement)
+    public void A_modal_form_beneath_the_innermost_stays_shown_with_402_and_its_modal_loop_waits_on(string statement)
     {
-        // Measured, native and p-code: Form2, modal beneath Form3, is hidden and given 402 by Hide and by Visible = False
-        // alike, and Form1's Show vbModal returns only once Form2 unloads, not when it hides (#3936, #4032).
+        // Measured on the console in the IDE, native and p-code (#4766): Hide and Visible = False both raise 402
+        // and leave Form2 shown beneath Form3. Its modal loop still waits after Form3 goes away.
         using var run = Start(ShowsForm2Modally, Form2Clicked("""
                 Form3.Show vbModal
                 Debug.Print "f2 after f3, visible " & Me.Visible
@@ -1022,9 +1225,9 @@ public class SeveralFormsTests
         Pump();
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal(["error 402, form2 visible False", "f2 after f3, visible False"],
-            "Form2's modal loop goes on waiting while it is hidden, so Form1's Show vbModal hasn't returned");
-        run.Closed.Should().NotContain("Form2", "a hidden form is still loaded");
+        run.Printed.Should().Equal(["error 402, form2 visible True", "f2 after f3, visible True"],
+            "Form2 stays shown and its modal loop waits, so Form1's Show vbModal hasn't returned");
+        run.Closed.Should().NotContain("Form2", "the refused hide leaves the form loaded");
     }
 
     [AvaloniaFact]
@@ -1061,44 +1264,28 @@ public class SeveralFormsTests
     }
 
     [AvaloniaFact]
-    public void A_form_beneath_the_modal_one_can_turn_modal_over_it_and_is_disabled_again_after()
+    public void A_form_beneath_the_modal_one_refuses_modal_Show_with_400_and_stays_held()
     {
-        // Measured: Form1, beneath Form2's modal, turns modal over it with no error, and Form2's statement returns once Form1
-        // hides itself. Form1 being disabled again after is inferred from the single modal's measurement.
-        using var run = Start("""
-            Private Sub Command1_Click()
-                Debug.Print "f1 click, enabled " & Me.Enabled
-                If Not Form2.Visible Then
-                    Form2.Show vbModal
-                    Debug.Print "after form2's modal"
-                Else
-                    Me.Hide
-                End If
-            End Sub
-
-            """, Form2Clicked("""
+        // #4765: Form1 stays beneath Form2; the refused Show holds or releases nothing.
+        using var run = Start(ShowsForm2Modally, Form2Clicked("""
+                On Error Resume Next
                 Form1.Show vbModal
-                Debug.Print "f2 after form1's modal, form1 enabled " & Form1.Enabled & ", form2 enabled " & Me.Enabled
-                Unload Me
+                Debug.Print Err.Number & " " & Err.Description
+                Debug.Print "form1 enabled " & Form1.Enabled & ", form2 enabled " & Me.Enabled
 
             """));
         run.Click("Form1");
         Pump();
+        var owner = run.Opened["Form2"].Owner;
         run.Click("Form2");
         Pump();
 
-        run.Opened["Form1"].HeldBy.Should().BeNull("Form1 is modal now");
-        run.Opened["Form1"].Owner.Should().BeNull("ownership for promotion over a descendant is unmeasured (#4618)");
-        run.Opened["Form2"].Owner.Should().BeNull("an owned child would stay above the form promoted over it");
-        run.Opened["Form2"].HeldBy.Should().NotBeNull();
-
-        run.Click("Form1");
-        Pump();
-
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("f1 click, enabled True", "f2 initialize", "f2 load", "f1 click, enabled True",
-            "f2 after form1's modal, form1 enabled False, form2 enabled True", "f2 queryunload 1", "f2 unload",
-            "after form2's modal");
+        run.Printed.Should().Equal("before", "f2 initialize", "f2 load",
+            "400 Form already displayed; can't show modally", "form1 enabled False, form2 enabled True");
+        run.Opened["Form1"].HeldBy.Should().BeSameAs(run.Opened["Form2"]);
+        run.Opened["Form2"].HeldBy.Should().BeNull();
+        run.Opened["Form2"].Owner.Should().BeSameAs(owner);
     }
 
     [AvaloniaTheory]
@@ -1262,6 +1449,7 @@ public class SeveralFormsTests
             """);
 
         run.Printed.Should().Equal("f1 load", "f2 initialize", "f2 load");
+        run.Opened["Form2"].Owner.Should().BeNull("row l in #4744: the startup form is not displayed yet");
         run.Opened.Should().NotContainKey("Form1", "the startup form is shown once its Load has returned (measured)");
 
         run.Click("Form2");

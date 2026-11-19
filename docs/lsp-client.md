@@ -1321,6 +1321,12 @@ filters by kind while retaining ancestors, and refreshes after edits independent
 Symbol refreshes flush only unsent edits; an unchanged buffer sends no `didChange`, so diagnostics
 cannot feed a change/request loop. A diagnostic-driven symbol update also cancels the Outline’s pending
 refresh for that edit. It displays the server’s structure; it does not infer missing symbols or regions.
+Symbol `detail` appears beside the Outline name and is included in its automation name, without changing
+the identifier or document order (#4783). The code window’s General Procedure list formats Property Get,
+Let and Set details (or the bundled server’s accessor suffixes) as `Value [PropertyGet]`,
+`Value [PropertyLet]` and `Value [PropertySet]`, ordered by name then Get/Let/Set, as
+[measured in VB6](vb6-fidelity-oracle/the-procedure-boxs-entries-for-a-propertys-accessors.md). Each displayed entry maps to its own
+symbol for navigation and selection across refreshes. Other details do not appear in that list.
 
 Signature help asks eligible document claimants concurrently within one shared one-second budget
 (#2027). A typed `(` or `,` goes only to servers advertising that character in

@@ -124,6 +124,7 @@
     "Str.Archive.FolderReadyFormat": "Dosarul sursă a fost sincronizat din arhiva salvată:\n{0}\n\nModificările din dosar opresc sincronizarea; acestea nu sunt importate. Reîncarcă proiectul pentru a actualiza previzualizările.",
     "Str.Archive.FolderErrorFormat": "Sincronizarea dosarului sursă s-a oprit:\n{0}\n\nArhiva nu a fost modificată.",
     "Str.Archive.OpenErrorFormat": "Nu s-a putut deschide {0}:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "niciun format instalat nu citește formulare „{0}”",
     "Str.ContributedProject.OpenError": "Nu s-a putut deschide {0} cu {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} este deschis de {1}: fișierele sale sunt adăugate și eliminate de programul căruia îi aparține, nu de HexIDE.",
     "Str.ContributedProject.RemovedWithChanges": "Programul căruia îi aparține {1} a scos {0} din proiect. Salvați mai întâi modificările?",

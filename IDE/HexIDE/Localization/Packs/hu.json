@@ -158,6 +158,7 @@
     "Str.Archive.FolderReadyFormat": "A forrásmappa szinkronizálva a mentett archívumból:\n{0}\n\nA mappa szerkesztése leállítja a szinkronizálást; a módosítások nem lesznek importálva. Az előnézetek frissítéséhez töltse újra a projektet.",
     "Str.Archive.FolderErrorFormat": "A forrásmappa szinkronizálása leállt:\n{0}\n\nAz archívum nem módosult.",
     "Str.Archive.OpenErrorFormat": "Nem sikerült megnyitni: {0}\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "egyetlen telepített formátum sem olvas '{0}' űrlapokat",
     "Str.ContributedProject.OpenError": "A(z) {0} nem nyitható meg ezzel: {1}\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "A(z) {0} projektet a(z) {1} nyitja meg: a fájljait az a program adja hozzá és távolítja el, amelyhez tartozik, nem a HexIDE.",
     "Str.ContributedProject.RemovedWithChanges": "A(z) {0} elemet kivette a projektből az a program, amelyhez a(z) {1} tartozik. Előbb menti a módosításait?",

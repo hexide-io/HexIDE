@@ -157,6 +157,7 @@
     "Str.Archive.FolderReadyFormat": "Carpeta d'origen sincronitzada des de l'arxiu desat:\n{0}\n\nEls canvis a la carpeta aturen la sincronització; no s'importen. Torneu a carregar el projecte per actualitzar les previsualitzacions.",
     "Str.Archive.FolderErrorFormat": "S'ha aturat la sincronització de la carpeta d'origen:\n{0}\n\nL'arxiu no s'ha modificat.",
     "Str.Archive.OpenErrorFormat": "No s'ha pogut obrir {0}:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "cap format instal·lat llegeix formularis «{0}»",
     "Str.ContributedProject.OpenError": "No s'ha pogut obrir {0} amb {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} l'obre {1}: els seus fitxers els afegeix i els treu el programa al qual pertany, no pas HexIDE.",
     "Str.ContributedProject.RemovedWithChanges": "El programa al qual pertany {1} ha tret {0} del projecte. Voleu desar primer els vostres canvis?",

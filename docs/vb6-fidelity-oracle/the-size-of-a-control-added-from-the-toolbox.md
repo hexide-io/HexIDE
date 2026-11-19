@@ -50,3 +50,21 @@ Data control's `Connect` is `"Access 2000;"`, where the release build wrote `"Ac
 `Access 2000;` too. Every size and position agrees. HexIDE has no Data control yet. When it gains one, it takes SP6's
 value, since SP6 is the build nearly every VB6 developer used.
 
+
+### What the toolbox's tooltips read (2026-11-18, #2751, SP6, IDE)
+
+**The question.** HexIDE's toolbox names each control by its default-name prefix, so its tip reads `Command` and
+`Check`. #2751 asked whether VB6's tip reads the prefix or the class.
+
+**The probe.** vb6.exe SP6, a project open in design mode, on the guest's console. A driver moved the real cursor
+onto each cell of the General tab, waited 1.8 s, and captured the strip beneath it.
+
+| Cell | Tip | Default-name prefix |
+|---|---|---|
+| CommandButton | `CommandButton` | `Command` |
+| CheckBox | `CheckBox` | `Check` |
+| ComboBox | `ComboBox` | `Combo` |
+| HScrollBar | `HScrollBar` | `HScroll` |
+
+**The tip is the control's class name**, in all four of four captures that showed a tip. The prefix is only where
+a new control's name starts. The TextBox capture showed no tip, and the remaining cells weren't read.
