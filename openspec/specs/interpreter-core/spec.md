@@ -92,8 +92,19 @@ following [#1563's VB6 SP6 measurements](https://github.com/hexide-io/HexIDE/iss
 - **WHEN** `For Each t In Controls` runs with `t As TextBox` under On Error Resume Next
 - **THEN** Err.Number is 13, the body runs once and t remains Nothing
 
-Arrays, UserControls, other OCX controls, `As Form1`, and assigning a form to `As Control` retain their
-existing behaviour outside this slice.
+#### Scenario: A scalar Control slot refuses measured non-control objects
+- **GIVEN** a scalar variable declared `As Control` or `As VB.Control`
+- **WHEN** Set assigns a form instance, a project-class instance, Collection, StdFont or a form's Controls collection
+- **THEN** error 13 SHALL be raised before storing, retaining Nothing or the previous control reference
+- **AND** the check SHALL inspect the object, including through Object or Variant
+- **AND** rejecting another form SHALL NOT run its Load event
+- **AND** intrinsic controls and Nothing SHALL still store, including a Timer through Object
+- **AND** Control SHALL retain its late-binding view on reads
+
+These scalar Control stores follow [#4864's SP6 native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/4864)
+(oracle PR #4866), including stores in standard modules. Other objects, UserControls, OCX controls,
+control arrays/elements, parameters, Type fields and arrays declared As Control retain their existing
+behaviour pending measurement. `As Form1` remains outside this slice.
 
 ### Requirement: Let into an object target checks its declared view during execution
 
